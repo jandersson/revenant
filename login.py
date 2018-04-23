@@ -34,7 +34,7 @@ class EAccessClient:
     def connect(self):
         self.client.open(self.host, self.port)
 
-    def a_action(self, credentials):
+    def submit_login(self, credentials):
         """Inform the server of the user/pass, return what appears to be a login key?"""
         hashed_password = self.encrypt_password(credentials['password'], credentials['hashkey'])
         self.client.write(b'A\t' + credentials['username'] + b'\t' + hashed_password + b'\n')
@@ -51,28 +51,25 @@ class EAccessClient:
         else:
             raise LoginError('Something went wrong while trying to log in')
 
-
-    def k_action(self):
+    def get_hashkey(self):
         """Sends request for key to encrypt password with"""
         self.client.write(b'K\n')
         return self.client.read_until(b'\n')
 
-
-    def g_action(self):
-        """Tell the server what game you want"""
+    def submit_game(self):
+        """Tell the server what game you want, server responds with game details"""
         self.client.write(b'G\t' + GAME_CODE + b'\n')
         return self.client.read_until(b'\n')
 
-
-    def c_action(self, character_name):
+    def get_character_code(self, character_name):
         """Poll server for list of characters, return character code"""
+        # TODO: Break into two methods, one to get the character list, one to get the character code from the list
         self.client.write(b'C\n')
         c_response = self.client.read_until(b'\n')
         character_code = re.compile("C\t\d\t\d\t\d\t\d\t(.+)\t" + character_name).match(c_response.decode()).group(1)
         return character_code
 
-
-    def l_action(self, character_code):
+    def submit_character_info(self, character_code):
         """Inform server of which character to play, return the server response with connection info"""
         self.client.write(b'L\t' + character_code.encode('ASCII') + b'\t' + b'STORM\n')
         l_response = self.client.read_until(b'\n').decode()
@@ -100,11 +97,11 @@ def eaccess_protocol(login_info):
     try:
         login_client = EAccessClient()
         login_client.connect()
-        login_info['hashkey'] = login_client.k_action()
-        login_client.a_action(login_info)
-        login_client.g_action()
-        character_code = login_client.c_action(login_info['character'])
-        l_response = login_client.l_action(character_code)
+        login_info['hashkey'] = login_client.get_hashkey()
+        login_client.submit_login(login_info)
+        login_client.submit_game()
+        character_code = login_client.get_character_code(login_info['character'])
+        l_response = login_client.submit_character_info(character_code)
         login_client.client.close()
         print(l_response)
     except LoginError as e:
