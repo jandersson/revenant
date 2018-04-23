@@ -1,10 +1,14 @@
 import struct
+import platform
 import re
 import getpass
 from telnetlib import Telnet
 import npyscreen
+import time
 
 GAME_CODE = b'DR'
+DR_HOST = 'dr.simutronics.net'
+DR_PORT = 11024
 # Protocol Actions - Sending to server (summary only):
 # K - Server responses with Key (to encrypt password with)
 # The server response, will always be 32 characters, then 0x0a
@@ -49,7 +53,12 @@ class EAccessClient:
             key = re.compile(".*\tKEY\t(.+)\t").match(a_response).group(1)
             return key
         else:
-            raise LoginError('Something went wrong while trying to log in')
+            raise LoginError('Something went wrong')
+
+    def get_game_list(self):
+        self.client.write(b'\M')
+        res = self.client.read_until(b'\n')
+        return
 
     def get_hashkey(self):
         """Sends request for key to encrypt password with"""
@@ -77,7 +86,6 @@ class EAccessClient:
         self.client.close()
         return login_key
 
-
     def encrypt_password(self, password, hashkey):
         """Encrypt the password with the supplied hash from the server"""
         password = list(password)
@@ -101,17 +109,19 @@ def eaccess_protocol(login_info):
         login_client.submit_login(login_info)
         login_client.submit_game()
         character_code = login_client.get_character_code(login_info['character'])
-        l_response = login_client.submit_character_info(character_code)
+        login_key = login_client.submit_character_info(character_code)
         login_client.client.close()
-        print(l_response)
+        print(login_key)
+        return login_key
     except LoginError as e:
         login_client.client.close()
-        print(e)
+        print(f"Had some trouble logging in: {e}")
     # TODO: Persist key
 
 
 class LoginApp(npyscreen.NPSAppManaged):
     def onStart(self):
+        self.login_client = EAccessClient()
         self.addForm("MAIN", LoginForm, name='Login')
         self.addForm("GAME_SELECT", GameForm)
         self.addForm("CHARACTER_SELECT", CharacterForm)
@@ -136,15 +146,37 @@ class CharacterForm(npyscreen.Form):
 class LoginForm(npyscreen.Form):
     def create(self):
         super().create()
-        self.username = self.add(npyscreen.TitleText, name='Username').encode('ASCII')
-        self.password = self.add(npyscreen.PasswordEntry, name='Password').encode('ASCII')
+        self.username = self.add(npyscreen.TitleText, name='Username')
+        self.password = self.add(npyscreen.TitlePassword, name='Password')
+        self.remember = self.add(npyscreen.RoundCheckBox, name='Remember me')
+        self.center_on_display()
 
     def afterEditing(self):
-
         self.parentApp.setNextForm("GAME_SELECT")
+
+    def on_ok(self):
+        self.parentApp.setNextForm("GAME_SELECT")
+
+    def on_cancel(self):
+        self.parentApp.setNextForm(None)
+
+    # def afterEditing(self):
+    #     self.parentApp.setNextForm("GAME_SELECT")
+
+def login():
+    creds = get_credentials()
+    key = eaccess_protocol(creds)
+    with Telnet(DR_HOST, DR_PORT) as game_connection:
+        game_connection.read_until(b'</settings>')
+        game_connection.write(key.encode('ASCII') + b'\n')
+        game_connection.write(b'/FE:STORMFRONT /VERSION:1.0.1.26 /P:' + platform.system().encode('ASCII') + b' /XML\n')
+        time.sleep(0.3)
+        game_connection.write(b'<c>\n')
+        time.sleep(0.3)
+        game_connection.write(b'<c>\n')
+        return game_connection
 
 
 if __name__ == '__main__':
-    creds = get_credentials()
-    eaccess_protocol(creds)
-    # TestApp = LoginApp().run()
+    game_connection = login()
+    game_connection.interact()
