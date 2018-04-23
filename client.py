@@ -40,6 +40,7 @@ def c_action(client):
 def l_action(client, character_code):
     """Inform server of which character to play, return the server response with connection info"""
     client.write(b'L\t' + character_code.encode('ASCII') + b'\t' + b'STORM\n')
+    return client.read_until(b'\n')
 
 def encrypt_password(password, hash):
     """Encrypt the password with the supplied hash from the server"""
