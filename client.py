@@ -1,6 +1,6 @@
 import struct, re
 from telnetlib import Telnet
-import argparse
+import getpass
 
 # Protocol Actions - Sending to server (summary only):
 # K - Server responses with Key (to encrypt password with)
@@ -15,10 +15,27 @@ import argparse
 # B - (Unknown) zMUD Sends it... Server response: UNKNOWN
 # P - (Unknown) SGE Sends it w/ gamecode.. Server response: ?God knows what?
 
-def a_action(username, password, key):
+class LoginError(Exception):
+    def __init__(self, message, errors=None):
+        super().__init__(message)
+
+def a_action(credentials, client):
     """Inform the server of the user/pass"""
-    encrypted_password = encrypt_password(password, key)
-    return b'A\t' + username + b'\t' + encrypted_password + b'\n'
+    hashed_password = encrypt_password(credentials['password'], credentials['hashkey'])
+    client.write(b'A\t' + credentials['username'] + b'\t' + hashed_password + b'\n')
+    a_response = client.read_until(b'\n').decode()
+    key = None
+    if 'PASSWORD' in a_response:
+        raise LoginError('Bad Password')
+    elif 'NORECORD' in a_response:
+        raise LoginError('Bad Username')
+    elif 'REJECTED' in a_response:
+        raise LoginError('Account suspended? Login Rejected')
+    elif 'KEY' in a_response:
+        key = re.compile(".*\tKEY\t(.+)\t").match(a_response.decode()).group(1)
+    else:
+        raise LoginError('Something went wrong while trying to log in')
+    return key
 
 def k_action(client):
     """Sends request for key to encrypt password with"""
@@ -40,7 +57,9 @@ def c_action(client):
 def l_action(client, character_code):
     """Inform server of which character to play, return the server response with connection info"""
     client.write(b'L\t' + character_code.encode('ASCII') + b'\t' + b'STORM\n')
-    return client.read_until(b'\n')
+    l_response = client.read_until(b'\n')
+    login_key = re.compile("KEY=(.+)\n").match(l_response).group(1)
+    return login_key
 
 def encrypt_password(password, hash):
     """Encrypt the password with the supplied hash from the server"""
@@ -51,19 +70,24 @@ def encrypt_password(password, hash):
 HOST = 'eaccess.play.net'
 PORT = 7900
 HASH_LENGTH = 32
-USERNAME = b'notausername'
-PASSWORD = b'notapassword'
 GAME_CODE = b'DR'
 
-def eaccess_protocol():
+def get_credentials():
+    credentials = {}
+    credentials['username'] = input('Username: ').encode('ASCII')
+    credentials['password'] = getpass.getpass().encode('ASCII')
+    credentials['character'] = input('Character name: ')
+    return credentials
+
+def eaccess_protocol(login_info):
     with Telnet(host=HOST, port=PORT) as client:
-        key = k_action(client)
-        assert len(key) == HASH_LENGTH + 1
-        client.write(a_action(USERNAME, PASSWORD, key))
-        a_response = client.read_until(b'\n')
-        login_key = re.compile(".*\tKEY\t(.+)\t").match(a_response.decode()).group(1)
-        g_response = g_action(client)
+        login_info['hashkey'] = k_action(client)
+        a_action(login_info, client)
+        g_action(client)
         character_code = c_action(client)
         l_response = l_action(client, character_code)
-        client.interact()
+        print(l_response)
 
+if __name__ == '__main__':
+    creds = get_credentials()
+    eaccess_protocol(creds)
