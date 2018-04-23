@@ -1,0 +1,2 @@
+certifi==2018.4.16
+npyscreen==4.10.5
