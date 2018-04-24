@@ -148,21 +148,20 @@ class LoginForm(npyscreen.Form):
     def on_cancel(self):
         self.parentApp.setNextForm(None)
 
-    # def afterEditing(self):
-    #     self.parentApp.setNextForm("GAME_SELECT")
 
 def login():
+    # TODO: Consider handling game_connection with a context manager, if possible
     creds = get_credentials()
     key = eaccess_protocol(creds)
-    with Telnet(DR_HOST, DR_PORT) as game_connection:
-        game_connection.read_until(b'</settings>')
-        game_connection.write(key.encode('ASCII') + b'\n')
-        game_connection.write(b'/FE:STORMFRONT /VERSION:1.0.1.26 /P:' + platform.system().encode('ASCII') + b' /XML\n')
-        time.sleep(0.3)
-        game_connection.write(b'<c>\n')
-        time.sleep(0.3)
-        game_connection.write(b'<c>\n')
-        return game_connection
+    game_connection = Telnet(DR_HOST, DR_PORT)
+    game_connection.read_until(b'</settings>')
+    game_connection.write(key.encode('ASCII') + b'\n')
+    game_connection.write(b'/FE:STORMFRONT /VERSION:1.0.1.26 /P:' + platform.system().encode('ASCII') + b' /XML\n')
+    sleep(0.3)
+    game_connection.write(b'<c>\n')
+    sleep(0.3)
+    game_connection.write(b'<c>\n')
+    return game_connection
 
 
 if __name__ == '__main__':
