@@ -17,7 +17,9 @@ class LoginError(Exception):
 
 
 class EAccessClient:
+    """Handles fetching the login key from Simu"""
     # TODO: consider subclassing Telnet
+    # TODO: Hook into npyscreen for a game entry TUI
     def __init__(self, host='eaccess.play.net', port=7900):
         self.host = host
         self.port = port
@@ -44,6 +46,7 @@ class EAccessClient:
             raise LoginError('Something went wrong')
 
     def get_game_list(self):
+        """Poll the server for a list of games (unused at the moment)"""
         self.client.write(b'\M')
         res = self.client.read_until(b'\n')
         return
