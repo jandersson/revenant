@@ -2,25 +2,13 @@ import struct
 import platform
 import re
 import getpass
+from time import sleep
 from telnetlib import Telnet
 import npyscreen
-import time
 
 GAME_CODE = b'DR'
 DR_HOST = 'dr.simutronics.net'
 DR_PORT = 11024
-# Protocol Actions - Sending to server (summary only):
-# K - Server responses with Key (to encrypt password with)
-# The server response, will always be 32 characters, then 0x0a
-# A - This action tells the server what user/pass you're dealing with
-# M - Asks the server for a list of games
-# N - Asks server for game capabilities
-# G - Tells the server what game you want, server responds with some details
-# C - Asks the server for a list of characters specifically, other stuff included
-# L - Tells the server you want to play a character, server responds with connection info
-# F - (Unknown) SGE Sends it... Server response: NORMAL
-# B - (Unknown) zMUD Sends it... Server response: UNKNOWN
-# P - (Unknown) SGE Sends it w/ gamecode.. Server response: ?God knows what?
 
 
 class LoginError(Exception):
