@@ -1,4 +1,5 @@
-"""Communicate with LNet, heavily inspired by rcuhljr's Genie LNet Plugin: https://github.com/rcuhljr/genie-lnet-plugin/"""
+"""Communicate with LNet, heavily inspired by rcuhljr's Genie LNet Plugin: https://github.com/rcuhljr/genie-lnet-plugin/
+"""
 import socket
 import re
 import xml.etree.ElementTree as ET
@@ -10,6 +11,17 @@ class LnetMessage(NamedTuple):
     contents: str
     to: str
     message_type: str
+    sender: str
+
+    def __str__(self):
+        if self.message_type == 'greeting':
+            return self.contents
+        elif self.message_type == 'channel':
+            return f"[{self.to}]-{self.sender}:{self.contents}"
+        elif self.message_type == 'private':
+            return f"[PrivateTo]-{self.sender}:{self.contents}"
+        else:
+            return self.contents
 
 
 class Server:
@@ -57,16 +69,32 @@ class Server:
         self.connection.send(message)
 
     def receive_message(self):
-        message = self._message_handler(self.connection.recv(2048))
-
-        return message
+        message = self.connection.recv(2048)
+        return self._message_handler(message)
 
     def _message_handler(self, message):
         if self.is_debugging:
             print(f"Message Received: {message}")
-        message = message.decode()
-        if 'ping' in message:
+
+        message_xml = ET.fromstring(message)
+        if message_xml.tag == 'message':
+            lnet_message = LnetMessage(contents=message_xml.text,
+                                       to=message_xml.get('channel'),
+                                       message_type=message_xml.get('type'),
+                                       sender=message_xml.get('from'))
+            return lnet_message
+        if message_xml.tag == 'ping':
+            if self.is_debugging:
+                print("Ping!")
             self.send_pong()
+            return
+        if message_xml.tag == 'greeting':
+            lnet_message = LnetMessage(contents=message_xml.text,
+                                       to='greeting',
+                                       message_type=message_xml.tag,
+                                       sender='lnet')
+            return lnet_message
+        # We're not sure what this is, return encoded message
         return message
 
     def run_client(self, user_name): pass
@@ -80,12 +108,13 @@ def run_server():
     lnet.connection.send(lnet.login_info)
     while True:
         try:
-            message = print(lnet.receive_message())
+            message = lnet.receive_message()
+            print(message)
         except SSL.Error:
             print("Connection Lost")
             break
         except KeyboardInterrupt:
-            print("User Interrupt")
+            print("User Interrupt, shutting down")
             break
     lnet.connection.shutdown()
     lnet.connection.close()
