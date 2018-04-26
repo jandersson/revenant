@@ -1,7 +1,9 @@
 """Communicate with LNet, heavily inspired by rcuhljr's Genie LNet Plugin: https://github.com/rcuhljr/genie-lnet-plugin/"""
-from typing import NamedTuple
 import socket
-import ssl
+import re
+import xml.etree.ElementTree as ET
+from typing import NamedTuple
+from OpenSSL import crypto, SSL
 
 
 class LnetMessage(NamedTuple):
@@ -15,13 +17,28 @@ class Server:
         self.host = host
         self.port = port
         self.connection = None
+        self.login_info = None
 
     def connect(self):
-        ssl_context = ssl.create_default_context()
-        ssl_context.load_cert_chain(certfile='LnetCert.txt')
-        connection = ssl_context.wrap_socket(socket.socket(), server_hostname=self.host)
+        store = crypto.X509Store()
+        with open('LnetCert.txt', 'rt') as f:
+            cert_raw = f.read()
+            cert_cleaned = re.sub(r'[^\x00-\x7f]', r'', cert_raw).encode('utf-8')
+            cert = crypto.load_certificate(crypto.FILETYPE_PEM, cert_cleaned)
+            store.add_cert(cert=cert)
+        ssl_context = SSL.Context(SSL.SSLv23_METHOD)
+        connection = SSL.Connection(ssl_context, socket.socket())
         connection.connect((self.host, self.port))
         self.connection = connection
+
+    def set_login_info(self, username, game='DR'):
+        login_xml = ET.Element('login', {
+            'name': username,
+            'game': game,
+            'client': '1.5',
+            'lich': 'custom',
+        })
+        self.login_info = ET.tostring(login_xml)
 
     def validate_cert(self): pass
 
@@ -31,18 +48,18 @@ class Server:
 
 
 if __name__ == '__main__':
-    test_message = LnetMessage(contents='Hello World', to='DrPrime', message_type='public')
-    print(test_message)
     test_server = Server()
-    _socket = socket.socket()
-    ssl_context = ssl.create_default_context()
-    ssl_context.verify_mode = ssl.CERT_REQUIRED
-    ssl_context.check_hostname = True
-    ssl_context.load_default_certs()
-    ssl_socket = ssl_context.wrap_socket(_socket, server_hostname='www.verisign.com')
-    ssl_socket.connect(('www.verisign.com', 443))
-    print(ssl.get_default_verify_paths())
-    # test_server.connect()
-    # cert = test_server.connection.get_peer_cert()
-    # print(cert)
 
+    test_server.set_login_info('Wabbajack')
+    # login_str = ET.dump(test_server.login_info)
+    # print(test_server.login_info)
+    test_server.connect()
+    test_server.connection.send(test_server.login_info)
+    while True:
+        try:
+            print(test_server.connection.recv(1024))
+        except SSL.Error:
+            print("The connection is dead")
+            break
+    test_server.connection.shutdown()
+    test_server.connection.close()
