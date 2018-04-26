@@ -13,16 +13,18 @@ class LnetMessage(NamedTuple):
 
 
 class Server:
-    def __init__(self, host="lnet.lichproject.org", port=7155):
+    def __init__(self, host="lnet.lichproject.org", port=7155, debug=False):
         self.host = host
         self.port = port
         self.connection = None
         self.login_info = None
+        self.is_debugging = debug
 
     def connect(self):
         store = crypto.X509Store()
         with open('LnetCert.txt', 'rt') as f:
             cert_raw = f.read()
+            # Remove invisible characters that cause an exception when trying to load the certificate
             cert_cleaned = re.sub(r'[^\x00-\x7f]', r'', cert_raw).encode('utf-8')
             cert = crypto.load_certificate(crypto.FILETYPE_PEM, cert_cleaned)
             store.add_cert(cert=cert)
@@ -40,26 +42,53 @@ class Server:
         })
         self.login_info = ET.tostring(login_xml)
 
-    def validate_cert(self): pass
+    def send_pong(self):
+        pong = ET.tostring(ET.Element('pong')) + b'\n'
+        if self.is_debugging:
+            print(f"Sending pong: {pong}")
+        self.send_message(pong)
+
+    def send_message(self, message):
+        if type(message) is str:
+            message = message.encode('utf-8')
+        if type(message) is bytes:
+            if not message.endswith(b'\n'):
+                message = message + b'\n'
+        self.connection.send(message)
+
+    def receive_message(self):
+        message = self._message_handler(self.connection.recv(2048))
+
+        return message
+
+    def _message_handler(self, message):
+        if self.is_debugging:
+            print(f"Message Received: {message}")
+        message = message.decode()
+        if 'ping' in message:
+            self.send_pong()
+        return message
 
     def run_client(self, user_name): pass
 
 
+def run_server():
+    lnet = Server(debug=True)
+    lnet.set_login_info('Wabbajack')
 
-
-if __name__ == '__main__':
-    test_server = Server()
-
-    test_server.set_login_info('Wabbajack')
-    # login_str = ET.dump(test_server.login_info)
-    # print(test_server.login_info)
-    test_server.connect()
-    test_server.connection.send(test_server.login_info)
+    lnet.connect()
+    lnet.connection.send(lnet.login_info)
     while True:
         try:
-            print(test_server.connection.recv(1024))
+            message = print(lnet.receive_message())
         except SSL.Error:
-            print("The connection is dead")
+            print("Connection Lost")
             break
-    test_server.connection.shutdown()
-    test_server.connection.close()
+        except KeyboardInterrupt:
+            print("User Interrupt")
+            break
+    lnet.connection.shutdown()
+    lnet.connection.close()
+
+if __name__ == '__main__':
+    run_server()
