@@ -23,7 +23,6 @@ def serve_layout():
         ),
 
 
-        html.H4(id='plot-title', style={'textAlign': 'center'}),
         html.Label('Character'),
         dcc.Dropdown(
             id='char-dropdown',
@@ -51,20 +50,18 @@ def serve_layout():
 engine = create_engine('sqlite:////home/jonas/lich/lich/data/revenant.db3')
 app = dash.Dash()
 server = app.server
+
 external_css = ["//fonts.googleapis.com/css?family=Dosis:Medium",
                 "https://codepen.io/chriddyp/pen/bWLwgP.css"]
 for css in external_css:
     app.css.append_css({"external_url": css})
+
 colors = {
     'background': '#FFFFFF',
     'text': '#7FDBFF'
 }
-app.layout = serve_layout
-@app.callback(dash.dependencies.Output('plot-title', 'children'),
-              [dash.dependencies.Input('char-dropdown', 'value')])
-def update_mindstate_plot_title(character):
-    return f"Mindstate vs Time for {character}"
 
+app.layout = serve_layout
 
 @app.callback(dash.dependencies.Output('mindstate-plot', 'figure'),
               [dash.dependencies.Input('char-dropdown', 'value'), 
@@ -93,8 +90,11 @@ def update_mindstate_plot(character, skills, _dummy):
                         'type': 'date',
                         },
                     yaxis={'title': 'Mindstate'},
+                    title=f"Mindstate over Time for {character}"
                 )
     }
+
+
 
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', debug=True)
