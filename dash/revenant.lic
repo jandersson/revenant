@@ -1,0 +1,29 @@
+#require 'sqlite3' # Causes trust exception
+
+# NOTE: SQlite has 5 datatypes:
+# TEXT, INTEGER, REAL, NULL, and BLOB
+# NOTE: SQlite has an autoincrement feature but it is recommended not to use unless necessary, as primary key integers are auto incremented with the next available row number in any case
+# NOTE: Rubys Time.now needs to be converted to a string before inserting
+# NOTE: skill_names must be encoded as utf8 or they are inserted as blobs
+db = Script.db
+db.execute <<-SQL
+  CREATE TABLE IF NOT EXISTS MINDSTATE_R ( 
+    mindstate_seq_num INTEGER PRIMARY KEY,
+    skill_name TEXT,
+    character_name TEXT,
+    mindstate_num INTEGER,
+    timestamp TEXT  
+); 
+SQL
+begin
+  loop do
+    timestamp = Time.now.to_s
+    DRSkill.list.map { |s| s.name }.each do |skill_name|
+      db.execute("INSERT INTO MINDSTATE_R (skill_name, character_name, mindstate_num, timestamp) VALUES (?, ?, ?, ?)", [skill_name.encode('UTF-8'), checkname, DRSkill.getxp(skill_name), timestamp])
+    end
+    pause 60
+  end
+rescue LockedException
+  pause 0.5
+  retry
+end
