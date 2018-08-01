@@ -11,6 +11,7 @@ db.execute <<-SQL
     mindstate_seq_num INTEGER PRIMARY KEY,
     skill_name TEXT,
     character_name TEXT,
+    rank REAL,
     mindstate_num INTEGER,
     timestamp TEXT  
 ); 
@@ -19,11 +20,13 @@ begin
   loop do
     timestamp = Time.now.to_s
     DRSkill.list.map { |s| s.name }.each do |skill_name|
-      db.execute("INSERT INTO MINDSTATE_R (skill_name, character_name, mindstate_num, timestamp) VALUES (?, ?, ?, ?)", [skill_name.encode('UTF-8'), checkname, DRSkill.getxp(skill_name), timestamp])
+      db.execute("INSERT INTO MINDSTATE_R (skill_name, character_name, rank, mindstate_num, timestamp) VALUES (?, ?, ?, ?, ?)", 
+                 [skill_name.encode('UTF-8'), checkname, DRSkill.getrank(skill_name) + DRSkill.getpercent(skill_name).to_i * 0.01, 
+                  DRSkill.getxp(skill_name), timestamp])
     end
     pause 60
   end
-rescue LockedException
+rescue StandardError
   pause 0.5
   retry
 end
