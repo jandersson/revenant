@@ -8,10 +8,12 @@ from sqlalchemy import create_engine
 
 def serve_layout():
     conn = engine.connect()
-    exp_df = pd.read_sql("select * from mindstate_r order by mindstate_seq_num desc limit 30000", conn)
-    
+    characters = pd.read_sql("select distinct(character_name) from mindstate_r", conn)['character_name']
+    # TODO: Remove differently encoded strings from the skill name column and get rid of this abomination
+    skills = pd.unique(pd.read_sql("select distinct(skill_name) from mindstate_r", conn)['skill_name'].str.encode('utf-8').str.decode('utf-8').dropna()) 
     conn.close()
     return html.Div(style={'backgroundColor': colors['background']}, children=[
+
         html.H2('Revenant: MUD Navelgazing',
             style={
                 'position': 'relative',
@@ -22,17 +24,16 @@ def serve_layout():
             }
         ),
 
-
         html.Label('Character'),
         dcc.Dropdown(
             id='char-dropdown',
-            options=[{'label': char_name, 'value': char_name} for char_name in pd.unique(exp_df['character_name'])],
-            value=pd.unique(exp_df['character_name'])[0]
+            options=[{'label': char_name, 'value': char_name} for char_name in characters],
+            value=characters.iloc[0]
             ),
         html.Label('Skills'),
         dcc.Dropdown(
             id='skills-dropdown',
-            options=[{'label': skill_name, 'value': skill_name} for skill_name in pd.unique(exp_df['skill_name'])],
+            options=[{'label': skill_name, 'value': skill_name} for skill_name in skills],
             value=['Sorcery'],
             multi=True,
             ),
@@ -68,9 +69,10 @@ app.layout = serve_layout
                dash.dependencies.Input('skills-dropdown', 'value'), 
                dash.dependencies.Input('interval-component', 'n_intervals')])
 def update_mindstate_plot(character, skills, _dummy):
+    """Update mindstate plot when the character or skills dropdown menus change. Update on timing interval"""
+
     conn = engine.connect()
     exp_df = pd.read_sql(f"select * from mindstate_r where character_name = '{character}' order by mindstate_seq_num desc limit 30000", conn)
-    
     conn.close()
     return {
         'data': [
