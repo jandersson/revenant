@@ -69,7 +69,7 @@ app.layout = serve_layout
                dash.dependencies.Input('interval-component', 'n_intervals')])
 def update_mindstate_plot(character, skills, _dummy):
     conn = engine.connect()
-    exp_df = pd.read_sql("select * from mindstate_r order by mindstate_seq_num desc limit 30000", conn)
+    exp_df = pd.read_sql(f"select * from mindstate_r where character_name = '{character}' order by mindstate_seq_num desc limit 30000", conn)
     
     conn.close()
     return {
