@@ -47,7 +47,7 @@ cp ~/revenant/dash/revenant.lic ~/lich/scripts
 ;e autostart('revenant')
 ```
 
-Run the app
+Run the app. You need to have activated the virtual or conda environment beforehand (See the above steps 'With conda' or 'With venv' for the appropriate command)
 ```
 python dash/app.py
 ```
