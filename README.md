@@ -10,7 +10,7 @@ There are also ideas for future implementations in the sandbox folder, such as a
 ### Running the Dash app locally
 First create a virtual environment with conda or venv inside a temp folder, then activate it.
 
-#### With conda
+With conda
 ```
 conda create -n revenant python=3.6
 
@@ -21,7 +21,7 @@ activate revenant
 source activate revenant
 ```
 
-#### With venv
+With venv
 ```
 virtualenv revenant
 
