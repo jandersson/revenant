@@ -38,6 +38,13 @@ cd revenant
 pip install -r requirements.txt
 ```
 
+Copy the data logging script to your lich scripts directory and run it. You do not need to trust it
+```
+cp ~/revenant/dash/revenant.lic ~/lich/scripts
+# Do the following in game
+;revenant
+```
+
 Run the app
 ```
 python dash/app.py
