@@ -43,6 +43,8 @@ Copy the data logging script to your lich scripts directory and run it. You do n
 cp ~/revenant/dash/revenant.lic ~/lich/scripts
 # Do the following in game
 ;revenant
+# Recommended
+;e autostart('revenant')
 ```
 
 Run the app
