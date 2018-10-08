@@ -1,17 +1,47 @@
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import dash_table_experiments as dt
 import pandas as pd
 import plotly.graph_objs as go
 from sqlalchemy import create_engine
 
 
+def get_exp(character):
+    # TODO: Optimize this query. The table might need a primary index on timestamp and collect stats
+    exp_table_sql = f"""SELECT ms.skill_name
+                              ,ms.rank
+                              ,ms.mindstate_num as mindstate 
+                          FROM mindstate_r ms 
+                          JOIN (select max(timestamp) as max_timestamp 
+                                  from mindstate_r 
+                                 where character_name='{character}') ts 
+                            ON ts.max_timestamp = ms.timestamp;"""
+    return pd.read_sql(exp_table_sql, engine)
+
+
+def get_exp_history(character):
+    # HACK: This is a brute force method that needs optimization
+    # TODO: Length of history should be customizable
+    return pd.read_sql(f"select * from mindstate_r where character_name = '{character}' order by mindstate_seq_num desc limit 30000", conn)
+
+    
+def get_characters():
+    # TODO: Create a character dimension, CHARACTER_D
+    return pd.read_sql("select distinct(character_name) from mindstate_r", engine)['character_name']
+
+
+def get_skills():
+    # TODO: Create a skill dimension, SKILL_D
+    # TODO: The db current has different string encodings in the skill column. Remove differently encoded strings from the skill name column and get rid of this abomination
+    return pd.unique(pd.read_sql("select distinct(skill_name) from mindstate_r", engine)['skill_name'].str.encode('utf-8').str.decode('utf-8').dropna()) 
+
+
 def serve_layout():
-    conn = engine.connect()
-    characters = pd.read_sql("select distinct(character_name) from mindstate_r", conn)['character_name']
-    # TODO: Remove differently encoded strings from the skill name column and get rid of this abomination
-    skills = pd.unique(pd.read_sql("select distinct(skill_name) from mindstate_r", conn)['skill_name'].str.encode('utf-8').str.decode('utf-8').dropna()) 
-    conn.close()
+    skills = get_skills()
+    characters = get_characters()
+    default_character = 'Crannach'
+    exp_df = get_exp(default_character)
     return html.Div(style={'backgroundColor': colors['background']}, children=[
 
         html.H2('Revenant: MUD Navelgazing',
@@ -37,9 +67,18 @@ def serve_layout():
             value=['Sorcery'],
             multi=True,
             ),
+        html.Label('Experience'),
         dcc.Graph(
             id='mindstate-plot',
             ),
+        html.Div([
+            dt.DataTable(
+            rows=exp_df.to_dict('records'),
+            id='exp-table',
+            )],
+            id='exp-div'
+        ),
+        # Hidden component that allows for other components update on a timer
         dcc.Interval(
             id='interval-component',
             interval=50*1000, # in milliseconds
@@ -47,22 +86,28 @@ def serve_layout():
         ),
     ])
 
-
+# TODO: Make a class?
 engine = create_engine('sqlite:////home/jonas/lich/lich/data/revenant.db3')
 app = dash.Dash()
 server = app.server
-
 external_css = ["//fonts.googleapis.com/css?family=Dosis:Medium",
                 "https://codepen.io/chriddyp/pen/bWLwgP.css"]
 for css in external_css:
     app.css.append_css({"external_url": css})
-
+# TODO: Use a css file
 colors = {
     'background': '#FFFFFF',
     'text': '#7FDBFF'
 }
-
 app.layout = serve_layout
+
+
+@app.callback(dash.dependencies.Output('exp-table', 'rows'), 
+              [dash.dependencies.Input('char-dropdown', 'value'), 
+               dash.dependencies.Input('interval-component', 'n_intervals')])
+def update_exp_table(character):
+   return get_exp(character).to_dict('records')
+
 
 @app.callback(dash.dependencies.Output('mindstate-plot', 'figure'),
               [dash.dependencies.Input('char-dropdown', 'value'), 
@@ -95,7 +140,6 @@ def update_mindstate_plot(character, skills, _dummy):
                     title=f"Mindstate over Time for {character}"
                 )
     }
-
 
 
 if __name__ == '__main__':
