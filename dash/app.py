@@ -16,14 +16,15 @@ def get_exp(character):
                           JOIN (select max(timestamp) as max_timestamp 
                                   from mindstate_r 
                                  where character_name='{character}') ts 
-                            ON ts.max_timestamp = ms.timestamp;"""
+                            ON ts.max_timestamp = ms.timestamp
+                         WHERE character_name='{character}';"""
     return pd.read_sql(exp_table_sql, engine)
 
 
 def get_exp_history(character):
     # HACK: This is a brute force method that needs optimization
     # TODO: Length of history should be customizable
-    return pd.read_sql(f"select * from mindstate_r where character_name = '{character}' order by mindstate_seq_num desc limit 30000", conn)
+    return pd.read_sql(f"select * from mindstate_r where character_name = '{character}' order by mindstate_seq_num desc limit 30000", engine).set_index('skill_name', inplace=True)
 
     
 def get_characters():
@@ -58,7 +59,8 @@ def serve_layout():
         dcc.Dropdown(
             id='char-dropdown',
             options=[{'label': char_name, 'value': char_name} for char_name in characters],
-            value=characters.iloc[0]
+            value=default_character
+            #value=characters.iloc[0]
             ),
         html.Label('Skills'),
         dcc.Dropdown(
@@ -72,12 +74,20 @@ def serve_layout():
             id='mindstate-plot',
             ),
         html.Div([
-            dt.DataTable(
-            rows=exp_df.to_dict('records'),
-            id='exp-table',
-            )],
-            id='exp-div'
+                dt.DataTable(
+                rows=exp_df.to_dict('records'),
+                id='exp-table',
+                row_selectable=True,
+                editable=False,
+                filterable=True,
+                sortable=True,
+                selected_row_indices=[],
+                ),
+                html.Div(id='selected_indexes'),],
+                
+            id='exp-div',
         ),
+
         # Hidden component that allows for other components update on a timer
         dcc.Interval(
             id='interval-component',
@@ -86,7 +96,8 @@ def serve_layout():
         ),
     ])
 
-# TODO: Make a class?
+
+# TODO: Organize all this hackery into modules
 engine = create_engine('sqlite:////home/jonas/lich/lich/data/revenant.db3')
 app = dash.Dash()
 server = app.server
@@ -105,7 +116,7 @@ app.layout = serve_layout
 @app.callback(dash.dependencies.Output('exp-table', 'rows'), 
               [dash.dependencies.Input('char-dropdown', 'value'), 
                dash.dependencies.Input('interval-component', 'n_intervals')])
-def update_exp_table(character):
+def update_exp_table(character, num_intervals):
    return get_exp(character).to_dict('records')
 
 
@@ -113,6 +124,7 @@ def update_exp_table(character):
               [dash.dependencies.Input('char-dropdown', 'value'), 
                dash.dependencies.Input('skills-dropdown', 'value'), 
                dash.dependencies.Input('interval-component', 'n_intervals')])
+
 def update_mindstate_plot(character, skills, _dummy):
     """Update mindstate plot when the character or skills dropdown menus change. Update on timing interval"""
 
@@ -141,6 +153,15 @@ def update_mindstate_plot(character, skills, _dummy):
                 )
     }
 
+@app.callback(dash.dependencies.Output('exp-table', 'selected_row_indices'),
+              [dash.dependencies.Input('skills-dropdown', 'value')],
+              [dash.dependencies.State('exp-table', 'rows'),
+               dash.dependencies.State('exp-table', 'selected_row_indices')])
+def update_selected_row_indices(skills, rows, selected_row_indices):
+    if len(skills) > 0:
+        for skill in skills:
+            selected_row_indices.append(skill)
+    return selected_row_indices
 
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', debug=True)
