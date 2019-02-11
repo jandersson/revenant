@@ -1,7 +1,6 @@
 import struct
 import platform
 import re
-import getpass
 from time import sleep
 from telnetlib import Telnet
 import npyscreen
@@ -87,7 +86,8 @@ class EAccessClient:
 def get_credentials():
     return {
         'username': input('Username: ').encode('ASCII'),
-        'password': getpass.getpass().encode('ASCII'),
+        'password': input('Password: ').encode('ASCII'),
+        #'password': getpass.getpass().encode('ASCII'),
         'character': input('Character name: ').capitalize(),
     }
 
@@ -166,7 +166,3 @@ def login():
     game_connection.write(b'<c>\n')
     return game_connection
 
-
-if __name__ == '__main__':
-    game_connection = login()
-    game_connection.interact()
