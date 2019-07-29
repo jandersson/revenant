@@ -3,7 +3,7 @@ import platform
 import re
 from time import sleep
 from telnetlib import Telnet
-import npyscreen
+import logging
 
 GAME_CODE = b'DR'
 DR_HOST = 'dr.simutronics.net'
@@ -17,9 +17,9 @@ class LoginError(Exception):
 
 class EAccessClient:
     """Handles fetching the login key from Simu"""
-    # TODO: consider subclassing Telnet
-    # TODO: Hook into npyscreen for a game entry TUI
     def __init__(self, host='eaccess.play.net', port=7900):
+        logging.basicConfig()
+        self.log = logging.getLogger('eaccess')
         self.host = host
         self.port = port
         self.client = Telnet()
@@ -32,6 +32,7 @@ class EAccessClient:
         hashed_password = self.encrypt_password(credentials['password'], credentials['hashkey'])
         self.client.write(b'A\t' + credentials['username'] + b'\t' + hashed_password + b'\n')
         a_response = self.client.read_until(b'\n').decode()
+        self.log.debug(f'a_response: {a_response}')
         if 'PASSWORD' in a_response:
             raise LoginError('Bad Password')
         elif 'NORECORD' in a_response:
@@ -47,7 +48,8 @@ class EAccessClient:
     def get_game_list(self):
         """Poll the server for a list of games (unused at the moment)"""
         self.client.write(b'\M')
-        res = self.client.read_until(b'\n')
+        game_list = self.client.read_until(b'\n')
+        self.log.debug(f'game_list: {game_list}')
         return
 
     def get_hashkey(self):
@@ -65,13 +67,16 @@ class EAccessClient:
         # TODO: Break into two methods, one to get the character list, one to get the character code from the list
         self.client.write(b'C\n')
         c_response = self.client.read_until(b'\n')
+        self.log.debug(f'c_response: {c_response}')
         character_code = re.compile("C\t\d\t\d\t\d\t\d\t(.+)\t" + character_name).match(c_response.decode()).group(1)
+        self.log.debug(f'character_code: {character_code}')
         return character_code
 
     def submit_character_info(self, character_code):
         """Inform server of which character to play, return the server response with connection info"""
         self.client.write(b'L\t' + character_code.encode('ASCII') + b'\t' + b'STORM\n')
         l_response = self.client.read_until(b'\n').decode()
+        self.log.debug(f'l_response: {l_response}')
         login_key = re.compile(".+KEY=(.+)\n").match(l_response).group(1)
         self.client.close()
         return login_key
@@ -106,50 +111,9 @@ def eaccess_protocol(login_info):
         return login_key
     except LoginError as e:
         login_client.client.close()
-        print(f"Had some trouble logging in: {e}")
+        logging.getLogger('eaccess').error(f"Had some trouble logging in: {e}")
     # TODO: Persist key
 
-
-class LoginApp(npyscreen.NPSAppManaged):
-    def onStart(self):
-        self.login_client = EAccessClient()
-        self.addForm("MAIN", LoginForm, name='Login')
-        self.addForm("GAME_SELECT", GameForm)
-        self.addForm("CHARACTER_SELECT", CharacterForm)
-
-
-class GameForm(npyscreen.Form):
-    def create(self):
-        self.game = self.add(npyscreen.TitleSelectOne, scroll_exit=True, max_height=3, name='Game', values=['DR Prime', 'DR Fallen', 'DR Platinum'])
-
-    def afterEditing(self):
-        self.parentApp.setNextForm("CHARACTER_SELECT")
-
-
-class CharacterForm(npyscreen.Form):
-    def create(self):
-        self.character = self.add(npyscreen.TitleText, name='Character Name')
-
-    def afterEditing(self):
-        self.parentApp.setNextForm(None)
-
-
-class LoginForm(npyscreen.Form):
-    def create(self):
-        super().create()
-        self.username = self.add(npyscreen.TitleText, name='Username')
-        self.password = self.add(npyscreen.TitlePassword, name='Password')
-        self.remember = self.add(npyscreen.RoundCheckBox, name='Remember me')
-        self.center_on_display()
-
-    def afterEditing(self):
-        self.parentApp.setNextForm("GAME_SELECT")
-
-    def on_ok(self):
-        self.parentApp.setNextForm("GAME_SELECT")
-
-    def on_cancel(self):
-        self.parentApp.setNextForm(None)
 
 
 def login():
