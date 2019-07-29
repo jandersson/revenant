@@ -1,9 +1,9 @@
-import struct
+import logging
 import platform
 import re
-from time import sleep
+import struct
 from telnetlib import Telnet
-import logging
+from time import sleep
 
 GAME_CODE = b'DR'
 DR_HOST = 'dr.simutronics.net'
@@ -98,25 +98,24 @@ def get_credentials():
 
 
 def eaccess_protocol(login_info):
+    login_client = EAccessClient()
     try:
-        login_client = EAccessClient()
         login_client.connect()
         login_info['hashkey'] = login_client.get_hashkey()
         login_client.submit_login(login_info)
         login_client.submit_game()
         character_code = login_client.get_character_code(login_info['character'])
         login_key = login_client.submit_character_info(character_code)
-        login_client.client.close()
         print(login_key)
         return login_key
     except LoginError as e:
-        login_client.client.close()
         logging.getLogger('eaccess').error(f"Had some trouble logging in: {e}")
+    finally:
+        login_client.client.close()
     # TODO: Persist key
 
 
-
-def login():
+def simu_login():
     # TODO: Consider handling game_connection with a context manager, if possible
     creds = get_credentials()
     key = eaccess_protocol(creds)
