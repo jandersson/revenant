@@ -6,7 +6,9 @@ import sys
 from threading import Thread
 import xml.etree.ElementTree as ET
 
-from login import simu_login
+from PyQt5.QtWidgets import QApplication
+
+from client.login import simu_login
 
 
 def is_windows():
@@ -15,11 +17,12 @@ def is_windows():
 
 class Client:
     """A basic DR client"""
-    def __init__(self):
+    def __init__(self, mode):
         # TODO: Real logging
         logging.basicConfig()
         self.log = logging.getLogger()
 
+    def start(self):
         try:
             self.connection = simu_login()
         except Exception as error:
@@ -27,7 +30,7 @@ class Client:
             self.log.error(error)
             sys.exit(1)
 
-        self.reactor()
+#        self.reactor()
 
     def reactor(self):
         """A very basic implementation of handling input/output"""
@@ -59,16 +62,21 @@ class Client:
         print(f'> {write_data}')
         self.connection.write((write_data + '\n').encode('ASCII'))
 
-    def read(self):
+    def read(self, output_callback=None):
         read_data = self.connection.read_very_eager().decode('ASCII')
         buff = []
+
         for line in read_data.split('\n'):
 
-            line = xml_handler(line)
             if line:
-                buff.append(line)
-        sys.stdout.write('\n'.join(buff))
-        sys.stdout.flush()
+                if output_callback:
+                    output_callback(line)
+                else:
+                    buff.append(line)
+
+        if not output_callback:
+            sys.stdout.write('\n'.join(buff))
+            sys.stdout.flush()
 
 
 def xml_handler(line):

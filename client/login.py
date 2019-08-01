@@ -106,7 +106,6 @@ def eaccess_protocol(login_info):
         login_client.submit_game()
         character_code = login_client.get_character_code(login_info['character'])
         login_key = login_client.submit_character_info(character_code)
-        print(login_key)
         return login_key
     except LoginError as e:
         logging.getLogger('eaccess').error(f"Had some trouble logging in: {e}")
