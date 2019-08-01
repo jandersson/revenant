@@ -1,5 +1,6 @@
 import sys
 from threading import Thread
+from time import sleep
 
 from PyQt5.QtWidgets import QAction, qApp, QApplication, QDockWidget, QLineEdit, QMainWindow, QMenu, QTextEdit
 from PyQt5.QtGui import QIcon, QTextCursor
@@ -90,10 +91,12 @@ class ClientGUI(QMainWindow):
             while True:
                 if self.input_buffer:
                     self.write(self.input_buffer.pop(0))
+                sleep(0.01)
         def output_loop():
             callback = self.write_to_main_window
             while True:
-               self.client.read(output_callback=callback)
+                self.client.read(output_callback=callback)
+                sleep(0.01)
         Thread(target=output_loop).start()
         Thread(target=input_loop).start()
 
