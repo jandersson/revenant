@@ -6,8 +6,6 @@ import sys
 from threading import Thread
 import xml.etree.ElementTree as ET
 
-from PyQt5.QtWidgets import QApplication
-
 from client.login import simu_login
 
 
@@ -15,22 +13,71 @@ def is_windows():
     return sys.platform == 'win32'
 
 
-class Client:
+class BaseReactor:
+    """Handle basic IO"""
+    def __init__(self, connection=None):
+        self.connection = connection
+
+    def start(self): pass
+
+    def shutdown(self): pass
+
+    @staticmethod
+    def is_there_graphite_on_the_ground():
+        """You didn't see graphite on the ground because it's not there"""
+        return False
+
+
+class GUIReactor(BaseReactor):
+    """Handle Input/Output for Graphical User Interface"""
+    def __init__(self, connection=None):
+        super().__init__(connection)
+        self.threads = []
+
+
+class TUIReactor(BaseReactor):
+    """Handle Input/Output for Terminal User Interface"""
+    def __init__(self, connection=None):
+        super().__init__(connection)
+
+
+class Engine:
     """A basic DR client"""
-    def __init__(self, mode):
+    def __init__(self, mode=''):
+        self._connection = None
         # TODO: Real logging
         logging.basicConfig()
         self.log = logging.getLogger()
+        connection = self._connection
+        if mode == 'gui':
+            self.log.debug('Using GUI Reactor')
+            self.reactor = GUIReactor()
+        elif mode == 'tui':
+            self.log.debug('Using TUI Reactor')
+            self.reactor = TUIReactor()
+        else:
+            self.log.warning('Using base reactor')
+            self.reactor = BaseReactor()
 
-    def start(self):
+    @property
+    def connection(self):
+        return self._connection
+
+    @connection.setter
+    def connection(self, conn):
+        self._connection = conn
+        self.reactor.connection = conn
+
+    def connect(self):
         try:
-            self.connection = simu_login()
+            connection = simu_login()
         except Exception as error:
             self.log.error('Could not establish a connection :(')
             self.log.error(error)
             sys.exit(1)
+        self.connection = connection
 
-#        self.reactor()
+    def disconnect(self): pass
 
     def reactor(self):
         """A very basic implementation of handling input/output"""
@@ -115,4 +162,4 @@ if __name__ == '__main__':
                            default=False,
                            help="Use a mock connection instead of connecting to the game")
     args = argparser.parse_args()
-    Client()
+    Engine()
