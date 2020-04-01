@@ -2,75 +2,76 @@ import argparse
 import logging
 import re
 from select import select
+import selectors
 import sys
+import socket
 from threading import Thread
+import types
 import xml.etree.ElementTree as ET
+from telnetlib import Telnet
 
-from client.login import simu_login
+# from client.login import simu_login
 
 
 def is_windows():
     return sys.platform == 'win32'
 
 
-class BaseReactor:
-    """Handle basic IO"""
-    def __init__(self, connection=None):
-        self.connection = connection
+def client_accept_wrapper(sock):
+    conn, addr = sock.accept()
+    print(f"accept connection from {addr}")
+    conn.setblocking(False)
+    data = types.SimpleNamespace(addr=addr, inb=b'', outb=b'')
+    events = selectors.EVENT_READ | selectors.EVENT_WRITE
 
-    def start(self): pass
-
-    def shutdown(self): pass
-
-    @staticmethod
-    def is_there_graphite_on_the_ground():
-        """You didn't see graphite on the ground because it's not there"""
-        return False
-
-
-class GUIReactor(BaseReactor):
-    """Handle Input/Output for Graphical User Interface"""
-    def __init__(self, connection=None):
-        super().__init__(connection)
-        self.threads = []
-
-
-class TUIReactor(BaseReactor):
-    """Handle Input/Output for Terminal User Interface"""
-    def __init__(self, connection=None):
-        super().__init__(connection)
+def client_handler(key, mask):
+    sock = key.fileobj
+    data = key.data
 
 
 class Engine:
-    """A basic DR client"""
-    def __init__(self, mode=''):
-        self._connection = None
+    """Connection between game and client/s"""
+
+    def __init__(self, connection_url, connection_port):
+        self.connection_url = connection_url
+        self.connection_port = connection_port
+        self.connection = None
+        self.selector = selectors.DefaultSelector()
+        self.game_connection = Telnet()
+        self.loopback_connection = None
         # TODO: Real logging
         logging.basicConfig()
         self.log = logging.getLogger()
-        connection = self._connection
-        if mode == 'gui':
-            self.log.debug('Using GUI Reactor')
-            self.reactor = GUIReactor()
-        elif mode == 'tui':
-            self.log.debug('Using TUI Reactor')
-            self.reactor = TUIReactor()
-        else:
-            self.log.warning('Using base reactor')
-            self.reactor = BaseReactor()
 
-    @property
-    def connection(self):
-        return self._connection
+    def start_loopback_server(self, port=10001):
+        """Sets up a connection for clients"""
 
-    @connection.setter
-    def connection(self, conn):
-        self._connection = conn
-        self.reactor.connection = conn
+        loopback = ('127.0.0.1', port)
+        sel = self.selector
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind(loopback)
+        print(f"waiting for client on {loopback}")
+        sock.listen()
+        sock.setblocking(False)
+        sel.register(sock, selectors.EVENT_READ, data=None)
 
-    def connect(self):
         try:
-            connection = simu_login()
+            while True:
+                events = sel.select(timeout=None)
+                for key, mask in events:
+                    if key.data is None:
+                        # No client connected, listen for one
+                        client_accept_wrapper(key.fileobj)
+                    else:
+                        client_handler(key, mask)
+        except KeyboardInterrupt:
+            print("Caught keyboard interrupt, time to shut it down")
+        finally:
+            sel.close()
+
+    def connect_to_game(self):
+        try:
+            connection = Telnet(self.connection_url, self.connection_port)
         except Exception as error:
             self.log.error('Could not establish a connection :(')
             self.log.error(error)
@@ -79,7 +80,17 @@ class Engine:
 
     def disconnect(self): pass
 
-    def reactor(self):
+    # def start():
+    #     game_connection = self.connection
+    #     sel = selectors.DefaultSelector()
+        
+    #     while True:
+    #         events = sel.select(timeout=None)
+    #         for key, mask in events:
+    #             if key.data is None:
+
+
+    def start_reactor(self): # Deprecated, use start() instead!
         """A very basic implementation of handling input/output"""
         connection = self.connection
         if is_windows():
@@ -112,7 +123,6 @@ class Engine:
     def read(self, output_callback=None):
         read_data = self.connection.read_very_eager().decode('ASCII')
         buff = []
-
         for line in read_data.split('\n'):
 
             if line:
@@ -162,4 +172,7 @@ if __name__ == '__main__':
                            default=False,
                            help="Use a mock connection instead of connecting to the game")
     args = argparser.parse_args()
-    Engine()
+    engine = Engine('aardmud.org', '23')
+    engine.start_loopback_server()
+    # engine.connect()
+    # engine.start_reactor()
