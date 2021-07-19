@@ -1,5 +1,6 @@
 from abc import abstractmethod
 import argparse
+from client.client.game_logger import GameLogger
 import logging
 import re
 from select import select
@@ -125,6 +126,10 @@ class Engine(ClientLogger):
         for line in read_data.split("\n"):
 
             if line:
+                # line = xml_handler(line)
+                # TODO: This isn't logging anything
+                # TODO: This is a hacky way to log the game. Just trying to get some output right now...
+                logging.getLogger("game").info(line)
                 if output_callback:
                     output_callback(line)
                 else:
@@ -136,15 +141,24 @@ class Engine(ClientLogger):
 
 
 def xml_handler(line):
-    """Mostly a copy of what lich.rb does"""
-    # Handle room xml
+    # Handle pseudo xml
     # Just remove it for now
+    # TODO: Better than naive solution for stripping tags
     line = re.sub("<resource picture=.+/>", "", line)
     line = re.sub("<style id=.+/>", "", line)
     if line.startswith("Obvious paths:"):
         line = re.sub("</?d>", "", line)
     if line.startswith("<compass"):
         line = re.sub("<compass>.+</compass>", "", line)
+    if line.startswith("<pushBold/>"):
+        line = re.sub("<pushBold/>", "", line)
+    if line.startswith('<pushStream id="logons"/>'):
+        line = re.sub('<pushStream id="logons"/>', "", line)
+    if line.startswith('<pushStream id="death"/>'):
+        line = re.sub('<pushStream id="death"/>', "", line)
+    if line.startswith('<pushStream id="atmospherics" />'):
+        line = re.sub('<pushStream id="atmospherics" />', "", line)
+
     if line.startswith("<prompt"):
         xml = re.search("<prompt.+</prompt>", line)
 

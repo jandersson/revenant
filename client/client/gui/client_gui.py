@@ -30,6 +30,7 @@ class ClientGUI(QMainWindow, ClientLogger):
     def __init_ui(self):
         self.log.debug("Initializing UI")
         self.setWindowTitle("Revenant")
+        # TODO: Update this with some sort of connection string when connected
         self.status_bar.showMessage("Not Connected")
 
         self.__add_output_window()
