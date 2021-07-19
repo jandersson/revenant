@@ -1,10 +1,12 @@
 import logging.config
+import pathlib
 import yaml
 
 
 class ClientLogger:
     def _init_logger(self):
-        with open("./logging_config.yaml", "r") as stream:
+        log_conf_path = pathlib.Path(__file__).parents[0] / "logging_config.yaml"
+        with open(log_conf_path, "r") as stream:
             config = yaml.load(stream, Loader=yaml.FullLoader)
 
         logging.config.dictConfig(config)
