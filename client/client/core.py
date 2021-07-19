@@ -1,3 +1,4 @@
+from abc import abstractmethod
 import argparse
 import logging
 import re
@@ -6,57 +7,65 @@ import sys
 from threading import Thread
 import xml.etree.ElementTree as ET
 
-from client.login import simu_login
+from login import simu_login
+from client_logger import ClientLogger
 
 
 def is_windows():
-    return sys.platform == 'win32'
+    return sys.platform == "win32"
 
 
 class BaseReactor:
     """Handle basic IO"""
+
     def __init__(self, connection=None):
         self.connection = connection
 
-    def start(self): pass
+    @abstractmethod
+    def start(self):
+        pass
 
-    def shutdown(self): pass
-
-    @staticmethod
-    def is_there_graphite_on_the_ground():
-        """You didn't see graphite on the ground because it's not there"""
-        return False
+    @abstractmethod
+    def shutdown(self):
+        pass
 
 
 class GUIReactor(BaseReactor):
     """Handle Input/Output for Graphical User Interface"""
+
     def __init__(self, connection=None):
         super().__init__(connection)
         self.threads = []
 
+    def start(self):
+        self.connect()
+
 
 class TUIReactor(BaseReactor):
     """Handle Input/Output for Terminal User Interface"""
+
     def __init__(self, connection=None):
         super().__init__(connection)
 
 
-class Engine:
+# This is a mess. Its really hard to unravel and should be blown up once I get it into a working state.
+
+
+class Engine(ClientLogger):
     """A basic DR client"""
-    def __init__(self, mode=''):
+
+    def __init__(self, mode=""):
         self._connection = None
-        # TODO: Real logging
-        logging.basicConfig()
         self.log = logging.getLogger()
         connection = self._connection
-        if mode == 'gui':
-            self.log.debug('Using GUI Reactor')
+        if mode == "gui":
+            self.log.debug("Using GUI Reactor")
             self.reactor = GUIReactor()
-        elif mode == 'tui':
-            self.log.debug('Using TUI Reactor')
+        elif mode == "tui":
+            self.log.debug("Using TUI Reactor")
             self.reactor = TUIReactor()
         else:
-            self.log.warning('Using base reactor')
+            self.log.warning("Using base reactor")
             self.reactor = BaseReactor()
 
     @property
@@ -72,12 +81,13 @@ class Engine:
         try:
             connection = simu_login()
         except Exception as error:
-            self.log.error('Could not establish a connection :(')
+            self.log.error("Could not establish a connection :(")
             self.log.error(error)
             sys.exit(1)
         self.connection = connection
 
-    def disconnect(self): pass
+    def disconnect(self):
+        pass
 
     def reactor(self):
         """A very basic implementation of handling input/output"""
@@ -106,14 +116,14 @@ class Engine:
 
     def write(self):
         write_data = input()
-        print(f'> {write_data}')
-        self.connection.write((write_data + '\n').encode('ASCII'))
+        print(f"> {write_data}")
+        self.connection.write((write_data + "\n").encode("ASCII"))
 
     def read(self, output_callback=None):
-        read_data = self.connection.read_very_eager().decode('ASCII')
+        read_data = self.connection.read_very_eager().decode("ASCII")
         buff = []
 
-        for line in read_data.split('\n'):
+        for line in read_data.split("\n"):
 
             if line:
                 if output_callback:
@@ -122,44 +132,49 @@ class Engine:
                     buff.append(line)
 
         if not output_callback:
-            sys.stdout.write('\n'.join(buff))
+            sys.stdout.write("\n".join(buff))
             sys.stdout.flush()
 
 
 def xml_handler(line):
     # Handle room xml
     # Just remove it for now
-    line = re.sub('<resource picture=.+/>', '', line)
-    line = re.sub('<style id=.+/>', '', line)
-    if line.startswith('Obvious paths:'):
-        line = re.sub('</?d>', '', line)
-    if line.startswith('<compass'):
-        line = re.sub('<compass>.+</compass>', '', line)
-    if line.startswith('<prompt'):
-        xml = re.search('<prompt.+</prompt>', line)
+    line = re.sub("<resource picture=.+/>", "", line)
+    line = re.sub("<style id=.+/>", "", line)
+    if line.startswith("Obvious paths:"):
+        line = re.sub("</?d>", "", line)
+    if line.startswith("<compass"):
+        line = re.sub("<compass>.+</compass>", "", line)
+    if line.startswith("<prompt"):
+        xml = re.search("<prompt.+</prompt>", line)
 
         def xml_prompt(_xml, _line):
             if not _xml:
                 return _line
             try:
-                _line = re.sub('<prompt.+</prompt>', ET.fromstring(xml.group(0)).text, _line)
+                _line = re.sub("<prompt.+</prompt>", ET.fromstring(xml.group(0)).text, _line)
             except ET.ParseError as error:
                 print(f"Parse Error! {error}")
             return _line
+
         line = xml_prompt(xml, line)
     return line
 
 
-if __name__ == '__main__':
-    argparser = argparse.ArgumentParser(description='A mud client')
-    # TODO: Implement
-    argparser.add_argument('--character-file',
-                           default=None,
-                           help='Login using credentials stored in this file')
-    # TODO: Implement
-    argparser.add_argument('--test',
-                           action='store_true',
-                           default=False,
-                           help="Use a mock connection instead of connecting to the game")
-    args = argparser.parse_args()
-    Engine()
+if __name__ == "__main__":
+    # argparser = argparse.ArgumentParser(description="A mud client")
+    # # TODO: Implement
+    # argparser.add_argument("--character-file", default=None, help="Login using credentials stored in this file")
+    # # TODO: Implement
+    # argparser.add_argument(
+    #     "--test", action="store_true", default=False, help="Use a mock connection instead of connecting to the game"
+    # )
+    # args = argparser.parse_args()
+    # Engine()
+    from client_logger import ClientLogger
+
+    class Test(ClientLogger):
+        pass
+
+    t = Test()
+    t.log.info("Test Log")
