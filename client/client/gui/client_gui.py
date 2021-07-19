@@ -7,27 +7,28 @@ from PyQt5.QtWidgets import QAction, qApp, QApplication, QDockWidget, QLineEdit,
 from PyQt5.QtGui import QIcon, QTextCursor
 from PyQt5.QtCore import Qt
 
-from core import Engine, GUIReactor
+from client.client.core import Engine
+from client.client.client_logger import ClientLogger
 
 # TODO: Window should close when exiting
 # TODO: Lock the scrollbar when its not all the way at the bottom
 # TODO: Exit the game when the window is closed
 
 
-class ClientGUI(QMainWindow):
+class ClientGUI(QMainWindow, ClientLogger):
     def __init__(self):
         super().__init__()
-        logging.debug("Initializing ClientGUI instance")
+        self.log.debug("Initializing ClientGUI instance")
         self.input_buffer = []
         self.status_bar = self.statusBar()
         self.input_dock = QDockWidget()
-        # self.client = GUIReactor()
         self.client = Engine(mode="gui")
         self.__init_ui()
         self.client.connect()
         self.gui_reactor()
 
     def __init_ui(self):
+        self.log.debug("Initializing UI")
         self.setWindowTitle("Revenant")
         self.status_bar.showMessage("Not Connected")
 

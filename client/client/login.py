@@ -5,11 +5,15 @@ import struct
 from telnetlib import Telnet
 from time import sleep
 
-from client_logger import ClientLogger
+# TODO: Fix ugly import hierarchy. Can probably fix by making a proper package or hacking __init__.py
+from client.client.client_logger import ClientLogger
+
 
 GAME_CODE = b"DR"
 DR_HOST = "dr.simutronics.net"
 DR_PORT = 11024
+
+module_logger = ClientLogger()
 
 
 class LoginError(Exception):
@@ -21,10 +25,7 @@ class EAccessClient(ClientLogger):
     """Handles fetching the login key from Simu"""
 
     def __init__(self, host="eaccess.play.net", port=7900):
-        logging.basicConfig(filename="example.log", encoding="utf-8", level=logging.DEBUG)
-
-        # self.log = logging.getLogger("eaccess")
-        self.log.info("Test log message")
+        self.log.debug("Initializing EAccessClient to connect to game")
         self.host = host
         self.port = port
         self.client = Telnet()
@@ -94,12 +95,22 @@ class EAccessClient(ClientLogger):
 
 
 def get_credentials():
-    return {
-        "username": input("Username: ").encode("ASCII"),
-        "password": input("Password: ").encode("ASCII"),
-        #'password': getpass.getpass().encode('ASCII'),
-        "character": input("Character name: ").capitalize(),
-    }
+    module_logger.log.debug("Fetching credentials")
+    try:
+        from client.client.secrets import secrets
+
+        module_logger.log.debug("Got secrets from secrets.py")
+        secrets["username"] = secrets["username"].encode("ASCII")
+        secrets["password"] = secrets["password"].encode("ASCII")
+    except ImportError:
+        module_logger.log.debug("Couldn't load secrets file, prompting for info")
+        secrets = {
+            "username": input("Username: ").encode("ASCII"),
+            "password": input("Password: ").encode("ASCII"),
+            #'password': getpass.getpass().encode('ASCII'),
+            "character": input("Character name: ").capitalize(),
+        }
+    return secrets
 
 
 def eaccess_protocol(login_info):
@@ -113,17 +124,24 @@ def eaccess_protocol(login_info):
         login_key = login_client.submit_character_info(character_code)
         return login_key
     except LoginError as e:
-        logging.getLogger("eaccess").error(f"Had some trouble logging in: {e}")
+        module_logger.log.error(f"Had some trouble logging in: {e}")
+        raise
+    except Exception as e:
+        module_logger.log.error(f"Had some trouble logging in: {e}")
+        raise
     finally:
         login_client.client.close()
     # TODO: Persist key
 
 
 def simu_login():
+    log = module_logger.log
+    log.debug("Starting Simu login procedure")
     # TODO: Consider handling game_connection with a context manager, if possible
     creds = get_credentials()
     key = eaccess_protocol(creds)
     game_connection = Telnet(DR_HOST, DR_PORT)
+    log.debug("Got a game connection via Telnet")
     game_connection.read_until(b"</settings>")
     game_connection.write(key.encode("ASCII") + b"\n")
     game_connection.write(b"/FE:STORMFRONT /VERSION:1.0.1.26 /P:" + platform.system().encode("ASCII") + b" /XML\n")
@@ -131,5 +149,5 @@ def simu_login():
     game_connection.write(b"<c>\n")
     sleep(0.3)
     game_connection.write(b"<c>\n")
-    print("Debug: simu_login finished")
+    log.debug("simu_login finished")
     return game_connection

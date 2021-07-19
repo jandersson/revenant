@@ -7,8 +7,8 @@ import sys
 from threading import Thread
 import xml.etree.ElementTree as ET
 
-from login import simu_login
-from client_logger import ClientLogger
+from client.client.login import simu_login
+from client.client.client_logger import ClientLogger
 
 
 def is_windows():
@@ -56,7 +56,6 @@ class Engine(ClientLogger):
 
     def __init__(self, mode=""):
         self._connection = None
-        self.log = logging.getLogger()
         connection = self._connection
         if mode == "gui":
             self.log.debug("Using GUI Reactor")
@@ -137,6 +136,7 @@ class Engine(ClientLogger):
 
 
 def xml_handler(line):
+    """Mostly a copy of what lich.rb does"""
     # Handle room xml
     # Just remove it for now
     line = re.sub("<resource picture=.+/>", "", line)
@@ -162,19 +162,12 @@ def xml_handler(line):
 
 
 if __name__ == "__main__":
-    # argparser = argparse.ArgumentParser(description="A mud client")
-    # # TODO: Implement
-    # argparser.add_argument("--character-file", default=None, help="Login using credentials stored in this file")
-    # # TODO: Implement
-    # argparser.add_argument(
-    #     "--test", action="store_true", default=False, help="Use a mock connection instead of connecting to the game"
-    # )
-    # args = argparser.parse_args()
-    # Engine()
-    from client_logger import ClientLogger
-
-    class Test(ClientLogger):
-        pass
-
-    t = Test()
-    t.log.info("Test Log")
+    argparser = argparse.ArgumentParser(description="A mud client")
+    # TODO: Implement
+    argparser.add_argument("--character-file", default=None, help="Login using credentials stored in this file")
+    # TODO: Implement
+    argparser.add_argument(
+        "--test", action="store_true", default=False, help="Use a mock connection instead of connecting to the game"
+    )
+    args = argparser.parse_args()
+    Engine()
