@@ -1,14 +1,13 @@
 import sys
 from threading import Thread
 from time import sleep
-import logging
 
 from PyQt5.QtWidgets import QAction, qApp, QApplication, QDockWidget, QLineEdit, QMainWindow, QMenu, QTextEdit
 from PyQt5.QtGui import QIcon, QTextCursor
 from PyQt5.QtCore import Qt
 
-from client.client.core import Engine
-from client.client.client_logger import ClientLogger
+from client.core import Engine
+from client.client_logger import ClientLogger
 
 # TODO: Window should close when exiting
 # TODO: Lock the scrollbar when its not all the way at the bottom

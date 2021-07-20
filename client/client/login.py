@@ -6,7 +6,7 @@ from telnetlib import Telnet
 from time import sleep
 
 # TODO: Fix ugly import hierarchy. Can probably fix by making a proper package or hacking __init__.py
-from client.client.client_logger import ClientLogger
+from client.client_logger import ClientLogger
 
 
 GAME_CODE = b"DR"
@@ -97,7 +97,7 @@ class EAccessClient(ClientLogger):
 def get_credentials():
     module_logger.log.debug("Fetching credentials")
     try:
-        from client.client.secrets import secrets
+        from client.secrets import secrets
 
         module_logger.log.debug("Got secrets from secrets.py")
         secrets["username"] = secrets["username"].encode("ASCII")

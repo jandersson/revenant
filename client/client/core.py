@@ -1,15 +1,14 @@
 from abc import abstractmethod
 import argparse
-from client.client.game_logger import GameLogger
 import logging
 import re
 from select import select
 import sys
 from threading import Thread
 
-from client.client.login import simu_login
-from client.client.client_logger import ClientLogger
-from client.client.xml_parser import XMLParser
+from client.login import simu_login
+from client.client_logger import ClientLogger
+from client.xml_parser import XMLParser
 
 
 def is_windows():
@@ -121,20 +120,35 @@ class Engine(ClientLogger):
         self.connection.write((write_data + "\n").encode("ASCII"))
 
     def read(self, output_callback=None):
-        read_data = self.connection.read_very_eager().decode("ASCII")
         buff = []
+
+        try:
+            read_data = self.connection.read_very_eager().decode("ASCII")
+        except EOFError as e:
+            goodbye = """
+            ******************
+            *****THE END******
+            ******************
+
+            """.split(
+                "\n"
+            )
+            if output_callback:
+                output_callback(goodbye)
+            else:
+                buff.append(goodbye)
+            self.log.info("Connection closed")
+            raise (e)
 
         for line in read_data.split("\n"):
 
             # TODO: This if might be redundant
             if line:
-                # line = xml_handler(line)
-                # TODO: This is a hacky way to log the game. Just trying to get some output right now...
                 logging.getLogger("game").info(line)
                 self.xml_parser.parse(line)
                 line = self.xml_parser.strip(line)
                 if not line:
-                    continue 
+                    continue
                 if output_callback:
                     output_callback(line)
                 else:
@@ -143,7 +157,6 @@ class Engine(ClientLogger):
         if not output_callback:
             sys.stdout.write("\n".join(buff))
             sys.stdout.flush()
-
 
 
 if __name__ == "__main__":
