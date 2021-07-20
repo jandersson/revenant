@@ -1,0 +1,462 @@
+Please wait for connection to game server.
+<playerID id='440984'/>
+<settingsInfo  client="1.0.1.26" major="652" crc='1714388481' instance='DR'/>
+<mode id="GAME"/>
+
+Welcome to DragonRealms (R) v2.00
+Copyright 2021 Simutronics Corp.
+All Rights Reserved
+<mode id="GAME"/>
+<app char="Crannach" game="DR" title="[DR: Crannach] StormFront"/>
+<streamWindow id="main" title="Story" location="center" target="drop" resident="true"/>
+<streamWindow id='inv' title='My Inventory' target='wear' ifClosed='' resident='true'/><clearStream id='inv' ifClosed=''/><pushStream id='inv'/>Your worn items are:
+  some polished thin-edged zills with silvered esoteric filigree
+  a floppy boar-hide hat
+  a lumium ring helm
+  a kyanite gwethdesuan
+  a dull serpent earcuff
+  a dull serpent earcuff
+  a lumium ring mask
+  a gaethzen sphere
+  a dark watersilk bag bearing a detailed cambrinth medallion
+  a soft white thigh quiver of snow leopard fur artfully wrapped with silver thread
+  a narrow gold bracer engraved with the seal of the Lunar Accord
+  a crystal-inset oaken staff surmounted with a lumpy spleen
+  a heavy silk duffel bag
+  a light cherry forester's crossbow with a slender stock
+  a large hunting pack crafted from wyvern hide
+  an elegant charcoal black linen shirt embellished with monogrammed black ruby intaglio cufflinks
+  a double-breasted grey rabbit's hide greatcoat trimmed with soft leather
+  a lumium ring hauberk
+  a double nestled armband made of cambrinth and covered with tiny gems
+  some silver-chased elbow spikes
+  a small puffy-white shield sealed with protective wax
+  a simple steel parry stick
+  some flame-discolored hand claws tipped with sharpened inky black katambite
+  some lumium ring gloves
+  an ornate alerce ring
+  a fuzzy gem pouch
+  a lockpick ring
+  a silver-hilted skinning knife displaying the Moon Mage Guild crest
+  some blackened steel knee spikes
+  some steel-toed footwraps
+<popStream/>
+<exposeContainer id='stow'/><container id='stow' title="My Pack" target='#18448796' location='right' save='' resident='true'/><clearContainer id="stow"/><inv id='stow'>In the pack:</inv><inv id='stow'> some quilted heavy burlap pants with a reinforced design</inv><inv id='stow'> some quilted heavy burlap gloves with a reinforced design</inv><inv id='stow'> some plate vambraces etched with an intricate knotwork design</inv><inv id='stow'> a steel scale lorica</inv><inv id='stow'> a light lumium plate aventail</inv><inv id='stow'> a light lumium plate mask</inv><inv id='stow'> a slice of metal cheesecake</inv><inv id='stow'> a steel bar mace</inv><inv id='stow'> an azurelle longbow carved with rearing dragons</inv><inv id='stow'> a steel light spear</inv><inv id='stow'> an ivory telescope inlaid with a ruby-eyed golden dragon</inv><inv id='stow'> a steel bastard sword</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> some light lumium plate gauntlets</inv><inv id='stow'> an ice pick</inv><inv id='stow'> some lumium scale gloves</inv><inv id='stow'> a weathered textbook with a tattered cover</inv><inv id='stow'> an ice pick</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> some pristine white vellum charts inked in silver</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> some bundling rope</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> some blue ice skates embroidered with a white gladiolus</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a teeny yellow notebook bound with curled green ribbons</inv><inv id='stow'> a sunset-hued scroll booklet displaying a golden sunburst</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a bone-trimmed wayerd pyramid</inv><inv id='stow'> some bundling rope</inv><inv id='stow'> a book of master weaponsmithing instructions</inv><inv id='stow'> a pitted forging kit with leather straps</inv><inv id='stow'> a forging work order logbook</inv><inv id='stow'> a book of journeyman armorsmithing instructions</inv><inv id='stow'> a steel ring balaclava</inv><inv id='stow'> a book of master blacksmithing instructions</inv><inv id='stow'> a coarse paper starchart</inv><inv id='stow'> a curved iron shovel</inv><inv id='stow'> a book of master tailoring instructions</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a deed register</inv><inv id='stow'> a bone-trimmed wayerd pyramid</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a gleaming electrum yardstick</inv><inv id='stow'> a simple tailor's kit</inv><inv id='stow'> an uneven stack of scrolls held together by a tattered shoestring</inv><inv id='stow'> a reused funeral black tome</inv><inv id='stow'> an enormous wizard's tome with symbols across the icesteel-gilt spine</inv><inv id='stow'> an ornately bound scroll folio dyed a pale violet</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> an ice pick</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a memory orb</inv><inv id='stow'> a glowing Meraud orb</inv><inv id='stow'> a worn and tattered map</inv><inv id='stow'> a hide sling</inv><inv id='stow'> some tapered steel knitting needles</inv><inv id='stow'> a small aubergine telescope fit with an eyepiece of electrum</inv><inv id='stow'> a small orchid telescope fit with an eyepiece of palladium</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> an ice pick</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> a fuzzy gem pouch</inv><inv id='stow'> an ice pick</inv><inv id='stow'> a small beige telescope fit with an eyepiece of rencate</inv><inv id='stow'> a midnight blue chamois cloth embroidered with tiny constellations along one edge</inv><openDialog type='dynamic' id='minivitals' title='Stats' location='statBar'><dialogData id='minivitals'></dialogData></openDialog>
+<dialogData id='minivitals'><skin id='healthSkin' name='healthBar' controls='health' left='0%' top='0%' width='20%' height='100%'/><progressBar id='health' value='100' text='health 100%' left='0%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<dialogData id='minivitals'><skin id='manaSkin' name='manaBar' controls='mana' left='20%' top='0%' width='20%' height='100%'/><progressBar id='mana' value='100' text='mana 100%' left='20%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<dialogData id='minivitals'><skin id='spiritSkin' name='spiritBar' controls='spirit' left='60%' top='0%' width='20%' height='100%'/><progressBar id='spirit' value='100' text='spirit 100%' left='60%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<dialogData id='minivitals'><skin id='staminaSkin' name='staminaBar' controls='stamina' left='40%' top='0%' width='20%' height='100%'/><progressBar id='stamina' value='100' text='fatigue 100%' left='40%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<dialogData id='minivitals'><progressBar id='concentration' value='100' text='concentration 100%' left='80%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<openDialog type="dynamic" id="befriend" title="Friends &amp;&amp; Enemies" location="right" target="befriend" height="165" resident="true"><dialogData id="befriend"></dialogData></openDialog>
+<dialogData id="befriend" clear="t"></dialogData>
+<dialogData id="befriend"><menuLink id="friend1" value="Dijkstra" exist="-10565760" noun="Dijkstra" align="nw" top="0" left="0" width="100"/><menuImage id="demeanor1" name="warmFace" tooltip="Warm" exist="-10565760" noun="Dijkstra" align="nw" top="0" left="100" height="25" width="25"/><image id='remove1' name='crossFace' cmd='befriend clear 1' align='nw' top="0" left="130" height="25" width="25" tooltip="Remove" echo="befriend clear 1"/><menuLink id="friend2" value="Fallanor" exist="-10481514" noun="Fallanor" align="nw" top="30" left="0" width="100"/><menuImage id="demeanor2" name="friendlyFace" tooltip="Friendly" exist="-10481514" noun="Fallanor" align="nw" top="30" left="100" height="25" width="25"/><image id='remove2' name='crossFace' cmd='befriend clear 2' align='nw' top="30" left="130" height="25" width="25" tooltip="Remove" echo="befriend clear 2"/><menuLink id="friend3" value="Crescentmoon" exist="-10577485" noun="Crescentmoon" align="nw" top="60" left="0" width="100"/><menuImage id="demeanor3" name="friendlyFace" tooltip="Friendly" exist="-10577485" noun="Crescentmoon" align="nw" top="60" left="100" height="25" width="25"/><image id='remove3' name='crossFace' cmd='befriend clear 3' align='nw' top="60" left="130" height="25" width="25" tooltip="Remove" echo="befriend clear 3"/></dialogData>
+<streamWindow id="familiar" title="Familiar" location="center" resident="true" styleIfClosed="watching"/>
+<streamWindow id="thoughts" title="Thoughts" location="center" resident="true" styleIfClosed="thought" timestamp="on"/>
+<streamWindow id="logons" title="Arrivals" location="left" resident="true" nameFilterOption="true" timestamp="on"/>
+<streamWindow id="death" title="Deaths" location="left" resident="true" nameFilterOption="true" timestamp="on"/>
+<streamWindow id="assess" title="Assess" location="right" resident="true"/>
+<streamWindow id='conversation' title='Conversation' location='center' resident='true' ifClosed='' timestamp='on'/>
+<streamWindow id='whispers' title='Whispers' location='center' resident='true' timestamp='on' ifClosed='conversation'/>
+<streamWindow id='talk' title='Talk' location='center' resident='true' timestamp='on' ifClosed='conversation'/>
+<streamWindow id='experience' title='Field Experience' location='center' target='drop' ifClosed='' resident='true'/><clearStream id='experience'/><pushStream id='experience'/><output class='mono'/>
+<compDef id='exp Shield Usage'></compDef>
+<compDef id='exp Light Armor'></compDef>
+<compDef id='exp Chain Armor'></compDef>
+<compDef id='exp Brigandine'></compDef>
+<compDef id='exp Plate Armor'></compDef>
+<compDef id='exp Defending'></compDef>
+<compDef id='exp Parry Ability'></compDef>
+<compDef id='exp Small Edged'></compDef>
+<compDef id='exp Large Edged'></compDef>
+<compDef id='exp Twohanded Edged'></compDef>
+<compDef id='exp Small Blunt'></compDef>
+<compDef id='exp Large Blunt'></compDef>
+<compDef id='exp Twohanded Blunt'></compDef>
+<compDef id='exp Slings'></compDef>
+<compDef id='exp Bow'></compDef>
+<compDef id='exp Crossbow'></compDef>
+<compDef id='exp Staves'></compDef>
+<compDef id='exp Polearms'></compDef>
+<compDef id='exp Light Thrown'></compDef>
+<compDef id='exp Heavy Thrown'></compDef>
+<compDef id='exp Brawling'></compDef>
+<compDef id='exp Offhand Weapon'></compDef>
+<compDef id='exp Melee Mastery'></compDef>
+<compDef id='exp Missile Mastery'></compDef>
+<compDef id='exp Lunar Magic'></compDef>
+<compDef id='exp Attunement'></compDef>
+<compDef id='exp Arcana'></compDef>
+<compDef id='exp Targeted Magic'></compDef>
+<compDef id='exp Augmentation'></compDef>
+<compDef id='exp Debilitation'></compDef>
+<compDef id='exp Utility'></compDef>
+<compDef id='exp Warding'></compDef>
+<compDef id='exp Sorcery'></compDef>
+<compDef id='exp Evasion'></compDef>
+<compDef id='exp Athletics'></compDef>
+<compDef id='exp Perception'></compDef>
+<compDef id='exp Stealth'></compDef>
+<compDef id='exp Locksmithing'></compDef>
+<compDef id='exp Thievery'></compDef>
+<compDef id='exp First Aid'></compDef>
+<compDef id='exp Outdoorsmanship'></compDef>
+<compDef id='exp Skinning'></compDef>
+<compDef id='exp Forging'></compDef>
+<compDef id='exp Engineering'></compDef>
+<compDef id='exp Outfitting'></compDef>
+<compDef id='exp Alchemy'></compDef>
+<compDef id='exp Enchanting'></compDef>
+<compDef id='exp Scholarship'></compDef>
+<compDef id='exp Mechanical Lore'></compDef>
+<compDef id='exp Appraisal'></compDef>
+<compDef id='exp Performance'></compDef>
+<compDef id='exp Astrology'></compDef>
+<compDef id='exp Tactics'></compDef>
+
+<compDef id='exp mindstate'></compDef>
+<output class=''/>
+<popStream id='experience'/>
+<component id='exp Shield Usage'></component>
+<component id='exp Light Armor'></component>
+<component id='exp Chain Armor'></component>
+<component id='exp Brigandine'></component>
+<component id='exp Plate Armor'></component>
+<component id='exp Defending'></component>
+<component id='exp Parry Ability'></component>
+<component id='exp Small Edged'></component>
+<component id='exp Large Edged'></component>
+<c
+omponent id='exp Twohanded Edged'></component>
+<component id='exp Small Blunt'></component>
+<component id='exp Large Blunt'></component>
+<component id='exp Twohanded Blunt'></component>
+<component id='exp Slings'></component>
+<component id='exp Bow'></component>
+<component id='exp Crossbow'></component>
+<component id='exp Staves'></component>
+<component id='exp Polearms'></component>
+<component id='exp Light Thrown'></component>
+<component id='exp Heavy Thrown'></component>
+<component id='exp Brawling'></component>
+<component id='exp Offhand Weapon'></component>
+<component id='exp Melee Mastery'></component>
+<component id='exp Missile Mastery'></component>
+<component id='exp Lunar Magic'></component>
+<component id='exp Attunement'></component>
+<component id='exp Arcana'></component>
+<component id='exp Targeted Magic'></component>
+<component id='exp Augmentation'></component>
+<component id='exp Debilitation'></component>
+<component id='exp Utility'></component>
+<component id='exp Warding'></component>
+<component id='exp Sorcery'></component>
+<component id='exp Evasion'></component>
+<component id='exp Athletics'></component>
+<component id='exp Perception'></component>
+<component id='exp Stealth'></component>
+<component id='exp Locksmithing'></component>
+<component id='exp Thievery'></component>
+<component id='exp First Aid'></component>
+<component id='exp Outdoorsmanship'></component>
+<component id='exp Skinning'></component>
+<component id='exp Forging'></component>
+<component id='exp Engineering'></component>
+<component id='exp Outfitting'></component>
+<component id='exp Alchemy'></component>
+<component id='exp Enchanting'></component>
+<component id='exp Scholarship'></component>
+<component id='exp Mechanical Lore'></component>
+<component id='exp Appraisal'></component>
+<component id='exp Performance'></component>
+<component id='exp Astrology'></component>
+<component id='exp Tactics'></component>
+<streamWindow id='group' title='Group' location='center' resident='true' ifClosed='' />
+<streamWindow id='atmospherics' title='Atmospherics' location='center' resident='true' timestamp='on' ifClosed='main'/>
+<streamWindow id='ooc' title='OOC' location='center' resident='true' timestamp='on' ifClosed=''/>
+<streamWindow id='percWindow' title='Active Spells' location='center' save='true' ifClosed='' resident='true' />
+<streamWindow id='combat' title='Combat' location='center' resident='true' ifClosed='main'/>
+<openDialog id='quick-simu' location='quickBar' title='Information'><dialogData id='quick-simu' clear='true'><link id='1' value='Game Info' cmd='url:/dr/info/' /><link id='2' value='Calendar' cmd='url:/bounce/redirect.asp?URL=http://forums.play.net/calendar?game=dragonrealms' /><link id='3' value='Forums' cmd='bbs' echo='bbs' /><link id='4' value='News' cmd='news' echo='news' /><link id='5' value='Polic
+y' cmd='policy' echo='policy' /><link id='6' value='Premium' cmd='url:/dr/premium/' /><link id='7' value='Platinum' cmd='url:/dr/platinum/' /><link id='8' value='SimuCon' cmd='url:/bounce/redirect.asp?URL=http://www.simucon.com' /><link id='9' value='Box Office' cmd='url:/dr/boxoffice.asp' /><link id='10' value='Vote for DR!' cmd='url:/bounce/redirect.asp?URL=http://www.topmudsites.com/vote-DragonRealms.html' /><link id='11' value='Elanthipedia' cmd='url:/bounce/redirect.asp?URL=https://elanthipedia.play.net/mediawiki/index.php/Main_Page' /><link id='12' value='Simucoins Store' cmd='url:/bounce/redirect.asp?URL=https://store.play.net/store/purchase/dr' /></dialogData></openDialog>
+<openDialog id='quick-char' location='quickBar' title='Character'><dialogData id='quick-char' clear='true'><link id='1' value='Info' cmd='info' echo='info' /><link id='2' value='Exp' cmd='exp' echo='exp' /><link id='3' value='Store' cmd='store window' echo='store window' /><link id='4' value='Look [self]' cmd='look Crannach' echo='look Crannach' /><link id='5' value='Look' cmd='look' echo='look' /><link id='6' value='Profile' cmd='profile /edit' echo='profile /edit' /><link id='7' value='Spells' cmd='spells' echo='spells' /><link id='8' value='Mana' cmd='mana' echo='mana' /><link id='9' value='Health' cmd='health' echo='health' /><link id='10' value='Wealth' cmd='wealth' echo='wealth' /><link id='11' value='Vote for DR!' cmd='url:/bounce/redirect.asp?URL=http://www.topmudsites.com/vote-DragonRealms.html' /></dialogData></openDialog>
+<openDialog id='quick-blank' location='quickBar' title='Blank'><dialogData id='quick-blank' clear='true'></dialogData></openDialog>
+<openDialog id='quick-tip' location='quickBar' title='Tips'><dialogData id='quick-tip' clear='true'><link id='1' value='Next' cmd='_qtip' echo='Next Tip' /><link id='2' value='CHATTER is a great resource for new free-to-play characters to get OOC help!' cmd='chatter' echo='chatter' /></dialogData></openDialog>
+<switchQuickBar id='quick-simu'/>
+<indicator id="IconKNEELING" visible="n"/><indicator id="IconPRONE" visible="n"/><indicator id="IconSITTING" visible="n"/><indicator id="IconSTANDING" visible="y"/><indicator id="IconSTUNNED" visible="n"/><indicator id="IconHIDDEN" visible="n"/><indicator id="IconINVISIBLE" visible="n"/><indicator id="IconDEAD" visible="n"/><indicator id="IconWEBBED" visible="n"/><indicator id="IconJOINED" visible="n"/>
+<spell>None</spell>
+<left>Empty</left><right>Empty</right>
+<endSetup/>
+<clearStream id='inv' ifClosed=''/><pushStream id='inv'/>Your worn items are:
+  some polished thin-edged zills with silvered esoteric filigree
+  a floppy boar-hide hat
+  a lumium ring helm
+  a kyanite gwethdesuan
+  a dull serpent earcuff
+  a dull serpent earcuff
+  a lumium ring mask
+  a gaethzen sphere
+  a dark watersilk bag bearing a detailed cambrinth medallion
+  a soft white thigh quiver of snow leopard fur artfully wrapped with silver thread
+  a narrow gold bracer engraved with the seal of the Lunar Accord
+  a crystal-inset oaken staff surmounted with a lumpy spleen
+  a heavy silk duffel bag
+  a light cherry forester's crossbow with a slender stock
+  a large hunting pack crafted from wyvern hide
+  an elegant charcoal black linen shirt embellished with monogrammed black ruby intaglio cufflinks
+  a double-breasted grey rabbit's hide greatcoat trimmed with soft leather
+  a lumium ring hauberk
+  a double nestled armband made of cambrinth and covered with tiny gems
+  some silver-chased elbow spikes
+  a small puffy-white shield sealed with protective wax
+  a simple steel parry stick
+  some flame-discolored hand claws tipped with sharpened inky black katambite
+  some lumium ring gloves
+  an ornate alerce ring
+  a fuzzy gem pouch
+  a lockpick ring
+  a silver-hilted skinning knife displaying the Moon Mage Guild crest
+  some blackened steel knee spikes
+  some steel-toed footwraps
+<popStream/>
+<dialogData id='minivitals'><skin id='healthSkin' name='healthBar' controls='health' left='0%' top='0%' width='20%' height='100%'/><progressBar id='health' value='100' text='health 100%' left='0%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<dialogData id='minivitals'><skin id='manaSkin' name='manaBar' controls='mana' left='20%' top='0%' width='20%' height='100%'/><progressBar id='mana' value='100' text='mana 100%' left='20%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<dialogData id='minivitals'><progressBar id='spirit' value='100' text='spirit 100%' left='60%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<dialogData id='minivitals'><skin id='staminaSkin' name='staminaBar' controls='stamina' left='40%' top='0%' width='20%' height='100%'/><progressBar id='stamina' value='100' text='fatigue 100%' left='40%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<dialogData id='minivitals'><progressBar id='concentration' value='100' text='concentration 100%' left='80%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<indicator id='IconBLEEDING' visible='n'/><streamWindow id='room' title='' subtitle='' location='center' target='drop' ifClosed='' resident='true'/>
+<clearStream id='room'/>
+<pushStream id='room'/>
+<compDef id='room desc'/>  <compDef id='room creatures'/><compDef id='room objs'/>
+<compDef id='room players'/>
+<compDef id='room exits'/>
+<compDef id='room extra'/>
+<popStream id='room'/>
+<nav/>
+<streamWindow id='main' title='Story' subtitle=" - [Birch Copse, Aevren Mod]" location='center' target='drop'/>
+<streamWindow id='room' title='Room' subtitle=" - [Birch Copse, Aevren Mod]" location='center' target='drop' ifClosed='' resident='true'/>
+<component id='room desc'>Towering above the shorter birch, the twisted limbs of the willow tree offer a breathtaking view of the landscape.  The leafless branches clatter and scrape against each other in the wind.</component>
+<component id='room objs'>You also see a mesh sieve with a polished alder handle.</component>
+<component id='room players'>Also here: Philosopher Gallifreius and Ashalf.</component>
+<component id='room exits'>Obvious paths: none.<compass></compass></component>
+<component id='room extra'></component>
+<output class="mono"/>
+
+----------------------------------------------------------------------------
+   Last login :  Tue Jul 20 07:21:21 ET 2021
+       Logoff :  Tue Jul 20 07:21:31 ET 2021
+----------------------------------------------------------------------------
+
+<output class=""/>
+<resource picture="0"/><style id="roomName" />[Birch Copse, Aevren Mod]
+<style id=""/><preset id='roomDesc'>Towering above the shorter birch, the twisted limbs of the willow tree offer a breathtaking view of the landscape.  The leafless branches clatter and scrape against each other in the wind.</preset>  You also see a mesh sieve with a polished alder handle.
+Also here: Philosopher Gallifreius and Ashalf.
+Obvious paths: none.
+<compass></compass>
+
+[You are standing up.]
+<pushBold/>* Log-on system converted your character's off-line time to rested experience.  You now have 4 hours built up. *
+<popBold/><prompt time="1626782848">&gt;</prompt>
+<pushStream id="logons"/> * Artek Stealthpaw joins the adventure.
+<popStream/><prompt time="1626782848">&gt;</prompt>
+<pushStream id="logons"/> * Sabroso has disconnected.
+<popStream/><prompt time="1626782850">&gt;</prompt>
+<pushStream id="logons"/> * Sabroso joins the adventure.
+<popStream/><prompt time="1626782852">&gt;</prompt>
+<pushStream id="logons"/> * Mahnchituh has disconnected.
+<popStream/><prompt time="1626782854">&gt;</prompt>
+<pushStream id="logons"/> * Mahnchituh joins the adventure.
+<popStream/><prompt time="1626782856">&gt;</prompt>
+<pushBold/>******************************************************
+*** Please check <d>NEWS NEXT</d> for unread <d>NEWS</d> items. ***
+******************************************************
+<popBold/><prompt time="1626782856">&gt;</prompt>
+<pushStream id="logons"/> * Kleah has disconnected.
+<popStream/><prompt time="1626782857">&gt;</prompt>
+<output class="mono"/>
+<pushBold/>    *************************IMPORTANT!*************************
+<popBold/>          Closing your front end does NOT necessarily drop
+          your character from the game!  Type QUIT or EXIT!
+<pushBold/>    *************************IMPORTANT!*************************
+<popBold/>     PvP has strict rules!  See NEWS 5 15, NEWS 5 24, NEWS 5 25!
+      Scripting is ok, but you must be responsive!  NEWS 5 17!
+           Vulgarity is not allowed in public!  NEWS 5 7!
+<pushBold/>    *************************IMPORTANT!*************************
+
+<popBold/>                  Enjoy DragonRealms?  Vote Today!
+                       <a href='http://www.topmudsites.com/vote-DragonRealms.html'>Visit Top Mud Sites!</a>
+
+<pushBold/>Login Tip:
+<popBold/>    Set a custom STORE phrase for items that do not fit another category!
+    Read More: <d>STORE HELP</d>
+    [To disable these login tips, see <d>HELP TIPS</d>.]
+<output class=""/>
+<prompt time="1626782858">&gt;</prompt>
+<pushBold/>******************************************************
+*** Please check <d>NEWS NEXT</d> for unread <d>NEWS</d> items. ***
+******************************************************
+<popBold/><prompt time="1626782858">&gt;</prompt>
+<pushStream id="logons"/> * Kleah joins the adventure.
+<popStream/><prompt time="1626782859">&gt;</prompt>
+<pushStream id="logons"/> * Ghuuldrum has disconnected.
+<popStream/><prompt time="1626782859">&gt;</prompt>
+<pushStream id="logons"/> * Ghuuldrum joins the adventure.
+<popStream/><prompt time="1626782863">&gt;</prompt>
+<pushStream id="logons"/> * Jaged has disconnected.
+<popStream/><prompt time="1626782863">&gt;</prompt>
+<pushBold/>* Log-on system converted 31% of your character's field experience into earned rank. *
+<popBold/><prompt time="1626782863">&gt;</prompt>
+<pushStream id="logons"/> * Fangio has disconnected.
+<popStream/><prompt time="1626782864">&gt;</prompt>
+<pushStream id="logons"/> * Terrible Jaged Bones joins the adventure.
+<popStream/><prompt time="1626782865">&gt;</prompt>
+<pushStream id="logons"/> * Fangio joins the adventure.
+<popStream/><prompt time="1626782866">&gt;</prompt>
+<pushStream id="atmospherics" />The faces on Gallifreius's bowtie begin sliding to the right, vanishing as they pass the edge of the fabric, only to reappear on the left edge!  The faces appear to pant with exertion before resuming their normal movement.
+<popStream id="atmospherics" /><prompt time="1626782868">&gt;</prompt>
+<pushBold/>******************************************************
+*** Please check <d>NEWS NEXT</d> for unread <d>NEWS</d> items. ***
+******************************************************
+<popBold/><prompt time="1626782868">&gt;</prompt>
+<pushStream id="logons"/> * Sabroso has disconnected.
+<popStream/><prompt time="1626782870">&gt;</prompt>
+<pushStream id="logons"/> * Comptroller Timbert joins the adventure.
+<popStream/><prompt time="1626782871">&gt;</prompt>
+<pushStream id="logons"/> * Sabroso joins the adventure.
+<popStream/><prompt time="1626782872">&gt;</prompt>
+<resource picture="0"/><style id="roomName" />[Birch Copse, Aevren Mod]
+<style id=""/><preset id='roomDesc'>Towering above the shorter birch, the twisted limbs of the willow tree offer a breathtaking view of the landscape.  The leafless branches clatter and scrape against each other in the wind.</preset>  You also see a mesh sieve with a polished alder handle.
+Also here: Philosopher Gallifreius and Ashalf.
+Obvious paths: none.
+<compass></compass><prompt time="1626782874">&gt;</prompt>
+<pushStream id="logons"/> * Kleah has disconnected.
+<popStream/><prompt time="1626782877">&gt;</prompt>
+Nayrriskil climbed up a willow tree.
+<component id='room players'>Also here: Nayrriskil, Philosopher Gallifreius and Ashalf.</component>
+<prompt time="1626782878">&gt;</prompt>
+Nayrriskil climbed down a willow tree.
+<component id='room players'>Also here: Philosopher Gallifreius and Ashalf.</component>
+<prompt time="1626782879">&gt;</prompt>
+<pushStream id="logons"/> * Kleah joins the adventure.
+<popStream/><prompt time="1626782880">&gt;</prompt>
+<pushStream id="logons"/> * Jaged has disconnected.
+<popStream/><prompt time="1626782880">&gt;</prompt>
+<pushStream id="logons"/> * Terrible Jaged Bones joins the adventure.
+<popStream/><prompt time="1626782882">&gt;</prompt>
+Gallifreius frowns solemnly.
+<prompt time="1626782892">&gt;</prompt>
+<pushStream id="logons"/> * Ballester returns home from a hard day of adventuring.
+<popStream/><prompt time="1626782899">&gt;</prompt>
+Healer Hrpuff climbed up a willow tree.
+<component id='room players'>Also here: Healer Hrpuff, Philosopher Gallifreius and Ashalf.</component>
+<prompt time="1626782910">&gt;</prompt>
+Healer Hrpuff climbed down a willow tree.
+<component id='room players'>Also here: Philosopher Gallifreius and Ashalf.</component>
+<prompt time="1626782911">&gt;</prompt>
+<pushStream id="logons"/> * Mahnchituh has disconnected.
+<popStream/><prompt time="1626782920">&gt;</prompt>
+<pushStream id="logons"/> * Zinsbog has disconnected.
+<popStream/><prompt time="1626782935">&gt;</prompt>
+<pushStream id="logons"/> * Grizzly Zinsbog Oakbarrel joins the adventure.
+<popStream/><prompt time="1626782937">&gt;</prompt>
+Gallifreius exhales softly on his sanowret crystal, and scintillating sparks of light dance across its surface.
+<prompt time="1626782997">&gt;</prompt>
+<pushStream id="logons"/> * Itzli returns home from a hard day of adventuring.
+<popStream/><prompt time="1626783041">&gt;</prompt>
+<pushStream id="logons"/> * Striphe has disconnected.
+<popStream/><prompt time="1626783045">&gt;</prompt>
+<clearStream id="percWindow"/>
+<roundTime value='1626783049'/>Yavash is dominant, while Xibar and Katamba's influences are weak.
+Perception and Psychic Projection spells are favored.
+You remember a way to combine the weaves of the Harness symbiosis with another spell.
+Roundtime: 3 sec.
+<prompt time="1626783046">R&gt;</prompt>
+<spell exist='spell'>Clear Vision</spell>That will disrupt less than a quarter of your current attunement.
+<castTime value='1626783073'/>
+You spread your hands apart then slowly bring them together, fingers interlocked.
+<prompt time="1626783053">&gt;</prompt>
+<pushStream id="logons"/> * Ghuuldrum has disconnected.
+<popStream/><prompt time="1626783058">&gt;</prompt>
+<pushStream id="logons"/> * Jaged has disconnected.
+<popStream/><prompt time="1626783058">&gt;</prompt>
+<pushStream id="logons"/> * Sophister Anjos joins the adventure.
+<popStream/><prompt time="1626783069">&gt;</prompt>
+You feel fully prepared to cast your spell.
+<prompt time="1626783073">&gt;</prompt>
+<clearStream id="percWindow"/>
+<dialogData id='minivitals'><skin id='manaSkin' name='manaBar' controls='mana' left='20%' top='0%' width='20%' height='100%'/><progressBar id='mana' value='87' text='mana 87%' left='20%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<dialogData id='minivitals'><skin id='staminaSkin' name='staminaBar' controls='stamina' left='40%' top='0%' width='20%' height='100%'/><progressBar id='stamina' value='99' text='fatigue 99%' left='40%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<dialogData id='minivitals'><progressBar id='concentration' value='94' text='concentration 94%' left='80%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<spell>None</spell>You gesture.
+You feel more aware of your environment.
+<pushStream id="percWindow"/>Clear Vision  (39 roisaen)
+<popStream/><castTime value='1626783074'/>
+<prompt time="1626783074">&gt;</prompt>
+<dialogData id='minivitals'><skin id='manaSkin' name='manaBar' controls='mana' left='20%' top='0%' width='20%' height='100%'/><progressBar id='mana' value='90' text='mana 90%' left='20%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<dialogData id='minivitals'><skin id='staminaSkin' name='staminaBar' controls='stamina' left='40%' top='0%' width='20%' height='100%'/><progressBar id='stamina' value='100' text='fatigue 100%' left='40%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<dialogData id='minivitals'><progressBar id='concentration' value='96' text='concentration 96%' left='80%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+You feel fully rested.
+<prompt time="1626783080">&gt;</prompt>
+<clearStream id="percWindow"/>
+<pushStream id="percWindow"/>Clear Vision  (39 roisaen)
+<popStream/><prompt time="1626783084">&gt;</prompt>
+<dialogData id='minivitals'><skin id='manaSkin' name='manaBar' controls='mana' left='20%' top='0%' width='20%' height='100%'/><progressBar id='mana' value='92' text='mana 92%' left='20%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<dialogData id='minivitals'><progressBar id='concentration' value='98' text='concentration 98%' left='80%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<prompt time="1626783086">&gt;</prompt>
+<dialogData id='minivitals'><skin id='manaSkin' name='manaBar' controls='mana' left='20%' top='0%' width='20%' height='100%'/><progressBar id='mana' value='95' text='mana 95%' left='20%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<dialogData id='minivitals'><progressBar id='concentration' value='100' text='concentration 100%' left='80%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<prompt time="1626783092">&gt;</prompt>
+Gallifreius frowns solemnly.
+<prompt time="1626783092">&gt;</prompt>
+<clearStream id="percWindow"/>
+<pushStream id="percWindow"/>Clear Vision  (39 roisaen)
+<popStream/><prompt time="1626783094">&gt;</prompt>
+<dialogData id='minivitals'><skin id='manaSkin' name='manaBar' controls='mana' left='20%' top='0%' width='20%' height='100%'/><progressBar id='mana' value='97' text='mana 97%' left='20%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<prompt time="1626783098">&gt;</prompt>
+You are Wizard-like in your ability at harnessing mana.
+You currently have a nearly complete attunement to the streams of mana.
+You are holding no mana in localized streams around you.
+Attunement: [0%&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;50%&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;|<pushBold/>_<popBold/>100%] 
+You are receiving full harness messages (HARNESS VERBOSE is set).
+<prompt time="1626783101">&gt;</prompt>
+<clearStream id="percWindow"/>
+<pushStream id="percWindow"/>Clear Vision  (39 roisaen)
+<popStream/><prompt time="1626783104">&gt;</prompt>
+<dialogData id='minivitals'><skin id='manaSkin' name='manaBar' controls='mana' left='20%' top='0%' width='20%' height='100%'/><progressBar id='mana' value='100' text='mana 100%' left='20%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+You feel fully attuned to the mana streams again.
+<prompt time="1626783104">&gt;</prompt>
+<dialogData id='minivitals'><skin id='manaSkin' name='manaBar' controls='mana' left='20%' top='0%' width='20%' height='100%'/><progressBar id='mana' value='100' text='mana 100%' left='20%' customText='t' top='0%' width='20%' height='100%'/></dialogData>
+<prompt time="1626783110">&gt;</prompt>
+<clearStream id="percWindow"/>
+<pushStream id="percWindow"/>Clear Vision  (39 roisaen)
+<popStream/><prompt time="1626783114">&gt;</prompt>
+<pushStream id="logons"/> * Battlecaster Imidon joins the adventure.
+<popStream/><prompt time="1626783119">&gt;</prompt>
+<clearStream id="percWindow"/>
+<pushStream id="percWindow"/>Clear Vision  (39 roisaen)
+<popStream/><prompt time="1626783124">&gt;</prompt>
+<clearStream id="percWindow"/>
+<pushStream id="percWindow"/>Clear Vision  (38 roisaen)
+<popStream/><prompt time="1626783134">&gt;</prompt>
+<clearStream id="percWindow"/>
+<pushStream id="percWindow"/>Clear Vision  (38 roisaen)
+<popStream/><prompt time="1626783144">&gt;</prompt>
+<pushStream id="logons"/> * Ammily returns home from a hard day of adventuring.
+<popStream/><prompt time="1626783151">&gt;</prompt>
+<clearStream id="percWindow"/>
+<pushStream id="percWindow"/>Clear Vision  (38 roisaen)
+<popStream/><prompt time="1626783154">&gt;</prompt>
+<pushStream id="logons"/> * Screecher Ammily joins the adventure.
+<popStream/><prompt time="1626783155">&gt;</prompt>
+<clearStream id="percWindow"/>
+<pushStream id="percWindow"/>Clear Vision  (38 roisaen)
+<popStream/><prompt time="1626783164">&gt;</prompt>
+<pushStream id="death"/> * Aluwyyn was just struck down at Empaths' Guild, Courtyard Garden! 
+<popStream/><prompt time="1626783167">&gt;</prompt>
+<clearStream id="percWindow"/>
+<pushStream id="percWindow"/>Clear Vision  (38 roisaen)
+<popStream/><prompt time="1626783174">&gt;</prompt>
+Gallifreius exhales softly on his sanowret crystal, and scintillating sparks of light dance across its surface.
+<prompt time="1626783177">&gt;</prompt>
+<clearStream id="percWindow"/>
+<pushStream id="percWindow"/>Clear Vision  (38 roisaen)
+<popStream/><prompt time="1626783184">&gt;</prompt>
+

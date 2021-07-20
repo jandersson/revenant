@@ -13,6 +13,7 @@ class XMLParser:
         self.bold = False
         self.player_id = None
         self.game = None
+        self.name = None
         self.current_stream = ""
         self.current_style = ""
         self.prompt = ""
@@ -78,6 +79,8 @@ class XMLParser:
         elif name == "settingsInfo":
             if "instance" in attributes:
                 self.game = attributes["instance"]
+        elif name == "app":
+            self.name = attributes["char"]
 
     def tag_end(self, name: str):
         if self.active_tags:
@@ -86,7 +89,8 @@ class XMLParser:
             self.last_id = self.active_ids.pop()
 
     def strip(self, line: str) -> str:
-        if line == "\r\n": return line
+        if line == "\r\n":
+            return line
 
         if self._strip_xml_multiline:
             self._strip_xml_multiline += line
@@ -97,7 +101,12 @@ class XMLParser:
         # Reset
         self._strip_xml_multiline = ""
 
-        line = re.sub(r"<pushStream id=[\"'](?:spellfront|inv|bounty|society|speech|talk)[\"'][^>]*\/>.*?<popStream[^>]*>", "", line, flags=re.MULTILINE)
+        line = re.sub(
+            r"<pushStream id=[\"'](?:spellfront|inv|bounty|society|speech|talk)[\"'][^>]*\/>.*?<popStream[^>]*>",
+            "",
+            line,
+            flags=re.MULTILINE,
+        )
         line = re.sub(r'<stream id="Spells">.*?<\/stream>', "", line, flags=re.MULTILINE)
         line = re.sub(r"<(compDef|inv|component|right|left|spell|prompt)[^>]*>.*?<\/\1>", "", line, flags=re.MULTILINE)
         line = re.sub(r"<[^>]+>", "", line)
