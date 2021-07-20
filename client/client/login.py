@@ -5,7 +5,6 @@ import struct
 from telnetlib import Telnet
 from time import sleep
 
-# TODO: Fix ugly import hierarchy. Can probably fix by making a proper package or hacking __init__.py
 from client.client_logger import ClientLogger
 
 
