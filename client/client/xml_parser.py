@@ -25,13 +25,15 @@ class XMLParser:
         self.start_info_re = re.compile(r"^<([^\s>\/]+)")
         self.attr_re = re.compile(r"([A-z][A-z0-9_\-]*)=([\"'])(.*?)\2")
 
+        self._strip_xml_multiline = ""
+
     def text(self, text_string):
         if self.active_tags and self.active_tags[-1] == "prompt":
             self.prompt = text_string
             print("prompt: ", text_string)
         return text_string
 
-    def parse(self, line):
+    def parse(self, line: str):
         self.buffer += line
         m = self.unesc_re.match(line)
         if m:
@@ -62,7 +64,7 @@ class XMLParser:
             return line
         return line
 
-    def tag_start(self, name, attributes):
+    def tag_start(self, name: str, attributes: dict):
         self.active_tags.append(name)
         if "id" in attributes:
             self.active_ids.append(attributes["id"])
@@ -77,11 +79,32 @@ class XMLParser:
             if "instance" in attributes:
                 self.game = attributes["instance"]
 
-    def tag_end(self, name):
+    def tag_end(self, name: str):
         if self.active_tags:
             self.last_tag = self.active_tags.pop()
         if self.active_ids:
             self.last_id = self.active_ids.pop()
+
+    def strip(self, line: str) -> str:
+        if line == "\r\n": return line
+
+        if self._strip_xml_multiline:
+            self._strip_xml_multiline += line
+            line = self._strip_xml_multiline
+        if len(re.split(r"<pushStream[^>]*\/>", line)) > len(re.split(r"<popStream[^>]*\/>", line)):
+            self._strip_xml_multiline = line
+            return ""
+        # Reset
+        self._strip_xml_multiline = ""
+
+        line = re.sub(r"<pushStream id=[\"'](?:spellfront|inv|bounty|society|speech|talk)[\"'][^>]*\/>.*?<popStream[^>]*>", "", line, flags=re.MULTILINE)
+        line = re.sub(r'<stream id="Spells">.*?<\/stream>', "", line, flags=re.MULTILINE)
+        line = re.sub(r"<(compDef|inv|component|right|left|spell|prompt)[^>]*>.*?<\/\1>", "", line, flags=re.MULTILINE)
+        line = re.sub(r"<[^>]+>", "", line)
+        line = html.unescape(line)
+        if not line.strip():
+            return ""
+        return line
 
     def reset(self):
         self.current_stream = ""

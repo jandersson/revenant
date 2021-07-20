@@ -113,6 +113,7 @@ class ClientGUI(QMainWindow, ClientLogger):
 
 
 if __name__ == "__main__":
+    # TODO: Break out into a launcher module
     app = QApplication(sys.argv)
     client_app = ClientGUI()
     sys.exit(app.exec_())

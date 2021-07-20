@@ -6,10 +6,10 @@ import re
 from select import select
 import sys
 from threading import Thread
-import xml.etree.ElementTree as ET
 
 from client.client.login import simu_login
 from client.client.client_logger import ClientLogger
+from client.client.xml_parser import XMLParser
 
 
 def is_windows():
@@ -58,6 +58,7 @@ class Engine(ClientLogger):
     def __init__(self, mode=""):
         self._connection = None
         connection = self._connection
+        self.xml_parser = XMLParser()
         if mode == "gui":
             self.log.debug("Using GUI Reactor")
             self.reactor = GUIReactor()
@@ -125,11 +126,15 @@ class Engine(ClientLogger):
 
         for line in read_data.split("\n"):
 
+            # TODO: This if might be redundant
             if line:
                 # line = xml_handler(line)
-                # TODO: This isn't logging anything
                 # TODO: This is a hacky way to log the game. Just trying to get some output right now...
                 logging.getLogger("game").info(line)
+                self.xml_parser.parse(line)
+                line = self.xml_parser.strip(line)
+                if not line:
+                    continue 
                 if output_callback:
                     output_callback(line)
                 else:
@@ -139,40 +144,6 @@ class Engine(ClientLogger):
             sys.stdout.write("\n".join(buff))
             sys.stdout.flush()
 
-
-def xml_handler(line):
-    # Handle pseudo xml
-    # Just remove it for now
-    # TODO: Better than naive solution for stripping tags
-    line = re.sub("<resource picture=.+/>", "", line)
-    line = re.sub("<style id=.+/>", "", line)
-    if line.startswith("Obvious paths:"):
-        line = re.sub("</?d>", "", line)
-    if line.startswith("<compass"):
-        line = re.sub("<compass>.+</compass>", "", line)
-    if line.startswith("<pushBold/>"):
-        line = re.sub("<pushBold/>", "", line)
-    if line.startswith('<pushStream id="logons"/>'):
-        line = re.sub('<pushStream id="logons"/>', "", line)
-    if line.startswith('<pushStream id="death"/>'):
-        line = re.sub('<pushStream id="death"/>', "", line)
-    if line.startswith('<pushStream id="atmospherics" />'):
-        line = re.sub('<pushStream id="atmospherics" />', "", line)
-
-    if line.startswith("<prompt"):
-        xml = re.search("<prompt.+</prompt>", line)
-
-        def xml_prompt(_xml, _line):
-            if not _xml:
-                return _line
-            try:
-                _line = re.sub("<prompt.+</prompt>", ET.fromstring(xml.group(0)).text, _line)
-            except ET.ParseError as error:
-                print(f"Parse Error! {error}")
-            return _line
-
-        line = xml_prompt(xml, line)
-    return line
 
 
 if __name__ == "__main__":
