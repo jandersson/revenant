@@ -1,2 +1,4 @@
 pyyaml
 pyqt5
+# Dev stuff
+black
