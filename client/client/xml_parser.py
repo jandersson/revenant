@@ -1,12 +1,12 @@
 import re
 import html
+from xml.etree.ElementTree import ParseError
 
-# TODO: Possible to refactor some of the regex to use ElementTree instead?
-class XMLParser:
-    """A parser directly translated from lich.rb::XMLParser (aka XMLData)"""
+
+class XMLData:
+    """A parser target directly translated from lich.rb::XMLParser (aka XMLData)"""
 
     def __init__(self):
-        self.buffer = ""
         self.active_tags = []
         self.last_tag = None
         self.active_ids = []
@@ -26,55 +26,14 @@ class XMLParser:
         # The prone/sitting/standing indicator
         self.indicator = {}
 
-        # TODO: Rename unesc, its actually just looking for anything thats not a tag. Unescaping is just an addon.
-        self.unesc_re = re.compile(r"^[^<]+")
-        self.end_re = re.compile(r"^<\/[^<]+>")
-        self.end_info_re = re.compile(r"^<\/([^\s>\/]+)")
-        self.start_re = re.compile(r"^<[^<]+>")
-        self.start_info_re = re.compile(r"^<([^\s>\/]+)")
-        self.attr_re = re.compile(r"([A-z][A-z0-9_\-]*)=([\"'])(.*?)\2")
-
         # Internal memo pad for stripping multi line tags
         self._strip_xml_multiline = ""
 
-    def text(self, text_string):
+    def data(self, text_string):
         if self.active_tags and self.active_tags[-1] == "prompt":
             self.prompt = text_string
-            print("prompt: ", text_string)
-        return text_string
 
-    def parse(self, line: str):
-        self.buffer += line
-        m = self.unesc_re.match(line)
-        if m:
-            self.buffer = self.unesc_re.sub(self.buffer, "")
-            line = html.unescape(line)
-            self.text(line)
-            if line:
-                return line
-        m = self.end_re.match(line)
-        if m:
-            print("end_re match: ", m)
-            info_match = self.end_info_re.match(m.group(0))
-            if info_match:
-                print(info_match)
-            return line
-        m = self.start_re.match(line)
-        if m:
-            info = self.start_info_re.match(m.group(0))
-            if info:
-                element = info.group(1)
-                attributes = {}
-                for attr in self.attr_re.findall(line):
-                    # for attr in self.attr_re.finditer(line):
-                    attributes[attr[0]] = attr[2]
-                    # attributes[attr.group(1)] = attr.group(3)
-                self.tag_start(element, attributes)
-                self.tag_end(element)
-            return line
-        return line
-
-    def tag_start(self, name: str, attributes: dict):
+    def start(self, name: str, attributes: dict):
         self.active_tags.append(name)
         if "id" in attributes:
             self.active_ids.append(attributes["id"])
@@ -97,7 +56,7 @@ class XMLParser:
         elif name == "indicator":
             self.indicator[attributes["id"]] = attributes["visible"]
 
-    def tag_end(self, name: str):
+    def end(self, name: str):
         if self.active_tags:
             self.last_tag = self.active_tags.pop()
         if self.active_ids:
@@ -135,3 +94,25 @@ class XMLParser:
         self.current_style = ""
         self.active_tags = []
         self.active_ids = []
+
+
+if __name__ == "__main__":
+    import xml.etree.ElementTree as ET
+
+    # from xml.etree.ElementTree import XMLParser
+
+    import pathlib
+
+    test_file = pathlib.Path(__file__).parents[1] / "tests" / "login-sample.log"
+    with open(test_file) as infile:
+        test_data = infile.readlines()
+    xml_data = XMLData()
+
+    parser = ET.XMLParser(target=xml_data, encoding="ASCII")
+    for line in test_data:
+        try:
+            # Need to create a new parser if it ever gets caught in an exception. Not sure how to get it unstuck.
+            ET.XMLParser(target=xml_data, encoding="ASCII").feed(line)
+        except ParseError as e:
+            continue
+    print(".")

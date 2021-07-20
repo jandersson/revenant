@@ -1,14 +1,14 @@
 from abc import abstractmethod
 import argparse
 import logging
-import re
 from select import select
 import sys
 from threading import Thread
+from xml.etree.ElementTree import ParseError, XMLParser
 
 from client.login import simu_login
 from client.client_logger import ClientLogger
-from client.xml_parser import XMLParser
+from client.xml_parser import XMLData
 
 
 def is_windows():
@@ -57,7 +57,7 @@ class Engine(ClientLogger):
     def __init__(self, mode=""):
         self._connection = None
         connection = self._connection
-        self.xml_parser = XMLParser()
+        self.xml_data = XMLData()
         if mode == "gui":
             self.log.debug("Using GUI Reactor")
             self.reactor = GUIReactor()
@@ -145,8 +145,11 @@ class Engine(ClientLogger):
             # TODO: This if might be redundant
             if line:
                 logging.getLogger("game").info(line)
-                self.xml_parser.parse(line)
-                line = self.xml_parser.strip(line)
+                try:
+                    XMLParser(target=self.xml_data).feed(line)
+                except ParseError:
+                    pass
+                line = self.xml_data.strip(line)
                 if not line:
                     continue
                 if output_callback:
