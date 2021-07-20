@@ -1,22 +1,30 @@
-import xml.etree.ElementTree as ET
 import re
 import html
 
-
+# TODO: Possible to refactor some of the regex to use ElementTree instead?
 class XMLParser:
+    """A parser directly translated from lich.rb::XMLParser (aka XMLData)"""
+
     def __init__(self):
         self.buffer = ""
         self.active_tags = []
         self.last_tag = None
         self.active_ids = []
         self.last_id = None
+        # Flag indicating if text being processed is bold
         self.bold = False
+        # Not sure what this is used for
         self.player_id = None
         self.game = None
+        # Character first name
         self.name = None
         self.current_stream = ""
         self.current_style = ""
         self.prompt = ""
+        # UNIX timestamp sent with <prompt> tag
+        self.server_time = None
+        # The prone/sitting/standing indicator
+        self.indicator = {}
 
         # TODO: Rename unesc, its actually just looking for anything thats not a tag. Unescaping is just an addon.
         self.unesc_re = re.compile(r"^[^<]+")
@@ -26,6 +34,7 @@ class XMLParser:
         self.start_info_re = re.compile(r"^<([^\s>\/]+)")
         self.attr_re = re.compile(r"([A-z][A-z0-9_\-]*)=([\"'])(.*?)\2")
 
+        # Internal memo pad for stripping multi line tags
         self._strip_xml_multiline = ""
 
     def text(self, text_string):
@@ -38,9 +47,7 @@ class XMLParser:
         self.buffer += line
         m = self.unesc_re.match(line)
         if m:
-            # print("line: ", line)
             self.buffer = self.unesc_re.sub(self.buffer, "")
-            # line = self.unesc_re.sub(self.buffer, "")
             line = html.unescape(line)
             self.text(line)
             if line:
@@ -58,8 +65,10 @@ class XMLParser:
             if info:
                 element = info.group(1)
                 attributes = {}
-                for attr in self.attr_re.finditer(line):
-                    attributes[attr.group(1)] = attr.group(3)
+                for attr in self.attr_re.findall(line):
+                    # for attr in self.attr_re.finditer(line):
+                    attributes[attr[0]] = attr[2]
+                    # attributes[attr.group(1)] = attr.group(3)
                 self.tag_start(element, attributes)
                 self.tag_end(element)
             return line
@@ -76,11 +85,17 @@ class XMLParser:
             self.bold = False
         elif name == "playerID":
             self.player_id = attributes["id"]
+        elif name == "style":
+            self.current_style = attributes["id"]
+        elif name == "prompt":
+            self.server_time = int(attributes["time"])
         elif name == "settingsInfo":
             if "instance" in attributes:
                 self.game = attributes["instance"]
         elif name == "app":
             self.name = attributes["char"]
+        elif name == "indicator":
+            self.indicator[attributes["id"]] = attributes["visible"]
 
     def tag_end(self, name: str):
         if self.active_tags:
