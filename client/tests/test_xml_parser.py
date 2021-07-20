@@ -1,6 +1,6 @@
 import pytest
 from xml.etree.ElementTree import ParseError, XMLParser
-from client.xml_parser import XMLData
+from client.xml_data import XMLData
 import pathlib
 
 

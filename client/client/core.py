@@ -8,7 +8,7 @@ from xml.etree.ElementTree import ParseError, XMLParser
 
 from client.login import simu_login
 from client.client_logger import ClientLogger
-from client.xml_parser import XMLData
+from client.xml_data import XMLData
 
 
 def is_windows():
