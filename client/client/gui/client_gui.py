@@ -73,7 +73,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         else:
             self.status_bar.hide()
 
-    def write_to_main_window(self, text):
+    def write_to_main_window(self, text: str):
         if not text.endswith("\n"):
             text = text + "\n"
         self.main_window.insertPlainText(text)
