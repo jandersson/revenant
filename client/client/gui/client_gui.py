@@ -2,16 +2,15 @@ import sys
 from threading import Thread
 from time import sleep
 
-from PyQt5.QtWidgets import QAction, qApp, QApplication, QDockWidget, QLineEdit, QMainWindow, QMenu, QTextEdit
-from PyQt5.QtGui import QIcon, QTextCursor
-from PyQt5.QtCore import Qt
+from PyQt6.QtWidgets import QApplication, QDockWidget, QLineEdit, QMainWindow, QMenu, QTextEdit
+from PyQt6.QtGui import QIcon, QTextCursor, QAction
+from PyQt6.QtCore import Qt
 
 from client.core import Engine
 from client.client_logger import ClientLogger
 
-# TODO: Window should close when exiting
 # TODO: Lock the scrollbar when its not all the way at the bottom
-# TODO: Exit the game when the window is closed
+# TODO: Exit the game when the window is closed. Make it optional, leaving room for headless potential.
 
 
 class ClientGUI(QMainWindow, ClientLogger):
@@ -38,7 +37,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         exit_action = QAction(QIcon("exit.png"), "&Exit", self)
         exit_action.setShortcut("Ctrl-Q")
         exit_action.setStatusTip("Exit")
-        exit_action.triggered.connect(qApp.quit)
+        exit_action.triggered.connect(QApplication.instance().quit)
 
         view_status_bar = QAction("Status Bar", self, checkable=True)
         view_status_bar.setStatusTip("Show the status bar")
@@ -59,10 +58,10 @@ class ClientGUI(QMainWindow, ClientLogger):
 
     def __add_input_field(self):
         self.input = QLineEdit()
-        # self.input = QInputDialog()
-        self.input_dock.setAllowedAreas(Qt.BottomDockWidgetArea | Qt.TopDockWidgetArea)
+        # TODO: Fix the bottom dock. BottomDock thingy is incompatible with Qt6
+        self.input_dock.setAllowedAreas(Qt.DockWidgetArea.BottomDockWidgetArea | Qt.DockWidgetArea.TopDockWidgetArea)
         self.input_dock.setWidget(self.input)
-        self.addDockWidget(Qt.BottomDockWidgetArea, self.input_dock)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.input_dock)
         self.input.returnPressed.connect(self.write_to_input_buffer)
 
     def write_to_input_buffer(self):
@@ -78,7 +77,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         if not text.endswith("\n"):
             text = text + "\n"
         self.main_window.insertPlainText(text)
-        self.main_window.moveCursor(QTextCursor.End)
+        self.main_window.moveCursor(QTextCursor.MoveOperation.End)
 
     def write(self, write_data: str):
         write_data = write_data + "\n"
@@ -92,7 +91,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         action = context_menu.exec_(self.mapToGlobal(event.pos()))
 
         if action == exit_action:
-            qApp.quit()
+            QApplication.instance().quit()
 
     def gui_reactor(self):
         def input_loop():
@@ -115,4 +114,4 @@ if __name__ == "__main__":
     # TODO: Break out into a launcher module
     app = QApplication(sys.argv)
     client_app = ClientGUI()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
