@@ -9,9 +9,9 @@ from sqlalchemy import create_engine
 
 def get_exp(character):
     # TODO: Write this query more better: filter on the join, use a cte for readability
-    exp_table_sql = f"""SELECT ms.skill_name
-                              ,ms.rank
-                              ,ms.mindstate_num as mindstate 
+    exp_table_sql = f"""SELECT ms.skill_name,
+                               ms.rank,
+                               ms.mindstate_num as mindstate
                           FROM mindstate_r ms 
                           JOIN (select max(timestamp) as max_timestamp 
                                   from mindstate_r 
