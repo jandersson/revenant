@@ -3,7 +3,6 @@ from subprocess import Popen, run
 from pathlib import Path
 from time import sleep
 from contextlib import closing
-import logging
 
 import urwid
 
