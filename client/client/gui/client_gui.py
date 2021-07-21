@@ -27,7 +27,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.input_buffer = []
         self.status_bar = self.statusBar()
         self.input_dock = QDockWidget()
-        self.client = Engine(mode="gui")
+        self.client = Engine()
         self.__init_ui()
         self.client.connect()
         self.gui_reactor()

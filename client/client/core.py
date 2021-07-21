@@ -1,4 +1,3 @@
-from abc import abstractmethod
 import argparse
 import logging
 from select import select
@@ -15,57 +14,12 @@ def is_windows():
     return sys.platform == "win32"
 
 
-class BaseReactor:
-    """Handle basic IO"""
-
-    def __init__(self, connection=None):
-        self.connection = connection
-
-    @abstractmethod
-    def start(self):
-        pass
-
-    @abstractmethod
-    def shutdown(self):
-        pass
-
-
-class GUIReactor(BaseReactor):
-    """Handle Input/Output for Graphical User Interface"""
-
-    def __init__(self, connection=None):
-        super().__init__(connection)
-        self.threads = []
-
-    def start(self):
-        self.connect()
-
-
-class TUIReactor(BaseReactor):
-    """Handle Input/Output for Terminal User Interface"""
-
-    def __init__(self, connection=None):
-        super().__init__(connection)
-
-
-# This is a mess. Its really hard to unravel and should be blown up once I get it into a working state.
-
-
 class Engine(ClientLogger):
     """A basic DR client"""
 
     def __init__(self, mode=""):
         self._connection = None
         self.xml_data = XMLData()
-        if mode == "gui":
-            self.log.debug("Using GUI Reactor")
-            self.reactor = GUIReactor()
-        elif mode == "tui":
-            self.log.debug("Using TUI Reactor")
-            self.reactor = TUIReactor()
-        else:
-            self.log.warning("Using base reactor")
-            self.reactor = BaseReactor()
 
     @property
     def connection(self):
@@ -74,7 +28,6 @@ class Engine(ClientLogger):
     @connection.setter
     def connection(self, conn):
         self._connection = conn
-        self.reactor.connection = conn
 
     def connect(self):
         try:
