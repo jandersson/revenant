@@ -30,7 +30,7 @@ jobs:
         flake8 .
     - name: Build revenant client binary wheel
       run: |
-        python client/setup.py
+        python -m pip install -e client
     - name: Test with pytest
       run: |
         pytest

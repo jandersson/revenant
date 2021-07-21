@@ -1,2 +1,2 @@
 pyyaml
-pyqt5
+pyqt6
