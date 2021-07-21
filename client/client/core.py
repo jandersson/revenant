@@ -165,10 +165,17 @@ class Engine(ClientLogger):
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser(description="A mud client")
     # TODO: Implement
-    argparser.add_argument("--character-file", default=None, help="Login using credentials stored in this file")
+    argparser.add_argument(
+        "--character-file",
+        default=None,
+        help="Login using credentials stored in this file",
+    )
     # TODO: Implement
     argparser.add_argument(
-        "--test", action="store_true", default=False, help="Use a mock connection instead of connecting to the game"
+        "--test",
+        action="store_true",
+        default=False,
+        help="Use a mock connection instead of connecting to the game",
     )
     args = argparser.parse_args()
     Engine()

@@ -18,5 +18,7 @@ class ClientLogger:
             return self._log
         except AttributeError:
             self._init_logger()
-            self._log = logging.root.getChild(self.__class__.__module__ + "." + self.__class__.__name__)
+            self._log = logging.root.getChild(
+                self.__class__.__module__ + "." + self.__class__.__name__
+            )
             return self._log

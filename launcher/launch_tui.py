@@ -7,11 +7,12 @@ import logging
 
 import urwid
 
-choices = u"Hotdog Crannach".split()
+choices = "Hotdog Crannach".split()
 
 profanity_log_dir = Path("/tmp/")
 if not profanity_log_dir.exists():
     raise FileNotFoundError("Logging directory does not exist")
+
 
 def launch_lich(lich_path: Path, lich_args):
     lich_args.insert(0, str(lich_path))
@@ -40,15 +41,16 @@ def menu(title, choices):
 
 
 def item_chosen(button, choice):
-    response = urwid.Text([u"You chose ", choice, u"\n"])
-    done = urwid.Button(u"Launch!")
+    response = urwid.Text(["You chose ", choice, "\n"])
+    done = urwid.Button("Launch!")
     urwid.connect_signal(done, "click", launch_dragonrealms, choice)
-    main.original_widget = urwid.Filler(urwid.Pile([response, urwid.AttrMap(done, None, focus_map="reversed")]))
+    main.original_widget = urwid.Filler(
+        urwid.Pile([response, urwid.AttrMap(done, None, focus_map="reversed")])
+    )
 
 
 def launch_dragonrealms(button, character):
     headless_port = get_free_port()
-
 
     lich_executable = Path("/home/jonas/dragonrealms/lich/lich.rbw")
     if not lich_executable.exists():
@@ -57,7 +59,7 @@ def launch_dragonrealms(button, character):
     profanity_executable = Path("/home/jonas/dragonrealms/ProfanityFE/profanity.rb")
     if not profanity_executable.exists():
         raise FileNotFoundError("Cant find profanity executable")
-    
+
     lich_args = [
         "--login",
         character,
@@ -78,10 +80,10 @@ def launch_dragonrealms(button, character):
     launch_profanity(profanity_executable, profanity_args)
 
 
-main = urwid.Padding(menu(u"Characters", choices), left=2, right=2)
+main = urwid.Padding(menu("Characters", choices), left=2, right=2)
 top = urwid.Overlay(
     main,
-    urwid.SolidFill(u"\N{MEDIUM SHADE}"),
+    urwid.SolidFill("\N{MEDIUM SHADE}"),
     align="center",
     width=("relative", 60),
     valign="middle",

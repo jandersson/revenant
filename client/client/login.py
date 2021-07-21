@@ -34,8 +34,12 @@ class EAccessClient(ClientLogger):
 
     def submit_login(self, credentials):
         """Inform the server of the user/pass, return what appears to be a login key?"""
-        hashed_password = self.encrypt_password(credentials["password"], credentials["hashkey"])
-        self.client.write(b"A\t" + credentials["username"] + b"\t" + hashed_password + b"\n")
+        hashed_password = self.encrypt_password(
+            credentials["password"], credentials["hashkey"]
+        )
+        self.client.write(
+            b"A\t" + credentials["username"] + b"\t" + hashed_password + b"\n"
+        )
         a_response = self.client.read_until(b"\n").decode()
         self.log.debug(f"a_response: {a_response}")
         if "PASSWORD" in a_response:
@@ -73,7 +77,11 @@ class EAccessClient(ClientLogger):
         self.client.write(b"C\n")
         c_response = self.client.read_until(b"\n")
         self.log.debug(f"c_response: {c_response}")
-        character_code = re.compile("C\t\d\t\d\t\d\t\d\t(.+)\t" + character_name).match(c_response.decode()).group(1)
+        character_code = (
+            re.compile("C\t\d\t\d\t\d\t\d\t(.+)\t" + character_name)
+            .match(c_response.decode())
+            .group(1)
+        )
         self.log.debug(f"character_code: {character_code}")
         return character_code
 
@@ -90,7 +98,12 @@ class EAccessClient(ClientLogger):
         """Encrypt the password with the supplied hash from the server"""
         password = list(password)
         hashkey = list(hashkey[:32])
-        return b"".join([struct.pack("B", ((char - 32) ^ hashkey[i]) + 32) for i, char in enumerate(password)])
+        return b"".join(
+            [
+                struct.pack("B", ((char - 32) ^ hashkey[i]) + 32)
+                for i, char in enumerate(password)
+            ]
+        )
 
 
 def get_credentials():
@@ -143,7 +156,11 @@ def simu_login():
     log.debug("Got a game connection via Telnet")
     game_connection.read_until(b"</settings>")
     game_connection.write(key.encode("ASCII") + b"\n")
-    game_connection.write(b"/FE:STORMFRONT /VERSION:1.0.1.26 /P:" + platform.system().encode("ASCII") + b" /XML\n")
+    game_connection.write(
+        b"/FE:STORMFRONT /VERSION:1.0.1.26 /P:"
+        + platform.system().encode("ASCII")
+        + b" /XML\n"
+    )
     sleep(0.3)
     game_connection.write(b"<c>\n")
     sleep(0.3)

@@ -69,7 +69,9 @@ class XMLData:
         if self._strip_xml_multiline:
             self._strip_xml_multiline += line
             line = self._strip_xml_multiline
-        if len(re.split(r"<pushStream[^>]*\/>", line)) > len(re.split(r"<popStream[^>]*\/>", line)):
+        if len(re.split(r"<pushStream[^>]*\/>", line)) > len(
+            re.split(r"<popStream[^>]*\/>", line)
+        ):
             self._strip_xml_multiline = line
             return ""
         # Reset
@@ -81,8 +83,15 @@ class XMLData:
             line,
             flags=re.MULTILINE,
         )
-        line = re.sub(r'<stream id="Spells">.*?<\/stream>', "", line, flags=re.MULTILINE)
-        line = re.sub(r"<(compDef|inv|component|right|left|spell|prompt)[^>]*>.*?<\/\1>", "", line, flags=re.MULTILINE)
+        line = re.sub(
+            r'<stream id="Spells">.*?<\/stream>', "", line, flags=re.MULTILINE
+        )
+        line = re.sub(
+            r"<(compDef|inv|component|right|left|spell|prompt)[^>]*>.*?<\/\1>",
+            "",
+            line,
+            flags=re.MULTILINE,
+        )
         line = re.sub(r"<[^>]+>", "", line)
         line = html.unescape(line)
         if not line.strip():

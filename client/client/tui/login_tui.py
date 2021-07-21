@@ -1,16 +1,23 @@
 import npyscreen
 
+
 class LoginApp(npyscreen.NPSAppManaged):
     def onStart(self):
         self.login_client = EAccessClient()
-        self.addForm("MAIN", LoginForm, name='Login')
+        self.addForm("MAIN", LoginForm, name="Login")
         self.addForm("GAME_SELECT", GameForm)
         self.addForm("CHARACTER_SELECT", CharacterForm)
 
 
 class GameForm(npyscreen.Form):
     def create(self):
-        self.game = self.add(npyscreen.TitleSelectOne, scroll_exit=True, max_height=3, name='Game', values=['DR Prime', 'DR Fallen', 'DR Platinum'])
+        self.game = self.add(
+            npyscreen.TitleSelectOne,
+            scroll_exit=True,
+            max_height=3,
+            name="Game",
+            values=["DR Prime", "DR Fallen", "DR Platinum"],
+        )
 
     def afterEditing(self):
         self.parentApp.setNextForm("CHARACTER_SELECT")
@@ -18,7 +25,7 @@ class GameForm(npyscreen.Form):
 
 class CharacterForm(npyscreen.Form):
     def create(self):
-        self.character = self.add(npyscreen.TitleText, name='Character Name')
+        self.character = self.add(npyscreen.TitleText, name="Character Name")
 
     def afterEditing(self):
         self.parentApp.setNextForm(None)
@@ -27,9 +34,9 @@ class CharacterForm(npyscreen.Form):
 class LoginForm(npyscreen.Form):
     def create(self):
         super().create()
-        self.username = self.add(npyscreen.TitleText, name='Username')
-        self.password = self.add(npyscreen.TitlePassword, name='Password')
-        self.remember = self.add(npyscreen.RoundCheckBox, name='Remember me')
+        self.username = self.add(npyscreen.TitleText, name="Username")
+        self.password = self.add(npyscreen.TitlePassword, name="Password")
+        self.remember = self.add(npyscreen.RoundCheckBox, name="Remember me")
         self.center_on_display()
 
     def afterEditing(self):
@@ -40,4 +47,3 @@ class LoginForm(npyscreen.Form):
 
     def on_cancel(self):
         self.parentApp.setNextForm(None)
-

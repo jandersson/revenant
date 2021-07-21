@@ -2,7 +2,14 @@ import sys
 from threading import Thread
 from time import sleep
 
-from PyQt6.QtWidgets import QApplication, QDockWidget, QLineEdit, QMainWindow, QMenu, QTextEdit
+from PyQt6.QtWidgets import (
+    QApplication,
+    QDockWidget,
+    QLineEdit,
+    QMainWindow,
+    QMenu,
+    QTextEdit,
+)
 from PyQt6.QtGui import QIcon, QTextCursor, QAction
 from PyQt6.QtCore import Qt
 
@@ -59,7 +66,9 @@ class ClientGUI(QMainWindow, ClientLogger):
     def __add_input_field(self):
         self.input = QLineEdit()
         # TODO: Fix the bottom dock. BottomDock thingy is incompatible with Qt6
-        self.input_dock.setAllowedAreas(Qt.DockWidgetArea.BottomDockWidgetArea | Qt.DockWidgetArea.TopDockWidgetArea)
+        self.input_dock.setAllowedAreas(
+            Qt.DockWidgetArea.BottomDockWidgetArea | Qt.DockWidgetArea.TopDockWidgetArea
+        )
         self.input_dock.setWidget(self.input)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.input_dock)
         self.input.returnPressed.connect(self.write_to_input_buffer)
