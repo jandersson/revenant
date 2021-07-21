@@ -122,6 +122,6 @@ if __name__ == "__main__":
         try:
             # Need to create a new parser if it ever gets caught in an exception. Not sure how to get it unstuck.
             ET.XMLParser(target=xml_data, encoding="ASCII").feed(line)
-        except ParseError as e:
+        except ParseError:
             continue
     print(".")

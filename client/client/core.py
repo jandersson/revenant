@@ -56,7 +56,6 @@ class Engine(ClientLogger):
 
     def __init__(self, mode=""):
         self._connection = None
-        connection = self._connection
         self.xml_data = XMLData()
         if mode == "gui":
             self.log.debug("Using GUI Reactor")

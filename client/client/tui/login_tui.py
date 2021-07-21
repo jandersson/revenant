@@ -1,4 +1,5 @@
 import npyscreen
+from client.login import EAccessClient
 
 
 class LoginApp(npyscreen.NPSAppManaged):

@@ -1,4 +1,3 @@
-import logging
 import platform
 import re
 import struct
@@ -119,7 +118,6 @@ def get_credentials():
         secrets = {
             "username": input("Username: ").encode("ASCII"),
             "password": input("Password: ").encode("ASCII"),
-            #'password': getpass.getpass().encode('ASCII'),
             "character": input("Character name: ").capitalize(),
         }
     return secrets

@@ -23,7 +23,7 @@ REQUIRED = [
 
 # What packages are optional?
 EXTRAS = {
-    "development": ["black", "pytest"],
+    "development": ["black", "pytest", "flake8", "pre-commit"],
 }
 
 here = os.path.abspath(os.path.dirname(__file__))
