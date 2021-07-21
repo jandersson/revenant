@@ -12,10 +12,10 @@ def get_exp(character):
     exp_table_sql = f"""SELECT ms.skill_name,
                                ms.rank,
                                ms.mindstate_num as mindstate
-                          FROM mindstate_r ms 
-                          JOIN (select max(timestamp) as max_timestamp 
-                                  from mindstate_r 
-                                 where character_name='{character}') ts 
+                          FROM mindstate_r ms
+                          JOIN (select max(timestamp) as max_timestamp
+                                  from mindstate_r
+                                 where character_name='{character}') ts
                             ON ts.max_timestamp = ms.timestamp
                          WHERE character_name='{character}';"""
     return pd.read_sql(exp_table_sql, engine)
