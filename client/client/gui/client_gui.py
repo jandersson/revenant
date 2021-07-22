@@ -74,7 +74,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.input.returnPressed.connect(self.write_to_input_buffer)
 
     def write_to_input_buffer(self):
-        self.input_buffer.append(self.input.text())
+        self.engine.input_buffer.append(self.input.text())
 
     def toggle_menu(self, state):
         if state:

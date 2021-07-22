@@ -1,11 +1,15 @@
-import argparse
+from collections import deque
+from datetime import datetime
 import logging
-from select import select
+import selectors
+from types import SimpleNamespace
 import sys
-from threading import Thread
+
+# from threading import Thread
+from telnetlib import Telnet
 from xml.etree.ElementTree import ParseError, XMLParser
 
-from client.login import simu_login
+# from client.login import simu_login
 from client.client_logger import ClientLogger
 from client.xml_data import XMLData
 
@@ -14,57 +18,76 @@ def is_windows():
     return sys.platform == "win32"
 
 
-class Engine(ClientLogger):
+class Engine:
     """A basic DR client"""
 
-    def __init__(self, mode=""):
-        self._connection = None
+    def __init__(self, host: str, port: int):
+        self.host = host
+        self.port = port
+        self.recv_buffer = deque(maxlen=1_000)
+        self.send_buffer = deque(maxlen=100)
+        self.log = ClientLogger().log
+        self.sel = selectors.DefaultSelector()
+        self.connection = Telnet()
         self.xml_data = XMLData()
-
-    @property
-    def connection(self):
-        return self._connection
-
-    @connection.setter
-    def connection(self, conn):
-        self._connection = conn
 
     def connect(self):
         try:
-            connection = simu_login()
+            self.connection.open(self.host, self.port)
+            sock = self.connection.get_socket()
+            sock.setblocking(False)
+            events = selectors.EVENT_READ | selectors.EVENT_WRITE
+            data = SimpleNamespace(
+                recv_total=0, sent_total=0, outb="", inb="", last_recv=None
+            )
+            self.sel.register(sock, events, data=data)
+            # connection = simu_login()
         except Exception as error:
-            self.log.error("Could not establish a connection :(")
+            self.log.error("Failed to connect")
             self.log.error(error)
+            self.connection.close()
             sys.exit(1)
-        self.connection = connection
 
     def disconnect(self):
-        pass
+        self.log.info("Disconnecting")
+        # self.sel.unregister(self.connection.get_socket())
+        # self.sel.close()
+        self.connection.close()
+        sys.exit()
+
+    def run_reactor(self, key, mask):
+        sock = key.fileobj
+        data = key.data
+        if mask & selectors.EVENT_READ:
+            recv_data = sock.recv(4096)
+            if recv_data:
+                data.recv_total += len(recv_data)
+                data.last_recv = datetime.now()
+                self.recv_buffer.append(recv_data)
+                print(recv_data)
+            if not recv_data:
+                self.disconnect()
+        if mask & selectors.EVENT_WRITE:
+            if data.outb:
+                self.send_buffer.append(data.outb)
+                sent = sock.send(data.outb)
+                data.outb = data.outb[sent:]
 
     def reactor(self):
         """A very basic implementation of handling input/output"""
-        connection = self.connection
-        if is_windows():
-            # Windows workaround for select issue
-            def read_loop():
-                while True:
-                    self.read()
-
-            def write_loop():
-                while True:
-                    self.write()
-
-            Thread(target=read_loop).start()
-            Thread(target=write_loop).start()
-        else:
+        try:
             while True:
-                # select cannot operate on non socket objects in Windows (sys.stdin)
-                fds, _, _ = select([connection.get_socket(), sys.stdin], [], [])
-                for fd in fds:
-                    if fd == connection.get_socket():
-                        self.read()
-                    if fd == sys.stdin:
-                        self.write()
+                self.service_client()
+                events = self.sel.select(timeout=1)
+                if events:
+                    for key, mask in events:
+                        self.service_connection(key, mask)
+                if not self.sel.get_map():
+                    break
+        except KeyboardInterrupt:
+            print("Caught keyboard interrupt")
+        finally:
+            self.disconnect()
 
     def write(self):
         write_data = input()
@@ -115,19 +138,6 @@ class Engine(ClientLogger):
 
 
 if __name__ == "__main__":
-    argparser = argparse.ArgumentParser(description="A mud client")
-    # TODO: Implement
-    argparser.add_argument(
-        "--character-file",
-        default=None,
-        help="Login using credentials stored in this file",
-    )
-    # TODO: Implement
-    argparser.add_argument(
-        "--test",
-        action="store_true",
-        default=False,
-        help="Use a mock connection instead of connecting to the game",
-    )
-    args = argparser.parse_args()
-    Engine()
+    engine = Engine("aardwolf.org", 4000)
+    engine.connect()
+    engine.reactor()
