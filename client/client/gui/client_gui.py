@@ -128,6 +128,7 @@ class ClientGUI(QMainWindow, ClientLogger):
             read_data = self.connection.read_very_eager().decode("ASCII")
         except EOFError:
             self.disconnect()
+            raise
 
         for line in read_data.split("\n"):
 
@@ -154,17 +155,26 @@ class ClientGUI(QMainWindow, ClientLogger):
     def gui_reactor(self):
         def input_loop():
             while True:
-                if self.input_buffer:
-                    self.write(self.input_buffer.pop(0))
-                sleep(0.01)
+                try:
+                    if self.input_buffer:
+                        self.write(self.input_buffer.pop(0))
+                    sleep(0.01)
+                except Exception:
+                    raise
 
         def output_loop():
             while True:
-                self.read()
-                sleep(0.01)
+                try:
+                    self.read()
+                    sleep(0.01)
+                except Exception:
+                    raise
 
-        Thread(target=output_loop).start()
-        Thread(target=input_loop).start()
+        try:
+            Thread(target=output_loop).start()
+            Thread(target=input_loop).start()
+        except Exception:
+            return
 
 
 if __name__ == "__main__":
