@@ -1,6 +1,11 @@
 import sys
+
 from threading import Thread
 from time import sleep
+
+# from PyQt6.QtCore import QThread
+from telnetlib import Telnet
+import logging
 
 from PyQt6.QtWidgets import (
     QApplication,
@@ -13,7 +18,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QIcon, QTextCursor, QAction
 from PyQt6.QtCore import Qt
 
-from client.core import Engine
+# from client.core import Engine
 from client.client_logger import ClientLogger
 
 # TODO: Lock the scrollbar when its not all the way at the bottom
@@ -27,10 +32,16 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.input_buffer = []
         self.status_bar = self.statusBar()
         self.input_dock = QDockWidget()
-        self.client = Engine()
+        self.connection = Telnet()
+        # self.client = Engine()
         self.__init_ui()
-        self.client.connect()
+        self._connect_to_async_engine()
+        # self.client.connect()
         self.gui_reactor()
+        # self.gui_reactor_selector()
+
+    def _connect_to_async_engine(self):
+        self.connection.open(host="localhost", port=10002)
 
     def __init_ui(self):
         self.log.debug("Initializing UI")
@@ -90,9 +101,48 @@ class ClientGUI(QMainWindow, ClientLogger):
 
     def write(self, write_data: str):
         write_data = write_data + "\n"
-        self.client.connection.write(write_data.encode("ASCII"))
+        self.connection.write(write_data.encode("ASCII"))
         self.write_to_main_window(f">{write_data}")
         self.input.clear()
+
+    def disconnect(self):
+        goodbye = """
+        ******************
+        *****THE END******
+        ******************
+
+        """.split(
+            "\n"
+        )
+        for line in goodbye:
+            self.write_to_main_window(line)
+        self.log.info("Connection closed")
+        if self.connection:
+            self.connection.close()
+
+    def read(self):
+        if not self.connection:
+            self.disconnect()
+
+        try:
+            read_data = self.connection.read_very_eager().decode("ASCII")
+        except EOFError:
+            self.disconnect()
+            raise
+
+        for line in read_data.split("\n"):
+
+            # TODO: This if might be redundant
+            if line:
+                logging.getLogger("game").info(line)
+                # try:
+                #     XMLParser(target=self.xml_data).feed(line)
+                # except ParseError:
+                #     pass
+                # line = self.xml_data.strip(line)
+                if not line:
+                    continue
+                self.write_to_main_window(line)
 
     def contextMenuEvent(self, event):
         context_menu = QMenu(self)
@@ -105,18 +155,26 @@ class ClientGUI(QMainWindow, ClientLogger):
     def gui_reactor(self):
         def input_loop():
             while True:
-                if self.input_buffer:
-                    self.write(self.input_buffer.pop(0))
-                sleep(0.01)
+                try:
+                    if self.input_buffer:
+                        self.write(self.input_buffer.pop(0))
+                    sleep(0.01)
+                except Exception:
+                    raise
 
         def output_loop():
-            callback = self.write_to_main_window
             while True:
-                self.client.read(output_callback=callback)
-                sleep(0.01)
+                try:
+                    self.read()
+                    sleep(0.01)
+                except Exception:
+                    raise
 
-        Thread(target=output_loop).start()
-        Thread(target=input_loop).start()
+        try:
+            Thread(target=output_loop).start()
+            Thread(target=input_loop).start()
+        except Exception:
+            return
 
 
 if __name__ == "__main__":
