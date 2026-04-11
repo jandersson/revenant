@@ -1,20 +1,63 @@
 # Revenant Client
 
-## About
+A rough-draft Python client and engine for playing [DragonRealms](https://www.play.net/dr/). The goal is something [lich](https://lichproject.org/)-shaped — a middleman between the game server and whatever front end you want to attach — but written in Python, with Python scripting, and more modularity where that's easy to get.
 
-Revenant Client is a rough draft of a front end as well as engine for playing [DragonRealms](https://www.play.net/dr/) (scripting too, when i get there). 
+This is a hobby project. It is not a drop-in lich replacement and it is not trying to be. If you want a polished TUI today, go use [Profanity](https://github.com/elanthia-online/profanity-fe). If you want a polished modern front end, go use [Frostbite](https://github.com/elanthia-online/frostbite). If you want to tinker with Python wrapping a MUD connection, stay.
 
-Its genesis is mostly from my own desire to run Python scripts in a Ruby dominated scripting environment. 
+Related reading: [Pylanthia](https://github.com/robbintt/pylanthia).
 
-Here's some info on the main components, subject to change on a whim:
+## Components
 
-* core: Core's objective is to be the engine/middleman between whatever client is running the game. My aim is essentially a [lich](https://lichproject.org/) clone here with more modularity and support for Python scripting. 
-* gui: The graphical user interface, using PyQt5 (porting to PyQt6 atm). If you ever played Gemstone on AOL back before wizard or stormfront... the current state is largely reminiscent of that. I'm thinking if you want the cutting edge front end use Frostbite; im just having fun here. At the moment it's basically just a test bench for core.
-* tui: A non working draft of a terminal front end. Profanity is your go to here. I'm still not sure what framework to use yet. 
+- **core** — the engine / middleman. Handles the telnet connection to Simutronics, feeds incoming bytes through an XML parser, strips game XML out of the text stream, and dispatches input/output. See [client/core.py](client/core.py) and [client/xml_data.py](client/xml_data.py).
+- **login** — handles the SAL-style login handshake to get a game connection. See [client/login.py](client/login.py). Drop a `secrets.py` next to [client/secrets-example.py](client/secrets-example.py) to supply credentials.
+- **gui** — a PyQt6 front end. A main text output, a docked input line, a file/view menu. Reminiscent of the pre-Wizard/Stormfront AOL Gemstone clients. Currently the primary test bench for `core`. See [client/gui/client_gui.py](client/gui/client_gui.py).
+- **tui** — a non-working draft of a terminal front end. Framework choice is still up in the air. See [client/tui/](client/tui/).
 
-Check out [Pylanthia](https://github.com/robbintt/pylanthia) as a great related project!
+## Install
+
+Requires Python 3.6+.
+
+```sh
+pip install -r requirements.txt
+# or, for development extras (black, pytest, flake8, pre-commit):
+pip install -e .[development]
+```
+
+Dependencies are intentionally thin — currently just `pyqt6` and `pyyaml` (see [requirements.txt](requirements.txt) and [setup.py](setup.py)).
 
 ## Running
 
-As this is a development/hobby project, I'm still running this with a 'if name equals main' in `gui/client_gui.py`.
-Going to add a cli tool at some point. 
+There is no CLI entry point yet — the GUI is started via `if __name__ == "__main__"` at the bottom of [client/gui/client_gui.py](client/gui/client_gui.py):
+
+```sh
+python -m client.gui.client_gui
+```
+
+You will need a working `secrets.py` (or equivalent) for login to succeed. A CLI wrapper is on the TODO list.
+
+## Tests
+
+```sh
+pytest
+```
+
+There is a small XML parser test suite in [tests/test_xml_parser.py](tests/test_xml_parser.py) backed by a captured login session in [tests/login-sample.log](tests/login-sample.log).
+
+## Layout
+
+```
+client/
+├── client/
+│   ├── core.py            # Engine: connection, reactor loop, XML parsing
+│   ├── login.py           # SAL login handshake
+│   ├── xml_data.py        # Game XML parser / text stripper
+│   ├── client_logger.py   # Logging mixin
+│   ├── logging_config.yaml
+│   ├── gui/               # PyQt6 front end
+│   └── tui/               # (draft) terminal front end
+├── notebooks/             # Scratch notebooks
+├── tests/
+├── requirements.txt
+├── requirements-dev.txt
+└── setup.py
+```
