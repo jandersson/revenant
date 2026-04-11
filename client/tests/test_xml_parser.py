@@ -18,55 +18,46 @@ def login_strings():
     return raw_strings
 
 
-def test_player_id(xml_data, login_strings):
-    # TODO: Make the XMLParser for loop DRY, its duplicated in every test and in core.
+def _feed(xml_data, login_strings):
+    """Feed captured lines into a fresh XMLParser, matching core.py's
+    root-wrapping so multiple top-level self-closing tags on one line
+    (e.g. a burst of <indicator/>s) are all processed."""
     for string in login_strings:
         try:
-            XMLParser(target=xml_data).feed(string)
+            XMLParser(target=xml_data).feed(f"<r>{string}</r>")
         except ParseError:
             continue
+
+
+def test_player_id(xml_data, login_strings):
+    _feed(xml_data, login_strings)
     assert xml_data.player_id == "440984"
 
 
 def test_instance(xml_data, login_strings):
-    for string in login_strings:
-        try:
-            XMLParser(target=xml_data).feed(string)
-        except ParseError:
-            continue
+    _feed(xml_data, login_strings)
     assert xml_data.game == "DR"
 
 
 def test_name(xml_data, login_strings):
-    for string in login_strings:
-        try:
-            XMLParser(target=xml_data).feed(string)
-        except ParseError:
-            continue
+    _feed(xml_data, login_strings)
     assert xml_data.name == "Crannach"
 
 
 def test_server_time(xml_data, login_strings):
-    # Here I have just manually plucked the last prompt time from the log
-    for string in login_strings:
-        try:
-            XMLParser(target=xml_data).feed(string)
-        except ParseError:
-            continue
-    assert xml_data.server_time == 1626783177
+    _feed(xml_data, login_strings)
+    # Last <prompt time=.../> in the captured session. Was 1626783177
+    # before the root-wrap fix, because lines containing multiple prompts
+    # silently dropped all but the first.
+    assert xml_data.server_time == 1626783184
 
 
-@pytest.mark.skip
 def test_indicator(xml_data, login_strings):
-    # FIXME: Test is failing. Only some of the indicator data is processed, leading to key errors
-    for string in login_strings:
-        try:
-            XMLParser(target=xml_data).feed(string)
-        except ParseError:
-            continue
+    _feed(xml_data, login_strings)
+    # IconPOISONED / IconDISEASED are not present in login-sample.log, so
+    # they are not asserted here (the original test expected them, which
+    # is why it was marked skip).
     assert xml_data.indicator["IconSTANDING"] == "y"
-    assert xml_data.indicator["IconPOISONED"] == "n"
-    assert xml_data.indicator["IconDISEASED"] == "n"
     assert xml_data.indicator["IconPRONE"] == "n"
     assert xml_data.indicator["IconKNEELING"] == "n"
     assert xml_data.indicator["IconSITTING"] == "n"
@@ -76,3 +67,4 @@ def test_indicator(xml_data, login_strings):
     assert xml_data.indicator["IconDEAD"] == "n"
     assert xml_data.indicator["IconWEBBED"] == "n"
     assert xml_data.indicator["IconJOINED"] == "n"
+    assert xml_data.indicator["IconBLEEDING"] == "n"

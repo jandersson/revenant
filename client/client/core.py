@@ -98,7 +98,12 @@ class Engine(ClientLogger):
             if line:
                 logging.getLogger("game").info(line)
                 try:
-                    XMLParser(target=self.xml_data).feed(line)
+                    # Wrap in a synthetic root so multiple top-level
+                    # self-closing tags on one line (e.g. successive
+                    # <indicator .../> elements) all get walked. Without
+                    # this, expat raises ParseError after the first tag
+                    # and everything else on the line is silently lost.
+                    XMLParser(target=self.xml_data).feed(f"<r>{line}</r>")
                 except ParseError:
                     pass
                 line = self.xml_data.strip(line)
