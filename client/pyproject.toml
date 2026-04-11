@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "revenant-client"
+version = "0.0.1"
+description = "A basic python MUD client made just for fun"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Jonas A Andersson", email = "jonas@andersson.io" },
+]
+# client/login.py imports telnetlib, which was removed in Python 3.13.
+requires-python = ">=3.10,<3.13"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "pyqt6",
+    "pyyaml",
+]
+
+[project.urls]
+Repository = "https://github.com/jandersson/revenant"
+
+[dependency-groups]
+dev = [
+    "black",
+    "flake8",
+    "pre-commit",
+    "pytest",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["client"]

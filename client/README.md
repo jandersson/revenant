@@ -15,30 +15,32 @@ Related reading: [Pylanthia](https://github.com/robbintt/pylanthia).
 
 ## Install
 
-Requires Python 3.6+.
+Requires Python 3.10–3.12. Python 3.13+ will not work because [client/login.py](client/login.py) imports `telnetlib`, which was removed from the stdlib in 3.13.
+
+This project is a member of the root [uv](https://docs.astral.sh/uv/) workspace. From the repo root:
 
 ```sh
-pip install -r requirements.txt
-# or, for development extras (black, pytest, flake8, pre-commit):
-pip install -e .[development]
+uv sync                      # installs revenant-client + dev tools into .venv
 ```
 
-Dependencies are intentionally thin — currently just `pyqt6` and `pyyaml` (see [requirements.txt](requirements.txt) and [setup.py](setup.py)).
+Dependencies are declared in [pyproject.toml](pyproject.toml) — currently just `pyqt6` and `pyyaml`, with `black`, `flake8`, `pre-commit`, and `pytest` in the `dev` dependency group.
 
 ## Running
 
 There is no CLI entry point yet — the GUI is started via `if __name__ == "__main__"` at the bottom of [client/gui/client_gui.py](client/gui/client_gui.py):
 
 ```sh
-python -m client.gui.client_gui
+uv run python -m client.gui.client_gui
 ```
 
-You will need a working `secrets.py` (or equivalent) for login to succeed. A CLI wrapper is on the TODO list.
+You will need a working `secrets.py` (copy from [client/secrets-example.py](client/secrets-example.py)) for login to succeed. A CLI wrapper is on the TODO list.
 
 ## Tests
 
+From this directory:
+
 ```sh
-pytest
+uv run pytest
 ```
 
 There is a small XML parser test suite in [tests/test_xml_parser.py](tests/test_xml_parser.py) backed by a captured login session in [tests/login-sample.log](tests/login-sample.log).
@@ -57,7 +59,5 @@ client/
 │   └── tui/               # (draft) terminal front end
 ├── notebooks/             # Scratch notebooks
 ├── tests/
-├── requirements.txt
-├── requirements-dev.txt
-└── setup.py
+└── pyproject.toml
 ```

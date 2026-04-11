@@ -6,6 +6,19 @@ Most of the tooling around DragonRealms lives in the Ruby ecosystem (lich, dr-sc
 
 Shout out to [Pylanthia](https://github.com/robbintt/pylanthia), a great related project.
 
+## Getting started
+
+The repo is a [uv](https://docs.astral.sh/uv/) workspace. `client/` and `chat/` are workspace members with their own `pyproject.toml`; `beholder/` is deliberately outside the workspace because its pinned deps are incompatible with modern Python (see [beholder/README.md](beholder/README.md)).
+
+```sh
+# Install uv: https://docs.astral.sh/uv/getting-started/installation/
+uv sync                       # create the workspace venv + install everything
+uv run pytest --rootdir client   # run the client test suite
+uv run -- python -m client.gui.client_gui   # launch the PyQt6 client
+```
+
+Python 3.10–3.12 is required. Python 3.13+ is not yet supported because [client/client/login.py](client/client/login.py) depends on the `telnetlib` module that was removed in 3.13.
+
 ## Projects
 
 | Directory | What it is |
@@ -22,7 +35,7 @@ A rough-draft engine + front ends for playing DragonRealms with Python in the lo
 - **gui** — a PyQt6 front end reminiscent of the old AOL-era Gemstone clients. See [client/client/gui/client_gui.py](client/client/gui/client_gui.py).
 - **tui** — a non-working draft of a terminal front end. [Profanity](https://github.com/elanthia-online/profanity-fe) is what you actually want for a TUI today; this is just a sketch.
 
-Requires Python 3.6+. Install from [client/setup.py](client/setup.py) or `pip install -r client/requirements.txt`.
+Python 3.10–3.12. Packaged via [client/pyproject.toml](client/pyproject.toml) as a member of the root uv workspace.
 
 ### beholder
 A browser-based dashboard for character experience gains, built with Dash/Plotly on top of a SQLite database.
@@ -31,10 +44,10 @@ The pipeline:
 1. [beholder/revenant.lic](beholder/revenant.lic) runs inside lich, polling `DRSkill` every 60s and writing rows into a SQLite database.
 2. [beholder/app.py](beholder/app.py) reads from that database via SQLAlchemy and renders a Dash app with per-character, per-skill mindstate plots that refresh on an interval.
 
-See [beholder/README.md](beholder/README.md) for setup. Note: the pinned dependencies in [beholder/requirements.txt](beholder/requirements.txt) are old — it hasn't been run in a while and may need a refresh before it flies again.
+See [beholder/README.md](beholder/README.md) for setup. Note: the pinned dependencies in [beholder/requirements.txt](beholder/requirements.txt) are old — Dash 0.22, Flask 1.0, pandas 0.23 — and the code uses the deprecated `dash_core_components` / `dash_html_components` / `dash_table_experiments` imports, so it won't run under a modern Dash without porting. That's why beholder is **not** part of the uv workspace yet.
 
 ### chat
-A minimal LNet client in pure Python. Connects over SSL to `lnet.lichproject.org`, handles the login XML handshake, answers pings, and parses incoming messages into a typed `LnetMessage`. See [chat/chat.py](chat/chat.py).
+A minimal LNet client in pure Python. Connects over SSL to `lnet.lichproject.org`, handles the login XML handshake, answers pings, and parses incoming messages into a typed `LnetMessage`. See [chat/chat.py](chat/chat.py). Run with `cd chat && uv run python chat.py` (the bare relative path to `LnetCert.txt` means it must be invoked from the `chat/` directory).
 
 ### launcher
 [launcher/launch.py](launcher/launch.py) picks a free port, starts lich headless with `--detachable-client`, and attaches a Profanity front end to it. Paths are currently hard-coded for the author's machine — treat it as a template rather than a turnkey tool.
@@ -55,4 +68,4 @@ Hobby-grade. Things are in varying states of disrepair — the client is the mos
 
 ## License
 
-MIT (see [client/setup.py](client/setup.py)).
+MIT (see [client/pyproject.toml](client/pyproject.toml)).

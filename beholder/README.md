@@ -2,7 +2,9 @@
 
 A [Dash](https://plotly.com/dash/)/[Plotly](https://plotly.com/) web dashboard for DragonRealms character data. It plots mindstate / experience over time per character and per skill, with a refreshing data table, all fed by a lich script that polls `DRSkill` every minute and writes rows into SQLite.
 
-> **Heads up:** this was a fun project but it hasn't been run in years. The pinned dependencies in [requirements.txt](requirements.txt) are old (Dash 0.22, Flask 1.0, pandas 0.23) and the Dash API has moved on significantly since. Expect to do some porting work before it runs cleanly. It's still a reasonable proof-of-concept if you want to build your own DR dashboard.
+> **Heads up:** this was a fun project but it hasn't been run in years. The pinned dependencies in [requirements.txt](requirements.txt) are old (Dash 0.22, Flask 1.0, pandas 0.23) and the Dash API has moved on significantly since. [app.py](app.py) still uses the deprecated `dash_core_components` / `dash_html_components` / `dash_table_experiments` imports from Dash 1.x, so upgrading to modern Dash requires code changes, not just a dependency bump.
+>
+> For that reason, **beholder is intentionally not part of the top-level uv workspace** — it stays on a plain `requirements.txt` until the app is ported. If you want to resurrect it, you probably want a separate throwaway venv, not the workspace one.
 
 ## How it works
 

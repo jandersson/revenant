@@ -1,0 +1,15 @@
+[tool.uv.workspace]
+members = ["client", "chat"]
+
+[tool.uv]
+# Workspace-wide dev tools. Per-member dev deps live in each member's
+# pyproject.toml under [dependency-groups].
+default-groups = ["dev"]
+
+[dependency-groups]
+dev = [
+    "black",
+    "flake8",
+    "pre-commit",
+    "pytest",
+]
