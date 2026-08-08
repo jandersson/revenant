@@ -52,6 +52,9 @@ One pipeline, one parser, several processes:
 ## Conventions and gotchas
 
 - Threads + locks, not asyncio — keep new concurrency in the existing style.
+- Closing a socket does NOT wake a thread blocked in recv()/accept() on
+  Linux (it does on macOS, so local runs won't catch it) — always
+  `socket.shutdown(SHUT_RDWR)` before `close()`; see `session.close_socket`.
 - Tests use real sockets on ephemeral ports and threaded servers; make them
   hermetic (never assume a released ephemeral port stays closed — hold a
   bound, non-listening socket instead) and generous with timeouts (CI

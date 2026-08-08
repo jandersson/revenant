@@ -28,6 +28,20 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = int(os.environ.get("REVENANT_SESSION_PORT", "4242"))
 
 
+def close_socket(conn):
+    """shutdown() then close(): on Linux, close() alone neither wakes a
+    thread blocked in recv()/accept() on the socket nor sends the peer a
+    FIN while one is blocked — shutdown(SHUT_RDWR) does both, portably."""
+    try:
+        conn.shutdown(socket.SHUT_RDWR)
+    except OSError:
+        pass
+    try:
+        conn.close()
+    except OSError:
+        pass
+
+
 def encode_frame(text: str, stream: str) -> bytes:
     return (json.dumps({"stream": stream, "text": text}) + "\n").encode("UTF-8")
 
@@ -147,10 +161,7 @@ class SessionServer(ClientLogger):
         with self.clients_lock:
             if conn in self.clients:
                 self.clients.remove(conn)
-        try:
-            conn.close()
-        except OSError:
-            pass
+        close_socket(conn)
         self.log.info("Front end detached")
 
     def shutdown(self):
@@ -163,12 +174,9 @@ class SessionServer(ClientLogger):
             clients = list(self.clients)
             self.clients.clear()
         for conn in clients:
-            try:
-                conn.close()
-            except OSError:
-                pass
+            close_socket(conn)
         if self.listener:
-            self.listener.close()
+            close_socket(self.listener)
         self.scripts.stop_all()
 
 
