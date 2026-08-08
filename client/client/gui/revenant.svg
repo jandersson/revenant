@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#232742"/>
+      <stop offset="1" stop-color="#0e0f1a"/>
+    </linearGradient>
+    <linearGradient id="moon" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4f6ff"/>
+      <stop offset="1" stop-color="#aebcf2"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="114" fill="url(#bg)"/>
+  <g transform="translate(0,48)">
+    <circle cx="300" cy="208" r="160" fill="#93a4f5" opacity="0.10"/>
+    <path d="M 236,96 A 112,112 0 1,1 236,320 A 146,146 0 0,0 236,96 Z" fill="url(#moon)"/>
+    <path d="M150,112 Q154,128 170,132 Q154,136 150,152 Q146,136 130,132 Q146,128 150,112 Z" fill="#dfe6ff"/>
+    <path d="M118,204 Q120.4,213.6 130,216 Q120.4,218.4 118,228 Q115.6,218.4 106,216 Q115.6,213.6 118,204 Z" fill="#aab8f0"/>
+    <path d="M160,279 Q163,291 175,294 Q163,297 160,309 Q157,297 145,294 Q157,291 160,279 Z" fill="#c7d2ff"/>
+  </g>
+</svg>

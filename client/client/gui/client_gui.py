@@ -1,4 +1,6 @@
+import argparse
 import sys
+from pathlib import Path
 from threading import Thread
 from time import sleep
 
@@ -15,9 +17,12 @@ from PyQt6.QtCore import Qt, pyqtSignal
 
 from client.core import Engine
 from client.client_logger import ClientLogger
+from client.session import AttachedEngine, DEFAULT_HOST, DEFAULT_PORT
 
 # TODO: Lock the scrollbar when its not all the way at the bottom
 # TODO: Exit the game when the window is closed. Make it optional, leaving room for headless potential.
+
+ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
 
 
 class ClientGUI(QMainWindow, ClientLogger):
@@ -36,16 +41,18 @@ class ClientGUI(QMainWindow, ClientLogger):
         "death": "Arrivals",
     }
 
-    def __init__(self):
+    def __init__(self, engine=None):
         super().__init__()
         self.log.debug("Initializing ClientGUI instance")
         self.status_bar = self.statusBar()
         self.input_dock = QDockWidget()
-        self.client = Engine()
+        self.client = engine if engine is not None else Engine()
         self.__init_ui()
         self.game_text.connect(self.dispatch_game_text)
         self.client.connect()
-        self.status_bar.showMessage("Connected")
+        self.status_bar.showMessage(
+            getattr(self.client, "description", "Connected")
+        )
         self.input.setEnabled(True)
         self.input.setFocus()
         self.gui_reactor()
@@ -53,6 +60,7 @@ class ClientGUI(QMainWindow, ClientLogger):
     def __init_ui(self):
         self.log.debug("Initializing UI")
         self.setWindowTitle("Revenant")
+        self.setWindowIcon(QIcon(ICON_PATH))
         # TODO: Update this with some sort of connection string when connected
         self.status_bar.showMessage("Not Connected")
 
@@ -163,6 +171,23 @@ class ClientGUI(QMainWindow, ClientLogger):
 
 if __name__ == "__main__":
     # TODO: Break out into a launcher module
+    argparser = argparse.ArgumentParser(description="Revenant PyQt6 front end")
+    argparser.add_argument(
+        "--attach",
+        nargs="?",
+        const=f"{DEFAULT_HOST}:{DEFAULT_PORT}",
+        default=None,
+        metavar="HOST:PORT",
+        help="attach to a running client.session instead of logging in directly",
+    )
+    args = argparser.parse_args()
     app = QApplication(sys.argv)
-    client_app = ClientGUI()
+    # On macOS this also sets the Dock icon for the running app.
+    app.setWindowIcon(QIcon(ICON_PATH))
+    if args.attach:
+        host, _, port = args.attach.rpartition(":")
+        engine = AttachedEngine(host or DEFAULT_HOST, int(port))
+    else:
+        engine = Engine()
+    client_app = ClientGUI(engine)
     sys.exit(app.exec())

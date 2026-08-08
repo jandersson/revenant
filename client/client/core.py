@@ -20,6 +20,7 @@ class Engine(ClientLogger):
     def __init__(self, mode=""):
         self._connection = None
         self.xml_data = XMLData()
+        self.description = "Connected (direct)"
 
     @property
     def connection(self):

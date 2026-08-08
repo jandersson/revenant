@@ -27,11 +27,24 @@ Dependencies are declared in [pyproject.toml](pyproject.toml) — currently `pyq
 
 ## Running
 
-There is no CLI entry point yet — the GUI is started via `if __name__ == "__main__"` at the bottom of [client/gui/client_gui.py](client/gui/client_gui.py):
+Direct mode — login and GUI in one process:
 
 ```sh
 uv run python -m client.gui.client_gui
 ```
+
+Detachable session — one process owns the login and game connection, and
+front ends attach and detach freely without reconnecting (restart the GUI
+mid-development, run several viewers, or none at all):
+
+```sh
+uv run python -m client.session                    # terminal 1, stays running
+uv run python -m client.gui.client_gui --attach    # terminal 2, relaunch at will
+```
+
+`--attach` takes an optional `HOST:PORT` (default `127.0.0.1:4242`; the
+default port can also be set with `REVENANT_SESSION_PORT`). Killing the
+session process ends the game connection; closing an attached GUI does not.
 
 Credentials never live in the repo. Store your account password once in the OS
 credential store (macOS Keychain, Secret Service on Linux, Credential Locker on
