@@ -1,7 +1,11 @@
+import getpass
+import os
 import platform
 import re
 import struct
 from time import sleep
+
+import keyring
 
 from client.client_logger import ClientLogger
 from client.netsock import SocketClient
@@ -55,7 +59,7 @@ class EAccessClient(ClientLogger):
 
     def get_game_list(self):
         """Poll the server for a list of games (unused at the moment)"""
-        self.client.write(b"\M")
+        self.client.write(rb"\M")
         game_list = self.client.read_until(b"\n")
         self.log.debug(f"game_list: {game_list}")
         return
@@ -71,18 +75,24 @@ class EAccessClient(ClientLogger):
         return self.client.read_until(b"\n")
 
     def get_character_code(self, character_name):
-        """Poll server for list of characters, return character code"""
-        # TODO: Break into two methods, one to get the character list, one to get the character code from the list
+        """Poll server for the character list, return the code for the named one.
+
+        The response is 'C', two slot counts, two zeros, then alternating
+        code/name fields, all tab-separated:
+        C\t16\t16\t0\t0\t<code>\t<name>\t<code>\t<name>...
+        """
         self.client.write(b"C\n")
         c_response = self.client.read_until(b"\n")
         self.log.debug(f"c_response: {c_response}")
-        character_code = (
-            re.compile("C\t\d\t\d\t\d\t\d\t(.+)\t" + character_name)
-            .match(c_response.decode())
-            .group(1)
+        pairs = c_response.decode().strip().split("\t")[5:]
+        for code, name in zip(pairs[::2], pairs[1::2]):
+            if name.lower() == character_name.lower():
+                self.log.debug(f"character_code: {code}")
+                return code
+        raise LoginError(
+            f"No character named {character_name!r} on this account. "
+            f"Available: {', '.join(pairs[1::2])}"
         )
-        self.log.debug(f"character_code: {character_code}")
-        return character_code
 
     def submit_character_info(self, character_code):
         """Inform server of which character to play, return the server response with connection info"""
@@ -105,22 +115,28 @@ class EAccessClient(ClientLogger):
         )
 
 
-def get_credentials():
-    module_logger.log.debug("Fetching credentials")
-    try:
-        from client.secrets import secrets
+KEYRING_SERVICE = "revenant"
 
-        module_logger.log.debug("Got secrets from secrets.py")
-        secrets["username"] = secrets["username"].encode("ASCII")
-        secrets["password"] = secrets["password"].encode("ASCII")
-    except ImportError:
-        module_logger.log.debug("Couldn't load secrets file, prompting for info")
-        secrets = {
-            "username": input("Username: ").encode("ASCII"),
-            "password": input("Password: ").encode("ASCII"),
-            "character": input("Character name: ").capitalize(),
-        }
-    return secrets
+
+def get_credentials():
+    """Assemble login credentials without a password ever touching disk.
+
+    Account and character come from REVENANT_ACCOUNT / REVENANT_CHARACTER
+    (with an interactive prompt as fallback). The password comes from the
+    OS keychain, seeded once with:  keyring set revenant <ACCOUNT>
+    """
+    module_logger.log.debug("Fetching credentials")
+    username = os.environ.get("REVENANT_ACCOUNT") or input("Account: ")
+    character = os.environ.get("REVENANT_CHARACTER") or input("Character name: ")
+    password = keyring.get_password(KEYRING_SERVICE, username)
+    if password is None:
+        module_logger.log.debug("No keychain entry for %s; prompting", username)
+        password = getpass.getpass(f"Password for {username}: ")
+    return {
+        "username": username.encode("ASCII"),
+        "password": password.encode("ASCII"),
+        "character": character.capitalize(),
+    }
 
 
 def eaccess_protocol(login_info):

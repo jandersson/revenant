@@ -9,13 +9,13 @@ Related reading: [Pylanthia](https://github.com/robbintt/pylanthia).
 ## Components
 
 - **core** — the engine / middleman. Handles the telnet connection to Simutronics, feeds incoming bytes through an XML parser, strips game XML out of the text stream, and dispatches input/output. See [client/core.py](client/core.py) and [client/xml_data.py](client/xml_data.py).
-- **login** — handles the SAL-style login handshake to get a game connection. See [client/login.py](client/login.py). Drop a `secrets.py` next to [client/secrets-example.py](client/secrets-example.py) to supply credentials.
+- **login** — handles the SAL-style login handshake to get a game connection. See [client/login.py](client/login.py). Credentials come from the OS keychain and environment variables — see [Running](#running).
 - **gui** — a PyQt6 front end. A main text output, a docked input line, a file/view menu. Reminiscent of the pre-Wizard/Stormfront AOL Gemstone clients. Currently the primary test bench for `core`. See [client/gui/client_gui.py](client/gui/client_gui.py).
 - **tui** — a non-working draft of a terminal front end. Framework choice is still up in the air. See [client/tui/](client/tui/).
 
 ## Install
 
-Requires Python 3.10–3.12. Python 3.13+ will not work because [client/login.py](client/login.py) imports `telnetlib`, which was removed from the stdlib in 3.13.
+Requires Python 3.10+.
 
 This project is a member of the root [uv](https://docs.astral.sh/uv/) workspace. From the repo root:
 
@@ -23,7 +23,7 @@ This project is a member of the root [uv](https://docs.astral.sh/uv/) workspace.
 uv sync                      # installs revenant-client + dev tools into .venv
 ```
 
-Dependencies are declared in [pyproject.toml](pyproject.toml) — currently just `pyqt6` and `pyyaml`, with `black`, `flake8`, `pre-commit`, and `pytest` in the `dev` dependency group.
+Dependencies are declared in [pyproject.toml](pyproject.toml) — currently `pyqt6`, `pyyaml`, and `keyring`, with `black`, `flake8`, `pre-commit`, and `pytest` in the `dev` dependency group.
 
 ## Running
 
@@ -33,7 +33,22 @@ There is no CLI entry point yet — the GUI is started via `if __name__ == "__ma
 uv run python -m client.gui.client_gui
 ```
 
-You will need a working `secrets.py` (copy from [client/secrets-example.py](client/secrets-example.py)) for login to succeed. A CLI wrapper is on the TODO list.
+Credentials never live in the repo. Store your account password once in the OS
+credential store (macOS Keychain, Secret Service on Linux, Credential Locker on
+Windows) — you'll be prompted for it with hidden input:
+
+```sh
+uv run keyring set revenant YOURACCOUNT
+```
+
+Set the non-secret half in your environment (or answer the prompts at launch):
+
+```sh
+export REVENANT_ACCOUNT=YOURACCOUNT
+export REVENANT_CHARACTER=Yourcharacter
+```
+
+A CLI wrapper is on the TODO list.
 
 ## Tests
 

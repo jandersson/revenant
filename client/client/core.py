@@ -77,14 +77,7 @@ class Engine(ClientLogger):
         try:
             read_data = self.connection.read_very_eager().decode("ASCII")
         except EOFError as e:
-            goodbye = """
-            ******************
-            *****THE END******
-            ******************
-
-            """.split(
-                "\n"
-            )
+            goodbye = "\n******************\n*****THE END******\n******************\n"
             if output_callback:
                 output_callback(goodbye)
             else:
