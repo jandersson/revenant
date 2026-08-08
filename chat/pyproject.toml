@@ -3,9 +3,7 @@ name = "revenant-chat"
 version = "0.0.1"
 description = "A standalone LNet chat client in Python"
 requires-python = ">=3.10"
-dependencies = [
-    "pyopenssl",
-]
+dependencies = []
 
 [tool.uv]
 package = false

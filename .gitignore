@@ -162,3 +162,6 @@ fabric.properties
 
 # VIM
 *.swp
+
+# LNet
+chat/lnet_password.txt
