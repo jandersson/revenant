@@ -67,7 +67,10 @@ One pipeline, one parser, several processes:
   when `pyvenv.cfg` is in the parent of the executable's directory (that's
   why the branded interpreter symlink lives in `.venv/branded/`).
 - Logging config in `client/client/logging_config.yaml`; raw game protocol
-  lines go to `revenant_game.log` (rotating, in the launch cwd).
+  lines append to a per-session `game-<timestamp>.log` under
+  `~/.revenant/logs/` (override with `REVENANT_LOG_DIR`; tests isolate via
+  conftest) — an append-only archive, never rotated away. Only the
+  disposable `revenant_client.log` debug log is size-capped.
 - No secrets anywhere in the repo — see the credentials note above. The
   gitignore keeps `secrets.py` blocked for stragglers, but keychain is the
   only supported path.

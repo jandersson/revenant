@@ -17,12 +17,14 @@ handlers:
     filename: revenant_client.log
     maxBytes: 10485760
     backupCount: 3
+    delay: true
   game_file:
-    class : logging.handlers.RotatingFileHandler
+    # Append-only archive: one file per process/session, never rotated
+    # away. The filename is stamped in client_logger._init_logger.
+    class : logging.FileHandler
     formatter: game
     filename: revenant_game.log
-    maxBytes: 52428800
-    backupCount: 10
+    delay: true
 loggers:
   game:
     level: DEBUG
