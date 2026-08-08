@@ -21,9 +21,6 @@ class Engine(ClientLogger):
         self._connection = None
         self.xml_data = XMLData()
         self.description = "Connected (direct)"
-        # Matches XMLData's initial state so nothing is emitted before the
-        # first real <compass> tag arrives.
-        self._last_compass = []
 
     @property
     def connection(self):
@@ -107,13 +104,14 @@ class Engine(ClientLogger):
                         output_callback(text, stream)
                     else:
                         buff.append(text if not stream else f"[{stream}] {text}")
-                # Room changed? Emit the obvious exits as a synthetic
-                # "compass" stream so front ends (local or attached over a
-                # session) can drive a compass widget.
-                if self.xml_data.compass != self._last_compass:
-                    self._last_compass = list(self.xml_data.compass)
+                # Every room sends a <compass>; emit the exits as a synthetic
+                # "compass" stream. One frame per room — front ends drive
+                # their widget from it, and scripts treat it as the
+                # room-arrival signal (identical-exit rooms included).
+                if self.xml_data.compass_updated:
+                    self.xml_data.compass_updated = False
                     if output_callback:
-                        output_callback(" ".join(self._last_compass), "compass")
+                        output_callback(" ".join(self.xml_data.compass), "compass")
 
         if not output_callback:
             sys.stdout.write("\n".join(buff))

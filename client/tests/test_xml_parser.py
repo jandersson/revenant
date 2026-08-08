@@ -65,6 +65,13 @@ def test_compass_replaced_on_next_room(xml_data):
     assert xml_data.compass == ["e"]
 
 
+def test_roundtime_and_casttime(xml_data):
+    XMLParser(target=xml_data).feed('<r><roundTime value="1723456789"/></r>')
+    XMLParser(target=xml_data).feed('<r><castTime value="1723456792"/></r>')
+    assert xml_data.roundtime == 1723456789
+    assert xml_data.casttime == 1723456792
+
+
 def test_route_plain_text_goes_to_main(xml_data):
     assert xml_data.route("You see a stunted forest troll.") == [
         ("", "You see a stunted forest troll.")

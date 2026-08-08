@@ -95,6 +95,24 @@ class Script:
         if self._stop.wait(timeout=seconds):
             raise ScriptStopped()
 
+    def waitrt(self, pad=0.15):
+        """Sleep out any active roundtime or spellcast time.
+
+        Remaining time is the announced end (server clock) minus the last
+        prompt's server time; if no fresher prompt arrives while sleeping,
+        the local sleep is trusted and we return."""
+        state = self.state
+        if state is None or state.server_time is None:
+            return
+        seen = state.server_time
+        remaining = max(state.roundtime, state.casttime) - seen
+        while remaining > 0:
+            self.sleep(remaining + pad)
+            if state.server_time == seen:
+                return
+            seen = state.server_time
+            remaining = max(state.roundtime, state.casttime) - seen
+
     @property
     def state(self):
         """The session's XMLData: indicators, prompt, server_time, ..."""

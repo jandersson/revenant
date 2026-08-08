@@ -43,3 +43,18 @@ def test_engine_emits_compass_again_on_change():
     out = _read_all(engine, 2)
     compass_frames = [frame for frame in out if frame[1] == "compass"]
     assert compass_frames == [("n", "compass"), ("s out", "compass")]
+
+
+def test_engine_emits_compass_for_identical_adjacent_rooms():
+    # Corridor case: consecutive rooms with the same exits still emit one
+    # frame each — scripts rely on it as the room-arrival signal.
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b'<compass><dir value="n"/><dir value="s"/></compass>Corridor.\n',
+            b'<compass><dir value="n"/><dir value="s"/></compass>More corridor.\n',
+        ]
+    )
+    out = _read_all(engine, 2)
+    compass_frames = [frame for frame in out if frame[1] == "compass"]
+    assert compass_frames == [("n s", "compass"), ("n s", "compass")]

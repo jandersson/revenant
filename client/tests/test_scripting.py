@@ -1,6 +1,7 @@
 import time
+import types
 
-from client.scripting import ScriptManager
+from client.scripting import Script, ScriptManager
 
 
 class Recorder:
@@ -85,6 +86,40 @@ def test_double_start_is_refused(tmp_path):
     manager.start("loop", [])
     assert any("already running" in e for e in recorder.emitted)
     manager.stop_all()
+
+
+def _script_with_state(tmp_path, **state):
+    manager, recorder = make_manager(tmp_path)
+    defaults = {"server_time": None, "roundtime": 0, "casttime": 0}
+    manager.state = types.SimpleNamespace(**{**defaults, **state})
+    return Script("t", [], manager), manager.state
+
+
+def test_waitrt_sleeps_out_roundtime(tmp_path):
+    script, state = _script_with_state(tmp_path, server_time=100, roundtime=103)
+    slept = []
+
+    def fake_sleep(seconds):
+        slept.append(seconds)
+        state.server_time = 104  # a fresher prompt arrived while sleeping
+
+    script.sleep = fake_sleep
+    script.waitrt()
+    assert len(slept) == 1 and 3 <= slept[0] <= 3.5
+
+
+def test_waitrt_trusts_local_sleep_without_fresh_prompts(tmp_path):
+    script, state = _script_with_state(tmp_path, server_time=100, casttime=102)
+    slept = []
+    script.sleep = lambda seconds: slept.append(seconds)  # clock never advances
+    script.waitrt()
+    assert len(slept) == 1, "must not spin when no new prompt arrives"
+
+
+def test_waitrt_is_a_noop_outside_roundtime(tmp_path):
+    script, state = _script_with_state(tmp_path, server_time=100, roundtime=90)
+    script.sleep = lambda seconds: (_ for _ in ()).throw(AssertionError("slept"))
+    script.waitrt()
 
 
 def test_handle_command_list_and_unknown(tmp_path):

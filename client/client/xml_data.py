@@ -36,7 +36,11 @@ class XMLData:
         self.indicator = {}
         # Obvious exits from the <compass> tag, e.g. ["n", "sw", "up"]
         self.compass = []
+        self.compass_updated = False
         self._pending_compass = []
+        # Epoch seconds (server clock) when roundtime / spellcast time end
+        self.roundtime = 0
+        self.casttime = 0
 
         # Internal memo pad for stripping multi line tags
         self._strip_xml_multiline = ""
@@ -71,10 +75,15 @@ class XMLData:
             self._pending_compass = []
         elif name == "dir":
             self._pending_compass.append(attributes["value"])
+        elif name == "roundTime":
+            self.roundtime = int(attributes["value"])
+        elif name == "castTime":
+            self.casttime = int(attributes["value"])
 
     def end(self, name: str):
         if name == "compass":
             self.compass = self._pending_compass
+            self.compass_updated = True
         if self.active_tags:
             self.last_tag = self.active_tags.pop()
         if self.active_ids:
