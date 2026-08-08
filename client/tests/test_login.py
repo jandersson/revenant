@@ -2,7 +2,6 @@ import pytest
 
 from client import login
 
-
 C_RESPONSE = (
     b"C\t16\t16\t0\t0"
     b"\tW_TESTACCT_000\tAlpha"

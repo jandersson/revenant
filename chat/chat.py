@@ -7,6 +7,7 @@ on the server, in which case the password travels as an attribute on that
 element. Passwords are registered/changed after login with a
 <data type='newpassword'> element and reset at https://lnet.lichproject.org.
 """
+
 import base64
 import os
 import socket
@@ -192,9 +193,13 @@ class Server:
                 message_type=message_xml.get("type"),
                 sender=message_xml.get("from"),
             )
-            if message.message_type == "server" and message.contents and (
-                "password required" in message.contents
-                or "incorrect password" in message.contents
+            if (
+                message.message_type == "server"
+                and message.contents
+                and (
+                    "password required" in message.contents
+                    or "incorrect password" in message.contents
+                )
             ):
                 raise LoginRejected(message.contents)
             return message

@@ -4,6 +4,7 @@ telnetlib was removed from the standard library in Python 3.13. Neither the
 eaccess handshake nor the game stream uses actual telnet negotiation (no IAC
 sequences), so a plain buffered TCP socket is a faithful replacement.
 """
+
 import socket
 from select import select
 

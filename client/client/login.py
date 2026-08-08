@@ -10,7 +10,6 @@ import keyring
 from client.client_logger import ClientLogger
 from client.netsock import SocketClient
 
-
 GAME_CODE = b"DR"
 DR_HOST = "dr.simutronics.net"
 DR_PORT = 11024
