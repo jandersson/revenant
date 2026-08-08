@@ -49,6 +49,11 @@ One pipeline, one parser, several processes:
 - `client/client/scripting.py` — script engine. Scripts are `main(s)` Python
   files in `scripts/` (repo root), run as threads in the session, controlled
   by `;`-commands typed in any front end (`;list`, `;run x`, `;stop x`).
+  Handle API: put/get/waitfor/waitrt/echo/sleep/state/args.
+- `client/client/mapdb.py` — the community DR map database (elanthia-online
+  mapdb-backup-dr), downloaded to `~/.revenant/mapdb/` on first use, never
+  vendored. BFS pathfinding; wayto commands starting with ";e" are embedded
+  Ruby and treated as unwalkable. `scripts/go2.py` is the walker on top.
 - `client/client/gui/client_gui.py` — PyQt6 front end. GUI-thread safety via
   the `game_text` pyqtSignal; stream docks route thoughts/spells/arrivals;
   compass dock renders the `"compass"` stream. Direct mode logs in itself;

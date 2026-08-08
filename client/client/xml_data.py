@@ -41,6 +41,8 @@ class XMLData:
         # Epoch seconds (server clock) when roundtime / spellcast time end
         self.roundtime = 0
         self.casttime = 0
+        # Bracketed room title, e.g. "[The Crossing, Herald Street]"
+        self.room_title = None
 
         # Internal memo pad for stripping multi line tags
         self._strip_xml_multiline = ""
@@ -48,6 +50,8 @@ class XMLData:
     def data(self, text_string):
         if self.active_tags and self.active_tags[-1] == "prompt":
             self.prompt = text_string
+        if self.current_style == "roomName" and text_string.strip():
+            self.room_title = text_string.strip()
 
     def start(self, name: str, attributes: dict):
         self.active_tags.append(name)
@@ -79,6 +83,10 @@ class XMLData:
             self.roundtime = int(attributes["value"])
         elif name == "castTime":
             self.casttime = int(attributes["value"])
+        elif name == "streamWindow" and attributes.get("id") == "room":
+            subtitle = attributes.get("subtitle", "")
+            if subtitle.startswith(" - "):
+                self.room_title = subtitle[3:].strip()
 
     def end(self, name: str):
         if name == "compass":

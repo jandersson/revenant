@@ -65,6 +65,21 @@ def test_compass_replaced_on_next_room(xml_data):
     assert xml_data.compass == ["e"]
 
 
+def test_room_title_from_stream_window(xml_data):
+    XMLParser(target=xml_data).feed(
+        "<r><streamWindow id='room' title='Room' "
+        "subtitle=\" - [The Crossing, Herald Street]\"/></r>"
+    )
+    assert xml_data.room_title == "[The Crossing, Herald Street]"
+
+
+def test_room_title_from_room_name_style(xml_data):
+    XMLParser(target=xml_data).feed(
+        '<r><style id="roomName"/>[Ilithi, Sana\'ati Dyaus] <style id=""/></r>'
+    )
+    assert xml_data.room_title == "[Ilithi, Sana'ati Dyaus]"
+
+
 def test_roundtime_and_casttime(xml_data):
     XMLParser(target=xml_data).feed('<r><roundTime value="1723456789"/></r>')
     XMLParser(target=xml_data).feed('<r><castTime value="1723456792"/></r>')
