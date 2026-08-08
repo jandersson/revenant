@@ -1,5 +1,0 @@
-[flake8]
-exclude = .git,__pycache__,docs/source/conf.py,old,build,dist,venv
-# E203/W503 conflict with black's formatting (slice spacing, line breaks)
-ignore = E501,W605,W503,E203
-max-line-length = 88

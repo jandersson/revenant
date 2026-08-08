@@ -8,8 +8,16 @@ default-groups = ["dev"]
 
 [dependency-groups]
 dev = [
-    "black",
-    "flake8",
     "pre-commit",
     "pytest",
+    "ruff",
 ]
+
+[tool.ruff]
+line-length = 88
+# Scratch notebooks are not part of the linted codebase.
+extend-exclude = ["*.ipynb"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501"]

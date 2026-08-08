@@ -90,7 +90,6 @@ class Engine(ClientLogger):
             raise (e)
 
         for line in read_data.split("\n"):
-
             # TODO: This if might be redundant
             if line:
                 logging.getLogger("game").info(line)

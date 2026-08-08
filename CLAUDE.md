@@ -11,12 +11,14 @@ dependencies.
 ```sh
 uv run revenant                  # launch: spawn/attach a session + GUI
 uv run pytest client/tests -q    # test suite (threaded/socket tests included)
-uv run flake8 client chat        # lint — CI enforces this
-uv run black client chat         # format — flake8 config is black-compatible
+uv run ruff check client chat    # lint — CI enforces this
+uv run ruff format client chat   # format — CI enforces --check
 ```
 
-CI (`.github/workflows/python-package.yml`) runs flake8 + pytest on
-Python 3.10–3.12, ubuntu. Always run all three commands above before pushing.
+CI (`.github/workflows/python-package.yml`) runs ruff (check + format) and
+pytest on Python 3.10–3.12, ubuntu. Ruff config lives in the root
+pyproject.toml (notebooks excluded). Always run the commands above before
+pushing.
 
 ## Architecture
 

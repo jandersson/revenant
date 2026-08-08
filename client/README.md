@@ -23,7 +23,7 @@ This project is a member of the root [uv](https://docs.astral.sh/uv/) workspace.
 uv sync                      # installs revenant-client + dev tools into .venv
 ```
 
-Dependencies are declared in [pyproject.toml](pyproject.toml) — currently `pyqt6`, `pyyaml`, and `keyring`, with `black`, `flake8`, `pre-commit`, and `pytest` in the `dev` dependency group.
+Dependencies are declared in [pyproject.toml](pyproject.toml) — currently `pyqt6`, `pyyaml`, and `keyring`, with `ruff`, `pre-commit`, and `pytest` in the `dev` dependency group.
 
 ## Running
 

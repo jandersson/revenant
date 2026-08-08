@@ -28,7 +28,7 @@ def wait_for(condition, timeout=5):
 
 def test_run_script_puts_and_echoes(tmp_path):
     (tmp_path / "greet.py").write_text(
-        "def main(s):\n" "    s.echo('hi ' + ' '.join(s.args))\n" "    s.put('look')\n"
+        "def main(s):\n    s.echo('hi ' + ' '.join(s.args))\n    s.put('look')\n"
     )
     manager, recorder = make_manager(tmp_path)
     manager.start("greet", ["there"])
@@ -56,7 +56,7 @@ def test_waitfor_matches_fed_lines(tmp_path):
 
 def test_stop_interrupts_sleeping_script(tmp_path):
     (tmp_path / "loop.py").write_text(
-        "def main(s):\n" "    while True:\n" "        s.sleep(10)\n"
+        "def main(s):\n    while True:\n        s.sleep(10)\n"
     )
     manager, recorder = make_manager(tmp_path)
     manager.start("loop", [])
@@ -77,7 +77,7 @@ def test_crash_is_reported_with_location(tmp_path):
 
 def test_double_start_is_refused(tmp_path):
     (tmp_path / "loop.py").write_text(
-        "def main(s):\n" "    while True:\n" "        s.sleep(10)\n"
+        "def main(s):\n    while True:\n        s.sleep(10)\n"
     )
     manager, recorder = make_manager(tmp_path)
     manager.start("loop", [])

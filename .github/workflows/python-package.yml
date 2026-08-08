@@ -28,8 +28,11 @@ jobs:
       - name: Sync workspace
         run: uv sync --all-packages
 
-      - name: Lint with flake8
-        run: uv run flake8 client chat
+      - name: Lint with ruff
+        run: uv run ruff check client chat
+
+      - name: Check formatting with ruff
+        run: uv run ruff format --check client chat
 
       - name: Test with pytest
         working-directory: client
