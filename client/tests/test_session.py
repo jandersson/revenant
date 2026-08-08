@@ -76,11 +76,20 @@ def test_session_relays_text_commands_and_shutdown():
     # Game EOF: goodbye frame is broadcast, then the session closes us.
     game.closed = True
     buffer = b""
-    while True:
-        chunk = client.recv(4096)
-        if not chunk:
-            break
-        buffer += chunk
+    try:
+        while True:
+            chunk = client.recv(4096)
+            if not chunk:
+                break
+            buffer += chunk
+    except TimeoutError:
+        import threading
+
+        raise AssertionError(
+            "no close after EOF; "
+            f"server.running={server.running} buffer={buffer!r} "
+            f"threads={sorted(t.name for t in threading.enumerate())}"
+        )
     frames, _ = session.decode_frames(buffer)
     assert any("THE END" in text for text, _ in frames)
     assert not server.running
