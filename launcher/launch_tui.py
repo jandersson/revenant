@@ -51,11 +51,11 @@ def item_chosen(button, choice):
 def launch_dragonrealms(button, character):
     headless_port = get_free_port()
 
-    lich_executable = Path("/home/jonas/dragonrealms/lich/lich.rbw")
+    lich_executable = Path("~/dragonrealms/lich-5/lich.rbw").expanduser()
     if not lich_executable.exists():
         raise FileNotFoundError("Cant find lich executable")
 
-    profanity_executable = Path("/home/jonas/dragonrealms/ProfanityFE/profanity.rb")
+    profanity_executable = Path("~/dragonrealms/ProfanityFE/profanity.rb").expanduser()
     if not profanity_executable.exists():
         raise FileNotFoundError("Cant find profanity executable")
 

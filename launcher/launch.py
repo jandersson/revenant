@@ -1,21 +1,30 @@
 """
 Launches a lich instance and a corresponding profanity instance
 """
+import argparse
+import os
 import socket
 from subprocess import Popen, run
 from pathlib import Path
 from time import sleep
 from contextlib import closing
 
+# Paths default to the local toolchain but can be overridden via env vars,
+# e.g. REVENANT_LICH=/somewhere/else/lich.rbw
+DEFAULT_LICH = Path(os.environ.get("REVENANT_LICH", "~/dragonrealms/lich-5/lich.rbw")).expanduser()
+DEFAULT_PROFANITY = Path(
+    os.environ.get("REVENANT_PROFANITY", "~/dragonrealms/ProfanityFE/profanity.rb")
+).expanduser()
+DEFAULT_LOG_DIR = Path(os.environ.get("REVENANT_LOG_DIR", "/tmp"))
+
 
 def launch_lich(lich_path: Path, lich_args):
-    lich_args.insert(0, str(lich_path))
-    Popen(lich_args)
+    # cwd matters: rbenv resolves lich-5's pinned Ruby via .ruby-version in its directory
+    Popen(["ruby", str(lich_path), *lich_args], cwd=lich_path.parent)
 
 
-def launch_profanity(profanity_path, profanity_args=[]):
-    profanity_args.insert(0, str(profanity_path))
-    run(profanity_args)
+def launch_profanity(profanity_path: Path, profanity_args):
+    run(["ruby", str(profanity_path), *profanity_args], cwd=profanity_path.parent)
 
 
 def get_free_port():
@@ -25,25 +34,24 @@ def get_free_port():
         return s.getsockname()[1]
 
 
-if __name__ == "__main__":
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("character", help="Character name (capitalized), must exist in lich's saved logins")
+    parser.add_argument("--lich", type=Path, default=DEFAULT_LICH, help="Path to lich.rbw")
+    parser.add_argument("--profanity", type=Path, default=DEFAULT_PROFANITY, help="Path to profanity.rb")
+    parser.add_argument("--log-dir", type=Path, default=DEFAULT_LOG_DIR, help="Profanity log directory")
+    parser.add_argument("--lich-wait", type=float, default=10, help="Seconds to wait for lich before attaching")
+    args = parser.parse_args()
+
+    for path, what in [(args.lich, "lich executable"), (args.profanity, "profanity executable"), (args.log_dir, "logging directory")]:
+        if not path.exists():
+            raise FileNotFoundError(f"Cant find {what}: {path}")
+
     headless_port = get_free_port()
-    character = "Hotdog"
-
-    profanity_log_dir = Path("/tmp/")
-    if not profanity_log_dir.exists():
-        raise FileNotFoundError("Logging directory does not exist")
-
-    lich_executable = Path("/home/jonas/dragonrealms/lich/lich.rbw")
-    if not lich_executable.exists():
-        raise FileNotFoundError("Cant find lich executable")
-
-    profanity_executable = Path("/home/jonas/dragonrealms/ProfanityFE/profanity.rb")
-    if not profanity_executable.exists():
-        raise FileNotFoundError("Cant find profanity executable")
 
     lich_args = [
         "--login",
-        character,
+        args.character,
         f"--detachable-client={headless_port}",
         "--without-frontend",
         "--dragonrealms",
@@ -51,10 +59,14 @@ if __name__ == "__main__":
 
     profanity_args = [
         f"--port={headless_port}",
-        f"--log-name={character}",
-        f"--log-dir={str(profanity_log_dir)}",
+        f"--log-name={args.character}",
+        f"--log-dir={args.log_dir}",
     ]
 
-    launch_lich(lich_executable, lich_args)
-    sleep(10)
-    launch_profanity(profanity_executable, profanity_args)
+    launch_lich(args.lich, lich_args)
+    sleep(args.lich_wait)
+    launch_profanity(args.profanity, profanity_args)
+
+
+if __name__ == "__main__":
+    main()
