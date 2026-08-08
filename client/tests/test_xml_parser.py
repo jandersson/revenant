@@ -68,7 +68,7 @@ def test_compass_replaced_on_next_room(xml_data):
 def test_room_title_from_stream_window(xml_data):
     XMLParser(target=xml_data).feed(
         "<r><streamWindow id='room' title='Room' "
-        "subtitle=\" - [The Crossing, Herald Street]\"/></r>"
+        'subtitle=" - [The Crossing, Herald Street]"/></r>'
     )
     assert xml_data.room_title == "[The Crossing, Herald Street]"
 

@@ -86,8 +86,7 @@ class MapDB:
             room_id
             for room_id, room in self.rooms.items()
             if any(
-                needle in normalize_title(title)
-                for title in room.get("title") or []
+                needle in normalize_title(title) for title in room.get("title") or []
             )
         ]
 
