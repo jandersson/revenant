@@ -27,15 +27,20 @@ Dependencies are declared in [pyproject.toml](pyproject.toml) — currently `pyq
 
 ## Running
 
-Direct mode — login and GUI in one process:
+One command:
 
 ```sh
-uv run python -m client.gui.client_gui
+uv run revenant
 ```
 
-Detachable session — one process owns the login and game connection, and
-front ends attach and detach freely without reconnecting (restart the GUI
-mid-development, run several viewers, or none at all):
+If a session is already listening it attaches the GUI to it instantly;
+otherwise it spawns one in the background (which does the keychain login),
+waits for it to come up, and attaches. Closing the GUI leaves the session —
+and the game connection — running; `uv run revenant` again to reattach.
+`revenant <Character>` picks the character for a newly spawned session,
+and `revenant --direct` runs login + GUI in a single process.
+
+The pieces are also runnable by hand:
 
 ```sh
 uv run python -m client.session                    # terminal 1, stays running

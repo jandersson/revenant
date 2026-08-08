@@ -169,8 +169,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         Thread(target=output_loop, daemon=True).start()
 
 
-if __name__ == "__main__":
-    # TODO: Break out into a launcher module
+def main(argv=None):
     argparser = argparse.ArgumentParser(description="Revenant PyQt6 front end")
     argparser.add_argument(
         "--attach",
@@ -180,8 +179,8 @@ if __name__ == "__main__":
         metavar="HOST:PORT",
         help="attach to a running client.session instead of logging in directly",
     )
-    args = argparser.parse_args()
-    app = QApplication(sys.argv)
+    args = argparser.parse_args(argv)
+    app = QApplication(sys.argv[:1])
     # On macOS this also sets the Dock icon for the running app.
     app.setWindowIcon(QIcon(ICON_PATH))
     if args.attach:
@@ -189,5 +188,9 @@ if __name__ == "__main__":
         engine = AttachedEngine(host or DEFAULT_HOST, int(port))
     else:
         engine = Engine()
-    client_app = ClientGUI(engine)
+    client_app = ClientGUI(engine)  # noqa: F841 -- must outlive app.exec()
     sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()
