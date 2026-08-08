@@ -13,6 +13,7 @@ uv run revenant                  # launch: spawn/attach a session + GUI
 uv run pytest client/tests -q    # test suite (threaded/socket tests included)
 uv run ruff check client chat    # lint — CI enforces this
 uv run ruff format client chat   # format — CI enforces --check
+uv run python tools/build_app.py # (re)build ~/Applications/Revenant.app (macOS)
 ```
 
 CI (`.github/workflows/python-package.yml`) runs ruff (check + format) and
