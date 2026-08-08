@@ -165,6 +165,12 @@ def simu_login():
     # TODO: Consider handling game_connection with a context manager, if possible
     creds = get_credentials()
     key = eaccess_protocol(creds)
+    return connect_game(key)
+
+
+def connect_game(key):
+    """Open the game connection with a one-shot eaccess launch key."""
+    log = module_logger.log
     game_connection = SocketClient(DR_HOST, DR_PORT)
     log.debug("Got a game connection")
     game_connection.read_until(b"</settings>")

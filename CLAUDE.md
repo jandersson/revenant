@@ -29,8 +29,10 @@ One pipeline, one parser, several processes:
   API: `read_until`, `read_very_eager`).
 - `client/client/login.py` — eaccess handshake. Credentials: password lives in
   the OS keychain (`keyring`, service "revenant"); account/character come from
-  `REVENANT_ACCOUNT` / `REVENANT_CHARACTER` env vars, prompts as fallback.
-  **Never store credentials in files, even gitignored ones.**
+  `REVENANT_ACCOUNT` / `REVENANT_CHARACTER` env vars. With no keychain entry
+  the launcher prompts once and exchanges the password for a single-use
+  launch key, passing only the key to the session over stdin (never argv or
+  env). **Never store credentials in files, even gitignored ones.**
 - `client/client/xml_data.py` — XMLParser target holding parsed game state
   (indicators, compass, prompt), plus `route(line)` which splits each line
   into `(stream, text)` segments via pushStream/popStream markers.

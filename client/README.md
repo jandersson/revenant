@@ -66,6 +66,12 @@ export REVENANT_ACCOUNT=YOURACCOUNT
 export REVENANT_CHARACTER=Yourcharacter
 ```
 
+The keychain is optional: with no stored entry, `revenant` prompts for the
+password at launch and uses it exactly once for the login handshake — only
+the resulting single-use launch key is handed to the session (over stdin),
+the same temporary-use model as the official SGE launchers. Nothing is
+written anywhere.
+
 A CLI wrapper is on the TODO list.
 
 ## Scripts

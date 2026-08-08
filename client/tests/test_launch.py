@@ -43,27 +43,36 @@ def test_session_running_false_on_unserved_port():
     placeholder.close()
 
 
-def test_ensure_credentials_reports_all_problems(monkeypatch, capsys):
+def test_resolve_credentials_reports_all_problems(monkeypatch, capsys):
     monkeypatch.delenv("REVENANT_ACCOUNT", raising=False)
     with pytest.raises(SystemExit):
-        launch.ensure_credentials(None)
+        launch.resolve_credentials(None)
     err = capsys.readouterr().err
     assert "REVENANT_ACCOUNT" in err
     assert "character" in err
 
 
-def test_ensure_credentials_checks_keychain(monkeypatch, capsys):
-    monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
-    monkeypatch.setattr(launch.keyring, "get_password", lambda service, user: None)
-    with pytest.raises(SystemExit):
-        launch.ensure_credentials("Testchar")
-    assert "keychain" in capsys.readouterr().err
-
-
-def test_ensure_credentials_passes_when_complete(monkeypatch):
+def test_resolve_credentials_prefers_keychain(monkeypatch):
     monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
     monkeypatch.setattr(launch.keyring, "get_password", lambda service, user: "pw")
-    launch.ensure_credentials("Testchar")
+    assert launch.resolve_credentials("Testchar") == ("TESTACCT", None)
+
+
+def test_resolve_credentials_prompts_ephemerally_on_a_tty(monkeypatch):
+    monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
+    monkeypatch.setattr(launch.keyring, "get_password", lambda service, user: None)
+    monkeypatch.setattr(launch.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(launch.getpass, "getpass", lambda prompt: "typed-once")
+    assert launch.resolve_credentials("Testchar") == ("TESTACCT", "typed-once")
+
+
+def test_resolve_credentials_fails_without_keychain_or_tty(monkeypatch, capsys):
+    monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
+    monkeypatch.setattr(launch.keyring, "get_password", lambda service, user: None)
+    monkeypatch.setattr(launch.sys.stdin, "isatty", lambda: False)
+    with pytest.raises(SystemExit):
+        launch.resolve_credentials("Testchar")
+    assert "no keychain password" in capsys.readouterr().err
 
 
 def test_wait_for_session_reports_dead_process():

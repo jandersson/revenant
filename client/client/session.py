@@ -20,7 +20,7 @@ from time import sleep
 
 from client.client_logger import ClientLogger
 from client.core import Engine
-from client.login import simu_login
+from client.login import connect_game, simu_login
 from client.netsock import SocketClient
 from client.scripting import ScriptManager
 
@@ -225,15 +225,24 @@ class AttachedEngine(ClientLogger):
                 output_callback(text, stream)
 
 
-def main():
+def main(argv=None):
     argparser = argparse.ArgumentParser(
         description="Detachable DragonRealms session: logs in, owns the game "
         "connection, and relays text to attached front ends."
     )
     argparser.add_argument("--host", default=DEFAULT_HOST)
     argparser.add_argument("--port", type=int, default=DEFAULT_PORT)
-    args = argparser.parse_args()
-    game_connection = simu_login()
+    argparser.add_argument(
+        "--key-stdin",
+        action="store_true",
+        help="read a one-shot eaccess launch key from stdin instead of "
+        "performing the login handshake (the SGE launcher model)",
+    )
+    args = argparser.parse_args(argv)
+    if args.key_stdin:
+        game_connection = connect_game(sys.stdin.readline().strip())
+    else:
+        game_connection = simu_login()
     SessionServer(game_connection, args.host, args.port).serve()
 
 

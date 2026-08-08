@@ -1,8 +1,20 @@
+import io
 import socket
 from threading import Thread
 from time import sleep
 
 from client import session
+
+
+def test_main_key_stdin_uses_piped_key(monkeypatch):
+    connected = {}
+    monkeypatch.setattr(
+        session, "connect_game", lambda key: connected.setdefault("key", key)
+    )
+    monkeypatch.setattr(session.SessionServer, "serve", lambda self: None)
+    monkeypatch.setattr(session.sys, "stdin", io.StringIO("ONE-SHOT-KEY\n"))
+    session.main(["--key-stdin", "--port", "0"])
+    assert connected["key"] == "ONE-SHOT-KEY"
 
 
 class FakeGame:

@@ -6,6 +6,7 @@
 """
 
 import argparse
+import getpass
 import os
 import socket
 import subprocess
@@ -15,7 +16,7 @@ from time import sleep, time
 
 import keyring
 
-from client.login import KEYRING_SERVICE
+from client.login import KEYRING_SERVICE, eaccess_protocol
 from client.session import DEFAULT_HOST, DEFAULT_PORT
 
 
@@ -27,18 +28,18 @@ def session_running(host, port):
         return False
 
 
-def ensure_credentials(character):
-    """Fail fast with instructions — a background session cannot prompt."""
+def resolve_credentials(character):
+    """Work out how the session will authenticate.
+
+    Returns (account, password): password is None when the OS keychain
+    holds it (the session logs in by itself). With no keychain entry, the
+    password is prompted for and used exactly once for the login
+    handshake — the SGE-launcher model — never stored anywhere."""
     problems = []
     account = os.environ.get("REVENANT_ACCOUNT")
     if not account:
         problems.append(
             "REVENANT_ACCOUNT is not set (export REVENANT_ACCOUNT=YOURACCOUNT)"
-        )
-    elif keyring.get_password(KEYRING_SERVICE, account) is None:
-        problems.append(
-            f"no keychain password for {account} (store it once with: "
-            f"uv run keyring set {KEYRING_SERVICE} {account})"
         )
     if not character:
         problems.append(
@@ -48,17 +49,45 @@ def ensure_credentials(character):
         for problem in problems:
             print(f"revenant: {problem}", file=sys.stderr)
         raise SystemExit(1)
+    if keyring.get_password(KEYRING_SERVICE, account) is not None:
+        return account, None
+    if not sys.stdin.isatty():
+        print(
+            f"revenant: no keychain password for {account} and no terminal "
+            f"to prompt in (store it once with: uv run keyring set "
+            f"{KEYRING_SERVICE} {account})",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+    return account, getpass.getpass(f"Password for {account} (used once, not stored): ")
 
 
-def spawn_session(host, port, character):
+def spawn_session(host, port, character, key=None):
     env = dict(os.environ, REVENANT_CHARACTER=character)
+    command = [
+        sys.executable,
+        "-m",
+        "client.session",
+        "--host",
+        host,
+        "--port",
+        str(port),
+    ]
     # New process group: interrupting or closing the GUI must not take the
     # session (and with it the game connection) down too.
-    return subprocess.Popen(
-        [sys.executable, "-m", "client.session", "--host", host, "--port", str(port)],
+    if key is None:
+        return subprocess.Popen(command, env=env, start_new_session=True)
+    # A one-shot launch key travels over stdin: never in argv or env.
+    process = subprocess.Popen(
+        command + ["--key-stdin"],
         env=env,
         start_new_session=True,
+        stdin=subprocess.PIPE,
+        text=True,
     )
+    process.stdin.write(key + "\n")
+    process.stdin.close()
+    return process
 
 
 def wait_for_session(process, host, port, timeout=60):
@@ -136,9 +165,18 @@ def main(argv=None):
         return exec_gui([])
 
     if not session_running(args.host, args.port):
-        ensure_credentials(args.character)
+        account, password = resolve_credentials(args.character)
+        key = None
+        if password is not None:
+            key = eaccess_protocol(
+                {
+                    "username": account.encode("ASCII"),
+                    "password": password.encode("ASCII"),
+                    "character": args.character.capitalize(),
+                }
+            )
         print(f"revenant: starting a session on {args.host}:{args.port} ...")
-        process = spawn_session(args.host, args.port, args.character)
+        process = spawn_session(args.host, args.port, args.character, key=key)
         wait_for_session(process, args.host, args.port)
     elif args.character:
         print(
