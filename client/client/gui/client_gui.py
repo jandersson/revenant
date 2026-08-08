@@ -23,7 +23,18 @@ from client.client_logger import ClientLogger
 class ClientGUI(QMainWindow, ClientLogger):
     # Game text arrives on the reader thread, but Qt widgets may only be
     # touched from the GUI thread — hand it over via a queued signal.
-    game_text = pyqtSignal(str)
+    # Args: text, stream id ("" = main window).
+    game_text = pyqtSignal(str, str)
+
+    # stream id -> dock window title; streams not listed here fall through
+    # to the main window.
+    STREAM_WINDOWS = {
+        "thoughts": "Thoughts",
+        "chatter": "Thoughts",
+        "percWindow": "Spells",
+        "logons": "Arrivals",
+        "death": "Arrivals",
+    }
 
     def __init__(self):
         super().__init__()
@@ -32,7 +43,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.input_dock = QDockWidget()
         self.client = Engine()
         self.__init_ui()
-        self.game_text.connect(self.write_to_main_window)
+        self.game_text.connect(self.dispatch_game_text)
         self.client.connect()
         self.status_bar.showMessage("Connected")
         self.input.setEnabled(True)
@@ -46,6 +57,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.status_bar.showMessage("Not Connected")
 
         self.__add_output_window()
+        self.__add_stream_docks()
         self.__add_input_field()
 
         exit_action = QAction(QIcon("exit.png"), "&Exit", self)
@@ -63,12 +75,27 @@ class ClientGUI(QMainWindow, ClientLogger):
         file_menu.addAction(exit_action)
         view_menu = menubar.addMenu("View")
         view_menu.addAction(view_status_bar)
+        view_menu.addSeparator()
+        for dock in self.stream_docks.values():
+            view_menu.addAction(dock.toggleViewAction())
 
         self.show()
 
     def __add_output_window(self):
         self.main_window = QTextEdit(readOnly=True)
         self.setCentralWidget(self.main_window)
+
+    def __add_stream_docks(self):
+        """One dock window per title in STREAM_WINDOWS, stacked on the right."""
+        self.stream_docks = {}
+        self.stream_windows = {}
+        for title in dict.fromkeys(self.STREAM_WINDOWS.values()):
+            dock = QDockWidget(title)
+            dock.setWidget(QTextEdit(readOnly=True))
+            self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+            self.stream_docks[title] = dock
+        for stream, title in self.STREAM_WINDOWS.items():
+            self.stream_windows[stream] = self.stream_docks[title].widget()
 
     def __add_input_field(self):
         self.input = QLineEdit()
@@ -93,11 +120,17 @@ class ClientGUI(QMainWindow, ClientLogger):
         else:
             self.status_bar.hide()
 
+    def dispatch_game_text(self, text: str, stream: str):
+        self._append(self.stream_windows.get(stream, self.main_window), text)
+
     def write_to_main_window(self, text: str):
+        self._append(self.main_window, text)
+
+    def _append(self, view, text: str):
         if not text.endswith("\n"):
             text = text + "\n"
-        self.main_window.insertPlainText(text)
-        self.main_window.moveCursor(QTextCursor.MoveOperation.End)
+        view.insertPlainText(text)
+        view.moveCursor(QTextCursor.MoveOperation.End)
 
     def write(self, write_data: str):
         if self.client.connection is None:

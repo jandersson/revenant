@@ -2,6 +2,15 @@ import re
 import html
 from xml.etree.ElementTree import ParseError
 
+# Streams that duplicate text already present in the main window (or that
+# nothing renders yet), matching what the old strip() deleted outright.
+DISCARD_STREAMS = {"spellfront", "inv", "bounty", "society", "speech", "talk"}
+
+# <pushStream id="thoughts"/> opens a routed block, <popStream/> returns
+# to the main stream. The capture group carries the stream id; popStream
+# matches contribute None.
+_STREAM_MARKER = re.compile(r"<pushStream id=[\"'](\w+)[\"'][^>]*/>|<popStream[^>]*/>")
+
 
 class XMLData:
     """A parser target directly translated from lich.rb::XMLParser (aka XMLData)"""
@@ -62,9 +71,15 @@ class XMLData:
         if self.active_ids:
             self.last_id = self.active_ids.pop()
 
-    def strip(self, line: str) -> str:
+    def route(self, line: str) -> list:
+        """Split a line of game text into (stream, text) segments.
+
+        The main stream is "". pushStream/popStream pairs that span lines
+        are buffered until they balance, so a segment always knows its
+        stream. Streams in DISCARD_STREAMS are dropped.
+        """
         if line == "\r\n":
-            return line
+            return [("", line)]
 
         if self._strip_xml_multiline:
             self._strip_xml_multiline += line
@@ -73,16 +88,10 @@ class XMLData:
             re.split(r"<popStream[^>]*\/>", line)
         ):
             self._strip_xml_multiline = line
-            return ""
+            return []
         # Reset
         self._strip_xml_multiline = ""
 
-        line = re.sub(
-            r"<pushStream id=[\"'](?:spellfront|inv|bounty|society|speech|talk)[\"'][^>]*\/>.*?<popStream[^>]*>",
-            "",
-            line,
-            flags=re.MULTILINE,
-        )
         line = re.sub(
             r'<stream id="Spells">.*?<\/stream>', "", line, flags=re.MULTILINE
         )
@@ -92,11 +101,20 @@ class XMLData:
             line,
             flags=re.MULTILINE,
         )
-        line = re.sub(r"<[^>]+>", "", line)
-        line = html.unescape(line)
-        if not line.strip():
-            return ""
-        return line
+
+        parts = _STREAM_MARKER.split(line)
+        texts = parts[0::2]
+        # Text before the first marker is main; after a pushStream it is
+        # that stream's; after a popStream it is main again.
+        streams = [""] + [marker or "" for marker in parts[1::2]]
+        segments = []
+        for stream, text in zip(streams, texts):
+            text = re.sub(r"<[^>]+>", "", text)
+            text = html.unescape(text)
+            if not text.strip() or stream in DISCARD_STREAMS:
+                continue
+            segments.append((stream, text))
+        return segments
 
     def reset(self):
         self.current_stream = ""

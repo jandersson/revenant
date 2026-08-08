@@ -79,7 +79,7 @@ class Engine(ClientLogger):
         except EOFError as e:
             goodbye = "\n******************\n*****THE END******\n******************\n"
             if output_callback:
-                output_callback(goodbye)
+                output_callback(goodbye, "")
             else:
                 buff.append(goodbye)
             self.log.info("Connection closed")
@@ -99,13 +99,11 @@ class Engine(ClientLogger):
                     XMLParser(target=self.xml_data).feed(f"<r>{line}</r>")
                 except ParseError:
                     pass
-                line = self.xml_data.strip(line)
-                if not line:
-                    continue
-                if output_callback:
-                    output_callback(line)
-                else:
-                    buff.append(line)
+                for stream, text in self.xml_data.route(line):
+                    if output_callback:
+                        output_callback(text, stream)
+                    else:
+                        buff.append(text if not stream else f"[{stream}] {text}")
 
         if not output_callback:
             sys.stdout.write("\n".join(buff))
