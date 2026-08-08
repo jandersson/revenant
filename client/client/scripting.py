@@ -240,4 +240,9 @@ class ScriptManager(ClientLogger):
             script.stop()
 
     def stop_all(self):
-        self.stop("all")
+        """Internal shutdown path: stop everything without the ;stop
+        feedback chatter (an empty "nothing to stop" has no audience)."""
+        with self.lock:
+            targets = list(self.running.values())
+        for script in targets:
+            script.stop()
