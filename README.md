@@ -17,7 +17,7 @@ uv run pytest --rootdir client   # run the client test suite
 uv run -- python -m client.gui.client_gui   # launch the PyQt6 client
 ```
 
-Python 3.10–3.12 is required. Python 3.13+ is not yet supported because [client/client/login.py](client/client/login.py) depends on the `telnetlib` module that was removed in 3.13.
+Python 3.10+ is required. (The old `telnetlib` dependency — removed from the stdlib in Python 3.13 — was replaced by [client/client/netsock.py](client/client/netsock.py), a minimal buffered socket client.)
 
 ## Projects
 

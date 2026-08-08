@@ -1,10 +1,10 @@
 import platform
 import re
 import struct
-from telnetlib import Telnet
 from time import sleep
 
 from client.client_logger import ClientLogger
+from client.netsock import SocketClient
 
 
 GAME_CODE = b"DR"
@@ -26,7 +26,7 @@ class EAccessClient(ClientLogger):
         self.log.debug("Initializing EAccessClient to connect to game")
         self.host = host
         self.port = port
-        self.client = Telnet()
+        self.client = SocketClient()
 
     def connect(self):
         self.client.open(self.host, self.port)
@@ -150,8 +150,8 @@ def simu_login():
     # TODO: Consider handling game_connection with a context manager, if possible
     creds = get_credentials()
     key = eaccess_protocol(creds)
-    game_connection = Telnet(DR_HOST, DR_PORT)
-    log.debug("Got a game connection via Telnet")
+    game_connection = SocketClient(DR_HOST, DR_PORT)
+    log.debug("Got a game connection")
     game_connection.read_until(b"</settings>")
     game_connection.write(key.encode("ASCII") + b"\n")
     game_connection.write(

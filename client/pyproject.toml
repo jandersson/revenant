@@ -12,7 +12,7 @@ authors = [
     { name = "Jonas A Andersson", email = "jonas@andersson.io" },
 ]
 # client/login.py imports telnetlib, which was removed in Python 3.13.
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.10"
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
