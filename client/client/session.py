@@ -93,6 +93,11 @@ class SessionServer(ClientLogger):
             except EOFError:
                 self.shutdown()
                 return
+            except Exception:
+                # A reader crash must never be a silent hang for clients.
+                self.log.exception("game reader crashed; shutting down")
+                self.shutdown()
+                return
             sleep(0.01)
 
     def fanout(self, text: str, stream: str):
@@ -149,9 +154,11 @@ class SessionServer(ClientLogger):
         self.log.info("Front end detached")
 
     def shutdown(self):
-        self.log.info("Game connection closed, shutting down session")
+        if not self.running:
+            return
         self.running = False
-        self.scripts.stop_all()
+        self.log.info("Game connection closed, shutting down session")
+        # Disconnect clients before anything that could block or emit.
         with self.clients_lock:
             clients = list(self.clients)
             self.clients.clear()
@@ -162,6 +169,7 @@ class SessionServer(ClientLogger):
                 pass
         if self.listener:
             self.listener.close()
+        self.scripts.stop_all()
 
 
 class AttachedEngine(ClientLogger):
