@@ -47,7 +47,15 @@ The pipeline:
 See [beholder/README.md](beholder/README.md) for setup. Note: the pinned dependencies in [beholder/requirements.txt](beholder/requirements.txt) are old — Dash 0.22, Flask 1.0, pandas 0.23 — and the code uses the deprecated `dash_core_components` / `dash_html_components` / `dash_table_experiments` imports, so it won't run under a modern Dash without porting. That's why beholder is **not** part of the uv workspace yet.
 
 ### chat
-A minimal LNet client in pure Python. Connects over SSL to `lnet.lichproject.org`, handles the login XML handshake, answers pings, and parses incoming messages into a typed `LnetMessage`. See [chat/chat.py](chat/chat.py). Run with `cd chat && uv run python chat.py` (the bare relative path to `LnetCert.txt` means it must be invoked from the `chat/` directory).
+A minimal LNet client in pure Python (stdlib `ssl` only, no dependencies). Connects to `lnet.lichproject.org:7155`, verifies the server against the pinned CA in [chat/LnetCert.txt](chat/LnetCert.txt) plus the `lichproject.org`/`LichNet` CN check the reference client uses, handles the login XML handshake, answers pings, and parses the incoming XML stream into typed `LnetMessage`s. See [chat/chat.py](chat/chat.py). Run with `uv run python chat/chat.py`.
+
+LNet names can be password-protected on the server (protocol per `lnet.lic` 1.15): if a name is protected, login must carry a `password` attribute or the server answers `password required` and disconnects. Configure via environment:
+
+- `LNET_NAME` — the name to log in as (defaults to `Wabbajack`, which is currently password-protected — set your own).
+- `LNET_PASSWORD` — the password for that name; alternatively put it in the git-ignored `chat/lnet_password.txt`. Never commit it.
+- `LNET_DEBUG` — set to anything for raw protocol dumps.
+
+To password-protect a name (or change it), log in and call `Server.register_password("...")`; pass the literal string `"nil"` to remove protection. Forgotten passwords are reset at <https://lnet.lichproject.org>.
 
 ### launcher
 [launcher/launch.py](launcher/launch.py) picks a free port, starts lich headless with `--detachable-client`, and attaches a Profanity front end to it. Paths are currently hard-coded for the author's machine — treat it as a template rather than a turnkey tool.
