@@ -16,7 +16,7 @@ from time import sleep, time
 
 import keyring
 
-from client.login import KEYRING_SERVICE, eaccess_protocol
+from client.login import KEYRING_SERVICE, LoginError, eaccess_protocol
 from client.session import DEFAULT_HOST, DEFAULT_PORT
 
 
@@ -28,38 +28,56 @@ def session_running(host, port):
         return False
 
 
-def resolve_credentials(character):
+def gather_login(character):
     """Work out how the session will authenticate.
 
-    Returns (account, password): password is None when the OS keychain
-    holds it (the session logs in by itself). With no keychain entry, the
-    password is prompted for and used exactly once for the login
-    handshake — the SGE-launcher model — never stored anywhere."""
-    problems = []
-    account = os.environ.get("REVENANT_ACCOUNT")
-    if not account:
-        problems.append(
-            "REVENANT_ACCOUNT is not set (export REVENANT_ACCOUNT=YOURACCOUNT)"
-        )
-    if not character:
-        problems.append(
-            "no character given (revenant <Character>, or export REVENANT_CHARACTER)"
-        )
-    if problems:
-        for problem in problems:
-            print(f"revenant: {problem}", file=sys.stderr)
-        raise SystemExit(1)
-    if keyring.get_password(KEYRING_SERVICE, account) is not None:
-        return account, None
-    if not sys.stdin.isatty():
-        print(
-            f"revenant: no keychain password for {account} and no terminal "
-            f"to prompt in (store it once with: uv run keyring set "
-            f"{KEYRING_SERVICE} {account})",
-            file=sys.stderr,
-        )
-        raise SystemExit(1)
-    return account, getpass.getpass(f"Password for {account} (used once, not stored): ")
+    Returns (character, key): key is None when the OS keychain holds the
+    password (the session logs in by itself). Otherwise the password is
+    collected — terminal prompt when there's a tty and the account and
+    character are already known, the Qt login screen when not — and used
+    exactly once for the handshake; only the single-use launch key
+    survives. "Remember me" writes the password to the keychain."""
+    account = os.environ.get("REVENANT_ACCOUNT", "")
+    if (
+        account
+        and character
+        and keyring.get_password(KEYRING_SERVICE, account) is not None
+    ):
+        return character, None
+
+    error = ""
+    remember = False
+    while True:
+        if account and character and sys.stdin.isatty():
+            if error:
+                print(f"revenant: {error}", file=sys.stderr)
+            password = getpass.getpass(
+                f"Password for {account} (used once, not stored): "
+            )
+        else:
+            from client.gui.login_dialog import ask_credentials
+
+            answer = ask_credentials(account, character, error)
+            if answer is None:
+                raise SystemExit(1)
+            account, password, character, remember = answer
+            if not (account and password and character):
+                error = "Account, password, and character are all required."
+                continue
+        try:
+            key = eaccess_protocol(
+                {
+                    "username": account.encode("ASCII"),
+                    "password": password.encode("ASCII"),
+                    "character": character.capitalize(),
+                }
+            )
+        except LoginError as exc:
+            error = str(exc)
+            continue
+        if remember:
+            keyring.set_password(KEYRING_SERVICE, account, password)
+        return character, key
 
 
 def spawn_session(host, port, character, key=None):
@@ -165,18 +183,9 @@ def main(argv=None):
         return exec_gui([])
 
     if not session_running(args.host, args.port):
-        account, password = resolve_credentials(args.character)
-        key = None
-        if password is not None:
-            key = eaccess_protocol(
-                {
-                    "username": account.encode("ASCII"),
-                    "password": password.encode("ASCII"),
-                    "character": args.character.capitalize(),
-                }
-            )
+        character, key = gather_login(args.character)
         print(f"revenant: starting a session on {args.host}:{args.port} ...")
-        process = spawn_session(args.host, args.port, args.character, key=key)
+        process = spawn_session(args.host, args.port, character, key=key)
         wait_for_session(process, args.host, args.port)
     elif args.character:
         print(

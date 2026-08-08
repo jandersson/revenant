@@ -43,36 +43,82 @@ def test_session_running_false_on_unserved_port():
     placeholder.close()
 
 
-def test_resolve_credentials_reports_all_problems(monkeypatch, capsys):
-    monkeypatch.delenv("REVENANT_ACCOUNT", raising=False)
-    with pytest.raises(SystemExit):
-        launch.resolve_credentials(None)
-    err = capsys.readouterr().err
-    assert "REVENANT_ACCOUNT" in err
-    assert "character" in err
+def _fake_dialog(monkeypatch, answers):
+    """Stand in for client.gui.login_dialog without importing PyQt6."""
+    import sys as _sys
+    import types
+
+    calls = []
+
+    def ask_credentials(account="", character="", error=""):
+        calls.append((account, character, error))
+        return answers.pop(0)
+
+    monkeypatch.setitem(
+        _sys.modules,
+        "client.gui.login_dialog",
+        types.SimpleNamespace(ask_credentials=ask_credentials),
+    )
+    return calls
 
 
-def test_resolve_credentials_prefers_keychain(monkeypatch):
+def test_gather_login_prefers_keychain(monkeypatch):
     monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
     monkeypatch.setattr(launch.keyring, "get_password", lambda service, user: "pw")
-    assert launch.resolve_credentials("Testchar") == ("TESTACCT", None)
+    assert launch.gather_login("Testchar") == ("Testchar", None)
 
 
-def test_resolve_credentials_prompts_ephemerally_on_a_tty(monkeypatch):
+def test_gather_login_prompts_ephemerally_on_a_tty(monkeypatch):
     monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
     monkeypatch.setattr(launch.keyring, "get_password", lambda service, user: None)
     monkeypatch.setattr(launch.sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr(launch.getpass, "getpass", lambda prompt: "typed-once")
-    assert launch.resolve_credentials("Testchar") == ("TESTACCT", "typed-once")
+    seen = {}
+    monkeypatch.setattr(
+        launch, "eaccess_protocol", lambda info: seen.update(info) or "KEY123"
+    )
+    assert launch.gather_login("Testchar") == ("Testchar", "KEY123")
+    assert seen["password"] == b"typed-once"
 
 
-def test_resolve_credentials_fails_without_keychain_or_tty(monkeypatch, capsys):
+def test_gather_login_retries_on_bad_password(monkeypatch, capsys):
     monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
     monkeypatch.setattr(launch.keyring, "get_password", lambda service, user: None)
+    monkeypatch.setattr(launch.sys.stdin, "isatty", lambda: True)
+    passwords = iter(["wrong", "right"])
+    monkeypatch.setattr(launch.getpass, "getpass", lambda prompt: next(passwords))
+
+    def eaccess(info):
+        if info["password"] == b"wrong":
+            raise launch.LoginError("Bad Password")
+        return "KEY456"
+
+    monkeypatch.setattr(launch, "eaccess_protocol", eaccess)
+    assert launch.gather_login("Testchar") == ("Testchar", "KEY456")
+    assert "Bad Password" in capsys.readouterr().err
+
+
+def test_gather_login_uses_dialog_without_tty(monkeypatch):
+    monkeypatch.delenv("REVENANT_ACCOUNT", raising=False)
     monkeypatch.setattr(launch.sys.stdin, "isatty", lambda: False)
+    _fake_dialog(monkeypatch, [("TESTACCT", "typed", "Testchar", True)])
+    stored = {}
+    monkeypatch.setattr(
+        launch.keyring,
+        "set_password",
+        lambda service, user, pw: stored.update({user: pw}),
+    )
+    monkeypatch.setattr(launch, "eaccess_protocol", lambda info: "KEY789")
+    assert launch.gather_login(None) == ("Testchar", "KEY789")
+    assert stored == {"TESTACCT": "typed"}, "remember-me should hit the keychain"
+
+
+def test_gather_login_dialog_cancel_exits(monkeypatch):
+    monkeypatch.delenv("REVENANT_ACCOUNT", raising=False)
+    monkeypatch.setattr(launch.sys.stdin, "isatty", lambda: False)
+    _fake_dialog(monkeypatch, [None])
     with pytest.raises(SystemExit):
-        launch.resolve_credentials("Testchar")
-    assert "no keychain password" in capsys.readouterr().err
+        launch.gather_login(None)
 
 
 def test_wait_for_session_reports_dead_process():
