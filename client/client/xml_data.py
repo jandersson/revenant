@@ -34,6 +34,9 @@ class XMLData:
         self.server_time = None
         # The prone/sitting/standing indicator
         self.indicator = {}
+        # Obvious exits from the <compass> tag, e.g. ["n", "sw", "up"]
+        self.compass = []
+        self._pending_compass = []
 
         # Internal memo pad for stripping multi line tags
         self._strip_xml_multiline = ""
@@ -64,8 +67,14 @@ class XMLData:
             self.name = attributes["char"]
         elif name == "indicator":
             self.indicator[attributes["id"]] = attributes["visible"]
+        elif name == "compass":
+            self._pending_compass = []
+        elif name == "dir":
+            self._pending_compass.append(attributes["value"])
 
     def end(self, name: str):
+        if name == "compass":
+            self.compass = self._pending_compass
         if self.active_tags:
             self.last_tag = self.active_tags.pop()
         if self.active_ids:

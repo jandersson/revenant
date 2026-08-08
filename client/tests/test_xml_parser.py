@@ -52,6 +52,19 @@ def test_server_time(xml_data, login_strings):
     assert xml_data.server_time == 1626783184
 
 
+def test_compass_directions(xml_data):
+    XMLParser(target=xml_data).feed(
+        '<r><compass><dir value="n"/><dir value="sw"/><dir value="up"/></compass></r>'
+    )
+    assert xml_data.compass == ["n", "sw", "up"]
+
+
+def test_compass_replaced_on_next_room(xml_data):
+    XMLParser(target=xml_data).feed('<r><compass><dir value="n"/></compass></r>')
+    XMLParser(target=xml_data).feed('<r><compass><dir value="e"/></compass></r>')
+    assert xml_data.compass == ["e"]
+
+
 def test_route_plain_text_goes_to_main(xml_data):
     assert xml_data.route("You see a stunted forest troll.") == [
         ("", "You see a stunted forest troll.")
@@ -64,7 +77,9 @@ def test_route_single_line_stream(xml_data):
 
 
 def test_route_mixed_line_splits_streams(xml_data):
-    line = 'Before.<pushStream id="logons"/> * Bob joined the realms. <popStream/>After.'
+    line = (
+        'Before.<pushStream id="logons"/> * Bob joined the realms. <popStream/>After.'
+    )
     assert xml_data.route(line) == [
         ("", "Before."),
         ("logons", " * Bob joined the realms. "),
@@ -73,7 +88,9 @@ def test_route_mixed_line_splits_streams(xml_data):
 
 
 def test_route_buffers_multiline_stream(xml_data):
-    assert xml_data.route('<pushStream id="percWindow"/>Clear Vision  (29 roisaen)') == []
+    assert (
+        xml_data.route('<pushStream id="percWindow"/>Clear Vision  (29 roisaen)') == []
+    )
     assert xml_data.route("<popStream/>") == [
         ("percWindow", "Clear Vision  (29 roisaen)")
     ]

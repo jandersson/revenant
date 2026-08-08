@@ -28,10 +28,19 @@ def test_session_running_detects_listener():
     server.close()
 
 
-def test_session_running_false_on_closed_port():
-    server, port = _listener()
-    server.close()
+def _unserved_port():
+    """A socket bound but never listening: connections are refused, and the
+    port cannot be grabbed by another process while we hold it (a closed
+    ephemeral port can — CI runners reuse them fast)."""
+    placeholder = socket.socket()
+    placeholder.bind(("127.0.0.1", 0))
+    return placeholder, placeholder.getsockname()[1]
+
+
+def test_session_running_false_on_unserved_port():
+    placeholder, port = _unserved_port()
     assert not launch.session_running("127.0.0.1", port)
+    placeholder.close()
 
 
 def test_ensure_credentials_reports_all_problems(monkeypatch, capsys):
@@ -64,18 +73,51 @@ def test_wait_for_session_reports_dead_process():
         def poll(self):
             return self.returncode
 
-    server, port = _listener()
-    server.close()
+    placeholder, port = _unserved_port()
     with pytest.raises(SystemExit, match="exited"):
         launch.wait_for_session(DeadProcess(), "127.0.0.1", port, timeout=5)
+    placeholder.close()
+
+
+def test_branded_interpreter_creates_symlink(tmp_path):
+    bin_dir = tmp_path / "venv" / "bin"
+    bin_dir.mkdir(parents=True)
+    interpreter = bin_dir / "python3"
+    interpreter.write_text("")
+    branded = launch.branded_interpreter(interpreter)
+    assert branded == tmp_path / "venv" / "branded" / "Revenant"
+    assert branded.is_symlink()
+    assert branded.resolve() == interpreter.resolve()
+    # Second call reuses it.
+    assert launch.branded_interpreter(interpreter) == branded
+
+
+def test_branded_interpreter_repairs_stale_symlink(tmp_path):
+    bin_dir = tmp_path / "venv" / "bin"
+    bin_dir.mkdir(parents=True)
+    interpreter = bin_dir / "python3"
+    interpreter.write_text("")
+    (tmp_path / "venv" / "branded").mkdir()
+    stale = tmp_path / "venv" / "branded" / "Revenant"
+    stale.symlink_to(bin_dir / "elsewhere")
+    branded = launch.branded_interpreter(interpreter)
+    assert branded.resolve() == interpreter.resolve()
+
+
+def test_branded_interpreter_refuses_foreign_file(tmp_path):
+    bin_dir = tmp_path / "venv" / "bin"
+    bin_dir.mkdir(parents=True)
+    interpreter = bin_dir / "python3"
+    interpreter.write_text("")
+    (tmp_path / "venv" / "branded").mkdir()
+    (tmp_path / "venv" / "branded" / "Revenant").write_text("not a symlink")
+    assert launch.branded_interpreter(interpreter) == interpreter
 
 
 def test_main_attaches_to_running_session(monkeypatch):
-    from client.gui import client_gui
-
     server, port = _listener()
     calls = []
-    monkeypatch.setattr(client_gui, "main", lambda argv: calls.append(argv))
+    monkeypatch.setattr(launch, "exec_gui", lambda args: calls.append(args))
     launch.main(["--port", str(port)])
     assert calls == [["--attach", f"127.0.0.1:{port}"]]
     server.close()

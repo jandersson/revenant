@@ -68,6 +68,24 @@ export REVENANT_CHARACTER=Yourcharacter
 
 A CLI wrapper is on the TODO list.
 
+## Scripts
+
+Player scripts are Python files in the repo's `scripts/` directory (override
+with `REVENANT_SCRIPTS`), each defining `main(s)`. They run inside the
+session, so they keep running even with no front end attached. Control them
+by typing `;`-commands in any front end:
+
+    ;list               running + available scripts
+    ;run hello [args]   start one (;hello works as shorthand)
+    ;stop hello         stop one (;stop all for everything)
+
+The `s` handle: `s.put(cmd)` sends to the game (echoed to front ends),
+`s.get(timeout=)` returns the next main-stream line, `s.waitfor(*regexes,
+timeout=)` blocks for a match, `s.echo(text)` prints to front ends only,
+`s.sleep(secs)` is stop-aware, `s.state` is the session's parsed game state
+(indicators, compass, prompt), `s.args` are the `;run` arguments. See
+[../scripts/hello.py](../scripts/hello.py) for a worked example.
+
 ## Tests
 
 From this directory:

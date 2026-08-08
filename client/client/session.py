@@ -9,6 +9,7 @@ clients send plain command lines back.
 Run a session:   python -m client.session
 Attach the GUI:  python -m client.gui.client_gui --attach
 """
+
 import argparse
 import json
 import os
@@ -21,6 +22,7 @@ from client.client_logger import ClientLogger
 from client.core import Engine
 from client.login import simu_login
 from client.netsock import SocketClient
+from client.scripting import ScriptManager
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = int(os.environ.get("REVENANT_SESSION_PORT", "4242"))
@@ -53,7 +55,20 @@ class SessionServer(ClientLogger):
         self.listener = None
         self.clients = []
         self.clients_lock = Lock()
+        # Serialize writes: script threads, client threads, and the game
+        # reader all send on shared sockets.
+        self.broadcast_lock = Lock()
+        self.game_write_lock = Lock()
         self.running = True
+        self.engine = Engine()
+        self.engine.connection = game_connection
+        self.scripts = ScriptManager(
+            send=lambda command: self.send_to_game(
+                command.encode("ASCII", "replace") + b"\n"
+            ),
+            emit=lambda text: self.broadcast(text, "script"),
+            state=self.engine.xml_data,
+        )
 
     def serve(self):
         self.listener = socket.create_server((self.host, self.port))
@@ -70,27 +85,34 @@ class SessionServer(ClientLogger):
             pass  # listener closed during shutdown
 
     def game_reader(self):
-        # Engine.read does the parsing/routing; we just fan the segments
-        # out to whoever is attached (including the goodbye on EOF).
-        engine = Engine()
-        engine.connection = self.game
+        # Engine.read does the parsing/routing; we fan the segments out to
+        # attached front ends and running scripts (goodbye included on EOF).
         while True:
             try:
-                engine.read(output_callback=self.broadcast)
+                self.engine.read(output_callback=self.fanout)
             except EOFError:
                 self.shutdown()
                 return
             sleep(0.01)
 
+    def fanout(self, text: str, stream: str):
+        self.broadcast(text, stream)
+        self.scripts.feed(text, stream)
+
     def broadcast(self, text: str, stream: str):
         frame = encode_frame(text, stream)
         with self.clients_lock:
             clients = list(self.clients)
-        for conn in clients:
-            try:
-                conn.sendall(frame)
-            except OSError:
-                self.drop(conn)
+        with self.broadcast_lock:
+            for conn in clients:
+                try:
+                    conn.sendall(frame)
+                except OSError:
+                    self.drop(conn)
+
+    def send_to_game(self, data: bytes):
+        with self.game_write_lock:
+            self.game.write(data)
 
     def client_reader(self, conn):
         buffer = b""
@@ -105,8 +127,16 @@ class SessionServer(ClientLogger):
             buffer += data
             while b"\n" in buffer:
                 command, buffer = buffer.split(b"\n", 1)
-                if command.strip():
-                    self.game.write(command + b"\n")
+                command = command.strip()
+                if not command:
+                    continue
+                if command.startswith(b";"):
+                    try:
+                        self.scripts.handle_command(command.decode("UTF-8", "replace"))
+                    except Exception:
+                        self.log.exception("script command failed")
+                else:
+                    self.send_to_game(command + b"\n")
 
     def drop(self, conn):
         with self.clients_lock:
@@ -121,6 +151,7 @@ class SessionServer(ClientLogger):
     def shutdown(self):
         self.log.info("Game connection closed, shutting down session")
         self.running = False
+        self.scripts.stop_all()
         with self.clients_lock:
             clients = list(self.clients)
             self.clients.clear()

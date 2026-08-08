@@ -55,16 +55,14 @@ def test_session_relays_text_commands_and_shutdown():
     game = FakeGame()
     server, port = _start_server(game)
 
-    client = socket.create_connection(("127.0.0.1", port), timeout=2)
-    client.settimeout(2)
+    client = socket.create_connection(("127.0.0.1", port), timeout=5)
+    client.settimeout(5)
     assert _await(lambda: server.clients), "client never registered"
 
     # Game text fans out to the attached client, routed by stream.
-    game.pending.append(
-        b'Hello there.\n<pushStream id="thoughts"/>psst<popStream/>\n'
-    )
+    game.pending.append(b'Hello there.\n<pushStream id="thoughts"/>psst<popStream/>\n')
     buffer = b""
-    while buffer.count(b"\n") < 2:
+    while b"psst" not in buffer:
         buffer += client.recv(4096)
     frames, _ = session.decode_frames(buffer)
     assert ("Hello there.", "") in frames
@@ -86,6 +84,21 @@ def test_session_relays_text_commands_and_shutdown():
     frames, _ = session.decode_frames(buffer)
     assert any("THE END" in text for text, _ in frames)
     assert not server.running
+
+
+def test_semicolon_commands_go_to_scripts_not_game(monkeypatch):
+    game = FakeGame()
+    server, port = _start_server(game)
+    handled = []
+    monkeypatch.setattr(server.scripts, "handle_command", handled.append)
+
+    client = socket.create_connection(("127.0.0.1", port), timeout=2)
+    assert _await(lambda: server.clients), "client never registered"
+    client.sendall(b";list\n")
+    assert _await(lambda: handled), "script command never handled"
+    assert handled == [";list"]
+    assert game.sent == []
+    client.close()
 
 
 def test_attached_engine_reads_frames_and_writes_commands():

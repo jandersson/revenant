@@ -7,10 +7,13 @@ from time import sleep
 from PyQt6.QtWidgets import (
     QApplication,
     QDockWidget,
+    QGridLayout,
     QLineEdit,
     QMainWindow,
     QMenu,
+    QPushButton,
     QTextEdit,
+    QWidget,
 )
 from PyQt6.QtGui import QIcon, QTextCursor, QAction
 from PyQt6.QtCore import Qt, pyqtSignal
@@ -41,6 +44,21 @@ class ClientGUI(QMainWindow, ClientLogger):
         "death": "Arrivals",
     }
 
+    # (direction, row, column) in the compass grid
+    COMPASS_LAYOUT = [
+        ("nw", 0, 0),
+        ("n", 0, 1),
+        ("ne", 0, 2),
+        ("up", 0, 3),
+        ("w", 1, 0),
+        ("out", 1, 1),
+        ("e", 1, 2),
+        ("sw", 2, 0),
+        ("s", 2, 1),
+        ("se", 2, 2),
+        ("down", 2, 3),
+    ]
+
     def __init__(self, engine=None):
         super().__init__()
         self.log.debug("Initializing ClientGUI instance")
@@ -50,9 +68,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.__init_ui()
         self.game_text.connect(self.dispatch_game_text)
         self.client.connect()
-        self.status_bar.showMessage(
-            getattr(self.client, "description", "Connected")
-        )
+        self.status_bar.showMessage(getattr(self.client, "description", "Connected"))
         self.input.setEnabled(True)
         self.input.setFocus()
         self.gui_reactor()
@@ -66,6 +82,7 @@ class ClientGUI(QMainWindow, ClientLogger):
 
         self.__add_output_window()
         self.__add_stream_docks()
+        self.__add_compass_dock()
         self.__add_input_field()
 
         exit_action = QAction(QIcon("exit.png"), "&Exit", self)
@@ -105,6 +122,31 @@ class ClientGUI(QMainWindow, ClientLogger):
         for stream, title in self.STREAM_WINDOWS.items():
             self.stream_windows[stream] = self.stream_docks[title].widget()
 
+    def __add_compass_dock(self):
+        """Clickable exits: buttons light up with the room's compass tag."""
+        container = QWidget()
+        grid = QGridLayout(container)
+        grid.setSpacing(2)
+        grid.setContentsMargins(4, 4, 4, 4)
+        self.compass_buttons = {}
+        for direction, row, column in self.COMPASS_LAYOUT:
+            button = QPushButton(direction)
+            button.setEnabled(False)
+            button.setFixedSize(48, 28)
+            button.clicked.connect(lambda checked=False, d=direction: self.write(d))
+            grid.addWidget(button, row, column)
+            self.compass_buttons[direction] = button
+        dock = QDockWidget("Compass")
+        dock.setWidget(container)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+        # Registering under stream_docks gives it a View-menu toggle.
+        self.stream_docks["Compass"] = dock
+
+    def update_compass(self, dirs_text: str):
+        available = set(dirs_text.split())
+        for direction, button in self.compass_buttons.items():
+            button.setEnabled(direction in available)
+
     def __add_input_field(self):
         self.input = QLineEdit()
         # Disabled until the game connection is up: Qt's input hook pumps
@@ -129,6 +171,9 @@ class ClientGUI(QMainWindow, ClientLogger):
             self.status_bar.hide()
 
     def dispatch_game_text(self, text: str, stream: str):
+        if stream == "compass":
+            self.update_compass(text)
+            return
         self._append(self.stream_windows.get(stream, self.main_window), text)
 
     def write_to_main_window(self, text: str):

@@ -4,11 +4,13 @@
 - revenant Crannach     same, setting the character for a newly spawned session
 - revenant --direct     single process: login and GUI together, no session
 """
+
 import argparse
 import os
 import socket
 import subprocess
 import sys
+from pathlib import Path
 from time import sleep, time
 
 import keyring
@@ -73,6 +75,44 @@ def wait_for_session(process, host, port, timeout=60):
     raise SystemExit(f"revenant: no session on {host}:{port} after {timeout}s")
 
 
+def branded_interpreter(interpreter: Path) -> Path:
+    """A symlink to the interpreter named Revenant, so macOS derives the
+    menu-bar/Dock name from it instead of "python3".
+
+    It lives in .venv/branded/, not bin/: on macOS's case-insensitive
+    filesystem, bin/Revenant would collide with the `revenant` console
+    script, and CPython only detects the venv when pyvenv.cfg is in the
+    executable directory's PARENT — so the symlink needs its own subdir.
+    Falls back to the plain interpreter if anything is off.
+    """
+    branded = interpreter.parent.parent / "branded" / "Revenant"
+    try:
+        branded.parent.mkdir(exist_ok=True)
+        if branded.is_symlink():
+            if branded.resolve() != interpreter.resolve():
+                branded.unlink()
+                branded.symlink_to(interpreter)
+        elif branded.exists():
+            return interpreter  # not ours; leave it alone
+        else:
+            branded.symlink_to(interpreter)
+        return branded
+    except OSError:
+        return interpreter
+
+
+def exec_gui(gui_args):
+    """Replace this process with the GUI (re-exec'd under the branded
+    interpreter name on macOS; a proper .app bundle is issue #20)."""
+    interpreter = Path(sys.executable)
+    if sys.platform == "darwin":
+        interpreter = branded_interpreter(interpreter)
+    os.execv(
+        str(interpreter),
+        [str(interpreter), "-m", "client.gui.client_gui", *gui_args],
+    )
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="revenant", description=__doc__)
     parser.add_argument(
@@ -90,12 +130,10 @@ def main(argv=None):
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     args = parser.parse_args(argv)
 
-    from client.gui import client_gui  # deferred: pulls in PyQt6
-
     if args.direct:
         if args.character:
             os.environ["REVENANT_CHARACTER"] = args.character
-        return client_gui.main([])
+        return exec_gui([])
 
     if not session_running(args.host, args.port):
         ensure_credentials(args.character)
@@ -107,7 +145,7 @@ def main(argv=None):
             f"revenant: session already running on {args.host}:{args.port}, "
             "attaching to it (character argument ignored)"
         )
-    return client_gui.main(["--attach", f"{args.host}:{args.port}"])
+    return exec_gui(["--attach", f"{args.host}:{args.port}"])
 
 
 if __name__ == "__main__":
