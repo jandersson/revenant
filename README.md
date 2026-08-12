@@ -40,11 +40,13 @@ Python 3.10–3.12. Packaged via [client/pyproject.toml](client/pyproject.toml) 
 
 #### Hot code reload: `;reexec`
 
-A running session never sees code edits — Python loaded its modules at
-startup. Restarting used to mean logging out and back in; instead, type
-`;reexec` in any attached front end and the session **replaces itself with
-the code currently on disk while keeping the game connection open**. No
-logout, no login handshake, and your character never leaves the game.
+Type `;reexec` in any attached front end to **update the running session
+to the latest code without logging out** — your character never leaves the
+game, and the connection to the server stays open the whole time.
+
+This exists because a running session loads its code once, at startup:
+edits on disk don't take effect until the process restarts, and restarting
+used to mean logging out and back in.
 
 How it works:
 
