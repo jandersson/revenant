@@ -38,6 +38,7 @@ class XMLData:
         self.compass = []
         self.compass_updated = False
         self._pending_compass = []
+        self._compass_in_component = False
         # Epoch seconds (server clock) when roundtime / spellcast time end
         self.roundtime = 0
         self.casttime = 0
@@ -77,6 +78,10 @@ class XMLData:
             self.indicator[attributes["id"]] = attributes["visible"]
         elif name == "compass":
             self._pending_compass = []
+            # The room-exits component embeds a decorative (empty) <compass>;
+            # only the top-level one is the room's real exit list, and only
+            # that one may signal an arrival (go2 paces its walk on it).
+            self._compass_in_component = "component" in self.active_tags[:-1]
         elif name == "dir":
             self._pending_compass.append(attributes["value"])
         elif name == "roundTime":
@@ -89,7 +94,7 @@ class XMLData:
                 self.room_title = subtitle[3:].strip()
 
     def end(self, name: str):
-        if name == "compass":
+        if name == "compass" and not self._compass_in_component:
             self.compass = self._pending_compass
             self.compass_updated = True
         if self.active_tags:

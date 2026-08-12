@@ -65,6 +65,20 @@ def test_compass_replaced_on_next_room(xml_data):
     assert xml_data.compass == ["e"]
 
 
+def test_compass_inside_component_is_decoration(xml_data):
+    # The room-exits component embeds an empty <compass> alongside the
+    # real top-level one; it must neither clobber the exits nor raise
+    # compass_updated (captured live 2026-08-13).
+    XMLParser(target=xml_data).feed('<r><compass><dir value="n"/></compass></r>')
+    xml_data.compass_updated = False
+    XMLParser(target=xml_data).feed(
+        "<r><component id='room exits'>Obvious paths: "
+        "<d>southwest</d>.<compass></compass></component></r>"
+    )
+    assert xml_data.compass == ["n"]
+    assert xml_data.compass_updated is False
+
+
 def test_room_title_from_stream_window(xml_data):
     XMLParser(target=xml_data).feed(
         "<r><streamWindow id='room' title='Room' "

@@ -45,6 +45,24 @@ def test_engine_emits_compass_again_on_change():
     assert compass_frames == [("n", "compass"), ("s out", "compass")]
 
 
+def test_room_exits_component_does_not_double_the_compass_frame():
+    # A real arrival sends the exits twice: an empty decorative <compass>
+    # inside the room-exits component, then the real one at top level.
+    # Exactly one frame may be emitted — go2 paces its walk on them, and
+    # a double frame desyncs it one room per step (false "off course").
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b"<component id='room exits'>Obvious paths: "
+            b"<d>southwest</d>.<compass></compass></component>\n",
+            b'<compass><dir value="sw"/></compass>\n',
+        ]
+    )
+    out = _read_all(engine, 2)
+    compass_frames = [frame for frame in out if frame[1] == "compass"]
+    assert compass_frames == [("sw", "compass")]
+
+
 def test_engine_emits_compass_for_identical_adjacent_rooms():
     # Corridor case: consecutive rooms with the same exits still emit one
     # frame each — scripts rely on it as the room-arrival signal.
