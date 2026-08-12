@@ -80,8 +80,9 @@ One pipeline, one parser, several processes:
   account names, or anything that identifies the operator — in code, tests,
   docs, commit messages, or captured fixtures. Use synthetic values
   (TESTACCT / Testchar) in tests, and scrub captured game traffic before
-  committing it. Real identity lives outside the repo: keychain for the
-  password, ~/.revenant/login.json for the account/character names.
+  committing it. Real identity lives outside the repo: the OS credential
+  store for the password, the local login-defaults file for the
+  account/character names (see `client/client/login.py` for both).
 - Threads + locks, not asyncio — keep new concurrency in the existing style.
 - Closing a socket does NOT wake a thread blocked in recv()/accept() on
   Linux (it does on macOS, so local runs won't catch it) — always
