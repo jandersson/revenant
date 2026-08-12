@@ -29,7 +29,10 @@ One pipeline, one parser, several processes:
   API: `read_until`, `read_very_eager`).
 - `client/client/login.py` — eaccess handshake. Credentials: password lives in
   the OS keychain (`keyring`, service "revenant"); account/character come from
-  `REVENANT_ACCOUNT` / `REVENANT_CHARACTER` env vars. With no keychain entry
+  `REVENANT_ACCOUNT` / `REVENANT_CHARACTER` env vars, falling back to the
+  names saved in `~/.revenant/login.json` (override: `REVENANT_LOGIN_DEFAULTS`)
+  by the login dialog's remember checkbox — names only, never the password.
+  With no keychain entry
   the launcher prompts once — terminal getpass with a tty, the Qt login
   dialog (`client/client/gui/login_dialog.py`, with remember-me → keychain)
   without one — and exchanges the password for a single-use launch key,
@@ -73,6 +76,12 @@ One pipeline, one parser, several processes:
 - Documentation leads with what a feature does and why you'd want it — the
   first sentence must stand alone for a skimmer. Rationale, limitations,
   and mechanics come after, never first.
+- No PII in the repo, ever: no real names, email addresses, Simutronics
+  account names, or anything that identifies the operator — in code, tests,
+  docs, commit messages, or captured fixtures. Use synthetic values
+  (TESTACCT / Testchar) in tests, and scrub captured game traffic before
+  committing it. Real identity lives outside the repo: keychain for the
+  password, ~/.revenant/login.json for the account/character names.
 - Threads + locks, not asyncio — keep new concurrency in the existing style.
 - Closing a socket does NOT wake a thread blocked in recv()/accept() on
   Linux (it does on macOS, so local runs won't catch it) — always
