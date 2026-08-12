@@ -1,11 +1,17 @@
 import os
 import tempfile
 
+import pytest
+
 
 def pytest_configure(config):
     # Keep test logging out of the real ~/.revenant/logs archive.
     os.environ["REVENANT_LOG_DIR"] = tempfile.mkdtemp(prefix="revenant-test-logs-")
-    # Keep tests away from the real saved login names in ~/.revenant.
-    os.environ["REVENANT_LOGIN_DEFAULTS"] = os.path.join(
-        tempfile.mkdtemp(prefix="revenant-test-config-"), "login.json"
-    )
+
+
+@pytest.fixture(autouse=True)
+def _isolated_login_defaults(tmp_path, monkeypatch):
+    # Per-test, not per-run: a remember-me test writing the file must not
+    # leak saved names into later tests (it did — CI caught it via a
+    # NoKeyringError only reachable with names present).
+    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(tmp_path / "login.json"))

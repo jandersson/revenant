@@ -162,6 +162,23 @@ def test_gather_login_remember_saves_names(monkeypatch, tmp_path):
     }
 
 
+def test_gather_login_survives_missing_keyring_backend(monkeypatch):
+    # Headless Linux (CI, servers) has no keyring backend: get_password
+    # raises NoKeyringError instead of returning None. That must mean
+    # "no saved password", never a crash.
+    import keyring.errors
+
+    def no_backend(service, user):
+        raise keyring.errors.NoKeyringError("no backend")
+
+    monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
+    monkeypatch.setattr(launch.keyring, "get_password", no_backend)
+    monkeypatch.setattr(launch.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(launch.getpass, "getpass", lambda prompt: "typed-once")
+    monkeypatch.setattr(launch, "eaccess_protocol", lambda info: "KEY654")
+    assert launch.gather_login("Testchar") == ("Testchar", "KEY654")
+
+
 def test_gather_login_dialog_cancel_exits(monkeypatch):
     monkeypatch.delenv("REVENANT_ACCOUNT", raising=False)
     monkeypatch.setattr(launch.sys.stdin, "isatty", lambda: False)

@@ -70,6 +70,19 @@ def test_login_defaults_roundtrip(monkeypatch, tmp_path):
     }
 
 
+def test_get_credentials_survives_missing_keyring_backend(monkeypatch):
+    import keyring.errors
+
+    def no_backend(service, username):
+        raise keyring.errors.NoKeyringError("no backend")
+
+    monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
+    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
+    monkeypatch.setattr(login.keyring, "get_password", no_backend)
+    monkeypatch.setattr(login.getpass, "getpass", lambda prompt: "fallback")
+    assert login.get_credentials()["password"] == b"fallback"
+
+
 def test_get_credentials_prompts_when_keychain_empty(monkeypatch):
     monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
     monkeypatch.setenv("REVENANT_CHARACTER", "Crannach")

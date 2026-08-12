@@ -15,11 +15,13 @@ from pathlib import Path
 from time import sleep, time
 
 import keyring
+import keyring.errors
 
 from client.login import (
     KEYRING_SERVICE,
     LoginError,
     eaccess_protocol,
+    keychain_password,
     load_login_defaults,
     save_login_defaults,
 )
@@ -48,11 +50,7 @@ def gather_login(character):
     defaults = load_login_defaults()
     account = os.environ.get("REVENANT_ACCOUNT") or defaults.get("account") or ""
     character = character or defaults.get("character") or ""
-    if (
-        account
-        and character
-        and keyring.get_password(KEYRING_SERVICE, account) is not None
-    ):
+    if account and character and keychain_password(account) is not None:
         return character, None
 
     error = ""
@@ -86,7 +84,14 @@ def gather_login(character):
             error = str(exc)
             continue
         if remember:
-            keyring.set_password(KEYRING_SERVICE, account, password)
+            try:
+                keyring.set_password(KEYRING_SERVICE, account, password)
+            except keyring.errors.KeyringError as exc:
+                print(
+                    f"revenant: couldn't save the password to the OS "
+                    f"credential store: {exc}",
+                    file=sys.stderr,
+                )
             save_login_defaults(account, character)
         return character, key
 

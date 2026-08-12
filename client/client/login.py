@@ -8,6 +8,7 @@ from pathlib import Path
 from time import sleep
 
 import keyring
+import keyring.errors
 
 from client.client_logger import ClientLogger
 from client.netsock import SocketClient
@@ -146,6 +147,16 @@ def save_login_defaults(account: str, character: str):
     path.write_text(json.dumps({"account": account, "character": character}))
 
 
+def keychain_password(account: str):
+    """The saved password for the account, or None when the keychain has
+    no entry — or no usable backend at all (headless Linux, bare CI)."""
+    try:
+        return keyring.get_password(KEYRING_SERVICE, account)
+    except keyring.errors.KeyringError:
+        module_logger.log.debug("No usable keyring backend; treating as unset")
+        return None
+
+
 def get_credentials():
     """Assemble login credentials without a password ever touching disk.
 
@@ -166,7 +177,7 @@ def get_credentials():
         or defaults.get("character")
         or input("Character name: ")
     )
-    password = keyring.get_password(KEYRING_SERVICE, username)
+    password = keychain_password(username)
     if password is None:
         module_logger.log.debug("No keychain entry for %s; prompting", username)
         password = getpass.getpass(f"Password for {username}: ")
