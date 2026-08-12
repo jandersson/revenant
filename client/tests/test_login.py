@@ -45,6 +45,31 @@ def test_get_credentials_from_env_and_keyring(monkeypatch):
     assert creds["character"] == "Crannach"
 
 
+def test_get_credentials_falls_back_to_saved_names(monkeypatch, tmp_path):
+    defaults = tmp_path / "login.json"
+    defaults.write_text('{"account": "SAVEDACCT", "character": "savedchar"}')
+    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(defaults))
+    monkeypatch.delenv("REVENANT_ACCOUNT", raising=False)
+    monkeypatch.delenv("REVENANT_CHARACTER", raising=False)
+    monkeypatch.setattr(
+        login.keyring, "get_password", lambda service, username: "hunter2"
+    )
+    creds = login.get_credentials()
+    assert creds["username"] == b"SAVEDACCT"
+    assert creds["character"] == "Savedchar"
+
+
+def test_login_defaults_roundtrip(monkeypatch, tmp_path):
+    defaults = tmp_path / "deep" / "login.json"  # parent dir gets created
+    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(defaults))
+    assert login.load_login_defaults() == {}
+    login.save_login_defaults("TESTACCT", "Testchar")
+    assert login.load_login_defaults() == {
+        "account": "TESTACCT",
+        "character": "Testchar",
+    }
+
+
 def test_get_credentials_prompts_when_keychain_empty(monkeypatch):
     monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
     monkeypatch.setenv("REVENANT_CHARACTER", "Crannach")

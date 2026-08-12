@@ -1,8 +1,10 @@
 import getpass
+import json
 import os
 import platform
 import re
 import struct
+from pathlib import Path
 from time import sleep
 
 import keyring
@@ -116,17 +118,54 @@ class EAccessClient(ClientLogger):
 
 KEYRING_SERVICE = "revenant"
 
+# Where the login dialog's remember checkbox saves the account and
+# character names (the password never joins them — keychain only).
+LOGIN_DEFAULTS_PATH = "~/.revenant/login.json"
+
+
+def login_defaults_path() -> Path:
+    return Path(
+        os.environ.get("REVENANT_LOGIN_DEFAULTS", LOGIN_DEFAULTS_PATH)
+    ).expanduser()
+
+
+def load_login_defaults() -> dict:
+    """The saved account/character names, or {} when nothing is saved."""
+    try:
+        with open(login_defaults_path()) as stream:
+            data = json.load(stream)
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_login_defaults(account: str, character: str):
+    """Remember the account and character names for future launches."""
+    path = login_defaults_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"account": account, "character": character}))
+
 
 def get_credentials():
     """Assemble login credentials without a password ever touching disk.
 
-    Account and character come from REVENANT_ACCOUNT / REVENANT_CHARACTER
-    (with an interactive prompt as fallback). The password comes from the
-    OS keychain, seeded once with:  keyring set revenant <ACCOUNT>
+    Account and character come from REVENANT_ACCOUNT / REVENANT_CHARACTER,
+    then the names saved by the login dialog's remember checkbox, then an
+    interactive prompt. The password comes from the OS keychain, seeded by
+    that same checkbox (or once with:  keyring set revenant <ACCOUNT>).
     """
     module_logger.log.debug("Fetching credentials")
-    username = os.environ.get("REVENANT_ACCOUNT") or input("Account: ")
-    character = os.environ.get("REVENANT_CHARACTER") or input("Character name: ")
+    defaults = load_login_defaults()
+    username = (
+        os.environ.get("REVENANT_ACCOUNT")
+        or defaults.get("account")
+        or input("Account: ")
+    )
+    character = (
+        os.environ.get("REVENANT_CHARACTER")
+        or defaults.get("character")
+        or input("Character name: ")
+    )
     password = keyring.get_password(KEYRING_SERVICE, username)
     if password is None:
         module_logger.log.debug("No keychain entry for %s; prompting", username)

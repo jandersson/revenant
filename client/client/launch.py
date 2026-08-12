@@ -16,7 +16,13 @@ from time import sleep, time
 
 import keyring
 
-from client.login import KEYRING_SERVICE, LoginError, eaccess_protocol
+from client.login import (
+    KEYRING_SERVICE,
+    LoginError,
+    eaccess_protocol,
+    load_login_defaults,
+    save_login_defaults,
+)
 from client.session import DEFAULT_HOST, DEFAULT_PORT
 
 
@@ -36,8 +42,12 @@ def gather_login(character):
     collected — terminal prompt when there's a tty and the account and
     character are already known, the Qt login screen when not — and used
     exactly once for the handshake; only the single-use launch key
-    survives. "Remember me" writes the password to the keychain."""
-    account = os.environ.get("REVENANT_ACCOUNT", "")
+    survives. "Remember me" writes the password to the keychain and the
+    account/character names to login.json, so future launches skip the
+    dialog entirely. Env vars override the saved names."""
+    defaults = load_login_defaults()
+    account = os.environ.get("REVENANT_ACCOUNT") or defaults.get("account") or ""
+    character = character or defaults.get("character") or ""
     if (
         account
         and character
@@ -77,6 +87,7 @@ def gather_login(character):
             continue
         if remember:
             keyring.set_password(KEYRING_SERVICE, account, password)
+            save_login_defaults(account, character)
         return character, key
 
 

@@ -1,3 +1,4 @@
+import json
 import socket
 from threading import Thread
 
@@ -111,6 +112,54 @@ def test_gather_login_uses_dialog_without_tty(monkeypatch):
     monkeypatch.setattr(launch, "eaccess_protocol", lambda info: "KEY789")
     assert launch.gather_login(None) == ("Testchar", "KEY789")
     assert stored == {"TESTACCT": "typed"}, "remember-me should hit the keychain"
+
+
+def test_gather_login_uses_saved_names_with_keychain(monkeypatch, tmp_path):
+    # Remember-me saved the names earlier; no env vars, no dialog needed.
+    defaults = tmp_path / "login.json"
+    defaults.write_text('{"account": "SAVEDACCT", "character": "Savedchar"}')
+    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(defaults))
+    monkeypatch.delenv("REVENANT_ACCOUNT", raising=False)
+    looked_up = {}
+
+    def get_password(service, user):
+        looked_up["user"] = user
+        return "pw"
+
+    monkeypatch.setattr(launch.keyring, "get_password", get_password)
+    assert launch.gather_login(None) == ("Savedchar", None)
+    assert looked_up["user"] == "SAVEDACCT"
+
+
+def test_gather_login_env_overrides_saved_names(monkeypatch, tmp_path):
+    defaults = tmp_path / "login.json"
+    defaults.write_text('{"account": "SAVEDACCT", "character": "Savedchar"}')
+    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(defaults))
+    monkeypatch.setenv("REVENANT_ACCOUNT", "ENVACCT")
+    looked_up = {}
+
+    def get_password(service, user):
+        looked_up["user"] = user
+        return "pw"
+
+    monkeypatch.setattr(launch.keyring, "get_password", get_password)
+    assert launch.gather_login("Envchar") == ("Envchar", None)
+    assert looked_up["user"] == "ENVACCT"
+
+
+def test_gather_login_remember_saves_names(monkeypatch, tmp_path):
+    defaults = tmp_path / "login.json"
+    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(defaults))
+    monkeypatch.delenv("REVENANT_ACCOUNT", raising=False)
+    monkeypatch.setattr(launch.sys.stdin, "isatty", lambda: False)
+    _fake_dialog(monkeypatch, [("TESTACCT", "typed", "Testchar", True)])
+    monkeypatch.setattr(launch.keyring, "set_password", lambda *args: None)
+    monkeypatch.setattr(launch, "eaccess_protocol", lambda info: "KEY321")
+    assert launch.gather_login(None) == ("Testchar", "KEY321")
+    assert json.loads(defaults.read_text()) == {
+        "account": "TESTACCT",
+        "character": "Testchar",
+    }
 
 
 def test_gather_login_dialog_cancel_exits(monkeypatch):

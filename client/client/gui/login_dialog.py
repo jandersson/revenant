@@ -2,7 +2,9 @@
 
 Shown by the launcher when it needs credentials and has no terminal to
 prompt in (a Revenant.app launch). The password is used once for the
-login handshake; "remember" stores it in the OS keychain.
+login handshake; "remember" stores it in the OS keychain and the
+account/character names in ~/.revenant/login.json, so the next launch
+logs straight in without showing this screen.
 """
 
 from pathlib import Path
@@ -36,7 +38,7 @@ class LoginDialog(QDialog):
         self.password = QLineEdit()
         self.password.setEchoMode(QLineEdit.EchoMode.Password)
         self.character = QLineEdit(character)
-        self.remember = QCheckBox("Remember password in the system keychain")
+        self.remember = QCheckBox("Remember me (password goes to the system keychain)")
         form.addRow("Account", self.account)
         form.addRow("Password", self.password)
         form.addRow("Character", self.character)
