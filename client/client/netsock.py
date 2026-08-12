@@ -20,6 +20,21 @@ class SocketClient:
     def open(self, host, port, timeout=None):
         self.sock = socket.create_connection((host, port), timeout)
 
+    @classmethod
+    def from_fd(cls, fd, initial=b""):
+        """Adopt an already-connected socket by file descriptor (the
+        ;reexec handoff), optionally seeding the read buffer with bytes
+        the previous process had pulled off the wire but not consumed."""
+        client = cls()
+        client.sock = socket.socket(fileno=fd)
+        client._buffer = initial
+        return client
+
+    @property
+    def buffered(self):
+        """Bytes read off the wire but not yet consumed."""
+        return self._buffer
+
     def write(self, buffer):
         self.sock.sendall(buffer)
 

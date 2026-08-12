@@ -45,7 +45,11 @@ One pipeline, one parser, several processes:
   (`python -m client.session`): logs in, owns the game socket, serves
   `(stream, text)` frames as JSON lines on 127.0.0.1:4242 to any number of
   attached front ends, and hosts the script engine. `AttachedEngine` is the
-  client side; it presents the same surface as `Engine`.
+  client side; it presents the same surface as `Engine`. Typing `;reexec`
+  in any front end re-execs the session with the code currently on disk,
+  handing the live game socket across (`--game-fd`) — no logout, no
+  re-login; front ends drop and auto-reattach within ~10s. Remember: a
+  running session does NOT see code edits until it re-execs or restarts.
 - `client/client/scripting.py` — script engine. Scripts are `main(s)` Python
   files in `scripts/` (repo root), run as threads in the session, controlled
   by `;`-commands typed in any front end (`;list`, `;run x`, `;stop x`).
@@ -63,6 +67,9 @@ One pipeline, one parser, several processes:
 
 ## Conventions and gotchas
 
+- Every behavior change ships with unit tests in `client/tests/` — bug fixes
+  get a regression test (ideally built from captured game traffic, like the
+  compass tests), new features get coverage. No test, no merge.
 - Threads + locks, not asyncio — keep new concurrency in the existing style.
 - Closing a socket does NOT wake a thread blocked in recv()/accept() on
   Linux (it does on macOS, so local runs won't catch it) — always

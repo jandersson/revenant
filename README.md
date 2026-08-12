@@ -32,10 +32,39 @@ Python 3.10+ is required. (The old `telnetlib` dependency — removed from the s
 A rough-draft engine + front ends for playing DragonRealms with Python in the loop.
 
 - **core** — the engine/middleman between the game and whichever front end is attached. See [client/client/core.py](client/client/core.py).
+- **session** — a detachable session daemon that logs in, owns the game socket, and serves parsed game text to any number of front ends over localhost, lich-style. Also hosts the Python script engine (`;list`, `;run`, `;stop`). See [client/client/session.py](client/client/session.py).
 - **gui** — a PyQt6 front end reminiscent of the old AOL-era Gemstone clients. See [client/client/gui/client_gui.py](client/client/gui/client_gui.py).
 - **tui** — a non-working draft of a terminal front end. [Profanity](https://github.com/elanthia-online/profanity-fe) is what you actually want for a TUI today; this is just a sketch.
 
 Python 3.10–3.12. Packaged via [client/pyproject.toml](client/pyproject.toml) as a member of the root uv workspace.
+
+#### Hot code reload: `;reexec`
+
+A running session never sees code edits — Python loaded its modules at
+startup. Restarting used to mean logging out and back in; instead, type
+`;reexec` in any attached front end and the session **replaces itself with
+the code currently on disk while keeping the game connection open**. No
+logout, no login handshake, and your character never leaves the game.
+
+How it works:
+
+1. The session stops running scripts, marks the game socket's file
+   descriptor inheritable, and stashes any not-yet-parsed game bytes in an
+   environment variable.
+2. It then `exec`s a fresh `python -m client.session --game-fd N`. The exec
+   closes the listener and every front-end connection (those are
+   per-process); only the game socket survives, adopted by the new process
+   via `SocketClient.from_fd`.
+3. The new session restores the byte buffer, rebinds the localhost port,
+   and sends a single `look` to reprime its cold parser state (room title,
+   compass).
+4. Front ends notice the drop and reattach automatically (retrying for up
+   to ~10 s — in practice it's sub-second). In the GUI you'll see
+   `session dropped — reattaching ...` followed by `reattached`.
+
+Caveats: running scripts are stopped, not resumed (start them again with
+`;run`); a session older than this feature doesn't know `;reexec`, so the
+first upgrade still needs one old-fashioned QUIT-and-relaunch.
 
 ### beholder
 A browser-based dashboard for character experience gains, built with Dash/Plotly on top of a SQLite database.

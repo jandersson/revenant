@@ -190,7 +190,14 @@ class ClientGUI(QMainWindow, ClientLogger):
             self.status_bar.showMessage("Not connected yet")
             return
         write_data = write_data + "\n"
-        self.client.connection.write(write_data.encode("ASCII"))
+        try:
+            self.client.connection.write(write_data.encode("ASCII"))
+        except OSError:
+            # Session mid-;reexec: the old connection is gone and the
+            # reader thread is busy reattaching. An exception escaping a
+            # Qt slot would take the whole GUI down.
+            self.status_bar.showMessage("Connection lost — reattaching, try again")
+            return
         self.write_to_main_window(f">{write_data}")
         self.input.clear()
 

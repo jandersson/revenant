@@ -8,15 +8,20 @@ clients send plain command lines back.
 
 Run a session:   python -m client.session
 Attach the GUI:  python -m client.gui.client_gui --attach
+
+Typing `;reexec` in any front end replaces the session process with one
+running the code currently on disk, handing the live game socket across —
+no logout, no re-login. Front ends drop and reattach on their own.
 """
 
 import argparse
+import base64
 import json
 import os
 import socket
 import sys
 from threading import Lock, Thread
-from time import sleep
+from time import monotonic, sleep
 
 from client.client_logger import ClientLogger
 from client.core import Engine
@@ -26,6 +31,13 @@ from client.scripting import ScriptManager
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = int(os.environ.get("REVENANT_SESSION_PORT", "4242"))
+
+# Unparsed game bytes ride across a ;reexec in this env var (base64).
+GAME_BUFFER_ENV = "REVENANT_GAME_BUFFER"
+
+# How long a dropped front end keeps retrying the attach — long enough to
+# span a session ;reexec, short enough that a dead session is not a hang.
+REATTACH_TIMEOUT = 10.0
 
 
 def close_socket(conn):
@@ -149,13 +161,47 @@ class SessionServer(ClientLogger):
                 command = command.strip()
                 if not command:
                     continue
-                if command.startswith(b";"):
+                if command == b";reexec":
+                    self.reexec()
+                elif command.startswith(b";"):
                     try:
                         self.scripts.handle_command(command.decode("UTF-8", "replace"))
                     except Exception:
                         self.log.exception("script command failed")
                 else:
                     self.send_to_game(command + b"\n")
+
+    def reexec(self, execv=os.execv):
+        """Replace this process with one running the code now on disk,
+        handing the live game socket across — no logout, no re-login.
+
+        Only the game fd is made inheritable; the listener and client
+        sockets close at exec (front ends reattach on their own). Bytes
+        already read off the wire but not yet parsed ride along in an
+        env var. Parser state (room, compass) starts cold in the new
+        process; main() reprimes it with a `look`."""
+        self.broadcast("session: re-exec'ing with current code ...", "script")
+        self.scripts.stop_all()
+        fd = self.game.fileno()
+        os.set_inheritable(fd, True)
+        argv = [
+            sys.executable,
+            "-m",
+            "client.session",
+            "--host",
+            self.host,
+            "--port",
+            str(self.port),
+            "--game-fd",
+            str(fd),
+        ]
+        self.log.info(f"Re-exec: {' '.join(argv)}")
+        # Snapshot the unparsed buffer as late as possible: the game
+        # reader keeps draining the socket until exec replaces us.
+        os.environ[GAME_BUFFER_ENV] = base64.b64encode(self.game.buffered).decode(
+            "ASCII"
+        )
+        execv(sys.executable, argv)
 
     def drop(self, conn):
         with self.clients_lock:
@@ -211,6 +257,8 @@ class AttachedEngine(ClientLogger):
         try:
             data = self._connection.read_very_eager()
         except EOFError:
+            if self._reattach(output_callback):
+                return
             if output_callback:
                 output_callback(
                     "\n******************\n****DETACHED******\n******************\n",
@@ -223,6 +271,25 @@ class AttachedEngine(ClientLogger):
         for text, stream in frames:
             if output_callback:
                 output_callback(text, stream)
+
+    def _reattach(self, output_callback):
+        """The session dropped us — usually a ;reexec swapping its code.
+        Retry the attach briefly so a code swap doesn't end the front end."""
+        if output_callback:
+            output_callback("session dropped — reattaching ...", "script")
+        deadline = monotonic() + REATTACH_TIMEOUT
+        while monotonic() < deadline:
+            try:
+                self._connection = SocketClient(self.host, self.port)
+            except OSError:
+                sleep(0.25)
+                continue
+            self._buffer = b""
+            self.log.info("Reattached to session")
+            if output_callback:
+                output_callback("reattached", "script")
+            return True
+        return False
 
 
 def main(argv=None):
@@ -238,8 +305,20 @@ def main(argv=None):
         help="read a one-shot eaccess launch key from stdin instead of "
         "performing the login handshake (the SGE launcher model)",
     )
+    argparser.add_argument(
+        "--game-fd",
+        type=int,
+        default=None,
+        help="adopt an already-connected game socket by file descriptor "
+        "(the ;reexec handoff) instead of logging in",
+    )
     args = argparser.parse_args(argv)
-    if args.key_stdin:
+    if args.game_fd is not None:
+        initial = base64.b64decode(os.environ.pop(GAME_BUFFER_ENV, ""))
+        game_connection = SocketClient.from_fd(args.game_fd, initial=initial)
+        # Fresh process, cold parser: a look repopulates room/compass state.
+        game_connection.write(b"look\n")
+    elif args.key_stdin:
         game_connection = connect_game(sys.stdin.readline().strip())
     else:
         game_connection = simu_login()
