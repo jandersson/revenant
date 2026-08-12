@@ -31,6 +31,8 @@ Python 3.10+ is required. (The old `telnetlib` dependency — removed from the s
 ### client
 A rough-draft engine + front ends for playing DragonRealms with Python in the loop.
 
+![The PyQt6 front end live in DragonRealms: stream docks on the right route arrivals and thoughts, the compass lights up with the room's exits](docs/screenshot.png)
+
 - **core** — the engine/middleman between the game and whichever front end is attached. See [client/client/core.py](client/client/core.py).
 - **session** — a detachable session daemon that logs in, owns the game socket, and serves parsed game text to any number of front ends over localhost, lich-style. Also hosts the Python script engine (`;list`, `;run`, `;stop`). See [client/client/session.py](client/client/session.py).
 - **gui** — a PyQt6 front end reminiscent of the old AOL-era Gemstone clients. See [client/client/gui/client_gui.py](client/client/gui/client_gui.py).
