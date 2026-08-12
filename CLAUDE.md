@@ -83,6 +83,10 @@ One pipeline, one parser, several processes:
   committing it. Real identity lives outside the repo: the OS credential
   store for the password, the local login-defaults file for the
   account/character names (see `client/client/login.py` for both).
+- File a GitHub issue for every defect or gap detected while working on
+  something else — always, even for small ones, instead of relying on
+  memory or TODO comments. An issue is easily closed; an undetected bug
+  is not. Include the evidence (log lines, screenshots) while it's fresh.
 - Threads + locks, not asyncio — keep new concurrency in the existing style.
 - Closing a socket does NOT wake a thread blocked in recv()/accept() on
   Linux (it does on macOS, so local runs won't catch it) — always
