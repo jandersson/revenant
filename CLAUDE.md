@@ -70,6 +70,9 @@ One pipeline, one parser, several processes:
 - Every behavior change ships with unit tests in `client/tests/` — bug fixes
   get a regression test (ideally built from captured game traffic, like the
   compass tests), new features get coverage. No test, no merge.
+- Documentation leads with what a feature does and why you'd want it — the
+  first sentence must stand alone for a skimmer. Rationale, limitations,
+  and mechanics come after, never first.
 - Threads + locks, not asyncio — keep new concurrency in the existing style.
 - Closing a socket does NOT wake a thread blocked in recv()/accept() on
   Linux (it does on macOS, so local runs won't catch it) — always
