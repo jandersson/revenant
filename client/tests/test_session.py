@@ -106,7 +106,7 @@ def test_session_relays_text_commands_and_shutdown():
             f"threads={sorted(t.name for t in threading.enumerate())}"
         )
     frames, _ = session.decode_frames(buffer)
-    assert any("THE END" in text for text, _ in frames)
+    assert any("SMELL YA LATER" in text for text, _ in frames)
     assert not server.running
 
 

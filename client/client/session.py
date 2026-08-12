@@ -261,7 +261,9 @@ class AttachedEngine(ClientLogger):
                 return
             if output_callback:
                 output_callback(
-                    "\n******************\n****DETACHED******\n******************\n",
+                    "\n****************************************************\n"
+                    '* I CANT BELIEVE "SMELL YA LATER" REPLACED "GOODBYE" *\n'
+                    "****************************************************\n",
                     "",
                 )
             self.log.info("Session connection closed")
