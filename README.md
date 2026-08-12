@@ -90,6 +90,8 @@ LNet names can be password-protected on the server (protocol per `lnet.lic` 1.15
 
 To password-protect a name (or change it), log in and call `Server.register_password("...")`; pass the literal string `"nil"` to remove protection. Forgotten passwords are reset at <https://lnet.lichproject.org>.
 
+Typing `;lnet` in a revenant front end mirrors LNet chat into the GUI's Thoughts window — out-of-game chatter merged with in-game gweth thoughts, lich-style. Read-only: nothing you type is sent to LNet ([#29](https://github.com/jandersson/revenant/issues/29) tracks sending). Stop with `;stop lnet`.
+
 ### launcher
 [launcher/launch.py](launcher/launch.py) picks a free port, starts lich headless with `--detachable-client`, and attaches a Profanity front end to it. Paths are currently hard-coded for the author's machine — treat it as a template rather than a turnkey tool.
 

@@ -40,6 +40,32 @@ def test_run_script_puts_and_echoes(tmp_path):
     assert not manager.running
 
 
+def test_script_emit_targets_a_stream(tmp_path):
+    (tmp_path / "mirror.py").write_text(
+        "def main(s):\n    s.emit('psst', 'thoughts')\n"
+    )
+    recorder = Recorder()
+    streamed = []
+    manager = ScriptManager(
+        send=recorder.sent.append,
+        emit=recorder.emitted.append,
+        emit_stream=lambda text, stream: streamed.append((text, stream)),
+        scripts_dir=tmp_path,
+    )
+    manager.start("mirror", [])
+    assert wait_for(lambda: streamed)
+    assert streamed == [("psst", "thoughts")]
+
+
+def test_script_emit_without_stream_sink_falls_back_to_plain(tmp_path):
+    (tmp_path / "mirror.py").write_text(
+        "def main(s):\n    s.emit('psst', 'thoughts')\n"
+    )
+    manager, recorder = make_manager(tmp_path)
+    manager.start("mirror", [])
+    assert wait_for(lambda: "psst" in recorder.emitted)
+
+
 def test_waitfor_matches_fed_lines(tmp_path):
     (tmp_path / "watch.py").write_text(
         "def main(s):\n"

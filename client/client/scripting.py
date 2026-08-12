@@ -7,6 +7,7 @@ in its own thread with `s` as its handle on the game:
     line = s.get(timeout=5)            # next main-stream line, None on timeout
     line = s.waitfor(r"Obvious paths", timeout=10)
     s.echo("done!")                    # front-end-only output
+    s.emit("psst", "thoughts")         # front-end output on a chosen stream
     s.sleep(2)                         # stop-aware sleep
     s.state                            # the session's XMLData (indicators etc.)
     s.args                             # arguments from `;run name arg1 arg2`
@@ -54,6 +55,12 @@ class Script:
     def echo(self, text: str):
         """Show text in the front ends without sending anything to the game."""
         self._manager.emit(f"[{self.name}] {text}")
+
+    def emit(self, text: str, stream: str):
+        """Show text in the front ends on a chosen stream — e.g. "thoughts"
+        lands in the Thoughts dock. No script-name prefix is added."""
+        self._check()
+        self._manager.emit_stream(text, stream)
 
     def get(self, timeout=None, streams=("",)):
         """Return the next game line (main stream by default), or None on
@@ -145,9 +152,14 @@ class Script:
 class ScriptManager(ClientLogger):
     """Loads, runs, feeds, and stops scripts inside the session."""
 
-    def __init__(self, send, emit, state=None, scripts_dir=None, clock=None):
+    def __init__(
+        self, send, emit, state=None, scripts_dir=None, clock=None, emit_stream=None
+    ):
         self.send = send  # (str) -> None: command to the game
         self.emit = emit  # (str) -> None: text to the front ends
+        # (str, str) -> None: text to the front ends on a chosen stream;
+        # without one, the stream is dropped and text goes the plain way.
+        self.emit_stream = emit_stream or (lambda text, stream: self.emit(text))
         self.state = state
         self.scripts_dir = Path(scripts_dir or DEFAULT_SCRIPTS_DIR)
         # Injectable for tests; scripts see time through their manager.

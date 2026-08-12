@@ -93,6 +93,7 @@ class SessionServer(ClientLogger):
                 command.encode("ASCII", "replace") + b"\n"
             ),
             emit=lambda text: self.broadcast(text, "script"),
+            emit_stream=self.broadcast,
             state=self.engine.xml_data,
         )
 

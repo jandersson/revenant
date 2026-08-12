@@ -125,6 +125,23 @@ def test_semicolon_commands_go_to_scripts_not_game(monkeypatch):
     client.close()
 
 
+def test_script_emit_stream_reaches_attached_clients():
+    game = FakeGame()
+    server, port = _start_server(game)
+    client = socket.create_connection(("127.0.0.1", port), timeout=5)
+    client.settimeout(5)
+    assert _await(lambda: server.clients), "client never registered"
+
+    # The ;lnet mirror path: a script emits onto the thoughts stream.
+    server.scripts.emit_stream("[LNet General] Someone: hi", "thoughts")
+    buffer = b""
+    while b"Someone" not in buffer:
+        buffer += client.recv(4096)
+    frames, _ = session.decode_frames(buffer)
+    assert ("[LNet General] Someone: hi", "thoughts") in frames
+    client.close()
+
+
 def test_reexec_marks_game_fd_inheritable_and_builds_argv(monkeypatch):
     left, right = socket.socketpair()
     game = SocketClient.from_fd(left.detach())

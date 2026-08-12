@@ -56,7 +56,9 @@ One pipeline, one parser, several processes:
 - `client/client/scripting.py` — script engine. Scripts are `main(s)` Python
   files in `scripts/` (repo root), run as threads in the session, controlled
   by `;`-commands typed in any front end (`;list`, `;run x`, `;stop x`).
-  Handle API: put/get/waitfor/waitrt/echo/sleep/state/args.
+  Handle API: put/get/waitfor/waitrt/echo/emit/sleep/state/args — `emit`
+  targets an arbitrary stream (e.g. "thoughts"). `scripts/lnet.py` uses it
+  to mirror LNet chat into the Thoughts window, read-only (`;lnet`).
 - `client/client/mapdb.py` — the community DR map database (elanthia-online
   mapdb-backup-dr), downloaded to `~/.revenant/mapdb/` on first use, never
   vendored. BFS pathfinding; wayto commands starting with ";e" are embedded
