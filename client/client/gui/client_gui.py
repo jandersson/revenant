@@ -154,6 +154,11 @@ class ClientGUI(QMainWindow, ClientLogger):
                 view.setFont(
                     QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
                 )
+                # An empty dashboard must not look like a missing one.
+                view.setPlaceholderText(
+                    "No skills learning right now.\n"
+                    "Train something and this fills in live."
+                )
             dock.setWidget(view)
             self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
             self.stream_docks[title] = dock
