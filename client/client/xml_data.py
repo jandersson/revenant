@@ -11,6 +11,14 @@ DISCARD_STREAMS = {"spellfront", "inv", "bounty", "society", "speech", "talk"}
 # matches contribute None.
 _STREAM_MARKER = re.compile(r"<pushStream id=[\"'](\w+)[\"'][^>]*/>|<popStream[^>]*/>")
 
+# The game's inline styling: bold runs, presets (speech, roomDesc, ...)
+# and style spans (roomName). Group 1: preset id; group 2: style id.
+_STYLE_MARKER = re.compile(
+    r"<pushBold\s*/?>|<popBold\s*/?>"
+    r"|<preset id=[\"'](\w+)[\"'][^>]*>|</preset>"
+    r"|<style id=[\"'](\w*)[\"'][^>]*/?>"
+)
+
 
 class XMLData:
     """A parser target directly translated from lich.rb::XMLParser (aka XMLData)"""
@@ -47,6 +55,11 @@ class XMLData:
 
         # Internal memo pad for stripping multi line tags
         self._strip_xml_multiline = ""
+        # route()'s own styling state — bold and style spans persist
+        # across lines, presets close on the same line.
+        self._route_bold = False
+        self._route_style = ""
+        self._route_preset = ""
 
     def data(self, text_string):
         if self.active_tags and self.active_tags[-1] == "prompt":
@@ -102,15 +115,48 @@ class XMLData:
         if self.active_ids:
             self.last_id = self.active_ids.pop()
 
+    def _effective_style(self):
+        return (
+            self._route_preset
+            or self._route_style
+            or ("bold" if self._route_bold else "")
+        )
+
+    def _styled_pieces(self, text):
+        """Split a segment on style markers into (piece, style) runs."""
+        pieces = []
+        position = 0
+        for match in _STYLE_MARKER.finditer(text):
+            if match.start() > position:
+                pieces.append((text[position : match.start()], self._effective_style()))
+            marker = match.group(0)
+            if marker.startswith("<pushBold"):
+                self._route_bold = True
+            elif marker.startswith("<popBold"):
+                self._route_bold = False
+            elif marker.startswith("<preset"):
+                self._route_preset = match.group(1)
+            elif marker.startswith("</preset"):
+                self._route_preset = ""
+            else:  # <style id="..."/> — empty id closes the span
+                self._route_style = match.group(2) or ""
+            position = match.end()
+        if position < len(text):
+            pieces.append((text[position:], self._effective_style()))
+        return pieces
+
     def route(self, line: str) -> list:
-        """Split a line of game text into (stream, text) segments.
+        """Split a line of game text into (stream, text, style) segments.
 
         The main stream is "". pushStream/popStream pairs that span lines
         are buffered until they balance, so a segment always knows its
-        stream. Streams in DISCARD_STREAMS are dropped.
+        stream. Streams in DISCARD_STREAMS are dropped. style is the
+        active preset/style/bold ("" for plain text) — or the control
+        value "clear" with empty text, meaning the front end should wipe
+        that stream's window (<clearStream/>, e.g. the spell list pulse).
         """
         if line == "\r\n":
-            return [("", line)]
+            return [("", line, "")]
 
         if self._strip_xml_multiline:
             self._strip_xml_multiline += line
@@ -133,18 +179,26 @@ class XMLData:
             flags=re.MULTILINE,
         )
 
+        segments = []
+        # A wipe marker precedes the stream's fresh content: emit the
+        # control segment first so front ends clear before appending.
+        for stream in re.findall(r"<clearStream id=[\"'](\w+)[\"']", line):
+            segments.append((stream, "", "clear"))
+
         parts = _STREAM_MARKER.split(line)
         texts = parts[0::2]
         # Text before the first marker is main; after a pushStream it is
         # that stream's; after a popStream it is main again.
         streams = [""] + [marker or "" for marker in parts[1::2]]
-        segments = []
         for stream, text in zip(streams, texts):
-            text = re.sub(r"<[^>]+>", "", text)
-            text = html.unescape(text)
-            if not text.strip() or stream in DISCARD_STREAMS:
+            if stream in DISCARD_STREAMS:
                 continue
-            segments.append((stream, text))
+            for piece, style in self._styled_pieces(text):
+                piece = re.sub(r"<[^>]+>", "", piece)
+                piece = html.unescape(piece)
+                if not piece.strip():
+                    continue
+                segments.append((stream, piece, style))
         return segments
 
     def reset(self):
@@ -152,6 +206,9 @@ class XMLData:
         self.current_style = ""
         self.active_tags = []
         self.active_ids = []
+        self._route_bold = False
+        self._route_style = ""
+        self._route_preset = ""
 
 
 if __name__ == "__main__":

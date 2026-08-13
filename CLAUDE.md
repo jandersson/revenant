@@ -40,7 +40,12 @@ One pipeline, one parser, several processes:
   **Never store credentials in files, even gitignored ones.**
 - `client/client/xml_data.py` — XMLParser target holding parsed game state
   (indicators, compass, prompt), plus `route(line)` which splits each line
-  into `(stream, text)` segments via pushStream/popStream markers.
+  into `(stream, text, style)` segments via pushStream/popStream markers
+  and the styling markers (pushBold, presets, style spans). style is ""
+  for plain text, a style name the GUI maps to colors/bold, or the
+  control value "clear" (<clearStream/>: wipe that stream's window).
+  Segments carry their own newlines — the engine appends "\n" to the last
+  piece of each line per stream; front ends never add line breaks.
 - `client/client/core.py` — `Engine`: owns a connection, feeds lines through
   XMLData, invokes `output_callback(text, stream)` per segment. Emits a
   synthetic `"compass"` stream when the room's exits change.

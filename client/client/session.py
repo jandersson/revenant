@@ -54,19 +54,24 @@ def close_socket(conn):
         pass
 
 
-def encode_frame(text: str, stream: str) -> bytes:
-    return (json.dumps({"stream": stream, "text": text}) + "\n").encode("UTF-8")
+def encode_frame(text: str, stream: str, style: str = "") -> bytes:
+    return (json.dumps({"stream": stream, "text": text, "style": style}) + "\n").encode(
+        "UTF-8"
+    )
 
 
 def decode_frames(buffer: bytes):
-    """Split a byte buffer into decoded (text, stream) frames and the
-    unconsumed tail (a partial line, if any)."""
+    """Split a byte buffer into decoded (text, stream, style) frames and
+    the unconsumed tail (a partial line, if any). Frames from older
+    sessions carry no style; it decodes as ""."""
     frames = []
     while b"\n" in buffer:
         raw, buffer = buffer.split(b"\n", 1)
         if raw.strip():
             payload = json.loads(raw.decode("UTF-8"))
-            frames.append((payload["text"], payload["stream"]))
+            frames.append(
+                (payload["text"], payload["stream"], payload.get("style", ""))
+            )
     return frames, buffer
 
 
@@ -88,12 +93,18 @@ class SessionServer(ClientLogger):
         self.running = True
         self.engine = Engine()
         self.engine.connection = game_connection
+
+        # Script output is line-oriented; game frames carry their own
+        # newlines (mid-line style runs must not be broken apart).
+        def as_line(text):
+            return text if text.endswith("\n") else text + "\n"
+
         self.scripts = ScriptManager(
             send=lambda command: self.send_to_game(
                 command.encode("ASCII", "replace") + b"\n"
             ),
-            emit=lambda text: self.broadcast(text, "script"),
-            emit_stream=self.broadcast,
+            emit=lambda text: self.broadcast(as_line(text), "script"),
+            emit_stream=lambda text, stream: self.broadcast(as_line(text), stream),
             state=self.engine.xml_data,
         )
 
@@ -127,12 +138,13 @@ class SessionServer(ClientLogger):
                 return
             sleep(0.01)
 
-    def fanout(self, text: str, stream: str):
-        self.broadcast(text, stream)
-        self.scripts.feed(text, stream)
+    def fanout(self, text: str, stream: str, style: str = ""):
+        self.broadcast(text, stream, style)
+        if style != "clear":
+            self.scripts.feed(text, stream)
 
-    def broadcast(self, text: str, stream: str):
-        frame = encode_frame(text, stream)
+    def broadcast(self, text: str, stream: str, style: str = ""):
+        frame = encode_frame(text, stream, style)
         with self.clients_lock:
             clients = list(self.clients)
         with self.broadcast_lock:
@@ -266,20 +278,21 @@ class AttachedEngine(ClientLogger):
                     '* I CANT BELIEVE "SMELL YA LATER" REPLACED "GOODBYE" *\n'
                     "****************************************************\n",
                     "",
+                    "",
                 )
             self.log.info("Session connection closed")
             raise
         self._buffer += data
         frames, self._buffer = decode_frames(self._buffer)
-        for text, stream in frames:
+        for text, stream, style in frames:
             if output_callback:
-                output_callback(text, stream)
+                output_callback(text, stream, style)
 
     def _reattach(self, output_callback):
         """The session dropped us — usually a ;reexec swapping its code.
         Retry the attach briefly so a code swap doesn't end the front end."""
         if output_callback:
-            output_callback("session dropped — reattaching ...", "script")
+            output_callback("session dropped — reattaching ...\n", "script", "")
         deadline = monotonic() + REATTACH_TIMEOUT
         while monotonic() < deadline:
             try:
@@ -290,7 +303,7 @@ class AttachedEngine(ClientLogger):
             self._buffer = b""
             self.log.info("Reattached to session")
             if output_callback:
-                output_callback("reattached", "script")
+                output_callback("reattached\n", "script", "")
             return True
         return False
 

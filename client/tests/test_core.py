@@ -14,7 +14,11 @@ class FakeConnection:
 def _read_all(engine, reads):
     out = []
     for _ in range(reads):
-        engine.read(output_callback=lambda text, stream: out.append((text, stream)))
+        engine.read(
+            output_callback=lambda text, stream, style: out.append(
+                (text, stream, style)
+            )
+        )
     return out
 
 
@@ -27,9 +31,9 @@ def test_engine_emits_compass_stream_once_per_room():
         ]
     )
     out = _read_all(engine, 2)
-    assert ("You see stuff.", "") in out
+    assert ("You see stuff.\n", "", "") in out
     compass_frames = [frame for frame in out if frame[1] == "compass"]
-    assert compass_frames == [("n e", "compass")]
+    assert compass_frames == [("n e", "compass", "")]
 
 
 def test_engine_emits_compass_again_on_change():
@@ -42,7 +46,7 @@ def test_engine_emits_compass_again_on_change():
     )
     out = _read_all(engine, 2)
     compass_frames = [frame for frame in out if frame[1] == "compass"]
-    assert compass_frames == [("n", "compass"), ("s out", "compass")]
+    assert compass_frames == [("n", "compass", ""), ("s out", "compass", "")]
 
 
 def test_room_exits_component_does_not_double_the_compass_frame():
@@ -60,7 +64,7 @@ def test_room_exits_component_does_not_double_the_compass_frame():
     )
     out = _read_all(engine, 2)
     compass_frames = [frame for frame in out if frame[1] == "compass"]
-    assert compass_frames == [("sw", "compass")]
+    assert compass_frames == [("sw", "compass", "")]
 
 
 def test_engine_emits_compass_for_identical_adjacent_rooms():
@@ -75,4 +79,25 @@ def test_engine_emits_compass_for_identical_adjacent_rooms():
     )
     out = _read_all(engine, 2)
     compass_frames = [frame for frame in out if frame[1] == "compass"]
-    assert compass_frames == [("n s", "compass"), ("n s", "compass")]
+    assert compass_frames == [("n s", "compass", ""), ("n s", "compass", "")]
+
+
+def test_only_the_last_piece_of_a_line_carries_the_newline():
+    # One line, two styled pieces: "You say" (speech) then the words.
+    # Front ends just append pieces; the engine owns line endings.
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [b"<preset id='speech'>You say</preset>, \"Hello world.\"\n"]
+    )
+    out = _read_all(engine, 1)
+    assert out == [
+        ("You say", "", "speech"),
+        (', "Hello world."\n', "", ""),
+    ]
+
+
+def test_clear_stream_control_frame_has_no_newline():
+    engine = Engine()
+    engine.connection = FakeConnection([b'<clearStream id="percWindow"/>\n'])
+    out = _read_all(engine, 1)
+    assert ("", "percWindow", "clear") in out

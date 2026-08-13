@@ -103,13 +103,13 @@ def test_roundtime_and_casttime(xml_data):
 
 def test_route_plain_text_goes_to_main(xml_data):
     assert xml_data.route("You see a stunted forest troll.") == [
-        ("", "You see a stunted forest troll.")
+        ("", "You see a stunted forest troll.", "")
     ]
 
 
 def test_route_single_line_stream(xml_data):
     line = '<pushStream id="thoughts"/>You sense: hello there<popStream/>'
-    assert xml_data.route(line) == [("thoughts", "You sense: hello there")]
+    assert xml_data.route(line) == [("thoughts", "You sense: hello there", "")]
 
 
 def test_route_mixed_line_splits_streams(xml_data):
@@ -117,9 +117,9 @@ def test_route_mixed_line_splits_streams(xml_data):
         'Before.<pushStream id="logons"/> * Bob joined the realms. <popStream/>After.'
     )
     assert xml_data.route(line) == [
-        ("", "Before."),
-        ("logons", " * Bob joined the realms. "),
-        ("", "After."),
+        ("", "Before.", ""),
+        ("logons", " * Bob joined the realms. ", ""),
+        ("", "After.", ""),
     ]
 
 
@@ -128,7 +128,7 @@ def test_route_buffers_multiline_stream(xml_data):
         xml_data.route('<pushStream id="percWindow"/>Clear Vision  (29 roisaen)') == []
     )
     assert xml_data.route("<popStream/>") == [
-        ("percWindow", "Clear Vision  (29 roisaen)")
+        ("percWindow", "Clear Vision  (29 roisaen)", "")
     ]
 
 
@@ -137,9 +137,55 @@ def test_route_discards_duplicate_streams(xml_data):
     assert xml_data.route(line) == []
 
 
-def test_route_strips_tags_and_unescapes(xml_data):
-    line = "You gesture. <pushBold/>A troll&apos;s club<popBold/> whooshes."
-    assert xml_data.route(line) == [("", "You gesture. A troll's club whooshes.")]
+def test_route_unescapes_entities(xml_data):
+    line = "A troll&apos;s club whooshes."
+    assert xml_data.route(line) == [("", "A troll's club whooshes.", "")]
+
+
+# --- styling: how the game's markers become styled segments -------------
+
+
+def test_bold_text_is_a_styled_run_within_the_line(xml_data):
+    line = "You gesture. <pushBold/>A troll's club<popBold/> whooshes."
+    assert xml_data.route(line) == [
+        ("", "You gesture. ", ""),
+        ("", "A troll's club", "bold"),
+        ("", " whooshes.", ""),
+    ]
+
+
+def test_speech_preset_styles_the_say_prefix(xml_data):
+    # Captured live: the game wraps only "You say" in the speech preset.
+    line = "<preset id='speech'>You say</preset>, \"Hello world.\""
+    assert xml_data.route(line) == [
+        ("", "You say", "speech"),
+        ("", ', "Hello world."', ""),
+    ]
+
+
+def test_room_name_style_spans_until_reset(xml_data):
+    assert xml_data.route('<style id="roomName" />[Northwall Trail, Grassland]') == [
+        ("", "[Northwall Trail, Grassland]", "roomName")
+    ]
+    # The empty style id on the next line closes the span.
+    assert xml_data.route('<style id=""/>Obvious paths: east.') == [
+        ("", "Obvious paths: east.", "")
+    ]
+
+
+def test_bold_persists_across_lines_until_popped(xml_data):
+    assert xml_data.route("<pushBold/>*** IMPORTANT ***") == [
+        ("", "*** IMPORTANT ***", "bold")
+    ]
+    assert xml_data.route("still shouting") == [("", "still shouting", "bold")]
+    assert xml_data.route("<popBold/>calm again") == [("", "calm again", "")]
+
+
+def test_clear_stream_is_a_control_segment(xml_data):
+    # The spell-list pulse: wipe the window, then the fresh list arrives.
+    assert xml_data.route('<clearStream id="percWindow"/>') == [
+        ("percWindow", "", "clear")
+    ]
 
 
 def test_indicator(xml_data, login_strings):

@@ -15,7 +15,14 @@ from PyQt6.QtWidgets import (
     QTextEdit,
     QWidget,
 )
-from PyQt6.QtGui import QIcon, QTextCursor, QAction
+from PyQt6.QtGui import (
+    QAction,
+    QColor,
+    QFont,
+    QIcon,
+    QTextCharFormat,
+    QTextCursor,
+)
 from PyQt6.QtCore import Qt, pyqtSignal
 
 from client.core import Engine
@@ -31,8 +38,18 @@ ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
 class ClientGUI(QMainWindow, ClientLogger):
     # Game text arrives on the reader thread, but Qt widgets may only be
     # touched from the GUI thread — hand it over via a queued signal.
-    # Args: text, stream id ("" = main window).
-    game_text = pyqtSignal(str, str)
+    # Args: text, stream id ("" = main window), style ("" = plain).
+    game_text = pyqtSignal(str, str, str)
+
+    # style id -> (bold, color). The game's own styling markers, rendered
+    # the way Stormfront players expect: amber room names, blue speech.
+    STYLE_FORMATS = {
+        "roomName": (True, "#d8b465"),
+        "bold": (True, None),
+        "speech": (False, "#8fc7e8"),
+        "whisper": (False, "#8fc7e8"),
+        "thought": (False, "#b39ddb"),
+    }
 
     # stream id -> dock window title; streams not listed here fall through
     # to the main window.
@@ -170,19 +187,35 @@ class ClientGUI(QMainWindow, ClientLogger):
         else:
             self.status_bar.hide()
 
-    def dispatch_game_text(self, text: str, stream: str):
+    def dispatch_game_text(self, text: str, stream: str, style: str = ""):
         if stream == "compass":
             self.update_compass(text)
             return
-        self._append(self.stream_windows.get(stream, self.main_window), text)
+        view = self.stream_windows.get(stream, self.main_window)
+        if style == "clear":
+            # The game rewrites resident windows wholesale (spell list
+            # pulses): wipe before the fresh content lands.
+            view.clear()
+            return
+        self._append(view, text, style)
 
     def write_to_main_window(self, text: str):
-        self._append(self.main_window, text)
-
-    def _append(self, view, text: str):
         if not text.endswith("\n"):
             text = text + "\n"
-        view.insertPlainText(text)
+        self._append(self.main_window, text)
+
+    def _append(self, view, text: str, style: str = ""):
+        # Frames carry their own newlines: a line may arrive as several
+        # styled pieces, and only the last one ends with "\n".
+        cursor = view.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        text_format = QTextCharFormat()
+        bold, color = self.STYLE_FORMATS.get(style, (False, None))
+        if bold:
+            text_format.setFontWeight(QFont.Weight.Bold)
+        if color:
+            text_format.setForeground(QColor(color))
+        cursor.insertText(text, text_format)
         view.moveCursor(QTextCursor.MoveOperation.End)
 
     def write(self, write_data: str):

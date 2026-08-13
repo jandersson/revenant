@@ -80,7 +80,7 @@ class Engine(ClientLogger):
         except EOFError as e:
             goodbye = "\n******************\n* SMELL YA LATER *\n******************\n"
             if output_callback:
-                output_callback(goodbye, "")
+                output_callback(goodbye, "", "")
             else:
                 buff.append(goodbye)
             self.log.info("Connection closed")
@@ -99,10 +99,20 @@ class Engine(ClientLogger):
                     XMLParser(target=self.xml_data).feed(f"<r>{line}</r>")
                 except ParseError:
                     pass
-                for stream, text in self.xml_data.route(line):
+                segments = self.xml_data.route(line)
+                # One line can hold several styled pieces; the last piece
+                # per stream carries the newline so front ends never have
+                # to guess where lines end. Control frames carry none.
+                final_piece = {}
+                for index, (stream, text, style) in enumerate(segments):
+                    if style != "clear":
+                        final_piece[stream] = index
+                for index, (stream, text, style) in enumerate(segments):
+                    if index == final_piece.get(stream):
+                        text += "\n"
                     if output_callback:
-                        output_callback(text, stream)
-                    else:
+                        output_callback(text, stream, style)
+                    elif style != "clear":
                         buff.append(text if not stream else f"[{stream}] {text}")
                 # Every room sends a <compass>; emit the exits as a synthetic
                 # "compass" stream. One frame per room — front ends drive
@@ -111,10 +121,10 @@ class Engine(ClientLogger):
                 if self.xml_data.compass_updated:
                     self.xml_data.compass_updated = False
                     if output_callback:
-                        output_callback(" ".join(self.xml_data.compass), "compass")
+                        output_callback(" ".join(self.xml_data.compass), "compass", "")
 
         if not output_callback:
-            sys.stdout.write("\n".join(buff))
+            sys.stdout.write("".join(buff))
             sys.stdout.flush()
 
 

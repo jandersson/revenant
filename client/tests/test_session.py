@@ -62,7 +62,10 @@ def test_frame_roundtrip():
         "Clear Vision", "percWindow"
     )
     frames, rest = session.decode_frames(buffer + b'{"partial')
-    assert frames == [("You see a troll.", ""), ("Clear Vision", "percWindow")]
+    assert frames == [
+        ("You see a troll.", "", ""),
+        ("Clear Vision", "percWindow", ""),
+    ]
     assert rest == b'{"partial'
 
 
@@ -80,8 +83,8 @@ def test_session_relays_text_commands_and_shutdown():
     while b"psst" not in buffer:
         buffer += client.recv(4096)
     frames, _ = session.decode_frames(buffer)
-    assert ("Hello there.", "") in frames
-    assert ("psst", "thoughts") in frames
+    assert ("Hello there.\n", "", "") in frames
+    assert ("psst\n", "thoughts", "") in frames
 
     # Client commands reach the game connection.
     client.sendall(b"look\n")
@@ -106,7 +109,7 @@ def test_session_relays_text_commands_and_shutdown():
             f"threads={sorted(t.name for t in threading.enumerate())}"
         )
     frames, _ = session.decode_frames(buffer)
-    assert any("SMELL YA LATER" in text for text, _ in frames)
+    assert any("SMELL YA LATER" in text for text, _, _ in frames)
     assert not server.running
 
 
@@ -138,7 +141,7 @@ def test_script_emit_stream_reaches_attached_clients():
     while b"Someone" not in buffer:
         buffer += client.recv(4096)
     frames, _ = session.decode_frames(buffer)
-    assert ("[LNet General] Someone: hi", "thoughts") in frames
+    assert ("[LNet General] Someone: hi\n", "thoughts", "") in frames
     client.close()
 
 
@@ -229,11 +232,13 @@ def test_attached_engine_reattaches_after_session_restart():
     def reattached():
         try:
             engine.read(
-                output_callback=lambda text, stream: received.append((text, stream))
+                output_callback=lambda text, stream, style: received.append(
+                    (text, stream)
+                )
             )
         except EOFError:
             return False
-        return any(text == "reattached" for text, _ in received)
+        return any(text == "reattached\n" for text, _ in received)
 
     assert _await(reattached, timeout=15), f"never reattached: {received}"
 
@@ -241,7 +246,7 @@ def test_attached_engine_reattaches_after_session_restart():
 
     def frames_flowing():
         engine.read(
-            output_callback=lambda text, stream: received.append((text, stream))
+            output_callback=lambda text, stream, style: received.append((text, stream))
         )
         return any("Back online." in text for text, _ in received)
 
@@ -263,12 +268,12 @@ def test_attached_engine_reads_frames_and_writes_commands():
 
     def pump():
         engine.read(
-            output_callback=lambda text, stream: received.append((text, stream))
+            output_callback=lambda text, stream, style: received.append((text, stream))
         )
         return bool(received)
 
     assert _await(pump), "no frames received"
-    assert ("You see a stunted forest troll.", "") in received
+    assert ("You see a stunted forest troll.\n", "") in received
 
     engine.connection.write(b"look\n")
     assert _await(lambda: game.sent), "command never reached the game"
