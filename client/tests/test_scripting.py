@@ -155,3 +155,29 @@ def test_handle_command_list_and_unknown(tmp_path):
     assert any("available" in e and "hello" in e for e in recorder.emitted)
     manager.handle_command(";nosuch")
     assert any("no script named 'nosuch'" in e for e in recorder.emitted)
+
+
+def test_help_lists_scripts_with_docstring_summaries(tmp_path):
+    (tmp_path / "walk.py").write_text(
+        '"""Walk somewhere:  ;walk <place>\n\nThe long story."""\ndef main(s):\n    pass\n'
+    )
+    (tmp_path / "bare.py").write_text("def main(s):\n    pass\n")
+    manager, recorder = make_manager(tmp_path)
+    manager.handle_command(";help")
+    assert any("walk — Walk somewhere:  ;walk <place>" in e for e in recorder.emitted)
+    assert any("bare — (no help)" in e for e in recorder.emitted)
+
+
+def test_help_prints_full_docstring_without_running_the_script(tmp_path):
+    (tmp_path / "walk.py").write_text(
+        '"""Walk somewhere.\n\nThe long story."""\nraise SystemExit("must not run")\n'
+    )
+    manager, recorder = make_manager(tmp_path)
+    manager.handle_command(";help walk")
+    assert any("The long story." in e for e in recorder.emitted)
+
+
+def test_help_unknown_script(tmp_path):
+    manager, recorder = make_manager(tmp_path)
+    manager.handle_command(";help nosuch")
+    assert any("no script named 'nosuch'" in e for e in recorder.emitted)

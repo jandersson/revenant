@@ -55,7 +55,9 @@ One pipeline, one parser, several processes:
   running session does NOT see code edits until it re-execs or restarts.
 - `client/client/scripting.py` — script engine. Scripts are `main(s)` Python
   files in `scripts/` (repo root), run as threads in the session, controlled
-  by `;`-commands typed in any front end (`;list`, `;run x`, `;stop x`).
+  by `;`-commands typed in any front end (`;list`, `;help [x]`, `;run x`,
+  `;stop x`). `;help` renders module docstrings — write them as the user
+  manual.
   Handle API: put/get/waitfor/waitrt/echo/emit/sleep/state/args — `emit`
   targets an arbitrary stream (e.g. "thoughts"). `scripts/lnet.py` uses it
   to mirror LNet chat into the Thoughts window, read-only (`;lnet`).

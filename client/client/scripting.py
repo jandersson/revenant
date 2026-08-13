@@ -13,9 +13,12 @@ in its own thread with `s` as its handle on the game:
     s.args                             # arguments from `;run name arg1 arg2`
 
 Scripts are controlled from any attached front end with ;-commands:
-;list, ;run <name> [args], ;stop <name|all>, or ;<name> [args] as shorthand.
+;list, ;help [name], ;run <name> [args], ;stop <name|all>, or
+;<name> [args] as shorthand for ;run. ;help prints a script's module
+docstring — write them as the user manual.
 """
 
+import ast
 import os
 import queue
 import re
@@ -183,11 +186,16 @@ class ScriptManager(ClientLogger):
         """Handle a `;...` line typed in a front end."""
         parts = line.lstrip(";").split()
         if not parts:
-            self.emit("script commands: ;list  ;run <name> [args]  ;stop <name|all>")
+            self.emit(
+                "script commands: ;list  ;help [name]  ;run <name> [args]  "
+                ";stop <name|all>"
+            )
             return
         command, args = parts[0], parts[1:]
         if command == "list":
             self.list_scripts()
+        elif command == "help":
+            self.help(args[0] if args else None)
         elif command == "stop":
             self.stop(args[0] if args else "all")
         elif command == "run":
@@ -202,6 +210,35 @@ class ScriptManager(ClientLogger):
         if not self.scripts_dir.is_dir():
             return []
         return sorted(path.stem for path in self.scripts_dir.glob("*.py"))
+
+    def script_doc(self, name: str):
+        """A script's module docstring, read without executing the file.
+        None when the script (or a parseable docstring) doesn't exist."""
+        path = self.scripts_dir / f"{name}.py"
+        if not path.is_file():
+            return None
+        try:
+            return ast.get_docstring(ast.parse(path.read_text()))
+        except (OSError, SyntaxError):
+            return None
+
+    def help(self, name=None):
+        """;help — one line per script; ;help <name> — the full docstring."""
+        if name is None:
+            available = self.available()
+            if not available:
+                self.emit(f"no scripts in {self.scripts_dir}/")
+                return
+            for script_name in available:
+                doc = self.script_doc(script_name) or ""
+                summary = doc.strip().splitlines()[0] if doc.strip() else "(no help)"
+                self.emit(f"{script_name} — {summary}")
+            return
+        if not (self.scripts_dir / f"{name}.py").is_file():
+            self.emit(f"no script named {name!r} in {self.scripts_dir}/ (try ;list)")
+            return
+        doc = self.script_doc(name)
+        self.emit(doc.strip() if doc else f"{name} has no docstring to show")
 
     def list_scripts(self):
         with self.lock:
