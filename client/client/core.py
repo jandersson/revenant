@@ -21,6 +21,10 @@ class Engine(ClientLogger):
         self._connection = None
         self.xml_data = XMLData()
         self.description = "Connected (direct)"
+        # Tail of the last read that didn't end in a newline: a TCP chunk
+        # can end mid-line — even mid-tag — and parsing the fragment leaks
+        # broken XML into the output. Held here until its line completes.
+        self._partial_line = ""
 
     @property
     def connection(self):
@@ -86,7 +90,12 @@ class Engine(ClientLogger):
             self.log.info("Connection closed")
             raise (e)
 
-        for line in read_data.split("\n"):
+        lines = (self._partial_line + read_data).split("\n")
+        # The last piece is "" when the chunk ended cleanly; otherwise it
+        # is an incomplete line, kept back for the next chunk.
+        self._partial_line = lines.pop()
+
+        for line in lines:
             # TODO: This if might be redundant
             if line:
                 logging.getLogger("game").info(line)

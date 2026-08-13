@@ -82,6 +82,37 @@ def test_engine_emits_compass_for_identical_adjacent_rooms():
     assert compass_frames == [("n s", "compass", ""), ("n s", "compass", "")]
 
 
+def test_a_tag_torn_across_two_reads_never_leaks_fragments():
+    # The live bug: a chunk boundary mid-tag rendered "<pr" and
+    # 'ompt time="...">>' as visible text. The torn line must be held
+    # until complete, then parsed whole.
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [b"All quiet.\n<pr", b'ompt time="1786574358">&gt;</prompt>\n']
+    )
+    out = _read_all(engine, 2)
+    assert ("All quiet.\n", "", "") in out
+    assert not any("<pr" in text or "ompt" in text for text, _, _ in out)
+    assert engine.xml_data.server_time == 1786574358  # the tag still parsed
+
+
+def test_a_stream_marker_torn_across_reads_still_routes():
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [b'<pushStream id="thou', b'ghts"/>psst<popStream/>\n']
+    )
+    out = _read_all(engine, 2)
+    assert ("psst\n", "thoughts", "") in out
+    assert not any("ghts" in text for text, _, _ in out)
+
+
+def test_an_incomplete_line_is_held_not_flushed():
+    engine = Engine()
+    engine.connection = FakeConnection([b"You see half a sent"])
+    out = _read_all(engine, 1)
+    assert out == []  # nothing emitted until the line completes
+
+
 def test_only_the_last_piece_of_a_line_carries_the_newline():
     # One line, two styled pieces: "You say" (speech) then the words.
     # Front ends just append pieces; the engine owns line endings.
