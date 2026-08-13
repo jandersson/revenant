@@ -79,6 +79,50 @@ def test_compass_inside_component_is_decoration(xml_data):
     assert xml_data.compass_updated is False
 
 
+# --- the exp window: how skill learning becomes state -------------------
+
+
+def test_exp_component_parses_rank_percent_and_mindstate(xml_data):
+    XMLParser(target=xml_data).feed(
+        "<r><component id='exp Athletics'>      Athletics:  346 13% "
+        "deliberative</component></r>"
+    )
+    assert xml_data.experience["Athletics"] == {
+        "rank": 346,
+        "percent": 13,
+        "mindstate": 11,  # deliberative is 11/34
+        "rate": "deliberative",
+    }
+    assert xml_data.exp_updated
+
+
+def test_exp_component_brief_mode_carries_the_mindstate_number(xml_data):
+    XMLParser(target=xml_data).feed(
+        "<r><component id='exp Attunement'>Attunement:  520 42% [17/34]</component></r>"
+    )
+    assert xml_data.experience["Attunement"]["mindstate"] == 17
+    assert xml_data.experience["Attunement"]["rate"] == "scrutinizing"
+
+
+def test_empty_exp_component_clears_the_skill(xml_data):
+    # Captured live: the game sends an empty component when a skill
+    # leaves the learning queue.
+    XMLParser(target=xml_data).feed(
+        "<r><component id='exp Shield Usage'>Shield Usage: 100 5% clear</component></r>"
+    )
+    XMLParser(target=xml_data).feed(
+        "<r><component id='exp Shield Usage'></component></r>"
+    )
+    assert "Shield Usage" not in xml_data.experience
+
+
+def test_exp_window_extras_are_not_skills(xml_data):
+    XMLParser(target=xml_data).feed(
+        "<r><component id='exp tdp'>    TDPs:  721</component></r>"
+    )
+    assert xml_data.experience == {}
+
+
 def test_nav_tag_carries_the_room_uid(xml_data):
     # Sent on every movement — the exact position fix for ;go2.
     XMLParser(target=xml_data).feed("<r>You stroll east.<nav rm='10081'/></r>")

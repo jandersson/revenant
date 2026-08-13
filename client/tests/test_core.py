@@ -113,6 +113,23 @@ def test_an_incomplete_line_is_held_not_flushed():
     assert out == []  # nothing emitted until the line completes
 
 
+def test_exp_change_rewrites_the_whole_exp_stream():
+    # The Experience dock is wipe-and-rewrite, like the game's own
+    # resident windows: a clear frame, then one line per learning skill.
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b"<component id='exp Athletics'>Athletics:  346 13% "
+            b"deliberative</component>\n"
+        ]
+    )
+    out = _read_all(engine, 1)
+    exp_frames = [frame for frame in out if frame[1] == "exp"]
+    assert exp_frames[0] == ("", "exp", "clear")
+    assert exp_frames[1][0].startswith("Athletics")
+    assert "346" in exp_frames[1][0] and "deliberative" in exp_frames[1][0]
+
+
 def test_only_the_last_piece_of_a_line_carries_the_newline():
     # One line, two styled pieces: "You say" (speech) then the words.
     # Front ends just append pieces; the engine owns line endings.

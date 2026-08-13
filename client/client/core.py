@@ -131,6 +131,21 @@ class Engine(ClientLogger):
                     self.xml_data.compass_updated = False
                     if output_callback:
                         output_callback(" ".join(self.xml_data.compass), "compass", "")
+                # The exp window: on any change, rewrite the whole "exp"
+                # stream (wipe + one line per learning skill), the same
+                # pattern the game itself uses for resident windows.
+                if self.xml_data.exp_updated:
+                    self.xml_data.exp_updated = False
+                    if output_callback:
+                        output_callback("", "exp", "clear")
+                        for skill in sorted(self.xml_data.experience):
+                            entry = self.xml_data.experience[skill]
+                            output_callback(
+                                f"{skill:<18} {entry['rank']:>5} "
+                                f"{entry['percent']:>3}%  {entry['rate']}\n",
+                                "exp",
+                                "",
+                            )
 
         if not output_callback:
             sys.stdout.write("".join(buff))

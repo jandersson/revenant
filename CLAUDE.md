@@ -45,7 +45,11 @@ One pipeline, one parser, several processes:
   for plain text, a style name the GUI maps to colors/bold, or the
   control value "clear" (<clearStream/>: wipe that stream's window).
   Segments carry their own newlines — the engine appends "\n" to the last
-  piece of each line per stream; front ends never add line breaks.
+  piece of each line per stream; front ends never add line breaks. Also
+  parses the exp window (`<component id='exp Skill'>`) into
+  `experience` (rank/percent/mindstate per learning skill); the engine
+  rewrites a synthetic "exp" stream on change (Experience dock), and
+  `scripts/xp.py` snapshots it to `~/.revenant/xp.db` for history.
 - `client/client/core.py` — `Engine`: owns a connection, feeds lines through
   XMLData, invokes `output_callback(text, stream)` per segment. Emits a
   synthetic `"compass"` stream when the room's exits change.

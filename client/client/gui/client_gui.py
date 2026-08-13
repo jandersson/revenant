@@ -19,6 +19,7 @@ from PyQt6.QtGui import (
     QAction,
     QColor,
     QFont,
+    QFontDatabase,
     QIcon,
     QTextCharFormat,
     QTextCursor,
@@ -58,6 +59,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         "percWindow": "Spells",
         "logons": "Arrivals",
         "death": "Arrivals",
+        "exp": "Experience",
     }
 
     # (direction, row, column) in the compass grid
@@ -146,7 +148,13 @@ class ClientGUI(QMainWindow, ClientLogger):
         for title in dict.fromkeys(self.STREAM_WINDOWS.values()):
             dock = QDockWidget(title)
             dock.setObjectName(title)  # saveState() needs unique names
-            dock.setWidget(QTextEdit(readOnly=True))
+            view = QTextEdit(readOnly=True)
+            if title == "Experience":
+                # The exp dashboard is column-aligned text.
+                view.setFont(
+                    QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
+                )
+            dock.setWidget(view)
             self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
             self.stream_docks[title] = dock
         for stream, title in self.STREAM_WINDOWS.items():

@@ -35,7 +35,7 @@ A rough-draft engine + front ends for playing DragonRealms with Python in the lo
 
 - **core** — the engine/middleman between the game and whichever front end is attached. See [client/client/core.py](client/client/core.py).
 - **session** — a detachable session daemon that logs in, owns the game socket, and serves parsed game text to any number of front ends over localhost, lich-style. Also hosts the Python script engine (`;list`, `;run`, `;stop`). See [client/client/session.py](client/client/session.py).
-- **gui** — a PyQt6 front end reminiscent of the old AOL-era Gemstone clients, rendering the game's own styling markers: amber room names, blue speech, bold alerts. See [client/client/gui/client_gui.py](client/client/gui/client_gui.py).
+- **gui** — a PyQt6 front end reminiscent of the old AOL-era Gemstone clients, rendering the game's own styling markers: amber room names, blue speech, bold alerts. The Experience dock is a live skill dashboard (rank, percent, mindstate per learning skill), and `;xp` logs the same data to `~/.revenant/xp.db` for history and analysis. See [client/client/gui/client_gui.py](client/client/gui/client_gui.py).
 - **tui** — a non-working draft of a terminal front end. [Profanity](https://github.com/elanthia-online/profanity-fe) is what you actually want for a TUI today; this is just a sketch.
 
 Python 3.10–3.12. Packaged via [client/pyproject.toml](client/pyproject.toml) as a member of the root uv workspace.

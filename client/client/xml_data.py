@@ -11,6 +11,54 @@ DISCARD_STREAMS = {"spellfront", "inv", "bounty", "society", "speech", "talk"}
 # matches contribute None.
 _STREAM_MARKER = re.compile(r"<pushStream id=[\"'](\w+)[\"'][^>]*/>|<popStream[^>]*/>")
 
+# DR's 35 learning rates; the index is the mindstate 0..34 (ported from
+# lich's DR_LEARNING_RATES).
+LEARNING_RATES = [
+    "clear",
+    "dabbling",
+    "perusing",
+    "learning",
+    "thoughtful",
+    "thinking",
+    "considering",
+    "pondering",
+    "ruminating",
+    "concentrating",
+    "attentive",
+    "deliberative",
+    "interested",
+    "examining",
+    "understanding",
+    "absorbing",
+    "intrigued",
+    "scrutinizing",
+    "analyzing",
+    "studious",
+    "focused",
+    "very focused",
+    "engaged",
+    "very engaged",
+    "cogitating",
+    "fascinated",
+    "captivated",
+    "engrossed",
+    "riveted",
+    "very riveted",
+    "rapt",
+    "very rapt",
+    "enthralled",
+    "nearly locked",
+    "mind lock",
+]
+
+# "Athletics:  346 13% deliberative" or the brief form "... 13% [17/34]"
+_EXP_TEXT = re.compile(
+    r":\s*(\d+)\s+(\d+)%\s+(?:\[\s*(\d+)/34\]|([a-zA-Z][a-zA-Z ]*?))\s*$"
+)
+
+# The exp window's non-skill components (TDPs, favors, rested exp).
+_EXP_NOT_SKILLS = {"exp tdp", "exp favor", "exp rexp", "exp mods"}
+
 # The game's inline styling: bold runs, presets (speech, roomDesc, ...)
 # and style spans (roomName). Group 1: preset id; group 2: style id.
 _STYLE_MARKER = re.compile(
@@ -55,6 +103,13 @@ class XMLData:
         # The game's unique room id from <nav rm='...'/>, sent on every
         # movement — the exact position fix (titles collide, uids don't).
         self.room_uid = None
+        # The exp window: skill -> {rank, percent, mindstate, rate},
+        # updated from <component id='exp Skill'> pulses. An empty
+        # component removes the skill (it left the learning queue).
+        self.experience = {}
+        self.exp_updated = False
+        self._exp_skill = None
+        self._exp_text = ""
 
         # Internal memo pad for stripping multi line tags
         self._strip_xml_multiline = ""
@@ -69,6 +124,8 @@ class XMLData:
             self.prompt = text_string
         if self.current_style == "roomName" and text_string.strip():
             self.room_title = text_string.strip()
+        if self._exp_skill is not None:
+            self._exp_text += text_string
 
     def start(self, name: str, attributes: dict):
         self.active_tags.append(name)
@@ -109,6 +166,11 @@ class XMLData:
             self.roundtime = int(attributes["value"])
         elif name == "castTime":
             self.casttime = int(attributes["value"])
+        elif name == "component":
+            ident = attributes.get("id", "")
+            if ident.startswith("exp ") and ident not in _EXP_NOT_SKILLS:
+                self._exp_skill = ident[4:]
+                self._exp_text = ""
         elif name == "streamWindow" and attributes.get("id") == "room":
             subtitle = attributes.get("subtitle", "")
             if subtitle.startswith(" - "):
@@ -118,6 +180,29 @@ class XMLData:
         if name == "compass" and not self._compass_in_component:
             self.compass = self._pending_compass
             self.compass_updated = True
+        if name == "component" and self._exp_skill is not None:
+            skill, self._exp_skill = self._exp_skill, None
+            text = self._exp_text.strip()
+            if not text:
+                if self.experience.pop(skill, None) is not None:
+                    self.exp_updated = True
+            elif match := _EXP_TEXT.search(text):
+                rank, percent = int(match.group(1)), int(match.group(2))
+                if match.group(3):  # brief mode: [N/34]
+                    mindstate = int(match.group(3))
+                    rate = LEARNING_RATES[min(mindstate, 34)]
+                else:
+                    rate = match.group(4).strip()
+                    mindstate = (
+                        LEARNING_RATES.index(rate) if rate in LEARNING_RATES else 0
+                    )
+                self.experience[skill] = {
+                    "rank": rank,
+                    "percent": percent,
+                    "mindstate": mindstate,
+                    "rate": rate,
+                }
+                self.exp_updated = True
         if self.active_tags:
             self.last_tag = self.active_tags.pop()
         if self.active_ids:
