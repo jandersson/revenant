@@ -71,19 +71,23 @@ class Script:
 
     def get(self, timeout=None, streams=("",)):
         """Return the next game line (main stream by default), or None on
-        timeout. Pass streams=None to receive every stream as (stream, text)."""
+        timeout. Pass streams=None to receive every stream as (stream, text).
+        timeout=0 polls what is already queued without blocking."""
         deadline = None if timeout is None else self._manager.clock() + timeout
         while True:
             self._check()
-            remaining = 0.25
-            if deadline is not None:
-                remaining = min(0.25, deadline - self._manager.clock())
-                if remaining <= 0:
-                    return None
             try:
-                stream, text = self._queue.get(timeout=remaining)
+                stream, text = self._queue.get_nowait()
             except queue.Empty:
-                continue
+                remaining = 0.25
+                if deadline is not None:
+                    remaining = min(0.25, deadline - self._manager.clock())
+                    if remaining <= 0:
+                        return None
+                try:
+                    stream, text = self._queue.get(timeout=remaining)
+                except queue.Empty:
+                    continue
             if streams is None:
                 return stream, text
             if stream in streams:

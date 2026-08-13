@@ -88,6 +88,11 @@ def main(s):
     dest = here
     for number, (dest, command) in enumerate(route, 1):
         s.waitrt()
+        # Discard any stale compass frames so the next one that arrives
+        # pairs with this move — a spurious frame must never desync the
+        # walk (the double-frame bug, structurally prevented).
+        while s.get(timeout=0, streams=("compass",)) is not None:
+            pass
         s.put(command)
         if s.get(timeout=15, streams=("compass",)) is None:
             s.echo(f"stalled at step {number} ({command!r}) — stopping here")

@@ -40,6 +40,17 @@ def test_run_script_puts_and_echoes(tmp_path):
     assert not manager.running
 
 
+def test_get_with_zero_timeout_polls_queued_frames_without_blocking(tmp_path):
+    # go2 drains stale compass frames this way before each move.
+    manager, recorder = make_manager(tmp_path)
+    script = Script("t", [], manager)
+    script.feed("n e", "compass")
+    script.feed("s w", "compass")
+    assert script.get(timeout=0, streams=("compass",)) == "n e"
+    assert script.get(timeout=0, streams=("compass",)) == "s w"
+    assert script.get(timeout=0, streams=("compass",)) is None  # queue drained
+
+
 def test_script_emit_targets_a_stream(tmp_path):
     (tmp_path / "mirror.py").write_text(
         "def main(s):\n    s.emit('psst', 'thoughts')\n"
