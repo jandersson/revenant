@@ -23,13 +23,12 @@ from PyQt6.QtGui import (
     QTextCharFormat,
     QTextCursor,
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QSettings, Qt, pyqtSignal
 
 from client.core import Engine
 from client.client_logger import ClientLogger
 from client.session import AttachedEngine, DEFAULT_HOST, DEFAULT_PORT
 
-# TODO: Lock the scrollbar when its not all the way at the bottom
 # TODO: Exit the game when the window is closed. Make it optional, leaving room for headless potential.
 
 ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
@@ -121,7 +120,20 @@ class ClientGUI(QMainWindow, ClientLogger):
         for dock in self.stream_docks.values():
             view_menu.addAction(dock.toggleViewAction())
 
+        # Window size and dock layout persist between launches.
+        settings = QSettings("revenant", "revenant")
+        if geometry := settings.value("geometry"):
+            self.restoreGeometry(geometry)
+        if state := settings.value("windowState"):
+            self.restoreState(state)
+
         self.show()
+
+    def closeEvent(self, event):
+        settings = QSettings("revenant", "revenant")
+        settings.setValue("geometry", self.saveGeometry())
+        settings.setValue("windowState", self.saveState())
+        super().closeEvent(event)
 
     def __add_output_window(self):
         self.main_window = QTextEdit(readOnly=True)
@@ -133,6 +145,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.stream_windows = {}
         for title in dict.fromkeys(self.STREAM_WINDOWS.values()):
             dock = QDockWidget(title)
+            dock.setObjectName(title)  # saveState() needs unique names
             dock.setWidget(QTextEdit(readOnly=True))
             self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
             self.stream_docks[title] = dock
@@ -154,6 +167,7 @@ class ClientGUI(QMainWindow, ClientLogger):
             grid.addWidget(button, row, column)
             self.compass_buttons[direction] = button
         dock = QDockWidget("Compass")
+        dock.setObjectName("Compass")
         dock.setWidget(container)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
         # Registering under stream_docks gives it a View-menu toggle.
@@ -165,6 +179,7 @@ class ClientGUI(QMainWindow, ClientLogger):
             button.setEnabled(direction in available)
 
     def __add_input_field(self):
+        self.input_dock.setObjectName("Input")
         self.input = QLineEdit()
         # Disabled until the game connection is up: Qt's input hook pumps
         # events while login blocks on stdin, so keystrokes meant for the
@@ -207,7 +222,11 @@ class ClientGUI(QMainWindow, ClientLogger):
     def _append(self, view, text: str, style: str = ""):
         # Frames carry their own newlines: a line may arrive as several
         # styled pieces, and only the last one ends with "\n".
-        cursor = view.textCursor()
+        scrollbar = view.verticalScrollBar()
+        # Follow the text only when the user is already at the bottom;
+        # scrolled-up reading must not be yanked back down.
+        follow = scrollbar.value() >= scrollbar.maximum() - 4
+        cursor = QTextCursor(view.document())
         cursor.movePosition(QTextCursor.MoveOperation.End)
         text_format = QTextCharFormat()
         bold, color = self.STYLE_FORMATS.get(style, (False, None))
@@ -216,7 +235,8 @@ class ClientGUI(QMainWindow, ClientLogger):
         if color:
             text_format.setForeground(QColor(color))
         cursor.insertText(text, text_format)
-        view.moveCursor(QTextCursor.MoveOperation.End)
+        if follow:
+            scrollbar.setValue(scrollbar.maximum())
 
     def write(self, write_data: str):
         if self.client.connection is None:
