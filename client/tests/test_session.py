@@ -128,6 +128,28 @@ def test_semicolon_commands_go_to_scripts_not_game(monkeypatch):
     client.close()
 
 
+def test_new_front_end_receives_recent_backlog_on_attach():
+    # Attaching to a running session shows what already happened —
+    # scrollback and compass state — not a blank window.
+    game = FakeGame()
+    server, port = _start_server(game)
+    game.pending.append(
+        b'<compass><dir value="n"/><dir value="e"/></compass>'
+        b"An eerie howl rises in the distance.\n"
+    )
+    assert _await(lambda: server.backlog), "backlog never filled"
+
+    late_client = socket.create_connection(("127.0.0.1", port), timeout=5)
+    late_client.settimeout(5)
+    buffer = b""
+    while b"compass" not in buffer:
+        buffer += late_client.recv(4096)
+    frames, _ = session.decode_frames(buffer)
+    assert ("An eerie howl rises in the distance.\n", "", "") in frames
+    assert ("n e", "compass", "") in frames  # compass replayed for the dock
+    late_client.close()
+
+
 def test_script_emit_stream_reaches_attached_clients():
     game = FakeGame()
     server, port = _start_server(game)

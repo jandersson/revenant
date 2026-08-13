@@ -20,6 +20,7 @@ import json
 import os
 import socket
 import sys
+from collections import deque
 from threading import Lock, Thread
 from time import monotonic, sleep
 
@@ -86,6 +87,9 @@ class SessionServer(ClientLogger):
         self.listener = None
         self.clients = []
         self.clients_lock = Lock()
+        # Recent frames, replayed to every newly attached front end so it
+        # opens with scrollback instead of a blank window.
+        self.backlog = deque(maxlen=500)
         # Serialize writes: script threads, client threads, and the game
         # reader all send on shared sockets.
         self.broadcast_lock = Lock()
@@ -116,11 +120,31 @@ class SessionServer(ClientLogger):
             while self.running:
                 conn, addr = self.listener.accept()
                 self.log.info(f"Front end attached from {addr}")
-                with self.clients_lock:
-                    self.clients.append(conn)
+                if not self.attach(conn):
+                    continue
                 Thread(target=self.client_reader, args=(conn,), daemon=True).start()
         except OSError:
             pass  # listener closed during shutdown
+
+    def attach(self, conn):
+        """Replay the backlog and current room exits, then register the
+        client. Under the broadcast lock, so a concurrent frame is either
+        in the replay or broadcast after registration — never dropped."""
+        with self.broadcast_lock:
+            replay = b"".join(self.backlog)
+            if self.engine.xml_data.compass:
+                replay += encode_frame(
+                    " ".join(self.engine.xml_data.compass), "compass"
+                )
+            try:
+                if replay:
+                    conn.sendall(replay)
+            except OSError:
+                close_socket(conn)
+                return False
+            with self.clients_lock:
+                self.clients.append(conn)
+        return True
 
     def game_reader(self):
         # Engine.read does the parsing/routing; we fan the segments out to
@@ -148,6 +172,7 @@ class SessionServer(ClientLogger):
         with self.clients_lock:
             clients = list(self.clients)
         with self.broadcast_lock:
+            self.backlog.append(frame)
             for conn in clients:
                 try:
                     conn.sendall(frame)
