@@ -13,12 +13,15 @@ from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
     QLabel,
     QLineEdit,
 )
+
+from client.login import load_login_defaults
 
 ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
 
@@ -37,7 +40,12 @@ class LoginDialog(QDialog):
         self.account = QLineEdit(account)
         self.password = QLineEdit()
         self.password.setEchoMode(QLineEdit.EchoMode.Password)
-        self.character = QLineEdit(character)
+        # Known characters (cached from earlier logins) as a dropdown;
+        # still editable for names the cache hasn't seen.
+        self.character = QComboBox()
+        self.character.setEditable(True)
+        self.character.addItems(load_login_defaults().get("characters", []))
+        self.character.setCurrentText(character)
         self.remember = QCheckBox("Remember me (password goes to the system keychain)")
         form.addRow("Account", self.account)
         form.addRow("Password", self.password)
@@ -62,6 +70,6 @@ def ask_credentials(account="", character="", error=""):
     return (
         dialog.account.text().strip(),
         dialog.password.text(),
-        dialog.character.text().strip(),
+        dialog.character.currentText().strip(),
         dialog.remember.isChecked(),
     )

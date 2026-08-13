@@ -235,6 +235,28 @@ def test_branded_interpreter_refuses_foreign_file(tmp_path):
     assert launch.branded_interpreter(interpreter) == interpreter
 
 
+def test_list_characters_prints_the_roster(monkeypatch, capsys, tmp_path):
+    defaults = tmp_path / "login.json"
+    defaults.write_text('{"account": "TESTACCT"}')
+    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(defaults))
+    monkeypatch.delenv("REVENANT_ACCOUNT", raising=False)
+    monkeypatch.setattr(launch, "keychain_password", lambda account: "pw")
+    monkeypatch.setattr(
+        launch,
+        "fetch_character_list",
+        lambda account, password: {"Alpha": "W_1", "Beta": "W_2"},
+    )
+    launch.main(["--list-characters"])
+    assert capsys.readouterr().out == "Alpha\nBeta\n"
+
+
+def test_list_characters_without_saved_login_explains(monkeypatch, tmp_path):
+    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(tmp_path / "login.json"))
+    monkeypatch.delenv("REVENANT_ACCOUNT", raising=False)
+    with pytest.raises(SystemExit, match="log in once with remember"):
+        launch.main(["--list-characters"])
+
+
 def test_main_attaches_to_running_session(monkeypatch):
     server, port = _listener()
     calls = []

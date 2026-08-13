@@ -33,6 +33,21 @@ def test_get_character_code_unknown_name_raises():
         ea.get_character_code("Nobody")
 
 
+def test_character_list_returns_every_slot():
+    ea = _eaccess_returning(C_RESPONSE)
+    assert list(ea.character_list()) == ["Alpha", "Beta", "Gamma"]
+
+
+def test_save_known_characters_merges_into_login_defaults(monkeypatch, tmp_path):
+    defaults = tmp_path / "login.json"
+    defaults.write_text('{"account": "TESTACCT", "character": "Alpha"}')
+    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(defaults))
+    login.save_known_characters({"Gamma": "W_1", "Alpha": "W_2", "Beta": "W_3"})
+    saved = login.load_login_defaults()
+    assert saved["characters"] == ["Alpha", "Beta", "Gamma"]  # sorted names only
+    assert saved["account"] == "TESTACCT"  # existing fields untouched
+
+
 def test_get_credentials_from_env_and_keyring(monkeypatch):
     monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
     monkeypatch.setenv("REVENANT_CHARACTER", "crannach")

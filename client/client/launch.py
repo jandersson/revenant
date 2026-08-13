@@ -21,6 +21,7 @@ from client.login import (
     KEYRING_SERVICE,
     LoginError,
     eaccess_protocol,
+    fetch_character_list,
     keychain_password,
     load_login_defaults,
     save_login_defaults,
@@ -189,9 +190,28 @@ def main(argv=None):
         action="store_true",
         help="login and GUI in one process, without a detachable session",
     )
+    parser.add_argument(
+        "--list-characters",
+        action="store_true",
+        help="print the account's characters and exit (uses the saved "
+        "account and keychain password)",
+    )
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     args = parser.parse_args(argv)
+
+    if args.list_characters:
+        defaults = load_login_defaults()
+        account = os.environ.get("REVENANT_ACCOUNT") or defaults.get("account") or ""
+        password = keychain_password(account) if account else None
+        if not (account and password):
+            raise SystemExit(
+                "revenant: no saved account/password — log in once with "
+                "remember checked, then retry"
+            )
+        for name in fetch_character_list(account, password):
+            print(name)
+        return
 
     if args.direct:
         if args.character:

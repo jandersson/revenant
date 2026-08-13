@@ -76,8 +76,8 @@ class EAccessClient(ClientLogger):
         self.client.write(b"G\t" + GAME_CODE + b"\n")
         return self.client.read_until(b"\n")
 
-    def get_character_code(self, character_name):
-        """Poll server for the character list, return the code for the named one.
+    def character_list(self):
+        """Every character on the account, as an ordered {name: code} dict.
 
         The response is 'C', two slot counts, two zeros, then alternating
         code/name fields, all tab-separated:
@@ -87,14 +87,11 @@ class EAccessClient(ClientLogger):
         c_response = self.client.read_until(b"\n")
         self.log.debug(f"c_response: {c_response}")
         pairs = c_response.decode().strip().split("\t")[5:]
-        for code, name in zip(pairs[::2], pairs[1::2]):
-            if name.lower() == character_name.lower():
-                self.log.debug(f"character_code: {code}")
-                return code
-        raise LoginError(
-            f"No character named {character_name!r} on this account. "
-            f"Available: {', '.join(pairs[1::2])}"
-        )
+        return dict(zip(pairs[1::2], pairs[::2]))
+
+    def get_character_code(self, character_name):
+        """The code for the named character, from the account's list."""
+        return _code_for(self.character_list(), character_name)
 
     def submit_character_info(self, character_code):
         """Inform server of which character to play, return the server response with connection info"""
@@ -147,6 +144,48 @@ def save_login_defaults(account: str, character: str):
     path.write_text(json.dumps({"account": account, "character": character}))
 
 
+def _code_for(characters: dict, character_name: str) -> str:
+    for name, code in characters.items():
+        if name.lower() == character_name.lower():
+            return code
+    raise LoginError(
+        f"No character named {character_name!r} on this account. "
+        f"Available: {', '.join(characters)}"
+    )
+
+
+def save_known_characters(names):
+    """Cache the account's character roster for pickers (names only —
+    codes are session-scoped and everything secret stays elsewhere)."""
+    data = load_login_defaults()
+    data["characters"] = sorted(names)
+    path = login_defaults_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data))
+
+
+def fetch_character_list(username: str, password: str) -> dict:
+    """The account's {name: code} roster via a throwaway eaccess
+    handshake; caches the names for pickers."""
+    login_client = EAccessClient()
+    try:
+        login_client.connect()
+        hashkey = login_client.get_hashkey()
+        login_client.submit_login(
+            {
+                "username": username.encode("ASCII"),
+                "password": password.encode("ASCII"),
+                "hashkey": hashkey,
+            }
+        )
+        login_client.submit_game()
+        characters = login_client.character_list()
+        save_known_characters(characters)
+        return characters
+    finally:
+        login_client.client.close()
+
+
 def keychain_password(account: str):
     """The saved password for the account, or None when the keychain has
     no entry — or no usable backend at all (headless Linux, bare CI)."""
@@ -195,7 +234,9 @@ def eaccess_protocol(login_info):
         login_info["hashkey"] = login_client.get_hashkey()
         login_client.submit_login(login_info)
         login_client.submit_game()
-        character_code = login_client.get_character_code(login_info["character"])
+        characters = login_client.character_list()
+        save_known_characters(characters)  # roster cache for pickers
+        character_code = _code_for(characters, login_info["character"])
         login_key = login_client.submit_character_info(character_code)
         return login_key
     except LoginError as e:
