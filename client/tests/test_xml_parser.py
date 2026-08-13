@@ -79,6 +79,12 @@ def test_compass_inside_component_is_decoration(xml_data):
     assert xml_data.compass_updated is False
 
 
+def test_nav_tag_carries_the_room_uid(xml_data):
+    # Sent on every movement — the exact position fix for ;go2.
+    XMLParser(target=xml_data).feed("<r>You stroll east.<nav rm='10081'/></r>")
+    assert xml_data.room_uid == 10081
+
+
 def test_room_title_from_stream_window(xml_data):
     XMLParser(target=xml_data).feed(
         "<r><streamWindow id='room' title='Room' "

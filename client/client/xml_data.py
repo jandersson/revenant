@@ -52,6 +52,9 @@ class XMLData:
         self.casttime = 0
         # Bracketed room title, e.g. "[The Crossing, Herald Street]"
         self.room_title = None
+        # The game's unique room id from <nav rm='...'/>, sent on every
+        # movement — the exact position fix (titles collide, uids don't).
+        self.room_uid = None
 
         # Internal memo pad for stripping multi line tags
         self._strip_xml_multiline = ""
@@ -97,6 +100,11 @@ class XMLData:
             self._compass_in_component = "component" in self.active_tags[:-1]
         elif name == "dir":
             self._pending_compass.append(attributes["value"])
+        elif name == "nav":
+            try:
+                self.room_uid = int(attributes.get("rm", ""))
+            except ValueError:
+                pass
         elif name == "roundTime":
             self.roundtime = int(attributes["value"])
         elif name == "castTime":

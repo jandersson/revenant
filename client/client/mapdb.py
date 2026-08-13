@@ -49,11 +49,14 @@ class MapDB:
     def __init__(self, rooms):
         self.rooms = {int(room["id"]): room for room in rooms}
         self._by_title = {}
+        self._by_uid = {}
         for room in rooms:
             for title in room.get("title") or []:
                 self._by_title.setdefault(normalize_title(title), []).append(
                     int(room["id"])
                 )
+            for uid in room.get("uid") or []:
+                self._by_uid[int(uid)] = int(room["id"])
 
     @classmethod
     def load(cls, path=None):
@@ -65,6 +68,11 @@ class MapDB:
 
     def rooms_titled(self, title):
         return list(self._by_title.get(normalize_title(title), []))
+
+    def room_by_uid(self, uid):
+        """The map room id for a game <nav rm> uid, or None — exact,
+        unlike titles, which collide (roads repeat the same title)."""
+        return self._by_uid.get(uid)
 
     def rooms_tagged(self, tag):
         tag = tag.lower()

@@ -21,6 +21,29 @@ DIRECTIONS = {
 }
 
 
+def locate(db, state):
+    """The map id of the current room.
+
+    The game's <nav rm> uid is the exact fix and wins whenever the map
+    knows it; titles collide (roads repeat the same title), so the
+    title+exits guess is only the fallback. None when position is
+    unknown."""
+    if state is None:
+        return None
+    uid = getattr(state, "room_uid", None)
+    if uid:
+        by_uid = db.room_by_uid(uid)
+        if by_uid is not None:
+            return by_uid
+    title = getattr(state, "room_title", None)
+    if not title:
+        return None
+    candidates = db.rooms_titled(title)
+    if not candidates:
+        return None
+    return _disambiguate(db, candidates, state.compass)
+
+
 def main(s):
     from client.mapdb import MapDB, download, mapdb_path, normalize_title
 
@@ -33,18 +56,18 @@ def main(s):
         download()
     db = MapDB.load()
 
-    here_title = s.state.room_title if s.state else None
-    if not here_title:
-        s.echo("current room unknown yet — 'look' once and retry")
+    here = locate(db, s.state)
+    if here is None:
+        title = getattr(s.state, "room_title", None) if s.state else None
+        if title and not db.rooms_titled(title):
+            s.echo(f"room {title!r} is not in the map database")
+        else:
+            s.echo("current room unknown yet — 'look' once and retry")
         return
-    candidates = db.rooms_titled(here_title)
-    if not candidates:
-        s.echo(f"room {here_title!r} is not in the map database")
-        return
-    here = _disambiguate(db, candidates, s.state.compass)
 
     if not s.args:
-        s.echo(f"you are in room {here}: {here_title}")
+        titles = db.rooms[here].get("title") or ["?"]
+        s.echo(f"you are in room {here}: {titles[0]}")
         s.echo("usage: ;go2 <room id | tag | title substring>")
         return
 
@@ -69,6 +92,18 @@ def main(s):
         if s.get(timeout=15, streams=("compass",)) is None:
             s.echo(f"stalled at step {number} ({command!r}) — stopping here")
             return
+        # Arrival check: the nav uid is exact when the map knows it;
+        # title comparison is the fallback for unmapped-uid rooms.
+        uid = getattr(s.state, "room_uid", None)
+        mapped = db.room_by_uid(uid) if uid else None
+        if mapped is not None:
+            if mapped != dest:
+                s.echo(
+                    f"off course at step {number}: in room {mapped} "
+                    f"({s.state.room_title!r}), expected {dest} — stopping here"
+                )
+                return
+            continue
         expected = db.rooms[dest].get("title") or []
         actual = s.state.room_title
         if expected and actual:
