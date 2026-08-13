@@ -1,9 +1,10 @@
 """Mirror LNet chat into the Thoughts window:  ;lnet
 
-Logs into lnet.lichproject.org (name from LNET_NAME, password from
-LNET_PASSWORD or the git-ignored chat/lnet_password.txt) and emits every
-chat message to the "thoughts" stream — out-of-game LNet chatter lands in
-the same dock as in-game gweth thoughts, lich-style.
+Logs into lnet.lichproject.org as your character (lich-style; override
+with LNET_NAME, password from LNET_PASSWORD or the git-ignored
+chat/lnet_password.txt) and emits every chat message to the "thoughts"
+stream — out-of-game LNet chatter lands in the same dock as in-game
+gweth thoughts.
 
 Read-only: nothing typed in a front end is ever sent to LNet
 (sending is issue #29). Stop with:  ;stop lnet
@@ -23,7 +24,14 @@ def format_message(message) -> str:
 def main(s):
     from chat.chat import LoginRejected, Server, get_password
 
-    name = os.environ.get("LNET_NAME", "Wabbajack")
+    name = (
+        os.environ.get("LNET_NAME")
+        or (s.state.name if s.state else None)  # parsed from the game login
+        or os.environ.get("REVENANT_CHARACTER")  # cold parser after ;reexec
+    )
+    if not name:
+        s.echo("can't tell who you are — set LNET_NAME or REVENANT_CHARACTER")
+        return
     lnet = Server()
     lnet.set_login_info(name, password=get_password())
     try:
