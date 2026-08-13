@@ -27,6 +27,15 @@ def mapdb_path() -> Path:
     ).expanduser()
 
 
+def local_mapdb_path() -> Path:
+    """Personal room data the community map lacks (event areas, private
+    zones) — same room schema, merged into every load. Never leaves the
+    machine."""
+    return Path(
+        os.environ.get("REVENANT_MAPDB_LOCAL", "~/.revenant/mapdb/local.json")
+    ).expanduser()
+
+
 def download(url=MAPDB_URL, destination=None) -> Path:
     destination = destination or mapdb_path()
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -64,7 +73,12 @@ class MapDB:
         if not path.is_file():
             download(destination=path)
         with open(path) as stream:
-            return cls(json.load(stream))
+            rooms = json.load(stream)
+        local = local_mapdb_path()
+        if local.is_file():
+            with open(local) as stream:
+                rooms = rooms + json.load(stream)
+        return cls(rooms)
 
     def rooms_titled(self, title):
         return list(self._by_title.get(normalize_title(title), []))

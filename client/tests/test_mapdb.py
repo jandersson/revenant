@@ -45,3 +45,25 @@ def test_path_none_when_only_scripted_edges_reach_goal():
 
 def test_path_empty_when_already_there():
     assert db().path(2, [2]) == []
+
+
+def test_local_overlay_extends_the_community_map(monkeypatch, tmp_path):
+    # Personal survey data (event areas the community map lacks) merges
+    # into every load — ;go2 sees local rooms and their uids natively.
+    import json
+
+    from client import mapdb
+
+    (tmp_path / "mapdb.json").write_text(
+        json.dumps([{"id": 1, "title": ["[Town Square]"], "wayto": {}}])
+    )
+    (tmp_path / "local.json").write_text(
+        json.dumps(
+            [{"id": 900001, "uid": [499002], "title": ["[Hidden Vault]"], "wayto": {}}]
+        )
+    )
+    monkeypatch.setenv("REVENANT_MAPDB", str(tmp_path / "mapdb.json"))
+    monkeypatch.setenv("REVENANT_MAPDB_LOCAL", str(tmp_path / "local.json"))
+    db = mapdb.MapDB.load()
+    assert 1 in db.rooms  # community rooms intact
+    assert db.room_by_uid(499002) == 900001  # local survey merged
