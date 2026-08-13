@@ -45,7 +45,7 @@ One pipeline, one parser, several processes:
   for plain text, a style name the GUI maps to colors/bold, or the
   control value "clear" (<clearStream/>: wipe that stream's window).
   Segments carry their own newlines — the engine appends "\n" to the last
-  piece of each line per stream; front ends never add line breaks. Also
+  piece of each line per stream; frontends never add line breaks. Also
   parses the exp window (`<component id='exp Skill'>`) into
   `experience` (rank/percent/mindstate per learning skill); the engine
   rewrites a synthetic "exp" stream on change (Experience dock), and
@@ -56,15 +56,15 @@ One pipeline, one parser, several processes:
 - `client/client/session.py` — the detachable session daemon
   (`python -m client.session`): logs in, owns the game socket, serves
   `(stream, text)` frames as JSON lines on 127.0.0.1:4242 to any number of
-  attached front ends, and hosts the script engine. `AttachedEngine` is the
+  attached frontends, and hosts the script engine. `AttachedEngine` is the
   client side; it presents the same surface as `Engine`. Typing `;reexec`
-  in any front end re-execs the session with the code currently on disk,
+  in any frontend re-execs the session with the code currently on disk,
   handing the live game socket across (`--game-fd`) — no logout, no
-  re-login; front ends drop and auto-reattach within ~10s. Remember: a
+  re-login; frontends drop and auto-reattach within ~10s. Remember: a
   running session does NOT see code edits until it re-execs or restarts.
 - `client/client/scripting.py` — script engine. Scripts are `main(s)` Python
   files in `scripts/` (repo root), run as threads in the session, controlled
-  by `;`-commands typed in any front end (`;list`, `;help [x]`, `;run x`,
+  by `;`-commands typed in any frontend (`;list`, `;help [x]`, `;run x`,
   `;stop x`). `;help` renders module docstrings — write them as the user
   manual.
   Handle API: put/get/waitfor/waitrt/echo/emit/sleep/state/args — `emit`
@@ -74,7 +74,7 @@ One pipeline, one parser, several processes:
   mapdb-backup-dr), downloaded to `~/.revenant/mapdb/` on first use, never
   vendored. BFS pathfinding; wayto commands starting with ";e" are embedded
   Ruby and treated as unwalkable. `scripts/go2.py` is the walker on top.
-- `client/client/gui/client_gui.py` — PyQt6 front end. GUI-thread safety via
+- `client/client/gui/client_gui.py` — PyQt6 frontend. GUI-thread safety via
   the `game_text` pyqtSignal; stream docks route thoughts/spells/arrivals;
   compass dock renders the `"compass"` stream. Direct mode logs in itself;
   `--attach` connects to a session.
@@ -92,7 +92,7 @@ One pipeline, one parser, several processes:
   error messages — are encoded as plainly-named tests showing input →
   expected response ("how does this command answer? look at its test").
   Game-server behavior is out of scope: there is no interface to the game
-  itself besides the front end, so tests pin down our side only.
+  itself besides the frontend, so tests pin down our side only.
 - Documentation leads with what a feature does and why you'd want it — the
   first sentence must stand alone for a skimmer. Rationale, limitations,
   and mechanics come after, never first.
