@@ -37,14 +37,9 @@ def main(s):
     try:
         lnet.connect()
         lnet.login()
-    except LoginRejected as rejection:
-        s.echo(f"LNet login rejected: {rejection}")
-        s.echo("set LNET_PASSWORD (or chat/lnet_password.txt) and retry")
-        return
-    # A timeout makes the receive loop wake regularly so ;stop can land.
-    lnet.connection.settimeout(RECV_TIMEOUT)
-    s.echo(f"connected as {name} — LNet chat appears in the Thoughts window")
-    try:
+        # A timeout makes the receive loop wake regularly so ;stop can land.
+        lnet.connection.settimeout(RECV_TIMEOUT)
+        s.echo(f"logging in as {name} ...")
         while True:
             try:
                 messages = lnet.receive_messages()
@@ -55,8 +50,17 @@ def main(s):
                 if isinstance(message, bytes):
                     continue  # unrecognized protocol element
                 if message.message_type == "greeting":
+                    # The server's welcome doubles as login confirmation.
+                    s.echo(f"connected as {name} — chat appears in Thoughts")
                     continue
                 s.emit(format_message(message), "thoughts")
+    except LoginRejected as rejection:
+        # Rejections arrive asynchronously, after login() has returned.
+        s.echo(f"LNet login rejected: {rejection}")
+        s.echo(
+            "put this name's LNet password in chat/lnet_password.txt (or "
+            "LNET_PASSWORD); reset it at https://lnet.lichproject.org"
+        )
     except (ConnectionError, OSError) as error:
         s.echo(f"LNet connection lost: {error}")
     finally:
