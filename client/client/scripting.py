@@ -8,6 +8,7 @@ in its own thread with `s` as its handle on the game:
     line = s.waitfor(r"Obvious paths", timeout=10)
     s.echo("done!")                    # front-end-only output
     s.emit("psst", "thoughts")         # front-end output on a chosen stream
+    line = s.command(timeout=0)        # next user line (;name <line>), None if none
     s.sleep(2)                         # stop-aware sleep
     s.state                            # the session's XMLData (indicators etc.)
     s.args                             # arguments from `;run name arg1 arg2`
@@ -15,7 +16,9 @@ in its own thread with `s` as its handle on the game:
 Scripts are controlled from any attached front end with ;-commands:
 ;list, ;help [name], ;run <name> [args], ;stop <name|all>, or
 ;<name> [args] as shorthand for ;run. ;help prints a script's module
-docstring — write them as the user manual.
+docstring — write them as the user manual. Typing ;<name> <line> while
+<name> is running delivers <line> to it via s.command(); the lich chat
+shorthands (;chat, ;reply, ;who, ...) route to the lnet script.
 """
 
 import ast
@@ -44,6 +47,7 @@ class Script:
         self.args = args
         self._manager = manager
         self._queue = queue.Queue(maxsize=1000)
+        self._commands = queue.Queue(maxsize=100)
         self._stop = Event()
         self.thread = None
 
@@ -84,6 +88,27 @@ class Script:
                 return stream, text
             if stream in streams:
                 return text
+
+    def command(self, timeout=None):
+        """The next line a user handed to this running script — typing
+        `;<name> <line>` while it runs delivers `<line>` here. None on
+        timeout; timeout=0 polls without blocking."""
+        deadline = None if timeout is None else self._manager.clock() + timeout
+        while True:
+            self._check()
+            try:
+                return self._commands.get_nowait()
+            except queue.Empty:
+                pass
+            remaining = 0.25
+            if deadline is not None:
+                remaining = min(0.25, deadline - self._manager.clock())
+                if remaining <= 0:
+                    return None
+            try:
+                return self._commands.get(timeout=remaining)
+            except queue.Empty:
+                continue
 
     def waitfor(self, *patterns, timeout=None, streams=("",)):
         """Block until a line matches any regex; return the line, or None
@@ -144,6 +169,12 @@ class Script:
                 pass
             self._queue.put_nowait((stream, text))
 
+    def feed_command(self, text: str):
+        try:
+            self._commands.put_nowait(text)
+        except queue.Full:
+            pass  # a script that never reads commands should not explode
+
     def stop(self):
         self._stop.set()
 
@@ -182,29 +213,59 @@ class ScriptManager(ClientLogger):
 
     # -- ;-command handling ---------------------------------------------
 
+    # lich muscle memory: these top-level ;-commands belong to the lnet
+    # script (lich intercepts ;chat/;reply/... and hands them to lnet).
+    LNET_SHORTHANDS = ("chat", "reply", "who", "stats", "channels", "tune", "untune")
+
     def handle_command(self, line: str):
         """Handle a `;...` line typed in a front end."""
-        parts = line.lstrip(";").split()
-        if not parts:
+        body = line.lstrip(";").strip()
+        if not body:
             self.emit(
                 "script commands: ;list  ;help [name]  ;run <name> [args]  "
                 ";stop <name|all>"
             )
             return
-        command, args = parts[0], parts[1:]
+        command, _, rest = body.partition(" ")
+        rest = rest.strip()
         if command == "list":
             self.list_scripts()
         elif command == "help":
-            self.help(args[0] if args else None)
+            self.help(rest or None)
         elif command == "stop":
-            self.stop(args[0] if args else "all")
+            self.stop(rest or "all")
         elif command == "run":
-            if not args:
+            if not rest:
                 self.emit("usage: ;run <name> [args]")
             else:
+                args = rest.split()
                 self.start(args[0], args[1:])
+        elif command in self.LNET_SHORTHANDS:
+            self.deliver("lnet", f"{command} {rest}".strip(), queue_on_start=True)
         else:
-            self.start(command, args)
+            self.deliver(command, rest)
+
+    def deliver(self, name: str, payload: str, queue_on_start=False):
+        """Hand a line to a running script; start the script when it isn't.
+
+        `;<name> <line>` reaches a running script through s.command().
+        A bare `;<name>` on a running script is refused like before. With
+        queue_on_start (the lnet shorthands), a stopped script is started
+        and the line queued for it — `;chat hi` works from cold."""
+        with self.lock:
+            script = self.running.get(name)
+        if script is not None and script.alive:
+            if payload:
+                script.feed_command(payload)
+            else:
+                self.emit(f"{name} is already running (;stop {name} first)")
+            return
+        self.start(name, [] if queue_on_start else payload.split())
+        if queue_on_start and payload:
+            with self.lock:
+                script = self.running.get(name)
+            if script is not None:
+                script.feed_command(payload)
 
     def available(self):
         if not self.scripts_dir.is_dir():

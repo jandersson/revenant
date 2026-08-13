@@ -77,6 +77,13 @@ One pipeline, one parser, several processes:
 - Every behavior change ships with unit tests in `client/tests/` — bug fixes
   get a regression test (ideally built from captured game traffic, like the
   compass tests), new features get coverage. No test, no merge.
+- Tests are documentation: a reader learns how a command or feature behaves
+  from its tests, without sifting through implementation. Business rules
+  and user-facing behavior — command grammar, responses, output formats,
+  error messages — are encoded as plainly-named tests showing input →
+  expected response ("how does this command answer? look at its test").
+  Game-server behavior is out of scope: there is no interface to the game
+  itself besides the front end, so tests pin down our side only.
 - Documentation leads with what a feature does and why you'd want it — the
   first sentence must stand alone for a skimmer. Rationale, limitations,
   and mechanics come after, never first.

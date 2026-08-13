@@ -157,6 +157,56 @@ def test_handle_command_list_and_unknown(tmp_path):
     assert any("no script named 'nosuch'" in e for e in recorder.emitted)
 
 
+ECHO_COMMANDS = (
+    "def main(s):\n"
+    "    while True:\n"
+    "        line = s.command(timeout=5)\n"
+    "        if line is None:\n"
+    "            return\n"
+    "        s.echo('got: ' + line)\n"
+)
+
+
+def test_typing_the_script_name_with_a_line_delivers_it(tmp_path):
+    # ;lnet chat hey  (while lnet runs) hands "chat hey" to the script.
+    (tmp_path / "lnet.py").write_text(ECHO_COMMANDS)
+    manager, recorder = make_manager(tmp_path)
+    manager.start("lnet", [])
+    assert wait_for(lambda: manager.running)
+    manager.handle_command(";lnet chat hey")
+    assert wait_for(lambda: "[lnet] got: chat hey" in recorder.emitted)
+    manager.stop_all()
+
+
+def test_bare_name_on_a_running_script_is_still_refused(tmp_path):
+    (tmp_path / "lnet.py").write_text(ECHO_COMMANDS)
+    manager, recorder = make_manager(tmp_path)
+    manager.start("lnet", [])
+    assert wait_for(lambda: manager.running)
+    manager.handle_command(";lnet")
+    assert any("already running" in e for e in recorder.emitted)
+    manager.stop_all()
+
+
+def test_chat_shorthand_reaches_the_lnet_script(tmp_path):
+    # ;chat hey folks  is lich muscle memory for  ;lnet chat hey folks
+    (tmp_path / "lnet.py").write_text(ECHO_COMMANDS)
+    manager, recorder = make_manager(tmp_path)
+    manager.start("lnet", [])
+    assert wait_for(lambda: manager.running)
+    manager.handle_command(";chat hey folks")
+    assert wait_for(lambda: "[lnet] got: chat hey folks" in recorder.emitted)
+    manager.stop_all()
+
+
+def test_chat_shorthand_starts_lnet_from_cold_and_queues_the_line(tmp_path):
+    (tmp_path / "lnet.py").write_text(ECHO_COMMANDS)
+    manager, recorder = make_manager(tmp_path)
+    manager.handle_command(";chat hey folks")
+    assert wait_for(lambda: "[lnet] got: chat hey folks" in recorder.emitted)
+    manager.stop_all()
+
+
 def test_help_lists_scripts_with_docstring_summaries(tmp_path):
     (tmp_path / "walk.py").write_text(
         '"""Walk somewhere:  ;walk <place>\n\nThe long story."""\ndef main(s):\n    pass\n'

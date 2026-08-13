@@ -27,19 +27,22 @@ CLIENT_VERSION = "1.15"
 
 class LnetMessage(NamedTuple):
     contents: str
-    to: str
+    channel: str  # the channel attribute (channel messages)
+    to: str  # the to attribute (private messages)
     message_type: str
     sender: str
 
     def __str__(self):
+        """Render the way lnet.lic's echo_thought does."""
         if self.message_type == "greeting":
-            return self.contents
-        elif self.message_type == "channel":
-            return f"[{self.to}]-{self.sender}:{self.contents}"
-        elif self.message_type == "private":
-            return f"[PrivateTo]-{self.sender}:{self.contents}"
-        else:
-            return self.contents
+            return self.contents or ""
+        if self.message_type == "channel":
+            return f'[{self.channel}]-{self.sender}: "{self.contents}"'
+        if self.message_type == "private":
+            if self.sender:  # incoming
+                return f'[Private]-{self.sender}: "{self.contents}"'
+            return f'[PrivateTo]-{self.to}: "{self.contents}"'  # our own, reflected
+        return f'{self.sender or "[server]"}: "{self.contents}"'
 
 
 class LoginRejected(Exception):
@@ -129,7 +132,7 @@ class Server:
         self.login_info = ET.tostring(ET.Element("login", attributes))
 
     def login(self):
-        self.send_message(self.login_info)
+        self.send_raw(self.login_info)
 
     def register_password(self, password):
         """Set the server-side password for the logged-in name.
@@ -138,20 +141,49 @@ class Server:
         """
         element = ET.Element("data", {"type": "newpassword"})
         element.text = _ruby_pack_m(_ruby_marshal_str(password))
-        self.send_message(ET.tostring(element))
+        self.send_raw(ET.tostring(element))
 
     def send_pong(self):
         pong = ET.tostring(ET.Element("pong"))
         if self.is_debugging:
             print(f"Sending pong: {pong}")
-        self.send_message(pong)
+        self.send_raw(pong)
 
-    def send_message(self, message):
+    def send_raw(self, message):
         if type(message) is str:
             message = message.encode("utf-8")
         if not message.endswith(b"\n"):
             message = message + b"\n"
         self.connection.send(message)
+
+    def send_message(self, contents, channel=None, to=None):
+        """A chat message, mirroring lnet.lic's LNet.send_message: private
+        when `to` is given, otherwise a channel message — with no channel
+        named, the server routes it to your default channel."""
+        element = ET.Element("message")
+        if to is not None:
+            element.set("type", "private")
+            element.set("to", to)
+        else:
+            element.set("type", "channel")
+            if channel:
+                element.set("channel", channel)
+        element.text = contents
+        self.send_raw(ET.tostring(element))
+
+    def send_query(self, query_type, **attributes):
+        """<query type='connected'/> and friends (lnet.lic LNet.send_query)."""
+        element = ET.Element("query")
+        element.set("type", query_type)
+        for name, value in attributes.items():
+            element.set(name, value)
+        self.send_raw(ET.tostring(element))
+
+    def tune(self, channel, off=False):
+        """Tune (or untune) a channel, per lnet.lic's tune_channel."""
+        element = ET.Element("untune" if off else "tune")
+        element.set("channel", channel)
+        self.send_raw(ET.tostring(element))
 
     def receive_messages(self):
         """Block until at least one complete element arrives, return messages.
@@ -189,7 +221,8 @@ class Server:
         if message_xml.tag == "message":
             message = LnetMessage(
                 contents=message_xml.text,
-                to=message_xml.get("channel"),
+                channel=message_xml.get("channel"),
+                to=message_xml.get("to"),
                 message_type=message_xml.get("type"),
                 sender=message_xml.get("from"),
             )
@@ -211,7 +244,8 @@ class Server:
         if message_xml.tag == "greeting":
             return LnetMessage(
                 contents=message_xml.text,
-                to="greeting",
+                channel=None,
+                to=None,
                 message_type=message_xml.tag,
                 sender="lnet",
             )
