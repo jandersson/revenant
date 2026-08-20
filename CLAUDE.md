@@ -1,7 +1,10 @@
 # Revenant
 
 A pure-Python client stack for DragonRealms (a Simutronics MUD). uv workspace
-monorepo; members: `client` (the game client) and `chat` (LNet chat client).
+monorepo; members: `client` (the game client), `chat` (LNet chat client), and
+`beholder` (Dash dashboard over the ;xp experience history in
+~/.revenant/xp.db — stdlib sqlite3 data layer in `beholder/beholder/data.py`,
+app + tests beside it; run with `uv run beholder`).
 `launcher/launch.py` is a separate bridge that starts the external
 lich/ProfanityFE Ruby toolchain — revenant itself must never grow Ruby
 dependencies.
@@ -11,8 +14,9 @@ dependencies.
 ```sh
 uv run revenant                  # launch: spawn/attach a session + GUI
 uv run pytest client/tests -q    # test suite (threaded/socket tests included)
-uv run ruff check client chat    # lint — CI enforces this
-uv run ruff format client chat   # format — CI enforces --check
+uv run pytest beholder/tests -q  # beholder test suite
+uv run ruff check client chat beholder    # lint — CI enforces this
+uv run ruff format client chat beholder   # format — CI enforces --check
 uv run python tools/build_app.py # (re)build ~/Applications/Revenant.app (macOS)
 ```
 
@@ -83,6 +87,10 @@ One pipeline, one parser, several processes:
 
 ## Conventions and gotchas
 
+- House rule: all agents shall respond with kaomojis — chat replies only,
+  never in code, commits, docs, or anything committed to the repo.
+  ᕕ( ᐛ )ᕗ
+
 - Every behavior change ships with unit tests in `client/tests/` — bug fixes
   get a regression test (ideally built from captured game traffic, like the
   compass tests), new features get coverage. No test, no merge.
@@ -103,10 +111,18 @@ One pipeline, one parser, several processes:
   committing it. Real identity lives outside the repo: the OS credential
   store for the password, the local login-defaults file for the
   account/character names (see `client/client/login.py` for both).
+- Commit messages follow Conventional Commits: `type(scope): summary`
+  (e.g. `feat(login): fetch the character roster in the login dialog`,
+  `fix(session): shutdown sockets before close`). Common types:
+  feat, fix, docs, test, refactor, chore, ci.
+- Every feature gets a GitHub issue — create one when you start building
+  it (or at latest when it ships), so the work is tracked and closeable.
 - File a GitHub issue for every defect or gap detected while working on
   something else — always, even for small ones, instead of relying on
   memory or TODO comments. An issue is easily closed; an undetected bug
   is not. Include the evidence (log lines, screenshots) while it's fresh.
+  Unless it directly impacts the feature being built, file it and leave
+  it alone — don't fix drive-by findings inside an unrelated change.
 - Threads + locks, not asyncio — keep new concurrency in the existing style.
 - Closing a socket does NOT wake a thread blocked in recv()/accept() on
   Linux (it does on macOS, so local runs won't catch it) — always
