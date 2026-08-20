@@ -3,8 +3,9 @@
 Every minute, snapshots the exp window (skills currently in the learning
 queue, with rank / percent / mindstate) into ~/.revenant/xp.db
 (override with REVENANT_XP_DB). The Experience dock shows the live
-view; this file is the history — plots and analysis read it later
-(beholder's successor, issue #33). Stop with:  ;stop xp
+view; this file is the history the ;beholder dashboard plots. Every
+session starts this script automatically — ;stop xp opts a session
+out, REVENANT_NO_XP=1 disables the autostart. Stop with:  ;stop xp
 """
 
 import os

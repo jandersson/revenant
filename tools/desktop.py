@@ -16,9 +16,14 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 # The workspace installs its members editable: site-packages only wires
 # them up through .pth files, which PYTHONPATH entries never process —
-# so the client package root goes on the path explicitly, next to the
-# venv's site-packages (PyQt6, keyring, ...).
-PATHS = [str(REPO / "client"), str(REPO / ".venv" / "Lib" / "site-packages")]
+# so the package roots go on the path explicitly (client, plus beholder
+# for the ;beholder dashboard spawn), next to the venv's site-packages
+# (PyQt6, keyring, dash, ...).
+PATHS = [
+    str(REPO / "client"),
+    str(REPO / "beholder"),
+    str(REPO / ".venv" / "Lib" / "site-packages"),
+]
 
 sys.path[:0] = PATHS
 os.environ["PYTHONPATH"] = os.pathsep.join(

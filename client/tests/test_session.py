@@ -2,6 +2,7 @@ import base64
 import io
 import os
 import socket
+import types
 from threading import Thread
 from time import sleep
 
@@ -322,3 +323,27 @@ def test_reattach_returns_false_without_a_session():
     assert engine.reattach() is False
     assert engine.connection is None
     blocker.close()
+
+
+def test_sessions_autostart_the_xp_logger(monkeypatch):
+    monkeypatch.delenv("REVENANT_NO_XP", raising=False)
+    started = []
+    server = types.SimpleNamespace(
+        scripts=types.SimpleNamespace(
+            start=lambda name, args: started.append((name, args))
+        )
+    )
+    session.autostart_scripts(server)
+    assert started == [("xp", [])]
+
+
+def test_revenant_no_xp_disables_the_autostart(monkeypatch):
+    monkeypatch.setenv("REVENANT_NO_XP", "1")
+    started = []
+    server = types.SimpleNamespace(
+        scripts=types.SimpleNamespace(
+            start=lambda name, args: started.append((name, args))
+        )
+    )
+    session.autostart_scripts(server)
+    assert started == []

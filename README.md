@@ -73,7 +73,7 @@ first upgrade still needs one old-fashioned QUIT-and-relaunch.
 ### beholder
 A browser dashboard for character experience history — mindstate and rank over time per character and skill, the historical companion to the GUI's live Experience dock.
 
-The pipeline is pure Python: the client ships an xp script ([scripts/xp.py](scripts/xp.py), started by typing `;xp` in any frontend) that snapshots the exp window to `~/.revenant/xp.db` every 60s, and `uv run beholder` serves a Dash app over it (character dropdown, multi-select skills, mindstate plot with range buttons, refreshing experience table). See [beholder/README.md](beholder/README.md).
+The pipeline is pure Python and always on: every session automatically runs the xp script ([scripts/xp.py](scripts/xp.py)), which snapshots the exp window to `~/.revenant/xp.db` every 60s (`;stop xp` opts a session out; `REVENANT_NO_XP=1` disables it). Typing `;beholder` in any frontend starts the dashboard if needed and opens it in your browser — or run it by hand with `uv run beholder` (character dropdown, multi-select skills, mindstate plot with range buttons, refreshing experience table). See [beholder/README.md](beholder/README.md).
 
 ### chat
 A minimal LNet client in pure Python (stdlib `ssl` only, no dependencies). Connects to `lnet.lichproject.org:7155`, verifies the server against the pinned CA in [chat/LnetCert.txt](chat/LnetCert.txt) plus the `lichproject.org`/`LichNet` CN check the reference client uses, handles the login XML handshake, answers pings, and parses the incoming XML stream into typed `LnetMessage`s. See [chat/chat.py](chat/chat.py). Run with `uv run python chat/chat.py`.

@@ -374,7 +374,18 @@ def main(argv=None):
         game_connection = connect_game(sys.stdin.readline().strip())
     else:
         game_connection = simu_login()
-    SessionServer(game_connection, args.host, args.port).serve()
+    server = SessionServer(game_connection, args.host, args.port)
+    autostart_scripts(server)
+    server.serve()
+
+
+def autostart_scripts(server):
+    """Scripts every session runs from the start — today the xp history
+    logger, so the experience database fills without anyone remembering
+    to ask (;stop xp opts a session out, REVENANT_NO_XP=1 disables)."""
+    if os.environ.get("REVENANT_NO_XP"):
+        return
+    server.scripts.start("xp", [])
 
 
 if __name__ == "__main__":
