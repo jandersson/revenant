@@ -24,6 +24,7 @@ module_logger = ClientLogger()
 # tokens and counts, never the raw responses — stdout may be captured to
 # disk by whatever launched us.
 _EACCESS_STATUSES = ("KEY", "PASSWORD", "NORECORD", "REJECTED")
+_LAUNCH_KEY = re.compile(r"KEY=\S+")
 
 
 def _response_status(response: str) -> str:
@@ -110,9 +111,7 @@ class EAccessClient(ClientLogger):
         """Inform server of which character to play, return the server response with connection info"""
         self.client.write(b"L\t" + character_code.encode("ASCII") + b"\t" + b"STORM\n")
         l_response = self.client.read_until(b"\n").decode()
-        self.log.debug(
-            f"l_response: {re.sub(r'KEY=\S+', 'KEY=<redacted>', l_response)}"
-        )
+        self.log.debug(f"l_response: {_LAUNCH_KEY.sub('KEY=<redacted>', l_response)}")
         login_key = re.compile(".+KEY=(.+)\n").match(l_response).group(1)
         self.client.close()
         return login_key
