@@ -24,7 +24,7 @@ Python 3.10+ is required. (The old `telnetlib` dependency — removed from the s
 | Directory | What it is |
 |---|---|
 | [client/](client/) | A Python MUD client and engine — aims to be a [lich](https://lichproject.org/)-style middleman with a PyQt6 frontend and a (WIP) terminal frontend. |
-| [beholder/](beholder/) | A [Dash](https://plotly.com/dash/) web dashboard for character experience history, fed by the `;xp` script's SQLite log. |
+| [beholder/](beholder/) | A [Dash](https://plotly.com/dash/) web dashboard for character experience history, reading the SQLite log the client's bundled xp script writes. |
 | [chat/](chat/) | A standalone LNet chat client, roughly a Python port of rcuhljr's [Genie LNet plugin](https://github.com/rcuhljr/genie-lnet-plugin/). |
 | [launcher/](launcher/) | Small helper scripts for spinning up a headless lich instance alongside [ProfanityFE](https://github.com/elanthia-online/profanity-fe). |
 
@@ -73,7 +73,7 @@ first upgrade still needs one old-fashioned QUIT-and-relaunch.
 ### beholder
 A browser dashboard for character experience history — mindstate and rank over time per character and skill, the historical companion to the GUI's live Experience dock.
 
-The pipeline is pure Python: the `;xp` script snapshots the exp window to `~/.revenant/xp.db` every 60s, and `uv run beholder` serves a Dash app over it (character dropdown, multi-select skills, mindstate plot with range buttons, refreshing experience table). See [beholder/README.md](beholder/README.md).
+The pipeline is pure Python: the client ships an xp script ([scripts/xp.py](scripts/xp.py), started by typing `;xp` in any frontend) that snapshots the exp window to `~/.revenant/xp.db` every 60s, and `uv run beholder` serves a Dash app over it (character dropdown, multi-select skills, mindstate plot with range buttons, refreshing experience table). See [beholder/README.md](beholder/README.md).
 
 ### chat
 A minimal LNet client in pure Python (stdlib `ssl` only, no dependencies). Connects to `lnet.lichproject.org:7155`, verifies the server against the pinned CA in [chat/LnetCert.txt](chat/LnetCert.txt) plus the `lichproject.org`/`LichNet` CN check the reference client uses, handles the login XML handshake, answers pings, and parses the incoming XML stream into typed `LnetMessage`s. See [chat/chat.py](chat/chat.py). Run with `uv run python chat/chat.py`.
@@ -95,7 +95,7 @@ Typing `;lnet` in a revenant frontend brings LNet into the GUI's Thoughts window
 
 ```
 revenant/
-├── beholder/   # Dash/Plotly dashboard over the ;xp experience history
+├── beholder/   # Dash/Plotly dashboard over logged experience history
 ├── chat/       # LNet chat client
 ├── client/     # PyQt6 client + engine (core/gui/tui)
 └── launcher/   # Helpers for launching lich + profanity together
