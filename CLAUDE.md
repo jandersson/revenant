@@ -99,11 +99,17 @@ One pipeline, one parser, several processes:
   and user-facing behavior — command grammar, responses, output formats,
   error messages — are encoded as plainly-named tests showing input →
   expected response ("how does this command answer? look at its test").
-  Game-server behavior is out of scope: there is no interface to the game
-  itself besides the frontend, so tests pin down our side only.
-- Documentation leads with what a feature does and why you'd want it — the
-  first sentence must stand alone for a skimmer. Rationale, limitations,
-  and mechanics come after, never first.
+  Game-server behavior can't be exercised directly (there is no interface
+  to the game besides the frontend), but it is still in scope as
+  assumptions: captured-traffic fixtures pin down what we believe the
+  server sends. Some responses are static, some vary — when they vary,
+  capture the variants as fixtures too. A fixture that turns out wrong is
+  an assumption to correct, not a test to delete.
+- Documentation is written bottom-line-up-front (BLUF): the first two
+  sentences carry the most vital information — what the feature does and
+  why you'd want it — and the first sentence must stand alone for a
+  skimmer. Rationale, limitations, and mechanics come after, never first.
+  The same goes for a direct ask: state it upfront, context second.
 - No PII in the repo, ever: no real names, email addresses, Simutronics
   account names, or anything that identifies the operator — in code, tests,
   docs, commit messages, or captured fixtures. Use synthetic values
