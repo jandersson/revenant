@@ -164,10 +164,10 @@ def save_known_characters(names):
     path.write_text(json.dumps(data))
 
 
-def fetch_character_list(username: str, password: str) -> dict:
+def fetch_character_list(username: str, password: str, login_client=None) -> dict:
     """The account's {name: code} roster via a throwaway eaccess
     handshake; caches the names for pickers."""
-    login_client = EAccessClient()
+    login_client = login_client or EAccessClient()
     try:
         login_client.connect()
         hashkey = login_client.get_hashkey()

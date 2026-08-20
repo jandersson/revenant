@@ -17,6 +17,17 @@ def _eaccess_returning(response):
     return ea
 
 
+def _eaccess_scripted(responses):
+    """An EAccessClient whose socket replays canned responses in order."""
+    remaining = list(responses)
+    ea = login.EAccessClient()
+    ea.connect = lambda: None
+    ea.client.write = lambda data: None
+    ea.client.read_until = lambda expected: remaining.pop(0)
+    ea.client.close = lambda: None
+    return ea
+
+
 def test_get_character_code_handles_multidigit_counts():
     ea = _eaccess_returning(C_RESPONSE)
     assert ea.get_character_code("Beta") == "W_TESTACCT_001"
@@ -46,6 +57,35 @@ def test_save_known_characters_merges_into_login_defaults(monkeypatch, tmp_path)
     saved = login.load_login_defaults()
     assert saved["characters"] == ["Alpha", "Beta", "Gamma"]  # sorted names only
     assert saved["account"] == "TESTACCT"  # existing fields untouched
+
+
+def test_fetch_character_list_returns_roster_and_caches_names(monkeypatch, tmp_path):
+    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(tmp_path / "login.json"))
+    ea = _eaccess_scripted(
+        [
+            b"A1B2C3D4" * 4,  # K: password hashkey
+            b"A\tTESTACCT\tKEY\tsomekey\tPROBLEM=0\n",  # A: authenticated
+            b"G\tDragonRealms\tPRODUCTION\n",  # G: game details
+            C_RESPONSE,  # C: the roster
+        ]
+    )
+    roster = login.fetch_character_list("TESTACCT", "hunter2", login_client=ea)
+    assert roster == {
+        "Alpha": "W_TESTACCT_000",
+        "Beta": "W_TESTACCT_001",
+        "Gamma": "W_TESTACCT_002",
+    }
+    assert login.load_login_defaults()["characters"] == ["Alpha", "Beta", "Gamma"]
+
+
+def test_fetch_character_list_bad_password_raises_and_caches_nothing(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(tmp_path / "login.json"))
+    ea = _eaccess_scripted([b"A1B2C3D4" * 4, b"A\tPASSWORD\n"])
+    with pytest.raises(login.LoginError, match="Bad Password"):
+        login.fetch_character_list("TESTACCT", "wrong", login_client=ea)
+    assert login.load_login_defaults() == {}
 
 
 def test_get_credentials_from_env_and_keyring(monkeypatch):
