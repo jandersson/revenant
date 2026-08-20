@@ -19,6 +19,19 @@ DR_PORT = 11024
 
 module_logger = ClientLogger()
 
+# The eaccess responses carry the operator's identity (account name, real
+# name, character codes) and one-shot launch keys. Debug logs get status
+# tokens and counts, never the raw responses — stdout may be captured to
+# disk by whatever launched us.
+_EACCESS_STATUSES = ("KEY", "PASSWORD", "NORECORD", "REJECTED")
+
+
+def _response_status(response: str) -> str:
+    for token in _EACCESS_STATUSES:
+        if token in response:
+            return token
+    return "UNRECOGNIZED"
+
 
 class LoginError(Exception):
     def __init__(self, message):
@@ -46,7 +59,7 @@ class EAccessClient(ClientLogger):
             b"A\t" + credentials["username"] + b"\t" + hashed_password + b"\n"
         )
         a_response = self.client.read_until(b"\n").decode()
-        self.log.debug(f"a_response: {a_response}")
+        self.log.debug(f"a_response status: {_response_status(a_response)}")
         if "PASSWORD" in a_response:
             raise LoginError("Bad Password")
         elif "NORECORD" in a_response:
@@ -85,8 +98,8 @@ class EAccessClient(ClientLogger):
         """
         self.client.write(b"C\n")
         c_response = self.client.read_until(b"\n")
-        self.log.debug(f"c_response: {c_response}")
         pairs = c_response.decode().strip().split("\t")[5:]
+        self.log.debug(f"c_response: {len(pairs) // 2} characters (redacted)")
         return dict(zip(pairs[1::2], pairs[::2]))
 
     def get_character_code(self, character_name):
@@ -97,7 +110,9 @@ class EAccessClient(ClientLogger):
         """Inform server of which character to play, return the server response with connection info"""
         self.client.write(b"L\t" + character_code.encode("ASCII") + b"\t" + b"STORM\n")
         l_response = self.client.read_until(b"\n").decode()
-        self.log.debug(f"l_response: {l_response}")
+        self.log.debug(
+            f"l_response: {re.sub(r'KEY=\S+', 'KEY=<redacted>', l_response)}"
+        )
         login_key = re.compile(".+KEY=(.+)\n").match(l_response).group(1)
         self.client.close()
         return login_key
@@ -218,7 +233,7 @@ def get_credentials():
     )
     password = keychain_password(username)
     if password is None:
-        module_logger.log.debug("No keychain entry for %s; prompting", username)
+        module_logger.log.debug("No keychain entry for the account; prompting")
         password = getpass.getpass(f"Password for {username}: ")
     return {
         "username": username.encode("ASCII"),

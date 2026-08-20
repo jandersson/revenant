@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 
 from client import login
@@ -57,6 +59,57 @@ def test_save_known_characters_merges_into_login_defaults(monkeypatch, tmp_path)
     saved = login.load_login_defaults()
     assert saved["characters"] == ["Alpha", "Beta", "Gamma"]  # sorted names only
     assert saved["account"] == "TESTACCT"  # existing fields untouched
+
+
+def _recapture(caplog):
+    """Undo ClientLogger's per-instance dictConfig (filed as a defect):
+    it replaces root's handlers (ejecting caplog's) and, via the default
+    disable_existing_loggers, disables loggers earlier tests created."""
+    root = logging.getLogger()
+    if caplog.handler not in root.handlers:
+        root.addHandler(caplog.handler)
+    logging.getLogger("client.login.EAccessClient").disabled = False
+
+
+def test_submit_login_logs_status_never_account_name_or_key(caplog):
+    ea = _eaccess_returning(b"A\tTESTACCT\tKEY\tsecretkey123\tTest Person\n")
+    _recapture(caplog)
+    with caplog.at_level(logging.DEBUG):
+        key = ea.submit_login(
+            {
+                "username": b"TESTACCT",
+                "password": b"hunter2",
+                "hashkey": b"12345678" * 4,
+            }
+        )
+    assert key == "secretkey123"
+    for leaked in ("TESTACCT", "secretkey123", "Test Person"):
+        assert leaked not in caplog.text
+    assert "KEY" in caplog.text  # the status token still aids debugging
+
+
+def test_character_list_logs_a_count_never_codes_or_names(caplog):
+    ea = _eaccess_returning(C_RESPONSE)
+    _recapture(caplog)
+    with caplog.at_level(logging.DEBUG):
+        roster = ea.character_list()
+    assert list(roster) == ["Alpha", "Beta", "Gamma"]
+    for leaked in ("W_TESTACCT_000", "Alpha"):
+        assert leaked not in caplog.text
+    assert "3 characters" in caplog.text
+
+
+def test_submit_character_info_redacts_the_launch_key(caplog):
+    ea = _eaccess_returning(
+        b"L\tOK\tGAMEHOST=dr.simutronics.net\tGAMEPORT=11024\tKEY=sekrit123\n"
+    )
+    ea.client.close = lambda: None
+    _recapture(caplog)
+    with caplog.at_level(logging.DEBUG):
+        key = ea.submit_character_info("W_TESTACCT_000")
+    assert key == "sekrit123"
+    assert "sekrit123" not in caplog.text
+    assert "KEY=<redacted>" in caplog.text  # host/port stay visible for debugging
 
 
 def test_fetch_character_list_returns_roster_and_caches_names(monkeypatch, tmp_path):
