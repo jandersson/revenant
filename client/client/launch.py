@@ -19,7 +19,9 @@ import keyring.errors
 
 from client.login import (
     KEYRING_SERVICE,
+    OTHER_ACCOUNT,
     LoginError,
+    account_roster,
     eaccess_protocol,
     fetch_character_list,
     keychain_password,
@@ -37,7 +39,7 @@ def session_running(host, port):
         return False
 
 
-def gather_login(character):
+def gather_login(character, fresh_account=False):
     """Work out how the session will authenticate.
 
     Returns (character, key): key is None when the OS keychain holds the
@@ -47,10 +49,15 @@ def gather_login(character):
     exactly once for the handshake; only the single-use launch key
     survives. "Remember me" writes the password to the keychain and the
     account/character names to login.json, so future launches skip the
-    dialog entirely. Env vars override the saved names."""
-    defaults = load_login_defaults()
-    account = os.environ.get("REVENANT_ACCOUNT") or defaults.get("account") or ""
-    character = character or defaults.get("character") or ""
+    dialog entirely. Env vars override the saved names.
+
+    fresh_account (the picker's "Other account...") ignores every saved
+    or env-provided identity and goes straight to the login screen."""
+    defaults = {} if fresh_account else load_login_defaults()
+    account = (
+        "" if fresh_account else os.environ.get("REVENANT_ACCOUNT")
+    ) or defaults.get("account", "")
+    character = character or defaults.get("character", "")
     if account and character and keychain_password(account) is not None:
         return character, None
 
@@ -100,14 +107,15 @@ def gather_login(character):
 def pick_character(default="", ask=None):
     """Launcher-mode character choice: the account's roster in a dropdown.
 
-    Uses the roster the login flows cache in login.json, fetching it
-    fresh when the cache is empty but the keychain can authenticate.
-    Returns the picked name; the default when there is nothing to pick
-    from (the login dialog will ask instead); or None when the user
-    cancelled and the launch should stop."""
+    Uses the roster the login flows cache per account in login.json,
+    fetching it fresh when the cache is empty but the keychain can
+    authenticate. Returns the picked name; OTHER_ACCOUNT when the user
+    chose to log in with a different account; the default when there is
+    nothing to pick from (the login dialog will ask instead); or None
+    when the user cancelled and the launch should stop."""
     defaults = load_login_defaults()
     account = os.environ.get("REVENANT_ACCOUNT") or defaults.get("account") or ""
-    roster = defaults.get("characters") or []
+    roster = account_roster(defaults, account)
     if not roster and account:
         password = keychain_password(account)
         if password is not None:
@@ -119,7 +127,7 @@ def pick_character(default="", ask=None):
         return default
     if ask is None:
         from client.gui.login_dialog import ask_character as ask
-    return ask(roster, default)
+    return ask(roster, default, account)
 
 
 def spawn_session(host, port, character, key=None):
@@ -251,12 +259,15 @@ def main(argv=None):
 
     if not session_running(args.host, args.port):
         character = args.character
+        fresh_account = False
         if args.pick:
             saved = load_login_defaults().get("character") or ""
-            character = pick_character(character or saved)
-            if character is None:
+            choice = pick_character(character or saved)
+            if choice is None:
                 return  # picker cancelled: no session, no GUI
-        character, key = gather_login(character)
+            fresh_account = choice is OTHER_ACCOUNT
+            character = "" if fresh_account else choice
+        character, key = gather_login(character, fresh_account=fresh_account)
         print(f"revenant: starting a session on {args.host}:{args.port} ...")
         process = spawn_session(args.host, args.port, character, key=key)
         wait_for_session(process, args.host, args.port)

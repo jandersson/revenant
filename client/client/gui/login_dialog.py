@@ -11,6 +11,7 @@ list instead of typed — handy on a machine with no cached names yet.
 
 from pathlib import Path
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QApplication,
@@ -22,10 +23,18 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
     QPushButton,
+    QVBoxLayout,
 )
 
-from client.login import LoginError, fetch_character_list, load_login_defaults
+from client.login import (
+    OTHER_ACCOUNT,
+    LoginError,
+    account_roster,
+    fetch_character_list,
+    load_login_defaults,
+)
 
 ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
 
@@ -45,10 +54,12 @@ class LoginDialog(QDialog):
         self.password = QLineEdit()
         self.password.setEchoMode(QLineEdit.EchoMode.Password)
         # Known characters (cached from earlier logins) as a dropdown;
-        # still editable for names the cache hasn't seen.
+        # still editable for names the cache hasn't seen. Strictly the
+        # shown account's roster: a blank account (the picker's "Other
+        # account...") starts with a blank list, not the saved account's.
         self.character = QComboBox()
         self.character.setEditable(True)
-        self.character.addItems(load_login_defaults().get("characters", []))
+        self.character.addItems(account_roster(load_login_defaults(), account))
         self.character.setCurrentText(character)
         self.fetch = QPushButton("Fetch characters")
         self.fetch.setToolTip(
@@ -105,17 +116,65 @@ class LoginDialog(QDialog):
         self.show_status(f"{len(names)} characters on {account}.", error=False)
 
 
-def ask_character(roster, default=""):
-    """A dropdown of the account's characters (the launcher's --pick
-    mode); returns the chosen name, or None when the user cancelled."""
-    from PyQt6.QtWidgets import QInputDialog
+class CharacterPicker(QDialog):
+    """The launcher's character select: every character visible at once
+    in a list — no dropdown to burrow into — with double-click (or
+    Enter) to play, and the alternate paths as plain buttons."""
 
+    def __init__(self, roster, default="", account=""):
+        super().__init__()
+        self.setWindowTitle("Revenant")
+        self.setWindowIcon(QIcon(ICON_PATH))
+        self.other_account = False
+        layout = QVBoxLayout(self)
+        # Nobody is logged in yet: the heading states whose saved roster
+        # this is, and the switch button offers to use a different one.
+        if account:
+            layout.addWidget(QLabel(f"Account: {account}"))
+        layout.addWidget(QLabel("Play as:"))
+        self.list = QListWidget()
+        self.list.addItems(roster)
+        matches = self.list.findItems(default, Qt.MatchFlag.MatchExactly)
+        self.list.setCurrentItem(matches[0] if matches else self.list.item(0))
+        self.list.itemDoubleClicked.connect(lambda item: self.accept())
+        # Show the whole roster without scrolling, up to a sane cap.
+        row = max(self.list.sizeHintForRow(0), 1)
+        self.list.setMinimumHeight(min(row * (self.list.count() + 1), 420))
+        layout.addWidget(self.list)
+        buttons = QDialogButtonBox()
+        play = buttons.addButton("Play", QDialogButtonBox.ButtonRole.AcceptRole)
+        play.setDefault(True)
+        if account:
+            # "Switch" is only meaningful relative to a named account; a
+            # roster of unknown provenance gets no switch path (the full
+            # login dialog handles that machine state instead).
+            switch = buttons.addButton(
+                "Switch account…", QDialogButtonBox.ButtonRole.ActionRole
+            )
+            switch.clicked.connect(self._choose_other_account)
+        buttons.addButton(QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        self.list.setFocus()
+
+    def _choose_other_account(self):
+        self.other_account = True
+        self.accept()
+
+
+def ask_character(roster, default="", account=""):
+    """The character-select screen (the launcher's --pick mode); returns
+    the chosen name, OTHER_ACCOUNT when the user wants to log in with a
+    different account, or None when the user cancelled."""
     app = QApplication.instance() or QApplication([])  # noqa: F841
-    current = roster.index(default) if default in roster else 0
-    name, accepted = QInputDialog.getItem(
-        None, "Revenant", "Play as:", roster, current, False
-    )
-    return name if accepted else None
+    dialog = CharacterPicker(roster, default, account)
+    if dialog.exec() != QDialog.DialogCode.Accepted:
+        return None
+    if dialog.other_account:
+        return OTHER_ACCOUNT
+    item = dialog.list.currentItem()
+    return item.text() if item else None
 
 
 def ask_credentials(account="", character="", error=""):

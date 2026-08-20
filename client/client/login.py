@@ -168,11 +168,33 @@ def _code_for(characters: dict, character_name: str) -> str:
     )
 
 
-def save_known_characters(names):
-    """Cache the account's character roster for pickers (names only —
-    codes are session-scoped and everything secret stays elsewhere)."""
+# ask_character's "Other account..." choice: the caller should run the
+# full login dialog with a blank account instead of using the saved one.
+OTHER_ACCOUNT = object()
+
+
+def account_roster(defaults: dict, account: str) -> list:
+    """The cached character names for an account — the per-account cache
+    under "accounts", falling back to the legacy flat "characters" list
+    when it belongs to this account. Account names compare lowercased
+    (the server treats them case-insensitively)."""
+    key = account.lower()
+    accounts = defaults.get("accounts")
+    if isinstance(accounts, dict) and key in accounts:
+        return list(accounts[key].get("characters") or [])
+    if key and key == (defaults.get("account") or "").lower():
+        return list(defaults.get("characters") or [])
+    return []
+
+
+def save_known_characters(names, account: str):
+    """Cache an account's character roster for pickers (names only —
+    codes are session-scoped and everything secret stays elsewhere).
+    Rosters live per account, so switching accounts never clobbers
+    another account's cache."""
     data = load_login_defaults()
-    data["characters"] = sorted(names)
+    accounts = data.setdefault("accounts", {})
+    accounts.setdefault(account.lower(), {})["characters"] = sorted(names)
     path = login_defaults_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data))
@@ -194,7 +216,7 @@ def fetch_character_list(username: str, password: str, login_client=None) -> dic
         )
         login_client.submit_game()
         characters = login_client.character_list()
-        save_known_characters(characters)
+        save_known_characters(characters, username)
         return characters
     finally:
         login_client.client.close()
@@ -249,7 +271,8 @@ def eaccess_protocol(login_info):
         login_client.submit_login(login_info)
         login_client.submit_game()
         characters = login_client.character_list()
-        save_known_characters(characters)  # roster cache for pickers
+        # Roster cache for pickers, keyed by the account logging in.
+        save_known_characters(characters, login_info["username"].decode("ASCII"))
         character_code = _code_for(characters, login_info["character"])
         login_key = login_client.submit_character_info(character_code)
         return login_key

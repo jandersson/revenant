@@ -274,15 +274,66 @@ def test_pick_character_offers_the_cached_roster(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(defaults))
     asked = {}
 
-    def fake_ask(roster, default):
-        asked.update(roster=roster, default=default)
+    def fake_ask(roster, default, account):
+        asked.update(roster=roster, default=default, account=account)
         return "Beta"
 
     assert launch.pick_character("Gamma", ask=fake_ask) == "Beta"
-    assert asked == {"roster": ["Alpha", "Beta", "Gamma"], "default": "Gamma"}
+    assert asked == {
+        "roster": ["Alpha", "Beta", "Gamma"],
+        "default": "Gamma",
+        "account": "TESTACCT",
+    }
 
 
 def test_pick_character_without_roster_falls_back_to_default(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(tmp_path / "login.json"))
     monkeypatch.delenv("REVENANT_ACCOUNT", raising=False)
     assert launch.pick_character("Testchar") == "Testchar"
+
+
+def test_pick_character_reads_the_per_account_cache(monkeypatch, tmp_path):
+    defaults = tmp_path / "login.json"
+    defaults.write_text(
+        '{"account": "TESTACCT",'
+        ' "accounts": {"testacct": {"characters": ["Alpha", "Beta"]}}}'
+    )
+    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(defaults))
+    seen = {}
+
+    def fake_ask(roster, default, account):
+        seen.update(roster=roster)
+        return "Alpha"
+
+    assert launch.pick_character(ask=fake_ask) == "Alpha"
+    assert seen["roster"] == ["Alpha", "Beta"]
+
+
+def test_pick_character_propagates_the_other_account_choice(monkeypatch, tmp_path):
+    defaults = tmp_path / "login.json"
+    defaults.write_text('{"account": "TESTACCT", "characters": ["Alpha"]}')
+    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(defaults))
+    result = launch.pick_character(
+        ask=lambda roster, default, account: launch.OTHER_ACCOUNT
+    )
+    assert result is launch.OTHER_ACCOUNT
+
+
+def test_gather_login_fresh_account_ignores_saved_identity(monkeypatch, tmp_path):
+    import sys
+    import types
+
+    defaults = tmp_path / "login.json"
+    defaults.write_text('{"account": "TESTACCT", "character": "Alpha"}')
+    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(defaults))
+    monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
+    monkeypatch.setattr(launch, "keychain_password", lambda account: "hunter2")
+    # The saved identity would log straight in ...
+    assert launch.gather_login("Alpha") == ("Alpha", None)
+    # ... but fresh_account must fall through to the login dialog instead
+    # (stubbed: cancelling it raises SystemExit).
+    stub = types.SimpleNamespace(ask_credentials=lambda *args, **kwargs: None)
+    monkeypatch.setitem(sys.modules, "client.gui.login_dialog", stub)
+    monkeypatch.setattr(launch.sys.stdin, "isatty", lambda: False, raising=False)
+    with pytest.raises(SystemExit):
+        launch.gather_login("", fresh_account=True)

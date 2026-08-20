@@ -51,14 +51,37 @@ def test_character_list_returns_every_slot():
     assert list(ea.character_list()) == ["Alpha", "Beta", "Gamma"]
 
 
-def test_save_known_characters_merges_into_login_defaults(monkeypatch, tmp_path):
+def test_save_known_characters_caches_per_account(monkeypatch, tmp_path):
     defaults = tmp_path / "login.json"
-    defaults.write_text('{"account": "TESTACCT", "character": "Alpha"}')
+    defaults.write_text(
+        '{"account": "TESTACCT", "character": "Alpha",'
+        ' "accounts": {"otheracct": {"characters": ["Zed"]}}}'
+    )
     monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(defaults))
-    login.save_known_characters({"Gamma": "W_1", "Alpha": "W_2", "Beta": "W_3"})
+    login.save_known_characters(
+        {"Gamma": "W_1", "Alpha": "W_2", "Beta": "W_3"}, "TESTACCT"
+    )
     saved = login.load_login_defaults()
-    assert saved["characters"] == ["Alpha", "Beta", "Gamma"]  # sorted names only
+    # sorted names only, keyed by lowercased account
+    assert saved["accounts"]["testacct"]["characters"] == ["Alpha", "Beta", "Gamma"]
+    assert saved["accounts"]["otheracct"]["characters"] == ["Zed"]  # untouched
     assert saved["account"] == "TESTACCT"  # existing fields untouched
+
+
+def test_account_roster_prefers_per_account_cache():
+    defaults = {
+        "account": "TESTACCT",
+        "characters": ["Legacy"],
+        "accounts": {"testacct": {"characters": ["Alpha", "Beta"]}},
+    }
+    assert login.account_roster(defaults, "TESTACCT") == ["Alpha", "Beta"]
+
+
+def test_account_roster_falls_back_to_the_legacy_flat_list():
+    defaults = {"account": "TESTACCT", "characters": ["Alpha", "Beta"]}
+    assert login.account_roster(defaults, "testacct") == ["Alpha", "Beta"]
+    assert login.account_roster(defaults, "OTHERACCT") == []
+    assert login.account_roster({}, "") == []
 
 
 def _recapture(caplog):
@@ -128,7 +151,8 @@ def test_fetch_character_list_returns_roster_and_caches_names(monkeypatch, tmp_p
         "Beta": "W_TESTACCT_001",
         "Gamma": "W_TESTACCT_002",
     }
-    assert login.load_login_defaults()["characters"] == ["Alpha", "Beta", "Gamma"]
+    saved = login.load_login_defaults()
+    assert login.account_roster(saved, "TESTACCT") == ["Alpha", "Beta", "Gamma"]
 
 
 def test_fetch_character_list_bad_password_raises_and_caches_nothing(
