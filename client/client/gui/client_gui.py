@@ -41,6 +41,10 @@ class ClientGUI(QMainWindow, ClientLogger):
     # Args: text, stream id ("" = main window), style ("" = plain).
     game_text = pyqtSignal(str, str, str)
 
+    # Connection status changes also arrive on worker threads (the reader
+    # noticing EOF, the reconnect worker) — same rule, same remedy.
+    connection_state = pyqtSignal(str)
+
     # style id -> (bold, color). The game's own styling markers, rendered
     # the way Stormfront players expect: amber room names, blue speech.
     STYLE_FORMATS = {
@@ -85,6 +89,8 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.client = engine if engine is not None else Engine()
         self.__init_ui()
         self.game_text.connect(self.dispatch_game_text)
+        self.connection_state.connect(self.status_bar.showMessage)
+        self._reader_thread = None
         self.client.connect()
         self.status_bar.showMessage(getattr(self.client, "description", "Connected"))
         self.input.setEnabled(True)
@@ -103,6 +109,13 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.__add_compass_dock()
         self.__add_input_field()
 
+        reconnect_action = QAction("&Reconnect", self)
+        reconnect_action.setShortcut("Ctrl+R")
+        reconnect_action.setStatusTip(
+            "Start or attach to a game session after a disconnect"
+        )
+        reconnect_action.triggered.connect(self.reconnect)
+
         exit_action = QAction(QIcon("exit.png"), "&Exit", self)
         exit_action.setShortcut("Ctrl+Q")
         exit_action.setStatusTip("Exit")
@@ -115,6 +128,7 @@ class ClientGUI(QMainWindow, ClientLogger):
 
         menubar = self.menuBar()
         file_menu = menubar.addMenu("&File")
+        file_menu.addAction(reconnect_action)
         file_menu.addAction(exit_action)
         view_menu = menubar.addMenu("View")
         view_menu.addAction(view_status_bar)
@@ -281,10 +295,73 @@ class ClientGUI(QMainWindow, ClientLogger):
                 try:
                     self.client.read(output_callback=self.game_text.emit)
                 except EOFError:
+                    self.connection_state.emit("Disconnected — File → Reconnect")
                     break
                 sleep(0.01)
 
-        Thread(target=output_loop, daemon=True).start()
+        self._reader_thread = Thread(target=output_loop, daemon=True)
+        self._reader_thread.start()
+
+    def reconnect(self):
+        """File → Reconnect: bring a dead frontend back into the game.
+
+        Attaches to a session if one is listening; otherwise gathers login
+        (keychain first, dialog if needed — GUI thread, so the dialog may
+        show) and spawns a fresh session, then reattaches from a worker
+        thread so the wait never freezes the window."""
+        if self._reader_thread is not None and self._reader_thread.is_alive():
+            self.status_bar.showMessage("Still connected")
+            return
+        if not isinstance(self.client, AttachedEngine):
+            # Direct mode has no session to respawn; log in again.
+            self.status_bar.showMessage("Reconnecting (direct login) ...")
+            Thread(target=self._reconnect_direct, daemon=True).start()
+            return
+        from client.launch import (
+            gather_login,
+            session_running,
+            spawn_session,
+            wait_for_session,
+        )
+
+        process = None
+        if not session_running(self.client.host, self.client.port):
+            try:
+                character, key = gather_login(None)
+            except SystemExit:
+                self.status_bar.showMessage("Reconnect cancelled")
+                return
+            process = spawn_session(
+                self.client.host, self.client.port, character, key=key
+            )
+        self.status_bar.showMessage("Reconnecting ...")
+        Thread(
+            target=self._finish_reconnect,
+            args=(process, wait_for_session),
+            daemon=True,
+        ).start()
+
+    def _finish_reconnect(self, process, wait_for_session):
+        try:
+            if process is not None:
+                wait_for_session(process, self.client.host, self.client.port)
+        except SystemExit as error:
+            self.connection_state.emit(str(error))
+            return
+        if not self.client.reattach():
+            self.connection_state.emit("Reconnect failed — no session came up")
+            return
+        self.connection_state.emit(self.client.description)
+        self.gui_reactor()
+
+    def _reconnect_direct(self):
+        try:
+            self.client.connect()
+        except SystemExit:
+            self.connection_state.emit("Reconnect failed — login did not complete")
+            return
+        self.connection_state.emit(getattr(self.client, "description", "Connected"))
+        self.gui_reactor()
 
 
 def main(argv=None):

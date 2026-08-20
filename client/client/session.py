@@ -313,6 +313,17 @@ class AttachedEngine(ClientLogger):
             if output_callback:
                 output_callback(text, stream, style)
 
+    def reattach(self):
+        """One fresh attach attempt against the session (the reconnect
+        path): True when the connection is up again. Unlike connect(),
+        failure returns False instead of exiting the process."""
+        try:
+            self._connection = SocketClient(self.host, self.port)
+        except OSError:
+            return False
+        self._buffer = b""
+        return True
+
     def _reattach(self, output_callback):
         """The session dropped us — usually a ;reexec swapping its code.
         Retry the attach briefly so a code swap doesn't end the front end."""

@@ -299,3 +299,26 @@ def test_attached_engine_reads_frames_and_writes_commands():
 
     engine.connection.write(b"look\n")
     assert _await(lambda: game.sent), "command never reached the game"
+
+
+def test_reattach_connects_when_a_session_is_listening():
+    server = socket.create_server(("127.0.0.1", 0))
+    port = server.getsockname()[1]
+    engine = session.AttachedEngine("127.0.0.1", port)
+    assert engine.reattach() is True
+    conn, _ = server.accept()  # a fresh connection actually arrived
+    session.close_socket(conn)
+    server.close()
+    session.close_socket(engine.connection.get_socket())
+
+
+def test_reattach_returns_false_without_a_session():
+    # Hold the port bound but not listening: connects are refused, and the
+    # port cannot be reassigned mid-test (hermeticity per CLAUDE.md).
+    blocker = socket.socket()
+    blocker.bind(("127.0.0.1", 0))
+    port = blocker.getsockname()[1]
+    engine = session.AttachedEngine("127.0.0.1", port)
+    assert engine.reattach() is False
+    assert engine.connection is None
+    blocker.close()
