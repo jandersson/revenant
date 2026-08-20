@@ -264,3 +264,25 @@ def test_main_attaches_to_running_session(monkeypatch):
     launch.main(["--port", str(port)])
     assert calls == [["--attach", f"127.0.0.1:{port}"]]
     server.close()
+
+
+def test_pick_character_offers_the_cached_roster(monkeypatch, tmp_path):
+    defaults = tmp_path / "login.json"
+    defaults.write_text(
+        '{"account": "TESTACCT", "characters": ["Alpha", "Beta", "Gamma"]}'
+    )
+    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(defaults))
+    asked = {}
+
+    def fake_ask(roster, default):
+        asked.update(roster=roster, default=default)
+        return "Beta"
+
+    assert launch.pick_character("Gamma", ask=fake_ask) == "Beta"
+    assert asked == {"roster": ["Alpha", "Beta", "Gamma"], "default": "Gamma"}
+
+
+def test_pick_character_without_roster_falls_back_to_default(monkeypatch, tmp_path):
+    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(tmp_path / "login.json"))
+    monkeypatch.delenv("REVENANT_ACCOUNT", raising=False)
+    assert launch.pick_character("Testchar") == "Testchar"

@@ -105,6 +105,19 @@ class LoginDialog(QDialog):
         self.show_status(f"{len(names)} characters on {account}.", error=False)
 
 
+def ask_character(roster, default=""):
+    """A dropdown of the account's characters (the launcher's --pick
+    mode); returns the chosen name, or None when the user cancelled."""
+    from PyQt6.QtWidgets import QInputDialog
+
+    app = QApplication.instance() or QApplication([])  # noqa: F841
+    current = roster.index(default) if default in roster else 0
+    name, accepted = QInputDialog.getItem(
+        None, "Revenant", "Play as:", roster, current, False
+    )
+    return name if accepted else None
+
+
 def ask_credentials(account="", character="", error=""):
     """Show the login screen; return (account, password, character,
     remember) or None if the user cancelled."""

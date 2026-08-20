@@ -97,6 +97,31 @@ def gather_login(character):
         return character, key
 
 
+def pick_character(default="", ask=None):
+    """Launcher-mode character choice: the account's roster in a dropdown.
+
+    Uses the roster the login flows cache in login.json, fetching it
+    fresh when the cache is empty but the keychain can authenticate.
+    Returns the picked name; the default when there is nothing to pick
+    from (the login dialog will ask instead); or None when the user
+    cancelled and the launch should stop."""
+    defaults = load_login_defaults()
+    account = os.environ.get("REVENANT_ACCOUNT") or defaults.get("account") or ""
+    roster = defaults.get("characters") or []
+    if not roster and account:
+        password = keychain_password(account)
+        if password is not None:
+            try:
+                roster = sorted(fetch_character_list(account, password))
+            except (LoginError, OSError):
+                roster = []
+    if not roster:
+        return default
+    if ask is None:
+        from client.gui.login_dialog import ask_character as ask
+    return ask(roster, default)
+
+
 def spawn_session(host, port, character, key=None):
     env = dict(os.environ, REVENANT_CHARACTER=character)
     command = [
@@ -191,6 +216,12 @@ def main(argv=None):
         help="login and GUI in one process, without a detachable session",
     )
     parser.add_argument(
+        "--pick",
+        action="store_true",
+        help="choose the character from the account's roster before a new "
+        "session spawns (the Start Menu shortcut's mode)",
+    )
+    parser.add_argument(
         "--list-characters",
         action="store_true",
         help="print the account's characters and exit (uses the saved "
@@ -219,7 +250,13 @@ def main(argv=None):
         return exec_gui([])
 
     if not session_running(args.host, args.port):
-        character, key = gather_login(args.character)
+        character = args.character
+        if args.pick:
+            saved = load_login_defaults().get("character") or ""
+            character = pick_character(character or saved)
+            if character is None:
+                return  # picker cancelled: no session, no GUI
+        character, key = gather_login(character)
         print(f"revenant: starting a session on {args.host}:{args.port} ...")
         process = spawn_session(args.host, args.port, character, key=key)
         wait_for_session(process, args.host, args.port)

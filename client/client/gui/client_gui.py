@@ -34,6 +34,20 @@ from client.session import AttachedEngine, DEFAULT_HOST, DEFAULT_PORT
 
 ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
 
+# Windows groups taskbar buttons by AppUserModelID, defaulting to the exe
+# path — which for us is pythonw.exe, shared with every other Python GUI.
+# Claiming our own ID (matching the one tools/install_shortcut.ps1 stamps
+# on the Start Menu shortcut) merges the running window with the pinned
+# icon instead of splitting into two buttons.
+APP_USER_MODEL_ID = "revenant.client"
+
+
+def claim_taskbar_identity():
+    if sys.platform == "win32":
+        import ctypes
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
+
 
 class ClientGUI(QMainWindow, ClientLogger):
     # Game text arrives on the reader thread, but Qt widgets may only be
@@ -375,6 +389,7 @@ def main(argv=None):
         help="attach to a running client.session instead of logging in directly",
     )
     args = argparser.parse_args(argv)
+    claim_taskbar_identity()  # before any window exists
     app = QApplication(sys.argv[:1])
     # On macOS this also sets the Dock icon for the running app.
     app.setWindowIcon(QIcon(ICON_PATH))
