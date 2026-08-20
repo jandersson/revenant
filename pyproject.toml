@@ -1,5 +1,5 @@
 [tool.uv.workspace]
-members = ["client", "chat"]
+members = ["client", "chat", "beholder"]
 
 [tool.uv]
 # Workspace-wide dev tools. Per-member dev deps live in each member's

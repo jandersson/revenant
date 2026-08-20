@@ -29,11 +29,15 @@ jobs:
         run: uv sync --all-packages
 
       - name: Lint with ruff
-        run: uv run ruff check client chat
+        run: uv run ruff check client chat beholder
 
       - name: Check formatting with ruff
-        run: uv run ruff format --check client chat
+        run: uv run ruff format --check client chat beholder
 
       - name: Test with pytest
         working-directory: client
+        run: uv run pytest
+
+      - name: Test beholder with pytest
+        working-directory: beholder
         run: uv run pytest

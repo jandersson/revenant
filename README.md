@@ -8,7 +8,7 @@ Shout out to [Pylanthia](https://github.com/robbintt/pylanthia), a great related
 
 ## Getting started
 
-The repo is a [uv](https://docs.astral.sh/uv/) workspace. `client/` and `chat/` are workspace members with their own `pyproject.toml`; `beholder/` is deliberately outside the workspace because its pinned deps are incompatible with modern Python (see [beholder/README.md](beholder/README.md)).
+The repo is a [uv](https://docs.astral.sh/uv/) workspace. `client/`, `chat/`, and `beholder/` are workspace members with their own `pyproject.toml`.
 
 ```sh
 # Install uv: https://docs.astral.sh/uv/getting-started/installation/
@@ -24,7 +24,7 @@ Python 3.10+ is required. (The old `telnetlib` dependency — removed from the s
 | Directory | What it is |
 |---|---|
 | [client/](client/) | A Python MUD client and engine — aims to be a [lich](https://lichproject.org/)-style middleman with a PyQt6 frontend and a (WIP) terminal frontend. |
-| [beholder/](beholder/) | A [Dash](https://plotly.com/dash/) web dashboard for visualizing character experience gains in real time, fed by a lich script writing to SQLite. |
+| [beholder/](beholder/) | A [Dash](https://plotly.com/dash/) web dashboard for character experience history, fed by the `;xp` script's SQLite log. |
 | [chat/](chat/) | A standalone LNet chat client, roughly a Python port of rcuhljr's [Genie LNet plugin](https://github.com/rcuhljr/genie-lnet-plugin/). |
 | [launcher/](launcher/) | Small helper scripts for spinning up a headless lich instance alongside [ProfanityFE](https://github.com/elanthia-online/profanity-fe). |
 
@@ -71,13 +71,9 @@ Caveats: running scripts are stopped, not resumed (start them again with
 first upgrade still needs one old-fashioned QUIT-and-relaunch.
 
 ### beholder
-A browser-based dashboard for character experience gains, built with Dash/Plotly on top of a SQLite database.
+A browser dashboard for character experience history — mindstate and rank over time per character and skill, the historical companion to the GUI's live Experience dock.
 
-The pipeline:
-1. [beholder/revenant.lic](beholder/revenant.lic) runs inside lich, polling `DRSkill` every 60s and writing rows into a SQLite database.
-2. [beholder/app.py](beholder/app.py) reads from that database via SQLAlchemy and renders a Dash app with per-character, per-skill mindstate plots that refresh on an interval.
-
-See [beholder/README.md](beholder/README.md) for setup. Note: the pinned dependencies in [beholder/requirements.txt](beholder/requirements.txt) are old — Dash 0.22, Flask 1.0, pandas 0.23 — and the code uses the deprecated `dash_core_components` / `dash_html_components` / `dash_table_experiments` imports, so it won't run under a modern Dash without porting. That's why beholder is **not** part of the uv workspace yet.
+The pipeline is pure Python: the `;xp` script snapshots the exp window to `~/.revenant/xp.db` every 60s, and `uv run beholder` serves a Dash app over it (character dropdown, multi-select skills, mindstate plot with range buttons, refreshing experience table). See [beholder/README.md](beholder/README.md).
 
 ### chat
 A minimal LNet client in pure Python (stdlib `ssl` only, no dependencies). Connects to `lnet.lichproject.org:7155`, verifies the server against the pinned CA in [chat/LnetCert.txt](chat/LnetCert.txt) plus the `lichproject.org`/`LichNet` CN check the reference client uses, handles the login XML handshake, answers pings, and parses the incoming XML stream into typed `LnetMessage`s. See [chat/chat.py](chat/chat.py). Run with `uv run python chat/chat.py`.
@@ -99,7 +95,7 @@ Typing `;lnet` in a revenant frontend brings LNet into the GUI's Thoughts window
 
 ```
 revenant/
-├── beholder/   # Dash/Plotly XP dashboard + lich data-logging script
+├── beholder/   # Dash/Plotly dashboard over the ;xp experience history
 ├── chat/       # LNet chat client
 ├── client/     # PyQt6 client + engine (core/gui/tui)
 └── launcher/   # Helpers for launching lich + profanity together
@@ -107,7 +103,7 @@ revenant/
 
 ## Status
 
-Hobby-grade. Things are in varying states of disrepair — the client is the most actively poked at, beholder is dormant but fun, chat works, and launcher is a convenience script. Expect to read code before running anything.
+Hobby-grade. Things are in varying states of disrepair — the client is the most actively poked at, beholder is freshly resurrected on the `;xp` pipeline, chat works, and launcher is a convenience script. Expect to read code before running anything.
 
 ## License
 

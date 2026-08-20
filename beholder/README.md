@@ -1,83 +1,35 @@
 # Beholder
 
-A [Dash](https://plotly.com/dash/)/[Plotly](https://plotly.com/) web dashboard for DragonRealms character data. It plots mindstate / experience over time per character and per skill, with a refreshing data table, all fed by a lich script that polls `DRSkill` every minute and writes rows into SQLite.
-
-> **Heads up:** this was a fun project but it hasn't been run in years. The pinned dependencies in [requirements.txt](requirements.txt) are old (Dash 0.22, Flask 1.0, pandas 0.23) and the Dash API has moved on significantly since. [app.py](app.py) still uses the deprecated `dash_core_components` / `dash_html_components` / `dash_table_experiments` imports from Dash 1.x, so upgrading to modern Dash requires code changes, not just a dependency bump.
->
-> For that reason, **beholder is intentionally not part of the top-level uv workspace** — it stays on a plain `requirements.txt` until the app is ported. If you want to resurrect it, you probably want a separate throwaway venv, not the workspace one.
-
-## How it works
+A [Dash](https://dash.plotly.com/)/[Plotly](https://plotly.com/) web dashboard for DragonRealms character experience: mindstate and rank over time per character and per skill, with a sortable, filterable table of the latest learning queue. It is the historical companion to the client GUI's live Experience dock — the dock shows now, beholder shows the trend.
 
 ```
-lich + dr-scripts  ──▶  revenant.lic  ──▶  SQLite (MINDSTATE_R)  ──▶  SQLAlchemy  ──▶  Dash app
+revenant client (;xp script)  ──▶  ~/.revenant/xp.db  ──▶  beholder
 ```
 
-1. [revenant.lic](revenant.lic) runs inside lich. Every 60 seconds it walks `DRSkill.list` and inserts a row per skill into a `MINDSTATE_R` table (skill name, character, rank, mindstate, timestamp).
-2. [app.py](app.py) opens that SQLite file through SQLAlchemy, pulls the latest snapshot for a selected character, and renders:
-   - a character dropdown (distinct `character_name`s in the table),
-   - a multi-select skills dropdown,
-   - a time-series plot of mindstate per selected skill with a range slider and 1d/3d/all buttons,
-   - an experience table that refreshes on a `dcc.Interval` tick.
-
-The SQLite path is currently hard-coded in [app.py](app.py):
-
-```py
-engine = create_engine("sqlite:////home/jonas/lich/lich/data/revenant.db3")
-```
-
-You'll want to edit that for your own machine.
-
-## Setup
-
-### 1. Python environment
-
-Pick your poison. The original requirements were pinned against Python 3.6:
+1. Run `;xp` in a revenant frontend. Every 60 seconds it snapshots the exp window (rank / percent / mindstate per learning skill) into `~/.revenant/xp.db` (override: `REVENANT_XP_DB`). See [scripts/xp.py](../scripts/xp.py).
+2. Run the dashboard and open <http://127.0.0.1:8050>:
 
 ```sh
-# venv
-python -m venv .venv
-source .venv/bin/activate      # Windows: .venv\Scripts\activate
-
-# or conda
-conda create -n revenant python=3.6
-conda activate revenant
+uv run beholder                # options: --host, --port, --debug
 ```
 
-Then:
+The page auto-refreshes every 60 seconds to match the `;xp` cadence, and a browser refresh picks up newly logged characters.
+
+## Layout
+
+- **Character** — dropdown over every character with logged history.
+- **Skills** — multi-select; preselects the character's current learning queue.
+- **Mindstate plot** — one line per skill with 1d/3d/all range buttons and a range slider; hover shows mindstate and rank.
+- **Experience table** — the latest snapshot per skill, sortable and filterable, with the snapshot timestamp above it.
+
+## Development
+
+Beholder is a member of the root uv workspace ([pyproject.toml](pyproject.toml)); its only runtime dependency is `dash`. The data layer ([beholder/data.py](beholder/data.py)) is stdlib `sqlite3` — each Dash callback opens a fresh connection, since callbacks run on worker threads. Tests live in [tests/](tests/):
 
 ```sh
-pip install -r requirements.txt
+uv run pytest beholder/tests -q
 ```
 
-If pip struggles with the ancient pins, consider relaxing them and porting to a modern Dash release — the app itself is small.
+## History
 
-### 2. Install the data logger into lich
-
-Assumes a working [lich](https://lichproject.org/) install alongside the [dr-scripts](https://github.com/rpherbig/dr-scripts) suite.
-
-```sh
-cp revenant.lic ~/lich/scripts/
-```
-
-Then, in game:
-
-```
-;revenant
-;e autostart('revenant')   # optional, starts it every session
-```
-
-The script does not need to be trusted — it only uses `Script.db`, `DRSkill`, and `checkname`.
-
-### 3. Run the app
-
-```sh
-python app.py
-```
-
-By default it listens on `0.0.0.0` with Dash's debug server.
-
-## Files
-
-- [app.py](app.py) — the Dash application and SQL queries
-- [revenant.lic](revenant.lic) — the lich-side data logger
-- [requirements.txt](requirements.txt) — (stale) pinned dependencies
+The first beholder (2018) was fed by a lich script polling `DRSkill` inside the Ruby toolchain — first over redis, later straight into SQLite — and was built on Dash 0.22. This version replaces that pipeline with the pure-Python `;xp` script and modern Dash; the lich-era code (`revenant.lic`, the old `app.py`) lives on in git history.
