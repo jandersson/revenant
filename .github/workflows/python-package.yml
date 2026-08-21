@@ -41,3 +41,6 @@ jobs:
       - name: Test beholder with pytest
         working-directory: beholder
         run: uv run pytest
+
+      - name: Test chat with pytest
+        run: uv run pytest chat/tests

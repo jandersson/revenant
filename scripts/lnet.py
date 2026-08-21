@@ -11,8 +11,6 @@ Start with ;lnet (or just use a command — it starts on demand), then:
   ;channels [all]                   list channels (top 15, or all)
   ;tune <channel>  /  ;untune <channel>
 
-(;who, ;stats, and ;channels replies aren't rendered yet — issue #30.)
-
 Incoming chat renders in Thoughts the way lich did: [Channel]-Name: "msg",
 [Private]-Name for tells, your own reflected sends as [PrivateTo]-Name.
 Identity is your character (override LNET_NAME); the password comes from

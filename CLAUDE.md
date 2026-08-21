@@ -16,6 +16,7 @@ dependencies.
 uv run revenant                  # launch: spawn/attach a session + GUI
 uv run pytest client/tests -q    # test suite (threaded/socket tests included)
 uv run pytest beholder/tests -q  # beholder test suite
+uv run pytest chat/tests -q      # chat / Marshal-reader test suite
 uv run ruff check client chat beholder    # lint — CI enforces this
 uv run ruff format client chat beholder   # format — CI enforces --check
 uv run python tools/build_app.py # (re)build ~/Applications/Revenant.app (macOS)

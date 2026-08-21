@@ -34,7 +34,7 @@ class LnetMessage(NamedTuple):
 
     def __str__(self):
         """Render the way lnet.lic's echo_thought does."""
-        if self.message_type == "greeting":
+        if self.message_type in ("greeting", "data"):
             return self.contents or ""
         if self.message_type == "channel":
             return f'[{self.channel}]-{self.sender}: "{self.contents}"'
@@ -47,6 +47,49 @@ class LnetMessage(NamedTuple):
 
 class LoginRejected(Exception):
     """The server refused our login (missing or incorrect password)."""
+
+
+# Importable both as the chat package (scripts/lnet.py) and run directly
+# as a file (uv run python chat/chat.py).
+try:
+    from chat.rmarshal import loads as marshal_loads
+except ImportError:  # direct-run: chat/ itself is on sys.path
+    from rmarshal import loads as marshal_loads
+
+
+def format_data_payload(kind, payload):
+    """Human text for a decoded <data> reply (;who, ;stats, ;channels)."""
+    import textwrap
+
+    if isinstance(payload, str):
+        body = payload
+    elif isinstance(payload, list):
+        body = (
+            textwrap.fill(
+                ", ".join(str(item) for item in payload),
+                width=76,
+                subsequent_indent="  ",
+            )
+            or "(none)"
+        )
+    elif isinstance(payload, dict):
+        body = (
+            "\n".join(f"{key}: {value}" for key, value in payload.items()) or "(none)"
+        )
+    else:
+        body = str(payload)
+    return f"[LNet {kind}]\n{body}"
+
+
+def render_data(element):
+    """Text for a Marshal-carrying <data> reply, or None when the
+    payload is not the simple subset the reader speaks (the caller
+    falls back to the raw element)."""
+    try:
+        payload = marshal_loads(base64.b64decode(element.text or ""))
+    except (ValueError, IndexError, TypeError):
+        return None
+    return format_data_payload(element.get("type") or "data", payload)
 
 
 def _ruby_marshal_str(text):
@@ -249,6 +292,17 @@ class Server:
                 message_type=message_xml.tag,
                 sender="lnet",
             )
+        if message_xml.tag == "data" and message_xml.get("type") != "newpassword":
+            # ;who / ;stats / ;channels replies: Marshal'd Ruby objects.
+            rendered = render_data(message_xml)
+            if rendered is not None:
+                return LnetMessage(
+                    contents=rendered,
+                    channel=None,
+                    to=None,
+                    message_type="data",
+                    sender="lnet",
+                )
         # We're not sure what this is, return the element itself
         return ET.tostring(message_xml)
 
