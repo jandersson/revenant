@@ -14,11 +14,12 @@ in its own thread with `s` as its handle on the game:
     s.args                             # arguments from `;run name arg1 arg2`
 
 Scripts are controlled from any attached front end with ;-commands:
-;list, ;help [name], ;run <name> [args], ;stop <name|all>, or
-;<name> [args] as shorthand for ;run. ;help prints a script's module
-docstring — write them as the user manual. Typing ;<name> <line> while
-<name> is running delivers <line> to it via s.command(); the lich chat
-shorthands (;chat, ;reply, ;who, ...) route to the lnet script.
+;list, ;help [name], ;run <name> [args], ;stop <name|all> (;k and
+;kill are lich-style aliases), or ;<name> [args] as shorthand for
+;run. ;help prints a script's module docstring — write them as the
+user manual. Typing ;<name> <line> while <name> is running delivers
+<line> to it via s.command(); the lich chat shorthands (;chat, ;reply,
+;who, ...) route to the lnet script.
 """
 
 import ast
@@ -236,7 +237,7 @@ class ScriptManager(ClientLogger):
             self.list_scripts()
         elif command == "help":
             self.help(rest or None)
-        elif command == "stop":
+        elif command in ("stop", "k", "kill"):  # ;k / ;kill: lich muscle memory
             self.stop(rest or "all")
         elif command == "run":
             if not rest:

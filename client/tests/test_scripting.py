@@ -242,3 +242,18 @@ def test_help_unknown_script(tmp_path):
     manager, recorder = make_manager(tmp_path)
     manager.handle_command(";help nosuch")
     assert any("no script named 'nosuch'" in e for e in recorder.emitted)
+
+
+def test_k_and_kill_are_stop_aliases(tmp_path):
+    (tmp_path / "waiter.py").write_text(
+        "def main(s):\n    while True:\n        s.sleep(5)\n"
+    )
+    manager, recorder = make_manager(tmp_path)
+    manager.start("waiter", [])
+    assert wait_for(lambda: manager.running.get("waiter"))
+    manager.handle_command(";k waiter")  # lich muscle memory
+    assert wait_for(lambda: not manager.running)
+    assert any("waiter stopped" in e for e in recorder.emitted)
+    # ;kill with nothing running answers like ;stop does.
+    manager.handle_command(";kill")
+    assert any("nothing to stop" in e for e in recorder.emitted)
