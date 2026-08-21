@@ -5,7 +5,12 @@ ROOMS = [
     {
         "id": 1,
         "title": ["[North Road]"],
-        "wayto": {"0": "south", "2": "go gate", "3": ";e fput 'climb wall'"},
+        # The rooftop edge has real lich logic: untranslatable, unwalkable.
+        "wayto": {
+            "0": "south",
+            "2": "go gate",
+            "3": ";e start_script('climb-wall');wait_while{running?('climb-wall')}",
+        },
     },
     {"id": 2, "title": ["[Bank]"], "tags": ["bank"], "wayto": {"1": "out"}},
     {"id": 3, "title": ["[[Rooftop]]"], "wayto": {}},
@@ -21,10 +26,13 @@ def test_normalize_title_strips_any_bracket_depth():
     assert normalize_title("[[Rooftop]]") == "rooftop"
 
 
-def test_walkable_rejects_embedded_ruby():
+def test_walkable_accepts_simple_and_translated_edges_only():
     assert walkable("north")
     assert walkable("go gate")
-    assert not walkable(";e fput 'climb wall'")
+    # Simple fput/move literals now translate and walk (issue #37) ...
+    assert walkable(";e fput 'climb wall'")
+    # ... but embedded logic stays unwalkable.
+    assert not walkable(";e start_script('climb-wall')")
     assert not walkable(None)
 
 

@@ -7,7 +7,7 @@ any script can travel.
 """
 
 from client.client_logger import ClientLogger
-from client.mapdb import normalize_title
+from client.mapdb import normalize_title, translate_embedded
 
 module_logger = ClientLogger()
 
@@ -88,15 +88,21 @@ def walk(s, db, goals, describe="destination"):
 
     s.echo(f"walking {len(route)} steps to {describe}")
     for number, (dest, command) in enumerate(route, 1):
+        # A scripted edge translates to several game commands; the last
+        # one lands in the destination room and gets the arrival check.
+        commands = translate_embedded(command) or [command]
         s.waitrt()
+        for preliminary in commands[:-1]:
+            s.put(preliminary)
+            s.waitrt()
         # Discard any stale compass frames so the next one that arrives
         # pairs with this move — a spurious frame must never desync the
         # walk (the double-frame bug, structurally prevented).
         while s.get(timeout=0, streams=("compass",)) is not None:
             pass
-        s.put(command)
+        s.put(commands[-1])
         if s.get(timeout=15, streams=("compass",)) is None:
-            s.echo(f"stalled at step {number} ({command!r}) — stopping here")
+            s.echo(f"stalled at step {number} ({commands[-1]!r}) — stopping here")
             return False
         # Arrival check: the nav uid is exact when the map knows it;
         # title comparison is the fallback for unmapped-uid rooms.

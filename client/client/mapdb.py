@@ -12,7 +12,9 @@ lich and are treated as unwalkable.
 
 import json
 import os
+import re
 import urllib.request
+from functools import lru_cache
 from pathlib import Path
 
 MAPDB_URL = (
@@ -50,8 +52,45 @@ def normalize_title(title: str) -> str:
     return title.strip().strip("[]").strip().lower()
 
 
+# One statement of a simple embedded-Ruby edge: fput/move with a string
+# literal (lich style, parens optional), or a bare waitrt?.
+_SIMPLE_STATEMENT = re.compile(
+    r"^(?:(?:fput|move)\s*\(?\s*(['\"])(?P<literal>.*?)\1\s*\)?|waitrt\??)$"
+)
+
+
+@lru_cache(maxsize=4096)
+def translate_embedded(command):
+    """Game commands for a simple embedded-Ruby edge, or None.
+
+    The community map writes scripted edges for lich (;e fput 'go
+    gate'; waitrt?; move 'climb wall'). Sequences of fput/move string
+    literals translate directly to game commands — 754 of the map's
+    1087 scripted edges at last count. waitrt? drops out because the
+    walker waits out roundtime around every command anyway. Anything
+    with logic (start_script, UserVars, waits, conditionals) stays
+    untranslatable."""
+    if not isinstance(command, str) or not command.startswith(";e"):
+        return None
+    commands = []
+    for statement in command[2:].split(";"):
+        statement = statement.strip()
+        if not statement:
+            continue
+        match = _SIMPLE_STATEMENT.match(statement)
+        if not match:
+            return None
+        if match.group("literal") is not None:
+            commands.append(match.group("literal"))
+    return commands or None
+
+
 def walkable(command) -> bool:
-    return isinstance(command, str) and not command.startswith(";e")
+    if not isinstance(command, str):
+        return False
+    if command.startswith(";e"):
+        return translate_embedded(command) is not None
+    return True
 
 
 class MapDB:
