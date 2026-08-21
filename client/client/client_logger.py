@@ -9,6 +9,12 @@ import yaml
 # same per-session game log instead of fragmenting across files.
 _SESSION_STAMP = datetime.now().strftime("%Y%m%d-%H%M%S")
 
+# dictConfig is destructive — it replaces root's handlers and (by
+# default) disables every logger that already exists. Running it once
+# per process, with disable_existing_loggers off, keeps a host's
+# handlers (pytest's caplog, an embedding app) and loggers alive.
+_CONFIGURED = False
+
 
 def log_dir() -> pathlib.Path:
     """Where log files live: REVENANT_LOG_DIR, or ~/.revenant/logs.
@@ -22,6 +28,9 @@ def log_dir() -> pathlib.Path:
 
 class ClientLogger:
     def _init_logger(self):
+        global _CONFIGURED
+        if _CONFIGURED:
+            return
         log_conf_path = pathlib.Path(__file__).parents[0] / "logging_config.yaml"
         with open(log_conf_path, "r") as stream:
             config = yaml.load(stream, Loader=yaml.FullLoader)
@@ -34,8 +43,10 @@ class ClientLogger:
         config["handlers"]["game_file"]["filename"] = str(
             directory / f"game-{_SESSION_STAMP}.log"
         )
+        config["disable_existing_loggers"] = False
 
         logging.config.dictConfig(config)
+        _CONFIGURED = True
 
     @property
     def log(self):

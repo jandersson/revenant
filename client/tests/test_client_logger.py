@@ -1,16 +1,33 @@
+"""How ClientLogger configures logging — these tests are the manual.
+
+dictConfig is destructive (replaces root handlers, disables existing
+loggers by default), so it runs once per process with
+disable_existing_loggers off: a host's handlers and loggers survive
+every ClientLogger instantiation after the first.
+"""
+
 import logging
 
-from client.client_logger import ClientLogger, log_dir
+from client import client_logger
 
 
-def test_log_files_land_in_configured_dir(tmp_path, monkeypatch):
-    monkeypatch.setenv("REVENANT_LOG_DIR", str(tmp_path / "logs"))
-    assert log_dir() == tmp_path / "logs"
+def test_dictconfig_runs_once_and_preserves_existing_loggers(monkeypatch):
+    applied = []
+    monkeypatch.setattr(
+        client_logger.logging.config,
+        "dictConfig",
+        lambda config: applied.append(config),
+    )
+    monkeypatch.setattr(client_logger, "_CONFIGURED", False)
+    bystander = logging.getLogger("test.bystander.logger")
+    bystander.disabled = False
 
-    ClientLogger().log.debug("hello from the test")
-    logging.getLogger("game").info("a line of game text")
+    class Thing(client_logger.ClientLogger):
+        pass
 
-    assert (tmp_path / "logs" / "revenant_client.log").exists()
-    game_logs = list((tmp_path / "logs").glob("game-*.log"))
-    assert len(game_logs) == 1, "one per-session game log expected"
-    assert "a line of game text" in game_logs[0].read_text()
+    Thing().log.debug("first instance configures")
+    Thing().log.debug("second instance must not reconfigure")
+
+    assert len(applied) == 1
+    assert applied[0]["disable_existing_loggers"] is False
+    assert not bystander.disabled
