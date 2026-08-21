@@ -11,10 +11,14 @@ page](https://elanthipedia.play.net/Experience) — this is not a mirror.
 Experience is a two-stage pool system, per skill:
 
 1. **Inflow** — accepted actions push *field experience* into the
-   skill's pool. Inflow is gated twice: by action type (Athletics
+   skill's pool. Inflow is gated three ways: by action type (Athletics
    accepts climbs, swims, and `climb practice` — not ordinary
-   movement), and by challenge — an action that has become trivial for
-   your ranks grants **zero**, not "a little".
+   movement); by challenge — an action that has become trivial for
+   your ranks grants **zero**, not "a little"; and by a **per-award
+   timer** on standard climbing travel actions — a random 45–60s
+   window in which repeat climbs grant nothing (Elanthipedia,
+   community-tested). `climb practice` and special climbs are exempt
+   from the timer.
 2. **The pool** — capacity depends on skillset placement, ranks,
    Intelligence, and Discipline. The mindstate shown in the exp window
    (0–34, "clear" through "mind lock") is purely the pool's fill gauge.

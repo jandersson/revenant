@@ -49,7 +49,7 @@ class FakeHandle:
         self.state = SimpleNamespace(experience={})
         self._apply_mindstate(rank=10)
 
-    def _apply_mindstate(self, rank=10):
+    def _apply_mindstate(self, rank=7):
         if self._mindstates:
             self.state.experience = {
                 "Athletics": {
@@ -177,11 +177,12 @@ def test_going_stale_needs_consecutive_low_flat_reports():
 
 
 def test_optimal_rung_is_the_hardest_in_reach():
-    assert athletics.optimal_rung(3)[2].startswith("moonstone trellis")
-    assert athletics.optimal_rung(None)[2].startswith("moonstone trellis")
-    assert athletics.optimal_rung(7)[2].startswith("oak tree")
-    assert athletics.optimal_rung(25)[2].startswith("rise")
-    assert athletics.optimal_rung(100)[2].startswith("mine ladder")
+    # Within the low-0 tie, the later (pear practice) entry wins.
+    assert athletics.optimal_rung(3)["label"].startswith("pear tree practice")
+    assert athletics.optimal_rung(None)["label"].startswith("pear tree practice")
+    assert athletics.optimal_rung(7)["label"].startswith("oak tree")
+    assert athletics.optimal_rung(25)["label"].startswith("rise")
+    assert athletics.optimal_rung(100)["label"].startswith("mine ladder")
 
 
 def test_climb_loop_reads_the_maps_own_edges():
@@ -192,11 +193,30 @@ def test_climb_loop_reads_the_maps_own_edges():
     assert athletics.climb_loop(LADDER_MAP, 13527, 999) is None
 
 
+def test_rung_plan_paces_travel_climbs_and_spams_practice():
+    travel = {"low": 0, "high": 34, "label": "trellis", "bottom": 13527, "top": 13529}
+    commands, pace = athletics.rung_plan(LADDER_MAP, travel)
+    assert commands == ["climb moonstone trellis", "climb moonstone trellis"]
+    assert pace == athletics.CLIMB_TIMER_PACE  # the 45-60s award timer
+
+    practice = {
+        "low": 0,
+        "high": 80,
+        "label": "pear",
+        "room": 1455,
+        "practice": "pear tree",
+    }
+    commands, pace = athletics.rung_plan(LADDER_MAP, practice)
+    assert commands == ["climb practice pear tree"]
+    assert pace == athletics.PAUSE  # timer-exempt: tight loop
+
+
 def test_auto_mode_walks_to_the_rung_and_advances_when_stale():
-    # Rank 3 at start (trellis rung); the first sleep bumps the fake
-    # exp entry to rank 10, so once the trellis goes stale the oak rung
-    # (5-60) is in reach and the script moves up the ladder.
-    handle = FakeHandle(args=[], mindstates=[5, 5], sleeps=70)
+    # Rank 3 at start (pear practice rung); the first sleep bumps the
+    # fake exp entry to rank 7, so once the pear goes stale the oak
+    # rung (5-60) is in reach — but not the apple (10+), so the ladder
+    # advances exactly once and then carries on at the oak.
+    handle = FakeHandle(args=[], mindstates=[5, 5], sleeps=400)
     handle.state.experience["Athletics"]["rank"] = 3
     walks = []
 
@@ -206,10 +226,13 @@ def test_auto_mode_walks_to_the_rung_and_advances_when_stale():
 
     with pytest.raises(LoopDone):
         athletics.auto_train(handle, db=LADDER_MAP, walk=fake_walk)
-    assert walks[0] == [13527]  # trellis bottom first
+    assert walks[0] == [1455]  # pear practice room first
+    assert ("put", "climb practice pear tree") in handle.calls
     assert walks[1] == [1068]  # then the oak after going stale
     assert any("moving up the ladder" in echo for echo in handle.echoes)
     assert ("put", "climb oak tree") in handle.calls
+    # Travel climbs at the oak are paced to the award timer.
+    assert ("sleep", athletics.CLIMB_TIMER_PACE) in handle.calls
 
 
 def test_auto_mode_stops_cleanly_when_the_walk_fails():
@@ -221,4 +244,4 @@ def test_auto_mode_stops_cleanly_when_the_walk_fails():
 
     athletics.auto_train(handle, db=LADDER_MAP, walk=failing_walk)
     assert any("could not reach" in echo for echo in handle.echoes)
-    assert ("put", "climb moonstone trellis") not in handle.calls
+    assert ("put", "climb practice pear tree") not in handle.calls
