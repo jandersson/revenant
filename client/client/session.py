@@ -95,6 +95,7 @@ class SessionServer(ClientLogger):
         self.broadcast_lock = Lock()
         self.game_write_lock = Lock()
         self.running = True
+        self.quit_sent = False  # a quit on its way out reclassifies EOF (#43)
         self.engine = Engine()
         self.engine.connection = game_connection
 
@@ -153,6 +154,17 @@ class SessionServer(ClientLogger):
             try:
                 self.engine.read(output_callback=self.fanout)
             except EOFError:
+                # Same EOF, two stories: after a quit it is the expected
+                # end of the evening; otherwise the link died under us
+                # and the player should know reconnecting is in order.
+                if self.quit_sent:
+                    self.broadcast("session: logged off — good night\n", "script")
+                else:
+                    self.broadcast(
+                        "session: game connection lost unexpectedly — "
+                        "File → Reconnect when ready\n",
+                        "script",
+                    )
                 self.shutdown()
                 return
             except Exception:
@@ -180,6 +192,10 @@ class SessionServer(ClientLogger):
                     self.drop(conn)
 
     def send_to_game(self, data: bytes):
+        if data.strip().lower() == b"quit":
+            # Remembered so the coming EOF reads as a clean logoff, not
+            # an unexpected drop (issue #43).
+            self.quit_sent = True
         with self.game_write_lock:
             self.game.write(data)
 

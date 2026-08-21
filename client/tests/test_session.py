@@ -395,3 +395,43 @@ def test_reexec_is_gated_off_on_windows(monkeypatch):
     server.reexec(execv=lambda path, argv: (_ for _ in ()).throw(AssertionError))
     assert stopped == []  # a doomed reexec must not stop running scripts
     assert any("not supported on Windows" in text for text in broadcasts)
+
+
+def test_eof_without_quit_reads_as_an_unexpected_drop():
+    game = FakeGame()
+    server, port = _start_server(game)
+    client = socket.create_connection(("127.0.0.1", port), timeout=5)
+    client.settimeout(5)
+    assert _await(lambda: server.clients), "client never registered"
+
+    game.closed = True  # the server dropped us; nobody sent quit
+    buffer = b""
+    while True:
+        chunk = client.recv(4096)
+        if not chunk:
+            break
+        buffer += chunk
+    frames, _ = session.decode_frames(buffer)
+    assert any("lost unexpectedly" in text for text, _, _ in frames)
+    assert not any("logged off" in text for text, _, _ in frames)
+
+
+def test_eof_after_quit_reads_as_a_clean_logoff():
+    game = FakeGame()
+    server, port = _start_server(game)
+    client = socket.create_connection(("127.0.0.1", port), timeout=5)
+    client.settimeout(5)
+    assert _await(lambda: server.clients), "client never registered"
+
+    client.sendall(b"quit\n")
+    assert _await(lambda: game.sent), "quit never reached the game"
+    game.closed = True  # the logoff closes the connection
+    buffer = b""
+    while True:
+        chunk = client.recv(4096)
+        if not chunk:
+            break
+        buffer += chunk
+    frames, _ = session.decode_frames(buffer)
+    assert any("logged off" in text for text, _, _ in frames)
+    assert not any("lost unexpectedly" in text for text, _, _ in frames)
