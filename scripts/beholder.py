@@ -6,6 +6,11 @@ http://127.0.0.1:8050. The dashboard is its own process and keeps
 serving after the session ends — run ;beholder again any time for the
 URL. It reads ~/.revenant/xp.db, so history appears once the xp script
 has logged for a minute or two.
+
+Every session also runs  ;beholder quiet  automatically: it ensures
+the server is up without opening a browser, so the dashboard is always
+one bookmark (or one ;beholder) away. REVENANT_NO_BEHOLDER=1 disables
+that autostart.
 """
 
 import os
@@ -41,16 +46,20 @@ def spawn_dashboard():
 
 
 def main(s):
+    # "quiet" (the session autostart): ensure the server, skip the browser.
+    quiet = bool(s.args) and s.args[0] == "quiet"
     if dashboard_running():
-        s.echo(f"dashboard already running: {URL}")
-        webbrowser.open(URL)
+        if not quiet:
+            s.echo(f"dashboard already running: {URL}")
+            webbrowser.open(URL)
         return
     s.echo("starting the dashboard ...")
     process = spawn_dashboard()
     for _ in range(WAIT_SECONDS * 2):
         if dashboard_running():
             s.echo(f"dashboard up: {URL}")
-            webbrowser.open(URL)
+            if not quiet:
+                webbrowser.open(URL)
             return
         if process.poll() is not None:
             s.echo(

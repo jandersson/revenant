@@ -380,12 +380,15 @@ def main(argv=None):
 
 
 def autostart_scripts(server):
-    """Scripts every session runs from the start — today the xp history
-    logger, so the experience database fills without anyone remembering
-    to ask (;stop xp opts a session out, REVENANT_NO_XP=1 disables)."""
-    if os.environ.get("REVENANT_NO_XP"):
-        return
-    server.scripts.start("xp", [])
+    """Scripts every session runs from the start: the xp history logger
+    (so the experience database fills without anyone remembering to
+    ask) and the beholder dashboard server in quiet mode (up and
+    waiting, no browser). ;stop opts a session out; REVENANT_NO_XP=1 /
+    REVENANT_NO_BEHOLDER=1 disable them entirely."""
+    if not os.environ.get("REVENANT_NO_XP"):
+        server.scripts.start("xp", [])
+    if not os.environ.get("REVENANT_NO_BEHOLDER"):
+        server.scripts.start("beholder", ["quiet"])
 
 
 if __name__ == "__main__":

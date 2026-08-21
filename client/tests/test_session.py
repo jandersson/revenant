@@ -325,8 +325,11 @@ def test_reattach_returns_false_without_a_session():
     blocker.close()
 
 
-def test_sessions_autostart_the_xp_logger(monkeypatch):
+def _autostart_with(monkeypatch, **env):
     monkeypatch.delenv("REVENANT_NO_XP", raising=False)
+    monkeypatch.delenv("REVENANT_NO_BEHOLDER", raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
     started = []
     server = types.SimpleNamespace(
         scripts=types.SimpleNamespace(
@@ -334,16 +337,16 @@ def test_sessions_autostart_the_xp_logger(monkeypatch):
         )
     )
     session.autostart_scripts(server)
-    assert started == [("xp", [])]
+    return started
 
 
-def test_revenant_no_xp_disables_the_autostart(monkeypatch):
-    monkeypatch.setenv("REVENANT_NO_XP", "1")
-    started = []
-    server = types.SimpleNamespace(
-        scripts=types.SimpleNamespace(
-            start=lambda name, args: started.append((name, args))
-        )
+def test_sessions_autostart_xp_and_the_quiet_dashboard(monkeypatch):
+    assert _autostart_with(monkeypatch) == [("xp", []), ("beholder", ["quiet"])]
+
+
+def test_env_flags_disable_each_autostart(monkeypatch):
+    assert _autostart_with(monkeypatch, REVENANT_NO_XP="1") == [("beholder", ["quiet"])]
+    assert _autostart_with(monkeypatch, REVENANT_NO_BEHOLDER="1") == [("xp", [])]
+    assert (
+        _autostart_with(monkeypatch, REVENANT_NO_XP="1", REVENANT_NO_BEHOLDER="1") == []
     )
-    session.autostart_scripts(server)
-    assert started == []

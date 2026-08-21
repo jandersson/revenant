@@ -75,9 +75,12 @@ One pipeline, one parser, several processes:
   Handle API: put/get/waitfor/waitrt/echo/emit/sleep/state/args — `emit`
   targets an arbitrary stream (e.g. "thoughts"). `scripts/lnet.py` uses it
   to mirror LNet chat into the Thoughts window, read-only (`;lnet`).
-  Sessions autostart the xp history logger (`session.autostart_scripts`;
-  `;stop xp` opts a session out, REVENANT_NO_XP=1 disables); `;beholder`
-  spawns/reuses the dashboard and opens the browser.
+  Sessions autostart the xp history logger and the beholder dashboard
+  server in quiet mode (`session.autostart_scripts`; `;stop <name>` opts
+  a session out, REVENANT_NO_XP=1 / REVENANT_NO_BEHOLDER=1 disable);
+  `;beholder` opens the dashboard in the browser, and the GUI embeds it
+  via View → Experience History (QWebEngineView, lazy-created, browser
+  fallback when QtWebEngine is missing).
 - `client/client/mapdb.py` — the community DR map database (elanthia-online
   mapdb-backup-dr), downloaded to `~/.revenant/mapdb/` on first use, never
   vendored. BFS pathfinding; wayto commands starting with ";e" are embedded

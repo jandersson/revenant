@@ -30,8 +30,6 @@ from client.core import Engine
 from client.client_logger import ClientLogger
 from client.session import AttachedEngine, DEFAULT_HOST, DEFAULT_PORT
 
-# TODO: Exit the game when the window is closed. Make it optional, leaving room for headless potential.
-
 ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
 
 # Windows groups taskbar buttons by AppUserModelID, defaulting to the exe
@@ -40,6 +38,15 @@ ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
 # on the Start Menu shortcut) merges the running window with the pinned
 # icon instead of splitting into two buttons.
 APP_USER_MODEL_ID = "revenant.client"
+
+DASHBOARD_URL = "http://127.0.0.1:8050"
+
+# Qt WebEngine wants importing before the QApplication exists; absence
+# is fine (the dashboard falls back to the system browser).
+try:
+    from PyQt6.QtWebEngineWidgets import QWebEngineView
+except ImportError:  # pragma: no cover — depends on the install
+    QWebEngineView = None
 
 
 def claim_taskbar_identity():
@@ -130,22 +137,39 @@ class ClientGUI(QMainWindow, ClientLogger):
         )
         reconnect_action.triggered.connect(self.reconnect)
 
+        detach_action = QAction("&Detach", self)
+        detach_action.setShortcut("Ctrl+D")
+        detach_action.setStatusTip(
+            "Close this window but stay logged in (reattach with a new launch)"
+        )
+        detach_action.triggered.connect(self.detach)
+
+        # Exit goes through close() so closeEvent runs: geometry is
+        # saved and the game gets its quit.
         exit_action = QAction(QIcon("exit.png"), "&Exit", self)
         exit_action.setShortcut("Ctrl+Q")
-        exit_action.setStatusTip("Exit")
-        exit_action.triggered.connect(QApplication.instance().quit)
+        exit_action.setStatusTip("Quit the game and close the window")
+        exit_action.triggered.connect(self.close)
 
         view_status_bar = QAction("Status Bar", self, checkable=True)
         view_status_bar.setStatusTip("Show the status bar")
         view_status_bar.setChecked(True)
         view_status_bar.triggered.connect(self.toggle_menu)
 
+        history_action = QAction("Experience &History", self)
+        history_action.setStatusTip(
+            "The beholder dashboard: mindstate and rank over time"
+        )
+        history_action.triggered.connect(self.show_experience_history)
+
         menubar = self.menuBar()
         file_menu = menubar.addMenu("&File")
         file_menu.addAction(reconnect_action)
+        file_menu.addAction(detach_action)
         file_menu.addAction(exit_action)
         view_menu = menubar.addMenu("View")
         view_menu.addAction(view_status_bar)
+        view_menu.addAction(history_action)
         view_menu.addSeparator()
         for dock in self.stream_docks.values():
             view_menu.addAction(dock.toggleViewAction())
@@ -159,10 +183,27 @@ class ClientGUI(QMainWindow, ClientLogger):
 
         self.show()
 
+    def detach(self):
+        """File → Detach: close the window, stay logged in. The session
+        keeps the game connection; a new launch reattaches to it."""
+        self._detaching = True
+        self.close()
+
     def closeEvent(self, event):
         settings = QSettings("revenant", "revenant")
         settings.setValue("geometry", self.saveGeometry())
         settings.setValue("windowState", self.saveState())
+        # Closing the window means leaving the game — send quit so the
+        # character logs out instead of lingering to a link-death, and
+        # the session winds down on the resulting EOF. File → Detach is
+        # the deliberate walk-away that skips this.
+        if not getattr(self, "_detaching", False):
+            connection = getattr(self.client, "connection", None)
+            if connection is not None:
+                try:
+                    connection.write(b"quit\n")
+                except OSError:
+                    pass  # already disconnected: nothing to quit
         super().closeEvent(event)
 
     def __add_output_window(self):
@@ -237,6 +278,38 @@ class ClientGUI(QMainWindow, ClientLogger):
     def send_input(self):
         self.write(self.input.text())
 
+    def show_experience_history(self):
+        """View → Experience History: the beholder dashboard, embedded.
+
+        The dock is created lazily (WebEngine costs memory only when
+        used) and toggled thereafter. Without QtWebEngine installed the
+        dashboard opens in the system browser instead. The session
+        autostarts the dashboard server, so the page is normally
+        already answering on localhost."""
+        if QWebEngineView is None:
+            import webbrowser
+
+            webbrowser.open(DASHBOARD_URL)
+            self.status_bar.showMessage(
+                "QtWebEngine not installed — opened the dashboard in your browser"
+            )
+            return
+        dock = getattr(self, "_history_dock", None)
+        if dock is None:
+            from PyQt6.QtCore import QUrl
+
+            view = QWebEngineView()
+            view.load(QUrl(DASHBOARD_URL))
+            dock = QDockWidget("Experience History")
+            dock.setObjectName("ExperienceHistory")
+            dock.setWidget(view)
+            self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+            self._history_dock = dock
+        else:
+            dock.widget().reload()  # a fresh look picks up new characters
+        dock.show()
+        dock.raise_()
+
     def toggle_menu(self, state):
         if state:
             self.status_bar.show()
@@ -301,7 +374,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         action = context_menu.exec(self.mapToGlobal(event.pos()))
 
         if action == exit_action:
-            QApplication.instance().quit()
+            self.close()  # through closeEvent: quit the game, save layout
 
     def gui_reactor(self):
         def output_loop():

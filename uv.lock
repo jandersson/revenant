@@ -965,6 +965,37 @@ wheels = [
 ]
 
 [[package]]
+name = "pyqt6-webengine"
+version = "6.11.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyqt6" },
+    { name = "pyqt6-sip" },
+    { name = "pyqt6-webengine-qt6" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9a/c6/b4f777c46ff42a759180dc65ad49a207748ea2e83ac4df21e89eaf4834c3/pyqt6_webengine-6.11.0.tar.gz", hash = "sha256:15cf49efbbbd4c6bc87653b2c4ae80d6049f800e31620b336734ae2e37cbedae", size = 37331, upload-time = "2026-03-30T09:18:15.561Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/28/55/d06c4c1390268ca19a5be6e00e9b394b7bed995ace51b8f10ac19e8770c7/pyqt6_webengine-6.11.0-cp310-abi3-macosx_10_14_universal2.whl", hash = "sha256:dfd6efc1760a8f0a82a41366f44dd1949380be5b7e62ca79165ef67ae6f26456", size = 465113, upload-time = "2026-03-30T09:18:08.896Z" },
+    { url = "https://files.pythonhosted.org/packages/02/63/99f0032137dd76d7c401d467887bcee112df4fc9f496cf92b11de6b93551/pyqt6_webengine-6.11.0-cp310-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:a9c07d18ab6aa4be95dea5bdbced2690cf0659637634e960bd5cf90c9aa5bc1b", size = 318292, upload-time = "2026-03-30T09:18:10.297Z" },
+    { url = "https://files.pythonhosted.org/packages/ac/4a/a262c8828f35acec6dba2bf2f90d1c00b82d91f8b31f8ec830ac2f7c5d6c/pyqt6_webengine-6.11.0-cp310-abi3-manylinux_2_39_aarch64.whl", hash = "sha256:a115d14205b037bf2e8aa52176fc30260c112cf3a252047e69999e5d52f7b868", size = 319166, upload-time = "2026-03-30T09:18:11.515Z" },
+    { url = "https://files.pythonhosted.org/packages/d4/15/27a18e7124f85eeadd48452f96104a5a231f0ad97ab5c10e16d87a319ccb/pyqt6_webengine-6.11.0-cp310-abi3-win_amd64.whl", hash = "sha256:5596ea8f7fd94a6b443c47f3c12dac619bedf5fabb646d2b8b4de1d73ec531cb", size = 257876, upload-time = "2026-03-30T09:18:12.682Z" },
+    { url = "https://files.pythonhosted.org/packages/f3/af/4cf061bfa45b5311ce05a48749afb6d8ee62539f38619875feaa200b6acf/pyqt6_webengine-6.11.0-cp310-abi3-win_arm64.whl", hash = "sha256:06c309fa956dd4f197636d949aa5d125cd905f386178eb8884e231c04c5b577c", size = 235435, upload-time = "2026-03-30T09:18:14.323Z" },
+]
+
+[[package]]
+name = "pyqt6-webengine-qt6"
+version = "6.11.1"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/09/83/ee448f4125cdf3649c048300b96048129437c0d2afcb9de40b2ab239eeca/pyqt6_webengine_qt6-6.11.1-py3-none-macosx_10_14_x86_64.whl", hash = "sha256:a20fccfa6d345b804fa718ae2b4db3cda4a66bb5ea83b14a6266b8c6d168477c", size = 125601172, upload-time = "2026-05-15T11:21:41.501Z" },
+    { url = "https://files.pythonhosted.org/packages/18/c4/24a856ec9efb97fb75062cebc64f4a8e7c55125a838ab71f163e268c08b2/pyqt6_webengine_qt6-6.11.1-py3-none-macosx_11_0_arm64.whl", hash = "sha256:766ad691fb274eb1ed222eee407d6c16b398a06782441f4a2ad7dd699aa9392a", size = 112247415, upload-time = "2026-05-15T11:22:13.735Z" },
+    { url = "https://files.pythonhosted.org/packages/76/b8/4a31b1c59b44981b1dab685039704d43bc9d73899ab63aa04b22e4e75614/pyqt6_webengine_qt6-6.11.1-py3-none-manylinux_2_34_x86_64.whl", hash = "sha256:cb15cc35593dd45492b40579912aac9fd44053a879f92fdd246bc5ba8738e0e9", size = 116319146, upload-time = "2026-05-15T11:22:49.783Z" },
+    { url = "https://files.pythonhosted.org/packages/d4/2b/d0376a89cc465835351dc4d1813b8c10cd12dc8b1350201087ff75e20bc6/pyqt6_webengine_qt6-6.11.1-py3-none-manylinux_2_39_aarch64.whl", hash = "sha256:986571954200d89812211997e7e544eb48682ce06141957e668f6ff4375517b6", size = 111680319, upload-time = "2026-05-15T11:23:27.714Z" },
+    { url = "https://files.pythonhosted.org/packages/83/0d/4826e0d24c34d85f57feeddbb26b1d359705d1c6952cbe214dd433e41e8a/pyqt6_webengine_qt6-6.11.1-py3-none-win_amd64.whl", hash = "sha256:16db64a3c658f3575b9c7c29aceb734714c24a2c8778e20caf277a593bc8ceb0", size = 132865252, upload-time = "2026-05-15T11:24:11.569Z" },
+    { url = "https://files.pythonhosted.org/packages/27/cc/8d268ec85e76d6e2c236a715851fef21e6d0ae369fbb896ada996092b735/pyqt6_webengine_qt6-6.11.1-py3-none-win_arm64.whl", hash = "sha256:21aaa6c7c9a91076936baa4a1c02dd5a0cbd4c75238d5fd6a216736f654cf89a", size = 114693848, upload-time = "2026-05-15T11:24:42.684Z" },
+]
+
+[[package]]
 name = "pytest"
 version = "9.1.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1126,6 +1157,7 @@ source = { editable = "client" }
 dependencies = [
     { name = "keyring" },
     { name = "pyqt6" },
+    { name = "pyqt6-webengine" },
     { name = "pyyaml" },
 ]
 
@@ -1140,6 +1172,7 @@ dev = [
 requires-dist = [
     { name = "keyring", specifier = ">=25.7.0" },
     { name = "pyqt6" },
+    { name = "pyqt6-webengine" },
     { name = "pyyaml" },
 ]
 

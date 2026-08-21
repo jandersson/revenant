@@ -26,6 +26,7 @@ beholder = _beholder()
 
 class FakeHandle:
     def __init__(self):
+        self.args = []
         self.echoes = []
         self.slept = 0
 
@@ -97,3 +98,14 @@ def test_reports_a_dashboard_that_dies_on_startup(monkeypatch):
     handle = FakeHandle()
     beholder.main(handle)
     assert any("exited with code 1" in echo for echo in handle.echoes)
+
+
+def test_quiet_mode_ensures_the_server_without_a_browser(monkeypatch):
+    monkeypatch.setattr(beholder, "dashboard_running", lambda *a, **k: True)
+    monkeypatch.setattr(
+        beholder.webbrowser, "open", lambda url: (_ for _ in ()).throw(AssertionError)
+    )
+    handle = FakeHandle()
+    handle.args = ["quiet"]
+    beholder.main(handle)
+    assert handle.echoes == []  # nothing to say when all is well
