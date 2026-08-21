@@ -1,5 +1,6 @@
 import json
 import socket
+import sys
 from threading import Thread
 
 import pytest
@@ -200,6 +201,10 @@ def test_wait_for_session_reports_dead_process():
     placeholder.close()
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="macOS-only branding; Windows symlinks need elevation (#38)",
+)
 def test_branded_interpreter_creates_symlink(tmp_path):
     bin_dir = tmp_path / "venv" / "bin"
     bin_dir.mkdir(parents=True)
@@ -213,6 +218,10 @@ def test_branded_interpreter_creates_symlink(tmp_path):
     assert launch.branded_interpreter(interpreter) == branded
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="macOS-only branding; Windows symlinks need elevation (#38)",
+)
 def test_branded_interpreter_repairs_stale_symlink(tmp_path):
     bin_dir = tmp_path / "venv" / "bin"
     bin_dir.mkdir(parents=True)

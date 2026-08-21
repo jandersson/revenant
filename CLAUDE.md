@@ -136,12 +136,15 @@ One pipeline, one parser, several processes:
   is not. Include the evidence (log lines, screenshots) while it's fresh.
   Unless it directly impacts the feature being built, file it and leave
   it alone — don't fix drive-by findings inside an unrelated change.
-- Issues and comments are written for a human skimming them later, never
-  as a single dense paragraph: a first line that stands alone (BLUF),
-  then markdown structure — bold section labels (What happened /
+- Everything written to be read later — issues, comments, commit
+  messages, documentation — is written for a human skimming it: a first
+  line that stands alone (BLUF), then structure, never one dense
+  paragraph. Issues/comments use bold section labels (What happened /
   Symptom / Impact / Fix sketch), numbered steps for event sequences,
-  bullets for lists, backticks around code and commands. Draft bodies in
-  a file and pass --body-file to gh; inline quoting mangles them.
+  bullets for lists, backticks around code; draft bodies in a file and
+  pass --body-file to gh, since inline quoting mangles them. Commit
+  bodies use short paragraphs or bullets, one topic each, cause before
+  fix. Documentation additionally follows the BLUF convention above.
 - Threads + locks, not asyncio — keep new concurrency in the existing style.
 - Closing a socket does NOT wake a thread blocked in recv()/accept() on
   Linux (it does on macOS, so local runs won't catch it) — always

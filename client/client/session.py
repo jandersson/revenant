@@ -199,15 +199,24 @@ class SessionServer(ClientLogger):
                 command = command.strip()
                 if not command:
                     continue
-                if command == b";reexec":
-                    self.reexec()
-                elif command.startswith(b";"):
-                    try:
+                try:
+                    if command == b";reexec":
+                        self.reexec()
+                    elif command.startswith(b";"):
                         self.scripts.handle_command(command.decode("UTF-8", "replace"))
-                    except Exception:
-                        self.log.exception("script command failed")
-                else:
-                    self.send_to_game(command + b"\n")
+                    else:
+                        self.send_to_game(command + b"\n")
+                except Exception as error:
+                    # One bad handler must never kill this reader thread:
+                    # that leaves the frontend half-dead — receiving
+                    # broadcasts while nothing it sends is ever read,
+                    # with the status bar still saying Connected (#49).
+                    self.log.exception("command failed: %r", command)
+                    self.broadcast(
+                        f"session: command {command.decode('UTF-8', 'replace')!r} "
+                        f"failed: {error!r}\n",
+                        "script",
+                    )
 
     def reexec(self, execv=os.execv):
         """Replace this process with one running the code now on disk,
@@ -218,6 +227,16 @@ class SessionServer(ClientLogger):
         already read off the wire but not yet parsed ride along in an
         env var. Parser state (room, compass) starts cold in the new
         process; main() reprimes it with a `look`."""
+        if sys.platform == "win32":
+            # WinSock handles aren't CRT fds and exec has spawn-and-exit
+            # semantics — the handoff cannot work as written (#38). Bail
+            # before stop_all so a doomed reexec doesn't stop scripts.
+            self.broadcast(
+                "session: ;reexec is not supported on Windows — "
+                "File → Detach and relaunch to pick up new code\n",
+                "script",
+            )
+            return
         self.broadcast("session: re-exec'ing with current code ...", "script")
         self.scripts.stop_all()
         fd = self.game.fileno()

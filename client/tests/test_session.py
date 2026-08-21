@@ -2,9 +2,12 @@ import base64
 import io
 import os
 import socket
+import sys
 import types
 from threading import Thread
 from time import sleep
+
+import pytest
 
 from client import session
 from client.netsock import SocketClient
@@ -168,6 +171,10 @@ def test_script_emit_stream_reaches_attached_clients():
     client.close()
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason=";reexec is POSIX-only and gated off on Windows (#38)",
+)
 def test_reexec_marks_game_fd_inheritable_and_builds_argv(monkeypatch):
     left, right = socket.socketpair()
     game = SocketClient.from_fd(left.detach())
@@ -350,3 +357,41 @@ def test_env_flags_disable_each_autostart(monkeypatch):
     assert (
         _autostart_with(monkeypatch, REVENANT_NO_XP="1", REVENANT_NO_BEHOLDER="1") == []
     )
+
+
+def test_a_crashing_command_does_not_kill_client_reader(monkeypatch):
+    game = FakeGame()
+    server, port = _start_server(game)
+
+    def explode():
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(server, "reexec", explode)
+    client = socket.create_connection(("127.0.0.1", port), timeout=5)
+    client.settimeout(5)
+    assert _await(lambda: server.clients), "client never registered"
+
+    client.sendall(b";reexec\n")  # handler raises
+    client.sendall(b"look\n")  # the reader must still be alive for this
+    assert _await(lambda: game.sent), "reader died: command never reached game"
+    assert game.sent == [b"look\n"]
+
+    # The failure was reported to the frontend, not swallowed.
+    buffer = b""
+    while b"failed" not in buffer:
+        buffer += client.recv(4096)
+    client.close()
+
+
+def test_reexec_is_gated_off_on_windows(monkeypatch):
+    monkeypatch.setattr(session.sys, "platform", "win32")
+    server = session.SessionServer(FakeGame(), port=0)  # serve() never called
+    stopped = []
+    monkeypatch.setattr(server.scripts, "stop_all", lambda: stopped.append(True))
+    broadcasts = []
+    monkeypatch.setattr(
+        server, "broadcast", lambda text, stream="", style="": broadcasts.append(text)
+    )
+    server.reexec(execv=lambda path, argv: (_ for _ in ()).throw(AssertionError))
+    assert stopped == []  # a doomed reexec must not stop running scripts
+    assert any("not supported on Windows" in text for text in broadcasts)
