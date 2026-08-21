@@ -352,6 +352,8 @@ class ClientGUI(QMainWindow, ClientLogger):
         if stream == "compass":
             self.update_compass(text)
             return
+        if stream == "room":
+            return  # machine stream (uid\ttitle) for scripts, not rendering
         view = self.stream_windows.get(stream, self.main_window)
         if style == "clear":
             # The game rewrites resident windows wholesale (spell list

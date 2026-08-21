@@ -25,6 +25,8 @@ class Engine(ClientLogger):
         # can end mid-line — even mid-tag — and parsing the fragment leaks
         # broken XML into the output. Held here until its line completes.
         self._partial_line = ""
+        # Last emitted room identity, for the synthetic "room" stream.
+        self._last_room_identity = (None, None)
 
     @property
     def connection(self):
@@ -123,6 +125,19 @@ class Engine(ClientLogger):
                         output_callback(text, stream, style)
                     elif style != "clear":
                         buff.append(text if not stream else f"[{stream}] {text}")
+                # Room identity as a synthetic "room" stream: one
+                # "uid\ttitle" frame per room change. Machine-facing —
+                # the surveyor and future mappers consume it; the GUI
+                # ignores it (issue #22's structured-events slice).
+                identity = (
+                    getattr(self.xml_data, "room_uid", None),
+                    getattr(self.xml_data, "room_title", None),
+                )
+                if identity != self._last_room_identity and any(identity):
+                    self._last_room_identity = identity
+                    if output_callback:
+                        uid, title = identity
+                        output_callback(f"{uid or ''}\t{title or ''}", "room", "")
                 # Every room sends a <compass>; emit the exits as a synthetic
                 # "compass" stream. One frame per room — front ends drive
                 # their widget from it, and scripts treat it as the

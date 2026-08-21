@@ -198,6 +198,9 @@ class SessionServer(ClientLogger):
             self.quit_sent = True
         with self.game_write_lock:
             self.game.write(data)
+        # Traffic-observing scripts (the surveyor) see outbound commands
+        # as a synthetic "sent" stream; frontends already echo their own.
+        self.scripts.feed(data.decode("ASCII", "replace").strip() + "\n", "sent")
 
     def client_reader(self, conn):
         buffer = b""
