@@ -74,6 +74,9 @@ class ClientGUI(QMainWindow, ClientLogger):
         "speech": (False, "#8fc7e8"),
         "whisper": (False, "#8fc7e8"),
         "thought": (False, "#b39ddb"),
+        # Ours, not the game's: markup-less lines that must not be
+        # missed (the idle check) — see xml_data._ALERT_LINE.
+        "alert": (True, "#e05252"),
     }
 
     # stream id -> dock window title; streams not listed here fall through

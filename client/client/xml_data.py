@@ -11,6 +11,11 @@ DISCARD_STREAMS = {"spellfront", "inv", "bounty", "society", "speech", "talk"}
 # matches contribute None.
 _STREAM_MARKER = re.compile(r"<pushStream id=[\"'](\w+)[\"'][^>]*/>|<popStream[^>]*/>")
 
+# Attention-critical lines the server sends with no markup at all —
+# the official frontend supplies their emphasis, so we supply ours as
+# the "alert" style (issue #42). Extend only with captured evidence.
+_ALERT_LINE = re.compile(r"YOU HAVE BEEN IDLE TOO LONG")
+
 # DR's 35 learning rates; the index is the mindstate 0..34 (ported from
 # lich's DR_LEARNING_RATES).
 LEARNING_RATES = [
@@ -291,6 +296,12 @@ class XMLData:
                 piece = html.unescape(piece)
                 if not piece.strip():
                     continue
+                if not style and _ALERT_LINE.search(piece):
+                    # The server sends these attention-critical lines with
+                    # no markup at all, trusting the official frontend to
+                    # make them loud (captured evidence in issue #42) —
+                    # so the styling is ours to add.
+                    style = "alert"
                 segments.append((stream, piece, style))
         return segments
 

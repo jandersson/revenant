@@ -254,3 +254,17 @@ def test_indicator(xml_data, login_strings):
     assert xml_data.indicator["IconWEBBED"] == "n"
     assert xml_data.indicator["IconJOINED"] == "n"
     assert xml_data.indicator["IconBLEEDING"] == "n"
+
+
+def test_idle_warning_gets_the_alert_style():
+    # Captured 2026-08-20 (issue #42): the idle check arrives with no
+    # markup at all between two prompts; official frontends supply the
+    # emphasis, so the parser stamps our own "alert" style on it.
+    xml_data = XMLData()
+    assert xml_data.route("YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND.") == [
+        ("", "YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND.", "alert")
+    ]
+    # Ordinary unstyled text stays plain.
+    assert xml_data.route("You feel fully rested.") == [
+        ("", "You feel fully rested.", "")
+    ]
