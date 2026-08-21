@@ -7,7 +7,6 @@ from time import sleep
 from PyQt6.QtWidgets import (
     QApplication,
     QDockWidget,
-    QGridLayout,
     QLineEdit,
     QMainWindow,
     QMenu,
@@ -90,20 +89,28 @@ class ClientGUI(QMainWindow, ClientLogger):
         "exp": "Experience",
     }
 
-    # (direction, row, column) in the compass grid
-    COMPASS_LAYOUT = [
-        ("nw", 0, 0),
-        ("n", 0, 1),
-        ("ne", 0, 2),
-        ("up", 0, 3),
-        ("w", 1, 0),
-        ("out", 1, 1),
-        ("e", 1, 2),
-        ("sw", 2, 0),
-        ("s", 2, 1),
-        ("se", 2, 2),
-        ("down", 2, 3),
-    ]
+    # Compass rose geometry: unit-circle offsets for the eight wind
+    # directions around a central OUT, with up/down stacked beside.
+    COMPASS_POINTS = {
+        "n": (0.0, -1.0),
+        "ne": (0.707, -0.707),
+        "e": (1.0, 0.0),
+        "se": (0.707, 0.707),
+        "s": (0.0, 1.0),
+        "sw": (-0.707, 0.707),
+        "w": (-1.0, 0.0),
+        "nw": (-0.707, -0.707),
+    }
+    COMPASS_ARROWS = {
+        "n": "↑",
+        "ne": "↗",
+        "e": "→",
+        "se": "↘",
+        "s": "↓",
+        "sw": "↙",
+        "w": "←",
+        "nw": "↖",
+    }
 
     def __init__(self, engine=None):
         super().__init__()
@@ -238,19 +245,41 @@ class ClientGUI(QMainWindow, ClientLogger):
             self.stream_windows[stream] = self.stream_docks[title].widget()
 
     def __add_compass_dock(self):
-        """Clickable exits: buttons light up with the room's compass tag."""
+        """Clickable exits drawn as a compass rose: eight arrows on a
+        ring around OUT, up/down beside, lit amber when the room's
+        compass tag offers the exit and dimmed to the ring otherwise."""
+        width, height, ring, side = 190, 150, 54, 36
+        center_x, center_y = 78, height // 2
         container = QWidget()
-        grid = QGridLayout(container)
-        grid.setSpacing(2)
-        grid.setContentsMargins(4, 4, 4, 4)
+        container.setFixedSize(width, height)
+        container.setStyleSheet(
+            f"QPushButton {{ border-radius: {side // 2}px;"
+            "  background: #d8b465; color: #1c1c24;"
+            "  font-weight: bold; border: 1px solid #8a733f; }"
+            "QPushButton:disabled { background: #23232b; color: #4a4a55;"
+            "  border: 1px solid #33333d; }"
+        )
         self.compass_buttons = {}
-        for direction, row, column in self.COMPASS_LAYOUT:
-            button = QPushButton(direction)
+
+        def place(name, label, x, y, size=side):
+            button = QPushButton(label, container)
             button.setEnabled(False)
-            button.setFixedSize(48, 28)
-            button.clicked.connect(lambda checked=False, d=direction: self.write(d))
-            grid.addWidget(button, row, column)
-            self.compass_buttons[direction] = button
+            button.setGeometry(int(x - size / 2), int(y - size / 2), size, size)
+            button.setToolTip(name)
+            button.clicked.connect(lambda checked=False, d=name: self.write(d))
+            self.compass_buttons[name] = button
+
+        for direction, (dx, dy) in self.COMPASS_POINTS.items():
+            place(
+                direction,
+                self.COMPASS_ARROWS[direction],
+                center_x + dx * ring,
+                center_y + dy * ring,
+            )
+        place("out", "out", center_x, center_y)
+        place("up", "up", width - 22, center_y - 28, size=30)
+        place("down", "dn", width - 22, center_y + 28, size=30)
+
         dock = QDockWidget("Compass")
         dock.setObjectName("Compass")
         dock.setWidget(container)
