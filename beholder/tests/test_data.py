@@ -29,15 +29,21 @@ ROWS = [
 
 @pytest.fixture
 def connection(tmp_path):
-    connection = data.connect(tmp_path / "xp.db")
-    connection.execute(SCHEMA)
-    connection.executemany(
+    # Seed with a writer connection (data.connect is read-only by design).
+    import sqlite3
+
+    path = tmp_path / "xp.db"
+    writer = sqlite3.connect(path)
+    writer.execute(SCHEMA)
+    writer.executemany(
         "INSERT INTO mindstate "
         "(logged_at, character_name, skill_name, rank, percent, mindstate) "
         "VALUES (?, ?, ?, ?, ?, ?)",
         ROWS,
     )
-    connection.commit()
+    writer.commit()
+    writer.close()
+    connection = data.connect(path)
     yield connection
     connection.close()
 
@@ -93,3 +99,24 @@ def test_unknown_character_yields_empty_results(connection):
 def test_database_path_honors_the_xp_scripts_override(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "elsewhere.db"))
     assert data.database_path() == tmp_path / "elsewhere.db"
+
+
+def test_connect_is_read_only_and_never_creates_the_file(tmp_path):
+    import sqlite3
+
+    missing = tmp_path / "never-written.db"
+    with pytest.raises(sqlite3.OperationalError):
+        data.connect(missing)
+    assert not missing.exists()  # the empty-xp.db side effect, regressed
+    # And an existing database cannot be written through it.
+    seeded = tmp_path / "seeded.db"
+    writer = sqlite3.connect(seeded)
+    writer.execute(SCHEMA)
+    writer.commit()
+    writer.close()
+    reader = data.connect(seeded)
+    with pytest.raises(sqlite3.OperationalError):
+        reader.execute(
+            "INSERT INTO mindstate (logged_at, character_name, skill_name, rank, percent, mindstate) VALUES ('t', 'c', 's', 1, 1, 1)"
+        )
+    reader.close()

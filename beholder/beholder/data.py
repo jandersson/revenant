@@ -18,7 +18,11 @@ def database_path() -> Path:
 
 
 def connect(path=None):
-    connection = sqlite3.connect(path or database_path())
+    """Read-only: the dashboard must never create an empty xp.db as a
+    side effect of being opened before ;xp has ever run — a missing
+    file raises OperationalError, which callers already treat as the
+    no-history-yet state."""
+    connection = sqlite3.connect(f"file:{path or database_path()}?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row
     return connection
 
