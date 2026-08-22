@@ -27,7 +27,11 @@ from PyQt6.QtGui import (
     QColor,
     QFont,
     QFontDatabase,
+    QFontMetricsF,
     QIcon,
+    QPainter,
+    QPainterPath,
+    QPen,
     QTextCharFormat,
     QTextCursor,
 )
@@ -81,6 +85,30 @@ class HistoryLineEdit(QLineEdit):
                 self.setText(shown)
             return
         super().keyPressEvent(event)
+
+
+class OutlinedBar(QProgressBar):
+    """A vitals bar whose label stays readable over any fill: the
+    glyphs get a black outline behind a light face. Plain bar text
+    washed out where chunk and text were both light — the spirit
+    bar's near-white chunk was the reported case."""
+
+    def __init__(self):
+        super().__init__()
+        self.setTextVisible(False)  # the label is painted here instead
+
+    def paintEvent(self, event):
+        super().paintEvent(event)  # groove and chunk, no text
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        text = self.text()
+        metrics = QFontMetricsF(self.font())
+        x = (self.width() - metrics.horizontalAdvance(text)) / 2
+        y = (self.height() + metrics.ascent() - metrics.descent()) / 2
+        path = QPainterPath()
+        path.addText(x, y, self.font(), text)
+        painter.strokePath(path, QPen(QColor(0, 0, 0), 3))
+        painter.fillPath(path, QColor("#f0f0f2"))
 
 
 def claim_taskbar_identity():
@@ -643,7 +671,7 @@ class ClientGUI(QMainWindow, ClientLogger):
                 continue
             bar = self.vitals_bars.get(vital)
             if bar is None:
-                bar = QProgressBar()
+                bar = OutlinedBar()
                 bar.setRange(0, 100)
                 bar.setFixedHeight(16)
                 bar.setFormat(f"{self.VITAL_LABELS.get(vital, vital)} %p%")
