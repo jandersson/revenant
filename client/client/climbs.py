@@ -15,8 +15,9 @@ Entry kinds:
 - "travel"  — a two-room loop over the map's own edges (bottom/top
   room ids); climbs award on the 45-60s timer (docs/experience.md).
 - "practice" — one room and an obstacle for `climb practice <x>`,
-  award-timer-exempt. The battlements obstacles are assumed
-  practice-able like the pear tree until a live run confirms the verb.
+  award-timer-exempt. The practice verb starts a CONTINUOUS activity
+  (confirmed live at the NE gate embrasure, 2026-08-22 — #89);
+  ;athletics starts it once and watches, never spams.
 - "advice"  — a real spot the community map doesn't cover (or a swim
   the trainer can't loop); shown in ;athletics list only.
 

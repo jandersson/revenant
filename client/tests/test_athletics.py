@@ -62,6 +62,9 @@ class FakeHandle:
     def put(self, command):
         self.calls.append(("put", command))
 
+    def get(self, timeout=None, streams=("",)):
+        return self.lines.pop(0) if getattr(self, "lines", None) else None
+
     def waitrt(self):
         self.calls.append(("waitrt",))
 
@@ -257,6 +260,65 @@ def _state(**overrides):
     defaults = dict(experience={}, hostiles={}, vitals={}, indicator={})
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
+
+
+class PracticeHandle(FakeHandle):
+    """Every practice send is answered by the game — the wording is the
+    test's to choose (the #89 capture set)."""
+
+    def __init__(self, *args, response, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.lines = []
+        self.response = response
+
+    def put(self, command):
+        super().put(command)
+        self.lines.append(self.response)
+
+
+def test_practice_is_started_once_and_watched_not_spammed():
+    # climb practice is a continuous activity (captured 2026-08-22 at
+    # the NE gate embrasure, #89): the old per-second re-send earned
+    # "You should stop practicing ..." once a second.
+    handle = PracticeHandle(
+        (),
+        mindstates=(5,),
+        sleeps=8,
+        response="You begin to practice your climbing skills.",
+    )
+    with pytest.raises(LoopDone):
+        athletics.train(handle, ["climb practice embrasure"], practice=True)
+    puts = [call for call in handle.calls if call[0] == "put"]
+    assert puts == [("put", "climb practice embrasure")]
+
+
+def test_practice_refusal_counts_as_already_running():
+    handle = PracticeHandle(
+        (),
+        mindstates=(5,),
+        sleeps=8,
+        response=(
+            "You should stop practicing your Athletics skill before you do that."
+        ),
+    )
+    with pytest.raises(LoopDone):
+        athletics.train(handle, ["climb practice embrasure"], practice=True)
+    puts = [call for call in handle.calls if call[0] == "put"]
+    assert len(puts) == 1
+
+
+def test_practice_restarts_when_the_activity_ends():
+    # The end wording is an assumption until captured (#89).
+    handle = PracticeHandle(
+        (),
+        mindstates=(5,),
+        sleeps=8,
+        response="You stop practicing your climbing.",
+    )
+    with pytest.raises(LoopDone):
+        athletics.train(handle, ["climb practice embrasure"], practice=True)
+    puts = [call for call in handle.calls if call[0] == "put"]
+    assert len(puts) >= 2
 
 
 def test_burden_warning_only_when_meaningfully_burdened():

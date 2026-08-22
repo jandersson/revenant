@@ -6,7 +6,8 @@ rung in reach — the community map knows the rooms — and trains it,
 pausing at mind-lock and moving up the ladder when gains go stale.
 Standard travel climbs award xp at most once per random 45–60s window
 (docs/experience.md), so climb loops are paced to that timer instead
-of spammed; `climb practice` rungs are timer-exempt and loop tightly.
+of spammed; `climb practice` rungs are timer-exempt continuous
+activities — started once and watched, never spammed (#89).
 The ladder is Zoluren spots per Elanthipedia, encoded with their
 map rooms, rank bands, and conditions in client/climbs.py; rank 100+
 trains in town on the Crossing battlements. Auto mode checks
@@ -310,7 +311,34 @@ def report_cadence(commands, pace):
     return max(1, round(REPORT_EVERY_SECONDS / lap_seconds))
 
 
-def train(s, commands, stop_when_stale=False, pace=PAUSE):
+# Practice-activity wordings: climb practice is a CONTINUOUS activity,
+# not a per-command action — captured 2026-08-22 at the NE gate
+# embrasure (#89), where the old per-second re-send earned a refusal
+# per second. The refusal means it is already running; the end
+# wordings are assumptions until captured.
+PRACTICE_ACTIVE = (
+    "begin to practice",  # captured
+    "continue to practice",  # captured
+    "should stop practicing",  # captured: refused — already running
+)
+PRACTICE_ENDED = ("you stop practicing", "no longer practicing")
+PRACTICE_REASSERT = 120  # seconds between re-sends while it looks active
+
+
+def practice_seen(s, practicing):
+    """Scan queued game lines for the practice activity's state (#89)."""
+    while True:
+        line = s.get(timeout=0)
+        if line is None:
+            return practicing
+        lowered = line.lower()
+        if any(needle in lowered for needle in PRACTICE_ACTIVE):
+            practicing = True
+        elif any(needle in lowered for needle in PRACTICE_ENDED):
+            practicing = False
+
+
+def train(s, commands, stop_when_stale=False, pace=PAUSE, practice=False):
     """Cycle the movement commands, pausing at mind-lock. Returns
     "contested" when hostiles keep breaking the training (#86); with
     stop_when_stale, returns "stale" so auto mode can advance; manual
@@ -320,10 +348,15 @@ def train(s, commands, stop_when_stale=False, pace=PAUSE):
     slept once per lap back at the loop's start room with danger
     polls — repeat climbs inside the window grant nothing but cost
     nothing, so closing the loop early loses no experience and never
-    leaves the trainer idling deep in a spawn room."""
+    leaves the trainer idling deep in a spawn room. With practice, the
+    command starts a continuous activity (#89): it is sent once,
+    watched through the game's own lines, and re-asserted only when
+    the activity ends or every PRACTICE_REASSERT seconds."""
     laps = 0
     reports = []
     breaks = []  # monotonic stamps of hostile break-offs (#86)
+    practicing = False
+    last_assert = 0.0
     report_every = report_cadence(commands, pace)
     while True:
         current = mindstate(s.state)
@@ -356,7 +389,18 @@ def train(s, commands, stop_when_stale=False, pace=PAUSE):
                             "areas never empty on their own"
                         )
                         return "contested"
+                practicing = False  # the escape moved us; practice ended
                 break  # start the lap over with fresh state
+            if practice:
+                practicing = practice_seen(s, practicing)
+                now = time.monotonic()
+                if not practicing or now - last_assert >= PRACTICE_REASSERT:
+                    s.put(command)
+                    last_assert = now
+                    practicing = True  # optimistic; the next scan corrects
+                s.waitrt()
+                s.sleep(PAUSE)
+                continue
             s.put(command)
             s.waitrt()
             s.sleep(PAUSE)
@@ -428,7 +472,10 @@ def auto_train(s, db=None, walk=None):
             else f"paced {pace}s to the award timer"
         )
         s.echo(f"training: {' | '.join(commands)} ({style})")
-        result = train(s, commands, stop_when_stale=True, pace=pace)
+        practice_rung = "practice" in rung
+        result = train(
+            s, commands, stop_when_stale=True, pace=pace, practice=practice_rung
+        )
         if result == "danger":
             return
         rank = current_rank(s.state) or rank
@@ -441,7 +488,16 @@ def auto_train(s, db=None, walk=None):
         advanced = next_rung(rung, rank)
         if advanced is None:
             s.echo("gains are stale but no harder rung is in reach yet — carrying on")
-            if train(s, commands, stop_when_stale=False, pace=pace) == "contested":
+            if (
+                train(
+                    s,
+                    commands,
+                    stop_when_stale=False,
+                    pace=pace,
+                    practice=practice_rung,
+                )
+                == "contested"
+            ):
                 contested.add(rung["label"])
                 rung = fall_back(s, rank, contested)
                 if rung is not None:
