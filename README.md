@@ -34,11 +34,23 @@ A rough-draft engine + frontends for playing DragonRealms with Python in the loo
 ![The PyQt6 frontend live in DragonRealms: stream docks on the right route arrivals and thoughts, the compass lights up with the room's exits](docs/screenshot.png)
 
 - **core** — the engine/middleman between the game and whichever frontend is attached. See [client/client/core.py](client/client/core.py).
-- **session** — a detachable session daemon that logs in, owns the game socket, and serves parsed game text to any number of frontends over localhost, lich-style. Also hosts the Python script engine (`;list`, `;run`, `;stop`). See [client/client/session.py](client/client/session.py).
+- **session** — a detachable session daemon that logs in, owns the game socket, and serves parsed game text to any number of frontends over localhost, lich-style. Also hosts the Python script engine (`;list`, `;run`, `;stop`) — writing your own script is a docstring and a `main(s)` in `scripts/`; see [docs/scripting.md](docs/scripting.md). See [client/client/session.py](client/client/session.py).
 - **gui** — a PyQt6 frontend reminiscent of the old AOL-era Gemstone clients, rendering the game's own styling markers: amber room names, blue speech, bold alerts, and clickable command links (`<d>north</d>` — click to walk). Personal highlight patterns (lich-style) live in `~/.revenant/highlights.json` — regexes with a color and boldness, coloring just the matched text; edit them from the View menu. File → Settings covers the autostarts and whether closing the window quits the game (`~/.revenant/settings.json`). The Experience dock is a live skill dashboard (rank, percent, mindstate per learning skill), and `;xp` logs the same data to `~/.revenant/xp.db` for history and analysis. See [client/client/gui/client_gui.py](client/client/gui/client_gui.py).
 - **tui** — a non-working draft of a terminal frontend. [Profanity](https://github.com/elanthia-online/profanity-fe) is what you actually want for a TUI today; this is just a sketch.
 
 Python 3.10–3.12. Packaged via [client/pyproject.toml](client/pyproject.toml) as a member of the root uv workspace.
+
+#### Which edits take effect when?
+
+You rarely need to restart anything. From cheapest to dearest:
+
+| You edited            | To pick it up                                                                 |
+| --------------------- | ----------------------------------------------------------------------------- |
+| a script (`scripts/`) | nothing — `;run` loads it fresh from disk every time (`;stop x`, then `;x`)   |
+| the GUI               | close or Detach the window and relaunch; it reattaches, no logout             |
+| the session/engine    | `;reexec` (below) — or on Windows, where reexec is unsupported, quit and relaunch |
+
+A script that is already running keeps its old code until you `;stop` and rerun it.
 
 #### Hot code reload: `;reexec`
 
@@ -68,7 +80,9 @@ How it works:
 
 Caveats: running scripts are stopped, not resumed (start them again with
 `;run`); a session older than this feature doesn't know `;reexec`, so the
-first upgrade still needs one old-fashioned QUIT-and-relaunch.
+first upgrade still needs one old-fashioned QUIT-and-relaunch. On Windows
+`;reexec` is unsupported (WinSock handles can't survive the exec handoff)
+and says so instead of trying — quit and relaunch there.
 
 ### beholder
 A browser dashboard for character experience history — mindstate and rank over time per character and skill, the historical companion to the GUI's live Experience dock.
