@@ -145,3 +145,7 @@ Hobby-grade. Things are in varying states of disrepair — the client is the mos
 ## License
 
 MIT (see [client/pyproject.toml](client/pyproject.toml)).
+
+---
+
+<p align="center"><sub>Product of Sweden 🇸🇪</sub></p>
