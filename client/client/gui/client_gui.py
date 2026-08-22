@@ -27,6 +27,7 @@ from PyQt6.QtCore import QSettings, Qt, pyqtSignal
 
 from client.core import Engine
 from client.client_logger import ClientLogger
+from client.highlights import highlights_path, load_rules, spans
 from client.session import AttachedEngine, DEFAULT_HOST, DEFAULT_PORT
 
 ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
@@ -117,6 +118,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.log.debug("Initializing ClientGUI instance")
         self.status_bar = self.statusBar()
         self.input_dock = QDockWidget()
+        self.highlight_rules = load_rules()
         self.client = engine if engine is not None else Engine()
         self.__init_ui()
         self.game_text.connect(self.dispatch_game_text)
@@ -172,6 +174,12 @@ class ClientGUI(QMainWindow, ClientLogger):
         )
         history_action.triggered.connect(self.show_experience_history)
 
+        highlights_action = QAction("Reload High&lights", self)
+        highlights_action.setStatusTip(
+            f"Re-read your highlight patterns from {highlights_path()}"
+        )
+        highlights_action.triggered.connect(self.reload_highlights)
+
         menubar = self.menuBar()
         file_menu = menubar.addMenu("&File")
         file_menu.addAction(reconnect_action)
@@ -180,6 +188,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         view_menu = menubar.addMenu("View")
         view_menu.addAction(view_status_bar)
         view_menu.addAction(history_action)
+        view_menu.addAction(highlights_action)
         view_menu.addSeparator()
         for dock in self.stream_docks.values():
             view_menu.addAction(dock.toggleViewAction())
@@ -310,6 +319,15 @@ class ClientGUI(QMainWindow, ClientLogger):
     def send_input(self):
         self.write(self.input.text())
 
+    def reload_highlights(self):
+        """View → Reload Highlights: re-read the patterns file so edits
+        take effect without a restart."""
+        self.highlight_rules = load_rules()
+        self.status_bar.showMessage(
+            f"{len(self.highlight_rules)} highlight rules loaded "
+            f"from {highlights_path()}"
+        )
+
     def show_experience_history(self):
         """View → Experience History: the beholder dashboard, embedded.
 
@@ -382,7 +400,20 @@ class ClientGUI(QMainWindow, ClientLogger):
             text_format.setFontWeight(QFont.Weight.Bold)
         if color:
             text_format.setForeground(QColor(color))
-        cursor.insertText(text, text_format)
+        # User highlights color just the matched spans, lich-style,
+        # over whatever base style the piece arrived with.
+        position = 0
+        for start, end, rule in spans(text, self.highlight_rules):
+            if start > position:
+                cursor.insertText(text[position:start], text_format)
+            highlight_format = QTextCharFormat(text_format)
+            if rule["bold"]:
+                highlight_format.setFontWeight(QFont.Weight.Bold)
+            if rule["color"]:
+                highlight_format.setForeground(QColor(rule["color"]))
+            cursor.insertText(text[start:end], highlight_format)
+            position = end
+        cursor.insertText(text[position:], text_format)
         if follow:
             scrollbar.setValue(scrollbar.maximum())
 

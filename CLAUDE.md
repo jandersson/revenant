@@ -89,7 +89,9 @@ One pipeline, one parser, several processes:
 - `client/client/gui/client_gui.py` — PyQt6 frontend. GUI-thread safety via
   the `game_text` pyqtSignal; stream docks route thoughts/spells/arrivals;
   compass dock renders the `"compass"` stream. Direct mode logs in itself;
-  `--attach` connects to a session.
+  `--attach` connects to a session. User highlight patterns
+  (`client/highlights.py`, ~/.revenant/highlights.json) color matched
+  spans over any base style; View → Reload Highlights re-reads them.
 - `client/client/launch.py` — the `revenant` console script: ensures a
   session is running, then execs the GUI.
 
@@ -102,6 +104,11 @@ One pipeline, one parser, several processes:
 - Every behavior change ships with unit tests in `client/tests/` — bug fixes
   get a regression test (ideally built from captured game traffic, like the
   compass tests), new features get coverage. No test, no merge.
+- Every change freshens the documentation it staled, in the same commit:
+  the module docstring (it is the ;help manual), the READMEs' claims about
+  behavior, CLAUDE.md's architecture notes, and docs/ files whose
+  assumptions moved. A doc that says the old thing is a bug like any
+  other — grep for the feature's old wording before shipping.
 - Tests are documentation: a reader learns how a command or feature behaves
   from its tests, without sifting through implementation. Business rules
   and user-facing behavior — command grammar, responses, output formats,
