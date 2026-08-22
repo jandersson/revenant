@@ -21,8 +21,15 @@ seconds of clean escape window in that capture.
 opponents hinder it — "You are unable to retreat from a cougar!"
 eight times in a row in the death capture, each with ~2s roundtime.
 Movement out of the room auto-retreats first and fails the same way.
-Escape is therefore a loop with persistence, not a single command
-(;athletics encodes exactly that).
+
+**The escape recipe** (captured working, 2026-08-22): burst
+`retreat` → `retreat` → `<direction>` back to back, riding the game's
+type-ahead — "You retreat back to pole range." → "You retreat from
+combat." → "You go north." Full disengagement announces itself as
+*"You retreat from combat"*; anything slower loses the race, because
+critters re-advance in the gaps between spaced commands (four
+single-retreat-then-move attempts failed against the same cougars
+minutes earlier). ;athletics encodes the persistent-loop version.
 
 ## Attacking
 
@@ -34,12 +41,12 @@ shakes its head back and forth, its dark eyes befuddled."
 
 **Corpses keep their noun**: after a kill, `ATTACK cougar` resolves
 to the body — "The cougar is already quite dead." — while a second,
-living cougar closes unmolested (captured: ten wasted swings). An
-attack loop must retarget on that message; `FACE NEXT` (turn to the
-next opponent engaging you) is the documented tool — *assumption to
-verify on the next fight*, alongside ordinal targeting ("attack
-second cougar"). "What were you referring to?" means nothing by that
-noun remains (decayed corpse included).
+living cougar closes unmolested (captured: ten wasted swings).
+**`SEARCH <corpse>` disposes of it** (confirmed 2026-08-22),
+clearing the noun so the next ATTACK finds the living one — the
+retarget move for automation. `FACE NEXT` remains an unverified
+alternative. "What were you referring to?" means nothing by that
+noun remains (searched or decayed).
 
 ## Defense
 
