@@ -130,6 +130,13 @@ class XMLData:
         self.vitals = {}
         self.vitals_updated = False
         self._vitals_dialog = False
+        # Hostile creatures in the room, from <crtrStatus hostile='1'>
+        # tags: {exist id: engaged}. The game re-enumerates them after
+        # every 'room objs' component (staged, swapped at the closing
+        # prompt so a mid-line read never sees a half-set); a room
+        # change clears them until the fresh enumeration arrives (#72).
+        self.hostiles = {}
+        self._staged_hostiles = None
         # Bracketed room title, e.g. "[The Crossing, Herald Street]"
         self.room_title = None
         # The game's unique room id from <nav rm='...'/>, sent on every
@@ -174,6 +181,9 @@ class XMLData:
             self.current_style = attributes["id"]
         elif name == "prompt":
             self.server_time = int(attributes["time"])
+            if self._staged_hostiles is not None:
+                self.hostiles = self._staged_hostiles
+                self._staged_hostiles = None
         elif name == "settingsInfo":
             if "instance" in attributes:
                 self.game = attributes["instance"]
@@ -194,6 +204,10 @@ class XMLData:
                 self.room_uid = int(attributes.get("rm", ""))
             except ValueError:
                 pass
+            # A new room: creature knowledge resets until the fresh
+            # enumeration arrives.
+            self.hostiles = {}
+            self._staged_hostiles = None
         elif name == "roundTime":
             self.roundtime = int(attributes["value"])
         elif name == "castTime":
@@ -213,6 +227,18 @@ class XMLData:
             if ident.startswith("exp ") and ident not in _EXP_NOT_SKILLS:
                 self._exp_skill = ident[4:]
                 self._exp_text = ""
+            elif ident == "room objs":
+                self._staged_hostiles = {}
+        elif name == "crtrStatus":
+            if attributes.get("hostile") == "1":
+                target = (
+                    self._staged_hostiles
+                    if self._staged_hostiles is not None
+                    else self.hostiles
+                )
+                target[attributes.get("exist", "")] = (
+                    attributes.get("disengaged") != "1"
+                )
         elif name == "streamWindow" and attributes.get("id") == "room":
             subtitle = attributes.get("subtitle", "")
             if subtitle.startswith(" - "):

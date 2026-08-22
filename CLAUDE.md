@@ -46,7 +46,8 @@ One pipeline, one parser, several processes:
   passing only the key to the session over stdin (never argv or env).
   **Never store credentials in files, even gitignored ones.**
 - `client/client/xml_data.py` — XMLParser target holding parsed game state
-  (indicators, compass, prompt), plus `route(line)` which splits each line
+  (indicators, compass, prompt, vitals, hostile creatures from
+  `<crtrStatus>`), plus `route(line)` which splits each line
   into `(stream, text, style)` segments via pushStream/popStream markers
   and the styling markers (pushBold, presets, style spans). style is ""
   for plain text, a style name the GUI maps to colors/bold, the control

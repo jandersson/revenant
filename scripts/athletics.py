@@ -13,8 +13,10 @@ The ladder is Zoluren spots per Elanthipedia. Also:
     ;athletics climb x | climb back     train a manual loop right here
 
 Progress is echoed about every five minutes; pair with ;xp for
-history. The mine ladder rung is near beisswurms — mind your health
-there. Stop with:  ;stop athletics
+history. Danger interrupts training (#72): hostiles in the room mean
+break off and climb away until clear, low health means hold until it
+recovers, and death stops the script — it never keeps feeding climbs
+into an engagement. Stop with:  ;stop athletics
 """
 
 import re
@@ -29,6 +31,10 @@ REPORT_EVERY_SECONDS = 300  # progress/staleness cadence, roughly
 EST_ROUNDTIME = 4  # rough per-command cost for the cadence estimate
 STALE_MINDSTATE = 12  # reports at or below this look like a too-easy spot
 STALE_REPORTS = 3  # ... after this many in a row without improvement
+HEALTH_FLOOR = 65  # % health: below this, hold training until recovered
+ESCAPE_ATTEMPTS = 8  # moves per burst while hostiles hold the room
+DANGER_POLL = 5  # seconds between checks while holding
+CLEAR_HOLD = 15  # breather after hostiles clear, before resuming
 
 # The Zoluren rank ladder the script can walk to, easiest to hardest.
 # Travel-climb rungs carry bottom/top rooms (loop commands are read from
@@ -201,6 +207,80 @@ def recommendations(rank):
     return lines
 
 
+def hostiles_present(state):
+    return bool(getattr(state, "hostiles", None))
+
+
+def health_percent(state):
+    vitals = getattr(state, "vitals", None) or {}
+    return vitals.get("health")
+
+
+def is_dead(state):
+    indicators = getattr(state, "indicator", None) or {}
+    return indicators.get("IconDEAD") == "y"
+
+
+def danger(state):
+    """Why training must stop right now, or None. Checked before every
+    climb — the cougar death (#72) happened because nothing was."""
+    if is_dead(state):
+        return "dead"
+    if hostiles_present(state):
+        return "hostiles"
+    health = health_percent(state)
+    if health is not None and health < HEALTH_FLOOR:
+        return "hurt"
+    return None
+
+
+def escape(s, commands):
+    """Leave along the training edge, alternating directions. Movement
+    auto-retreats and can fail once engaged (captured in #72: eight
+    straight failures while two cougars closed), so keep trying; True
+    once the room has no hostiles."""
+    for attempt in range(ESCAPE_ATTEMPTS):
+        s.put(commands[attempt % len(commands)])
+        s.waitrt()
+        s.sleep(1)
+        if not hostiles_present(s.state):
+            return True
+    return False
+
+
+def handle_danger(s, reason, commands):
+    """React to danger; "stop" when training must end (death), None
+    once it has passed."""
+    if reason == "dead":
+        s.echo("ATHLETICS: you are dead — stopping the trainer")
+        return "stop"
+    if reason == "hostiles":
+        s.echo("ATHLETICS: hostiles here — breaking off to get away!")
+        while hostiles_present(s.state):
+            if is_dead(s.state):
+                s.echo("ATHLETICS: you are dead — stopping the trainer")
+                return "stop"
+            if not escape(s, commands):
+                s.echo(
+                    "ATHLETICS: can't get clear — still trying (intervene if you can!)"
+                )
+        s.echo("clear of hostiles — resuming after a breather")
+        s.sleep(CLEAR_HOLD)
+        return None
+    s.echo(f"ATHLETICS: health below {HEALTH_FLOOR}% — holding until it recovers")
+    while True:
+        if is_dead(s.state):
+            s.echo("ATHLETICS: you are dead — stopping the trainer")
+            return "stop"
+        if hostiles_present(s.state):
+            return None  # the caller re-checks and handles the hostiles
+        health = health_percent(s.state)
+        if health is None or health >= HEALTH_FLOOR:
+            s.echo("health recovered — resuming")
+            return None
+        s.sleep(DANGER_POLL)
+
+
 def going_stale(report_mindstates):
     """True when the last few reports all sat at a low mindstate without
     improving — the signature of a spot outgrown."""
@@ -236,10 +316,17 @@ def train(s, commands, stop_when_stale=False, pace=PAUSE):
             )
             while current is not None and current > RESUME_BELOW:
                 s.sleep(LOCK_POLL)
+                if danger(s.state):
+                    break  # dealt with below, before any climb
                 current = mindstate(s.state)
             s.echo("resuming")
             reports.clear()  # a lock is the opposite of stale
         for command in commands:
+            reason = danger(s.state)
+            if reason:
+                if handle_danger(s, reason, commands) == "stop":
+                    return "danger"
+                break  # start the lap over with fresh state
             s.put(command)
             s.waitrt()
             s.sleep(pace)
@@ -300,7 +387,8 @@ def auto_train(s, db=None, walk=None):
             else f"paced {pace}s to the award timer"
         )
         s.echo(f"training: {' | '.join(commands)} ({style})")
-        train(s, commands, stop_when_stale=True, pace=pace)
+        if train(s, commands, stop_when_stale=True, pace=pace) == "danger":
+            return
         rank = current_rank(s.state) or rank
         advanced = next_rung(rung, rank)
         if advanced is None:

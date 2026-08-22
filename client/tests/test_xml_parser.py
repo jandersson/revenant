@@ -173,6 +173,63 @@ INJURIES_BAR = (
 )
 
 
+# Captured 2026-08-22 (#72): three cougars arrive — the room-objs
+# enumeration, then a crtrStatus per creature, closed by a prompt.
+CRTR_ARRIVE = (
+    "<component id='room objs'>You also see <pushBold/>a cougar<popBold/>,"
+    " a rise in the cliff, <pushBold/>a cougar<popBold/> and"
+    " <pushBold/>a cougar<popBold/>.</component>"
+    '<crtrStatus exist="78646435" hostile="1" disengaged="1"/>'
+    '<crtrStatus exist="78646436" hostile="1" disengaged="1"/>'
+    '<crtrStatus exist="78646437" hostile="1" disengaged="1"/>'
+    '<prompt time="1787407791">&gt;</prompt>'
+)
+# ... and later one wanders off: the fresh enumeration replaces the set.
+CRTR_FEWER = (
+    "<component id='room objs'>You also see a rise in the cliff and"
+    " <pushBold/>a cougar<popBold/>.</component>"
+    '<crtrStatus exist="78646436" hostile="1" disengaged="1"/>'
+    '<prompt time="1787407825">&gt;</prompt>'
+)
+
+
+def test_hostiles_track_the_rooms_creatures(xml_data):
+    XMLParser(target=xml_data).feed(f"<r>{CRTR_ARRIVE}</r>")
+    assert xml_data.hostiles == {
+        "78646435": False,  # disengaged='1': present, not yet engaged
+        "78646436": False,
+        "78646437": False,
+    }
+    XMLParser(target=xml_data).feed(f"<r>{CRTR_FEWER}</r>")
+    assert xml_data.hostiles == {"78646436": False}
+
+
+def test_hostiles_swap_only_at_the_closing_prompt(xml_data):
+    XMLParser(target=xml_data).feed(f"<r>{CRTR_ARRIVE}</r>")
+    # A fresh enumeration without its prompt yet: readers still see
+    # the previous complete set, never a half-built one.
+    XMLParser(target=xml_data).feed(
+        "<r><component id='room objs'>You also see a rise in the cliff.</component></r>"
+    )
+    assert len(xml_data.hostiles) == 3
+    XMLParser(target=xml_data).feed('<r><prompt time="1787407826">&gt;</prompt></r>')
+    assert xml_data.hostiles == {}
+
+
+def test_non_hostile_creatures_never_count(xml_data):
+    XMLParser(target=xml_data).feed(
+        '<r><crtrStatus exist="78245133" hostile="0" disengaged="1"/>'
+        '<prompt time="1787407585">&gt;</prompt></r>'
+    )
+    assert xml_data.hostiles == {}
+
+
+def test_a_room_change_clears_hostiles(xml_data):
+    XMLParser(target=xml_data).feed(f"<r>{CRTR_ARRIVE}</r>")
+    XMLParser(target=xml_data).feed("<r><nav rm='414008'/></r>")
+    assert xml_data.hostiles == {}
+
+
 def test_minivitals_bars_accumulate_into_vitals(xml_data):
     XMLParser(target=xml_data).feed(f"<r>{MINIVITALS_HEALTH}</r>")
     assert xml_data.vitals == {"health": 100}

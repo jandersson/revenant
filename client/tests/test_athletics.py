@@ -245,3 +245,88 @@ def test_auto_mode_stops_cleanly_when_the_walk_fails():
     athletics.auto_train(handle, db=LADDER_MAP, walk=failing_walk)
     assert any("could not reach" in echo for echo in handle.echoes)
     assert ("put", "climb practice pear tree") not in handle.calls
+
+
+def _state(**overrides):
+    defaults = dict(experience={}, hostiles={}, vitals={}, indicator={})
+    defaults.update(overrides)
+    return SimpleNamespace(**defaults)
+
+
+def test_danger_classifies_death_hostiles_and_low_health():
+    assert athletics.danger(_state()) is None
+    assert athletics.danger(_state(hostiles={"78646435": False})) == "hostiles"
+    assert athletics.danger(_state(vitals={"health": 40})) == "hurt"
+    assert athletics.danger(_state(vitals={"health": 65})) is None
+    # Death outranks everything else.
+    assert (
+        athletics.danger(
+            _state(indicator={"IconDEAD": "y"}, hostiles={"78646435": True})
+        )
+        == "dead"
+    )
+
+
+class DangerHandle(FakeHandle):
+    """Hostiles occupy the room for the first few sleeps, then clear —
+    the cougars-arrive capture (#72), with a survivable ending."""
+
+    def __init__(self, *args, hostile_sleeps=2, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.state.hostiles = {"78646435": False}
+        self._hostile_sleeps = hostile_sleeps
+
+    def sleep(self, seconds):
+        self._hostile_sleeps -= 1
+        if self._hostile_sleeps <= 0:
+            self.state.hostiles = {}
+        super().sleep(seconds)
+
+
+def test_train_breaks_off_and_escapes_hostiles():
+    handle = DangerHandle((), mindstates=(5,), sleeps=30, hostile_sleeps=2)
+    with pytest.raises(LoopDone):
+        athletics.train(handle, ["climb rise", "climb down"], pace=0)
+    assert any("hostiles here" in echo for echo in handle.echoes)
+    assert any("clear of hostiles" in echo for echo in handle.echoes)
+    # Escape moved along the training edge, and climbing resumed after.
+    assert ("put", "climb rise") in handle.calls
+
+
+def test_train_keeps_trying_when_escape_fails():
+    handle = DangerHandle((), mindstates=(5,), sleeps=12, hostile_sleeps=99)
+    with pytest.raises(LoopDone):
+        athletics.train(handle, ["climb rise", "climb down"], pace=0)
+    assert any("can't get clear" in echo for echo in handle.echoes)
+
+
+def test_train_stops_when_dead():
+    handle = FakeHandle((), mindstates=(5,), sleeps=50)
+    handle.state.indicator = {"IconDEAD": "y"}
+    assert athletics.train(handle, ["climb rise"]) == "danger"
+    assert not [call for call in handle.calls if call[0] == "put"]
+    assert any("dead" in echo for echo in handle.echoes)
+
+
+class HurtHandle(FakeHandle):
+    """Health starts low and recovers after a few polls."""
+
+    def __init__(self, *args, hurt_sleeps=2, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.state.vitals = {"health": 30}
+        self._hurt_sleeps = hurt_sleeps
+
+    def sleep(self, seconds):
+        self._hurt_sleeps -= 1
+        if self._hurt_sleeps <= 0:
+            self.state.vitals = {"health": 100}
+        super().sleep(seconds)
+
+
+def test_train_holds_until_health_recovers():
+    handle = HurtHandle((), mindstates=(5,), sleeps=20)
+    with pytest.raises(LoopDone):
+        athletics.train(handle, ["climb rise"], pace=0)
+    assert any("health below" in echo for echo in handle.echoes)
+    assert any("health recovered" in echo for echo in handle.echoes)
+    assert ("put", "climb rise") in handle.calls
