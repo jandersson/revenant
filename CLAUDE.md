@@ -99,8 +99,11 @@ One pipeline, one parser, several processes:
   targets an arbitrary stream (e.g. "thoughts"). `scripts/lnet.py` uses it
   to mirror LNet chat into the Thoughts window, read-only (`;lnet`).
   Sessions autostart the xp history logger, the beholder dashboard
-  server in quiet mode, and the character-sheet snapshotter (`;sheet`:
-  INFO + EXP ALL into stats/sheet_skills/character tables every 3h)
+  server in quiet mode, the character-sheet snapshotter (`;sheet`:
+  INFO + EXP ALL into stats/sheet_skills/character tables every 3h),
+  and the death watchdog (`;deathwatch`: departs an unattended corpse
+  with the best variant the favors afford before it decays —
+  docs/death.md holds the captured model)
   (`session.autostart_scripts`; `;stop <name>` opts
   a session out; the GUI's File → Settings dialog over
   `client/settings.py` / ~/.revenant/settings.json turns them off

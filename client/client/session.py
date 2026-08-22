@@ -542,6 +542,10 @@ def autostart_scripts(server):
         "autostart_sheet", True
     ):
         server.scripts.start("sheet", [])
+    if not os.environ.get("REVENANT_NO_DEATHWATCH") and settings.get(
+        "autostart_deathwatch", True
+    ):
+        server.scripts.start("deathwatch", [])
     # User-chosen extras: script names with optional args ("lnet",
     # "athletics ladder"). Unknown names answer with the usual
     # no-script-named message rather than failing the startup.
