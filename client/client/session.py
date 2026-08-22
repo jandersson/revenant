@@ -433,6 +433,10 @@ def autostart_scripts(server):
         "autostart_beholder", True
     ):
         server.scripts.start("beholder", ["quiet"])
+    if not os.environ.get("REVENANT_NO_SHEET") and settings.get(
+        "autostart_sheet", True
+    ):
+        server.scripts.start("sheet", [])
 
 
 if __name__ == "__main__":

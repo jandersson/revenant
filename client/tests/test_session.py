@@ -225,6 +225,9 @@ def test_main_game_fd_adopts_socket_and_reprimes_with_look(monkeypatch):
         adopted["game"] = self.game
 
     monkeypatch.setattr(session.SessionServer, "serve", capture_serve)
+    # Autostarts are not under test, and the sheet script would write
+    # its INFO probe into the adopted socket this test is asserting on.
+    monkeypatch.setattr(session, "autostart_scripts", lambda server: None)
     session.main(["--game-fd", str(fd), "--port", "0"])
 
     assert session.GAME_BUFFER_ENV not in os.environ  # consumed, not leaked
@@ -335,6 +338,7 @@ def test_reattach_returns_false_without_a_session():
 def _autostart_with(monkeypatch, settings=None, **env):
     monkeypatch.delenv("REVENANT_NO_XP", raising=False)
     monkeypatch.delenv("REVENANT_NO_BEHOLDER", raising=False)
+    monkeypatch.delenv("REVENANT_NO_SHEET", raising=False)
     import json
     import tempfile
     from pathlib import Path
@@ -355,14 +359,31 @@ def _autostart_with(monkeypatch, settings=None, **env):
 
 
 def test_sessions_autostart_xp_and_the_quiet_dashboard(monkeypatch):
-    assert _autostart_with(monkeypatch) == [("xp", []), ("beholder", ["quiet"])]
+    assert _autostart_with(monkeypatch) == [
+        ("xp", []),
+        ("beholder", ["quiet"]),
+        ("sheet", []),
+    ]
 
 
 def test_env_flags_disable_each_autostart(monkeypatch):
-    assert _autostart_with(monkeypatch, REVENANT_NO_XP="1") == [("beholder", ["quiet"])]
-    assert _autostart_with(monkeypatch, REVENANT_NO_BEHOLDER="1") == [("xp", [])]
+    assert _autostart_with(monkeypatch, REVENANT_NO_XP="1", REVENANT_NO_SHEET="1") == [
+        ("beholder", ["quiet"])
+    ]
+    assert _autostart_with(
+        monkeypatch, REVENANT_NO_BEHOLDER="1", REVENANT_NO_SHEET="1"
+    ) == [("xp", [])]
+    assert _autostart_with(
+        monkeypatch, REVENANT_NO_XP="1", REVENANT_NO_BEHOLDER="1"
+    ) == [("sheet", [])]
     assert (
-        _autostart_with(monkeypatch, REVENANT_NO_XP="1", REVENANT_NO_BEHOLDER="1") == []
+        _autostart_with(
+            monkeypatch,
+            REVENANT_NO_XP="1",
+            REVENANT_NO_BEHOLDER="1",
+            REVENANT_NO_SHEET="1",
+        )
+        == []
     )
 
 
@@ -445,12 +466,12 @@ def test_eof_after_quit_reads_as_a_clean_logoff():
 
 
 def test_settings_file_disables_autostarts_durably(monkeypatch):
-    assert _autostart_with(monkeypatch, settings={"autostart_xp": False}) == [
-        ("beholder", ["quiet"])
-    ]
-    assert _autostart_with(monkeypatch, settings={"autostart_beholder": False}) == [
-        ("xp", [])
-    ]
+    assert _autostart_with(
+        monkeypatch, settings={"autostart_xp": False, "autostart_sheet": False}
+    ) == [("beholder", ["quiet"])]
+    assert _autostart_with(
+        monkeypatch, settings={"autostart_beholder": False, "autostart_sheet": False}
+    ) == [("xp", [])]
     # Env vars still beat the file for a single launch.
     assert (
         _autostart_with(
@@ -458,6 +479,7 @@ def test_settings_file_disables_autostarts_durably(monkeypatch):
             settings={"autostart_xp": True, "autostart_beholder": True},
             REVENANT_NO_XP="1",
             REVENANT_NO_BEHOLDER="1",
+            REVENANT_NO_SHEET="1",
         )
         == []
     )
