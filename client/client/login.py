@@ -117,9 +117,14 @@ class EAccessClient(ClientLogger):
         return login_key
 
     def encrypt_password(self, password, hashkey):
-        """Encrypt the password with the supplied hash from the server"""
-        password = list(password)
+        """Encrypt the password with the supplied hash from the server.
+
+        Only as many characters as the hashkey covers can be hashed —
+        the server validates no more, and official front ends truncate
+        the same way. Hashing the full password instead crashed on any
+        password over 32 characters (captured live 2026-08-22, #73)."""
         hashkey = list(hashkey[:32])
+        password = list(password[: len(hashkey)])
         return b"".join(
             [
                 struct.pack("B", ((char - 32) ^ hashkey[i]) + 32)

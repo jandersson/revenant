@@ -222,3 +222,21 @@ def test_get_credentials_prompts_when_keychain_empty(monkeypatch):
     monkeypatch.setattr(login.getpass, "getpass", lambda prompt: "fromprompt")
     creds = login.get_credentials()
     assert creds["password"] == b"fromprompt"
+
+
+def test_encrypt_password_xors_against_the_hashkey():
+    ea = login.EAccessClient()
+    hashed = ea.encrypt_password(b"secret", b"\x01" * 32)
+    assert hashed == bytes(((char - 32) ^ 1) + 32 for char in b"secret")
+
+
+def test_a_password_longer_than_the_hashkey_hashes_its_prefix():
+    # Captured live 2026-08-22 (#73): a freshly reset password longer
+    # than the 32-byte hashkey crashed login with IndexError. The
+    # server only validates the hashed prefix, so truncate like the
+    # official front ends do.
+    ea = login.EAccessClient()
+    long_password = b"correct-horse-battery-staple-and-then-some"
+    hashed = ea.encrypt_password(long_password, b"\x02" * 32)
+    assert len(hashed) == 32
+    assert hashed == ea.encrypt_password(long_password[:32], b"\x02" * 32)
