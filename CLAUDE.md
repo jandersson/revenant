@@ -105,7 +105,11 @@ One pipeline, one parser, several processes:
 - `client/client/mapdb.py` — the community DR map database (elanthia-online
   mapdb-backup-dr), downloaded to `~/.revenant/mapdb/` on first use, never
   vendored. BFS pathfinding; wayto commands starting with ";e" are embedded
-  Ruby and treated as unwalkable. `scripts/go2.py` is the walker on top.
+  Ruby, walked only when they translate to plain fput/move commands.
+  `client/client/walker.py` (locate/walk; model in docs/movement.md) is
+  the shared travel engine; `scripts/go2.py` is the command on top, and
+  `;favors` (scripts/favors.py) rides it for the favor-orb run — grotto
+  ritual, attended puzzles, temple altar offer (docs/favors.md).
 - `client/client/circles.py` — circle requirements, Qt-free: every
   circled guild's Elanthipedia rate table + the slot/soft-requirement
   model; `;circle` (scripts/circle.py) and beholder's Circle-gates
