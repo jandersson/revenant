@@ -34,6 +34,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtCore import QSettings, Qt, QTimer, pyqtSignal
 
 from client import eltime
+from client.command_history import CommandHistory
 from client.core import Engine
 from client.client_logger import ClientLogger
 from client.highlights import highlights_path, load_rules, spans
@@ -57,6 +58,28 @@ try:
     from PyQt6.QtWebEngineWidgets import QWebEngineView
 except ImportError:  # pragma: no cover — depends on the install
     QWebEngineView = None
+
+
+class HistoryLineEdit(QLineEdit):
+    """The command line with shell-style history: Up/Down browse what
+    was typed, the unsent draft survives the browse (#76)."""
+
+    def __init__(self):
+        super().__init__()
+        self.history = CommandHistory()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Up:
+            shown = self.history.previous(self.text())
+            if shown is not None:
+                self.setText(shown)
+            return
+        if event.key() == Qt.Key.Key_Down:
+            shown = self.history.next()
+            if shown is not None:
+                self.setText(shown)
+            return
+        super().keyPressEvent(event)
 
 
 def claim_taskbar_identity():
@@ -477,7 +500,7 @@ class ClientGUI(QMainWindow, ClientLogger):
 
     def __add_input_field(self):
         self.input_dock.setObjectName("Input")
-        self.input = QLineEdit()
+        self.input = HistoryLineEdit()
         # Disabled until the game connection is up: Qt's input hook pumps
         # events while login blocks on stdin, so keystrokes meant for the
         # terminal must not reach this field or trigger a send.
@@ -608,7 +631,12 @@ class ClientGUI(QMainWindow, ClientLogger):
             self.rt_timer.stop()
 
     def send_input(self):
-        self.write(self.input.text())
+        text = self.input.text()
+        self.write(text)
+        self.input.history.record(text)
+        # Leave the text selected: plain Enter repeats it, typing
+        # replaces it — the classic frontends' feel.
+        self.input.selectAll()
 
     def reload_highlights(self):
         """View → Reload Highlights: re-read the patterns file so edits

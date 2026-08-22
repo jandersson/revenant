@@ -125,7 +125,9 @@ One pipeline, one parser, several processes:
   Earth's moon; roundtime/casttime count down beside the input line
   under a row of vitals bars (health/fatigue/spirit/concentration,
   mana for casters), next to the status strip (posture + stunned/
-  bleeding/hidden badges, DEAD in alert red); the title bar names the
+  bleeding/hidden badges, DEAD in alert red); the input line has
+  shell-style Up/Down history (client/command_history.py, Qt-free)
+  and re-selects after send so Enter repeats; the title bar names the
   logged-in character. Direct mode logs in itself;
   `--attach` connects to a session. User highlight patterns
   (`client/highlights.py`, ~/.revenant/highlights.json) color matched
