@@ -7,12 +7,20 @@ on: [push]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         # client/login.py uses telnetlib, which was removed in Python 3.13.
         python-version: ["3.10", "3.11", "3.12"]
+        include:
+          # The macOS leg (#84): Docker can't containerize macOS, so CI
+          # covers it — one Python, since the OS differences we guard
+          # against (case-insensitive fs, socket-close semantics) don't
+          # vary by Python version.
+          - os: macos-latest
+            python-version: "3.12"
 
     steps:
       - uses: actions/checkout@v4

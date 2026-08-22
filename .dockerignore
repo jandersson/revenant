@@ -1,0 +1,16 @@
+# Keep the build context to sources: no venvs, no git history, and no
+# .claude worktrees (each carries a full second copy of the repo).
+.git
+.claude
+.venv
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+.ruff_cache
+notebooks
+**/*.egg-info
+build
+dist
+.dockerignore
+docker

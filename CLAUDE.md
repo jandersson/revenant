@@ -20,11 +20,15 @@ uv run pytest beholder/tests -q  # beholder test suite
 uv run pytest chat/tests -q      # chat / Marshal-reader test suite
 uv run ruff check client chat beholder    # lint — CI enforces this
 uv run ruff format client chat beholder   # format — CI enforces --check
+uv run python tools/docker_tests.py # CI's battery in a Linux container
+                                 # (--all: the 3.10-3.12 matrix) — catches
+                                 # Linux-only socket hangs before a push
 uv run python tools/build_app.py # (re)build ~/Applications/Revenant.app (macOS)
 ```
 
 CI (`.github/workflows/python-package.yml`) runs ruff (check + format) and
-pytest on Python 3.10–3.12, ubuntu. Ruff config lives in the root
+pytest on Python 3.10–3.12 on ubuntu, plus one macos-latest leg on 3.12
+(macOS can't run in Docker, so CI owns that OS). Ruff config lives in the root
 pyproject.toml (notebooks excluded). Always run the commands above before
 pushing.
 
