@@ -102,10 +102,14 @@ def walk(s, db, goals, describe="destination"):
             pass
         s.put(commands[-1])
         arrived = s.get(timeout=15, streams=("compass",)) is not None
-        if not arrived and getattr(s.state, "hostiles", None):
+        if not arrived:
             # Engaged: moves and climbs refuse until retreated out to
             # missile range (docs/combat.md) — burst retreat/retreat/
             # step through the type-ahead and give the step one retry.
+            # Unconditionally: hostile state can be empty while engaged
+            # (#88 — the #85 wipe left a walker stalled at melee with a
+            # clean hostiles dict, and it walked away from the fight by
+            # exiting), and a retreat while unengaged is harmless.
             s.put("retreat")
             s.put("retreat")
             s.put(commands[-1])

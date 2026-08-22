@@ -38,12 +38,14 @@ captured bugs:
 
 Moving or climbing out of a room auto-retreats first, and engaged
 hostiles hinder that exactly like RETREAT (docs/combat.md holds the
-range model and the captures). When a step stalls with hostiles
-present, the walker bursts retreat → retreat → step through the game's
-type-ahead and judges success by the room changing — not by the room
-emptying (the cave bear that would not leave). Spaced single retreats
-lose the race to re-advances (the #72 cougar death, captured
-2026-08-22).
+range model and the captures). When a step stalls — for any reason,
+not only when hostile state says so: the state can be empty while
+engaged (#88, captured mid-fight) — the walker bursts retreat →
+retreat → step through the game's type-ahead and judges success by
+the room changing, not by the room emptying (the cave bear that
+would not leave). One burst per step; a stall it cannot fix still
+stops the walk. Spaced single retreats lose the race to re-advances
+(the #72 cougar death, captured 2026-08-22).
 
 ## Edges the map can and cannot walk
 
