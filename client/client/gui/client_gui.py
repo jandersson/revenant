@@ -119,7 +119,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         "chatter": "Thoughts",
         "percWindow": "Spells",
         "logons": "Arrivals",
-        "death": "Arrivals",
+        "death": "Deaths",
         "exp": "Experience",
     }
 

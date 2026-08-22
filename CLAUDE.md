@@ -119,7 +119,8 @@ One pipeline, one parser, several processes:
   ntpdate: TIME + OBSERVE MOONS, calibration stored in settings
   (`eltime_offset_seconds`, `eltime_moons`).
 - `client/client/gui/client_gui.py` — PyQt6 frontend. GUI-thread safety via
-  the `game_text` pyqtSignal; stream docks route thoughts/spells/arrivals;
+  the `game_text` pyqtSignal; stream docks route
+  thoughts/spells/arrivals/deaths;
   compass dock renders the `"compass"` stream; the clocks dock ticks
   Elanthian time, moons, Stockholm/Chicago, and (via a Settings toggle)
   Earth's moon; roundtime/casttime count down beside the input line
