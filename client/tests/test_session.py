@@ -132,6 +132,29 @@ def test_semicolon_commands_go_to_scripts_not_game(monkeypatch):
     client.close()
 
 
+def test_sessions_register_for_the_launcher_and_prune_stale_rows(monkeypatch):
+    # The launcher's picker reads ~/.revenant/sessions.json (#58):
+    # serving registers {port, character, pid}; a shutdown removes the
+    # row; a crash leaves one that running_sessions() prunes because
+    # nothing answers on its port.
+    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
+    game = FakeGame()
+    server, port = _start_server(game)
+    assert _await(lambda: session.running_sessions()), "session never registered"
+    (entry,) = session.running_sessions()
+    assert (entry["port"], entry["character"]) == (port, "Testchar")
+
+    # A bound-but-not-listening socket: the stale row's port refuses.
+    holder = socket.socket()
+    holder.bind(("127.0.0.1", 0))
+    session.register_session(holder.getsockname()[1], "Ghost")
+    assert [e["character"] for e in session.running_sessions()] == ["Testchar"]
+    holder.close()
+
+    game.closed = True  # the game EOF shuts the session down
+    assert _await(lambda: not session.running_sessions()), "never deregistered"
+
+
 def test_new_front_end_receives_recent_backlog_on_attach():
     # Attaching to a running session shows what already happened —
     # scrollback and compass state — not a blank window.

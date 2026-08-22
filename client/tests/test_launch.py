@@ -275,57 +275,153 @@ def test_main_attaches_to_running_session(monkeypatch):
     server.close()
 
 
-def test_pick_character_offers_the_cached_roster(monkeypatch, tmp_path):
-    defaults = tmp_path / "login.json"
-    defaults.write_text(
-        '{"account": "TESTACCT", "characters": ["Alpha", "Beta", "Gamma"]}'
-    )
-    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(defaults))
-    asked = {}
-
-    def fake_ask(roster, default, account):
-        asked.update(roster=roster, default=default, account=account)
-        return "Beta"
-
-    assert launch.pick_character("Gamma", ask=fake_ask) == "Beta"
-    assert asked == {
-        "roster": ["Alpha", "Beta", "Gamma"],
-        "default": "Gamma",
+def test_launch_choices_lists_sessions_then_offline_characters():
+    defaults = {
+        "accounts": {
+            "otheracct": {"account": "OTHERACCT", "characters": ["Gamma"]},
+            "testacct": {"account": "TESTACCT", "characters": ["Alpha", "Beta"]},
+        }
+    }
+    sessions = [{"port": 4242, "character": "Beta", "pid": 1}]
+    choices = launch.launch_choices(defaults, sessions)
+    assert [choice["label"] for choice in choices] == [
+        "Beta — online, attach",
+        "Gamma — OTHERACCT",
+        "Alpha — TESTACCT",
+    ]
+    assert choices[0]["kind"] == "attach"
+    assert choices[0]["port"] == 4242
+    assert choices[2] == {
+        "kind": "launch",
+        "label": "Alpha — TESTACCT",
+        "character": "Alpha",
         "account": "TESTACCT",
     }
 
 
-def test_pick_character_without_roster_falls_back_to_default(monkeypatch, tmp_path):
-    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(tmp_path / "login.json"))
-    monkeypatch.delenv("REVENANT_ACCOUNT", raising=False)
-    assert launch.pick_character("Testchar") == "Testchar"
+def test_launch_choices_single_account_drops_the_account_suffix():
+    defaults = {
+        "accounts": {"testacct": {"account": "TESTACCT", "characters": ["Alpha"]}}
+    }
+    assert [choice["label"] for choice in launch.launch_choices(defaults, [])] == [
+        "Alpha"
+    ]
 
 
-def test_pick_character_reads_the_per_account_cache(monkeypatch, tmp_path):
+def test_launch_choices_reads_the_legacy_flat_cache():
+    defaults = {"account": "TESTACCT", "characters": ["Alpha", "Beta"]}
+    labels = [choice["label"] for choice in launch.launch_choices(defaults, [])]
+    assert labels == ["Alpha", "Beta"]
+
+
+def test_get_free_port_skips_occupied_ports():
+    server, port = _listener()
+    free = launch.get_free_port("127.0.0.1", start=port, tries=5)
+    assert port < free < port + 5
+    server.close()
+
+
+def test_main_with_character_attaches_to_its_own_session(monkeypatch):
+    from client import session as session_module
+
+    server, port = _listener()
+    session_module.register_session(port, "Beta")
+    calls = []
+    monkeypatch.setattr(launch, "exec_gui", lambda args: calls.append(args))
+    launch.main(["Beta", "--port", str(port)])
+    assert calls == [["--attach", f"127.0.0.1:{port}"]]
+    server.close()
+
+
+def test_main_with_character_spawns_beside_a_running_session(monkeypatch):
+    # The pre-#58 behavior attached to whatever ran on the port with
+    # "character argument ignored" — now the other character gets a
+    # session of their own on a free port.
+    from client import session as session_module
+
+    server, port = _listener()
+    session_module.register_session(port, "Beta")
+    calls = {}
+    monkeypatch.setattr(
+        launch,
+        "gather_login",
+        lambda character, fresh_account=False, account=None: (character, "KEY"),
+    )
+    monkeypatch.setattr(
+        launch,
+        "start_session",
+        lambda host, spawn_port, character, key: calls.setdefault(
+            "spawn", (spawn_port, character, key)
+        ),
+    )
+    monkeypatch.setattr(launch, "exec_gui", lambda args: calls.setdefault("gui", args))
+    launch.main(["Alpha", "--port", str(port)])
+    spawn_port, character, key = calls["spawn"]
+    assert character == "Alpha"
+    assert key == "KEY"
+    assert spawn_port != port
+    assert calls["gui"] == ["--attach", f"127.0.0.1:{spawn_port}"]
+    server.close()
+
+
+def _stub_picker(monkeypatch, answer):
+    import sys
+    import types
+
+    stub = types.SimpleNamespace(
+        ask_character=lambda labels, default, account: answer(labels, default)
+    )
+    monkeypatch.setitem(sys.modules, "client.gui.login_dialog", stub)
+
+
+def test_pick_and_go_attaches_to_a_picked_session(monkeypatch):
+    from client import session as session_module
+
+    server, port = _listener()
+    session_module.register_session(port, "Beta")
+    calls = []
+    monkeypatch.setattr(launch, "exec_gui", lambda args: calls.append(args))
+    _stub_picker(monkeypatch, lambda labels, default: labels[0])
+    launch.pick_and_go("127.0.0.1", port)
+    assert calls == [["--attach", f"127.0.0.1:{port}"]]
+    server.close()
+
+
+def test_pick_and_go_launches_a_picked_character(monkeypatch, tmp_path):
     defaults = tmp_path / "login.json"
     defaults.write_text(
-        '{"account": "TESTACCT",'
-        ' "accounts": {"testacct": {"characters": ["Alpha", "Beta"]}}}'
+        '{"accounts": {"testacct": {"account": "TESTACCT", "characters": ["Alpha"]}}}'
     )
     monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(defaults))
-    seen = {}
+    calls = {}
+    monkeypatch.setattr(
+        launch,
+        "gather_login",
+        lambda character, fresh_account=False, account=None: (
+            calls.setdefault("login", (character, account)) or (character, "KEY")
+        ),
+    )
+    monkeypatch.setattr(
+        launch,
+        "start_session",
+        lambda host, port, character, key: calls.setdefault("spawn", port),
+    )
+    monkeypatch.setattr(launch, "exec_gui", lambda args: calls.setdefault("gui", args))
+    _stub_picker(monkeypatch, lambda labels, default: "Alpha")
+    launch.pick_and_go("127.0.0.1", 4242)
+    assert calls["login"] == ("Alpha", "TESTACCT")
+    assert calls["gui"] == ["--attach", f"127.0.0.1:{calls['spawn']}"]
 
-    def fake_ask(roster, default, account):
-        seen.update(roster=roster)
-        return "Alpha"
 
-    assert launch.pick_character(ask=fake_ask) == "Alpha"
-    assert seen["roster"] == ["Alpha", "Beta"]
-
-
-def test_pick_character_propagates_the_other_account_choice(monkeypatch, tmp_path):
+def test_pick_and_go_cancel_means_no_gui(monkeypatch, tmp_path):
     defaults = tmp_path / "login.json"
-    defaults.write_text('{"account": "TESTACCT", "characters": ["Alpha"]}')
+    defaults.write_text('{"accounts": {"testacct": {"characters": ["Alpha"]}}}')
     monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(defaults))
-    result = launch.pick_character(
-        ask=lambda roster, default, account: launch.OTHER_ACCOUNT
-    )
-    assert result is launch.OTHER_ACCOUNT
+    calls = []
+    monkeypatch.setattr(launch, "exec_gui", lambda args: calls.append(args))
+    _stub_picker(monkeypatch, lambda labels, default: None)
+    assert launch.pick_and_go("127.0.0.1", 4242) is None
+    assert calls == []
 
 
 def test_gather_login_fresh_account_ignores_saved_identity(monkeypatch, tmp_path):

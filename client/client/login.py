@@ -196,13 +196,32 @@ def save_known_characters(names, account: str):
     """Cache an account's character roster for pickers (names only —
     codes are session-scoped and everything secret stays elsewhere).
     Rosters live per account, so switching accounts never clobbers
-    another account's cache."""
+    another account's cache. The typed-case account name rides along:
+    keyring entries are case-sensitive, cache keys are not."""
     data = load_login_defaults()
     accounts = data.setdefault("accounts", {})
-    accounts.setdefault(account.lower(), {})["characters"] = sorted(names)
+    entry = accounts.setdefault(account.lower(), {})
+    entry["characters"] = sorted(names)
+    entry["account"] = account
     path = login_defaults_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data))
+
+
+def account_for_character(defaults: dict, character: str):
+    """The cached account owning a character name (typed case), or None
+    when no cached roster mentions it — the launcher uses this to log a
+    picked character into the right account (#58)."""
+    lowered = character.lower()
+    accounts = defaults.get("accounts")
+    if isinstance(accounts, dict):
+        for key, entry in accounts.items():
+            names = entry.get("characters") or []
+            if any(name.lower() == lowered for name in names):
+                return entry.get("account") or key
+    if lowered == (defaults.get("character") or "").lower():
+        return defaults.get("account")
+    return None
 
 
 def fetch_character_list(username: str, password: str, login_client=None) -> dict:

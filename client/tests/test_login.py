@@ -240,3 +240,26 @@ def test_a_password_longer_than_the_hashkey_hashes_its_prefix():
     hashed = ea.encrypt_password(long_password, b"\x02" * 32)
     assert len(hashed) == 32
     assert hashed == ea.encrypt_password(long_password[:32], b"\x02" * 32)
+
+
+def test_account_for_character_searches_every_cached_roster():
+    defaults = {
+        "account": "TESTACCT",
+        "character": "Alpha",
+        "accounts": {
+            "otheracct": {"account": "OTHERACCT", "characters": ["Gamma"]},
+        },
+    }
+    # Case-insensitive, typed-case account back out.
+    assert login.account_for_character(defaults, "gamma") == "OTHERACCT"
+    # The legacy flat default still answers for its character.
+    assert login.account_for_character(defaults, "Alpha") == "TESTACCT"
+    assert login.account_for_character(defaults, "Nobody") is None
+
+
+def test_save_known_characters_keeps_the_typed_account_case(monkeypatch, tmp_path):
+    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(tmp_path / "login.json"))
+    login.save_known_characters({"Alpha": "c1", "Beta": "c2"}, "TESTACCT")
+    defaults = login.load_login_defaults()
+    assert defaults["accounts"]["testacct"]["account"] == "TESTACCT"
+    assert login.account_for_character(defaults, "beta") == "TESTACCT"

@@ -1,7 +1,12 @@
 """One-command launcher: ensure a game session is running, attach the GUI.
 
 - revenant              attach to a running session, spawning one first if needed
-- revenant Crannach     same, setting the character for a newly spawned session
+- revenant Crannach     attach to Crannach's session, or spawn one on a
+                        free port — several characters run side by side,
+                        one window each (#58)
+- revenant --pick       the Start Menu shortcut's mode: a picker of
+                        running sessions (attach) and every cached
+                        character on every account (launch)
 - revenant --direct     single process: login and GUI together, no session
 """
 
@@ -21,14 +26,14 @@ from client.login import (
     KEYRING_SERVICE,
     OTHER_ACCOUNT,
     LoginError,
-    account_roster,
+    account_for_character,
     eaccess_protocol,
     fetch_character_list,
     keychain_password,
     load_login_defaults,
     save_login_defaults,
 )
-from client.session import DEFAULT_HOST, DEFAULT_PORT
+from client.session import DEFAULT_HOST, DEFAULT_PORT, running_sessions
 
 
 def session_running(host, port):
@@ -39,7 +44,65 @@ def session_running(host, port):
         return False
 
 
-def gather_login(character, fresh_account=False):
+def get_free_port(host, start=DEFAULT_PORT, tries=20):
+    """The first port at or above `start` that nothing occupies —
+    sessions run side by side, one port each (#58)."""
+    for port in range(start, start + tries):
+        if session_running(host, port):
+            continue
+        try:
+            with socket.socket() as probe:
+                probe.bind((host, port))
+        except OSError:
+            continue
+        return port
+    raise SystemExit(f"revenant: no free port in {start}..{start + tries - 1}")
+
+
+def launch_choices(defaults, sessions):
+    """The picker's menu: running sessions first (attach), then every
+    cached character on every account that isn't already online. Each
+    choice carries what acting on it needs — a port to attach, or a
+    character/account pair to log in."""
+    choices = []
+    online = set()
+    for entry in sorted(sessions, key=lambda e: e.get("port", 0)):
+        name = str(entry.get("character") or f"port {entry.get('port')}")
+        online.add(name.lower())
+        choices.append(
+            {
+                "kind": "attach",
+                "label": f"{name} — online, attach",
+                "character": name,
+                "port": entry["port"],
+            }
+        )
+    accounts = defaults.get("accounts")
+    if isinstance(accounts, dict) and accounts:
+        rosters = [
+            (entry.get("account") or key, entry.get("characters") or [])
+            for key, entry in sorted(accounts.items())
+        ]
+    else:  # legacy flat cache from before per-account rosters
+        rosters = [(defaults.get("account") or "", defaults.get("characters") or [])]
+    label_accounts = len([1 for _, names in rosters if names]) > 1
+    for account, names in rosters:
+        for name in names:
+            if name.lower() in online:
+                continue
+            label = f"{name} — {account}" if label_accounts else name
+            choices.append(
+                {
+                    "kind": "launch",
+                    "label": label,
+                    "character": name,
+                    "account": account,
+                }
+            )
+    return choices
+
+
+def gather_login(character, fresh_account=False, account=None):
     """Work out how the session will authenticate.
 
     Returns (character, key): key is None when the OS keychain holds the
@@ -52,11 +115,15 @@ def gather_login(character, fresh_account=False):
     dialog entirely. Env vars override the saved names.
 
     fresh_account (the picker's "Other account...") ignores every saved
-    or env-provided identity and goes straight to the login screen."""
+    or env-provided identity and goes straight to the login screen. An
+    explicit account (a picked character's owner) overrides both the
+    env var and the saved default."""
     defaults = {} if fresh_account else load_login_defaults()
     account = (
-        "" if fresh_account else os.environ.get("REVENANT_ACCOUNT")
-    ) or defaults.get("account", "")
+        account
+        or ("" if fresh_account else os.environ.get("REVENANT_ACCOUNT"))
+        or defaults.get("account", "")
+    )
     character = character or defaults.get("character", "")
     if account and character and keychain_password(account) is not None:
         return character, None
@@ -102,32 +169,6 @@ def gather_login(character, fresh_account=False):
                 )
             save_login_defaults(account, character)
         return character, key
-
-
-def pick_character(default="", ask=None):
-    """Launcher-mode character choice: the account's roster in a dropdown.
-
-    Uses the roster the login flows cache per account in login.json,
-    fetching it fresh when the cache is empty but the keychain can
-    authenticate. Returns the picked name; OTHER_ACCOUNT when the user
-    chose to log in with a different account; the default when there is
-    nothing to pick from (the login dialog will ask instead); or None
-    when the user cancelled and the launch should stop."""
-    defaults = load_login_defaults()
-    account = os.environ.get("REVENANT_ACCOUNT") or defaults.get("account") or ""
-    roster = account_roster(defaults, account)
-    if not roster and account:
-        password = keychain_password(account)
-        if password is not None:
-            try:
-                roster = sorted(fetch_character_list(account, password))
-            except (LoginError, OSError):
-                roster = []
-    if not roster:
-        return default
-    if ask is None:
-        from client.gui.login_dialog import ask_character as ask
-    return ask(roster, default, account)
 
 
 def spawn_session(host, port, character, key=None):
@@ -257,26 +298,73 @@ def main(argv=None):
             os.environ["REVENANT_CHARACTER"] = args.character
         return exec_gui([])
 
-    if not session_running(args.host, args.port):
-        character = args.character
-        fresh_account = False
-        if args.pick:
-            saved = load_login_defaults().get("character") or ""
-            choice = pick_character(character or saved)
-            if choice is None:
-                return  # picker cancelled: no session, no GUI
-            fresh_account = choice is OTHER_ACCOUNT
-            character = "" if fresh_account else choice
-        character, key = gather_login(character, fresh_account=fresh_account)
-        print(f"revenant: starting a session on {args.host}:{args.port} ...")
-        process = spawn_session(args.host, args.port, character, key=key)
-        wait_for_session(process, args.host, args.port)
-    elif args.character:
-        print(
-            f"revenant: session already running on {args.host}:{args.port}, "
-            "attaching to it (character argument ignored)"
+    if args.pick:
+        return pick_and_go(args.host, args.port)
+
+    if args.character:
+        # The named character's session if one runs, a fresh session on
+        # a free port otherwise — never someone else's window (#58).
+        mine = next(
+            (
+                entry
+                for entry in running_sessions(args.host)
+                if str(entry.get("character", "")).lower() == args.character.lower()
+            ),
+            None,
         )
+        if mine:
+            return exec_gui(["--attach", f"{args.host}:{mine['port']}"])
+        account = account_for_character(load_login_defaults(), args.character)
+        character, key = gather_login(args.character, account=account)
+        port = get_free_port(args.host, args.port)
+        start_session(args.host, port, character, key)
+        return exec_gui(["--attach", f"{args.host}:{port}"])
+
+    if not session_running(args.host, args.port):
+        character, key = gather_login(None)
+        start_session(args.host, args.port, character, key)
     return exec_gui(["--attach", f"{args.host}:{args.port}"])
+
+
+def start_session(host, port, character, key):
+    print(f"revenant: starting a session for {character} on {host}:{port} ...")
+    process = spawn_session(host, port, character, key=key)
+    wait_for_session(process, host, port)
+
+
+def pick_and_go(host, base_port):
+    """--pick, the Start Menu shortcut's flow: choose a running session
+    to attach or any cached character (any account) to launch on a free
+    port. One window per pick — click the shortcut again for the next
+    character (#58)."""
+    defaults = load_login_defaults()
+    choices = launch_choices(defaults, running_sessions(host))
+    picked = OTHER_ACCOUNT  # nothing cached yet: straight to the login screen
+    if choices:
+        from client.gui.login_dialog import ask_character
+
+        saved = (defaults.get("character") or "").lower()
+        default_label = next(
+            (c["label"] for c in choices if c["character"].lower() == saved),
+            choices[0]["label"],
+        )
+        answer = ask_character([c["label"] for c in choices], default_label, "")
+        if answer is None:
+            return  # picker cancelled: no session, no GUI
+        picked = (
+            OTHER_ACCOUNT
+            if answer is OTHER_ACCOUNT
+            else next(c for c in choices if c["label"] == answer)
+        )
+    if picked is OTHER_ACCOUNT:
+        character, key = gather_login("", fresh_account=True)
+    elif picked["kind"] == "attach":
+        return exec_gui(["--attach", f"{host}:{picked['port']}"])
+    else:
+        character, key = gather_login(picked["character"], account=picked["account"])
+    port = get_free_port(host, base_port)
+    start_session(host, port, character, key)
+    return exec_gui(["--attach", f"{host}:{port}"])
 
 
 if __name__ == "__main__":

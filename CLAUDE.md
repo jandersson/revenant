@@ -126,8 +126,14 @@ One pipeline, one parser, several processes:
   `--attach` connects to a session. User highlight patterns
   (`client/highlights.py`, ~/.revenant/highlights.json) color matched
   spans over any base style; View → Reload Highlights re-reads them.
-- `client/client/launch.py` — the `revenant` console script: ensures a
-  session is running, then execs the GUI.
+- `client/client/launch.py` — the `revenant` console script: attaches
+  the GUI to the right session, spawning one when needed. Characters
+  run side by side, one session/window each on its own port: sessions
+  register in ~/.revenant/sessions.json (client/session.py; pruned by
+  connectability), `revenant <name>` attaches to that character's
+  session or spawns on a free port, and `--pick` (the Start Menu
+  shortcut) offers running sessions to attach plus every cached
+  character on every account to launch (#58).
 
 ## Conventions and gotchas
 

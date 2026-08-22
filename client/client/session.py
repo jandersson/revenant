@@ -41,6 +41,60 @@ GAME_BUFFER_ENV = "REVENANT_GAME_BUFFER"
 REATTACH_TIMEOUT = 10.0
 
 
+# The session registry: every session records {port, character, pid}
+# here so the launcher's picker can offer running characters as attach
+# targets beside the roster (#58). Liveness is connectability — a
+# crashed session leaves a stale row that running_sessions() prunes
+# (pids can't be probed safely on Windows).
+SESSIONS_PATH = "~/.revenant/sessions.json"
+
+
+def sessions_path():
+    import pathlib
+
+    return pathlib.Path(os.environ.get("REVENANT_SESSIONS", SESSIONS_PATH)).expanduser()
+
+
+def _load_sessions():
+    try:
+        with open(sessions_path()) as stream:
+            data = json.load(stream)
+    except (OSError, ValueError):
+        return []
+    return data if isinstance(data, list) else []
+
+
+def _write_sessions(entries):
+    path = sessions_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(entries))
+
+
+def register_session(port, character):
+    entries = [e for e in _load_sessions() if e.get("port") != port]
+    entries.append({"port": port, "character": character, "pid": os.getpid()})
+    _write_sessions(entries)
+
+
+def deregister_session(port):
+    _write_sessions([e for e in _load_sessions() if e.get("port") != port])
+
+
+def running_sessions(host=DEFAULT_HOST):
+    """Registered sessions that actually answer, pruning the rest."""
+    entries = _load_sessions()
+    live = []
+    for entry in entries:
+        try:
+            with socket.create_connection((host, int(entry["port"])), timeout=0.5):
+                live.append(entry)
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
+    if live != entries:
+        _write_sessions(live)
+    return live
+
+
 def close_socket(conn):
     """shutdown() then close(): on Linux, close() alone neither wakes a
     thread blocked in recv()/accept() on the socket nor sends the peer a
@@ -115,7 +169,14 @@ class SessionServer(ClientLogger):
 
     def serve(self):
         self.listener = socket.create_server((self.host, self.port))
-        self.log.info(f"Session listening on {self.host}:{self.port}")
+        self.bound_port = self.listener.getsockname()[1]
+        # Announce this session to the launcher's picker (#58); the
+        # character name comes from the spawn env (frontends learn it
+        # from the "character" stream instead).
+        register_session(
+            self.bound_port, os.environ.get("REVENANT_CHARACTER") or "unknown"
+        )
+        self.log.info(f"Session listening on {self.host}:{self.bound_port}")
         Thread(target=self.game_reader, daemon=True).start()
         try:
             while self.running:
@@ -307,6 +368,8 @@ class SessionServer(ClientLogger):
         if not self.running:
             return
         self.running = False
+        if getattr(self, "bound_port", None):
+            deregister_session(self.bound_port)
         self.log.info("Game connection closed, shutting down session")
         # Disconnect clients before anything that could block or emit.
         with self.clients_lock:
