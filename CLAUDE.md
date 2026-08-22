@@ -80,7 +80,10 @@ One pipeline, one parser, several processes:
   to mirror LNet chat into the Thoughts window, read-only (`;lnet`).
   Sessions autostart the xp history logger and the beholder dashboard
   server in quiet mode (`session.autostart_scripts`; `;stop <name>` opts
-  a session out, REVENANT_NO_XP=1 / REVENANT_NO_BEHOLDER=1 disable);
+  a session out; the GUI's File → Settings dialog over
+  `client/settings.py` / ~/.revenant/settings.json turns them off
+  durably, and REVENANT_NO_XP=1 / REVENANT_NO_BEHOLDER=1 override
+  everything for one launch — quit-on-close lives there too);
   `;beholder` opens the dashboard in the browser, and the GUI embeds it
   via View → Experience History (QWebEngineView, lazy-created, browser
   fallback when QtWebEngine is missing).

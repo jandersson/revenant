@@ -332,9 +332,16 @@ def test_reattach_returns_false_without_a_session():
     blocker.close()
 
 
-def _autostart_with(monkeypatch, **env):
+def _autostart_with(monkeypatch, settings=None, **env):
     monkeypatch.delenv("REVENANT_NO_XP", raising=False)
     monkeypatch.delenv("REVENANT_NO_BEHOLDER", raising=False)
+    import json
+    import tempfile
+    from pathlib import Path
+
+    directory = Path(tempfile.mkdtemp())
+    (directory / "settings.json").write_text(json.dumps(settings or {}))
+    monkeypatch.setenv("REVENANT_SETTINGS", str(directory / "settings.json"))
     for name, value in env.items():
         monkeypatch.setenv(name, value)
     started = []
@@ -435,3 +442,22 @@ def test_eof_after_quit_reads_as_a_clean_logoff():
     frames, _ = session.decode_frames(buffer)
     assert any("logged off" in text for text, _, _ in frames)
     assert not any("lost unexpectedly" in text for text, _, _ in frames)
+
+
+def test_settings_file_disables_autostarts_durably(monkeypatch):
+    assert _autostart_with(monkeypatch, settings={"autostart_xp": False}) == [
+        ("beholder", ["quiet"])
+    ]
+    assert _autostart_with(monkeypatch, settings={"autostart_beholder": False}) == [
+        ("xp", [])
+    ]
+    # Env vars still beat the file for a single launch.
+    assert (
+        _autostart_with(
+            monkeypatch,
+            settings={"autostart_xp": True, "autostart_beholder": True},
+            REVENANT_NO_XP="1",
+            REVENANT_NO_BEHOLDER="1",
+        )
+        == []
+    )

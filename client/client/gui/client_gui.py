@@ -149,6 +149,12 @@ class ClientGUI(QMainWindow, ClientLogger):
         )
         reconnect_action.triggered.connect(self.reconnect)
 
+        settings_action = QAction("&Settings…", self)
+        settings_action.setStatusTip(
+            "Autostart and window-close behavior (~/.revenant/settings.json)"
+        )
+        settings_action.triggered.connect(self.edit_settings)
+
         detach_action = QAction("&Detach", self)
         detach_action.setShortcut("Ctrl+D")
         detach_action.setStatusTip(
@@ -189,6 +195,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         menubar = self.menuBar()
         file_menu = menubar.addMenu("&File")
         file_menu.addAction(reconnect_action)
+        file_menu.addAction(settings_action)
         file_menu.addAction(detach_action)
         file_menu.addAction(exit_action)
         view_menu = menubar.addMenu("View")
@@ -221,9 +228,11 @@ class ClientGUI(QMainWindow, ClientLogger):
         settings.setValue("windowState", self.saveState())
         # Closing the window means leaving the game — send quit so the
         # character logs out instead of lingering to a link-death, and
-        # the session winds down on the resulting EOF. File → Detach is
-        # the deliberate walk-away that skips this.
-        if not getattr(self, "_detaching", False):
+        # the session winds down on the resulting EOF. File → Detach
+        # skips this, and Settings can turn it off (quit_on_close).
+        from client.settings import setting
+
+        if not getattr(self, "_detaching", False) and setting("quit_on_close"):
             connection = getattr(self.client, "connection", None)
             if connection is not None:
                 try:
@@ -349,6 +358,18 @@ class ClientGUI(QMainWindow, ClientLogger):
             f"{len(self.highlight_rules)} highlight rules loaded "
             f"from {highlights_path()}"
         )
+
+    def edit_settings(self):
+        """File → Settings…: toggles over settings.json. Quit-on-close
+        applies immediately; autostarts apply to the next session."""
+        from client.settings import load_settings, save_settings, settings_path
+        from client.gui.settings_dialog import SettingsDialog
+
+        dialog = SettingsDialog(load_settings(), self)
+        if dialog.exec() != dialog.DialogCode.Accepted:
+            return
+        save_settings(dialog.values())
+        self.status_bar.showMessage(f"Settings saved to {settings_path()}")
 
     def edit_highlights(self):
         """View → Edit Highlights…: the table editor over the patterns

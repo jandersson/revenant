@@ -421,11 +421,17 @@ def autostart_scripts(server):
     """Scripts every session runs from the start: the xp history logger
     (so the experience database fills without anyone remembering to
     ask) and the beholder dashboard server in quiet mode (up and
-    waiting, no browser). ;stop opts a session out; REVENANT_NO_XP=1 /
-    REVENANT_NO_BEHOLDER=1 disable them entirely."""
-    if not os.environ.get("REVENANT_NO_XP"):
+    waiting, no browser). ;stop opts a session out; the Settings dialog
+    (settings.json) turns them off durably, and REVENANT_NO_XP=1 /
+    REVENANT_NO_BEHOLDER=1 override everything for a launch."""
+    from client.settings import load_settings
+
+    settings = load_settings()
+    if not os.environ.get("REVENANT_NO_XP") and settings.get("autostart_xp", True):
         server.scripts.start("xp", [])
-    if not os.environ.get("REVENANT_NO_BEHOLDER"):
+    if not os.environ.get("REVENANT_NO_BEHOLDER") and settings.get(
+        "autostart_beholder", True
+    ):
         server.scripts.start("beholder", ["quiet"])
 
 
