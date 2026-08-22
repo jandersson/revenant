@@ -40,6 +40,15 @@ A rough-draft engine + frontends for playing DragonRealms with Python in the loo
 
 Python 3.10–3.12. Packaged via [client/pyproject.toml](client/pyproject.toml) as a member of the root uv workspace.
 
+#### The Windows launcher
+
+![The character picker: your roster in a list, Play, Switch account, Cancel](docs/launcher.png)
+
+`tools/install_shortcut.ps1` installs a Start Menu shortcut (pin it to
+the taskbar from there) that launches windowless: pick a character from
+your roster and play, or Switch account… to log in as a different
+account. `tools/make_icon.py` regenerates the icon from `revenant.svg`.
+
 #### Which edits take effect when?
 
 You rarely need to restart anything. From cheapest to dearest:
