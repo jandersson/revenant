@@ -231,8 +231,10 @@ def test_auto_mode_walks_to_the_rung_and_advances_when_stale():
     assert walks[1] == [1068]  # then the oak after going stale
     assert any("moving up the ladder" in echo for echo in handle.echoes)
     assert ("put", "climb oak tree") in handle.calls
-    # Travel climbs at the oak are paced to the award timer.
-    assert ("sleep", athletics.CLIMB_TIMER_PACE) in handle.calls
+    # Travel climbs at the oak are paced to the award timer — slept at
+    # the lap's end in danger-poll chunks, never as one blind window.
+    assert ("sleep", athletics.DANGER_POLL) in handle.calls
+    assert ("sleep", athletics.CLIMB_TIMER_PACE) not in handle.calls
 
 
 def test_auto_mode_stops_cleanly_when_the_walk_fails():
@@ -324,18 +326,83 @@ class StalemateHandle(FakeHandle):
                 self.state.hostiles = dict(self.BEAR)
 
 
-def test_train_holds_out_a_contested_spot():
-    # Escape alone just ping-pongs (#86): the third hostile break-off
-    # inside the window marks the spot contested, and the trainer holds
-    # in place instead of climbing straight back into the bear.
-    handle = StalemateHandle((), mindstates=(5,), sleeps=40)
-    with pytest.raises(LoopDone):
-        athletics.train(handle, ["climb rise", "climb down"], pace=0)
+def test_train_gives_up_a_contested_spot():
+    # Escape alone just ping-pongs (#86): spawn areas never empty on
+    # their own, so the third hostile break-off inside the window ends
+    # training here instead of climbing back into the bear forever.
+    handle = StalemateHandle((), mindstates=(5,), sleeps=60)
+    result = athletics.train(handle, ["climb rise", "climb down"], pace=0)
+    assert result == "contested"
     breakoffs = [echo for echo in handle.echoes if "hostiles here" in echo]
     assert len(breakoffs) == athletics.CONTESTED_LIMIT
     assert any("contested" in echo for echo in handle.echoes)
-    # The hold is danger-polled, not a blind sleep.
-    assert ("sleep", athletics.DANGER_POLL) in handle.calls
+
+
+def test_manual_mode_stops_with_advice_when_contested():
+    handle = StalemateHandle(["climb rise", "|", "climb down"], sleeps=60)
+    handle.state.experience = {"Athletics": {"rank": 30, "percent": 0, "mindstate": 5}}
+    athletics.main(handle)
+    assert any(";athletics list" in echo for echo in handle.echoes)
+
+
+class OakCampedHandle(FakeHandle):
+    """A creature camps the Greensward (the oak rung's bottom room);
+    the Tree House above is clear — the stalemate, auto-mode edition."""
+
+    BEAR = {"79912449": True}
+
+    def _sync(self):
+        self.state.hostiles = dict(self.BEAR) if self.state.room_uid == 1068 else {}
+
+    def put(self, command):
+        super().put(command)
+        if command == "climb oak tree":
+            self.state.room_uid = 14134 if self.state.room_uid == 1068 else 1068
+        self._sync()
+
+
+def test_auto_mode_abandons_a_contested_rung_for_the_next_best():
+    # Rank 7: the oak (5-60) is optimal; the camped Greensward turns it
+    # contested, and the ladder falls back to the pear practice rung
+    # instead of stopping (#86).
+    handle = OakCampedHandle(args=[], mindstates=[5], sleeps=200)
+    handle.state.experience["Athletics"]["rank"] = 7
+    walks = []
+
+    def fake_walk(s, db, goals, describe=""):
+        walks.append(list(goals))
+        s.state.room_uid = goals[0]
+        if hasattr(s, "_sync"):
+            s._sync()
+        return True
+
+    with pytest.raises(LoopDone):
+        athletics.auto_train(handle, db=LADDER_MAP, walk=fake_walk)
+    assert walks[0] == [1068]  # the oak bottom first
+    assert any("contested" in echo for echo in handle.echoes)
+    assert any("abandoning" in echo for echo in handle.echoes)
+    assert walks[1] == [1455]  # the pear practice rung, next-best
+    assert ("put", "climb practice pear tree") in handle.calls
+
+
+def test_award_timer_wait_sits_at_the_laps_start_not_mid_loop():
+    # Repeat climbs inside the award window grant nothing but cost
+    # nothing — the loop closes home first, then sits the window out
+    # there in danger-poll chunks, never idling deep in a spawn room.
+    handle = FakeHandle((), mindstates=(5,), sleeps=30)
+    with pytest.raises(LoopDone):
+        athletics.train(
+            handle, ["climb up", "climb down"], pace=athletics.CLIMB_TIMER_PACE
+        )
+    sequence = [call for call in handle.calls if call[0] in ("put", "sleep")]
+    first_up = sequence.index(("put", "climb up"))
+    first_down = sequence.index(("put", "climb down"))
+    between = [
+        call for call in sequence[first_up + 1 : first_down] if call[0] == "sleep"
+    ]
+    assert between and all(seconds <= athletics.PAUSE for _, seconds in between)
+    after = [call for call in sequence[first_down + 1 :] if call[0] == "sleep"]
+    assert ("sleep", athletics.DANGER_POLL) in after
 
 
 def test_train_stops_when_dead():

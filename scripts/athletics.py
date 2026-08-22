@@ -17,9 +17,9 @@ history. Danger interrupts training (#72): hostiles in the room mean
 break off and climb away until clear, low health means hold until it
 recovers, and death stops the script — it never keeps feeding climbs
 into an engagement. A spot that keeps re-engaging is contested (#86):
-after three hostile break-offs in ten minutes the script holds where
-it stands for five minutes — long enough for the creature to wander
-off, loud enough for you to intervene — before approaching again.
+after three hostile break-offs in ten minutes the script gives it up —
+spawn areas never empty on their own, so waiting is futile; auto mode
+falls back to the next-best rung and manual mode stops with advice.
 Stop with:  ;stop athletics
 """
 
@@ -42,7 +42,6 @@ DANGER_POLL = 5  # seconds between checks while holding
 CLEAR_HOLD = 15  # breather after hostiles clear, before resuming
 CONTESTED_LIMIT = 3  # hostile break-offs inside the window = contested
 CONTESTED_WINDOW = 600  # seconds the break-off count looks back over
-CONTESTED_HOLD = 300  # seconds to stay put before approaching again
 
 # The Zoluren rank ladder the script can walk to, easiest to hardest.
 # Travel-climb rungs carry bottom/top rooms (loop commands are read from
@@ -147,10 +146,15 @@ def in_band(rung, rank):
     return rung["low"] <= rank and (rung["high"] is None or rank < rung["high"])
 
 
-def optimal_rung(rank):
+def optimal_rung(rank, exclude=()):
     """The hardest walkable rung in reach: greatest entry rank the
-    character clears, later ladder entries winning ties."""
-    candidates = [rung for rung in AUTO_LADDER if in_band(rung, rank or 0)]
+    character clears, later ladder entries winning ties. exclude names
+    rungs (by label) found contested this run (#86)."""
+    candidates = [
+        rung
+        for rung in AUTO_LADDER
+        if in_band(rung, rank or 0) and rung["label"] not in exclude
+    ]
     if not candidates:
         return None
     best_low = max(rung["low"] for rung in candidates)
@@ -299,25 +303,18 @@ def handle_danger(s, reason, commands):
         s.sleep(DANGER_POLL)
 
 
-def hold_out_contested(s):
-    """The cave-bear stalemate (#86): every escape landed us next door,
-    and the next lap climbed straight back into the defended room.
-    Approaching again immediately just re-runs the cycle — stay put
-    long enough for the creature to wander off, loudly enough for an
-    attending player to intervene."""
-    s.echo(
-        f"ATHLETICS: this spot is contested — {CONTESTED_LIMIT} hostile "
-        f"break-offs in {CONTESTED_WINDOW // 60} minutes. Holding "
-        f"{CONTESTED_HOLD // 60} minutes before the next approach "
-        "(intervene: kill it, or ;stop athletics and train elsewhere)"
-    )
-    held = 0
-    while held < CONTESTED_HOLD:
-        s.sleep(DANGER_POLL)
-        held += DANGER_POLL
-        if danger(s.state):
-            return  # trouble found us here — the lap restart handles it
-    s.echo("ATHLETICS: hold over — approaching the spot again")
+def fall_back(s, rank, contested):
+    """The next-best uncontested rung for auto mode, or None after
+    saying so — a contested spot is left, never waited out (#86)."""
+    rung = optimal_rung(rank, exclude=contested)
+    if rung is None:
+        s.echo(
+            "ATHLETICS: every rung in reach is contested — clear one "
+            "yourself or train manually (;help athletics)"
+        )
+        return None
+    s.echo("abandoning the contested spot for the next-best rung")
+    return rung
 
 
 def going_stale(report_mindstates):
@@ -333,16 +330,21 @@ def going_stale(report_mindstates):
 
 def report_cadence(commands, pace):
     """Laps between progress reports, aiming at REPORT_EVERY_SECONDS."""
-    lap_seconds = len(commands) * (pace + EST_ROUNDTIME)
+    lap_seconds = len(commands) * (PAUSE + EST_ROUNDTIME) + pace
     return max(1, round(REPORT_EVERY_SECONDS / lap_seconds))
 
 
 def train(s, commands, stop_when_stale=False, pace=PAUSE):
-    """Cycle the movement commands, pausing at mind-lock. Runs forever
-    in manual mode (echoing ladder advice when gains stall); with
-    stop_when_stale, returns "stale" so auto mode can advance. pace is
-    the sleep after each command — CLIMB_TIMER_PACE for travel climbs,
-    PAUSE for timer-exempt practice and manual loops."""
+    """Cycle the movement commands, pausing at mind-lock. Returns
+    "contested" when hostiles keep breaking the training (#86); with
+    stop_when_stale, returns "stale" so auto mode can advance; manual
+    mode otherwise runs until stopped (echoing ladder advice when
+    gains stall). pace is the award-timer wait (CLIMB_TIMER_PACE for
+    travel climbs, PAUSE for timer-exempt practice and manual loops),
+    slept once per lap back at the loop's start room with danger
+    polls — repeat climbs inside the window grant nothing but cost
+    nothing, so closing the loop early loses no experience and never
+    leaves the trainer idling deep in a spawn room."""
     laps = 0
     reports = []
     breaks = []  # monotonic stamps of hostile break-offs (#86)
@@ -371,12 +373,26 @@ def train(s, commands, stop_when_stale=False, pace=PAUSE):
                     breaks = [t for t in breaks if now - t < CONTESTED_WINDOW]
                     breaks.append(now)
                     if len(breaks) >= CONTESTED_LIMIT:
-                        hold_out_contested(s)
-                        breaks.clear()
+                        s.echo(
+                            "ATHLETICS: this spot is contested — "
+                            f"{CONTESTED_LIMIT} hostile break-offs in "
+                            f"{CONTESTED_WINDOW // 60} minutes, and spawn "
+                            "areas never empty on their own"
+                        )
+                        return "contested"
                 break  # start the lap over with fresh state
             s.put(command)
             s.waitrt()
-            s.sleep(pace)
+            s.sleep(PAUSE)
+        else:
+            # The award-timer wait, at the lap's start room, reacting
+            # to trouble within a poll instead of a full window.
+            remaining = pace - PAUSE
+            while remaining > 0:
+                s.sleep(min(DANGER_POLL, remaining))
+                remaining -= DANGER_POLL
+                if danger(s.state):
+                    break  # the next lap's check handles it now
         laps += 1
         if laps % report_every == 0:
             current = mindstate(s.state)
@@ -412,6 +428,7 @@ def auto_train(s, db=None, walk=None):
     if rung is None:
         s.echo(f"no ladder rung fits rank {rank} — train manually (;help athletics)")
         return
+    contested = set()  # rung labels given up this run (#86)
     while True:
         band = (
             f"{rung['low']}+"
@@ -434,13 +451,24 @@ def auto_train(s, db=None, walk=None):
             else f"paced {pace}s to the award timer"
         )
         s.echo(f"training: {' | '.join(commands)} ({style})")
-        if train(s, commands, stop_when_stale=True, pace=pace) == "danger":
+        result = train(s, commands, stop_when_stale=True, pace=pace)
+        if result == "danger":
             return
         rank = current_rank(s.state) or rank
+        if result == "contested":
+            contested.add(rung["label"])
+            rung = fall_back(s, rank, contested)
+            if rung is None:
+                return
+            continue
         advanced = next_rung(rung, rank)
         if advanced is None:
             s.echo("gains are stale but no harder rung is in reach yet — carrying on")
-            train(s, commands, stop_when_stale=False, pace=pace)
+            if train(s, commands, stop_when_stale=False, pace=pace) == "contested":
+                contested.add(rung["label"])
+                rung = fall_back(s, rank, contested)
+                if rung is not None:
+                    continue
             return
         s.echo("this rung is outgrown — moving up the ladder")
         rung = advanced
@@ -456,6 +484,10 @@ def main(s):
         return
     commands = parse_commands(s.args)
     if commands:
-        train(s, commands)
+        if train(s, commands) == "contested":
+            s.echo(
+                "ATHLETICS: stopping — spawn areas never empty on their "
+                "own; clear the spot or pick another (;athletics list)"
+            )
         return
     auto_train(s)

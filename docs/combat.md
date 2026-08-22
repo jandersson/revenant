@@ -72,11 +72,19 @@ not yet encoded anywhere.
 
 ## What the scripts do with this
 
+- **Spawn areas never empty on their own** (operator-confirmed
+  2026-08-22): creatures are continuously present, not on a timer — a
+  camped room is never fixed by waiting. Automation reacts to a
+  contested spot by *leaving*, never by waiting for a despawn.
 - **;athletics** (#72): hostiles present → break off and escape along
   the training edge, repeatedly; low health → hold; dead → stop. Three
   break-offs in ten minutes mean the spot is contested (#86, the
   cave-bear stalemate: escape worked, the next lap climbed straight
-  back in) — hold five minutes before approaching again.
+  back in) — auto mode abandons the rung for the next-best one,
+  manual mode stops with advice. The award-timer wait between travel
+  climbs is slept back at the lap's start room in danger-poll chunks
+  (repeat climbs inside the window grant nothing but cost nothing),
+  never idling deep in the spawn rooms.
 - **Driving a fight** (session probes, not yet a script): attack
   loop, watch vitals, treat "already quite dead" as a retarget
   signal, stop on the kill line or "What were you referring to?",
