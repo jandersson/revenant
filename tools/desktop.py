@@ -31,6 +31,7 @@ os.environ["PYTHONPATH"] = os.pathsep.join(
 )
 os.chdir(REPO)
 
+
 def _report_startup_failure(error):
     """The shortcut runs windowless: without this, a missing dependency
     (a stale venv after new requirements — #67) or any other startup
