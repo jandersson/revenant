@@ -57,6 +57,37 @@ def load_rules(path=None):
     return rules
 
 
+def load_entries(path=None):
+    """The raw rule entries as saved (for the editor dialog) — every
+    dict in the file, valid or not, so a broken pattern can be fixed
+    in place instead of silently vanishing."""
+    path = path or highlights_path()
+    try:
+        with open(path) as stream:
+            raw = json.load(stream)
+    except (OSError, ValueError):
+        return []
+    if not isinstance(raw, list):
+        return []
+    return [entry for entry in raw if isinstance(entry, dict)]
+
+
+def save_entries(entries, path=None):
+    """Write rule entries back (the editor dialog's save)."""
+    path = path or highlights_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(list(entries), indent=1))
+
+
+def pattern_error(pattern):
+    """The regex compile error for a pattern, or None when it is fine."""
+    try:
+        re.compile(pattern)
+    except re.error as error:
+        return str(error)
+    return None
+
+
 def spans(text, rules):
     """Non-overlapping (start, end, rule) highlight spans for a piece of
     text, earliest match winning overlaps (longer match breaking ties)."""

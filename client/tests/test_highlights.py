@@ -71,3 +71,23 @@ def test_overlaps_resolve_earliest_match_wins():
 def test_zero_width_matches_are_ignored():
     (rule,) = _rules(r"x*")
     assert spans("abc", [rule]) == []
+
+
+def test_entries_roundtrip_for_the_editor(monkeypatch, tmp_path):
+    path = tmp_path / "highlights.json"
+    monkeypatch.setenv("REVENANT_HIGHLIGHTS", str(path))
+    from client.highlights import load_entries, save_entries
+
+    entries = [
+        {"pattern": "good", "color": "#abc123", "bold": True},
+        {"pattern": "([broken", "color": "#abcdef", "bold": False},  # kept raw
+    ]
+    save_entries(entries)
+    assert load_entries() == entries  # broken patterns survive for fixing
+
+
+def test_pattern_error_names_the_problem():
+    from client.highlights import pattern_error
+
+    assert pattern_error(r"\btroll\b") is None
+    assert "unterminated" in pattern_error("([broken") or pattern_error("([broken")

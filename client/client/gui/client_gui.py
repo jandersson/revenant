@@ -174,7 +174,13 @@ class ClientGUI(QMainWindow, ClientLogger):
         )
         history_action.triggered.connect(self.show_experience_history)
 
-        highlights_action = QAction("Reload High&lights", self)
+        edit_highlights_action = QAction("Edit High&lights…", self)
+        edit_highlights_action.setStatusTip(
+            f"Add and edit highlight patterns ({highlights_path()})"
+        )
+        edit_highlights_action.triggered.connect(self.edit_highlights)
+
+        highlights_action = QAction("Reload Highlights", self)
         highlights_action.setStatusTip(
             f"Re-read your highlight patterns from {highlights_path()}"
         )
@@ -188,6 +194,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         view_menu = menubar.addMenu("View")
         view_menu.addAction(view_status_bar)
         view_menu.addAction(history_action)
+        view_menu.addAction(edit_highlights_action)
         view_menu.addAction(highlights_action)
         view_menu.addSeparator()
         for dock in self.stream_docks.values():
@@ -327,6 +334,26 @@ class ClientGUI(QMainWindow, ClientLogger):
             f"{len(self.highlight_rules)} highlight rules loaded "
             f"from {highlights_path()}"
         )
+
+    def edit_highlights(self):
+        """View → Edit Highlights…: the table editor over the patterns
+        file; saving reloads the rules immediately."""
+        from client.highlights import load_entries, save_entries
+        from client.gui.highlights_dialog import HighlightsDialog
+
+        dialog = HighlightsDialog(load_entries(), self)
+        if dialog.exec() != dialog.DialogCode.Accepted:
+            return
+        entries = dialog.entries()
+        save_entries(entries)
+        self.highlight_rules = load_rules()
+        broken = dialog.broken_patterns()
+        message = (
+            f"{len(self.highlight_rules)} of {len(entries)} highlight rules active"
+        )
+        if broken:
+            message += f" — {len(broken)} pattern(s) don't compile: {', '.join(broken)}"
+        self.status_bar.showMessage(message)
 
     def show_experience_history(self):
         """View → Experience History: the beholder dashboard, embedded.
