@@ -67,7 +67,7 @@ def _fake_dialog(monkeypatch, answers):
 def test_gather_login_prefers_keychain(monkeypatch):
     monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
     monkeypatch.setattr(launch.keyring, "get_password", lambda service, user: "pw")
-    assert launch.gather_login("Testchar") == ("Testchar", None)
+    assert launch.gather_login("Testchar") == ("TESTACCT", "Testchar", None)
 
 
 def test_gather_login_prompts_ephemerally_on_a_tty(monkeypatch):
@@ -79,7 +79,7 @@ def test_gather_login_prompts_ephemerally_on_a_tty(monkeypatch):
     monkeypatch.setattr(
         launch, "eaccess_protocol", lambda info: seen.update(info) or "KEY123"
     )
-    assert launch.gather_login("Testchar") == ("Testchar", "KEY123")
+    assert launch.gather_login("Testchar") == ("TESTACCT", "Testchar", "KEY123")
     assert seen["password"] == b"typed-once"
 
 
@@ -96,7 +96,7 @@ def test_gather_login_retries_on_bad_password(monkeypatch, capsys):
         return "KEY456"
 
     monkeypatch.setattr(launch, "eaccess_protocol", eaccess)
-    assert launch.gather_login("Testchar") == ("Testchar", "KEY456")
+    assert launch.gather_login("Testchar") == ("TESTACCT", "Testchar", "KEY456")
     assert "Bad Password" in capsys.readouterr().err
 
 
@@ -111,7 +111,7 @@ def test_gather_login_uses_dialog_without_tty(monkeypatch):
         lambda service, user, pw: stored.update({user: pw}),
     )
     monkeypatch.setattr(launch, "eaccess_protocol", lambda info: "KEY789")
-    assert launch.gather_login(None) == ("Testchar", "KEY789")
+    assert launch.gather_login(None) == ("TESTACCT", "Testchar", "KEY789")
     assert stored == {"TESTACCT": "typed"}, "remember-me should hit the keychain"
 
 
@@ -128,7 +128,7 @@ def test_gather_login_uses_saved_names_with_keychain(monkeypatch, tmp_path):
         return "pw"
 
     monkeypatch.setattr(launch.keyring, "get_password", get_password)
-    assert launch.gather_login(None) == ("Savedchar", None)
+    assert launch.gather_login(None) == ("SAVEDACCT", "Savedchar", None)
     assert looked_up["user"] == "SAVEDACCT"
 
 
@@ -144,7 +144,7 @@ def test_gather_login_env_overrides_saved_names(monkeypatch, tmp_path):
         return "pw"
 
     monkeypatch.setattr(launch.keyring, "get_password", get_password)
-    assert launch.gather_login("Envchar") == ("Envchar", None)
+    assert launch.gather_login("Envchar") == ("ENVACCT", "Envchar", None)
     assert looked_up["user"] == "ENVACCT"
 
 
@@ -156,7 +156,7 @@ def test_gather_login_remember_saves_names(monkeypatch, tmp_path):
     _fake_dialog(monkeypatch, [("TESTACCT", "typed", "Testchar", True)])
     monkeypatch.setattr(launch.keyring, "set_password", lambda *args: None)
     monkeypatch.setattr(launch, "eaccess_protocol", lambda info: "KEY321")
-    assert launch.gather_login(None) == ("Testchar", "KEY321")
+    assert launch.gather_login(None) == ("TESTACCT", "Testchar", "KEY321")
     assert json.loads(defaults.read_text()) == {
         "account": "TESTACCT",
         "character": "Testchar",
@@ -177,7 +177,7 @@ def test_gather_login_survives_missing_keyring_backend(monkeypatch):
     monkeypatch.setattr(launch.sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr(launch.getpass, "getpass", lambda prompt: "typed-once")
     monkeypatch.setattr(launch, "eaccess_protocol", lambda info: "KEY654")
-    assert launch.gather_login("Testchar") == ("Testchar", "KEY654")
+    assert launch.gather_login("Testchar") == ("TESTACCT", "Testchar", "KEY654")
 
 
 def test_gather_login_dialog_cancel_exits(monkeypatch):
@@ -345,12 +345,16 @@ def test_main_with_character_spawns_beside_a_running_session(monkeypatch):
     monkeypatch.setattr(
         launch,
         "gather_login",
-        lambda character, fresh_account=False, account=None: (character, "KEY"),
+        lambda character, fresh_account=False, account=None: (
+            account or "TESTACCT",
+            character,
+            "KEY",
+        ),
     )
     monkeypatch.setattr(
         launch,
         "start_session",
-        lambda host, spawn_port, character, key: calls.setdefault(
+        lambda host, spawn_port, character, key, account=None: calls.setdefault(
             "spawn", (spawn_port, character, key)
         ),
     )
@@ -394,17 +398,18 @@ def test_pick_and_go_launches_a_picked_character(monkeypatch, tmp_path):
     )
     monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(defaults))
     calls = {}
-    monkeypatch.setattr(
-        launch,
-        "gather_login",
-        lambda character, fresh_account=False, account=None: (
-            calls.setdefault("login", (character, account)) or (character, "KEY")
-        ),
-    )
+
+    def fake_gather(character, fresh_account=False, account=None):
+        calls["login"] = (character, account)
+        return account, character, "KEY"
+
+    monkeypatch.setattr(launch, "gather_login", fake_gather)
     monkeypatch.setattr(
         launch,
         "start_session",
-        lambda host, port, character, key: calls.setdefault("spawn", port),
+        lambda host, port, character, key, account=None: calls.setdefault(
+            "spawn", port
+        ),
     )
     monkeypatch.setattr(launch, "exec_gui", lambda args: calls.setdefault("gui", args))
     _stub_picker(monkeypatch, lambda labels, default: "Alpha")
@@ -434,7 +439,7 @@ def test_gather_login_fresh_account_ignores_saved_identity(monkeypatch, tmp_path
     monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
     monkeypatch.setattr(launch, "keychain_password", lambda account: "hunter2")
     # The saved identity would log straight in ...
-    assert launch.gather_login("Alpha") == ("Alpha", None)
+    assert launch.gather_login("Alpha") == ("TESTACCT", "Alpha", None)
     # ... but fresh_account must fall through to the login dialog instead
     # (stubbed: cancelling it raises SystemExit).
     stub = types.SimpleNamespace(ask_credentials=lambda *args, **kwargs: None)
@@ -464,5 +469,5 @@ def test_gather_login_blank_dialog_password_uses_the_keychain(monkeypatch, tmp_p
         return "KEY111"
 
     monkeypatch.setattr(launch, "eaccess_protocol", eaccess)
-    assert launch.gather_login("Alpha") == ("Alpha", "KEY111")
+    assert launch.gather_login("Alpha") == ("TESTACCT", "Alpha", "KEY111")
     assert seen["password"] == b"saved-secret"

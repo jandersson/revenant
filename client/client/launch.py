@@ -105,14 +105,17 @@ def launch_choices(defaults, sessions):
 def gather_login(character, fresh_account=False, account=None):
     """Work out how the session will authenticate.
 
-    Returns (character, key): key is None when the OS keychain holds the
-    password (the session logs in by itself). Otherwise the password is
-    collected — terminal prompt when there's a tty and the account and
-    character are already known, the Qt login screen when not — and used
-    exactly once for the handshake; only the single-use launch key
-    survives. "Remember me" writes the password to the keychain and the
-    account/character names to login.json, so future launches skip the
-    dialog entirely. Env vars override the saved names.
+    Returns (account, character, key): key is None when the OS keychain
+    holds the password (the session logs in by itself — and MUST be
+    told the account, or it falls back to the saved default and logs
+    the wrong one in; captured live, the Alvin-on-CRANCHU failure).
+    Otherwise the password is collected — terminal prompt when there's
+    a tty and the account and character are already known, the Qt login
+    screen when not — and used exactly once for the handshake; only the
+    single-use launch key survives. "Remember me" writes the password
+    to the keychain and the account/character names to login.json, so
+    future launches skip the dialog entirely. Env vars override the
+    saved names.
 
     fresh_account (the picker's "Other account...") ignores every saved
     or env-provided identity and goes straight to the login screen. An
@@ -126,7 +129,7 @@ def gather_login(character, fresh_account=False, account=None):
     )
     character = character or defaults.get("character", "")
     if account and character and keychain_password(account) is not None:
-        return character, None
+        return account, character, None
 
     error = ""
     remember = False
@@ -173,11 +176,15 @@ def gather_login(character, fresh_account=False, account=None):
                     file=sys.stderr,
                 )
             save_login_defaults(account, character)
-        return character, key
+        return account, character, key
 
 
-def spawn_session(host, port, character, key=None):
+def spawn_session(host, port, character, key=None, account=None):
     env = dict(os.environ, REVENANT_CHARACTER=character)
+    if account:
+        # The session's own login (the keychain-silent path) must use
+        # the launcher's chosen account, not the saved default.
+        env["REVENANT_ACCOUNT"] = account
     command = [
         sys.executable,
         "-m",
@@ -319,21 +326,21 @@ def main(argv=None):
         )
         if mine:
             return exec_gui(["--attach", f"{args.host}:{mine['port']}"])
-        account = account_for_character(load_login_defaults(), args.character)
-        character, key = gather_login(args.character, account=account)
+        wanted = account_for_character(load_login_defaults(), args.character)
+        account, character, key = gather_login(args.character, account=wanted)
         port = get_free_port(args.host, args.port)
-        start_session(args.host, port, character, key)
+        start_session(args.host, port, character, key, account)
         return exec_gui(["--attach", f"{args.host}:{port}"])
 
     if not session_running(args.host, args.port):
-        character, key = gather_login(None)
-        start_session(args.host, args.port, character, key)
+        account, character, key = gather_login(None)
+        start_session(args.host, args.port, character, key, account)
     return exec_gui(["--attach", f"{args.host}:{args.port}"])
 
 
-def start_session(host, port, character, key):
+def start_session(host, port, character, key, account=None):
     print(f"revenant: starting a session for {character} on {host}:{port} ...")
-    process = spawn_session(host, port, character, key=key)
+    process = spawn_session(host, port, character, key=key, account=account)
     wait_for_session(process, host, port)
 
 
@@ -362,13 +369,15 @@ def pick_and_go(host, base_port):
             else next(c for c in choices if c["label"] == answer)
         )
     if picked is OTHER_ACCOUNT:
-        character, key = gather_login("", fresh_account=True)
+        account, character, key = gather_login("", fresh_account=True)
     elif picked["kind"] == "attach":
         return exec_gui(["--attach", f"{host}:{picked['port']}"])
     else:
-        character, key = gather_login(picked["character"], account=picked["account"])
+        account, character, key = gather_login(
+            picked["character"], account=picked["account"]
+        )
     port = get_free_port(host, base_port)
-    start_session(host, port, character, key)
+    start_session(host, port, character, key, account)
     return exec_gui(["--attach", f"{host}:{port}"])
 
 
