@@ -41,6 +41,7 @@ _STAT = re.compile(rf"({'|'.join(STAT_NAMES)})\s*:\s*(\d+)")
 _CIRCLE = re.compile(r"Circle:\s*(\d+)")
 _TDPS = re.compile(r"TDPs\s*:\s*(\d+)")
 _FAVORS = re.compile(r"Favors\s*:\s*(\d+)")
+_GUILD = re.compile(r"Guild:\s*([A-Za-z ]+?)\s*$", re.MULTILINE)
 # Two-column EXP ALL rows: "     Light Armor:      3 10% clear (0/34)".
 # The % requirement keeps headers and totals out.
 _SKILL = re.compile(r"([A-Za-z][A-Za-z' ]+):\s+(\d+)\s+(\d+)%")
@@ -67,7 +68,8 @@ CREATE TABLE IF NOT EXISTS character (
     character_name TEXT NOT NULL,
     circle INTEGER,
     tdps INTEGER,
-    favors INTEGER
+    favors INTEGER,
+    guild TEXT
 );
 """
 
@@ -78,20 +80,28 @@ def database_path() -> Path:
 
 def ensure_schema(connection):
     connection.executescript(SCHEMA)
+    # Databases from before guild tracking (the ;circle view needs it)
+    # lack the column — CREATE IF NOT EXISTS won't add it.
+    try:
+        connection.execute("ALTER TABLE character ADD COLUMN guild TEXT")
+    except sqlite3.OperationalError:
+        pass  # already there
     connection.commit()
 
 
 def parse_info(text):
-    """Stats, circle, TDPs and favors from INFO output."""
+    """Stats, circle, guild, TDPs and favors from INFO output."""
     stats = {name: int(value) for name, value in _STAT.findall(text)}
     circle = _CIRCLE.search(text)
     tdps = _TDPS.search(text)
     favors = _FAVORS.search(text)
+    guild = _GUILD.search(text)
     return {
         "stats": stats,
         "circle": int(circle.group(1)) if circle else None,
         "tdps": int(tdps.group(1)) if tdps else None,
         "favors": int(favors.group(1)) if favors else None,
+        "guild": guild.group(1) if guild else None,
     }
 
 
@@ -125,9 +135,17 @@ def insert_snapshot(connection, character, logged_at, info, skills):
         info[key] is not None for key in ("circle", "tdps", "favors")
     ):
         connection.execute(
-            "INSERT INTO character (logged_at, character_name, circle, tdps, favors)"
-            " VALUES (?, ?, ?, ?, ?)",
-            (logged_at, character, info["circle"], info["tdps"], info["favors"]),
+            "INSERT INTO character"
+            " (logged_at, character_name, circle, tdps, favors, guild)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                logged_at,
+                character,
+                info["circle"],
+                info["tdps"],
+                info["favors"],
+                info["guild"],
+            ),
         )
     connection.commit()
 

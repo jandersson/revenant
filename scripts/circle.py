@@ -1,9 +1,9 @@
 """What gates your next circle:  ;circle
 
 Computes the guildleader's answer locally: the latest ;sheet snapshot
-(~/.revenant/xp.db) against the guild's circle-requirement table
-(client/circles.py, from Elanthipedia; Thief for now), printed per
-knowledge set with have/need ranks. Nothing is sent to the game — run
+(~/.revenant/xp.db) against your guild's circle-requirement table
+(client/circles.py, from Elanthipedia; all eleven circled guilds),
+printed per knowledge set with have/need ranks. Nothing is sent to the game — run
 ;sheet once first if the snapshot might be stale; the snapshot's age
 is echoed. The model and its captured guildleader validation live in
 docs/circles.md.
@@ -44,12 +44,18 @@ def latest_snapshot(connection, character=None):
             (character, logged_at),
         )
     }
-    circle = connection.execute(
-        "SELECT circle FROM character WHERE character_name = ?"
-        " AND circle IS NOT NULL ORDER BY logged_at DESC LIMIT 1",
-        (character,),
-    ).fetchone()
-    return character, logged_at, circle[0] if circle else None, ranks
+    circle, guild = None, None
+    try:
+        row = connection.execute(
+            "SELECT circle, guild FROM character WHERE character_name = ?"
+            " AND circle IS NOT NULL ORDER BY logged_at DESC LIMIT 1",
+            (character,),
+        ).fetchone()
+    except sqlite3.OperationalError:
+        row = None  # a db from before guild tracking
+    if row:
+        circle, guild = row
+    return character, logged_at, circle, guild, ranks
 
 
 def snapshot_age(logged_at):
@@ -68,11 +74,14 @@ def main(s):
     if snapshot is None:
         s.echo("circle: no sheet snapshot yet — run ;sheet once first")
         return
-    character, logged_at, circle, ranks = snapshot
-    if circle is None:
-        s.echo("circle: the snapshot has no circle recorded — run ;sheet once")
+    character, logged_at, circle, guild, ranks = snapshot
+    if circle is None or guild is None:
+        s.echo("circle: the snapshot predates circle/guild tracking — run ;sheet once")
         return
-    unmet = circles.gates(ranks, circle)
+    unmet = circles.gates(ranks, circle, guild)
+    if unmet is None:
+        s.echo(f"circle: no circle requirements known for guild {guild!r}")
+        return
     for line in circles.describe(unmet, circle + 1):
         s.echo(f"circle: {line}")
     s.echo(

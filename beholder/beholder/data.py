@@ -27,6 +27,38 @@ def connect(path=None):
     return connection
 
 
+def sheet_snapshot(connection, character):
+    """The newest ;sheet roster for a character: (logged_at, circle,
+    guild, {skill: (rank, percent)}), or None before any snapshot."""
+    row = connection.execute(
+        "SELECT max(logged_at) FROM sheet_skills WHERE character_name = ?",
+        (character,),
+    ).fetchone()
+    if not row or row[0] is None:
+        return None
+    logged_at = row[0]
+    ranks = {
+        r["skill_name"]: (r["rank"], r["percent"])
+        for r in connection.execute(
+            "SELECT skill_name, rank, percent FROM sheet_skills"
+            " WHERE character_name = ? AND logged_at = ?",
+            (character, logged_at),
+        )
+    }
+    circle, guild = None, None
+    try:
+        latest = connection.execute(
+            "SELECT circle, guild FROM character WHERE character_name = ?"
+            " AND circle IS NOT NULL ORDER BY logged_at DESC LIMIT 1",
+            (character,),
+        ).fetchone()
+    except sqlite3.OperationalError:
+        latest = None  # a db from before guild tracking
+    if latest:
+        circle, guild = latest["circle"], latest["guild"]
+    return logged_at, circle, guild, ranks
+
+
 def characters(connection):
     """Every character with logged history, sorted by name."""
     rows = connection.execute(

@@ -50,8 +50,9 @@ def seed_snapshot(path, character="Testchar", logged_at="2026-08-22T12:00:00+00:
         ],
     )
     connection.execute(
-        "INSERT INTO character (logged_at, character_name, circle, tdps, favors)"
-        " VALUES (?, ?, 1, 356, 0)",
+        "INSERT INTO character"
+        " (logged_at, character_name, circle, tdps, favors, guild)"
+        " VALUES (?, ?, 1, 356, 0, 'Thief')",
         (logged_at, character),
     )
     connection.commit()
@@ -80,3 +81,17 @@ def test_circle_without_a_snapshot_points_at_sheet(monkeypatch, tmp_path):
     handle = FakeHandle()
     circle.main(handle)
     assert any("run ;sheet once first" in line for line in handle.echoed)
+
+
+def test_circle_for_a_guild_without_circles(monkeypatch, tmp_path):
+    database = tmp_path / "xp.db"
+    seed_snapshot(database)
+    connection = sqlite3.connect(database)
+    connection.execute("UPDATE character SET guild = 'Commoner'")
+    connection.commit()
+    connection.close()
+    monkeypatch.setenv("REVENANT_XP_DB", str(database))
+    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
+    handle = FakeHandle()
+    circle.main(handle)
+    assert any("no circle requirements" in line for line in handle.echoed)

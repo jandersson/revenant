@@ -92,3 +92,70 @@ def test_dock_route_survives_an_empty_database(monkeypatch, tmp_path):
     response = client.get("/dock")
     assert response.status_code == 200
     assert "No recent history" in response.get_data(as_text=True)
+
+
+def _seed_sheet(monkeypatch, tmp_path, guild="Thief"):
+    import sqlite3
+
+    path = tmp_path / "xp.db"
+    writer = sqlite3.connect(path)
+    writer.execute(
+        "CREATE TABLE sheet_skills (seq INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " logged_at TEXT NOT NULL, character_name TEXT NOT NULL,"
+        " skill_name TEXT NOT NULL, rank INTEGER NOT NULL,"
+        " percent INTEGER NOT NULL)"
+    )
+    writer.execute(
+        "CREATE TABLE character (seq INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " logged_at TEXT NOT NULL, character_name TEXT NOT NULL,"
+        " circle INTEGER, tdps INTEGER, favors INTEGER, guild TEXT)"
+    )
+    logged_at = "2026-08-22T12:00:00+00:00"
+    for skill, rank, percent in (
+        ("Light Armor", 3, 48),
+        ("Small Edged", 3, 0),
+        ("Athletics", 22, 37),
+    ):
+        writer.execute(
+            "INSERT INTO sheet_skills (logged_at, character_name, skill_name,"
+            " rank, percent) VALUES (?, 'Testchar', ?, ?, ?)",
+            (logged_at, skill, rank, percent),
+        )
+    writer.execute(
+        "INSERT INTO character (logged_at, character_name, circle, tdps,"
+        " favors, guild) VALUES (?, 'Testchar', 1, 356, 0, ?)",
+        (logged_at, guild),
+    )
+    writer.commit()
+    writer.close()
+    monkeypatch.setenv("REVENANT_XP_DB", str(path))
+
+
+def test_circle_gates_reports_what_blocks_the_next_circle(monkeypatch, tmp_path):
+    _seed_sheet(monkeypatch, tmp_path)
+    rows, note = app.circle_gates("Testchar")
+    assert "Thief, circle 1 → 2" in note
+    armor = next(row for row in rows if row["label"] == "1st Armor")
+    assert armor == {
+        "category": "armor",
+        "label": "1st Armor",
+        "skill": "Light Armor",
+        "have": 3,
+        "need": 4,
+    }
+    # An untrained slot renders a dash, not None.
+    assert any(row["skill"] == "—" for row in rows)
+
+
+def test_circle_gates_hint_at_sheet_without_a_snapshot(monkeypatch, tmp_path):
+    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "empty.db"))
+    rows, note = app.circle_gates("Testchar")
+    assert rows == []
+    assert ";sheet once" in note
+
+
+def test_circle_gates_for_a_guild_without_circles(monkeypatch, tmp_path):
+    _seed_sheet(monkeypatch, tmp_path, guild="Commoner")
+    rows, note = app.circle_gates("Testchar")
+    assert rows == []
+    assert "No circle requirements" in note

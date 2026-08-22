@@ -60,6 +60,7 @@ def test_parse_info_reads_stats_circle_tdps_favors():
     assert info["circle"] == 1
     assert info["tdps"] == 356
     assert info["favors"] == 0
+    assert info["guild"] == "Commoner"
 
 
 def test_parse_exp_all_reads_both_columns():
@@ -139,6 +140,19 @@ def test_snapshot_never_stores_an_all_none_character_row(monkeypatch, tmp_path):
     assert any("INFO went unanswered" in line for line in handle.echoed)
 
 
+def test_ensure_schema_adds_guild_to_a_pre_tracking_database():
+    connection = sqlite3.connect(":memory:")
+    connection.execute(
+        "CREATE TABLE character (seq INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " logged_at TEXT NOT NULL, character_name TEXT NOT NULL,"
+        " circle INTEGER, tdps INTEGER, favors INTEGER)"
+    )
+    sheet.ensure_schema(connection)
+    sheet.ensure_schema(connection)  # idempotent on migrated databases
+    columns = [row[1] for row in connection.execute("PRAGMA table_info(character)")]
+    assert "guild" in columns
+
+
 def test_collect_stops_at_the_answers_final_line():
     handle = FakeHandle({})
     handle.pending = INFO_TEXT.splitlines() + ["later, unrelated text"]
@@ -161,10 +175,10 @@ def test_snapshot_rows_roundtrip_through_the_database():
     )
     assert connection.execute("SELECT count(*) FROM stats").fetchone()[0] == 8
     assert connection.execute("SELECT count(*) FROM sheet_skills").fetchone()[0] == 6
-    circle, tdps, favors = connection.execute(
-        "SELECT circle, tdps, favors FROM character"
+    circle, tdps, favors, guild = connection.execute(
+        "SELECT circle, tdps, favors, guild FROM character"
     ).fetchone()
-    assert (circle, tdps, favors) == (1, 356, 0)
+    assert (circle, tdps, favors, guild) == (1, 356, 0, "Commoner")
     top = connection.execute(
         "SELECT skill_name, rank FROM sheet_skills ORDER BY rank DESC LIMIT 1"
     ).fetchone()

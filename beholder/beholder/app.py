@@ -2,9 +2,11 @@
 
 Plots mindstate and rank over time per character and skill, with a
 sortable table of the latest learning queue — the historical companion
-to the GUI's live Experience dock. Data comes from the SQLite log the
-;xp script writes (~/.revenant/xp.db; override REVENANT_XP_DB).
-Run with `uv run beholder` and open http://127.0.0.1:8050.
+to the GUI's live Experience dock — and a Circle-gates table computing
+what blocks the next circle from the latest ;sheet snapshot. Data
+comes from the SQLite log the ;xp and ;sheet scripts write
+(~/.revenant/xp.db; override REVENANT_XP_DB). Run with `uv run
+beholder` and open http://127.0.0.1:8050.
 """
 
 import argparse
@@ -15,6 +17,13 @@ from dash import Dash, Input, Output, dash_table, dcc, html
 
 from beholder import data
 
+# The circle-gates view computes with the client package's requirement
+# tables; a standalone beholder install without it just hides the view.
+try:
+    from client import circles
+except ImportError:  # pragma: no cover — the workspace always has it
+    circles = None
+
 REFRESH_MS = 60_000  # matches the ;xp snapshot interval
 
 TABLE_COLUMNS = [
@@ -23,6 +32,38 @@ TABLE_COLUMNS = [
     {"name": "Percent", "id": "percent"},
     {"name": "Mindstate", "id": "mindstate"},
 ]
+
+CIRCLE_COLUMNS = [
+    {"name": "Set", "id": "category"},
+    {"name": "Requirement", "id": "label"},
+    {"name": "Skill", "id": "skill"},
+    {"name": "Have", "id": "have"},
+    {"name": "Need", "id": "need"},
+]
+
+
+def circle_gates(character):
+    """Rows and note for the circle-gates view: what the guildleader
+    would say gates the next circle, from the latest ;sheet snapshot."""
+    if circles is None or not character:
+        return [], ""
+    snapshot = query(data.sheet_snapshot, character, default=None)
+    if snapshot is None:
+        return [], "No sheet snapshot yet — run ;sheet once in revenant."
+    logged_at, circle, guild, ranks = snapshot
+    if circle is None or guild is None:
+        return [], "Snapshot predates circle/guild tracking — run ;sheet once."
+    unmet = circles.gates(ranks, circle, guild)
+    if unmet is None:
+        return [], f"No circle requirements known for guild {guild}."
+    note = (
+        f"{guild}, circle {circle} → {circle + 1} — "
+        f"from the sheet snapshot at {logged_at}"
+    )
+    if not unmet:
+        return [], f"Nothing gates the next circle. {note}"
+    rows = [dict(gate, skill=gate["skill"] or "—") for gate in unmet]
+    return rows, note
 
 
 def query(fn, *args, default):
@@ -101,6 +142,13 @@ def serve_layout():
                 columns=TABLE_COLUMNS,
                 sort_action="native",
                 filter_action="native",
+            ),
+            html.H3("Circle gates"),
+            html.P(id="circle-note"),
+            dash_table.DataTable(
+                id="circle-table",
+                columns=CIRCLE_COLUMNS,
+                sort_action="native",
             ),
             dcc.Interval(id="refresh", interval=REFRESH_MS),
         ],
@@ -220,6 +268,16 @@ def update_table(character, _tick):
     latest = query(data.latest_snapshot, character, default=[])
     as_of = f"as of {latest[0]['logged_at']}" if latest else ""
     return latest, as_of
+
+
+@app.callback(
+    Output("circle-table", "data"),
+    Output("circle-note", "children"),
+    Input("char-dropdown", "value"),
+    Input("refresh", "n_intervals"),
+)
+def update_circle_gates(character, _tick):
+    return circle_gates(character)
 
 
 @app.callback(
