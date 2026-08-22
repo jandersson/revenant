@@ -223,6 +223,31 @@ def test_late_attach_learns_the_vitals_despite_an_evicted_backlog():
     late.close()
 
 
+def test_late_attach_learns_the_room():
+    # The map dock follows the "room" stream; standing still, the room
+    # frame ages out of the backlog. attach() states the position fresh
+    # (#56), like the compass and vitals.
+    game = FakeGame()
+    server, port = _start_server(game)
+    game.pending.append(
+        b'<style id="roomName"/>[Northwall Trail, Grassland] <style id=""/>'
+        b"<nav rm='10081'/>\n"
+    )
+    assert _await(lambda: server.engine.xml_data.room_uid == 10081), (
+        "nav uid never parsed"
+    )
+    server.backlog.clear()  # simulate the eviction
+
+    late = socket.create_connection(("127.0.0.1", port), timeout=5)
+    late.settimeout(5)
+    buffer = b""
+    while b'"room"' not in buffer:
+        buffer += late.recv(4096)
+    frames, _ = session.decode_frames(buffer)
+    assert ("10081\t[Northwall Trail, Grassland]", "room", "") in frames
+    late.close()
+
+
 def test_transient_streams_broadcast_live_but_never_replay():
     # A roundtime frame is meaningful only at its instant: live
     # frontends get it, but one attaching later must not have it

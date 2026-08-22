@@ -151,9 +151,8 @@ class Engine(ClientLogger):
                     elif style != "clear":
                         buff.append(text if not stream else f"[{stream}] {text}")
                 # Room identity as a synthetic "room" stream: one
-                # "uid\ttitle" frame per room change. Machine-facing —
-                # the surveyor and future mappers consume it; the GUI
-                # ignores it (issue #22's structured-events slice).
+                # "uid\ttitle" frame per room change. The surveyor and
+                # the GUI's map dock (#56) follow it.
                 identity = (
                     getattr(self.xml_data, "room_uid", None),
                     getattr(self.xml_data, "room_title", None),

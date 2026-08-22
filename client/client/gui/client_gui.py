@@ -37,6 +37,7 @@ from client import eltime
 from client.command_history import CommandHistory
 from client.core import Engine
 from client.client_logger import ClientLogger
+from client.gui.map_dock import MapView
 from client.highlights import highlights_path, load_rules, spans
 from client.session import AttachedEngine, DEFAULT_HOST, DEFAULT_PORT
 from client.settings import load_settings
@@ -98,6 +99,11 @@ class ClientGUI(QMainWindow, ClientLogger):
     # Connection status changes also arrive on worker threads (the reader
     # noticing EOF, the reconnect worker) — same rule, same remedy.
     connection_state = pyqtSignal(str)
+
+    # The map database loads on a worker thread (13MB of JSON must not
+    # freeze startup); the loaded db arrives here. Args: db (or None
+    # when there is none on disk), the local survey overlay's room ids.
+    map_ready = pyqtSignal(object, object)
 
     # style id -> (bold, color). The game's own styling markers, rendered
     # the way Stormfront players expect: amber room names, blue speech.
@@ -206,6 +212,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.__add_stream_docks()
         self.__add_compass_dock()
         self.__add_clocks_dock()
+        self.__add_map_dock()
         self.__add_input_field()
 
         reconnect_action = QAction("&Reconnect", self)
@@ -413,6 +420,38 @@ class ClientGUI(QMainWindow, ClientLogger):
         available = set(dirs_text.split())
         for direction, button in self.compass_buttons.items():
             button.setEnabled(direction in available)
+
+    def __add_map_dock(self):
+        """The visual map (#56): the community map drawn around the
+        character, following the "room" stream; a click on a room walks
+        there via ;go2. The database loads on a worker thread."""
+        self.map_view = MapView(send=self.write)
+        dock = QDockWidget("Map")
+        dock.setObjectName("Map")
+        dock.setWidget(self.map_view)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
+        # Registering under stream_docks gives it a View-menu toggle.
+        self.stream_docks["Map"] = dock
+        self.map_ready.connect(self.map_view.set_database)
+        Thread(target=self._load_map_database, daemon=True).start()
+
+    def _load_map_database(self):
+        """Worker: load the community map (plus the survey overlay's ids)
+        and hand it to the dock. A missing database is reported, never
+        downloaded here — ;go2 update owns fetching the 13MB."""
+        from client.mapdb import MapDB, mapdb_path
+        from client.maplayout import local_room_ids
+
+        if not mapdb_path().is_file():
+            self.map_ready.emit(None, set())
+            return
+        try:
+            db = MapDB.load()
+        except (OSError, ValueError):
+            self.log.exception("map database failed to load")
+            self.map_ready.emit(None, set())
+            return
+        self.map_ready.emit(db, local_room_ids())
 
     def __add_clocks_dock(self):
         """What time it is everywhere that matters: Elanthia (computed
@@ -760,7 +799,11 @@ class ClientGUI(QMainWindow, ClientLogger):
             self.update_indicators(text)
             return
         if stream == "room":
-            return  # machine stream (uid\ttitle) for scripts, not rendering
+            # uid\ttitle per room change — the map dock follows it.
+            uid_text, _, title = text.partition("\t")
+            uid = int(uid_text) if uid_text.strip().isdigit() else None
+            self.map_view.update_room(uid, title.strip())
+            return
         view = self.stream_windows.get(stream, self.main_window)
         if style == "clear":
             # The game rewrites resident windows wholesale (spell list

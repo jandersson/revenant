@@ -215,6 +215,13 @@ class SessionServer(ClientLogger):
                 replay += encode_frame(
                     indicators_frame(self.engine.xml_data.indicator), "indicators"
                 )
+            # The map dock follows the "room" stream; a room change is
+            # rare while idle, so the attach states the position fresh
+            # (#56) — same story as the compass above.
+            uid = getattr(self.engine.xml_data, "room_uid", None)
+            title = getattr(self.engine.xml_data, "room_title", None)
+            if uid or title:
+                replay += encode_frame(f"{uid or ''}\t{title or ''}", "room")
             try:
                 if replay:
                     conn.sendall(replay)

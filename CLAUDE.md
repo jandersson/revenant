@@ -62,7 +62,10 @@ One pipeline, one parser, several processes:
   `scripts/xp.py` snapshots it to `~/.revenant/xp.db` for history.
 - `client/client/core.py` — `Engine`: owns a connection, feeds lines through
   XMLData, invokes `output_callback(text, stream)` per segment. Emits a
-  synthetic `"compass"` stream when the room's exits change,
+  synthetic `"compass"` stream (one frame per room, identical exits
+  included — scripts treat it as the room-arrival signal), a `"room"`
+  frame (`"uid<TAB>title"`, per room change) that the map dock and
+  surveyor follow,
   `"roundtime"`/`"casttime"` frames (`"end<TAB>server now"`, both server
   epoch) when a timer starts — moment-bound, so the session excludes
   them from the reattach backlog (`TRANSIENT_STREAMS`) — a
@@ -72,8 +75,8 @@ One pipeline, one parser, several processes:
   game updates accumulate in xml_data.vitals), and a full-state
   `"indicators"` frame (the active indicator ids, sorted) when
   posture/stunned/bleeding/dead flip. session.attach replays
-  character, vitals, and indicators to late attachers, like the
-  compass.
+  character, vitals, indicators, and the room to late attachers,
+  like the compass.
 - `client/client/session.py` — the detachable session daemon
   (`python -m client.session`): logs in, owns the game socket, serves
   `(stream, text)` frames as JSON lines on 127.0.0.1:4242 to any number of
@@ -125,7 +128,10 @@ One pipeline, one parser, several processes:
 - `client/client/gui/client_gui.py` — PyQt6 frontend. GUI-thread safety via
   the `game_text` pyqtSignal; stream docks route
   thoughts/spells/arrivals/deaths;
-  compass dock renders the `"compass"` stream; the clocks dock ticks
+  compass dock renders the `"compass"` stream; the Map dock draws
+  the community map around the character from the `"room"` stream
+  (grid layout in the Qt-free `client/maplayout.py`, drawing in
+  `client/gui/map_dock.py`; click a room to ;go2 it); the clocks dock ticks
   Elanthian time, moons, Stockholm/Chicago, and (via a Settings toggle)
   Earth's moon; roundtime/casttime count down beside the input line
   under a row of vitals bars (health/fatigue/spirit/concentration,

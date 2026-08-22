@@ -19,8 +19,10 @@ guessed (walker.locate, pinned by test_go2.py).
 
 ## Arrival is a compass frame, verified by room
 
-The engine emits a synthetic "compass" frame when the room's exits
-change; the walker treats the next frame as the move's arrival signal,
+The engine emits one synthetic "compass" frame per room the game
+describes (identical exits included, so back-and-forth between twin
+rooms still signals); the walker treats the next frame as the move's
+arrival signal,
 then verifies the room itself — uid when the map knows it, normalized
 title otherwise — against the route. Two structural rules, both from
 captured bugs:
