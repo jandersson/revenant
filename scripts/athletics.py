@@ -16,10 +16,15 @@ Progress is echoed about every five minutes; pair with ;xp for
 history. Danger interrupts training (#72): hostiles in the room mean
 break off and climb away until clear, low health means hold until it
 recovers, and death stops the script — it never keeps feeding climbs
-into an engagement. Stop with:  ;stop athletics
+into an engagement. A spot that keeps re-engaging is contested (#86):
+after three hostile break-offs in ten minutes the script holds where
+it stands for five minutes — long enough for the creature to wander
+off, loud enough for you to intervene — before approaching again.
+Stop with:  ;stop athletics
 """
 
 import re
+import time
 
 MIND_LOCK = 34  # mindstate 34/34: nothing more fits
 RESUME_BELOW = 28  # resume once enough has drained to be worth the laps
@@ -35,6 +40,9 @@ HEALTH_FLOOR = 65  # % health: below this, hold training until recovered
 ESCAPE_ATTEMPTS = 8  # moves per burst while hostiles hold the room
 DANGER_POLL = 5  # seconds between checks while holding
 CLEAR_HOLD = 15  # breather after hostiles clear, before resuming
+CONTESTED_LIMIT = 3  # hostile break-offs inside the window = contested
+CONTESTED_WINDOW = 600  # seconds the break-off count looks back over
+CONTESTED_HOLD = 300  # seconds to stay put before approaching again
 
 # The Zoluren rank ladder the script can walk to, easiest to hardest.
 # Travel-climb rungs carry bottom/top rooms (loop commands are read from
@@ -291,6 +299,27 @@ def handle_danger(s, reason, commands):
         s.sleep(DANGER_POLL)
 
 
+def hold_out_contested(s):
+    """The cave-bear stalemate (#86): every escape landed us next door,
+    and the next lap climbed straight back into the defended room.
+    Approaching again immediately just re-runs the cycle — stay put
+    long enough for the creature to wander off, loudly enough for an
+    attending player to intervene."""
+    s.echo(
+        f"ATHLETICS: this spot is contested — {CONTESTED_LIMIT} hostile "
+        f"break-offs in {CONTESTED_WINDOW // 60} minutes. Holding "
+        f"{CONTESTED_HOLD // 60} minutes before the next approach "
+        "(intervene: kill it, or ;stop athletics and train elsewhere)"
+    )
+    held = 0
+    while held < CONTESTED_HOLD:
+        s.sleep(DANGER_POLL)
+        held += DANGER_POLL
+        if danger(s.state):
+            return  # trouble found us here — the lap restart handles it
+    s.echo("ATHLETICS: hold over — approaching the spot again")
+
+
 def going_stale(report_mindstates):
     """True when the last few reports all sat at a low mindstate without
     improving — the signature of a spot outgrown."""
@@ -316,6 +345,7 @@ def train(s, commands, stop_when_stale=False, pace=PAUSE):
     PAUSE for timer-exempt practice and manual loops."""
     laps = 0
     reports = []
+    breaks = []  # monotonic stamps of hostile break-offs (#86)
     report_every = report_cadence(commands, pace)
     while True:
         current = mindstate(s.state)
@@ -336,6 +366,13 @@ def train(s, commands, stop_when_stale=False, pace=PAUSE):
             if reason:
                 if handle_danger(s, reason, commands) == "stop":
                     return "danger"
+                if reason == "hostiles":
+                    now = time.monotonic()
+                    breaks = [t for t in breaks if now - t < CONTESTED_WINDOW]
+                    breaks.append(now)
+                    if len(breaks) >= CONTESTED_LIMIT:
+                        hold_out_contested(s)
+                        breaks.clear()
                 break  # start the lap over with fresh state
             s.put(command)
             s.waitrt()

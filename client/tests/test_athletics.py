@@ -300,6 +300,44 @@ def test_train_keeps_trying_when_escape_fails():
     assert any("can't get clear" in echo for echo in handle.echoes)
 
 
+class StalemateHandle(FakeHandle):
+    """The cave-bear stalemate (#86), as captured: the bear holds the
+    tunnel, every escape climbs into the bear-free crevice below, and
+    every re-approach climb summons it right back."""
+
+    TUNNEL, CREVICE = 459003, 459002
+    BEAR = {"79912449": True}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.state.room_uid = self.TUNNEL
+        self.state.hostiles = dict(self.BEAR)
+
+    def put(self, command):
+        super().put(command)
+        if command.startswith("climb"):
+            if self.state.room_uid == self.TUNNEL:
+                self.state.room_uid = self.CREVICE
+                self.state.hostiles = {}
+            else:
+                self.state.room_uid = self.TUNNEL
+                self.state.hostiles = dict(self.BEAR)
+
+
+def test_train_holds_out_a_contested_spot():
+    # Escape alone just ping-pongs (#86): the third hostile break-off
+    # inside the window marks the spot contested, and the trainer holds
+    # in place instead of climbing straight back into the bear.
+    handle = StalemateHandle((), mindstates=(5,), sleeps=40)
+    with pytest.raises(LoopDone):
+        athletics.train(handle, ["climb rise", "climb down"], pace=0)
+    breakoffs = [echo for echo in handle.echoes if "hostiles here" in echo]
+    assert len(breakoffs) == athletics.CONTESTED_LIMIT
+    assert any("contested" in echo for echo in handle.echoes)
+    # The hold is danger-polled, not a blind sleep.
+    assert ("sleep", athletics.DANGER_POLL) in handle.calls
+
+
 def test_train_stops_when_dead():
     handle = FakeHandle((), mindstates=(5,), sleeps=50)
     handle.state.indicator = {"IconDEAD": "y"}

@@ -73,7 +73,10 @@ not yet encoded anywhere.
 ## What the scripts do with this
 
 - **;athletics** (#72): hostiles present → break off and escape along
-  the training edge, repeatedly; low health → hold; dead → stop.
+  the training edge, repeatedly; low health → hold; dead → stop. Three
+  break-offs in ten minutes mean the spot is contested (#86, the
+  cave-bear stalemate: escape worked, the next lap climbed straight
+  back in) — hold five minutes before approaching again.
 - **Driving a fight** (session probes, not yet a script): attack
   loop, watch vitals, treat "already quite dead" as a retarget
   signal, stop on the kill line or "What were you referring to?",
