@@ -340,3 +340,23 @@ def test_escape_bursts_retreat_retreat_move():
     assert athletics.escape(handle, ["climb rise", "climb down"]) is True
     puts = [call[1] for call in handle.calls if call[0] == "put"]
     assert puts[:3] == ["retreat", "retreat", "climb rise"]
+
+
+def test_escape_succeeds_when_the_room_changes_despite_hostiles():
+    # Two retreats reach missile range, where climbing is legal even
+    # with the creature still present — a bear that won't leave must
+    # not pin the trainer (captured 2026-08-22).
+    class MovingHandle(DangerHandle):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.state.room_uid = 7233
+
+        def sleep(self, seconds):
+            # The move landed: new room, hostiles still listed behind us.
+            self.state.room_uid = 7234
+            FakeHandle.sleep(self, seconds)
+
+    handle = MovingHandle((), mindstates=(5,), sleeps=10, hostile_sleeps=99)
+    assert athletics.escape(handle, ["climb ladder", "climb down"]) is True
+    puts = [call[1] for call in handle.calls if call[0] == "put"]
+    assert puts == ["retreat", "retreat", "climb ladder"]

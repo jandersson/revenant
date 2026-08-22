@@ -235,18 +235,24 @@ def danger(state):
 
 
 def escape(s, commands):
-    """The burst-escape (docs/combat.md, field-proven): retreat to full
-    disengagement and move along the training edge back to back,
-    riding the game's type-ahead — spaced commands lose the race to
-    re-advancing critters (captured twice: the #72 death, and four
-    failed single-retreat exits against the same cougars). True once
-    the room has no hostiles."""
+    """The burst-escape (docs/combat.md, field-proven): two retreats
+    step melee -> pole -> missile range, and climbing is legal again
+    from missile range even while the creature stays in the room — so
+    burst retreat/retreat/move through the type-ahead and judge
+    success by whether the ROOM changed, not by whether it emptied
+    (a bear that won't leave must not pin the trainer, captured
+    2026-08-22). Spaced commands lose the race to re-advances
+    (captured twice: the #72 death, four failed single-retreat
+    exits)."""
     for attempt in range(ESCAPE_ATTEMPTS):
+        before = getattr(s.state, "room_uid", None)
         s.put("retreat")
         s.put("retreat")
         s.put(commands[attempt % len(commands)])
         s.waitrt()
         s.sleep(1)
+        if getattr(s.state, "room_uid", None) != before:
+            return True
         if not hostiles_present(s.state):
             return True
     return False

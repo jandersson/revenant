@@ -262,7 +262,7 @@ class SessionServer(ClientLogger):
     # countdown, so they are never kept in the backlog.
     TRANSIENT_STREAMS = ("roundtime", "casttime")
 
-    def broadcast(self, text: str, stream: str, style: str = ""):
+    def broadcast(self, text: str, stream: str, style: str = "", exclude=None):
         frame = encode_frame(text, stream, style)
         with self.clients_lock:
             clients = list(self.clients)
@@ -270,6 +270,8 @@ class SessionServer(ClientLogger):
             if stream not in self.TRANSIENT_STREAMS:
                 self.backlog.append(frame)
             for conn in clients:
+                if conn is exclude:
+                    continue
                 try:
                     conn.sendall(frame)
                 except OSError:
@@ -309,6 +311,16 @@ class SessionServer(ClientLogger):
                         self.scripts.handle_command(command.decode("UTF-8", "replace"))
                     else:
                         self.send_to_game(command + b"\n")
+                        # Every OTHER frontend sees what this one sent
+                        # (dim, shell-style): a probe- or twin-window-
+                        # driven command must never act invisibly. The
+                        # sender echoes its own locally.
+                        self.broadcast(
+                            f"> {command.decode('UTF-8', 'replace')}\n",
+                            "",
+                            "sent",
+                            exclude=conn,
+                        )
                 except Exception as error:
                     # One bad handler must never kill this reader thread:
                     # that leaves the frontend half-dead — receiving

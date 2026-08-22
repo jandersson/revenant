@@ -101,7 +101,16 @@ def walk(s, db, goals, describe="destination"):
         while s.get(timeout=0, streams=("compass",)) is not None:
             pass
         s.put(commands[-1])
-        if s.get(timeout=15, streams=("compass",)) is None:
+        arrived = s.get(timeout=15, streams=("compass",)) is not None
+        if not arrived and getattr(s.state, "hostiles", None):
+            # Engaged: moves and climbs refuse until retreated out to
+            # missile range (docs/combat.md) — burst retreat/retreat/
+            # step through the type-ahead and give the step one retry.
+            s.put("retreat")
+            s.put("retreat")
+            s.put(commands[-1])
+            arrived = s.get(timeout=15, streams=("compass",)) is not None
+        if not arrived:
             s.echo(f"stalled at step {number} ({commands[-1]!r}) — stopping here")
             return False
         # Arrival check: the nav uid is exact when the map knows it;

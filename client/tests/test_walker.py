@@ -108,3 +108,56 @@ def test_walk_stops_when_the_scripted_edge_lands_off_course():
     handle.state.room_uid = 101
     assert walker.walk(handle, DOOR, [2], describe="the hall") is False
     assert any("off course" in echo for echo in handle.echoes)
+
+
+class StallOnceHandle(FakeHandle):
+    """The first compass wait stalls (an engaged hostile refuses the
+    move); the burst retry's wait succeeds."""
+
+    def __init__(self, uids):
+        super().__init__(uids)
+        self.state.hostiles = {"78646435": True}
+        self._stalled = False
+
+    def get(self, timeout=None, streams=("",)):
+        if timeout == 0:
+            return None
+        if not self._stalled:
+            self._stalled = True
+            return None  # the refused step: no compass frame arrives
+        return super().get(timeout=timeout, streams=streams)
+
+
+def test_walk_bursts_through_an_engagement(monkeypatch):
+    # A hostile refuses the step ("You are engaged to a cave bear at
+    # melee range!", captured 2026-08-22): retreat twice to missile
+    # range — where movement is legal again — and retry the step.
+    handle = StallOnceHandle(uids=[102])
+    handle.state.room_uid = 101
+    handle.state.room_title = "[Gate]"
+    db = MapDB(
+        [
+            {"id": 1, "uid": [101], "title": ["[Gate]"], "wayto": {"2": "go door"}},
+            {"id": 2, "uid": [102], "title": ["[Hall]"], "wayto": {}},
+        ]
+    )
+    assert walker.walk(handle, db, [2], describe="the hall") is True
+    puts = [call[1] for call in handle.calls if call[0] == "put"]
+    assert puts == ["go door", "retreat", "retreat", "go door"]
+
+
+def test_walk_still_stops_on_a_quiet_stall():
+    # No hostiles: a stall means something else is wrong — no retreat
+    # spam, the old stop-and-report behavior.
+    handle = FakeHandle(uids=[])
+    handle.state.room_uid = 101
+    db = MapDB(
+        [
+            {"id": 1, "uid": [101], "title": ["[Gate]"], "wayto": {"2": "go door"}},
+            {"id": 2, "uid": [102], "title": ["[Hall]"], "wayto": {}},
+        ]
+    )
+    assert walker.walk(handle, db, [2], describe="the hall") is False
+    puts = [call[1] for call in handle.calls if call[0] == "put"]
+    assert puts == ["go door"]
+    assert any("stalled" in echo for echo in handle.echoes)

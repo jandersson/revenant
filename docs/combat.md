@@ -25,11 +25,16 @@ Movement out of the room auto-retreats first and fails the same way.
 **The escape recipe** (captured working, 2026-08-22): burst
 `retreat` → `retreat` → `<direction>` back to back, riding the game's
 type-ahead — "You retreat back to pole range." → "You retreat from
-combat." → "You go north." Full disengagement announces itself as
-*"You retreat from combat"*; anything slower loses the race, because
-critters re-advance in the gaps between spaced commands (four
-single-retreat-then-move attempts failed against the same cougars
-minutes earlier). ;athletics encodes the persistent-loop version.
+combat." → "You go north." Each retreat steps one range outward
+(melee → pole → missile), and **movement and climbing become legal
+again at missile range even while the creature stays in the room** —
+so success is *the room changing*, not the room emptying (a cave bear
+that wouldn't leave pinned the old empty-room check). Full
+disengagement, when it happens, announces itself as *"You retreat
+from combat"*. Anything slower loses the race: critters re-advance in
+the gaps between spaced commands (four single-retreat-then-move
+attempts failed against the same cougars minutes earlier). ;athletics
+and the shared walker both encode the burst.
 
 ## Attacking
 

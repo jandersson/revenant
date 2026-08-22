@@ -612,3 +612,31 @@ def test_late_attach_learns_the_indicators(monkeypatch):
     frames, _ = session.decode_frames(buffer)
     assert ("IconBLEEDING IconSTANDING", "indicators", "") in frames
     late.close()
+
+
+def test_sent_commands_reach_the_other_frontends():
+    # A command from one frontend (a probe, a twin window) is echoed
+    # to every other frontend, dim — driven characters must never act
+    # invisibly. The sender echoes its own locally instead.
+    game = FakeGame()
+    server, port = _start_server(game)
+    driver = socket.create_connection(("127.0.0.1", port), timeout=5)
+    watcher = socket.create_connection(("127.0.0.1", port), timeout=5)
+    watcher.settimeout(5)
+    assert _await(lambda: len(server.clients) == 2), "clients never registered"
+
+    driver.settimeout(1)
+    driver.sendall(b"look\n")
+    buffer = b""
+    while b"sent" not in buffer:
+        buffer += watcher.recv(4096)
+    frames, _ = session.decode_frames(buffer)
+    assert ("> look\n", "", "sent") in frames
+    # The origin connection gets no echo back (it echoes locally).
+    try:
+        data = driver.recv(4096)
+    except TimeoutError:
+        data = b""
+    assert b"> look" not in data
+    driver.close()
+    watcher.close()

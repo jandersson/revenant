@@ -110,6 +110,9 @@ class ClientGUI(QMainWindow, ClientLogger):
         # Ours, not the game's: markup-less lines that must not be
         # missed (the idle check) — see xml_data._ALERT_LINE.
         "alert": (True, "#e05252"),
+        # Sent commands, dim: your own (echoed locally) and everyone
+        # else's on this session (broadcast by the session).
+        "sent": (False, "#8a8a96"),
     }
 
     # stream id -> dock window title; streams not listed here fall through
@@ -633,6 +636,7 @@ class ClientGUI(QMainWindow, ClientLogger):
     def send_input(self):
         text = self.input.text()
         self.write(text)
+        self._append(self.main_window, f"> {text}\n", "sent")
         self.input.history.record(text)
         # Leave the text selected: plain Enter repeats it, typing
         # replaces it — the classic frontends' feel.
