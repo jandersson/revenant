@@ -53,6 +53,16 @@ the taskbar from there) that launches windowless: pick a character from
 your roster and play, or Switch account… to log in as a different
 account. `tools/make_icon.py` regenerates the icon from `revenant.svg`.
 
+#### Closing the window: quit or detach?
+
+Closing the window (the X, File → Exit, Ctrl+Q) **logs your character
+out**: it sends `quit`, the character leaves cleanly instead of
+lingering into link-death, and the session ends. To close the window
+and *stay in the game*, use **File → Detach (Ctrl+D)** — the session
+keeps playing, and the next launch reattaches to it. If you'd rather
+every close behave like Detach, untick "Quit the game when the window
+closes" in File → Settings.
+
 #### Which edits take effect when?
 
 You rarely need to restart anything. From cheapest to dearest:
@@ -60,7 +70,7 @@ You rarely need to restart anything. From cheapest to dearest:
 | You edited            | To pick it up                                                                 |
 | --------------------- | ----------------------------------------------------------------------------- |
 | a script (`scripts/`) | nothing — `;run` loads it fresh from disk every time (`;stop x`, then `;x`)   |
-| the GUI               | close or Detach the window and relaunch; it reattaches, no logout             |
+| the GUI               | **Detach** (Ctrl+D) the window and relaunch; it reattaches, no logout — a plain close would quit the game (see below) |
 | the session/engine    | `;reexec` (below) — or on Windows, where reexec is unsupported, quit and relaunch |
 
 A script that is already running keeps its old code until you `;stop` and rerun it.
