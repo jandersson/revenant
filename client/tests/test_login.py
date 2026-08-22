@@ -263,3 +263,14 @@ def test_save_known_characters_keeps_the_typed_account_case(monkeypatch, tmp_pat
     defaults = login.load_login_defaults()
     assert defaults["accounts"]["testacct"]["account"] == "TESTACCT"
     assert login.account_for_character(defaults, "beta") == "TESTACCT"
+
+
+def test_save_login_defaults_preserves_the_roster_cache(monkeypatch, tmp_path):
+    # Captured live (#58): remembering a second account overwrote
+    # login.json wholesale and emptied the picker.
+    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(tmp_path / "login.json"))
+    login.save_known_characters({"Alpha": "c1"}, "TESTACCT")
+    login.save_login_defaults("OTHERACCT", "Gamma")
+    defaults = login.load_login_defaults()
+    assert defaults["account"] == "OTHERACCT"
+    assert login.account_for_character(defaults, "Alpha") == "TESTACCT"

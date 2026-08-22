@@ -157,10 +157,16 @@ def load_login_defaults() -> dict:
 
 
 def save_login_defaults(account: str, character: str):
-    """Remember the account and character names for future launches."""
+    """Remember the account and character names for future launches.
+
+    Merges into the file — overwriting it wholesale destroyed the
+    per-account roster cache the picker lives on (captured live:
+    remembering a second account emptied the picker, #58)."""
+    data = load_login_defaults()
+    data.update({"account": account, "character": character})
     path = login_defaults_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"account": account, "character": character}))
+    path.write_text(json.dumps(data))
 
 
 def _code_for(characters: dict, character_name: str) -> str:

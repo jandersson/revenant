@@ -53,6 +53,7 @@ class LoginDialog(QDialog):
         self.account = QLineEdit(account)
         self.password = QLineEdit()
         self.password.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password.setPlaceholderText("blank = use the saved password")
         # Known characters (cached from earlier logins) as a dropdown;
         # still editable for names the cache hasn't seen. Strictly the
         # shown account's roster: a blank account (the picker's "Other
@@ -144,14 +145,12 @@ class CharacterPicker(QDialog):
         buttons = QDialogButtonBox()
         play = buttons.addButton("Play", QDialogButtonBox.ButtonRole.AcceptRole)
         play.setDefault(True)
-        if account:
-            # "Switch" is only meaningful relative to a named account; a
-            # roster of unknown provenance gets no switch path (the full
-            # login dialog handles that machine state instead).
-            switch = buttons.addButton(
-                "Switch account…", QDialogButtonBox.ButtonRole.ActionRole
-            )
-            switch.clicked.connect(self._choose_other_account)
+        # Always offered: the picker's entries can span accounts, and a
+        # brand-new account has to be reachable from here (#58).
+        switch = buttons.addButton(
+            "Other account…", QDialogButtonBox.ButtonRole.ActionRole
+        )
+        switch.clicked.connect(self._choose_other_account)
         buttons.addButton(QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)

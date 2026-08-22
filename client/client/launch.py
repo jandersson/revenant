@@ -144,6 +144,11 @@ def gather_login(character, fresh_account=False, account=None):
             if answer is None:
                 raise SystemExit(1)
             account, password, character, remember = answer
+            if account and not password:
+                # A blank password means "use the saved one" — adding an
+                # already-remembered account's character mustn't demand
+                # retyping a password the keychain holds (#58).
+                password = keychain_password(account) or ""
             if not (account and password and character):
                 error = "Account, password, and character are all required."
                 continue

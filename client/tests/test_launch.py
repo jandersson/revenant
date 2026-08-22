@@ -442,3 +442,27 @@ def test_gather_login_fresh_account_ignores_saved_identity(monkeypatch, tmp_path
     monkeypatch.setattr(launch.sys.stdin, "isatty", lambda: False, raising=False)
     with pytest.raises(SystemExit):
         launch.gather_login("", fresh_account=True)
+
+
+def test_gather_login_blank_dialog_password_uses_the_keychain(monkeypatch, tmp_path):
+    import sys
+    import types
+
+    monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(tmp_path / "login.json"))
+    monkeypatch.delenv("REVENANT_ACCOUNT", raising=False)
+    monkeypatch.setattr(launch.sys.stdin, "isatty", lambda: False, raising=False)
+    # The dialog answers with a blank password for a remembered account.
+    stub = types.SimpleNamespace(
+        ask_credentials=lambda *args, **kwargs: ("TESTACCT", "", "Alpha", False)
+    )
+    monkeypatch.setitem(sys.modules, "client.gui.login_dialog", stub)
+    monkeypatch.setattr(launch, "keychain_password", lambda account: "saved-secret")
+    seen = {}
+
+    def eaccess(info):
+        seen.update(info)
+        return "KEY111"
+
+    monkeypatch.setattr(launch, "eaccess_protocol", eaccess)
+    assert launch.gather_login("Alpha") == ("Alpha", "KEY111")
+    assert seen["password"] == b"saved-secret"
