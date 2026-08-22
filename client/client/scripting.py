@@ -15,7 +15,8 @@ in its own thread with `s` as its handle on the game:
 
 Scripts are controlled from any attached front end with ;-commands:
 ;list, ;help [name], ;run <name> [args], ;stop <name|all> (;k and
-;kill are lich-style aliases), or ;<name> [args] as shorthand for
+;kill are lich-style aliases, and a unique prefix of a running
+script's name is enough: ;k mech), or ;<name> [args] as shorthand for
 ;run. ;help prints a script's module docstring — write them as the
 user manual. Typing ;<name> <line> while <name> is running delivers
 <line> to it via s.command(); the lich chat shorthands (;chat, ;reply,
@@ -364,8 +365,19 @@ class ScriptManager(ClientLogger):
         with self.lock:
             if name == "all":
                 targets = list(self.running.values())
+            elif name in self.running:
+                targets = [self.running[name]]
             else:
-                targets = [self.running[name]] if name in self.running else []
+                # ;k mech — a prefix is enough when it names one script
+                targets = [
+                    script
+                    for running_name, script in self.running.items()
+                    if running_name.startswith(name)
+                ]
+        if name != "all" and len(targets) > 1:
+            names = ", ".join(sorted(script.name for script in targets))
+            self.emit(f"{name!r} matches several running scripts: {names}")
+            return
         if not targets:
             self.emit(f"nothing to stop ({name})")
             return

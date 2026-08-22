@@ -64,7 +64,8 @@ pair it with `room` to observe movement, the way `;survey` does).
 ;list                     what's running, what's available
 ;help <name>              the script's docstring
 ;run <name> [args]        start (or just  ;<name> [args])
-;stop <name|all>          stop (;k and ;kill work too)
+;stop <name|all>          stop (;k and ;kill work too; a unique prefix
+                          of a running script is enough: ;k mech)
 ;<name> <line>            deliver <line> to a running script
 ```
 

@@ -257,3 +257,52 @@ def test_k_and_kill_are_stop_aliases(tmp_path):
     # ;kill with nothing running answers like ;stop does.
     manager.handle_command(";kill")
     assert any("nothing to stop" in e for e in recorder.emitted)
+
+
+LOOPER = "def main(s):\n    while True:\n        s.sleep(0.05)\n"
+
+
+def test_stop_by_unique_prefix(tmp_path):
+    # ;k mech stops mechlore when nothing else matches the prefix.
+    (tmp_path / "mechlore.py").write_text(LOOPER)
+    manager, recorder = make_manager(tmp_path)
+    manager.start("mechlore", [])
+    assert wait_for(lambda: "mechlore" in manager.running)
+    manager.stop("mech")
+    assert wait_for(lambda: any("mechlore stopped" in e for e in recorder.emitted))
+
+
+def test_stop_prefix_matching_several_scripts_refuses(tmp_path):
+    (tmp_path / "mecha.py").write_text(LOOPER)
+    (tmp_path / "mechb.py").write_text(LOOPER)
+    manager, recorder = make_manager(tmp_path)
+    manager.start("mecha", [])
+    manager.start("mechb", [])
+    assert wait_for(lambda: len(manager.running) == 2)
+    manager.stop("mech")
+    assert any("matches several" in e and "mecha, mechb" in e for e in recorder.emitted)
+    assert all("stopped" not in e for e in recorder.emitted)
+    manager.stop("all")
+    assert wait_for(lambda: not manager.running)
+
+
+def test_stop_exact_name_beats_the_prefix(tmp_path):
+    # A script named exactly "mech" stops alone while "mechlore" runs on.
+    (tmp_path / "mech.py").write_text(LOOPER)
+    (tmp_path / "mechlore.py").write_text(LOOPER)
+    manager, recorder = make_manager(tmp_path)
+    manager.start("mech", [])
+    manager.start("mechlore", [])
+    assert wait_for(lambda: len(manager.running) == 2)
+    manager.stop("mech")
+    assert wait_for(lambda: any("mech stopped" in e for e in recorder.emitted))
+    assert "mechlore" in manager.running
+    assert all("mechlore stopped" not in e for e in recorder.emitted)
+    manager.stop("all")
+    assert wait_for(lambda: not manager.running)
+
+
+def test_stop_unmatched_prefix_reports_nothing_to_stop(tmp_path):
+    manager, recorder = make_manager(tmp_path)
+    manager.stop("mech")
+    assert "nothing to stop (mech)" in recorder.emitted
