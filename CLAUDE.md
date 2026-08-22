@@ -48,8 +48,10 @@ One pipeline, one parser, several processes:
   (indicators, compass, prompt), plus `route(line)` which splits each line
   into `(stream, text, style)` segments via pushStream/popStream markers
   and the styling markers (pushBold, presets, style spans). style is ""
-  for plain text, a style name the GUI maps to colors/bold, or the
-  control value "clear" (<clearStream/>: wipe that stream's window).
+  for plain text, a style name the GUI maps to colors/bold, the control
+  value "clear" (<clearStream/>: wipe that stream's window), or
+  "link:<command>" for <d> command links (clickable in the GUI: a click
+  sends the command).
   Segments carry their own newlines — the engine appends "\n" to the last
   piece of each line per stream; frontends never add line breaks. Also
   parses the exp window (`<component id='exp Skill'>`) into

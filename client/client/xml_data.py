@@ -16,6 +16,27 @@ _STREAM_MARKER = re.compile(r"<pushStream id=[\"'](\w+)[\"'][^>]*/>|<popStream[^
 # the "alert" style (issue #42). Extend only with captured evidence.
 _ALERT_LINE = re.compile(r"YOU HAVE BEEN IDLE TOO LONG")
 
+# <d>north</d> and <d cmd='go gate'>the gate</d>: command links. The
+# link's game command is the cmd attribute when present, else the tag
+# body; front ends render style "link:<command>" as clickable.
+_LINK = re.compile(r"<d(?:\s+cmd=[\"']([^\"']*)[\"'])?[^>]*>(.*?)</d>", re.S)
+
+
+def _split_links(piece, style):
+    """Split a styled piece around <d> command links: (text, style)
+    chunks with links carrying style "link:<command>"."""
+    position = 0
+    for match in _LINK.finditer(piece):
+        if match.start() > position:
+            yield piece[position : match.start()], style
+        body = match.group(2)
+        command = match.group(1) or html.unescape(re.sub(r"<[^>]+>", "", body)).strip()
+        yield body, f"link:{command}"
+        position = match.end()
+    if position < len(piece):
+        yield piece[position:], style
+
+
 # DR's 35 learning rates; the index is the mindstate 0..34 (ported from
 # lich's DR_LEARNING_RATES).
 LEARNING_RATES = [
@@ -291,18 +312,19 @@ class XMLData:
         for stream, text in zip(streams, texts):
             if stream in DISCARD_STREAMS:
                 continue
-            for piece, style in self._styled_pieces(text):
-                piece = re.sub(r"<[^>]+>", "", piece)
-                piece = html.unescape(piece)
-                if not piece.strip():
-                    continue
-                if not style and _ALERT_LINE.search(piece):
-                    # The server sends these attention-critical lines with
-                    # no markup at all, trusting the official frontend to
-                    # make them loud (captured evidence in issue #42) —
-                    # so the styling is ours to add.
-                    style = "alert"
-                segments.append((stream, piece, style))
+            for styled_piece, piece_style in self._styled_pieces(text):
+                for piece, style in _split_links(styled_piece, piece_style):
+                    piece = re.sub(r"<[^>]+>", "", piece)
+                    piece = html.unescape(piece)
+                    if not piece.strip():
+                        continue
+                    if not style and _ALERT_LINE.search(piece):
+                        # The server sends these attention-critical lines
+                        # with no markup at all, trusting the official
+                        # frontend to make them loud (captured evidence in
+                        # issue #42) — so the styling is ours to add.
+                        style = "alert"
+                    segments.append((stream, piece, style))
         return segments
 
     def reset(self):

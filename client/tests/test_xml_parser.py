@@ -268,3 +268,21 @@ def test_idle_warning_gets_the_alert_style():
     assert xml_data.route("You feel fully rested.") == [
         ("", "You feel fully rested.", "")
     ]
+
+
+def test_command_links_get_link_styles():
+    xml_data = XMLData()
+    segments = xml_data.route("Obvious paths: <d>north</d>, <d>east</d>.")
+    assert segments == [
+        ("", "Obvious paths: ", ""),
+        ("", "north", "link:north"),
+        ("", ", ", ""),
+        ("", "east", "link:east"),
+        ("", ".", ""),
+    ]
+
+
+def test_command_links_prefer_the_cmd_attribute():
+    xml_data = XMLData()
+    segments = xml_data.route("You see <d cmd='go wooden gate'>a gate</d> here.")
+    assert ("", "a gate", "link:go wooden gate") in segments

@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QMainWindow,
     QMenu,
     QPushButton,
-    QTextEdit,
+    QTextBrowser,
     QWidget,
 )
 from PyQt6.QtGui import (
@@ -232,8 +232,23 @@ class ClientGUI(QMainWindow, ClientLogger):
                     pass  # already disconnected: nothing to quit
         super().closeEvent(event)
 
+    def _make_view(self):
+        """A read-only text view whose <d> command links are clickable:
+        a click sends the command to the game (QTextBrowser so anchors
+        fire without navigating anywhere)."""
+        view = QTextBrowser()
+        view.setOpenLinks(False)
+        view.setOpenExternalLinks(False)
+        view.anchorClicked.connect(self._follow_link)
+        return view
+
+    def _follow_link(self, url):
+        command = url.toString().strip()
+        if command:
+            self.write(command)
+
     def __add_output_window(self):
-        self.main_window = QTextEdit(readOnly=True)
+        self.main_window = self._make_view()
         self.setCentralWidget(self.main_window)
 
     def __add_stream_docks(self):
@@ -243,7 +258,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         for title in dict.fromkeys(self.STREAM_WINDOWS.values()):
             dock = QDockWidget(title)
             dock.setObjectName(title)  # saveState() needs unique names
-            view = QTextEdit(readOnly=True)
+            view = self._make_view()
             if title == "Experience":
                 # The exp dashboard is column-aligned text.
                 view.setFont(
@@ -422,6 +437,16 @@ class ClientGUI(QMainWindow, ClientLogger):
         cursor = QTextCursor(view.document())
         cursor.movePosition(QTextCursor.MoveOperation.End)
         text_format = QTextCharFormat()
+        if style.startswith("link:"):
+            # A <d> command link: clicking sends the command (issue #54).
+            text_format.setAnchor(True)
+            text_format.setAnchorHref(style[5:])
+            text_format.setForeground(QColor("#6db3f2"))
+            text_format.setFontUnderline(True)
+            cursor.insertText(text, text_format)
+            if follow:
+                scrollbar.setValue(scrollbar.maximum())
+            return
         bold, color = self.STYLE_FORMATS.get(style, (False, None))
         if bold:
             text_format.setFontWeight(QFont.Weight.Bold)
