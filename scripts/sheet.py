@@ -3,9 +3,12 @@
 Records INFO and EXP ALL — stats, circle, TDPs, favors, and the full
 skill roster with ranks — into ~/.revenant/xp.db, where beholder
 renders the history (#61). Every session snapshots on start and every
-three hours after; the sheet moves slowly, so that's plenty. ;sheet
-once takes a single snapshot and exits. ;stop sheet opts a session
-out; REVENANT_NO_SHEET=1 disables the autostart.
+three hours after; the sheet moves slowly, so that's plenty. A command
+the game leaves unanswered (login noise eats them) is re-asked, and
+whatever still won't answer is left out of the snapshot rather than
+stored as blanks. ;sheet once takes a single snapshot and exits.
+;stop sheet opts a session out; REVENANT_NO_SHEET=1 disables the
+autostart.
 """
 
 import os
@@ -16,7 +19,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 INTERVAL = 3 * 3600  # seconds between snapshots
-COLLECT_SECONDS = 4  # how long to gather each command's response
+COLLECT_SECONDS = 5  # patience per ask; the answer's last line ends it early
+ATTEMPTS = 3  # re-asks for a command the game left unanswered
+RETRY_SLEEP = 5  # seconds between re-asks, letting login noise settle
+
+# The recognizable final line of each command's answer.
+INFO_END = "Encumbrance"
+EXP_ALL_END = "Time Development Points"
 
 STAT_NAMES = (
     "Strength",
@@ -110,31 +119,55 @@ def insert_snapshot(connection, character, logged_at, info, skills):
             for skill, (rank, percent) in sorted(skills.items())
         ],
     )
-    connection.execute(
-        "INSERT INTO character (logged_at, character_name, circle, tdps, favors)"
-        " VALUES (?, ?, ?, ?, ?)",
-        (logged_at, character, info["circle"], info["tdps"], info["favors"]),
-    )
+    # An unanswered INFO must leave no trace — an all-None character
+    # row reads as data ("circle None") when it's really a gap (#65).
+    if info["stats"] or any(
+        info[key] is not None for key in ("circle", "tdps", "favors")
+    ):
+        connection.execute(
+            "INSERT INTO character (logged_at, character_name, circle, tdps, favors)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (logged_at, character, info["circle"], info["tdps"], info["favors"]),
+        )
     connection.commit()
 
 
-def collect(s, seconds):
-    """Main-stream text for a window after a command — INFO and EXP ALL
-    answer in multi-line, multi-column blocks with no end marker."""
+def collect(s, seconds, until=None):
+    """Main-stream text for a window after a command. INFO and EXP ALL
+    answer in multi-line, multi-column blocks; their last line
+    (`until`) ends the wait early, the window bounds it otherwise."""
     pieces = []
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
         line = s.get(timeout=0.5)
-        if line is not None:
-            pieces.append(line)
+        if line is None:
+            continue
+        pieces.append(line)
+        if until is not None and until in line:
+            break
     return "\n".join(pieces)
 
 
+def ask(s, command, parse, until, answered):
+    """parse() of the command's answer, re-asking up to ATTEMPTS times:
+    a command sent while login noise is still settling can go
+    unanswered entirely (captured 2026-08-22 — a session-start INFO
+    never answered while the following EXP ALL was, storing an
+    all-None character row, #65)."""
+    result = parse("")
+    for attempt in range(ATTEMPTS):
+        if attempt:
+            s.sleep(RETRY_SLEEP)
+        s.put(command)
+        result = parse(collect(s, COLLECT_SECONDS, until))
+        if answered(result):
+            break
+    return result
+
+
 def snapshot(s):
-    s.put("info")
-    info = parse_info(collect(s, COLLECT_SECONDS))
-    s.put("exp all")
-    skills = parse_exp_all(collect(s, COLLECT_SECONDS))
+    info = ask(s, "info", parse_info, INFO_END, lambda r: bool(r["stats"]))
+    skills = ask(s, "exp all", parse_exp_all, EXP_ALL_END, bool)
     if not info["stats"] and not skills:
         s.echo("sheet: nothing parsed from INFO / EXP ALL — is the game answering?")
         return
@@ -157,6 +190,12 @@ def snapshot(s):
         )
     finally:
         connection.close()
+    if not info["stats"]:
+        s.echo(
+            f"sheet: INFO went unanswered — snapshot for {character} "
+            f"has {len(skills)} skills only"
+        )
+        return
     s.echo(
         f"sheet: snapshot for {character} — {len(info['stats'])} stats, "
         f"{len(skills)} skills, circle {info['circle']}, {info['tdps']} TDPs"

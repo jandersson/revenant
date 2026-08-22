@@ -71,6 +71,83 @@ def test_parse_exp_all_reads_both_columns():
     assert "SKILL" not in skills  # the header row never parses as a skill
 
 
+class FakeHandle:
+    """The script-engine surface ;sheet uses, with per-attempt canned
+    answers: responses[command] is a list of answers, consumed one per
+    put()."""
+
+    def __init__(self, responses):
+        self.responses = {c: list(seqs) for c, seqs in responses.items()}
+        self.pending = []
+        self.echoed = []
+        self.slept = 0
+        self.state = None
+
+    def put(self, command):
+        seqs = self.responses.get(command, [])
+        self.pending = list(seqs.pop(0)) if seqs else []
+
+    def get(self, timeout=None):
+        return self.pending.pop(0) if self.pending else None
+
+    def echo(self, text):
+        self.echoed.append(text)
+
+    def sleep(self, seconds):
+        self.slept += seconds
+
+
+def snapshot_into(monkeypatch, tmp_path, responses):
+    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
+    monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
+    handle = FakeHandle(responses)
+    sheet.snapshot(handle)
+    connection = sqlite3.connect(tmp_path / "xp.db")
+    return handle, connection
+
+
+def test_snapshot_reasks_a_command_the_game_ate(monkeypatch, tmp_path):
+    # Captured 2026-08-22 (#65): the session-start INFO went
+    # unanswered while EXP ALL answered fine. The re-ask recovers it.
+    handle, connection = snapshot_into(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [[], INFO_TEXT.splitlines()],
+            "exp all": [EXP_ALL_TEXT.splitlines()],
+        },
+    )
+    assert handle.slept > 0  # a retry pause happened
+    circle, tdps = connection.execute("SELECT circle, tdps FROM character").fetchone()
+    assert (circle, tdps) == (1, 356)
+    assert any("circle 1" in line for line in handle.echoed)
+
+
+def test_snapshot_never_stores_an_all_none_character_row(monkeypatch, tmp_path):
+    handle, connection = snapshot_into(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [[], [], []],  # every ask goes unanswered
+            "exp all": [EXP_ALL_TEXT.splitlines()],
+        },
+    )
+    assert connection.execute("SELECT count(*) FROM character").fetchone()[0] == 0
+    assert connection.execute("SELECT count(*) FROM stats").fetchone()[0] == 0
+    assert connection.execute("SELECT count(*) FROM sheet_skills").fetchone()[0] == 6
+    assert any("INFO went unanswered" in line for line in handle.echoed)
+
+
+def test_collect_stops_at_the_answers_final_line():
+    handle = FakeHandle({})
+    handle.pending = INFO_TEXT.splitlines() + ["later, unrelated text"]
+    text = sheet.collect(handle, seconds=5, until=sheet.INFO_END)
+    assert "Encumbrance" in text
+    # The final line ended the wait: what followed was never consumed.
+    assert handle.pending == ["later, unrelated text"]
+
+
 def test_snapshot_rows_roundtrip_through_the_database():
     connection = sqlite3.connect(":memory:")
     sheet.ensure_schema(connection)
