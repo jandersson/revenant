@@ -187,6 +187,12 @@ class ClientGUI(QMainWindow, ClientLogger):
         )
         history_action.triggered.connect(self.show_experience_history)
 
+        beholder_action = QAction("Beholder in Bro&wser", self)
+        beholder_action.setStatusTip(
+            f"Open the experience dashboard in your browser ({DASHBOARD_URL})"
+        )
+        beholder_action.triggered.connect(self.open_beholder)
+
         edit_highlights_action = QAction("Edit High&lights…", self)
         edit_highlights_action.setStatusTip(
             f"Add and edit highlight patterns ({highlights_path()})"
@@ -208,6 +214,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         view_menu = menubar.addMenu("View")
         view_menu.addAction(view_status_bar)
         view_menu.addAction(history_action)
+        view_menu.addAction(beholder_action)
         view_menu.addAction(edit_highlights_action)
         view_menu.addAction(highlights_action)
         view_menu.addSeparator()
@@ -483,6 +490,15 @@ class ClientGUI(QMainWindow, ClientLogger):
         if broken:
             message += f" — {len(broken)} pattern(s) don't compile: {', '.join(broken)}"
         self.status_bar.showMessage(message)
+
+    def open_beholder(self):
+        """View → Beholder in Browser: the dashboard in a full tab,
+        embedded view or not (the session autostarts the server, so
+        the page is normally already answering)."""
+        import webbrowser
+
+        webbrowser.open(DASHBOARD_URL)
+        self.status_bar.showMessage(f"Opened the dashboard ({DASHBOARD_URL})")
 
     def show_experience_history(self):
         """View → Experience History: the beholder dashboard, embedded.
