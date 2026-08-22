@@ -18,6 +18,9 @@ COLLECT_SECONDS = 4
 
 _DEAD_NOUN = re.compile(r"The (\w+) is already quite dead")
 _KILL_WORDS = ("tips over", "goes still", "falls down", " dies", "collapses")
+# Bare ATTACK with every attacker dead (captured 2026-08-22):
+# "There is nothing else to face!  What are you trying to attack?"
+_ALL_DEAD = ("nothing else to face", "what are you trying to attack")
 
 
 def hostiles(state):
@@ -55,8 +58,10 @@ def main(s):
         s.echo("fight: nothing hostile here")
         return
     kills = 0
+    cleared = False
     for _ in range(MAX_ACTIONS):
         if not hostiles(s.state):
+            cleared = True
             break
         current = health(s.state)
         if current is not None and current < HEALTH_FLOOR:
@@ -70,16 +75,19 @@ def main(s):
         if any(word in lowered for word in _KILL_WORDS):
             kills += 1
             s.echo(f"fight: {kills} down")
+        if any(word in lowered for word in _ALL_DEAD):
+            cleared = True  # the game says so; the hostile state lags
+            break
         corpse = _DEAD_NOUN.search(text)
         if corpse:
             s.put(f"search {corpse.group(1)}")
             s.waitrt()
             collect(s, 1.5)
-        elif "referring" in lowered or "attack what" in lowered:
+        elif "referring" in lowered:
             s.put("face next")
             collect(s, 1.5)
     remaining = len(hostiles(s.state))
-    if remaining:
-        s.echo(f"fight: action budget spent with {remaining} hostile(s) left")
-    else:
+    if cleared or not remaining:
         s.echo(f"fight: room clear — {kills} kill(s)")
+    else:
+        s.echo(f"fight: action budget spent with {remaining} hostile(s) left")

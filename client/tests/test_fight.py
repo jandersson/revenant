@@ -91,3 +91,23 @@ def test_fight_declines_a_quiet_room():
     fight.main(handle)
     assert handle.sent == []
     assert any("nothing hostile" in echo for echo in handle.echoed)
+
+
+def test_fight_stops_on_the_all_dead_wording(monkeypatch):
+    # Captured 2026-08-22: bare ATTACK with every attacker dead answers
+    # "There is nothing else to face!  What are you trying to attack?"
+    # — the game's own all-clear, ahead of the lagging hostile state.
+    monkeypatch.setattr(fight, "COLLECT_SECONDS", 0.02)
+    handle = FakeHandle(
+        answers=[
+            ("The cougar slowly tips over and falls down.", []),
+            (
+                "There is nothing else to face!  What are you trying to attack?",
+                [],
+            ),
+        ],
+        hostiles={"1": True},
+    )
+    fight.main(handle)
+    assert handle.sent.count("attack") == 2
+    assert any("room clear — 1 kill(s)" in echo for echo in handle.echoed)
