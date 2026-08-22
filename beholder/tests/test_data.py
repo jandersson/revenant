@@ -120,3 +120,23 @@ def test_connect_is_read_only_and_never_creates_the_file(tmp_path):
             "INSERT INTO mindstate (logged_at, character_name, skill_name, rank, percent, mindstate) VALUES ('t', 'c', 's', 1, 1, 1)"
         )
     reader.close()
+
+
+def test_latest_character_is_the_most_recently_logged(connection):
+    assert data.latest_character(connection) == "Testchar"
+
+
+def test_history_since_windows_by_cutoff(connection):
+    series = data.history_since(connection, "Testchar", "2026-08-16T10:00:30+00:00")
+    assert series == {
+        "Evasion": {
+            "times": ["2026-08-16T10:01:00+00:00"],
+            "mindstate": [9],
+            "rank": [200],
+        },
+        "Sorcery": {
+            "times": ["2026-08-16T10:01:00+00:00"],
+            "mindstate": [7],
+            "rank": [100],
+        },
+    }

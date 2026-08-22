@@ -22,6 +22,14 @@ The page auto-refreshes every 60 seconds to match the `;xp` cadence, and a brows
 - **Mindstate plot** — one line per skill with 1d/3d/all range buttons and a range slider; hover shows mindstate and rank.
 - **Experience table** — the latest snapshot per skill, sortable and filterable, with the snapshot timestamp above it.
 
+## The dock view
+
+`/dock?character=X&hours=6` serves a compact, dark, self-refreshing
+plot of one character's recent mindstate — no dropdowns or table —
+sized for the client GUI's Experience History dock, which loads it by
+default (both parameters optional: latest-logged character, six
+hours). The full dashboard stays at `/`.
+
 ## Development
 
 Beholder is a member of the root uv workspace ([pyproject.toml](pyproject.toml)); its only runtime dependency is `dash`. The data layer ([beholder/data.py](beholder/data.py)) is stdlib `sqlite3` — each Dash callback opens a fresh connection, since callbacks run on worker threads. Tests live in [tests/](tests/):

@@ -409,10 +409,22 @@ class ClientGUI(QMainWindow, ClientLogger):
             return
         dock = getattr(self, "_history_dock", None)
         if dock is None:
+            from urllib.parse import quote
+
             from PyQt6.QtCore import QUrl
 
+            from client.login import load_login_defaults
+
+            # The compact /dock view (issue #59); the full dashboard
+            # stays a browser away via ;beholder. Character comes from
+            # the saved login default, the server falling back to the
+            # latest-logged character without one.
+            character = load_login_defaults().get("character") or ""
+            url = DASHBOARD_URL + "/dock"
+            if character:
+                url += f"?character={quote(character)}"
             view = QWebEngineView()
-            view.load(QUrl(DASHBOARD_URL))
+            view.load(QUrl(url))
             dock = QDockWidget("Experience History")
             dock.setObjectName("ExperienceHistory")
             dock.setWidget(view)

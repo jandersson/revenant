@@ -45,6 +45,37 @@ def skills(connection, character):
     return [row["skill_name"] for row in rows]
 
 
+def latest_character(connection):
+    """The most recently logged character, or None on an empty table —
+    the dock view's fallback when no character is named."""
+    row = connection.execute(
+        "SELECT character_name FROM mindstate ORDER BY logged_at DESC LIMIT 1"
+    ).fetchone()
+    return row["character_name"] if row else None
+
+
+def history_since(connection, character, since_iso):
+    """Time series per skill from a cutoff onward — the dock's recent
+    window. Same shape as history(); ISO-8601 UTC strings compare as
+    time, so the cutoff is a plain string comparison."""
+    rows = connection.execute(
+        "SELECT skill_name, logged_at, mindstate, rank"
+        "  FROM mindstate"
+        " WHERE character_name = ? AND logged_at >= ?"
+        " ORDER BY logged_at",
+        (character, since_iso),
+    )
+    series = {}
+    for row in rows:
+        points = series.setdefault(
+            row["skill_name"], {"times": [], "mindstate": [], "rank": []}
+        )
+        points["times"].append(row["logged_at"])
+        points["mindstate"].append(row["mindstate"])
+        points["rank"].append(row["rank"])
+    return series
+
+
 def latest_snapshot(connection, character):
     """The newest logged row per skill for a character — the learning
     queue as of the last ;xp tick, one dict per skill, sorted by name."""

@@ -126,6 +126,74 @@ app = Dash(__name__, title="Beholder")
 app.layout = lambda: page(serve_layout())
 
 
+def dock_figure(series, character):
+    """The compact dock plot: one character's recent mindstate, chrome
+    stripped and margins trimmed for a 300-500px dock (issue #59)."""
+    import plotly.graph_objects as go_  # narrow alias keeps ruff quiet
+
+    figure = go_.Figure()
+    for skill in sorted(series):
+        points = series[skill]
+        figure.add_trace(
+            go_.Scatter(
+                x=points["times"], y=points["mindstate"], name=skill, mode="lines"
+            )
+        )
+    figure.update_layout(
+        title={"text": f"{character} — mindstate", "font": {"size": 13}},
+        margin={"l": 30, "r": 8, "t": 34, "b": 22},
+        paper_bgcolor="#17171d",
+        plot_bgcolor="#1e1e26",
+        font={"color": "#c8c8d0", "size": 10},
+        yaxis={"range": [0, 34], "gridcolor": "#2a2a34"},
+        xaxis={"gridcolor": "#2a2a34"},
+        legend={"orientation": "h", "y": -0.15},
+        showlegend=len(series) <= 8,
+    )
+    return figure
+
+
+@app.server.route("/dock")
+def dock():
+    """The embeddable compact view: ?character=X&hours=6, both optional
+    (latest-logged character, six hours). Self-refreshes every minute."""
+    from datetime import datetime, timedelta, timezone
+
+    import plotly.io
+    from flask import request
+
+    character = request.args.get("character")
+    if not character:
+        character = query(data.latest_character, default=None)
+    try:
+        hours = float(request.args.get("hours", 6))
+    except ValueError:
+        hours = 6.0
+    body = None
+    if character:
+        since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+        series = query(data.history_since, character, since, default={})
+        if series:
+            body = plotly.io.to_html(
+                dock_figure(series, character),
+                include_plotlyjs=True,
+                full_html=False,
+                default_height="100vh",
+            )
+    if body is None:
+        who = character or "anyone"
+        body = (
+            f"<p style='color:#8a8a96;font-family:sans-serif;padding:1rem'>"
+            f"No recent history for {who} — climb something.</p>"
+        )
+    return (
+        "<!DOCTYPE html><html><head>"
+        '<meta http-equiv="refresh" content="60">'
+        "<style>html,body{margin:0;background:#17171d;height:100%}</style>"
+        f"</head><body>{body}</body></html>"
+    )
+
+
 @app.callback(
     Output("skills-dropdown", "options"),
     Output("skills-dropdown", "value"),

@@ -4,7 +4,8 @@ A pure-Python client stack for DragonRealms (a Simutronics MUD). uv workspace
 monorepo; members: `client` (the game client), `chat` (LNet chat client), and
 `beholder` (Dash dashboard over the experience history the bundled xp
 script — `;xp` in any frontend — logs to
-~/.revenant/xp.db; stdlib sqlite3 data layer in `beholder/beholder/data.py`,
+~/.revenant/xp.db; the compact `/dock` route feeds the GUI's embedded
+view; stdlib sqlite3 data layer in `beholder/beholder/data.py`,
 app + tests beside it; run with `uv run beholder`).
 `launcher/launch.py` is a separate bridge that starts the external
 lich/ProfanityFE Ruby toolchain — revenant itself must never grow Ruby
