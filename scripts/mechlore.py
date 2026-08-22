@@ -20,6 +20,7 @@ RESUME_BELOW = 28  # resume once enough has drained to be worth it
 LOCK_POLL = 30  # seconds between mindstate checks while locked
 PAUSE = 1  # breather between commands
 COLLECT_SECONDS = 3  # forage/braid answer in one quick burst
+RESULT_SECONDS = 2  # the tail that lands once the roundtime expires
 REPORT_EVERY_SECONDS = 300
 MAX_BRAIDS_PER_PIECE = 30  # a rope forms well before this; a fuse, not a plan
 FORAGE_FAILURES_BEFORE_GIVING_UP = 5
@@ -27,12 +28,23 @@ FORAGE_FAILURES_BEFORE_GIVING_UP = 5
 SKILL = "Mechanical Lore"
 
 # Keyword classification of the game's answers (assumptions until
-# captured — #71). Checked in order; first hit wins.
+# captured — #71). Checked in order; first hit wins. Failures come
+# before "ok" so "You find nothing" never hits the "you find" needle.
 FORAGE_OUTCOMES = (
-    ("ok", ("you manage to find", "you find", "you gather")),
-    ("nothing_here", ("find nothing", "nothing like that", "nothing here")),
+    # "can't quite seem to remember" captured live 2026-08-22: foraging
+    # an item the room can't supply turns into a blind forage.
+    (
+        "nothing_here",
+        (
+            "find nothing",
+            "nothing like that",
+            "nothing here",
+            "can't quite seem to remember",
+        ),
+    ),
     ("indoors", ("must be outside", "can't forage here", "while inside")),
     ("hands_full", ("hands are full", "free hand")),
+    ("ok", ("you manage to find", "you find", "you gather")),
 )
 BRAID_OUTCOMES = (
     ("done", ("rope", "finish braiding", "you finish")),
@@ -80,8 +92,15 @@ def wait_for_drain(s):
 
 def ask(s, command):
     s.put(command)
+    opening = collect(s, COLLECT_SECONDS)
+    # Results can land at the END of the roundtime the command opens —
+    # captured 2026-08-22: a 6s blind forage answered after the old
+    # collect window closed, so the classifier only saw the narration.
+    # waitrt comes after the first collect because the roundtime is not
+    # yet announced when the command is sent.
     s.waitrt()
-    return collect(s, COLLECT_SECONDS)
+    tail = collect(s, RESULT_SECONDS)
+    return f"{opening}\n{tail}" if tail else opening
 
 
 def braid_piece(s):

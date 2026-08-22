@@ -52,6 +52,7 @@ NEUTRAL_IMMORTALS = (
 
 PAUSE = 1  # breather between ritual commands
 COLLECT_SECONDS = 3  # let a command's answer arrive in one burst
+RESULT_SECONDS = 2  # the tail that lands once the roundtime expires
 OFFER_SECONDS = 6  # the altar's light show is long and multi-line
 ARRIVAL_TIMEOUT = 10  # room change after GO ARCH
 PUZZLE_POLL = 5  # seconds between are-we-back checks while puzzling
@@ -99,8 +100,13 @@ def collect(s, seconds):
 
 def ask(s, command, seconds=None):
     s.put(command)
+    opening = collect(s, COLLECT_SECONDS if seconds is None else seconds)
+    # Results can land at the roundtime's end (the ;mechlore blind-forage
+    # capture, 2026-08-22); the roundtime is only announced after the
+    # command goes out, so waitrt comes after the first collect.
     s.waitrt()
-    return collect(s, COLLECT_SECONDS if seconds is None else seconds)
+    tail = collect(s, RESULT_SECONDS)
+    return f"{opening}\n{tail}" if tail else opening
 
 
 def echo_unrecognized(s, step, answer):

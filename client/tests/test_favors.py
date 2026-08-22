@@ -97,6 +97,7 @@ class FakeMap:
 
 def _quick(monkeypatch):
     monkeypatch.setattr(favors, "COLLECT_SECONDS", 0.01)
+    monkeypatch.setattr(favors, "RESULT_SECONDS", 0.01)
     monkeypatch.setattr(favors, "OFFER_SECONDS", 0.01)
 
 

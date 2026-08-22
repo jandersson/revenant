@@ -96,6 +96,7 @@ def test_classify_braid_outcomes():
 
 def test_braid_piece_braids_to_rope_and_drops_it(monkeypatch):
     monkeypatch.setattr(mechlore, "COLLECT_SECONDS", 0.02)
+    monkeypatch.setattr(mechlore, "RESULT_SECONDS", 0.02)
     handle = FakeHandle(
         {
             "braid my grass": [
@@ -111,6 +112,7 @@ def test_braid_piece_braids_to_rope_and_drops_it(monkeypatch):
 
 def test_main_gives_up_somewhere_grassless(monkeypatch):
     monkeypatch.setattr(mechlore, "COLLECT_SECONDS", 0.02)
+    monkeypatch.setattr(mechlore, "RESULT_SECONDS", 0.02)
     handle = FakeHandle(
         {
             "forage grass": [["You forage around but find nothing."]]
@@ -123,6 +125,7 @@ def test_main_gives_up_somewhere_grassless(monkeypatch):
 
 def test_unrecognized_answers_are_echoed_for_capture(monkeypatch):
     monkeypatch.setattr(mechlore, "COLLECT_SECONDS", 0.02)
+    monkeypatch.setattr(mechlore, "RESULT_SECONDS", 0.02)
     monkeypatch.setattr(mechlore, "FORAGE_FAILURES_BEFORE_GIVING_UP", 1)
     handle = FakeHandle({"forage grass": [["Wholly novel game wording."]]})
     mechlore.main(handle)
@@ -130,3 +133,52 @@ def test_unrecognized_answers_are_echoed_for_capture(monkeypatch):
         "unrecognized (forage): Wholly novel game wording." in echo
         for echo in handle.echoed
     )
+
+
+def test_classify_blind_forage_as_nothing_here():
+    # Captured live 2026-08-22: foraging an item the room can't supply
+    # turns into a blind forage ("...can't quite seem to remember what
+    # it was you were looking for").
+    assert (
+        mechlore.classify(
+            "You begin to forage around, but can't quite seem to remember "
+            "what it was you were looking for.",
+            mechlore.FORAGE_OUTCOMES,
+        )
+        == "nothing_here"
+    )
+
+
+def test_find_nothing_is_not_a_find():
+    # Failure needles are checked before "ok", so "You find nothing"
+    # never hits the "you find" success needle.
+    assert (
+        mechlore.classify("You find nothing of interest.", mechlore.FORAGE_OUTCOMES)
+        == "nothing_here"
+    )
+
+
+def test_ask_collects_the_result_that_lands_after_the_roundtime(monkeypatch):
+    # Captured 2026-08-22: a 6s blind forage delivered its result only
+    # when the roundtime expired, after the old collect window closed.
+    monkeypatch.setattr(mechlore, "COLLECT_SECONDS", 0.02)
+    monkeypatch.setattr(mechlore, "RESULT_SECONDS", 0.02)
+
+    class RoundtimeHandle(FakeHandle):
+        after_rt = []
+
+        def waitrt(self):
+            self.pending.extend(self.after_rt)
+            self.after_rt = []
+
+    handle = RoundtimeHandle(
+        {
+            "forage grass": [
+                ["You wander around and poke your fingers into a few places."]
+            ]
+        }
+    )
+    handle.after_rt = ["You forage around but find nothing."]
+    answer = mechlore.ask(handle, "forage grass")
+    assert "find nothing" in answer
+    assert mechlore.classify(answer, mechlore.FORAGE_OUTCOMES) == "nothing_here"
