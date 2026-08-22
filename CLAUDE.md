@@ -117,6 +117,13 @@ One pipeline, one parser, several processes:
   the shared travel engine; `scripts/go2.py` is the command on top, and
   `;favors` (scripts/favors.py) rides it for the favor-orb run — grotto
   ritual, attended puzzles, temple altar offer (docs/favors.md).
+- `client/client/climbs.py` — climbing spots with Athletics rank
+  bands and conditions, keyed to the community map's room ids
+  (never written into the community db, which refreshes wholesale);
+  `;athletics` derives its training ladder and its ;athletics-list
+  advice from this one table (#87). Bands from Elanthipedia's
+  Climbing and Swimming list; rank 100+ trains in town on the
+  Crossing battlements.
 - `client/client/circles.py` — circle requirements, Qt-free: every
   circled guild's Elanthipedia rate table + the slot/soft-requirement
   model; `;circle` (scripts/circle.py) and beholder's Circle-gates

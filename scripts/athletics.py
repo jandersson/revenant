@@ -7,7 +7,11 @@ pausing at mind-lock and moving up the ladder when gains go stale.
 Standard travel climbs award xp at most once per random 45–60s window
 (docs/experience.md), so climb loops are paced to that timer instead
 of spammed; `climb practice` rungs are timer-exempt and loop tightly.
-The ladder is Zoluren spots per Elanthipedia. Also:
+The ladder is Zoluren spots per Elanthipedia, encoded with their
+map rooms, rank bands, and conditions in client/climbs.py; rank 100+
+trains in town on the Crossing battlements. Auto mode checks
+ENCUMBRANCE once at start and warns when a load would blunt every
+climb. Also:
 
     ;athletics list                     show the ladder for your rank
     ;athletics climb x | climb back     train a manual loop right here
@@ -26,6 +30,8 @@ Stop with:  ;stop athletics
 import re
 import time
 
+from client import climbs
+
 MIND_LOCK = 34  # mindstate 34/34: nothing more fits
 RESUME_BELOW = 28  # resume once enough has drained to be worth the laps
 LOCK_POLL = 30  # seconds between mindstate checks while locked
@@ -43,67 +49,16 @@ CLEAR_HOLD = 15  # breather after hostiles clear, before resuming
 CONTESTED_LIMIT = 3  # hostile break-offs inside the window = contested
 CONTESTED_WINDOW = 600  # seconds the break-off count looks back over
 
-# The Zoluren rank ladder the script can walk to, easiest to hardest.
-# Travel-climb rungs carry bottom/top rooms (loop commands are read from
-# the map's own edges at runtime, paced to the award timer); practice
-# rungs carry the room and the obstacle (timer-exempt, tight loop).
-AUTO_LADDER = [
-    {
-        "low": 0,
-        "high": 19,
-        "label": "felled tree, Wilderness Deep Forest (west of Crossing)",
-        "bottom": 5705,
-        "top": 6153,
-    },
-    {
-        "low": 0,
-        "high": 34,
-        "label": "moonstone trellis, Jadewater Mansion East Lawn",
-        "bottom": 13527,
-        "top": 13529,
-    },
-    {
-        "low": 0,
-        "high": 80,
-        "label": "pear tree practice, Grassland Road Meadow (timer-exempt)",
-        "room": 1455,
-        "practice": "pear tree",
-    },
-    {
-        "low": 5,
-        "high": 60,
-        "label": "oak tree, Arthe Dale Greensward",
-        "bottom": 1068,
-        "top": 14134,
-    },
-    {
-        "low": 10,
-        "high": None,
-        "label": "apple tree, Midton Circle",
-        "bottom": 19349,
-        "top": 7214,
-    },
-    {
-        "low": 20,
-        "high": None,
-        "label": "rise, Siergelde Cliffs High Path",
-        "bottom": 1429,
-        "top": 1430,
-    },
-    {
-        "low": 30,
-        "high": None,
-        "label": "mine ladder, Abandoned Mine crevice (beisswurms!)",
-        "bottom": 7233,
-        "top": 7234,
-    },
-]
+# The rank ladder and its advice rows live in client/climbs.py,
+# keyed to the community map (#87) — one table for every map-aware
+# consumer. Travel rungs carry bottom/top rooms (loop commands are
+# read from the map's own edges at runtime, paced to the award
+# timer); practice rungs carry the room and the obstacle
+# (timer-exempt, tight loop).
+AUTO_LADDER = climbs.rungs()
 
-# Advice-only spots the script cannot walk a loop for (swims).
-PRACTICE_SPOTS = [
-    (0, 80, "Crossing sewers (mind the thugs) — swim the channels"),
-    (0, 110, "Goblin Brook (slows after 80) — swim across and back"),
-]
+# Real spots the trainer cannot walk a loop for (swims, unmapped).
+PRACTICE_SPOTS = climbs.advice()
 
 
 def parse_commands(args):
@@ -131,6 +86,27 @@ def current_rank(state):
 
 # "       Athletics:      3 00.00% clear          (0/34)"
 EXP_LINE = re.compile(r"Athletics:\s+(\d+)\s+[\d.]+%")
+
+# "   Encumbrance : Heavily Burdened" — the ENC command's level line.
+ENC_LINE = re.compile(r"Encumbrance\s*:\s*(.+)")
+
+
+def check_burden(s):
+    """ENC once at auto-mode start: encumbrance penalizes every climb
+    (Elanthipedia, client/climbs.py's conditions note), so a loaded
+    character gets told before laps are wasted on it. Levels from
+    "Somewhat Burdened" up warn; None/Light pass silently."""
+    s.put("encumbrance")
+    line = s.waitfor(r"Encumbrance\s*:", timeout=5)
+    match = ENC_LINE.search(line) if line else None
+    if match is None:
+        return
+    level = match.group(1).strip()
+    if "burdened" in level.lower():
+        s.echo(
+            f"ATHLETICS: you are {level} — encumbrance penalizes every "
+            "climb; stow or drop the load for cleaner gains"
+        )
 
 
 def probe_rank(s):
@@ -424,6 +400,7 @@ def auto_train(s, db=None, walk=None):
     rank = current_rank(s.state)
     if rank is None:
         rank = probe_rank(s)
+    check_burden(s)
     rung = optimal_rung(rank)
     if rung is None:
         s.echo(f"no ladder rung fits rank {rank} — train manually (;help athletics)")

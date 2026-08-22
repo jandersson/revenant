@@ -182,7 +182,11 @@ def test_optimal_rung_is_the_hardest_in_reach():
     assert athletics.optimal_rung(None)["label"].startswith("pear tree practice")
     assert athletics.optimal_rung(7)["label"].startswith("oak tree")
     assert athletics.optimal_rung(25)["label"].startswith("rise")
-    assert athletics.optimal_rung(100)["label"].startswith("mine ladder")
+    assert athletics.optimal_rung(60)["label"].startswith("mine ladder")
+    # The #87 extension: rank 100+ trains in town, on the battlements.
+    assert athletics.optimal_rung(144)["label"].startswith("NE gate embrasure")
+    # At the 150 tie the later (NE gate, deeper band) entry wins.
+    assert athletics.optimal_rung(150)["label"].startswith("NE gate wall")
 
 
 def test_climb_loop_reads_the_maps_own_edges():
@@ -253,6 +257,23 @@ def _state(**overrides):
     defaults = dict(experience={}, hostiles={}, vitals={}, indicator={})
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
+
+
+def test_burden_warning_only_when_meaningfully_burdened():
+    # Encumbrance penalizes every climb (client/climbs.py's conditions
+    # note); auto mode probes ENC once and warns from Somewhat up.
+    heavy = FakeHandle((), exp_response="   Encumbrance : Heavily Burdened")
+    athletics.check_burden(heavy)
+    assert ("put", "encumbrance") in heavy.calls
+    assert any("Heavily Burdened" in echo for echo in heavy.echoes)
+
+    light = FakeHandle((), exp_response="   Encumbrance : Light Burden")
+    athletics.check_burden(light)
+    assert light.echoes == []
+
+    silent = FakeHandle((), exp_response=None)  # ENC answer never came
+    athletics.check_burden(silent)
+    assert silent.echoes == []
 
 
 def test_danger_classifies_death_hostiles_and_low_health():
@@ -352,7 +373,8 @@ class OakCampedHandle(FakeHandle):
     BEAR = {"79912449": True}
 
     def _sync(self):
-        self.state.hostiles = dict(self.BEAR) if self.state.room_uid == 1068 else {}
+        here = getattr(self.state, "room_uid", None)
+        self.state.hostiles = dict(self.BEAR) if here == 1068 else {}
 
     def put(self, command):
         super().put(command)
