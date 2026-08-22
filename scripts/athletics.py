@@ -338,6 +338,20 @@ def practice_seen(s, practicing):
             practicing = False
 
 
+def stale_result(s, reports, stop_when_stale):
+    """The shared going-stale reaction: "stale" for auto mode, ladder
+    advice (and a fresh count) for manual mode, None otherwise."""
+    if not going_stale(reports):
+        return None
+    if stop_when_stale:
+        return "stale"
+    s.echo("gains look stale here — this spot may be outgrown:")
+    for line in recommendations(current_rank(s.state)):
+        s.echo(line)
+    reports.clear()
+    return None
+
+
 def train(s, commands, stop_when_stale=False, pace=PAUSE, practice=False):
     """Cycle the movement commands, pausing at mind-lock. Returns
     "contested" when hostiles keep breaking the training (#86); with
@@ -357,6 +371,7 @@ def train(s, commands, stop_when_stale=False, pace=PAUSE, practice=False):
     breaks = []  # monotonic stamps of hostile break-offs (#86)
     practicing = False
     last_assert = 0.0
+    started = last_report = time.monotonic()
     report_every = report_cadence(commands, pace)
     while True:
         current = mindstate(s.state)
@@ -414,18 +429,29 @@ def train(s, commands, stop_when_stale=False, pace=PAUSE, practice=False):
                 if danger(s.state):
                     break  # the next lap's check handles it now
         laps += 1
-        if laps % report_every == 0:
+        if practice:
+            # A practice "lap" is one one-second watch-poll, not a
+            # climb — report by clock, worded as what it is (#89).
+            now = time.monotonic()
+            if now - last_report < REPORT_EVERY_SECONDS:
+                continue
+            last_report = now
+            current = mindstate(s.state)
+            shown = f"{current}/34" if current is not None else "not learning yet"
+            minutes = max(1, round((now - started) / 60))
+            s.echo(f"practicing {minutes}m — Athletics mindstate {shown}")
+            reports.append(current)
+            result = stale_result(s, reports, stop_when_stale)
+            if result:
+                return result
+        elif laps % report_every == 0:
             current = mindstate(s.state)
             shown = f"{current}/34" if current is not None else "not learning yet"
             s.echo(f"{laps} laps — Athletics mindstate {shown}")
             reports.append(current)
-            if going_stale(reports):
-                if stop_when_stale:
-                    return "stale"
-                s.echo("gains look stale here — this spot may be outgrown:")
-                for line in recommendations(current_rank(s.state)):
-                    s.echo(line)
-                reports.clear()
+            result = stale_result(s, reports, stop_when_stale)
+            if result:
+                return result
 
 
 def auto_train(s, db=None, walk=None):

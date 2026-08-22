@@ -218,11 +218,13 @@ def test_rung_plan_paces_travel_climbs_and_spams_practice():
     assert pace == athletics.PAUSE  # timer-exempt: tight loop
 
 
-def test_auto_mode_walks_to_the_rung_and_advances_when_stale():
+def test_auto_mode_walks_to_the_rung_and_advances_when_stale(monkeypatch):
     # Rank 3 at start (pear practice rung); the first sleep bumps the
     # fake exp entry to rank 7, so once the pear goes stale the oak
     # rung (5-60) is in reach — but not the apple (10+), so the ladder
-    # advances exactly once and then carries on at the oak.
+    # advances exactly once and then carries on at the oak. Reports
+    # fire every poll here (practice reports go by clock in real use).
+    monkeypatch.setattr(athletics, "REPORT_EVERY_SECONDS", 0)
     handle = FakeHandle(args=[], mindstates=[5, 5], sleeps=400)
     handle.state.experience["Athletics"]["rank"] = 3
     walks = []
@@ -319,6 +321,25 @@ def test_practice_restarts_when_the_activity_ends():
         athletics.train(handle, ["climb practice embrasure"], practice=True)
     puts = [call for call in handle.calls if call[0] == "put"]
     assert len(puts) >= 2
+
+
+def test_practice_reports_read_as_time_not_laps(monkeypatch):
+    # A practice "lap" is a one-second watch-poll — reporting it as
+    # "50 laps" read like fifty climbs. Practice reports go by clock.
+    monkeypatch.setattr(athletics, "REPORT_EVERY_SECONDS", 0)
+    handle = PracticeHandle(
+        (),
+        mindstates=(20,),
+        sleeps=5,
+        response="You begin to practice your climbing skills.",
+    )
+    with pytest.raises(LoopDone):
+        athletics.train(handle, ["climb practice embrasure"], practice=True)
+    assert any(
+        echo.startswith("practicing") and "mindstate 20/34" in echo
+        for echo in handle.echoes
+    )
+    assert not any("laps" in echo for echo in handle.echoes)
 
 
 def test_burden_warning_only_when_meaningfully_burdened():
