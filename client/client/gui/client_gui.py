@@ -290,8 +290,12 @@ class ClientGUI(QMainWindow, ClientLogger):
         compass tag offers the exit and dimmed to the ring otherwise."""
         width, height, ring, side = 190, 150, 54, 36
         center_x, center_y = 78, height // 2
-        container = QWidget()
-        container.setFixedSize(width, height)
+        # The rose keeps its fixed geometry, but lives centered inside a
+        # resizable wrapper — a fixed-size dock widget would pin the
+        # whole dock column's width and freeze the splitter.
+        rose = QWidget()
+        rose.setFixedSize(width, height)
+        container = rose
         container.setStyleSheet(
             f"QPushButton {{ border-radius: {side // 2}px;"
             "  background: #d8b465; color: #1c1c24;"
@@ -320,9 +324,16 @@ class ClientGUI(QMainWindow, ClientLogger):
         place("up", "up", width - 22, center_y - 28, size=30)
         place("down", "dn", width - 22, center_y + 28, size=30)
 
+        from PyQt6.QtWidgets import QGridLayout
+
+        wrapper = QWidget()
+        centering = QGridLayout(wrapper)
+        centering.setContentsMargins(0, 0, 0, 0)
+        centering.addWidget(rose, 0, 0, Qt.AlignmentFlag.AlignCenter)
+
         dock = QDockWidget("Compass")
         dock.setObjectName("Compass")
-        dock.setWidget(container)
+        dock.setWidget(wrapper)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
         # Registering under stream_docks gives it a View-menu toggle.
         self.stream_docks["Compass"] = dock
