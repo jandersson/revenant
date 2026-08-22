@@ -64,10 +64,12 @@ One pipeline, one parser, several processes:
   synthetic `"compass"` stream when the room's exits change,
   `"roundtime"`/`"casttime"` frames (`"end<TAB>server now"`, both server
   epoch) when a timer starts — moment-bound, so the session excludes
-  them from the reattach backlog (`TRANSIENT_STREAMS`) — and a
+  them from the reattach backlog (`TRANSIENT_STREAMS`) — a
   `"character"` frame when the login `<app char=.../>` tag names who's
-  playing (session.attach replays it to late attachers, like the
-  compass).
+  playing, and a full-state `"vitals"` frame (`"health 100 stamina
+  95 ..."`) whenever the game's minivitals dialog changes (partial
+  game updates accumulate in xml_data.vitals). session.attach replays
+  character and vitals to late attachers, like the compass.
 - `client/client/session.py` — the detachable session daemon
   (`python -m client.session`): logs in, owns the game socket, serves
   `(stream, text)` frames as JSON lines on 127.0.0.1:4242 to any number of
@@ -109,9 +111,10 @@ One pipeline, one parser, several processes:
   the `game_text` pyqtSignal; stream docks route thoughts/spells/arrivals;
   compass dock renders the `"compass"` stream; the clocks dock ticks
   Elanthian time, moons, Stockholm/Chicago, and (via a Settings toggle)
-  Earth's moon; roundtime/casttime count down beside the input line;
-  the title bar names the logged-in character. Direct mode logs in
-  itself;
+  Earth's moon; roundtime/casttime count down beside the input line
+  under a row of vitals bars (health/fatigue/spirit/concentration,
+  mana for casters); the title bar names the logged-in character.
+  Direct mode logs in itself;
   `--attach` connects to a session. User highlight patterns
   (`client/highlights.py`, ~/.revenant/highlights.json) color matched
   spans over any base style; View → Reload Highlights re-reads them.

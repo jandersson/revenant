@@ -16,8 +16,10 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QMainWindow,
     QMenu,
+    QProgressBar,
     QPushButton,
     QTextBrowser,
+    QVBoxLayout,
     QWidget,
 )
 from PyQt6.QtGui import (
@@ -97,6 +99,18 @@ class ClientGUI(QMainWindow, ClientLogger):
         "death": "Arrivals",
         "exp": "Experience",
     }
+
+    # Vitals bar colors, roughly the classic frontends' scheme; ids the
+    # game hasn't taught us yet fall back to grey. The game calls the
+    # stamina bar "fatigue" on screen — so do we.
+    VITAL_COLORS = {
+        "health": "#c0504d",
+        "mana": "#4f81bd",
+        "stamina": "#d8b465",
+        "spirit": "#c8c8d4",
+        "concentration": "#b39ddb",
+    }
+    VITAL_LABELS = {"stamina": "fatigue"}
 
     # Compass rose geometry: unit-circle offsets for the eight wind
     # directions around a central OUT, with up/down stacked beside.
@@ -472,11 +486,26 @@ class ClientGUI(QMainWindow, ClientLogger):
         row_layout.addWidget(self.rt_label)
         row_layout.addWidget(self.ct_label)
         row_layout.addWidget(self.input)
+        # Vitals bars above the input line — one bar per vital, created
+        # as the game first mentions each (casters gain a mana bar the
+        # moment it appears in the stream). Hidden until data arrives.
+        self.vitals_bars = {}
+        self._vitals_row = QWidget()
+        self._vitals_layout = QHBoxLayout(self._vitals_row)
+        self._vitals_layout.setContentsMargins(4, 2, 4, 0)
+        self._vitals_layout.setSpacing(4)
+        self._vitals_row.setVisible(False)
+        column = QWidget()
+        column_layout = QVBoxLayout(column)
+        column_layout.setContentsMargins(0, 0, 0, 0)
+        column_layout.setSpacing(2)
+        column_layout.addWidget(self._vitals_row)
+        column_layout.addWidget(row)
         # TODO: Fix the bottom dock. BottomDock thingy is incompatible with Qt6
         self.input_dock.setAllowedAreas(
             Qt.DockWidgetArea.BottomDockWidgetArea | Qt.DockWidgetArea.TopDockWidgetArea
         )
-        self.input_dock.setWidget(row)
+        self.input_dock.setWidget(column)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.input_dock)
         self.input.returnPressed.connect(self.send_input)
 
@@ -495,6 +524,34 @@ class ClientGUI(QMainWindow, ClientLogger):
         # must not wake it.
         if max(self._timer_ends.values()) > time() and not self.rt_timer.isActive():
             self.rt_timer.start()
+
+    def update_vitals(self, text: str):
+        """A "vitals" frame: "health 100 stamina 95 ..." — the full
+        current set every time (the engine accumulates the game's
+        partial updates)."""
+        parts = text.split()
+        for vital, value in zip(parts[::2], parts[1::2]):
+            try:
+                value = int(value)
+            except ValueError:
+                continue
+            bar = self.vitals_bars.get(vital)
+            if bar is None:
+                bar = QProgressBar()
+                bar.setRange(0, 100)
+                bar.setFixedHeight(16)
+                bar.setFormat(f"{self.VITAL_LABELS.get(vital, vital)} %p%")
+                color = self.VITAL_COLORS.get(vital, "#808090")
+                bar.setStyleSheet(
+                    "QProgressBar { border: 1px solid #33333d;"
+                    " text-align: center; }"
+                    f"QProgressBar::chunk {{ background: {color}; }}"
+                )
+                self._vitals_layout.addWidget(bar)
+                self.vitals_bars[vital] = bar
+            bar.setValue(value)
+        if self.vitals_bars:
+            self._vitals_row.setVisible(True)
 
     def _tick_timers(self):
         now = time()
@@ -622,6 +679,9 @@ class ClientGUI(QMainWindow, ClientLogger):
         if stream == "character":
             name = text.strip()
             self.setWindowTitle(f"Revenant — {name}" if name else "Revenant")
+            return
+        if stream == "vitals":
+            self.update_vitals(text)
             return
         if stream == "room":
             return  # machine stream (uid\ttitle) for scripts, not rendering

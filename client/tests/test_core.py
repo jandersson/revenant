@@ -202,6 +202,27 @@ def test_roundtime_before_any_prompt_still_emits():
     assert int(now) > 0
 
 
+def test_engine_emits_full_vitals_state_on_each_partial_update():
+    # The game updates minivitals one bar at a time (captured shapes;
+    # values tweaked to differ). Every change emits the accumulated
+    # whole, so a frontend never holds partial state.
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b"<dialogData id='minivitals'><progressBar id='health'"
+            b" value='100' text='health 100%'/></dialogData>\n",
+            b"<dialogData id='minivitals'><progressBar id='concentration'"
+            b" value='98' text='concentration 98%'/></dialogData>\n",
+        ]
+    )
+    out = _read_all(engine, 2)
+    frames = [frame for frame in out if frame[1] == "vitals"]
+    assert frames == [
+        ("health 100", "vitals", ""),
+        ("health 100 concentration 98", "vitals", ""),
+    ]
+
+
 def test_engine_emits_the_character_once_at_login():
     # The game's login tag, scrubbed to synthetic identity:
     # <app char="..." game="DR" title="[DR: ...] Wrayth"/> (captured

@@ -15,6 +15,13 @@ def is_windows():
     return sys.platform == "win32"
 
 
+def vitals_frame(vitals: dict) -> str:
+    """The "vitals" stream's wire text: "health 100 stamina 95 ...",
+    in the order the game first sent the bars. Shared with
+    session.attach()'s replay to late attachers."""
+    return " ".join(f"{vital} {value}" for vital, value in vitals.items())
+
+
 class Engine(ClientLogger):
     """A basic DR client"""
 
@@ -189,6 +196,14 @@ class Engine(ClientLogger):
             self._last_character = self.xml_data.name
             if output_callback:
                 output_callback(self.xml_data.name, "character", "")
+
+        # Vitals ("health 100 stamina 95 ..."): the game updates its
+        # minivitals bars piecemeal; every change emits the full
+        # accumulated set so frontends always hold complete state.
+        if self.xml_data.vitals_updated:
+            self.xml_data.vitals_updated = False
+            if output_callback:
+                output_callback(vitals_frame(self.xml_data.vitals), "vitals", "")
 
         if not output_callback:
             sys.stdout.write("".join(buff))

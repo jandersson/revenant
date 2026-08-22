@@ -124,6 +124,12 @@ class XMLData:
         # Epoch seconds (server clock) when roundtime / spellcast time end
         self.roundtime = 0
         self.casttime = 0
+        # Vitals percentages from the minivitals dialog's progress bars:
+        # {"health": 100, "stamina": 95, ...}; casters also get "mana".
+        # The game sends partial updates, so this dict accumulates.
+        self.vitals = {}
+        self.vitals_updated = False
+        self._vitals_dialog = False
         # Bracketed room title, e.g. "[The Crossing, Herald Street]"
         self.room_title = None
         # The game's unique room id from <nav rm='...'/>, sent on every
@@ -192,6 +198,16 @@ class XMLData:
             self.roundtime = int(attributes["value"])
         elif name == "castTime":
             self.casttime = int(attributes["value"])
+        elif name == "dialogData":
+            self._vitals_dialog = attributes.get("id") == "minivitals"
+        elif name == "progressBar" and self._vitals_dialog:
+            # Scoped to minivitals: the injuries dialog reuses
+            # progressBar ("health2") and must not pollute vitals.
+            try:
+                self.vitals[attributes["id"]] = int(attributes["value"])
+                self.vitals_updated = True
+            except (KeyError, ValueError):
+                pass
         elif name == "component":
             ident = attributes.get("id", "")
             if ident.startswith("exp ") and ident not in _EXP_NOT_SKILLS:
@@ -203,6 +219,8 @@ class XMLData:
                 self.room_title = subtitle[3:].strip()
 
     def end(self, name: str):
+        if name == "dialogData":
+            self._vitals_dialog = False
         if name == "compass" and not self._compass_in_component:
             self.compass = self._pending_compass
             self.compass_updated = True

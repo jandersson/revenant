@@ -25,7 +25,7 @@ from threading import Lock, Thread
 from time import monotonic, sleep
 
 from client.client_logger import ClientLogger
-from client.core import Engine
+from client.core import Engine, vitals_frame
 from client.login import connect_game, simu_login
 from client.netsock import SocketClient
 from client.scripting import ScriptManager
@@ -142,6 +142,12 @@ class SessionServer(ClientLogger):
             # title bar gets it stated fresh (#68).
             if self.engine.xml_data.name:
                 replay += encode_frame(self.engine.xml_data.name, "character")
+            # Same story for the vitals bars: idle vitals stop updating
+            # and their frames age out of the backlog (#69).
+            if self.engine.xml_data.vitals:
+                replay += encode_frame(
+                    vitals_frame(self.engine.xml_data.vitals), "vitals"
+                )
             try:
                 if replay:
                     conn.sendall(replay)

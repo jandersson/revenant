@@ -151,6 +151,42 @@ def test_roundtime_and_casttime(xml_data):
     assert xml_data.casttime == 1723456792
 
 
+# Captured 2026-08-22: the game updates its minivitals dialog one bar
+# at a time (skin + progressBar per change).
+MINIVITALS_HEALTH = (
+    "<dialogData id='minivitals'><skin id='healthSkin' name='healthBar'"
+    " controls='health' left='0%' top='0%' width='25%' height='100%'/>"
+    "<progressBar id='health' value='100' text='health 100%' left='0%'"
+    " customText='t' top='0%' width='25%' height='100%'/></dialogData>"
+)
+MINIVITALS_CONCENTRATION = (
+    "<dialogData id='minivitals'><progressBar id='concentration' value='98'"
+    " text='concentration 98%' left='75%' customText='t' top='0%'"
+    " width='25%' height='100%'/></dialogData>"
+)
+# The injuries dialog reuses progressBar with its own ids (captured).
+INJURIES_BAR = (
+    "<dialogData id='injuries'><skin id='healthSkin' name='healthBar2'"
+    " controls='health2' align='n' top='160' width='140' left='0' height='15'/>"
+    "<progressBar id='health2' value='55' text='HEALTH 55%' customText='t'"
+    " align='n' top='160' width='140' left='0' height='15'/></dialogData>"
+)
+
+
+def test_minivitals_bars_accumulate_into_vitals(xml_data):
+    XMLParser(target=xml_data).feed(f"<r>{MINIVITALS_HEALTH}</r>")
+    assert xml_data.vitals == {"health": 100}
+    assert xml_data.vitals_updated
+    XMLParser(target=xml_data).feed(f"<r>{MINIVITALS_CONCENTRATION}</r>")
+    assert xml_data.vitals == {"health": 100, "concentration": 98}
+
+
+def test_injuries_progress_bars_never_pollute_vitals(xml_data):
+    XMLParser(target=xml_data).feed(f"<r>{INJURIES_BAR}</r>")
+    assert xml_data.vitals == {}
+    assert not xml_data.vitals_updated
+
+
 def test_route_plain_text_goes_to_main(xml_data):
     assert xml_data.route("You see a stunted forest troll.") == [
         ("", "You see a stunted forest troll.", "")

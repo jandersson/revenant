@@ -178,6 +178,28 @@ def test_late_attach_learns_the_character_despite_an_evicted_backlog():
     late.close()
 
 
+def test_late_attach_learns_the_vitals_despite_an_evicted_backlog():
+    # Idle vitals stop updating; their frames age out of the backlog.
+    # attach() replays the current set so the bars fill in (#69).
+    game = FakeGame()
+    server, port = _start_server(game)
+    game.pending.append(
+        b"<dialogData id='minivitals'><progressBar id='health'"
+        b" value='100' text='health 100%'/></dialogData>\n"
+    )
+    assert _await(lambda: server.engine.xml_data.vitals), "vitals never parsed"
+    server.backlog.clear()  # simulate the eviction
+
+    late = socket.create_connection(("127.0.0.1", port), timeout=5)
+    late.settimeout(5)
+    buffer = b""
+    while b"vitals" not in buffer:
+        buffer += late.recv(4096)
+    frames, _ = session.decode_frames(buffer)
+    assert ("health 100", "vitals", "") in frames
+    late.close()
+
+
 def test_transient_streams_broadcast_live_but_never_replay():
     # A roundtime frame is meaningful only at its instant: live
     # frontends get it, but one attaching later must not have it
