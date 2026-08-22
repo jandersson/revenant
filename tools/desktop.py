@@ -31,6 +31,30 @@ os.environ["PYTHONPATH"] = os.pathsep.join(
 )
 os.chdir(REPO)
 
-from client.launch import main  # noqa: E402
+def _report_startup_failure(error):
+    """The shortcut runs windowless: without this, a missing dependency
+    (a stale venv after new requirements — #67) or any other startup
+    crash dies with nowhere to print. A native message box needs no
+    working venv at all."""
+    import ctypes
 
-main(["--pick"])
+    detail = f"{type(error).__name__}: {error}"
+    if isinstance(error, ImportError):
+        hint = (
+            "The venv looks out of date for the current code.\n"
+            "Fix: run  uv sync  in the repo, then launch again."
+        )
+    else:
+        hint = "See ~/.revenant/logs/revenant_client.log for details."
+    ctypes.windll.user32.MessageBoxW(
+        None, f"{detail}\n\n{hint}", "Revenant failed to start", 0x10
+    )
+
+
+try:
+    from client.launch import main
+
+    main(["--pick"])
+except Exception as error:
+    _report_startup_failure(error)
+    raise
