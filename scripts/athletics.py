@@ -235,11 +235,15 @@ def danger(state):
 
 
 def escape(s, commands):
-    """Leave along the training edge, alternating directions. Movement
-    auto-retreats and can fail once engaged (captured in #72: eight
-    straight failures while two cougars closed), so keep trying; True
-    once the room has no hostiles."""
+    """The burst-escape (docs/combat.md, field-proven): retreat to full
+    disengagement and move along the training edge back to back,
+    riding the game's type-ahead — spaced commands lose the race to
+    re-advancing critters (captured twice: the #72 death, and four
+    failed single-retreat exits against the same cougars). True once
+    the room has no hostiles."""
     for attempt in range(ESCAPE_ATTEMPTS):
+        s.put("retreat")
+        s.put("retreat")
         s.put(commands[attempt % len(commands)])
         s.waitrt()
         s.sleep(1)

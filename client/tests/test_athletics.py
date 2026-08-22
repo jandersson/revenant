@@ -330,3 +330,13 @@ def test_train_holds_until_health_recovers():
     assert any("health below" in echo for echo in handle.echoes)
     assert any("health recovered" in echo for echo in handle.echoes)
     assert ("put", "climb rise") in handle.calls
+
+
+def test_escape_bursts_retreat_retreat_move():
+    # The field-proven recipe (docs/combat.md): both retreats and the
+    # move go out back to back — no waits between them for a critter
+    # to re-advance through.
+    handle = DangerHandle((), mindstates=(5,), sleeps=10, hostile_sleeps=1)
+    assert athletics.escape(handle, ["climb rise", "climb down"]) is True
+    puts = [call[1] for call in handle.calls if call[0] == "put"]
+    assert puts[:3] == ["retreat", "retreat", "climb rise"]
