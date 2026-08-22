@@ -25,7 +25,7 @@ from threading import Lock, Thread
 from time import monotonic, sleep
 
 from client.client_logger import ClientLogger
-from client.core import Engine, vitals_frame
+from client.core import Engine, indicators_frame, vitals_frame
 from client.login import connect_game, simu_login
 from client.netsock import SocketClient
 from client.scripting import ScriptManager
@@ -208,6 +208,12 @@ class SessionServer(ClientLogger):
             if self.engine.xml_data.vitals:
                 replay += encode_frame(
                     vitals_frame(self.engine.xml_data.vitals), "vitals"
+                )
+            # And the status strip (#75): posture rarely changes while
+            # idle, so the attach states it fresh.
+            if self.engine.xml_data.indicator:
+                replay += encode_frame(
+                    indicators_frame(self.engine.xml_data.indicator), "indicators"
                 )
             try:
                 if replay:

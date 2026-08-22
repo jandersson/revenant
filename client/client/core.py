@@ -15,6 +15,15 @@ def is_windows():
     return sys.platform == "win32"
 
 
+def indicators_frame(indicator: dict) -> str:
+    """The "indicators" stream's wire text: the active indicator ids,
+    sorted ("IconBLEEDING IconSTANDING"); "" when none. Full state
+    every time — absence means off. Shared with session.attach()."""
+    return " ".join(
+        sorted(name for name, visible in indicator.items() if visible == "y")
+    )
+
+
 def vitals_frame(vitals: dict) -> str:
     """The "vitals" stream's wire text: "health 100 stamina 95 ...",
     in the order the game first sent the bars. Shared with
@@ -39,6 +48,10 @@ class Engine(ClientLogger):
         self._last_timer_ends = {"roundtime": 0, "casttime": 0}
         # Last emitted character name, for the synthetic "character" stream.
         self._last_character = None
+        # Last emitted active-indicator set, for the "indicators"
+        # stream. Starts as "" (not None) so a fresh engine doesn't
+        # emit an empty frame before any indicator ever parses.
+        self._last_indicators = ""
 
     @property
     def connection(self):
@@ -204,6 +217,14 @@ class Engine(ClientLogger):
             self.xml_data.vitals_updated = False
             if output_callback:
                 output_callback(vitals_frame(self.xml_data.vitals), "vitals", "")
+
+        # Indicators (posture, stunned, bleeding, dead, ...): the GUI's
+        # status strip (#75). Full active set on any change.
+        active = indicators_frame(self.xml_data.indicator)
+        if active != self._last_indicators:
+            self._last_indicators = active
+            if output_callback:
+                output_callback(active, "indicators", "")
 
         if not output_callback:
             sys.stdout.write("".join(buff))

@@ -590,3 +590,25 @@ def test_autostart_extra_starts_user_chosen_scripts(monkeypatch):
     # Blank entries vanish; junk becomes a name the manager will answer
     # with its usual no-script-named message rather than crash startup.
     assert ("42", []) in started
+
+
+def test_late_attach_learns_the_indicators(monkeypatch):
+    # Posture rarely changes while idle; attach states the strip fresh
+    # (#75), like the compass and vitals.
+    game = FakeGame()
+    server, port = _start_server(game)
+    game.pending.append(
+        b'<indicator id="IconSTANDING" visible="y"/>'
+        b"<indicator id='IconBLEEDING' visible='y'/>\n"
+    )
+    assert _await(lambda: server.engine.xml_data.indicator), "never parsed"
+    server.backlog.clear()
+
+    late = socket.create_connection(("127.0.0.1", port), timeout=5)
+    late.settimeout(5)
+    buffer = b""
+    while b"indicators" not in buffer:
+        buffer += late.recv(4096)
+    frames, _ = session.decode_frames(buffer)
+    assert ("IconBLEEDING IconSTANDING", "indicators", "") in frames
+    late.close()

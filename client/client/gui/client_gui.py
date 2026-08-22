@@ -100,6 +100,23 @@ class ClientGUI(QMainWindow, ClientLogger):
         "exp": "Experience",
     }
 
+    # The status strip's badge colors: alarming states loud, sneaky
+    # states purple, posture plain. IconDEAD overrides everything.
+    INDICATOR_BADGES = {
+        "IconSTUNNED": ("stunned", "#d8b465"),
+        "IconBLEEDING": ("bleeding", "#e05252"),
+        "IconWEBBED": ("webbed", "#8fc7e8"),
+        "IconHIDDEN": ("hidden", "#b39ddb"),
+        "IconINVISIBLE": ("invisible", "#b39ddb"),
+        "IconJOINED": ("joined", "#808090"),
+    }
+    POSTURES = {
+        "IconSTANDING": "standing",
+        "IconKNEELING": "kneeling",
+        "IconSITTING": "sitting",
+        "IconPRONE": "prone",
+    }
+
     # Vitals bar colors, roughly the classic frontends' scheme; ids the
     # game hasn't taught us yet fall back to grey. The game calls the
     # stamina bar "fatigue" on screen — so do we.
@@ -480,9 +497,15 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.rt_timer = QTimer(self)
         self.rt_timer.setInterval(200)
         self.rt_timer.timeout.connect(self._tick_timers)
+        # The status strip: posture plus lit badges (stunned, bleeding,
+        # hidden, ...), DEAD in alert red over everything — the state
+        # the scrolling text buries (#75).
+        self.status_strip = QLabel("")
+        self.status_strip.setMinimumWidth(70)
         row = QWidget()
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(4, 0, 4, 0)
+        row_layout.addWidget(self.status_strip)
         row_layout.addWidget(self.rt_label)
         row_layout.addWidget(self.ct_label)
         row_layout.addWidget(self.input)
@@ -524,6 +547,24 @@ class ClientGUI(QMainWindow, ClientLogger):
         # must not wake it.
         if max(self._timer_ends.values()) > time() and not self.rt_timer.isActive():
             self.rt_timer.start()
+
+    def update_indicators(self, text: str):
+        """An "indicators" frame: the active indicator ids, space
+        separated, full state each time."""
+        active = set(text.split())
+        if "IconDEAD" in active:
+            self.status_strip.setText('<b style="color:#e05252">DEAD</b>')
+            return
+        parts = []
+        posture = next(
+            (word for icon, word in self.POSTURES.items() if icon in active), None
+        )
+        if posture:
+            parts.append(f'<span style="color:#808090">{posture}</span>')
+        for icon, (word, color) in self.INDICATOR_BADGES.items():
+            if icon in active:
+                parts.append(f'<b style="color:{color}">{word}</b>')
+        self.status_strip.setText("&nbsp;".join(parts))
 
     def update_vitals(self, text: str):
         """A "vitals" frame: "health 100 stamina 95 ..." — the full
@@ -682,6 +723,9 @@ class ClientGUI(QMainWindow, ClientLogger):
             return
         if stream == "vitals":
             self.update_vitals(text)
+            return
+        if stream == "indicators":
+            self.update_indicators(text)
             return
         if stream == "room":
             return  # machine stream (uid\ttitle) for scripts, not rendering

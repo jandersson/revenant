@@ -253,3 +253,30 @@ def test_casttime_emits_like_roundtime():
     out = _read_all(engine, 1)
     frames = [frame for frame in out if frame[1] == "casttime"]
     assert frames == [("1787402560\t1787402545", "casttime", "")]
+
+
+def test_engine_emits_the_indicator_set_on_change():
+    # The captured death burst (2026-08-22, #75): prone and dead flip
+    # on together as the stun clears. Full state per frame, no re-emit
+    # while nothing changes.
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b'<indicator id="IconSTANDING" visible="y"/>'
+            b'<indicator id="IconDEAD" visible="n"/>\n',
+            b"nothing changes here\n",
+            b'<indicator id="IconKNEELING" visible="n"/>'
+            b'<indicator id="IconPRONE" visible="y"/>'
+            b'<indicator id="IconSITTING" visible="n"/>'
+            b'<indicator id="IconSTANDING" visible="n"/>'
+            b"<indicator id='IconSTUNNED' visible='n'/>"
+            b"<indicator id='IconBLEEDING' visible='n'/>"
+            b"<indicator id='IconDEAD' visible='y'/>\n",
+        ]
+    )
+    out = _read_all(engine, 3)
+    frames = [frame for frame in out if frame[1] == "indicators"]
+    assert frames == [
+        ("IconSTANDING", "indicators", ""),
+        ("IconDEAD IconPRONE", "indicators", ""),
+    ]
