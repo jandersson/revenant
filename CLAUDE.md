@@ -9,7 +9,7 @@ view; stdlib sqlite3 data layer in `beholder/beholder/data.py`,
 app + tests beside it; run with `uv run beholder`).
 `launcher/launch.py` is a separate bridge that starts the external
 lich/ProfanityFE Ruby toolchain — revenant itself must never grow Ruby
-dependencies.
+dependencies (docs/why-python.md records the trade behind that rule).
 
 ## Commands
 

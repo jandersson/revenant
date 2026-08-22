@@ -6,7 +6,7 @@
 
 _Python and DragonRealms — a monorepo of hobby projects for the [DragonRealms](https://www.play.net/dr/) MUD._
 
-Most of the tooling around DragonRealms lives in the Ruby ecosystem (lich, dr-scripts, profanity, Genie plugins). Revenant is an excuse to rebuild some of that in Python, have fun, and see what sticks. None of these projects are polished or production-ready — they are prototypes, experiments, and works-in-progress.
+Most of the tooling around DragonRealms lives in the Ruby ecosystem (lich, dr-scripts, profanity, Genie plugins). Revenant is an excuse to rebuild some of that in Python, have fun, and see what sticks — [docs/why-python.md](docs/why-python.md) records what that trade buys and costs, with the evidence. None of these projects are polished or production-ready — they are prototypes, experiments, and works-in-progress.
 
 Shout out to [Pylanthia](https://github.com/robbintt/pylanthia), a great related project.
 
