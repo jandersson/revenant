@@ -7,7 +7,8 @@ file with REVENANT_MAPDB) and refreshed on demand — never vendored here.
 Schema notes (as observed in the real data): a list of rooms with id,
 title (list of bracketed strings), wayto (dest-id -> movement command),
 tags, paths. Movement commands starting with ";e" are embedded Ruby for
-lich and are treated as unwalkable.
+lich; simple fput/move sequences translate to plain game commands
+(translate_embedded), the rest are unwalkable.
 """
 
 import json
