@@ -51,3 +51,19 @@ Plain movement contributed nothing; only climbs produced inflow. The
 same evening also showed pure outflow (mindstate falling while rank
 rose during idle time) and REXP's speed (rank 4 → 12 in one session
 with rested hours banked).
+
+Interleaved interval experiment, 2026-08-21, rank-14 Athletics, Midton
+apple tree (upticks = upward mindstate transitions on the exp stream;
+intervals containing a drain tick discarded):
+
+| Block   | Climbs | Mindstate | Upticks (drains) |
+| ------- | ------ | --------- | ---------------- |
+| tight-1 | 40     | 26 → 28   | 2 (1)            |
+| paced-1 | 4      | 28 → 28   | 1 (1)            |
+| tight-2 | 40     | 28 → 30   | 2 (1)            |
+| paced-2 | 4      | 30 → 31   | 1 (1)            |
+
+Ten times the climbs bought the same awards per block — the per-climb
+model is refuted; the one clean inter-award interval measured 58s,
+inside the documented 45–60s window. Caveats: six upticks total, and
+bucket quantization hides sub-bucket awards in both conditions alike.
