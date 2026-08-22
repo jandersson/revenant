@@ -252,7 +252,9 @@ DEFAULT_MOON_EPOCHS = {
     # narrow crescent of light." — waning crescent, phase 7 of 0..7.
     "katamba": 1_787_401_777 - round(7 / 8 * MOON_SYNODIC["katamba"]),
     "xibar": None,
-    "yavash": None,
+    # 2026-08-22 12:42:26 UTC: "The moon Yavash forms a perfect circle
+    # in the heavens." — full, phase 4 of 0..7.
+    "yavash": 1_787_402_546 - round(4 / 8 * MOON_SYNODIC["yavash"]),
 }
 
 
@@ -290,6 +292,9 @@ def parse_observe_output(text):
         lowered = sentence.lower()
         moon = next((m for m in MOON_NAMES if m in lowered), None)
         if moon is None or moon in phases or "nowhere" in lowered:
+            continue
+        if "perfect circle" in lowered:  # the game's full-moon wording
+            phases[moon] = 4
             continue
         waxing = "wax" in lowered
         waning = "wan" in lowered

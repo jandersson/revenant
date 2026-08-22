@@ -28,6 +28,15 @@ Roundtime: 10 sec.
 """
 OBSERVE_UNIX = 1_787_401_777
 
+# Captured 2026-08-22 12:42:26 UTC — Yavash had just risen, full.
+OBSERVE_TEXT_2 = """Yavash slowly rises above the horizon.
+You scan the heavens for the three moons:
+The black moon Katamba has waned to a narrow crescent of light.
+Xibar is nowhere to be seen.
+The moon Yavash forms a perfect circle in the heavens.
+"""
+OBSERVE_UNIX_2 = 1_787_402_546
+
 
 def test_the_capture_instant_is_what_the_comment_says():
     stamp = datetime(2026, 8, 22, 12, 21, 56, tzinfo=timezone.utc)
@@ -157,9 +166,18 @@ def test_parse_observe_classifies_synthetic_directions():
     assert eltime.parse_observe_output("A crescent Yavash hangs there.") == {}
 
 
+def test_parse_observe_output_second_capture_reads_a_full_moon():
+    # "forms a perfect circle" is the game's full-moon wording.
+    assert eltime.parse_observe_output(OBSERVE_TEXT_2) == {
+        "katamba": 7,
+        "yavash": 4,
+    }
+
+
 def test_moon_phase_reproduces_the_capture_through_its_anchor():
     assert eltime.moon_phase("katamba", OBSERVE_UNIX) == 7
     assert eltime.moon_phase("katamba", eltime.DEFAULT_MOON_EPOCHS["katamba"]) == 0
+    assert eltime.moon_phase("yavash", OBSERVE_UNIX_2) == 4
 
 
 def test_moon_phase_without_an_anchor_is_unknown(monkeypatch):

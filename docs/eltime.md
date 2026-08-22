@@ -72,8 +72,11 @@ UTC.
   cycle.
 - **Captured `OBSERVE MOONS`, 2026-08-22 12:29:37 UTC**: "The black
   moon Katamba has waned to a narrow crescent of light", Xibar and
-  Yavash "nowhere to be seen". Anchors Katamba (waning crescent);
-  the other two ship unanchored until a sync catches them risen.
+  Yavash "nowhere to be seen". Anchors Katamba (waning crescent).
+- **Captured `OBSERVE MOONS`, 2026-08-22 12:42:26 UTC**: "The moon
+  Yavash forms a perfect circle in the heavens" — the full-moon
+  wording, anchoring Yavash. Xibar ships unanchored until a sync
+  catches it risen (issue #64).
 - **Elanthipedia**: [Time](https://elanthipedia.play.net/Time) for the
   units and names; [Xibar](https://elanthipedia.play.net/Xibar),
   [Yavash](https://elanthipedia.play.net/Yavash), and
