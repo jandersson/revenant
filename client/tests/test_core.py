@@ -202,6 +202,22 @@ def test_roundtime_before_any_prompt_still_emits():
     assert int(now) > 0
 
 
+def test_engine_emits_the_character_once_at_login():
+    # The game's login tag, scrubbed to synthetic identity:
+    # <app char="..." game="DR" title="[DR: ...] Wrayth"/> (captured
+    # 2026-08-22). One "character" frame — the title bar's data (#68).
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b'<app char="Testchar" game="DR" title="[DR: Testchar] Wrayth"/>\n',
+            b"Later, unrelated text.\n",
+        ]
+    )
+    out = _read_all(engine, 2)
+    frames = [frame for frame in out if frame[1] == "character"]
+    assert frames == [("Testchar", "character", "")]
+
+
 def test_casttime_emits_like_roundtime():
     # Synthetic line in the captured roundTime shape — no caster
     # traffic captured yet; <castTime> parsing itself is pinned in

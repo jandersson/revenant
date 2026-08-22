@@ -619,6 +619,10 @@ class ClientGUI(QMainWindow, ClientLogger):
         if stream in ("roundtime", "casttime"):
             self.update_timer(stream, text)
             return
+        if stream == "character":
+            name = text.strip()
+            self.setWindowTitle(f"Revenant — {name}" if name else "Revenant")
+            return
         if stream == "room":
             return  # machine stream (uid\ttitle) for scripts, not rendering
         view = self.stream_windows.get(stream, self.main_window)

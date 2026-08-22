@@ -30,6 +30,8 @@ class Engine(ClientLogger):
         self._last_room_identity = (None, None)
         # Last emitted roundtime/casttime ends, for their synthetic streams.
         self._last_timer_ends = {"roundtime": 0, "casttime": 0}
+        # Last emitted character name, for the synthetic "character" stream.
+        self._last_character = None
 
     @property
     def connection(self):
@@ -179,6 +181,14 @@ class Engine(ClientLogger):
                 if output_callback:
                     now = self.xml_data.server_time or int(time.time())
                     output_callback(f"{end}\t{now}", timer, "")
+
+        # Who is logged in, from the game's <app char="..."/> login tag:
+        # one synthetic "character" frame when it (first) parses. The
+        # session also replays it to late attachers — see attach().
+        if self.xml_data.name and self.xml_data.name != self._last_character:
+            self._last_character = self.xml_data.name
+            if output_callback:
+                output_callback(self.xml_data.name, "character", "")
 
         if not output_callback:
             sys.stdout.write("".join(buff))

@@ -137,6 +137,11 @@ class SessionServer(ClientLogger):
                 replay += encode_frame(
                     " ".join(self.engine.xml_data.compass), "compass"
                 )
+            # The character name arrives once, at login — long attached
+            # sessions have evicted that frame from the backlog, so the
+            # title bar gets it stated fresh (#68).
+            if self.engine.xml_data.name:
+                replay += encode_frame(self.engine.xml_data.name, "character")
             try:
                 if replay:
                     conn.sendall(replay)

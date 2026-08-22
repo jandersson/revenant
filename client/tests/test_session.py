@@ -154,6 +154,30 @@ def test_new_front_end_receives_recent_backlog_on_attach():
     late_client.close()
 
 
+def test_late_attach_learns_the_character_despite_an_evicted_backlog():
+    # The <app> login tag fires once; after hours of play its frame is
+    # long gone from the 500-frame backlog. attach() states the name
+    # fresh, like it does the compass, so the title bar fills in (#68).
+    game = FakeGame()
+    server, port = _start_server(game)
+    game.pending.append(
+        b'<app char="Testchar" game="DR" title="[DR: Testchar] Wrayth"/>\n'
+    )
+    assert _await(lambda: server.engine.xml_data.name == "Testchar"), (
+        "app tag never parsed"
+    )
+    server.backlog.clear()  # simulate the eviction
+
+    late = socket.create_connection(("127.0.0.1", port), timeout=5)
+    late.settimeout(5)
+    buffer = b""
+    while b"character" not in buffer:
+        buffer += late.recv(4096)
+    frames, _ = session.decode_frames(buffer)
+    assert ("Testchar", "character", "") in frames
+    late.close()
+
+
 def test_transient_streams_broadcast_live_but_never_replay():
     # A roundtime frame is meaningful only at its instant: live
     # frontends get it, but one attaching later must not have it
