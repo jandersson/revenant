@@ -1,5 +1,6 @@
 import argparse
 import logging
+import time
 from select import select
 import sys
 from threading import Thread
@@ -27,6 +28,8 @@ class Engine(ClientLogger):
         self._partial_line = ""
         # Last emitted room identity, for the synthetic "room" stream.
         self._last_room_identity = (None, None)
+        # Last emitted roundtime/casttime ends, for their synthetic streams.
+        self._last_timer_ends = {"roundtime": 0, "casttime": 0}
 
     @property
     def connection(self):
@@ -161,6 +164,21 @@ class Engine(ClientLogger):
                                 "exp",
                                 "",
                             )
+
+        # Roundtime / casttime as synthetic streams: the game states the
+        # END as server-epoch seconds ("end<TAB>server now" per frame);
+        # frontends count down from end - now, skew-free. Emitted after
+        # the whole burst parses, not per line — the fresh <prompt>
+        # follows the <roundTime> tag in the same burst, and pairing
+        # with the pre-command prompt would inflate an idle player's
+        # first roundtime by the idle time.
+        for timer in ("roundtime", "casttime"):
+            end = getattr(self.xml_data, timer)
+            if end != self._last_timer_ends[timer]:
+                self._last_timer_ends[timer] = end
+                if output_callback:
+                    now = self.xml_data.server_time or int(time.time())
+                    output_callback(f"{end}\t{now}", timer, "")
 
         if not output_callback:
             sys.stdout.write("".join(buff))

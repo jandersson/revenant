@@ -179,12 +179,18 @@ class SessionServer(ClientLogger):
         if style != "clear":
             self.scripts.feed(text, stream)
 
+    # Moment-bound streams: meaningful only at the instant they fire.
+    # Replaying one to a freshly attached frontend would start a stale
+    # countdown, so they are never kept in the backlog.
+    TRANSIENT_STREAMS = ("roundtime", "casttime")
+
     def broadcast(self, text: str, stream: str, style: str = ""):
         frame = encode_frame(text, stream, style)
         with self.clients_lock:
             clients = list(self.clients)
         with self.broadcast_lock:
-            self.backlog.append(frame)
+            if stream not in self.TRANSIENT_STREAMS:
+                self.backlog.append(frame)
             for conn in clients:
                 try:
                     conn.sendall(frame)

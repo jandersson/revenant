@@ -154,6 +154,32 @@ def test_new_front_end_receives_recent_backlog_on_attach():
     late_client.close()
 
 
+def test_transient_streams_broadcast_live_but_never_replay():
+    # A roundtime frame is meaningful only at its instant: live
+    # frontends get it, but one attaching later must not have it
+    # replayed and start a stale countdown (#63).
+    game = FakeGame()
+    server, port = _start_server(game)
+
+    live = socket.create_connection(("127.0.0.1", port), timeout=5)
+    assert _await(lambda: server.clients), "client never registered"
+    game.pending.append(
+        b"<roundTime value='1787402555'/>You scan the heavens "
+        b"for the three moons:\n"
+        b'<prompt time="1787402545">&gt;</prompt>\n'
+    )
+    live.settimeout(5)
+    buffer = b""
+    while b"roundtime" not in buffer:
+        buffer += live.recv(4096)
+    frames, _ = session.decode_frames(buffer)
+    assert ("1787402555\t1787402545", "roundtime", "") in frames
+    # The game text made the backlog; the roundtime frame never does.
+    assert any(b"heavens" in frame for frame in server.backlog)
+    assert not any(b"roundtime" in frame for frame in server.backlog)
+    live.close()
+
+
 def test_script_emit_stream_reaches_attached_clients():
     game = FakeGame()
     server, port = _start_server(game)

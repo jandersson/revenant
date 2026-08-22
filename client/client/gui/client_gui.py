@@ -1,15 +1,17 @@
 import argparse
 import sys
 from datetime import datetime
+from math import ceil
 from pathlib import Path
 from threading import Thread
 from time import sleep, time
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from PyQt6.QtWidgets import (
     QApplication,
     QDockWidget,
     QGridLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QMainWindow,
@@ -360,10 +362,18 @@ class ClientGUI(QMainWindow, ClientLogger):
         from real time; ;clock calibrates), the three game moons,
         Stockholm and Chicago wall time — plus Earth's moon when the
         for-fun Settings row is on."""
-        self._clock_zones = {
-            "Stockholm": ZoneInfo("Europe/Stockholm"),
-            "Chicago": ZoneInfo("America/Chicago"),
-        }
+        self._clock_zones = {}
+        for city, zone in (
+            ("Stockholm", "Europe/Stockholm"),
+            ("Chicago", "America/Chicago"),
+        ):
+            try:
+                self._clock_zones[city] = ZoneInfo(zone)
+            except ZoneInfoNotFoundError:
+                # No tzdata (a stale venv launched without a sync, #67):
+                # a dashed row beats a client that dies before showing
+                # a window.
+                self._clock_zones[city] = None
         wrapper = QWidget()
         grid = QGridLayout(wrapper)
         grid.setContentsMargins(8, 6, 8, 6)
@@ -423,7 +433,9 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.clock_labels["Moons"].setText("  ".join(bits))
         self.clock_labels["Moons"].setToolTip("\n".join(tips))
         for city, zone in self._clock_zones.items():
-            self.clock_labels[city].setText(datetime.now(zone).strftime("%H:%M:%S %a"))
+            self.clock_labels[city].setText(
+                datetime.now(zone).strftime("%H:%M:%S %a") if zone else "— (no tzdata)"
+            )
         index = eltime.earth_moon_phase(now)
         self.clock_labels["Earth's moon"].setText(
             f"{eltime.PHASE_EMOJI[index]} {eltime.PHASES[index]}"
@@ -439,13 +451,63 @@ class ClientGUI(QMainWindow, ClientLogger):
         # events while login blocks on stdin, so keystrokes meant for the
         # terminal must not reach this field or trigger a send.
         self.input.setEnabled(False)
+        # Roundtime/casttime countdowns sit beside the input line — the
+        # classic frontends' RT bar, reduced to a number. The RT label
+        # keeps its width when idle so the input field never shifts;
+        # the casttime label appears on a caster's first cast.
+        self.rt_label = QLabel("")
+        self.rt_label.setFixedWidth(52)
+        self.rt_label.setStyleSheet("color: #d8b465; font-weight: bold;")
+        self.ct_label = QLabel("")
+        self.ct_label.setFixedWidth(52)
+        self.ct_label.setStyleSheet("color: #8fc7e8; font-weight: bold;")
+        self.ct_label.setVisible(False)
+        self._timer_ends = {"roundtime": 0.0, "casttime": 0.0}  # local clock
+        self.rt_timer = QTimer(self)
+        self.rt_timer.setInterval(200)
+        self.rt_timer.timeout.connect(self._tick_timers)
+        row = QWidget()
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(4, 0, 4, 0)
+        row_layout.addWidget(self.rt_label)
+        row_layout.addWidget(self.ct_label)
+        row_layout.addWidget(self.input)
         # TODO: Fix the bottom dock. BottomDock thingy is incompatible with Qt6
         self.input_dock.setAllowedAreas(
             Qt.DockWidgetArea.BottomDockWidgetArea | Qt.DockWidgetArea.TopDockWidgetArea
         )
-        self.input_dock.setWidget(self.input)
+        self.input_dock.setWidget(row)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.input_dock)
         self.input.returnPressed.connect(self.send_input)
+
+    def update_timer(self, stream: str, text: str):
+        """A roundtime/casttime frame: "end<TAB>server now" in server
+        epoch seconds. The difference is the duration, anchored to the
+        local clock at receipt — server-vs-local skew cancels out."""
+        try:
+            end, server_now = (int(part) for part in text.split("\t"))
+        except ValueError:
+            return
+        self._timer_ends[stream] = time() + max(0, end - server_now)
+        self._tick_timers()
+        # Only a countdown still in the future needs the ticker — a
+        # stale frame (reattach backlog has none, but belt and braces)
+        # must not wake it.
+        if max(self._timer_ends.values()) > time() and not self.rt_timer.isActive():
+            self.rt_timer.start()
+
+    def _tick_timers(self):
+        now = time()
+        remaining_rt = ceil(self._timer_ends["roundtime"] - now)
+        remaining_ct = ceil(self._timer_ends["casttime"] - now)
+        self.rt_label.setText(f"RT {remaining_rt}" if remaining_rt > 0 else "")
+        if remaining_ct > 0:
+            self.ct_label.setVisible(True)
+            self.ct_label.setText(f"CT {remaining_ct}")
+        else:
+            self.ct_label.setText("")
+        if remaining_rt <= 0 and remaining_ct <= 0:
+            self.rt_timer.stop()
 
     def send_input(self):
         self.write(self.input.text())
@@ -553,6 +615,9 @@ class ClientGUI(QMainWindow, ClientLogger):
     def dispatch_game_text(self, text: str, stream: str, style: str = ""):
         if stream == "compass":
             self.update_compass(text)
+            return
+        if stream in ("roundtime", "casttime"):
+            self.update_timer(stream, text)
             return
         if stream == "room":
             return  # machine stream (uid\ttitle) for scripts, not rendering

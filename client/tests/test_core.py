@@ -149,3 +149,70 @@ def test_clear_stream_control_frame_has_no_newline():
     engine.connection = FakeConnection([b'<clearStream id="percWindow"/>\n'])
     out = _read_all(engine, 1)
     assert ("", "percWindow", "clear") in out
+
+
+def test_engine_emits_roundtime_paired_with_the_fresh_prompt():
+    # Captured 2026-08-22: the game states when roundtime ENDS as
+    # server-epoch seconds, and the prompt that follows in the same
+    # burst carries the server's "now" — value 1787402555 with prompt
+    # 1787402545 is exactly the printed "Roundtime: 10 sec." The frame
+    # pairs them ("end\tnow") so frontends count down skew-free.
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b"<roundTime value='1787402555'/>You scan the heavens "
+            b"for the three moons:\n"
+            b"Roundtime: 10 sec.\n"
+            b'<prompt time="1787402545">&gt;</prompt>\n'
+        ]
+    )
+    out = _read_all(engine, 1)
+    frames = [frame for frame in out if frame[1] == "roundtime"]
+    assert frames == [("1787402555\t1787402545", "roundtime", "")]
+
+
+def test_roundtime_emits_once_per_value_and_again_on_change():
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b"<roundTime value='1787402555'/>climb\n"
+            b'<prompt time="1787402545">&gt;</prompt>\n',
+            b"nothing timed here\n",
+            b"<roundTime value='1787402600'/>climb again\n"
+            b'<prompt time="1787402590">&gt;</prompt>\n',
+        ]
+    )
+    out = _read_all(engine, 3)
+    frames = [frame for frame in out if frame[1] == "roundtime"]
+    assert frames == [
+        ("1787402555\t1787402545", "roundtime", ""),
+        ("1787402600\t1787402590", "roundtime", ""),
+    ]
+
+
+def test_roundtime_before_any_prompt_still_emits():
+    # No prompt seen yet (session just came up): the local clock
+    # stands in for the server's so the counter still runs.
+    engine = Engine()
+    engine.connection = FakeConnection([b"<roundTime value='99'/>stagger\n"])
+    out = _read_all(engine, 1)
+    (frame,) = [frame for frame in out if frame[1] == "roundtime"]
+    end, now = frame[0].split("\t")
+    assert end == "99"
+    assert int(now) > 0
+
+
+def test_casttime_emits_like_roundtime():
+    # Synthetic line in the captured roundTime shape — no caster
+    # traffic captured yet; <castTime> parsing itself is pinned in
+    # test_xml_parser.
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b"<castTime value='1787402560'/>You begin your chant.\n"
+            b'<prompt time="1787402545">&gt;</prompt>\n'
+        ]
+    )
+    out = _read_all(engine, 1)
+    frames = [frame for frame in out if frame[1] == "casttime"]
+    assert frames == [("1787402560\t1787402545", "casttime", "")]
