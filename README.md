@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="client/client/gui/revenant.svg" width="128" alt="The revenant icon: Elanthia's three moons — black Katamba ringed in miasma, crimson Yavash, blue Xibar, and the shards of Grazhir">
+</p>
+
 # Revenant
 
 _Python and DragonRealms — a monorepo of hobby projects for the [DragonRealms](https://www.play.net/dr/) MUD._
