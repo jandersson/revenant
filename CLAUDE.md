@@ -102,6 +102,11 @@ One pipeline, one parser, several processes:
   mapdb-backup-dr), downloaded to `~/.revenant/mapdb/` on first use, never
   vendored. BFS pathfinding; wayto commands starting with ";e" are embedded
   Ruby and treated as unwalkable. `scripts/go2.py` is the walker on top.
+- `client/client/circles.py` — circle requirements (Thief), Qt-free: the
+  Elanthipedia rate table + slot model; `;circle` (scripts/circle.py)
+  reports what gates the next circle from the latest ;sheet snapshot.
+  docs/circles.md holds the model, its captured guildleader
+  validation, and the open 2nd-Lore anomaly.
 - `client/client/eltime.py` — the Elanthian clock, Qt-free: date, anlas,
   and moon phases computed from real time (docs/eltime.md holds the
   model and its captured evidence). `scripts/clock.py` (`;clock`) is the
