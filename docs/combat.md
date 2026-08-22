@@ -15,7 +15,14 @@ through them — captured 2026-08-22 (the #72 death log): "The cougar
 begins to advance on you!" → "closes to pole weapon range" → "closes
 to melee range". The `<crtrStatus hostile disengaged>` tags
 (state.hostiles) announce presence *before* the advance — nine
-seconds of clean escape window in that capture.
+seconds of clean escape window in that capture. The tags can come
+**exactly once per sighting**: later `room objs` pulses may list the
+creature as prose only, or arrive empty, with no crtrStatus behind
+them (the cave-bear capture, 2026-08-22 — #85, which climbed
+;athletics straight into a melee engagement). The parser therefore
+treats each crtrStatus burst as the enumeration and never clears
+hostiles on a bare room-objs pulse; a stale entry self-heals at the
+next room change.
 
 `RETREAT` backs out one range at a time and **can fail**: engaged
 opponents hinder it — "You are unable to retreat from a cougar!"

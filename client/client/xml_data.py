@@ -131,10 +131,14 @@ class XMLData:
         self.vitals_updated = False
         self._vitals_dialog = False
         # Hostile creatures in the room, from <crtrStatus hostile='1'>
-        # tags: {exist id: engaged}. The game re-enumerates them after
-        # every 'room objs' component (staged, swapped at the closing
-        # prompt so a mid-line read never sees a half-set); a room
-        # change clears them until the fresh enumeration arrives (#72).
+        # tags: {exist id: engaged}. Each crtrStatus burst replaces the
+        # set wholesale (staged, swapped at the closing prompt so a
+        # mid-line read never sees a half-set); a room change clears
+        # them until a fresh enumeration arrives (#72). 'room objs'
+        # pulses must NOT clear anything: they can arrive empty or
+        # prose-only mid-engagement with no status tags behind them
+        # (the cave-bear capture, 2026-08-22 — #85); a stale hostile
+        # self-heals at the next room change.
         self.hostiles = {}
         self._staged_hostiles = None
         # Bracketed room title, e.g. "[The Crossing, Herald Street]"
@@ -227,16 +231,15 @@ class XMLData:
             if ident.startswith("exp ") and ident not in _EXP_NOT_SKILLS:
                 self._exp_skill = ident[4:]
                 self._exp_text = ""
-            elif ident == "room objs":
-                self._staged_hostiles = {}
         elif name == "crtrStatus":
+            # The first tag since the last swap opens a fresh staged
+            # set — the burst is the enumeration (#85), nothing else
+            # is. Non-hostile tags join the burst without an entry, so
+            # a creature re-announced harmless drops out at the swap.
+            if self._staged_hostiles is None:
+                self._staged_hostiles = {}
             if attributes.get("hostile") == "1":
-                target = (
-                    self._staged_hostiles
-                    if self._staged_hostiles is not None
-                    else self.hostiles
-                )
-                target[attributes.get("exist", "")] = (
+                self._staged_hostiles[attributes.get("exist", "")] = (
                     attributes.get("disengaged") != "1"
                 )
         elif name == "streamWindow" and attributes.get("id") == "room":

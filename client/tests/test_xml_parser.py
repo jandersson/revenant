@@ -209,10 +209,49 @@ def test_hostiles_swap_only_at_the_closing_prompt(xml_data):
     # A fresh enumeration without its prompt yet: readers still see
     # the previous complete set, never a half-built one.
     XMLParser(target=xml_data).feed(
-        "<r><component id='room objs'>You also see a rise in the cliff.</component></r>"
+        '<r><crtrStatus exist="78646436" hostile="1" disengaged="0"/></r>'
     )
     assert len(xml_data.hostiles) == 3
     XMLParser(target=xml_data).feed('<r><prompt time="1787407826">&gt;</prompt></r>')
+    assert xml_data.hostiles == {"78646436": True}
+
+
+# Captured 2026-08-22 (#85): the cave bear was announced exactly once;
+# later room objs pulses carried NO crtrStatus tags behind them.
+CRTR_BEAR = (
+    "<component id='room objs'>You also see <pushBold/>a cave bear<popBold/>"
+    " and a rusty ladder.</component>"
+    '<crtrStatus exist="79912449" hostile="1" disengaged="1"/>'
+    '<prompt time="1787426830">&gt;</prompt>'
+)
+
+
+def test_prose_only_room_objs_pulses_never_wipe_hostiles(xml_data):
+    # The wipe that let ;athletics climb into an engaged cave bear
+    # (#85): an empty room objs pulse, then a prose-only re-listing,
+    # neither carrying crtrStatus — the bear must survive both.
+    XMLParser(target=xml_data).feed(f"<r>{CRTR_BEAR}</r>")
+    assert xml_data.hostiles == {"79912449": False}
+    XMLParser(target=xml_data).feed(
+        "<r><component id='room objs'></component>"
+        '<prompt time="1787426835">&gt;</prompt></r>'
+    )
+    XMLParser(target=xml_data).feed(
+        "<r><component id='room objs'>You also see <pushBold/>a cave bear"
+        "<popBold/> and a rusty ladder.</component>"
+        '<prompt time="1787426840">&gt;</prompt></r>'
+    )
+    assert xml_data.hostiles == {"79912449": False}
+
+
+def test_a_harmless_reannouncement_drops_the_creature(xml_data):
+    # A crtrStatus burst IS the enumeration: a creature re-announced
+    # non-hostile (a kill) drops out at the swap.
+    XMLParser(target=xml_data).feed(f"<r>{CRTR_BEAR}</r>")
+    XMLParser(target=xml_data).feed(
+        '<r><crtrStatus exist="79912449" hostile="0" disengaged="1"/>'
+        '<prompt time="1787426900">&gt;</prompt></r>'
+    )
     assert xml_data.hostiles == {}
 
 
