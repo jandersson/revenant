@@ -1,8 +1,9 @@
 """The settings editor: File → Settings… in the client.
 
-Three checkboxes over ~/.revenant/settings.json. The autostart toggles
-take effect when the next session starts (a running session already
-made its choices); quit-on-close is read live at window close.
+Checkboxes over ~/.revenant/settings.json. The autostart toggles take
+effect when the next session starts (a running session already made
+its choices); quit-on-close is read live at window close, and the
+clocks dock picks its row up within a minute.
 """
 
 from PyQt6.QtWidgets import (
@@ -34,6 +35,10 @@ class SettingsDialog(QDialog):
             "Quit the game when the window closes (File → Detach skips this)"
         )
         self.quit_on_close.setChecked(bool(settings.get("quit_on_close")))
+        self.clocks_earth_moon = QCheckBox(
+            "Show Earth's moon in the clocks dock (for fun)"
+        )
+        self.clocks_earth_moon.setChecked(bool(settings.get("clocks_earth_moon")))
         extra_label = QLabel("Also autostart these scripts (comma-separated):")
         self.autostart_extra = QLineEdit(
             ", ".join(settings.get("autostart_extra") or [])
@@ -46,6 +51,7 @@ class SettingsDialog(QDialog):
             self.autostart_beholder,
             self.autostart_sheet,
             self.quit_on_close,
+            self.clocks_earth_moon,
             extra_label,
             self.autostart_extra,
             note,
@@ -69,4 +75,5 @@ class SettingsDialog(QDialog):
                 if entry.strip()
             ],
             "quit_on_close": self.quit_on_close.isChecked(),
+            "clocks_earth_moon": self.clocks_earth_moon.isChecked(),
         }

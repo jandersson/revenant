@@ -21,6 +21,8 @@ dependencies = [
     "pyqt6",
     "pyqt6-webengine",
     "pyyaml",
+    # zoneinfo's timezone database, absent from the OS on Windows.
+    "tzdata; sys_platform == 'win32'",
 ]
 
 [project.urls]

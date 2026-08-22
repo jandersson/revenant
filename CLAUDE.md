@@ -94,9 +94,16 @@ One pipeline, one parser, several processes:
   mapdb-backup-dr), downloaded to `~/.revenant/mapdb/` on first use, never
   vendored. BFS pathfinding; wayto commands starting with ";e" are embedded
   Ruby and treated as unwalkable. `scripts/go2.py` is the walker on top.
+- `client/client/eltime.py` — the Elanthian clock, Qt-free: date, anlas,
+  and moon phases computed from real time (docs/eltime.md holds the
+  model and its captured evidence). `scripts/clock.py` (`;clock`) is the
+  ntpdate: TIME + OBSERVE MOONS, calibration stored in settings
+  (`eltime_offset_seconds`, `eltime_moons`).
 - `client/client/gui/client_gui.py` — PyQt6 frontend. GUI-thread safety via
   the `game_text` pyqtSignal; stream docks route thoughts/spells/arrivals;
-  compass dock renders the `"compass"` stream. Direct mode logs in itself;
+  compass dock renders the `"compass"` stream; the clocks dock ticks
+  Elanthian time, moons, Stockholm/Chicago, and (via a Settings toggle)
+  Earth's moon. Direct mode logs in itself;
   `--attach` connects to a session. User highlight patterns
   (`client/highlights.py`, ~/.revenant/highlights.json) color matched
   spans over any base style; View → Reload Highlights re-reads them.

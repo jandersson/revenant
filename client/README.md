@@ -10,7 +10,7 @@ Related reading: [Pylanthia](https://github.com/robbintt/pylanthia).
 
 - **core** — the engine / middleman. Handles the telnet connection to Simutronics, feeds incoming bytes through an XML parser, strips game XML out of the text stream, and dispatches input/output. See [client/core.py](client/core.py) and [client/xml_data.py](client/xml_data.py).
 - **login** — handles the SAL-style login handshake to get a game connection. See [client/login.py](client/login.py). Credentials come from the OS keychain and environment variables — see [Running](#running).
-- **gui** — a PyQt6 front end. A main text output, a docked input line, a file/view menu. Reminiscent of the pre-Wizard/Stormfront AOL Gemstone clients. Currently the primary test bench for `core`. See [client/gui/client_gui.py](client/gui/client_gui.py).
+- **gui** — a PyQt6 front end. A main text output, a docked input line, a file/view menu, and dock windows: streams, the compass, and clocks (Elanthian date, anlas, and moon phases beside Stockholm and Chicago — computed in [client/eltime.py](client/eltime.py), calibrated by `;clock`). Reminiscent of the pre-Wizard/Stormfront AOL Gemstone clients. Currently the primary test bench for `core`. See [client/gui/client_gui.py](client/gui/client_gui.py).
 - **tui** — a non-working draft of a terminal front end. Framework choice is still up in the air. See [client/tui/](client/tui/).
 
 ## Install

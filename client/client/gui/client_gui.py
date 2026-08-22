@@ -1,12 +1,16 @@
 import argparse
 import sys
+from datetime import datetime
 from pathlib import Path
 from threading import Thread
-from time import sleep
+from time import sleep, time
+from zoneinfo import ZoneInfo
 
 from PyQt6.QtWidgets import (
     QApplication,
     QDockWidget,
+    QGridLayout,
+    QLabel,
     QLineEdit,
     QMainWindow,
     QMenu,
@@ -23,12 +27,14 @@ from PyQt6.QtGui import (
     QTextCharFormat,
     QTextCursor,
 )
-from PyQt6.QtCore import QSettings, Qt, pyqtSignal
+from PyQt6.QtCore import QSettings, Qt, QTimer, pyqtSignal
 
+from client import eltime
 from client.core import Engine
 from client.client_logger import ClientLogger
 from client.highlights import highlights_path, load_rules, spans
 from client.session import AttachedEngine, DEFAULT_HOST, DEFAULT_PORT
+from client.settings import load_settings
 
 ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
 
@@ -140,6 +146,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.__add_output_window()
         self.__add_stream_docks()
         self.__add_compass_dock()
+        self.__add_clocks_dock()
         self.__add_input_field()
 
         reconnect_action = QAction("&Reconnect", self)
@@ -324,8 +331,6 @@ class ClientGUI(QMainWindow, ClientLogger):
         place("up", "up", width - 22, center_y - 28, size=30)
         place("down", "dn", width - 22, center_y + 28, size=30)
 
-        from PyQt6.QtWidgets import QGridLayout
-
         wrapper = QWidget()
         centering = QGridLayout(wrapper)
         centering.setContentsMargins(0, 0, 0, 0)
@@ -342,6 +347,83 @@ class ClientGUI(QMainWindow, ClientLogger):
         available = set(dirs_text.split())
         for direction, button in self.compass_buttons.items():
             button.setEnabled(direction in available)
+
+    def __add_clocks_dock(self):
+        """What time it is everywhere that matters: Elanthia (computed
+        from real time; ;clock calibrates), the three game moons,
+        Stockholm and Chicago wall time — plus Earth's moon when the
+        for-fun Settings row is on."""
+        self._clock_zones = {
+            "Stockholm": ZoneInfo("Europe/Stockholm"),
+            "Chicago": ZoneInfo("America/Chicago"),
+        }
+        wrapper = QWidget()
+        grid = QGridLayout(wrapper)
+        grid.setContentsMargins(8, 6, 8, 6)
+        self.clock_labels = {}
+        self._earth_moon_widgets = ()
+        rows = ("Elanthia", "Moons", "Stockholm", "Chicago", "Earth's moon")
+        for row, name in enumerate(rows):
+            place = QLabel(name)
+            place.setStyleSheet("color: #808090;")
+            value = QLabel("")
+            grid.addWidget(place, row, 0, Qt.AlignmentFlag.AlignTop)
+            grid.addWidget(value, row, 1)
+            self.clock_labels[name] = value
+            if name == "Earth's moon":
+                self._earth_moon_widgets = (place, value)
+        grid.setColumnStretch(1, 1)
+        grid.setRowStretch(len(rows), 1)
+
+        dock = QDockWidget("Clocks")
+        dock.setObjectName("Clocks")
+        dock.setWidget(wrapper)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+        self.stream_docks["Clocks"] = dock
+
+        self._clocks_ticks = 0
+        self._reload_clock_settings()
+        self.clocks_timer = QTimer(self)
+        self.clocks_timer.timeout.connect(self.update_clocks)
+        self.clocks_timer.start(1000)
+        self.update_clocks()
+
+    def _reload_clock_settings(self):
+        """;clock writes its calibration to settings from the session
+        process; re-reading once a minute picks a fresh sync up without
+        a restart."""
+        values = load_settings()
+        self._eltime_offset = values.get("eltime_offset_seconds") or 0
+        self._moon_epochs = dict(eltime.DEFAULT_MOON_EPOCHS)
+        self._moon_epochs.update(values.get("eltime_moons") or {})
+        for widget in self._earth_moon_widgets:
+            widget.setVisible(bool(values.get("clocks_earth_moon")))
+
+    def update_clocks(self):
+        now = time()
+        line1, line2 = eltime.describe(eltime.elanthian_now(now, self._eltime_offset))
+        self.clock_labels["Elanthia"].setText(f"{line1}\n{line2}")
+        bits, tips = [], []
+        for name in eltime.MOON_NAMES:
+            index = eltime.moon_phase(name, now, self._moon_epochs.get(name))
+            title = name.capitalize()
+            if index is None:
+                bits.append(f"{title} ?")
+                tips.append(f"{title}: not observed yet — ;clock under open sky")
+            else:
+                bits.append(f"{title} {eltime.PHASE_EMOJI[index]}")
+                tips.append(f"{title}: {eltime.PHASES[index]}")
+        self.clock_labels["Moons"].setText("  ".join(bits))
+        self.clock_labels["Moons"].setToolTip("\n".join(tips))
+        for city, zone in self._clock_zones.items():
+            self.clock_labels[city].setText(datetime.now(zone).strftime("%H:%M:%S %a"))
+        index = eltime.earth_moon_phase(now)
+        self.clock_labels["Earth's moon"].setText(
+            f"{eltime.PHASE_EMOJI[index]} {eltime.PHASES[index]}"
+        )
+        self._clocks_ticks += 1
+        if self._clocks_ticks % 60 == 0:
+            self._reload_clock_settings()
 
     def __add_input_field(self):
         self.input_dock.setObjectName("Input")

@@ -17,6 +17,9 @@ DEFAULTS = {
     "autostart_sheet": True,  # snapshot the character sheet periodically
     "autostart_extra": [],  # more scripts to start, e.g. ["lnet", "athletics"]
     "quit_on_close": True,  # closing the window sends quit to the game
+    "eltime_offset_seconds": 0,  # ;clock's Elanthian calendar correction
+    "eltime_moons": {},  # ;clock's moon anchors: {moon: new-moon unix time}
+    "clocks_earth_moon": False,  # the for-fun Earth moon row in the clocks dock
 }
 
 
