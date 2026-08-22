@@ -15,6 +15,7 @@ DEFAULTS = {
     "autostart_xp": True,  # log experience history in every session
     "autostart_beholder": True,  # keep the dashboard server up, quietly
     "autostart_sheet": True,  # snapshot the character sheet periodically
+    "autostart_extra": [],  # more scripts to start, e.g. ["lnet", "athletics"]
     "quit_on_close": True,  # closing the window sends quit to the game
 }
 

@@ -437,6 +437,13 @@ def autostart_scripts(server):
         "autostart_sheet", True
     ):
         server.scripts.start("sheet", [])
+    # User-chosen extras: script names with optional args ("lnet",
+    # "athletics ladder"). Unknown names answer with the usual
+    # no-script-named message rather than failing the startup.
+    for entry in settings.get("autostart_extra", []) or []:
+        parts = str(entry).split()
+        if parts:
+            server.scripts.start(parts[0], parts[1:])
 
 
 if __name__ == "__main__":

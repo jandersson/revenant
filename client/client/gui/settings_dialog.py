@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QLabel,
+    QLineEdit,
     QVBoxLayout,
 )
 
@@ -33,6 +34,11 @@ class SettingsDialog(QDialog):
             "Quit the game when the window closes (File → Detach skips this)"
         )
         self.quit_on_close.setChecked(bool(settings.get("quit_on_close")))
+        extra_label = QLabel("Also autostart these scripts (comma-separated):")
+        self.autostart_extra = QLineEdit(
+            ", ".join(settings.get("autostart_extra") or [])
+        )
+        self.autostart_extra.setPlaceholderText("lnet, athletics")
         note = QLabel("Autostart changes apply from the next session.")
         note.setStyleSheet("color: #808090;")
         for widget in (
@@ -40,6 +46,8 @@ class SettingsDialog(QDialog):
             self.autostart_beholder,
             self.autostart_sheet,
             self.quit_on_close,
+            extra_label,
+            self.autostart_extra,
             note,
         ):
             layout.addWidget(widget)
@@ -55,5 +63,10 @@ class SettingsDialog(QDialog):
             "autostart_xp": self.autostart_xp.isChecked(),
             "autostart_beholder": self.autostart_beholder.isChecked(),
             "autostart_sheet": self.autostart_sheet.isChecked(),
+            "autostart_extra": [
+                entry.strip()
+                for entry in self.autostart_extra.text().split(",")
+                if entry.strip()
+            ],
             "quit_on_close": self.quit_on_close.isChecked(),
         }

@@ -483,3 +483,15 @@ def test_settings_file_disables_autostarts_durably(monkeypatch):
         )
         == []
     )
+
+
+def test_autostart_extra_starts_user_chosen_scripts(monkeypatch):
+    started = _autostart_with(
+        monkeypatch,
+        settings={"autostart_extra": ["lnet", "athletics ladder", "", 42]},
+    )
+    assert ("lnet", []) in started
+    assert ("athletics", ["ladder"]) in started
+    # Blank entries vanish; junk becomes a name the manager will answer
+    # with its usual no-script-named message rather than crash startup.
+    assert ("42", []) in started
