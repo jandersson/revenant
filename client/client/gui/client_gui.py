@@ -35,7 +35,7 @@ from PyQt6.QtGui import (
     QTextCharFormat,
     QTextCursor,
 )
-from PyQt6.QtCore import QSettings, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QSettings, QSize, Qt, QTimer, pyqtSignal
 
 from client import eltime
 from client.command_history import CommandHistory
@@ -395,54 +395,76 @@ class ClientGUI(QMainWindow, ClientLogger):
     def __add_compass_dock(self):
         """Clickable exits drawn as a compass rose: eight arrows on a
         ring around OUT, up/down beside, lit amber when the room's
-        compass tag offers the exit and dimmed to the ring otherwise."""
-        width, height, ring, side = 190, 150, 54, 36
-        center_x, center_y = 78, height // 2
-        # The rose keeps its fixed geometry, but lives centered inside a
-        # resizable wrapper — a fixed-size dock widget would pin the
-        # whole dock column's width and freeze the splitter.
-        rose = QWidget()
-        rose.setFixedSize(width, height)
-        container = rose
-        container.setStyleSheet(
-            f"QPushButton {{ border-radius: {side // 2}px;"
-            "  background: #d8b465; color: #1c1c24;"
+        compass tag offers the exit and dimmed to the ring otherwise.
+
+        The rose lays itself out for whatever space the dock grants —
+        a fixed-size rose in an elastic wrapper painted over the
+        neighboring docks whenever the column got crowded."""
+        gui = self
+
+        class Rose(QWidget):
+            def sizeHint(self):
+                return QSize(190, 150)
+
+            def minimumSizeHint(self):
+                return QSize(140, 104)
+
+            def resizeEvent(self, event):
+                gui._layout_compass(self.width(), self.height())
+                super().resizeEvent(event)
+
+        rose = Rose()
+        rose.setStyleSheet(
+            "QPushButton { background: #d8b465; color: #1c1c24;"
             "  font-weight: bold; border: 1px solid #8a733f; }"
             "QPushButton:disabled { background: #23232b; color: #4a4a55;"
             "  border: 1px solid #33333d; }"
         )
         self.compass_buttons = {}
-
-        def place(name, label, x, y, size=side):
-            button = QPushButton(label, container)
-            button.setEnabled(False)
-            button.setGeometry(int(x - size / 2), int(y - size / 2), size, size)
-            button.setToolTip(name)
-            button.clicked.connect(lambda checked=False, d=name: self.write(d))
-            self.compass_buttons[name] = button
-
-        for direction, (dx, dy) in self.COMPASS_POINTS.items():
-            place(
-                direction,
-                self.COMPASS_ARROWS[direction],
-                center_x + dx * ring,
-                center_y + dy * ring,
-            )
-        place("out", "out", center_x, center_y)
-        place("up", "up", width - 22, center_y - 28, size=30)
-        place("down", "dn", width - 22, center_y + 28, size=30)
-
-        wrapper = QWidget()
-        centering = QGridLayout(wrapper)
-        centering.setContentsMargins(0, 0, 0, 0)
-        centering.addWidget(rose, 0, 0, Qt.AlignmentFlag.AlignCenter)
+        for direction in self.COMPASS_POINTS:
+            self._add_compass_button(rose, direction, self.COMPASS_ARROWS[direction])
+        self._add_compass_button(rose, "out", "out")
+        self._add_compass_button(rose, "up", "up")
+        self._add_compass_button(rose, "down", "dn")
 
         dock = QDockWidget("Compass")
         dock.setObjectName("Compass")
-        dock.setWidget(wrapper)
+        dock.setWidget(rose)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
         # Registering under stream_docks gives it a View-menu toggle.
         self.stream_docks["Compass"] = dock
+
+    def _add_compass_button(self, rose, name, label):
+        button = QPushButton(label, rose)
+        button.setEnabled(False)
+        button.setToolTip(name)
+        button.clicked.connect(lambda checked=False, d=name: self.write(d))
+        self.compass_buttons[name] = button
+
+    def _layout_compass(self, width, height):
+        """Fit the rose to the dock's current size: the ring and the
+        buttons scale down before anything can spill onto a neighbor."""
+        side = max(22, min(36, height * 24 // 100))
+        updn = max(18, side * 5 // 6)
+        right_column = updn + 8
+        ring = max(
+            24,
+            min((height - side) // 2 - 2, (width - right_column - side) // 2 - 2),
+        )
+        center_x = (width - right_column) // 2
+        center_y = height // 2
+
+        def place(name, x, y, size):
+            button = self.compass_buttons[name]
+            button.setGeometry(int(x - size / 2), int(y - size / 2), size, size)
+            button.setStyleSheet(f"border-radius: {size // 2}px;")
+
+        for direction, (dx, dy) in self.COMPASS_POINTS.items():
+            place(direction, center_x + dx * ring, center_y + dy * ring, side)
+        place("out", center_x, center_y, side)
+        offset = max(updn, side * 7 // 9)
+        place("up", width - updn // 2 - 4, center_y - offset, updn)
+        place("down", width - updn // 2 - 4, center_y + offset, updn)
 
     def update_compass(self, dirs_text: str):
         available = set(dirs_text.split())
