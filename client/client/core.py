@@ -54,8 +54,13 @@ class Engine(ClientLogger):
         self._last_indicators = ""
         # Last emitted server-minus-local clock delta ("timesync"
         # stream, #102); public so session.attach() can state it
-        # fresh to late attachers.
+        # fresh to late attachers. The delta is only meaningful at
+        # the instant a fresh prompt arrives — computing it against a
+        # stale prompt makes it decay one second per second, and the
+        # first live rollout emitted that decay as a frame-per-second
+        # flood. _last_server_time gates on prompt freshness.
         self.timesync_delta = None
+        self._last_server_time = 0
 
     @property
     def connection(self):
@@ -233,13 +238,19 @@ class Engine(ClientLogger):
         # "timesync" frame carries server-minus-local seconds so
         # frontends compute server time between prompts (the Elanthian
         # clock anchors to it — local clock drift stops mattering,
-        # #102). Emitted only when the delta moves by more than a
-        # second: effectively once per session on a sane machine
-        # (server_time is whole seconds, so the delta wobbles inside
-        # ±1s by quantization alone).
-        if self.xml_data.server_time:
+        # #102). Measured ONLY at the instant a fresh prompt arrives:
+        # against a stale prompt the delta just decays one second per
+        # second (the first rollout emitted that decay as a frame per
+        # second, flooding old frontends). Re-emitted when it moves
+        # more than two seconds — beyond whole-second quantization
+        # plus network jitter — so it fires effectively once per
+        # session on a sane machine.
+        if self.xml_data.server_time and self.xml_data.server_time != (
+            self._last_server_time
+        ):
+            self._last_server_time = self.xml_data.server_time
             delta = self.xml_data.server_time - time.time()
-            if self.timesync_delta is None or abs(delta - self.timesync_delta) > 1.0:
+            if self.timesync_delta is None or abs(delta - self.timesync_delta) > 2.0:
                 self.timesync_delta = delta
                 if output_callback:
                     output_callback(f"{delta:.1f}", "timesync", "")

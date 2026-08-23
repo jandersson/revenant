@@ -285,13 +285,16 @@ def test_engine_emits_the_indicator_set_on_change():
 def test_engine_emits_the_server_clock_delta_once(monkeypatch):
     # Every prompt states the server's clock (#102); the delta to the
     # local clock emits once and stays quiet while the clocks tick in
-    # step — quantization wobble under a second never re-emits.
+    # step — quantization/latency wobble never re-emits.
     local = [1_787_402_500.0]
     monkeypatch.setattr("time.time", lambda: local[0])
     engine = Engine()
     engine.connection = FakeConnection(
         [
             b'<prompt time="1787402545">&gt;</prompt>\n',
+            b"",  # idle reads: no data, no fresh prompt ...
+            b"",
+            b"",
             b'<prompt time="1787402555">&gt;</prompt>\n',
             b'<prompt time="1787402600">&gt;</prompt>\n',
         ]
@@ -306,8 +309,15 @@ def test_engine_emits_the_server_clock_delta_once(monkeypatch):
             )
         )
 
-    read_at(1_787_402_500.0)  # delta 45
-    read_at(1_787_402_510.4)  # delta 44.6 — wobble, no re-emit
-    read_at(1_787_402_520.0)  # delta 80 — the local clock jumped
+    read_at(1_787_402_500.0)  # fresh prompt: delta 45, emitted
+    # The live regression: while no prompt arrives, the last one goes
+    # stale and the apparent delta decays one second per second. The
+    # first rollout emitted that decay as a frame per second, flooding
+    # frontends that predate the stream. Idle reads must stay silent.
+    read_at(1_787_402_503.0)
+    read_at(1_787_402_506.0)
+    read_at(1_787_402_509.0)
+    read_at(1_787_402_510.4)  # fresh prompt: delta 44.6 — wobble only
+    read_at(1_787_402_520.0)  # fresh prompt after the local clock jumped
     frames = [frame for frame in out if frame[1] == "timesync"]
     assert frames == [("45.0", "timesync", ""), ("80.0", "timesync", "")]
