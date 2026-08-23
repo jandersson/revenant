@@ -4,7 +4,7 @@ from datetime import datetime
 from math import ceil
 from pathlib import Path
 from threading import Thread
-from time import sleep, time
+from time import time
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from PyQt6.QtWidgets import (
@@ -37,7 +37,7 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtCore import QSettings, QSize, Qt, QTimer, pyqtSignal
 
-from client import crashguard, eltime
+from client import crashguard, eltime, reader
 from client.command_history import CommandHistory
 from client.core import Engine
 from client.client_logger import ClientLogger
@@ -944,13 +944,15 @@ class ClientGUI(QMainWindow, ClientLogger):
 
     def gui_reactor(self):
         def output_loop():
-            while True:
-                try:
-                    self.client.read(output_callback=self.game_text.emit)
-                except EOFError:
-                    self.connection_state.emit("Disconnected — File → Reconnect")
-                    break
-                sleep(0.01)
+            # reader.pump surfaces EOF and crashes in the status bar —
+            # a dead reader must never leave the window claiming
+            # Connected (#96). Ending the thread re-arms File →
+            # Reconnect (reconnect() checks is_alive).
+            reader.pump(
+                lambda: self.client.read(output_callback=self.game_text.emit),
+                self.connection_state.emit,
+                self.log,
+            )
 
         self._reader_thread = Thread(target=output_loop, daemon=True)
         self._reader_thread.start()

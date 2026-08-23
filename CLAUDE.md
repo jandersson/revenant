@@ -155,7 +155,9 @@ One pipeline, one parser, several processes:
   the `game_text` pyqtSignal; a sys.excepthook (`client/crashguard.py`,
   Qt-free) keeps the window alive when a Qt slot crashes, logging the
   traceback and surfacing it in the main window + status bar (#94);
-  stream docks route thoughts/spells/arrivals/deaths;
+  the reader thread runs `client/reader.py`'s Qt-free pump, which
+  surfaces EOF and crashes in the status bar instead of dying
+  silently (#96); stream docks route thoughts/spells/arrivals/deaths;
   compass dock renders the `"compass"` stream; the Map dock draws
   the community map around the character from the `"room"` stream
   (grid layout in the Qt-free `client/maplayout.py`, drawing in
