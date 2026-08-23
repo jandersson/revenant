@@ -71,6 +71,9 @@ def walk(s, db, goals, describe="destination"):
 
     Echoes progress and failure detail the way ;go2 always has: stalls
     and off-course rooms stop the walk rather than guessing onward."""
+    if s.dead:
+        s.echo("you are DEAD — corpses don't travel; deathwatch has it (#91)")
+        return False
     here = locate(db, s.state)
     if here is None:
         title = getattr(s.state, "room_title", None) if s.state else None
@@ -88,6 +91,9 @@ def walk(s, db, goals, describe="destination"):
 
     s.echo(f"walking {len(route)} steps to {describe}")
     for number, (dest, command) in enumerate(route, 1):
+        if s.dead:
+            s.echo(f"died en route at step {number} — stopping; deathwatch takes it")
+            return False
         # A scripted edge translates to several game commands; the last
         # one lands in the destination room and gets the arrival check.
         commands = translate_embedded(command) or [command]

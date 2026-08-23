@@ -11,6 +11,7 @@ in its own thread with `s` as its handle on the game:
     line = s.command(timeout=0)        # next user line (;name <line>), None if none
     s.sleep(2)                         # stop-aware sleep
     s.state                            # the session's XMLData (indicators etc.)
+    s.dead                             # True while the character is dead
     s.args                             # arguments from `;run name arg1 arg2`
 
 Scripts are controlled from any attached front end with ;-commands:
@@ -153,6 +154,15 @@ class Script:
                 return
             seen = state.server_time
             remaining = max(state.roundtime, state.casttime) - seen
+
+    @property
+    def dead(self):
+        """True while the character is dead (the IconDEAD indicator).
+        Movement and training scripts must check this: a corpse takes
+        no commands, and only deathwatch may act on death (#91)."""
+        state = self._manager.state
+        indicators = getattr(state, "indicator", None) or {}
+        return indicators.get("IconDEAD") == "y"
 
     @property
     def state(self):

@@ -69,6 +69,7 @@ class FakeHandle:
     def __init__(self, uids):
         self.calls = []
         self.echoes = []
+        self.dead = False
         self._uids = list(uids)  # room uid after each compass-waited move
         self.state = SimpleNamespace(room_uid=None, room_title=None, compass=[])
 
@@ -180,3 +181,37 @@ def test_walk_bursts_once_then_stops_on_a_persistent_stall():
     puts = [call[1] for call in handle.calls if call[0] == "put"]
     assert puts == ["go door", "retreat", "retreat", "go door"]
     assert any("stalled" in echo for echo in handle.echoes)
+
+
+def test_walk_refuses_a_dead_character():
+    # The cougar lesson (#91): ;go2 bank on a corpse announced a
+    # 47-step walk. Dead means no travel — deathwatch owns death.
+    handle = FakeHandle([])
+    handle.dead = True
+    db = MapDB([{"id": 1, "uid": [11], "title": ["[A]"], "wayto": {}}])
+    assert walker.walk(handle, db, [1], describe="the bank") is False
+    assert handle.calls == []  # not one command left the corpse
+    assert any("DEAD" in echo for echo in handle.echoes)
+
+
+def test_walk_halts_when_death_arrives_mid_route():
+    db = MapDB(
+        [
+            {"id": 1, "uid": [11], "title": ["[A]"], "wayto": {"2": "north"}},
+            {"id": 2, "uid": [12], "title": ["[B]"], "wayto": {"3": "north"}},
+            {"id": 3, "uid": [13], "title": ["[C]"], "wayto": {}},
+        ]
+    )
+
+    class DiesOnArrival(FakeHandle):
+        def get(self, timeout=None, streams=("",)):
+            frame = super().get(timeout, streams)
+            if timeout != 0 and frame:
+                self.dead = True  # killed stepping into the first room
+            return frame
+
+    handle = DiesOnArrival([12])
+    handle.state.room_uid = 11
+    assert walker.walk(handle, db, [3], describe="the far room") is False
+    assert handle.calls.count(("put", "north")) == 1  # step two never sent
+    assert any("died en route" in echo for echo in handle.echoes)

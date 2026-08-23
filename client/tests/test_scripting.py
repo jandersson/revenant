@@ -306,3 +306,13 @@ def test_stop_unmatched_prefix_reports_nothing_to_stop(tmp_path):
     manager, recorder = make_manager(tmp_path)
     manager.stop("mech")
     assert "nothing to stop (mech)" in recorder.emitted
+
+
+def test_dead_reflects_the_death_indicator(tmp_path):
+    manager, recorder = make_manager(tmp_path)
+    script = Script("t", [], manager)
+    assert script.dead is False  # no parser state at all yet
+    manager.state = types.SimpleNamespace(indicator={"IconDEAD": "y"})
+    assert script.dead is True
+    manager.state.indicator["IconDEAD"] = "n"
+    assert script.dead is False
