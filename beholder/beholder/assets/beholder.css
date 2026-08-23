@@ -1,0 +1,31 @@
+/* Revenant's dark chrome for the pieces inline styles cannot reach:
+   the dcc.Dropdown internals (Dash's own .dash-dropdown markup) and
+   headings. */
+body { background: #17171d; }
+h2, h3 { color: #d8b465; font-weight: 600; }
+label { color: #8a8a96; }
+.dash-dropdown,
+.dash-dropdown-trigger,
+.dash-dropdown-grid-container {
+  background-color: #1e1e26 !important;
+  color: #c8c8d0 !important;
+  border-color: #2a2a34 !important;
+}
+.dash-dropdown-value,
+.dash-dropdown-value-item,
+.dash-dropdown-placeholder {
+  color: #c8c8d0 !important;
+}
+[class*="dash-dropdown-option"],
+[class*="dash-dropdown-listbox"],
+[class*="dash-dropdown-menu"] {
+  background-color: #1e1e26 !important;
+  color: #c8c8d0 !important;
+  border-color: #2a2a34 !important;
+}
+[class*="dash-dropdown-option"]:hover,
+[class*="dash-dropdown-option"][data-highlighted],
+[class*="dash-dropdown-option"][aria-selected="true"] {
+  background-color: #2a2a34 !important;
+}
+.dash-dropdown-clear, .dash-dropdown-arrow { color: #8a8a96 !important; }

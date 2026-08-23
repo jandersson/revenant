@@ -146,3 +146,111 @@ def history(connection, character, skill_names):
         points["mindstate"].append(row["mindstate"])
         points["rank"].append(row["rank"])
     return series
+
+
+def _sheet_roster(connection, character, logged_at):
+    return {
+        row["skill_name"]: (row["rank"], row["percent"])
+        for row in connection.execute(
+            "SELECT skill_name, rank, percent FROM sheet_skills"
+            " WHERE character_name = ? AND logged_at = ?",
+            (character, logged_at),
+        )
+    }
+
+
+def sheet_with_deltas(connection, character):
+    """The newest full roster with rank gained since the previous
+    snapshot: (logged_at, [{skill_name, rank, percent, gained}]),
+    sorted by skill. gained is None for a skill's first appearance —
+    including everything in the very first snapshot. None before any
+    snapshot at all."""
+    times = [
+        row[0]
+        for row in connection.execute(
+            "SELECT DISTINCT logged_at FROM sheet_skills"
+            " WHERE character_name = ? ORDER BY logged_at DESC LIMIT 2",
+            (character,),
+        )
+    ]
+    if not times:
+        return None
+    latest = _sheet_roster(connection, character, times[0])
+    previous = _sheet_roster(connection, character, times[1]) if len(times) > 1 else {}
+    rows = [
+        {
+            "skill_name": skill,
+            "rank": rank,
+            "percent": percent,
+            "gained": (rank - previous[skill][0]) if skill in previous else None,
+        }
+        for skill, (rank, percent) in sorted(latest.items())
+    ]
+    return times[0], rows
+
+
+def stats_with_deltas(connection, character):
+    """The newest stats with change since the previous snapshot:
+    (logged_at, [{stat, value, gained}]), or None before any."""
+    times = [
+        row[0]
+        for row in connection.execute(
+            "SELECT DISTINCT logged_at FROM stats"
+            " WHERE character_name = ? ORDER BY logged_at DESC LIMIT 2",
+            (character,),
+        )
+    ]
+    if not times:
+        return None
+
+    def values(logged_at):
+        return {
+            row["stat"]: row["value"]
+            for row in connection.execute(
+                "SELECT stat, value FROM stats"
+                " WHERE character_name = ? AND logged_at = ?",
+                (character, logged_at),
+            )
+        }
+
+    latest = values(times[0])
+    previous = values(times[1]) if len(times) > 1 else {}
+    rows = [
+        {
+            "stat": stat,
+            "value": value,
+            "gained": (value - previous[stat]) if stat in previous else None,
+        }
+        for stat, value in sorted(latest.items())
+    ]
+    return times[0], rows
+
+
+def sheet_history(connection, character):
+    """Circle, TDPs and favors over time, from every ;sheet snapshot:
+    {"times": [...], "circle": [...], "tdps": [...], "favors": [...]}."""
+    history = {"times": [], "circle": [], "tdps": [], "favors": []}
+    for row in connection.execute(
+        "SELECT logged_at, circle, tdps, favors FROM character"
+        " WHERE character_name = ? ORDER BY logged_at",
+        (character,),
+    ):
+        history["times"].append(row["logged_at"])
+        history["circle"].append(row["circle"])
+        history["tdps"].append(row["tdps"])
+        history["favors"].append(row["favors"])
+    return history
+
+
+def stats_history(connection, character):
+    """Per-stat progression: {stat: {"times": [...], "values": [...]}}."""
+    series = {}
+    for row in connection.execute(
+        "SELECT logged_at, stat, value FROM stats"
+        " WHERE character_name = ? ORDER BY logged_at",
+        (character,),
+    ):
+        points = series.setdefault(row["stat"], {"times": [], "values": []})
+        points["times"].append(row["logged_at"])
+        points["values"].append(row["value"])
+    return series

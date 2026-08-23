@@ -26,11 +26,83 @@ except ImportError:  # pragma: no cover — the workspace always has it
 
 REFRESH_MS = 60_000  # matches the ;xp snapshot interval
 
+# Revenant's identity: dark surfaces and amber chrome, matching the GUI.
+# Series colors are NOT the brand pastels — they are a categorical set
+# validated for the dark surface (dataviz six checks: lightness band,
+# chroma floor, CVD separation, normal-vision floor, contrast).
+SURFACE = "#17171d"  # page and figure paper
+PANEL = "#1e1e26"  # plot area, table chrome
+GRID = "#2a2a34"
+INK = "#c8c8d0"
+MUTED = "#8a8a96"
+ACCENT = "#d8b465"  # revenant amber: chrome only, never a series color
+COLORWAY = [
+    "#3987e5",
+    "#d95926",
+    "#199e70",
+    "#c98500",
+    "#d55181",
+    "#008300",
+    "#9085e9",
+    "#e66767",
+]
+
+TABLE_STYLE = {
+    "style_header": {
+        "backgroundColor": PANEL,
+        "color": ACCENT,
+        "fontWeight": "bold",
+        "border": f"1px solid {GRID}",
+    },
+    "style_data": {
+        "backgroundColor": SURFACE,
+        "color": INK,
+        "border": f"1px solid {GRID}",
+    },
+    "style_filter": {"backgroundColor": PANEL, "color": INK},
+    "style_cell": {
+        "fontFamily": "ui-monospace, Menlo, Consolas, monospace",
+        "fontSize": "13px",
+        "textAlign": "left",
+        "padding": "4px 8px",
+    },
+}
+
+
+def themed(figure, title):
+    """The shared chart chrome: dark surfaces, recessive grid, validated
+    colorway. Specific figures set their own axes first; this merges."""
+    figure.update_layout(
+        title={"text": title, "font": {"color": INK, "size": 15}},
+        paper_bgcolor=SURFACE,
+        plot_bgcolor=PANEL,
+        font={"color": INK},
+        colorway=COLORWAY,
+        xaxis={"gridcolor": GRID, "linecolor": GRID, "zerolinecolor": GRID},
+        yaxis={"gridcolor": GRID, "linecolor": GRID, "zerolinecolor": GRID},
+        margin={"l": 50, "r": 16, "t": 44, "b": 36},
+    )
+    return figure
+
+
 TABLE_COLUMNS = [
     {"name": "Skill", "id": "skill_name"},
     {"name": "Rank", "id": "rank"},
     {"name": "Percent", "id": "percent"},
     {"name": "Mindstate", "id": "mindstate"},
+]
+
+STAT_COLUMNS = [
+    {"name": "Stat", "id": "stat"},
+    {"name": "Value", "id": "value"},
+    {"name": "\u0394", "id": "gained"},
+]
+
+SHEET_COLUMNS = [
+    {"name": "Skill", "id": "skill_name"},
+    {"name": "Rank", "id": "rank"},
+    {"name": "Percent", "id": "percent"},
+    {"name": "\u0394 rank", "id": "gained"},
 ]
 
 CIRCLE_COLUMNS = [
@@ -98,24 +170,76 @@ def mindstate_figure(series, character):
             )
         )
     figure.update_layout(
-        title=f"Mindstate over time — {character}"
-        if character
-        else "Mindstate over time",
         xaxis={
             "title": "Time (UTC)",
             "type": "date",
-            "rangeslider": {},
+            "rangeslider": {"bgcolor": PANEL},
             "rangeselector": {
+                "bgcolor": PANEL,
+                "activecolor": GRID,
+                "font": {"color": INK},
                 "buttons": [
                     {"count": 1, "label": "1d", "step": "day", "stepmode": "backward"},
                     {"count": 3, "label": "3d", "step": "day", "stepmode": "backward"},
                     {"step": "all"},
-                ]
+                ],
             },
         },
         yaxis={"title": "Mindstate (0–34)", "range": [0, 34]},
     )
-    return figure
+    return themed(
+        figure,
+        f"Mindstate over time — {character}" if character else "Mindstate over time",
+    )
+
+
+def series_figure(times, named_values, title, y_title):
+    """One small single-axis chart (never dual-axis): one line per
+    (name, values); a lone series shows no legend — the title names it."""
+    figure = go.Figure()
+    for name, values in named_values:
+        figure.add_trace(
+            go.Scatter(
+                x=times,
+                y=values,
+                name=name,
+                mode="lines+markers",
+                line={"width": 2},
+                marker={"size": 8},
+            )
+        )
+    figure.update_layout(
+        xaxis={"title": "", "type": "date"},
+        yaxis={"title": y_title, "rangemode": "tozero"},
+        showlegend=len(named_values) > 1,
+        height=230,
+    )
+    return themed(figure, title)
+
+
+def stats_figure(series, character):
+    """Per-stat progression: one line per stat, shared axis."""
+    figure = go.Figure()
+    for stat in sorted(series):
+        points = series[stat]
+        figure.add_trace(
+            go.Scatter(
+                x=points["times"],
+                y=points["values"],
+                name=stat,
+                mode="lines+markers",
+                line={"width": 2},
+                marker={"size": 8},
+            )
+        )
+    figure.update_layout(
+        xaxis={"title": "Time (UTC)", "type": "date"},
+        yaxis={"title": "Stat value"},
+        height=280,
+    )
+    return themed(
+        figure, f"Stats over time — {character}" if character else "Stats over time"
+    )
 
 
 def serve_layout():
@@ -142,6 +266,7 @@ def serve_layout():
                 columns=TABLE_COLUMNS,
                 sort_action="native",
                 filter_action="native",
+                **TABLE_STYLE,
             ),
             html.H3("Circle gates"),
             html.P(id="circle-note"),
@@ -149,6 +274,39 @@ def serve_layout():
                 id="circle-table",
                 columns=CIRCLE_COLUMNS,
                 sort_action="native",
+                **TABLE_STYLE,
+            ),
+            html.H3("Character sheet"),
+            html.P(id="sheet-note", style={"color": MUTED}),
+            html.Div(
+                [
+                    html.Div(
+                        dash_table.DataTable(
+                            id="stats-table",
+                            columns=STAT_COLUMNS,
+                            sort_action="native",
+                            **TABLE_STYLE,
+                        ),
+                        style={"flex": "0 0 16rem"},
+                    ),
+                    html.Div(
+                        [
+                            dcc.Graph(id="circle-plot"),
+                            dcc.Graph(id="tdp-plot"),
+                        ],
+                        style={"flex": "1", "minWidth": "0"},
+                    ),
+                ],
+                style={"display": "flex", "gap": "1rem", "alignItems": "flex-start"},
+            ),
+            dcc.Graph(id="stats-plot"),
+            html.H3("Full skill roster"),
+            dash_table.DataTable(
+                id="sheet-table",
+                columns=SHEET_COLUMNS,
+                sort_action="native",
+                filter_action="native",
+                **TABLE_STYLE,
             ),
             dcc.Interval(id="refresh", interval=REFRESH_MS),
         ],
@@ -157,13 +315,13 @@ def serve_layout():
 
 
 def page(inner):
-    """Pin the page to a light background — browsers in dark mode
-    otherwise paint the default body dark behind Plotly's light plot."""
+    """Pin the page to revenant's dark surface regardless of the
+    browser's light/dark preference."""
     return html.Div(
         inner,
         style={
-            "backgroundColor": "white",
-            "color": "black",
+            "backgroundColor": SURFACE,
+            "color": INK,
             "minHeight": "100vh",
             "padding": "1rem",
         },
@@ -278,6 +436,65 @@ def update_table(character, _tick):
 )
 def update_circle_gates(character, _tick):
     return circle_gates(character)
+
+
+@app.callback(
+    Output("sheet-note", "children"),
+    Output("stats-table", "data"),
+    Output("sheet-table", "data"),
+    Output("circle-plot", "figure"),
+    Output("tdp-plot", "figure"),
+    Output("stats-plot", "figure"),
+    Input("char-dropdown", "value"),
+    Input("refresh", "n_intervals"),
+)
+def update_sheet(character, _tick):
+    """The character-sheet view (#61): newest roster and stats with
+    deltas since the previous ;sheet snapshot, and progression over
+    time — circle & favors, TDPs, per-stat lines."""
+    empty = (
+        series_figure([], [], "Circle & favors", ""),
+        series_figure([], [], "TDPs", ""),
+        stats_figure({}, character),
+    )
+    if not character:
+        return "", [], [], *empty
+    sheet = query(data.sheet_with_deltas, character, default=None)
+    if sheet is None:
+        return (
+            "No sheet snapshot yet — run ;sheet once in revenant.",
+            [],
+            [],
+            *empty,
+        )
+    logged_at, roster = sheet
+    stats_now = query(data.stats_with_deltas, character, default=None)
+    header = query(data.sheet_snapshot, character, default=None)
+    lead = ""
+    if header and header[1] is not None:
+        lead = f"{header[2]}, circle {header[1]} — "
+    note = f"{lead}snapshot at {logged_at}; \u0394 is change since the previous one"
+    progression = query(
+        data.sheet_history,
+        character,
+        default={"times": [], "circle": [], "tdps": [], "favors": []},
+    )
+    stat_series = query(data.stats_history, character, default={})
+    return (
+        note,
+        stats_now[1] if stats_now else [],
+        roster,
+        series_figure(
+            progression["times"],
+            [("Circle", progression["circle"]), ("Favors", progression["favors"])],
+            "Circle & favors",
+            "",
+        ),
+        series_figure(
+            progression["times"], [("TDPs", progression["tdps"])], "TDPs", ""
+        ),
+        stats_figure(stat_series, character),
+    )
 
 
 @app.callback(

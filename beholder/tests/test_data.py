@@ -140,3 +140,119 @@ def test_history_since_windows_by_cutoff(connection):
             "rank": [100],
         },
     }
+
+
+# --- the character sheet: rosters, stats, and their histories -----------
+
+SHEET_TABLES = """
+CREATE TABLE character (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    logged_at TEXT NOT NULL, character_name TEXT NOT NULL,
+    circle INTEGER, tdps INTEGER, favors INTEGER, guild TEXT
+);
+CREATE TABLE stats (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    logged_at TEXT NOT NULL, character_name TEXT NOT NULL,
+    stat TEXT NOT NULL, value INTEGER NOT NULL
+);
+CREATE TABLE sheet_skills (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    logged_at TEXT NOT NULL, character_name TEXT NOT NULL,
+    skill_name TEXT NOT NULL, rank INTEGER NOT NULL, percent INTEGER NOT NULL
+);
+"""
+
+T1, T2 = "2026-08-22T10:00:00+00:00", "2026-08-23T12:00:00+00:00"
+
+
+@pytest.fixture
+def sheet_connection(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "xp.db"
+    writer = sqlite3.connect(path)
+    writer.executescript(SHEET_TABLES)
+    writer.executemany(
+        "INSERT INTO character"
+        " (logged_at, character_name, circle, tdps, favors, guild)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        [
+            (T1, "Testchar", 5, 300, 2, "Barbarian"),
+            (T2, "Testchar", 6, 320, 3, "Barbarian"),
+        ],
+    )
+    writer.executemany(
+        "INSERT INTO stats (logged_at, character_name, stat, value)"
+        " VALUES (?, ?, ?, ?)",
+        [
+            (T1, "Testchar", "Strength", 12),
+            (T1, "Testchar", "Agility", 10),
+            (T2, "Testchar", "Strength", 13),
+            (T2, "Testchar", "Agility", 10),
+            (T2, "Testchar", "Discipline", 11),
+        ],
+    )
+    writer.executemany(
+        "INSERT INTO sheet_skills"
+        " (logged_at, character_name, skill_name, rank, percent)"
+        " VALUES (?, ?, ?, ?, ?)",
+        [
+            (T1, "Testchar", "Evasion", 200, 20),
+            (T1, "Testchar", "Sorcery", 100, 10),
+            (T2, "Testchar", "Evasion", 200, 25),
+            (T2, "Testchar", "Sorcery", 103, 50),
+            (T2, "Testchar", "Athletics", 5, 0),
+            (T1, "Newchar", "Larceny", 10, 5),
+        ],
+    )
+    writer.commit()
+    writer.close()
+    connection = data.connect(path)
+    yield connection
+    connection.close()
+
+
+def test_sheet_with_deltas_reports_gains_since_previous(sheet_connection):
+    logged_at, rows = data.sheet_with_deltas(sheet_connection, "Testchar")
+    assert logged_at == T2
+    assert rows == [
+        {"skill_name": "Athletics", "rank": 5, "percent": 0, "gained": None},
+        {"skill_name": "Evasion", "rank": 200, "percent": 25, "gained": 0},
+        {"skill_name": "Sorcery", "rank": 103, "percent": 50, "gained": 3},
+    ]
+
+
+def test_first_snapshot_has_no_deltas(sheet_connection):
+    logged_at, rows = data.sheet_with_deltas(sheet_connection, "Newchar")
+    assert rows == [{"skill_name": "Larceny", "rank": 10, "percent": 5, "gained": None}]
+
+
+def test_no_snapshot_means_none(sheet_connection):
+    assert data.sheet_with_deltas(sheet_connection, "Nobody") is None
+    assert data.stats_with_deltas(sheet_connection, "Nobody") is None
+
+
+def test_stats_with_deltas_tracks_purchases(sheet_connection):
+    logged_at, rows = data.stats_with_deltas(sheet_connection, "Testchar")
+    assert logged_at == T2
+    assert rows == [
+        {"stat": "Agility", "value": 10, "gained": 0},
+        {"stat": "Discipline", "value": 11, "gained": None},
+        {"stat": "Strength", "value": 13, "gained": 1},
+    ]
+
+
+def test_sheet_history_charts_circle_tdps_favors(sheet_connection):
+    history = data.sheet_history(sheet_connection, "Testchar")
+    assert history == {
+        "times": [T1, T2],
+        "circle": [5, 6],
+        "tdps": [300, 320],
+        "favors": [2, 3],
+    }
+
+
+def test_stats_history_one_series_per_stat(sheet_connection):
+    series = data.stats_history(sheet_connection, "Testchar")
+    assert series["Strength"] == {"times": [T1, T2], "values": [12, 13]}
+    assert series["Discipline"] == {"times": [T2], "values": [11]}
