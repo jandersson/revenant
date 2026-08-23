@@ -126,3 +126,15 @@ def test_a_ghost_gets_no_bandages():
     tend.main(handle)
     assert handle.puts == []
     assert any("dead" in echo for echo in handle.echoes)
+
+
+def test_the_soak_through_message_wakes_the_watch():
+    # Captured live: bandages fail with this exact wording. The watch
+    # listens for it while sleeping and re-tends immediately.
+    import re
+
+    line = (
+        "The bandages binding your neck soak through with blood, "
+        "becoming useless, and you begin bleeding again."
+    )
+    assert any(re.search(pattern, line) for pattern in tend.SOAK_PATTERNS)

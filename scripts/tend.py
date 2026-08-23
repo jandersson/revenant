@@ -63,6 +63,15 @@ TEND_FAIL = (
 )
 TEND_DISLODGE = (r"You \w+ remove (?:a|the|some) (?P<item>.+?) from",)
 
+# Bandage failure wakes the watch instantly, mid-sleep (captured live:
+# "The bandages binding your neck soak through with blood, becoming
+# useless, and you begin bleeding again.")
+SOAK_PATTERNS = (
+    r"soak through with blood",
+    r"begins? bleeding again",
+    r"bandages .* (?:loosen|slip|come loose)",
+)
+
 
 def expand_area(area):
     """The health table abbreviates sides; TEND likes them spelled out."""
@@ -180,14 +189,19 @@ def main(s):
         tend_pass(s)
         return
     s.echo("watching for bleeding — ;stop tend to stop")
+    force = False
     while True:
         if s.dead:
             s.sleep(CHECK_INTERVAL)
             continue
-        if bleeding(s.state):
+        if force or bleeding(s.state):
+            force = False
             remaining = tend_pass(s)
             # Only untendable bleeders left: the icon stays lit, so a
             # short poll would re-sweep forever. Hold back.
-            s.sleep(UNTENDABLE_HOLD if remaining else CHECK_INTERVAL)
+            hold = UNTENDABLE_HOLD if remaining else CHECK_INTERVAL
         else:
-            s.sleep(CHECK_INTERVAL)
+            hold = CHECK_INTERVAL
+        # The sleep doubles as a listener: a soak-through wakes the
+        # watch immediately instead of waiting out the hold.
+        force = s.waitfor(*SOAK_PATTERNS, timeout=hold) is not None
