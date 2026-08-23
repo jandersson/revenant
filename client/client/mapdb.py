@@ -55,6 +55,20 @@ def normalize_title(title: str) -> str:
     return title.strip().strip("[]").strip().lower()
 
 
+# The travel cost assumed for an edge whose timeto is missing or
+# non-numeric (some carry embedded-Ruby conditionals): the community
+# db's modal value — an ordinary one-command step.
+DEFAULT_STEP_SECONDS = 0.2
+
+
+def edge_seconds(room, dest) -> float:
+    """The travel time the map claims for one wayto edge, in seconds."""
+    value = (room.get("timeto") or {}).get(dest)
+    if isinstance(value, (int, float)) and value > 0:
+        return float(value)
+    return DEFAULT_STEP_SECONDS
+
+
 # One statement of a simple embedded-Ruby edge: fput/move with a string
 # literal (lich style, parens optional), or a bare waitrt?.
 _SIMPLE_STATEMENT = re.compile(
@@ -158,11 +172,12 @@ class MapDB:
     @property
     def graph(self):
         """The walkable map as a networkx DiGraph: nodes are room ids,
-        edges carry the movement command. Only walkable edges make the
-        graph — the translatable ``;e`` edges included, which matters:
-        whole areas (the Segoltha strand among them) hang off simple
-        scripted edges, and a graph that drops all ``;e`` partitions
-        them away (#79). Built once, on first use."""
+        edges carry the movement command and its travel time in seconds
+        (the map's timeto). Only walkable edges make the graph — the
+        translatable ``;e`` edges included, which matters: whole areas
+        (the Segoltha strand among them) hang off simple scripted
+        edges, and a graph that drops all ``;e`` partitions them away
+        (#79). Built once, on first use."""
         if self._graph is None:
             graph = nx.DiGraph()
             graph.add_nodes_from(self.rooms)
@@ -173,12 +188,19 @@ class MapDB:
                     dest = int(dest)
                     if dest not in self.rooms or not walkable(command):
                         continue
-                    graph.add_edge(room_id, dest, command=command)
+                    graph.add_edge(
+                        room_id,
+                        dest,
+                        command=command,
+                        seconds=edge_seconds(room, str(dest)),
+                    )
             self._graph = graph
         return self._graph
 
     def path(self, start, goals):
-        """Shortest walkable path from start to the nearest goal.
+        """Fastest walkable path from start to the nearest goal —
+        weighted by the map's timeto travel times, so a route optimizes
+        minutes, not hop count (a 30s swim loses to three 0.2s steps).
 
         Returns a list of (room_id, command) steps ([] if already there),
         or None when every route needs an unwalkable (scripted) edge."""
@@ -187,11 +209,11 @@ class MapDB:
             return []
         if start not in self.rooms:
             raise KeyError(start)
-        routes = nx.single_source_shortest_path(self.graph, start)
+        seconds, routes = nx.single_source_dijkstra(self.graph, start, weight="seconds")
         reachable = [goal for goal in goals if goal in routes]
         if not reachable:
             return None
-        nearest = min(reachable, key=lambda goal: (len(routes[goal]), goal))
+        nearest = min(reachable, key=lambda goal: (seconds[goal], goal))
         route = routes[nearest]
         return [
             (dest, self.graph.edges[here, dest]["command"])

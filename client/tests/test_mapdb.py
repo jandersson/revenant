@@ -72,6 +72,39 @@ def test_path_routes_through_translatable_embedded_edges():
     ]
 
 
+def test_path_prefers_fast_steps_over_a_slow_shortcut():
+    # Routes optimize travel time, not hop count: the map's timeto says
+    # the direct swim costs 30s, so two ordinary 0.2s steps win.
+    rooms = [
+        {
+            "id": 0,
+            "title": ["[River Bank]"],
+            "wayto": {"1": "north", "2": "swim river"},
+            "timeto": {"1": 0.2, "2": 30},
+        },
+        {
+            "id": 1,
+            "title": ["[Bridge]"],
+            "wayto": {"2": "east"},
+            "timeto": {"2": 0.2},
+        },
+        {"id": 2, "title": ["[Far Bank]"], "wayto": {}},
+    ]
+    assert MapDB(rooms).path(0, [2]) == [(1, "north"), (2, "east")]
+
+
+def test_unusable_timeto_falls_back_to_the_default_step():
+    from client.mapdb import DEFAULT_STEP_SECONDS, edge_seconds
+
+    # Some timeto values are embedded-Ruby conditionals or null — they
+    # cost a plain step, they don't poison the route.
+    room = {"timeto": {"1": ";e UserVars.premium ? 2 : nil", "2": None, "3": 4}}
+    assert edge_seconds(room, "1") == DEFAULT_STEP_SECONDS
+    assert edge_seconds(room, "2") == DEFAULT_STEP_SECONDS
+    assert edge_seconds(room, "3") == 4.0
+    assert edge_seconds(room, "9") == DEFAULT_STEP_SECONDS  # absent entirely
+
+
 def test_graph_holds_every_room_but_only_walkable_edges():
     graph = db().graph
     assert set(graph.nodes) == {0, 1, 2, 3}  # isolated rooms included
