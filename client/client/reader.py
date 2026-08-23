@@ -26,7 +26,7 @@ def pump(read, emit_status, log, delay=0.01):
             log.exception("reader thread crashed")
             emit_status(
                 "Connection handler crashed — File → Reconnect "
-                "(details in revenant_client.log)"
+                "(details in the debug log under ~/.revenant/logs/)"
             )
             return
         sleep(delay)

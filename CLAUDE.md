@@ -169,7 +169,9 @@ One pipeline, one parser, several processes:
   bleeding/hidden badges, DEAD in alert red); the input line has
   shell-style Up/Down history (client/command_history.py, Qt-free)
   and re-selects after send so Enter repeats; the title bar names the
-  logged-in character. Direct mode logs in itself;
+  logged-in character, and each character's window keeps its own saved
+  dock layout (`client/window_layout.py`, Qt-free; the unscoped legacy
+  pair seeds characters without one, #74). Direct mode logs in itself;
   `--attach` connects to a session. User highlight patterns
   (`client/highlights.py`, ~/.revenant/highlights.json) color matched
   spans over any base style; View → Reload Highlights re-reads them.
@@ -256,8 +258,10 @@ One pipeline, one parser, several processes:
 - Logging config in `client/client/logging_config.yaml`; raw game protocol
   lines append to a per-session `game-<timestamp>.log` under
   `~/.revenant/logs/` (override with `REVENANT_LOG_DIR`; tests isolate via
-  conftest) — an append-only archive, never rotated away. Only the
-  disposable `revenant_client.log` debug log is size-capped.
+  conftest) — an append-only archive, never rotated away. The
+  disposable debug log is per-process too
+  (`revenant_client-<stamp>-<pid>.log`, #74 — shared rotation contends
+  on Windows), size-capped, and pruned after 7 days at logger init.
 - No secrets anywhere in the repo — see the credentials note above. The
   gitignore keeps `secrets.py` blocked for stragglers, but keychain is the
   only supported path.

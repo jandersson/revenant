@@ -34,7 +34,7 @@ def hook(log, emit_text, emit_status):
         try:
             emit_text(
                 f"GUI error: {summary}{where} — the window survives; "
-                "details in revenant_client.log"
+                "details in the debug log (~/.revenant/logs/)"
             )
         except Exception:
             pass

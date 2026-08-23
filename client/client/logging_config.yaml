@@ -12,6 +12,9 @@ handlers:
     formatter: default
     stream: ext://sys.stdout
   file:
+    # Disposable debug log: one file per process (stamp+pid, #74) so
+    # rotation never contends across sessions on Windows; old ones are
+    # pruned at init. Filename is stamped in client_logger._init_logger.
     class : logging.handlers.RotatingFileHandler
     formatter: default
     filename: revenant_client.log
