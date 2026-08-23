@@ -971,12 +971,18 @@ class ClientGUI(QMainWindow, ClientLogger):
         process = None
         if not session_running(self.client.host, self.client.port):
             try:
-                character, key = gather_login(None)
+                # Three values since the multi-account rework — the old
+                # two-value unpack crashed the whole GUI on click.
+                account, character, key = gather_login(None)
             except SystemExit:
                 self.status_bar.showMessage("Reconnect cancelled")
                 return
             process = spawn_session(
-                self.client.host, self.client.port, character, key=key
+                self.client.host,
+                self.client.port,
+                character,
+                key=key,
+                account=account,
             )
         self.status_bar.showMessage("Reconnecting ...")
         Thread(
