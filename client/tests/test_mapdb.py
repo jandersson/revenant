@@ -51,6 +51,34 @@ def test_path_none_when_only_scripted_edges_reach_goal():
     assert db().path(0, [3]) is None
 
 
+def test_path_routes_through_translatable_embedded_edges():
+    # The #79 discrepancy, pinned: whole areas hang off simple ;e edges
+    # (the live 1429→10171 route crosses eleven, ";e move('s'); waitrt?"
+    # style). A graph that drops every ;e edge partitions them away; the
+    # walkable rule is translate-or-drop, never drop-all.
+    rooms = [
+        {"id": 0, "title": ["[Cliff Top]"], "wayto": {"1": ";e move('s'); waitrt?"}},
+        {
+            "id": 1,
+            "title": ["[Cliff Path]"],
+            "wayto": {"2": ";e fput('search'); move 'go onyx arch';"},
+        },
+        {"id": 2, "title": ["[The Strand]"], "wayto": {}},
+    ]
+    route = MapDB(rooms).path(0, [2])
+    assert route == [
+        (1, ";e move('s'); waitrt?"),
+        (2, ";e fput('search'); move 'go onyx arch';"),
+    ]
+
+
+def test_graph_holds_every_room_but_only_walkable_edges():
+    graph = db().graph
+    assert set(graph.nodes) == {0, 1, 2, 3}  # isolated rooms included
+    assert graph.edges[0, 1]["command"] == "north"
+    assert not graph.has_edge(1, 3)  # untranslatable ;e edge dropped
+
+
 def test_path_empty_when_already_there():
     assert db().path(2, [2]) == []
 

@@ -18,6 +18,7 @@ classifiers = [
 ]
 dependencies = [
     "keyring>=25.7.0",
+    "networkx>=3.4.2",
     "pyqt6",
     "pyqt6-webengine",
     "pyyaml",

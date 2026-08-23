@@ -119,8 +119,11 @@ One pipeline, one parser, several processes:
   fallback when QtWebEngine is missing).
 - `client/client/mapdb.py` — the community DR map database (elanthia-online
   mapdb-backup-dr), downloaded to `~/.revenant/mapdb/` on first use, never
-  vendored. BFS pathfinding; wayto commands starting with ";e" are embedded
-  Ruby, walked only when they translate to plain fput/move commands.
+  vendored. Pathfinding on a networkx DiGraph of the walkable edges
+  (#79); wayto commands starting with ";e" are embedded
+  Ruby, walked only when they translate to plain fput/move commands —
+  and those translatable ;e edges stay in the graph (dropping them
+  partitions whole areas off).
   `client/client/walker.py` (locate/walk; model in docs/movement.md) is
   the shared travel engine; `scripts/go2.py` is the command on top, and
   `;favors` (scripts/favors.py) rides it for the favor-orb run — grotto

@@ -54,9 +54,16 @@ stops the walk. Spaced single retreats lose the race to re-advances
 directly to plain commands (754 of the map's 1087 scripted edges at
 last count); `waitrt?` drops out because the walker waits out
 roundtime around every command anyway. Anything with logic
-(start_script, UserVars, conditionals) stays untranslatable, and BFS
-routes around it or reports "no walkable path"
+(start_script, UserVars, conditionals) stays untranslatable, and the
+router routes around it or reports "no walkable path"
 (mapdb.translate_embedded / mapdb.walkable).
+
+Routing runs on a networkx DiGraph of the walkable edges (#79) —
+built once per load, ~18.5k rooms / ~41.4k edges. The translatable
+`;e` edges MUST be in the graph: whole areas (the Segoltha strand
+among them) hang off simple scripted edges, and a graph that drops
+every `;e` partitions them away — that was the 1429↔10171
+"unreachable" mystery, resolved 2026-08-23.
 
 ## Pacing
 

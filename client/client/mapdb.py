@@ -18,6 +18,8 @@ import urllib.request
 from functools import lru_cache
 from pathlib import Path
 
+import networkx as nx
+
 MAPDB_URL = (
     "https://raw.githubusercontent.com/elanthia-online/"
     "mapdb-backup-dr/main/map_files/mapdb.json"
@@ -97,6 +99,7 @@ def walkable(command) -> bool:
 class MapDB:
     def __init__(self, rooms):
         self.rooms = {int(room["id"]): room for room in rooms}
+        self._graph = None
         self._by_title = {}
         self._by_uid = {}
         for room in rooms:
@@ -152,29 +155,45 @@ class MapDB:
             )
         ]
 
+    @property
+    def graph(self):
+        """The walkable map as a networkx DiGraph: nodes are room ids,
+        edges carry the movement command. Only walkable edges make the
+        graph — the translatable ``;e`` edges included, which matters:
+        whole areas (the Segoltha strand among them) hang off simple
+        scripted edges, and a graph that drops all ``;e`` partitions
+        them away (#79). Built once, on first use."""
+        if self._graph is None:
+            graph = nx.DiGraph()
+            graph.add_nodes_from(self.rooms)
+            for room_id, room in self.rooms.items():
+                for dest, command in (room.get("wayto") or {}).items():
+                    if not str(dest).isdigit():
+                        continue
+                    dest = int(dest)
+                    if dest not in self.rooms or not walkable(command):
+                        continue
+                    graph.add_edge(room_id, dest, command=command)
+            self._graph = graph
+        return self._graph
+
     def path(self, start, goals):
-        """Breadth-first shortest path from start to the nearest goal.
+        """Shortest walkable path from start to the nearest goal.
 
         Returns a list of (room_id, command) steps ([] if already there),
         or None when every route needs an unwalkable (scripted) edge."""
         goals = set(goals)
         if start in goals:
             return []
-        seen = {start}
-        frontier = [(start, [])]
-        while frontier:
-            next_frontier = []
-            for room_id, steps in frontier:
-                for dest, command in (self.rooms[room_id].get("wayto") or {}).items():
-                    if not str(dest).isdigit():
-                        continue
-                    dest = int(dest)
-                    if dest in seen or dest not in self.rooms or not walkable(command):
-                        continue
-                    route = steps + [(dest, command)]
-                    if dest in goals:
-                        return route
-                    seen.add(dest)
-                    next_frontier.append((dest, route))
-            frontier = next_frontier
-        return None
+        if start not in self.rooms:
+            raise KeyError(start)
+        routes = nx.single_source_shortest_path(self.graph, start)
+        reachable = [goal for goal in goals if goal in routes]
+        if not reachable:
+            return None
+        nearest = min(reachable, key=lambda goal: (len(routes[goal]), goal))
+        route = routes[nearest]
+        return [
+            (dest, self.graph.edges[here, dest]["command"])
+            for here, dest in zip(route, route[1:])
+        ]
