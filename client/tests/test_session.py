@@ -336,11 +336,13 @@ def test_reexec_hands_the_indicators_across(monkeypatch):
     monkeypatch.setenv(session.GAME_BUFFER_ENV, "sentinel")
     server = session.SessionServer(game, port=0)  # serve() never called
     server.engine.xml_data.indicator.update({"IconDEAD": "y", "IconPRONE": "y"})
+    server.engine.xml_data.name = "Testchar"  # <app> never repeats (#95)
 
     server.reexec(execv=lambda path, argv: None)
 
     handed_over = json.loads(os.environ[session.GAME_STATE_ENV])
     assert handed_over["indicator"] == {"IconDEAD": "y", "IconPRONE": "y"}
+    assert handed_over["name"] == "Testchar"
     right.close()
     game.close()
 
@@ -349,7 +351,8 @@ def test_main_game_fd_primes_the_indicators_from_the_handoff(monkeypatch):
     left, right = socket.socketpair()
     fd = left.detach()
     monkeypatch.setenv(
-        session.GAME_STATE_ENV, json.dumps({"indicator": {"IconDEAD": "y"}})
+        session.GAME_STATE_ENV,
+        json.dumps({"indicator": {"IconDEAD": "y"}, "name": "Testchar"}),
     )
     adopted = {}
     monkeypatch.setattr(
@@ -363,6 +366,7 @@ def test_main_game_fd_primes_the_indicators_from_the_handoff(monkeypatch):
     assert session.GAME_STATE_ENV not in os.environ  # consumed, not leaked
     xml_data = adopted["server"].engine.xml_data
     assert xml_data.indicator["IconDEAD"] == "y"
+    assert xml_data.name == "Testchar"  # the title bar stays named (#95)
     right.close()
     adopted["server"].game.close()
 

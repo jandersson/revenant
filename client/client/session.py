@@ -39,7 +39,9 @@ GAME_BUFFER_ENV = "REVENANT_GAME_BUFFER"
 # Durable parser state rides across a ;reexec in this env var (JSON).
 # The game announces indicators only when they change, so a fresh
 # process can never re-learn a standing fact like DEAD on its own —
-# a mid-death ;reexec left deathwatch armed but blind (#92).
+# a mid-death ;reexec left deathwatch armed but blind (#92). The
+# character name is the same story: <app char=.../> arrives once, at
+# login, and a reattaching title bar went nameless without it (#95).
 GAME_STATE_ENV = "REVENANT_GAME_STATE"
 
 # How long a dropped front end keeps retrying the attach — long enough to
@@ -386,7 +388,10 @@ class SessionServer(ClientLogger):
         ]
         self.log.info(f"Re-exec: {' '.join(argv)}")
         os.environ[GAME_STATE_ENV] = json.dumps(
-            {"indicator": self.engine.xml_data.indicator}
+            {
+                "indicator": self.engine.xml_data.indicator,
+                "name": self.engine.xml_data.name,
+            }
         )
         # Snapshot the unparsed buffer as late as possible: the game
         # reader keeps draining the socket until exec replaces us.
@@ -536,6 +541,10 @@ def main(argv=None):
     # Primed before the autostarts: deathwatch's first poll must already
     # see a death the old process was watching (#92).
     server.engine.xml_data.indicator.update(carried_state.get("indicator") or {})
+    # The login <app> tag never repeats, so the name survives the same
+    # way — a reattaching title bar stays named (#95).
+    if carried_state.get("name"):
+        server.engine.xml_data.name = carried_state["name"]
     autostart_scripts(server)
     server.serve()
 
