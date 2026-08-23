@@ -27,6 +27,48 @@ def test_mindstate_figure_without_history_is_an_empty_plot():
     assert len(figure.data) == 0
 
 
+def _components(component):
+    """Every component in a layout tree, depth-first."""
+    yield component
+    children = getattr(component, "children", None)
+    if children is None:
+        return
+    for child in children if isinstance(children, (list, tuple)) else [children]:
+        if hasattr(child, "to_plotly_json"):
+            yield from _components(child)
+
+
+def test_the_tables_are_ag_grids_not_deprecated_datatables(monkeypatch, tmp_path):
+    # dash_table.DataTable is deprecated upstream (#39): every table is
+    # a dash-ag-grid now — sorting native, the learning queue and full
+    # roster filterable — fed through rowData by the callbacks.
+    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "empty.db"))
+    grids = {
+        component.id: component
+        for component in _components(app.serve_layout())
+        if type(component).__name__ == "AgGrid"
+    }
+    assert set(grids) == {
+        "exp-table",
+        "circle-table",
+        "stats-table",
+        "wealth-table",
+        "sheet-table",
+    }
+    exp_columns = grids["exp-table"].columnDefs
+    assert [c["field"] for c in exp_columns] == [
+        "skill_name",
+        "rank",
+        "percent",
+        "mindstate",
+    ]
+    assert all(c["filter"] for c in exp_columns)  # the queue is filterable
+    assert not any(c["filter"] for c in grids["stats-table"].columnDefs)
+    callback_outputs = " ".join(app.app.callback_map)
+    for table in grids:
+        assert f"{table}.rowData" in callback_outputs
+
+
 def test_query_returns_default_when_xp_has_never_run(monkeypatch, tmp_path):
     from beholder import data
 

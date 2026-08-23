@@ -29,3 +29,18 @@ label { color: #8a8a96; }
   background-color: #2a2a34 !important;
 }
 .dash-dropdown-clear, .dash-dropdown-arrow { color: #8a8a96 !important; }
+
+/* The data grids (dash-ag-grid, #39): revenant's chrome over the
+   stock alpine-dark theme, matching the plots' surfaces. */
+.ag-theme-alpine-dark {
+  --ag-background-color: #17171d;
+  --ag-header-background-color: #1e1e26;
+  --ag-header-foreground-color: #d8b465;
+  --ag-foreground-color: #c8c8d0;
+  --ag-border-color: #2a2a34;
+  --ag-row-border-color: #2a2a34;
+  --ag-odd-row-background-color: #17171d;
+  --ag-row-hover-color: #2a2a34;
+  --ag-font-family: ui-monospace, Menlo, Consolas, monospace;
+  --ag-font-size: 13px;
+}

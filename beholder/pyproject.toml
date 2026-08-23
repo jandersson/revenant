@@ -18,6 +18,7 @@ classifiers = [
 ]
 dependencies = [
     "dash>=3.0",
+    "dash-ag-grid>=35.3.0",
 ]
 
 [project.urls]

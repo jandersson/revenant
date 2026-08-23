@@ -12,8 +12,9 @@ beholder` and open http://127.0.0.1:8050.
 import argparse
 import sqlite3
 
+import dash_ag_grid as dag
 import plotly.graph_objects as go
-from dash import Dash, Input, Output, dash_table, dcc, html
+from dash import Dash, Input, Output, dcc, html
 
 from beholder import data
 
@@ -47,26 +48,28 @@ COLORWAY = [
     "#e66767",
 ]
 
-TABLE_STYLE = {
-    "style_header": {
-        "backgroundColor": PANEL,
-        "color": ACCENT,
-        "fontWeight": "bold",
-        "border": f"1px solid {GRID}",
-    },
-    "style_data": {
-        "backgroundColor": SURFACE,
-        "color": INK,
-        "border": f"1px solid {GRID}",
-    },
-    "style_filter": {"backgroundColor": PANEL, "color": INK},
-    "style_cell": {
-        "fontFamily": "ui-monospace, Menlo, Consolas, monospace",
-        "fontSize": "13px",
-        "textAlign": "left",
-        "padding": "4px 8px",
-    },
-}
+
+def grid(grid_id, columns, filterable=False):
+    """One themed data grid. dash-ag-grid replaced the deprecated
+    dash_table.DataTable (#39): sorting is native by default, filtering
+    is per-column, and the dark chrome lives in assets/beholder.css
+    (the .ag-theme-alpine-dark overrides). Callbacks feed `rowData`."""
+    return dag.AgGrid(
+        id=grid_id,
+        columnDefs=[
+            {
+                "field": column["id"],
+                "headerName": column["name"],
+                "filter": filterable,
+                # The first column carries the names (skills, stats) —
+                # give it double width so they don't truncate.
+                "flex": 2 if column is columns[0] else 1,
+            }
+            for column in columns
+        ],
+        className="ag-theme-alpine-dark",
+        dashGridOptions={"domLayout": "autoHeight"},
+    )
 
 
 def themed(figure, title):
@@ -271,33 +274,17 @@ def serve_layout():
             dcc.Dropdown(id="skills-dropdown", multi=True),
             dcc.Graph(id="mindstate-plot"),
             html.P(id="as-of"),
-            dash_table.DataTable(
-                id="exp-table",
-                columns=TABLE_COLUMNS,
-                sort_action="native",
-                filter_action="native",
-                **TABLE_STYLE,
-            ),
+            grid("exp-table", TABLE_COLUMNS, filterable=True),
             html.H3("Circle gates"),
             html.P(id="circle-note"),
-            dash_table.DataTable(
-                id="circle-table",
-                columns=CIRCLE_COLUMNS,
-                sort_action="native",
-                **TABLE_STYLE,
-            ),
+            grid("circle-table", CIRCLE_COLUMNS),
             html.H3("Character sheet"),
             html.P(id="sheet-note", style={"color": MUTED}),
             html.Div(
                 [
                     html.Div(
-                        dash_table.DataTable(
-                            id="stats-table",
-                            columns=STAT_COLUMNS,
-                            sort_action="native",
-                            **TABLE_STYLE,
-                        ),
-                        style={"flex": "0 0 16rem"},
+                        grid("stats-table", STAT_COLUMNS),
+                        style={"flex": "0 0 18rem"},
                     ),
                     html.Div(
                         [
@@ -315,13 +302,8 @@ def serve_layout():
             html.Div(
                 [
                     html.Div(
-                        dash_table.DataTable(
-                            id="wealth-table",
-                            columns=WEALTH_COLUMNS,
-                            sort_action="native",
-                            **TABLE_STYLE,
-                        ),
-                        style={"flex": "0 0 16rem"},
+                        grid("wealth-table", WEALTH_COLUMNS),
+                        style={"flex": "0 0 18rem"},
                     ),
                     html.Div(
                         dcc.Graph(id="wealth-plot"),
@@ -331,13 +313,7 @@ def serve_layout():
                 style={"display": "flex", "gap": "1rem", "alignItems": "flex-start"},
             ),
             html.H3("Full skill roster"),
-            dash_table.DataTable(
-                id="sheet-table",
-                columns=SHEET_COLUMNS,
-                sort_action="native",
-                filter_action="native",
-                **TABLE_STYLE,
-            ),
+            grid("sheet-table", SHEET_COLUMNS, filterable=True),
             dcc.Interval(id="refresh", interval=REFRESH_MS),
         ],
         style={"maxWidth": "60rem", "margin": "0 auto", "fontFamily": "sans-serif"},
@@ -445,7 +421,7 @@ def update_skill_choices(character):
 
 
 @app.callback(
-    Output("exp-table", "data"),
+    Output("exp-table", "rowData"),
     Output("as-of", "children"),
     Input("char-dropdown", "value"),
     Input("refresh", "n_intervals"),
@@ -459,7 +435,7 @@ def update_table(character, _tick):
 
 
 @app.callback(
-    Output("circle-table", "data"),
+    Output("circle-table", "rowData"),
     Output("circle-note", "children"),
     Input("char-dropdown", "value"),
     Input("refresh", "n_intervals"),
@@ -470,8 +446,8 @@ def update_circle_gates(character, _tick):
 
 @app.callback(
     Output("sheet-note", "children"),
-    Output("stats-table", "data"),
-    Output("sheet-table", "data"),
+    Output("stats-table", "rowData"),
+    Output("sheet-table", "rowData"),
     Output("circle-plot", "figure"),
     Output("tdp-plot", "figure"),
     Output("stats-plot", "figure"),
@@ -529,7 +505,7 @@ def update_sheet(character, _tick):
 
 @app.callback(
     Output("wealth-note", "children"),
-    Output("wealth-table", "data"),
+    Output("wealth-table", "rowData"),
     Output("wealth-plot", "figure"),
     Input("char-dropdown", "value"),
     Input("refresh", "n_intervals"),
