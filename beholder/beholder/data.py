@@ -254,3 +254,42 @@ def stats_history(connection, character):
         points["times"].append(row["logged_at"])
         points["values"].append(row["value"])
     return series
+
+
+def wealth_current(connection, character):
+    """The newest wealth snapshot: (logged_at, [{kind, currency,
+    copper}]) with carried coin first, debts after. None before any."""
+    row = connection.execute(
+        "SELECT max(logged_at) FROM wealth WHERE character_name = ?",
+        (character,),
+    ).fetchone()
+    if not row or row[0] is None:
+        return None
+    logged_at = row[0]
+    rows = [
+        dict(r)
+        for r in connection.execute(
+            "SELECT kind, currency, copper FROM wealth"
+            " WHERE character_name = ? AND logged_at = ?"
+            " ORDER BY kind, currency",
+            (character, logged_at),
+        )
+    ]
+    return logged_at, rows
+
+
+def wealth_history(connection, character):
+    """Carried copper over time, one series per currency:
+    {currency: {"times": [...], "values": [...]}}. Debt excluded —
+    it charts as its own story if it ever grows one."""
+    series = {}
+    for row in connection.execute(
+        "SELECT logged_at, currency, copper FROM wealth"
+        " WHERE character_name = ? AND kind = 'carried'"
+        " ORDER BY logged_at",
+        (character,),
+    ):
+        points = series.setdefault(row["currency"], {"times": [], "values": []})
+        points["times"].append(row["logged_at"])
+        points["values"].append(row["copper"])
+    return series

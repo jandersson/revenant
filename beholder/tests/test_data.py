@@ -256,3 +256,40 @@ def test_stats_history_one_series_per_stat(sheet_connection):
     series = data.stats_history(sheet_connection, "Testchar")
     assert series["Strength"] == {"times": [T1, T2], "values": [12, 13]}
     assert series["Discipline"] == {"times": [T2], "values": [11]}
+
+
+def test_wealth_current_lists_coin_then_debt(sheet_connection):
+    import sqlite3
+
+    # wealth arrives with the same ;sheet snapshots
+    writer = sqlite3.connect(
+        sheet_connection.execute("PRAGMA database_list").fetchone()[2]
+    )
+    writer.executescript(
+        "CREATE TABLE wealth (seq INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " logged_at TEXT NOT NULL, character_name TEXT NOT NULL,"
+        " kind TEXT NOT NULL, currency TEXT NOT NULL, copper INTEGER NOT NULL)"
+    )
+    writer.executemany(
+        "INSERT INTO wealth (logged_at, character_name, kind, currency, copper)"
+        " VALUES (?, ?, ?, ?, ?)",
+        [
+            (T1, "Testchar", "carried", "Lirums", 5),
+            (T2, "Testchar", "carried", "Lirums", 11),
+            (T2, "Testchar", "carried", "Dokoras", 6),
+            (T2, "Testchar", "debt", "Kronars", 90),
+        ],
+    )
+    writer.commit()
+    writer.close()
+
+    logged_at, rows = data.wealth_current(sheet_connection, "Testchar")
+    assert logged_at == T2
+    assert rows == [
+        {"kind": "carried", "currency": "Dokoras", "copper": 6},
+        {"kind": "carried", "currency": "Lirums", "copper": 11},
+        {"kind": "debt", "currency": "Kronars", "copper": 90},
+    ]
+    history = data.wealth_history(sheet_connection, "Testchar")
+    assert history["Lirums"] == {"times": [T1, T2], "values": [5, 11]}
+    assert "Kronars" not in history  # debt never charts as coin

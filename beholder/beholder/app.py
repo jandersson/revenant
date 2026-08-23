@@ -105,6 +105,12 @@ SHEET_COLUMNS = [
     {"name": "\u0394 rank", "id": "gained"},
 ]
 
+WEALTH_COLUMNS = [
+    {"name": "Kind", "id": "kind"},
+    {"name": "Currency", "id": "currency"},
+    {"name": "Copper", "id": "copper"},
+]
+
 CIRCLE_COLUMNS = [
     {"name": "Set", "id": "category"},
     {"name": "Requirement", "id": "label"},
@@ -304,6 +310,26 @@ def serve_layout():
                 style={"display": "flex", "gap": "1rem", "alignItems": "flex-start"},
             ),
             dcc.Graph(id="stats-plot"),
+            html.H3("Wealth"),
+            html.P(id="wealth-note", style={"color": MUTED}),
+            html.Div(
+                [
+                    html.Div(
+                        dash_table.DataTable(
+                            id="wealth-table",
+                            columns=WEALTH_COLUMNS,
+                            sort_action="native",
+                            **TABLE_STYLE,
+                        ),
+                        style={"flex": "0 0 16rem"},
+                    ),
+                    html.Div(
+                        dcc.Graph(id="wealth-plot"),
+                        style={"flex": "1", "minWidth": "0"},
+                    ),
+                ],
+                style={"display": "flex", "gap": "1rem", "alignItems": "flex-start"},
+            ),
             html.H3("Full skill roster"),
             dash_table.DataTable(
                 id="sheet-table",
@@ -499,6 +525,46 @@ def update_sheet(character, _tick):
         ),
         stats_figure(stat_series, character),
     )
+
+
+@app.callback(
+    Output("wealth-note", "children"),
+    Output("wealth-table", "data"),
+    Output("wealth-plot", "figure"),
+    Input("char-dropdown", "value"),
+    Input("refresh", "n_intervals"),
+)
+def update_wealth(character, _tick):
+    """Carried coin and debt from the latest ;sheet snapshot, with the
+    carried history charted per currency (in copper)."""
+    empty = series_figure([], [], "Carried coin", "copper")
+    if not character:
+        return "", [], empty
+    current = query(data.wealth_current, character, default=None)
+    if current is None:
+        return "No wealth snapshot yet — run ;sheet once in revenant.", [], empty
+    logged_at, rows = current
+    history = query(data.wealth_history, character, default={})
+    figure = go.Figure()
+    for currency in sorted(history):
+        points = history[currency]
+        figure.add_trace(
+            go.Scatter(
+                x=points["times"],
+                y=points["values"],
+                name=currency,
+                mode="lines+markers",
+                line={"width": 2},
+                marker={"size": 8},
+            )
+        )
+    figure.update_layout(
+        xaxis={"title": "Time (UTC)", "type": "date"},
+        yaxis={"title": "Copper", "rangemode": "tozero"},
+        height=240,
+    )
+    themed(figure, f"Carried coin — {character}")
+    return f"snapshot at {logged_at}", rows, figure
 
 
 @app.callback(

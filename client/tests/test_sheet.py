@@ -154,13 +154,21 @@ def test_ensure_schema_adds_guild_to_a_pre_tracking_database():
     assert "guild" in columns
 
 
-def test_collect_stops_at_the_answers_final_line():
+def test_collect_stops_at_an_explicit_final_line():
     handle = FakeHandle({})
     handle.pending = INFO_TEXT.splitlines() + ["later, unrelated text"]
-    text = sheet.collect(handle, seconds=5, until=sheet.INFO_END)
+    text = sheet.collect(handle, seconds=5, until="Encumbrance")
     assert "Encumbrance" in text
     # The final line ended the wait: what followed was never consumed.
     assert handle.pending == ["later, unrelated text"]
+
+
+def test_info_runs_its_whole_window():
+    # INFO has no reliable final line — Wealth and Debt trail
+    # Encumbrance, and the Debt block only exists for debtors. An
+    # "Encumbrance" early-exit silently cut the wealth capture off
+    # (captured live: a snapshot stored no wealth rows).
+    assert sheet.INFO_END is None
 
 
 def test_snapshot_rows_roundtrip_through_the_database():
@@ -200,3 +208,20 @@ def test_a_ghost_is_not_interrogated(monkeypatch):
     monkeypatch.setattr(sheet, "snapshot", boom)
     sheet.main(handle)
     assert any("ghost" in echo for echo in handle.echoed)
+
+
+def test_parse_wealth_reads_the_copper_parentheticals():
+    # Captured live from INFO (an Empath with modest means and a debt):
+    text = (
+        "Wealth:\n"
+        "  No Kronars.\n"
+        "  11 copper Lirums (11 copper Lirums).\n"
+        "  6 copper Dokoras (6 copper Dokoras).\n"
+        "Debt:\n"
+        "  You owe 9 bronze Kronars to the Principality of Zoluren."
+        " (90 copper Kronars)\n"
+    )
+    assert sheet.parse_wealth(text) == {
+        "carried": {"Lirums": 11, "Dokoras": 6},
+        "debt": {"Kronars": 90},
+    }

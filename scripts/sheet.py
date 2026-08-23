@@ -23,8 +23,11 @@ COLLECT_SECONDS = 5  # patience per ask; the answer's last line ends it early
 ATTEMPTS = 3  # re-asks for a command the game left unanswered
 RETRY_SLEEP = 5  # seconds between re-asks, letting login noise settle
 
-# The recognizable final line of each command's answer.
-INFO_END = "Encumbrance"
+# The recognizable final line of each command's answer. INFO has no
+# reliable one: Wealth and Debt trail Encumbrance, and the Debt block
+# only exists for debtors — so INFO runs out its whole window (an
+# "Encumbrance" early-exit silently cut the wealth capture off).
+INFO_END = None
 EXP_ALL_END = "Time Development Points"
 
 STAT_NAMES = (
@@ -62,6 +65,14 @@ CREATE TABLE IF NOT EXISTS sheet_skills (
     rank INTEGER NOT NULL,
     percent INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS wealth (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    logged_at TEXT NOT NULL,
+    character_name TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    currency TEXT NOT NULL,
+    copper INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS character (
     seq INTEGER PRIMARY KEY AUTOINCREMENT,
     logged_at TEXT NOT NULL,
@@ -89,6 +100,24 @@ def ensure_schema(connection):
     connection.commit()
 
 
+# "11 copper Lirums (11 copper Lirums)." / "(90 copper Kronars)" — INFO
+# states every holding and debt with a copper total in parentheses.
+_COPPER = re.compile(r"\((\d+) copper (Kronars|Lirums|Dokoras)\)")
+_DEBT_SECTION = re.compile(r"^Debt:", re.MULTILINE)
+
+
+def parse_wealth(text):
+    """Carried coin and debt in copper per currency, from INFO:
+    {"carried": {currency: copper}, "debt": {currency: copper}}."""
+    debt_at = _DEBT_SECTION.search(text)
+    split = debt_at.start() if debt_at else len(text)
+    wealth = {"carried": {}, "debt": {}}
+    for section, chunk in (("carried", text[:split]), ("debt", text[split:])):
+        for amount, currency in _COPPER.findall(chunk):
+            wealth[section][currency] = wealth[section].get(currency, 0) + int(amount)
+    return wealth
+
+
 def parse_info(text):
     """Stats, circle, guild, TDPs and favors from INFO output."""
     stats = {name: int(value) for name, value in _STAT.findall(text)}
@@ -102,6 +131,7 @@ def parse_info(text):
         "tdps": int(tdps.group(1)) if tdps else None,
         "favors": int(favors.group(1)) if favors else None,
         "guild": guild.group(1) if guild else None,
+        "wealth": parse_wealth(text),
     }
 
 
@@ -127,6 +157,15 @@ def insert_snapshot(connection, character, logged_at, info, skills):
         [
             (logged_at, character, skill, rank, percent)
             for skill, (rank, percent) in sorted(skills.items())
+        ],
+    )
+    connection.executemany(
+        "INSERT INTO wealth (logged_at, character_name, kind, currency, copper)"
+        " VALUES (?, ?, ?, ?, ?)",
+        [
+            (logged_at, character, kind, currency, copper)
+            for kind, holdings in info.get("wealth", {}).items()
+            for currency, copper in sorted(holdings.items())
         ],
     )
     # An unanswered INFO must leave no trace — an all-None character
