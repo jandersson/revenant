@@ -276,10 +276,13 @@ DEFAULT_MOON_EPOCHS = {
     # 2026-08-22 12:29:37 UTC: "The black moon Katamba has waned to a
     # narrow crescent of light." — waning crescent, phase 7 of 0..7.
     "katamba": 1_787_401_777 - round(7 / 8 * MOON_SYNODIC["katamba"]),
-    "xibar": None,
-    # 2026-08-22 12:42:26 UTC: "The moon Yavash forms a perfect circle
-    # in the heavens." — full, phase 4 of 0..7.
-    "yavash": 1_787_402_546 - round(4 / 8 * MOON_SYNODIC["yavash"]),
+    # 2026-08-23 18:39:18 UTC (server clock): "The blue moon Xibar,
+    # beginning to wane, travels slowly through the sky." — waning
+    # gibbous, phase 5. Xibar's first anchor, ending its "?" era (#64).
+    "xibar": 1_787_510_358 - round(5 / 8 * MOON_SYNODIC["xibar"]),
+    # Same 2026-08-23 observation: Yavash also "beginning to wane" —
+    # fresher than the 2026-08-22 full-moon capture it replaces.
+    "yavash": 1_787_510_358 - round(5 / 8 * MOON_SYNODIC["yavash"]),
 }
 
 
@@ -320,6 +323,16 @@ def parse_observe_output(text):
             continue
         if "perfect circle" in lowered:  # the game's full-moon wording
             phases[moon] = 4
+            continue
+        # "beginning to wane/wax" names no shape at all — the moment
+        # just past full (captured 2026-08-23: "The blue moon Xibar,
+        # beginning to wane, travels slowly through the sky.") and its
+        # anticipated just-past-new symmetric.
+        if "beginning to wane" in lowered:
+            phases[moon] = 5  # waning gibbous
+            continue
+        if "beginning to wax" in lowered:
+            phases[moon] = 1  # waxing crescent
             continue
         waxing = "wax" in lowered
         waning = "wan" in lowered

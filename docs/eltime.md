@@ -93,6 +93,13 @@ UTC.
 - **Captured `OBSERVE MOONS`, 2026-08-22 12:29:37 UTC**: "The black
   moon Katamba has waned to a narrow crescent of light", Xibar and
   Yavash "nowhere to be seen". Anchors Katamba (waning crescent).
+- **Captured `OBSERVE MOONS`, 2026-08-23 18:39:18 UTC (server
+  clock)**: "The blue moon Xibar, beginning to wane, travels slowly
+  through the sky." — and Yavash likewise. A phase wording with no
+  shape word at all ("beginning to wane" = just past full, waning
+  gibbous); the classifier learned it that night, anchoring Xibar
+  for the first time and closing #64. The anticipated "beginning to
+  wax" symmetric is classified but not yet captured.
 - **Captured `OBSERVE MOONS`, 2026-08-22 12:42:26 UTC**: "The moon
   Yavash forms a perfect circle in the heavens" — the full-moon
   wording, anchoring Yavash. Xibar ships unanchored until a sync

@@ -256,3 +256,42 @@ def test_earth_moon_matches_the_almanac():
     sturgeon = datetime(2026, 8, 28, 4, 18, tzinfo=timezone.utc)
     assert eltime.PHASES[eltime.earth_moon_phase(sturgeon.timestamp())] == "full"
     assert eltime.earth_moon_phase(eltime.EARTH_NEW_EPOCH) == 0
+
+
+# Captured 2026-08-23, Elanthian evening — the #64 Xibar hunt's prize:
+# a phase wording with no shape word at all. The old classifier
+# silently skipped both moons ("no moons visible to sync") while
+# staring at them.
+OBSERVE_TEXT_WANING = """You scan the heavens for the three moons:
+Katamba is nowhere to be seen.
+The blue moon Xibar, beginning to wane, travels slowly through the sky.
+The red moon Yavash, beginning to wane, travels slowly through the sky.
+"""
+
+
+def test_beginning_to_wane_classifies_as_waning_gibbous():
+    phases = eltime.parse_observe_output(OBSERVE_TEXT_WANING)
+    assert phases == {"xibar": 5, "yavash": 5}
+
+
+def test_beginning_to_wax_is_the_anticipated_symmetric():
+    text = OBSERVE_TEXT_WANING.replace("beginning to wane", "beginning to wax")
+    assert eltime.parse_observe_output(text) == {"xibar": 1, "yavash": 1}
+
+
+OBSERVE_UNIX_WANING = 1_787_510_358  # server clock at the capture
+
+
+def test_default_moon_epochs_match_the_live_synced_anchors():
+    # The 2026-08-23 observation anchored Xibar for the first time and
+    # refreshed Yavash; the baked defaults are exactly what ;clock
+    # stored live that evening (#64).
+    assert eltime.DEFAULT_MOON_EPOCHS["xibar"] == OBSERVE_UNIX_WANING - round(
+        5 / 8 * eltime.MOON_SYNODIC["xibar"]
+    )
+    assert eltime.DEFAULT_MOON_EPOCHS["xibar"] == 1_787_160_858
+    assert eltime.DEFAULT_MOON_EPOCHS["yavash"] == 1_786_964_688
+    # A fresh install shows all three moons, no "?" rows left.
+    for moon in eltime.MOON_NAMES:
+        assert eltime.moon_phase(moon, OBSERVE_UNIX_WANING) is not None
+    assert eltime.moon_phase("xibar", OBSERVE_UNIX_WANING) == 5
