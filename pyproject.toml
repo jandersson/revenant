@@ -12,6 +12,10 @@ dev = [
     "pytest",
     "ruff",
 ]
+# The docs site (#97): uv run --group docs mkdocs build
+docs = [
+    "mkdocs-material",
+]
 
 [tool.ruff]
 line-length = 88

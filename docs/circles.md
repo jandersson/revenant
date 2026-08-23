@@ -4,7 +4,7 @@
 circle — the guildleader's answer — locally from the latest `;sheet`
 snapshot, using the character's guild requirement table. All eleven
 circled guilds are encoded in
-[client/client/circles.py](../client/client/circles.py); Commoners
+[client/client/circles.py](https://github.com/jandersson/revenant/tree/master/client/client/circles.py); Commoners
 don't circle. This file records the model, the evidence, the wiki
 corrections applied, and the open questions, so a future discrepancy
 has a dated record of what was believed and why. Canon lives on each
@@ -19,7 +19,7 @@ third-best survival skill, whatever it is. Ranks required to advance
 TO circle C are the per-circle rates summed across the tables' circle
 bands (1-10, 11-30, 31-70, 71-100, 101-150, 151+) up to C; every
 encoding is validated by re-deriving the wiki's own Cumulative column
-in [test_circles.py](../client/tests/test_circles.py) (checkpoints
+in [test_circles.py](https://github.com/jandersson/revenant/tree/master/client/tests/test_circles.py) (checkpoints
 10/30/70/100; Thief through 200).
 
 Slots fill best-first by (rank, percent). A guild's named skills stay

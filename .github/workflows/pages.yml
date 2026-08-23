@@ -1,0 +1,44 @@
+# The docs site (#97): builds docs/ with MkDocs Material and deploys
+# to GitHub Pages on every push to master. The landing page is the
+# root README, rewritten at build time so links resolve from the site
+# — docs/ links go local, repo links go to GitHub. Single source, no
+# forked content.
+name: Docs
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Landing page from the root README
+        run: |
+          sed -E \
+            -e 's#\]\(docs/#](#g' \
+            -e 's#src="client/#src="https://raw.githubusercontent.com/jandersson/revenant/master/client/#g' \
+            -e 's#\]\((client|chat|beholder|launcher|scripts|tools)/#](https://github.com/jandersson/revenant/tree/master/\1/#g' \
+            README.md > docs/index.md
+      - run: uv run --group docs mkdocs build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
+        id: deployment

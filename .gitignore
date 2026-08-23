@@ -165,3 +165,6 @@ fabric.properties
 
 # LNet
 chat/lnet_password.txt
+# Generated docs-site files (#97)
+docs/index.md
+site/

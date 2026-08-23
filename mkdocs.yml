@@ -1,0 +1,36 @@
+# The docs site (#97): https://jandersson.github.io/revenant/
+# docs/ is the single source of truth; index.md is generated from the
+# root README at build time (.github/workflows/pages.yml), never
+# committed. Build locally: uv run --group docs mkdocs build
+site_name: Revenant
+site_description: A pure-Python client stack for DragonRealms
+site_url: https://jandersson.github.io/revenant/
+repo_url: https://github.com/jandersson/revenant
+repo_name: jandersson/revenant
+
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: black
+    accent: amber
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Guides:
+      - Scripting: scripting.md
+      - Movement and travel: movement.md
+      - Combat: combat.md
+      - Death: death.md
+      - Experience: experience.md
+      - Circles: circles.md
+      - Favors: favors.md
+      - Elanthian time: eltime.md
+  - Research:
+      - Saga, the new front end: saga.md
+  - Rationale:
+      - Why Python: why-python.md

@@ -24,7 +24,7 @@ Elanthia's calendar is a fixed function of real time:
 Years count up from the Victory of Lanival, exactly as `TIME` reports
 them, and are named on a seven-year cycle indexed by `year % 7`
 (Silver Unicorn first). Months, anlaen, and weeks have fixed names —
-the tuples in [client/client/eltime.py](../client/client/eltime.py)
+the tuples in [client/client/eltime.py](https://github.com/jandersson/revenant/tree/master/client/client/eltime.py)
 list them in order.
 
 The epoch (`VICTORY_EPOCH`) is derived from a captured `TIME`, placing
@@ -76,7 +76,7 @@ UTC.
 ## Evidence
 
 - **Captured `TIME`, 2026-08-22 12:21:56 UTC** (the fixture in
-  [client/tests/test_eltime.py](../client/tests/test_eltime.py)):
+  [client/tests/test_eltime.py](https://github.com/jandersson/revenant/tree/master/client/tests/test_eltime.py)):
   "457 years, 174 days since the Victory", "5th month of Uthmor the
   Giant in the year of the Golden Panther", "past the Anlas of
   Meraud's Cloak". Validates the unit math three ways: 457 % 7 = 2 →
@@ -102,8 +102,8 @@ UTC.
   wax" symmetric is classified but not yet captured.
 - **Captured `OBSERVE MOONS`, 2026-08-22 12:42:26 UTC**: "The moon
   Yavash forms a perfect circle in the heavens" — the full-moon
-  wording, anchoring Yavash. Xibar ships unanchored until a sync
-  catches it risen (issue #64).
+  wording; Yavash's first anchor, since refreshed by the 2026-08-23
+  observation above.
 - **Elanthipedia**: [Time](https://elanthipedia.play.net/Time) for the
   units and names; [Xibar](https://elanthipedia.play.net/Xibar),
   [Yavash](https://elanthipedia.play.net/Yavash), and
