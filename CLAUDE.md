@@ -76,11 +76,15 @@ One pipeline, one parser, several processes:
   `"character"` frame when the login `<app char=.../>` tag names who's
   playing, a full-state `"vitals"` frame (`"health 100 stamina
   95 ..."`) whenever the game's minivitals dialog changes (partial
-  game updates accumulate in xml_data.vitals), and a full-state
+  game updates accumulate in xml_data.vitals), a full-state
   `"indicators"` frame (the active indicator ids, sorted) when
-  posture/stunned/bleeding/dead flip. session.attach replays
-  character, vitals, indicators, and the room to late attachers,
-  like the compass.
+  posture/stunned/bleeding/dead flip, and a `"timesync"` frame
+  (server-minus-local clock seconds, from the prompt's server time)
+  when the delta first appears or moves >1s — the clocks dock and
+  ;clock compute Elanthian time from it, immune to local clock
+  drift (#102). session.attach replays
+  character, vitals, indicators, timesync, and the room to late
+  attachers, like the compass.
 - `client/client/session.py` — the detachable session daemon
   (`python -m client.session`): logs in, owns the game socket, serves
   `(stream, text)` frames as JSON lines on 127.0.0.1:4242 to any number of

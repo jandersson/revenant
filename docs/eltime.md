@@ -32,6 +32,14 @@ the capture mid-anlas: uncalibrated error is at most ±15 real minutes.
 `;clock` stores a correcting offset in settings
 (`eltime_offset_seconds`); the dock re-reads it once a minute.
 
+The clock anchors to the *server's* time, not the machine's (#102):
+every `<prompt time="...">` states the server's Unix clock (captured
+prompts sit within a second of real UTC), the engine broadcasts the
+server-minus-local delta as a `timesync` frame when it first appears
+or moves, and both the clocks dock and `;clock`'s calibration compute
+from it. A drifting local clock therefore cannot skew the calendar —
+the stored offset is a pure server-epoch mapping.
+
 TIME's anlas sentence is phrased *relative* to a named anlas, and the
 phrasing sets the calibration precision (#101): "N roisaen before the
 Anlas of X" pins the moment to the roisan (X has not started — the

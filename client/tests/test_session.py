@@ -773,3 +773,21 @@ def test_sent_commands_reach_the_other_frontends():
     assert b"> look" not in data
     driver.close()
     watcher.close()
+
+
+def test_attach_states_the_server_clock_delta_fresh():
+    # The timesync frame emits once per session and ages out of the
+    # backlog; a late attacher gets it stated fresh so its Elanthian
+    # clock anchors to server time immediately (#102).
+    game = FakeGame()
+    server, port = _start_server(game)
+    server.engine.timesync_delta = 42.0
+
+    client = socket.create_connection(("127.0.0.1", port), timeout=5)
+    client.settimeout(5)
+    buffer = b""
+    while b"timesync" not in buffer:
+        buffer += client.recv(4096)
+    frames, _ = session.decode_frames(buffer)
+    assert ("42.0", "timesync", "") in frames
+    client.close()

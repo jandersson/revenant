@@ -223,6 +223,11 @@ class SessionServer(ClientLogger):
                 replay += encode_frame(
                     indicators_frame(self.engine.xml_data.indicator), "indicators"
                 )
+            # The server-clock delta emits once and rarely again; a
+            # late attacher gets it stated fresh so its Elanthian
+            # clock anchors to server time immediately (#102).
+            if self.engine.timesync_delta is not None:
+                replay += encode_frame(f"{self.engine.timesync_delta:.1f}", "timesync")
             # The map dock follows the "room" stream; a room change is
             # rare while idle, so the attach states the position fresh
             # (#56) — same story as the compass above.

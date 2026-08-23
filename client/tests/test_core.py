@@ -280,3 +280,34 @@ def test_engine_emits_the_indicator_set_on_change():
         ("IconSTANDING", "indicators", ""),
         ("IconDEAD IconPRONE", "indicators", ""),
     ]
+
+
+def test_engine_emits_the_server_clock_delta_once(monkeypatch):
+    # Every prompt states the server's clock (#102); the delta to the
+    # local clock emits once and stays quiet while the clocks tick in
+    # step — quantization wobble under a second never re-emits.
+    local = [1_787_402_500.0]
+    monkeypatch.setattr("time.time", lambda: local[0])
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b'<prompt time="1787402545">&gt;</prompt>\n',
+            b'<prompt time="1787402555">&gt;</prompt>\n',
+            b'<prompt time="1787402600">&gt;</prompt>\n',
+        ]
+    )
+    out = []
+
+    def read_at(local_now):
+        local[0] = local_now
+        engine.read(
+            output_callback=lambda text, stream, style: out.append(
+                (text, stream, style)
+            )
+        )
+
+    read_at(1_787_402_500.0)  # delta 45
+    read_at(1_787_402_510.4)  # delta 44.6 — wobble, no re-emit
+    read_at(1_787_402_520.0)  # delta 80 — the local clock jumped
+    frames = [frame for frame in out if frame[1] == "timesync"]
+    assert frames == [("45.0", "timesync", ""), ("80.0", "timesync", "")]

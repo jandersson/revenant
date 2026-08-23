@@ -102,3 +102,19 @@ def test_clock_reports_when_nothing_answers(monkeypatch, tmp_path):
     assert "eltime_offset_seconds" not in stored
     assert any("is the game answering?" in line for line in handle.echoed)
     assert any("no moons visible" in line for line in handle.echoed)
+
+
+def test_calibration_prefers_the_server_clock(monkeypatch, tmp_path):
+    # The prompt that arrives with the TIME answer stamps it with the
+    # server's clock (#102): calibration binds to that, so a local
+    # clock lying by an hour changes nothing.
+    import types
+
+    monkeypatch.setenv("REVENANT_SETTINGS", str(tmp_path / "settings.json"))
+    monkeypatch.setattr(clock, "COLLECT_SECONDS", 0.05)
+    monkeypatch.setattr(clock.time, "time", lambda: TIME_UNIX + 3600)  # liar
+    handle = FakeHandle({"time": TIME_TEXT.splitlines()})
+    handle.state = types.SimpleNamespace(server_time=TIME_UNIX)
+    clock.main(handle)
+    stored = json.loads((tmp_path / "settings.json").read_text())
+    assert stored["eltime_offset_seconds"] == 0  # the anchor capture: zero drift

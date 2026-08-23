@@ -52,6 +52,10 @@ class Engine(ClientLogger):
         # stream. Starts as "" (not None) so a fresh engine doesn't
         # emit an empty frame before any indicator ever parses.
         self._last_indicators = ""
+        # Last emitted server-minus-local clock delta ("timesync"
+        # stream, #102); public so session.attach() can state it
+        # fresh to late attachers.
+        self.timesync_delta = None
 
     @property
     def connection(self):
@@ -224,6 +228,21 @@ class Engine(ClientLogger):
             self._last_indicators = active
             if output_callback:
                 output_callback(active, "indicators", "")
+
+        # The server states its own clock on every <prompt>; the
+        # "timesync" frame carries server-minus-local seconds so
+        # frontends compute server time between prompts (the Elanthian
+        # clock anchors to it — local clock drift stops mattering,
+        # #102). Emitted only when the delta moves by more than a
+        # second: effectively once per session on a sane machine
+        # (server_time is whole seconds, so the delta wobbles inside
+        # ±1s by quantization alone).
+        if self.xml_data.server_time:
+            delta = self.xml_data.server_time - time.time()
+            if self.timesync_delta is None or abs(delta - self.timesync_delta) > 1.0:
+                self.timesync_delta = delta
+                if output_callback:
+                    output_callback(f"{delta:.1f}", "timesync", "")
 
         if not output_callback:
             sys.stdout.write("".join(buff))

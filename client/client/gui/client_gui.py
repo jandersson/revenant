@@ -224,6 +224,9 @@ class ClientGUI(QMainWindow, ClientLogger):
         # the character and must not stomp a live arrangement.
         self._character = None
         self._layout_applied = False
+        # Server-minus-local clock seconds, from the "timesync" stream:
+        # the Elanthian clock computes from server time (#102).
+        self._server_delta = 0.0
         self.client = engine if engine is not None else Engine()
         self.__init_ui()
         self.game_text.connect(self.dispatch_game_text)
@@ -594,7 +597,10 @@ class ClientGUI(QMainWindow, ClientLogger):
             widget.setVisible(bool(values.get("clocks_earth_moon")))
 
     def update_clocks(self):
-        now = time()
+        # Server time, not wall time: the "timesync" delta anchors the
+        # Elanthian rows to the game's own clock (#102). Earth rows
+        # below deliberately stay on local time.
+        now = time() + self._server_delta
         line1, line2 = eltime.describe(eltime.elanthian_now(now, self._eltime_offset))
         self.clock_labels["Elanthia"].setText(f"{line1}\n{line2}")
         bits, tips = [], []
@@ -876,6 +882,12 @@ class ClientGUI(QMainWindow, ClientLogger):
             if name and not self._layout_applied:
                 self._layout_applied = True
                 self._restore_character_layout(name)
+            return
+        if stream == "timesync":
+            try:
+                self._server_delta = float(text.strip())
+            except ValueError:
+                pass  # a malformed delta never breaks the dispatch
             return
         if stream == "vitals":
             self.update_vitals(text)
