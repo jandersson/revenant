@@ -39,6 +39,15 @@ from client.login import (
 ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
 
 
+def _application():
+    """The QApplication for a standalone dialog. The application-level
+    icon is what macOS shows in the Dock — window icons alone leave the
+    Dock entry generic Python."""
+    app = QApplication.instance() or QApplication([])
+    app.setWindowIcon(QIcon(ICON_PATH))
+    return app
+
+
 class LoginDialog(QDialog):
     def __init__(self, account="", character="", error=""):
         super().__init__()
@@ -166,7 +175,7 @@ def ask_character(roster, default="", account=""):
     """The character-select screen (the launcher's --pick mode); returns
     the chosen name, OTHER_ACCOUNT when the user wants to log in with a
     different account, or None when the user cancelled."""
-    app = QApplication.instance() or QApplication([])  # noqa: F841
+    app = _application()  # noqa: F841
     dialog = CharacterPicker(roster, default, account)
     if dialog.exec() != QDialog.DialogCode.Accepted:
         return None
@@ -179,7 +188,7 @@ def ask_character(roster, default="", account=""):
 def ask_credentials(account="", character="", error=""):
     """Show the login screen; return (account, password, character,
     remember) or None if the user cancelled."""
-    app = QApplication.instance() or QApplication([])  # noqa: F841
+    app = _application()  # noqa: F841
     dialog = LoginDialog(account, character, error)
     if dialog.exec() != QDialog.DialogCode.Accepted:
         return None

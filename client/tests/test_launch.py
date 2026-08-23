@@ -471,3 +471,29 @@ def test_gather_login_blank_dialog_password_uses_the_keychain(monkeypatch, tmp_p
     monkeypatch.setattr(launch, "eaccess_protocol", eaccess)
     assert launch.gather_login("Alpha") == ("TESTACCT", "Alpha", "KEY111")
     assert seen["password"] == b"saved-secret"
+
+
+def test_pick_rebrands_the_dock_on_macos(monkeypatch, tmp_path):
+    # macOS names the Dock entry after the interpreter: without the
+    # branded re-exec, the picker appears as "Python 3.12".
+    monkeypatch.setattr(launch.sys, "executable", str(tmp_path / "python3"))
+    monkeypatch.setattr(launch.sys, "argv", ["revenant", "--pick"])
+    branded = tmp_path / "Revenant"
+    monkeypatch.setattr(launch, "branded_interpreter", lambda interpreter: branded)
+    calls = {}
+    monkeypatch.setattr(
+        launch.os, "execv", lambda path, argv: calls.update(path=path, argv=argv)
+    )
+    launch.rebrand_for_dock()
+    assert calls["path"] == str(branded)
+    assert calls["argv"] == [str(branded), "-m", "client.launch", "--pick"]
+
+
+def test_rebrand_is_a_noop_when_already_branded(monkeypatch, tmp_path):
+    monkeypatch.setattr(launch.sys, "executable", str(tmp_path / "Revenant"))
+
+    def boom(*args):
+        raise AssertionError("must not re-exec twice")
+
+    monkeypatch.setattr(launch.os, "execv", boom)
+    launch.rebrand_for_dock()

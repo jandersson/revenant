@@ -251,6 +251,19 @@ def branded_interpreter(interpreter: Path) -> Path:
         return interpreter
 
 
+def rebrand_for_dock():
+    """macOS names the Dock entry after the interpreter, so the picker
+    shows as "Python 3.12" without this: re-exec once under the
+    Revenant-named interpreter symlink. The dialogs' application icon
+    covers the Dock image; this covers the name."""
+    interpreter = Path(sys.executable)
+    if interpreter.name == "Revenant":
+        return
+    branded = branded_interpreter(interpreter)
+    if branded != interpreter:
+        os.execv(str(branded), [str(branded), "-m", "client.launch", *sys.argv[1:]])
+
+
 def exec_gui(gui_args):
     """Replace this process with the GUI (re-exec'd under the branded
     interpreter name on macOS; a proper .app bundle is issue #20)."""
@@ -311,6 +324,8 @@ def main(argv=None):
         return exec_gui([])
 
     if args.pick:
+        if sys.platform == "darwin":
+            rebrand_for_dock()
         return pick_and_go(args.host, args.port)
 
     if args.character:
