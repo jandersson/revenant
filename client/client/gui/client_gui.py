@@ -37,7 +37,7 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtCore import QSettings, QSize, Qt, QTimer, pyqtSignal
 
-from client import eltime
+from client import crashguard, eltime
 from client.command_history import CommandHistory
 from client.core import Engine
 from client.client_logger import ClientLogger
@@ -222,6 +222,15 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.__init_ui()
         self.game_text.connect(self.dispatch_game_text)
         self.connection_state.connect(self.status_bar.showMessage)
+        # An exception escaping any Qt slot would abort the whole
+        # process — PyQt spares only apps with their own excepthook
+        # (#94). Emitters go through the queued signals above, so the
+        # hook is safe from any thread.
+        crashguard.install(
+            self.log,
+            emit_text=lambda text: self.game_text.emit(f"{text}\n", "", "alert"),
+            emit_status=self.connection_state.emit,
+        )
         self._reader_thread = None
         self.client.connect()
         self.status_bar.showMessage(getattr(self.client, "description", "Connected"))
