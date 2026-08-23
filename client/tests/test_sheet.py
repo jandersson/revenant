@@ -83,6 +83,7 @@ class FakeHandle:
         self.echoed = []
         self.slept = 0
         self.state = None
+        self.dead = False
 
     def put(self, command):
         seqs = self.responses.get(command, [])
@@ -183,3 +184,19 @@ def test_snapshot_rows_roundtrip_through_the_database():
         "SELECT skill_name, rank FROM sheet_skills ORDER BY rank DESC LIMIT 1"
     ).fetchone()
     assert tuple(top) == ("Athletics", 22)
+
+
+def test_a_ghost_is_not_interrogated(monkeypatch):
+    # Captured live (#93): a dead character was asked INFO three times
+    # and EXP ALL three times, answered only by the ghost warning.
+    # Dead now means defer — snapshot never runs on a corpse.
+    handle = FakeHandle({})
+    handle.dead = True
+    handle.args = ["once"]
+
+    def boom(s):
+        raise AssertionError("snapshot ran on a corpse")
+
+    monkeypatch.setattr(sheet, "snapshot", boom)
+    sheet.main(handle)
+    assert any("ghost" in echo for echo in handle.echoed)

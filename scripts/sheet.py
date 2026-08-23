@@ -223,6 +223,14 @@ def snapshot(s):
 def main(s):
     once = bool(s.args) and s.args[0] == "once"
     while True:
+        if s.dead:
+            # A ghost answers INFO with a warning, not a sheet — the
+            # re-ask loop was interrogating corpses (#93). Defer.
+            s.echo("sheet: you are a ghost — the sheet can wait")
+            if once:
+                return
+            s.sleep(60)  # check again once breathing resumes
+            continue
         snapshot(s)
         if once:
             return
