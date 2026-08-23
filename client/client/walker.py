@@ -66,9 +66,21 @@ def _disambiguate(db, candidates, compass):
     return max(candidates, key=lambda room_id: len(here_exits & exits_of(room_id)))
 
 
-def walk(s, db, goals, describe="destination"):
+def avoided_rooms(db, entries):
+    """The room ids an avoid list names — each entry resolved like a
+    ;go2 target (tag, room id, or title substring). The standing list
+    lives in settings ("avoid_rooms"); scripts resolve it once per db."""
+    rooms = set()
+    for entry in entries or []:
+        rooms.update(db.resolve(str(entry)))
+    return rooms
+
+
+def walk(s, db, goals, describe="destination", avoid=()):
     """Walk to the nearest goal room; True on arrival (or already there).
 
+    Rooms in `avoid` are routed around when a clean detour exists;
+    a route forced through them is announced before the first step.
     Echoes progress and failure detail the way ;go2 always has: stalls
     and off-course rooms stop the walk rather than guessing onward."""
     if s.dead:
@@ -82,13 +94,21 @@ def walk(s, db, goals, describe="destination"):
         else:
             s.echo("current room unknown yet — 'look' once and retry")
         return False
-    route = db.path(here, set(goals))
+    avoid = frozenset(avoid)
+    route = db.path(here, set(goals), avoid=avoid)
     if route is None:
         s.echo(f"no walkable path to {describe} (a scripted-only edge may be needed)")
         return False
     if not route:
         return True
 
+    crossed = [dest for dest, _ in route if dest in avoid]
+    if crossed:
+        titles = db.rooms[crossed[0]].get("title") or ["?"]
+        s.echo(
+            f"warning: no clean detour — the route crosses "
+            f"{len(crossed)} avoided room(s), first {titles[0]}"
+        )
     s.echo(f"walking {len(route)} steps to {describe}")
     for number, (dest, command) in enumerate(route, 1):
         if s.dead:

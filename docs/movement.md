@@ -65,6 +65,16 @@ among them) hang off simple scripted edges, and a graph that drops
 every `;e` partitions them away — that was the 1429↔10171
 "unreachable" mystery, resolved 2026-08-23.
 
+Routes are weighted by the map's `timeto` travel times (Dijkstra;
+missing/Ruby values cost a plain 0.2s step), so they optimize
+minutes, not hops. Rooms on the settings avoid list (`avoid_rooms`,
+;go2-style targets; the #72 cougar grounds by default) carry an
+hour's penalty on entry: travel detours around them whenever a clean
+route exists, and otherwise announces the crossing before the first
+step — the cougar cliffs are a corridor on the real map, so routes
+through them warn rather than pretend safety. `;go2 direct <target>`
+skips the list for one trip.
+
 ## Pacing
 
 Every step waits out roundtime before moving (Script.waitrt: the

@@ -21,6 +21,11 @@ DEFAULTS = {
     "eltime_offset_seconds": 0,  # ;clock's Elanthian calendar correction
     "eltime_moons": {},  # ;clock's moon anchors: {moon: new-moon unix time}
     "clocks_earth_moon": False,  # the for-fun Earth moon row in the clocks dock
+    # Rooms travel routes around when a clean detour exists — each entry
+    # a ;go2-style target (tag, room id, or title substring). Defaults
+    # are the cougar grounds that killed a walker (#72); edit the file
+    # to extend. ;go2 direct <target> ignores the list for one trip.
+    "avoid_rooms": ["cougars", "cougars_vineyard"],
 }
 
 

@@ -76,3 +76,26 @@ def test_unknown_position_is_none_not_a_guess():
 def test_mapdb_indexes_uids():
     assert ROAD.room_by_uid(10080) == 804
     assert ROAD.room_by_uid(424242) is None
+
+
+def test_go2_direct_skips_the_avoid_list_for_one_trip(monkeypatch, tmp_path):
+    # ";go2 direct <target>" ignores settings' avoid_rooms; bare
+    # ";go2 direct" still answers with position and usage, proving the
+    # word is consumed as a flag, not mistaken for a target.
+    import json
+
+    (tmp_path / "mapdb.json").write_text(
+        json.dumps([{"id": 5, "uid": [301], "title": ["[Town Square]"], "wayto": {}}])
+    )
+    monkeypatch.setenv("REVENANT_MAPDB", str(tmp_path / "mapdb.json"))
+    monkeypatch.setenv("REVENANT_MAPDB_LOCAL", str(tmp_path / "no-local.json"))
+    monkeypatch.setenv("REVENANT_SETTINGS", str(tmp_path / "settings.json"))
+    handle = types.SimpleNamespace(
+        args=["direct"],
+        state=_state(room_uid=301, room_title="[Town Square]"),
+        echoes=[],
+    )
+    handle.echo = handle.echoes.append
+    go2.main(handle)
+    assert any("you are in room 5" in echo for echo in handle.echoes)
+    assert any("usage:" in echo for echo in handle.echoes)

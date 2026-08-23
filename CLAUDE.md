@@ -120,7 +120,10 @@ One pipeline, one parser, several processes:
 - `client/client/mapdb.py` — the community DR map database (elanthia-online
   mapdb-backup-dr), downloaded to `~/.revenant/mapdb/` on first use, never
   vendored. Pathfinding on a networkx DiGraph of the walkable edges
-  (#79); wayto commands starting with ";e" are embedded
+  (#79): Dijkstra over the map's timeto travel times, detouring
+  around the settings avoid list (`avoid_rooms`, cougar grounds by
+  default; forced crossings warn; `;go2 direct` bypasses once).
+  wayto commands starting with ";e" are embedded
   Ruby, walked only when they translate to plain fput/move commands —
   and those translatable ;e edges stay in the graph (dropping them
   partitions whole areas off).

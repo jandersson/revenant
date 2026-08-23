@@ -105,6 +105,53 @@ def test_unusable_timeto_falls_back_to_the_default_step():
     assert edge_seconds(room, "9") == DEFAULT_STEP_SECONDS  # absent entirely
 
 
+def test_path_detours_around_avoided_rooms_when_it_can():
+    # The standing avoid list (cougar grounds, #72) reroutes travel:
+    # the fast road crosses room 1, so the slow-but-clean detour wins.
+    rooms = [
+        {
+            "id": 0,
+            "title": ["[Trailhead]"],
+            "wayto": {"1": "north", "3": "east"},
+            "timeto": {"1": 0.2, "3": 0.2},
+        },
+        {
+            "id": 1,
+            "title": ["[Cougar Cliffs]"],
+            "tags": ["cougars"],
+            "wayto": {"2": "north"},
+            "timeto": {"2": 0.2},
+        },
+        {"id": 2, "title": ["[Overlook]"], "wayto": {}},
+        {
+            "id": 3,
+            "title": ["[Long Road]"],
+            "wayto": {"4": "north"},
+            "timeto": {"4": 30},
+        },
+        {
+            "id": 4,
+            "title": ["[Long Road]"],
+            "wayto": {"2": "west"},
+            "timeto": {"2": 30},
+        },
+    ]
+    db = MapDB(rooms)
+    assert [room for room, _ in db.path(0, [2])] == [1, 2]  # fastest, unguarded
+    assert [room for room, _ in db.path(0, [2], avoid={1})] == [3, 4, 2]
+
+
+def test_path_crosses_an_avoided_room_when_there_is_no_way_around():
+    # Avoidance is a penalty, not a wall: with no clean detour the
+    # route still exists — walker.walk announces the crossing instead.
+    rooms = [
+        {"id": 0, "title": ["[Gate]"], "wayto": {"1": "north"}},
+        {"id": 1, "title": ["[Cougar Cliffs]"], "wayto": {"2": "north"}},
+        {"id": 2, "title": ["[Overlook]"], "wayto": {}},
+    ]
+    assert [room for room, _ in MapDB(rooms).path(0, [2], avoid={1})] == [1, 2]
+
+
 def test_graph_holds_every_room_but_only_walkable_edges():
     graph = db().graph
     assert set(graph.nodes) == {0, 1, 2, 3}  # isolated rooms included

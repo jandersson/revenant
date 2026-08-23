@@ -60,6 +60,11 @@ def normalize_title(title: str) -> str:
 # db's modal value — an ordinary one-command step.
 DEFAULT_STEP_SECONDS = 0.2
 
+# What entering an avoided room costs on top of its real travel time:
+# an hour dominates any honest route, so a route only crosses an
+# avoided room when no clean way around exists at all.
+AVOID_PENALTY_SECONDS = 3600.0
+
 
 def edge_seconds(room, dest) -> float:
     """The travel time the map claims for one wayto edge, in seconds."""
@@ -197,10 +202,14 @@ class MapDB:
             self._graph = graph
         return self._graph
 
-    def path(self, start, goals):
+    def path(self, start, goals, avoid=()):
         """Fastest walkable path from start to the nearest goal —
         weighted by the map's timeto travel times, so a route optimizes
         minutes, not hop count (a 30s swim loses to three 0.2s steps).
+
+        Rooms in `avoid` are detoured around whenever a clean route
+        exists; when none does, the route crosses them anyway (the
+        caller can warn — walker.walk does).
 
         Returns a list of (room_id, command) steps ([] if already there),
         or None when every route needs an unwalkable (scripted) edge."""
@@ -209,7 +218,15 @@ class MapDB:
             return []
         if start not in self.rooms:
             raise KeyError(start)
-        seconds, routes = nx.single_source_dijkstra(self.graph, start, weight="seconds")
+        avoid = frozenset(avoid)
+        weight = "seconds"
+        if avoid:
+
+            def weight(here, dest, data):
+                penalty = AVOID_PENALTY_SECONDS if dest in avoid else 0.0
+                return data["seconds"] + penalty
+
+        seconds, routes = nx.single_source_dijkstra(self.graph, start, weight=weight)
         reachable = [goal for goal in goals if goal in routes]
         if not reachable:
             return None

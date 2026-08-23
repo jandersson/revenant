@@ -215,3 +215,45 @@ def test_walk_halts_when_death_arrives_mid_route():
     assert walker.walk(handle, db, [3], describe="the far room") is False
     assert handle.calls.count(("put", "north")) == 1  # step two never sent
     assert any("died en route" in echo for echo in handle.echoes)
+
+
+def test_avoided_rooms_resolve_like_go2_targets():
+    db = MapDB(
+        [
+            {"id": 7, "title": ["[Cougar Cliffs]"], "tags": ["cougars"], "wayto": {}},
+            {
+                "id": 8,
+                "title": ["[Vineyard]"],
+                "tags": ["cougars_vineyard"],
+                "wayto": {},
+            },
+            {"id": 9, "title": ["[Safe Road]"], "wayto": {}},
+        ]
+    )
+    assert walker.avoided_rooms(db, ["cougars", "9"]) == {7, 9}
+    assert walker.avoided_rooms(db, None) == set()
+    # An entry matching nothing (a tag this map lacks) is just empty.
+    assert walker.avoided_rooms(db, ["rock_guardians"]) == set()
+
+
+def test_walk_announces_a_route_forced_through_avoided_rooms():
+    # No clean detour exists here, so the walk proceeds — announced
+    # before the first step, never silently.
+    chain = MapDB(
+        [
+            {"id": 1, "uid": [201], "title": ["[Road]"], "wayto": {"2": "north"}},
+            {
+                "id": 2,
+                "uid": [202],
+                "title": ["[Cougar Cliffs]"],
+                "tags": ["cougars"],
+                "wayto": {"3": "north"},
+            },
+            {"id": 3, "uid": [203], "title": ["[Overlook]"], "wayto": {}},
+        ]
+    )
+    handle = FakeHandle(uids=[202, 203])
+    handle.state.room_uid = 201
+    assert walker.walk(handle, chain, [3], avoid={2}) is True
+    warning = next(echo for echo in handle.echoes if "no clean detour" in echo)
+    assert "1 avoided room(s)" in warning and "[Cougar Cliffs]" in warning
