@@ -32,6 +32,14 @@ the capture mid-anlas: uncalibrated error is at most ±15 real minutes.
 `;clock` stores a correcting offset in settings
 (`eltime_offset_seconds`); the dock re-reads it once a minute.
 
+TIME's anlas sentence is phrased *relative* to a named anlas, and the
+phrasing sets the calibration precision (#101): "N roisaen before the
+Anlas of X" pins the moment to the roisan (X has not started — the
+sharpest variant the game offers), "past the Anlas of X" states no
+count and is anchored mid-X (±15 real minutes). Misreading "before"
+as "within" cost ~29 real minutes of drift when it was live
+(2026-08-23) — the wordings are load-bearing, capture any new one.
+
 ## The moons
 
 Xibar, Yavash, and Katamba each cycle through eight phases (new →
@@ -66,6 +74,10 @@ UTC.
   Meraud's Cloak". Validates the unit math three ways: 457 % 7 = 2 →
   Golden Panther; 174 // 40 = month 5 → Uthmor; and dusk falling in
   the 10th anlas. `VICTORY_EPOCH` is derived from this capture.
+- **Captured `TIME`, 2026-08-23, Elanthian mid-afternoon** (fixture
+  `TIME_TEXT_BEFORE`): "457 years, 179 days", "14 roisaen before the
+  Anlas of Meraud's Cloak" — the roisaen-count phrasing, 17:04 to the
+  minute. The #101 regression capture.
 - **A character's `INFO`**: "born … in the year of the Emerald
   Dolphin, 341 years after the victory of Lanival the Redeemer" —
   341 % 7 = 5 → Emerald Dolphin, an independent pin on the year-name

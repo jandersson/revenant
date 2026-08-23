@@ -52,11 +52,66 @@ def test_parse_time_output_reads_the_captured_answer():
         "month_name": "Uthmor the Giant",
         "year_name": "Golden Panther",
         "anlas": 10,  # Meraud's Cloak
+        "anlas_roisaen": None,  # "past the Anlas of X" states no count
     }
 
 
 def test_parse_time_output_rejects_other_text():
     assert eltime.parse_time_output("Obvious paths: north.") is None
+
+
+# Captured 2026-08-23, Elanthian mid-afternoon: the phrasing with a
+# roisaen count. The live bug (#101): the old parser read this as
+# being inside Meraud's Cloak and calibrated the dock ~29 real
+# minutes fast; the count actually says the anlas has NOT started.
+TIME_TEXT_BEFORE = """It has been 457 years, 179 days since the Victory of Lanival the Redeemer.
+It is the 5th month of Uthmor the Giant in the year of the Golden Panther.
+It is currently summer and it is mid-afternoon.
+You're fairly certain it's 14 roisaen before the Anlas of Meraud's Cloak.
+"""
+
+
+def test_a_roisaen_count_before_the_anlas_is_parsed_signed():
+    parsed = eltime.parse_time_output(TIME_TEXT_BEFORE)
+    assert parsed["anlas"] == 10  # the NAMED anlas, not yet begun
+    assert parsed["anlas_roisaen"] == -14
+
+
+def test_calibrate_uses_the_roisaen_count_to_the_minute():
+    # 14 roisaen before Meraud's Cloak (starts 16200s into the day):
+    # 16200 - 14*60 = 15360s — Elanthian 17:04, mid-afternoon, exactly
+    # as the capture says. Mid-anlas anchoring would have said 17100s.
+    parsed = eltime.parse_time_output(TIME_TEXT_BEFORE)
+    captured_at = 1_787_500_000  # any instant; the target is absolute
+    target = 457 * eltime.YEAR_SECONDS + 179 * eltime.DAY_SECONDS + 15_360
+    assert eltime.calibrate(parsed, captured_at) == target - (
+        captured_at - eltime.VICTORY_EPOCH
+    )
+    at_target = eltime.elanthian_now(captured_at, eltime.calibrate(parsed, captured_at))
+    assert (at_target.hour, at_target.minute) == (17, 4)
+    assert at_target.anlas_name == "Tamsine's Toil"  # the 9th, still
+
+
+def test_a_roisaen_count_past_the_anlas_is_positive():
+    # The symmetric wording, anticipated but not yet captured (#101).
+    text = TIME_TEXT_BEFORE.replace(
+        "14 roisaen before the Anlas", "3 roisaen past the Anlas"
+    )
+    parsed = eltime.parse_time_output(text)
+    assert parsed["anlas_roisaen"] == 3
+
+
+def test_before_the_first_anlas_rolls_into_the_previous_day():
+    # Pure arithmetic on our side: 5 roisaen before Anduwen (in_day
+    # -300) lands at 23:40 of the previous day.
+    text = TIME_TEXT_BEFORE.replace(
+        "14 roisaen before the Anlas of Meraud's Cloak",
+        "5 roisaen before the Anlas of Anduwen",
+    )
+    parsed = eltime.parse_time_output(text)
+    captured_at = 1_787_500_000
+    rolled = eltime.elanthian_now(captured_at, eltime.calibrate(parsed, captured_at))
+    assert (rolled.hour, rolled.minute) == (23, 40)
 
 
 def test_formula_agrees_with_the_captured_time():

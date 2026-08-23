@@ -167,15 +167,25 @@ _TIME_MONTH = re.compile(
     r"It is the (\d+)\w{2} month of ([A-Za-z'][A-Za-z' ]*?)"
     r" in the year of the ([A-Za-z'][A-Za-z' ]*?)\."
 )
-_TIME_ANLAS = re.compile(r"the Anlas of ([A-Za-z'][A-Za-z' ]*[A-Za-z])")
+# The anlas sentence comes in phrasings relative to a named anlas:
+# "past the Anlas of X" (captured 2026-08-22 — within X), and
+# "N roisaen before the Anlas of X" (captured 2026-08-23 — X has not
+# started; the count makes this the most precise TIME variant, #101).
+# "N roisaen past" is the anticipated symmetric, not yet captured.
+_TIME_ANLAS = re.compile(
+    r"(?:(?P<count>\d+) roisaen? (?P<relation>before|past) )?"
+    r"the Anlas of (?P<name>[A-Za-z'][A-Za-z' ]*[A-Za-z])"
+)
 
 
 def parse_time_output(text):
     """The game's TIME answer as a dict, or None when it isn't one.
 
     The elapsed line carries the precision (whole days); the anlas line
-    refines within the day. TIME never states hour or minute — the
-    game's clock is deliberately fuzzy below the anlas.
+    refines within the day — to the roisan when TIME states an offset
+    ("14 roisaen before the Anlas of ..."), mid-anlas otherwise. TIME
+    never states hour or minute; the roisaen phrasing is as sharp as
+    the game's clock gets.
     """
     elapsed = _TIME_ELAPSED.search(text)
     if not elapsed:
@@ -183,8 +193,12 @@ def parse_time_output(text):
     month = _TIME_MONTH.search(text)
     anlas = _TIME_ANLAS.search(text)
     anlas_index = None
-    if anlas and anlas.group(1) in ANLAEN:
-        anlas_index = ANLAEN.index(anlas.group(1)) + 1
+    anlas_roisaen = None
+    if anlas and anlas.group("name") in ANLAEN:
+        anlas_index = ANLAEN.index(anlas.group("name")) + 1
+        if anlas.group("count") is not None:
+            count = int(anlas.group("count"))
+            anlas_roisaen = -count if anlas.group("relation") == "before" else count
     return {
         "years": int(elapsed.group(1)),
         "days": int(elapsed.group(2)),
@@ -192,16 +206,27 @@ def parse_time_output(text):
         "month_name": month.group(2) if month else None,
         "year_name": month.group(3) if month else None,
         "anlas": anlas_index,
+        # Signed roisaen from the named anlas's START (negative =
+        # before it begins), or None when TIME gave no count.
+        "anlas_roisaen": anlas_roisaen,
     }
 
 
 def calibrate(parsed, captured_at):
     """The offset (seconds) that makes the formula agree with a parsed
     TIME captured at a real Unix instant — store it in settings as
-    eltime_offset_seconds. Mid-anlas is assumed (±15 real minutes);
-    without an anlas line, mid-day (±3 real hours)."""
+    eltime_offset_seconds. A roisaen count pins the moment to ±1
+    roisan (the "N roisaen before the Anlas of X" phrasing, #101);
+    otherwise mid-anlas is assumed (±15 real minutes); without an
+    anlas line, mid-day (±3 real hours)."""
     if parsed["anlas"] is not None:
-        in_day = (parsed["anlas"] - 1) * ANLAS_SECONDS + ANLAS_SECONDS // 2
+        start = (parsed["anlas"] - 1) * ANLAS_SECONDS
+        if parsed.get("anlas_roisaen") is not None:
+            # May go negative (before Anduwen): the day boundary is
+            # just arithmetic here, the target rolls back naturally.
+            in_day = start + parsed["anlas_roisaen"] * ROISAN_SECONDS
+        else:
+            in_day = start + ANLAS_SECONDS // 2
     else:
         in_day = DAY_SECONDS // 2
     target = parsed["years"] * YEAR_SECONDS + parsed["days"] * DAY_SECONDS + in_day
