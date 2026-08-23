@@ -37,7 +37,7 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtCore import QSettings, QSize, Qt, QTimer, pyqtSignal
 
-from client import crashguard, eltime, reader
+from client import crashguard, eltime, reader, window_layout
 from client.command_history import CommandHistory
 from client.core import Engine
 from client.client_logger import ClientLogger
@@ -218,6 +218,12 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.status_bar = self.statusBar()
         self.input_dock = QDockWidget()
         self.highlight_rules = load_rules()
+        # Who is playing, from the "character" stream — names the title
+        # bar and scopes the saved window layout (#74). The layout is
+        # applied once, on first identification: a reattach re-states
+        # the character and must not stomp a live arrangement.
+        self._character = None
+        self._layout_applied = False
         self.client = engine if engine is not None else Engine()
         self.__init_ui()
         self.game_text.connect(self.dispatch_game_text)
@@ -324,7 +330,10 @@ class ClientGUI(QMainWindow, ClientLogger):
         for dock in self.stream_docks.values():
             view_menu.addAction(dock.toggleViewAction())
 
-        # Window size and dock layout persist between launches.
+        # Window size and dock layout persist between launches. The
+        # legacy unscoped pair opens the window before the character is
+        # known; the character's own layout takes over the moment the
+        # "character" frame names who is playing (#74).
         settings = QSettings("revenant", "revenant")
         if geometry := settings.value("geometry"):
             self.restoreGeometry(geometry)
@@ -332,6 +341,16 @@ class ClientGUI(QMainWindow, ClientLogger):
             self.restoreState(state)
 
         self.show()
+
+    def _restore_character_layout(self, name):
+        """This character's own saved arrangement, if any — without one
+        the legacy layout restored at startup simply stays."""
+        settings = QSettings("revenant", "revenant")
+        geometry_key, state_key = window_layout.layout_keys(name)
+        if geometry := settings.value(geometry_key):
+            self.restoreGeometry(geometry)
+        if state := settings.value(state_key):
+            self.restoreState(state)
 
     def detach(self):
         """File → Detach: close the window, stay logged in. The session
@@ -341,8 +360,11 @@ class ClientGUI(QMainWindow, ClientLogger):
 
     def closeEvent(self, event):
         settings = QSettings("revenant", "revenant")
-        settings.setValue("geometry", self.saveGeometry())
-        settings.setValue("windowState", self.saveState())
+        pairs = window_layout.save_pairs(
+            self._character, self.saveGeometry(), self.saveState()
+        )
+        for key, value in pairs.items():
+            settings.setValue(key, value)
         # Closing the window means leaving the game — send quit so the
         # character logs out instead of lingering to a link-death, and
         # the session winds down on the resulting EOF. File → Detach
@@ -850,6 +872,10 @@ class ClientGUI(QMainWindow, ClientLogger):
         if stream == "character":
             name = text.strip()
             self.setWindowTitle(f"Revenant — {name}" if name else "Revenant")
+            self._character = name or self._character
+            if name and not self._layout_applied:
+                self._layout_applied = True
+                self._restore_character_layout(name)
             return
         if stream == "vitals":
             self.update_vitals(text)
