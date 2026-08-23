@@ -26,6 +26,40 @@ Experience is a two-stage pool system, per skill:
    pulses regardless of activity. Wisdom sizes the pulse; rested
    experience (REXP) triples the conversion while it lasts.
 
+## Rested experience (REXP)
+
+Researched 2026-08-23 (Elanthipedia "Experience"; the status line
+captured live the same day). REXP is banked time that **triples the
+pool-to-ranks conversion** while it burns — outflow's pulse converts
+3x the ranks, which is why a rested session ran Athletics 4 → 12 in
+one evening (the 2026-08-21 evidence below).
+
+- **Accrual**: 2 minutes of not draining experience banks 1 minute of
+  REXP, starting after 5 consecutive minutes without drain — offline,
+  online with empty pools, or in deep sleep alike.
+- **Banked cap by subscription**: F2P none (2h with a Brain Boost
+  purchase), Standard 4h, Premium 6h, Platinum-instance 8h.
+- **Usage cap and cycle**: a personal 23:30h cycle starts when you
+  first touch the system and caps how much banked time can burn per
+  cycle (the tier amount); the cap refreshes when the cycle ends.
+- **Burn**: each of the ten skill groups that pulses **with
+  experience in it** deducts 20 seconds of REXP; a group pulsing
+  empty deducts nothing — training few skill groups stretches the
+  banked hours further.
+- **Sleep**: SLEEP once (light) stops inflow but the pool keeps
+  draining and burning REXP; SLEEP twice (deep) stops both, banks
+  instead of burns.
+- **Status** — the EXP footer, captured live 2026-08-23:
+  `Rested EXP Stored: 5:42 hours  Usable This Cycle: 5:42 hours
+  Cycle Refreshes: 21 hours`. Times are H:MM; the sheet script's
+  3-hourly EXP ALL already receives this line (currently unparsed).
+
+What it means for the tooling: rank-per-hour numbers in beholder are
+meaningless without knowing whether the 3x window was open, and the
+sheet snapshot already carries the status line — parsing and logging
+it is nearly free (#106). Trainers might also prefer draining few
+skill groups while rested, per the burn rule.
+
 ## What the code assumes, and where
 
 - **`;athletics` pauses at mind-lock** — inflow to a full pool is
