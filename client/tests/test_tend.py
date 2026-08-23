@@ -13,7 +13,9 @@ REPO = pathlib.Path(__file__).parents[2]
 
 
 def _tend():
-    spec = importlib.util.spec_from_file_location("tend_script", REPO / "scripts/tend.py")
+    spec = importlib.util.spec_from_file_location(
+        "tend_script", REPO / "scripts/tend.py"
+    )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

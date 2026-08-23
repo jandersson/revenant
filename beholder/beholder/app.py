@@ -73,7 +73,7 @@ def themed(figure, title):
     """The shared chart chrome: dark surfaces, recessive grid, validated
     colorway. Specific figures set their own axes first; this merges."""
     figure.update_layout(
-        title={"text": title, "font": {"color": INK, "size": 15}},
+        title={"text": title, "font": {"color": INK, "size": 15}, "x": 0.02},
         paper_bgcolor=SURFACE,
         plot_bgcolor=PANEL,
         font={"color": INK},
@@ -178,6 +178,10 @@ def mindstate_figure(series, character):
                 "bgcolor": PANEL,
                 "activecolor": GRID,
                 "font": {"color": INK},
+                "x": 1.0,
+                "xanchor": "right",
+                "y": 1.02,
+                "yanchor": "bottom",
                 "buttons": [
                     {"count": 1, "label": "1d", "step": "day", "stepmode": "backward"},
                     {"count": 3, "label": "3d", "step": "day", "stepmode": "backward"},
