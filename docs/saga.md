@@ -67,6 +67,28 @@ so Saga cannot attach to a revenant session today — a raw-XML relay
 mode would change that and make every XML-speaking front end (Saga,
 Wrayth, Avalon) a potential revenant frontend (#99).
 
+## Should revenant identify as Saga?
+
+Not by default yet — but it is worth an experiment (#100). Facts
+that frame it:
+
+- revenant's game login sends `/FE:STORMFRONT /VERSION:1.0.1.26 …
+  /XML` (`login.py`); every parser assumption and capture is pinned
+  to the stream that identity earns.
+- lich still sends `/FE:WRAYTH /VERSION:1.0.1.28 … /XML` even when
+  Saga is the attached UI (lich-5 `front-end.rb` CLIENT_STRING). So
+  either the new emissions are not gated on the FE string at all, or
+  Saga negotiates them in-band after login (Stormfront-style
+  settings requests), or Saga-behind-lich silently misses them. Each
+  possibility points at the same next step: capture a native Saga
+  session's handshake and first minutes, then diff against ours.
+- If the diff shows real riches (map data, combat panel, party,
+  approach indicators, unified timers — the FAQ's candidates), make
+  the identity a settings key with STORMFRONT as default, and only
+  flip the default once Saga is out of beta and the new stream is
+  pinned by fixtures. Identity is per-connection, so the experiment
+  is cheap and reversible.
+
 ## Does Saga change what's worth building here?
 
 Mostly no; it sharpens what is ours:
