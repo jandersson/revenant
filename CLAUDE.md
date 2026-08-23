@@ -97,7 +97,9 @@ One pipeline, one parser, several processes:
   manual.
   Handle API: put/get/waitfor/waitrt/echo/emit/sleep/state/args — `emit`
   targets an arbitrary stream (e.g. "thoughts"). `scripts/lnet.py` uses it
-  to mirror LNet chat into the Thoughts window, read-only (`;lnet`).
+  to mirror LNet chat into the Thoughts window (`;lnet`). `;tend`
+  bandages bleeders (watch mode wakes on soak-through); `;wealth`
+  passively logs teller balance statements into xp.db.
   Sessions autostart the xp history logger, the beholder dashboard
   server in quiet mode, the character-sheet snapshotter (`;sheet`:
   INFO + EXP ALL into stats/sheet_skills/character tables every 3h),

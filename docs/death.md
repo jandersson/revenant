@@ -54,3 +54,11 @@ Either the wiki is stale or departing-by-decay differs from a
 voluntary DEPART. Until a capture settles it, the code assumes the
 wiki's pessimistic model and always prefers the best affordable
 variant.
+
+## Bleeding
+
+`;tend` bandages every tendable bleeder, worst first, and its watch
+mode re-tends the moment bandages soak through ("The bandages
+binding your neck soak through with blood..." — captured live).
+Internal bleeders need hundreds of First Aid ranks and are left for
+magic; the tests in `client/tests/test_tend.py` are the manual.
