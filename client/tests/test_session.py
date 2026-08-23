@@ -371,6 +371,26 @@ def test_main_game_fd_primes_the_indicators_from_the_handoff(monkeypatch):
     adopted["server"].game.close()
 
 
+def test_main_game_fd_names_the_character_from_the_environment(monkeypatch):
+    # A name lost before the #95 handoff existed can never ride it —
+    # the first live reexec after shipping proved it. REVENANT_CHARACTER
+    # rides the exec's environment and fills the gap.
+    left, right = socket.socketpair()
+    fd = left.detach()
+    monkeypatch.setenv(session.GAME_STATE_ENV, json.dumps({"indicator": {}}))
+    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
+    adopted = {}
+    monkeypatch.setattr(
+        session.SessionServer, "serve", lambda self: adopted.update(server=self)
+    )
+    monkeypatch.setattr(session, "autostart_scripts", lambda server: None)
+    session.main(["--game-fd", str(fd), "--port", "0"])
+
+    assert adopted["server"].engine.xml_data.name == "Testchar"
+    right.close()
+    adopted["server"].game.close()
+
+
 def test_carried_state_swallows_a_corrupt_handoff(monkeypatch):
     monkeypatch.setenv(session.GAME_STATE_ENV, "not json {")
     assert session._carried_state() == {}

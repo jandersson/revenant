@@ -542,9 +542,14 @@ def main(argv=None):
     # see a death the old process was watching (#92).
     server.engine.xml_data.indicator.update(carried_state.get("indicator") or {})
     # The login <app> tag never repeats, so the name survives the same
-    # way — a reattaching title bar stays named (#95).
-    if carried_state.get("name"):
-        server.engine.xml_data.name = carried_state["name"]
+    # way — a reattaching title bar stays named (#95). REVENANT_CHARACTER
+    # (which rides the process environment through the exec) is the
+    # fallback: a name lost before the handoff existed can never ride
+    # it, as the first live reexec after shipping #95 demonstrated.
+    if args.game_fd is not None and not server.engine.xml_data.name:
+        server.engine.xml_data.name = (
+            carried_state.get("name") or os.environ.get("REVENANT_CHARACTER") or None
+        )
     autostart_scripts(server)
     server.serve()
 
