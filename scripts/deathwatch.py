@@ -8,7 +8,9 @@ resurrects you in time it departs with the best variant your favors
 afford, trying DEPART FULL (keeps items and coins, 3 favors), then
 ITEMS, then GRAVE, then bare DEPART, judging each attempt by the DEAD
 indicator actually clearing. `;stop deathwatch` holds it off while a
-rescue is underway.
+rescue is underway. A death that predates the watch — a restart or
+;reexec mid-death — counts as freshly observed: the countdown starts
+the moment the script does.
 
 Why depart and not quit: the decay clock runs offline — captured
 2026-08-22 (docs/death.md), when an idle disconnect while dead ended

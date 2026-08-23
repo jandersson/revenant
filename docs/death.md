@@ -20,6 +20,19 @@ pages; the sharpest facts here are captured from a real death
   nothing; ;deathwatch instead answers the idle check (a harmless
   LOOK every two minutes) and departs deliberately.
 
+## The DEAD indicator
+
+- The game states an indicator only when it flips — nothing ever
+  re-announces DEAD to a process that missed the death, and a ghost's
+  LOOK earns only the ghost refusal, no XML. Captured 2026-08-23
+  (#92): a `;reexec` mid-death armed a fresh deathwatch that stayed
+  blind while the decay clock ran. The session therefore hands its
+  indicator state across the exec (`REVENANT_GAME_STATE`), and a
+  watch that starts against an already-dead state begins its
+  countdown immediately.
+- Fresh logins need no handoff: the login stream states every
+  indicator (`client/tests/login-sample.log`).
+
 ## While dead
 
 - Commands answer: *"You are a ghost!  You must wait until someone

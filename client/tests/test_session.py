@@ -1,5 +1,6 @@
 import base64
 import io
+import json
 import os
 import socket
 import sys
@@ -317,6 +318,61 @@ def test_reexec_marks_game_fd_inheritable_and_builds_argv(monkeypatch):
     assert handed_over == b"half a li"
     right.close()
     game.close()
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason=";reexec is POSIX-only and gated off on Windows (#38)",
+)
+def test_reexec_hands_the_indicators_across(monkeypatch):
+    # The game states an indicator only when it changes, so a fresh
+    # process can never re-learn DEAD on its own: a mid-death ;reexec
+    # left deathwatch armed but blind (#92). The indicator dict rides
+    # the exec in an env var.
+    left, right = socket.socketpair()
+    game = SocketClient.from_fd(left.detach())
+    # Set through monkeypatch so teardown restores the environment.
+    monkeypatch.setenv(session.GAME_STATE_ENV, "sentinel")
+    monkeypatch.setenv(session.GAME_BUFFER_ENV, "sentinel")
+    server = session.SessionServer(game, port=0)  # serve() never called
+    server.engine.xml_data.indicator.update({"IconDEAD": "y", "IconPRONE": "y"})
+
+    server.reexec(execv=lambda path, argv: None)
+
+    handed_over = json.loads(os.environ[session.GAME_STATE_ENV])
+    assert handed_over["indicator"] == {"IconDEAD": "y", "IconPRONE": "y"}
+    right.close()
+    game.close()
+
+
+def test_main_game_fd_primes_the_indicators_from_the_handoff(monkeypatch):
+    left, right = socket.socketpair()
+    fd = left.detach()
+    monkeypatch.setenv(
+        session.GAME_STATE_ENV, json.dumps({"indicator": {"IconDEAD": "y"}})
+    )
+    adopted = {}
+    monkeypatch.setattr(
+        session.SessionServer, "serve", lambda self: adopted.update(server=self)
+    )
+    # The autostarts are where the primed state matters (deathwatch's
+    # first poll), but they are exercised in their own tests.
+    monkeypatch.setattr(session, "autostart_scripts", lambda server: None)
+    session.main(["--game-fd", str(fd), "--port", "0"])
+
+    assert session.GAME_STATE_ENV not in os.environ  # consumed, not leaked
+    xml_data = adopted["server"].engine.xml_data
+    assert xml_data.indicator["IconDEAD"] == "y"
+    right.close()
+    adopted["server"].game.close()
+
+
+def test_carried_state_swallows_a_corrupt_handoff(monkeypatch):
+    monkeypatch.setenv(session.GAME_STATE_ENV, "not json {")
+    assert session._carried_state() == {}
+    monkeypatch.setenv(session.GAME_STATE_ENV, '["a list, not a dict"]')
+    assert session._carried_state() == {}
+    assert session.GAME_STATE_ENV not in os.environ
 
 
 def test_reexec_command_is_session_level_not_a_script(monkeypatch):

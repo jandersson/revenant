@@ -36,6 +36,12 @@ DEFAULT_PORT = int(os.environ.get("REVENANT_SESSION_PORT", "4242"))
 # Unparsed game bytes ride across a ;reexec in this env var (base64).
 GAME_BUFFER_ENV = "REVENANT_GAME_BUFFER"
 
+# Durable parser state rides across a ;reexec in this env var (JSON).
+# The game announces indicators only when they change, so a fresh
+# process can never re-learn a standing fact like DEAD on its own —
+# a mid-death ;reexec left deathwatch armed but blind (#92).
+GAME_STATE_ENV = "REVENANT_GAME_STATE"
+
 # How long a dropped front end keeps retrying the attach — long enough to
 # span a session ;reexec, short enough that a dead session is not a hang.
 REATTACH_TIMEOUT = 10.0
@@ -348,7 +354,11 @@ class SessionServer(ClientLogger):
         sockets close at exec (front ends reattach on their own). Bytes
         already read off the wire but not yet parsed ride along in an
         env var. Parser state (room, compass) starts cold in the new
-        process; main() reprimes it with a `look`."""
+        process; main() reprimes it with a `look`. The indicators
+        cannot be reprimed that way — the game states them only on
+        change, and a ghost's look earns just the ghost refusal — so
+        they ride across too (#92: deathwatch must see a death that
+        predates it)."""
         if sys.platform == "win32":
             # WinSock handles aren't CRT fds and exec has spawn-and-exit
             # semantics — the handoff cannot work as written (#38). Bail
@@ -375,6 +385,9 @@ class SessionServer(ClientLogger):
             str(fd),
         ]
         self.log.info(f"Re-exec: {' '.join(argv)}")
+        os.environ[GAME_STATE_ENV] = json.dumps(
+            {"indicator": self.engine.xml_data.indicator}
+        )
         # Snapshot the unparsed buffer as late as possible: the game
         # reader keeps draining the socket until exec replaces us.
         os.environ[GAME_BUFFER_ENV] = base64.b64encode(self.game.buffered).decode(
@@ -508,8 +521,10 @@ def main(argv=None):
         "(the ;reexec handoff) instead of logging in",
     )
     args = argparser.parse_args(argv)
+    carried_state = {}
     if args.game_fd is not None:
         initial = base64.b64decode(os.environ.pop(GAME_BUFFER_ENV, ""))
+        carried_state = _carried_state()
         game_connection = SocketClient.from_fd(args.game_fd, initial=initial)
         # Fresh process, cold parser: a look repopulates room/compass state.
         game_connection.write(b"look\n")
@@ -518,8 +533,23 @@ def main(argv=None):
     else:
         game_connection = simu_login()
     server = SessionServer(game_connection, args.host, args.port)
+    # Primed before the autostarts: deathwatch's first poll must already
+    # see a death the old process was watching (#92).
+    server.engine.xml_data.indicator.update(carried_state.get("indicator") or {})
     autostart_scripts(server)
     server.serve()
+
+
+def _carried_state():
+    """The parser state the old process handed across a ;reexec — {}
+    when there is none (or it doesn't decode; state is a convenience,
+    never worth failing the handoff over)."""
+    raw = os.environ.pop(GAME_STATE_ENV, "")
+    try:
+        data = json.loads(raw) if raw else {}
+    except ValueError:
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def autostart_scripts(server):

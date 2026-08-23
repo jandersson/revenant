@@ -136,6 +136,20 @@ def test_the_grace_wait_answers_the_idle_check(monkeypatch):
     assert ("put", "look") in handle.calls
 
 
+def test_a_death_that_predates_the_watch_starts_the_countdown(monkeypatch):
+    # The captured blindness (#92): a ;reexec restarted deathwatch while
+    # the character was already a ghost, and the fresh watch idled. Dead
+    # at startup must count as a freshly observed death.
+    monkeypatch.setattr(deathwatch, "DECAY_SCAN_SECONDS", 0.05)
+    monkeypatch.setattr(deathwatch, "DEPART_WAIT", 2)
+    handle = DepartAtGraveHandle(args=["0"], dead=True, sleeps=40)
+    with pytest.raises(LoopDone):
+        deathwatch.main(handle)
+    puts = [call[1] for call in handle.calls if call[0] == "put"]
+    assert "depart full" in puts
+    assert any("you are DEAD" in echo for echo in handle.echoes)
+
+
 def test_watching_costs_nothing_while_alive():
     handle = FakeHandle(sleeps=5)
     with pytest.raises(LoopDone):

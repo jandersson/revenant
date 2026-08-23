@@ -88,7 +88,10 @@ One pipeline, one parser, several processes:
   client side; it presents the same surface as `Engine`. Typing `;reexec`
   in any frontend re-execs the session with the code currently on disk,
   handing the live game socket across (`--game-fd`) — no logout, no
-  re-login; frontends drop and auto-reattach within ~10s. Remember: a
+  re-login; frontends drop and auto-reattach within ~10s. Indicator
+  state rides along (`REVENANT_GAME_STATE`): the game only announces
+  indicators on change, so a fresh parser could otherwise never learn
+  a standing fact like DEAD (#92). Remember: a
   running session does NOT see code edits until it re-execs or restarts.
 - `client/client/scripting.py` — script engine. Scripts are `main(s)` Python
   files in `scripts/` (repo root), run as threads in the session, controlled
