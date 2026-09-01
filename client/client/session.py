@@ -18,6 +18,7 @@ import argparse
 import base64
 import json
 import os
+import pathlib
 import socket
 import sys
 from collections import deque
@@ -25,7 +26,7 @@ from threading import Lock, Thread
 from time import monotonic, sleep
 
 from client.client_logger import ClientLogger
-from client.core import Engine, indicators_frame, vitals_frame
+from client.core import Engine, indicators_frame, room_frame, vitals_frame
 from client.login import connect_game, simu_login
 from client.netsock import SocketClient
 from client.scripting import ScriptManager
@@ -58,8 +59,6 @@ SESSIONS_PATH = "~/.revenant/sessions.json"
 
 
 def sessions_path():
-    import pathlib
-
     return pathlib.Path(os.environ.get("REVENANT_SESSIONS", SESSIONS_PATH)).expanduser()
 
 
@@ -231,10 +230,8 @@ class SessionServer(ClientLogger):
             # The map dock follows the "room" stream; a room change is
             # rare while idle, so the attach states the position fresh
             # (#56) — same story as the compass above.
-            uid = getattr(self.engine.xml_data, "room_uid", None)
-            title = getattr(self.engine.xml_data, "room_title", None)
-            if uid or title:
-                replay += encode_frame(f"{uid or ''}\t{title or ''}", "room")
+            if room := room_frame(self.engine.xml_data):
+                replay += encode_frame(room, "room")
             try:
                 if replay:
                     conn.sendall(replay)
@@ -497,12 +494,9 @@ class AttachedEngine(ClientLogger):
             output_callback("session dropped — reattaching ...\n", "script", "")
         deadline = monotonic() + REATTACH_TIMEOUT
         while monotonic() < deadline:
-            try:
-                self._connection = SocketClient(self.host, self.port)
-            except OSError:
+            if not self.reattach():
                 sleep(0.25)
                 continue
-            self._buffer = b""
             self.log.info("Reattached to session")
             if output_callback:
                 output_callback("reattached\n", "script", "")

@@ -1,18 +1,11 @@
-import argparse
 import logging
-import time
-from select import select
 import sys
-from threading import Thread
+import time
 from xml.etree.ElementTree import ParseError, XMLParser
 
 from client.login import simu_login
 from client.client_logger import ClientLogger
 from client.xml_data import XMLData
-
-
-def is_windows():
-    return sys.platform == "win32"
 
 
 def indicators_frame(indicator: dict) -> str:
@@ -31,10 +24,24 @@ def vitals_frame(vitals: dict) -> str:
     return " ".join(f"{vital} {value}" for vital, value in vitals.items())
 
 
-class Engine(ClientLogger):
-    """A basic DR client"""
+def room_frame(xml_data) -> str:
+    """The "room" stream's wire text: "uid<TAB>title", either half ""
+    when unknown; "" when neither is known. One frame per room change
+    from the engine, and stated fresh to late attachers by
+    session.attach() (#56) — the map dock and the surveyor follow it."""
+    uid, title = xml_data.room_uid, xml_data.room_title
+    if uid is None and title is None:
+        return ""
+    return f"{uid if uid is not None else ''}\t{title or ''}"
 
-    def __init__(self, mode=""):
+
+class Engine(ClientLogger):
+    """Parses the game stream into (text, stream, style) segments and
+    synthetic state frames. Owns a connection (a SocketClient, logged in
+    by connect()); read() drains it once and hands every segment to the
+    output callback — the session fans those out to front ends."""
+
+    def __init__(self):
         self._connection = None
         self.xml_data = XMLData()
         self.description = "Connected (direct)"
@@ -42,8 +49,8 @@ class Engine(ClientLogger):
         # can end mid-line — even mid-tag — and parsing the fragment leaks
         # broken XML into the output. Held here until its line completes.
         self._partial_line = ""
-        # Last emitted room identity, for the synthetic "room" stream.
-        self._last_room_identity = (None, None)
+        # Last emitted room frame, for the synthetic "room" stream.
+        self._last_room_frame = ""
         # Last emitted roundtime/casttime ends, for their synthetic streams.
         self._last_timer_ends = {"roundtime": 0, "casttime": 0}
         # Last emitted character name, for the synthetic "character" stream.
@@ -79,39 +86,6 @@ class Engine(ClientLogger):
             sys.exit(1)
         self.connection = connection
 
-    def disconnect(self):
-        pass
-
-    def reactor(self):
-        """A very basic implementation of handling input/output"""
-        connection = self.connection
-        if is_windows():
-            # Windows workaround for select issue
-            def read_loop():
-                while True:
-                    self.read()
-
-            def write_loop():
-                while True:
-                    self.write()
-
-            Thread(target=read_loop).start()
-            Thread(target=write_loop).start()
-        else:
-            while True:
-                # select cannot operate on non socket objects in Windows (sys.stdin)
-                fds, _, _ = select([connection.get_socket(), sys.stdin], [], [])
-                for fd in fds:
-                    if fd == connection.get_socket():
-                        self.read()
-                    if fd == sys.stdin:
-                        self.write()
-
-    def write(self):
-        write_data = input()
-        print(f"> {write_data}")
-        self.connection.write((write_data + "\n").encode("ASCII"))
-
     def read(self, output_callback=None):
         buff = []
 
@@ -132,7 +106,7 @@ class Engine(ClientLogger):
         self._partial_line = lines.pop()
 
         for line in lines:
-            # TODO: This if might be redundant
+            # A blank line ("\n\n" in the chunk) has nothing to parse or route.
             if line:
                 logging.getLogger("game").info(line)
                 try:
@@ -162,15 +136,11 @@ class Engine(ClientLogger):
                 # Room identity as a synthetic "room" stream: one
                 # "uid\ttitle" frame per room change. The surveyor and
                 # the GUI's map dock (#56) follow it.
-                identity = (
-                    getattr(self.xml_data, "room_uid", None),
-                    getattr(self.xml_data, "room_title", None),
-                )
-                if identity != self._last_room_identity and any(identity):
-                    self._last_room_identity = identity
+                room = room_frame(self.xml_data)
+                if room and room != self._last_room_frame:
+                    self._last_room_frame = room
                     if output_callback:
-                        uid, title = identity
-                        output_callback(f"{uid or ''}\t{title or ''}", "room", "")
+                        output_callback(room, "room", "")
                 # Every room sends a <compass>; emit the exits as a synthetic
                 # "compass" stream. One frame per room — front ends drive
                 # their widget from it, and scripts treat it as the
@@ -258,22 +228,3 @@ class Engine(ClientLogger):
         if not output_callback:
             sys.stdout.write("".join(buff))
             sys.stdout.flush()
-
-
-if __name__ == "__main__":
-    argparser = argparse.ArgumentParser(description="A mud client")
-    # TODO: Implement
-    argparser.add_argument(
-        "--character-file",
-        default=None,
-        help="Login using credentials stored in this file",
-    )
-    # TODO: Implement
-    argparser.add_argument(
-        "--test",
-        action="store_true",
-        default=False,
-        help="Use a mock connection instead of connecting to the game",
-    )
-    args = argparser.parse_args()
-    Engine()

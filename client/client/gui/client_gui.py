@@ -44,7 +44,7 @@ from client.client_logger import ClientLogger
 from client.gui.map_dock import MapView
 from client.highlights import highlights_path, load_rules, spans
 from client.session import AttachedEngine, DEFAULT_HOST, DEFAULT_PORT
-from client.settings import load_settings
+from client.settings import load_settings, save_settings, setting, settings_path
 
 ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
 
@@ -372,8 +372,6 @@ class ClientGUI(QMainWindow, ClientLogger):
         # character logs out instead of lingering to a link-death, and
         # the session winds down on the resulting EOF. File → Detach
         # skips this, and Settings can turn it off (quit_on_close).
-        from client.settings import setting
-
         if not getattr(self, "_detaching", False) and setting("quit_on_close"):
             connection = getattr(self.client, "connection", None)
             if connection is not None:
@@ -780,7 +778,6 @@ class ClientGUI(QMainWindow, ClientLogger):
     def edit_settings(self):
         """File → Settings…: toggles over settings.json. Quit-on-close
         applies immediately; autostarts apply to the next session."""
-        from client.settings import load_settings, save_settings, settings_path
         from client.gui.settings_dialog import SettingsDialog
 
         dialog = SettingsDialog(load_settings(), self)

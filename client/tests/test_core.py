@@ -321,3 +321,19 @@ def test_engine_emits_the_server_clock_delta_once(monkeypatch):
     read_at(1_787_402_520.0)  # fresh prompt after the local clock jumped
     frames = [frame for frame in out if frame[1] == "timesync"]
     assert frames == [("45.0", "timesync", ""), ("80.0", "timesync", "")]
+
+
+def test_room_frame_is_uid_tab_title_with_blanks_for_the_unknown_half():
+    # The "room" stream's wire text, shared by Engine.read and the
+    # session's attach replay: "uid<TAB>title", "" when neither is known.
+    from client.core import room_frame
+    from client.xml_data import XMLData
+
+    state = XMLData()
+    assert room_frame(state) == ""
+    state.room_title = "[The Crossing, Herald Street]"
+    assert room_frame(state) == "\t[The Crossing, Herald Street]"
+    state.room_uid = 1420
+    assert room_frame(state) == "1420\t[The Crossing, Herald Street]"
+    state.room_title = None
+    assert room_frame(state) == "1420\t"

@@ -1,6 +1,5 @@
-import re
 import html
-from xml.etree.ElementTree import ParseError
+import re
 
 # Streams that duplicate text already present in the main window (or that
 # nothing renders yet), matching what the old strip() deleted outright.
@@ -95,21 +94,21 @@ _STYLE_MARKER = re.compile(
 
 
 class XMLData:
-    """A parser target directly translated from lich.rb::XMLParser (aka XMLData)"""
+    """The game state parsed from the XML stream — an XMLParser target
+    in the shape of lich's XMLData: start()/data()/end() accumulate
+    state (prompt, indicators, compass, vitals, room, exp window), and
+    route() splits a raw line into (stream, text, style) segments.
+    Engine.read drives both; the *_updated flags tell it what changed."""
 
     def __init__(self):
+        # Open tags, innermost last — data() looks at the top of it.
         self.active_tags = []
-        self.last_tag = None
-        self.active_ids = []
-        self.last_id = None
-        # Flag indicating if text being processed is bold
-        self.bold = False
-        # Not sure what this is used for
         self.player_id = None
+        # The game instance from <settingsInfo instance=.../> ("DR").
         self.game = None
         # Character first name
         self.name = None
-        self.current_stream = ""
+        # The <style id=...> span the parser is inside (roomName ...).
         self.current_style = ""
         self.prompt = ""
         # UNIX timestamp sent with <prompt> tag
@@ -172,14 +171,8 @@ class XMLData:
 
     def start(self, name: str, attributes: dict):
         self.active_tags.append(name)
-        if "id" in attributes:
-            self.active_ids.append(attributes["id"])
 
-        if name == "pushBold":
-            self.bold = True
-        elif name == "popBold":
-            self.bold = False
-        elif name == "playerID":
+        if name == "playerID":
             self.player_id = attributes["id"]
         elif name == "style":
             self.current_style = attributes["id"]
@@ -277,9 +270,7 @@ class XMLData:
                 }
                 self.exp_updated = True
         if self.active_tags:
-            self.last_tag = self.active_tags.pop()
-        if self.active_ids:
-            self.last_id = self.active_ids.pop()
+            self.active_tags.pop()
 
     def _effective_style(self):
         return (
@@ -327,12 +318,11 @@ class XMLData:
         if self._strip_xml_multiline:
             self._strip_xml_multiline += line
             line = self._strip_xml_multiline
-        if len(re.split(r"<pushStream[^>]*\/>", line)) > len(
-            re.split(r"<popStream[^>]*\/>", line)
+        if len(re.findall(r"<pushStream[^>]*/>", line)) > len(
+            re.findall(r"<popStream[^>]*/>", line)
         ):
             self._strip_xml_multiline = line
             return []
-        # Reset
         self._strip_xml_multiline = ""
 
         line = re.sub(
@@ -373,34 +363,3 @@ class XMLData:
                         style = "alert"
                     segments.append((stream, piece, style))
         return segments
-
-    def reset(self):
-        self.current_stream = ""
-        self.current_style = ""
-        self.active_tags = []
-        self.active_ids = []
-        self._route_bold = False
-        self._route_style = ""
-        self._route_preset = ""
-
-
-if __name__ == "__main__":
-    import xml.etree.ElementTree as ET
-
-    # from xml.etree.ElementTree import XMLParser
-
-    import pathlib
-
-    test_file = pathlib.Path(__file__).parents[1] / "tests" / "login-sample.log"
-    with open(test_file) as infile:
-        test_data = infile.readlines()
-    xml_data = XMLData()
-
-    parser = ET.XMLParser(target=xml_data, encoding="ASCII")
-    for line in test_data:
-        try:
-            # Need to create a new parser if it ever gets caught in an exception. Not sure how to get it unstuck.
-            ET.XMLParser(target=xml_data, encoding="ASCII").feed(line)
-        except ParseError:
-            continue
-    print(".")
