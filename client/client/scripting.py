@@ -32,6 +32,7 @@ import traceback
 from importlib import util as importlib_util
 from pathlib import Path
 from threading import Event, Lock, Thread
+from time import monotonic
 
 from client.client_logger import ClientLogger
 
@@ -78,19 +79,10 @@ class Script:
         timeout=0 polls what is already queued without blocking."""
         deadline = None if timeout is None else self._manager.clock() + timeout
         while True:
-            self._check()
-            try:
-                stream, text = self._queue.get_nowait()
-            except queue.Empty:
-                remaining = 0.25
-                if deadline is not None:
-                    remaining = min(0.25, deadline - self._manager.clock())
-                    if remaining <= 0:
-                        return None
-                try:
-                    stream, text = self._queue.get(timeout=remaining)
-                except queue.Empty:
-                    continue
+            item = self._take(self._queue, deadline)
+            if item is None:
+                return None
+            stream, text = item
             if streams is None:
                 return stream, text
             if stream in streams:
@@ -101,10 +93,16 @@ class Script:
         `;<name> <line>` while it runs delivers `<line>` here. None on
         timeout; timeout=0 polls without blocking."""
         deadline = None if timeout is None else self._manager.clock() + timeout
+        return self._take(self._commands, deadline)
+
+    def _take(self, source, deadline):
+        """The next item off a queue, or None once the deadline (manager
+        clock; None = wait forever) passes. Wakes every quarter second
+        to notice a stop, so a blocked script never outlives ;stop."""
         while True:
             self._check()
             try:
-                return self._commands.get_nowait()
+                return source.get_nowait()
             except queue.Empty:
                 pass
             remaining = 0.25
@@ -113,7 +111,7 @@ class Script:
                 if remaining <= 0:
                     return None
             try:
-                return self._commands.get(timeout=remaining)
+                return source.get(timeout=remaining)
             except queue.Empty:
                 continue
 
@@ -213,8 +211,6 @@ class ScriptManager(ClientLogger):
         self.state = state
         self.scripts_dir = Path(scripts_dir or DEFAULT_SCRIPTS_DIR)
         # Injectable for tests; scripts see time through their manager.
-        from time import monotonic
-
         self.clock = clock or monotonic
         self.running = {}
         self.lock = Lock()
