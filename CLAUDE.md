@@ -108,6 +108,9 @@ One pipeline, one parser, several processes:
   to mirror LNet chat into the Thoughts window (`;lnet`). `;tend`
   bandages bleeders (watch mode wakes on soak-through); `;wealth`
   passively logs teller balance statements into xp.db.
+  `client/client/probe.py` is the ask-and-classify helper the keyword
+  scripts (;mechlore, ;favors) share: send a command, gather the answer
+  through its roundtime, match it against an ordered outcome table.
   Sessions autostart the xp history logger, the beholder dashboard
   server in quiet mode, the character-sheet snapshotter (`;sheet`:
   INFO + EXP ALL into stats/sheet_skills/character tables every 3h),

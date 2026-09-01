@@ -15,6 +15,9 @@ fixtures.
 
 import time
 
+from client import probe
+from client.probe import classify
+
 MIND_LOCK = 34  # mindstate 34/34: nothing more fits
 RESUME_BELOW = 28  # resume once enough has drained to be worth it
 LOCK_POLL = 30  # seconds between mindstate checks while locked
@@ -54,24 +57,6 @@ BRAID_OUTCOMES = (
 )
 
 
-def classify(text, outcomes):
-    lowered = text.lower()
-    for outcome, needles in outcomes:
-        if any(needle in lowered for needle in needles):
-            return outcome
-    return None
-
-
-def collect(s, seconds):
-    pieces = []
-    deadline = time.monotonic() + seconds
-    while time.monotonic() < deadline:
-        line = s.get(timeout=0.5)
-        if line is not None:
-            pieces.append(line)
-    return "\n".join(pieces)
-
-
 def mindstate(state):
     """Mechanical Lore mindstate 0-34, or None when it isn't in the
     exp window yet."""
@@ -91,16 +76,9 @@ def wait_for_drain(s):
 
 
 def ask(s, command):
-    s.put(command)
-    opening = collect(s, COLLECT_SECONDS)
-    # Results can land at the END of the roundtime the command opens —
-    # captured 2026-08-22: a 6s blind forage answered after the old
-    # collect window closed, so the classifier only saw the narration.
-    # waitrt comes after the first collect because the roundtime is not
-    # yet announced when the command is sent.
-    s.waitrt()
-    tail = collect(s, RESULT_SECONDS)
-    return f"{opening}\n{tail}" if tail else opening
+    """The game's answer to a command, roundtime-delayed tail included
+    (client.probe.ask, with this script's collection windows)."""
+    return probe.ask(s, command, COLLECT_SECONDS, RESULT_SECONDS)
 
 
 def braid_piece(s):
