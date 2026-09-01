@@ -1,5 +1,4 @@
 """Earn a favor — the orb run, grotto to temple altar:  ;favors [immortal]
-
 Run it from anywhere in walking range of Crossing: the script walks to
 the Stone Grotto west of town, prays a favor orb loose in the name of
 a neutral Immortal (default Truffenyi; e.g. ;favors Meraud), takes the
@@ -24,8 +23,8 @@ attended run captures them (#82) — anything unclassified is echoed as
 fixtures. Stop with:  ;stop favors
 """
 
-import time
-
+from client import probe
+from client.probe import classify
 from client.walker import locate
 
 GROTTO = 1420  # [Siergelde, Stone Grotto] — Zoluren's general favor altar
@@ -80,33 +79,12 @@ OFFER_OUTCOMES = (
 )
 
 
-def classify(text, outcomes):
-    lowered = text.lower()
-    for outcome, needles in outcomes:
-        if any(needle in lowered for needle in needles):
-            return outcome
-    return None
-
-
-def collect(s, seconds):
-    pieces = []
-    deadline = time.monotonic() + seconds
-    while time.monotonic() < deadline:
-        line = s.get(timeout=0.5)
-        if line is not None:
-            pieces.append(line)
-    return "\n".join(pieces)
-
-
 def ask(s, command, seconds=None):
-    s.put(command)
-    opening = collect(s, COLLECT_SECONDS if seconds is None else seconds)
-    # Results can land at the roundtime's end (the ;mechlore blind-forage
-    # capture, 2026-08-22); the roundtime is only announced after the
-    # command goes out, so waitrt comes after the first collect.
-    s.waitrt()
-    tail = collect(s, RESULT_SECONDS)
-    return f"{opening}\n{tail}" if tail else opening
+    """The game's answer to a command, roundtime-delayed tail included
+    (client.probe.ask, with this script's collection windows)."""
+    return probe.ask(
+        s, command, COLLECT_SECONDS if seconds is None else seconds, RESULT_SECONDS
+    )
 
 
 def echo_unrecognized(s, step, answer):

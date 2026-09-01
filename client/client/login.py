@@ -35,8 +35,7 @@ def _response_status(response: str) -> str:
 
 
 class LoginError(Exception):
-    def __init__(self, message):
-        super().__init__(message)
+    """The eaccess server refused a step of the handshake."""
 
 
 class EAccessClient(ClientLogger):
@@ -68,17 +67,9 @@ class EAccessClient(ClientLogger):
         elif "REJECTED" in a_response:
             raise LoginError("Account suspended? Login Rejected")
         elif "KEY" in a_response:
-            key = re.compile(".*\tKEY\t(.+)\t").match(a_response).group(1)
-            return key
+            return re.compile(".*\tKEY\t(.+)\t").match(a_response).group(1)
         else:
             raise LoginError("Something went wrong")
-
-    def get_game_list(self):
-        """Poll the server for a list of games (unused at the moment)"""
-        self.client.write(rb"\M")
-        game_list = self.client.read_until(b"\n")
-        self.log.debug(f"game_list: {game_list}")
-        return
 
     def get_hashkey(self):
         """Sends request for key to encrypt password with"""
@@ -156,6 +147,12 @@ def load_login_defaults() -> dict:
     return data if isinstance(data, dict) else {}
 
 
+def _write_login_defaults(data: dict):
+    path = login_defaults_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data))
+
+
 def save_login_defaults(account: str, character: str):
     """Remember the account and character names for future launches.
 
@@ -164,9 +161,7 @@ def save_login_defaults(account: str, character: str):
     remembering a second account emptied the picker, #58)."""
     data = load_login_defaults()
     data.update({"account": account, "character": character})
-    path = login_defaults_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data))
+    _write_login_defaults(data)
 
 
 def _code_for(characters: dict, character_name: str) -> str:
@@ -209,9 +204,7 @@ def save_known_characters(names, account: str):
     entry = accounts.setdefault(account.lower(), {})
     entry["characters"] = sorted(names)
     entry["account"] = account
-    path = login_defaults_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data))
+    _write_login_defaults(data)
 
 
 def account_for_character(defaults: dict, character: str):
@@ -230,24 +223,30 @@ def account_for_character(defaults: dict, character: str):
     return None
 
 
+def _authenticate(login_client, username: bytes, password: bytes) -> dict:
+    """The front half every eaccess handshake shares: connect, hash the
+    password against the server's key, log in, pick DragonRealms, and
+    fetch the roster — cached for pickers (save_known_characters) and
+    returned as {name: code}. The caller closes the client."""
+    login_client.connect()
+    hashkey = login_client.get_hashkey()
+    login_client.submit_login(
+        {"username": username, "password": password, "hashkey": hashkey}
+    )
+    login_client.submit_game()
+    characters = login_client.character_list()
+    save_known_characters(characters, username.decode("ASCII"))
+    return characters
+
+
 def fetch_character_list(username: str, password: str, login_client=None) -> dict:
     """The account's {name: code} roster via a throwaway eaccess
     handshake; caches the names for pickers."""
     login_client = login_client or EAccessClient()
     try:
-        login_client.connect()
-        hashkey = login_client.get_hashkey()
-        login_client.submit_login(
-            {
-                "username": username.encode("ASCII"),
-                "password": password.encode("ASCII"),
-                "hashkey": hashkey,
-            }
+        return _authenticate(
+            login_client, username.encode("ASCII"), password.encode("ASCII")
         )
-        login_client.submit_game()
-        characters = login_client.character_list()
-        save_known_characters(characters, username)
-        return characters
     finally:
         login_client.client.close()
 
@@ -294,33 +293,25 @@ def get_credentials():
 
 
 def eaccess_protocol(login_info):
+    """The full handshake for {username, password, character} (bytes,
+    bytes, str): a single-use game launch key for that character."""
     login_client = EAccessClient()
     try:
-        login_client.connect()
-        login_info["hashkey"] = login_client.get_hashkey()
-        login_client.submit_login(login_info)
-        login_client.submit_game()
-        characters = login_client.character_list()
-        # Roster cache for pickers, keyed by the account logging in.
-        save_known_characters(characters, login_info["username"].decode("ASCII"))
+        characters = _authenticate(
+            login_client, login_info["username"], login_info["password"]
+        )
         character_code = _code_for(characters, login_info["character"])
-        login_key = login_client.submit_character_info(character_code)
-        return login_key
-    except LoginError as e:
-        module_logger.log.error(f"Had some trouble logging in: {e}")
-        raise
+        return login_client.submit_character_info(character_code)
     except Exception as e:
         module_logger.log.error(f"Had some trouble logging in: {e}")
         raise
     finally:
         login_client.client.close()
-    # TODO: Persist key
 
 
 def simu_login():
     log = module_logger.log
     log.debug("Starting Simu login procedure")
-    # TODO: Consider handling game_connection with a context manager, if possible
     creds = get_credentials()
     key = eaccess_protocol(creds)
     return connect_game(key)

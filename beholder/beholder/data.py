@@ -27,6 +27,18 @@ def connect(path=None):
     return connection
 
 
+def _sheet_roster(connection, character, logged_at):
+    """One ;sheet snapshot's skills: {skill: (rank, percent)}."""
+    return {
+        row["skill_name"]: (row["rank"], row["percent"])
+        for row in connection.execute(
+            "SELECT skill_name, rank, percent FROM sheet_skills"
+            " WHERE character_name = ? AND logged_at = ?",
+            (character, logged_at),
+        )
+    }
+
+
 def sheet_snapshot(connection, character):
     """The newest ;sheet roster for a character: (logged_at, circle,
     guild, {skill: (rank, percent)}), or None before any snapshot."""
@@ -37,14 +49,7 @@ def sheet_snapshot(connection, character):
     if not row or row[0] is None:
         return None
     logged_at = row[0]
-    ranks = {
-        r["skill_name"]: (r["rank"], r["percent"])
-        for r in connection.execute(
-            "SELECT skill_name, rank, percent FROM sheet_skills"
-            " WHERE character_name = ? AND logged_at = ?",
-            (character, logged_at),
-        )
-    }
+    ranks = _sheet_roster(connection, character, logged_at)
     circle, guild = None, None
     try:
         latest = connection.execute(
@@ -86,17 +91,9 @@ def latest_character(connection):
     return row["character_name"] if row else None
 
 
-def history_since(connection, character, since_iso):
-    """Time series per skill from a cutoff onward — the dock's recent
-    window. Same shape as history(); ISO-8601 UTC strings compare as
-    time, so the cutoff is a plain string comparison."""
-    rows = connection.execute(
-        "SELECT skill_name, logged_at, mindstate, rank"
-        "  FROM mindstate"
-        " WHERE character_name = ? AND logged_at >= ?"
-        " ORDER BY logged_at",
-        (character, since_iso),
-    )
+def _mindstate_series(rows):
+    """Time-ordered mindstate rows grouped per skill: {skill: {"times":
+    [...], "mindstate": [...], "rank": [...]}}."""
     series = {}
     for row in rows:
         points = series.setdefault(
@@ -106,6 +103,21 @@ def history_since(connection, character, since_iso):
         points["mindstate"].append(row["mindstate"])
         points["rank"].append(row["rank"])
     return series
+
+
+def history_since(connection, character, since_iso):
+    """Time series per skill from a cutoff onward — the dock's recent
+    window. Same shape as history(); ISO-8601 UTC strings compare as
+    time, so the cutoff is a plain string comparison."""
+    return _mindstate_series(
+        connection.execute(
+            "SELECT skill_name, logged_at, mindstate, rank"
+            "  FROM mindstate"
+            " WHERE character_name = ? AND logged_at >= ?"
+            " ORDER BY logged_at",
+            (character, since_iso),
+        )
+    )
 
 
 def latest_snapshot(connection, character):
@@ -129,34 +141,16 @@ def history(connection, character, skill_names):
     if not skill_names:
         return {}
     placeholders = ", ".join("?" for _ in skill_names)
-    rows = connection.execute(
-        "SELECT skill_name, logged_at, mindstate, rank"
-        "  FROM mindstate"
-        " WHERE character_name = ?"
-        f"   AND skill_name IN ({placeholders})"
-        " ORDER BY logged_at",
-        (character, *skill_names),
+    return _mindstate_series(
+        connection.execute(
+            "SELECT skill_name, logged_at, mindstate, rank"
+            "  FROM mindstate"
+            " WHERE character_name = ?"
+            f"   AND skill_name IN ({placeholders})"
+            " ORDER BY logged_at",
+            (character, *skill_names),
+        )
     )
-    series = {}
-    for row in rows:
-        points = series.setdefault(
-            row["skill_name"], {"times": [], "mindstate": [], "rank": []}
-        )
-        points["times"].append(row["logged_at"])
-        points["mindstate"].append(row["mindstate"])
-        points["rank"].append(row["rank"])
-    return series
-
-
-def _sheet_roster(connection, character, logged_at):
-    return {
-        row["skill_name"]: (row["rank"], row["percent"])
-        for row in connection.execute(
-            "SELECT skill_name, rank, percent FROM sheet_skills"
-            " WHERE character_name = ? AND logged_at = ?",
-            (character, logged_at),
-        )
-    }
 
 
 def sheet_with_deltas(connection, character):
