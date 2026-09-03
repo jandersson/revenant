@@ -334,6 +334,18 @@ def parse_observe_output(text):
         if "beginning to wax" in lowered:
             phases[moon] = 1  # waxing crescent
             continue
+        # The half-lit phases: DR words them as ordinals, never as
+        # "half" (captured 2026-09-03: "Yavash is a third quarter moon
+        # soaring high near the zenith."). The ordinal carries the
+        # direction, so these are read before the wax/wan rule below —
+        # the sentence states neither, and requiring one dropped every
+        # quarter moon from the calibration (#110).
+        if "first quarter" in lowered:
+            phases[moon] = 2
+            continue
+        if "third quarter" in lowered or "last quarter" in lowered:
+            phases[moon] = 6
+            continue
         waxing = "wax" in lowered
         waning = "wan" in lowered
         for word, if_waxing, if_waning in _PHASE_WORDS:

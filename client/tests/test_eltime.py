@@ -37,6 +37,19 @@ The moon Yavash forms a perfect circle in the heavens.
 """
 OBSERVE_UNIX_2 = 1_787_402_546
 
+# Captured 2026-09-03 21:20 local, a Moon Mage's OBSERVE MOONS — the
+# first capture holding a quarter moon. DR words the half-lit phases as
+# ordinals ("third quarter"), never as "half", and states no wax/wan
+# direction alongside them: the ordinal is the direction (#110).
+OBSERVE_TEXT_3 = """Katamba is a waxing crescent moon and is not visible.  Although you cannot see it, you can sense it should rise in about 5 anlaen.
+You are certain that Katamba is thirty-two degrees below the western horizon.
+Xibar is a waxing gibbous moon and is not visible.  Although you cannot see it, you can sense it should rise in about 2 anlaen.
+You are certain that Xibar is eighty degrees below the eastern horizon.
+Yavash is a third quarter moon soaring high near the zenith.
+You're certain that Yavash is seventy-six degrees above the eastern horizon.
+"""
+OBSERVE_UNIX_3 = 1_788_463_232
+
 
 def test_the_capture_instant_is_what_the_comment_says():
     stamp = datetime(2026, 8, 22, 12, 21, 56, tzinfo=timezone.utc)
@@ -227,6 +240,38 @@ def test_parse_observe_output_second_capture_reads_a_full_moon():
         "katamba": 7,
         "yavash": 4,
     }
+
+
+def test_parse_observe_output_reads_all_three_moons_with_a_quarter():
+    # The regression (#110): "third quarter" used to be dropped, so a
+    # calibration silently anchored two moons instead of three.
+    assert eltime.parse_observe_output(OBSERVE_TEXT_3) == {
+        "katamba": 1,
+        "xibar": 3,
+        "yavash": 6,
+    }
+
+
+def test_parse_observe_reads_the_quarter_ordinals_without_a_direction():
+    # The ordinal names the direction; the sentence states no wax/wan,
+    # and must not need to.
+    assert eltime.parse_observe_output("Yavash is a third quarter moon.") == {
+        "yavash": 6
+    }
+    assert eltime.parse_observe_output("Yavash is a last quarter moon.") == {
+        "yavash": 6
+    }
+    assert eltime.parse_observe_output("Xibar is a first quarter moon.") == {"xibar": 2}
+
+
+def test_the_third_capture_matches_what_the_model_predicts():
+    # Every moon the capture describes, against the uncalibrated
+    # defaults: the observation agreeing with the model is the reason
+    # to trust DEFAULT_MOON_EPOCHS. "third quarter" is index 6, which
+    # PHASES names "last quarter" — the same phase, the other name.
+    for moon, index in eltime.parse_observe_output(OBSERVE_TEXT_3).items():
+        assert eltime.moon_phase(moon, OBSERVE_UNIX_3) == index
+    assert eltime.PHASES[6] == "last quarter"
 
 
 def test_moon_phase_reproduces_the_capture_through_its_anchor():
