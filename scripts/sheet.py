@@ -18,6 +18,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from client import settings
 from client.inventory import FOOTER as INV_END
 from client.inventory import parse_inventory
 
@@ -322,14 +323,29 @@ def ask(s, command, parse, until, answered):
     return result, False
 
 
-def snapshot(s):
+def want_inventory(first):
+    """Whether this snapshot should ask INV FULL.
+
+    Only the session's first one, and only when the setting allows it:
+    the command costs 5s of roundtime, and a snapshot every INTERVAL
+    would spend it while you are mid-fight rather than freshly logged
+    in. Set "sheet_inventory": false in ~/.revenant/settings.json to
+    stop asking entirely (#117).
+    """
+    if not first:
+        return False
+    allowed = settings.setting("sheet_inventory")
+    return True if allowed is None else bool(allowed)
+
+
+def snapshot(s, first=True):
     info, _ = ask(s, "info", parse_info, INFO_END, lambda r: bool(r["stats"]))
     skills, renaming = ask(s, "exp all", parse_exp_all, EXP_ALL_END, bool)
-    # INV FULL costs 5s of roundtime and churns constantly during play,
-    # so it is sampled once per session like the rest of the sheet
-    # rather than every INTERVAL (#117). The renaming room refuses it
-    # like everything else, so there is no point asking there (#112).
-    items = [] if renaming else ask(s, "inv full", parse_inventory, INV_END, bool)[0]
+    # The renaming room refuses INV FULL like everything else, so there
+    # is no point asking there (#112).
+    items = []
+    if want_inventory(first) and not renaming:
+        items = ask(s, "inv full", parse_inventory, INV_END, bool)[0]
     if renaming:
         s.echo(
             "sheet: EXP ALL is unavailable in the renaming room — stats "
@@ -373,6 +389,7 @@ def snapshot(s):
 
 def main(s):
     once = bool(s.args) and s.args[0] == "once"
+    first = True  # only the first snapshot pays INV FULL's roundtime
     while True:
         if s.dead:
             # A ghost answers INFO with a warning, not a sheet — the
@@ -382,7 +399,8 @@ def main(s):
                 return
             s.sleep(60)  # check again once breathing resumes
             continue
-        snapshot(s)
+        snapshot(s, first=first)
+        first = False
         if once:
             return
         s.sleep(INTERVAL)

@@ -514,3 +514,43 @@ def test_the_sheet_still_snapshots_without_any_inventory(monkeypatch, tmp_path):
     )
     assert connection.execute("SELECT count(*) FROM character").fetchone()[0] == 1
     assert connection.execute("SELECT count(*) FROM sheet_skills").fetchone()[0] > 0
+
+
+# --- INV FULL costs roundtime, so it is rationed (#117) ---
+
+
+def test_only_the_first_snapshot_of_a_session_asks_for_inventory(monkeypatch):
+    # Every INTERVAL would spend 5s of roundtime mid-play; once, right
+    # after login, does not.
+    monkeypatch.setattr(sheet.settings, "setting", lambda key: None)
+    assert sheet.want_inventory(first=True) is True
+    assert sheet.want_inventory(first=False) is False
+
+
+def test_the_setting_turns_inventory_off(monkeypatch):
+    monkeypatch.setattr(sheet.settings, "setting", lambda key: False)
+    assert sheet.want_inventory(first=True) is False
+
+
+def test_inventory_is_on_when_the_setting_is_absent(monkeypatch):
+    # An untouched settings.json must not silently disable it.
+    monkeypatch.setattr(sheet.settings, "setting", lambda key: None)
+    assert sheet.want_inventory(first=True) is True
+
+
+def test_a_later_snapshot_stores_no_inventory(monkeypatch, tmp_path):
+    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
+    monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
+    handle = FakeHandle(
+        {
+            "info": [INFO_TEXT.splitlines()],
+            "exp all": [EXP_ALL_TEXT.splitlines()],
+            "inv full": [INV_FULL_TEXT.splitlines()],
+        }
+    )
+    sheet.snapshot(handle, first=False)
+    connection = sqlite3.connect(tmp_path / "xp.db")
+    assert connection.execute("SELECT count(*) FROM inventory").fetchone()[0] == 0
+    # The command was never sent, so its canned answer is untouched.
+    assert len(handle.responses["inv full"]) == 1
