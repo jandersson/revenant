@@ -126,12 +126,12 @@ One pipeline, one parser, several processes:
   through its roundtime, match it against an ordered outcome table.
   Sessions autostart the xp history logger, the beholder dashboard
   server in quiet mode, the character-sheet snapshotter (`;sheet`:
-  INFO + EXP ALL into stats/sheet_skills/character tables every 3h,
-  plus INV FULL into `inventory` on the session's FIRST snapshot only —
-  it costs 5s of roundtime, so it is never paid mid-play; disable with
-  `"sheet_inventory": false`. `client/inventory.py` flattens the
-  indented tree into rows naming each item's container, identical
-  items collapsed to a quantity, #117),
+  INFO + EXP ALL into stats/sheet_skills/character tables every 3h;
+  `;sheet inv` additionally asks INV FULL into the `inventory` table
+  and exits — on demand only, never scheduled, because INV FULL costs
+  5s of roundtime. `client/inventory.py` flattens the indented tree
+  into rows naming each item's container, identical items collapsed to
+  a quantity, #117),
   and the death watchdog (`;deathwatch`: departs an unattended corpse
   with the best variant the favors afford before it decays —
   docs/death.md holds the captured model)

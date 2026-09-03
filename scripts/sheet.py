@@ -7,6 +7,14 @@ three hours after; the sheet moves slowly, so that's plenty. A command
 the game leaves unanswered (login noise eats them) is re-asked, and
 whatever still won't answer is left out of the snapshot rather than
 stored as blanks. ;sheet once takes a single snapshot and exits.
+
+;sheet inv adds your inventory: INV FULL, flattened into rows naming
+each item's container, so "which character has that thing?" is a query
+instead of a login. It is on demand only and never scheduled — INV FULL
+costs 5 seconds of roundtime, which is fine when you ask for it and not
+fine arriving mid-fight. Like `once`, it takes the one snapshot and
+exits.
+
 ;stop sheet opts a session out; REVENANT_NO_SHEET=1 disables the
 autostart.
 """
@@ -18,7 +26,6 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from client import settings
 from client.inventory import FOOTER as INV_END
 from client.inventory import parse_inventory
 
@@ -323,28 +330,16 @@ def ask(s, command, parse, until, answered):
     return result, False
 
 
-def want_inventory(first):
-    """Whether this snapshot should ask INV FULL.
-
-    Only the session's first one, and only when the setting allows it:
-    the command costs 5s of roundtime, and a snapshot every INTERVAL
-    would spend it while you are mid-fight rather than freshly logged
-    in. Set "sheet_inventory": false in ~/.revenant/settings.json to
-    stop asking entirely (#117).
-    """
-    if not first:
-        return False
-    allowed = settings.setting("sheet_inventory")
-    return True if allowed is None else bool(allowed)
-
-
-def snapshot(s, first=True):
+def snapshot(s, inventory=False):
     info, _ = ask(s, "info", parse_info, INFO_END, lambda r: bool(r["stats"]))
     skills, renaming = ask(s, "exp all", parse_exp_all, EXP_ALL_END, bool)
     # The renaming room refuses INV FULL like everything else, so there
     # is no point asking there (#112).
+    # Only when asked for: INV FULL costs 5s of roundtime, so it is
+    # never part of the scheduled snapshot (#117). The renaming room
+    # refuses it like everything else, so it is skipped there (#112).
     items = []
-    if want_inventory(first) and not renaming:
+    if inventory and not renaming:
         items = ask(s, "inv full", parse_inventory, INV_END, bool)[0]
     if renaming:
         s.echo(
@@ -388,8 +383,10 @@ def snapshot(s, first=True):
 
 
 def main(s):
-    once = bool(s.args) and s.args[0] == "once"
-    first = True  # only the first snapshot pays INV FULL's roundtime
+    args = [str(arg).lower() for arg in (s.args or [])]
+    inventory = "inv" in args
+    # `inv` is a request, not a schedule: take the snapshot and stop.
+    once = inventory or "once" in args
     while True:
         if s.dead:
             # A ghost answers INFO with a warning, not a sheet — the
@@ -399,8 +396,7 @@ def main(s):
                 return
             s.sleep(60)  # check again once breathing resumes
             continue
-        snapshot(s, first=first)
-        first = False
+        snapshot(s, inventory=inventory)
         if once:
             return
         s.sleep(INTERVAL)

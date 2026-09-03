@@ -99,12 +99,12 @@ class FakeHandle:
         self.slept += seconds
 
 
-def snapshot_into(monkeypatch, tmp_path, responses):
+def snapshot_into(monkeypatch, tmp_path, responses, inventory=False):
     monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
     monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
     monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
     handle = FakeHandle(responses)
-    sheet.snapshot(handle)
+    sheet.snapshot(handle, inventory=inventory)
     connection = sqlite3.connect(tmp_path / "xp.db")
     return handle, connection
 
@@ -476,6 +476,7 @@ def test_the_snapshot_stores_the_inventory(monkeypatch, tmp_path):
             "exp all": [EXP_ALL_TEXT.splitlines()],
             "inv full": [INV_FULL_TEXT.splitlines()],
         },
+        inventory=True,
     )
     rows = connection.execute(
         "SELECT container, item, quantity, depth FROM inventory ORDER BY seq"
@@ -497,6 +498,7 @@ def test_an_unanswered_inv_full_stores_no_inventory(monkeypatch, tmp_path):
             "exp all": [EXP_ALL_TEXT.splitlines()],
             "inv full": [[]],
         },
+        inventory=True,
     )
     assert connection.execute("SELECT count(*) FROM inventory").fetchone()[0] == 0
 
@@ -511,34 +513,17 @@ def test_the_sheet_still_snapshots_without_any_inventory(monkeypatch, tmp_path):
             "exp all": [EXP_ALL_TEXT.splitlines()],
             "inv full": [[]],
         },
+        inventory=True,
     )
     assert connection.execute("SELECT count(*) FROM character").fetchone()[0] == 1
     assert connection.execute("SELECT count(*) FROM sheet_skills").fetchone()[0] > 0
 
 
-# --- INV FULL costs roundtime, so it is rationed (#117) ---
+# --- INV FULL is on demand only: ;sheet inv (#117) ---
 
 
-def test_only_the_first_snapshot_of_a_session_asks_for_inventory(monkeypatch):
-    # Every INTERVAL would spend 5s of roundtime mid-play; once, right
-    # after login, does not.
-    monkeypatch.setattr(sheet.settings, "setting", lambda key: None)
-    assert sheet.want_inventory(first=True) is True
-    assert sheet.want_inventory(first=False) is False
-
-
-def test_the_setting_turns_inventory_off(monkeypatch):
-    monkeypatch.setattr(sheet.settings, "setting", lambda key: False)
-    assert sheet.want_inventory(first=True) is False
-
-
-def test_inventory_is_on_when_the_setting_is_absent(monkeypatch):
-    # An untouched settings.json must not silently disable it.
-    monkeypatch.setattr(sheet.settings, "setting", lambda key: None)
-    assert sheet.want_inventory(first=True) is True
-
-
-def test_a_later_snapshot_stores_no_inventory(monkeypatch, tmp_path):
+def test_a_plain_snapshot_asks_for_no_inventory(monkeypatch, tmp_path):
+    # The scheduled snapshot must never spend INV FULL's 5s roundtime.
     monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
     monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
     monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
@@ -549,8 +534,25 @@ def test_a_later_snapshot_stores_no_inventory(monkeypatch, tmp_path):
             "inv full": [INV_FULL_TEXT.splitlines()],
         }
     )
-    sheet.snapshot(handle, first=False)
+    sheet.snapshot(handle)
     connection = sqlite3.connect(tmp_path / "xp.db")
     assert connection.execute("SELECT count(*) FROM inventory").fetchone()[0] == 0
-    # The command was never sent, so its canned answer is untouched.
+    # Never sent: the canned answer is untouched.
     assert len(handle.responses["inv full"]) == 1
+
+
+def test_the_renaming_room_is_never_asked_for_inventory(monkeypatch, tmp_path):
+    # It refuses INV FULL like everything else, so asking only burns
+    # roundtime and retries (#112).
+    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
+    monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
+    handle = FakeHandle(
+        {
+            "info": [INFO_TEXT.splitlines()],
+            "exp all": [RENAMING_TEXT.splitlines()],
+            "inv full": [INV_FULL_TEXT.splitlines()],
+        }
+    )
+    sheet.snapshot(handle, inventory=True)
+    assert len(handle.responses["inv full"]) == 1  # never sent
