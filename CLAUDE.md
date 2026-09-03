@@ -99,8 +99,13 @@ One pipeline, one parser, several processes:
   state and the character name ride along (`REVENANT_GAME_STATE`):
   the game only announces indicators on change and the login <app>
   tag never repeats, so a fresh parser could otherwise never learn
-  a standing fact like DEAD (#92) or who is playing (#95). Remember: a
-  running session does NOT see code edits until it re-execs or restarts.
+  a standing fact like DEAD (#92) or who is playing (#95).
+  **`;reexec` is POSIX-only**: on Windows it refuses with a note and
+  changes nothing (WinSock handles aren't CRT fds and exec spawns
+  rather than replaces, #38), so picking up new code there means
+  File → Detach and relaunch. Remember either way: a running session
+  does NOT see code edits until it re-execs or restarts — and on
+  Windows only a relaunch does it.
 - `client/client/scripting.py` — script engine. Scripts are `main(s)` Python
   files in `scripts/` (repo root), run as threads in the session, controlled
   by `;`-commands typed in any frontend (`;list`, `;help [x]`, `;run x`,
