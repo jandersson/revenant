@@ -45,6 +45,7 @@ from client.gui.map_dock import MapView
 from client.highlights import highlights_path, load_rules, spans
 from client.session import AttachedEngine, DEFAULT_HOST, DEFAULT_PORT
 from client.settings import load_settings, save_settings, setting, settings_path
+from client.streamroute import STREAM_WINDOWS as STREAM_WINDOW_TITLES, clears_window
 
 ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
 
@@ -149,16 +150,11 @@ class ClientGUI(QMainWindow, ClientLogger):
         "sent": (False, "#8a8a96"),
     }
 
-    # stream id -> dock window title; streams not listed here fall through
-    # to the main window.
-    STREAM_WINDOWS = {
-        "thoughts": "Thoughts",
-        "chatter": "Thoughts",
-        "percWindow": "Spells",
-        "logons": "Arrivals",
-        "death": "Deaths",
-        "exp": "Experience",
-    }
+    # stream id -> dock window title; a stream not listed here has no dock
+    # of its own, and its text falls through to the main window. The table
+    # lives in client.streamroute, Qt-free, so tests can exercise the
+    # routing rules headless (#109).
+    STREAM_WINDOWS = STREAM_WINDOW_TITLES
 
     # The status strip's badge colors: alarming states loud, sneaky
     # states purple, posture plain. IconDEAD overrides everything.
@@ -866,6 +862,17 @@ class ClientGUI(QMainWindow, ClientLogger):
             self.status_bar.hide()
 
     def dispatch_game_text(self, text: str, stream: str, style: str = ""):
+        if style == "clear":
+            # A clear names one stream, so it is answered before the
+            # synthetic-stream branches below: the game has its own
+            # "room" stream whose clear would otherwise reach the map
+            # dock as an empty room frame. Streams with no window of
+            # their own (inv, experience) have nothing to wipe — the
+            # main window is not a stand-in, or every GET/PUT would
+            # blank the story (#109).
+            if clears_window(stream):
+                self.stream_windows[stream].clear()
+            return
         if stream == "compass":
             self.update_compass(text)
             return
@@ -898,13 +905,9 @@ class ClientGUI(QMainWindow, ClientLogger):
             uid = int(uid_text) if uid_text.strip().isdigit() else None
             self.map_view.update_room(uid, title.strip())
             return
-        view = self.stream_windows.get(stream, self.main_window)
-        if style == "clear":
-            # The game rewrites resident windows wholesale (spell list
-            # pulses): wipe before the fresh content lands.
-            view.clear()
-            return
-        self._append(view, text, style)
+        # An undocked stream's text still belongs in the main window;
+        # only the clear control above is stream-exclusive.
+        self._append(self.stream_windows.get(stream, self.main_window), text, style)
 
     def write_to_main_window(self, text: str):
         if not text.endswith("\n"):

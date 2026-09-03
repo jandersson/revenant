@@ -164,7 +164,11 @@ One pipeline, one parser, several processes:
   traceback and surfacing it in the main window + status bar (#94);
   the reader thread runs `client/reader.py`'s Qt-free pump, which
   surfaces EOF and crashes in the status bar instead of dying
-  silently (#96); stream docks route thoughts/spells/arrivals/deaths;
+  silently (#96); stream docks route thoughts/spells/arrivals/deaths
+  (the stream -> dock table and the rule that a "clear" wipes only
+  that stream's own dock live in the Qt-free `client/streamroute.py`,
+  so tests reach them headless — a clear for an undocked stream like
+  `inv` must be dropped, never applied to the main window, #109);
   compass dock renders the `"compass"` stream; the Map dock draws
   the community map around the character from the `"room"` stream
   (grid layout in the Qt-free `client/maplayout.py`, drawing in
