@@ -18,6 +18,9 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from client.inventory import FOOTER as INV_END
+from client.inventory import parse_inventory
+
 INTERVAL = 3 * 3600  # seconds between snapshots
 COLLECT_SECONDS = 5  # patience per ask; the answer's last line ends it early
 ATTEMPTS = 3  # re-asks for a command the game left unanswered
@@ -105,6 +108,15 @@ CREATE TABLE IF NOT EXISTS character (
     birth_day INTEGER,
     birth_month INTEGER
 );
+CREATE TABLE IF NOT EXISTS inventory (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    logged_at TEXT NOT NULL,
+    character_name TEXT NOT NULL,
+    container TEXT,
+    item TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    depth INTEGER NOT NULL
+);
 """
 
 
@@ -191,7 +203,7 @@ def parse_exp_all(text):
     }
 
 
-def insert_snapshot(connection, character, logged_at, info, skills):
+def insert_snapshot(connection, character, logged_at, info, skills, items=None):
     connection.executemany(
         "INSERT INTO stats (logged_at, character_name, stat, value)"
         " VALUES (?, ?, ?, ?)",
@@ -204,6 +216,22 @@ def insert_snapshot(connection, character, logged_at, info, skills):
         [
             (logged_at, character, skill, rank, percent)
             for skill, (rank, percent) in sorted(skills.items())
+        ],
+    )
+    connection.executemany(
+        "INSERT INTO inventory"
+        " (logged_at, character_name, container, item, quantity, depth)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        [
+            (
+                logged_at,
+                character,
+                row["container"],
+                row["item"],
+                row["quantity"],
+                row["depth"],
+            )
+            for row in items or []
         ],
     )
     connection.executemany(
@@ -297,6 +325,11 @@ def ask(s, command, parse, until, answered):
 def snapshot(s):
     info, _ = ask(s, "info", parse_info, INFO_END, lambda r: bool(r["stats"]))
     skills, renaming = ask(s, "exp all", parse_exp_all, EXP_ALL_END, bool)
+    # INV FULL costs 5s of roundtime and churns constantly during play,
+    # so it is sampled once per session like the rest of the sheet
+    # rather than every INTERVAL (#117). The renaming room refuses it
+    # like everything else, so there is no point asking there (#112).
+    items = [] if renaming else ask(s, "inv full", parse_inventory, INV_END, bool)[0]
     if renaming:
         s.echo(
             "sheet: EXP ALL is unavailable in the renaming room — stats "
@@ -322,6 +355,7 @@ def snapshot(s):
             datetime.now(timezone.utc).isoformat(),
             info,
             skills,
+            items,
         )
     finally:
         connection.close()

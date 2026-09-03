@@ -311,6 +311,7 @@ def test_an_untrained_characters_empty_exp_all_is_asked_once(monkeypatch, tmp_pa
                 EMPTY_EXP_ALL_TEXT.splitlines(),
                 EMPTY_EXP_ALL_TEXT.splitlines(),
             ],
+            "inv full": [INV_FULL_TEXT.splitlines()],
         },
     )
     assert len(handle.responses["exp all"]) == 2  # only the first was used
@@ -448,3 +449,68 @@ def test_ensure_schema_adds_the_columns_to_an_older_database(tmp_path):
     assert connection.execute(
         "SELECT circle, race FROM character WHERE character_name = 'Testchar'"
     ).fetchone() == (5, None)
+
+
+# --- inventory rides along with the sheet snapshot (#117) ---
+
+INV_FULL_TEXT = """You take a moment and rummage about your person, taking stock \
+of your possessions...
+You have:
+  a target shield
+  an ornate scabbard
+     -a short sword
+     -a broadsword
+  a lunch pail
+     -a goblet of rich bloodwyne
+     -a goblet of rich bloodwyne
+[Use INVENTORY HELP for more options.]
+Roundtime: 5 sec."""
+
+
+def test_the_snapshot_stores_the_inventory(monkeypatch, tmp_path):
+    handle, connection = snapshot_into(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_TEXT.splitlines()],
+            "exp all": [EXP_ALL_TEXT.splitlines()],
+            "inv full": [INV_FULL_TEXT.splitlines()],
+        },
+    )
+    rows = connection.execute(
+        "SELECT container, item, quantity, depth FROM inventory ORDER BY seq"
+    ).fetchall()
+    assert ("an ornate scabbard", "a broadsword", 1, 1) in rows
+    assert (None, "a target shield", 1, 0) in rows
+    # Duplicates collapse rather than storing a row per copy.
+    assert ("a lunch pail", "a goblet of rich bloodwyne", 2, 1) in rows
+
+
+def test_an_unanswered_inv_full_stores_no_inventory(monkeypatch, tmp_path):
+    # Nothing is not the same as owning nothing: a command the game ate
+    # must leave the table untouched.
+    handle, connection = snapshot_into(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_TEXT.splitlines()],
+            "exp all": [EXP_ALL_TEXT.splitlines()],
+            "inv full": [[]],
+        },
+    )
+    assert connection.execute("SELECT count(*) FROM inventory").fetchone()[0] == 0
+
+
+def test_the_sheet_still_snapshots_without_any_inventory(monkeypatch, tmp_path):
+    # The other tables must not depend on INV FULL answering.
+    handle, connection = snapshot_into(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_TEXT.splitlines()],
+            "exp all": [EXP_ALL_TEXT.splitlines()],
+            "inv full": [[]],
+        },
+    )
+    assert connection.execute("SELECT count(*) FROM character").fetchone()[0] == 1
+    assert connection.execute("SELECT count(*) FROM sheet_skills").fetchone()[0] > 0
