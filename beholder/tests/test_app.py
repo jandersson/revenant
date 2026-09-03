@@ -201,3 +201,61 @@ def test_circle_gates_for_a_guild_without_circles(monkeypatch, tmp_path):
     rows, note = app.circle_gates("Testchar")
     assert rows == []
     assert "No circle requirements" in note
+
+
+# --- the identity line (#116) -------------------------------------------
+
+
+def _row(**overrides):
+    row = {
+        "character_name": "Testchar",
+        "race": "Human",
+        "gender": "Male",
+        "guild": "Barbarian",
+        "circle": 6,
+        "birth_year": 338,
+        "birth_day": 29,
+        "birth_month": 4,
+    }
+    row.update(overrides)
+    return row
+
+
+def test_the_identity_line_reads_as_a_sentence():
+    line = app.describe_identity(_row())
+    assert "Testchar" in line
+    assert "Human" in line and "Male" in line and "Barbarian" in line
+    assert "circle 6" in line
+    assert "born 29/4 of 338" in line
+
+
+def test_age_is_the_current_year_minus_the_birth_year():
+    # Not stored anywhere: computed against the Elanthian calendar, so
+    # it cannot go stale in the table (#115).
+    from client import eltime
+
+    now = 1788463232  # the captured observation instant
+    current = eltime.elanthian_now(now).year
+    line = app.describe_identity(_row(birth_year=338), now=now)
+    assert f"age {current - 338}" in line
+
+
+def test_an_unfinished_characters_year_zero_is_shown_not_hidden():
+    # Birth year 0 is a real date: the character is as old as the
+    # calendar, which is worth seeing rather than blanking.
+    line = app.describe_identity(_row(birth_year=0, birth_day=1, birth_month=1))
+    assert "born 1/1 of 0" in line
+    assert "age " in line
+
+
+def test_columns_the_snapshot_never_had_are_simply_left_out():
+    # Rows written before the identity columns existed carry NULLs.
+    line = app.describe_identity(
+        _row(race=None, gender=None, birth_year=None, birth_day=None, birth_month=None)
+    )
+    assert line == "Testchar · Barbarian · circle 6"
+
+
+def test_no_snapshot_means_no_line():
+    assert app.describe_identity(None) == ""
+    assert app.describe_identity({}) == ""

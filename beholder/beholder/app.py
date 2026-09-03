@@ -25,6 +25,13 @@ try:
 except ImportError:  # pragma: no cover — the workspace always has it
     circles = None
 
+# Age is the current Elanthian year minus the birth year, so the panel
+# needs the calendar; without it the identity line simply omits age.
+try:
+    from client import eltime
+except ImportError:  # pragma: no cover — the workspace always has it
+    eltime = None
+
 REFRESH_MS = 60_000  # matches the ;xp snapshot interval
 
 # Revenant's identity: dark surfaces and amber chrome, matching the GUI.
@@ -279,6 +286,7 @@ def serve_layout():
             html.P(id="circle-note"),
             grid("circle-table", CIRCLE_COLUMNS),
             html.H3("Character sheet"),
+            html.P(id="identity-note"),
             html.P(id="sheet-note", style={"color": MUTED}),
             html.Div(
                 [
@@ -554,6 +562,49 @@ def update_plot(character, skill_names, _tick):
         return mindstate_figure({}, character)
     series = query(data.history, character, skill_names, default={})
     return mindstate_figure(series, character)
+
+
+def describe_identity(row, now=None):
+    """The identity line: race, gender, guild, circle, age, birthday.
+
+    Only what the snapshot actually holds — rows taken before the
+    identity columns existed carry NULLs, and a standalone beholder has
+    no eltime to date the year with, so both simply drop their part
+    rather than showing blanks.
+    """
+    if not row:
+        return ""
+    bits = [row["character_name"]]
+    for key in ("race", "gender", "guild"):
+        if row.get(key):
+            bits.append(str(row[key]))
+    if row.get("circle") is not None:
+        bits.append(f"circle {row['circle']}")
+    year = row.get("birth_year")
+    if year is not None:
+        # Year 0 is a real birth date, not a missing one (#115): a
+        # character that never finished creation is as old as the
+        # calendar, and that is worth showing, not hiding.
+        if eltime is not None:
+            current = eltime.elanthian_now(now).year
+            bits.append(f"age {current - year}")
+        bits.append(f"born {row['birth_day']}/{row['birth_month']} of {year}")
+    return " · ".join(bits)
+
+
+@app.callback(
+    Output("identity-note", "children"),
+    Input("char-dropdown", "value"),
+    Input("refresh", "n_intervals"),
+)
+def update_identity(character, _tick):
+    """Who the character is, from the newest ;sheet snapshot (#116)."""
+    if not character:
+        return ""
+    row = query(data.identity, character, default=None)
+    if not row:
+        return ""
+    return describe_identity(row)
 
 
 def main(argv=None):

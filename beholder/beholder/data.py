@@ -65,11 +65,51 @@ def sheet_snapshot(connection, character):
 
 
 def characters(connection):
-    """Every character with logged history, sorted by name."""
-    rows = connection.execute(
-        "SELECT DISTINCT character_name FROM mindstate ORDER BY character_name"
-    )
-    return [row["character_name"] for row in rows]
+    """Every character with any logged history, sorted by name.
+
+    The union matters: `mindstate` is written by ;xp while a character
+    trains, `character` by ;sheet at login. A character snapshotted but
+    never trained has a full sheet and no mindstate row, and listing
+    only the latter hid 20 of 30 characters from the picker — including
+    the sheet data the Circle-gates view was built to show (#116).
+    """
+    names = set()
+    for table in ("mindstate", "character"):
+        # Either table may be absent: a database written before ;sheet
+        # existed has no character table, and one from a fresh sweep may
+        # have no mindstate yet. Whichever is there still answers.
+        try:
+            names.update(
+                row["character_name"]
+                for row in connection.execute(
+                    f"SELECT DISTINCT character_name FROM {table}"  # noqa: S608
+                )
+            )
+        except sqlite3.OperationalError:
+            pass
+    return sorted(names)
+
+
+def identity(connection, character):
+    """Who a character is, from the newest ;sheet snapshot: a dict of
+    race, gender, guild, circle and the birth date, or None when the
+    character has no sheet at all.
+
+    Age is deliberately absent — it is the current Elanthian year minus
+    birth_year, and the caller computes it so it cannot go stale (#115).
+    Rows snapshotted before those columns existed carry NULLs.
+    """
+    try:
+        row = connection.execute(
+            "SELECT character_name, race, gender, guild, circle,"
+            " birth_year, birth_day, birth_month, logged_at"
+            " FROM character WHERE character_name = ?"
+            " ORDER BY logged_at DESC LIMIT 1",
+            (character,),
+        ).fetchone()
+    except sqlite3.OperationalError:
+        return None  # a db from before the identity columns
+    return dict(row) if row else None
 
 
 def skills(connection, character):
@@ -85,10 +125,20 @@ def skills(connection, character):
 def latest_character(connection):
     """The most recently logged character, or None on an empty table —
     the dock view's fallback when no character is named."""
-    row = connection.execute(
-        "SELECT character_name FROM mindstate ORDER BY logged_at DESC LIMIT 1"
-    ).fetchone()
-    return row["character_name"] if row else None
+    # Training history first, then the newest sheet, so a freshly swept
+    # database still opens on a character (#116). Either table may be
+    # missing entirely.
+    for table in ("mindstate", "character"):
+        try:
+            row = connection.execute(
+                f"SELECT character_name FROM {table}"  # noqa: S608
+                " ORDER BY logged_at DESC LIMIT 1"
+            ).fetchone()
+        except sqlite3.OperationalError:
+            continue
+        if row:
+            return row["character_name"]
+    return None
 
 
 def _mindstate_series(rows):

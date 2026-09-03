@@ -293,3 +293,93 @@ def test_wealth_current_lists_coin_then_debt(sheet_connection):
     history = data.wealth_history(sheet_connection, "Testchar")
     assert history["Lirums"] == {"times": [T1, T2], "values": [5, 11]}
     assert "Kronars" not in history  # debt never charts as coin
+
+
+# --- the picker and the identity panel (#116) ---------------------------
+
+IDENTITY_TABLES = """
+CREATE TABLE mindstate (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    logged_at TEXT NOT NULL, character_name TEXT NOT NULL,
+    skill_name TEXT NOT NULL, rank INTEGER NOT NULL,
+    percent INTEGER NOT NULL, mindstate INTEGER NOT NULL
+);
+CREATE TABLE character (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    logged_at TEXT NOT NULL, character_name TEXT NOT NULL,
+    circle INTEGER, tdps INTEGER, favors INTEGER, guild TEXT,
+    race TEXT, gender TEXT,
+    birth_year INTEGER, birth_day INTEGER, birth_month INTEGER
+);
+"""
+
+
+@pytest.fixture
+def identity_connection(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "xp.db"
+    writer = sqlite3.connect(path)
+    writer.executescript(IDENTITY_TABLES)
+    # Trained: has mindstate AND a sheet. Sweptonly: sheet only — the
+    # case that used to vanish from the picker.
+    writer.execute(
+        "INSERT INTO mindstate"
+        " (logged_at, character_name, skill_name, rank, percent, mindstate)"
+        " VALUES ('2026-08-16T10:00:00+00:00', 'Trained', 'Sorcery', 10, 5, 3)"
+    )
+    writer.executemany(
+        "INSERT INTO character (logged_at, character_name, circle, guild,"
+        " race, gender, birth_year, birth_day, birth_month)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            (T1, "Trained", 5, "Barbarian", "Human", "Male", 338, 29, 4),
+            (T1, "Sweptonly", 90, "Trader", "Elothean", "Female", 395, 1, 2),
+            # An unfinished character: birth year 0 is real, not missing.
+            (T1, "Epochborn", 0, "Commoner", "Human", "Male", 0, 1, 1),
+            (T2, "Trained", 6, "Barbarian", "Human", "Male", 338, 29, 4),
+        ],
+    )
+    writer.commit()
+    writer.close()
+    connection = data.connect(path)
+    yield connection
+    connection.close()
+
+
+def test_the_picker_lists_swept_characters_too(identity_connection):
+    # The regression: only mindstate was listed, so a character that was
+    # snapshotted but never trained could not be selected at all.
+    assert data.characters(identity_connection) == [
+        "Epochborn",
+        "Sweptonly",
+        "Trained",
+    ]
+
+
+def test_the_picker_does_not_repeat_a_character_in_both_tables(identity_connection):
+    names = data.characters(identity_connection)
+    assert len(names) == len(set(names))
+
+
+def test_identity_reads_the_newest_snapshot(identity_connection):
+    row = data.identity(identity_connection, "Trained")
+    assert row["circle"] == 6  # T2, not T1
+    assert (row["race"], row["gender"], row["guild"]) == ("Human", "Male", "Barbarian")
+    assert (row["birth_year"], row["birth_day"], row["birth_month"]) == (338, 29, 4)
+
+
+def test_identity_works_for_a_character_with_no_training_history(identity_connection):
+    row = data.identity(identity_connection, "Sweptonly")
+    assert row["race"] == "Elothean"
+    assert row["circle"] == 90
+
+
+def test_identity_of_an_unknown_character_is_none(identity_connection):
+    assert data.identity(identity_connection, "Nobody") is None
+
+
+def test_latest_character_falls_back_to_the_sheet(sheet_connection):
+    # A swept database with no mindstate at all must still open on a
+    # character rather than nothing.
+    assert data.latest_character(sheet_connection) == "Testchar"
