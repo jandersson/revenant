@@ -35,7 +35,7 @@ sys.path[:0] = [str(REPO / "client")]
 from client.launch import get_free_port, spawn_session, wait_for_session  # noqa: E402
 from client.login import account_for_character, load_login_defaults  # noqa: E402
 from client.roster import pending_characters, snapshot_summary  # noqa: E402
-from client.session import DEFAULT_HOST, DEFAULT_PORT  # noqa: E402
+from client.session import DEFAULT_HOST, DEFAULT_PORT, send_line  # noqa: E402
 
 SNAPSHOT_TIMEOUT = 180  # ;sheet asks INFO and EXP ALL, re-asking what login noise ate
 POLL_SECONDS = 2
@@ -111,6 +111,25 @@ def open_window(host, port):
     )
 
 
+LOGOUT_SECONDS = 5  # time for the game to act on QUIT before the process dies
+
+
+def logout(host, port):
+    """QUIT through the session, so the character actually leaves the
+    game rather than going linkdead.
+
+    Killing the session only drops the connection — the game warns
+    about that at every login — and a lingering character can block the
+    next one on the same account from logging in (#114). Best effort:
+    a character the game has stopped answering for (an invalid-race
+    login, say) may never process it, and terminate() below is the
+    backstop either way."""
+    if not send_line(host, port, "quit"):
+        return False
+    time.sleep(LOGOUT_SECONDS)
+    return True
+
+
 def close(process, what):
     if process is None or process.poll() is not None:
         return
@@ -170,6 +189,10 @@ def sweep_one(account, character, host, base_port, db):
         return "failed", "next"
     finally:
         close(window, "window")
+        # QUIT before the kill, or the character is left linkdead and
+        # may block the next one on this account (#114).
+        if logout(host, port):
+            print(f"  {character} logged out")
         close(session, "session")
 
 

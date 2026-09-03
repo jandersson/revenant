@@ -102,6 +102,25 @@ def running_sessions(host=DEFAULT_HOST):
     return live
 
 
+def send_line(host, port, text, timeout=5):
+    """Send one command line to a running session, as a frontend would.
+
+    True when it went out, False when nothing was listening. The
+    session forwards any line not starting with ";" straight to the
+    game, so this is how a tool logs a character out: closing the
+    client only drops the connection, and the game says so at every
+    login ("Closing your front end does NOT necessarily drop your
+    character from the game! Type QUIT or EXIT!"), leaving the
+    character linkdead instead of gone (#114).
+    """
+    try:
+        with socket.create_connection((host, int(port)), timeout=timeout) as conn:
+            conn.sendall(text.encode("UTF-8").rstrip(b"\n") + b"\n")
+        return True
+    except OSError:
+        return False
+
+
 def close_socket(conn):
     """shutdown() then close(): on Linux, close() alone neither wakes a
     thread blocked in recv()/accept() on the socket nor sends the peer a

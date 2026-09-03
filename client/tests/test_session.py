@@ -791,3 +791,58 @@ def test_attach_states_the_server_clock_delta_fresh():
     frames, _ = session.decode_frames(buffer)
     assert ("42.0", "timesync", "") in frames
     client.close()
+
+
+# --- send_line: logging a character out, not just dropping it (#114) ---
+
+
+def test_send_line_delivers_one_terminated_line():
+    # A tool logs a character out by writing to the session the way a
+    # frontend would; the session forwards any non-";" line to the game.
+    received = []
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    port = listener.getsockname()[1]
+
+    def serve():
+        conn, _ = listener.accept()
+        with conn:
+            received.append(conn.recv(4096))
+
+    thread = Thread(target=serve, daemon=True)
+    thread.start()
+    assert session.send_line("127.0.0.1", port, "quit") is True
+    thread.join(timeout=5)
+    listener.close()
+    assert received == [b"quit\n"]
+
+
+def test_send_line_does_not_double_the_newline():
+    received = []
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    port = listener.getsockname()[1]
+
+    def serve():
+        conn, _ = listener.accept()
+        with conn:
+            received.append(conn.recv(4096))
+
+    thread = Thread(target=serve, daemon=True)
+    thread.start()
+    assert session.send_line("127.0.0.1", port, "quit\n") is True
+    thread.join(timeout=5)
+    listener.close()
+    assert received == [b"quit\n"]
+
+
+def test_send_line_reports_failure_when_nothing_listens():
+    # A session that already died must not raise — the sweep's kill is
+    # the backstop, and a broken character may never answer at all.
+    held = socket.socket()  # bound, never listening: the port stays shut
+    held.bind(("127.0.0.1", 0))
+    port = held.getsockname()[1]
+    assert session.send_line("127.0.0.1", port, "quit", timeout=1) is False
+    held.close()
