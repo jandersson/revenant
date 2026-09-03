@@ -51,7 +51,10 @@ One pipeline, one parser, several processes:
   **Never store credentials in files, even gitignored ones.**
 - `client/client/xml_data.py` — XMLParser target holding parsed game state
   (indicators, compass, prompt, vitals, hostile creatures from
-  `<crtrStatus>`), plus `route(line)` which splits each line
+  `<crtrStatus>`) — docs/protocol.md is the wire-protocol reference it
+  implements against (tag grammar cited to the GemStone wiki's Wrayth
+  protocol page, DR's own stream/component/indicator ids derived from
+  captured traffic) — plus `route(line)` which splits each line
   into `(stream, text, style)` segments via pushStream/popStream markers
   and the styling markers (pushBold, presets, style spans). style is ""
   for plain text, a style name the GUI maps to colors/bold, the control
