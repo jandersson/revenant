@@ -24,6 +24,11 @@ uv run python tools/docker_tests.py # CI's battery in a Linux container
                                  # (--all: the 3.10-3.12 matrix) — catches
                                  # Linux-only socket hangs before a push
 uv run python tools/build_app.py # (re)build ~/Applications/Revenant.app (macOS)
+uv run python tools/roster_sweep.py # walk every cached character with no
+                                 # ;sheet snapshot, one at a time: session +
+                                 # window up, snapshot awaited, then it waits
+                                 # on Enter so you can look around (#111).
+                                 # --list prints the plan without launching
 ```
 
 CI (`.github/workflows/python-package.yml`) runs ruff (check + format) and
