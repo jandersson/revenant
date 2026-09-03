@@ -343,3 +343,108 @@ def test_a_genuinely_silent_exp_all_is_still_reasked(monkeypatch, tmp_path):
     )
     assert handle.slept > 0  # it waited and asked again
     assert connection.execute("select count(*) from sheet_skills").fetchone()[0] > 0
+
+
+# --- the identity trio: race, gender, birth date (#115) ---
+
+# Captured 2026-09-03 — INFO carries a birth line the snapshot used to
+# discard, so a character's age lived only in the raw game logs.
+INFO_WITH_BIRTH = (
+    INFO_TEXT
+    + """You were born on the 29th day of the 4th month of Shorka the Cobra in the \
+year of the Golden Panther, 338 years after the victory of Lanival the Redeemer.
+"""
+)
+
+# Doc, an unset birth date: day 1, month 1, year 0 — the calendar epoch,
+# reported by characters that never finished creation. Year 0 is a real
+# answer and must survive as 0, not be coerced to NULL.
+INFO_EPOCH_BIRTH = """Name: Testchar Holiday   Race: Human   Guild: Commoner
+Gender: Male   Age: 457   Circle: 0
+     Strength :   6              Reflex :  10
+       Favors : 0
+         TDPs : 304
+You were born on the 1st day of the 1st month of Akroeg the Ram in the year of \
+the Silver Unicorn, 0 years after the victory of Lanival the Redeemer.
+"""
+
+
+def test_parse_info_reads_race_and_gender():
+    parsed = sheet.parse_info(INFO_TEXT)
+    assert parsed["race"] == "Human"
+    assert parsed["gender"] == "Male"
+
+
+def test_parse_info_reads_the_birth_date():
+    parsed = sheet.parse_info(INFO_WITH_BIRTH)
+    assert (parsed["birth_day"], parsed["birth_month"], parsed["birth_year"]) == (
+        29,
+        4,
+        338,
+    )
+
+
+def test_an_unset_birth_date_survives_as_year_zero():
+    # Not a missing value: 457 - 0 is exactly the age the game reports.
+    parsed = sheet.parse_info(INFO_EPOCH_BIRTH)
+    assert parsed["birth_year"] == 0
+    assert parsed["birth_day"] == 1
+    assert parsed["birth_month"] == 1
+
+
+def test_info_without_a_birth_line_leaves_the_date_empty():
+    parsed = sheet.parse_info(INFO_TEXT)
+    assert parsed["birth_year"] is None
+    assert parsed["birth_day"] is None
+
+
+def test_parse_info_does_not_store_age():
+    # Age is current year minus birth_year; eltime knows the year, and a
+    # stored age would go stale in the table.
+    assert "age" not in sheet.parse_info(INFO_WITH_BIRTH)
+
+
+def test_the_identity_columns_land_in_the_snapshot(monkeypatch, tmp_path):
+    handle, connection = snapshot_into(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_WITH_BIRTH.splitlines()],
+            "exp all": [EXP_ALL_TEXT.splitlines()],
+        },
+    )
+    row = connection.execute(
+        "SELECT race, gender, birth_year, birth_day, birth_month FROM character"
+    ).fetchone()
+    assert row == ("Human", "Male", 338, 29, 4)
+
+
+def test_ensure_schema_adds_the_columns_to_an_older_database(tmp_path):
+    # A database written before these columns existed: CREATE IF NOT
+    # EXISTS won't touch it, so the additive migration has to.
+    path = tmp_path / "old.db"
+    connection = sqlite3.connect(path)
+    connection.executescript(
+        "CREATE TABLE character (seq INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " logged_at TEXT NOT NULL, character_name TEXT NOT NULL,"
+        " circle INTEGER, tdps INTEGER, favors INTEGER);"
+    )
+    connection.execute(
+        "INSERT INTO character (logged_at, character_name, circle)"
+        " VALUES ('2026-01-01', 'Testchar', 5)"
+    )
+    connection.commit()
+    sheet.ensure_schema(connection)
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(character)")}
+    assert {
+        "guild",
+        "race",
+        "gender",
+        "birth_year",
+        "birth_day",
+        "birth_month",
+    } <= columns
+    # The existing row survives, with NULLs for what it never had.
+    assert connection.execute(
+        "SELECT circle, race FROM character WHERE character_name = 'Testchar'"
+    ).fetchone() == (5, None)

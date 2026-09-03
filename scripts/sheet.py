@@ -52,6 +52,17 @@ _CIRCLE = re.compile(r"Circle:\s*(\d+)")
 _TDPS = re.compile(r"TDPs\s*:\s*(\d+)")
 _FAVORS = re.compile(r"Favors\s*:\s*(\d+)")
 _GUILD = re.compile(r"Guild:\s*([A-Za-z ]+?)\s*$", re.MULTILINE)
+_RACE = re.compile(r"Race:\s*([A-Za-z' ]+?)\s\s")
+_GENDER = re.compile(r"Gender:\s*(\w+)")
+# "You were born on the 1st day of the 4th month of Shorka the Cobra in the
+# year of the Golden Panther, 338 years after the victory of Lanival the
+# Redeemer." Year 0 is a real answer, not a missing one: characters that
+# never finished creation report day 1, month 1, year 0 (#115).
+_BORN = re.compile(
+    r"born on the (\d+)\w* day of the (\d+)\w* month of .*?"
+    r"(\d+) years after the victory",
+    re.S,
+)
 # Two-column EXP ALL rows: "     Light Armor:      3 10% clear (0/34)".
 # The % requirement keeps headers and totals out.
 _SKILL = re.compile(r"([A-Za-z][A-Za-z' ]+):\s+(\d+)\s+(\d+)%")
@@ -87,7 +98,12 @@ CREATE TABLE IF NOT EXISTS character (
     circle INTEGER,
     tdps INTEGER,
     favors INTEGER,
-    guild TEXT
+    guild TEXT,
+    race TEXT,
+    gender TEXT,
+    birth_year INTEGER,
+    birth_day INTEGER,
+    birth_month INTEGER
 );
 """
 
@@ -98,12 +114,22 @@ def database_path() -> Path:
 
 def ensure_schema(connection):
     connection.executescript(SCHEMA)
-    # Databases from before guild tracking (the ;circle view needs it)
-    # lack the column — CREATE IF NOT EXISTS won't add it.
-    try:
-        connection.execute("ALTER TABLE character ADD COLUMN guild TEXT")
-    except sqlite3.OperationalError:
-        pass  # already there
+    # CREATE IF NOT EXISTS won't add columns to a table that already
+    # exists, so every column added after the first release needs its
+    # own additive migration. Older rows keep NULLs; the next snapshot
+    # fills them in.
+    for column, kind in (
+        ("guild", "TEXT"),  # the ;circle view needs it
+        ("race", "TEXT"),  # the identity trio (#115): never changes,
+        ("gender", "TEXT"),  # and so was never worth re-reading from
+        ("birth_year", "INTEGER"),  # 30 raw game logs
+        ("birth_day", "INTEGER"),
+        ("birth_month", "INTEGER"),
+    ):
+        try:
+            connection.execute(f"ALTER TABLE character ADD COLUMN {column} {kind}")
+        except sqlite3.OperationalError:
+            pass  # already there
     connection.commit()
 
 
@@ -126,18 +152,32 @@ def parse_wealth(text):
 
 
 def parse_info(text):
-    """Stats, circle, guild, TDPs and favors from INFO output."""
+    """Stats, circle, guild, TDPs, favors and the identity trio (race,
+    gender, birth date) from INFO output.
+
+    Age is deliberately not returned: it is the current Elanthian year
+    minus birth_year, which eltime already knows, so storing it would
+    go stale while the derived value never does (#115).
+    """
     stats = {name: int(value) for name, value in _STAT.findall(text)}
     circle = _CIRCLE.search(text)
     tdps = _TDPS.search(text)
     favors = _FAVORS.search(text)
     guild = _GUILD.search(text)
+    race = _RACE.search(text)
+    gender = _GENDER.search(text)
+    born = _BORN.search(text)
     return {
         "stats": stats,
         "circle": int(circle.group(1)) if circle else None,
         "tdps": int(tdps.group(1)) if tdps else None,
         "favors": int(favors.group(1)) if favors else None,
         "guild": guild.group(1) if guild else None,
+        "race": race.group(1).strip() if race else None,
+        "gender": gender.group(1) if gender else None,
+        "birth_day": int(born.group(1)) if born else None,
+        "birth_month": int(born.group(2)) if born else None,
+        "birth_year": int(born.group(3)) if born else None,
         "wealth": parse_wealth(text),
     }
 
@@ -182,8 +222,9 @@ def insert_snapshot(connection, character, logged_at, info, skills):
     ):
         connection.execute(
             "INSERT INTO character"
-            " (logged_at, character_name, circle, tdps, favors, guild)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
+            " (logged_at, character_name, circle, tdps, favors, guild,"
+            "  race, gender, birth_year, birth_day, birth_month)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 logged_at,
                 character,
@@ -191,6 +232,11 @@ def insert_snapshot(connection, character, logged_at, info, skills):
                 info["tdps"],
                 info["favors"],
                 info["guild"],
+                info.get("race"),
+                info.get("gender"),
+                info.get("birth_year"),
+                info.get("birth_day"),
+                info.get("birth_month"),
             ),
         )
     connection.commit()
