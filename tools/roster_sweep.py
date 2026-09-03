@@ -71,6 +71,25 @@ def latest_snapshot(path, character):
     return row[0] if row else None
 
 
+def snapshot_counts(path, character, stamp):
+    """(stats, skills) recorded in one snapshot.
+
+    Printed beside the timestamp because a capture that stored no
+    skills otherwise reads exactly like a complete one — an untrained
+    character looks identical to a failure (#112).
+    """
+    with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as connection:
+        counts = [
+            connection.execute(
+                f"select count(*) from {table} "
+                "where lower(character_name) = ? and logged_at = ?",
+                (character.lower(), stamp),
+            ).fetchone()[0]
+            for table in ("stats", "sheet_skills")
+        ]
+    return tuple(counts)
+
+
 def wait_for_snapshot(path, character, before, timeout=SNAPSHOT_TIMEOUT):
     """Block until a snapshot newer than `before` exists for the
     character. Returns its timestamp, or None on timeout."""
@@ -138,7 +157,11 @@ def sweep_one(account, character, host, base_port, db):
         print(f"  waiting for the ;sheet snapshot (up to {SNAPSHOT_TIMEOUT}s) ...")
         stamp = wait_for_snapshot(db, character, before)
         if stamp:
-            print(f"  snapshot stored: {stamp}")
+            stats, skills = snapshot_counts(db, character, stamp)
+            # No skills is legitimate for an untrained character — say
+            # so, rather than leaving it looking like a failure (#112).
+            note = "" if skills else "  (no ranks yet — nothing to record)"
+            print(f"  snapshot stored: {stats} stats, {skills} skills{note}")
         else:
             print("  no snapshot landed — moving on, nothing was stored")
         return ("done" if stamp else "failed"), ask_next(character)

@@ -30,6 +30,13 @@ RETRY_SLEEP = 5  # seconds between re-asks, letting login noise settle
 INFO_END = None
 EXP_ALL_END = "Time Development Points"
 
+# The renaming room answers commands with its own reminder instead of
+# their output, so re-asking cannot help — it just burns ATTEMPTS *
+# RETRY_SLEEP seconds. Captured 2026-09-03 (#112): a character sent
+# there for a name that does not fit the setting answered three EXP ALLs
+# with three identical reminders. INFO still answers; EXP ALL does not.
+RENAMING_ROOM = "change your name to something which fits"
+
 STAT_NAMES = (
     "Strength",
     "Reflex",
@@ -205,26 +212,45 @@ def collect(s, seconds, until=None):
     return "\n".join(pieces)
 
 
+def blocked_by_renaming(text):
+    """True when the answer is the renaming room's reminder rather than
+    the command's own output — a refusal, not silence (#112)."""
+    return RENAMING_ROOM in text
+
+
 def ask(s, command, parse, until, answered):
-    """parse() of the command's answer, re-asking up to ATTEMPTS times:
-    a command sent while login noise is still settling can go
-    unanswered entirely (captured 2026-08-22 — a session-start INFO
-    never answered while the following EXP ALL was, storing an
-    all-None character row, #65)."""
+    """(parsed, blocked) — parse() of the command's answer, re-asking up
+    to ATTEMPTS times: a command sent while login noise is still
+    settling can go unanswered entirely (captured 2026-08-22 — a
+    session-start INFO never answered while the following EXP ALL was,
+    storing an all-None character row, #65).
+
+    A renaming-room refusal stops the retries immediately: the room
+    answers everything the same way, so the next ask would only collect
+    the same reminder (#112)."""
     result = parse("")
     for attempt in range(ATTEMPTS):
         if attempt:
             s.sleep(RETRY_SLEEP)
         s.put(command)
-        result = parse(collect(s, COLLECT_SECONDS, until))
+        answer = collect(s, COLLECT_SECONDS, until)
+        if blocked_by_renaming(answer):
+            return result, True
+        result = parse(answer)
         if answered(result):
             break
-    return result
+    return result, False
 
 
 def snapshot(s):
-    info = ask(s, "info", parse_info, INFO_END, lambda r: bool(r["stats"]))
-    skills = ask(s, "exp all", parse_exp_all, EXP_ALL_END, bool)
+    info, _ = ask(s, "info", parse_info, INFO_END, lambda r: bool(r["stats"]))
+    skills, renaming = ask(s, "exp all", parse_exp_all, EXP_ALL_END, bool)
+    if renaming:
+        s.echo(
+            "sheet: EXP ALL is unavailable in the renaming room — stats "
+            "stored, skills skipped until the character is renamed "
+            "(CHECK IN, option 1)"
+        )
     if not info["stats"] and not skills:
         s.echo("sheet: nothing parsed from INFO / EXP ALL — is the game answering?")
         return

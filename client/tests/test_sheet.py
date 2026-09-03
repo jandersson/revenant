@@ -225,3 +225,64 @@ def test_parse_wealth_reads_the_copper_parentheticals():
         "carried": {"Lirums": 11, "Dokoras": 6},
         "debt": {"Kronars": 90},
     }
+
+
+# Captured 2026-09-03 (#112) — the renaming room's answer to EXP ALL. A
+# character sent there for a name that does not fit the setting gets
+# this reminder in place of every command's own output.
+RENAMING_TEXT = """Testchar, this is a reminder that you have been sent to this room \
+so you may change your name to something which fits the medieval fantasy \
+environment of DragonRealms.  If you are not sure why you have been sent here, \
+type ADVICE.  Otherwise, type LOOK and follow the directions you see.  Any \
+inventory you have will be saved and returned to you automatically once you \
+enter the live game world as long as you reroll within two hours after you type \
+CHECK IN.  Thank you.
+Your name: Testchar Distresseater.  For help, type ADVICE."""
+
+
+def test_blocked_by_renaming_recognizes_the_rooms_reminder():
+    assert sheet.blocked_by_renaming(RENAMING_TEXT) is True
+
+
+def test_an_ordinary_answer_is_not_a_renaming_refusal():
+    assert sheet.blocked_by_renaming(EXP_ALL_TEXT) is False
+    assert sheet.blocked_by_renaming("") is False
+
+
+def test_the_renaming_room_stops_the_retries(monkeypatch, tmp_path):
+    # The regression: three EXP ALL attempts against a room that answers
+    # everything the same way, costing ATTEMPTS * RETRY_SLEEP seconds for
+    # nothing. One ask is enough to know.
+    handle, connection = snapshot_into(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_TEXT.splitlines()],
+            "exp all": [
+                RENAMING_TEXT.splitlines(),
+                RENAMING_TEXT.splitlines(),
+                RENAMING_TEXT.splitlines(),
+            ],
+        },
+    )
+    # Only the first "exp all" was consumed; the other two are untouched.
+    assert len(handle.responses["exp all"]) == 2
+    assert handle.slept == 0
+    assert any("renaming room" in line for line in handle.echoed)
+
+
+def test_the_stats_still_land_when_only_exp_all_is_refused(monkeypatch, tmp_path):
+    # INFO answers in the renaming room even though EXP ALL does not, so
+    # the snapshot keeps what it could read rather than storing nothing.
+    handle, connection = snapshot_into(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_TEXT.splitlines()],
+            "exp all": [RENAMING_TEXT.splitlines()],
+        },
+    )
+    stats = connection.execute("select count(*) from stats").fetchone()[0]
+    skills = connection.execute("select count(*) from sheet_skills").fetchone()[0]
+    assert stats > 0
+    assert skills == 0
