@@ -227,7 +227,9 @@ def ask(s, command, parse, until, answered):
 
     A renaming-room refusal stops the retries immediately: the room
     answers everything the same way, so the next ask would only collect
-    the same reminder (#112)."""
+    the same reminder (#112). An answer carrying `until` counts as
+    answered even if it parses to nothing, so an untrained character's
+    legitimately empty EXP ALL is not mistaken for silence (#113)."""
     result = parse("")
     for attempt in range(ATTEMPTS):
         if attempt:
@@ -237,7 +239,11 @@ def ask(s, command, parse, until, answered):
         if blocked_by_renaming(answer):
             return result, True
         result = parse(answer)
-        if answered(result):
+        # The end marker is proof the game replied, even when nothing
+        # parsed out of the reply: an untrained character's EXP ALL is
+        # a complete answer reading "Total Ranks Displayed: 0", and
+        # re-asking it can only ever return the same emptiness (#113).
+        if answered(result) or (until is not None and until in answer):
             break
     return result, False
 

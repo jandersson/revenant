@@ -286,3 +286,60 @@ def test_the_stats_still_land_when_only_exp_all_is_refused(monkeypatch, tmp_path
     skills = connection.execute("select count(*) from sheet_skills").fetchone()[0]
     assert stats > 0
     assert skills == 0
+
+
+# Captured 2026-09-03 (#113) — Viterbi, a circle-0 Commoner: EXP ALL
+# answers completely and says there is nothing to show. The answer
+# carries EXP_ALL_END, so it is an answer, not silence.
+EMPTY_EXP_ALL_TEXT = """Showing all skills that you have skill in.
+          SKILL: Rank/Percent towards next rank/Amount learning/Mindstate Fraction
+        No skills have field experience or none meet your criteria!
+Total Ranks Displayed: 0
+Time Development Points: 600  Favors: 0  Deaths: 0  Departs: 0"""
+
+
+def test_an_untrained_characters_empty_exp_all_is_asked_once(monkeypatch, tmp_path):
+    # The regression: bool({}) is False, so an empty-but-complete answer
+    # looked unanswered and was re-asked ATTEMPTS times for nothing.
+    handle, connection = snapshot_into(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_TEXT.splitlines()],
+            "exp all": [
+                EMPTY_EXP_ALL_TEXT.splitlines(),
+                EMPTY_EXP_ALL_TEXT.splitlines(),
+                EMPTY_EXP_ALL_TEXT.splitlines(),
+            ],
+        },
+    )
+    assert len(handle.responses["exp all"]) == 2  # only the first was used
+    assert handle.slept == 0  # no RETRY_SLEEP burned
+
+
+def test_an_empty_exp_all_stores_the_stats_and_no_skills(monkeypatch, tmp_path):
+    handle, connection = snapshot_into(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_TEXT.splitlines()],
+            "exp all": [EMPTY_EXP_ALL_TEXT.splitlines()],
+        },
+    )
+    assert connection.execute("select count(*) from stats").fetchone()[0] > 0
+    assert connection.execute("select count(*) from sheet_skills").fetchone()[0] == 0
+
+
+def test_a_genuinely_silent_exp_all_is_still_reasked(monkeypatch, tmp_path):
+    # The #65 behaviour must survive: no answer at all still retries,
+    # and the retry's real answer is what gets stored.
+    handle, connection = snapshot_into(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_TEXT.splitlines()],
+            "exp all": [[], EXP_ALL_TEXT.splitlines()],
+        },
+    )
+    assert handle.slept > 0  # it waited and asked again
+    assert connection.execute("select count(*) from sheet_skills").fetchone()[0] > 0
