@@ -2,8 +2,9 @@
 
 Two settings in ~/.revenant/settings.json drive it — `font_family`
 (a family name, "" for the platform default) and `font_size` (points,
-0 for the platform default). File → Settings edits both and the GUI
-applies them live to the main window, every stream dock, and the input
+0 for the platform default). The defaults are what an untouched file
+holds; File → Settings always saves an explicit pair, pre-filled with
+the font in use. The GUI applies them live to the main window, every stream dock, and the input
 line; the Experience dock keeps its fixed-pitch family (its dashboard
 is column-aligned) and only follows the size. This module is the
 Qt-free half: it turns whatever the file holds into a clean choice.

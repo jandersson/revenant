@@ -22,8 +22,9 @@ DEFAULTS = {
     "eltime_moons": {},  # ;clock's moon anchors: {moon: new-moon unix time}
     "clocks_earth_moon": False,  # the for-fun Earth moon row in the clocks dock
     # The game text's font (client/textfont.py): a family name and a
-    # point size, "" / 0 for the platform default. Applied live from
-    # File → Settings to the main window, stream docks, and input line.
+    # point size. "" / 0 — what an untouched file holds — means the
+    # platform font; the Settings dialog always saves an explicit pair.
+    # Applied live to the main window, stream docks, and input line.
     "font_family": "",
     "font_size": 0,
     # Rooms travel routes around when a clean detour exists — each entry

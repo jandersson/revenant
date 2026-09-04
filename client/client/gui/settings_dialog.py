@@ -1,8 +1,12 @@
 """The settings editor: File → Settings… in the client.
 
 Checkboxes over ~/.revenant/settings.json, plus the game text's font
-(family and point size, or the platform default — applied to every
-text view the moment the dialog is accepted, #118). The autostart
+(family and point size, applied to every text view the moment the
+dialog is accepted, #118). The pickers open on the font the window
+is using — the platform's until you choose one — and always save an
+explicit choice; a "use the default" checkbox that locked the pickers
+read as broken (#130), and a reset button would only exist to be
+hit by accident. The autostart
 toggles take effect when the next session starts (a running session
 already made its choices); quit-on-close is read live at window close,
 and the clocks dock picks its row up within a minute.
@@ -59,13 +63,9 @@ class SettingsDialog(QDialog):
         self.autostart_extra.setPlaceholderText("lnet, athletics")
         note = QLabel("Autostart changes apply from the next session.")
         note.setStyleSheet("color: #808090;")
-        # The game text's font: the platform default, or a family and
-        # size of your own. The pickers are always live — touching one
-        # unticks the default (greyed-out pickers under a checkbox read
-        # as broken, #130); ticking it again is the way back.
+        # The game text's font, pre-filled with what the window uses now:
+        # the saved choice, or the platform font while nothing is saved.
         family, size = font_choice(settings)
-        self.font_default = QCheckBox("Use the platform default font for game text")
-        self.font_default.setChecked(family is None and size is None)
         self.font_family = QFontComboBox()
         self.font_family.setCurrentFont(QFont(family) if family else self.font())
         self.font_size = QSpinBox()
@@ -78,8 +78,6 @@ class SettingsDialog(QDialog):
         row_layout.addWidget(QLabel("Game text font:"))
         row_layout.addWidget(self.font_family, 1)
         row_layout.addWidget(self.font_size)
-        self.font_family.currentFontChanged.connect(self._font_picked)
-        self.font_size.valueChanged.connect(self._font_picked)
         for widget in (
             self.autostart_xp,
             self.autostart_beholder,
@@ -90,7 +88,6 @@ class SettingsDialog(QDialog):
             extra_label,
             self.autostart_extra,
             note,
-            self.font_default,
             font_row,
         ):
             layout.addWidget(widget)
@@ -101,13 +98,7 @@ class SettingsDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
-    def _font_picked(self, *_):
-        """A picked family or size is a choice: the default no longer
-        applies unless it is ticked again afterwards."""
-        self.font_default.setChecked(False)
-
     def values(self):
-        use_default = self.font_default.isChecked()
         return {
             "autostart_xp": self.autostart_xp.isChecked(),
             "autostart_beholder": self.autostart_beholder.isChecked(),
@@ -120,8 +111,6 @@ class SettingsDialog(QDialog):
             ],
             "quit_on_close": self.quit_on_close.isChecked(),
             "clocks_earth_moon": self.clocks_earth_moon.isChecked(),
-            "font_family": (
-                "" if use_default else self.font_family.currentFont().family()
-            ),
-            "font_size": 0 if use_default else self.font_size.value(),
+            "font_family": self.font_family.currentFont().family(),
+            "font_size": self.font_size.value(),
         }
