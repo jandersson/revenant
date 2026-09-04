@@ -8,7 +8,7 @@ _Python and DragonRealms — a monorepo of hobby projects for the [DragonRealms]
 
 Most of the tooling around DragonRealms lives in the Ruby ecosystem (lich, dr-scripts, profanity, Genie plugins). Revenant is an excuse to rebuild some of that in Python, have fun, and see what sticks — [docs/why-python.md](docs/why-python.md) records what that trade buys and costs, with the evidence. None of these projects are polished or production-ready — they are prototypes, experiments, and works-in-progress.
 
-A word on where this sits. Revenant is a hobby, built for fun and for the author's own play, not a replacement for anything. It takes its shape from Lich and the community's scripts — the session-and-scripts split, the `;` commands, the community map — and says so wherever it does; none of their code is copied, and the [Friends](#friends) section credits what it leans on. Much of the code here is written with an AI assistant (Claude Code), in the open: the commit history says which commits. If any of it is useful to you, take it; if it isn't, the projects it learned from are a click away.
+A word on where this sits. Revenant is a hobby, built for fun and for the author's own play, not a replacement for anything. It is inspired by Lich and the community's scripts — the session-and-scripts split, the `;` commands, the community map — and exists because nothing like them existed for Python; the [Friends](#friends) section credits what it leans on. Much of the code here is written with an AI assistant (Claude Code), in the open: the commit history says which commits. If any of it is useful to you, take it; if it isn't, the projects it learned from are a click away.
 
 Shout out to [Pylanthia](https://github.com/robbintt/pylanthia), a great related project.
 
