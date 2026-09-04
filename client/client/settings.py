@@ -21,6 +21,10 @@ DEFAULTS = {
     "eltime_offset_seconds": 0,  # ;clock's Elanthian calendar correction
     "eltime_moons": {},  # ;clock's moon anchors: {moon: new-moon unix time}
     "clocks_earth_moon": False,  # the for-fun Earth moon row in the clocks dock
+    # Developer mode: the script engine reports a script start that took
+    # long to load (helper reloads included). REVENANT_DEV=1 turns it on
+    # for one launch.
+    "dev_mode": False,
     # The game text's font (client/textfont.py): a family name and a
     # point size. "" / 0 — what an untouched file holds — means the
     # platform font; the Settings dialog always saves an explicit pair.
@@ -63,3 +67,12 @@ def save_settings(values: dict):
 
 def setting(name):
     return load_settings().get(name, DEFAULTS.get(name))
+
+
+def dev_mode() -> bool:
+    """Developer mode: the settings toggle, or REVENANT_DEV=1 for one
+    launch. Read on demand, so a change in File → Settings applies to
+    the running session's next script start."""
+    if os.environ.get("REVENANT_DEV") == "1":
+        return True
+    return bool(setting("dev_mode"))

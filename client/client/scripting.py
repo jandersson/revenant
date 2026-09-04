@@ -42,9 +42,10 @@ import traceback
 from importlib import util as importlib_util
 from pathlib import Path
 from threading import Event, Lock, Thread
-from time import monotonic
+from time import monotonic, perf_counter
 
 from client.client_logger import ClientLogger
+from client.settings import dev_mode
 
 DEFAULT_SCRIPTS_DIR = os.environ.get("REVENANT_SCRIPTS", "scripts")
 
@@ -223,6 +224,13 @@ RELOADABLE_MODULES = (
     "client.mapdb",
     "client.walker",
 )
+
+
+# A script start that takes this long to load — helper reloads and the
+# script's own imports — is reported in developer mode (settings
+# dev_mode / REVENANT_DEV=1). Loads are normally milliseconds; a slow one
+# means an import doing work it should defer (networkx, a map read).
+SLOW_LOAD_SECONDS = 0.5
 
 
 def _mtime(module):
@@ -416,6 +424,7 @@ class ScriptManager(ClientLogger):
             if name in self.running and self.running[name].alive:
                 self.emit(f"{name} is already running (;stop {name} first)")
                 return
+        started = perf_counter()
         changed = self.reload_changed()
         if changed:
             self.emit(f"reloaded {', '.join(changed)} (edited since import)")
@@ -433,11 +442,21 @@ class ScriptManager(ClientLogger):
         # A script's first import of a helper is stamped here, so a
         # later edit to it is noticed at the next start.
         self._stamp_modules()
+        self._report_slow_load(name, perf_counter() - started, changed)
         script = Script(name, args, self)
         script.thread = Thread(target=self._run, args=(script, entry), daemon=True)
         with self.lock:
             self.running[name] = script
         script.thread.start()
+
+    def _report_slow_load(self, name, seconds, changed):
+        """Developer mode only: a load past SLOW_LOAD_SECONDS is worth a
+        line — with what reloaded, since reloads are the usual cause."""
+        self.log.debug(f"{name} loaded in {seconds:.3f}s (reloaded: {changed})")
+        if seconds < SLOW_LOAD_SECONDS or not dev_mode():
+            return
+        detail = f" (reloaded {', '.join(changed)})" if changed else ""
+        self.emit(f"{name} took {seconds:.1f}s to load{detail}")
 
     def _run(self, script, entry):
         self.emit(f"{script.name} started")

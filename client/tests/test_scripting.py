@@ -427,3 +427,54 @@ def test_the_reloadable_list_never_names_the_sessions_plumbing():
     assert RELOADABLE_MODULES.index("client.mapdb") < RELOADABLE_MODULES.index(
         "client.walker"
     )
+
+
+# --- developer mode: slow script loads are reported ---
+
+
+def _slow_load_fixture(tmp_path, monkeypatch, dev):
+    import client.scripting as scripting
+
+    monkeypatch.setenv("REVENANT_SETTINGS", str(tmp_path / "settings.json"))
+    monkeypatch.setenv("REVENANT_DEV", "1" if dev else "0")
+    # Every load counts as slow, so the test needs no real delay.
+    monkeypatch.setattr(scripting, "SLOW_LOAD_SECONDS", 0.0)
+    (tmp_path / "quick.py").write_text("def main(s):\n    s.echo('hi')\n")
+    return make_manager(tmp_path)
+
+
+def test_developer_mode_reports_a_slow_script_load(tmp_path, monkeypatch):
+    manager, recorder = _slow_load_fixture(tmp_path, monkeypatch, dev=True)
+    out = _run_and_wait(manager, recorder, "quick")
+    report = next(e for e in out if e.startswith("quick took "))
+    assert report.endswith("s to load")
+
+
+def test_the_slow_load_report_names_what_reloaded(tmp_path, monkeypatch):
+    import client.scripting as scripting
+
+    manager, recorder, helper = _reload_fixture(tmp_path, monkeypatch)
+    monkeypatch.setenv("REVENANT_SETTINGS", str(tmp_path / "settings.json"))
+    monkeypatch.setenv("REVENANT_DEV", "1")
+    monkeypatch.setattr(scripting, "SLOW_LOAD_SECONDS", 0.0)
+    _run_and_wait(manager, recorder)
+    _write_helper(helper, 2, 2_000_000)
+    out = _run_and_wait(manager, recorder)
+    report = next(e for e in out if e.startswith("probe_it took "))
+    assert report.endswith("s to load (reloaded hot_helper)")
+
+
+def test_without_developer_mode_a_slow_load_is_silent(tmp_path, monkeypatch):
+    manager, recorder = _slow_load_fixture(tmp_path, monkeypatch, dev=False)
+    out = _run_and_wait(manager, recorder, "quick")
+    assert not any("to load" in e for e in out)
+    assert "[quick] hi" in out
+
+
+def test_a_fast_load_is_silent_even_in_developer_mode(tmp_path, monkeypatch):
+    import client.scripting as scripting
+
+    manager, recorder = _slow_load_fixture(tmp_path, monkeypatch, dev=True)
+    monkeypatch.setattr(scripting, "SLOW_LOAD_SECONDS", 60.0)
+    out = _run_and_wait(manager, recorder, "quick")
+    assert not any("to load" in e for e in out)

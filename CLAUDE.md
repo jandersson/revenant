@@ -120,7 +120,9 @@ One pipeline, one parser, several processes:
   textfont — pure logic, reloaded in dependency order when their
   file changed since import, #138), so a script or walker edit
   reaches a running session on any platform via `;stop <name>` and
-  running it again. Everything else — session, core, xml_data, the
+  running it again; developer mode (settings `dev_mode` / File →
+  Settings, or `REVENANT_DEV=1`) reports a start slower than
+  `scripting.SLOW_LOAD_SECONDS` with what reloaded. Everything else — session, core, xml_data, the
   GUI — needs `;reexec`, or on Windows a new session: close the
   window (quit) and relaunch. File → Detach is the wrong move: it
   leaves the session running and a relaunch reattaches to the old

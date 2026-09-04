@@ -43,3 +43,23 @@ def test_garbage_file_yields_defaults(monkeypatch, tmp_path):
 def test_font_defaults_to_the_platform_font():
     assert DEFAULTS["font_family"] == ""
     assert DEFAULTS["font_size"] == 0
+
+
+def test_dev_mode_defaults_off_and_the_env_var_turns_it_on(monkeypatch, tmp_path):
+    from client.settings import dev_mode
+
+    monkeypatch.setenv("REVENANT_SETTINGS", str(tmp_path / "settings.json"))
+    monkeypatch.delenv("REVENANT_DEV", raising=False)
+    assert dev_mode() is False
+    monkeypatch.setenv("REVENANT_DEV", "1")
+    assert dev_mode() is True
+
+
+def test_dev_mode_reads_the_settings_toggle(monkeypatch, tmp_path):
+    from client.settings import dev_mode
+
+    path = tmp_path / "settings.json"
+    path.write_text(json.dumps({"dev_mode": True}))
+    monkeypatch.setenv("REVENANT_SETTINGS", str(path))
+    monkeypatch.delenv("REVENANT_DEV", raising=False)
+    assert dev_mode() is True

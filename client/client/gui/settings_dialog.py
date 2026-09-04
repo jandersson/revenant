@@ -56,6 +56,10 @@ class SettingsDialog(QDialog):
             "Show Earth's moon in the clocks dock (for fun)"
         )
         self.clocks_earth_moon.setChecked(bool(settings.get("clocks_earth_moon")))
+        self.dev_mode = QCheckBox(
+            "Developer mode: report script starts that are slow to load"
+        )
+        self.dev_mode.setChecked(bool(settings.get("dev_mode")))
         extra_label = QLabel("Also autostart these scripts (comma-separated):")
         self.autostart_extra = QLineEdit(
             ", ".join(settings.get("autostart_extra") or [])
@@ -85,6 +89,7 @@ class SettingsDialog(QDialog):
             self.autostart_deathwatch,
             self.quit_on_close,
             self.clocks_earth_moon,
+            self.dev_mode,
             extra_label,
             self.autostart_extra,
             note,
@@ -111,6 +116,7 @@ class SettingsDialog(QDialog):
             ],
             "quit_on_close": self.quit_on_close.isChecked(),
             "clocks_earth_moon": self.clocks_earth_moon.isChecked(),
+            "dev_mode": self.dev_mode.isChecked(),
             "font_family": self.font_family.currentFont().family(),
             "font_size": self.font_size.value(),
         }
