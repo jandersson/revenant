@@ -148,7 +148,10 @@ def walk(s, db, goals, describe="destination", avoid=()):
         uid = getattr(s.state, "room_uid", None)
         mapped = db.room_by_uid(uid) if uid else None
         if mapped is not None:
-            if mapped != dest:
+            # A twin of the planned room is the planned room: the map
+            # lists some places twice, only one entry carrying the
+            # game's uid (#137).
+            if not db.same_place(mapped, dest):
                 s.echo(
                     f"off course at step {number}: in room {mapped} "
                     f"({s.state.room_title!r}), expected {dest} — stopping here"

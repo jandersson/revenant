@@ -172,7 +172,12 @@ One pipeline, one parser, several processes:
   wayto commands starting with ";e" are embedded
   Ruby, walked only when they translate to plain fput/move commands —
   and those translatable ;e edges stay in the graph (dropping them
-  partitions whole areas off).
+  partitions whole areas off). The map lists some rooms twice with
+  only one entry carrying the game's uid (39 such twins, #137):
+  `same_place` recognizes twins (shared uid, or same title and
+  identical exits), the walker accepts arrival in a twin of the
+  planned room, and the graph plans through the uid-bearing twin
+  when a room links to both.
   `client/client/walker.py` (locate/walk; model in docs/movement.md) is
   the shared travel engine; `scripts/go2.py` is the command on top, and
   `;favors` (scripts/favors.py) rides it for the favor-orb run — grotto

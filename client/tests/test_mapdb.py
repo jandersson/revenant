@@ -183,3 +183,79 @@ def test_local_overlay_extends_the_community_map(monkeypatch, tmp_path):
     db = mapdb.MapDB.load()
     assert 1 in db.rooms  # community rooms intact
     assert db.room_by_uid(499002) == 900001  # local survey merged
+
+
+# One Middens room, listed twice — captured 2026-09-04 (#137). The
+# community map does this in 39 places; only one twin carries the uid.
+MIDDENS = [
+    {
+        "id": 684,
+        "uid": [200008],
+        "title": ["[[Middens, Alerin Slade]]"],
+        "wayto": {"670": "south", "13100": "south", "685": "northwest"},
+    },
+    {
+        "id": 670,
+        "title": ["[[Middens, Gravel Way]]"],
+        "wayto": {"669": "east", "671": "south", "684": "north"},
+    },
+    {
+        "id": 13100,
+        "uid": [200009],
+        "title": ["[[Middens, Gravel Way]]"],
+        "wayto": {"669": "east", "671": "south", "684": "north"},
+    },
+    {
+        "id": 669,
+        "uid": [200010],
+        "title": ["[[Middens, Bumboat Row]]"],
+        "wayto": {"668": "east", "670": "west"},
+    },
+    {
+        "id": 671,
+        "uid": [200027],
+        "title": ["[[Middens, Bumboat Row]]"],
+        "wayto": {"672": "west", "670": "north"},
+    },
+    {"id": 685, "uid": [200007], "title": ["[[Middens, Alerin Slade]]"], "wayto": {}},
+    {"id": 668, "uid": [200011], "title": ["[[Middens, Bumboat Row]]"], "wayto": {}},
+    {"id": 672, "uid": [200026], "title": ["[[Middens, Bumboat Row]]"], "wayto": {}},
+]
+
+
+def test_two_dead_ends_sharing_a_title_are_not_twins():
+    db = MapDB(MIDDENS)
+    assert not db.same_place(668, 672)
+
+
+def test_twins_with_one_title_and_one_set_of_exits_are_the_same_place():
+    db = MapDB(MIDDENS)
+    assert db.same_place(670, 13100)
+    assert db.same_place(13100, 670)
+    assert db.same_place(670, 670)
+
+
+def test_rooms_that_only_share_a_title_are_not_twins():
+    # 669 and 671 are both "Bumboat Row" but different rooms.
+    db = MapDB(MIDDENS)
+    assert not db.same_place(669, 671)
+    assert not db.same_place(684, 670)
+    assert not db.same_place(670, 424242)  # unknown id
+
+
+def test_rooms_sharing_a_uid_are_the_same_place_whatever_their_exits():
+    db = MapDB(
+        [
+            {"id": 1, "uid": [5], "title": ["[A]"], "wayto": {"2": "n"}},
+            {"id": 2, "uid": [5], "title": ["[A, renamed]"], "wayto": {}},
+        ]
+    )
+    assert db.same_place(1, 2)
+
+
+def test_a_route_plans_through_the_twin_the_game_will_report():
+    # 684 names both twins "south"; the plan must carry the id the
+    # arrival uid resolves to, or the walker stops one step short.
+    db = MapDB(MIDDENS)
+    assert db.path(684, [669]) == [(13100, "south"), (669, "east")]
+    assert 670 not in db.graph.successors(684)

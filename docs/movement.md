@@ -82,3 +82,22 @@ announced end on the server clock minus the last prompt's server
 time). Travel-climb *experience* has its own 45–60s award timer — a
 training concern, not a movement one: docs/experience.md owns it, and
 ;athletics paces to it.
+
+## Twin rooms: the map lists some places twice
+
+The community map holds pairs of entries for one physical room — same
+title, same exits — with only one of the pair carrying the game's uid.
+Captured 2026-09-04 (#137): a walk planned through room 670 (Middens,
+Gravel Way, no uid) arrived to `<nav rm='200009'/>`, which the map
+files under 13100, its twin; the exact uid check declared the walker
+off course while it stood in the right room. The map has 67 such twin
+groups, 39 with a uid-less twin, and it refreshes wholesale, so the
+walker tolerates them instead of the data being fixed:
+
+- `MapDB.same_place(a, b)` — twins share a uid, or share a title and
+  an identical wayto dict. Two rooms that merely share a title (roads)
+  are not twins.
+- The arrival check accepts a twin of the planned room.
+- When a room links to both twins with the same command, the graph
+  keeps only the uid-bearing edge, so plans name the id the game will
+  report.

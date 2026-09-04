@@ -150,6 +150,34 @@ class MapDB:
         unlike titles, which collide (roads repeat the same title)."""
         return self._by_uid.get(uid)
 
+    def same_place(self, a, b):
+        """True when two map ids describe one physical room.
+
+        The community map holds twins — captured 2026-09-04 (#137):
+        670 and 13100 are one Middens room, same title, same three
+        exits, only 13100 carrying the game's uid — so a walk planned
+        through one twin arrives, by uid, in the other. Twins share a
+        uid, or share a title and an identical set of exits."""
+        if a == b:
+            return True
+        room_a, room_b = self.rooms.get(a), self.rooms.get(b)
+        if room_a is None or room_b is None:
+            return False
+        uids_a = {int(uid) for uid in room_a.get("uid") or []}
+        uids_b = {int(uid) for uid in room_b.get("uid") or []}
+        if uids_a & uids_b:
+            return True
+        titles_a = {normalize_title(t) for t in room_a.get("title") or []}
+        titles_b = {normalize_title(t) for t in room_b.get("title") or []}
+        exits_a = room_a.get("wayto") or {}
+        # No exits is no evidence: two dead ends sharing a title are
+        # just two dead ends.
+        return (
+            bool(titles_a & titles_b)
+            and bool(exits_a)
+            and exits_a == (room_b.get("wayto") or {})
+        )
+
     def rooms_tagged(self, tag):
         tag = tag.lower()
         return [
@@ -187,11 +215,25 @@ class MapDB:
             graph = nx.DiGraph()
             graph.add_nodes_from(self.rooms)
             for room_id, room in self.rooms.items():
-                for dest, command in (room.get("wayto") or {}).items():
-                    if not str(dest).isdigit():
-                        continue
-                    dest = int(dest)
-                    if dest not in self.rooms or not walkable(command):
+                edges = [
+                    (int(dest), command)
+                    for dest, command in (room.get("wayto") or {}).items()
+                    if str(dest).isdigit()
+                    and int(dest) in self.rooms
+                    and walkable(command)
+                ]
+                for dest, command in edges:
+                    # A room that names both twins of one place (684
+                    # → 670 and 13100, both "south") plans through the
+                    # one the game will report: the uid-bearing twin
+                    # (#137). The uid-less edge stays out of the graph.
+                    if not self.rooms[dest].get("uid") and any(
+                        other != dest
+                        and other_command == command
+                        and self.rooms[other].get("uid")
+                        and self.same_place(dest, other)
+                        for other, other_command in edges
+                    ):
                         continue
                     graph.add_edge(
                         room_id,

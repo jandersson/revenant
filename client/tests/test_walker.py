@@ -257,3 +257,44 @@ def test_walk_announces_a_route_forced_through_avoided_rooms():
     assert walker.walk(handle, chain, [3], avoid={2}) is True
     warning = next(echo for echo in handle.echoes if "no clean detour" in echo)
     assert "1 avoided room(s)" in warning and "[Cougar Cliffs]" in warning
+
+
+def test_walk_accepts_arrival_in_a_twin_of_the_planned_room():
+    # Captured 2026-09-04 (#137): the plan said 670, the game stamped
+    # the uid the map files under its twin 13100 — same room. Only the
+    # uid-less twin is linked here, so the plan cannot dodge it.
+    db = MapDB(
+        [
+            {
+                "id": 684,
+                "uid": [200008],
+                "title": ["[[Middens, Alerin Slade]]"],
+                "wayto": {"670": "south"},
+            },
+            {
+                "id": 670,
+                "title": ["[[Middens, Gravel Way]]"],
+                "wayto": {"669": "east", "684": "north"},
+            },
+            {
+                "id": 13100,
+                "uid": [200009],
+                "title": ["[[Middens, Gravel Way]]"],
+                "wayto": {"669": "east", "684": "north"},
+            },
+            {
+                "id": 669,
+                "uid": [200010],
+                "title": ["[[Middens, Bumboat Row]]"],
+                "wayto": {},
+            },
+        ]
+    )
+    handle = FakeHandle(uids=[200009, 200010])
+    handle.state.room_uid = 200008
+    assert walker.walk(handle, db, [669], describe="Bumboat Row") is True
+    assert not any("off course" in echo for echo in handle.echoes)
+    assert [c for c in handle.calls if c[0] == "put"] == [
+        ("put", "south"),
+        ("put", "east"),
+    ]
