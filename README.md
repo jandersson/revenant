@@ -55,6 +55,7 @@ Passwords, logging, and the protocol: [docs/chat.md](docs/chat.md).
 - [scripting.md](docs/scripting.md) — writing a script
 - [chat.md](docs/chat.md) — LNet: the window, `;lnet`, passwords, logs, protocol
 - [movement.md](docs/movement.md), [death.md](docs/death.md), [favors.md](docs/favors.md), [circles.md](docs/circles.md), [experience.md](docs/experience.md), [eltime.md](docs/eltime.md), [combat.md](docs/combat.md) — the game models the scripts implement, each with its captured evidence
+- [architecture.md](docs/architecture.md) — how the pieces fit, module by module, with the history of why
 - [protocol.md](docs/protocol.md) — the wire protocol the parser implements
 - [why-python.md](docs/why-python.md) — what leaving the Ruby toolchain buys and costs
 
