@@ -204,7 +204,9 @@ One pipeline, one parser, several processes:
   and re-selects after send so Enter repeats; the title bar names the
   logged-in character, and each character's window keeps its own saved
   dock layout (`client/window_layout.py`, Qt-free; the unscoped legacy
-  pair seeds characters without one, #74). Direct mode logs in itself;
+  pair seeds characters without one, #74; the character's layout is
+  applied with the window hidden — restoring dock state onto the
+  shown window aborted the process inside Qt, #124). Direct mode logs in itself;
   `--attach` connects to a session. User highlight patterns
   (`client/highlights.py`, ~/.revenant/highlights.json) color matched
   spans over any base style; View → Reload Highlights re-reads them.
