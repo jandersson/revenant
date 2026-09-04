@@ -2,69 +2,63 @@
   <!-- A kyanite gwethdesuan, per Elanthipedia's item entry: "a fine silver
        chain meant to be worn on the head, with a pair of tiny kyanite
        stones in star-shaped settings which rest over the temples,
-       magnifying one's thoughts." A star setting is a flush-set stone
-       with an eight-pointed star engraved into the metal around it (the
-       jeweller's star set). Drawn as the whole circlet in three-quarter
-       view, a rounded silver band tilted a little, the two stones flush
-       in the band over the temples with the stars engraved around them. -->
+       magnifying one's thoughts."
+       References: a ferronniere (Leonardo's La Belle Ferronniere) for
+       how a fine chain sits across the brow, and a jeweller's star-set
+       ring for the setting: the stone flush, an eight-pointed star cut
+       into the metal around it, four long rays and four short.
+       Three-quarter view as in the painting: the chain crosses the brow
+       and wraps away, the near temple's setting large, the far one
+       small and foreshortened. Jewellery, not a gadget: no glow. -->
   <defs>
-    <radialGradient id="stone" cx="40%" cy="35%" r="65%">
-      <stop offset="0%" stop-color="#e6f7ff"/>
-      <stop offset="40%" stop-color="#4fb8ef"/>
-      <stop offset="80%" stop-color="#1b5f9a"/>
-      <stop offset="100%" stop-color="#0c2c49"/>
+    <radialGradient id="stone" cx="38%" cy="32%" r="68%">
+      <stop offset="0%" stop-color="#eaf7ff"/>
+      <stop offset="35%" stop-color="#5ab9ea"/>
+      <stop offset="75%" stop-color="#1f5e93"/>
+      <stop offset="100%" stop-color="#0d2a45"/>
     </radialGradient>
-    <linearGradient id="band" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#f7f7fa"/>
-      <stop offset="50%" stop-color="#c3c5cf"/>
-      <stop offset="100%" stop-color="#5e6172"/>
-    </linearGradient>
-    <linearGradient id="bandBack" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#8b8e9c"/>
-      <stop offset="100%" stop-color="#4a4d5b"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#8fd6ff" stop-opacity="0.5"/>
-      <stop offset="100%" stop-color="#8fd6ff" stop-opacity="0"/>
+    <radialGradient id="disc" cx="35%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#fbfbfd"/>
+      <stop offset="55%" stop-color="#c9cbd4"/>
+      <stop offset="100%" stop-color="#70738a"/>
     </radialGradient>
-    <!-- a star setting: the stone flush in the band, eight rays engraved
-         around it (kept within the band's width) -->
+    <linearGradient id="chain" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#d9dbe3"/>
+      <stop offset="60%" stop-color="#aeb1bd"/>
+      <stop offset="100%" stop-color="#7a7d8e"/>
+    </linearGradient>
+    <!-- a star setting: a small round silver mount, the stone flush, an
+         eight-pointed star cut into the metal (four long rays, four
+         short); rays bright on one edge, dark on the other, as a cut is -->
     <g id="setting">
-      <g stroke="#2f3140" stroke-width="0.8" stroke-linecap="round" opacity="0.9">
-        <line x1="0" y1="-3.6" x2="0" y2="-5.6"/>
-        <line x1="0" y1="3.6" x2="0" y2="5.6"/>
-        <line x1="-3.6" y1="0" x2="-7.5" y2="0"/>
-        <line x1="3.6" y1="0" x2="7.5" y2="0"/>
-        <line x1="-2.6" y1="-2.6" x2="-4.6" y2="-4.6"/>
-        <line x1="2.6" y1="-2.6" x2="4.6" y2="-4.6"/>
-        <line x1="-2.6" y1="2.6" x2="-4.6" y2="4.6"/>
-        <line x1="2.6" y1="2.6" x2="4.6" y2="4.6"/>
+      <circle r="9" fill="url(#disc)" stroke="#3a3d4b" stroke-width="0.8"/>
+      <g stroke="#2c2f3c" stroke-width="1.1" stroke-linecap="round">
+        <line x1="0" y1="-3.6" x2="0" y2="-8"/>
+        <line x1="0" y1="3.6" x2="0" y2="8"/>
+        <line x1="-3.6" y1="0" x2="-8" y2="0"/>
+        <line x1="3.6" y1="0" x2="8" y2="0"/>
+        <line x1="-2.5" y1="-2.5" x2="-5" y2="-5"/>
+        <line x1="2.5" y1="-2.5" x2="5" y2="-5"/>
+        <line x1="-2.5" y1="2.5" x2="-5" y2="5"/>
+        <line x1="2.5" y1="2.5" x2="5" y2="5"/>
       </g>
-      <g stroke="#ffffff" stroke-width="0.45" stroke-linecap="round" opacity="0.55">
-        <line x1="0.5" y1="-3.6" x2="0.5" y2="-5.4"/>
-        <line x1="-3.6" y1="0.5" x2="-7.2" y2="0.5"/>
-        <line x1="3.6" y1="0.5" x2="7.2" y2="0.5"/>
+      <g stroke="#ffffff" stroke-width="0.5" stroke-linecap="round" opacity="0.7">
+        <line x1="0.6" y1="-3.6" x2="0.6" y2="-7.8"/>
+        <line x1="0.6" y1="3.6" x2="0.6" y2="7.8"/>
+        <line x1="-3.6" y1="-0.6" x2="-7.8" y2="-0.6"/>
+        <line x1="3.6" y1="-0.6" x2="7.8" y2="-0.6"/>
       </g>
-      <circle r="3.2" fill="url(#stone)" stroke="#0b2540" stroke-width="0.6"/>
-      <circle cx="-1" cy="-1.1" r="0.85" fill="#ffffff" opacity="0.85"/>
+      <circle r="3.3" fill="url(#stone)" stroke="#0a2340" stroke-width="0.6"/>
+      <circle cx="-1.1" cy="-1.2" r="0.9" fill="#ffffff" opacity="0.9"/>
     </g>
   </defs>
-  <g transform="rotate(-14 32 36)">
-    <!-- the back of the band, seen through the ring, darker -->
-    <path d="M6 36 A 26 14 0 0 1 58 36" fill="none" stroke="#2f3140" stroke-width="7.4" stroke-linecap="round"/>
-    <path d="M6 36 A 26 14 0 0 1 58 36" fill="none" stroke="url(#bandBack)" stroke-width="6" stroke-linecap="round"/>
-    <!-- the thought-glow behind the stones -->
-    <circle cx="11.5" cy="43" r="11" fill="url(#glow)"/>
-    <circle cx="52.5" cy="43" r="11" fill="url(#glow)"/>
-    <!-- the front of the band, nearer, brighter -->
-    <path d="M6 36 A 26 14 0 0 0 58 36" fill="none" stroke="#2f3140" stroke-width="7.4" stroke-linecap="round"/>
-    <path d="M6 36 A 26 14 0 0 0 58 36" fill="none" stroke="url(#band)" stroke-width="6" stroke-linecap="round"/>
-    <!-- the two star settings over the temples -->
-    <use href="#setting" transform="translate(11.5 43) rotate(30)"/>
-    <use href="#setting" transform="translate(52.5 43) rotate(-30)"/>
-  </g>
-  <!-- the magnified thought: ripples rising above the circlet -->
-  <path d="M27 20 q 5 -4 10 0" fill="none" stroke="#8fd6ff" stroke-width="1.2" stroke-linecap="round" opacity="0.85"/>
-  <path d="M25 14 q 7 -5 14 0" fill="none" stroke="#8fd6ff" stroke-width="1.1" stroke-linecap="round" opacity="0.55"/>
-  <path d="M23 8 q 9 -6 18 0" fill="none" stroke="#8fd6ff" stroke-width="1" stroke-linecap="round" opacity="0.3"/>
+  <!-- the chain across the brow, wrapping away to the far temple: fine,
+       with links -->
+  <path d="M2 30 C 14 36, 30 34, 46 28 S 60 20, 63 16" fill="none" stroke="#3a3d4b" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M2 30 C 14 36, 30 34, 46 28 S 60 20, 63 16" fill="none" stroke="url(#chain)" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M2 30 C 14 36, 30 34, 46 28 S 60 20, 63 16" fill="none" stroke="#2c2f3c" stroke-width="0.7" stroke-dasharray="1.3 1.5" stroke-linecap="round" opacity="0.8"/>
+  <!-- the far temple's setting, small, foreshortened -->
+  <use href="#setting" transform="translate(52 24) scale(0.55 0.5)"/>
+  <!-- the near temple's setting, large, in the foreground -->
+  <use href="#setting" transform="translate(17 34) scale(1.35)"/>
 </svg>
