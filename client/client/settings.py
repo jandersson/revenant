@@ -25,6 +25,7 @@ DEFAULTS = {
     # long to load (helper reloads included). REVENANT_DEV=1 turns it on
     # for one launch.
     "dev_mode": False,
+    "lnet_name": "",  # the last name the standalone chat window logged in as
     # The game text's font (client/textfont.py): a family name and a
     # point size. "" / 0 — what an untouched file holds — means the
     # platform font; the Settings dialog always saves an explicit pair.

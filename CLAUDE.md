@@ -134,7 +134,14 @@ One pipeline, one parser, several processes:
   manual.
   Handle API: put/get/waitfor/waitrt/echo/emit/sleep/state/args — `emit`
   targets an arbitrary stream (e.g. "thoughts"). `scripts/lnet.py` uses it
-  to mirror LNet chat into the Thoughts window (`;lnet`). `;tend`
+  to mirror LNet chat into the Thoughts window (`;lnet`); the command
+  grammar and dispatcher it shares with the standalone chat window live
+  in the stdlib-only `chat/commands.py`, and `client/gui/chat_window.py`
+  (`revenant-chat [name]`) is that window: any LNet name, no game
+  session, password from the keychain via the Qt-free
+  `client/lnet_login.py` (service "revenant-lnet"; a rejected login
+  asks once with a remember checkbox), one worker thread owning the
+  socket as the script does (#141). `;tend`
   bandages bleeders (watch mode wakes on soak-through); `;wealth`
   passively logs teller balance statements into xp.db.
   `client/client/probe.py` is the ask-and-classify helper the keyword

@@ -31,7 +31,7 @@ Python 3.10+ is required. (The old `telnetlib` dependency — removed from the s
 |---|---|
 | [client/](client/) | A Python MUD client and engine — aims to be a [lich](https://lichproject.org/)-style middleman with a PyQt6 frontend and a (WIP) terminal frontend. |
 | [beholder/](beholder/) | A [Dash](https://plotly.com/dash/) web dashboard for character experience history, reading the SQLite log the client's bundled xp script writes. |
-| [chat/](chat/) | A standalone LNet chat client, roughly a Python port of rcuhljr's [Genie LNet plugin](https://github.com/rcuhljr/genie-lnet-plugin/). |
+| [chat/](chat/) | A standalone LNet chat client, roughly a Python port of rcuhljr's [Genie LNet plugin](https://github.com/rcuhljr/genie-lnet-plugin/): the protocol, the command grammar, and — via `revenant-chat` — a window of its own. |
 | [launcher/](launcher/) | Small helper scripts for spinning up a headless lich instance alongside [ProfanityFE](https://github.com/elanthia-online/profanity-fe). |
 
 ### client
@@ -132,6 +132,8 @@ LNet names can be password-protected on the server (protocol per `lnet.lic` 1.15
 - `LNET_DEBUG` — set to anything for raw protocol dumps.
 
 To password-protect a name (or change it), log in and call `Server.register_password("...")`; pass the literal string `"nil"` to remove protection. Forgotten passwords are reset at <https://lnet.lichproject.org>.
+
+`uv run revenant-chat [name]` opens a chat window with no game session at all: log into LNet as any name, type to your default channel, and use the `;chat to`, `;who`, `;channels`, `;tune` commands with or without the `;`. The name is remembered; the password lives in the OS keychain (service `revenant-lnet`), which a rejected login offers to fill once. Run it alongside the game as a second identity, or by itself.
 
 Typing `;lnet` in a revenant frontend brings LNet into the GUI's Thoughts window — chat renders there lich-style (`[Channel]-Name: "msg"`), and the classic commands work as they always did: `;chat <msg>` (default channel), `;chat on <channel> <msg>`, `;chat to <name> <msg>`, `;reply`, `;who [name]`, `;stats`, `;channels [all]`, `;tune`/`;untune <channel>`. The grammar is a 1:1 port of lnet.lic, and `;chat` even starts the connection on demand. `;help lnet` shows the manual in-game; `;stop lnet` disconnects. Replies to `;who`/`;stats`/`;channels` render in Thoughts via a minimal Ruby Marshal reader ([chat/rmarshal.py](chat/rmarshal.py)).
 

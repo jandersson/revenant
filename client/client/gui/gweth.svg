@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- A gwethdesuan: the amulet DragonRealms characters wear to hear the
+       gweth network. A braided cord, a silver bezel, a stone lit from
+       within — the chat window's icon. -->
+  <defs>
+    <radialGradient id="stone" cx="42%" cy="38%" r="65%">
+      <stop offset="0%" stop-color="#d9f3ff"/>
+      <stop offset="35%" stop-color="#5cc0f0"/>
+      <stop offset="75%" stop-color="#1e6fa8"/>
+      <stop offset="100%" stop-color="#0d2f4d"/>
+    </radialGradient>
+    <linearGradient id="bezel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f2f2f5"/>
+      <stop offset="50%" stop-color="#a7a9b3"/>
+      <stop offset="100%" stop-color="#5f6270"/>
+    </linearGradient>
+    <linearGradient id="cord" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8a5a2b"/>
+      <stop offset="100%" stop-color="#4c2f14"/>
+    </linearGradient>
+  </defs>
+  <!-- the cord, a loop hanging from the top edge -->
+  <path d="M14 2 C 10 14, 18 22, 30 24" fill="none" stroke="url(#cord)" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M50 2 C 54 14, 46 22, 34 24" fill="none" stroke="url(#cord)" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M14 2 C 10 14, 18 22, 30 24" fill="none" stroke="#c98a4b" stroke-width="0.8" stroke-dasharray="1.6 2.2" stroke-linecap="round"/>
+  <path d="M50 2 C 54 14, 46 22, 34 24" fill="none" stroke="#c98a4b" stroke-width="0.8" stroke-dasharray="1.6 2.2" stroke-linecap="round"/>
+  <!-- the bail joining cord to bezel -->
+  <rect x="28" y="21" width="8" height="7" rx="2.5" fill="url(#bezel)" stroke="#3b3d47" stroke-width="0.8"/>
+  <!-- the bezel -->
+  <ellipse cx="32" cy="42" rx="17" ry="18" fill="url(#bezel)" stroke="#3b3d47" stroke-width="1"/>
+  <!-- the stone -->
+  <ellipse cx="32" cy="42" rx="13" ry="14" fill="url(#stone)" stroke="#0b2540" stroke-width="0.8"/>
+  <!-- a voice in the stone: three faint ripples, the gweth speaking -->
+  <path d="M26 42 q 6 -5 12 0" fill="none" stroke="#e8f8ff" stroke-width="1.1" stroke-linecap="round" opacity="0.85"/>
+  <path d="M24 46 q 8 -6 16 0" fill="none" stroke="#e8f8ff" stroke-width="1" stroke-linecap="round" opacity="0.55"/>
+  <path d="M28 38 q 4 -3 8 0" fill="none" stroke="#ffffff" stroke-width="1.1" stroke-linecap="round" opacity="0.95"/>
+  <!-- highlight -->
+  <ellipse cx="27" cy="34" rx="3.2" ry="2" fill="#ffffff" opacity="0.55"/>
+</svg>
