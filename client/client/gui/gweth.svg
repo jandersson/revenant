@@ -2,9 +2,12 @@
   <!-- A kyanite gwethdesuan, per Elanthipedia's item entry: "a fine silver
        chain meant to be worn on the head, with a pair of tiny kyanite
        stones in star-shaped settings which rest over the temples,
-       magnifying one's thoughts." Drawn as the circlet seen from the
-       front: the chain arcing over the brow, a star-set blue stone at
-       each temple, exaggerated so they survive icon size. -->
+       magnifying one's thoughts." A star setting, in jewellery, is a
+       flush-set stone with fine rays engraved into the metal around it —
+       so: the circlet from the front, the chain arcing over the brow,
+       and at each temple a small round silver collet with engraved rays
+       around a kyanite stone. The collets are a little larger than
+       "tiny" so the stones survive icon size. -->
   <defs>
     <radialGradient id="stone" cx="40%" cy="35%" r="65%">
       <stop offset="0%" stop-color="#e6f7ff"/>
@@ -18,29 +21,36 @@
       <stop offset="100%" stop-color="#6b6e7c"/>
     </linearGradient>
     <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#8fd6ff" stop-opacity="0.55"/>
+      <stop offset="0%" stop-color="#8fd6ff" stop-opacity="0.45"/>
       <stop offset="100%" stop-color="#8fd6ff" stop-opacity="0"/>
     </radialGradient>
+    <!-- one star setting: a flush collet with eight engraved rays -->
+    <g id="setting">
+      <circle r="7.5" fill="url(#silver)" stroke="#3f4250" stroke-width="0.9"/>
+      <g stroke="#4a4d5a" stroke-width="0.7" stroke-linecap="round" opacity="0.9">
+        <line x1="0" y1="-3.8" x2="0" y2="-6.6"/>
+        <line x1="0" y1="3.8" x2="0" y2="6.6"/>
+        <line x1="-3.8" y1="0" x2="-6.6" y2="0"/>
+        <line x1="3.8" y1="0" x2="6.6" y2="0"/>
+        <line x1="-2.7" y1="-2.7" x2="-4.7" y2="-4.7"/>
+        <line x1="2.7" y1="-2.7" x2="4.7" y2="-4.7"/>
+        <line x1="-2.7" y1="2.7" x2="-4.7" y2="4.7"/>
+        <line x1="2.7" y1="2.7" x2="4.7" y2="4.7"/>
+      </g>
+      <circle r="3.4" fill="url(#stone)" stroke="#0b2540" stroke-width="0.6"/>
+      <circle cx="-1" cy="-1.2" r="0.9" fill="#ffffff" opacity="0.8"/>
+    </g>
   </defs>
   <!-- the thought-glow behind each stone -->
-  <circle cx="14" cy="34" r="12" fill="url(#glow)"/>
-  <circle cx="50" cy="34" r="12" fill="url(#glow)"/>
-  <!-- the chain: an arc over the brow, drooping to the temples -->
-  <path d="M14 34 C 16 12, 48 12, 50 34" fill="none" stroke="#5a5d6a" stroke-width="4.2" stroke-linecap="round"/>
-  <path d="M14 34 C 16 12, 48 12, 50 34" fill="none" stroke="url(#silver)" stroke-width="3" stroke-linecap="round"/>
-  <!-- chain links -->
+  <circle cx="14" cy="34" r="11" fill="url(#glow)"/>
+  <circle cx="50" cy="34" r="11" fill="url(#glow)"/>
+  <!-- the chain: an arc over the brow, ending at the temples -->
+  <path d="M14 34 C 16 12, 48 12, 50 34" fill="none" stroke="#5a5d6a" stroke-width="4" stroke-linecap="round"/>
+  <path d="M14 34 C 16 12, 48 12, 50 34" fill="none" stroke="url(#silver)" stroke-width="2.8" stroke-linecap="round"/>
   <path d="M14 34 C 16 12, 48 12, 50 34" fill="none" stroke="#3f4250" stroke-width="1" stroke-dasharray="2.2 2.4" stroke-linecap="round" opacity="0.7"/>
-  <!-- the two settings: silver stars over the temples -->
-  <g transform="translate(14 34)">
-    <polygon points="0,-11 3.2,-4.4 10.5,-3.4 5.2,1.7 6.5,9 0,5.5 -6.5,9 -5.2,1.7 -10.5,-3.4 -3.2,-4.4" fill="url(#silver)" stroke="#3f4250" stroke-width="0.9" stroke-linejoin="round"/>
-    <circle r="4.6" fill="url(#stone)" stroke="#0b2540" stroke-width="0.7"/>
-    <circle cx="-1.4" cy="-1.6" r="1.2" fill="#ffffff" opacity="0.8"/>
-  </g>
-  <g transform="translate(50 34)">
-    <polygon points="0,-11 3.2,-4.4 10.5,-3.4 5.2,1.7 6.5,9 0,5.5 -6.5,9 -5.2,1.7 -10.5,-3.4 -3.2,-4.4" fill="url(#silver)" stroke="#3f4250" stroke-width="0.9" stroke-linejoin="round"/>
-    <circle r="4.6" fill="url(#stone)" stroke="#0b2540" stroke-width="0.7"/>
-    <circle cx="-1.4" cy="-1.6" r="1.2" fill="#ffffff" opacity="0.8"/>
-  </g>
+  <!-- the two settings over the temples -->
+  <use href="#setting" x="14" y="34"/>
+  <use href="#setting" x="50" y="34"/>
   <!-- the magnified thought: three ripples rising from between the stones -->
   <path d="M27 24 q 5 -4 10 0" fill="none" stroke="#8fd6ff" stroke-width="1.2" stroke-linecap="round" opacity="0.9"/>
   <path d="M25 19 q 7 -5 14 0" fill="none" stroke="#8fd6ff" stroke-width="1.1" stroke-linecap="round" opacity="0.6"/>
