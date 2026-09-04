@@ -1,39 +1,48 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- A gwethdesuan: the amulet DragonRealms characters wear to hear the
-       gweth network. A braided cord, a silver bezel, a stone lit from
-       within — the chat window's icon. -->
+  <!-- A kyanite gwethdesuan, per Elanthipedia's item entry: "a fine silver
+       chain meant to be worn on the head, with a pair of tiny kyanite
+       stones in star-shaped settings which rest over the temples,
+       magnifying one's thoughts." Drawn as the circlet seen from the
+       front: the chain arcing over the brow, a star-set blue stone at
+       each temple, exaggerated so they survive icon size. -->
   <defs>
-    <radialGradient id="stone" cx="42%" cy="38%" r="65%">
-      <stop offset="0%" stop-color="#d9f3ff"/>
-      <stop offset="35%" stop-color="#5cc0f0"/>
-      <stop offset="75%" stop-color="#1e6fa8"/>
-      <stop offset="100%" stop-color="#0d2f4d"/>
+    <radialGradient id="stone" cx="40%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#e6f7ff"/>
+      <stop offset="40%" stop-color="#4fb8ef"/>
+      <stop offset="80%" stop-color="#1b5f9a"/>
+      <stop offset="100%" stop-color="#0c2c49"/>
     </radialGradient>
-    <linearGradient id="bezel" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#f2f2f5"/>
-      <stop offset="50%" stop-color="#a7a9b3"/>
-      <stop offset="100%" stop-color="#5f6270"/>
+    <linearGradient id="silver" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f4f4f7"/>
+      <stop offset="50%" stop-color="#b9bbc6"/>
+      <stop offset="100%" stop-color="#6b6e7c"/>
     </linearGradient>
-    <linearGradient id="cord" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#8a5a2b"/>
-      <stop offset="100%" stop-color="#4c2f14"/>
-    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#8fd6ff" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#8fd6ff" stop-opacity="0"/>
+    </radialGradient>
   </defs>
-  <!-- the cord, a loop hanging from the top edge -->
-  <path d="M14 2 C 10 14, 18 22, 30 24" fill="none" stroke="url(#cord)" stroke-width="3.2" stroke-linecap="round"/>
-  <path d="M50 2 C 54 14, 46 22, 34 24" fill="none" stroke="url(#cord)" stroke-width="3.2" stroke-linecap="round"/>
-  <path d="M14 2 C 10 14, 18 22, 30 24" fill="none" stroke="#c98a4b" stroke-width="0.8" stroke-dasharray="1.6 2.2" stroke-linecap="round"/>
-  <path d="M50 2 C 54 14, 46 22, 34 24" fill="none" stroke="#c98a4b" stroke-width="0.8" stroke-dasharray="1.6 2.2" stroke-linecap="round"/>
-  <!-- the bail joining cord to bezel -->
-  <rect x="28" y="21" width="8" height="7" rx="2.5" fill="url(#bezel)" stroke="#3b3d47" stroke-width="0.8"/>
-  <!-- the bezel -->
-  <ellipse cx="32" cy="42" rx="17" ry="18" fill="url(#bezel)" stroke="#3b3d47" stroke-width="1"/>
-  <!-- the stone -->
-  <ellipse cx="32" cy="42" rx="13" ry="14" fill="url(#stone)" stroke="#0b2540" stroke-width="0.8"/>
-  <!-- a voice in the stone: three faint ripples, the gweth speaking -->
-  <path d="M26 42 q 6 -5 12 0" fill="none" stroke="#e8f8ff" stroke-width="1.1" stroke-linecap="round" opacity="0.85"/>
-  <path d="M24 46 q 8 -6 16 0" fill="none" stroke="#e8f8ff" stroke-width="1" stroke-linecap="round" opacity="0.55"/>
-  <path d="M28 38 q 4 -3 8 0" fill="none" stroke="#ffffff" stroke-width="1.1" stroke-linecap="round" opacity="0.95"/>
-  <!-- highlight -->
-  <ellipse cx="27" cy="34" rx="3.2" ry="2" fill="#ffffff" opacity="0.55"/>
+  <!-- the thought-glow behind each stone -->
+  <circle cx="14" cy="34" r="12" fill="url(#glow)"/>
+  <circle cx="50" cy="34" r="12" fill="url(#glow)"/>
+  <!-- the chain: an arc over the brow, drooping to the temples -->
+  <path d="M14 34 C 16 12, 48 12, 50 34" fill="none" stroke="#5a5d6a" stroke-width="4.2" stroke-linecap="round"/>
+  <path d="M14 34 C 16 12, 48 12, 50 34" fill="none" stroke="url(#silver)" stroke-width="3" stroke-linecap="round"/>
+  <!-- chain links -->
+  <path d="M14 34 C 16 12, 48 12, 50 34" fill="none" stroke="#3f4250" stroke-width="1" stroke-dasharray="2.2 2.4" stroke-linecap="round" opacity="0.7"/>
+  <!-- the two settings: silver stars over the temples -->
+  <g transform="translate(14 34)">
+    <polygon points="0,-11 3.2,-4.4 10.5,-3.4 5.2,1.7 6.5,9 0,5.5 -6.5,9 -5.2,1.7 -10.5,-3.4 -3.2,-4.4" fill="url(#silver)" stroke="#3f4250" stroke-width="0.9" stroke-linejoin="round"/>
+    <circle r="4.6" fill="url(#stone)" stroke="#0b2540" stroke-width="0.7"/>
+    <circle cx="-1.4" cy="-1.6" r="1.2" fill="#ffffff" opacity="0.8"/>
+  </g>
+  <g transform="translate(50 34)">
+    <polygon points="0,-11 3.2,-4.4 10.5,-3.4 5.2,1.7 6.5,9 0,5.5 -6.5,9 -5.2,1.7 -10.5,-3.4 -3.2,-4.4" fill="url(#silver)" stroke="#3f4250" stroke-width="0.9" stroke-linejoin="round"/>
+    <circle r="4.6" fill="url(#stone)" stroke="#0b2540" stroke-width="0.7"/>
+    <circle cx="-1.4" cy="-1.6" r="1.2" fill="#ffffff" opacity="0.8"/>
+  </g>
+  <!-- the magnified thought: three ripples rising from between the stones -->
+  <path d="M27 24 q 5 -4 10 0" fill="none" stroke="#8fd6ff" stroke-width="1.2" stroke-linecap="round" opacity="0.9"/>
+  <path d="M25 19 q 7 -5 14 0" fill="none" stroke="#8fd6ff" stroke-width="1.1" stroke-linecap="round" opacity="0.6"/>
+  <path d="M23 14 q 9 -6 18 0" fill="none" stroke="#8fd6ff" stroke-width="1" stroke-linecap="round" opacity="0.35"/>
 </svg>
