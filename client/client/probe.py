@@ -10,7 +10,7 @@ contains. Scripts keep their own outcome tables and collection windows
 collect() is the piece every answer-reading script shares: it glues the
 segments the session hands a script back into whole game lines. A line
 the game styles or links arrives as several pieces, only the last of
-which carries the newline (core.Engine.read marks it) — INV FULL's
+which carries the newline (core.Engine.read marks it) — INV LIST's
 <d>-linked items came apart into one piece per link, and the inventory
 parser filed every nested item at the top level (#123).
 """
@@ -39,7 +39,7 @@ def collect(s, seconds, until=None):
     Pieces are glued until one ends in a newline, which is how the
     engine marks the last piece of each line: a styled or linked line
     reaches a script in several pieces, and joining those with newlines
-    tore INV FULL's indented items apart (#123). A piece left open when
+    tore INV LIST's indented items apart (#123). A piece left open when
     the window closes is kept as a line of its own.
     """
     lines = []

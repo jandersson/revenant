@@ -127,8 +127,8 @@ One pipeline, one parser, several processes:
   Sessions autostart the xp history logger, the beholder dashboard
   server in quiet mode, the character-sheet snapshotter (`;sheet`:
   INFO + EXP ALL into stats/sheet_skills/character tables every 3h;
-  `;sheet inv` additionally asks INV FULL into the `inventory` table
-  — on demand only, never scheduled, because INV FULL costs 5s of
+  `;sheet inv` additionally asks INV LIST into the `inventory` table
+  — on demand only, never scheduled, because INV LIST costs 5s of
   roundtime. The autostarted script waits on its command queue
   between snapshots, so `;sheet inv` typed at it takes one inventory
   snapshot and the schedule carries on; from cold it snapshots and
