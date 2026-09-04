@@ -214,3 +214,33 @@ def test_unrecognized_commands_point_at_the_manual():
     handle = FakeHandle()
     lnet.obey(handle, _tapped_server(), "dance wildly", last_priv=None)
     assert handle.echoed == ["unrecognized: 'dance wildly' — see ;help lnet"]
+
+
+def test_the_servers_reflection_of_your_own_tell_renders_as_private_to():
+    # Captured 2026-09-04 (#145): a `;chat to Atanamir test` came back as
+    # `[server]: "test"`. lnet.lic's dispatch names the shape — the server
+    # reflects your own private as type "privateto" with the recipient in
+    # `to` and no `from` — so it renders like the tell it echoes.
+    message = _message(message_type="privateto", to="Somefriend", contents="test")
+    assert str(message) == '[PrivateTo]-Somefriend: "test"'
+
+
+def test_a_privateto_element_off_the_wire_parses_to_that_shape():
+    server = Server()
+    server._reset_parser()
+    server.connection = type(
+        "Chunks",
+        (),
+        {
+            "recv": lambda self, n: (
+                b'<message type="privateto" to="Somefriend">test</message>\n'
+            )
+        },
+    )()
+    (message,) = server.receive_messages()
+    assert (message.message_type, message.to, message.sender) == (
+        "privateto",
+        "Somefriend",
+        None,
+    )
+    assert str(message) == '[PrivateTo]-Somefriend: "test"'

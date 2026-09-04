@@ -100,6 +100,12 @@ class LnetMessage(NamedTuple):
             if self.sender:  # incoming
                 return f'[Private]-{self.sender}: "{self.contents}"'
             return f'[PrivateTo]-{self.to}: "{self.contents}"'  # our own, reflected
+        if self.message_type == "privateto":
+            # The server's reflection of a private you sent: type
+            # "privateto" with the recipient in `to` — lnet.lic's own
+            # dispatch names it so. It rendered as [server] until the
+            # type was matched (captured 2026-09-04, #145).
+            return f'[PrivateTo]-{self.to}: "{self.contents}"'
         return f'{self.sender or "[server]"}: "{self.contents}"'
 
 
