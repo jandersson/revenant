@@ -644,6 +644,7 @@ def test_reexec_is_gated_off_on_windows(monkeypatch):
     # Detach keeps this process alive, and a relaunch reattaches to it —
     # the note must steer to what actually loads new code.
     assert ";stop <name>" in note and "close the window" in note
+    assert "helper modules reload" in note  # #138: the walker fix needs no relaunch
     assert "Detach and relaunch" not in note
 
 

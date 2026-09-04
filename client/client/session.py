@@ -393,8 +393,9 @@ class SessionServer(ClientLogger):
             # (closing the window quits the game and ends this one, #129).
             self.broadcast(
                 "session: ;reexec is not supported on Windows (#129). "
-                "Script edits: ;stop <name> then run it again — scripts "
-                "reload from disk. Anything else: close the window (quit) "
+                "Script edits: ;stop <name> then run it again — scripts and "
+                "their helper modules reload from disk. Anything else: close "
+                "the window (quit) "
                 "and relaunch; Detach would reattach to this old session\n",
                 "script",
             )

@@ -2,7 +2,13 @@
 
 A script is a Python file in `scripts/` defining `main(s)` — drop the
 file in, type `;run <name>` in any frontend, and it runs. No restart,
-no registration: every `;run` loads the file fresh from disk.
+no registration: every `;run` loads the file fresh from disk — and
+reloads the `client/` helper modules scripts lean on (probe, walker,
+mapdb, inventory, circles, climbs, eltime, settings, textfont) when
+their files changed since import, announcing which. A walker fix
+reaches a running session through `;stop go2` and `;go2`, the way
+lich's common scripts do. The session, engine and parser never reload
+that way; `;reexec` replaces those.
 
 ## Where scripts live
 

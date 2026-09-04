@@ -22,12 +22,22 @@ script's name is enough: ;k mech), or ;<name> [args] as shorthand for
 user manual. Typing ;<name> <line> while <name> is running delivers
 <line> to it via s.command(); the lich chat shorthands (;chat, ;reply,
 ;who, ...) route to the lnet script.
+
+Every start loads the script file fresh from disk, and reloads the
+client/ helper modules scripts lean on (RELOADABLE_MODULES: probe,
+walker, mapdb, inventory, ...) when their files changed since they were
+imported — so a fix in the walker reaches a running session through
+;stop go2 and ;go2, the way lich's common scripts do (#138). Modules
+holding the socket, the parser, or threads never reload; that is
+;reexec's job.
 """
 
 import ast
+import importlib
 import os
 import queue
 import re
+import sys
 import traceback
 from importlib import util as importlib_util
 from pathlib import Path
@@ -197,11 +207,44 @@ class Script:
         return self.thread is not None and self.thread.is_alive()
 
 
+# The client/ modules a script start reloads when their file changed
+# since import (#138): pure logic, no cross-session state, in dependency
+# order (walker binds names from mapdb, so mapdb reloads first). Never
+# session, core, xml_data or this module — they own the socket, the
+# parser and the threads, and only ;reexec may replace them.
+RELOADABLE_MODULES = (
+    "client.settings",
+    "client.textfont",
+    "client.eltime",
+    "client.climbs",
+    "client.circles",
+    "client.inventory",
+    "client.probe",
+    "client.mapdb",
+    "client.walker",
+)
+
+
+def _mtime(module):
+    path = getattr(module, "__file__", None)
+    try:
+        return os.path.getmtime(path) if path else None
+    except OSError:
+        return None
+
+
 class ScriptManager(ClientLogger):
     """Loads, runs, feeds, and stops scripts inside the session."""
 
     def __init__(
-        self, send, emit, state=None, scripts_dir=None, clock=None, emit_stream=None
+        self,
+        send,
+        emit,
+        state=None,
+        scripts_dir=None,
+        clock=None,
+        emit_stream=None,
+        reloadable=RELOADABLE_MODULES,
     ):
         self.send = send  # (str) -> None: command to the game
         self.emit = emit  # (str) -> None: text to the front ends
@@ -214,6 +257,49 @@ class ScriptManager(ClientLogger):
         self.clock = clock or monotonic
         self.running = {}
         self.lock = Lock()
+        # File stamps of the reloadable modules as last imported/reloaded;
+        # a module is stamped when first seen imported (#138).
+        self.reloadable = tuple(reloadable)
+        self._module_stamps = {}
+        self._stamp_modules()
+
+    # -- helper-module reload (#138) ------------------------------------
+
+    def _stamp_modules(self):
+        for name in self.reloadable:
+            module = sys.modules.get(name)
+            if module is not None and name not in self._module_stamps:
+                self._module_stamps[name] = _mtime(module)
+
+    def reload_changed(self):
+        """Reload the reloadable modules whose file changed since they
+        were imported; returns the names that had changed.
+
+        One change reloads every imported reloadable module, in list
+        order: a module that binds names from an earlier one (walker
+        from mapdb) must re-import them from the fresh copy, and a
+        blanket reload in dependency order needs no import graph. A
+        reload that fails (a syntax error mid-edit) is reported and the
+        module keeps running its last good code."""
+        changed = [
+            name
+            for name, stamp in self._module_stamps.items()
+            if _mtime(sys.modules[name]) != stamp
+        ]
+        if not changed:
+            return []
+        for name in self.reloadable:
+            module = sys.modules.get(name)
+            if module is None:
+                continue
+            try:
+                importlib.reload(module)
+            except Exception as error:
+                self.log.exception(f"failed to reload {name}")
+                self.emit(f"{name} failed to reload, keeping the old code: {error!r}")
+                continue
+            self._module_stamps[name] = _mtime(sys.modules[name])
+        return changed
 
     # -- game-line fan-in ------------------------------------------------
 
@@ -330,6 +416,9 @@ class ScriptManager(ClientLogger):
             if name in self.running and self.running[name].alive:
                 self.emit(f"{name} is already running (;stop {name} first)")
                 return
+        changed = self.reload_changed()
+        if changed:
+            self.emit(f"reloaded {', '.join(changed)} (edited since import)")
         try:
             spec = importlib_util.spec_from_file_location(
                 f"revenant_script_{name}", path
@@ -341,6 +430,9 @@ class ScriptManager(ClientLogger):
             self.log.exception(f"failed to load script {name}")
             self.emit(f"{name} failed to load: {error!r}")
             return
+        # A script's first import of a helper is stamped here, so a
+        # later edit to it is noticed at the next start.
+        self._stamp_modules()
         script = Script(name, args, self)
         script.thread = Thread(target=self._run, args=(script, entry), daemon=True)
         with self.lock:

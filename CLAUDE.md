@@ -114,13 +114,17 @@ One pipeline, one parser, several processes:
   **`;reexec` is POSIX-only**: on Windows it refuses with a note and
   changes nothing (WinSock handles aren't CRT fds and exec spawns
   rather than replaces, #38; a socket.share() port is #129). Scripts
-  reload from disk on every start, so a script edit reaches a running
-  session on any platform via `;stop <name>` and running it again;
-  everything else on Windows needs a new session — close the window
-  (quit) and relaunch. File → Detach is the wrong move: it leaves the
-  session running and a relaunch reattaches to the old code. Remember
-  either way: a running session does NOT see edits to client/ modules
-  until it re-execs or restarts.
+  reload from disk on every start, and so do the client/ helper
+  modules they lean on (`scripting.RELOADABLE_MODULES`: probe,
+  walker, mapdb, inventory, circles, climbs, eltime, settings,
+  textfont — pure logic, reloaded in dependency order when their
+  file changed since import, #138), so a script or walker edit
+  reaches a running session on any platform via `;stop <name>` and
+  running it again. Everything else — session, core, xml_data, the
+  GUI — needs `;reexec`, or on Windows a new session: close the
+  window (quit) and relaunch. File → Detach is the wrong move: it
+  leaves the session running and a relaunch reattaches to the old
+  code.
 - `client/client/scripting.py` — script engine. Scripts are `main(s)` Python
   files in `scripts/` (repo root), run as threads in the session, controlled
   by `;`-commands typed in any frontend (`;list`, `;help [x]`, `;run x`,

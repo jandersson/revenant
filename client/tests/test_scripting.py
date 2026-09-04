@@ -316,3 +316,114 @@ def test_dead_reflects_the_death_indicator(tmp_path):
     assert script.dead is True
     manager.state.indicator["IconDEAD"] = "n"
     assert script.dead is False
+
+
+# --- helper modules reload on script start (#138) ---
+
+
+def _write_helper(path, value, stamp):
+    path.write_text(f"VALUE = {value}\n")
+    # Editors and git may leave mtimes anywhere; the stamp is what the
+    # engine compares, so set it explicitly and distinctly.
+    import os
+
+    os.utime(path, (stamp, stamp))
+
+
+def _reload_fixture(tmp_path, monkeypatch):
+    """A throwaway helper module on sys.path, a manager that treats it
+    as reloadable, and a script that echoes the helper's VALUE."""
+    import sys
+
+    monkeypatch.syspath_prepend(str(tmp_path))
+    helper = tmp_path / "hot_helper.py"
+    _write_helper(helper, 1, 1_000_000)
+    sys.modules.pop("hot_helper", None)
+    (tmp_path / "probe_it.py").write_text(
+        "import hot_helper\n\ndef main(s):\n    s.echo(str(hot_helper.VALUE))\n"
+    )
+    recorder = Recorder()
+    manager = ScriptManager(
+        send=recorder.sent.append,
+        emit=recorder.emitted.append,
+        scripts_dir=tmp_path,
+        reloadable=("hot_helper",),
+    )
+    return manager, recorder, helper
+
+
+def _run_and_wait(manager, recorder, name="probe_it"):
+    before = len(recorder.emitted)
+    manager.start(name, [])
+    assert wait_for(
+        lambda: any(f"{name} exited" in e for e in recorder.emitted[before:])
+    )
+    return recorder.emitted[before:]
+
+
+def test_a_helper_edited_since_import_is_reloaded_at_the_next_start(
+    tmp_path, monkeypatch
+):
+    manager, recorder, helper = _reload_fixture(tmp_path, monkeypatch)
+    first = _run_and_wait(manager, recorder)
+    assert "[probe_it] 1" in first
+    assert not any("reloaded" in e for e in first)
+
+    _write_helper(helper, 2, 2_000_000)
+    second = _run_and_wait(manager, recorder)
+    assert "[probe_it] 2" in second  # the script saw the fresh module
+    assert any(e == "reloaded hot_helper (edited since import)" for e in second)
+
+
+def test_an_unchanged_helper_is_left_alone(tmp_path, monkeypatch):
+    manager, recorder, helper = _reload_fixture(tmp_path, monkeypatch)
+    _run_and_wait(manager, recorder)
+    second = _run_and_wait(manager, recorder)
+    assert not any("reloaded" in e for e in second)
+    assert "[probe_it] 1" in second
+
+
+def test_a_helper_not_yet_imported_is_not_touched(tmp_path, monkeypatch):
+    import sys
+
+    monkeypatch.syspath_prepend(str(tmp_path))
+    sys.modules.pop("never_imported_helper", None)
+    (tmp_path / "noop.py").write_text("def main(s):\n    s.echo('ok')\n")
+    recorder = Recorder()
+    manager = ScriptManager(
+        send=recorder.sent.append,
+        emit=recorder.emitted.append,
+        scripts_dir=tmp_path,
+        reloadable=("never_imported_helper",),
+    )
+    out = _run_and_wait(manager, recorder, "noop")
+    assert "[noop] ok" in out
+    assert "never_imported_helper" not in sys.modules
+
+
+def test_a_broken_edit_keeps_the_old_helper_and_says_so(tmp_path, monkeypatch):
+    manager, recorder, helper = _reload_fixture(tmp_path, monkeypatch)
+    _run_and_wait(manager, recorder)
+    helper.write_text("VALUE = (\n")  # a half-typed edit
+    import os
+
+    os.utime(helper, (3_000_000, 3_000_000))
+    second = _run_and_wait(manager, recorder)
+    assert any("hot_helper failed to reload, keeping the old code" in e for e in second)
+    assert "[probe_it] 1" in second  # last good code still runs
+
+
+def test_the_reloadable_list_never_names_the_sessions_plumbing():
+    from client.scripting import RELOADABLE_MODULES
+
+    for forbidden in (
+        "client.session",
+        "client.core",
+        "client.xml_data",
+        "client.scripting",
+    ):
+        assert forbidden not in RELOADABLE_MODULES
+    # Dependency order: walker binds names from mapdb, which must go first.
+    assert RELOADABLE_MODULES.index("client.mapdb") < RELOADABLE_MODULES.index(
+        "client.walker"
+    )
