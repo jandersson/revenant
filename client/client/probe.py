@@ -6,6 +6,13 @@ ones the game holds back until the roundtime ends; classify() maps the
 gathered text to the first outcome in an ordered table whose needle it
 contains. Scripts keep their own outcome tables and collection windows
 (module constants, so tests can shorten them) and call in here.
+
+collect() is the piece every answer-reading script shares: it glues the
+segments the session hands a script back into whole game lines. A line
+the game styles or links arrives as several pieces, only the last of
+which carries the newline (core.Engine.read marks it) — INV FULL's
+<d>-linked items came apart into one piece per link, and the inventory
+parser filed every nested item at the top level (#123).
 """
 
 import time
@@ -24,16 +31,34 @@ def classify(text, outcomes):
     return None
 
 
-def collect(s, seconds):
+def collect(s, seconds, until=None):
     """Every main-stream line that arrives within the window, joined
-    with newlines ("" when nothing does)."""
-    pieces = []
+    with newlines ("" when nothing does). A line containing `until`
+    ends the wait early — the recognizable last line of an answer.
+
+    Pieces are glued until one ends in a newline, which is how the
+    engine marks the last piece of each line: a styled or linked line
+    reaches a script in several pieces, and joining those with newlines
+    tore INV FULL's indented items apart (#123). A piece left open when
+    the window closes is kept as a line of its own.
+    """
+    lines = []
+    partial = ""
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
-        line = s.get(timeout=0.5)
-        if line is not None:
-            pieces.append(line)
-    return "\n".join(pieces)
+        piece = s.get(timeout=0.5)
+        if piece is None:
+            continue
+        partial += piece
+        if not partial.endswith("\n"):
+            continue
+        line, partial = partial.rstrip("\r\n"), ""
+        lines.append(line)
+        if until is not None and until in line:
+            break
+    if partial:
+        lines.append(partial)
+    return "\n".join(lines)
 
 
 def ask(s, command, seconds, tail_seconds):

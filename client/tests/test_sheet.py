@@ -8,6 +8,10 @@ import importlib.util
 import pathlib
 import sqlite3
 
+import pytest
+
+from client.core import Engine
+
 REPO = pathlib.Path(__file__).parents[2]
 
 
@@ -72,22 +76,37 @@ def test_parse_exp_all_reads_both_columns():
     assert "SKILL" not in skills  # the header row never parses as a skill
 
 
+class Stopped(Exception):
+    """What ;stop does to a script blocked on its command queue."""
+
+
 class FakeHandle:
     """The script-engine surface ;sheet uses, with per-attempt canned
     answers: responses[command] is a list of answers, consumed one per
-    put()."""
+    put(). Answers are pieces as the engine delivers them — each game
+    line's last piece ends in a newline. `requests` are the lines a
+    user types at the running script (;sheet inv), handed out by
+    command(); once they run out the script is "stopped"."""
 
-    def __init__(self, responses):
+    def __init__(self, responses, requests=()):
         self.responses = {c: list(seqs) for c, seqs in responses.items()}
+        self.requests = list(requests)
         self.pending = []
+        self.sent = []
         self.echoed = []
         self.slept = 0
         self.state = None
         self.dead = False
 
     def put(self, command):
+        self.sent.append(command)
         seqs = self.responses.get(command, [])
         self.pending = list(seqs.pop(0)) if seqs else []
+
+    def command(self, timeout=None):
+        if self.requests:
+            return self.requests.pop(0)
+        raise Stopped()
 
     def get(self, timeout=None):
         return self.pending.pop(0) if self.pending else None
@@ -116,8 +135,8 @@ def test_snapshot_reasks_a_command_the_game_ate(monkeypatch, tmp_path):
         monkeypatch,
         tmp_path,
         {
-            "info": [[], INFO_TEXT.splitlines()],
-            "exp all": [EXP_ALL_TEXT.splitlines()],
+            "info": [[], INFO_TEXT.splitlines(keepends=True)],
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
         },
     )
     assert handle.slept > 0  # a retry pause happened
@@ -132,7 +151,7 @@ def test_snapshot_never_stores_an_all_none_character_row(monkeypatch, tmp_path):
         tmp_path,
         {
             "info": [[], [], []],  # every ask goes unanswered
-            "exp all": [EXP_ALL_TEXT.splitlines()],
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
         },
     )
     assert connection.execute("SELECT count(*) FROM character").fetchone()[0] == 0
@@ -156,7 +175,7 @@ def test_ensure_schema_adds_guild_to_a_pre_tracking_database():
 
 def test_collect_stops_at_an_explicit_final_line():
     handle = FakeHandle({})
-    handle.pending = INFO_TEXT.splitlines() + ["later, unrelated text"]
+    handle.pending = INFO_TEXT.splitlines(keepends=True) + ["later, unrelated text"]
     text = sheet.collect(handle, seconds=5, until="Encumbrance")
     assert "Encumbrance" in text
     # The final line ended the wait: what followed was never consumed.
@@ -257,11 +276,11 @@ def test_the_renaming_room_stops_the_retries(monkeypatch, tmp_path):
         monkeypatch,
         tmp_path,
         {
-            "info": [INFO_TEXT.splitlines()],
+            "info": [INFO_TEXT.splitlines(keepends=True)],
             "exp all": [
-                RENAMING_TEXT.splitlines(),
-                RENAMING_TEXT.splitlines(),
-                RENAMING_TEXT.splitlines(),
+                RENAMING_TEXT.splitlines(keepends=True),
+                RENAMING_TEXT.splitlines(keepends=True),
+                RENAMING_TEXT.splitlines(keepends=True),
             ],
         },
     )
@@ -278,8 +297,8 @@ def test_the_stats_still_land_when_only_exp_all_is_refused(monkeypatch, tmp_path
         monkeypatch,
         tmp_path,
         {
-            "info": [INFO_TEXT.splitlines()],
-            "exp all": [RENAMING_TEXT.splitlines()],
+            "info": [INFO_TEXT.splitlines(keepends=True)],
+            "exp all": [RENAMING_TEXT.splitlines(keepends=True)],
         },
     )
     stats = connection.execute("select count(*) from stats").fetchone()[0]
@@ -305,13 +324,13 @@ def test_an_untrained_characters_empty_exp_all_is_asked_once(monkeypatch, tmp_pa
         monkeypatch,
         tmp_path,
         {
-            "info": [INFO_TEXT.splitlines()],
+            "info": [INFO_TEXT.splitlines(keepends=True)],
             "exp all": [
-                EMPTY_EXP_ALL_TEXT.splitlines(),
-                EMPTY_EXP_ALL_TEXT.splitlines(),
-                EMPTY_EXP_ALL_TEXT.splitlines(),
+                EMPTY_EXP_ALL_TEXT.splitlines(keepends=True),
+                EMPTY_EXP_ALL_TEXT.splitlines(keepends=True),
+                EMPTY_EXP_ALL_TEXT.splitlines(keepends=True),
             ],
-            "inv full": [INV_FULL_TEXT.splitlines()],
+            "inv full": [INV_FULL_TEXT.splitlines(keepends=True)],
         },
     )
     assert len(handle.responses["exp all"]) == 2  # only the first was used
@@ -323,8 +342,8 @@ def test_an_empty_exp_all_stores_the_stats_and_no_skills(monkeypatch, tmp_path):
         monkeypatch,
         tmp_path,
         {
-            "info": [INFO_TEXT.splitlines()],
-            "exp all": [EMPTY_EXP_ALL_TEXT.splitlines()],
+            "info": [INFO_TEXT.splitlines(keepends=True)],
+            "exp all": [EMPTY_EXP_ALL_TEXT.splitlines(keepends=True)],
         },
     )
     assert connection.execute("select count(*) from stats").fetchone()[0] > 0
@@ -338,8 +357,8 @@ def test_a_genuinely_silent_exp_all_is_still_reasked(monkeypatch, tmp_path):
         monkeypatch,
         tmp_path,
         {
-            "info": [INFO_TEXT.splitlines()],
-            "exp all": [[], EXP_ALL_TEXT.splitlines()],
+            "info": [INFO_TEXT.splitlines(keepends=True)],
+            "exp all": [[], EXP_ALL_TEXT.splitlines(keepends=True)],
         },
     )
     assert handle.slept > 0  # it waited and asked again
@@ -410,8 +429,8 @@ def test_the_identity_columns_land_in_the_snapshot(monkeypatch, tmp_path):
         monkeypatch,
         tmp_path,
         {
-            "info": [INFO_WITH_BIRTH.splitlines()],
-            "exp all": [EXP_ALL_TEXT.splitlines()],
+            "info": [INFO_WITH_BIRTH.splitlines(keepends=True)],
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
         },
     )
     row = connection.execute(
@@ -472,9 +491,9 @@ def test_the_snapshot_stores_the_inventory(monkeypatch, tmp_path):
         monkeypatch,
         tmp_path,
         {
-            "info": [INFO_TEXT.splitlines()],
-            "exp all": [EXP_ALL_TEXT.splitlines()],
-            "inv full": [INV_FULL_TEXT.splitlines()],
+            "info": [INFO_TEXT.splitlines(keepends=True)],
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
+            "inv full": [INV_FULL_TEXT.splitlines(keepends=True)],
         },
         inventory=True,
     )
@@ -494,8 +513,8 @@ def test_an_unanswered_inv_full_stores_no_inventory(monkeypatch, tmp_path):
         monkeypatch,
         tmp_path,
         {
-            "info": [INFO_TEXT.splitlines()],
-            "exp all": [EXP_ALL_TEXT.splitlines()],
+            "info": [INFO_TEXT.splitlines(keepends=True)],
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
             "inv full": [[]],
         },
         inventory=True,
@@ -509,8 +528,8 @@ def test_the_sheet_still_snapshots_without_any_inventory(monkeypatch, tmp_path):
         monkeypatch,
         tmp_path,
         {
-            "info": [INFO_TEXT.splitlines()],
-            "exp all": [EXP_ALL_TEXT.splitlines()],
+            "info": [INFO_TEXT.splitlines(keepends=True)],
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
             "inv full": [[]],
         },
         inventory=True,
@@ -529,9 +548,9 @@ def test_a_plain_snapshot_asks_for_no_inventory(monkeypatch, tmp_path):
     monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
     handle = FakeHandle(
         {
-            "info": [INFO_TEXT.splitlines()],
-            "exp all": [EXP_ALL_TEXT.splitlines()],
-            "inv full": [INV_FULL_TEXT.splitlines()],
+            "info": [INFO_TEXT.splitlines(keepends=True)],
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
+            "inv full": [INV_FULL_TEXT.splitlines(keepends=True)],
         }
     )
     sheet.snapshot(handle)
@@ -549,10 +568,164 @@ def test_the_renaming_room_is_never_asked_for_inventory(monkeypatch, tmp_path):
     monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
     handle = FakeHandle(
         {
-            "info": [INFO_TEXT.splitlines()],
-            "exp all": [RENAMING_TEXT.splitlines()],
-            "inv full": [INV_FULL_TEXT.splitlines()],
+            "info": [INFO_TEXT.splitlines(keepends=True)],
+            "exp all": [RENAMING_TEXT.splitlines(keepends=True)],
+            "inv full": [INV_FULL_TEXT.splitlines(keepends=True)],
         }
     )
     sheet.snapshot(handle, inventory=True)
     assert len(handle.responses["inv full"]) == 1  # never sent
+
+
+# INV FULL as the game sends it (captured 2026-09-03, item ids as
+# captured): every item is a <d> command link, nested ones behind a
+# "     -" prefix. The session hands a script each link as its own
+# piece, so this is the shape the parser must survive (#123).
+INV_FULL_RAW = b"""<roundTime value='1788468516'/><output class="mono"/>
+You take a moment and rummage about your person, taking stock of your possessions...
+
+You have:
+
+
+  <d cmd='remove #9885686'>a target shield</d>
+  <d cmd='remove #9885680'>an ornate scabbard</d>
+     -<d cmd='get #9885683 in #9885680'>a short sword</d>
+     -<d cmd='get #9885682 in #9885680'>a broadsword</d>
+  <d cmd='remove #9885678'>a branch-framed canvas knapsack</d>
+     -<d cmd='get #9885679 in #9885678'>a bright yellow skinning knife</d>
+<output class=""/>
+
+[Use <d cmd='inventory help'>INVENTORY HELP</d> for more options.]
+Roundtime: 5 sec.
+<prompt time="1788468511">R&gt;</prompt>
+"""
+
+
+class _Chunks:
+    def __init__(self, chunks):
+        self.chunks = list(chunks)
+
+    def read_very_eager(self):
+        return self.chunks.pop(0) if self.chunks else b""
+
+
+def pieces_a_script_receives(raw):
+    """The main-stream pieces the session feeds a script for raw game
+    traffic — through the engine itself, so the newline marking is the
+    engine's own, not a copy of its rule."""
+    engine = Engine()
+    engine.connection = _Chunks([raw])
+    pieces = []
+    engine.read(
+        output_callback=lambda text, stream, style: (
+            pieces.append(text) if stream == "" and style != "clear" else None
+        )
+    )
+    return pieces
+
+
+def test_inventory_nesting_survives_the_links_the_game_wraps_items_in(
+    monkeypatch, tmp_path
+):
+    pieces = pieces_a_script_receives(INV_FULL_RAW)
+    # The premise: the engine really does deliver an item per piece.
+    assert "a short sword\n" in pieces
+    handle, connection = snapshot_into(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_TEXT.splitlines(keepends=True)],
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
+            "inv full": [pieces],
+        },
+        inventory=True,
+    )
+    rows = connection.execute(
+        "SELECT container, item, quantity, depth FROM inventory ORDER BY seq"
+    ).fetchall()
+    assert ("an ornate scabbard", "a short sword", 1, 1) in rows
+    assert ("an ornate scabbard", "a broadsword", 1, 1) in rows
+    assert (
+        "a branch-framed canvas knapsack",
+        "a bright yellow skinning knife",
+        1,
+        1,
+    ) in rows
+    assert (None, "a target shield", 1, 0) in rows
+    assert not [row for row in rows if row[1] == "-"]  # no orphaned prefixes
+
+
+def run_main(monkeypatch, tmp_path, responses, requests, args=()):
+    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
+    monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
+    handle = FakeHandle(responses, requests)
+    handle.args = list(args)
+    with pytest.raises(Stopped):
+        sheet.main(handle)
+    return handle, sqlite3.connect(tmp_path / "xp.db")
+
+
+def test_sheet_inv_typed_at_the_running_script_snapshots_the_inventory(
+    monkeypatch, tmp_path
+):
+    # The sheet autostarts, so `;sheet inv` never starts it with args:
+    # the engine hands "inv" to the running script as a command (#122).
+    handle, connection = run_main(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_TEXT.splitlines(keepends=True)] * 2,
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)] * 2,
+            "inv full": [INV_FULL_TEXT.splitlines(keepends=True)],
+        },
+        requests=["inv"],
+    )
+    # The scheduled snapshot asks no inventory; the request asks it once.
+    assert handle.sent == ["info", "exp all", "info", "exp all", "inv full"]
+    assert connection.execute("SELECT count(*) FROM inventory").fetchone()[0] > 0
+    assert connection.execute("SELECT count(*) FROM character").fetchone()[0] == 2
+
+
+def test_sheet_once_typed_at_the_running_script_takes_a_plain_snapshot(
+    monkeypatch, tmp_path
+):
+    handle, connection = run_main(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_TEXT.splitlines(keepends=True)] * 2,
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)] * 2,
+        },
+        requests=["once"],
+    )
+    assert handle.sent == ["info", "exp all", "info", "exp all"]
+    assert connection.execute("SELECT count(*) FROM character").fetchone()[0] == 2
+
+
+def test_an_unknown_request_is_explained_not_ignored(monkeypatch, tmp_path):
+    handle, _ = run_main(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_TEXT.splitlines(keepends=True)],
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
+        },
+        requests=["wealth"],
+    )
+    assert handle.sent == ["info", "exp all"]
+    assert any("unknown request 'wealth'" in line for line in handle.echoed)
+
+
+def test_a_request_while_dead_waits_like_the_schedule_does(monkeypatch, tmp_path):
+    handle = FakeHandle(
+        {
+            "info": [INFO_TEXT.splitlines(keepends=True)],
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
+        }
+    )
+    handle.dead = True
+    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    sheet.serve(handle, "inv")
+    assert handle.sent == []  # a corpse is not interrogated (#93)
+    assert any("ghost" in line for line in handle.echoed)

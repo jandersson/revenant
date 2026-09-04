@@ -128,10 +128,16 @@ One pipeline, one parser, several processes:
   server in quiet mode, the character-sheet snapshotter (`;sheet`:
   INFO + EXP ALL into stats/sheet_skills/character tables every 3h;
   `;sheet inv` additionally asks INV FULL into the `inventory` table
-  and exits — on demand only, never scheduled, because INV FULL costs
-  5s of roundtime. `client/inventory.py` flattens the indented tree
+  — on demand only, never scheduled, because INV FULL costs 5s of
+  roundtime. The autostarted script waits on its command queue
+  between snapshots, so `;sheet inv` typed at it takes one inventory
+  snapshot and the schedule carries on; from cold it snapshots and
+  exits (#122). `client/inventory.py` flattens the indented tree
   into rows naming each item's container, identical items collapsed to
-  a quantity, #117),
+  a quantity, #117. Scripts read answers through `probe.collect`,
+  which glues the per-segment pieces the session delivers back into
+  whole lines — the last piece of a line carries the newline — so
+  <d>-linked item lines keep their indentation, #123),
   and the death watchdog (`;deathwatch`: departs an unattended corpse
   with the best variant the favors afford before it decays —
   docs/death.md holds the captured model)
