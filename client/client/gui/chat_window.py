@@ -3,7 +3,11 @@
 Log into LNet as one of your own characters, with or without a game
 session, and chat from a window of its own (#141). Only names from the
 cached account rosters are offered or accepted: LNet names are
-character names, and an invented one risks the account. Plain typing goes to your default
+character names, and an invented one risks the account. LNet's rule
+is stricter still: be on LNet only as a character who is in the game
+right now — logging in as one who is not is a bannable offence there,
+so open this window while that character plays and close it when
+they log out. Plain typing goes to your default
 channel; the ;lnet commands work with or without the leading ";":
 chat on <channel> <msg>, chat to <name> <msg>, reply <msg>, who [name],
 stats, channels [all], tune/untune <channel>.
@@ -244,7 +248,12 @@ def choose_name(names, parent=None):
     remembered = setting("lnet_name") or ""
     current = names.index(remembered) if remembered in names else 0
     name, ok = QInputDialog.getItem(
-        parent, "Revenant Chat", "Log into LNet as:", names, current, False
+        parent,
+        "Revenant Chat",
+        "Log into LNet as (a character who is in the game right now):",
+        names,
+        current,
+        False,
     )
     return name if ok and name else None
 

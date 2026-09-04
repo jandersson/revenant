@@ -125,21 +125,23 @@ A browser dashboard for character experience history — mindstate and rank over
 The pipeline is pure Python and always on: every session automatically runs the xp script ([scripts/xp.py](scripts/xp.py)), which snapshots the exp window to `~/.revenant/xp.db` every 60s, snapshots the character sheet — stats, circle, TDPs, the full skill roster — every three hours ([scripts/sheet.py](scripts/sheet.py); `;sheet inv` adds what you are carrying, on demand, since INV LIST costs roundtime), keeps a death watchdog running (`;deathwatch` departs an unattended corpse with the best variant your favors afford before it decays — [docs/death.md](docs/death.md)), and brings the dashboard server up quietly (`;stop <name>` opts a session out; File → Settings or the `REVENANT_NO_*` env vars disable durably). Any other script can join the autostarts via Settings — "Also autostart these scripts" — e.g. `lnet` to be in chat from login. `;circle` reads the latest sheet snapshot and reports what gates your next circle — the guildleader's answer with have/need ranks, computed from your guild's requirement table (all eleven circled guilds encoded, [docs/circles.md](docs/circles.md)); the dashboard shows the same gates as its Circle-gates table. View it wherever suits: **View → Experience History** embeds it in the client GUI, **View → Beholder in Browser** or `;beholder` opens it in your browser, and `uv run beholder` runs it by hand (character dropdown, multi-select skills, mindstate plot with range buttons, refreshing experience table). See [beholder/README.md](beholder/README.md).
 
 ### chat
-A minimal LNet client in pure Python (stdlib `ssl` only, no dependencies). Connects to `lnet.lichproject.org:7155`, verifies the server against the pinned CA in [chat/LnetCert.txt](chat/LnetCert.txt) plus the `lichproject.org`/`LichNet` CN check the reference client uses, handles the login XML handshake, answers pings, and parses the incoming XML stream into typed `LnetMessage`s. See [chat/chat.py](chat/chat.py). Run with `uv run python chat/chat.py`.
+A standalone LNet chat window, and `;lnet` for chat inside the game window. LNet is the Lich project's own chat server (XML over TLS at `lnet.lichproject.org`), not IRC; see [chat/chat.py](chat/chat.py).
 
-LNet names can be password-protected on the server (protocol per `lnet.lic` 1.15): if a name is protected, login must carry a `password` attribute or the server answers `password required` and disconnects. Configure via environment:
-
-- `LNET_NAME` — the name to log in as (defaults to `Wabbajack`, which is currently password-protected — set your own).
-- `LNET_PASSWORD` — the password for that name, for one run. The durable place is the OS keychain (service `revenant-lnet`, one entry per name), which the chat window fills in when a login is rejected; the git-ignored `chat/lnet_password.txt` is a legacy fallback. Never commit a password.
-- `LNET_DEBUG` — set to anything for raw protocol dumps.
-
-To password-protect a name (or change it), log in and call `Server.register_password("...")`; pass the literal string `"nil"` to remove protection. Forgotten passwords are reset at <https://lnet.lichproject.org>.
+> **LNet's rule: only log in as a character who is in the game right now.** Being on LNet as a character who is not logged into DragonRealms is a bannable offence there. The window makes it easy to forget, so open it only while that character is playing, and close it when they log out.
 
 ![The standalone chat window: LNet's welcome, then Lanival's whole circle on the DRPrime channel — Sable, Glacis, Uthmor, Arhat, Ka'len, Nissa, Eerayn, Sildua, and Teiro getting untuned by the operator — a private exchange with Sable, and a ;chat on command being typed; the status bar reads Connected as Lanival](docs/chat-troop.png?v=3)
 
-`uv run revenant-chat [name]` opens a chat window with no game session at all: log into LNet as one of your characters (offered from the same cached roster the picker uses; LNet names are character names, so nothing else is accepted), type to your default channel, and use the `;chat to`, `;who`, `;channels`, `;tune` commands with or without the `;`. The name is remembered; the password lives in the OS keychain (service `revenant-lnet`), which a rejected login offers to fill once. Run it alongside the game as a second identity, or by itself. Every LNet connection — the window's and `;lnet`'s — keeps an append-only traffic log beside the game logs (`~/.revenant/logs/lnet-<stamp>.log`, password redacted), so anything the server sends that renders oddly can be read back afterwards.
+```sh
+uv run revenant-chat            # pick one of your characters
+uv run revenant-chat Lanival    # or name one
+```
 
-Typing `;lnet` in a revenant frontend brings LNet into the GUI's Thoughts window — chat renders there lich-style (`[Channel]-Name: "msg"`), and the classic commands work as they always did: `;chat <msg>` (default channel), `;chat on <channel> <msg>`, `;chat to <name> <msg>`, `;reply`, `;who [name]`, `;stats`, `;channels [all]`, `;tune`/`;untune <channel>`. The grammar is a 1:1 port of lnet.lic, and `;chat` even starts the connection on demand. `;help lnet` shows the manual in-game; `;stop lnet` disconnects. Replies to `;who`/`;stats`/`;channels` render in Thoughts via a minimal Ruby Marshal reader ([chat/rmarshal.py](chat/rmarshal.py)).
+- Only names from your cached roster are offered: LNet names are character names.
+- Plain typing goes to your default channel. `chat to <name> <msg>`, `reply <msg>`, `who [name]`, `channels [all]`, `tune`/`untune <channel>` work with or without a leading `;`.
+- The password lives in the OS keychain (service `revenant-lnet`); a rejected login asks once and can remember it. `LNET_PASSWORD` overrides for one run. Reset a forgotten one at <https://lnet.lichproject.org>.
+- Every connection is logged, append-only, to `~/.revenant/logs/lnet-<stamp>.log` with the password redacted.
+
+In the game window, `;lnet` brings the same chat into the Thoughts dock, lich-style (`[Channel]-Name: "msg"`), with the classic commands: `;chat <msg>`, `;chat on <channel> <msg>`, `;chat to <name> <msg>`, `;reply`, `;who`, `;stats`, `;channels`, `;tune`/`;untune`. The grammar is a 1:1 port of lnet.lic and `;chat` starts the connection on demand; `;help lnet` is the manual, `;stop lnet` disconnects. Replies to `;who`/`;stats`/`;channels` arrive as Ruby Marshal and render through [chat/rmarshal.py](chat/rmarshal.py).
 
 ### launcher
 [launcher/launch.py](launcher/launch.py) picks a free port, starts lich headless with `--detachable-client`, and attaches a Profanity frontend to it. Paths are currently hard-coded for the author's machine — treat it as a template rather than a turnkey tool.
