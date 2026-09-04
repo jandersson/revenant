@@ -94,3 +94,43 @@ def test_nothing_saved_means_the_window_is_left_alone():
     window = FakeWindow(visible=True)
     assert window_layout.apply(window, None, None) is False
     assert window.calls == []
+
+
+def test_startup_restores_the_known_characters_own_layout():
+    # Captured 2026-09-04 (#140): one saved state aborted inside Qt when
+    # restored onto a shown window, and restored fine before the first
+    # show — so a character known up front gets its layout first.
+    saved = {
+        "geometry": b"legacy-geo",
+        "windowState": b"legacy-docks",
+        "layout/Testchar/geometry": b"geo",
+        "layout/Testchar/windowState": b"docks",
+    }
+    assert window_layout.startup_layout(saved.get, "Testchar") == (
+        b"geo",
+        b"docks",
+        True,
+    )
+
+
+def test_startup_falls_back_to_the_legacy_pair_for_a_new_character():
+    saved = {"geometry": b"legacy-geo", "windowState": b"legacy-docks"}
+    assert window_layout.startup_layout(saved.get, "Newbie") == (
+        b"legacy-geo",
+        b"legacy-docks",
+        False,
+    )
+
+
+def test_startup_with_no_character_uses_the_legacy_pair():
+    saved = {"geometry": b"legacy-geo", "windowState": b"legacy-docks"}
+    assert window_layout.startup_layout(saved.get, None) == (
+        b"legacy-geo",
+        b"legacy-docks",
+        False,
+    )
+
+
+def test_startup_with_half_a_character_layout_still_counts_as_scoped():
+    saved = {"windowState": b"legacy-docks", "layout/Testchar/windowState": b"docks"}
+    assert window_layout.startup_layout(saved.get, "Testchar") == (None, b"docks", True)

@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 from datetime import datetime
 from math import ceil
@@ -43,7 +44,12 @@ from client.core import Engine
 from client.client_logger import ClientLogger
 from client.gui.map_dock import MapView
 from client.highlights import highlights_path, load_rules, spans
-from client.session import AttachedEngine, DEFAULT_HOST, DEFAULT_PORT
+from client.session import (
+    AttachedEngine,
+    DEFAULT_HOST,
+    DEFAULT_PORT,
+    character_for_port,
+)
 from client.settings import load_settings, save_settings, setting, settings_path
 from client.streamroute import STREAM_WINDOWS as STREAM_WINDOW_TITLES, clears_window
 from client.textfont import font_choice
@@ -209,17 +215,21 @@ class ClientGUI(QMainWindow, ClientLogger):
         "nw": "↖",
     }
 
-    def __init__(self, engine=None):
+    def __init__(self, engine=None, character=None):
         super().__init__()
         self.log.debug("Initializing ClientGUI instance")
         self.status_bar = self.statusBar()
         self.input_dock = QDockWidget()
         self.highlight_rules = load_rules()
-        # Who is playing, from the "character" stream — names the title
-        # bar and scopes the saved window layout (#74). The layout is
-        # applied once, on first identification: a reattach re-states
-        # the character and must not stomp a live arrangement.
-        self._character = None
+        # Who is playing — known up front when the launcher or the
+        # session registry says so (`character`), otherwise from the
+        # "character" stream — names the title bar and scopes the saved
+        # window layout (#74). Known up front, the layout is restored
+        # before the first show, the only order Qt has restored every
+        # saved dock state safely (#140); learned later, it is applied
+        # once, on first identification: a reattach re-states the
+        # character and must not stomp a live arrangement.
+        self._character = character or None
         self._layout_applied = False
         # Server-minus-local clock seconds, from the "timesync" stream:
         # the Elanthian clock computes from server time (#102).
@@ -332,14 +342,21 @@ class ClientGUI(QMainWindow, ClientLogger):
             view_menu.addAction(dock.toggleViewAction())
 
         # Window size and dock layout persist between launches. The
-        # legacy unscoped pair opens the window before the character is
-        # known; the character's own layout takes over the moment the
-        # "character" frame names who is playing (#74).
+        # character's own layout when the character is known up front,
+        # the legacy unscoped pair otherwise — restored before the
+        # first show (#140). A character learned later, from the
+        # "character" frame, gets the hide-restore-show path (#74).
         settings = QSettings("revenant", "revenant")
-        if geometry := settings.value("geometry"):
+        geometry, state, scoped = window_layout.startup_layout(
+            settings.value, self._character
+        )
+        if geometry:
             self.restoreGeometry(geometry)
-        if state := settings.value("windowState"):
+        if state:
             self.restoreState(state)
+        if scoped:
+            self._layout_applied = True
+            self.setWindowTitle(f"Revenant — {self._character}")
 
         self.show()
 
@@ -1117,7 +1134,12 @@ def main(argv=None):
         engine = AttachedEngine(host or DEFAULT_HOST, int(port))
     else:
         engine = Engine()
-    client_app = ClientGUI(engine)  # noqa: F841 -- must outlive app.exec()
+    if args.attach:
+        character = character_for_port(port)
+    else:
+        character = os.environ.get("REVENANT_CHARACTER")
+    # noqa: F841 -- must outlive app.exec()
+    client_app = ClientGUI(engine, character=character)  # noqa: F841
     sys.exit(app.exec())
 
 

@@ -87,6 +87,22 @@ def deregister_session(port):
     _write_sessions([e for e in _load_sessions() if e.get("port") != port])
 
 
+def character_for_port(port):
+    """The character a registered session on `port` plays, or None.
+
+    The GUI asks before it builds its window, so the character's own
+    layout can be restored before the first show — the one order Qt
+    restores every saved dock state safely (#140)."""
+    for entry in _load_sessions():
+        try:
+            if int(entry.get("port")) == int(port):
+                name = entry.get("character")
+                return str(name) if name else None
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
 def running_sessions(host=DEFAULT_HOST):
     """Registered sessions that actually answer, pruning the rest."""
     entries = _load_sessions()

@@ -8,9 +8,14 @@ keys stay in play as the fallback, so a character without a saved
 arrangement inherits the most recently closed layout and diverges
 from there.
 
-apply() lands a saved layout on a live window with the window hidden
-for the duration: restoring dock state onto a shown window aborted
-the whole process inside Qt at the next child setVisible (#124).
+startup_layout() picks what to restore before the window is first
+shown: the character's own layout when the character is already known
+(the session registry names it for an attach, the login for direct
+mode), the legacy pair otherwise. Restoring before the first show is
+the only order Qt has proved safe with every saved state; apply() —
+hide, restore, show — is the fallback for a character learned only
+from the "character" frame, and one saved state still aborted inside
+Qt on that path (#124, #140).
 """
 
 
@@ -20,6 +25,21 @@ def layout_keys(character):
     if character:
         return (f"layout/{character}/geometry", f"layout/{character}/windowState")
     return ("geometry", "windowState")
+
+
+def startup_layout(get, character):
+    """(geometry, state, scoped) to restore before the first show.
+
+    `get(key)` reads a settings value. The character's own pair wins
+    when either half is saved (scoped=True); a character without a
+    layout inherits the legacy pair (#74) and scoped is False, so the
+    caller still applies the character's layout if one is saved later."""
+    if character:
+        geometry_key, state_key = layout_keys(character)
+        geometry, state = get(geometry_key), get(state_key)
+        if geometry or state:
+            return geometry, state, True
+    return get("geometry"), get("windowState"), False
 
 
 def apply(window, geometry, state):

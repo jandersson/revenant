@@ -864,3 +864,27 @@ def test_a_bell_is_never_replayed_to_a_late_attacher():
     streams = [stream for _, stream, _ in frames]
     assert "" in streams  # the warning text itself is scrollback
     assert "bell" not in streams
+
+
+def test_character_for_port_reads_the_registry(monkeypatch, tmp_path):
+    # The GUI asks before building its window, so the character's own
+    # layout restores before the first show (#140).
+    registry = tmp_path / "sessions.json"
+    registry.write_text(
+        json.dumps(
+            [
+                {"port": 4242, "character": "Testchar", "pid": 1},
+                {"port": "4243", "character": "Other", "pid": 2},
+                {"port": "bogus", "character": "Nobody"},
+            ]
+        )
+    )
+    monkeypatch.setenv("REVENANT_SESSIONS", str(registry))
+    assert session.character_for_port(4242) == "Testchar"
+    assert session.character_for_port("4243") == "Other"
+    assert session.character_for_port(5000) is None
+
+
+def test_character_for_port_is_none_without_a_registry(monkeypatch, tmp_path):
+    monkeypatch.setenv("REVENANT_SESSIONS", str(tmp_path / "missing.json"))
+    assert session.character_for_port(4242) is None
