@@ -550,7 +550,9 @@ class ClientGUI(QMainWindow, ClientLogger):
         dock = QDockWidget("Map")
         dock.setObjectName("Map")
         dock.setWidget(self.map_view)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
+        # On the right with the other docks: alone on the left it got
+        # whatever width the story window left over, a strip (#146).
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
         # Registering under stream_docks gives it a View-menu toggle.
         self.stream_docks["Map"] = dock
         self.map_ready.connect(self.map_view.set_database)

@@ -9,7 +9,7 @@ room is filled amber, compass edges draw straight and go/climb edges
 dashed. The wheel zooms; dragging pans.
 """
 
-from PyQt6.QtCore import QRectF, Qt
+from PyQt6.QtCore import QRectF, QSize, Qt
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
 from PyQt6.QtWidgets import QGraphicsScene, QGraphicsView
 
@@ -44,6 +44,32 @@ class MapView(QGraphicsView):
         self._zoom = 1.0
         self._press_pos = None
         self._message("map database loading ...")
+
+    # A dock with no size hint opened as a strip a few rooms wide, the
+    # neighbourhood clipped and the current room against its edge (#146).
+    def sizeHint(self):
+        return QSize(320, 320)
+
+    def minimumSizeHint(self):
+        return QSize(200, 160)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._room is not None:
+            self._recenter()
+
+    def _recenter(self):
+        """Put the current room (scene origin) in the middle of the view.
+        The scene rect is padded by half a viewport on every side, so the
+        view can always scroll far enough to centre it — otherwise Qt
+        clamps to the scene's edge and a lopsided neighbourhood leaves
+        the room off to one side (#146)."""
+        scene = self.scene()
+        drawn = scene.itemsBoundingRect()
+        half_w = self.viewport().width() / (2 * self._zoom) + CELL
+        half_h = self.viewport().height() / (2 * self._zoom) + CELL
+        scene.setSceneRect(drawn.adjusted(-half_w, -half_h, half_w, half_h))
+        self.centerOn(0, 0)
 
     # -- data feeds ------------------------------------------------------
 
@@ -107,11 +133,7 @@ class MapView(QGraphicsView):
             titles = self._db.rooms[room_id].get("title") or ["?"]
             item.setToolTip(f"{titles[0]} ({room_id})")
             item.setData(0, room_id)
-        margin = CELL
-        scene.setSceneRect(
-            scene.itemsBoundingRect().adjusted(-margin, -margin, margin, margin)
-        )
-        self.centerOn(0, 0)
+        self._recenter()
 
     # -- interaction -----------------------------------------------------
 

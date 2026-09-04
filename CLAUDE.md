@@ -230,7 +230,10 @@ One pipeline, one parser, several processes:
   compass dock renders the `"compass"` stream; the Map dock draws
   the community map around the character from the `"room"` stream
   (grid layout in the Qt-free `client/maplayout.py`, drawing in
-  `client/gui/map_dock.py`; click a room to ;go2 it); the clocks dock ticks
+  `client/gui/map_dock.py`; click a room to ;go2 it; docked on the
+  right with a 320px size hint, the scene padded by half a viewport
+  so the current room always centres — alone on the left with no
+  hint it opened as a clipped strip, #146); the clocks dock ticks
   Elanthian time, moons, Stockholm/Chicago, and (via a Settings toggle)
   Earth's moon; roundtime/casttime count down beside the input line
   under a row of vitals bars (health/fatigue/spirit/concentration,
