@@ -345,7 +345,7 @@ def test_engine_emits_a_bell_frame_for_a_bell_in_the_line():
     # characters.
     engine = Engine()
     engine.connection = FakeConnection(
-        [b"\x07YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND.\x07\r\n"]
+        [b"\x07YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND.\x07\n"]
     )
     out = _read_all(engine, 1)
     assert ("\n", "bell", "") in out

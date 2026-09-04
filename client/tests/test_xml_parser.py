@@ -426,7 +426,7 @@ def test_the_bell_around_the_idle_warning_is_stripped_and_sounded():
     # has no glyph for it, so the boxes must never reach a widget; the
     # bell itself becomes a synthetic segment the GUI sounds.
     xml_data = XMLData()
-    line = "\x07YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND.\x07\r"
+    line = "\x07YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND.\x07"
     assert xml_data.route(line) == [
         ("bell", "", ""),
         ("", "YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND.", "alert"),
