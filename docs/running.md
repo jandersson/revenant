@@ -10,7 +10,11 @@ uv run revenant Lanival          # a named character: attach if online, else spa
 uv run revenant --pick           # the picker: running sessions to attach, cached characters to launch
 ```
 
-A session is a detachable daemon that logs in and owns the game socket; the window attaches to it over localhost. Several characters play side by side, one session and one window each, on their own ports (`~/.revenant/sessions.json` is the registry). The first login asks for the account password once and keeps it in the OS keychain; account and character names are remembered in `~/.revenant/login.json`, never the password.
+### First run
+
+The first launch opens the login window: account, password, and a character picked from the roster the launcher fetches once the account and password are in. *Remember* stores the password in the OS keychain (service `revenant`) and the account and character names in `~/.revenant/login.json`; from then on the launch logs straight in. To log in as a different account later, use the picker's *Switch account…* or `uv run revenant --pick`.
+
+A session is a detachable daemon that logs in and owns the game socket; the window attaches to it over localhost. Several characters play side by side, one session and one window each, on their own ports (`~/.revenant/sessions.json` is the registry).
 
 ### The Windows launcher
 

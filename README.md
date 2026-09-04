@@ -6,15 +6,30 @@
 
 A Python client for [DragonRealms](https://www.play.net/dr/): a detachable game session with a script engine, a PyQt6 window, an experience-history dashboard, and an LNet chat client. Hobby-grade, built for fun, and not a replacement for anything.
 
-## Quick start
+## Install and first run
+
+You need [git](https://git-scm.com/), [uv](https://docs.astral.sh/uv/getting-started/installation/), and a DragonRealms account. uv fetches a Python of its own if the machine has none.
 
 ```sh
-# Install uv: https://docs.astral.sh/uv/getting-started/installation/
-uv sync            # the workspace venv, everything installed
-uv run revenant    # log in (the password goes to your OS keychain) and play
+git clone https://github.com/jandersson/revenant.git
+cd revenant
+uv sync          # creates .venv and installs everything, Python included if needed
+uv run revenant  # first run: a login window
 ```
 
-Python 3.10 or newer. On Windows, `tools/install_shortcut.ps1` adds a Start Menu shortcut that opens a character picker. [docs/running.md](docs/running.md) is the operating manual: launching, quitting versus detaching, and which edits need which restart.
+The login window asks for your account, password, and character (the roster is fetched from the server once the account and password are in). Tick *remember* and the password goes to your OS keychain and the names to `~/.revenant/login.json`; the next `uv run revenant` logs straight in. Nothing is ever written to a file in plain text. The game window appears with "Connected" in the status bar, and the community map downloads on first use of `;go2` or the Map dock.
+
+Run the commands from the repository root; that is where `uv` finds the workspace and the session finds its scripts.
+
+**Windows:** a Start Menu shortcut that opens the character picker, pinnable to the taskbar:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/install_shortcut.ps1
+```
+
+**macOS:** `uv run python tools/build_app.py` builds `~/Applications/Revenant.app`.
+
+[docs/running.md](docs/running.md) is the operating manual from here: launching a named character, several at once, quitting versus detaching, and which edits need which restart.
 
 ## The client
 
