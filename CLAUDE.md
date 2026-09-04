@@ -364,7 +364,11 @@ One pipeline, one parser, several processes:
 - Logging config in `client/client/logging_config.yaml`; raw game protocol
   lines append to a per-session `game-<timestamp>.log` under
   `~/.revenant/logs/` (override with `REVENANT_LOG_DIR`; tests isolate via
-  conftest) — an append-only archive, never rotated away. The
+  conftest) — an append-only archive, never rotated away. LNet traffic
+  gets the same treatment: `chat.Server(log_dir=...)` writes
+  `lnet-<stamp>.log` per connection, every element sent and chunk
+  received, the login password redacted (`chat.TrafficLog`, #144);
+  `;lnet` and `revenant-chat` both pass `chat.default_log_dir()`. The
   disposable debug log is per-process too
   (`revenant_client-<stamp>-<pid>.log`, #74 — shared rotation contends
   on Windows), size-capped, and pruned after 7 days at logger init.

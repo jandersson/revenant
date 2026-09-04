@@ -40,7 +40,7 @@ RECV_TIMEOUT = 0.25  # also the user-command poll cadence
 
 
 def main(s):
-    from chat.chat import LoginRejected, Server, get_password
+    from chat.chat import LoginRejected, Server, default_log_dir, get_password
     from client.lnet_login import lnet_password
 
     name = (
@@ -51,7 +51,7 @@ def main(s):
     if not name:
         s.echo("can't tell who you are — set LNET_NAME or REVENANT_CHARACTER")
         return
-    lnet = Server()
+    lnet = Server(log_dir=default_log_dir())
     lnet.set_login_info(name, password=lnet_password(name, legacy_file=get_password))
     last_priv = None
     try:

@@ -6,13 +6,21 @@ with Lich 5). Login is a single XML element; names can be password-protected
 on the server, in which case the password travels as an attribute on that
 element. Passwords are registered/changed after login with a
 <data type='newpassword'> element and reset at https://lnet.lichproject.org.
+
+Traffic is logged, append-only, when the caller names a log directory
+(Server(log_dir=...)): one lnet-<stamp>.log per connection, every
+element sent and every chunk received, timestamped, the login's
+password attribute redacted — the same archive the game socket keeps,
+so a rendering bug seen live can be diagnosed afterwards (#144).
 """
 
 import base64
 import os
+import re
 import socket
 import ssl
 import xml.etree.ElementTree as ET
+from datetime import datetime
 from pathlib import Path
 from typing import NamedTuple
 
@@ -23,6 +31,56 @@ PASSWORD_FILE = Path(__file__).parent / "lnet_password.txt"
 # lnet.lic accepts either of these CNs instead of doing hostname verification
 ALLOWED_CERT_CNS = {"lichproject.org", "LichNet"}
 CLIENT_VERSION = "1.15"
+
+
+_PASSWORD_ATTRIBUTE = re.compile(r'password="[^"]*"')
+
+
+def default_log_dir() -> Path:
+    """Where the traffic logs go: REVENANT_LOG_DIR, else ~/.revenant/logs
+    — the game logs' directory, so the two archives sit together."""
+    return Path(os.environ.get("REVENANT_LOG_DIR", "~/.revenant/logs")).expanduser()
+
+
+def redact(text: str) -> str:
+    """The text with any password attribute's value hidden. The login
+    element is the only place one travels; nothing else is touched."""
+    return _PASSWORD_ATTRIBUTE.sub('password="<redacted>"', text)
+
+
+class TrafficLog:
+    """An append-only record of one LNet connection's wire traffic.
+
+    Lines read `<stamp> >> element` for what we sent and `<stamp> << chunk`
+    for what arrived (a chunk may hold several elements or part of one;
+    the log keeps the wire's own framing). Each write opens and closes
+    the file, so the worker thread and the caller's thread never share
+    a handle, and a crash loses nothing already written."""
+
+    def __init__(self, path):
+        self.path = Path(path)
+
+    @classmethod
+    def in_directory(cls, directory, when=None):
+        when = when or datetime.now()
+        return cls(Path(directory) / when.strftime("lnet-%Y%m%d-%H%M%S.log"))
+
+    def sent(self, data):
+        self._write(">>", data)
+
+    def received(self, data):
+        self._write("<<", data)
+
+    def _write(self, direction, data):
+        text = data.decode("utf-8", "replace") if isinstance(data, bytes) else data
+        text = redact(text).rstrip("\r\n")
+        if not text:
+            return
+        stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.path, "a", encoding="utf-8") as stream:
+            for line in text.split("\n"):
+                stream.write(f"{stamp} {direction} {line}\n")
 
 
 class LnetMessage(NamedTuple):
@@ -123,7 +181,7 @@ def _ruby_pack_m(data):
 
 
 class Server:
-    def __init__(self, host=LNET_HOST, port=LNET_PORT, debug=False):
+    def __init__(self, host=LNET_HOST, port=LNET_PORT, debug=False, log_dir=None):
         self.host = host
         self.port = port
         self.connection = None
@@ -131,6 +189,10 @@ class Server:
         self.is_debugging = debug
         self._parser = None
         self._depth = 0
+        # A traffic log per connection when a directory is named (#144);
+        # tests and the WireTap fakes construct without one and log nothing.
+        self.log_dir = log_dir
+        self.log = None
 
     def connect(self):
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -162,6 +224,8 @@ class Server:
         self._parser = ET.XMLPullParser(events=("start", "end"))
         self._parser.feed(b"<r>")
         self._depth = 0
+        if self.log_dir is not None:
+            self.log = TrafficLog.in_directory(self.log_dir)
 
     def set_login_info(self, username, game="DR", password=None):
         attributes = {
@@ -197,6 +261,8 @@ class Server:
             message = message.encode("utf-8")
         if not message.endswith(b"\n"):
             message = message + b"\n"
+        if self.log is not None:
+            self.log.sent(message)
         self.connection.send(message)
 
     def send_message(self, contents, channel=None, to=None):
@@ -240,6 +306,8 @@ class Server:
                 raise ConnectionError("server closed the connection")
             if self.is_debugging:
                 print(f"Received: {chunk}")
+            if self.log is not None:
+                self.log.received(chunk)
             try:
                 self._parser.feed(chunk)
                 for event, element in self._parser.read_events():
@@ -317,7 +385,7 @@ def get_password():
 
 def run_client():
     name = os.environ.get("LNET_NAME", "Wabbajack")
-    lnet = Server(debug=bool(os.environ.get("LNET_DEBUG")))
+    lnet = Server(debug=bool(os.environ.get("LNET_DEBUG")), log_dir=default_log_dir())
     lnet.set_login_info(name, password=get_password())
     lnet.connect()
     lnet.login()

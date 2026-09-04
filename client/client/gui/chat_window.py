@@ -49,7 +49,7 @@ _REPO = Path(__file__).resolve().parents[3]
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
-from chat.chat import LoginRejected, Server, get_password  # noqa: E402
+from chat.chat import LoginRejected, Server, default_log_dir, get_password  # noqa: E402
 from chat.commands import input_to_command, obey  # noqa: E402
 from client import lnet_login  # noqa: E402
 from client.login import load_login_defaults  # noqa: E402
@@ -154,7 +154,7 @@ class ChatWindow(QMainWindow):
             self.statusBar().showMessage("Already connected")
             return
         self._stopping = False
-        self.server = Server()
+        self.server = Server(log_dir=default_log_dir())
         self.server.set_login_info(self.name, password=self.password)
         self._worker = Thread(target=self._run, daemon=True)
         self._worker.start()
