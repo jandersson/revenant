@@ -330,7 +330,7 @@ def test_an_untrained_characters_empty_exp_all_is_asked_once(monkeypatch, tmp_pa
                 EMPTY_EXP_ALL_TEXT.splitlines(keepends=True),
                 EMPTY_EXP_ALL_TEXT.splitlines(keepends=True),
             ],
-            "inv full": [INV_FULL_TEXT.splitlines(keepends=True)],
+            "inv list": [INV_LIST_TEXT.splitlines(keepends=True)],
         },
     )
     assert len(handle.responses["exp all"]) == 2  # only the first was used
@@ -472,7 +472,7 @@ def test_ensure_schema_adds_the_columns_to_an_older_database(tmp_path):
 
 # --- inventory rides along with the sheet snapshot (#117) ---
 
-INV_FULL_TEXT = """You take a moment and rummage about your person, taking stock \
+INV_LIST_TEXT = """You take a moment and rummage about your person, taking stock \
 of your possessions...
 You have:
   a target shield
@@ -493,7 +493,7 @@ def test_the_snapshot_stores_the_inventory(monkeypatch, tmp_path):
         {
             "info": [INFO_TEXT.splitlines(keepends=True)],
             "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
-            "inv full": [INV_FULL_TEXT.splitlines(keepends=True)],
+            "inv list": [INV_LIST_TEXT.splitlines(keepends=True)],
         },
         inventory=True,
     )
@@ -515,7 +515,7 @@ def test_an_unanswered_inv_full_stores_no_inventory(monkeypatch, tmp_path):
         {
             "info": [INFO_TEXT.splitlines(keepends=True)],
             "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
-            "inv full": [[]],
+            "inv list": [[]],
         },
         inventory=True,
     )
@@ -523,14 +523,14 @@ def test_an_unanswered_inv_full_stores_no_inventory(monkeypatch, tmp_path):
 
 
 def test_the_sheet_still_snapshots_without_any_inventory(monkeypatch, tmp_path):
-    # The other tables must not depend on INV FULL answering.
+    # The other tables must not depend on INV LIST answering.
     handle, connection = snapshot_into(
         monkeypatch,
         tmp_path,
         {
             "info": [INFO_TEXT.splitlines(keepends=True)],
             "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
-            "inv full": [[]],
+            "inv list": [[]],
         },
         inventory=True,
     )
@@ -538,11 +538,11 @@ def test_the_sheet_still_snapshots_without_any_inventory(monkeypatch, tmp_path):
     assert connection.execute("SELECT count(*) FROM sheet_skills").fetchone()[0] > 0
 
 
-# --- INV FULL is on demand only: ;sheet inv (#117) ---
+# --- INV LIST is on demand only: ;sheet inv (#117) ---
 
 
 def test_a_plain_snapshot_asks_for_no_inventory(monkeypatch, tmp_path):
-    # The scheduled snapshot must never spend INV FULL's 5s roundtime.
+    # The scheduled snapshot must never spend INV LIST's 5s roundtime.
     monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
     monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
     monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
@@ -550,18 +550,18 @@ def test_a_plain_snapshot_asks_for_no_inventory(monkeypatch, tmp_path):
         {
             "info": [INFO_TEXT.splitlines(keepends=True)],
             "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
-            "inv full": [INV_FULL_TEXT.splitlines(keepends=True)],
+            "inv list": [INV_LIST_TEXT.splitlines(keepends=True)],
         }
     )
     sheet.snapshot(handle)
     connection = sqlite3.connect(tmp_path / "xp.db")
     assert connection.execute("SELECT count(*) FROM inventory").fetchone()[0] == 0
     # Never sent: the canned answer is untouched.
-    assert len(handle.responses["inv full"]) == 1
+    assert len(handle.responses["inv list"]) == 1
 
 
 def test_the_renaming_room_is_never_asked_for_inventory(monkeypatch, tmp_path):
-    # It refuses INV FULL like everything else, so asking only burns
+    # It refuses INV LIST like everything else, so asking only burns
     # roundtime and retries (#112).
     monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
     monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
@@ -570,18 +570,18 @@ def test_the_renaming_room_is_never_asked_for_inventory(monkeypatch, tmp_path):
         {
             "info": [INFO_TEXT.splitlines(keepends=True)],
             "exp all": [RENAMING_TEXT.splitlines(keepends=True)],
-            "inv full": [INV_FULL_TEXT.splitlines(keepends=True)],
+            "inv list": [INV_LIST_TEXT.splitlines(keepends=True)],
         }
     )
     sheet.snapshot(handle, inventory=True)
-    assert len(handle.responses["inv full"]) == 1  # never sent
+    assert len(handle.responses["inv list"]) == 1  # never sent
 
 
-# INV FULL as the game sends it (captured 2026-09-03, item ids as
+# INV LIST as the game sends it (captured 2026-09-03, item ids as
 # captured): every item is a <d> command link, nested ones behind a
 # "     -" prefix. The session hands a script each link as its own
 # piece, so this is the shape the parser must survive (#123).
-INV_FULL_RAW = b"""<roundTime value='1788468516'/><output class="mono"/>
+INV_LIST_RAW = b"""<roundTime value='1788468516'/><output class="mono"/>
 You take a moment and rummage about your person, taking stock of your possessions...
 
 You have:
@@ -627,7 +627,7 @@ def pieces_a_script_receives(raw):
 def test_inventory_nesting_survives_the_links_the_game_wraps_items_in(
     monkeypatch, tmp_path
 ):
-    pieces = pieces_a_script_receives(INV_FULL_RAW)
+    pieces = pieces_a_script_receives(INV_LIST_RAW)
     # The premise: the engine really does deliver an item per piece.
     assert "a short sword\n" in pieces
     handle, connection = snapshot_into(
@@ -636,7 +636,7 @@ def test_inventory_nesting_survives_the_links_the_game_wraps_items_in(
         {
             "info": [INFO_TEXT.splitlines(keepends=True)],
             "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
-            "inv full": [pieces],
+            "inv list": [pieces],
         },
         inventory=True,
     )
@@ -677,12 +677,12 @@ def test_sheet_inv_typed_at_the_running_script_snapshots_the_inventory(
         {
             "info": [INFO_TEXT.splitlines(keepends=True)] * 2,
             "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)] * 2,
-            "inv full": [INV_FULL_TEXT.splitlines(keepends=True)],
+            "inv list": [INV_LIST_TEXT.splitlines(keepends=True)],
         },
         requests=["inv"],
     )
     # The scheduled snapshot asks no inventory; the request asks it once.
-    assert handle.sent == ["info", "exp all", "info", "exp all", "inv full"]
+    assert handle.sent == ["info", "exp all", "info", "exp all", "inv list"]
     assert connection.execute("SELECT count(*) FROM inventory").fetchone()[0] > 0
     assert connection.execute("SELECT count(*) FROM character").fetchone()[0] == 2
 
@@ -729,3 +729,35 @@ def test_a_request_while_dead_waits_like_the_schedule_does(monkeypatch, tmp_path
     sheet.serve(handle, "inv")
     assert handle.sent == []  # a corpse is not interrogated (#93)
     assert any("ghost" in line for line in handle.echoed)
+
+
+# The INVENTORY syntax list, as the game answered a command it did not
+# know (captured 2026-09-04: `inv full`, three times over, #127).
+INVENTORY_HELP_TEXT = """The INVENTORY command is the best way to get information about your inventory.  The syntax is:
+
+  INV               - Shows a description of all of the items you are currently wearing
+  INV LIST          - List ALL items in your inventory, similar to reading a vault book.
+  INV SEARCH [word] - Searches all of your inventory for items that have the word present.
+"""
+
+
+def test_the_inventory_syntax_help_is_a_refusal_not_silence(monkeypatch, tmp_path):
+    # Three retries of a command the game keeps answering with its
+    # help text spend RETRY_SLEEP twice for nothing; the help is proof
+    # the game replied, so the ask ends after one.
+    handle, connection = snapshot_into(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_TEXT.splitlines(keepends=True)],
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
+            "inv list": [INVENTORY_HELP_TEXT.splitlines(keepends=True)] * 3,
+        },
+        inventory=True,
+    )
+    assert handle.sent.count("inv list") == 1
+    assert handle.slept == 0
+    assert connection.execute("SELECT count(*) FROM inventory").fetchone()[0] == 0
+    assert any("syntax help" in line for line in handle.echoed)
+    # The rest of the sheet still lands.
+    assert connection.execute("SELECT count(*) FROM character").fetchone()[0] == 1

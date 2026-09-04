@@ -54,11 +54,11 @@ def test_collect_joins_the_lines_within_the_window():
 
 def test_collect_glues_a_line_delivered_in_pieces():
     # A styled or linked line reaches a script as several pieces, only
-    # the last carrying the newline. INV FULL's nested items are
+    # the last carrying the newline. INV LIST's nested items are
     # "     -" plus a <d>-linked name: torn apart, the parser lost the
     # nesting (#123).
     handle = FakeHandle(["  ", "an ornate scabbard\n", "     -", "a short sword\n"])
-    handle.put("inv full")
+    handle.put("inv list")
     assert probe.collect(handle, 0.02) == "  an ornate scabbard\n     -a short sword"
 
 

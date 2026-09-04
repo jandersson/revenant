@@ -8,9 +8,9 @@ the game leaves unanswered (login noise eats them) is re-asked, and
 whatever still won't answer is left out of the snapshot rather than
 stored as blanks. ;sheet once takes a single snapshot and exits.
 
-;sheet inv adds your inventory: INV FULL, flattened into rows naming
+;sheet inv adds your inventory: INV LIST, flattened into rows naming
 each item's container, so "which character has that thing?" is a query
-instead of a login. It is on demand only and never scheduled — INV FULL
+instead of a login. It is on demand only and never scheduled — INV LIST
 costs 5 seconds of roundtime, which is fine when you ask for it and not
 fine arriving mid-fight. Typed while the script runs (it always does —
 it is an autostart), ;sheet inv asks the running script for one
@@ -51,6 +51,11 @@ EXP_ALL_END = "Time Development Points"
 # there for a name that does not fit the setting answered three EXP ALLs
 # with three identical reminders. INFO still answers; EXP ALL does not.
 RENAMING_ROOM = "change your name to something which fits"
+# An inventory command the game does not recognize is answered with the
+# INVENTORY syntax list — a refusal, not silence, so re-asking only
+# spends the retries (captured 2026-09-04: three INV FULLs, three help
+# texts; the listing command is INV LIST, #127).
+INVENTORY_HELP = "The INVENTORY command is the best way"
 
 STAT_NAMES = (
     "Strength",
@@ -288,6 +293,13 @@ def blocked_by_renaming(text):
     return RENAMING_ROOM in text
 
 
+def refused(text):
+    """True when the game answered with a refusal — the renaming room's
+    reminder (#112) or the INVENTORY syntax help (#127) — so re-asking
+    can only collect the same text again."""
+    return blocked_by_renaming(text) or INVENTORY_HELP in text
+
+
 def ask(s, command, parse, until, answered):
     """(parsed, blocked) — parse() of the command's answer, re-asking up
     to ATTEMPTS times: a command sent while login noise is still
@@ -295,18 +307,20 @@ def ask(s, command, parse, until, answered):
     session-start INFO never answered while the following EXP ALL was,
     storing an all-None character row, #65).
 
-    A renaming-room refusal stops the retries immediately: the room
-    answers everything the same way, so the next ask would only collect
-    the same reminder (#112). An answer carrying `until` counts as
-    answered even if it parses to nothing, so an untrained character's
-    legitimately empty EXP ALL is not mistaken for silence (#113)."""
+    A refusal stops the retries immediately: the renaming room answers
+    everything with the same reminder (#112), and an inventory command
+    the game does not know gets the INVENTORY syntax list (#127) — the
+    next ask would only collect the same text. An answer carrying
+    `until` counts as answered even if it parses to nothing, so an
+    untrained character's legitimately empty EXP ALL is not mistaken
+    for silence (#113)."""
     result = parse("")
     for attempt in range(ATTEMPTS):
         if attempt:
             s.sleep(RETRY_SLEEP)
         s.put(command)
         answer = collect(s, COLLECT_SECONDS, until)
-        if blocked_by_renaming(answer):
+        if refused(answer):
             return result, True
         result = parse(answer)
         # The end marker is proof the game replied, even when nothing
@@ -321,14 +335,17 @@ def ask(s, command, parse, until, answered):
 def snapshot(s, inventory=False):
     info, _ = ask(s, "info", parse_info, INFO_END, lambda r: bool(r["stats"]))
     skills, renaming = ask(s, "exp all", parse_exp_all, EXP_ALL_END, bool)
-    # The renaming room refuses INV FULL like everything else, so there
-    # is no point asking there (#112).
-    # Only when asked for: INV FULL costs 5s of roundtime, so it is
+    # Only when asked for: INV LIST costs 5s of roundtime, so it is
     # never part of the scheduled snapshot (#117). The renaming room
     # refuses it like everything else, so it is skipped there (#112).
     items = []
     if inventory and not renaming:
-        items = ask(s, "inv full", parse_inventory, INV_END, bool)[0]
+        items, refused_inv = ask(s, "inv list", parse_inventory, INV_END, bool)
+        if refused_inv:
+            s.echo(
+                "sheet: the game answered INV LIST with its syntax help — "
+                "inventory skipped"
+            )
     if renaming:
         s.echo(
             "sheet: EXP ALL is unavailable in the renaming room — stats "

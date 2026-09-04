@@ -1,4 +1,4 @@
-"""How INV FULL's nested item list becomes flat, searchable rows.
+"""How INV LIST's nested item list becomes flat, searchable rows.
 
 The rules these pin down (#117): indentation gives depth, each row
 names its immediate container, and identical items in the same

@@ -1,11 +1,11 @@
-"""Read INV FULL's nested item list into flat, searchable rows.
+"""Read INV LIST's nested item list into flat, searchable rows.
 
 `;sheet` snapshots this into xp.db so "which character has that thing?"
 is a query rather than 31 logins (#117). Qt-free and IO-free: the
 parser is the whole module, and tests exercise it against captured
 traffic.
 
-The game answers INV FULL with an indented tree::
+The game answers INV LIST with an indented tree::
 
     You take a moment and rummage about your person, taking stock ...
     You have:
@@ -50,7 +50,7 @@ def _depth(indent):
 
 
 def parse_inventory(text):
-    """[{"container", "item", "quantity", "depth"}] from INV FULL output.
+    """[{"container", "item", "quantity", "depth"}] from INV LIST output.
 
     `container` is None for what the character wears or holds directly.
     Returns [] when the answer holds no inventory list at all — a
