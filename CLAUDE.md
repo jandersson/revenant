@@ -1,5 +1,5 @@
 # Revenant
 
-Project instructions for Claude Code live in `.claude/project.md`, imported here so the tool finds them at the root it reads.
+The project instructions live in `AGENTS.md`, the file every coding agent reads; Claude Code imports it here.
 
-@.claude/project.md
+@AGENTS.md
