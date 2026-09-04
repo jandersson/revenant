@@ -8,6 +8,8 @@ _Python and DragonRealms — a monorepo of hobby projects for the [DragonRealms]
 
 Most of the tooling around DragonRealms lives in the Ruby ecosystem (lich, dr-scripts, profanity, Genie plugins). Revenant is an excuse to rebuild some of that in Python, have fun, and see what sticks — [docs/why-python.md](docs/why-python.md) records what that trade buys and costs, with the evidence. None of these projects are polished or production-ready — they are prototypes, experiments, and works-in-progress.
 
+A word on where this sits. Revenant is a hobby, built for fun and for the author's own play, not a replacement for anything. It takes its shape from Lich and the community's scripts — the session-and-scripts split, the `;` commands, the community map — and says so wherever it does; none of their code is copied, and the [Friends](#friends) section credits what it leans on. Much of the code here is written with an AI assistant (Claude Code), in the open: the commit history says which commits. If any of it is useful to you, take it; if it isn't, the projects it learned from are a click away.
+
 Shout out to [Pylanthia](https://github.com/robbintt/pylanthia), a great related project.
 
 ## Getting started
@@ -152,8 +154,9 @@ Hobby-grade. Things are in varying states of disrepair — the client is the mos
 
 ## Friends
 
-Revenant stands on the DragonRealms community's open work. These are the repositories worth knowing; several are direct dependencies.
+Revenant stands on the DragonRealms community's open work, and credit belongs where the work was done. These are the repositories worth knowing; several are direct dependencies.
 
+- [robbintt/pylanthia](https://github.com/robbintt/pylanthia) — a threaded Python DragonRealms client for headless use: the other Python take on this game, and an early inspiration.
 - [elanthia-online/lich-5](https://github.com/elanthia-online/lich-5) — Lich, the scripting engine most of the DR world runs on. Revenant's session-and-scripts split is modeled on it, and `;lnet` is a 1:1 port of `lnet.lic`.
 - [elanthia-online/dr-scripts](https://github.com/elanthia-online/dr-scripts) — the community's Lich scripts for DragonRealms: the reference for what a script ecosystem grows into, and where the `;`-command habits come from.
 - [elanthia-online/mapdb-backup-dr](https://github.com/elanthia-online/mapdb-backup-dr) — the community map. Downloaded on first use for the Map dock and `;go2`, never vendored.
