@@ -36,3 +36,61 @@ def test_a_close_without_a_character_saves_only_the_legacy_pair():
         "geometry": b"geo",
         "windowState": b"docks",
     }
+
+
+class FakeWindow:
+    """A QMainWindow's layout surface, recording the order of calls."""
+
+    def __init__(self, visible):
+        self.visible = visible
+        self.calls = []
+
+    def isVisible(self):
+        return self.visible
+
+    def hide(self):
+        self.visible = False
+        self.calls.append("hide")
+
+    def show(self):
+        self.visible = True
+        self.calls.append("show")
+
+    def restoreGeometry(self, geometry):
+        self.calls.append(("restoreGeometry", geometry))
+
+    def restoreState(self, state):
+        self.calls.append(("restoreState", state))
+
+
+def test_a_shown_window_is_hidden_while_its_layout_lands():
+    # Captured 2026-09-04 (#124): dock state restored onto the shown
+    # window aborted the process at the next child setVisible.
+    window = FakeWindow(visible=True)
+    assert window_layout.apply(window, b"geo", b"docks") is True
+    assert window.calls == [
+        "hide",
+        ("restoreGeometry", b"geo"),
+        ("restoreState", b"docks"),
+        "show",
+    ]
+    assert window.visible is True
+
+
+def test_a_hidden_window_is_not_shown_by_the_restore():
+    window = FakeWindow(visible=False)
+    window_layout.apply(window, b"geo", b"docks")
+    assert window.calls == [("restoreGeometry", b"geo"), ("restoreState", b"docks")]
+    assert window.visible is False
+
+
+def test_a_missing_half_of_the_layout_is_skipped():
+    window = FakeWindow(visible=True)
+    window_layout.apply(window, None, b"docks")
+    assert window.calls == ["hide", ("restoreState", b"docks"), "show"]
+
+
+def test_nothing_saved_means_the_window_is_left_alone():
+    window = FakeWindow(visible=True)
+    assert window_layout.apply(window, None, None) is False
+    assert window.calls == []

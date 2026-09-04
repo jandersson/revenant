@@ -345,13 +345,14 @@ class ClientGUI(QMainWindow, ClientLogger):
 
     def _restore_character_layout(self, name):
         """This character's own saved arrangement, if any — without one
-        the legacy layout restored at startup simply stays."""
+        the legacy layout restored at startup simply stays. Applied
+        with the window hidden: dock state restored onto the shown
+        window crashed the process at the next setVisible (#124)."""
         settings = QSettings("revenant", "revenant")
         geometry_key, state_key = window_layout.layout_keys(name)
-        if geometry := settings.value(geometry_key):
-            self.restoreGeometry(geometry)
-        if state := settings.value(state_key):
-            self.restoreState(state)
+        window_layout.apply(
+            self, settings.value(geometry_key), settings.value(state_key)
+        )
 
     def detach(self):
         """File → Detach: close the window, stay logged in. The session
