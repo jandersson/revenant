@@ -79,7 +79,7 @@ You rarely need to restart anything. From cheapest to dearest:
 
 | You edited            | To pick it up                                                                 |
 | --------------------- | ----------------------------------------------------------------------------- |
-| a script (`scripts/`) | nothing — `;run` loads it fresh from disk every time (`;stop x`, then `;x`)   |
+| a script (`scripts/`), or a `client/` helper it imports (walker, mapdb, probe, …) | nothing — `;run` loads the script fresh from disk every time and reloads changed helpers with it (`;stop x`, then `;x`) |
 | the GUI               | **Detach** (Ctrl+D) the window and relaunch; it reattaches, no logout — a plain close would quit the game (see below) |
 | the session/engine    | `;reexec` (below) — or on Windows, where reexec is unsupported, quit and relaunch |
 
