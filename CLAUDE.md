@@ -312,7 +312,10 @@ One pipeline, one parser, several processes:
   The same goes for a direct ask: state it upfront, context second.
 - No PII in the repo, ever: no real names, email addresses, Simutronics
   account names, or anything that identifies the operator — in code, tests,
-  docs, commit messages, or captured fixtures. Use synthetic values
+  docs, commit messages, or captured fixtures. One exception, by the
+  author's choice: the character Crannach is public and may appear
+  (README screenshots, examples). Every other character stays
+  synthetic. Use synthetic values
   (TESTACCT / Lanival) in tests, and scrub captured game traffic before
   committing it. Real identity lives outside the repo: the OS credential
   store for the password, the local login-defaults file for the
