@@ -261,6 +261,10 @@ One pipeline, one parser, several processes:
 - Every behavior change ships with unit tests in `client/tests/` — bug fixes
   get a regression test (ideally built from captured game traffic, like the
   compass tests), new features get coverage. No test, no merge.
+- Credit is per feature: docs/bibliography.md names what each script,
+  module and model doc drew on (a Lich script's grammar, a wiki page's
+  table). A feature that picks up a new source adds the entry in the
+  same commit; general resemblance is not an entry.
 - Every change freshens the documentation it staled, in the same commit:
   the module docstring (it is the ;help manual), the READMEs' claims about
   behavior, CLAUDE.md's architecture notes, and docs/ files whose

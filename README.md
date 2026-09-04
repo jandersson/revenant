@@ -168,6 +168,10 @@ Revenant stands on the DragonRealms community's open work, and credit belongs wh
 - [elanthia-online/simu-rewards](https://github.com/elanthia-online/simu-rewards) — a GitHub Action that claims the daily Simutronics rewards.
 - [Elanthipedia](https://elanthipedia.play.net/) — not a repository, but every mechanic Revenant automates was read up there first.
 
+## Bibliography
+
+[docs/bibliography.md](docs/bibliography.md) credits each feature's sources individually — which Lich script a grammar was ported from, which wiki page a table was encoded from — so the debt is on record per script, not just per project.
+
 ## License
 
 MIT (see [client/pyproject.toml](client/pyproject.toml)).
