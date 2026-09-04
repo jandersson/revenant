@@ -120,6 +120,8 @@ and says so instead of trying — quit and relaunch there.
 ### beholder
 A browser dashboard for character experience history — mindstate and rank over time per character and skill, the historical companion to the GUI's live Experience dock.
 
+![The beholder dashboard: a character dropdown and a multi-select of skills, a mindstate-over-time plot for one day showing two training sessions filling to 34 and draining between pulses, a range slider beneath it, and a table of each skill's current rank, percent and mindstate](docs/beholder.png)
+
 The pipeline is pure Python and always on: every session automatically runs the xp script ([scripts/xp.py](scripts/xp.py)), which snapshots the exp window to `~/.revenant/xp.db` every 60s, snapshots the character sheet — stats, circle, TDPs, the full skill roster — every three hours ([scripts/sheet.py](scripts/sheet.py); `;sheet inv` adds what you are carrying, on demand, since INV LIST costs roundtime), keeps a death watchdog running (`;deathwatch` departs an unattended corpse with the best variant your favors afford before it decays — [docs/death.md](docs/death.md)), and brings the dashboard server up quietly (`;stop <name>` opts a session out; File → Settings or the `REVENANT_NO_*` env vars disable durably). Any other script can join the autostarts via Settings — "Also autostart these scripts" — e.g. `lnet` to be in chat from login. `;circle` reads the latest sheet snapshot and reports what gates your next circle — the guildleader's answer with have/need ranks, computed from your guild's requirement table (all eleven circled guilds encoded, [docs/circles.md](docs/circles.md)); the dashboard shows the same gates as its Circle-gates table. View it wherever suits: **View → Experience History** embeds it in the client GUI, **View → Beholder in Browser** or `;beholder` opens it in your browser, and `uv run beholder` runs it by hand (character dropdown, multi-select skills, mindstate plot with range buttons, refreshing experience table). See [beholder/README.md](beholder/README.md).
 
 ### chat
@@ -128,7 +130,7 @@ A minimal LNet client in pure Python (stdlib `ssl` only, no dependencies). Conne
 LNet names can be password-protected on the server (protocol per `lnet.lic` 1.15): if a name is protected, login must carry a `password` attribute or the server answers `password required` and disconnects. Configure via environment:
 
 - `LNET_NAME` — the name to log in as (defaults to `Wabbajack`, which is currently password-protected — set your own).
-- `LNET_PASSWORD` — the password for that name; alternatively put it in the git-ignored `chat/lnet_password.txt`. Never commit it.
+- `LNET_PASSWORD` — the password for that name, for one run. The durable place is the OS keychain (service `revenant-lnet`, one entry per name), which the chat window fills in when a login is rejected; the git-ignored `chat/lnet_password.txt` is a legacy fallback. Never commit a password.
 - `LNET_DEBUG` — set to anything for raw protocol dumps.
 
 To password-protect a name (or change it), log in and call `Server.register_password("...")`; pass the literal string `"nil"` to remove protection. Forgotten passwords are reset at <https://lnet.lichproject.org>.
