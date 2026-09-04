@@ -337,3 +337,17 @@ def test_room_frame_is_uid_tab_title_with_blanks_for_the_unknown_half():
     assert room_frame(state) == "1420\t[The Crossing, Herald Street]"
     state.room_title = None
     assert room_frame(state) == "1420\t"
+
+
+def test_engine_emits_a_bell_frame_for_a_bell_in_the_line():
+    # The idle warning arrives wrapped in BEL (#131): the GUI beeps on
+    # the synthetic frame, and the text it shows carries no control
+    # characters.
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [b"\x07YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND.\x07\r\n"]
+    )
+    out = _read_all(engine, 1)
+    assert ("\n", "bell", "") in out
+    texts = [text for text, stream, _ in out if stream == ""]
+    assert texts == ["YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND.\n"]

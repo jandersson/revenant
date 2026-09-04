@@ -65,7 +65,10 @@ One pipeline, one parser, several processes:
   for plain text, a style name the GUI maps to colors/bold, the control
   value "clear" (<clearStream/>: wipe that stream's window), or
   "link:<command>" for <d> command links (clickable in the GUI: a click
-  sends the command).
+  sends the command). C0 control characters are stripped from every
+  piece — the game wraps its idle warning in BEL, which a font draws
+  as a box — and a line that rang the bell yields a synthetic
+  `"bell"` segment first (#131).
   Segments carry their own newlines — the engine appends "\n" to the last
   piece of each line per stream; frontends never add line breaks. Also
   parses the exp window (`<component id='exp Skill'>`) into
@@ -90,7 +93,10 @@ One pipeline, one parser, several processes:
   (server-minus-local clock seconds, from the prompt's server time)
   when the delta first appears or moves >1s — the clocks dock and
   ;clock compute Elanthian time from it, immune to local clock
-  drift (#102). session.attach replays
+  drift (#102), and a `"bell"` frame when a line carried BEL — the
+  GUI sounds QApplication.beep(), the official frontend's behaviour
+  for the idle warning; transient like the timers (#131).
+  session.attach replays
   character, vitals, indicators, timesync, and the room to late
   attachers, like the compass.
 - `client/client/session.py` — the detachable session daemon

@@ -902,6 +902,11 @@ class ClientGUI(QMainWindow, ClientLogger):
             if clears_window(stream):
                 self.stream_windows[stream].clear()
             return
+        if stream == "bell":
+            # The game rang its bell (the idle warning): sound it, as
+            # the official frontend does (#131). Nothing to display.
+            QApplication.beep()
+            return
         if stream == "compass":
             self.update_compass(text)
             return

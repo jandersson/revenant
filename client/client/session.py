@@ -296,7 +296,7 @@ class SessionServer(ClientLogger):
     # Moment-bound streams: meaningful only at the instant they fire.
     # Replaying one to a freshly attached frontend would start a stale
     # countdown, so they are never kept in the backlog.
-    TRANSIENT_STREAMS = ("roundtime", "casttime")
+    TRANSIENT_STREAMS = ("roundtime", "casttime", "bell")
 
     def broadcast(self, text: str, stream: str, style: str = "", exclude=None):
         frame = encode_frame(text, stream, style)

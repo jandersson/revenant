@@ -850,3 +850,16 @@ def test_send_line_reports_failure_when_nothing_listens():
     port = held.getsockname()[1]
     assert session.send_line("127.0.0.1", port, "quit", timeout=1) is False
     held.close()
+
+
+def test_a_bell_is_never_replayed_to_a_late_attacher():
+    # A bell is moment-bound like a roundtime: sounding an hour-old idle
+    # warning at whoever attaches next would be a lie (#131).
+    game = FakeGame()
+    server, port = _start_server(game)
+    game.pending.append(b"\x07YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND.\x07\n")
+    assert _await(lambda: server.backlog), "backlog never filled"
+    frames, _ = session.decode_frames(b"".join(server.backlog))
+    streams = [stream for _, stream, _ in frames]
+    assert "" in streams  # the warning text itself is scrollback
+    assert "bell" not in streams

@@ -418,3 +418,29 @@ def test_command_links_prefer_the_cmd_attribute():
     xml_data = XMLData()
     segments = xml_data.route("You see <d cmd='go wooden gate'>a gate</d> here.")
     assert ("", "a gate", "link:go wooden gate") in segments
+
+
+def test_the_bell_around_the_idle_warning_is_stripped_and_sounded():
+    # Captured 2026-09-04 (#131): the warning arrives wrapped in BEL
+    # (0x07) at each end — the official frontend's cue to beep. A font
+    # has no glyph for it, so the boxes must never reach a widget; the
+    # bell itself becomes a synthetic segment the GUI sounds.
+    xml_data = XMLData()
+    line = "\x07YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND.\x07\r"
+    assert xml_data.route(line) == [
+        ("bell", "", ""),
+        ("", "YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND.", "alert"),
+    ]
+
+
+def test_other_control_characters_are_stripped_without_a_bell():
+    xml_data = XMLData()
+    assert xml_data.route("You feel\x08 fully rested.") == [
+        ("", "You feel fully rested.", "")
+    ]
+    assert xml_data.route("<pushBold/>Whee\x1b!<popBold/>") == [("", "Whee!", "bold")]
+
+
+def test_a_line_without_a_bell_emits_no_bell_segment():
+    xml_data = XMLData()
+    assert all(stream != "bell" for stream, _, _ in xml_data.route("Quiet."))

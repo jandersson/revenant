@@ -14,6 +14,13 @@ _STREAM_MARKER = re.compile(r"<pushStream id=[\"'](\w+)[\"'][^>]*/>|<popStream[^
 # the official frontend supplies their emphasis, so we supply ours as
 # the "alert" style (issue #42). Extend only with captured evidence.
 _ALERT_LINE = re.compile(r"YOU HAVE BEEN IDLE TOO LONG")
+# C0 control characters other than tab / newline / carriage return. The
+# game wraps its idle warning in BEL (0x07) — the official frontend's cue
+# to beep — and a font has no glyph for it, so a widget shows a box at
+# each end (captured 2026-09-04, #131). Stripped from every piece; the
+# bell itself becomes a synthetic "bell" segment for the GUI to sound.
+_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+BELL = "\x07"
 
 # <d>north</d> and <d cmd='go gate'>the gate</d>: command links. The
 # link's game command is the cmd attribute when present, else the tag
@@ -336,6 +343,8 @@ class XMLData:
         )
 
         segments = []
+        if BELL in line:
+            segments.append(("bell", "", ""))
         # A wipe marker precedes the stream's fresh content: emit the
         # control segment first so front ends clear before appending.
         for stream in re.findall(r"<clearStream id=[\"'](\w+)[\"']", line):
@@ -353,6 +362,7 @@ class XMLData:
                 for piece, style in _split_links(styled_piece, piece_style):
                     piece = re.sub(r"<[^>]+>", "", piece)
                     piece = html.unescape(piece)
+                    piece = _CONTROL_CHARS.sub("", piece)
                     if not piece.strip():
                         continue
                     if not style and _ALERT_LINE.search(piece):
