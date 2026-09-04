@@ -167,14 +167,14 @@ def test_fetch_character_list_bad_password_raises_and_caches_nothing(
 
 def test_get_credentials_from_env_and_keyring(monkeypatch):
     monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
-    monkeypatch.setenv("REVENANT_CHARACTER", "crannach")
+    monkeypatch.setenv("REVENANT_CHARACTER", "testchar")
     monkeypatch.setattr(
         login.keyring, "get_password", lambda service, username: "hunter2"
     )
     creds = login.get_credentials()
     assert creds["username"] == b"TESTACCT"
     assert creds["password"] == b"hunter2"
-    assert creds["character"] == "Crannach"
+    assert creds["character"] == "Testchar"
 
 
 def test_get_credentials_falls_back_to_saved_names(monkeypatch, tmp_path):
@@ -217,7 +217,7 @@ def test_get_credentials_survives_missing_keyring_backend(monkeypatch):
 
 def test_get_credentials_prompts_when_keychain_empty(monkeypatch):
     monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
-    monkeypatch.setenv("REVENANT_CHARACTER", "Crannach")
+    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
     monkeypatch.setattr(login.keyring, "get_password", lambda service, username: None)
     monkeypatch.setattr(login.getpass, "getpass", lambda prompt: "fromprompt")
     creds = login.get_credentials()
