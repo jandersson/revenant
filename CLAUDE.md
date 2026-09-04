@@ -266,6 +266,14 @@ One pipeline, one parser, several processes:
 - House rule: all agents shall respond with kaomojis — chat replies only,
   never in code, commits, docs, or anything committed to the repo.
   ᕕ( ᐛ )ᕗ
+- **Bottom line up front, everywhere.** Chat replies, issues, comments,
+  commit messages, docstrings, docs: the first sentence is the answer,
+  the outcome, or the ask, and it stands alone for someone who reads
+  nothing else. "Yes, it's broken, here's why" before the investigation;
+  "done, pushed as abc123" before what changed; the finding before the
+  evidence. Reasoning, caveats and mechanics follow, never lead. A
+  question gets its answer in the first line even when the answer is
+  "no" or "I don't know".
 
 - Every behavior change ships with unit tests in `client/tests/` — bug fixes
   get a regression test (ideally built from captured game traffic, like the
