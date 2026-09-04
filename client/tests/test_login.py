@@ -167,14 +167,14 @@ def test_fetch_character_list_bad_password_raises_and_caches_nothing(
 
 def test_get_credentials_from_env_and_keyring(monkeypatch):
     monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
-    monkeypatch.setenv("REVENANT_CHARACTER", "testchar")
+    monkeypatch.setenv("REVENANT_CHARACTER", "lanival")
     monkeypatch.setattr(
         login.keyring, "get_password", lambda service, username: "hunter2"
     )
     creds = login.get_credentials()
     assert creds["username"] == b"TESTACCT"
     assert creds["password"] == b"hunter2"
-    assert creds["character"] == "Testchar"
+    assert creds["character"] == "Lanival"
 
 
 def test_get_credentials_falls_back_to_saved_names(monkeypatch, tmp_path):
@@ -195,10 +195,10 @@ def test_login_defaults_roundtrip(monkeypatch, tmp_path):
     defaults = tmp_path / "deep" / "login.json"  # parent dir gets created
     monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(defaults))
     assert login.load_login_defaults() == {}
-    login.save_login_defaults("TESTACCT", "Testchar")
+    login.save_login_defaults("TESTACCT", "Lanival")
     assert login.load_login_defaults() == {
         "account": "TESTACCT",
-        "character": "Testchar",
+        "character": "Lanival",
     }
 
 
@@ -209,7 +209,7 @@ def test_get_credentials_survives_missing_keyring_backend(monkeypatch):
         raise keyring.errors.NoKeyringError("no backend")
 
     monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
-    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
+    monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     monkeypatch.setattr(login.keyring, "get_password", no_backend)
     monkeypatch.setattr(login.getpass, "getpass", lambda prompt: "fallback")
     assert login.get_credentials()["password"] == b"fallback"
@@ -217,7 +217,7 @@ def test_get_credentials_survives_missing_keyring_backend(monkeypatch):
 
 def test_get_credentials_prompts_when_keychain_empty(monkeypatch):
     monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
-    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
+    monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     monkeypatch.setattr(login.keyring, "get_password", lambda service, username: None)
     monkeypatch.setattr(login.getpass, "getpass", lambda prompt: "fromprompt")
     creds = login.get_credentials()

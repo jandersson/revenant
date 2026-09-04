@@ -41,7 +41,7 @@ def test_instance(xml_data, login_strings):
 
 def test_name(xml_data, login_strings):
     _feed(xml_data, login_strings)
-    assert xml_data.name == "Testchar"
+    assert xml_data.name == "Lanival"
 
 
 def test_server_time(xml_data, login_strings):

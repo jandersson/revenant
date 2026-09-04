@@ -230,13 +230,13 @@ def test_engine_emits_the_character_once_at_login():
     engine = Engine()
     engine.connection = FakeConnection(
         [
-            b'<app char="Testchar" game="DR" title="[DR: Testchar] Wrayth"/>\n',
+            b'<app char="Lanival" game="DR" title="[DR: Lanival] Wrayth"/>\n',
             b"Later, unrelated text.\n",
         ]
     )
     out = _read_all(engine, 2)
     frames = [frame for frame in out if frame[1] == "character"]
-    assert frames == [("Testchar", "character", "")]
+    assert frames == [("Lanival", "character", "")]
 
 
 def test_casttime_emits_like_roundtime():

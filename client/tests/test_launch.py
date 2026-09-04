@@ -67,7 +67,7 @@ def _fake_dialog(monkeypatch, answers):
 def test_gather_login_prefers_keychain(monkeypatch):
     monkeypatch.setenv("REVENANT_ACCOUNT", "TESTACCT")
     monkeypatch.setattr(launch.keyring, "get_password", lambda service, user: "pw")
-    assert launch.gather_login("Testchar") == ("TESTACCT", "Testchar", None)
+    assert launch.gather_login("Lanival") == ("TESTACCT", "Lanival", None)
 
 
 def test_gather_login_prompts_ephemerally_on_a_tty(monkeypatch):
@@ -79,7 +79,7 @@ def test_gather_login_prompts_ephemerally_on_a_tty(monkeypatch):
     monkeypatch.setattr(
         launch, "eaccess_protocol", lambda info: seen.update(info) or "KEY123"
     )
-    assert launch.gather_login("Testchar") == ("TESTACCT", "Testchar", "KEY123")
+    assert launch.gather_login("Lanival") == ("TESTACCT", "Lanival", "KEY123")
     assert seen["password"] == b"typed-once"
 
 
@@ -96,14 +96,14 @@ def test_gather_login_retries_on_bad_password(monkeypatch, capsys):
         return "KEY456"
 
     monkeypatch.setattr(launch, "eaccess_protocol", eaccess)
-    assert launch.gather_login("Testchar") == ("TESTACCT", "Testchar", "KEY456")
+    assert launch.gather_login("Lanival") == ("TESTACCT", "Lanival", "KEY456")
     assert "Bad Password" in capsys.readouterr().err
 
 
 def test_gather_login_uses_dialog_without_tty(monkeypatch):
     monkeypatch.delenv("REVENANT_ACCOUNT", raising=False)
     monkeypatch.setattr(launch.sys.stdin, "isatty", lambda: False)
-    _fake_dialog(monkeypatch, [("TESTACCT", "typed", "Testchar", True)])
+    _fake_dialog(monkeypatch, [("TESTACCT", "typed", "Lanival", True)])
     stored = {}
     monkeypatch.setattr(
         launch.keyring,
@@ -111,7 +111,7 @@ def test_gather_login_uses_dialog_without_tty(monkeypatch):
         lambda service, user, pw: stored.update({user: pw}),
     )
     monkeypatch.setattr(launch, "eaccess_protocol", lambda info: "KEY789")
-    assert launch.gather_login(None) == ("TESTACCT", "Testchar", "KEY789")
+    assert launch.gather_login(None) == ("TESTACCT", "Lanival", "KEY789")
     assert stored == {"TESTACCT": "typed"}, "remember-me should hit the keychain"
 
 
@@ -153,13 +153,13 @@ def test_gather_login_remember_saves_names(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_LOGIN_DEFAULTS", str(defaults))
     monkeypatch.delenv("REVENANT_ACCOUNT", raising=False)
     monkeypatch.setattr(launch.sys.stdin, "isatty", lambda: False)
-    _fake_dialog(monkeypatch, [("TESTACCT", "typed", "Testchar", True)])
+    _fake_dialog(monkeypatch, [("TESTACCT", "typed", "Lanival", True)])
     monkeypatch.setattr(launch.keyring, "set_password", lambda *args: None)
     monkeypatch.setattr(launch, "eaccess_protocol", lambda info: "KEY321")
-    assert launch.gather_login(None) == ("TESTACCT", "Testchar", "KEY321")
+    assert launch.gather_login(None) == ("TESTACCT", "Lanival", "KEY321")
     assert json.loads(defaults.read_text()) == {
         "account": "TESTACCT",
-        "character": "Testchar",
+        "character": "Lanival",
     }
 
 
@@ -177,7 +177,7 @@ def test_gather_login_survives_missing_keyring_backend(monkeypatch):
     monkeypatch.setattr(launch.sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr(launch.getpass, "getpass", lambda prompt: "typed-once")
     monkeypatch.setattr(launch, "eaccess_protocol", lambda info: "KEY654")
-    assert launch.gather_login("Testchar") == ("TESTACCT", "Testchar", "KEY654")
+    assert launch.gather_login("Lanival") == ("TESTACCT", "Lanival", "KEY654")
 
 
 def test_gather_login_dialog_cancel_exits(monkeypatch):

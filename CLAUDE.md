@@ -305,7 +305,7 @@ One pipeline, one parser, several processes:
 - No PII in the repo, ever: no real names, email addresses, Simutronics
   account names, or anything that identifies the operator — in code, tests,
   docs, commit messages, or captured fixtures. Use synthetic values
-  (TESTACCT / Testchar) in tests, and scrub captured game traffic before
+  (TESTACCT / Lanival) in tests, and scrub captured game traffic before
   committing it. Real identity lives outside the repo: the OS credential
   store for the password, the local login-defaults file for the
   account/character names (see `client/client/login.py` for both).
@@ -315,6 +315,12 @@ One pipeline, one parser, several processes:
   feat, fix, docs, test, refactor, chore, ci.
 - Every feature gets a GitHub issue — create one when you start building
   it (or at latest when it ships), so the work is tracked and closeable.
+- Every issue carries a label from the moment it is created (`gh issue
+  create --label ...`): `bug` for a defect, `enhancement` for a feature
+  or improvement, `question` for an open investigation or experiment.
+  An unlabeled issue is a mistake to fix on sight (`gh issue edit N
+  --add-label ...`), and a sweep of `gh issue list --json labels` for
+  empty label lists is cheap.
 - File a GitHub issue for every defect or gap detected while working on
   something else — always, even for small ones, instead of relying on
   memory or TODO comments. An issue is easily closed; an undetected bug

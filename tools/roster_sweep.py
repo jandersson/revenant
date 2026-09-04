@@ -7,7 +7,7 @@ Enter moves to the next character, `s` skips, `q` quits. Nothing
 advances on its own; looking around is the point (#111).
 
     uv run python tools/roster_sweep.py            # every pending character
-    uv run python tools/roster_sweep.py Doc Testchar  # just these two
+    uv run python tools/roster_sweep.py Doc Lanival  # just these two
     uv run python tools/roster_sweep.py --all      # re-snapshot everyone
     uv run python tools/roster_sweep.py --list     # print the plan, do nothing
 

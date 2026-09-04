@@ -99,7 +99,7 @@ class TestNonAnswers:
 
     def test_a_renaming_room_refusal_yields_nothing(self):
         refusal = (
-            "Testchar, this is a reminder that you have been sent to this room "
+            "Lanival, this is a reminder that you have been sent to this room "
             "so you may change your name to something which fits the medieval "
             "fantasy environment of DragonRealms."
         )

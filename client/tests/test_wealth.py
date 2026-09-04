@@ -51,9 +51,9 @@ def test_balances_roundtrip_into_the_wealth_table(tmp_path, monkeypatch):
 
     monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
     connection = sqlite3.connect(wealth.database_path())
-    wealth.record(connection, "Testchar", "Kronars", 13_502)
+    wealth.record(connection, "Lanival", "Kronars", 13_502)
     stored = connection.execute(
         "SELECT character_name, kind, currency, copper FROM wealth"
     ).fetchall()
-    assert stored == [("Testchar", "bank", "Kronars", 13_502)]
+    assert stored == [("Lanival", "bank", "Kronars", 13_502)]
     connection.close()

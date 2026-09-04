@@ -1,7 +1,7 @@
 """One-command launcher: ensure a game session is running, attach the GUI.
 
 - revenant              attach to a running session, spawning one first if needed
-- revenant Testchar     attach to Testchar's session, or spawn one on a
+- revenant Lanival     attach to Lanival's session, or spawn one on a
                         free port — several characters run side by side,
                         one window each (#58)
 - revenant --pick       the Start Menu shortcut's mode: a picker of

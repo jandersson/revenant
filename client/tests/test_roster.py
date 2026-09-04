@@ -12,7 +12,7 @@ DEFAULTS = {
     "account": "second",
     "character": "Otherchar",
     "accounts": {
-        "first": {"account": "first", "characters": ["Alvin", "Claude", "Testchar"]},
+        "first": {"account": "first", "characters": ["Alvin", "Claude", "Lanival"]},
         "second": {"account": "second", "characters": ["Otherchar", "Thirdchar"]},
     },
 }
@@ -24,7 +24,7 @@ class TestCachedCharacters:
         assert cached_characters(DEFAULTS) == [
             ("first", "Alvin"),
             ("first", "Claude"),
-            ("first", "Testchar"),
+            ("first", "Lanival"),
             ("second", "Otherchar"),
             ("second", "Thirdchar"),
         ]
@@ -49,13 +49,13 @@ class TestPendingCharacters:
     def test_snapshotted_characters_drop_out(self):
         assert pending_characters(DEFAULTS, ["Alvin", "Otherchar"]) == [
             ("first", "Claude"),
-            ("first", "Testchar"),
+            ("first", "Lanival"),
             ("second", "Thirdchar"),
         ]
 
     def test_matching_ignores_case(self):
         # xp.db holds the game's capitalisation; the roster may differ.
-        assert pending_characters(DEFAULTS, ["ALVIN", "tEsTcHaR"]) == [
+        assert pending_characters(DEFAULTS, ["ALVIN", "lAnIvAl"]) == [
             ("first", "Claude"),
             ("second", "Otherchar"),
             ("second", "Thirdchar"),

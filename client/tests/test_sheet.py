@@ -26,7 +26,7 @@ def _sheet():
 
 sheet = _sheet()
 
-INFO_TEXT = """Name: Testchar Example   Race: Human   Guild: Commoner
+INFO_TEXT = """Name: Lanival Example   Race: Human   Guild: Commoner
 Gender: Male   Age: 20   Circle: 1
      Strength :  10              Reflex :  14
       Agility :   9            Charisma :  10
@@ -120,7 +120,7 @@ class FakeHandle:
 
 def snapshot_into(monkeypatch, tmp_path, responses, inventory=False):
     monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
-    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
+    monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
     handle = FakeHandle(responses)
     sheet.snapshot(handle, inventory=inventory)
@@ -196,7 +196,7 @@ def test_snapshot_rows_roundtrip_through_the_database():
     sheet.ensure_schema(connection)  # idempotent
     sheet.insert_snapshot(
         connection,
-        "Testchar",
+        "Lanival",
         "2026-08-22T12:00:00+00:00",
         sheet.parse_info(INFO_TEXT),
         sheet.parse_exp_all(EXP_ALL_TEXT),
@@ -249,14 +249,14 @@ def test_parse_wealth_reads_the_copper_parentheticals():
 # Captured 2026-09-03 (#112) — the renaming room's answer to EXP ALL. A
 # character sent there for a name that does not fit the setting gets
 # this reminder in place of every command's own output.
-RENAMING_TEXT = """Testchar, this is a reminder that you have been sent to this room \
+RENAMING_TEXT = """Lanival, this is a reminder that you have been sent to this room \
 so you may change your name to something which fits the medieval fantasy \
 environment of DragonRealms.  If you are not sure why you have been sent here, \
 type ADVICE.  Otherwise, type LOOK and follow the directions you see.  Any \
 inventory you have will be saved and returned to you automatically once you \
 enter the live game world as long as you reroll within two hours after you type \
 CHECK IN.  Thank you.
-Your name: Testchar Distresseater.  For help, type ADVICE."""
+Your name: Lanival Distresseater.  For help, type ADVICE."""
 
 
 def test_blocked_by_renaming_recognizes_the_rooms_reminder():
@@ -379,7 +379,7 @@ year of the Golden Panther, 338 years after the victory of Lanival the Redeemer.
 # Doc, an unset birth date: day 1, month 1, year 0 — the calendar epoch,
 # reported by characters that never finished creation. Year 0 is a real
 # answer and must survive as 0, not be coerced to NULL.
-INFO_EPOCH_BIRTH = """Name: Testchar Holiday   Race: Human   Guild: Commoner
+INFO_EPOCH_BIRTH = """Name: Lanival Holiday   Race: Human   Guild: Commoner
 Gender: Male   Age: 457   Circle: 0
      Strength :   6              Reflex :  10
        Favors : 0
@@ -451,7 +451,7 @@ def test_ensure_schema_adds_the_columns_to_an_older_database(tmp_path):
     )
     connection.execute(
         "INSERT INTO character (logged_at, character_name, circle)"
-        " VALUES ('2026-01-01', 'Testchar', 5)"
+        " VALUES ('2026-01-01', 'Lanival', 5)"
     )
     connection.commit()
     sheet.ensure_schema(connection)
@@ -466,7 +466,7 @@ def test_ensure_schema_adds_the_columns_to_an_older_database(tmp_path):
     } <= columns
     # The existing row survives, with NULLs for what it never had.
     assert connection.execute(
-        "SELECT circle, race FROM character WHERE character_name = 'Testchar'"
+        "SELECT circle, race FROM character WHERE character_name = 'Lanival'"
     ).fetchone() == (5, None)
 
 
@@ -544,7 +544,7 @@ def test_the_sheet_still_snapshots_without_any_inventory(monkeypatch, tmp_path):
 def test_a_plain_snapshot_asks_for_no_inventory(monkeypatch, tmp_path):
     # The scheduled snapshot must never spend INV LIST's 5s roundtime.
     monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
-    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
+    monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
     handle = FakeHandle(
         {
@@ -564,7 +564,7 @@ def test_the_renaming_room_is_never_asked_for_inventory(monkeypatch, tmp_path):
     # It refuses INV LIST like everything else, so asking only burns
     # roundtime and retries (#112).
     monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
-    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
+    monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
     handle = FakeHandle(
         {
@@ -657,7 +657,7 @@ def test_inventory_nesting_survives_the_links_the_game_wraps_items_in(
 
 def run_main(monkeypatch, tmp_path, responses, requests, args=()):
     monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
-    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
+    monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
     handle = FakeHandle(responses, requests)
     handle.args = list(args)

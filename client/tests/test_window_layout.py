@@ -10,9 +10,9 @@ from client import window_layout
 
 
 def test_layout_keys_are_scoped_to_the_character():
-    assert window_layout.layout_keys("Testchar") == (
-        "layout/Testchar/geometry",
-        "layout/Testchar/windowState",
+    assert window_layout.layout_keys("Lanival") == (
+        "layout/Lanival/geometry",
+        "layout/Lanival/windowState",
     )
 
 
@@ -22,12 +22,12 @@ def test_no_character_falls_back_to_the_legacy_keys():
 
 
 def test_a_close_saves_both_the_character_and_the_fallback_layout():
-    pairs = window_layout.save_pairs("Testchar", b"geo", b"docks")
+    pairs = window_layout.save_pairs("Lanival", b"geo", b"docks")
     assert pairs == {
         "geometry": b"geo",
         "windowState": b"docks",
-        "layout/Testchar/geometry": b"geo",
-        "layout/Testchar/windowState": b"docks",
+        "layout/Lanival/geometry": b"geo",
+        "layout/Lanival/windowState": b"docks",
     }
 
 
@@ -103,10 +103,10 @@ def test_startup_restores_the_known_characters_own_layout():
     saved = {
         "geometry": b"legacy-geo",
         "windowState": b"legacy-docks",
-        "layout/Testchar/geometry": b"geo",
-        "layout/Testchar/windowState": b"docks",
+        "layout/Lanival/geometry": b"geo",
+        "layout/Lanival/windowState": b"docks",
     }
-    assert window_layout.startup_layout(saved.get, "Testchar") == (
+    assert window_layout.startup_layout(saved.get, "Lanival") == (
         b"geo",
         b"docks",
         True,
@@ -132,5 +132,5 @@ def test_startup_with_no_character_uses_the_legacy_pair():
 
 
 def test_startup_with_half_a_character_layout_still_counts_as_scoped():
-    saved = {"windowState": b"legacy-docks", "layout/Testchar/windowState": b"docks"}
-    assert window_layout.startup_layout(saved.get, "Testchar") == (None, b"docks", True)
+    saved = {"windowState": b"legacy-docks", "layout/Lanival/windowState": b"docks"}
+    assert window_layout.startup_layout(saved.get, "Lanival") == (None, b"docks", True)

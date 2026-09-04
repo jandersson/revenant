@@ -37,7 +37,7 @@ class FakeHandle:
         self.echoed.append(text)
 
 
-def seed_snapshot(path, character="Testchar", logged_at="2026-08-22T12:00:00+00:00"):
+def seed_snapshot(path, character="Lanival", logged_at="2026-08-22T12:00:00+00:00"):
     connection = sqlite3.connect(path)
     sheet.ensure_schema(connection)
     connection.executemany(
@@ -63,7 +63,7 @@ def test_circle_reports_gates_from_the_latest_snapshot(monkeypatch, tmp_path):
     database = tmp_path / "xp.db"
     seed_snapshot(database)
     monkeypatch.setenv("REVENANT_XP_DB", str(database))
-    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
+    monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     handle = FakeHandle()
     circle.main(handle)
     text = "\n".join(handle.echoed)
@@ -72,12 +72,12 @@ def test_circle_reports_gates_from_the_latest_snapshot(monkeypatch, tmp_path):
     assert "weapon: 1st Weapon (Small Edged) 3/6, Parry Ability 1/2" in text
     assert "1st Supernatural (Augmentation) 1/2" in text
     assert "8th Survival (First Aid) 1/2" in text
-    assert "from Testchar's sheet snapshot" in text
+    assert "from Lanival's sheet snapshot" in text
 
 
 def test_circle_without_a_snapshot_points_at_sheet(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
-    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
+    monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     handle = FakeHandle()
     circle.main(handle)
     assert any("run ;sheet once first" in line for line in handle.echoed)
@@ -91,7 +91,7 @@ def test_circle_for_a_guild_without_circles(monkeypatch, tmp_path):
     connection.commit()
     connection.close()
     monkeypatch.setenv("REVENANT_XP_DB", str(database))
-    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
+    monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     handle = FakeHandle()
     circle.main(handle)
     assert any("no circle requirements" in line for line in handle.echoed)

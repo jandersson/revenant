@@ -16,10 +16,10 @@ def test_mindstate_figure_has_one_sorted_trace_per_skill():
             "rank": [200],
         },
     }
-    figure = app.mindstate_figure(series, "Testchar")
+    figure = app.mindstate_figure(series, "Lanival")
     assert [trace.name for trace in figure.data] == ["Evasion", "Sorcery"]
     assert figure.data[1].y == (5,)
-    assert "Testchar" in figure.layout.title.text
+    assert "Lanival" in figure.layout.title.text
 
 
 def test_mindstate_figure_without_history_is_an_empty_plot():
@@ -103,7 +103,7 @@ def _seed(monkeypatch, tmp_path):
     recent = datetime.now(timezone.utc) - timedelta(minutes=30)
     writer.execute(
         "INSERT INTO mindstate (logged_at, character_name, skill_name,"
-        " rank, percent, mindstate) VALUES (?, 'Testchar', 'Athletics', 12, 1, 20)",
+        " rank, percent, mindstate) VALUES (?, 'Lanival', 'Athletics', 12, 1, 20)",
         (recent.isoformat(),),
     )
     writer.commit()
@@ -114,10 +114,10 @@ def _seed(monkeypatch, tmp_path):
 def test_dock_route_renders_the_recent_window(monkeypatch, tmp_path):
     _seed(monkeypatch, tmp_path)
     client = app.app.server.test_client()
-    response = client.get("/dock?character=Testchar&hours=6")
+    response = client.get("/dock?character=Lanival&hours=6")
     assert response.status_code == 200
     page_text = response.get_data(as_text=True)
-    assert "Testchar" in page_text
+    assert "Lanival" in page_text
     assert 'http-equiv="refresh"' in page_text
 
 
@@ -125,7 +125,7 @@ def test_dock_route_falls_back_to_the_latest_character(monkeypatch, tmp_path):
     _seed(monkeypatch, tmp_path)
     client = app.app.server.test_client()
     response = client.get("/dock")
-    assert "Testchar" in response.get_data(as_text=True)
+    assert "Lanival" in response.get_data(as_text=True)
 
 
 def test_dock_route_survives_an_empty_database(monkeypatch, tmp_path):
@@ -160,12 +160,12 @@ def _seed_sheet(monkeypatch, tmp_path, guild="Thief"):
     ):
         writer.execute(
             "INSERT INTO sheet_skills (logged_at, character_name, skill_name,"
-            " rank, percent) VALUES (?, 'Testchar', ?, ?, ?)",
+            " rank, percent) VALUES (?, 'Lanival', ?, ?, ?)",
             (logged_at, skill, rank, percent),
         )
     writer.execute(
         "INSERT INTO character (logged_at, character_name, circle, tdps,"
-        " favors, guild) VALUES (?, 'Testchar', 1, 356, 0, ?)",
+        " favors, guild) VALUES (?, 'Lanival', 1, 356, 0, ?)",
         (logged_at, guild),
     )
     writer.commit()
@@ -175,7 +175,7 @@ def _seed_sheet(monkeypatch, tmp_path, guild="Thief"):
 
 def test_circle_gates_reports_what_blocks_the_next_circle(monkeypatch, tmp_path):
     _seed_sheet(monkeypatch, tmp_path)
-    rows, note = app.circle_gates("Testchar")
+    rows, note = app.circle_gates("Lanival")
     assert "Thief, circle 1 → 2" in note
     armor = next(row for row in rows if row["label"] == "1st Armor")
     assert armor == {
@@ -191,14 +191,14 @@ def test_circle_gates_reports_what_blocks_the_next_circle(monkeypatch, tmp_path)
 
 def test_circle_gates_hint_at_sheet_without_a_snapshot(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "empty.db"))
-    rows, note = app.circle_gates("Testchar")
+    rows, note = app.circle_gates("Lanival")
     assert rows == []
     assert ";sheet once" in note
 
 
 def test_circle_gates_for_a_guild_without_circles(monkeypatch, tmp_path):
     _seed_sheet(monkeypatch, tmp_path, guild="Commoner")
-    rows, note = app.circle_gates("Testchar")
+    rows, note = app.circle_gates("Lanival")
     assert rows == []
     assert "No circle requirements" in note
 
@@ -208,7 +208,7 @@ def test_circle_gates_for_a_guild_without_circles(monkeypatch, tmp_path):
 
 def _row(**overrides):
     row = {
-        "character_name": "Testchar",
+        "character_name": "Lanival",
         "race": "Human",
         "gender": "Male",
         "guild": "Barbarian",
@@ -223,7 +223,7 @@ def _row(**overrides):
 
 def test_the_identity_line_reads_as_a_sentence():
     line = app.describe_identity(_row())
-    assert "Testchar" in line
+    assert "Lanival" in line
     assert "Human" in line and "Male" in line and "Barbarian" in line
     assert "circle 6" in line
     assert "born 29/4 of 338" in line
@@ -253,7 +253,7 @@ def test_columns_the_snapshot_never_had_are_simply_left_out():
     line = app.describe_identity(
         _row(race=None, gender=None, birth_year=None, birth_day=None, birth_month=None)
     )
-    assert line == "Testchar · Barbarian · circle 6"
+    assert line == "Lanival · Barbarian · circle 6"
 
 
 def test_no_snapshot_means_no_line():

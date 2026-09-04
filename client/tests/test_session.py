@@ -138,18 +138,18 @@ def test_sessions_register_for_the_launcher_and_prune_stale_rows(monkeypatch):
     # serving registers {port, character, pid}; a shutdown removes the
     # row; a crash leaves one that running_sessions() prunes because
     # nothing answers on its port.
-    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
+    monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     game = FakeGame()
     server, port = _start_server(game)
     assert _await(lambda: session.running_sessions()), "session never registered"
     (entry,) = session.running_sessions()
-    assert (entry["port"], entry["character"]) == (port, "Testchar")
+    assert (entry["port"], entry["character"]) == (port, "Lanival")
 
     # A bound-but-not-listening socket: the stale row's port refuses.
     holder = socket.socket()
     holder.bind(("127.0.0.1", 0))
     session.register_session(holder.getsockname()[1], "Ghost")
-    assert [e["character"] for e in session.running_sessions()] == ["Testchar"]
+    assert [e["character"] for e in session.running_sessions()] == ["Lanival"]
     holder.close()
 
     game.closed = True  # the game EOF shuts the session down
@@ -185,9 +185,9 @@ def test_late_attach_learns_the_character_despite_an_evicted_backlog():
     game = FakeGame()
     server, port = _start_server(game)
     game.pending.append(
-        b'<app char="Testchar" game="DR" title="[DR: Testchar] Wrayth"/>\n'
+        b'<app char="Lanival" game="DR" title="[DR: Lanival] Wrayth"/>\n'
     )
-    assert _await(lambda: server.engine.xml_data.name == "Testchar"), (
+    assert _await(lambda: server.engine.xml_data.name == "Lanival"), (
         "app tag never parsed"
     )
     server.backlog.clear()  # simulate the eviction
@@ -198,7 +198,7 @@ def test_late_attach_learns_the_character_despite_an_evicted_backlog():
     while b"character" not in buffer:
         buffer += late.recv(4096)
     frames, _ = session.decode_frames(buffer)
-    assert ("Testchar", "character", "") in frames
+    assert ("Lanival", "character", "") in frames
     late.close()
 
 
@@ -336,13 +336,13 @@ def test_reexec_hands_the_indicators_across(monkeypatch):
     monkeypatch.setenv(session.GAME_BUFFER_ENV, "sentinel")
     server = session.SessionServer(game, port=0)  # serve() never called
     server.engine.xml_data.indicator.update({"IconDEAD": "y", "IconPRONE": "y"})
-    server.engine.xml_data.name = "Testchar"  # <app> never repeats (#95)
+    server.engine.xml_data.name = "Lanival"  # <app> never repeats (#95)
 
     server.reexec(execv=lambda path, argv: None)
 
     handed_over = json.loads(os.environ[session.GAME_STATE_ENV])
     assert handed_over["indicator"] == {"IconDEAD": "y", "IconPRONE": "y"}
-    assert handed_over["name"] == "Testchar"
+    assert handed_over["name"] == "Lanival"
     right.close()
     game.close()
 
@@ -352,7 +352,7 @@ def test_main_game_fd_primes_the_indicators_from_the_handoff(monkeypatch):
     fd = left.detach()
     monkeypatch.setenv(
         session.GAME_STATE_ENV,
-        json.dumps({"indicator": {"IconDEAD": "y"}, "name": "Testchar"}),
+        json.dumps({"indicator": {"IconDEAD": "y"}, "name": "Lanival"}),
     )
     adopted = {}
     monkeypatch.setattr(
@@ -366,7 +366,7 @@ def test_main_game_fd_primes_the_indicators_from_the_handoff(monkeypatch):
     assert session.GAME_STATE_ENV not in os.environ  # consumed, not leaked
     xml_data = adopted["server"].engine.xml_data
     assert xml_data.indicator["IconDEAD"] == "y"
-    assert xml_data.name == "Testchar"  # the title bar stays named (#95)
+    assert xml_data.name == "Lanival"  # the title bar stays named (#95)
     right.close()
     adopted["server"].game.close()
 
@@ -378,7 +378,7 @@ def test_main_game_fd_names_the_character_from_the_environment(monkeypatch):
     left, right = socket.socketpair()
     fd = left.detach()
     monkeypatch.setenv(session.GAME_STATE_ENV, json.dumps({"indicator": {}}))
-    monkeypatch.setenv("REVENANT_CHARACTER", "Testchar")
+    monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     adopted = {}
     monkeypatch.setattr(
         session.SessionServer, "serve", lambda self: adopted.update(server=self)
@@ -386,7 +386,7 @@ def test_main_game_fd_names_the_character_from_the_environment(monkeypatch):
     monkeypatch.setattr(session, "autostart_scripts", lambda server: None)
     session.main(["--game-fd", str(fd), "--port", "0"])
 
-    assert adopted["server"].engine.xml_data.name == "Testchar"
+    assert adopted["server"].engine.xml_data.name == "Lanival"
     right.close()
     adopted["server"].game.close()
 
@@ -873,14 +873,14 @@ def test_character_for_port_reads_the_registry(monkeypatch, tmp_path):
     registry.write_text(
         json.dumps(
             [
-                {"port": 4242, "character": "Testchar", "pid": 1},
+                {"port": 4242, "character": "Lanival", "pid": 1},
                 {"port": "4243", "character": "Other", "pid": 2},
                 {"port": "bogus", "character": "Nobody"},
             ]
         )
     )
     monkeypatch.setenv("REVENANT_SESSIONS", str(registry))
-    assert session.character_for_port(4242) == "Testchar"
+    assert session.character_for_port(4242) == "Lanival"
     assert session.character_for_port("4243") == "Other"
     assert session.character_for_port(5000) is None
 

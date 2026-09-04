@@ -28,10 +28,10 @@ EXPERIENCE = {
 
 
 def test_one_row_per_learning_skill_per_snapshot():
-    rows = xp.snapshot_rows(EXPERIENCE, "Testchar", "2026-08-13T02:00:00+00:00")
+    rows = xp.snapshot_rows(EXPERIENCE, "Lanival", "2026-08-13T02:00:00+00:00")
     assert rows == [
-        ("2026-08-13T02:00:00+00:00", "Testchar", "Athletics", 346, 13, 11),
-        ("2026-08-13T02:00:00+00:00", "Testchar", "Attunement", 520, 42, 17),
+        ("2026-08-13T02:00:00+00:00", "Lanival", "Athletics", 346, 13, 11),
+        ("2026-08-13T02:00:00+00:00", "Lanival", "Attunement", 520, 42, 17),
     ]
 
 
@@ -40,13 +40,13 @@ def test_rows_roundtrip_through_the_database():
     xp.ensure_schema(connection)
     xp.ensure_schema(connection)  # idempotent: safe on every start
     xp.insert(
-        connection, xp.snapshot_rows(EXPERIENCE, "Testchar", "2026-08-13T02:00:00Z")
+        connection, xp.snapshot_rows(EXPERIENCE, "Lanival", "2026-08-13T02:00:00Z")
     )
     stored = connection.execute(
         "SELECT character_name, skill_name, rank, percent, mindstate "
         "FROM mindstate ORDER BY skill_name"
     ).fetchall()
     assert stored == [
-        ("Testchar", "Athletics", 346, 13, 11),
-        ("Testchar", "Attunement", 520, 42, 17),
+        ("Lanival", "Athletics", 346, 13, 11),
+        ("Lanival", "Attunement", 520, 42, 17),
     ]

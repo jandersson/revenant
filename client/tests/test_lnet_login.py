@@ -15,7 +15,7 @@ def test_the_env_var_wins_for_one_run(monkeypatch):
     monkeypatch.setattr(
         lnet_login.keyring, "get_password", lambda s, u: "from-keychain"
     )
-    assert lnet_login.lnet_password("Testchar") == "from-env"
+    assert lnet_login.lnet_password("Lanival") == "from-env"
 
 
 def test_the_keychain_is_the_durable_place(monkeypatch):
@@ -27,18 +27,18 @@ def test_the_keychain_is_the_durable_place(monkeypatch):
         return "from-keychain"
 
     monkeypatch.setattr(lnet_login.keyring, "get_password", get_password)
-    assert lnet_login.lnet_password("Testchar") == "from-keychain"
-    assert seen["key"] == ("revenant-lnet", "Testchar")
+    assert lnet_login.lnet_password("Lanival") == "from-keychain"
+    assert seen["key"] == ("revenant-lnet", "Lanival")
 
 
 def test_the_legacy_file_is_consulted_last(monkeypatch):
     monkeypatch.delenv("LNET_PASSWORD", raising=False)
     monkeypatch.setattr(lnet_login.keyring, "get_password", lambda s, u: None)
-    assert lnet_login.lnet_password("Testchar", legacy_file=lambda: "from-file") == (
+    assert lnet_login.lnet_password("Lanival", legacy_file=lambda: "from-file") == (
         "from-file"
     )
-    assert lnet_login.lnet_password("Testchar", legacy_file=lambda: "") is None
-    assert lnet_login.lnet_password("Testchar") is None
+    assert lnet_login.lnet_password("Lanival", legacy_file=lambda: "") is None
+    assert lnet_login.lnet_password("Lanival") is None
 
 
 def test_a_missing_keyring_backend_is_not_an_error(monkeypatch):
@@ -48,7 +48,7 @@ def test_a_missing_keyring_backend_is_not_an_error(monkeypatch):
         raise keyring.errors.NoKeyringError("no backend")
 
     monkeypatch.setattr(lnet_login.keyring, "get_password", boom)
-    assert lnet_login.lnet_password("Testchar") is None
+    assert lnet_login.lnet_password("Lanival") is None
 
 
 def test_remember_writes_the_keychain_and_reports_when_it_cannot(monkeypatch):
@@ -58,29 +58,29 @@ def test_remember_writes_the_keychain_and_reports_when_it_cannot(monkeypatch):
         "set_password",
         lambda s, u, p: stored.__setitem__((s, u), p),
     )
-    assert lnet_login.remember("Testchar", "hunter2") is True
-    assert stored == {("revenant-lnet", "Testchar"): "hunter2"}
+    assert lnet_login.remember("Lanival", "hunter2") is True
+    assert stored == {("revenant-lnet", "Lanival"): "hunter2"}
 
     def boom(service, username, password):
         raise keyring.errors.NoKeyringError("no backend")
 
     monkeypatch.setattr(lnet_login.keyring, "set_password", boom)
-    assert lnet_login.remember("Testchar", "hunter2") is False
+    assert lnet_login.remember("Lanival", "hunter2") is False
 
 
 def test_identities_are_the_cached_characters_in_roster_order():
     defaults = {
         "accounts": {
-            "one": {"account": "ONE", "characters": ["Testchar", "Otherchar"]},
-            "two": {"account": "TWO", "characters": ["Thirdchar", "Testchar"]},
+            "one": {"account": "ONE", "characters": ["Lanival", "Otherchar"]},
+            "two": {"account": "TWO", "characters": ["Thirdchar", "Lanival"]},
         }
     }
-    assert lnet_login.identities(defaults) == ["Testchar", "Otherchar", "Thirdchar"]
+    assert lnet_login.identities(defaults) == ["Lanival", "Otherchar", "Thirdchar"]
 
 
 def test_allowed_matches_a_roster_name_case_insensitively_or_refuses():
-    defaults = {"account": "ONE", "character": "Testchar"}  # the legacy flat cache
-    assert lnet_login.allowed("testchar", defaults) == "Testchar"
+    defaults = {"account": "ONE", "character": "Lanival"}  # the legacy flat cache
+    assert lnet_login.allowed("lanival", defaults) == "Lanival"
     assert lnet_login.allowed("Madeupname", defaults) is None
 
 
