@@ -315,7 +315,9 @@ One pipeline, one parser, several processes:
   docs, commit messages, or captured fixtures — no exceptions, not even
   the author's own characters; screenshots and examples use the
   synthetic name too. Use synthetic values
-  (TESTACCT / Lanival) in tests, and scrub captured game traffic before
+  (TESTACCT / Lanival, with Sable and Uthmor — his twin and one of his
+  captains, per the wiki — as the other characters) in tests, and scrub
+  captured game traffic before
   committing it. Real identity lives outside the repo: the OS credential
   store for the password, the local login-defaults file for the
   account/character names (see `client/client/login.py` for both).

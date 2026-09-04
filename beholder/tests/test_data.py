@@ -23,7 +23,7 @@ ROWS = [
     ("2026-08-16T10:00:00+00:00", "Lanival", "Evasion", 200, 20, 10),
     ("2026-08-16T10:01:00+00:00", "Lanival", "Sorcery", 100, 12, 7),
     ("2026-08-16T10:01:00+00:00", "Lanival", "Evasion", 200, 21, 9),
-    ("2026-08-16T10:00:30+00:00", "Otherchar", "Athletics", 50, 5, 3),
+    ("2026-08-16T10:00:30+00:00", "Sable", "Athletics", 50, 5, 3),
 ]
 
 
@@ -49,12 +49,12 @@ def connection(tmp_path):
 
 
 def test_characters_are_distinct_and_sorted(connection):
-    assert data.characters(connection) == ["Lanival", "Otherchar"]
+    assert data.characters(connection) == ["Lanival", "Sable"]
 
 
 def test_skills_are_per_character_and_sorted(connection):
     assert data.skills(connection, "Lanival") == ["Evasion", "Sorcery"]
-    assert data.skills(connection, "Otherchar") == ["Athletics"]
+    assert data.skills(connection, "Sable") == ["Athletics"]
 
 
 def test_latest_snapshot_returns_only_the_newest_tick(connection):
@@ -83,7 +83,7 @@ def test_history_is_per_skill_series_oldest_first(connection):
 
 def test_history_filters_to_requested_skills_and_character(connection):
     series = data.history(connection, "Lanival", ["Evasion", "Athletics"])
-    assert list(series) == ["Evasion"]  # Athletics belongs to Otherchar
+    assert list(series) == ["Evasion"]  # Athletics belongs to Sable
 
 
 def test_history_without_skills_is_empty(connection):

@@ -10,10 +10,10 @@ from client.roster import cached_characters, pending_characters, snapshot_summar
 
 DEFAULTS = {
     "account": "second",
-    "character": "Otherchar",
+    "character": "Sable",
     "accounts": {
         "first": {"account": "first", "characters": ["Alvin", "Claude", "Lanival"]},
-        "second": {"account": "second", "characters": ["Otherchar", "Thirdchar"]},
+        "second": {"account": "second", "characters": ["Sable", "Uthmor"]},
     },
 }
 
@@ -25,8 +25,8 @@ class TestCachedCharacters:
             ("first", "Alvin"),
             ("first", "Claude"),
             ("first", "Lanival"),
-            ("second", "Otherchar"),
-            ("second", "Thirdchar"),
+            ("second", "Sable"),
+            ("second", "Uthmor"),
         ]
 
     def test_the_legacy_flat_cache_still_reads(self):
@@ -47,18 +47,18 @@ class TestCachedCharacters:
 
 class TestPendingCharacters:
     def test_snapshotted_characters_drop_out(self):
-        assert pending_characters(DEFAULTS, ["Alvin", "Otherchar"]) == [
+        assert pending_characters(DEFAULTS, ["Alvin", "Sable"]) == [
             ("first", "Claude"),
             ("first", "Lanival"),
-            ("second", "Thirdchar"),
+            ("second", "Uthmor"),
         ]
 
     def test_matching_ignores_case(self):
         # xp.db holds the game's capitalisation; the roster may differ.
         assert pending_characters(DEFAULTS, ["ALVIN", "lAnIvAl"]) == [
             ("first", "Claude"),
-            ("second", "Otherchar"),
-            ("second", "Thirdchar"),
+            ("second", "Sable"),
+            ("second", "Uthmor"),
         ]
 
     def test_nothing_snapshotted_means_everyone_is_pending(self):
@@ -71,7 +71,7 @@ class TestPendingCharacters:
 
 class TestSnapshotSummary:
     def test_counts_total_done_and_pending(self):
-        assert snapshot_summary(DEFAULTS, ["Alvin", "Otherchar"]) == (5, 2, 3)
+        assert snapshot_summary(DEFAULTS, ["Alvin", "Sable"]) == (5, 2, 3)
 
     def test_a_full_roster_reports_nothing_pending(self):
         names = [name for _, name in cached_characters(DEFAULTS)]
