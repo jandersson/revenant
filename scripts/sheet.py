@@ -11,7 +11,7 @@ stored as blanks. ;sheet once takes a single snapshot and exits.
 ;sheet inv adds your inventory: INV LIST, flattened into rows naming
 each item's container, so "which character has that thing?" is a query
 instead of a login. It is on demand only and never scheduled — INV LIST
-costs 5 seconds of roundtime, which is fine when you ask for it and not
+costs a few seconds of roundtime (4-5s captured), which is fine when you ask for it and not
 fine arriving mid-fight. Typed while the script runs (it always does —
 it is an autostart), ;sheet inv asks the running script for one
 inventory snapshot and the schedule carries on; from cold it takes the
@@ -335,7 +335,7 @@ def ask(s, command, parse, until, answered):
 def snapshot(s, inventory=False):
     info, _ = ask(s, "info", parse_info, INFO_END, lambda r: bool(r["stats"]))
     skills, renaming = ask(s, "exp all", parse_exp_all, EXP_ALL_END, bool)
-    # Only when asked for: INV LIST costs 5s of roundtime, so it is
+    # Only when asked for: INV LIST costs 4-5s of roundtime, so it is
     # never part of the scheduled snapshot (#117). The renaming room
     # refuses it like everything else, so it is skipped there (#112).
     items = []
