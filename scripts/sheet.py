@@ -12,8 +12,11 @@ stored as blanks. ;sheet once takes a single snapshot and exits.
 each item's container, so "which character has that thing?" is a query
 instead of a login. It is on demand only and never scheduled — INV FULL
 costs 5 seconds of roundtime, which is fine when you ask for it and not
-fine arriving mid-fight. Like `once`, it takes the one snapshot and
-exits.
+fine arriving mid-fight. Typed while the script runs (it always does —
+it is an autostart), ;sheet inv asks the running script for one
+inventory snapshot and the schedule carries on; from cold it takes the
+one snapshot and exits, like `once`. ;sheet once at a running script
+takes an extra plain snapshot the same way.
 
 ;stop sheet opts a session out; REVENANT_NO_SHEET=1 disables the
 autostart.
@@ -28,6 +31,7 @@ from pathlib import Path
 
 from client.inventory import FOOTER as INV_END
 from client.inventory import parse_inventory
+from client.probe import collect
 
 INTERVAL = 3 * 3600  # seconds between snapshots
 COLLECT_SECONDS = 5  # patience per ask; the answer's last line ends it early
@@ -278,22 +282,6 @@ def insert_snapshot(connection, character, logged_at, info, skills, items=None):
     connection.commit()
 
 
-def collect(s, seconds, until=None):
-    """Main-stream text for a window after a command. INFO and EXP ALL
-    answer in multi-line, multi-column blocks; their last line
-    (`until`) ends the wait early, the window bounds it otherwise."""
-    pieces = []
-    deadline = time.monotonic() + seconds
-    while time.monotonic() < deadline:
-        line = s.get(timeout=0.5)
-        if line is None:
-            continue
-        pieces.append(line)
-        if until is not None and until in line:
-            break
-    return "\n".join(pieces)
-
-
 def blocked_by_renaming(text):
     """True when the answer is the renaming room's reminder rather than
     the command's own output — a refusal, not silence (#112)."""
@@ -382,6 +370,23 @@ def snapshot(s, inventory=False):
     )
 
 
+def serve(s, request):
+    """A line typed at the running script — `;sheet inv` / `;sheet once`
+    while the autostart is up lands here, not in s.args (#122): the
+    engine hands a running script the rest of the line as a command."""
+    words = request.lower().split()
+    if "inv" in words or "once" in words:
+        if s.dead:
+            s.echo("sheet: you are a ghost — the sheet can wait")
+            return
+        snapshot(s, inventory="inv" in words)
+        return
+    s.echo(
+        f"sheet: unknown request {request!r} — ;sheet inv snapshots the "
+        "inventory too, ;sheet once takes a plain snapshot now"
+    )
+
+
 def main(s):
     args = [str(arg).lower() for arg in (s.args or [])]
     inventory = "inv" in args
@@ -399,4 +404,12 @@ def main(s):
         snapshot(s, inventory=inventory)
         if once:
             return
-        s.sleep(INTERVAL)
+        # Until the next scheduled snapshot, listen instead of sleeping:
+        # the sheet autostarts in every session, so `;sheet inv` always
+        # meets a running script and arrives as a request (#122).
+        deadline = time.monotonic() + INTERVAL
+        while (remaining := deadline - time.monotonic()) > 0:
+            request = s.command(timeout=remaining)
+            if request is None:
+                break  # the interval ran out
+            serve(s, request)
