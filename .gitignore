@@ -168,3 +168,7 @@ chat/lnet_password.txt
 # Generated docs-site files (#97)
 docs/index.md
 site/
+
+# Claude Code session state — never tracked
+.claude/worktrees/
+.claude/settings.local.json
