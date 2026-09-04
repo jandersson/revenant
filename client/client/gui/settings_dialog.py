@@ -60,8 +60,9 @@ class SettingsDialog(QDialog):
         note = QLabel("Autostart changes apply from the next session.")
         note.setStyleSheet("color: #808090;")
         # The game text's font: the platform default, or a family and
-        # size of your own. The pickers show the platform font while
-        # the default is in force, so unticking starts from what you see.
+        # size of your own. The pickers are always live — touching one
+        # unticks the default (greyed-out pickers under a checkbox read
+        # as broken, #130); ticking it again is the way back.
         family, size = font_choice(settings)
         self.font_default = QCheckBox("Use the platform default font for game text")
         self.font_default.setChecked(family is None and size is None)
@@ -77,8 +78,8 @@ class SettingsDialog(QDialog):
         row_layout.addWidget(QLabel("Game text font:"))
         row_layout.addWidget(self.font_family, 1)
         row_layout.addWidget(self.font_size)
-        self.font_default.toggled.connect(self._toggle_font_pickers)
-        self._toggle_font_pickers(self.font_default.isChecked())
+        self.font_family.currentFontChanged.connect(self._font_picked)
+        self.font_size.valueChanged.connect(self._font_picked)
         for widget in (
             self.autostart_xp,
             self.autostart_beholder,
@@ -100,9 +101,10 @@ class SettingsDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
-    def _toggle_font_pickers(self, use_default):
-        self.font_family.setEnabled(not use_default)
-        self.font_size.setEnabled(not use_default)
+    def _font_picked(self, *_):
+        """A picked family or size is a choice: the default no longer
+        applies unless it is ticked again afterwards."""
+        self.font_default.setChecked(False)
 
     def values(self):
         use_default = self.font_default.isChecked()
