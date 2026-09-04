@@ -18,7 +18,7 @@ Python 3.10 or newer. On Windows, `tools/install_shortcut.ps1` adds a Start Menu
 
 ## The client
 
-![The game window: the story with amber room names and clickable exits, docks for Thoughts, Arrivals, Deaths and the live Experience dashboard, the compass lit with the room's exits, the map drawn around the character, the Elanthian clocks, and vitals bars with the roundtime counter above the input line](docs/screenshot.png)
+![The game window, live: a Moon Mage in the Observatory's third level, the guild register scrolled past, three attempts to find a burp command (burp, brap, belch: please rephrase), the map drawn around the room, the compass lit with the exits, Thoughts, Arrivals and Deaths in their docks, the Elanthian clocks, and the vitals bars above the input line](docs/screenshot.png)
 
 One session per character, any number of windows attached to it, lich-style. The session logs in, owns the game socket, serves parsed text to every attached frontend over localhost, and hosts the script engine: `;list`, `;run <name>`, `;stop <name>`, `;help <name>`. A script is a `main(s)` in [scripts/](scripts/), reloaded from disk every time it starts; [docs/scripting.md](docs/scripting.md) is the guide.
 
