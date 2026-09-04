@@ -21,6 +21,11 @@ DEFAULTS = {
     "eltime_offset_seconds": 0,  # ;clock's Elanthian calendar correction
     "eltime_moons": {},  # ;clock's moon anchors: {moon: new-moon unix time}
     "clocks_earth_moon": False,  # the for-fun Earth moon row in the clocks dock
+    # The game text's font (client/textfont.py): a family name and a
+    # point size, "" / 0 for the platform default. Applied live from
+    # File → Settings to the main window, stream docks, and input line.
+    "font_family": "",
+    "font_size": 0,
     # Rooms travel routes around when a clean detour exists — each entry
     # a ;go2-style target (tag, room id, or title substring). Defaults
     # are the cougar grounds that killed a walker (#72); edit the file
