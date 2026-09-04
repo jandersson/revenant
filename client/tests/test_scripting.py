@@ -1,3 +1,4 @@
+import pathlib
 import time
 import types
 
@@ -478,3 +479,36 @@ def test_a_fast_load_is_silent_even_in_developer_mode(tmp_path, monkeypatch):
     monkeypatch.setattr(scripting, "SLOW_LOAD_SECONDS", 60.0)
     out = _run_and_wait(manager, recorder, "quick")
     assert not any("to load" in e for e in out)
+
+
+# --- where scripts are looked for (#142) ---
+
+
+def test_scripts_default_to_the_repos_own_directory_from_anywhere(
+    tmp_path, monkeypatch
+):
+    # Captured 2026-09-04: a session started outside the repo answered
+    # ;go2 with "no script named 'go2'" — the default was ./scripts.
+    import client.scripting as scripting
+
+    monkeypatch.delenv("REVENANT_SCRIPTS", raising=False)
+    monkeypatch.chdir(tmp_path)
+    manager = ScriptManager(send=print, emit=print)
+    assert manager.scripts_dir == scripting.REPO_SCRIPTS_DIR
+    assert (manager.scripts_dir / "go2.py").is_file()
+
+
+def test_a_scripts_directory_in_the_working_directory_still_wins(tmp_path, monkeypatch):
+    import client.scripting as scripting
+
+    monkeypatch.delenv("REVENANT_SCRIPTS", raising=False)
+    (tmp_path / "scripts").mkdir()
+    monkeypatch.chdir(tmp_path)
+    assert scripting.default_scripts_dir() == pathlib.Path("scripts")
+
+
+def test_revenant_scripts_overrides_everything(tmp_path, monkeypatch):
+    import client.scripting as scripting
+
+    monkeypatch.setenv("REVENANT_SCRIPTS", str(tmp_path / "mine"))
+    assert scripting.default_scripts_dir() == tmp_path / "mine"

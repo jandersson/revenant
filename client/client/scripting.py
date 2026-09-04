@@ -47,7 +47,21 @@ from time import monotonic, perf_counter
 from client.client_logger import ClientLogger
 from client.settings import dev_mode
 
-DEFAULT_SCRIPTS_DIR = os.environ.get("REVENANT_SCRIPTS", "scripts")
+REPO_SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
+
+
+def default_scripts_dir():
+    """Where scripts live: REVENANT_SCRIPTS, else ./scripts when the
+    working directory has one, else the repo's own scripts/ — a session
+    started from any other directory found no scripts at all and
+    answered `;go2` with "no script named 'go2'" (captured 2026-09-04,
+    #142)."""
+    if override := os.environ.get("REVENANT_SCRIPTS"):
+        return Path(override)
+    local = Path("scripts")
+    if local.is_dir():
+        return local
+    return REPO_SCRIPTS_DIR
 
 
 class ScriptStopped(Exception):
@@ -260,7 +274,7 @@ class ScriptManager(ClientLogger):
         # without one, the stream is dropped and text goes the plain way.
         self.emit_stream = emit_stream or (lambda text, stream: self.emit(text))
         self.state = state
-        self.scripts_dir = Path(scripts_dir or DEFAULT_SCRIPTS_DIR)
+        self.scripts_dir = Path(scripts_dir) if scripts_dir else default_scripts_dir()
         # Injectable for tests; scripts see time through their manager.
         self.clock = clock or monotonic
         self.running = {}
