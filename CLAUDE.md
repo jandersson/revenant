@@ -139,7 +139,11 @@ One pipeline, one parser, several processes:
   a session out; the GUI's File → Settings dialog over
   `client/settings.py` / ~/.revenant/settings.json turns them off
   durably, and REVENANT_NO_XP=1 / REVENANT_NO_BEHOLDER=1 override
-  everything for one launch — quit-on-close lives there too);
+  everything for one launch — quit-on-close lives there too, and so
+  does the game text's font: `font_family` / `font_size`, normalized
+  by the Qt-free `client/textfont.py` and applied live to every text
+  view and the input line, the Experience dock keeping its
+  fixed-pitch family, #118);
   `;beholder` opens the dashboard in the browser, and the GUI embeds it
   via View → Experience History (QWebEngineView, lazy-created, browser
   fallback when QtWebEngine is missing).

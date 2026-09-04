@@ -38,3 +38,8 @@ def test_garbage_file_yields_defaults(monkeypatch, tmp_path):
     path.write_text("{not json")
     monkeypatch.setenv("REVENANT_SETTINGS", str(path))
     assert load_settings() == DEFAULTS
+
+
+def test_font_defaults_to_the_platform_font():
+    assert DEFAULTS["font_family"] == ""
+    assert DEFAULTS["font_size"] == 0

@@ -46,6 +46,7 @@ from client.highlights import highlights_path, load_rules, spans
 from client.session import AttachedEngine, DEFAULT_HOST, DEFAULT_PORT
 from client.settings import load_settings, save_settings, setting, settings_path
 from client.streamroute import STREAM_WINDOWS as STREAM_WINDOW_TITLES, clears_window
+from client.textfont import font_choice
 
 ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
 
@@ -256,6 +257,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.__add_clocks_dock()
         self.__add_map_dock()
         self.__add_input_field()
+        self._apply_text_font()
 
         reconnect_action = QAction("&Reconnect", self)
         reconnect_action.setShortcut("Ctrl+R")
@@ -266,7 +268,7 @@ class ClientGUI(QMainWindow, ClientLogger):
 
         settings_action = QAction("&Settings…", self)
         settings_action.setStatusTip(
-            "Autostart and window-close behavior (~/.revenant/settings.json)"
+            "Font, autostarts and window-close behavior (~/.revenant/settings.json)"
         )
         settings_action.triggered.connect(self.edit_settings)
 
@@ -395,6 +397,29 @@ class ClientGUI(QMainWindow, ClientLogger):
     def __add_output_window(self):
         self.main_window = self._make_view()
         self.setCentralWidget(self.main_window)
+        # The platform font, kept so "use the default" in Settings can
+        # restore it after a custom font was applied.
+        self._default_text_font = QFont(self.main_window.font())
+
+    def _apply_text_font(self):
+        """Settings' font_family / font_size on the main window, every
+        stream dock, and the input line (#118). The Experience dock's
+        dashboard is column-aligned, so it keeps its fixed-pitch family
+        and follows only the size."""
+        family, size = font_choice(load_settings())
+        font = QFont(self._default_text_font)
+        if family:
+            font.setFamily(family)
+        if size:
+            font.setPointSize(size)
+        fixed = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
+        if size:
+            fixed.setPointSize(size)
+        for title, dock in self.stream_docks.items():
+            if title in STREAM_WINDOW_TITLES.values():
+                dock.widget().setFont(fixed if title == "Experience" else font)
+        self.main_window.setFont(font)
+        self.input.setFont(font)
 
     def __add_stream_docks(self):
         """One dock window per title in STREAM_WINDOWS, stacked on the right."""
@@ -772,14 +797,17 @@ class ClientGUI(QMainWindow, ClientLogger):
         )
 
     def edit_settings(self):
-        """File → Settings…: toggles over settings.json. Quit-on-close
-        applies immediately; autostarts apply to the next session."""
+        """File → Settings…: toggles and the font over settings.json.
+        Quit-on-close and the font apply immediately; autostarts apply
+        to the next session."""
         from client.gui.settings_dialog import SettingsDialog
 
         dialog = SettingsDialog(load_settings(), self)
         if dialog.exec() != dialog.DialogCode.Accepted:
             return
         save_settings(dialog.values())
+        self._apply_text_font()
+        self._reload_clock_settings()
         self.status_bar.showMessage(f"Settings saved to {settings_path()}")
 
     def edit_highlights(self):
