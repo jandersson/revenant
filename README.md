@@ -4,161 +4,67 @@
 
 # Revenant
 
-_Python and DragonRealms — a monorepo of hobby projects for the [DragonRealms](https://www.play.net/dr/) MUD._
+A Python client for [DragonRealms](https://www.play.net/dr/): a detachable game session with a script engine, a PyQt6 window, an experience-history dashboard, and an LNet chat client. Hobby-grade, built for fun, and not a replacement for anything.
 
-Most of the tooling around DragonRealms lives in the Ruby ecosystem (lich, dr-scripts, profanity, Genie plugins). Revenant is an excuse to rebuild some of that in Python, have fun, and see what sticks — [docs/why-python.md](docs/why-python.md) records what that trade buys and costs, with the evidence. None of these projects are polished or production-ready — they are prototypes, experiments, and works-in-progress.
-
-Revenant is a hobby, built for fun and for the author's own play. It is inspired by Lich and the community's scripts, and exists because nothing like them existed for Python; the [Friends](#friends) section and [docs/bibliography.md](docs/bibliography.md) credit what it leans on. The client, GUI, chat client and beholder were hand-written and working years before any AI was involved (the history runs from 2018). Since spring 2026 much of the new code is written with Claude Code, and the commit history says which; it speeds up delivery, and the direction is the author's.
-
-Shout out to [Pylanthia](https://github.com/robbintt/pylanthia), a great related project.
-
-## Getting started
-
-The repo is a [uv](https://docs.astral.sh/uv/) workspace. `client/`, `chat/`, and `beholder/` are workspace members with their own `pyproject.toml`.
+## Quick start
 
 ```sh
 # Install uv: https://docs.astral.sh/uv/getting-started/installation/
-uv sync                       # create the workspace venv + install everything
-uv run pytest --rootdir client   # run the client test suite
-uv run -- python -m client.gui.client_gui   # launch the PyQt6 client
+uv sync            # the workspace venv, everything installed
+uv run revenant    # log in (the password goes to your OS keychain) and play
 ```
 
-Python 3.10+ is required. (The old `telnetlib` dependency — removed from the stdlib in Python 3.13 — was replaced by [client/client/netsock.py](client/client/netsock.py), a minimal buffered socket client.)
+Python 3.10 or newer. On Windows, `tools/install_shortcut.ps1` adds a Start Menu shortcut that opens a character picker. [docs/running.md](docs/running.md) is the operating manual: launching, quitting versus detaching, and which edits need which restart.
 
-## Projects
+## The client
 
-| Directory | What it is |
-|---|---|
-| [client/](client/) | A Python MUD client and engine — aims to be a [lich](https://lichproject.org/)-style middleman with a PyQt6 frontend and a (WIP) terminal frontend. |
-| [beholder/](beholder/) | A [Dash](https://plotly.com/dash/) web dashboard for character experience history, reading the SQLite log the client's bundled xp script writes. |
-| [chat/](chat/) | A standalone LNet chat client, roughly a Python port of rcuhljr's [Genie LNet plugin](https://github.com/rcuhljr/genie-lnet-plugin/): the protocol, the command grammar, and — via `revenant-chat` — a window of its own. |
-| [launcher/](launcher/) | Small helper scripts for spinning up a headless lich instance alongside [ProfanityFE](https://github.com/elanthia-online/profanity-fe). |
+![The game window: the story with amber room names and clickable exits, docks for Thoughts, Arrivals, Deaths and the live Experience dashboard, the compass lit with the room's exits, the map drawn around the character, the Elanthian clocks, and vitals bars with the roundtime counter above the input line](docs/screenshot.png)
 
-### client
-A rough-draft engine + frontends for playing DragonRealms with Python in the loop.
+One session per character, any number of windows attached to it, lich-style. The session logs in, owns the game socket, serves parsed text to every attached frontend over localhost, and hosts the script engine: `;list`, `;run <name>`, `;stop <name>`, `;help <name>`. A script is a `main(s)` in [scripts/](scripts/), reloaded from disk every time it starts; [docs/scripting.md](docs/scripting.md) is the guide.
 
-![The PyQt6 frontend in DragonRealms: the title bar names the character, vitals bars and the roundtime counter frame the input line, stream docks route thoughts and arrivals, the compass lights up with the room's exits, and the clocks dock keeps Elanthian time and the moons beside Stockholm and Chicago](docs/screenshot.png)
+The window shows the game's own styling (amber room names, blue speech, bold alerts, clickable command links) and keeps the rest in docks:
 
-- **core** — the engine/middleman between the game and whichever frontend is attached. See [client/client/core.py](client/client/core.py).
-- **session** — a detachable session daemon that logs in, owns the game socket, and serves parsed game text to any number of frontends over localhost, lich-style. Also hosts the Python script engine (`;list`, `;run`, `;stop`) — writing your own script is a docstring and a `main(s)` in `scripts/`; see [docs/scripting.md](docs/scripting.md). See [client/client/session.py](client/client/session.py).
-- **gui** — a PyQt6 frontend in the spirit of the AOL-era Gemstone clients: the game's own styling (amber room names, blue speech, bold alerts, clickable `<d>` command links), one window per character, and docks around the story. See [client/client/gui/client_gui.py](client/client/gui/client_gui.py).
-  - **Highlights** — your own regex patterns with a color and boldness in `~/.revenant/highlights.json`, coloring just the match; edit them from the View menu.
-  - **Settings** — File → Settings: the game text's font and size (applied live; the Experience dock stays monospace), the autostarts, and whether closing the window quits the game (`~/.revenant/settings.json`).
-  - **Several characters at once** — the launcher's picker (the Start Menu shortcut) lists running sessions to attach and every remembered character on every account to launch, each session on its own port.
-  - **Experience dock** — a live skill dashboard (rank, percent, mindstate); `;xp` logs it to `~/.revenant/xp.db`, alongside `;sheet`'s stats, circle, wealth, and inventory snapshots and `;wealth`'s bank sightings, all charted by beholder.
-  - **Clocks dock** — Elanthian date, anlas, and the three moons' phases from real time ([docs/eltime.md](docs/eltime.md)), calibrated by `;clock` ([scripts/clock.py](scripts/clock.py)); Stockholm and Chicago wall clocks; an optional Earth-moon row.
-  - **Map dock** — the community map drawn around you as you move, Mudlet-style, your surveyed rooms outlined in violet; click a room to walk there via `;go2`, wheel to zoom, drag to pan.
-  - **Around the input line** — roundtime and casttime counting down from the game's own timestamps; vitals bars (health, fatigue, spirit, concentration, mana for casters); a status strip with posture, stunned, bleeding, hidden, and a red DEAD; the character's name in the title bar.
-  - **Input history** — Up/Down browse what you typed (an unsent draft survives), and a sent command stays selected so Enter repeats it.
-- **tui** — not built yet (#57). [Profanity](https://github.com/elanthia-online/profanity-fe) is what you want for a terminal frontend today.
+- **Experience** — a live skill dashboard, rank and percent and mindstate per learning skill.
+- **Map** — the community map drawn around you as you move; click a room to walk there with `;go2`.
+- **Compass, Clocks, Thoughts, Arrivals, Deaths** — exits you can click, Elanthian date and moons beside Stockholm and Chicago, and the game's side streams each in a window of their own.
+- **Around the input line** — roundtime and casttime counting down from the game's own timestamps, vitals bars, a status strip with posture, stunned, bleeding, hidden and a red DEAD, and shell-style command history.
 
-Python 3.10–3.12. Packaged via [client/pyproject.toml](client/pyproject.toml) as a member of the root uv workspace.
+File → Settings covers the font, the autostarts, and whether closing the window quits the game. Highlight patterns of your own live in `~/.revenant/highlights.json`.
 
-#### The Windows launcher
+Bundled scripts: `;go2` travel on the community map, `;xp` and `;sheet` history logging, `;deathwatch` for unattended deaths, `;tend` for bleeders, `;clock` for the Elanthian calendar, `;circle` for what gates your next circle, `;athletics`, `;favors`, `;mechlore`, `;wealth`, `;survey`, and `;lnet`. `;help` lists them with their manuals.
 
-![The character picker: your roster in a list, Play, Switch account, Cancel](docs/launcher.png)
-
-`tools/install_shortcut.ps1` installs a Start Menu shortcut (pin it to
-the taskbar from there) that launches windowless: pick a character from
-your roster and play, or Switch account… to log in as a different
-account. `tools/make_icon.py` regenerates the icon from `revenant.svg`.
-
-#### Closing the window: quit or detach?
-
-Closing the window (the X, File → Exit, Ctrl+Q) **logs your character
-out**: it sends `quit`, the character leaves cleanly instead of
-lingering into link-death, and the session ends. To close the window
-and *stay in the game*, use **File → Detach (Ctrl+D)** — the session
-keeps playing, and the next launch reattaches to it. If you'd rather
-every close behave like Detach, untick "Quit the game when the window
-closes" in File → Settings.
-
-#### Which edits take effect when?
-
-You rarely need to restart anything. From cheapest to dearest:
-
-| You edited            | To pick it up                                                                 |
-| --------------------- | ----------------------------------------------------------------------------- |
-| a script (`scripts/`), or a `client/` helper it imports (walker, mapdb, probe, …) | nothing — `;run` loads the script fresh from disk every time and reloads changed helpers with it (`;stop x`, then `;x`) |
-| the GUI               | **Detach** (Ctrl+D) the window and relaunch; it reattaches, no logout — a plain close would quit the game (see below) |
-| the session/engine    | `;reexec` (below) — or on Windows, where reexec is unsupported, quit and relaunch |
-
-A script that is already running keeps its old code until you `;stop` and rerun it.
-
-#### Hot code reload: `;reexec`
-
-Type `;reexec` in any attached frontend to **update the running session
-to the latest code without logging out** — your character never leaves the
-game, and the connection to the server stays open the whole time.
-
-This exists because a running session loads its code once, at startup:
-edits on disk don't take effect until the process restarts, and restarting
-used to mean logging out and back in.
-
-How it works:
-
-1. The session stops running scripts, marks the game socket's file
-   descriptor inheritable, and stashes any not-yet-parsed game bytes in an
-   environment variable.
-2. It then `exec`s a fresh `python -m client.session --game-fd N`. The exec
-   closes the listener and every frontend connection (those are
-   per-process); only the game socket survives, adopted by the new process
-   via `SocketClient.from_fd`.
-3. The new session restores the byte buffer, rebinds the localhost port,
-   and sends a single `look` to reprime its cold parser state (room title,
-   compass).
-4. Frontends notice the drop and reattach automatically (retrying for up
-   to ~10 s — in practice it's sub-second). In the GUI you'll see
-   `session dropped — reattaching ...` followed by `reattached`.
-
-Caveats: running scripts are stopped, not resumed (start them again with
-`;run`); a session older than this feature doesn't know `;reexec`, so the
-first upgrade still needs one old-fashioned QUIT-and-relaunch. On Windows
-`;reexec` is unsupported (WinSock handles can't survive the exec handoff)
-and says so instead of trying — quit and relaunch there.
-
-### beholder
-A browser dashboard for character experience history — mindstate and rank over time per character and skill, the historical companion to the GUI's live Experience dock.
+## Beholder
 
 ![The beholder dashboard: a character dropdown and a multi-select of skills, a mindstate-over-time plot for one day showing two training sessions filling to 34 and draining between pulses, a range slider beneath it, and a table of each skill's current rank, percent and mindstate](docs/beholder.png)
 
-The pipeline is pure Python and always on: every session automatically runs the xp script ([scripts/xp.py](scripts/xp.py)), which snapshots the exp window to `~/.revenant/xp.db` every 60s, snapshots the character sheet — stats, circle, TDPs, the full skill roster — every three hours ([scripts/sheet.py](scripts/sheet.py); `;sheet inv` adds what you are carrying, on demand, since INV LIST costs roundtime), keeps a death watchdog running (`;deathwatch` departs an unattended corpse with the best variant your favors afford before it decays — [docs/death.md](docs/death.md)), and brings the dashboard server up quietly (`;stop <name>` opts a session out; File → Settings or the `REVENANT_NO_*` env vars disable durably). Any other script can join the autostarts via Settings — "Also autostart these scripts" — e.g. `lnet` to be in chat from login. `;circle` reads the latest sheet snapshot and reports what gates your next circle — the guildleader's answer with have/need ranks, computed from your guild's requirement table (all eleven circled guilds encoded, [docs/circles.md](docs/circles.md)); the dashboard shows the same gates as its Circle-gates table. View it wherever suits: **View → Experience History** embeds it in the client GUI, **View → Beholder in Browser** or `;beholder` opens it in your browser, and `uv run beholder` runs it by hand (character dropdown, multi-select skills, mindstate plot with range buttons, refreshing experience table). See [beholder/README.md](beholder/README.md).
+A browser dashboard over the history every session logs to `~/.revenant/xp.db`: mindstate and rank over time per character and skill, plus the sheet snapshots (stats, circle, wealth, inventory) and the circle gates. View → Experience History embeds it in the client, `;beholder` opens it in a browser, `uv run beholder` runs it by hand. See [beholder/README.md](beholder/README.md).
 
-### chat
-A standalone LNet chat window, and `;lnet` for chat inside the game window. LNet is the Lich project's own chat server (XML over TLS at `lnet.lichproject.org`), not IRC; see [chat/chat.py](chat/chat.py).
-
-> **LNet's rule: only log in as a character who is in the game right now.** Being on LNet as a character who is not logged into DragonRealms is a bannable offence there. The window makes it easy to forget, so open it only while that character is playing, and close it when they log out.
+## Chat
 
 ![The standalone chat window: LNet's welcome, then Lanival's whole circle on the DRPrime channel — Sable, Glacis, Uthmor, Arhat, Ka'len, Nissa, Eerayn, Sildua, and Teiro getting untuned by the operator — a private exchange with Sable, and a ;chat on command being typed; the status bar reads Connected as Lanival](docs/chat-troop.png?v=3)
 
-```sh
-uv run revenant-chat            # pick one of your characters
-uv run revenant-chat Lanival    # or name one
-```
+`uv run revenant-chat` opens a window on LNet, the Lich project's chat server, as one of your characters; `;lnet` brings the same chat into the game window's Thoughts dock. Both share the [chat/](chat/) library and the classic commands (`chat to <name> <msg>`, `reply`, `who`, `channels`, `tune`).
 
-- Only names from your cached roster are offered: LNet names are character names.
-- Plain typing goes to your default channel. `chat to <name> <msg>`, `reply <msg>`, `who [name]`, `channels [all]`, `tune`/`untune <channel>` work with or without a leading `;`.
-- The password lives in the OS keychain (service `revenant-lnet`); a rejected login asks once and can remember it. `LNET_PASSWORD` overrides for one run. Reset a forgotten one at <https://lnet.lichproject.org>.
-- Every connection is logged, append-only, to `~/.revenant/logs/lnet-<stamp>.log` with the password redacted.
+> **LNet's rule: only log in as a character who is in the game right now.** Being on LNet as a character who is not logged into DragonRealms is a bannable offence there. The window makes that easy to forget, so open it only while that character is playing, and close it when they log out.
 
-In the game window, `;lnet` brings the same chat into the Thoughts dock, lich-style (`[Channel]-Name: "msg"`), with the classic commands: `;chat <msg>`, `;chat on <channel> <msg>`, `;chat to <name> <msg>`, `;reply`, `;who`, `;stats`, `;channels`, `;tune`/`;untune`. The grammar is a 1:1 port of lnet.lic and `;chat` starts the connection on demand; `;help lnet` is the manual, `;stop lnet` disconnects. Replies to `;who`/`;stats`/`;channels` arrive as Ruby Marshal and render through [chat/rmarshal.py](chat/rmarshal.py).
+Passwords, logging, and the protocol: [docs/chat.md](docs/chat.md).
 
-### launcher
-[launcher/launch.py](launcher/launch.py) picks a free port, starts lich headless with `--detachable-client`, and attaches a Profanity frontend to it. Paths are currently hard-coded for the author's machine — treat it as a template rather than a turnkey tool.
+## Docs
 
-## Layout
+- [running.md](docs/running.md) — launching, quit versus detach, which edits need which restart, `;reexec`, settings, logs
+- [scripting.md](docs/scripting.md) — writing a script
+- [chat.md](docs/chat.md) — LNet: the window, `;lnet`, passwords, logs, protocol
+- [movement.md](docs/movement.md), [death.md](docs/death.md), [favors.md](docs/favors.md), [circles.md](docs/circles.md), [experience.md](docs/experience.md), [eltime.md](docs/eltime.md), [combat.md](docs/combat.md) — the game models the scripts implement, each with its captured evidence
+- [protocol.md](docs/protocol.md) — the wire protocol the parser implements
+- [why-python.md](docs/why-python.md) — what leaving the Ruby toolchain buys and costs
 
-```
-revenant/
-├── beholder/   # Dash/Plotly dashboard over logged experience history
-├── chat/       # LNet chat client
-├── client/     # PyQt6 client + engine (core/gui)
-└── launcher/   # Helpers for launching lich + profanity together
-```
+The other directories: [launcher/](launcher/) starts the external Lich and ProfanityFE toolchain side by side, a template rather than a tool.
 
-## Status
+## About
 
-Hobby-grade. Things are in varying states of disrepair — the client is the most actively poked at, beholder is freshly resurrected on the `;xp` pipeline, chat works, and launcher is a convenience script. Expect to read code before running anything.
+Revenant is a hobby, built for fun and for the author's own play. It is inspired by Lich and the community's scripts, and exists because nothing like them existed for Python; [docs/why-python.md](docs/why-python.md) records the trade. The client, GUI, chat client and beholder were hand-written and working years before any AI was involved (the history runs from 2018). Since spring 2026 much of the new code is written with Claude Code, and the commit history says which; it speeds up delivery, and the direction is the author's.
+
+Expect to read code before running anything. Shout out to [Pylanthia](https://github.com/robbintt/pylanthia), a great related project.
 
 ## Friends
 
@@ -176,9 +82,7 @@ Revenant stands on the DragonRealms community's open work, and credit belongs wh
 - [elanthia-online/simu-rewards](https://github.com/elanthia-online/simu-rewards) — a GitHub Action that claims the daily Simutronics rewards.
 - [Elanthipedia](https://elanthipedia.play.net/) — not a repository, but every mechanic Revenant automates was read up there first.
 
-## Bibliography
-
-[docs/bibliography.md](docs/bibliography.md) credits each feature's sources individually — which Lich script a grammar was ported from, which wiki page a table was encoded from — so the debt is on record per script, not just per project.
+[docs/bibliography.md](docs/bibliography.md) credits each feature's sources individually.
 
 ## License
 
