@@ -54,3 +54,24 @@ def remember(name, password):
     except keyring.errors.KeyringError:
         log.log.warning("No usable keyring backend; LNet password not saved")
         return False
+
+
+def identities(defaults):
+    """The LNet names the standalone window may log in as: your own
+    characters, from the cached account rosters the picker uses
+    (~/.revenant/login.json, never the repo). LNet names are character
+    names; a made-up one risks the account, so the window offers these
+    and refuses anything else."""
+    from client.roster import cached_characters
+
+    names = []
+    for _, character in cached_characters(defaults):
+        if character and character not in names:
+            names.append(character)
+    return names
+
+
+def allowed(name, defaults):
+    """The roster spelling of `name` (case-insensitive), or None."""
+    wanted = name.strip().lower()
+    return next((n for n in identities(defaults) if n.lower() == wanted), None)

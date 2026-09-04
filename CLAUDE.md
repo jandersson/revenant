@@ -137,8 +137,10 @@ One pipeline, one parser, several processes:
   to mirror LNet chat into the Thoughts window (`;lnet`); the command
   grammar and dispatcher it shares with the standalone chat window live
   in the stdlib-only `chat/commands.py`, and `client/gui/chat_window.py`
-  (`revenant-chat [name]`) is that window: any LNet name, no game
-  session, password from the keychain via the Qt-free
+  (`revenant-chat [name]`) is that window: one of the user's own
+  characters (offered from the cached rosters and nothing else —
+  LNet names are character names), no game session, password from
+  the keychain via the Qt-free
   `client/lnet_login.py` (service "revenant-lnet"; a rejected login
   asks once with a remember checkbox), one worker thread owning the
   socket as the script does (#141). `;tend`

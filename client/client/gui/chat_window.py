@@ -1,13 +1,15 @@
 """A standalone LNet chat window:  revenant-chat [name]
 
-Log into LNet as any name, with or without a game session, and chat
-from a window of its own (#141). Plain typing goes to your default
+Log into LNet as one of your own characters, with or without a game
+session, and chat from a window of its own (#141). Only names from the
+cached account rosters are offered or accepted: LNet names are
+character names, and an invented one risks the account. Plain typing goes to your default
 channel; the ;lnet commands work with or without the leading ";":
 chat on <channel> <msg>, chat to <name> <msg>, reply <msg>, who [name],
 stats, channels [all], tune/untune <channel>.
 
-Identity: the name on the command line, else a prompt remembering the
-last name (settings lnet_name). The password comes from the OS
+Identity: a roster name on the command line, else a picker over the
+roster, preselecting the last name used (settings lnet_name). The password comes from the OS
 keychain (client/lnet_login.py); a rejected login asks once, with a
 "remember" checkbox that writes the keychain entry — never a file.
 
@@ -50,6 +52,7 @@ if str(_REPO) not in sys.path:
 from chat.chat import LoginRejected, Server, get_password  # noqa: E402
 from chat.commands import input_to_command, obey  # noqa: E402
 from client import lnet_login  # noqa: E402
+from client.login import load_login_defaults  # noqa: E402
 from client.settings import save_settings, setting  # noqa: E402
 
 ICON_PATH = str(Path(__file__).with_name("gweth.svg"))
@@ -233,27 +236,45 @@ class ChatWindow(QMainWindow):
         super().closeEvent(event)
 
 
-def choose_name(parent=None):
-    """The last name used, or a prompt for one; None when cancelled."""
+def choose_name(names, parent=None):
+    """One of your characters, from the roster; None when cancelled or
+    when no roster is cached yet."""
+    if not names:
+        return None
     remembered = setting("lnet_name") or ""
-    name, ok = QInputDialog.getText(
-        parent,
-        "Revenant Chat",
-        "Log into LNet as:",
-        QLineEdit.EchoMode.Normal,
-        remembered,
+    current = names.index(remembered) if remembered in names else 0
+    name, ok = QInputDialog.getItem(
+        parent, "Revenant Chat", "Log into LNet as:", names, current, False
     )
-    name = name.strip()
     return name if ok and name else None
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="A standalone LNet chat window")
-    parser.add_argument("name", nargs="?", help="the LNet name to log in as")
+    parser.add_argument("name", nargs="?", help="which of your characters to log in as")
     args = parser.parse_args(argv)
     app = QApplication(sys.argv[:1])
     app.setWindowIcon(QIcon(ICON_PATH))
-    name = args.name or choose_name()
+    defaults = load_login_defaults()
+    names = lnet_login.identities(defaults)
+    if not names:
+        print(
+            "revenant-chat: no characters cached yet - log into the game once "
+            "with remember ticked, then retry",
+            file=sys.stderr,
+        )
+        return 2
+    if args.name:
+        name = lnet_login.allowed(args.name, defaults)
+        if not name:
+            print(
+                f"revenant-chat: {args.name!r} is not one of your characters "
+                f"(cached: {', '.join(names)}) - LNet names are character names",
+                file=sys.stderr,
+            )
+            return 2
+    else:
+        name = choose_name(names)
     if not name:
         return 0
     save_settings({"lnet_name": name})

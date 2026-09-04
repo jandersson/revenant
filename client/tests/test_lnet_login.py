@@ -66,3 +66,23 @@ def test_remember_writes_the_keychain_and_reports_when_it_cannot(monkeypatch):
 
     monkeypatch.setattr(lnet_login.keyring, "set_password", boom)
     assert lnet_login.remember("Testchar", "hunter2") is False
+
+
+def test_identities_are_the_cached_characters_in_roster_order():
+    defaults = {
+        "accounts": {
+            "one": {"account": "ONE", "characters": ["Testchar", "Otherchar"]},
+            "two": {"account": "TWO", "characters": ["Thirdchar", "Testchar"]},
+        }
+    }
+    assert lnet_login.identities(defaults) == ["Testchar", "Otherchar", "Thirdchar"]
+
+
+def test_allowed_matches_a_roster_name_case_insensitively_or_refuses():
+    defaults = {"account": "ONE", "character": "Testchar"}  # the legacy flat cache
+    assert lnet_login.allowed("testchar", defaults) == "Testchar"
+    assert lnet_login.allowed("Madeupname", defaults) is None
+
+
+def test_no_roster_means_no_identities():
+    assert lnet_login.identities({}) == []
