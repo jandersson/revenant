@@ -1,14 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- A kyanite gwethdesuan: "a fine silver chain meant to be worn on the
-       head, with a pair of tiny kyanite stones in star-shaped settings
-       which rest over the temples" (Elanthipedia, the item's LOOK).
-       Drawn from a retro star-set band (Lang Antiques): each stone sits
-       at the centre of a six-pointed star cut into the metal, the rays
-       long, sharp, faceted, lit on one side and shadowed on the other,
-       the stone held by four tiny beads. A close-up of the silver
-       across the temples: a domed band with the two star-set stones,
-       the near one large, the far one smaller toward the edge. Facets
-       are computed, not hand-placed (tools: see the commit). -->
+  <!-- A kyanite gwethdesuan's stone in its star-shaped setting (the
+       item's LOOK: "tiny kyanite stones in star-shaped settings which
+       rest over the temples"), drawn from a retro star-set band: the
+       stone bead-set at the centre of a six-pointed star with long,
+       faceted rays, lit on one side and shadowed on the other. Just
+       the one stone and its star; the chain is left to the imagination. -->
   <defs>
     <radialGradient id="stone" cx="38%" cy="32%" r="68%">
       <stop offset="0%" stop-color="#eaf7ff"/>
@@ -16,63 +12,24 @@
       <stop offset="75%" stop-color="#1f5e93"/>
       <stop offset="100%" stop-color="#0d2a45"/>
     </radialGradient>
-    <linearGradient id="dome" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#8d90a0"/>
-      <stop offset="22%" stop-color="#e9eaef"/>
-      <stop offset="50%" stop-color="#f7f7fa"/>
-      <stop offset="80%" stop-color="#b4b7c3"/>
-      <stop offset="100%" stop-color="#5f6272"/>
-    </linearGradient>
-    <linearGradient id="inner" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#3a3d4b"/>
-      <stop offset="100%" stop-color="#6c6f80"/>
-    </linearGradient>
   </defs>
-  <!-- the far inside of the band, seen above the near side -->
-  <path d="M2 24 Q 32 4 62 24 L 62 30 Q 32 12 2 30 Z" fill="url(#inner)"/>
-  <!-- the near side of the band: a domed section across the temples -->
-  <path d="M0 22 Q 32 6 64 22 L 64 52 Q 32 36 0 52 Z" fill="url(#dome)" stroke="#3a3d4b" stroke-width="0.8"/>
-  <!-- the two star-set stones -->
-  <g>
-    <polygon points="23.00,16.00 20.40,24.50 23.00,29.00" fill="#f2f2f6"/>
-    <polygon points="23.00,16.00 23.00,29.00 25.60,24.50" fill="#4b4e5c"/>
-    <polygon points="34.26,22.50 25.60,24.50 23.00,29.00" fill="#4b4e5c"/>
-    <polygon points="34.26,22.50 23.00,29.00 28.20,29.00" fill="#f2f2f6"/>
-    <polygon points="34.26,35.50 28.20,29.00 23.00,29.00" fill="#4b4e5c"/>
-    <polygon points="34.26,35.50 23.00,29.00 25.60,33.50" fill="#f2f2f6"/>
-    <polygon points="23.00,42.00 25.60,33.50 23.00,29.00" fill="#4b4e5c"/>
-    <polygon points="23.00,42.00 23.00,29.00 20.40,33.50" fill="#f2f2f6"/>
-    <polygon points="11.74,35.50 20.40,33.50 23.00,29.00" fill="#f2f2f6"/>
-    <polygon points="11.74,35.50 23.00,29.00 17.80,29.00" fill="#4b4e5c"/>
-    <polygon points="11.74,22.50 17.80,29.00 23.00,29.00" fill="#f2f2f6"/>
-    <polygon points="11.74,22.50 23.00,29.00 20.40,24.50" fill="#4b4e5c"/>
-    <circle cx="23" cy="29" r="4.94" fill="#2e3140"/>
-    <circle cx="23" cy="29" r="4.60" fill="url(#stone)" stroke="#0a2340" stroke-width="0.5"/>
-    <circle cx="21.39" cy="27.16" r="1.29" fill="#ffffff" opacity="0.9"/>
-    <circle cx="26.63" cy="32.63" r="0.90" fill="#e8e9ee" stroke="#5c5f6e" stroke-width="0.3"/>
-    <circle cx="19.37" cy="32.63" r="0.90" fill="#e8e9ee" stroke="#5c5f6e" stroke-width="0.3"/>
-    <circle cx="19.37" cy="25.37" r="0.90" fill="#e8e9ee" stroke="#5c5f6e" stroke-width="0.3"/>
-    <circle cx="26.63" cy="25.37" r="0.90" fill="#e8e9ee" stroke="#5c5f6e" stroke-width="0.3"/>
-  </g>
-  <g>
-    <polygon points="51.00,21.50 49.30,27.06 51.00,30.00" fill="#f2f2f6"/>
-    <polygon points="51.00,21.50 51.00,30.00 52.70,27.06" fill="#4b4e5c"/>
-    <polygon points="58.36,25.75 52.70,27.06 51.00,30.00" fill="#4b4e5c"/>
-    <polygon points="58.36,25.75 51.00,30.00 54.40,30.00" fill="#f2f2f6"/>
-    <polygon points="58.36,34.25 54.40,30.00 51.00,30.00" fill="#4b4e5c"/>
-    <polygon points="58.36,34.25 51.00,30.00 52.70,32.94" fill="#f2f2f6"/>
-    <polygon points="51.00,38.50 52.70,32.94 51.00,30.00" fill="#4b4e5c"/>
-    <polygon points="51.00,38.50 51.00,30.00 49.30,32.94" fill="#f2f2f6"/>
-    <polygon points="43.64,34.25 49.30,32.94 51.00,30.00" fill="#f2f2f6"/>
-    <polygon points="43.64,34.25 51.00,30.00 47.60,30.00" fill="#4b4e5c"/>
-    <polygon points="43.64,25.75 47.60,30.00 51.00,30.00" fill="#f2f2f6"/>
-    <polygon points="43.64,25.75 51.00,30.00 49.30,27.06" fill="#4b4e5c"/>
-    <circle cx="51" cy="30" r="3.23" fill="#2e3140"/>
-    <circle cx="51" cy="30" r="3.00" fill="url(#stone)" stroke="#0a2340" stroke-width="0.5"/>
-    <circle cx="49.95" cy="28.80" r="0.84" fill="#ffffff" opacity="0.9"/>
-    <circle cx="53.38" cy="32.38" r="0.60" fill="#e8e9ee" stroke="#5c5f6e" stroke-width="0.3"/>
-    <circle cx="48.62" cy="32.38" r="0.60" fill="#e8e9ee" stroke="#5c5f6e" stroke-width="0.3"/>
-    <circle cx="48.62" cy="27.62" r="0.60" fill="#e8e9ee" stroke="#5c5f6e" stroke-width="0.3"/>
-    <circle cx="53.38" cy="27.62" r="0.60" fill="#e8e9ee" stroke="#5c5f6e" stroke-width="0.3"/>
-  </g>
+  <polygon points="32.00,3.00 26.50,22.47 32.00,32.00" fill="#f2f2f6" stroke="#2e3140" stroke-width="0.4" stroke-linejoin="round"/>
+  <polygon points="32.00,3.00 32.00,32.00 37.50,22.47" fill="#4b4e5c" stroke="#2e3140" stroke-width="0.4" stroke-linejoin="round"/>
+  <polygon points="57.11,17.50 37.50,22.47 32.00,32.00" fill="#4b4e5c" stroke="#2e3140" stroke-width="0.4" stroke-linejoin="round"/>
+  <polygon points="57.11,17.50 32.00,32.00 43.00,32.00" fill="#f2f2f6" stroke="#2e3140" stroke-width="0.4" stroke-linejoin="round"/>
+  <polygon points="57.11,46.50 43.00,32.00 32.00,32.00" fill="#4b4e5c" stroke="#2e3140" stroke-width="0.4" stroke-linejoin="round"/>
+  <polygon points="57.11,46.50 32.00,32.00 37.50,41.53" fill="#f2f2f6" stroke="#2e3140" stroke-width="0.4" stroke-linejoin="round"/>
+  <polygon points="32.00,61.00 37.50,41.53 32.00,32.00" fill="#4b4e5c" stroke="#2e3140" stroke-width="0.4" stroke-linejoin="round"/>
+  <polygon points="32.00,61.00 32.00,32.00 26.50,41.53" fill="#f2f2f6" stroke="#2e3140" stroke-width="0.4" stroke-linejoin="round"/>
+  <polygon points="6.89,46.50 26.50,41.53 32.00,32.00" fill="#f2f2f6" stroke="#2e3140" stroke-width="0.4" stroke-linejoin="round"/>
+  <polygon points="6.89,46.50 32.00,32.00 21.00,32.00" fill="#4b4e5c" stroke="#2e3140" stroke-width="0.4" stroke-linejoin="round"/>
+  <polygon points="6.89,17.50 21.00,32.00 32.00,32.00" fill="#f2f2f6" stroke="#2e3140" stroke-width="0.4" stroke-linejoin="round"/>
+  <polygon points="6.89,17.50 32.00,32.00 26.50,22.47" fill="#4b4e5c" stroke="#2e3140" stroke-width="0.4" stroke-linejoin="round"/>
+  <circle cx="32" cy="32" r="10.45" fill="#2e3140"/>
+  <circle cx="32" cy="32" r="8.50" fill="url(#stone)" stroke="#0a2340" stroke-width="0.6"/>
+  <circle cx="29.02" cy="28.60" r="2.38" fill="#ffffff" opacity="0.9"/>
+  <circle cx="38.65" cy="38.65" r="1.50" fill="#e8e9ee" stroke="#5c5f6e" stroke-width="0.3"/>
+  <circle cx="25.35" cy="38.65" r="1.50" fill="#e8e9ee" stroke="#5c5f6e" stroke-width="0.3"/>
+  <circle cx="25.35" cy="25.35" r="1.50" fill="#e8e9ee" stroke="#5c5f6e" stroke-width="0.3"/>
+  <circle cx="38.65" cy="25.35" r="1.50" fill="#e8e9ee" stroke="#5c5f6e" stroke-width="0.3"/>
 </svg>
