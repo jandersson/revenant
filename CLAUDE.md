@@ -107,10 +107,14 @@ One pipeline, one parser, several processes:
   a standing fact like DEAD (#92) or who is playing (#95).
   **`;reexec` is POSIX-only**: on Windows it refuses with a note and
   changes nothing (WinSock handles aren't CRT fds and exec spawns
-  rather than replaces, #38), so picking up new code there means
-  File → Detach and relaunch. Remember either way: a running session
-  does NOT see code edits until it re-execs or restarts — and on
-  Windows only a relaunch does it.
+  rather than replaces, #38; a socket.share() port is #129). Scripts
+  reload from disk on every start, so a script edit reaches a running
+  session on any platform via `;stop <name>` and running it again;
+  everything else on Windows needs a new session — close the window
+  (quit) and relaunch. File → Detach is the wrong move: it leaves the
+  session running and a relaunch reattaches to the old code. Remember
+  either way: a running session does NOT see edits to client/ modules
+  until it re-execs or restarts.
 - `client/client/scripting.py` — script engine. Scripts are `main(s)` Python
   files in `scripts/` (repo root), run as threads in the session, controlled
   by `;`-commands typed in any frontend (`;list`, `;help [x]`, `;run x`,

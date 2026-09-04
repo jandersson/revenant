@@ -386,9 +386,16 @@ class SessionServer(ClientLogger):
             # WinSock handles aren't CRT fds and exec has spawn-and-exit
             # semantics — the handoff cannot work as written (#38). Bail
             # before stop_all so a doomed reexec doesn't stop scripts.
+            # Detach is the wrong advice here: it leaves this process
+            # running, and a relaunch reattaches to it — the old code.
+            # Scripts reload from disk on every start, so ;stop + rerun
+            # picks up script edits; anything else needs a new session
+            # (closing the window quits the game and ends this one, #129).
             self.broadcast(
-                "session: ;reexec is not supported on Windows — "
-                "File → Detach and relaunch to pick up new code\n",
+                "session: ;reexec is not supported on Windows (#129). "
+                "Script edits: ;stop <name> then run it again — scripts "
+                "reload from disk. Anything else: close the window (quit) "
+                "and relaunch; Detach would reattach to this old session\n",
                 "script",
             )
             return

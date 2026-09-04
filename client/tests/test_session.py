@@ -640,7 +640,11 @@ def test_reexec_is_gated_off_on_windows(monkeypatch):
     )
     server.reexec(execv=lambda path, argv: (_ for _ in ()).throw(AssertionError))
     assert stopped == []  # a doomed reexec must not stop running scripts
-    assert any("not supported on Windows" in text for text in broadcasts)
+    note = next(text for text in broadcasts if "not supported on Windows" in text)
+    # Detach keeps this process alive, and a relaunch reattaches to it —
+    # the note must steer to what actually loads new code.
+    assert ";stop <name>" in note and "close the window" in note
+    assert "Detach and relaunch" not in note
 
 
 def test_eof_without_quit_reads_as_an_unexpected_drop():
