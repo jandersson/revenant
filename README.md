@@ -133,7 +133,7 @@ LNet names can be password-protected on the server (protocol per `lnet.lic` 1.15
 
 To password-protect a name (or change it), log in and call `Server.register_password("...")`; pass the literal string `"nil"` to remove protection. Forgotten passwords are reset at <https://lnet.lichproject.org>.
 
-![The standalone chat window: LNet's welcome, then Lanival's whole circle on the DRPrime channel — Sable, Glacis, Uthmor, Arhat, Ka'len, Nissa, Eerayn, Sildua, and Teiro getting untuned by the operator — a private exchange with Sable, and a ;chat on command being typed; the status bar reads Connected as Lanival](docs/chat-troop.png)
+![The standalone chat window: LNet's welcome, then Lanival's whole circle on the DRPrime channel — Sable, Glacis, Uthmor, Arhat, Ka'len, Nissa, Eerayn, Sildua, and Teiro getting untuned by the operator — a private exchange with Sable, and a ;chat on command being typed; the status bar reads Connected as Lanival](docs/chat-troop.png?v=2)
 
 `uv run revenant-chat [name]` opens a chat window with no game session at all: log into LNet as one of your characters (offered from the same cached roster the picker uses; LNet names are character names, so nothing else is accepted), type to your default channel, and use the `;chat to`, `;who`, `;channels`, `;tune` commands with or without the `;`. The name is remembered; the password lives in the OS keychain (service `revenant-lnet`), which a rejected login offers to fill once. Run it alongside the game as a second identity, or by itself.
 
