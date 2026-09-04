@@ -261,10 +261,17 @@ One pipeline, one parser, several processes:
 - Every behavior change ships with unit tests in `client/tests/` — bug fixes
   get a regression test (ideally built from captured game traffic, like the
   compass tests), new features get coverage. No test, no merge.
-- Credit is per feature: docs/bibliography.md names what each script,
-  module and model doc drew on (a Lich script's grammar, a wiki page's
-  table). A feature that picks up a new source adds the entry in the
-  same commit; general resemblance is not an entry.
+- **Credit every source, per feature, in docs/bibliography.md.** Before
+  a feature ships, ask: did it draw on a Lich script or the lich-5
+  commons, a dr-scripts file, a Genie plugin, a wiki page (Elanthipedia,
+  the GemStone wiki), another client, or someone's captured protocol
+  notes? If so, its row in docs/bibliography.md is part of the same
+  commit — the feature, the source (linked, path verified), and how it
+  was used — and the module docstring names the source too. Refresh the
+  row when a feature picks up a new source; general resemblance is not
+  an entry. `client/tests/test_bibliography.py` fails a script whose
+  docstring cites Lich or the wiki without a row, so the check is
+  mechanical, not memory.
 - Every change freshens the documentation it staled, in the same commit:
   the module docstring (it is the ;help manual), the READMEs' claims about
   behavior, CLAUDE.md's architecture notes, and docs/ files whose
