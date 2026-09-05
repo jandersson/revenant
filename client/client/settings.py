@@ -18,6 +18,10 @@ DEFAULTS = {
     "autostart_deathwatch": True,  # depart safely on unattended death (#90)
     "autostart_extra": [],  # more scripts to start, e.g. ["lnet", "athletics"]
     "quit_on_close": True,  # closing the window sends quit to the game
+    # The session answers the game's "YOU HAVE BEEN IDLE TOO LONG"
+    # warning with one TIME, so a quiet window is not logged out (#153).
+    # REVENANT_NO_IDLE_ANSWER=1 turns it off for one launch.
+    "answer_idle_warning": True,
     "eltime_offset_seconds": 0,  # ;clock's Elanthian calendar correction
     "eltime_moons": {},  # ;clock's moon anchors: {moon: new-moon unix time}
     "clocks_earth_moon": False,  # the for-fun Earth moon row in the clocks dock

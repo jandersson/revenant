@@ -1012,3 +1012,51 @@ def test_eof_after_the_idle_warning_reads_as_an_idle_drop():
     assert any("dropped the connection for idling" in text for text, _, _ in frames)
     assert not any("lost unexpectedly" in text for text, _, _ in frames)
     assert not any("connection closed by the game" in text for text, _, _ in frames)
+
+
+def _idle_warning_reaches(monkeypatch, settings=None, **env):
+    """Feed the captured warning through a server; what the game got."""
+    import json
+    import tempfile
+    from pathlib import Path
+
+    directory = Path(tempfile.mkdtemp())
+    (directory / "settings.json").write_text(json.dumps(settings or {}))
+    monkeypatch.setenv("REVENANT_SETTINGS", str(directory / "settings.json"))
+    monkeypatch.delenv("REVENANT_NO_IDLE_ANSWER", raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    game = FakeGame()
+    server, port = _start_server(game)
+    client = socket.create_connection(("127.0.0.1", port), timeout=5)
+    client.settimeout(5)
+    assert _await(lambda: server.clients), "client never registered"
+    game.pending.append(b"YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND.\r\n")
+    assert _await(lambda: server.idle_warned), "the warning never reached the session"
+    _await(lambda: game.sent)  # give an answer time to go out
+    buffer = b""
+    try:
+        while b"idle warning" not in buffer:
+            buffer += client.recv(4096)
+    except (TimeoutError, OSError):
+        pass
+    client.close()
+    server.shutdown()
+    return game.sent, buffer
+
+
+def test_the_idle_warning_is_answered_with_one_time(monkeypatch):
+    # Captured 2026-09-05: unanswered, the warning ends in a drop (#153).
+    sent, buffer = _idle_warning_reaches(monkeypatch)
+    assert sent == [b"time\n"]
+    frames, _ = session.decode_frames(buffer)
+    assert any("answered the idle warning with TIME" in text for text, _, _ in frames)
+
+
+def test_the_setting_or_the_env_override_keeps_the_session_quiet(monkeypatch):
+    sent, _ = _idle_warning_reaches(
+        monkeypatch, settings={"answer_idle_warning": False}
+    )
+    assert sent == []
+    sent, _ = _idle_warning_reaches(monkeypatch, REVENANT_NO_IDLE_ANSWER="1")
+    assert sent == []

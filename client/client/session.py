@@ -332,9 +332,26 @@ class SessionServer(ClientLogger):
     def fanout(self, text: str, stream: str, style: str = ""):
         if style == "alert" and "IDLE TOO LONG" in text:
             self.idle_warned = True
+            self.answer_idle_warning()
         self.broadcast(text, stream, style)
         if style != "clear":
             self.scripts.feed(text, stream)
+
+    def answer_idle_warning(self):
+        """One TIME for the game's idle warning, so a quiet-but-attended
+        window is not logged out (#153). Only ever in reply to the
+        warning — no timer, nothing while the player is active, and
+        nothing when the setting is off (answer_idle_warning) or
+        REVENANT_NO_IDLE_ANSWER=1 for this launch. ;antiidle remains
+        for a scheduled nudge."""
+        from client.settings import setting
+
+        if os.environ.get("REVENANT_NO_IDLE_ANSWER") == "1":
+            return
+        if not setting("answer_idle_warning"):
+            return
+        self.send_to_game(b"time\n")
+        self.broadcast("session: answered the idle warning with TIME\n", "script")
 
     # Moment-bound streams: meaningful only at the instant they fire.
     # Replaying one to a freshly attached frontend would start a stale

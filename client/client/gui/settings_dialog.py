@@ -52,6 +52,10 @@ class SettingsDialog(QDialog):
             "Quit the game when the window closes (File → Detach skips this)"
         )
         self.quit_on_close.setChecked(bool(settings.get("quit_on_close")))
+        self.answer_idle_warning = QCheckBox(
+            "Answer the game's idle warning with TIME so a quiet window stays in"
+        )
+        self.answer_idle_warning.setChecked(bool(settings.get("answer_idle_warning")))
         self.clocks_earth_moon = QCheckBox(
             "Show Earth's moon in the clocks dock (for fun)"
         )
@@ -93,6 +97,7 @@ class SettingsDialog(QDialog):
             self.autostart_sheet,
             self.autostart_deathwatch,
             self.quit_on_close,
+            self.answer_idle_warning,
             self.clocks_earth_moon,
             self.dev_mode,
             self.allow_external_send,
@@ -121,6 +126,7 @@ class SettingsDialog(QDialog):
                 if entry.strip()
             ],
             "quit_on_close": self.quit_on_close.isChecked(),
+            "answer_idle_warning": self.answer_idle_warning.isChecked(),
             "clocks_earth_moon": self.clocks_earth_moon.isChecked(),
             "dev_mode": self.dev_mode.isChecked(),
             "allow_external_send": self.allow_external_send.isChecked(),
