@@ -1,7 +1,8 @@
 """Snapshot your character sheet into the history database:  ;sheet
 
-Records INFO and EXP ALL — stats, circle, TDPs, favors, and the full
-skill roster with ranks — into ~/.revenant/xp.db, where beholder
+Records INFO and EXP ALL — stats, circle, TDPs, favors, the full
+skill roster with ranks, and the rested-experience line (stored,
+usable, refresh, in minutes) — into ~/.revenant/xp.db, where beholder
 renders the history (#61). Every session snapshots on start and every
 three hours after; the sheet moves slowly, so that's plenty. A command
 the game leaves unanswered (login noise eats them) is re-asked, and
@@ -43,7 +44,9 @@ RETRY_SLEEP = 5  # seconds between re-asks, letting login noise settle
 # only exists for debtors — so INFO runs out its whole window (an
 # "Encumbrance" early-exit silently cut the wealth capture off).
 INFO_END = None
-EXP_ALL_END = "Time Development Points"
+# EXP ALL's last line; the rested-experience line sits between the TDP
+# line and it, so the collect must run past the TDPs (#106).
+EXP_ALL_END = "EXP HELP for more information"
 
 # The renaming room answers commands with its own reminder instead of
 # their output, so re-asking cannot help — it just burns ATTEMPTS *
@@ -154,6 +157,9 @@ def ensure_schema(connection):
         ("birth_year", "INTEGER"),  # 30 raw game logs
         ("birth_day", "INTEGER"),
         ("birth_month", "INTEGER"),
+        ("rexp_stored", "INTEGER"),  # rested experience, minutes (#106):
+        ("rexp_usable", "INTEGER"),  # beholder can tell 3x windows from
+        ("rexp_refresh", "INTEGER"),  # ordinary training
     ):
         try:
             connection.execute(f"ALTER TABLE character ADD COLUMN {column} {kind}")
@@ -220,7 +226,55 @@ def parse_exp_all(text):
     }
 
 
-def insert_snapshot(connection, character, logged_at, info, skills, items=None):
+# "Rested EXP Stored: 5:42 hours  Usable This Cycle: 5:42 hours  Cycle
+# Refreshes: 21 hours" — times are H:MM hours, bare hours, bare minutes,
+# or "less than a minute" (captured 2026-09-04/05).
+_RESTED = re.compile(
+    r"Rested EXP Stored:\s*(?P<stored>.+?)\s+Usable This Cycle:\s*(?P<usable>.+?)"
+    r"\s+Cycle Refreshes:\s*(?P<refresh>.+?)\s*$",
+    re.MULTILINE,
+)
+_DURATION = re.compile(r"(?:(\d+):(\d+)\s*hours?|(\d+)\s*hours?|(\d+)\s*minutes?)")
+
+
+def parse_duration(text):
+    """Minutes from the footer's wording, or None for anything unread:
+    "5:42 hours" → 342, "6 hours" → 360, "38 minutes" → 38,
+    "less than a minute" → 0."""
+    text = text.strip()
+    if text.startswith("less than a minute"):
+        return 0
+    match = _DURATION.match(text)
+    if not match:
+        return None
+    hours_mm, minutes_of, hours, minutes = match.groups()
+    if hours_mm is not None:
+        return int(hours_mm) * 60 + int(minutes_of)
+    if hours is not None:
+        return int(hours) * 60
+    return int(minutes)
+
+
+def parse_rested(text):
+    """{"stored", "usable", "refresh"} in minutes from EXP ALL's rested
+    line, or None when the line is absent (#106)."""
+    match = _RESTED.search(text)
+    if not match:
+        return None
+    return {
+        key: parse_duration(match.group(key)) for key in ("stored", "usable", "refresh")
+    }
+
+
+def parse_exp_answer(text):
+    """Everything the snapshot takes from EXP ALL: the roster and the
+    rested-experience line."""
+    return {"skills": parse_exp_all(text), "rested": parse_rested(text)}
+
+
+def insert_snapshot(
+    connection, character, logged_at, info, skills, items=None, rested=None
+):
     connection.executemany(
         "INSERT INTO stats (logged_at, character_name, stat, value)"
         " VALUES (?, ?, ?, ?)",
@@ -265,11 +319,13 @@ def insert_snapshot(connection, character, logged_at, info, skills, items=None):
     if info["stats"] or any(
         info[key] is not None for key in ("circle", "tdps", "favors")
     ):
+        rested = rested or {}
         connection.execute(
             "INSERT INTO character"
             " (logged_at, character_name, circle, tdps, favors, guild,"
-            "  race, gender, birth_year, birth_day, birth_month)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "  race, gender, birth_year, birth_day, birth_month,"
+            "  rexp_stored, rexp_usable, rexp_refresh)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 logged_at,
                 character,
@@ -282,6 +338,9 @@ def insert_snapshot(connection, character, logged_at, info, skills, items=None):
                 info.get("birth_year"),
                 info.get("birth_day"),
                 info.get("birth_month"),
+                rested.get("stored"),
+                rested.get("usable"),
+                rested.get("refresh"),
             ),
         )
     connection.commit()
@@ -334,7 +393,10 @@ def ask(s, command, parse, until, answered):
 
 def snapshot(s, inventory=False):
     info, _ = ask(s, "info", parse_info, INFO_END, lambda r: bool(r["stats"]))
-    skills, renaming = ask(s, "exp all", parse_exp_all, EXP_ALL_END, bool)
+    exp, renaming = ask(
+        s, "exp all", parse_exp_answer, EXP_ALL_END, lambda r: bool(r["skills"])
+    )
+    skills, rested = exp["skills"], exp["rested"]
     # Only when asked for: INV LIST costs 4-5s of roundtime, so it is
     # never part of the scheduled snapshot (#117). The renaming room
     # refuses it like everything else, so it is skipped there (#112).
@@ -372,6 +434,7 @@ def snapshot(s, inventory=False):
             info,
             skills,
             items,
+            rested,
         )
     finally:
         connection.close()

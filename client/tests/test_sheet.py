@@ -46,6 +46,9 @@ Showing all skills that you have skill in.
  Mechanical Lore:      3 00% clear          (0/34)         Tactics:      1 28% clear          (0/34)
 Total Ranks Displayed: 66
 Time Development Points: 356  Favors: 0  Deaths: 0  Departs: 0
+Rested EXP Stored: 5:42 hours  Usable This Cycle: 5:42 hours  Cycle Refreshes: 21 hours
+Overall state of mind: clear
+EXP HELP for more information
 """
 
 
@@ -314,7 +317,12 @@ EMPTY_EXP_ALL_TEXT = """Showing all skills that you have skill in.
           SKILL: Rank/Percent towards next rank/Amount learning/Mindstate Fraction
         No skills have field experience or none meet your criteria!
 Total Ranks Displayed: 0
-Time Development Points: 600  Favors: 0  Deaths: 0  Departs: 0"""
+Time Development Points: 600  Favors: 0  Deaths: 0  Departs: 0
+Rested EXP Stored: 6 hours  Usable This Cycle: 6 hours  Cycle Refreshes: 2:45 hours
+Overall state of mind: clear
+EXP HELP for more information"""
+# The footer below the TDP line is what every EXP ALL ends with (captured
+# 2026-09-04); the #113 capture was cut at the TDPs by the old collect.
 
 
 def test_an_untrained_characters_empty_exp_all_is_asked_once(monkeypatch, tmp_path):
@@ -761,3 +769,51 @@ def test_the_inventory_syntax_help_is_a_refusal_not_silence(monkeypatch, tmp_pat
     assert any("syntax help" in line for line in handle.echoed)
     # The rest of the sheet still lands.
     assert connection.execute("SELECT count(*) FROM character").fetchone()[0] == 1
+
+
+# --- the rested-experience line (#106) ---
+
+
+def test_rested_durations_read_every_captured_wording():
+    assert sheet.parse_duration("5:42 hours") == 342
+    assert sheet.parse_duration("6 hours") == 360
+    assert sheet.parse_duration("1 hour") == 60
+    assert sheet.parse_duration("38 minutes") == 38
+    assert sheet.parse_duration("less than a minute") == 0
+    assert sheet.parse_duration("soon") is None
+
+
+def test_the_rested_line_parses_from_exp_all():
+    assert sheet.parse_rested(EXP_ALL_TEXT) == {
+        "stored": 342,
+        "usable": 342,
+        "refresh": 21 * 60,
+    }
+    # Captured 2026-09-05: refresh imminent, stored and usable apart.
+    line = (
+        "Rested EXP Stored: 5:53 hours  Usable This Cycle: 5:47 hours  "
+        "Cycle Refreshes: less than a minute\n"
+    )
+    assert sheet.parse_rested(line) == {"stored": 353, "usable": 347, "refresh": 0}
+    assert sheet.parse_rested("Total Ranks Displayed: 0\n") is None
+
+
+def test_the_snapshot_stores_rested_experience_beside_the_circle(monkeypatch, tmp_path):
+    handle, connection = snapshot_into(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_TEXT.splitlines(keepends=True)],
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
+        },
+    )
+    row = connection.execute(
+        "SELECT rexp_stored, rexp_usable, rexp_refresh FROM character"
+    ).fetchone()
+    assert row == (342, 342, 1260)
+
+
+def test_exp_all_is_read_through_to_its_last_line():
+    # The rested line sits after the TDP line; a collect that stopped at
+    # the TDPs never saw it (#106).
+    assert sheet.EXP_ALL_END == "EXP HELP for more information"
