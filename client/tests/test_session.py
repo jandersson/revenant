@@ -114,7 +114,7 @@ def test_session_relays_text_commands_and_shutdown():
             f"threads={sorted(t.name for t in threading.enumerate())}"
         )
     frames, _ = session.decode_frames(buffer)
-    assert any("SMELL YA LATER" in text for text, _, _ in frames)
+    assert any("connection closed by the game" in text for text, _, _ in frames)
     assert not server.running
 
 
@@ -888,3 +888,60 @@ def test_character_for_port_reads_the_registry(monkeypatch, tmp_path):
 def test_character_for_port_is_none_without_a_registry(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_SESSIONS", str(tmp_path / "missing.json"))
     assert session.character_for_port(4242) is None
+
+
+# --- what a frontend says when the session ends ---
+
+
+class _FramesThenEOF:
+    """A session connection that serves canned frames, then hangs up."""
+
+    def __init__(self, frames):
+        self.chunks = [
+            session.encode_frame(text, stream, style) for text, stream, style in frames
+        ]
+
+    def read_very_eager(self):
+        if self.chunks:
+            return self.chunks.pop(0)
+        raise EOFError
+
+
+def _attached_with(frames, monkeypatch):
+    engine = session.AttachedEngine("127.0.0.1", 1)
+    engine._connection = _FramesThenEOF(frames)
+    monkeypatch.setattr(engine, "reattach", lambda: False)
+    monkeypatch.setattr(session, "REATTACH_TIMEOUT", 0.0)
+    return engine
+
+
+def _drain(engine):
+    out = []
+    try:
+        while True:
+            engine.read(output_callback=lambda text, stream, style: out.append(text))
+    except EOFError:
+        pass
+    return out
+
+
+def test_an_announced_logoff_ends_plainly_without_a_reattach(monkeypatch):
+    # After quit the session says it is logging off; the EOF that follows
+    # is the expected end, not a drop to chase for ten seconds.
+    out = _drain(
+        _attached_with(
+            [("session: logged off; session ending\n", "script", "")], monkeypatch
+        )
+    )
+    assert out[-1] == "session ended\n"
+    assert not any("reattaching" in text for text in out)
+    assert not any("*" in text for text in out)  # no banners
+
+
+def test_an_unannounced_drop_reattaches_then_says_the_session_is_gone(monkeypatch):
+    out = _drain(_attached_with([("All quiet.\n", "", "")], monkeypatch))
+    assert any(text.startswith("session dropped — reattaching") for text in out)
+    assert any(
+        text.startswith("session gone — nothing answering on 127.0.0.1:1")
+        for text in out
+    )

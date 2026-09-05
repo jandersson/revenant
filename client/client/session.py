@@ -48,6 +48,9 @@ GAME_STATE_ENV = "REVENANT_GAME_STATE"
 # How long a dropped front end keeps retrying the attach — long enough to
 # span a session ;reexec, short enough that a dead session is not a hang.
 REATTACH_TIMEOUT = 10.0
+# What the session says on the script stream just before it ends on
+# purpose; a frontend that heard it treats the EOF as expected.
+SESSION_ENDING = ("session: logged off", "session: game connection lost")
 
 
 # The session registry: every session records {port, character, pid}
@@ -288,11 +291,11 @@ class SessionServer(ClientLogger):
                 # end of the evening; otherwise the link died under us
                 # and the player should know reconnecting is in order.
                 if self.quit_sent:
-                    self.broadcast("session: logged off — good night\n", "script")
+                    self.broadcast("session: logged off; session ending\n", "script")
                 else:
                     self.broadcast(
-                        "session: game connection lost unexpectedly — "
-                        "File → Reconnect when ready\n",
+                        "session: game connection lost unexpectedly; session "
+                        "ending — File → Reconnect starts a new one\n",
                         "script",
                     )
                 self.shutdown()
@@ -481,6 +484,11 @@ class AttachedEngine(ClientLogger):
         self.description = f"Connected (attached to {host}:{port})"
         self._connection = None
         self._buffer = b""
+        # Set when the session announced its own end (logoff, lost game
+        # link): the EOF that follows is expected, and reattaching to a
+        # process that said goodbye would only print noise for ten
+        # seconds before failing.
+        self._session_ended = False
 
     @property
     def connection(self):
@@ -501,14 +509,18 @@ class AttachedEngine(ClientLogger):
         try:
             data = self._connection.read_very_eager()
         except EOFError:
+            if self._session_ended:
+                if output_callback:
+                    output_callback("session ended\n", "script", "")
+                self.log.info("Session ended after announcing it")
+                raise
             if self._reattach(output_callback):
                 return
             if output_callback:
                 output_callback(
-                    "\n****************************************************\n"
-                    '* I CANT BELIEVE "SMELL YA LATER" REPLACED "GOODBYE" *\n'
-                    "****************************************************\n",
-                    "",
+                    f"session gone — nothing answering on {self.host}:{self.port}; "
+                    "File → Reconnect starts a new one\n",
+                    "script",
                     "",
                 )
             self.log.info("Session connection closed")
@@ -516,6 +528,8 @@ class AttachedEngine(ClientLogger):
         self._buffer += data
         frames, self._buffer = decode_frames(self._buffer)
         for text, stream, style in frames:
+            if stream == "script" and text.startswith(SESSION_ENDING):
+                self._session_ended = True
             if output_callback:
                 output_callback(text, stream, style)
 
@@ -534,7 +548,12 @@ class AttachedEngine(ClientLogger):
         """The session dropped us — usually a ;reexec swapping its code.
         Retry the attach briefly so a code swap doesn't end the front end."""
         if output_callback:
-            output_callback("session dropped — reattaching ...\n", "script", "")
+            output_callback(
+                f"session dropped — reattaching for up to {REATTACH_TIMEOUT:.0f}s "
+                "(a ;reexec looks like this) ...\n",
+                "script",
+                "",
+            )
         deadline = monotonic() + REATTACH_TIMEOUT
         while monotonic() < deadline:
             if not self.reattach():

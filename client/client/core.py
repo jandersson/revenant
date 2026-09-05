@@ -92,7 +92,7 @@ class Engine(ClientLogger):
         try:
             read_data = self.connection.read_very_eager().decode("ASCII")
         except EOFError as e:
-            goodbye = "\n******************\n* SMELL YA LATER *\n******************\n"
+            goodbye = "connection closed by the game\n"
             if output_callback:
                 output_callback(goodbye, "", "")
             else:
