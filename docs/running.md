@@ -59,4 +59,4 @@ File → Settings edits `~/.revenant/settings.json`: the game text's font and si
 
 ## Logs
 
-Everything the game sends is archived, append-only, under `~/.revenant/logs/` (`REVENANT_LOG_DIR` to move it): `game-<stamp>.log` per session, `lnet-<stamp>.log` per LNet connection, and a size-capped, seven-day debug log per process.
+Everything the game sends is archived, append-only, under `~/.revenant/logs/` (`REVENANT_LOG_DIR` to move it): `game-<stamp>.log` per session, `lnet-<stamp>.log` per LNet connection, and a size-capped, seven-day debug log per process. A window that fails to start leaves `startup-<stamp>.log` with the traceback (and, on Windows, a message box saying so); a window that crashes inside Qt leaves `faults-<stamp>.log` with the Python stack, and a clean exit removes the empty file.

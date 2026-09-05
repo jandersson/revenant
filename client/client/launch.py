@@ -270,9 +270,11 @@ def exec_gui(gui_args):
     interpreter = Path(sys.executable)
     if sys.platform == "darwin":
         interpreter = branded_interpreter(interpreter)
+    # client.guiboot, not the GUI module itself: the exec leaves every
+    # guard behind, and guiboot puts one in the new process (#108).
     os.execv(
         str(interpreter),
-        [str(interpreter), "-m", "client.gui.client_gui", *gui_args],
+        [str(interpreter), "-m", "client.guiboot", *gui_args],
     )
 
 

@@ -62,7 +62,9 @@ processes; the session owns the game socket and hosts scripts.
   `login_dialog.py`, `highlights_dialog.py`.
 - `client/launch.py` — the `revenant` console script and the picker; one
   session per character on its own port, registry in
-  ~/.revenant/sessions.json.
+  ~/.revenant/sessions.json. It exec's `client/guiboot.py`, which arms
+  faulthandler and reports a GUI that cannot start (startup-/faults-
+  logs, a message box on Windows) before importing the GUI.
 - `chat/chat.py` — LNet protocol (stdlib only); `chat/commands.py` — the
   `;chat` grammar the script and the window share.
 - `beholder/beholder/data.py` — stdlib sqlite3 over xp.db; `app.py` — Dash.
