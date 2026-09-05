@@ -296,6 +296,57 @@ def sheet_history(connection, character):
     return history
 
 
+def rexp_history(connection, character):
+    """Rested experience over time, from every ;sheet snapshot that
+    carried the EXP footer (#106): {"times": [...], "stored": [...],
+    "usable": [...], "refresh": [...]} in hours. Empty before the
+    columns exist (a database from before the migration) or before
+    any snapshot recorded the line."""
+    history = {"times": [], "stored": [], "usable": [], "refresh": []}
+    try:
+        rows = connection.execute(
+            "SELECT logged_at, rexp_stored, rexp_usable, rexp_refresh FROM character"
+            " WHERE character_name = ? AND rexp_stored IS NOT NULL"
+            " ORDER BY logged_at",
+            (character,),
+        ).fetchall()
+    except sqlite3.OperationalError:  # no such column: an older database
+        return history
+    for row in rows:
+        history["times"].append(row["logged_at"])
+        history["stored"].append(row["rexp_stored"] / 60)
+        history["usable"].append((row["rexp_usable"] or 0) / 60)
+        history["refresh"].append((row["rexp_refresh"] or 0) / 60)
+    return history
+
+
+def rexp_windows(connection, character):
+    """When the 3x conversion was (probably) open: [(start, end)] ISO
+    pairs, one per snapshot with usable rested experience, closing at
+    the next snapshot or when the usable hours would have burnt out,
+    whichever comes first. Coarse — snapshots are three hours apart
+    and burning needs draining skills (docs/experience.md) — but it
+    tells a rested run from an ordinary one on the mindstate plot."""
+    history = rexp_history(connection, character)
+    windows = []
+    times = history["times"]
+    for index, start in enumerate(times):
+        usable = history["usable"][index]
+        if usable <= 0:
+            continue
+        burnt_out = _plus_hours(start, usable)
+        following = times[index + 1] if index + 1 < len(times) else burnt_out
+        windows.append((start, min(following, burnt_out)))
+    return windows
+
+
+def _plus_hours(iso, hours):
+    from datetime import datetime, timedelta
+
+    moment = datetime.fromisoformat(iso)
+    return (moment + timedelta(hours=hours)).isoformat()
+
+
 def stats_history(connection, character):
     """Per-stat progression: {stat: {"times": [...], "values": [...]}}."""
     series = {}

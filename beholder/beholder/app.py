@@ -169,10 +169,27 @@ def query(fn, *args, default):
         connection.close()
 
 
-def mindstate_figure(series, character):
+REXP_SHADE = "rgba(216, 180, 101, 0.18)"  # the RT gold, faint
+
+
+def mindstate_figure(series, character, windows=()):
     """One line per skill, mindstate over time, with 1d/3d/all range
-    buttons and a range slider."""
+    buttons and a range slider. `windows` are (start, end) ISO pairs
+    shaded gold: when rested experience was burning, ranks came three
+    times as fast (#106), so a slope inside a window is not the same
+    slope outside one."""
     figure = go.Figure()
+    for start, end in windows:
+        figure.add_vrect(
+            x0=start,
+            x1=end,
+            fillcolor=REXP_SHADE,
+            line_width=0,
+            layer="below",
+            annotation_text="rested 3x",
+            annotation_position="top left",
+            annotation_font_size=10,
+        )
     for skill in sorted(series):
         points = series[skill]
         figure.add_trace(
@@ -237,6 +254,17 @@ def series_figure(times, named_values, title, y_title):
     return themed(figure, title)
 
 
+def rexp_figure(history, character):
+    """Rested experience banked and usable, in hours, over the sheet
+    snapshots (#106)."""
+    return series_figure(
+        history["times"],
+        [("Stored", history["stored"]), ("Usable this cycle", history["usable"])],
+        f"Rested experience — {character}" if character else "Rested experience",
+        "hours",
+    )
+
+
 def stats_figure(series, character):
     """Per-stat progression: one line per stat, shared axis."""
     figure = go.Figure()
@@ -298,6 +326,7 @@ def serve_layout():
                         [
                             dcc.Graph(id="circle-plot"),
                             dcc.Graph(id="tdp-plot"),
+                            dcc.Graph(id="rexp-plot"),
                         ],
                         style={"flex": "1", "minWidth": "0"},
                     ),
@@ -458,6 +487,7 @@ def update_circle_gates(character, _tick):
     Output("sheet-table", "rowData"),
     Output("circle-plot", "figure"),
     Output("tdp-plot", "figure"),
+    Output("rexp-plot", "figure"),
     Output("stats-plot", "figure"),
     Input("char-dropdown", "value"),
     Input("refresh", "n_intervals"),
@@ -465,10 +495,12 @@ def update_circle_gates(character, _tick):
 def update_sheet(character, _tick):
     """The character-sheet view (#61): newest roster and stats with
     deltas since the previous ;sheet snapshot, and progression over
-    time — circle & favors, TDPs, per-stat lines."""
+    time — circle & favors, TDPs, rested experience, per-stat lines."""
+    no_rexp = {"times": [], "stored": [], "usable": [], "refresh": []}
     empty = (
         series_figure([], [], "Circle & favors", ""),
         series_figure([], [], "TDPs", ""),
+        rexp_figure(no_rexp, character),
         stats_figure({}, character),
     )
     if not character:
@@ -494,6 +526,7 @@ def update_sheet(character, _tick):
         default={"times": [], "circle": [], "tdps": [], "favors": []},
     )
     stat_series = query(data.stats_history, character, default={})
+    rested = query(data.rexp_history, character, default=no_rexp)
     return (
         note,
         stats_now[1] if stats_now else [],
@@ -507,6 +540,7 @@ def update_sheet(character, _tick):
         series_figure(
             progression["times"], [("TDPs", progression["tdps"])], "TDPs", ""
         ),
+        rexp_figure(rested, character),
         stats_figure(stat_series, character),
     )
 
@@ -561,7 +595,8 @@ def update_plot(character, skill_names, _tick):
     if not character or not skill_names:
         return mindstate_figure({}, character)
     series = query(data.history, character, skill_names, default={})
-    return mindstate_figure(series, character)
+    windows = query(data.rexp_windows, character, default=[])
+    return mindstate_figure(series, character, windows)
 
 
 def describe_identity(row, now=None):

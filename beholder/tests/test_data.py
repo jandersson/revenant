@@ -148,7 +148,8 @@ SHEET_TABLES = """
 CREATE TABLE character (
     seq INTEGER PRIMARY KEY AUTOINCREMENT,
     logged_at TEXT NOT NULL, character_name TEXT NOT NULL,
-    circle INTEGER, tdps INTEGER, favors INTEGER, guild TEXT
+    circle INTEGER, tdps INTEGER, favors INTEGER, guild TEXT,
+    rexp_stored INTEGER, rexp_usable INTEGER, rexp_refresh INTEGER
 );
 CREATE TABLE stats (
     seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -174,11 +175,14 @@ def sheet_connection(tmp_path):
     writer.executescript(SHEET_TABLES)
     writer.executemany(
         "INSERT INTO character"
-        " (logged_at, character_name, circle, tdps, favors, guild)"
-        " VALUES (?, ?, ?, ?, ?, ?)",
+        " (logged_at, character_name, circle, tdps, favors, guild,"
+        " rexp_stored, rexp_usable, rexp_refresh)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
-            (T1, "Lanival", 5, 300, 2, "Barbarian"),
-            (T2, "Lanival", 6, 320, 3, "Barbarian"),
+            # 5:42 hours banked and usable at T1 (the captured footer,
+            # #106); burnt out by T2, refreshing in 21 hours.
+            (T1, "Lanival", 5, 300, 2, "Barbarian", 342, 342, 1260),
+            (T2, "Lanival", 6, 320, 3, "Barbarian", 0, 0, 1260),
         ],
     )
     writer.executemany(
@@ -383,3 +387,66 @@ def test_latest_character_falls_back_to_the_sheet(sheet_connection):
     # A swept database with no mindstate at all must still open on a
     # character rather than nothing.
     assert data.latest_character(sheet_connection) == "Lanival"
+
+
+# --- rested experience (#106) -------------------------------------------
+
+
+def test_rexp_history_is_in_hours_oldest_first(sheet_connection):
+    history = data.rexp_history(sheet_connection, "Lanival")
+    assert history["times"] == [T1, T2]
+    assert history["stored"] == [5.7, 0]
+    assert history["usable"] == [5.7, 0]
+    assert history["refresh"] == [21, 21]
+
+
+def test_rexp_windows_open_at_a_snapshot_with_usable_hours(sheet_connection):
+    # T1 had 5:42 usable; the next snapshot came 26 hours later, so the
+    # window closes when the hours would have burnt out, not at T2.
+    assert data.rexp_windows(sheet_connection, "Lanival") == [
+        (T1, "2026-08-22T15:42:00+00:00")
+    ]
+
+
+def test_rexp_windows_close_at_the_next_snapshot_when_it_comes_first(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "xp.db"
+    writer = sqlite3.connect(path)
+    writer.executescript(SHEET_TABLES)
+    early, later = "2026-08-22T10:00:00+00:00", "2026-08-22T13:00:00+00:00"
+    writer.executemany(
+        "INSERT INTO character (logged_at, character_name, rexp_stored,"
+        " rexp_usable, rexp_refresh) VALUES (?, ?, ?, ?, ?)",
+        [(early, "Lanival", 342, 342, 1260), (later, "Lanival", 162, 162, 1080)],
+    )
+    writer.commit()
+    writer.close()
+    connection = data.connect(path)
+    assert data.rexp_windows(connection, "Lanival") == [
+        (early, later),
+        (later, "2026-08-22T15:42:00+00:00"),
+    ]
+    connection.close()
+
+
+def test_a_database_from_before_the_rexp_columns_yields_nothing(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "xp.db"
+    writer = sqlite3.connect(path)
+    writer.executescript(
+        "CREATE TABLE character (seq INTEGER PRIMARY KEY, logged_at TEXT,"
+        " character_name TEXT, circle INTEGER, tdps INTEGER, favors INTEGER,"
+        " guild TEXT);"
+    )
+    writer.execute(
+        "INSERT INTO character (logged_at, character_name) VALUES (?, ?)",
+        (T1, "Lanival"),
+    )
+    writer.commit()
+    writer.close()
+    connection = data.connect(path)
+    assert data.rexp_history(connection, "Lanival")["times"] == []
+    assert data.rexp_windows(connection, "Lanival") == []
+    connection.close()

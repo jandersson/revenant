@@ -22,6 +22,29 @@ def test_mindstate_figure_has_one_sorted_trace_per_skill():
     assert "Lanival" in figure.layout.title.text
 
 
+def test_rested_windows_are_shaded_on_the_mindstate_plot():
+    windows = [("2026-08-22T10:00:00+00:00", "2026-08-22T15:42:00+00:00")]
+    figure = app.mindstate_figure({}, "Lanival", windows)
+    shapes = figure.layout.shapes
+    assert len(shapes) == 1
+    assert shapes[0].x0 == windows[0][0] and shapes[0].x1 == windows[0][1]
+    assert shapes[0].fillcolor == app.REXP_SHADE
+    assert "rested 3x" in figure.layout.annotations[0].text
+
+
+def test_rexp_figure_plots_stored_and_usable_hours():
+    history = {
+        "times": ["2026-08-22T10:00:00+00:00"],
+        "stored": [5.7],
+        "usable": [5.7],
+        "refresh": [21],
+    }
+    figure = app.rexp_figure(history, "Lanival")
+    assert [trace.name for trace in figure.data] == ["Stored", "Usable this cycle"]
+    assert figure.data[0].y == (5.7,)
+    assert "Rested experience" in figure.layout.title.text
+
+
 def test_mindstate_figure_without_history_is_an_empty_plot():
     figure = app.mindstate_figure({}, None)
     assert len(figure.data) == 0

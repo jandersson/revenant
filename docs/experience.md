@@ -55,10 +55,16 @@ one evening (the 2026-08-21 evidence below).
   3-hourly EXP ALL already receives this line (currently unparsed).
 
 What it means for the tooling: rank-per-hour numbers in beholder are
-meaningless without knowing whether the 3x window was open, and the
-sheet snapshot already carries the status line — parsing and logging
-it is nearly free (#106). Trainers might also prefer draining few
-skill groups while rested, per the burn rule.
+meaningless without knowing whether the 3x window was open. The sheet
+snapshot stores the footer's three durations (`rexp_stored`,
+`rexp_usable`, `rexp_refresh`, minutes), beholder charts stored and
+usable hours on the character sheet, and its mindstate plot shades the
+stretches where a snapshot had usable hours — from that snapshot until
+the next one or until the hours would have burnt out, whichever comes
+first (#106). Coarse, since snapshots are three hours apart and burning
+needs a draining skill, but enough to tell a rested run from an
+ordinary one. Trainers might also prefer draining few skill groups
+while rested, per the burn rule.
 
 ## What the code assumes, and where
 
