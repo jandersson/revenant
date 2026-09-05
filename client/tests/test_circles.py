@@ -363,3 +363,22 @@ def test_describe_reports_per_knowledge_set():
     assert circles.describe([], target=2) == [
         "nothing gates circle 2 — go see your guildleader"
     ]
+
+
+def test_primary_magic_never_fills_a_magic_slot():
+    # Elanthipedia (Cleric page, checked 2026-09-05, #134): the Primary
+    # Magic skills are "mastery" skills that never count toward Nth
+    # requirements. A Cleric whose Holy Magic dwarfs every other magic
+    # skill still fills 1st Magic with the best listed skill.
+    ranks = {"Holy Magic": (258, 0), "Arcana": (2, 0), "Warding": (1, 0)}
+    unmet = circles.gates(ranks, circle=1, guild="Cleric")
+    first_magic = next(gate for gate in unmet if gate["label"] == "1st Magic")
+    assert first_magic["skill"] == "Arcana"
+    assert first_magic["have"] == 2
+    assert not any(gate["skill"] == "Holy Magic" for gate in unmet)
+
+
+def test_a_moon_mages_lunar_magic_stays_out_of_the_slots_too():
+    ranks = {"Lunar Magic": (1649, 0), "Astrology": (900, 0), "Utility": (800, 0)}
+    unmet = circles.gates(ranks, circle=150, guild="Moon Mage")
+    assert not any(gate["skill"] == "Lunar Magic" for gate in unmet)

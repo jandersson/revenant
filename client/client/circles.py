@@ -27,7 +27,13 @@ BAND_TOPS = (10, 30, 70, 100, 150)
 # and Expertise never fill weapon slots, the Masteries have their own
 # "mastery" slot (Barbarian's Primary Mastery), and armor slots draw
 # from the armor proper — Defending/Shield Usage/Conviction appear
-# only as named requirements. docs/circles.md records the assumptions.
+# only as named requirements. The Primary Magic skills (Holy, Lunar,
+# Arcane, Life, Elemental Magic; Inner Fire; Inner Magic) are absent
+# from the magic set on purpose: Elanthipedia's guild pages list them
+# among the "mastery" skills that never count toward Nth requirements,
+# and name the slot fillers — Attunement, Arcana, Targeted Magic,
+# Augmentation, Debilitation, Utility, Warding (#134). docs/circles.md
+# records the assumptions and the evidence.
 SLOT_SKILLS = {
     "survival": (
         "Athletics",

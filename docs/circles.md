@@ -39,6 +39,19 @@ Assumptions not directly stated by the wiki:
   every guild's table).
 - Equal-rank ties: our order (percent, then name) can differ from the
   game's slot labels; the *set* of unmet requirements is unaffected.
+- The Primary Magic skills (Holy Magic, Lunar Magic, Arcane Magic, Life
+  Magic, Elemental Magic, Inner Fire, Inner Magic) never fill an
+  Nth-Magic slot. This one is stated by the wiki, not assumed: the
+  Cleric page's requirements notes read "The following 'mastery' skills
+  never count toward Nth skill requirements, since they affect all or
+  most of the skillset", list the Primary Magic skill among them, and
+  name the fillers — "Attunement, Arcana, Targeted Magic, Augmentation,
+  Debilitation, Utility, and Warding" (checked 2026-09-05, #134). A
+  Primary Magic skill appears only where a table names it (Barbarian's
+  Inner Fire). The same note adds "For Clerics, Sorcery and Thievery
+  also do not count towards Nth skill requirements"; the model's magic
+  set still lists Sorcery for every guild, a guild-specific exclusion
+  not yet encoded (#148).
 - Barbarian's single lore slot is labeled "2nd Lore" in the wiki's
   rate table but "1st Lore" in its cumulative table; encoded as the
   best-other-lore slot ("1st Lore").
