@@ -102,7 +102,8 @@ Traps that cost time before:
 - Restoring a saved dock layout onto a shown window can abort inside Qt;
   the GUI learns its character before building the window and restores
   first (#124, #140).
-- INV LIST costs roundtime: never scheduled, `;sheet inv` only.
+- INV LIST costs roundtime: never scheduled, `;sheet inv` only. SPELL
+  costs none and rides the 3-hourly snapshot (`spells` table, `spell_slots`).
 
 ## Conventions
 

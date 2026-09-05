@@ -690,7 +690,15 @@ def test_sheet_inv_typed_at_the_running_script_snapshots_the_inventory(
         requests=["inv"],
     )
     # The scheduled snapshot asks no inventory; the request asks it once.
-    assert handle.sent == ["info", "exp all", "info", "exp all", "inv list"]
+    assert handle.sent == [
+        "info",
+        "exp all",
+        "spell",
+        "info",
+        "exp all",
+        "spell",
+        "inv list",
+    ]
     assert connection.execute("SELECT count(*) FROM inventory").fetchone()[0] > 0
     assert connection.execute("SELECT count(*) FROM character").fetchone()[0] == 2
 
@@ -707,7 +715,7 @@ def test_sheet_once_typed_at_the_running_script_takes_a_plain_snapshot(
         },
         requests=["once"],
     )
-    assert handle.sent == ["info", "exp all", "info", "exp all"]
+    assert handle.sent == ["info", "exp all", "spell", "info", "exp all", "spell"]
     assert connection.execute("SELECT count(*) FROM character").fetchone()[0] == 2
 
 
@@ -721,7 +729,7 @@ def test_an_unknown_request_is_explained_not_ignored(monkeypatch, tmp_path):
         },
         requests=["wealth"],
     )
-    assert handle.sent == ["info", "exp all"]
+    assert handle.sent == ["info", "exp all", "spell"]
     assert any("unknown request 'wealth'" in line for line in handle.echoed)
 
 
@@ -817,3 +825,134 @@ def test_exp_all_is_read_through_to_its_last_line():
     # The rested line sits after the TDP line; a collect that stopped at
     # the TDPs never saw it (#106).
     assert sheet.EXP_ALL_END == "EXP HELP for more information"
+
+
+# --- SPELL (#136) ----------------------------------------------------------
+
+# Captured 2026-09-04 from a circle-1 Paladin: the apprentice spells,
+# no feats, and the slot-correction line the game printed once.
+SPELL_APPRENTICE = """[There was an error with the number of your available spell slots, which has now been corrected to 3.]
+From your apprenticeship you remember practicing with the Burden, Ease Burden [ease], Manifest Force [maf], and Strange Arrow [stra] spells.
+You do not know any magic feats.
+You have 3 spell slots available.
+You are NOT currently set to recognize known spells when prepared by someone else in the area.  (Use SPELL RECOGNIZE ON to change this.)
+You are currently set to display full cast messaging.  (Use SPELL BRIEFMSG ON to change this.)
+You are NOT currently attempting to hide your spell preparing.  (Use PREPARE /HIDE to change this.)
+You can use SPELL STANCE [HELP] to view or modify your spellcasting preferences.
+"""
+
+# Captured 2026-09-05 from a circle-200 Moon Mage: chapters of learned
+# spells, two groups of cantrips, seventeen feats, one slot left.
+SPELL_LEARNED = """You recall the spells you have learned from your training.
+In the chapter entitled "Analogous Patterns", you have notes on the Lay Ward [lw], Manifest Force [maf], and Gauge Flow [gaf] spells.
+In the chapter entitled "Perception", you have notes on the Clear Vision [cv], Piercing Gaze [pg], Locate, Distant Gaze [dg], Machinist's Touch [mt], Seer's Sense [seer], Aura Sight [aus], Tenebrous Sense [ts], Unleash, and Destiny Cipher [dc] spells.
+In the chapter entitled "Stellar Magic", you have notes on the Starlight Sphere [sls], Invocation of the Spheres [iots], Shadewatch Mirror [shm], and Read the Ripples [rtr] spells.
+You know the following cantrips:
+Generic Cantrips:  Meah K'et (keyword: "flare"), Veiled Identity (keyword: "face"), Kinetic Fling (keyword: "fling"), Scorch (keyword: "label").
+Sect-Related Cantrips:  Naronas Kerwaith (keyword: "entry"), Fate Alignment (keyword: "align").
+You recall proficiency with the magic feats of Sorcerous Patterns, Legerdemain, Silent Preparation, Basic Preparation Recognition, Faster Targeting, Faster Battle Preparations, Alternate Preparation, Debilitation Mastery, Utility Mastery, Improvised Rituals, Injured Casting, Raw Channeling, Efficient Harnessing, Improved Memory, Magic Theorist, Symbiotic Research and Mental Matrices.
+You have 1 spell slot available.
+You are NOT currently set to recognize known spells when prepared by someone else in the area.  (Use SPELL RECOGNIZE ON to change this.)
+You are currently set to display full cast messaging.  (Use SPELL BRIEFMSG ON to change this.)
+You are NOT currently attempting to hide your spell preparing.  (Use PREPARE /HIDE to change this.)
+You can use SPELL STANCE [HELP] to view or modify your spellcasting preferences.
+"""
+
+
+def test_parse_spells_reads_the_apprentice_form():
+    parsed = sheet.parse_spells(SPELL_APPRENTICE)
+    assert [(row["name"], row["abbrev"]) for row in parsed["spells"]] == [
+        ("Burden", None),
+        ("Ease Burden", "ease"),
+        ("Manifest Force", "maf"),
+        ("Strange Arrow", "stra"),
+    ]
+    assert {row["kind"] for row in parsed["spells"]} == {"apprentice"}
+    assert parsed["slots"] == 3  # the correction line is not the slots line
+
+
+def test_parse_spells_reads_chapters_cantrips_and_feats():
+    parsed = sheet.parse_spells(SPELL_LEARNED)
+    learned = [row for row in parsed["spells"] if row["kind"] == "learned"]
+    assert len(learned) == 17
+    assert learned[0] == {
+        "name": "Lay Ward",
+        "abbrev": "lw",
+        "kind": "learned",
+        "chapter": "Analogous Patterns",
+    }
+    assert {
+        "name": "Locate",
+        "abbrev": None,
+        "kind": "learned",
+        "chapter": "Perception",
+    } in learned
+    assert {
+        "name": "Machinist's Touch",
+        "abbrev": "mt",
+        "kind": "learned",
+        "chapter": "Perception",
+    } in learned
+    cantrips = [row for row in parsed["spells"] if row["kind"] == "cantrip"]
+    assert [(row["name"], row["abbrev"], row["chapter"]) for row in cantrips] == [
+        ("Meah K'et", "flare", "Generic Cantrips"),
+        ("Veiled Identity", "face", "Generic Cantrips"),
+        ("Kinetic Fling", "fling", "Generic Cantrips"),
+        ("Scorch", "label", "Generic Cantrips"),
+        ("Naronas Kerwaith", "entry", "Sect-Related Cantrips"),
+        ("Fate Alignment", "align", "Sect-Related Cantrips"),
+    ]
+    feats = [row["name"] for row in parsed["spells"] if row["kind"] == "feat"]
+    assert len(feats) == 17
+    assert feats[0] == "Sorcerous Patterns" and feats[-1] == "Mental Matrices"
+    assert parsed["slots"] == 1
+
+
+def test_an_unanswered_spell_parses_to_nothing():
+    assert sheet.parse_spells("") == {"spells": [], "slots": None}
+
+
+def test_the_snapshot_asks_spell_and_stores_what_it_knows(monkeypatch, tmp_path):
+    handle, connection = snapshot_into(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_TEXT.splitlines(keepends=True)],
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
+            "spell": [SPELL_APPRENTICE.splitlines(keepends=True)],
+        },
+    )
+    assert "spell" in handle.sent
+    rows = connection.execute(
+        "SELECT name, abbrev, kind FROM spells ORDER BY seq"
+    ).fetchall()
+    assert rows[1] == ("Ease Burden", "ease", "apprentice")
+    assert len(rows) == 4
+    assert connection.execute("SELECT spell_slots FROM character").fetchone()[0] == 3
+    assert any("4 spells, 3 slot(s) free" in line for line in handle.echoed)
+
+
+def test_an_unanswered_spell_leaves_no_rows_and_null_slots(monkeypatch, tmp_path):
+    handle, connection = snapshot_into(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_TEXT.splitlines(keepends=True)],
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
+        },
+    )
+    assert connection.execute("SELECT count(*) FROM spells").fetchone()[0] == 0
+    assert connection.execute("SELECT spell_slots FROM character").fetchone()[0] is None
+
+
+def test_the_renaming_room_is_never_asked_for_spells(monkeypatch, tmp_path):
+    renaming = "You must change your name to something which fits the game.\n"
+    handle, _ = snapshot_into(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_TEXT.splitlines(keepends=True)],
+            "exp all": [[renaming]],
+        },
+    )
+    assert "spell" not in handle.sent

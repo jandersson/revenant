@@ -115,6 +115,13 @@ SHEET_COLUMNS = [
     {"name": "\u0394 rank", "id": "gained"},
 ]
 
+SPELL_COLUMNS = [
+    {"name": "Spell", "id": "name"},
+    {"name": "Abbrev", "id": "abbrev"},
+    {"name": "Kind", "id": "kind"},
+    {"name": "Chapter", "id": "chapter"},
+]
+
 WEALTH_COLUMNS = [
     {"name": "Kind", "id": "kind"},
     {"name": "Currency", "id": "currency"},
@@ -334,6 +341,9 @@ def serve_layout():
                 style={"display": "flex", "gap": "1rem", "alignItems": "flex-start"},
             ),
             dcc.Graph(id="stats-plot"),
+            html.H3("Spells"),
+            html.P(id="spells-note", style={"color": MUTED}),
+            grid("spells-table", SPELL_COLUMNS, filterable=True),
             html.H3("Wealth"),
             html.P(id="wealth-note", style={"color": MUTED}),
             html.Div(
@@ -543,6 +553,29 @@ def update_sheet(character, _tick):
         rexp_figure(rested, character),
         stats_figure(stat_series, character),
     )
+
+
+@app.callback(
+    Output("spells-note", "children"),
+    Output("spells-table", "rowData"),
+    Input("char-dropdown", "value"),
+    Input("refresh", "n_intervals"),
+)
+def update_spells(character, _tick):
+    """Known spells, cantrips and feats from the newest SPELL snapshot,
+    with the slots left (#136)."""
+    if not character:
+        return "", []
+    known = query(data.spells, character, default={"rows": [], "slots": None})
+    if not known["rows"] and known["slots"] is None:
+        return "No SPELL snapshot yet — ;sheet records one every three hours.", []
+    counts = {}
+    for row in known["rows"]:
+        counts[row["kind"]] = counts.get(row["kind"], 0) + 1
+    summary = ", ".join(f"{count} {kind}" for kind, count in sorted(counts.items()))
+    slots = known["slots"]
+    note = summary + (f"; {slots} spell slot(s) free" if slots is not None else "")
+    return note, known["rows"]
 
 
 @app.callback(

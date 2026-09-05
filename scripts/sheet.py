@@ -1,9 +1,12 @@
 """Snapshot your character sheet into the history database:  ;sheet
 
-Records INFO and EXP ALL — stats, circle, TDPs, favors, the full
-skill roster with ranks, and the rested-experience line (stored,
-usable, refresh, in minutes) — into ~/.revenant/history.db, where beholder
-renders the history (#61). Every session snapshots on start and every
+Records INFO, EXP ALL and SPELL — stats, circle, TDPs, favors, the full
+skill roster with ranks, the rested-experience line (stored, usable,
+refresh, in minutes), and the spells: learned spells by chapter,
+apprentice spells, cantrips with their keywords, magic feats, and the
+spell slots left (#136) — into ~/.revenant/history.db, where beholder
+renders the history (#61). SPELL costs no roundtime, so it rides the
+schedule; it is asked once per snapshot and a miss waits for the next. Every session snapshots on start and every
 three hours after; the sheet moves slowly, so that's plenty. A command
 the game leaves unanswered (login noise eats them) is re-asked, and
 whatever still won't answer is left out of the snapshot rather than
@@ -48,6 +51,9 @@ INFO_END = None
 # EXP ALL's last line; the rested-experience line sits between the TDP
 # line and it, so the collect must run past the TDPs (#106).
 EXP_ALL_END = "EXP HELP for more information"
+# SPELL closes with its preferences line (captured 2026-09-04 and
+# 2026-09-05, #136). It costs no roundtime, so it rides the schedule.
+SPELL_END = "SPELL STANCE"
 
 # The renaming room answers commands with its own reminder instead of
 # their output, so re-asking cannot help — it just burns ATTEMPTS *
@@ -129,6 +135,15 @@ CREATE TABLE IF NOT EXISTS character (
     birth_day INTEGER,
     birth_month INTEGER
 );
+CREATE TABLE IF NOT EXISTS spells (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    logged_at TEXT NOT NULL,
+    character_name TEXT NOT NULL,
+    name TEXT NOT NULL,
+    abbrev TEXT,
+    kind TEXT NOT NULL,
+    chapter TEXT
+);
 CREATE TABLE IF NOT EXISTS inventory (
     seq INTEGER PRIMARY KEY AUTOINCREMENT,
     logged_at TEXT NOT NULL,
@@ -162,6 +177,7 @@ def ensure_schema(connection):
         ("rexp_stored", "INTEGER"),  # rested experience, minutes (#106):
         ("rexp_usable", "INTEGER"),  # beholder can tell 3x windows from
         ("rexp_refresh", "INTEGER"),  # ordinary training
+        ("spell_slots", "INTEGER"),  # SPELL's "You have N spell slots" (#136)
     ):
         try:
             connection.execute(f"ALTER TABLE character ADD COLUMN {column} {kind}")
@@ -216,6 +232,81 @@ def parse_info(text):
         "birth_month": int(born.group(2)) if born else None,
         "birth_year": int(born.group(3)) if born else None,
         "wealth": parse_wealth(text),
+    }
+
+
+# SPELL, captured 2026-09-04 (a circle-1 Paladin: apprentice spells,
+# no feats) and 2026-09-05 (a circle-200 Moon Mage: chapters of learned
+# spells, cantrips, seventeen feats). Each list is names separated by
+# commas and a final "and", an abbreviation in brackets where the game
+# has one. A slot-correction line ("[There was an error with the
+# number of your available spell slots ...]") appears once and is
+# ignored (#136).
+_APPRENTICE = re.compile(
+    r"From your apprenticeship you remember practicing with the (?P<list>.+?) spells?\."
+)
+_CHAPTER = re.compile(
+    r'In the chapter entitled "(?P<chapter>[^"]+)", you have notes on the '
+    r"(?P<list>.+?) spells?\."
+)
+_CANTRIPS = re.compile(r"^(?P<group>[A-Za-z-]+ Cantrips):\s+(?P<list>.+?)\.\s*$", re.M)
+_CANTRIP = re.compile(r'(?P<name>[^,]+?) \(keyword: "(?P<keyword>[^"]+)"\)')
+_FEATS = re.compile(r"proficiency with the magic feats? of (?P<list>.+?)\.")
+_SLOTS = re.compile(r"You have (?P<slots>\d+) spell slots? available")
+_SPELL_ITEM = re.compile(r"^(?P<name>.+?)(?:\s+\[(?P<abbrev>[^\]]+)\])?$")
+
+
+def _split_list(text):
+    """ "A, B [b], and C" / "A and B" / "A" into the items."""
+    items = []
+    for chunk in re.split(r",\s*", text):
+        for part in re.split(r"\s+and\s+", chunk):
+            part = re.sub(r"^and\s+", "", part.strip())  # the Oxford ", and"
+            if part:
+                items.append(part)
+    return items
+
+
+def parse_spells(text):
+    """{"spells": [{name, abbrev, kind, chapter}], "slots": int | None}
+    out of SPELL's answer. kind is "apprentice", "learned", "cantrip"
+    or "feat" — the four things the output keeps apart; a cantrip's
+    abbrev is its keyword. An unanswered SPELL parses to no spells and
+    slots None."""
+    spells = []
+    for match in _APPRENTICE.finditer(text):
+        for item in _split_list(match.group("list")):
+            spells.append(_spell_row(item, "apprentice", None))
+    for match in _CHAPTER.finditer(text):
+        for item in _split_list(match.group("list")):
+            spells.append(_spell_row(item, "learned", match.group("chapter")))
+    for match in _CANTRIPS.finditer(text):
+        for cantrip in _CANTRIP.finditer(match.group("list")):
+            spells.append(
+                {
+                    "name": cantrip.group("name").strip(),
+                    "abbrev": cantrip.group("keyword"),
+                    "kind": "cantrip",
+                    "chapter": match.group("group"),
+                }
+            )
+    feats = _FEATS.search(text)
+    if feats:
+        for item in _split_list(feats.group("list")):
+            spells.append(
+                {"name": item, "abbrev": None, "kind": "feat", "chapter": None}
+            )
+    slots = _SLOTS.search(text)
+    return {"spells": spells, "slots": int(slots.group("slots")) if slots else None}
+
+
+def _spell_row(item, kind, chapter):
+    match = _SPELL_ITEM.match(item)
+    return {
+        "name": match.group("name").strip(),
+        "abbrev": match.group("abbrev"),
+        "kind": kind,
+        "chapter": chapter,
     }
 
 
@@ -275,7 +366,14 @@ def parse_exp_answer(text):
 
 
 def insert_snapshot(
-    connection, character, logged_at, info, skills, items=None, rested=None
+    connection,
+    character,
+    logged_at,
+    info,
+    skills,
+    items=None,
+    rested=None,
+    spells=None,
 ):
     connection.executemany(
         "INSERT INTO stats (logged_at, character_name, stat, value)"
@@ -308,6 +406,22 @@ def insert_snapshot(
         ],
     )
     connection.executemany(
+        "INSERT INTO spells"
+        " (logged_at, character_name, name, abbrev, kind, chapter)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        [
+            (
+                logged_at,
+                character,
+                row["name"],
+                row["abbrev"],
+                row["kind"],
+                row["chapter"],
+            )
+            for row in (spells or {}).get("spells", [])
+        ],
+    )
+    connection.executemany(
         "INSERT INTO wealth (logged_at, character_name, kind, currency, copper)"
         " VALUES (?, ?, ?, ?, ?)",
         [
@@ -326,8 +440,8 @@ def insert_snapshot(
             "INSERT INTO character"
             " (logged_at, character_name, circle, tdps, favors, guild,"
             "  race, gender, birth_year, birth_day, birth_month,"
-            "  rexp_stored, rexp_usable, rexp_refresh)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "  rexp_stored, rexp_usable, rexp_refresh, spell_slots)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 logged_at,
                 character,
@@ -343,6 +457,7 @@ def insert_snapshot(
                 rested.get("stored"),
                 rested.get("usable"),
                 rested.get("refresh"),
+                (spells or {}).get("slots"),
             ),
         )
     connection.commit()
@@ -361,7 +476,7 @@ def refused(text):
     return blocked_by_renaming(text) or INVENTORY_HELP in text
 
 
-def ask(s, command, parse, until, answered):
+def ask(s, command, parse, until, answered, attempts=ATTEMPTS):
     """(parsed, blocked) — parse() of the command's answer, re-asking up
     to ATTEMPTS times: a command sent while login noise is still
     settling can go unanswered entirely (captured 2026-08-22 — a
@@ -376,7 +491,7 @@ def ask(s, command, parse, until, answered):
     untrained character's legitimately empty EXP ALL is not mistaken
     for silence (#113)."""
     result = parse("")
-    for attempt in range(ATTEMPTS):
+    for attempt in range(attempts):
         if attempt:
             s.sleep(RETRY_SLEEP)
         s.put(command)
@@ -399,6 +514,18 @@ def snapshot(s, inventory=False):
         s, "exp all", parse_exp_answer, EXP_ALL_END, lambda r: bool(r["skills"])
     )
     skills, rested = exp["skills"], exp["rested"]
+    # SPELL costs no roundtime, so it joins the schedule (#136); the
+    # renaming room refuses it like everything else.
+    spells = {"spells": [], "slots": None}
+    if not renaming:
+        spells, _ = ask(
+            s,
+            "spell",
+            parse_spells,
+            SPELL_END,
+            lambda r: r["slots"] is not None or bool(r["spells"]),
+            attempts=1,  # cheap and optional: the next snapshot catches a miss
+        )
     # Only when asked for: INV LIST costs 4-5s of roundtime, so it is
     # never part of the scheduled snapshot (#117). The renaming room
     # refuses it like everything else, so it is skipped there (#112).
@@ -437,6 +564,7 @@ def snapshot(s, inventory=False):
             skills,
             items,
             rested,
+            spells,
         )
     finally:
         connection.close()
@@ -446,9 +574,13 @@ def snapshot(s, inventory=False):
             f"has {len(skills)} skills only"
         )
         return
+    known = [row for row in spells["spells"] if row["kind"] != "feat"]
+    slots = spells["slots"]
     s.echo(
         f"sheet: snapshot for {character} — {len(info['stats'])} stats, "
-        f"{len(skills)} skills, circle {info['circle']}, {info['tdps']} TDPs"
+        f"{len(skills)} skills, circle {info['circle']}, {info['tdps']} TDPs, "
+        f"{len(known)} spells"
+        + (f", {slots} slot(s) free" if slots is not None else "")
     )
 
 

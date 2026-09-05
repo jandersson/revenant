@@ -76,6 +76,7 @@ def test_the_tables_are_ag_grids_not_deprecated_datatables(monkeypatch, tmp_path
         "circle-table",
         "stats-table",
         "wealth-table",
+        "spells-table",
         "sheet-table",
     }
     exp_columns = grids["exp-table"].columnDefs

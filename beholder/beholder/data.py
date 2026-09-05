@@ -122,6 +122,37 @@ def identity(connection, character):
     return dict(row) if row else None
 
 
+def spells(connection, character):
+    """The newest SPELL snapshot's rows for a character: [{name, abbrev,
+    kind, chapter}], feats included, and the spell slots left:
+    ({"rows": [...], "slots": int | None}); empty before any (#136)."""
+    empty = {"rows": [], "slots": None}
+    try:
+        latest = connection.execute(
+            "SELECT max(logged_at) FROM spells WHERE character_name = ?",
+            (character,),
+        ).fetchone()[0]
+        slots = connection.execute(
+            "SELECT spell_slots FROM character WHERE character_name = ?"
+            " AND spell_slots IS NOT NULL ORDER BY logged_at DESC LIMIT 1",
+            (character,),
+        ).fetchone()
+    except sqlite3.OperationalError:
+        return empty  # a database from before the spells table
+    rows = []
+    if latest:
+        rows = [
+            dict(row)
+            for row in connection.execute(
+                "SELECT name, abbrev, kind, chapter FROM spells"
+                " WHERE character_name = ? AND logged_at = ?"
+                " ORDER BY kind, chapter, name",
+                (character, latest),
+            )
+        ]
+    return {"rows": rows, "slots": slots[0] if slots else None}
+
+
 def skills(connection, character):
     """Every skill a character has history for, sorted by name."""
     rows = connection.execute(

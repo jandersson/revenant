@@ -450,3 +450,50 @@ def test_a_database_from_before_the_rexp_columns_yields_nothing(tmp_path):
     assert data.rexp_history(connection, "Lanival")["times"] == []
     assert data.rexp_windows(connection, "Lanival") == []
     connection.close()
+
+
+# --- spells (#136) ----------------------------------------------------------
+
+
+def test_spells_come_from_the_newest_snapshot_with_the_slots(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "xp.db"
+    writer = sqlite3.connect(path)
+    writer.executescript(
+        SHEET_TABLES
+        + """
+        ALTER TABLE character ADD COLUMN spell_slots INTEGER;
+        CREATE TABLE spells (
+            seq INTEGER PRIMARY KEY AUTOINCREMENT,
+            logged_at TEXT NOT NULL, character_name TEXT NOT NULL,
+            name TEXT NOT NULL, abbrev TEXT, kind TEXT NOT NULL, chapter TEXT
+        );
+        """
+    )
+    writer.executemany(
+        "INSERT INTO character (logged_at, character_name, spell_slots)"
+        " VALUES (?, ?, ?)",
+        [(T1, "Lanival", 3), (T2, "Lanival", 2)],
+    )
+    writer.executemany(
+        "INSERT INTO spells (logged_at, character_name, name, abbrev, kind, chapter)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        [
+            (T1, "Lanival", "Burden", None, "apprentice", None),
+            (T2, "Lanival", "Heroic Strength", "hes", "learned", "Sacred Blade"),
+            (T2, "Lanival", "Burden", None, "apprentice", None),
+        ],
+    )
+    writer.commit()
+    writer.close()
+    connection = data.connect(path)
+    known = data.spells(connection, "Lanival")
+    assert known["slots"] == 2
+    assert [row["name"] for row in known["rows"]] == ["Burden", "Heroic Strength"]
+    assert data.spells(connection, "Nobody") == {"rows": [], "slots": None}
+    connection.close()
+
+
+def test_a_database_without_the_spells_table_yields_nothing(sheet_connection):
+    assert data.spells(sheet_connection, "Lanival") == {"rows": [], "slots": None}
