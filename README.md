@@ -98,6 +98,8 @@ Revenant stands on the DragonRealms community's open work, and credit belongs wh
 - [elanthia-online/simu-rewards](https://github.com/elanthia-online/simu-rewards) — a GitHub Action that claims the daily Simutronics rewards.
 - [Elanthipedia](https://elanthipedia.play.net/) — not a repository, but every mechanic Revenant automates was read up there first.
 
+And a person rather than a repository: **Atanamir**, who runs the DRPrime channel on LNet, read this repo the night the chat window first connected, tested it from the other end, and set the rules of the road straight.
+
 [docs/bibliography.md](docs/bibliography.md) credits each feature's sources individually.
 
 ## License
