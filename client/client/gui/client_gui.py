@@ -801,7 +801,6 @@ class ClientGUI(QMainWindow, ClientLogger):
     def send_input(self):
         text = self.input.text()
         self.write(text)
-        self._append(self.main_window, f"> {text}\n", "sent")
         self.input.history.record(text)
         # Leave the text selected: plain Enter repeats it, typing
         # replaces it — the classic frontends' feel.
@@ -1022,7 +1021,10 @@ class ClientGUI(QMainWindow, ClientLogger):
             # Qt slot would take the whole GUI down.
             self.status_bar.showMessage("Connection lost — reattaching, try again")
             return
-        self.write_to_main_window(f">{write_data}")
+        # One echo per command, here, whatever sent it — typed, a link
+        # click, a compass button. Typed commands used to echo a second
+        # time in send_input (#143).
+        self._append(self.main_window, f"> {write_data}", "sent")
         self.input.clear()
 
     def contextMenuEvent(self, event):
