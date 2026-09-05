@@ -53,7 +53,7 @@ from client.session import (
 )
 from client.settings import load_settings, save_settings, setting, settings_path
 from client.streamroute import STREAM_WINDOWS as STREAM_WINDOW_TITLES, clears_window
-from client.textfont import font_choice
+from client.textfont import view_font
 
 ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
 
@@ -453,24 +453,30 @@ class ClientGUI(QMainWindow, ClientLogger):
         self._default_text_font = QFont(self.main_window.font())
 
     def _apply_text_font(self):
-        """Settings' font_family / font_size on the main window, every
-        stream dock, and the input line (#118). The Experience dock's
-        dashboard is column-aligned, so it keeps its fixed-pitch family
-        and follows only the size."""
-        family, size = font_choice(load_settings())
-        font = QFont(self._default_text_font)
-        if family:
-            font.setFamily(family)
-        if size:
-            font.setPointSize(size)
-        fixed = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
-        if size:
-            fixed.setPointSize(size)
+        """Settings' font on the main window, every stream dock, and the
+        input line (#118), each view resolved on its own through
+        textfont.view_font so a dock_fonts override wins for that view
+        (#132). The Experience dock's dashboard is column-aligned, so it
+        keeps its fixed-pitch family unless an override names one."""
+        settings = load_settings()
+
+        def font_for(view):
+            family, size = view_font(settings, view)
+            if view == "Experience":
+                font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
+            else:
+                font = QFont(self._default_text_font)
+            if family:
+                font.setFamily(family)
+            if size:
+                font.setPointSize(size)
+            return font
+
         for title, dock in self.stream_docks.items():
             if title in STREAM_WINDOW_TITLES.values():
-                dock.widget().setFont(fixed if title == "Experience" else font)
-        self.main_window.setFont(font)
-        self.input.setFont(font)
+                dock.widget().setFont(font_for(title))
+        self.main_window.setFont(font_for("Main"))
+        self.input.setFont(font_for("Input"))
 
     def __add_stream_docks(self):
         """One dock window per title in STREAM_WINDOWS, stacked on the right."""

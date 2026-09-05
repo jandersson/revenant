@@ -2,7 +2,9 @@
 
 Checkboxes over ~/.revenant/settings.json, plus the game text's font
 (family and point size, applied to every text view the moment the
-dialog is accepted, #118). The pickers open on the font the window
+dialog is accepted, #118) and, under it, one row per text view to
+override that pair for the view alone — tick the view, pick its font
+(#132); an unticked row follows the default. The pickers open on the font the window
 is using — the platform's until you choose one — and always save an
 explicit choice; a "use the default" checkbox that locked the pickers
 read as broken (#130), and a reset button would only exist to be
@@ -26,7 +28,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from client.textfont import MAX_SIZE, MIN_SIZE, font_choice
+from client.textfont import MAX_SIZE, MIN_SIZE, TEXT_VIEWS, font_choice, view_font
 
 
 class SettingsDialog(QDialog):
@@ -91,6 +93,33 @@ class SettingsDialog(QDialog):
         row_layout.addWidget(QLabel("Game text font:"))
         row_layout.addWidget(self.font_family, 1)
         row_layout.addWidget(self.font_size)
+        # Per-view overrides (#132): a ticked row keeps its own pair.
+        overrides = settings.get("dock_fonts") or {}
+        self.view_rows = {}
+        view_rows = []
+        for view in TEXT_VIEWS:
+            entry = overrides.get(view) if isinstance(overrides, dict) else None
+            tick = QCheckBox(view)
+            tick.setChecked(isinstance(entry, dict) and bool(entry))
+            own_family, own_size = view_font(settings, view)
+            family_box = QFontComboBox()
+            family_box.setCurrentFont(QFont(own_family) if own_family else self.font())
+            size_box = QSpinBox()
+            size_box.setRange(MIN_SIZE, MAX_SIZE)
+            size_box.setSuffix(" pt")
+            size_box.setValue(own_size or max(MIN_SIZE, self.font().pointSize()))
+            for box in (family_box, size_box):
+                box.setEnabled(tick.isChecked())
+                tick.toggled.connect(box.setEnabled)
+            row = QWidget()
+            row_box = QHBoxLayout(row)
+            row_box.setContentsMargins(24, 0, 0, 0)
+            row_box.addWidget(tick)
+            row_box.addWidget(family_box, 1)
+            row_box.addWidget(size_box)
+            self.view_rows[view] = (tick, family_box, size_box)
+            view_rows.append(row)
+        views_label = QLabel("Per-view fonts (ticked views keep their own):")
         for widget in (
             self.autostart_xp,
             self.autostart_beholder,
@@ -105,6 +134,8 @@ class SettingsDialog(QDialog):
             self.autostart_extra,
             note,
             font_row,
+            views_label,
+            *view_rows,
         ):
             layout.addWidget(widget)
         buttons = QDialogButtonBox(
@@ -132,4 +163,12 @@ class SettingsDialog(QDialog):
             "allow_external_send": self.allow_external_send.isChecked(),
             "font_family": self.font_family.currentFont().family(),
             "font_size": self.font_size.value(),
+            "dock_fonts": {
+                view: {
+                    "family": family_box.currentFont().family(),
+                    "size": size_box.value(),
+                }
+                for view, (tick, family_box, size_box) in self.view_rows.items()
+                if tick.isChecked()
+            },
         }

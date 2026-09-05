@@ -78,7 +78,7 @@ REVENANT_ALLOW_SEND=1 revenant-send --character Lanival "stance set 100 80 0"
 
 ## Settings
 
-File → Settings edits `~/.revenant/settings.json`: the game text's font and size (applied live; the Experience dock stays monospace), which scripts autostart, whether closing the window quits the game, whether the session answers the game's idle warning with a TIME (on by default; a quiet-but-attended window used to be logged out about ten minutes after "YOU HAVE BEEN IDLE TOO LONG", #153), the clocks dock's Earth-moon row, and developer mode. `REVENANT_NO_XP=1`, `REVENANT_NO_BEHOLDER=1` and `REVENANT_NO_IDLE_ANSWER=1` override those for one launch.
+File → Settings edits `~/.revenant/settings.json`: the game text's font and size (applied live; the Experience dock stays monospace) with a per-view override under it — tick Thoughts, say, and give it its own family and size, an unticked view follows the default (`dock_fonts` in the file, #132), which scripts autostart, whether closing the window quits the game, whether the session answers the game's idle warning with a TIME (on by default; a quiet-but-attended window used to be logged out about ten minutes after "YOU HAVE BEEN IDLE TOO LONG", #153), the clocks dock's Earth-moon row, and developer mode. `REVENANT_NO_XP=1`, `REVENANT_NO_BEHOLDER=1` and `REVENANT_NO_IDLE_ANSWER=1` override those for one launch.
 
 ## Logs
 

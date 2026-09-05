@@ -40,6 +40,10 @@ DEFAULTS = {
     # Applied live to the main window, stream docks, and input line.
     "font_family": "",
     "font_size": 0,
+    # Per-view overrides of the pair, keyed by text view (Main, Input,
+    # Thoughts, Spells, Arrivals, Deaths, Experience), each naming only
+    # what it changes: {"Thoughts": {"size": 8}} (#132).
+    "dock_fonts": {},
     # Rooms travel routes around when a clean detour exists — each entry
     # a ;go2-style target (tag, room id, or title substring). Defaults
     # are the cougar grounds that killed a walker (#72); edit the file
