@@ -94,4 +94,19 @@ def test_circle_for_a_guild_without_circles(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     handle = FakeHandle()
     circle.main(handle)
-    assert any("no circle requirements" in line for line in handle.echoed)
+    assert any(
+        "don't circle" in line for line in handle.echoed
+    )  # not "unknown guild" (#133)
+
+
+def test_a_commoner_is_told_commoners_do_not_circle():
+    from client import circles
+
+    assert circles.gates({}, 0, "Commoner") is None
+    assert circles.explain_no_gates("Commoner") == (
+        "Commoners don't circle — join a guild, and ;circle will report "
+        "what gates the next one"
+    )
+    assert circles.explain_no_gates("Muppet") == (
+        "no circle requirements known for guild 'Muppet'"
+    )

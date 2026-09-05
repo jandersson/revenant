@@ -143,7 +143,7 @@ def circle_gates(character):
         return [], "Snapshot predates circle/guild tracking — run ;sheet once."
     unmet = circles.gates(ranks, circle, guild)
     if unmet is None:
-        return [], f"No circle requirements known for guild {guild}."
+        return [], circles.explain_no_gates(guild).capitalize() + "."
     note = (
         f"{guild}, circle {circle} → {circle + 1} — "
         f"from the sheet snapshot at {logged_at}"

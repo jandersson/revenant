@@ -80,7 +80,7 @@ def main(s):
         return
     unmet = circles.gates(ranks, circle, guild)
     if unmet is None:
-        s.echo(f"circle: no circle requirements known for guild {guild!r}")
+        s.echo(f"circle: {circles.explain_no_gates(guild)}")
         return
     for line in circles.describe(unmet, circle + 1):
         s.echo(f"circle: {line}")

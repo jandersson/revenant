@@ -408,6 +408,21 @@ def slot_label(guild, slot_set, n):
     return f"{_ordinal(n)} {word}"
 
 
+# Guilds that exist and have no circles at all — not gaps in the table.
+NO_CIRCLES = {"Commoner"}
+
+
+def explain_no_gates(guild):
+    """Why gates() returned None, in words for the user: a guild without
+    circles (join one), or a guild the table does not know (#133)."""
+    if guild in NO_CIRCLES:
+        return (
+            f"{guild}s don't circle — join a guild, and ;circle will "
+            "report what gates the next one"
+        )
+    return f"no circle requirements known for guild {guild!r}"
+
+
 def gates(ranks, circle, guild):
     """The unmet requirements for advancing from `circle` to the next.
 

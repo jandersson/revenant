@@ -200,7 +200,7 @@ def test_circle_gates_for_a_guild_without_circles(monkeypatch, tmp_path):
     _seed_sheet(monkeypatch, tmp_path, guild="Commoner")
     rows, note = app.circle_gates("Lanival")
     assert rows == []
-    assert "No circle requirements" in note
+    assert "don't circle" in note  # a guild without circles, not an unknown one (#133)
 
 
 # --- the identity line (#116) -------------------------------------------
