@@ -382,3 +382,44 @@ def test_a_moon_mages_lunar_magic_stays_out_of_the_slots_too():
     ranks = {"Lunar Magic": (1649, 0), "Astrology": (900, 0), "Utility": (800, 0)}
     unmet = circles.gates(ranks, circle=150, guild="Moon Mage")
     assert not any(gate["skill"] == "Lunar Magic" for gate in unmet)
+
+
+def test_a_guilds_own_exclusions_keep_a_skill_out_of_its_slots():
+    # Cleric page: "For Clerics, Sorcery and Thievery also do not count
+    # towards Nth skill requirements" (#148). Sorcery outranks Warding,
+    # yet Warding fills 1st Magic; Thievery outranks Evasion, yet
+    # Evasion fills the survival slot.
+    ranks = {
+        "Sorcery": (9, 0),
+        "Warding": (1, 0),
+        "Thievery": (9, 0),
+        "Evasion": (1, 0),
+    }
+    unmet = circles.gates(ranks, circle=1, guild="Cleric")
+    magic = next(gate for gate in unmet if gate["label"] == "1st Magic")
+    assert magic["skill"] == "Warding"
+    assert not any(gate["skill"] in ("Sorcery", "Thievery") for gate in unmet)
+    survival = next(gate for gate in unmet if gate["label"] == "1st Survival")
+    assert survival["skill"] == "Evasion"
+
+
+def test_moon_mages_thievery_stays_out_but_their_sorcery_counts():
+    ranks = {
+        "Sorcery": (9, 0),
+        "Warding": (1, 0),
+        "Thievery": (9, 0),
+        "Evasion": (1, 0),
+    }
+    unmet = circles.gates(ranks, circle=1, guild="Moon Mage")
+    assert not any(gate["skill"] == "Thievery" for gate in unmet)
+    # Sorcery is listed as a magic filler on the Moon Mage page, so it is
+    # not excluded there — only the Cleric table excludes it.
+    assert "Sorcery" not in circles.GUILDS["Moon Mage"].get("excluded", ())
+    assert "Sorcery" in circles.GUILDS["Cleric"]["excluded"]
+
+
+def test_offhand_weapon_never_fills_a_weapon_slot():
+    ranks = {"Offhand Weapon": (50, 0), "Small Edged": (1, 0)}
+    unmet = circles.gates(ranks, circle=1, guild="Thief")
+    weapon = next(gate for gate in unmet if gate["label"] == "1st Weapon")
+    assert weapon["skill"] == "Small Edged"

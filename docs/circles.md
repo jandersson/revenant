@@ -49,9 +49,13 @@ Assumptions not directly stated by the wiki:
   Debilitation, Utility, and Warding" (checked 2026-09-05, #134). A
   Primary Magic skill appears only where a table names it (Barbarian's
   Inner Fire). The same note adds "For Clerics, Sorcery and Thievery
-  also do not count towards Nth skill requirements"; the model's magic
-  set still lists Sorcery for every guild, a guild-specific exclusion
-  not yet encoded (#148).
+  also do not count towards Nth skill requirements"; encoded as the
+  Cleric table's `excluded` list, and the Moon Mage page's "For Moon
+  Mages, Thievery also does not count towards Nth skill requirements"
+  likewise (#148). Both pages also list Offhand Weapon among the
+  mastery skills that never count, so it left the weapon slot set. The
+  other nine guild pages have not been checked for a list of their own;
+  a guild without an `excluded` entry gets none.
 - Barbarian's single lore slot is labeled "2nd Lore" in the wiki's
   rate table but "1st Lore" in its cumulative table; encoded as the
   best-other-lore slot ("1st Lore").

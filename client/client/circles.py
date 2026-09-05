@@ -57,7 +57,8 @@ SLOT_SKILLS = {
         "Large Blunt",
         "Large Edged",
         "Light Thrown",
-        "Offhand Weapon",
+        # Offhand Weapon is a mastery skill: "never count toward Nth
+        # skill requirements" (Cleric and Moon Mage pages, #148).
         "Polearms",
         "Slings",
         "Small Blunt",
@@ -159,6 +160,9 @@ GUILDS = {
     },
     "Cleric": {
         "soft": ("Attunement",),
+        # "For Clerics, Sorcery and Thievery also do not count towards
+        # Nth skill requirements" (Elanthipedia Cleric page, #148).
+        "excluded": ("Sorcery", "Thievery"),
         "magic_word": "Magic",
         "requirements": (
             ("armor", "named", "Shield Usage", (1, 2, 2, 3, 4, 10)),
@@ -208,6 +212,9 @@ GUILDS = {
     },
     "Moon Mage": {
         "soft": (),
+        # "For Moon Mages, Thievery also does not count towards Nth
+        # skill requirements" (Elanthipedia Moon Mage page, #148).
+        "excluded": ("Thievery",),
         "magic_word": "Magic",
         "requirements": (
             ("lore", "named", "Scholarship", (3, 3, 3, 4, 4, 10)),
@@ -447,12 +454,16 @@ def gates(ranks, circle, guild):
         for _, kind, which, _ in table["requirements"]
         if kind == "named" and which not in table["soft"]
     }
+    # A guild's own list of skills that never count toward its Nth
+    # requirements, quoted from its wiki page (#148); most pages name
+    # only the shared mastery skills, which the slot sets already omit.
+    excluded = set(table.get("excluded", ()))
     filled = {}
     for slot_set, candidates in SLOT_SKILLS.items():
         trained = [
             (skill, ranks[skill][0], ranks[skill][1])
             for skill in candidates
-            if skill in ranks and skill not in named
+            if skill in ranks and skill not in named and skill not in excluded
         ]
         trained.sort(key=lambda entry: (-entry[1], -entry[2], entry[0]))
         filled[slot_set] = trained
