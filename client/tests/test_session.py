@@ -959,3 +959,29 @@ def test_an_unannounced_drop_reattaches_then_says_the_session_is_gone(monkeypatc
         text.startswith("session gone — nothing answering on 127.0.0.1:1")
         for text in out
     )
+
+
+# --- a command sent from outside the frontends (#135) ---
+
+
+def test_an_external_send_reaches_the_game_and_is_echoed_with_its_origin():
+    game = FakeGame()
+    server, port = _start_server(game)
+    window = socket.create_connection(("127.0.0.1", port), timeout=5)
+    window.settimeout(5)
+    assert _await(lambda: server.clients), "window never registered"
+
+    assert session.send_line("127.0.0.1", port, "\x1ebot\texp all")
+    assert _await(lambda: game.sent), "the command never reached the game"
+    assert game.sent[-1] == b"exp all\n"  # the tag is stripped
+    buffer = b""
+    deadline = 50
+    while b"[bot]" not in buffer and deadline:
+        buffer += window.recv(4096)
+        deadline -= 1
+    frames, _ = session.decode_frames(buffer)
+    echo = next((text, style) for text, _, style in frames if "[bot]" in text)
+    assert echo == (">> [bot] exp all\n", "sent")
+    # No second, player-style echo for the same line.
+    assert not any(text == "> exp all\n" for text, _, _ in frames)
+    window.close()

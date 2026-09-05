@@ -32,6 +32,7 @@ Repository = "https://github.com/jandersson/revenant"
 [project.scripts]
 revenant = "client.launch:main"
 revenant-chat = "client.gui.chat_window:main"
+revenant-send = "client.sendcmd:main"
 
 [dependency-groups]
 dev = [

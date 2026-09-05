@@ -25,6 +25,10 @@ DEFAULTS = {
     # long to load (helper reloads included). REVENANT_DEV=1 turns it on
     # for one launch.
     "dev_mode": False,
+    # revenant-send (client/sendcmd.py, #135): commands beyond the
+    # read-only allowlist may be sent into a session from outside.
+    # REVENANT_ALLOW_SEND=1 opens the gate for one call.
+    "allow_external_send": False,
     "lnet_name": "",  # the last name the standalone chat window logged in as
     # The game text's font (client/textfont.py): a family name and a
     # point size. "" / 0 — what an untouched file holds — means the

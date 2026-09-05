@@ -53,6 +53,29 @@ How it works:
 
 Caveats: running scripts are stopped, not resumed (start them again with `;run`); a session older than this feature doesn't know `;reexec`, so the first upgrade still needs one old-fashioned quit-and-relaunch. On Windows `;reexec` is unsupported (WinSock handles can't survive the exec handoff, #129 tracks a port) and says so instead of trying: quit and relaunch there.
 
+## Sending a command from outside
+
+`revenant-send <command>` puts one line into the running session as if
+typed, for a tool or an agent that has already worked out what to do
+(#135). Every attached window shows it as `>> [external] <command>` and
+the session log records it, so nothing sent this way acts invisibly.
+
+Read-only commands go through whenever a session is listening: INFO,
+EXP, SPELL, HEALTH, WEALTH, LOOK, TIME, INVENTORY, GLANCE, ASSESS and
+the `;list`, `;help`, `;stop`, `;sheet`, `;clock` scripts. Everything
+else is refused until the gate is open: "allow external tools to send
+any command" in File → Settings, or `REVENANT_ALLOW_SEND=1` for one
+call. `--dry-run` reports what would happen and sends nothing;
+`--character NAME` picks a session when several run; the exit status
+is 0 when the line went out and 1 when it was refused or nothing was
+listening.
+
+```sh
+revenant-send exp all
+revenant-send --dry-run ";go2 bank"
+REVENANT_ALLOW_SEND=1 revenant-send --character Lanival "stance set 100 80 0"
+```
+
 ## Settings
 
 File → Settings edits `~/.revenant/settings.json`: the game text's font and size (applied live; the Experience dock stays monospace), which scripts autostart, whether closing the window quits the game, the clocks dock's Earth-moon row, and developer mode. `REVENANT_NO_XP=1` and `REVENANT_NO_BEHOLDER=1` override the autostarts for one launch.

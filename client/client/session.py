@@ -121,6 +121,14 @@ def running_sessions(host=DEFAULT_HOST):
     return live
 
 
+# A frontend line that starts with this byte was sent from outside the
+# frontends — revenant-send (client/sendcmd.py, #135): "\x1e<origin>\t
+# <command>". The session strips the tag, echoes the command to EVERY
+# attached window as ">> [<origin>] <command>" and logs it, so a line
+# the player did not type never acts invisibly.
+EXTERNAL_MARK = b"\x1e"
+
+
 def send_line(host, port, text, timeout=5):
     """Send one command line to a running session, as a frontend would.
 
@@ -359,6 +367,18 @@ class SessionServer(ClientLogger):
                 command = command.strip()
                 if not command:
                     continue
+                origin = None
+                if command.startswith(EXTERNAL_MARK):
+                    tag, _, command = command[1:].partition(b"\t")
+                    origin = tag.decode("UTF-8", "replace").strip() or "external"
+                    command = command.strip()
+                    if not command:
+                        continue
+                    shown = command.decode("UTF-8", "replace")
+                    self.log.info("external send from %s: %r", origin, shown)
+                    # Every window, the sender included if it is one:
+                    # this line was not typed by the player (#135).
+                    self.broadcast(f">> [{origin}] {shown}\n", "", "sent")
                 try:
                     if command == b";reexec":
                         self.reexec()
@@ -369,13 +389,15 @@ class SessionServer(ClientLogger):
                         # Every OTHER frontend sees what this one sent
                         # (dim, shell-style): a probe- or twin-window-
                         # driven command must never act invisibly. The
-                        # sender echoes its own locally.
-                        self.broadcast(
-                            f"> {command.decode('UTF-8', 'replace')}\n",
-                            "",
-                            "sent",
-                            exclude=conn,
-                        )
+                        # sender echoes its own locally; an external
+                        # send was already echoed with its origin.
+                        if origin is None:
+                            self.broadcast(
+                                f"> {command.decode('UTF-8', 'replace')}\n",
+                                "",
+                                "sent",
+                                exclude=conn,
+                            )
                 except Exception as error:
                     # One bad handler must never kill this reader thread:
                     # that leaves the frontend half-dead — receiving

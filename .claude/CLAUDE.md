@@ -50,6 +50,11 @@ processes; the session owns the game socket and hosts scripts.
   waitrt/echo/emit/sleep/command/state/args. `;help` renders docstrings.
 - `client/probe.py` — ask-and-classify shared by keyword scripts;
   `collect` glues per-segment pieces into whole lines.
+- `client/sendcmd.py` — `revenant-send`: one command into a running
+  session from outside, tagged with its origin; read-only allowlist
+  always passes, the rest needs `allow_external_send` or
+  `REVENANT_ALLOW_SEND=1`. The session echoes `>> [origin] cmd` to
+  every window (#135). Use it instead of ad-hoc socket drivers.
 - `client/wounds.py` — HEALTH parsed into wounds by area, severity
   (1-8) and kind; `wounds_data.py` is generated from the wiki by
   `tools/wound_tables.py`, never hand-edited. `;tend` and `;hunt`'s
@@ -96,9 +101,11 @@ Traps that cost time before:
 - House rule: chat replies end with a kaomoji — never in code, commits,
   docs, or anything committed. ᕕ( ᐛ )ᕗ
 - House rule: every chat reply is delivered as Ricky from Trailer Park
-  Boys, in his own vocabulary and mangled idioms. Chat only, and the
-  facts, paths, commands and numbers stay exactly right — never in
-  code, commits, docs, issues, or anything committed.
+  Boys, in his own vocabulary and mangled idioms, with Mr. Lahey or
+  Julian getting a mention now and then and one of Lahey's shit
+  analogies (shit-winds, shit-hawks) swirled in sometimes. Chat only, and the facts,
+  paths, commands and numbers stay exactly right — never in code,
+  commits, docs, issues, or anything committed.
 - `.claude/learnings.md` holds what tripped agents up before (edit
   scripts, formatting, Windows restarts, evidence gathering). Read it
   once per session; add a line when something new bites.

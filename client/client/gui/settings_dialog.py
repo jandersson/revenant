@@ -60,6 +60,11 @@ class SettingsDialog(QDialog):
             "Developer mode: report script starts that are slow to load"
         )
         self.dev_mode.setChecked(bool(settings.get("dev_mode")))
+        self.allow_external_send = QCheckBox(
+            "Allow external tools to send any command (revenant-send); "
+            "read-only commands always pass"
+        )
+        self.allow_external_send.setChecked(bool(settings.get("allow_external_send")))
         extra_label = QLabel("Also autostart these scripts (comma-separated):")
         self.autostart_extra = QLineEdit(
             ", ".join(settings.get("autostart_extra") or [])
@@ -90,6 +95,7 @@ class SettingsDialog(QDialog):
             self.quit_on_close,
             self.clocks_earth_moon,
             self.dev_mode,
+            self.allow_external_send,
             extra_label,
             self.autostart_extra,
             note,
@@ -117,6 +123,7 @@ class SettingsDialog(QDialog):
             "quit_on_close": self.quit_on_close.isChecked(),
             "clocks_earth_moon": self.clocks_earth_moon.isChecked(),
             "dev_mode": self.dev_mode.isChecked(),
+            "allow_external_send": self.allow_external_send.isChecked(),
             "font_family": self.font_family.currentFont().family(),
             "font_size": self.font_size.value(),
         }
