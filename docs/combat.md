@@ -54,6 +54,8 @@ shakes its head back and forth, its dark eyes befuddled."
 **Corpses keep their noun**: after a kill, `ATTACK cougar` resolves
 to the body — "The cougar is already quite dead." — while a second,
 living cougar closes unmolested (captured: ten wasted swings).
+The corpse's `<crtrStatus>` keeps `hostile="1"` and adds `dead="1"`
+(captured 2026-09-05); the parser leaves it out of `state.hostiles`.
 **`SEARCH <corpse>` disposes of it** (confirmed 2026-08-22),
 clearing the noun so the next ATTACK finds the living one — the
 retarget move for automation. `FACE NEXT` remains an unverified

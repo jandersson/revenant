@@ -36,25 +36,35 @@ EMPTY_ROOM_WAIT = 20  # seconds between looks when the whole ground is empty
 EMPTY_LAPS = 2  # laps of the ground with nothing in it before giving up
 MIND_LOCK = 34
 
-# Captured kill line (cougar, 2026-08-22): "The cougar slowly tips over
-# and falls down." The other wordings are assumptions until captured.
+# Captured kill lines: "The cougar slowly tips over and falls down."
+# (2026-08-22) and "The ship's rat falls to the ground and lies still."
+# (2026-09-05 — the first ;hunt missed it and kept swinging). The
+# other wordings are assumptions until captured.
 _KILL_WORDS = (
     "tips over",
     "goes still",
     "falls down",
+    "falls to the ground",
+    "lies still",
     " dies",
     "collapses",
     "keels over",
 )
 _KILL_NOUN = re.compile(
     r"\b(?:the|a|an) ((?:[\w'-]+ )*?)([\w'-]+) (?:slowly |suddenly )?"
-    r"(?:tips over|goes still|falls down|dies|collapses|keels over)",
+    r"(?:tips over|goes still|falls down|falls to the ground|lies still|dies|"
+    r"collapses|keels over)",
     re.IGNORECASE,
 )
 # Bare ATTACK with every attacker dead (captured 2026-08-22).
 _ALL_DEAD = ("nothing else to face", "what are you trying to attack")
-# A corpse soaking swings (captured 2026-08-22, docs/combat.md).
-_DEAD_NOUN = re.compile(r"The (\w+) is already quite dead")
+# A corpse soaking swings (captured 2026-08-22, docs/combat.md); the
+# noun can be several words — "The ship's rat is already quite dead."
+_DEAD_NOUN = re.compile(r"The ((?:[\w'-]+ )*?)([\w'-]+) is already quite dead")
+# Swings a corpse soaked after being disposed of before the room is
+# declared clear anyway — the hostile state lagged for a whole hunt
+# once (2026-09-05, before the parser learned dead="1").
+CORPSE_SWINGS = 2
 _NOTHING_THERE = ("what were you referring",)
 
 # Failures before successes: a failure wording can contain a success
@@ -95,6 +105,7 @@ class Tally:
         self.unrecognized = 0
         self.empty_moves = 0
         self.room_clear = False
+        self.corpse_swings = 0
 
 
 def hostiles(state):
@@ -278,13 +289,20 @@ def loop(s, profile, db, ground, avoid, tally):
         if any(word in lowered for word in _KILL_WORDS):
             tally.kills += 1
             tally.empty_moves = 0
+            tally.corpse_swings = 0
             corpse = kill_noun(text) or prey or "corpse"
             s.echo(f"hunt: {corpse} down ({tally.kills})")
             dispose(s, profile, corpse, tally)
         elif any(word in lowered for word in _ALL_DEAD):
             tally.room_clear = True  # the game says so; the hostile state lags
         elif corpse := _DEAD_NOUN.search(text):
-            dispose(s, profile, corpse.group(1), tally)
+            tally.corpse_swings += 1
+            if tally.corpse_swings > CORPSE_SWINGS:
+                s.echo("hunt: only a corpse answers — the room is clear")
+                tally.room_clear = True
+                tally.corpse_swings = 0
+            else:
+                dispose(s, profile, corpse.group(2), tally)
         elif any(word in lowered for word in _NOTHING_THERE):
             s.put("face next")
             probe.collect(s, TAIL_SECONDS)

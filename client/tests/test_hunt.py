@@ -66,6 +66,10 @@ PROFILE = DEFAULTS | {
 }
 
 KILL = "The rat slowly tips over and falls down."
+# Captured 2026-09-05, the first live ;hunt: the kill line the script
+# did not know, and the corpse answer with a two-word noun.
+RAT_KILL = "The ship's rat falls to the ground and lies still."
+RAT_CORPSE = "The ship's rat is already quite dead."
 SKINNED = "You skin the rat, obtaining a rat pelt."
 NOTHING = "You search the rat.\nYou find nothing of value."
 
@@ -304,8 +308,33 @@ def test_an_unrecognized_skin_answer_is_reported_not_guessed(travel):
     assert any("1 unrecognized answer(s)" in text for text in arena.echoed)
 
 
+def test_the_captured_rat_kill_is_recognized_and_skinned(travel):
+    arena = Arena(
+        {"attack": [(RAT_KILL, kill)], "skin": [SKINNED], "search": [NOTHING]}
+    )
+    _run(arena, travel_first=False)
+    assert "skin rat" in arena.sent
+    assert any(text.startswith("hunt: rat down (1)") for text in arena.echoed)
+
+
+def test_a_corpse_that_keeps_answering_ends_the_room_not_the_evening(travel):
+    # 2026-09-05: the hostile state still listed the corpse and the loop
+    # swung at it five times. Disposed of once, then the room is clear.
+    # The hostile state never empties here, so each room is declared
+    # clear after CORPSE_SWINGS + 1 swings and the ground is lapped out.
+    arena = Arena({"attack": [RAT_CORPSE] * 100, "search": [NOTHING] * 100})
+    _run(arena, profile=PROFILE | {"skin": False}, travel_first=False)
+    assert "search rat" in arena.sent
+    rooms_visited = hunt.EMPTY_LAPS * len(GROUND.rooms_tagged("rats")) + 1
+    assert arena.sent.count("attack rat") <= (hunt.CORPSE_SWINGS + 1) * rooms_visited
+    assert any("only a corpse answers" in text for text in arena.echoed)
+    assert any("ground empty" in text for text in arena.echoed)
+
+
 def test_kill_and_item_nouns_are_read_from_the_game_lines():
     assert hunt.kill_noun("The cougar slowly tips over and falls down.") == "cougar"
+    assert hunt.kill_noun(RAT_KILL) == "rat"
+    assert hunt._DEAD_NOUN.search(RAT_CORPSE).group(2) == "rat"
     assert hunt.kill_noun("A large rat goes still.") == "rat"
     assert hunt.kill_noun("You miss.") is None
     assert hunt.items_in("You skin the rat, obtaining a rat pelt.") == ["pelt"]

@@ -238,7 +238,11 @@ class XMLData:
             # a creature re-announced harmless drops out at the swap.
             if self._staged_hostiles is None:
                 self._staged_hostiles = {}
-            if attributes.get("hostile") == "1":
+            # A corpse keeps hostile="1" and adds dead="1" (captured
+            # 2026-09-05: a hunter that counted it swung at it five
+            # times, "The ship's rat is already quite dead."). Dead is
+            # not hostile.
+            if attributes.get("hostile") == "1" and attributes.get("dead") != "1":
                 self._staged_hostiles[attributes.get("exist", "")] = (
                     attributes.get("disengaged") != "1"
                 )

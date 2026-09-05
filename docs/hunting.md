@@ -34,12 +34,21 @@ profile it would use.
 
 ## What is captured and what is assumed
 
-Captured (from the 2026-08-22 traffic behind combat.md):
+Captured (the 2026-08-22 traffic behind combat.md, and the first live
+`;hunt` on 2026-09-05 — a circle-1 Paladin against ship's rats at
+Barana's Shipyard):
 
-- the kill line "The cougar slowly tips over and falls down." — the
-  corpse noun is read from it;
-- "The <noun> is already quite dead." — a corpse soaking swings, which
-  the loop disposes of (skin, search) like a fresh kill;
+- the kill lines "The cougar slowly tips over and falls down." and
+  "The ship's rat falls to the ground and lies still." — the corpse
+  noun is the word before the kill phrase ("rat"). The first run knew
+  only the cougar wording, missed the rat's kill and never skinned;
+- "The ship's rat is already quite dead." — a corpse soaking swings,
+  which the loop disposes of (skin, search) like a fresh kill, and
+  after two more such answers declares the room clear; the noun can
+  be several words;
+- the corpse's `<crtrStatus>` keeps `hostile="1"` and adds `dead="1"`
+  — the parser now drops it from the hostile set, which is what let
+  the first run swing at the body five times;
 - "There is nothing else to face!  What are you trying to attack?" —
   the room is clear even while the hostile state lags;
 - SEARCH <corpse> removes it and clears the noun.

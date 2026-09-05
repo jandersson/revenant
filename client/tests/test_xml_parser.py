@@ -444,3 +444,20 @@ def test_other_control_characters_are_stripped_without_a_bell():
 def test_a_line_without_a_bell_emits_no_bell_segment():
     xml_data = XMLData()
     assert all(stream != "bell" for stream, _, _ in xml_data.route("Quiet."))
+
+
+# Captured 2026-09-05 (#149): the kill. The corpse's tag keeps
+# hostile="1" and adds dead="1"; ;hunt counted it as an opponent and
+# swung at it five times ("The ship's rat is already quite dead.").
+CRTR_DEAD = (
+    "<component id='room objs'>You also see <pushBold/>a ship's rat<popBold/>"
+    " which appears dead.</component>"
+    '<crtrStatus exist="15816359" hostile="1" disengaged="1" dead="1" sleeping="1"/>'
+    '<prompt time="1788578245">&gt;</prompt>'
+)
+
+
+def test_a_dead_creature_is_no_hostile(xml_data):
+    XMLParser(target=xml_data).feed(f"<r>{CRTR_ARRIVE}</r>")
+    XMLParser(target=xml_data).feed(f"<r>{CRTR_DEAD}</r>")
+    assert xml_data.hostiles == {}
