@@ -4,8 +4,10 @@ Walks to your profile's hunting ground (;go2's map), readies the weapon
 and stance, and fights whatever engages you until you say stop: attack,
 retarget past corpses, skin the kill if the profile says so, search the
 corpse, pouch any gems, and move on to the next room of the ground when
-this one runs empty. Breaks off and walks home below the health floor,
-when the trained skills mind-lock, at the kill fuse, or when you type
+this one runs empty. Breaks off and walks home below the health floor
+or at a wound at the profile's wound floor (HEALTH after each kill and
+whenever health drops), when the trained skills mind-lock, at the kill
+fuse, or when you type
 ;hunt stop  (the current kill is finished first).  ;hunt here  skips
 the walk;  ;hunt profile  prints the profile it would use.
 
@@ -27,6 +29,7 @@ from client import probe
 from client.probe import classify
 from client.profile import describe, load_profile
 from client.walker import locate, walk
+from client.wounds import SEVERITIES, level, parse_health
 
 MAX_ACTIONS = 600  # a session, not forever — the fuse under every loop
 COLLECT_SECONDS = 3  # the swing's own lines
@@ -149,6 +152,25 @@ def unrecognized(s, tally, what, answer):
     s.echo(f"hunt: unrecognized {what} answer {first!r} — please report it")
 
 
+def wound_at_floor(s, profile):
+    """HEALTH, read against the profile's wound floor: the (area, kind,
+    level) that meets it, or None. "" never asks."""
+    floor = profile.get("wound_floor") or ""
+    if not floor:
+        return None
+    try:
+        wanted = level(floor)
+    except ValueError:
+        s.echo(f"hunt: wound floor {floor!r} is not a severity — ignoring it")
+        profile["wound_floor"] = ""
+        return None
+    health = parse_health(ask(s, "health"))
+    for fragment in health.unknown:
+        s.echo(f"hunt: unrecognized wound {fragment!r} — please report it")
+    hits = health.at_least(wanted)
+    return max(hits, key=lambda hit: hit[2]) if hits else None
+
+
 def escape(s):
     """The burst: retreat, retreat, first exit (docs/combat.md)."""
     exits = list(getattr(s.state, "compass", None) or [])
@@ -267,6 +289,8 @@ def loop(s, profile, db, ground, avoid, tally):
     """Fight until something ends the hunt; returns why."""
     prey = profile["prey"]
     floor = profile["health_floor"]
+    last_health = health(s.state)
+    check_wounds = False
     for _ in range(MAX_ACTIONS):
         if s.dead:
             return "dead — deathwatch has it"
@@ -276,6 +300,15 @@ def loop(s, profile, db, ground, avoid, tally):
         if current is not None and current < floor:
             escape(s)
             return f"health {current}% below the floor"
+        if current is not None and last_health is not None and current < last_health:
+            check_wounds = True
+        last_health = current
+        if check_wounds:
+            check_wounds = False
+            if hit := wound_at_floor(s, profile):
+                area, kind, lvl = hit
+                escape(s)
+                return f"{area} {kind.replace('_', ' ')} {SEVERITIES[lvl]} — at the wound floor"
         if locked(s.state, profile["train_skills"]):
             return "trained skills mind-locked"
         if profile["max_kills"] and tally.kills >= profile["max_kills"]:
@@ -293,6 +326,7 @@ def loop(s, profile, db, ground, avoid, tally):
             corpse = kill_noun(text) or prey or "corpse"
             s.echo(f"hunt: {corpse} down ({tally.kills})")
             dispose(s, profile, corpse, tally)
+            check_wounds = True
         elif any(word in lowered for word in _ALL_DEAD):
             tally.room_clear = True  # the game says so; the hostile state lags
         elif corpse := _DEAD_NOUN.search(text):

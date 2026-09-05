@@ -45,6 +45,11 @@ DEFAULTS = {
     "gem_pouch": "",
     # Below this health % the loop breaks off and walks home.
     "health_floor": 60,
+    # A wound this bad or worse (any area, any kind — HEALTH, parsed by
+    # client/wounds.py) breaks the loop off too: insignificant,
+    # negligible, minor, harmful, damaging, severe, devastating,
+    # useless. "" never asks HEALTH.
+    "wound_floor": "",
     # Skills the hunt is for: when every one of them is mind-locked the
     # hunt ends (the exp window's mindstate). [] hunts until stopped.
     "train_skills": [],
@@ -65,6 +70,12 @@ FIELDS = (
     ("loot_container", "Stow loot and skins in", "str", "empty: the STOW default"),
     ("gem_pouch", "Gem pouch noun", "str", "empty: gems are stowed like loot"),
     ("health_floor", "Break off below health %", "int", "60"),
+    (
+        "wound_floor",
+        "Break off at a wound this bad",
+        "str",
+        "harmful, severe — empty: off",
+    ),
     ("train_skills", "Stop when these skills lock", "list", "Small Edged, Evasion"),
     ("max_kills", "Kills per run (0 = until stopped)", "int", ""),
 )

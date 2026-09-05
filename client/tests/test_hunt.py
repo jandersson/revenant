@@ -240,6 +240,67 @@ def test_below_the_health_floor_the_hunt_breaks_off_and_goes_home(travel):
     assert arena.walks[-1] == {1}
 
 
+HURT = "Your body feels slightly battered.\nYou have deep cuts across the neck.\n"
+
+
+def test_a_wound_at_the_floor_breaks_the_hunt_off_after_a_kill(travel):
+    # HEALTH is asked after each kill; "deep cuts across the neck" is
+    # harmful, the profile's floor.
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+            "health": [HURT],
+        }
+    )
+    _run(arena, profile=PROFILE | {"wound_floor": "harmful"}, travel_first=False)
+    assert "health" in arena.sent
+    assert any(
+        "neck external harmful — at the wound floor" in text for text in arena.echoed
+    )
+    assert arena.sent[-1] == "put my handaxe in my sack"  # walked home
+
+
+def test_a_wound_below_the_floor_keeps_hunting(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+            "health": [HURT],
+        }
+    )
+    _run(arena, profile=PROFILE | {"wound_floor": "severe"}, travel_first=False)
+    assert "health" in arena.sent
+    assert not any("wound floor" in text for text in arena.echoed)
+
+
+def test_health_is_also_asked_when_the_bar_drops_mid_fight(travel):
+    def hurt(arena):
+        arena.state.vitals["health"] = 80
+
+    arena = Arena(
+        {
+            "attack": [("You miss.", hurt), (KILL, kill)],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+            "health": [CLEAN_HEALTH, CLEAN_HEALTH],
+        }
+    )
+    _run(arena, profile=PROFILE | {"wound_floor": "harmful"}, travel_first=False)
+    assert arena.sent.index("health") < arena.sent.index("skin rat")
+
+
+def test_no_wound_floor_never_asks_health(travel):
+    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+    _run(arena, travel_first=False)
+    assert "health" not in arena.sent
+
+
+CLEAN_HEALTH = "Your body feels at full strength.\nYou have no significant injuries.\n"
+
+
 def test_the_stop_word_ends_the_hunt_before_the_next_swing(travel):
     arena = Arena({"attack": []})
     arena.commands = ["stop"]

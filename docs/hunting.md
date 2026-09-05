@@ -25,6 +25,7 @@ It holds what no script should hard-code:
 | loot_container | where skins and non-gem finds go (`PUT my <item> IN my <container>`, else `STOW my <item>`) |
 | gem_pouch | finds are tried into the pouch first; what the pouch refuses is stowed like loot |
 | health_floor | below it: the burst escape (retreat, retreat, first exit), then home |
+| wound_floor | a severity name; HEALTH is asked after each kill and whenever the health bar drops, and a wound that bad or worse anywhere (external, scar, internal, internal scar) breaks off like the health floor. Empty never asks. Model: [wounds.md](wounds.md) |
 | train_skills | the hunt ends when every one of them sits at mindstate 34 in the exp window |
 | max_kills | a fuse; 0 hunts until stopped, locked or the ground empties |
 

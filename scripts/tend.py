@@ -12,43 +12,18 @@ parasite) is tended again after it pops free. Dead means defer —
 deathwatch owns death. Stop with:  ;stop tend
 
 Bleed rates and responses follow lich's healing data (DRCH), rates per
-https://elanthipedia.play.net/Damage#Bleeding_Levels
+https://elanthipedia.play.net/Damage#Bleeding_Levels; the HEALTH answer
+is read by client/wounds.py, shared with ;hunt's wound floor.
 """
 
 import re
 
+from client.wounds import expand_area  # noqa: F401 — TEND's area spelling
+from client.wounds import parse_health as parse_health_answer
+
 CHECK_INTERVAL = 5  # seconds between bleeding-indicator polls
 UNTENDABLE_HOLD = 60  # back off when only untendable bleeders remain
 
-# Bleed rate -> (severity for triage, a bandage can help). Rates the
-# health command shows; "(tended)" and clotted variants need no tending.
-RATES = {
-    "slight": (3, True),
-    "light": (4, True),
-    "moderate": (5, True),
-    "bad": (6, True),
-    "very bad": (7, True),
-    "heavy": (8, True),
-    "very heavy": (9, True),
-    "severe": (10, True),
-    "very severe": (11, True),
-    "extremely severe": (12, True),
-    "profuse": (13, True),
-    "gushing": (14, True),
-    "massive stream": (15, True),
-    "uncontrollable": (16, True),
-    "unbelievable": (17, True),
-    "beyond measure": (18, True),
-    "death awaits": (19, True),
-}
-
-_BLEEDER = re.compile(
-    r"^\s*(?P<inside>inside\s+)?"
-    r"(?P<area>(?:l\.|r\.|left|right)?\s?"
-    r"(?:head|eye|neck|chest|abdomen|back|arm|hand|leg|tail|skin))"
-    r"\s{2,}(?P<rate>[a-z( )]+?)\s*$",
-    re.IGNORECASE,
-)
 
 TEND_OK = (
     r"You work carefully at tending",
@@ -71,11 +46,6 @@ SOAK_PATTERNS = (
     r"begins? bleeding again",
     r"bandages .* (?:loosen|slip|come loose)",
 )
-
-
-def expand_area(area):
-    """The health table abbreviates sides; TEND likes them spelled out."""
-    return area.replace("l.", "left").replace("r.", "right")
 
 
 def triage(bleeders):
@@ -151,28 +121,9 @@ def parse_health(s_or_lines):
 
 
 def _parse_health_lines(lines):
-    bleeders = []
-    for line in lines:
-        match = _BLEEDER.match(line)
-        if not match:
-            continue
-        rate = match.group("rate").strip().lower()
-        if rate.endswith("(tended)") or rate in ("clotted", "clotted(tended)"):
-            severity, tendable = 0, False
-        elif rate in RATES:
-            severity, tendable = RATES[rate]
-        else:
-            continue
-        bleeders.append(
-            {
-                "area": expand_area(match.group("area").strip()),
-                "inside": bool(match.group("inside")),
-                "rate": rate,
-                "severity": severity,
-                "tendable": tendable,
-            }
-        )
-    return bleeders
+    """The bleeding table's rows, via the shared HEALTH parser
+    (client/wounds.py, #151) — the wound list rides along unused here."""
+    return parse_health_answer(lines).bleeders()
 
 
 def bleeding(state):

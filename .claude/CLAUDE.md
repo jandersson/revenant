@@ -50,6 +50,10 @@ processes; the session owns the game socket and hosts scripts.
   waitrt/echo/emit/sleep/command/state/args. `;help` renders docstrings.
 - `client/probe.py` — ask-and-classify shared by keyword scripts;
   `collect` glues per-segment pieces into whole lines.
+- `client/wounds.py` — HEALTH parsed into wounds by area, severity
+  (1-8) and kind; `wounds_data.py` is generated from the wiki by
+  `tools/wound_tables.py`, never hand-edited. `;tend` and `;hunt`'s
+  wound floor read it. Model: docs/wounds.md.
 - `client/profile.py` — per-character profiles
   (`~/.revenant/profiles/<name>.json`): the quirks `;hunt` must not
   hard-code (weapon, stance, skin, pouch, floor, ground, home). FIELDS
@@ -91,6 +95,13 @@ Traps that cost time before:
   ask, and stands alone. Reasoning and caveats follow, never lead.
 - House rule: chat replies end with a kaomoji — never in code, commits,
   docs, or anything committed. ᕕ( ᐛ )ᕗ
+- House rule: now and then, at random, a chat reply is delivered as
+  Ricky from Trailer Park Boys, in his own vocabulary and mangled
+  idioms. Chat only, and the facts stay correct — never in code,
+  commits, docs, issues, or anything committed.
+- `.claude/learnings.md` holds what tripped agents up before (edit
+  scripts, formatting, Windows restarts, evidence gathering). Read it
+  once per session; add a line when something new bites.
 - Every behavior change ships with tests in `client/tests/`; bug fixes get
   a regression test, ideally from captured game traffic. Tests are the
   manual: plainly named, input → expected response. Captured fixtures pin
