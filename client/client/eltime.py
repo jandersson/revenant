@@ -178,6 +178,46 @@ _TIME_ANLAS = re.compile(
 )
 
 
+# TIME's day-phase words and the Elanthian hours each was captured at
+# (13 words, 2026-08-22 and 2026-09-03 sessions, hours computed with the
+# calibrated offset). They fall into two-hour bands; each band here is
+# widened by an hour at both ends so the check only fires on a real
+# drift — the #101 parse bug moved the clock two game hours, and that
+# is what this exists to catch (#103). Ranges are half-open in float
+# hours; the two that wrap midnight are listed as such.
+DAY_PHASES = {
+    "dawn": (5.0, 8.0),
+    "early morning": (6.0, 10.0),
+    "mid-morning": (8.0, 12.0),
+    "late morning": (10.0, 14.0),
+    "midday": (12.0, 15.5),
+    "early afternoon": (13.5, 17.5),
+    "mid-afternoon": (15.5, 19.5),
+    "late afternoon": (17.5, 20.0),
+    "dusk": (18.0, 21.5),
+    "sunset": (19.5, 22.5),
+    "early evening": (20.5, 23.5),
+    "late evening": (22.5, 2.0),
+    "night": (23.0, 6.0),
+}
+_TIME_PHASE = re.compile(r"and it is (?P<phase>[a-z -]+?)\.")
+
+
+def phase_agrees(phase, hour):
+    """Whether TIME's day-phase word fits the computed hour (float,
+    0..24): True, False, or None for a word the table does not know —
+    unknown words never block a sync (#103)."""
+    if not phase:
+        return None
+    band = DAY_PHASES.get(phase)
+    if band is None:
+        return None
+    start, end = band
+    if start <= end:
+        return start <= hour < end
+    return hour >= start or hour < end  # wraps midnight
+
+
 def parse_time_output(text):
     """The game's TIME answer as a dict, or None when it isn't one.
 
@@ -199,6 +239,7 @@ def parse_time_output(text):
         if anlas.group("count") is not None:
             count = int(anlas.group("count"))
             anlas_roisaen = -count if anlas.group("relation") == "before" else count
+    phase = _TIME_PHASE.search(text)
     return {
         "years": int(elapsed.group(1)),
         "days": int(elapsed.group(2)),
@@ -209,6 +250,9 @@ def parse_time_output(text):
         # Signed roisaen from the named anlas's START (negative =
         # before it begins), or None when TIME gave no count.
         "anlas_roisaen": anlas_roisaen,
+        # "It is currently summer and it is dusk." — the day-phase word
+        # the sync cross-checks against the computed hour (#103).
+        "phase": phase.group("phase") if phase else None,
     }
 
 

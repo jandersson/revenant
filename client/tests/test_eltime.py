@@ -66,6 +66,7 @@ def test_parse_time_output_reads_the_captured_answer():
         "year_name": "Golden Panther",
         "anlas": 10,  # Meraud's Cloak
         "anlas_roisaen": None,  # "past the Anlas of X" states no count
+        "phase": "dusk",
     }
 
 
@@ -340,3 +341,62 @@ def test_default_moon_epochs_match_the_live_synced_anchors():
     for moon in eltime.MOON_NAMES:
         assert eltime.moon_phase(moon, OBSERVE_UNIX_WANING) is not None
     assert eltime.moon_phase("xibar", OBSERVE_UNIX_WANING) == 5
+
+
+# --- TIME's day-phase word cross-checks the computed hour (#103) ---
+
+# Every phase word captured so far, at the Elanthian hour it was captured
+# (2026-08-22 and 2026-09-03 sessions, offset-calibrated); the bands in
+# DAY_PHASES were drawn from these and widened by an hour each side.
+CAPTURED_PHASES = [
+    ("dawn", 6.3),
+    ("early morning", 7.0),
+    ("early morning", 8.6),
+    ("mid-morning", 9.0),
+    ("mid-morning", 10.6),
+    ("late morning", 11.0),
+    ("late morning", 12.6),
+    ("midday", 13.0),
+    ("midday", 14.3),
+    ("early afternoon", 14.6),
+    ("early afternoon", 16.3),
+    ("mid-afternoon", 16.6),
+    ("mid-afternoon", 18.3),
+    ("late afternoon", 18.6),
+    ("dusk", 18.9),
+    ("dusk", 20.3),
+    ("sunset", 20.6),
+    ("sunset", 21.3),
+    ("early evening", 21.6),
+    ("late evening", 0.3),
+    ("night", 1.0),
+]
+
+
+def test_parse_time_output_reads_the_day_phase_word():
+    assert eltime.parse_time_output(TIME_TEXT)["phase"] == "dusk"
+
+
+def test_every_captured_phase_agrees_with_its_hour():
+    for phase, hour in CAPTURED_PHASES:
+        assert eltime.phase_agrees(phase, hour) is True, (phase, hour)
+
+
+def test_a_two_game_hour_drift_is_caught():
+    # The #101 bug moved the clock ~29 real minutes, two game hours.
+    assert eltime.phase_agrees("midday", 10.5) is False
+    assert eltime.phase_agrees("dusk", 23.0) is False
+    assert eltime.phase_agrees("dawn", 9.0) is False
+
+
+def test_unknown_or_missing_phase_words_never_block():
+    assert eltime.phase_agrees("the witching hour", 3.0) is None
+    assert eltime.phase_agrees(None, 3.0) is None
+    assert eltime.phase_agrees("", 3.0) is None
+
+
+def test_the_bands_that_wrap_midnight():
+    assert eltime.phase_agrees("night", 23.5) is True
+    assert eltime.phase_agrees("night", 5.9) is True
+    assert eltime.phase_agrees("night", 12.0) is False
+    assert eltime.phase_agrees("late evening", 1.5) is True

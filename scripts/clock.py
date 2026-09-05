@@ -3,7 +3,10 @@
 The ntpdate of Elanthia: sends TIME, compares the answer to the
 computed calendar (client/eltime.py), and stores the correction in
 ~/.revenant/settings.json (eltime_offset_seconds) for the GUI's clocks
-dock; then OBSERVE MOONS to anchor the three moons' phases the same
+dock — unless TIME's day-phase word ("and it is dusk") contradicts the
+computed hour, in which case the offset is refused and reported, since a
+parse that drifts the clock is worse than none; then OBSERVE MOONS to
+anchor the three moons' phases the same
 way (eltime_moons). Echoes the date and the drift. ;clock resyncs
 every six hours; ;clock once syncs a single time and exits.
 
@@ -53,8 +56,19 @@ def sync_calendar(s):
         return
     previous = settings.setting("eltime_offset_seconds") or 0
     offset = round(eltime.calibrate(parsed, captured_at))
-    settings.save_settings({"eltime_offset_seconds": offset})
     et = eltime.elanthian_now(captured_at, offset)
+    # TIME also says which part of the day it is; a computed hour that
+    # contradicts it means the parse went wrong (#101 drifted the clock
+    # two game hours), so the offset is refused, not stored (#103).
+    hour = et.hour + et.minute / 60
+    if eltime.phase_agrees(parsed.get("phase"), hour) is False:
+        s.echo(
+            f"clock: TIME says it is {parsed['phase']} but the computed hour "
+            f"is {et.hour:02d}:{et.minute:02d} — offset {offset:+d}s NOT stored; "
+            "the TIME parse is suspect, please report this answer"
+        )
+        return
+    settings.save_settings({"eltime_offset_seconds": offset})
     _, date_line = eltime.describe(et)
     s.echo(
         f"clock: {date_line}, {et.anlas_name} — "

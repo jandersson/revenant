@@ -48,6 +48,35 @@ count and is anchored mid-X (±15 real minutes). Misreading "before"
 as "within" cost ~29 real minutes of drift when it was live
 (2026-08-23) — the wordings are load-bearing, capture any new one.
 
+## The day's phases
+
+TIME ends its answer with the season and a day-phase word: "It is
+currently summer and it is dusk." Thirteen words have been captured,
+each at the Elanthian hour the calibrated clock gave for that moment,
+and they fall into two-hour bands:
+
+| word | captured hours |
+| --- | --- |
+| dawn | 6.3–6.6 |
+| early morning | 7.0–8.7 |
+| mid-morning | 9.0–10.6 |
+| late morning | 11.0–12.7 |
+| midday | 13.0–14.3 |
+| early afternoon | 14.6–16.3 |
+| mid-afternoon | 16.6–18.3 |
+| late afternoon | 18.6 |
+| dusk | 18.9–20.3 |
+| sunset | 20.6–21.3 |
+| early evening | 21.6 |
+| late evening | 0.3 |
+| night | 1.0 |
+
+`eltime.DAY_PHASES` holds each band widened by an hour at both ends, and
+`;clock` refuses to store an offset whose computed hour falls outside the
+band for the word TIME used. That catches the failure that motivated it:
+the #101 parse bug drifted the clock about two game hours, well outside
+any band. Words the table does not know are ignored, never fatal.
+
 ## The moons
 
 Xibar, Yavash, and Katamba each cycle through eight phases (new →
