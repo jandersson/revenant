@@ -90,7 +90,7 @@ Revenant stands on the DragonRealms community's open work, and credit belongs wh
 - [elanthia-online/lich-5](https://github.com/elanthia-online/lich-5) — Lich, the scripting engine most of the DR world runs on. Revenant's session-and-scripts split is modeled on it, and `;lnet` is a 1:1 port of `lnet.lic`.
 - [elanthia-online/dr-scripts](https://github.com/elanthia-online/dr-scripts) — the community's Lich scripts for DragonRealms: the reference for what a script ecosystem grows into, and where the `;`-command habits come from.
 - [elanthia-online/mapdb-backup-dr](https://github.com/elanthia-online/mapdb-backup-dr) — the community map. Downloaded on first use for the Map dock and `;go2`, never vendored.
-- [elanthia-online/ProfanityFE](https://github.com/elanthia-online/ProfanityFE) — the terminal frontend. What to use for a TUI today, and what [launcher/](launcher/) pairs with Lich.
+- [elanthia-online/ProfanityFE](https://github.com/elanthia-online/ProfanityFE) — the terminal frontend. The terminal frontend [launcher/](launcher/) pairs with Lich; revenant's own is `revenant-tui`, which attaches to a running session (docs/running.md).
 - [elanthia-online/illthorn](https://github.com/elanthia-online/illthorn) — an Electron frontend for Lich.
 - [elanthia-online/Lichborne](https://github.com/elanthia-online/Lichborne) — a community-driven DragonRealms client for Lich users.
 - [GenieClient/Genie4](https://github.com/GenieClient/Genie4) — Genie, the .NET frontend, with its own script language and plugin scene.

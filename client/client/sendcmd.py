@@ -3,7 +3,7 @@
     revenant-send [--character NAME] [--dry-run] <command words ...>
 
 The supported, audited way for a tool or an agent to act on what it
-worked out — ";go2 bank", "exp all", ";stop hunt" — instead of handing
+worked out - ";go2 bank", "exp all", ";stop hunt" - instead of handing
 the line over to be retyped (#135). It resolves the character's session
 through the registry the launcher keeps, sends the line tagged with its
 origin, and the session echoes it to every attached window as
@@ -13,8 +13,8 @@ by the player never acts invisibly.
 Off by default, in two tiers. Read-only commands on the allowlist
 (INFO, EXP, SPELL, HEALTH, WEALTH, LOOK, TIME, INVENTORY, GLANCE and the
 ;list / ;help / ;stop / ;sheet / ;clock scripts) go through whenever a
-session is listening. Anything else — everything that spends, drops,
-moves or attacks — needs the gate open: the "allow external sends"
+session is listening. Anything else - everything that spends, drops,
+moves or attacks - needs the gate open: the "allow external sends"
 setting (~/.revenant/settings.json, allow_external_send) or
 REVENANT_ALLOW_SEND=1 for one call. --dry-run says what would happen
 and sends nothing. Exit status 0 when the line went out (or a dry run),

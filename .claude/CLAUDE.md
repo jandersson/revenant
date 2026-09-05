@@ -51,6 +51,10 @@ processes; the session owns the game socket and hosts scripts.
   waitrt/echo/emit/sleep/command/state/args. `;help` renders docstrings.
 - `client/probe.py` — ask-and-classify shared by keyword scripts;
   `collect` glues per-segment pieces into whole lines.
+- `client/tui.py` — `revenant-tui`, the Textual terminal frontend: attach-only,
+  renders through the toolkit-free `client/textstyle.py` (style table,
+  highlight runs, status line — the tested half; keep its STYLES in step
+  with client_gui's). Ctrl+Q detaches (#57).
 - `client/sendcmd.py` — `revenant-send`: one command into a running
   session from outside, tagged with its origin; read-only allowlist
   always passes, the rest needs `allow_external_send` or

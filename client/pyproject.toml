@@ -23,6 +23,7 @@ dependencies = [
     "pyqt6-webengine",
     "pyyaml",
     # zoneinfo's timezone database, absent from the OS on Windows.
+    "textual>=8.2.8",
     "tzdata; sys_platform == 'win32'",
 ]
 
@@ -33,6 +34,7 @@ Repository = "https://github.com/jandersson/revenant"
 revenant = "client.launch:main"
 revenant-chat = "client.gui.chat_window:main"
 revenant-send = "client.sendcmd:main"
+revenant-tui = "client.tui:main"
 
 [dependency-groups]
 dev = [

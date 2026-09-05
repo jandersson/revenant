@@ -10,6 +10,10 @@ uv run revenant Lanival          # a named character: attach if online, else spa
 uv run revenant --pick           # the picker: running sessions to attach, cached characters to launch
 ```
 
+### The terminal frontend
+
+`uv run revenant-tui [character]` attaches a terminal window to a running session instead of the GUI (#57): one scrolling log with the game's styles and your highlight rules, docked streams inline with a `[thoughts]`-style prefix, a status bar with the character, room, vitals, posture, badges and roundtime, Up/Down history. It never logs in by itself; start the session with `revenant` first (or name one with `--attach HOST:PORT`). Ctrl+Q detaches and leaves the character in the game; type `quit` to log out. Both frontends can be attached to the same session at once.
+
 ### First run
 
 The first launch opens the login window: account, password, and a character picked from the roster the launcher fetches once the account and password are in. *Remember* stores the password in the OS keychain (service `revenant`) and the account and character names in `~/.revenant/login.json`; from then on the launch logs straight in. To log in as a different account later, use the picker's *Switch account…* or `uv run revenant --pick`.
