@@ -938,6 +938,20 @@ def test_an_announced_logoff_ends_plainly_without_a_reattach(monkeypatch):
     assert not any("*" in text for text in out)  # no banners
 
 
+def test_the_reattaching_flag_is_up_only_while_the_retry_runs(monkeypatch):
+    # The GUI's Reconnect reads it to say what is happening (#120).
+    seen = []
+    engine = _attached_with([("All quiet.\n", "", "")], monkeypatch)
+    monkeypatch.setattr(
+        engine, "reattach", lambda: seen.append(engine.reattaching) or False
+    )
+    monkeypatch.setattr(session, "REATTACH_TIMEOUT", 0.3)
+    assert engine.reattaching is False
+    _drain(engine)
+    assert seen and all(seen)
+    assert engine.reattaching is False
+
+
 def test_an_unannounced_drop_reattaches_then_says_the_session_is_gone(monkeypatch):
     out = _drain(_attached_with([("All quiet.\n", "", "")], monkeypatch))
     assert any(text.startswith("session dropped — reattaching") for text in out)

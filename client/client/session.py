@@ -489,6 +489,9 @@ class AttachedEngine(ClientLogger):
         # process that said goodbye would only print noise for ten
         # seconds before failing.
         self._session_ended = False
+        # True while _reattach is retrying after a drop: the GUI's
+        # Reconnect reads it to say what is happening (#120).
+        self.reattaching = False
 
     @property
     def connection(self):
@@ -554,16 +557,20 @@ class AttachedEngine(ClientLogger):
                 "script",
                 "",
             )
-        deadline = monotonic() + REATTACH_TIMEOUT
-        while monotonic() < deadline:
-            if not self.reattach():
-                sleep(0.25)
-                continue
-            self.log.info("Reattached to session")
-            if output_callback:
-                output_callback("reattached\n", "script", "")
-            return True
-        return False
+        self.reattaching = True
+        try:
+            deadline = monotonic() + REATTACH_TIMEOUT
+            while monotonic() < deadline:
+                if not self.reattach():
+                    sleep(0.25)
+                    continue
+                self.log.info("Reattached to session")
+                if output_callback:
+                    output_callback("reattached\n", "script", "")
+                return True
+            return False
+        finally:
+            self.reattaching = False
 
 
 def main(argv=None):

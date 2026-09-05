@@ -1105,14 +1105,22 @@ class ClientGUI(QMainWindow, ClientLogger):
         show) and spawns a fresh session, then reattaches from a worker
         thread so the wait never freezes the window."""
         if self._reader_thread is not None and self._reader_thread.is_alive():
-            # The reader is up: either the session is fine, or it dropped
-            # and the reader is reattaching by itself (~10s). Say which
-            # in the story, not only the status bar — a click that only
-            # changed the status bar read as "does nothing" (#120).
-            self._say(
-                "reconnect: still connected — if the session just dropped, "
-                "the window reattaches by itself within ten seconds"
-            )
+            # The reader is up: the session is fine, or it dropped and
+            # the reader is reattaching by itself. Say which in the
+            # story, not only the status bar — a click that only changed
+            # the status bar read as "does nothing" (#120).
+            if getattr(self.client, "reattaching", False):
+                self._say(
+                    "reconnect: the session dropped and the window is "
+                    "reattaching now — give it ten seconds"
+                )
+            elif isinstance(self.client, AttachedEngine):
+                self._say(
+                    f"reconnect: already connected to the session on "
+                    f"{self.client.host}:{self.client.port} — nothing to do"
+                )
+            else:
+                self._say("reconnect: already connected to the game — nothing to do")
             return
         if not isinstance(self.client, AttachedEngine):
             # Direct mode has no session to respawn; log in again.
