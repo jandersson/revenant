@@ -1058,11 +1058,18 @@ class ClientGUI(QMainWindow, ClientLogger):
         show) and spawns a fresh session, then reattaches from a worker
         thread so the wait never freezes the window."""
         if self._reader_thread is not None and self._reader_thread.is_alive():
-            self.status_bar.showMessage("Still connected")
+            # The reader is up: either the session is fine, or it dropped
+            # and the reader is reattaching by itself (~10s). Say which
+            # in the story, not only the status bar — a click that only
+            # changed the status bar read as "does nothing" (#120).
+            self._say(
+                "reconnect: still connected — if the session just dropped, "
+                "the window reattaches by itself within ten seconds"
+            )
             return
         if not isinstance(self.client, AttachedEngine):
             # Direct mode has no session to respawn; log in again.
-            self.status_bar.showMessage("Reconnecting (direct login) ...")
+            self._say("reconnect: logging in again (direct mode) ...")
             Thread(target=self._reconnect_direct, daemon=True).start()
             return
         from client.launch import (
@@ -1079,7 +1086,7 @@ class ClientGUI(QMainWindow, ClientLogger):
                 # two-value unpack crashed the whole GUI on click.
                 account, character, key = gather_login(None)
             except SystemExit:
-                self.status_bar.showMessage("Reconnect cancelled")
+                self._say("reconnect: cancelled")
                 return
             process = spawn_session(
                 self.client.host,
@@ -1088,23 +1095,41 @@ class ClientGUI(QMainWindow, ClientLogger):
                 key=key,
                 account=account,
             )
-        self.status_bar.showMessage("Reconnecting ...")
+        self._say(
+            "reconnect: attaching to the session ..."
+            if process is None
+            else "reconnect: no session was listening — starting one and attaching ..."
+        )
         Thread(
             target=self._finish_reconnect,
             args=(process, wait_for_session),
             daemon=True,
         ).start()
 
+    def _say(self, text):
+        """A line in the story window and the status bar both: what the
+        reconnect is doing, where it cannot be missed (#120)."""
+        self._append(self.main_window, f"{text}\n", "sent")
+        self.status_bar.showMessage(text)
+
     def _finish_reconnect(self, process, wait_for_session):
         try:
             if process is not None:
                 wait_for_session(process, self.client.host, self.client.port)
         except SystemExit as error:
+            self.game_text.emit(f"reconnect failed: {error}\n", "", "alert")
             self.connection_state.emit(str(error))
             return
         if not self.client.reattach():
+            self.game_text.emit(
+                "reconnect failed: no session came up on "
+                f"{self.client.host}:{self.client.port}\n",
+                "",
+                "alert",
+            )
             self.connection_state.emit("Reconnect failed — no session came up")
             return
+        self.game_text.emit("reconnect: attached\n", "", "sent")
         self.connection_state.emit(self.client.description)
         self.gui_reactor()
 
@@ -1112,6 +1137,9 @@ class ClientGUI(QMainWindow, ClientLogger):
         try:
             self.client.connect()
         except SystemExit:
+            self.game_text.emit(
+                "reconnect failed: login did not complete\n", "", "alert"
+            )
             self.connection_state.emit("Reconnect failed — login did not complete")
             return
         self.connection_state.emit(getattr(self.client, "description", "Connected"))
