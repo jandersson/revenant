@@ -282,6 +282,12 @@ class ClientGUI(QMainWindow, ClientLogger):
         )
         settings_action.triggered.connect(self.edit_settings)
 
+        profile_action = QAction("Character &Profile…", self)
+        profile_action.setStatusTip(
+            "What ;hunt does for this character (~/.revenant/profiles/<name>.json)"
+        )
+        profile_action.triggered.connect(self.edit_profile)
+
         detach_action = QAction("&Detach", self)
         detach_action.setShortcut("Ctrl+D")
         detach_action.setStatusTip(
@@ -329,6 +335,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         file_menu = menubar.addMenu("&File")
         file_menu.addAction(reconnect_action)
         file_menu.addAction(settings_action)
+        file_menu.addAction(profile_action)
         file_menu.addAction(detach_action)
         file_menu.addAction(exit_action)
         view_menu = menubar.addMenu("View")
@@ -828,6 +835,20 @@ class ClientGUI(QMainWindow, ClientLogger):
         self._apply_text_font()
         self._reload_clock_settings()
         self.status_bar.showMessage(f"Settings saved to {settings_path()}")
+
+    def edit_profile(self):
+        """File → Character Profile…: the ;hunt settings for the
+        character this window plays, over profiles/<name>.json; the
+        next ;hunt start reads them."""
+        from client.gui.profile_dialog import ProfileDialog
+        from client.profile import load_profile, save_profile
+
+        character = self._character or ""
+        dialog = ProfileDialog(character, load_profile(character), self)
+        if dialog.exec() != dialog.DialogCode.Accepted:
+            return
+        path = save_profile(character, dialog.values())
+        self.status_bar.showMessage(f"Profile saved to {path}")
 
     def edit_highlights(self):
         """View → Edit Highlights…: the table editor over the patterns

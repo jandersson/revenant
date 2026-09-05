@@ -50,6 +50,11 @@ processes; the session owns the game socket and hosts scripts.
   waitrt/echo/emit/sleep/command/state/args. `;help` renders docstrings.
 - `client/probe.py` — ask-and-classify shared by keyword scripts;
   `collect` glues per-segment pieces into whole lines.
+- `client/profile.py` — per-character profiles
+  (`~/.revenant/profiles/<name>.json`): the quirks `;hunt` must not
+  hard-code (weapon, stance, skin, pouch, floor, ground, home). FIELDS
+  is the schema; the GUI's Character Profile dialog builds itself from
+  it. Model and assumptions: docs/hunting.md.
 - `client/walker.py` + `client/mapdb.py` — travel on the community map
   (downloaded, never vendored). Twins: the map lists some rooms twice,
   one uid-less; `same_place` handles it. Model: docs/movement.md.

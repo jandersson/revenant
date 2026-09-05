@@ -25,7 +25,7 @@ user manual. Typing ;<name> <line> while <name> is running delivers
 
 Every start loads the script file fresh from disk, and reloads the
 client/ helper modules scripts lean on (RELOADABLE_MODULES: probe,
-walker, mapdb, inventory, ...) when their files changed since they were
+walker, mapdb, inventory, profile, ...) when their files changed since they were
 imported — so a fix in the walker reaches a running session through
 ;stop go2 and ;go2, the way lich's common scripts do (#138). Modules
 holding the socket, the parser, or threads never reload; that is
@@ -235,6 +235,7 @@ RELOADABLE_MODULES = (
     "client.circles",
     "client.inventory",
     "client.probe",
+    "client.profile",
     "client.mapdb",
     "client.walker",
 )
