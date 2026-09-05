@@ -8,6 +8,7 @@ clocks dock. Fixtures are the captured answers from test_eltime.
 import importlib.util
 import json
 import pathlib
+import types
 
 from client import eltime
 from test_eltime import OBSERVE_TEXT, TIME_TEXT, TIME_UNIX
@@ -118,3 +119,76 @@ def test_calibration_prefers_the_server_clock(monkeypatch, tmp_path):
     clock.main(handle)
     stored = json.loads((tmp_path / "settings.json").read_text())
     assert stored["eltime_offset_seconds"] == 0  # the anchor capture: zero drift
+
+
+# --- ;clock watch: passive calibration and orbit anchors (#104, #105) ------
+
+
+class _Listener:
+    def __init__(self, server_time):
+        self.state = types.SimpleNamespace(server_time=server_time)
+        self.echoed = []
+
+    def echo(self, text):
+        self.echoed.append(text)
+
+
+def _settings_file(monkeypatch, tmp_path, values):
+    path = tmp_path / "settings.json"
+    path.write_text(json.dumps(values))
+    monkeypatch.setenv("REVENANT_SETTINGS", str(path))
+    return path
+
+
+def test_a_sun_line_within_tolerance_confirms_the_offset(monkeypatch, tmp_path):
+    # 2026-09-04 04:56 Elanthian sunrise capture: the stored offset put
+    # the computed clock 4 minutes 56 -> boundary 4.92 = 4:55: 60s out.
+    path = _settings_file(monkeypatch, tmp_path, {"eltime_offset_seconds": 0})
+    now = 1788554905
+    drift = eltime.drift_seconds(eltime.fractional_hour(now, 0), 4.92)
+    listener = _Listener(now)
+    # Shift the stored offset so the line lands exactly on the boundary.
+    path.write_text(json.dumps({"eltime_offset_seconds": -drift}))
+    note = clock.hear_boundary(
+        listener,
+        "The sun rises in a crisp, clear blue sky, heralding another fine day.",
+    )
+    assert note.startswith("clock: sunrise confirms the calibration")
+    assert json.loads(path.read_text())["eltime_offset_seconds"] == -drift
+
+
+def test_a_sun_line_far_out_corrects_the_offset(monkeypatch, tmp_path):
+    path = _settings_file(monkeypatch, tmp_path, {"eltime_offset_seconds": 0})
+    now = 1788554905
+    drift = eltime.drift_seconds(eltime.fractional_hour(now, 0), 4.92)
+    # Push the clock 10 game minutes (600 real seconds) fast.
+    path.write_text(json.dumps({"eltime_offset_seconds": -drift + 600}))
+    note = clock.hear_boundary(
+        _Listener(now), "The sun rises in a crisp, clear blue sky."
+    )
+    assert "says the clock ran +600s" in note
+    assert json.loads(path.read_text())["eltime_offset_seconds"] == -drift
+
+
+def test_a_moon_rise_pins_the_orbit_and_a_set_implies_the_rise(monkeypatch, tmp_path):
+    path = _settings_file(monkeypatch, tmp_path, {})
+    now = 1788577396
+    note = clock.hear_boundary(
+        _Listener(now), "Katamba slowly rises above the horizon."
+    )
+    assert note.startswith("clock: Katamba rise pinned — up, sets in 2h56m")
+    assert json.loads(path.read_text())["eltime_moon_rises"]["katamba"] == now
+    note = clock.hear_boundary(
+        _Listener(now + 100), "Xibar sets, slowly dropping below the horizon."
+    )
+    assert note.startswith("clock: Xibar set pinned — down, rises in 2h53m")
+    stored = json.loads(path.read_text())["eltime_moon_rises"]
+    assert stored["xibar"] == now + 100 - eltime.MOON_ORBIT["xibar"]["up"]
+    assert stored["katamba"] == now  # the other anchor survives
+
+
+def test_ordinary_lines_are_ignored(monkeypatch, tmp_path):
+    _settings_file(monkeypatch, tmp_path, {})
+    listener = _Listener(1788577396)
+    assert clock.hear_boundary(listener, "A ship's rat scurries about.") is None
+    assert listener.echoed == []

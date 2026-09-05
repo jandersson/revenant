@@ -24,6 +24,7 @@ DEFAULTS = {
     "answer_idle_warning": True,
     "eltime_offset_seconds": 0,  # ;clock's Elanthian calendar correction
     "eltime_moons": {},  # ;clock's moon anchors: {moon: new-moon unix time}
+    "eltime_moon_rises": {},  # ;clock watch's orbit anchors: {moon: rise unix time}
     "clocks_earth_moon": False,  # the for-fun Earth moon row in the clocks dock
     # Developer mode: the script engine reports a script start that took
     # long to load (helper reloads included). REVENANT_DEV=1 turns it on

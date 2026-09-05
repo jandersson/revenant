@@ -10,6 +10,16 @@ anchor the three moons' phases the same
 way (eltime_moons). Echoes the date and the drift. ;clock resyncs
 every six hours; ;clock once syncs a single time and exits.
 
+;clock watch sends nothing at all: it listens for the lines the game
+prints AT a boundary — "The sun rises ...", "The sun sinks below the
+horizon ...", "Katamba slowly rises above the horizon." — and uses
+them. A sun line is a calibration point to the minute: the offset is
+corrected when the computed clock is more than 90 seconds out, and
+confirmed otherwise. A moon rise or set pins that moon's orbit
+(eltime_moon_rises), so ;clock moons can say "Xibar: down, rises in
+40m" and the clocks dock can mark each moon up or down. Model and
+captures: docs/eltime.md.
+
 Moon observation needs the sky — indoors it is skipped with a note —
 and costs a few seconds of roundtime. Calibration binds to the
 server's own clock (every prompt states it), so a drifting local
@@ -96,7 +106,62 @@ def sync_moons(s):
     )
 
 
+DRIFT_TOLERANCE = 90  # real seconds; the sun lines repeat to within ~2 min
+
+
+def hear_boundary(s, line, now=None):
+    """One main-stream line, acted on when it is a boundary: a sun line
+    corrects or confirms the offset, a moon line re-anchors that orbit.
+    Returns what was echoed, or None for an ordinary line."""
+    now = game_now(s) if now is None else now
+    if boundary := eltime.sun_boundary(line):
+        name, hour = boundary
+        offset = settings.setting("eltime_offset_seconds") or 0
+        drift = eltime.drift_seconds(eltime.fractional_hour(now, offset), hour)
+        if abs(drift) > DRIFT_TOLERANCE:
+            settings.save_settings({"eltime_offset_seconds": offset - drift})
+            note = f"clock: {name} says the clock ran {drift:+d}s — offset now {offset - drift:+d}s"
+        else:
+            note = f"clock: {name} confirms the calibration ({drift:+d}s)"
+        s.echo(note)
+        return note
+    if event := eltime.moon_event(line):
+        moon, kind = event
+        rise = now if kind == "rise" else eltime.rise_from_set(moon, now)
+        anchors = dict(settings.setting("eltime_moon_rises") or {})
+        anchors[moon] = round(rise)
+        settings.save_settings({"eltime_moon_rises": anchors})
+        note = f"clock: {moon.capitalize()} {kind} pinned — {eltime.describe_moon_position(moon, now, rise)}"
+        s.echo(note)
+        return note
+    return None
+
+
+def watch(s):
+    s.echo("clock: watching for sun and moon boundaries — ;stop clock to end")
+    while True:
+        line = s.get(timeout=5)
+        if line is not None:
+            hear_boundary(s, line)
+
+
+def report_moons(s):
+    anchors = dict(settings.setting("eltime_moon_rises") or {})
+    now = game_now(s)
+    for moon in eltime.MOON_NAMES:
+        s.echo(
+            f"clock: {moon.capitalize()}: "
+            f"{eltime.describe_moon_position(moon, now, anchors.get(moon))}"
+        )
+
+
 def main(s):
+    if s.args and s.args[0] == "watch":
+        watch(s)
+        return
+    if s.args and s.args[0] == "moons":
+        report_moons(s)
+        return
     once = bool(s.args) and s.args[0] == "once"
     while True:
         sync_calendar(s)

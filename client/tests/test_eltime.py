@@ -400,3 +400,128 @@ def test_the_bands_that_wrap_midnight():
     assert eltime.phase_agrees("night", 5.9) is True
     assert eltime.phase_agrees("night", 12.0) is False
     assert eltime.phase_agrees("late evening", 1.5) is True
+
+
+# --- boundary events (#104) and orbits (#105) ------------------------------
+
+from client.eltime import (  # noqa: E402
+    DEFAULT_MOON_RISES,
+    MOON_ORBIT,
+    describe_moon_position,
+    drift_seconds,
+    moon_event,
+    moon_position,
+    rise_from_set,
+    sun_boundary,
+)
+
+# Captured sun lines and the calibrated hour each arrived at
+# (2026-08-19 .. 2026-09-04); the boundary hours are their means.
+CAPTURED_SUN = [
+    ("The sun rises in a crisp, clear blue sky, heralding another fine day.", 4.92),
+    ("The sun rises in a crisp, clear blue sky, heralding another fine day.", 4.93),
+    (
+        "The sun climbs higher into the clear sky, bringing with it a pure, clear light.",
+        8.87,
+    ),
+    (
+        "Thin streamers of cloud float in a mostly clear sky as the sun rises high above them.",
+        8.85,
+    ),
+    (
+        "The sun nears the far horizon as the clear blue sky deepens into a rich indigo.",
+        18.78,
+    ),
+    (
+        "Long streamers of clouds turn shades of salmon and umber as the sun nears the horizon.",
+        18.80,
+    ),
+    (
+        "The sun sinks below the horizon, turning the clear sky a thousand shades of blue.",
+        20.45,
+    ),
+    (
+        "The sun sinks below the horizon, turning the clear sky a thousand shades of blue.",
+        20.52,
+    ),
+]
+
+
+def test_every_captured_sun_line_is_a_boundary_within_two_minutes():
+    for line, hour in CAPTURED_SUN:
+        boundary = sun_boundary(line)
+        assert boundary is not None, line
+        assert abs(drift_seconds(hour, boundary[1])) <= 120, (line, hour)
+
+
+def test_room_prose_mentioning_the_sun_is_no_boundary():
+    assert sun_boundary("The heat from the sun grows rather intense.") is None
+    assert sun_boundary("Blackened rocks stretch to the horizon.") is None
+    assert sun_boundary("") is None
+
+
+def test_fractional_hour_matches_the_minute_clock_with_seconds_kept():
+    from client.eltime import fractional_hour
+
+    now = 1788554905
+    et = eltime.elanthian_now(now, 0)
+    assert int(fractional_hour(now, 0)) == et.hour
+    assert abs(fractional_hour(now, 0) - (et.hour + et.minute / 60)) < 1 / 60
+    assert fractional_hour(now + 900, 0) - fractional_hour(now, 0) in (1.0, -23.0)
+
+
+def test_drift_is_signed_in_real_seconds_and_wraps_midnight():
+    assert drift_seconds(5.0, 4.92) == 72  # computed clock 0.08h fast: 72s
+    assert drift_seconds(4.80, 4.92) == -108
+    assert drift_seconds(0.1, 23.9) == 180
+    assert drift_seconds(23.9, 0.1) == -180
+
+
+def test_moon_rise_and_set_lines_are_recognized():
+    assert moon_event("Katamba slowly rises above the horizon.") == ("katamba", "rise")
+    assert moon_event("Xibar sets, slowly dropping below the horizon.") == (
+        "xibar",
+        "set",
+    )
+    assert moon_event("Yavash slowly rises above the horizon.") == ("yavash", "rise")
+    assert moon_event("The moon Xibar looks lovely tonight.") is None
+
+
+def test_the_wiki_orbits_agree_with_the_captured_events():
+    # Katamba rose at 1788556276 and again at 1788577396 (2026-09-03/04):
+    # one orbit, 21120s against the wiki's 21090s — under a minute out.
+    assert abs((1788577396 - 1788556276) - MOON_ORBIT["katamba"]["period"]) < 60
+    # Katamba set at 1788545836 and rose at 1788556276: the time below
+    # the horizon, against period - up.
+    below = MOON_ORBIT["katamba"]["period"] - MOON_ORBIT["katamba"]["up"]
+    assert abs((1788556276 - 1788545836) - below) <= 60
+    # Yavash rose at 1787402244 and set at 1787412924 (2026-08-20): up.
+    assert abs((1787412924 - 1787402244) - MOON_ORBIT["yavash"]["up"]) < 60
+    # Xibar set on 2026-08-19 (1787269164) and rose on 2026-09-03
+    # (1788551296): 61 orbits plus the time below the horizon.
+    orbit = MOON_ORBIT["xibar"]
+    predicted = 61 * orbit["period"] + (orbit["period"] - orbit["up"])
+    assert abs((1788551296 - 1787269164) - predicted) < 120
+
+
+def test_moon_position_follows_the_anchor_through_the_orbit():
+    rise = DEFAULT_MOON_RISES["katamba"]
+    up = MOON_ORBIT["katamba"]["up"]
+    period = MOON_ORBIT["katamba"]["period"]
+    assert moon_position("katamba", rise + 60, rise) == (True, up - 60)
+    assert moon_position("katamba", rise + up + 60, rise) == (False, period - up - 60)
+    assert moon_position("katamba", rise + period + 60, rise) == (True, up - 60)
+    assert moon_position("katamba", rise, None) is not None  # the default anchor
+    assert moon_position("xibar", rise, rise_epoch=None) is not None
+
+
+def test_a_set_line_implies_the_rise_before_it():
+    assert rise_from_set("xibar", 1000000) == 1000000 - MOON_ORBIT["xibar"]["up"]
+
+
+def test_the_position_reads_as_a_sentence():
+    rise = 1_000_000
+    assert describe_moon_position("xibar", rise + 60, rise) == "up, sets in 2h54m"
+    down_at = rise + MOON_ORBIT["xibar"]["up"] + 60
+    assert describe_moon_position("xibar", down_at, rise) == "down, rises in 2h52m"
+    assert describe_moon_position("xibar", rise, rise_epoch=None) != "no rise seen yet"

@@ -671,6 +671,8 @@ class ClientGUI(QMainWindow, ClientLogger):
         self._eltime_offset = values.get("eltime_offset_seconds") or 0
         self._moon_epochs = dict(eltime.DEFAULT_MOON_EPOCHS)
         self._moon_epochs.update(values.get("eltime_moons") or {})
+        self._moon_rises = dict(eltime.DEFAULT_MOON_RISES)
+        self._moon_rises.update(values.get("eltime_moon_rises") or {})
         for widget in self._earth_moon_widgets:
             widget.setVisible(bool(values.get("clocks_earth_moon")))
 
@@ -689,7 +691,10 @@ class ClientGUI(QMainWindow, ClientLogger):
                 bits.append(f"{title} ?")
                 tips.append(f"{title}: not observed yet — ;clock under open sky")
             else:
-                bits.append(f"{title} {eltime.PHASE_EMOJI[index]}")
+                position = eltime.moon_position(name, now, self._moon_rises.get(name))
+                # Up or down beside the phase (#105): ↑ above the horizon.
+                mark = "" if position is None else (" ↑" if position[0] else " ↓")
+                bits.append(f"{title} {eltime.PHASE_EMOJI[index]}{mark}")
                 tips.append(f"{title}: {eltime.PHASES[index]}")
         self.clock_labels["Moons"].setText("  ".join(bits))
         self.clock_labels["Moons"].setToolTip("\n".join(tips))

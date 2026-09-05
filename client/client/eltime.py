@@ -413,6 +413,113 @@ def calibrate_moons(phases, captured_at):
     }
 
 
+# --- Boundary events: the day and the moons announce themselves ---------
+#
+# Some lines fire AT an instant rather than describe one: the sun's
+# rise and set, and each moon's rise and set. Captured with the
+# calibrated clock (2026-08-19 .. 2026-09-04, docs/eltime.md), the sun
+# lines land on the same Elanthian hour to within two minutes, so each
+# is a free calibration point (#104); the moon lines pin each moon's
+# orbit the way OBSERVE pins its phase (#105).
+
+# (regex, name, Elanthian hour) — the hour is the mean of the captures.
+SUN_BOUNDARIES = (
+    (re.compile(r"^The sun rises\b"), "sunrise", 4.92),
+    (re.compile(r"sun (?:climbs higher|rises high above)"), "mid-morning", 8.86),
+    (re.compile(r"sun nears the (?:far )?horizon"), "evening", 18.79),
+    (re.compile(r"^The sun sinks below the horizon"), "sunset", 20.48),
+)
+_MOON_EVENT = re.compile(
+    r"^(?P<moon>Xibar|Yavash|Katamba) (?:slowly rises above the horizon|"
+    r"sets, slowly dropping below the horizon)\."
+)
+
+
+def sun_boundary(line):
+    """(name, hour) when the line announces a sun boundary, else None."""
+    text = line.strip()
+    for pattern, name, hour in SUN_BOUNDARIES:
+        if pattern.search(text):
+            return name, hour
+    return None
+
+
+def moon_event(line):
+    """(moon, "rise" | "set") when the line announces one, else None."""
+    match = _MOON_EVENT.match(line.strip())
+    if not match:
+        return None
+    return match.group("moon").lower(), "rise" if "rises" in line else "set"
+
+
+def fractional_hour(epoch_s, offset=0):
+    """The Elanthian hour of the day as a float with full precision —
+    ElanthianTime rounds to the minute, too coarse for a drift."""
+    return ((epoch_s + offset - VICTORY_EPOCH) % DAY_SECONDS) / GAME_HOUR_SECONDS
+
+
+def drift_seconds(computed_hour, boundary_hour):
+    """How far (real seconds) the computed clock runs AHEAD of the
+    boundary it just heard: positive means the calendar is fast and
+    the offset should shrink by this much. Wraps midnight."""
+    delta = (computed_hour - boundary_hour + 12) % 24 - 12
+    return round(delta * GAME_HOUR_SECONDS)
+
+
+# Per-moon orbit, real seconds, from Elanthipedia's moon pages (#105):
+# rise-to-rise alternates between two adjacent roisan counts, so the
+# mean is used; "up" is the time above the horizon.
+MOON_ORBIT = {
+    "xibar": {"period": 347.5 * ROISAN_SECONDS, "up": 174.5 * ROISAN_SECONDS},
+    "yavash": {"period": 352.5 * ROISAN_SECONDS, "up": 177.5 * ROISAN_SECONDS},
+    "katamba": {"period": 351.5 * ROISAN_SECONDS, "up": 176.5 * ROISAN_SECONDS},
+}
+# A captured rise instant per moon (server epoch): the orbit's anchor,
+# refreshed by ;clock watch on every rise or set it hears
+# (eltime_moon_rises in settings). The captures agree with the wiki's
+# periods to the minute across weeks: Katamba rose 21120s apart on
+# 2026-09-03/04 (the wiki: 21090s); Xibar's 2026-08-19 set and
+# 2026-09-03 rise sit 61.496 orbits apart against a predicted 61.497.
+DEFAULT_MOON_RISES = {
+    "xibar": 1_788_551_296,  # 2026-09-03 rise
+    "yavash": 1_787_402_244,  # 2026-08-20 rise
+    "katamba": 1_788_577_396,  # 2026-09-04 rise
+}
+
+
+def rise_from_set(name, set_epoch):
+    """The rise instant a set implies: the moon rose `up` seconds before."""
+    return set_epoch - MOON_ORBIT[name]["up"]
+
+
+def moon_position(name, epoch_s=None, rise_epoch=None):
+    """(up, seconds_to_change): whether the moon is above the horizon at
+    a real instant, and how long until it sets (if up) or rises (if
+    not). None without an anchor."""
+    if epoch_s is None:
+        epoch_s = time.time()
+    if rise_epoch is None:
+        rise_epoch = DEFAULT_MOON_RISES.get(name)
+    if rise_epoch is None:
+        return None
+    orbit = MOON_ORBIT[name]
+    since_rise = (epoch_s - rise_epoch) % orbit["period"]
+    if since_rise < orbit["up"]:
+        return True, orbit["up"] - since_rise
+    return False, orbit["period"] - since_rise
+
+
+def describe_moon_position(name, epoch_s=None, rise_epoch=None):
+    """ "up, sets in 1h12m" / "down, rises in 40m" / "no rise seen yet"."""
+    position = moon_position(name, epoch_s, rise_epoch)
+    if position is None:
+        return "no rise seen yet"
+    up, seconds = position
+    hours, minutes = divmod(round(seconds / 60), 60)
+    when = f"{hours}h{minutes:02d}m" if hours else f"{minutes}m"
+    return f"up, sets in {when}" if up else f"down, rises in {when}"
+
+
 # --- Earth's moon, optional and just for fun ---------------------------
 
 EARTH_SYNODIC = 2_551_442.9  # 29.530589 days

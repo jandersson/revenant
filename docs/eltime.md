@@ -77,6 +77,55 @@ band for the word TIME used. That catches the failure that motivated it:
 the #101 parse bug drifted the clock about two game hours, well outside
 any band. Words the table does not know are ignored, never fatal.
 
+## Boundary events
+
+Some lines fire at an instant instead of describing one, and each is a
+free calibration point (#104). Captured with the calibrated clock
+between 2026-08-19 and 2026-09-04, the four sun lines land on the same
+Elanthian hour to within two minutes every time:
+
+| line | captured hours | boundary |
+| --- | --- | --- |
+| "The sun rises in a crisp, clear blue sky, heralding another fine day." | 4:55, 4:56 | 4.92 |
+| "The sun climbs higher into the clear sky …" / "… as the sun rises high above them." | 8:51, 8:52 | 8.86 |
+| "The sun nears the far horizon …" / "… as the sun nears the horizon." | 18:47, 18:47, 18:48 | 18.79 |
+| "The sun sinks below the horizon, turning the clear sky …" | 20:27, 20:31 | 20.48 |
+
+The wording after the boundary varies with the weather ("Thin
+streamers of cloud …", "Long streamers of clouds …"); the patterns in
+`eltime.SUN_BOUNDARIES` match the part that does not. Lines that merely
+mention the sun ("The heat from the sun grows rather intense", seen at
+9:20 and 14:51) are not boundaries. `;clock watch` listens for these
+and, when the computed clock is more than 90 seconds out, corrects the
+offset; otherwise it echoes that the boundary confirms it. It sends
+nothing, ever.
+
+## The moons' orbits
+
+Each moon rises and sets on a fixed schedule Elanthipedia documents to
+the roisan: rise-to-rise alternates between two adjacent counts, so
+the mean is used (#105).
+
+| moon | rise to rise | above the horizon |
+| --- | --- | --- |
+| Xibar | 347.5 roisaen (5h47m30s real) | 174.5 roisaen |
+| Yavash | 352.5 roisaen | 177.5 roisaen |
+| Katamba | 351.5 roisaen | 176.5 roisaen |
+
+The captured rise and set lines agree with those numbers to the
+minute across weeks: Katamba rose 21120 s apart on 2026-09-03 and
+09-04 (predicted 21090), its set-to-rise gap was 10440 s (predicted
+10500), Yavash was up 10680 s on 2026-08-20 (predicted 10650), and
+Xibar's 2026-08-19 set and 2026-09-03 rise sit 61.496 orbits apart
+against a predicted 61.497. `eltime.DEFAULT_MOON_RISES` holds one
+captured rise per moon as the anchor; `;clock watch` replaces it on
+every rise or set it hears (`eltime_moon_rises` in settings; a set
+implies the rise `up` seconds earlier). `;clock moons` reports "up,
+sets in 1h12m" / "down, rises in 40m" per moon, and the clocks dock
+marks each moon ↑ or ↓ beside its phase. The orbit and the phase are
+separate models with separate anchors: the phase says what shape the
+moon is, the orbit whether it is in the sky.
+
 ## The moons
 
 Xibar, Yavash, and Katamba each cycle through eight phases (new →
