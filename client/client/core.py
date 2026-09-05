@@ -92,11 +92,9 @@ class Engine(ClientLogger):
         try:
             read_data = self.connection.read_very_eager().decode("ASCII")
         except EOFError as e:
-            goodbye = "connection closed by the game\n"
-            if output_callback:
-                output_callback(goodbye, "", "")
-            else:
-                buff.append(goodbye)
+            # No story line of its own: the session (or, in direct mode,
+            # the reader's status bar) says what the close meant — one
+            # event was three lines once (#152).
             self.log.info("Connection closed")
             raise (e)
 

@@ -50,7 +50,11 @@ GAME_STATE_ENV = "REVENANT_GAME_STATE"
 REATTACH_TIMEOUT = 10.0
 # What the session says on the script stream just before it ends on
 # purpose; a frontend that heard it treats the EOF as expected.
-SESSION_ENDING = ("session: logged off", "session: game connection lost")
+SESSION_ENDING = (
+    "session: logged off",
+    "session: game connection lost",
+    "session: the game dropped the connection",
+)
 
 
 # The session registry: every session records {port, character, pid}
@@ -203,6 +207,10 @@ class SessionServer(ClientLogger):
         self.game_write_lock = Lock()
         self.running = True
         self.quit_sent = False  # a quit on its way out reclassifies EOF (#43)
+        # The game warns "YOU HAVE BEEN IDLE TOO LONG" before it drops an
+        # idle character; remembered so that EOF reads as what it was
+        # (#152). The parser styles the line "alert" (#42).
+        self.idle_warned = False
         self.engine = Engine()
         self.engine.connection = game_connection
 
@@ -300,6 +308,12 @@ class SessionServer(ClientLogger):
                 # and the player should know reconnecting is in order.
                 if self.quit_sent:
                     self.broadcast("session: logged off; session ending\n", "script")
+                elif self.idle_warned:
+                    self.broadcast(
+                        "session: the game dropped the connection for idling; "
+                        "session ending — File → Reconnect starts a new one\n",
+                        "script",
+                    )
                 else:
                     self.broadcast(
                         "session: game connection lost unexpectedly; session "
@@ -316,6 +330,8 @@ class SessionServer(ClientLogger):
             sleep(0.01)
 
     def fanout(self, text: str, stream: str, style: str = ""):
+        if style == "alert" and "IDLE TOO LONG" in text:
+            self.idle_warned = True
         self.broadcast(text, stream, style)
         if style != "clear":
             self.scripts.feed(text, stream)

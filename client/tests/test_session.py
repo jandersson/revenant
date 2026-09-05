@@ -114,7 +114,10 @@ def test_session_relays_text_commands_and_shutdown():
             f"threads={sorted(t.name for t in threading.enumerate())}"
         )
     frames, _ = session.decode_frames(buffer)
-    assert any("connection closed by the game" in text for text, _, _ in frames)
+    # One line for the event, the session's (#152): no quit was sent and
+    # no idle warning came, so it is an unexpected loss.
+    assert any("lost unexpectedly" in text for text, _, _ in frames)
+    assert not any("connection closed by the game" in text for text, _, _ in frames)
     assert not server.running
 
 
@@ -985,3 +988,27 @@ def test_an_external_send_reaches_the_game_and_is_echoed_with_its_origin():
     # No second, player-style echo for the same line.
     assert not any(text == "> exp all\n" for text, _, _ in frames)
     window.close()
+
+
+def test_eof_after_the_idle_warning_reads_as_an_idle_drop():
+    # Captured 2026-09-05: "YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND."
+    # twice, then the game closed the connection (#152).
+    game = FakeGame()
+    server, port = _start_server(game)
+    client = socket.create_connection(("127.0.0.1", port), timeout=5)
+    client.settimeout(5)
+    assert _await(lambda: server.clients), "client never registered"
+
+    game.pending.append(b"YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND.\r\n")
+    assert _await(lambda: server.idle_warned), "the warning never reached the session"
+    game.closed = True
+    buffer = b""
+    while True:
+        chunk = client.recv(4096)
+        if not chunk:
+            break
+        buffer += chunk
+    frames, _ = session.decode_frames(buffer)
+    assert any("dropped the connection for idling" in text for text, _, _ in frames)
+    assert not any("lost unexpectedly" in text for text, _, _ in frames)
+    assert not any("connection closed by the game" in text for text, _, _ in frames)
