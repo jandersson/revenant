@@ -3,6 +3,7 @@ import io
 import json
 import os
 import socket
+import subprocess
 import sys
 import types
 from threading import Thread
@@ -42,6 +43,10 @@ class FakeGame:
 
     def write(self, data):
         self.sent.append(data)
+
+    @property
+    def buffered(self):
+        return b"".join(self.pending)
 
 
 def _start_server(game):
@@ -632,23 +637,133 @@ def test_a_crashing_command_does_not_kill_client_reader(monkeypatch):
     client.close()
 
 
-def test_reexec_is_gated_off_on_windows(monkeypatch):
+class _FakeChild:
+    """What subprocess.Popen hands back, as far as the handoff cares."""
+
+    def __init__(self):
+        self.pid = 4321
+        self.stdin = io.BytesIO()
+        self.stdin_closed = False
+        original_close = self.stdin.close
+        self.stdin.close = lambda: (
+            setattr(self, "stdin_closed", True) or None
+        )  # keep the bytes readable
+        self._original_close = original_close
+
+    def poll(self):
+        return None
+
+
+def _windows_handoff(monkeypatch, listening=True):
+    """Run the Windows ;reexec path with every side effect stubbed:
+    what it spawned, what it wrote, and how it exited."""
     monkeypatch.setattr(session.sys, "platform", "win32")
-    server = session.SessionServer(FakeGame(), port=0)  # serve() never called
+    game = FakeGame()
+    game.pending.append(b"<prompt>&gt;</prompt>")  # unparsed bytes to carry
+    server = session.SessionServer(game, port=0)  # serve() never called
+    server._reader_parked.set()  # no reader thread in this test
     stopped = []
     monkeypatch.setattr(server.scripts, "stop_all", lambda: stopped.append(True))
     broadcasts = []
     monkeypatch.setattr(
         server, "broadcast", lambda text, stream="", style="": broadcasts.append(text)
     )
-    server.reexec(execv=lambda path, argv: (_ for _ in ()).throw(AssertionError))
-    assert stopped == []  # a doomed reexec must not stop running scripts
-    note = next(text for text in broadcasts if "not supported on Windows" in text)
-    # Detach keeps this process alive, and a relaunch reattaches to it —
-    # the note must steer to what actually loads new code.
-    assert ";stop <name>" in note and "close the window" in note
-    assert "helper modules reload" in note  # #138: the walker fix needs no relaunch
-    assert "Detach and relaunch" not in note
+    spawned = {}
+    child = _FakeChild()
+
+    def spawn(argv, **kwargs):
+        spawned["argv"] = argv
+        spawned["kwargs"] = kwargs
+        return child
+
+    exits = []
+    server.reexec(
+        execv=lambda path, argv: (_ for _ in ()).throw(AssertionError),
+        spawn=spawn,
+        share=lambda pid: b"SHARE-FOR-%d" % pid,
+        wait_for=lambda child: listening,
+        exit_process=exits.append,
+    )
+    return server, spawned, child, stopped, broadcasts, exits
+
+
+def test_windows_reexec_spawns_a_child_and_shares_the_socket_over_stdin(monkeypatch):
+    server, spawned, child, stopped, broadcasts, exits = _windows_handoff(monkeypatch)
+    argv = spawned["argv"]
+    assert argv[:3] == [session.sys.executable, "-m", "client.session"]
+    assert "--game-share" in argv and "--game-fd" not in argv
+    # The socket rides stdin as one base64 line — never argv or env.
+    assert child.stdin.getvalue() == base64.b64encode(b"SHARE-FOR-4321") + b"\n"
+    assert child.stdin_closed
+    kwargs = spawned["kwargs"]
+    assert kwargs["stdin"] is subprocess.PIPE
+    env = kwargs["env"]
+    assert session.GAME_STATE_ENV in env and session.GAME_BUFFER_ENV in env
+    assert "SHARE-FOR" not in "".join(env.values())
+    assert stopped  # before the share; shutdown() stops again on the way out
+    assert server._handoff.is_set()  # the reader was told to let go
+    assert exits == [0]
+    assert server.bound_port is None  # the child's registry entry survives
+    assert any("Windows handoff" in text for text in broadcasts)
+
+
+def test_windows_reexec_ends_the_session_if_the_child_never_listens(monkeypatch):
+    server, spawned, child, stopped, broadcasts, exits = _windows_handoff(
+        monkeypatch, listening=False
+    )
+    assert exits == [1]
+    assert any("never started listening" in text for text in broadcasts)
+
+
+def test_reexec_argv_carries_host_and_port_before_the_handoff_flag():
+    server = session.SessionServer(FakeGame(), host="127.0.0.1", port=4243)
+    argv = server.reexec_argv(["--game-share"])
+    assert argv[3:] == ["--host", "127.0.0.1", "--port", "4243", "--game-share"]
+
+
+def test_a_shared_socket_line_becomes_a_game_connection(monkeypatch):
+    ours, theirs = socket.socketpair()
+    try:
+        monkeypatch.setattr(session.socket, "fromshare", lambda blob: theirs)
+        game = session.adopt_shared_game(
+            base64.b64encode(b"opaque-share-bytes").decode() + "\n", initial=b"tail"
+        )
+        assert game.buffered == b"tail"
+        game.write(b"look\n")
+        assert ours.recv(16) == b"look\n"
+    finally:
+        ours.close()
+        theirs.close()
+
+
+@pytest.mark.skipif(
+    session.sys.platform != "win32", reason="socket.share is Windows-only"
+)
+def test_socket_share_round_trip_keeps_the_connection_alive():
+    # The mechanism the handoff rests on: a duplicated socket, rebuilt
+    # in the target process (here: ourselves), still talks.
+    ours, theirs = socket.socketpair()
+    try:
+        blob = theirs.share(os.getpid())
+        rebuilt = socket.fromshare(blob)
+        theirs.close()
+        rebuilt.sendall(b"still here")
+        assert ours.recv(16) == b"still here"
+    finally:
+        ours.close()
+        rebuilt.close()
+
+
+def test_the_listener_bind_retries_while_the_old_process_lets_go(monkeypatch):
+    holder = socket.create_server(("127.0.0.1", 0))
+    port = holder.getsockname()[1]
+    server = session.SessionServer(FakeGame(), port=port)
+    from threading import Timer
+
+    Timer(0.5, holder.close).start()
+    listener = server._bind(patience=5.0)
+    assert listener.getsockname()[1] == port
+    listener.close()
 
 
 def test_eof_without_quit_reads_as_an_unexpected_drop():

@@ -34,7 +34,7 @@ You rarely need to restart anything. From cheapest to dearest:
 | --- | --- |
 | a script (`scripts/`), or a `client/` helper it imports (walker, mapdb, probe, …) | nothing: `;run` loads the script fresh from disk every time and reloads changed helpers with it (`;stop x`, then `;x`) |
 | the GUI | **Detach** (Ctrl+D) the window and relaunch; it reattaches, no logout. A plain close would quit the game (see above) |
-| the session or engine | `;reexec` (below), or on Windows, where reexec is unsupported, quit and relaunch |
+| the session or engine | `;reexec` (below), on every platform |
 
 A script that is already running keeps its old code until you `;stop` and rerun it. With developer mode on (File → Settings, or `REVENANT_DEV=1`), a script start that takes more than half a second to load says so, naming what it reloaded.
 
@@ -51,7 +51,7 @@ How it works:
 3. The new session restores the byte buffer, rebinds the localhost port, and sends a single `look` to reprime its cold parser state (room title, compass).
 4. Frontends notice the drop and reattach automatically (retrying for up to ~10 s; in practice it's sub-second). In the GUI you'll see `session dropped — reattaching ...` followed by `reattached`.
 
-Caveats: running scripts are stopped, not resumed (start them again with `;run`); a session older than this feature doesn't know `;reexec`, so the first upgrade still needs one old-fashioned quit-and-relaunch. On Windows `;reexec` is unsupported (WinSock handles can't survive the exec handoff, #129 tracks a port) and says so instead of trying: quit and relaunch there.
+Caveats: running scripts are stopped, not resumed (start them again with `;run`); a session older than this feature doesn't know `;reexec`, so the first upgrade still needs one old-fashioned quit-and-relaunch. On Windows there is no exec and a WinSock handle is not a file descriptor, so the handoff is a spawn instead (#129): the session stops reading the game socket, closes its listener, starts a child `python -m client.session --game-share`, hands it the socket as `socket.share()` bytes over stdin (never argv or env), waits until the child listens on the port, drops the frontends (they reattach to the child) and exits. Same result: no logout. If the child never starts listening the old session ends and says so; File → Reconnect starts a fresh one.
 
 ## Sending a command from outside
 

@@ -20,9 +20,10 @@ import json
 import os
 import pathlib
 import socket
+import subprocess
 import sys
 from collections import deque
-from threading import Lock, Thread
+from threading import Event, Lock, Thread
 from time import monotonic, sleep
 
 from client.client_logger import ClientLogger
@@ -207,6 +208,11 @@ class SessionServer(ClientLogger):
         self.game_write_lock = Lock()
         self.running = True
         self.quit_sent = False  # a quit on its way out reclassifies EOF (#43)
+        # The Windows ;reexec handoff parks the game reader before the
+        # socket is shared: a byte this process reads after that would
+        # never reach the new one (#129).
+        self._handoff = Event()
+        self._reader_parked = Event()
         # The game warns "YOU HAVE BEEN IDLE TOO LONG" before it drops an
         # idle character; remembered so that EOF reads as what it was
         # (#152). The parser styles the line "alert" (#42).
@@ -229,7 +235,7 @@ class SessionServer(ClientLogger):
         )
 
     def serve(self):
-        self.listener = socket.create_server((self.host, self.port))
+        self.listener = self._bind()
         self.bound_port = self.listener.getsockname()[1]
         # Announce this session to the launcher's picker (#58); the
         # character name comes from the spawn env (frontends learn it
@@ -248,6 +254,18 @@ class SessionServer(ClientLogger):
                 Thread(target=self.client_reader, args=(conn,), daemon=True).start()
         except OSError:
             pass  # listener closed during shutdown
+
+    def _bind(self, patience=10.0):
+        """The listener, retried for a few seconds: after a ;reexec the
+        old process is still letting go of the port (#129)."""
+        deadline = monotonic() + patience
+        while True:
+            try:
+                return socket.create_server((self.host, self.port))
+            except OSError:
+                if monotonic() >= deadline:
+                    raise
+                sleep(0.25)
 
     def attach(self, conn):
         """Replay the backlog and current room exits, then register the
@@ -300,6 +318,9 @@ class SessionServer(ClientLogger):
         # Engine.read does the parsing/routing; we fan the segments out to
         # attached front ends and running scripts (goodbye included on EOF).
         while True:
+            if self._handoff.is_set():
+                self._reader_parked.set()  # the socket belongs to the child now
+                return
             try:
                 self.engine.read(output_callback=self.fanout)
             except EOFError:
@@ -443,42 +464,43 @@ class SessionServer(ClientLogger):
                         "script",
                     )
 
-    def reexec(self, execv=os.execv):
+    def reexec(
+        self,
+        execv=os.execv,
+        spawn=subprocess.Popen,
+        share=None,
+        wait_for=None,
+        exit_process=os._exit,
+    ):
         """Replace this process with one running the code now on disk,
         handing the live game socket across — no logout, no re-login.
 
-        Only the game fd is made inheritable; the listener and client
-        sockets close at exec (front ends reattach on their own). Bytes
-        already read off the wire but not yet parsed ride along in an
-        env var. Parser state (room, compass) starts cold in the new
-        process; main() reprimes it with a `look`. The indicators
-        cannot be reprimed that way — the game states them only on
-        change, and a ghost's look earns just the ghost refusal — so
-        they ride across too (#92: deathwatch must see a death that
-        predates it)."""
+        POSIX: only the game fd is made inheritable; the listener and
+        client sockets close at exec (front ends reattach on their own).
+        Windows: exec would spawn and a WinSock handle is no CRT fd, so
+        the socket is duplicated into a spawned child with
+        socket.share() and this process exits once the child listens
+        (#129, _reexec_windows). Either way, bytes already read off the
+        wire but not yet parsed ride along in an env var. Parser state
+        (room, compass) starts cold in the new process; main() reprimes
+        it with a `look`. The indicators cannot be reprimed that way —
+        the game states them only on change, and a ghost's look earns
+        just the ghost refusal — so they ride across too (#92:
+        deathwatch must see a death that predates it)."""
         if sys.platform == "win32":
-            # WinSock handles aren't CRT fds and exec has spawn-and-exit
-            # semantics — the handoff cannot work as written (#38). Bail
-            # before stop_all so a doomed reexec doesn't stop scripts.
-            # Detach is the wrong advice here: it leaves this process
-            # running, and a relaunch reattaches to it — the old code.
-            # Scripts reload from disk on every start, so ;stop + rerun
-            # picks up script edits; anything else needs a new session
-            # (closing the window quits the game and ends this one, #129).
-            self.broadcast(
-                "session: ;reexec is not supported on Windows (#129). "
-                "Script edits: ;stop <name> then run it again — scripts and "
-                "their helper modules reload from disk. Anything else: close "
-                "the window (quit) "
-                "and relaunch; Detach would reattach to this old session\n",
-                "script",
-            )
+            self._reexec_windows(spawn, share, wait_for, exit_process)
             return
         self.broadcast("session: re-exec'ing with current code ...", "script")
         self.scripts.stop_all()
         fd = self.game.fileno()
         os.set_inheritable(fd, True)
-        argv = [
+        argv = self.reexec_argv(["--game-fd", str(fd)])
+        self.log.info(f"Re-exec: {' '.join(argv)}")
+        os.environ.update(self.carried_env())
+        execv(sys.executable, argv)
+
+    def reexec_argv(self, handoff):
+        return [
             sys.executable,
             "-m",
             "client.session",
@@ -486,22 +508,77 @@ class SessionServer(ClientLogger):
             self.host,
             "--port",
             str(self.port),
-            "--game-fd",
-            str(fd),
+            *handoff,
         ]
-        self.log.info(f"Re-exec: {' '.join(argv)}")
-        os.environ[GAME_STATE_ENV] = json.dumps(
-            {
-                "indicator": self.engine.xml_data.indicator,
-                "name": self.engine.xml_data.name,
-            }
+
+    def carried_env(self):
+        """What the new process inherits through its environment: the
+        indicators and the name (#92, #95), and the unparsed bytes —
+        snapshotted as late as possible, once the reader is done."""
+        return {
+            GAME_STATE_ENV: json.dumps(
+                {
+                    "indicator": self.engine.xml_data.indicator,
+                    "name": self.engine.xml_data.name,
+                }
+            ),
+            GAME_BUFFER_ENV: base64.b64encode(self.game.buffered).decode("ASCII"),
+        }
+
+    def _reexec_windows(self, spawn, share, wait_for, exit_process):
+        """The Windows handoff (#129): park the game reader, close the
+        listener so the child can take the port, spawn the child, hand
+        it the game socket as socket.share() bytes over stdin (never
+        argv or env), wait until it listens, drop the frontends (they
+        reattach to it) and exit. The registry entry is the child's:
+        this process must not deregister the port on its way out."""
+        self.broadcast(
+            "session: re-exec'ing with current code (Windows handoff) ...\n",
+            "script",
         )
-        # Snapshot the unparsed buffer as late as possible: the game
-        # reader keeps draining the socket until exec replaces us.
-        os.environ[GAME_BUFFER_ENV] = base64.b64encode(self.game.buffered).decode(
-            "ASCII"
-        )
-        execv(sys.executable, argv)
+        self.scripts.stop_all()
+        self._handoff.set()
+        self._reader_parked.wait(5)
+        argv = self.reexec_argv(["--game-share"])
+        env = dict(os.environ)
+        env.update(self.carried_env())
+        if self.listener is not None:
+            close_socket(self.listener)
+            self.listener = None
+        self.log.info(f"Re-exec (Windows): {' '.join(argv)}")
+        child = spawn(argv, stdin=subprocess.PIPE, env=env, start_new_session=True)
+        share = share or (lambda pid: self.game.sock.share(pid))
+        child.stdin.write(base64.b64encode(share(child.pid)) + b"\n")
+        child.stdin.close()
+        listening = (wait_for or self._child_listening)(child)
+        if not listening:
+            self.log.error("Re-exec child never started listening; ending")
+            self.broadcast(
+                "session: the new process never started listening — this "
+                "session is ending; File → Reconnect starts a fresh one\n",
+                "script",
+            )
+            self.shutdown()
+            exit_process(1)
+            return
+        self.bound_port = None  # the child registered the port; keep its entry
+        self.shutdown()
+        self.log.info(f"Handed the game socket to pid {child.pid}; exiting")
+        exit_process(0)
+
+    def _child_listening(self, child, patience=15.0):
+        """True once something answers on the session port, False when
+        the child died first or the patience ran out."""
+        deadline = monotonic() + patience
+        while monotonic() < deadline:
+            if child.poll() is not None:
+                return False
+            try:
+                with socket.create_connection((self.host, self.port), timeout=0.5):
+                    return True
+            except OSError:
+                sleep(0.25)
+        return False
 
     def drop(self, conn):
         with self.clients_lock:
@@ -648,12 +725,22 @@ def main(argv=None):
         help="adopt an already-connected game socket by file descriptor "
         "(the ;reexec handoff) instead of logging in",
     )
+    argparser.add_argument(
+        "--game-share",
+        action="store_true",
+        help="adopt the game socket from socket.share() bytes on stdin, "
+        "base64 on one line (the Windows ;reexec handoff, #129)",
+    )
     args = argparser.parse_args(argv)
     carried_state = {}
-    if args.game_fd is not None:
+    adopted = args.game_fd is not None or args.game_share
+    if adopted:
         initial = base64.b64decode(os.environ.pop(GAME_BUFFER_ENV, ""))
         carried_state = _carried_state()
-        game_connection = SocketClient.from_fd(args.game_fd, initial=initial)
+        if args.game_share:
+            game_connection = adopt_shared_game(sys.stdin.readline(), initial)
+        else:
+            game_connection = SocketClient.from_fd(args.game_fd, initial=initial)
         # Fresh process, cold parser: a look repopulates room/compass state.
         game_connection.write(b"look\n")
     elif args.key_stdin:
@@ -669,12 +756,20 @@ def main(argv=None):
     # (which rides the process environment through the exec) is the
     # fallback: a name lost before the handoff existed can never ride
     # it, as the first live reexec after shipping #95 demonstrated.
-    if args.game_fd is not None and not server.engine.xml_data.name:
+    if adopted and not server.engine.xml_data.name:
         server.engine.xml_data.name = (
             carried_state.get("name") or os.environ.get("REVENANT_CHARACTER") or None
         )
     autostart_scripts(server)
     server.serve()
+
+
+def adopt_shared_game(line, initial=b""):
+    """The game socket the parent shared (one base64 line of
+    socket.share() bytes), as a SocketClient seeded with the unparsed
+    bytes it also handed over (#129)."""
+    blob = base64.b64decode(line.strip())
+    return SocketClient.from_socket(socket.fromshare(blob), initial=initial)
 
 
 def _carried_state():

@@ -30,6 +30,15 @@ class SocketClient:
         client._buffer = initial
         return client
 
+    @classmethod
+    def from_socket(cls, sock, initial=b""):
+        """Adopt a connected socket object — one rebuilt from
+        socket.share() bytes on Windows (the ;reexec handoff, #129)."""
+        client = cls()
+        client.sock = sock
+        client._buffer = initial
+        return client
+
     @property
     def buffered(self):
         """Bytes read off the wire but not yet consumed."""
