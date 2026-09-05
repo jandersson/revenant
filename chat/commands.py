@@ -6,6 +6,14 @@ lnet.lic's user-input loop; obey() carries the action out against a
 chat.Server. input_to_command() is the window's convenience: a line
 with no leading ";" is a message to your default channel, so plain
 typing chats and ";who" still asks who is on.
+
+The server names people with a game prefix — "DR:Atanamir" — and a
+private must carry that exact string, prefix and case; a hand-typed
+"chat to atanamir" is answered with silence. Callers keep a `known`
+map of senders heard this session (remember_sender) and obey()
+resolves a recipient against it (resolve_recipient), so the typed name
+lands where the reply would (#147). reply_hint() is the line shown on
+the first private from anyone, so nobody has to know the verb.
 """
 
 import re
@@ -80,12 +88,47 @@ def input_to_command(text):
     return f"chat {text}"
 
 
-def obey(echo, lnet, line, last_priv):
+def _bare(name):
+    """A name without the server's game prefix, lowercased: the key a
+    typed name and a heard sender share."""
+    name = name.strip()
+    if ":" in name:
+        name = name.rsplit(":", 1)[1]
+    return name.lower()
+
+
+def remember_sender(known, sender):
+    """Note a sender heard this session so a typed name can find them.
+    Keys are the bare lowercase name; the value is the server's exact
+    string, prefix included."""
+    if sender:
+        known[_bare(sender)] = sender
+    return known
+
+
+def resolve_recipient(name, known):
+    """The server's exact string for a typed recipient: a sender heard
+    this session, matched without prefix or case, else the name as
+    typed (the server may still know it)."""
+    if known:
+        return known.get(_bare(name), name)
+    return name
+
+
+def reply_hint(sender):
+    """What to show under the first private from `sender`."""
+    return f"(reply <message> answers {sender}; chat to {sender} <message> works too)"
+
+
+def obey(echo, lnet, line, last_priv, known=None):
     """Execute one user command against `lnet` (a chat.Server); echo(text)
-    reports to the user. Returns the (possibly updated) last_priv."""
+    reports to the user. Returns the (possibly updated) last_priv.
+    `known` maps senders heard this session (remember_sender) so a
+    private to a name typed without the server's prefix or case still
+    arrives (#147)."""
     action = parse(line)
     if action[0] == "private":
-        lnet.send_message(action[2], to=action[1])
+        lnet.send_message(action[2], to=resolve_recipient(action[1], known))
     elif action[0] == "channel":
         lnet.send_message(action[2], channel=action[1])
     elif action[0] == "default":

@@ -20,13 +20,15 @@ Plain typing goes to your default channel. The commands work with or without a l
 | `chat <msg>` or plain text | send to your default channel |
 | `chat on <channel> <msg>` (or `chat :<channel> <msg>`) | send to a channel |
 | `chat to <name> <msg>` (or `chat ::<name> <msg>`) | private message |
-| `reply <msg>` | answer the last private message |
+| `reply <msg>` | answer the last private message (the first private from anyone shows this hint) |
 | `who [name]` | who is connected |
 | `stats` | server statistics |
 | `channels [all]` | list channels (top 15, or all) |
 | `tune <channel>` / `untune <channel>` | manage channel subscriptions |
 
 Ctrl+R reconnects; Ctrl+Q quits.
+
+The server names people with a game prefix, `DR:Atanamir`, and a private has to carry that exact string. Once someone has spoken this session, `chat to atanamir` finds them without the prefix or the capital; a name nobody has heard from goes through as typed.
 
 ## Inside the game window: `;lnet`
 

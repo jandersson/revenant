@@ -6,6 +6,8 @@ Start with ;lnet (or just use a command — it starts on demand), then:
   ;chat on <channel> <message>      send to a channel   (;chat :<channel> too)
   ;chat to <name> <message>         private message     (;chat ::<name> too)
   ;reply <message>                  answer the last private message
+    (the first private from anyone shows this hint; a name you have heard
+    from this session may be typed without the server's DR: prefix or case)
   ;who [name]                       who is connected
   ;stats                            server statistics
   ;channels [all]                   list channels (top 15, or all)
@@ -35,6 +37,7 @@ if str(_REPO) not in sys.path:
 
 from chat.commands import obey as _obey  # noqa: E402
 from chat.commands import parse  # noqa: E402,F401 -- the grammar, tested here
+from chat.commands import remember_sender, reply_hint  # noqa: E402
 
 RECV_TIMEOUT = 0.25  # also the user-command poll cadence
 
@@ -54,6 +57,8 @@ def main(s):
     lnet = Server(log_dir=default_log_dir())
     lnet.set_login_info(name, password=lnet_password(name, legacy_file=get_password))
     last_priv = None
+    known = {}  # senders heard this session, for ;chat to <name> (#147)
+    hinted = set()  # senders whose first private carried the reply hint
     try:
         lnet.connect()
         lnet.login()
@@ -62,7 +67,7 @@ def main(s):
         s.echo(f"logging in as {name} ...")
         while True:
             while (line := s.command(timeout=0)) is not None:
-                last_priv = obey(s, lnet, line, last_priv)
+                last_priv = obey(s, lnet, line, last_priv, known)
             try:
                 messages = lnet.receive_messages()
             except TimeoutError:
@@ -75,9 +80,14 @@ def main(s):
                     # The server's welcome doubles as login confirmation.
                     s.echo(f"connected as {name} — chat appears in Thoughts")
                     continue
+                if message.sender and message.message_type in ("private", "channel"):
+                    remember_sender(known, message.sender)
+                s.emit(str(message), "thoughts")
                 if message.message_type == "private" and message.sender:
                     last_priv = message.sender
-                s.emit(str(message), "thoughts")
+                    if message.sender not in hinted:
+                        hinted.add(message.sender)
+                        s.emit(reply_hint(message.sender), "thoughts")
     except LoginRejected as rejection:
         # Rejections arrive asynchronously, after login() has returned.
         s.echo(f"LNet login rejected: {rejection}")
@@ -92,7 +102,7 @@ def main(s):
         lnet.connection.close()
 
 
-def obey(s, lnet, line, last_priv):
+def obey(s, lnet, line, last_priv, known=None):
     """Execute one user command (chat/commands.py's dispatcher, echoing
     through the script handle); returns the (possibly updated) last_priv."""
-    return _obey(s.echo, lnet, line, last_priv)
+    return _obey(s.echo, lnet, line, last_priv, known)

@@ -54,7 +54,12 @@ if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
 from chat.chat import LoginRejected, Server, default_log_dir, get_password  # noqa: E402
-from chat.commands import input_to_command, obey  # noqa: E402
+from chat.commands import (  # noqa: E402
+    input_to_command,
+    obey,
+    remember_sender,
+    reply_hint,
+)
 from client import lnet_login  # noqa: E402
 from client.login import load_login_defaults  # noqa: E402
 from client.settings import save_settings, setting  # noqa: E402
@@ -101,6 +106,8 @@ class ChatWindow(QMainWindow):
         self.name = name
         self.password = password
         self.last_priv = None
+        self._known = {}  # senders heard this session (#147)
+        self._hinted = set()
         self._commands = queue.Queue()
         self._worker = None
         self._stopping = False
@@ -180,9 +187,20 @@ class ChatWindow(QMainWindow):
                         continue  # unrecognized protocol element
                     if message.message_type == "greeting":
                         self.status_changed.emit(f"Connected as {self.name}")
+                    if message.sender and message.message_type in (
+                        "private",
+                        "channel",
+                    ):
+                        remember_sender(self._known, message.sender)
+                    self.line_received.emit(str(message))
                     if message.message_type == "private" and message.sender:
                         self.last_priv = message.sender
-                    self.line_received.emit(str(message))
+                        if message.sender not in self._hinted:
+                            self._hinted.add(message.sender)
+                            self.line_received.emit(reply_hint(message.sender))
+                            self.status_changed.emit(
+                                f"Private from {message.sender} — reply <message> answers"
+                            )
         except LoginRejected as rejection:
             self.login_rejected.emit(str(rejection))
         except (ssl.SSLError, ConnectionError, OSError) as error:
@@ -201,7 +219,7 @@ class ChatWindow(QMainWindow):
             except queue.Empty:
                 return
             self.last_priv = obey(
-                self.line_received.emit, self.server, line, self.last_priv
+                self.line_received.emit, self.server, line, self.last_priv, self._known
             )
 
     # -- input -------------------------------------------------------------

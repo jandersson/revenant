@@ -77,3 +77,36 @@ def test_reply_goes_to_the_last_private_sender_or_complains():
 def test_parse_is_the_same_grammar_the_script_uses():
     assert parse("chat ::Somefriend psst") == ("private", "Somefriend", "psst")
     assert parse("stats") == ("stats",)
+
+
+# --- a typed name finds the sender the server knows (#147) ---
+
+from chat.commands import remember_sender, reply_hint, resolve_recipient  # noqa: E402
+
+
+def test_a_heard_sender_is_found_without_prefix_or_case():
+    known = remember_sender({}, "DR:Somefriend")
+    assert resolve_recipient("somefriend", known) == "DR:Somefriend"
+    assert resolve_recipient("SOMEFRIEND", known) == "DR:Somefriend"
+    assert resolve_recipient("dr:somefriend", known) == "DR:Somefriend"
+
+
+def test_an_unheard_name_goes_through_as_typed():
+    assert resolve_recipient("Stranger", {}) == "Stranger"
+    assert resolve_recipient("Stranger", None) == "Stranger"
+    assert (
+        resolve_recipient("stranger", remember_sender({}, "DR:Somefriend"))
+        == "stranger"
+    )
+
+
+def test_chat_to_uses_the_resolved_recipient():
+    server = FakeServer()
+    known = remember_sender({}, "DR:Somefriend")
+    obey(print, server, "chat to somefriend psst", None, known)
+    assert server.sent == [("message", "psst", None, "DR:Somefriend")]
+
+
+def test_the_reply_hint_names_the_verb_and_the_sender():
+    hint = reply_hint("DR:Somefriend")
+    assert hint.startswith("(reply <message> answers DR:Somefriend")
