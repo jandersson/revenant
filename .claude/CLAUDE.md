@@ -43,7 +43,8 @@ processes; the session owns the game socket and hosts scripts.
   piece of a line per stream; frontends never add line breaks.
 - `client/session.py` — the detachable daemon: JSON frames on
   127.0.0.1:4242, backlog replay for late attachers (transient streams
-  excluded), the script engine, `;reexec` (POSIX only; #129 for Windows).
+  excluded), the script engine, `;reexec` (exec on POSIX; on Windows a
+  spawned child adopts the game socket via socket.share over stdin, #129).
 - `client/scripting.py` — scripts are `main(s)` files in `scripts/`,
   loaded fresh from disk on every start; the pure-logic helpers in
   `RELOADABLE_MODULES` reload with them. Handle API: put/get/waitfor/
@@ -98,16 +99,6 @@ Traps that cost time before:
 - **Bottom line up front, everywhere.** Chat replies, issues, commits,
   docstrings, docs: the first sentence is the answer, the outcome, or the
   ask, and stands alone. Reasoning and caveats follow, never lead.
-- House rule: chat replies end with a kaomoji of the agent's own choosing
-  (never the same one every time) — never in code, commits, docs, or
-  anything committed.
-- House rule: chat replies rotate through three Trailer Park Boys
-  voices, one per reply, in order: Ricky (his vocabulary and mangled
-  idioms), then Julian (calm, scheming, rum-and-coke in hand), then
-  Mr. Lahey (the liquor, the shit-analogies: shit-winds, shit-hawks,
-  the shit-apple). Chat only, and the facts, paths, commands and
-  numbers stay exactly right — never in code, commits, docs, issues,
-  or anything committed.
 - `.claude/learnings.md` holds what tripped agents up before (edit
   scripts, formatting, Windows restarts, evidence gathering). Read it
   once per session; add a line when something new bites.

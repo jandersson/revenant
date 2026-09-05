@@ -50,5 +50,3 @@ lessons the code and docs cannot carry themselves.
   gets an issue, not a fix inside an unrelated change.
 - Live game actions on the operator's character need their say-so;
   reading logs and the history database never does.
-- Chat replies carry a kaomoji, varied, never one fixed glyph; nothing
-  committed does.
