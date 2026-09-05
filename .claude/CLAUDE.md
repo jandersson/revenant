@@ -2,7 +2,7 @@
 
 A pure-Python client stack for DragonRealms (a Simutronics MUD). uv workspace
 monorepo: `client` (game client), `chat` (LNet chat), `beholder` (Dash
-dashboard over the history the `;xp` script logs to ~/.revenant/xp.db).
+dashboard over the history the `;xp` script logs to ~/.revenant/history.db).
 `launcher/` bridges to the external Ruby toolchain; revenant itself never
 grows Ruby dependencies (docs/why-python.md). docs/architecture.md tells the
 long version of everything below, with the issue history.
@@ -67,7 +67,7 @@ processes; the session owns the game socket and hosts scripts.
   logs, a message box on Windows) before importing the GUI.
 - `chat/chat.py` — LNet protocol (stdlib only); `chat/commands.py` — the
   `;chat` grammar the script and the window share.
-- `beholder/beholder/data.py` — stdlib sqlite3 over xp.db; `app.py` — Dash.
+- `beholder/beholder/data.py` — stdlib sqlite3 over history.db; `app.py` — Dash.
 
 Traps that cost time before:
 - A running session does not see edits to `client/` modules outside

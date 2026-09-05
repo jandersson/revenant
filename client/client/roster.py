@@ -2,10 +2,10 @@
 
 The roster sweep (tools/roster_sweep.py) walks the characters that have
 no snapshot yet; this module decides who those are, given the cached
-login defaults and the names already in xp.db. Pure functions, so the
+login defaults and the names already in history.db. Pure functions, so the
 selection is testable without a game, a database, or a window (#111).
 
-`guild` only reaches xp.db's character table through `;sheet`, so a
+`guild` only reaches history.db's character table through `;sheet`, so a
 character with no snapshot is invisible to `;circle` and to beholder's
 Circle-gates view. "Pending" here means exactly that: cached in a
 roster, absent from the history.
@@ -37,7 +37,7 @@ def pending_characters(defaults, snapshotted):
 
     `snapshotted` is any iterable of character names; matching is
     case-insensitive, since the game's own capitalisation is what lands
-    in xp.db while a roster may hold anything.
+    in history.db while a roster may hold anything.
     """
     have = {str(name).lower() for name in snapshotted}
     return [

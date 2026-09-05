@@ -1,8 +1,8 @@
 """Log skill experience to SQLite for history and analysis:  ;xp
 
 Every minute, snapshots the exp window (skills currently in the learning
-queue, with rank / percent / mindstate) into ~/.revenant/xp.db
-(override with REVENANT_XP_DB). The Experience dock shows the live
+queue, with rank / percent / mindstate) into ~/.revenant/history.db
+(override with REVENANT_HISTORY_DB). The Experience dock shows the live
 view; this file is the history the ;beholder dashboard plots. Every
 session starts this script automatically — ;stop xp opts a session
 out, REVENANT_NO_XP=1 disables the autostart. Stop with:  ;stop xp
@@ -12,6 +12,7 @@ import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
+from client.history import database_path as history_database_path
 
 INTERVAL = 60  # seconds between snapshots
 
@@ -29,7 +30,8 @@ CREATE TABLE IF NOT EXISTS mindstate (
 
 
 def database_path() -> Path:
-    return Path(os.environ.get("REVENANT_XP_DB", "~/.revenant/xp.db")).expanduser()
+    """~/.revenant/history.db (once history.db; client/history.py migrates)."""
+    return history_database_path()
 
 
 def ensure_schema(connection):

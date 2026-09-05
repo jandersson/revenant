@@ -23,7 +23,7 @@ grows Ruby dependencies (CLAUDE.md).
   hand-rolled BFS, and so is ours today — but only one of us has an
   upgrade path.
 - **The scientific bench behind it**: scikit-learn and statsmodels
-  for modeling training cadence from xp.db, torch for classifying
+  for modeling training cadence from history.db, torch for classifying
   game wordings (the ;mechlore unknown-message problem is a text
   classifier waiting to happen). No Ruby peer is within a decade of
   any of these.

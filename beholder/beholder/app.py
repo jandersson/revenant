@@ -5,7 +5,7 @@ sortable table of the latest learning queue — the historical companion
 to the GUI's live Experience dock — and a Circle-gates table computing
 what blocks the next circle from the latest ;sheet snapshot. Data
 comes from the SQLite log the ;xp and ;sheet scripts write
-(~/.revenant/xp.db; override REVENANT_XP_DB). Run with `uv run
+(~/.revenant/history.db; override REVENANT_HISTORY_DB). Run with `uv run
 beholder` and open http://127.0.0.1:8050.
 """
 

@@ -1,4 +1,4 @@
-"""Queries over the experience history the ;xp script logs to xp.db.
+"""Queries over the experience history the ;xp script logs to history.db.
 
 The database is written by scripts/xp.py: one `mindstate` row per
 learning skill per minute (logged_at is ISO-8601 UTC, so text ordering
@@ -13,12 +13,22 @@ from pathlib import Path
 
 
 def database_path() -> Path:
-    """The xp.db location, shared with scripts/xp.py."""
-    return Path(os.environ.get("REVENANT_XP_DB", "~/.revenant/xp.db")).expanduser()
+    """The history database, shared with the scripts that write it:
+    ~/.revenant/history.db, once xp.db (#121). client/history.py owns the
+    rule and the one-time rename; without the client package (a
+    dashboard-only install) the same rule is applied here."""
+    try:
+        from client.history import database_path as shared
+    except ImportError:  # pragma: no cover — the workspace always has it
+        override = os.environ.get("REVENANT_HISTORY_DB") or os.environ.get(
+            "REVENANT_XP_DB"
+        )
+        return Path(override or "~/.revenant/history.db").expanduser()
+    return shared()
 
 
 def connect(path=None):
-    """Read-only: the dashboard must never create an empty xp.db as a
+    """Read-only: the dashboard must never create an empty history.db as a
     side effect of being opened before ;xp has ever run — a missing
     file raises OperationalError, which callers already treat as the
     no-history-yet state."""

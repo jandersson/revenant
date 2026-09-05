@@ -3,7 +3,7 @@
 A passive listener: banks only reveal balances at the teller, so this
 watches the game text for the balance phrasings ("Your current balance
 is ...", "As expected, there are ...") and records each sighting into
-~/.revenant/xp.db as a `bank` wealth row — the same table ;sheet fills
+~/.revenant/history.db as a `bank` wealth row — the same table ;sheet fills
 with carried coin and debt, and the beholder Wealth view reads. Purely
 observational: it never sends a command, so it is safe dead or alive.
 Stop with:  ;stop wealth
@@ -17,6 +17,7 @@ import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
+from client.history import database_path as history_database_path
 
 COPPER_PER = {
     "platinum": 10_000,
@@ -51,7 +52,8 @@ def parse_balance(line):
 
 
 def database_path() -> Path:
-    return Path(os.environ.get("REVENANT_XP_DB", "~/.revenant/xp.db")).expanduser()
+    """~/.revenant/history.db (once history.db; client/history.py migrates)."""
+    return history_database_path()
 
 
 SCHEMA = """

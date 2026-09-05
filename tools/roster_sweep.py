@@ -1,6 +1,6 @@
 """Capture a ;sheet snapshot for every cached character, one at a time.
 
-Walks the characters that have no snapshot in xp.db yet: spawns each
+Walks the characters that have no snapshot in history.db yet: spawns each
 one's session, opens a window on it, waits for `;sheet`'s
 start-of-session snapshot to land, then **stops and waits for you** —
 Enter moves to the next character, `s` skips, `q` quits. Nothing
@@ -11,7 +11,7 @@ advances on its own; looking around is the point (#111).
     uv run python tools/roster_sweep.py --all      # re-snapshot everyone
     uv run python tools/roster_sweep.py --list     # print the plan, do nothing
 
-Why bother: `guild` only reaches xp.db's character table through
+Why bother: `guild` only reaches history.db's character table through
 `;sheet`, so an un-snapshotted character is invisible to `;circle` and
 to beholder's Circle-gates view.
 
@@ -22,7 +22,6 @@ time.
 """
 
 import argparse
-import os
 import sqlite3
 import subprocess
 import sys
@@ -42,7 +41,9 @@ POLL_SECONDS = 2
 
 
 def xp_db_path():
-    return Path(os.environ.get("REVENANT_XP_DB", "~/.revenant/xp.db")).expanduser()
+    from client.history import database_path
+
+    return database_path()
 
 
 def snapshotted_names(path):

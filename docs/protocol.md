@@ -152,7 +152,7 @@ skill: `exp <Skill>` (`exp Lunar Magic`, `exp Athletics`, …), plus
 distinct skill components across our logs — that is what these
 characters have seen, not a guarantee of DR's full skill list.)* `xml_data.py` parses these into `experience`
 (rank/percent/mindstate); `core.py` rewrites the synthetic `exp` stream
-on change, and `scripts/xp.py` snapshots it to `~/.revenant/xp.db`
+on change, and `scripts/xp.py` snapshots it to `~/.revenant/history.db`
 (docs/experience.md).
 
 ## What DR sends that we ignore

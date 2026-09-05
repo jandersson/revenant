@@ -1,6 +1,6 @@
 """Read INV LIST's nested item list into flat, searchable rows.
 
-`;sheet` snapshots this into xp.db so "which character has that thing?"
+`;sheet` snapshots this into history.db so "which character has that thing?"
 is a query rather than 31 logins (#117). Qt-free and IO-free: the
 parser is the whole module, and tests exercise it against captured
 traffic.

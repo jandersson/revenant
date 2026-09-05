@@ -39,7 +39,7 @@ One pipeline, one parser, several processes:
   parses the exp window (`<component id='exp Skill'>`) into
   `experience` (rank/percent/mindstate per learning skill); the engine
   rewrites a synthetic "exp" stream on change (Experience dock), and
-  `scripts/xp.py` snapshots it to `~/.revenant/xp.db` for history.
+  `scripts/xp.py` snapshots it to `~/.revenant/history.db` for history.
 - `client/client/core.py` — `Engine`: owns a connection, feeds lines through
   XMLData, invokes `output_callback(text, stream)` per segment. Emits a
   synthetic `"compass"` stream (one frame per room, identical exits
@@ -110,7 +110,7 @@ One pipeline, one parser, several processes:
   asks once with a remember checkbox), one worker thread owning the
   socket as the script does (#141). `;tend`
   bandages bleeders (watch mode wakes on soak-through); `;wealth`
-  passively logs teller balance statements into xp.db.
+  passively logs teller balance statements into history.db.
   `client/client/probe.py` is the ask-and-classify helper the keyword
   scripts (;mechlore, ;favors) share: send a command, gather the answer
   through its roundtime, match it against an ordered outcome table.

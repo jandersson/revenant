@@ -1,7 +1,7 @@
 """What gates your next circle:  ;circle
 
 Computes the guildleader's answer locally: the latest ;sheet snapshot
-(~/.revenant/xp.db) against your guild's circle-requirement table
+(~/.revenant/history.db) against your guild's circle-requirement table
 (client/circles.py, from Elanthipedia; all eleven circled guilds),
 printed per knowledge set with have/need ranks. Nothing is sent to the game — run
 ;sheet once first if the snapshot might be stale; the snapshot's age
@@ -15,10 +15,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from client import circles
+from client.history import database_path as history_database_path
 
 
 def database_path() -> Path:
-    return Path(os.environ.get("REVENANT_XP_DB", "~/.revenant/xp.db")).expanduser()
+    """~/.revenant/history.db (once history.db; client/history.py migrates)."""
+    return history_database_path()
 
 
 def latest_snapshot(connection, character=None):

@@ -52,7 +52,7 @@ Bundled scripts: `;go2` travel on the community map, `;xp` and `;sheet` history 
 
 ![The beholder dashboard: a character dropdown and a multi-select of skills, a mindstate-over-time plot for one day showing two training sessions filling to 34 and draining between pulses, a range slider beneath it, and a table of each skill's current rank, percent and mindstate](docs/beholder.png)
 
-A browser dashboard over the history every session logs to `~/.revenant/xp.db`: mindstate and rank over time per character and skill, plus the sheet snapshots (stats, circle, wealth, inventory) and the circle gates. View → Experience History embeds it in the client, `;beholder` opens it in a browser, `uv run beholder` runs it by hand. See [beholder/README.md](beholder/README.md).
+A browser dashboard over the history every session logs to `~/.revenant/history.db`: mindstate and rank over time per character and skill, plus the sheet snapshots (stats, circle, wealth, inventory) and the circle gates. View → Experience History embeds it in the client, `;beholder` opens it in a browser, `uv run beholder` runs it by hand. See [beholder/README.md](beholder/README.md).
 
 ## Chat
 

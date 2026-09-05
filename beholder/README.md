@@ -3,10 +3,10 @@
 A [Dash](https://dash.plotly.com/)/[Plotly](https://plotly.com/) web dashboard for DragonRealms character experience: mindstate and rank over time per character and per skill, with a sortable, filterable table of the latest learning queue. It is the historical companion to the client GUI's live Experience dock — the dock shows now, beholder shows the trend.
 
 ```
-revenant client (xp script)  ──▶  ~/.revenant/xp.db  ──▶  beholder
+revenant client (xp script)  ──▶  ~/.revenant/history.db  ──▶  beholder
 ```
 
-1. The client's bundled xp script runs automatically in every session, snapshotting the exp window (rank / percent / mindstate per learning skill) into `~/.revenant/xp.db` every 60 seconds (override: `REVENANT_XP_DB`; opt out for a session with `;stop xp`, or permanently with `REVENANT_NO_XP=1`). See [scripts/xp.py](../scripts/xp.py).
+1. The client's bundled xp script runs automatically in every session, snapshotting the exp window (rank / percent / mindstate per learning skill) into `~/.revenant/history.db` every 60 seconds (override: `REVENANT_HISTORY_DB`; opt out for a session with `;stop xp`, or permanently with `REVENANT_NO_XP=1`). See [scripts/xp.py](../scripts/xp.py).
 2. Type `;beholder` in any frontend — it starts the dashboard if needed and opens <http://127.0.0.1:8050> in your browser. Or run it by hand:
 
 ```sh

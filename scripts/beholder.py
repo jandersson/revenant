@@ -4,7 +4,7 @@ Starts the beholder web dashboard (mindstate and rank over time, fed
 by the always-on xp logger) if it isn't already running, then opens
 http://127.0.0.1:8050. The dashboard is its own process and keeps
 serving after the session ends — run ;beholder again any time for the
-URL. It reads ~/.revenant/xp.db, so history appears once the xp script
+URL. It reads ~/.revenant/history.db, so history appears once the xp script
 has logged for a minute or two.
 
 Every session also runs  ;beholder quiet  automatically: it ensures

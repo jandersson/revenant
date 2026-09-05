@@ -2,7 +2,7 @@
 
 Records INFO and EXP ALL — stats, circle, TDPs, favors, the full
 skill roster with ranks, and the rested-experience line (stored,
-usable, refresh, in minutes) — into ~/.revenant/xp.db, where beholder
+usable, refresh, in minutes) — into ~/.revenant/history.db, where beholder
 renders the history (#61). Every session snapshots on start and every
 three hours after; the sheet moves slowly, so that's plenty. A command
 the game leaves unanswered (login noise eats them) is re-asked, and
@@ -33,6 +33,7 @@ from pathlib import Path
 from client.inventory import FOOTER as INV_END
 from client.inventory import parse_inventory
 from client.probe import collect
+from client.history import database_path as history_database_path
 
 INTERVAL = 3 * 3600  # seconds between snapshots
 COLLECT_SECONDS = 5  # patience per ask; the answer's last line ends it early
@@ -141,7 +142,8 @@ CREATE TABLE IF NOT EXISTS inventory (
 
 
 def database_path() -> Path:
-    return Path(os.environ.get("REVENANT_XP_DB", "~/.revenant/xp.db")).expanduser()
+    """~/.revenant/history.db (once history.db; client/history.py migrates)."""
+    return history_database_path()
 
 
 def ensure_schema(connection):
