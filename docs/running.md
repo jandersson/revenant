@@ -10,6 +10,10 @@ uv run revenant Lanival          # a named character: attach if online, else spa
 uv run revenant --pick           # the picker: running sessions to attach, cached characters to launch
 ```
 
+### The packaged build
+
+A GitHub Release carries a Windows installer (`Revenant-<version>-setup.exe`) and a macOS disk image (`Revenant-<version>.dmg`) built by `.github/workflows/release.yml` on every `v*` tag (#60): the same code, bundled with its own Python by PyInstaller from `packaging/revenant.spec`, so nothing needs installing first. The installer adds a Start Menu entry (and a "pick a character" one) whose taskbar identity matches the running window; the disk image holds `Revenant.app`. Neither is signed — on macOS, right-click → Open the first time. An installed copy keeps its scripts in `~/.revenant/scripts`, seeded from the bundled ones on first run and never overwritten, so `;run` and script edits work as from a checkout; the bundle's `revenant-cli` runs the terminal frontend (`revenant-cli --role client.tui`) and `revenant-send` (`--role client.sendcmd`). `uv run python tools/build_installer.py` builds the same thing locally.
+
 ### The terminal frontend
 
 `uv run revenant-tui [character]` attaches a terminal window to a running session instead of the GUI (#57): one scrolling log with the game's styles and your highlight rules, docked streams inline with a `[thoughts]`-style prefix, a status bar with the character, room, vitals, posture, badges and roundtime, Up/Down history. It never logs in by itself; start the session with `revenant` first (or name one with `--attach HOST:PORT`). Ctrl+Q detaches and leaves the character in the game; type `quit` to log out. Both frontends can be attached to the same session at once.

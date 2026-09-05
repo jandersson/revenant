@@ -50,14 +50,36 @@ from client.settings import dev_mode
 REPO_SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
 
 
+USER_SCRIPTS_DIR = "~/.revenant/scripts"
+
+
+def seed_scripts(target, bundled):
+    """~/.revenant/scripts for a packaged build (#60): every bundled
+    script copied in once; a script already there is the user's — maybe
+    edited — and is never overwritten. Returns the directory."""
+    target = Path(target).expanduser()
+    target.mkdir(parents=True, exist_ok=True)
+    for source in sorted(Path(bundled).glob("*.py")):
+        copy = target / source.name
+        if not copy.exists():
+            copy.write_bytes(source.read_bytes())
+    return target
+
+
 def default_scripts_dir():
     """Where scripts live: REVENANT_SCRIPTS, else ./scripts when the
     working directory has one, else the repo's own scripts/ — a session
     started from any other directory found no scripts at all and
     answered `;go2` with "no script named 'go2'" (captured 2026-09-04,
-    #142)."""
+    #142). A packaged build has no repo: its bundled scripts seed
+    ~/.revenant/scripts, which is then the directory (#60)."""
     if override := os.environ.get("REVENANT_SCRIPTS"):
         return Path(override)
+    from client.procspawn import bundle_dir
+
+    bundle = bundle_dir()
+    if bundle is not None:
+        return seed_scripts(USER_SCRIPTS_DIR, bundle / "scripts")
     local = Path("scripts")
     if local.is_dir():
         return local

@@ -33,6 +33,7 @@ from client.login import (
     load_login_defaults,
     save_login_defaults,
 )
+from client.procspawn import command_for
 from client.session import DEFAULT_HOST, DEFAULT_PORT, running_sessions
 
 
@@ -185,15 +186,9 @@ def spawn_session(host, port, character, key=None, account=None):
         # The session's own login (the keychain-silent path) must use
         # the launcher's chosen account, not the saved default.
         env["REVENANT_ACCOUNT"] = account
-    command = [
-        sys.executable,
-        "-m",
-        "client.session",
-        "--host",
-        host,
-        "--port",
-        str(port),
-    ]
+    # From source: python -m client.session; in a packaged build the
+    # one executable plays the session role (client/procspawn.py, #60).
+    command = command_for("client.session", "--host", host, "--port", str(port))
     # New process group: interrupting or closing the GUI must not take the
     # session (and with it the game connection) down too.
     if key is None:

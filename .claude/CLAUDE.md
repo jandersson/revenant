@@ -51,6 +51,12 @@ processes; the session owns the game socket and hosts scripts.
   waitrt/echo/emit/sleep/command/state/args. `;help` renders docstrings.
 - `client/probe.py` — ask-and-classify shared by keyword scripts;
   `collect` glues per-segment pieces into whole lines.
+- `client/procspawn.py` + `client/frozen.py` — every sibling spawn
+  (session, dashboard, reexec child) goes through `command_for`, which
+  is `python -m module` from source and `<exe> --role module` in the
+  PyInstaller build (`packaging/revenant.spec`, `tools/build_installer.py`,
+  the release workflow on `v*` tags, #60). Never spell `sys.executable -m`
+  out again.
 - `client/tui.py` — `revenant-tui`, the Textual terminal frontend: attach-only,
   renders through the toolkit-free `client/textstyle.py` (style table,
   highlight runs, status line — the tested half; keep its STYLES in step

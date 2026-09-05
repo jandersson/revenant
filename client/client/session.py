@@ -30,6 +30,7 @@ from client.client_logger import ClientLogger
 from client.core import Engine, indicators_frame, room_frame, vitals_frame
 from client.login import connect_game, simu_login
 from client.netsock import SocketClient
+from client.procspawn import command_for
 from client.scripting import ScriptManager
 
 DEFAULT_HOST = "127.0.0.1"
@@ -500,16 +501,9 @@ class SessionServer(ClientLogger):
         execv(sys.executable, argv)
 
     def reexec_argv(self, handoff):
-        return [
-            sys.executable,
-            "-m",
-            "client.session",
-            "--host",
-            self.host,
-            "--port",
-            str(self.port),
-            *handoff,
-        ]
+        return command_for(
+            "client.session", "--host", self.host, "--port", str(self.port), *handoff
+        )
 
     def carried_env(self):
         """What the new process inherits through its environment: the

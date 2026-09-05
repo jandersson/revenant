@@ -8,7 +8,7 @@ A Python client for [DragonRealms](https://www.play.net/dr/): a detachable game 
 
 ## Install and first run
 
-You need [git](https://git-scm.com/), [uv](https://docs.astral.sh/uv/getting-started/installation/), and a DragonRealms account. uv fetches a Python of its own if the machine has none.
+The quickest way is a packaged build from the [Releases](https://github.com/jandersson/revenant/releases) page: a Windows installer or a macOS disk image, no Python needed ([running.md](docs/running.md) has the details). From source you need [git](https://git-scm.com/), [uv](https://docs.astral.sh/uv/getting-started/installation/), and a DragonRealms account. uv fetches a Python of its own if the machine has none.
 
 ```sh
 git clone https://github.com/jandersson/revenant.git

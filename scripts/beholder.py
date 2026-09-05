@@ -16,7 +16,6 @@ that autostart.
 import os
 import socket
 import subprocess
-import sys
 import webbrowser
 
 HOST = "127.0.0.1"
@@ -37,8 +36,10 @@ def spawn_dashboard():
     """Start `python -m beholder.app` detached and windowless; it owns
     its own lifetime (closing the session does not stop it)."""
     flags = 0x08000000 if os.name == "nt" else 0  # CREATE_NO_WINDOW
+    from client.procspawn import command_for
+
     return subprocess.Popen(
-        [sys.executable, "-m", "beholder.app"],
+        command_for("beholder.app"),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         creationflags=flags,

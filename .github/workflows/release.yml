@@ -1,0 +1,66 @@
+# Distributable builds on version tags (#60): a Windows installer and a
+# macOS disk image, attached to the GitHub Release for the tag.
+#
+#   git tag v0.0.1 && git push origin v0.0.1
+#
+# Each leg runs tools/build_installer.py: PyInstaller from
+# packaging/revenant.spec, then Inno Setup (preinstalled on the Windows
+# runner) or hdiutil. Unsigned on both platforms — macOS users
+# right-click → Open the first time; docs/running.md says so.
+
+name: Release builds
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Sync workspace
+        run: uv sync --all-packages
+
+      - name: Build the bundle and the installer
+        run: uv run python tools/build_installer.py
+
+      - name: Upload the build
+        uses: actions/upload-artifact@v4
+        with:
+          name: revenant-${{ matrix.os }}
+          path: |
+            dist/*-setup.exe
+            dist/*.dmg
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: builds
+          merge-multiple: true
+
+      - name: Attach to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: builds/*
+          generate_release_notes: true
