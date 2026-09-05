@@ -36,7 +36,7 @@ from PyQt6.QtGui import (
     QTextCharFormat,
     QTextCursor,
 )
-from PyQt6.QtCore import QSettings, QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QEvent, QSettings, QSize, Qt, QTimer, pyqtSignal
 
 from client import crashguard, eltime, reader, window_layout
 from client.command_history import CommandHistory
@@ -44,6 +44,7 @@ from client.core import Engine
 from client.client_logger import ClientLogger
 from client.gui.map_dock import MapView
 from client.highlights import highlights_path, load_rules, spans
+from client.inputfocus import click_focuses_input, forwardable
 from client.session import (
     AttachedEngine,
     DEFAULT_HOST,
@@ -412,7 +413,32 @@ class ClientGUI(QMainWindow, ClientLogger):
         view.setOpenLinks(False)
         view.setOpenExternalLinks(False)
         view.anchorClicked.connect(self._follow_link)
+        # Typing goes to the input line even after a click on the view
+        # (#150): the filter below hands focus over and forwards the key.
+        view.installEventFilter(self)
         return view
+
+    def eventFilter(self, obj, event):
+        """A click on a game text view without selecting text focuses
+        the input line; a printable keystroke that lands on a view is
+        typed into the input line instead of being discarded (#150).
+        Selections, control chords and scrolling keys stay with the
+        view (client/inputfocus.py holds the rule)."""
+        if isinstance(obj, QTextBrowser):
+            kind = event.type()
+            if kind == QEvent.Type.MouseButtonRelease:
+                if click_focuses_input(obj.textCursor().hasSelection()):
+                    self.input.setFocus()
+            elif kind == QEvent.Type.KeyPress:
+                chord = (
+                    Qt.KeyboardModifier.ControlModifier
+                    | Qt.KeyboardModifier.MetaModifier
+                )
+                if forwardable(event.text(), bool(event.modifiers() & chord)):
+                    self.input.setFocus()
+                    self.input.insert(event.text())
+                    return True
+        return super().eventFilter(obj, event)
 
     def _follow_link(self, url):
         command = url.toString().strip()
