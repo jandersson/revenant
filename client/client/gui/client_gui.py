@@ -1,48 +1,45 @@
+"""The PyQt6 window: menus, docks, dispatch, rendering, reconnect.
+
+The docks' widgets live beside this module — compass_dock.py (the
+rose), clocks_dock.py (the clocks panel), input_strip.py (the command
+line with its vitals bars, status strip and timers), map_dock.py (the
+map) and text_views.py (the story and stream views, fonts); this file
+builds the window around them, restores the saved layout, routes each
+frame of game text to the widget or dock it belongs to, appends styled
+text, and owns the connection (reader thread, reconnect, detach, quit).
+"""
+
 import argparse
 import os
 import sys
-from datetime import datetime
-from math import ceil
 from pathlib import Path
 from threading import Thread
-from time import time
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from PyQt6.QtWidgets import (
     QApplication,
     QDockWidget,
-    QGridLayout,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
     QMainWindow,
     QMenu,
-    QProgressBar,
-    QPushButton,
     QTextBrowser,
-    QVBoxLayout,
-    QWidget,
 )
 from PyQt6.QtGui import (
     QAction,
     QColor,
     QFont,
-    QFontDatabase,
-    QFontMetricsF,
     QIcon,
-    QPainter,
-    QPainterPath,
-    QPen,
     QTextCharFormat,
     QTextCursor,
 )
-from PyQt6.QtCore import QEvent, QSettings, QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QEvent, QSettings, Qt, pyqtSignal
 
-from client import crashguard, eltime, reader, window_layout
-from client.command_history import CommandHistory
+from client import crashguard, reader, window_layout
 from client.core import Engine
 from client.client_logger import ClientLogger
+from client.gui.clocks_dock import ClocksPanel
+from client.gui.compass_dock import CompassRose
+from client.gui.input_strip import InputStrip
 from client.gui.map_dock import MapView
+from client.gui.text_views import GameTextView, font_for, style_experience_view
 from client.highlights import highlights_path, load_rules, spans
 from client.inputfocus import click_focuses_input, forwardable
 from client.session import (
@@ -53,7 +50,6 @@ from client.session import (
 )
 from client.settings import load_settings, save_settings, setting, settings_path
 from client.streamroute import STREAM_WINDOWS as STREAM_WINDOW_TITLES, clears_window
-from client.textfont import view_font
 
 ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
 
@@ -72,52 +68,6 @@ try:
     from PyQt6.QtWebEngineWidgets import QWebEngineView
 except ImportError:  # pragma: no cover — depends on the install
     QWebEngineView = None
-
-
-class HistoryLineEdit(QLineEdit):
-    """The command line with shell-style history: Up/Down browse what
-    was typed, the unsent draft survives the browse (#76)."""
-
-    def __init__(self):
-        super().__init__()
-        self.history = CommandHistory()
-
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Up:
-            shown = self.history.previous(self.text())
-            if shown is not None:
-                self.setText(shown)
-            return
-        if event.key() == Qt.Key.Key_Down:
-            shown = self.history.next()
-            if shown is not None:
-                self.setText(shown)
-            return
-        super().keyPressEvent(event)
-
-
-class OutlinedBar(QProgressBar):
-    """A vitals bar whose label stays readable over any fill: the
-    glyphs get a black outline behind a light face. Plain bar text
-    washed out where chunk and text were both light — the spirit
-    bar's near-white chunk was the reported case."""
-
-    def __init__(self):
-        super().__init__()
-        self.setTextVisible(False)  # the label is painted here instead
-
-    def paintEvent(self, event):
-        super().paintEvent(event)  # groove and chunk, no text
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        text = self.text()
-        metrics = QFontMetricsF(self.font())
-        x = (self.width() - metrics.horizontalAdvance(text)) / 2
-        y = (self.height() + metrics.ascent() - metrics.descent()) / 2
-        path = QPainterPath()
-        path.addText(x, y, self.font(), text)
-        painter.strokePath(path, QPen(QColor(0, 0, 0), 3))
-        painter.fillPath(path, QColor("#f0f0f2"))
 
 
 def claim_taskbar_identity():
@@ -144,6 +94,7 @@ class ClientGUI(QMainWindow, ClientLogger):
 
     # style id -> (bold, color). The game's own styling markers, rendered
     # the way Stormfront players expect: amber room names, blue speech.
+    # client/textstyle.py keeps the TUI's copy in step.
     STYLE_FORMATS = {
         "roomName": (True, "#d8b465"),
         "bold": (True, None),
@@ -164,63 +115,10 @@ class ClientGUI(QMainWindow, ClientLogger):
     # routing rules headless (#109).
     STREAM_WINDOWS = STREAM_WINDOW_TITLES
 
-    # The status strip's badge colors: alarming states loud, sneaky
-    # states purple, posture plain. IconDEAD overrides everything.
-    INDICATOR_BADGES = {
-        "IconSTUNNED": ("stunned", "#d8b465"),
-        "IconBLEEDING": ("bleeding", "#e05252"),
-        "IconWEBBED": ("webbed", "#8fc7e8"),
-        "IconHIDDEN": ("hidden", "#b39ddb"),
-        "IconINVISIBLE": ("invisible", "#b39ddb"),
-        "IconJOINED": ("joined", "#808090"),
-    }
-    POSTURES = {
-        "IconSTANDING": "standing",
-        "IconKNEELING": "kneeling",
-        "IconSITTING": "sitting",
-        "IconPRONE": "prone",
-    }
-
-    # Vitals bar colors, roughly the classic frontends' scheme; ids the
-    # game hasn't taught us yet fall back to grey. The game calls the
-    # stamina bar "fatigue" on screen — so do we.
-    VITAL_COLORS = {
-        "health": "#c0504d",
-        "mana": "#4f81bd",
-        "stamina": "#d8b465",
-        "spirit": "#c8c8d4",
-        "concentration": "#b39ddb",
-    }
-    VITAL_LABELS = {"stamina": "fatigue"}
-
-    # Compass rose geometry: unit-circle offsets for the eight wind
-    # directions around a central OUT, with up/down stacked beside.
-    COMPASS_POINTS = {
-        "n": (0.0, -1.0),
-        "ne": (0.707, -0.707),
-        "e": (1.0, 0.0),
-        "se": (0.707, 0.707),
-        "s": (0.0, 1.0),
-        "sw": (-0.707, 0.707),
-        "w": (-1.0, 0.0),
-        "nw": (-0.707, -0.707),
-    }
-    COMPASS_ARROWS = {
-        "n": "↑",
-        "ne": "↗",
-        "e": "→",
-        "se": "↘",
-        "s": "↓",
-        "sw": "↙",
-        "w": "←",
-        "nw": "↖",
-    }
-
     def __init__(self, engine=None, character=None):
         super().__init__()
         self.log.debug("Initializing ClientGUI instance")
         self.status_bar = self.statusBar()
-        self.input_dock = QDockWidget()
         self.highlight_rules = load_rules()
         # Who is playing — known up front when the launcher or the
         # session registry says so (`character`), otherwise from the
@@ -232,9 +130,6 @@ class ClientGUI(QMainWindow, ClientLogger):
         # character and must not stomp a live arrangement.
         self._character = character or None
         self._layout_applied = False
-        # Server-minus-local clock seconds, from the "timesync" stream:
-        # the Elanthian clock computes from server time (#102).
-        self._server_delta = 0.0
         self.client = engine if engine is not None else Engine()
         self.__init_ui()
         self.game_text.connect(self.dispatch_game_text)
@@ -255,6 +150,8 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.input.setFocus()
         self.gui_reactor()
 
+    # -- building the window ------------------------------------------------
+
     def __init_ui(self):
         self.log.debug("Initializing UI")
         self.setWindowTitle("Revenant")
@@ -262,6 +159,9 @@ class ClientGUI(QMainWindow, ClientLogger):
         # TODO: Update this with some sort of connection string when connected
         self.status_bar.showMessage("Not Connected")
 
+        # Dock creation order and object names are what a saved layout
+        # restores onto (#140): keep both stable.
+        self.stream_docks = {}
         self.__add_output_window()
         self.__add_stream_docks()
         self.__add_compass_dock()
@@ -269,7 +169,110 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.__add_map_dock()
         self.__add_input_field()
         self._apply_text_font()
+        self.__add_menus()
 
+        # Window size and dock layout persist between launches. The
+        # character's own layout when the character is known up front,
+        # the legacy unscoped pair otherwise — restored before the
+        # first show (#140). A character learned later, from the
+        # "character" frame, gets the hide-restore-show path (#74).
+        settings = QSettings("revenant", "revenant")
+        geometry, state, scoped = window_layout.startup_layout(
+            settings.value, self._character
+        )
+        if geometry:
+            self.restoreGeometry(geometry)
+        if state:
+            self.restoreState(state)
+        if scoped:
+            self._layout_applied = True
+            self.setWindowTitle(f"Revenant — {self._character}")
+
+        self.show()
+
+    def _dock(self, title, widget, object_name=None):
+        """A dock on the right, registered under stream_docks so the
+        View menu gets its toggle; the object name is what saveState()
+        keys the layout by, so it never changes."""
+        dock = QDockWidget(title)
+        dock.setObjectName(object_name or title)
+        dock.setWidget(widget)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+        self.stream_docks[title] = dock
+        return dock
+
+    def _make_view(self):
+        return GameTextView(self._follow_link, self)
+
+    def __add_output_window(self):
+        self.main_window = self._make_view()
+        self.setCentralWidget(self.main_window)
+        # The platform font, kept so "use the default" in Settings can
+        # restore it after a custom font was applied.
+        self._default_text_font = QFont(self.main_window.font())
+
+    def __add_stream_docks(self):
+        """One dock window per title in STREAM_WINDOWS, stacked on the right."""
+        self.stream_windows = {}
+        for title in dict.fromkeys(self.STREAM_WINDOWS.values()):
+            view = self._make_view()
+            if title == "Experience":
+                style_experience_view(view)
+            self._dock(title, view)
+        for stream, title in self.STREAM_WINDOWS.items():
+            self.stream_windows[stream] = self.stream_docks[title].widget()
+
+    def __add_compass_dock(self):
+        self.compass = CompassRose(send=self.write)
+        self._dock("Compass", self.compass)
+
+    def __add_clocks_dock(self):
+        self.clocks = ClocksPanel()
+        self._dock("Clocks", self.clocks)
+
+    def __add_map_dock(self):
+        """The visual map (#56): the community map drawn around the
+        character, following the "room" stream; a click on a room walks
+        there via ;go2. The database loads on a worker thread. On the
+        right with the other docks: alone on the left it got whatever
+        width the story window left over, a strip (#146)."""
+        self.map_view = MapView(send=self.write)
+        self._dock("Map", self.map_view)
+        self.map_ready.connect(self.map_view.set_database)
+        Thread(target=self._load_map_database, daemon=True).start()
+
+    def _load_map_database(self):
+        """Worker: load the community map (plus the survey overlay's ids)
+        and hand it to the dock. A missing database is reported, never
+        downloaded here — ;go2 update owns fetching the 13MB."""
+        from client.mapdb import MapDB, mapdb_path
+        from client.maplayout import local_room_ids
+
+        if not mapdb_path().is_file():
+            self.map_ready.emit(None, set())
+            return
+        try:
+            db = MapDB.load()
+        except (OSError, ValueError):
+            self.log.exception("map database failed to load")
+            self.map_ready.emit(None, set())
+            return
+        self.map_ready.emit(db, local_room_ids())
+
+    def __add_input_field(self):
+        self.input_strip = InputStrip()
+        self.input = self.input_strip.input
+        self.input_dock = QDockWidget()
+        self.input_dock.setObjectName("Input")
+        # TODO: Fix the bottom dock. BottomDock thingy is incompatible with Qt6
+        self.input_dock.setAllowedAreas(
+            Qt.DockWidgetArea.BottomDockWidgetArea | Qt.DockWidgetArea.TopDockWidgetArea
+        )
+        self.input_dock.setWidget(self.input_strip)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.input_dock)
+        self.input.returnPressed.connect(self.send_input)
+
+    def __add_menus(self):
         reconnect_action = QAction("&Reconnect", self)
         reconnect_action.setShortcut("Ctrl+R")
         reconnect_action.setStatusTip(
@@ -349,24 +352,19 @@ class ClientGUI(QMainWindow, ClientLogger):
         for dock in self.stream_docks.values():
             view_menu.addAction(dock.toggleViewAction())
 
-        # Window size and dock layout persist between launches. The
-        # character's own layout when the character is known up front,
-        # the legacy unscoped pair otherwise — restored before the
-        # first show (#140). A character learned later, from the
-        # "character" frame, gets the hide-restore-show path (#74).
-        settings = QSettings("revenant", "revenant")
-        geometry, state, scoped = window_layout.startup_layout(
-            settings.value, self._character
-        )
-        if geometry:
-            self.restoreGeometry(geometry)
-        if state:
-            self.restoreState(state)
-        if scoped:
-            self._layout_applied = True
-            self.setWindowTitle(f"Revenant — {self._character}")
+    def _apply_text_font(self):
+        """Settings' font on the main window, every stream dock, and the
+        input line (#118), each view resolved on its own (#132)."""
+        settings = load_settings()
+        for title, dock in self.stream_docks.items():
+            if title in STREAM_WINDOW_TITLES.values():
+                dock.widget().setFont(
+                    font_for(settings, title, self._default_text_font)
+                )
+        self.main_window.setFont(font_for(settings, "Main", self._default_text_font))
+        self.input.setFont(font_for(settings, "Input", self._default_text_font))
 
-        self.show()
+    # -- layout, focus, closing ------------------------------------------------
 
     def _restore_character_layout(self, name):
         """This character's own saved arrangement, if any — without one
@@ -405,19 +403,6 @@ class ClientGUI(QMainWindow, ClientLogger):
                     pass  # already disconnected: nothing to quit
         super().closeEvent(event)
 
-    def _make_view(self):
-        """A read-only text view whose <d> command links are clickable:
-        a click sends the command to the game (QTextBrowser so anchors
-        fire without navigating anywhere)."""
-        view = QTextBrowser()
-        view.setOpenLinks(False)
-        view.setOpenExternalLinks(False)
-        view.anchorClicked.connect(self._follow_link)
-        # Typing goes to the input line even after a click on the view
-        # (#150): the filter below hands focus over and forwards the key.
-        view.installEventFilter(self)
-        return view
-
     def eventFilter(self, obj, event):
         """A click on a game text view without selecting text focuses
         the input line; a printable keystroke that lands on a view is
@@ -440,415 +425,25 @@ class ClientGUI(QMainWindow, ClientLogger):
                     return True
         return super().eventFilter(obj, event)
 
-    def _follow_link(self, url):
-        command = url.toString().strip()
+    def _follow_link(self, command):
         if command:
             self.write(command)
 
-    def __add_output_window(self):
-        self.main_window = self._make_view()
-        self.setCentralWidget(self.main_window)
-        # The platform font, kept so "use the default" in Settings can
-        # restore it after a custom font was applied.
-        self._default_text_font = QFont(self.main_window.font())
+    def contextMenuEvent(self, event):
+        context_menu = QMenu(self)
+        exit_action = context_menu.addAction("Quit")
+        action = context_menu.exec(self.mapToGlobal(event.pos()))
 
-    def _apply_text_font(self):
-        """Settings' font on the main window, every stream dock, and the
-        input line (#118), each view resolved on its own through
-        textfont.view_font so a dock_fonts override wins for that view
-        (#132). The Experience dock's dashboard is column-aligned, so it
-        keeps its fixed-pitch family unless an override names one."""
-        settings = load_settings()
+        if action == exit_action:
+            self.close()  # through closeEvent: quit the game, save layout
 
-        def font_for(view):
-            family, size = view_font(settings, view)
-            if view == "Experience":
-                font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
-            else:
-                font = QFont(self._default_text_font)
-            if family:
-                font.setFamily(family)
-            if size:
-                font.setPointSize(size)
-            return font
-
-        for title, dock in self.stream_docks.items():
-            if title in STREAM_WINDOW_TITLES.values():
-                dock.widget().setFont(font_for(title))
-        self.main_window.setFont(font_for("Main"))
-        self.input.setFont(font_for("Input"))
-
-    def __add_stream_docks(self):
-        """One dock window per title in STREAM_WINDOWS, stacked on the right."""
-        self.stream_docks = {}
-        self.stream_windows = {}
-        for title in dict.fromkeys(self.STREAM_WINDOWS.values()):
-            dock = QDockWidget(title)
-            dock.setObjectName(title)  # saveState() needs unique names
-            view = self._make_view()
-            if title == "Experience":
-                # The exp dashboard is column-aligned text.
-                view.setFont(
-                    QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
-                )
-                # An empty dashboard must not look like a missing one.
-                view.setPlaceholderText(
-                    "No skills learning right now.\n"
-                    "Train something and this fills in live."
-                )
-            dock.setWidget(view)
-            self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
-            self.stream_docks[title] = dock
-        for stream, title in self.STREAM_WINDOWS.items():
-            self.stream_windows[stream] = self.stream_docks[title].widget()
-
-    def __add_compass_dock(self):
-        """Clickable exits drawn as a compass rose: eight arrows on a
-        ring around OUT, up/down beside, lit amber when the room's
-        compass tag offers the exit and dimmed to the ring otherwise.
-
-        The rose lays itself out for whatever space the dock grants —
-        a fixed-size rose in an elastic wrapper painted over the
-        neighboring docks whenever the column got crowded."""
-        gui = self
-
-        class Rose(QWidget):
-            def sizeHint(self):
-                return QSize(190, 150)
-
-            def minimumSizeHint(self):
-                return QSize(140, 104)
-
-            def resizeEvent(self, event):
-                gui._layout_compass(self.width(), self.height())
-                super().resizeEvent(event)
-
-        rose = Rose()
-        rose.setStyleSheet(
-            "QPushButton { background: #d8b465; color: #1c1c24;"
-            "  font-weight: bold; border: 1px solid #8a733f; }"
-            "QPushButton:disabled { background: #23232b; color: #4a4a55;"
-            "  border: 1px solid #33333d; }"
-        )
-        self.compass_buttons = {}
-        for direction in self.COMPASS_POINTS:
-            self._add_compass_button(rose, direction, self.COMPASS_ARROWS[direction])
-        self._add_compass_button(rose, "out", "out")
-        self._add_compass_button(rose, "up", "up")
-        self._add_compass_button(rose, "down", "dn")
-
-        dock = QDockWidget("Compass")
-        dock.setObjectName("Compass")
-        dock.setWidget(rose)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
-        # Registering under stream_docks gives it a View-menu toggle.
-        self.stream_docks["Compass"] = dock
-
-    def _add_compass_button(self, rose, name, label):
-        button = QPushButton(label, rose)
-        button.setEnabled(False)
-        button.setToolTip(name)
-        button.clicked.connect(lambda checked=False, d=name: self.write(d))
-        self.compass_buttons[name] = button
-
-    def _layout_compass(self, width, height):
-        """Fit the rose to the dock's current size: the ring and the
-        buttons scale down before anything can spill onto a neighbor."""
-        side = max(22, min(36, height * 24 // 100))
-        updn = max(18, side * 5 // 6)
-        right_column = updn + 8
-        ring = max(
-            24,
-            min((height - side) // 2 - 2, (width - right_column - side) // 2 - 2),
-        )
-        center_x = (width - right_column) // 2
-        center_y = height // 2
-
-        def place(name, x, y, size):
-            button = self.compass_buttons[name]
-            button.setGeometry(int(x - size / 2), int(y - size / 2), size, size)
-            button.setStyleSheet(f"border-radius: {size // 2}px;")
-
-        for direction, (dx, dy) in self.COMPASS_POINTS.items():
-            place(direction, center_x + dx * ring, center_y + dy * ring, side)
-        place("out", center_x, center_y, side)
-        offset = max(updn, side * 7 // 9)
-        place("up", width - updn // 2 - 4, center_y - offset, updn)
-        place("down", width - updn // 2 - 4, center_y + offset, updn)
-
-    def update_compass(self, dirs_text: str):
-        available = set(dirs_text.split())
-        for direction, button in self.compass_buttons.items():
-            button.setEnabled(direction in available)
-
-    def __add_map_dock(self):
-        """The visual map (#56): the community map drawn around the
-        character, following the "room" stream; a click on a room walks
-        there via ;go2. The database loads on a worker thread."""
-        self.map_view = MapView(send=self.write)
-        dock = QDockWidget("Map")
-        dock.setObjectName("Map")
-        dock.setWidget(self.map_view)
-        # On the right with the other docks: alone on the left it got
-        # whatever width the story window left over, a strip (#146).
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
-        # Registering under stream_docks gives it a View-menu toggle.
-        self.stream_docks["Map"] = dock
-        self.map_ready.connect(self.map_view.set_database)
-        Thread(target=self._load_map_database, daemon=True).start()
-
-    def _load_map_database(self):
-        """Worker: load the community map (plus the survey overlay's ids)
-        and hand it to the dock. A missing database is reported, never
-        downloaded here — ;go2 update owns fetching the 13MB."""
-        from client.mapdb import MapDB, mapdb_path
-        from client.maplayout import local_room_ids
-
-        if not mapdb_path().is_file():
-            self.map_ready.emit(None, set())
-            return
-        try:
-            db = MapDB.load()
-        except (OSError, ValueError):
-            self.log.exception("map database failed to load")
-            self.map_ready.emit(None, set())
-            return
-        self.map_ready.emit(db, local_room_ids())
-
-    def __add_clocks_dock(self):
-        """What time it is everywhere that matters: Elanthia (computed
-        from real time; ;clock calibrates), the three game moons,
-        Stockholm and Chicago wall time — plus Earth's moon when the
-        for-fun Settings row is on."""
-        self._clock_zones = {}
-        for city, zone in (
-            ("Stockholm", "Europe/Stockholm"),
-            ("Chicago", "America/Chicago"),
-        ):
-            try:
-                self._clock_zones[city] = ZoneInfo(zone)
-            except ZoneInfoNotFoundError:
-                # No tzdata (a stale venv launched without a sync, #67):
-                # a dashed row beats a client that dies before showing
-                # a window.
-                self._clock_zones[city] = None
-        wrapper = QWidget()
-        grid = QGridLayout(wrapper)
-        grid.setContentsMargins(8, 6, 8, 6)
-        self.clock_labels = {}
-        self._earth_moon_widgets = ()
-        rows = ("Elanthia", "Moons", "Stockholm", "Chicago", "Earth's moon")
-        for row, name in enumerate(rows):
-            place = QLabel(name)
-            place.setStyleSheet("color: #808090;")
-            value = QLabel("")
-            grid.addWidget(place, row, 0, Qt.AlignmentFlag.AlignTop)
-            grid.addWidget(value, row, 1)
-            self.clock_labels[name] = value
-            if name == "Earth's moon":
-                self._earth_moon_widgets = (place, value)
-        grid.setColumnStretch(1, 1)
-        grid.setRowStretch(len(rows), 1)
-
-        dock = QDockWidget("Clocks")
-        dock.setObjectName("Clocks")
-        dock.setWidget(wrapper)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
-        self.stream_docks["Clocks"] = dock
-
-        self._clocks_ticks = 0
-        self._reload_clock_settings()
-        self.clocks_timer = QTimer(self)
-        self.clocks_timer.timeout.connect(self.update_clocks)
-        self.clocks_timer.start(1000)
-        self.update_clocks()
-
-    def _reload_clock_settings(self):
-        """;clock writes its calibration to settings from the session
-        process; re-reading once a minute picks a fresh sync up without
-        a restart."""
-        values = load_settings()
-        self._eltime_offset = values.get("eltime_offset_seconds") or 0
-        self._moon_epochs = dict(eltime.DEFAULT_MOON_EPOCHS)
-        self._moon_epochs.update(values.get("eltime_moons") or {})
-        self._moon_rises = dict(eltime.DEFAULT_MOON_RISES)
-        self._moon_rises.update(values.get("eltime_moon_rises") or {})
-        for widget in self._earth_moon_widgets:
-            widget.setVisible(bool(values.get("clocks_earth_moon")))
-
-    def update_clocks(self):
-        # Server time, not wall time: the "timesync" delta anchors the
-        # Elanthian rows to the game's own clock (#102). Earth rows
-        # below deliberately stay on local time.
-        now = time() + self._server_delta
-        line1, line2 = eltime.describe(eltime.elanthian_now(now, self._eltime_offset))
-        self.clock_labels["Elanthia"].setText(f"{line1}\n{line2}")
-        bits, tips = [], []
-        for name in eltime.MOON_NAMES:
-            index = eltime.moon_phase(name, now, self._moon_epochs.get(name))
-            title = name.capitalize()
-            if index is None:
-                bits.append(f"{title} ?")
-                tips.append(f"{title}: not observed yet — ;clock under open sky")
-            else:
-                position = eltime.moon_position(name, now, self._moon_rises.get(name))
-                # Up or down beside the phase (#105): ↑ above the horizon.
-                mark = "" if position is None else (" ↑" if position[0] else " ↓")
-                bits.append(f"{title} {eltime.PHASE_EMOJI[index]}{mark}")
-                tips.append(f"{title}: {eltime.PHASES[index]}")
-        self.clock_labels["Moons"].setText("  ".join(bits))
-        self.clock_labels["Moons"].setToolTip("\n".join(tips))
-        for city, zone in self._clock_zones.items():
-            self.clock_labels[city].setText(
-                datetime.now(zone).strftime("%H:%M:%S %a") if zone else "— (no tzdata)"
-            )
-        index = eltime.earth_moon_phase(now)
-        self.clock_labels["Earth's moon"].setText(
-            f"{eltime.PHASE_EMOJI[index]} {eltime.PHASES[index]}"
-        )
-        self._clocks_ticks += 1
-        if self._clocks_ticks % 60 == 0:
-            self._reload_clock_settings()
-
-    def __add_input_field(self):
-        self.input_dock.setObjectName("Input")
-        self.input = HistoryLineEdit()
-        # Disabled until the game connection is up: Qt's input hook pumps
-        # events while login blocks on stdin, so keystrokes meant for the
-        # terminal must not reach this field or trigger a send.
-        self.input.setEnabled(False)
-        # Roundtime/casttime countdowns sit beside the input line — the
-        # classic frontends' RT bar, reduced to a number. The RT label
-        # keeps its width when idle so the input field never shifts;
-        # the casttime label appears on a caster's first cast.
-        self.rt_label = QLabel("")
-        self.rt_label.setFixedWidth(52)
-        self.rt_label.setStyleSheet("color: #d8b465; font-weight: bold;")
-        self.ct_label = QLabel("")
-        self.ct_label.setFixedWidth(52)
-        self.ct_label.setStyleSheet("color: #8fc7e8; font-weight: bold;")
-        self.ct_label.setVisible(False)
-        self._timer_ends = {"roundtime": 0.0, "casttime": 0.0}  # local clock
-        self.rt_timer = QTimer(self)
-        self.rt_timer.setInterval(200)
-        self.rt_timer.timeout.connect(self._tick_timers)
-        # The status strip: posture plus lit badges (stunned, bleeding,
-        # hidden, ...), DEAD in alert red over everything — the state
-        # the scrolling text buries (#75).
-        self.status_strip = QLabel("")
-        self.status_strip.setMinimumWidth(70)
-        row = QWidget()
-        row_layout = QHBoxLayout(row)
-        row_layout.setContentsMargins(4, 0, 4, 0)
-        row_layout.addWidget(self.status_strip)
-        row_layout.addWidget(self.rt_label)
-        row_layout.addWidget(self.ct_label)
-        row_layout.addWidget(self.input)
-        # Vitals bars above the input line — one bar per vital, created
-        # as the game first mentions each (casters gain a mana bar the
-        # moment it appears in the stream). Hidden until data arrives.
-        self.vitals_bars = {}
-        self._vitals_row = QWidget()
-        self._vitals_layout = QHBoxLayout(self._vitals_row)
-        self._vitals_layout.setContentsMargins(4, 2, 4, 0)
-        self._vitals_layout.setSpacing(4)
-        self._vitals_row.setVisible(False)
-        column = QWidget()
-        column_layout = QVBoxLayout(column)
-        column_layout.setContentsMargins(0, 0, 0, 0)
-        column_layout.setSpacing(2)
-        column_layout.addWidget(self._vitals_row)
-        column_layout.addWidget(row)
-        # TODO: Fix the bottom dock. BottomDock thingy is incompatible with Qt6
-        self.input_dock.setAllowedAreas(
-            Qt.DockWidgetArea.BottomDockWidgetArea | Qt.DockWidgetArea.TopDockWidgetArea
-        )
-        self.input_dock.setWidget(column)
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.input_dock)
-        self.input.returnPressed.connect(self.send_input)
-
-    def update_timer(self, stream: str, text: str):
-        """A roundtime/casttime frame: "end<TAB>server now" in server
-        epoch seconds. The difference is the duration, anchored to the
-        local clock at receipt — server-vs-local skew cancels out."""
-        try:
-            end, server_now = (int(part) for part in text.split("\t"))
-        except ValueError:
-            return
-        self._timer_ends[stream] = time() + max(0, end - server_now)
-        self._tick_timers()
-        # Only a countdown still in the future needs the ticker — a
-        # stale frame (reattach backlog has none, but belt and braces)
-        # must not wake it.
-        if max(self._timer_ends.values()) > time() and not self.rt_timer.isActive():
-            self.rt_timer.start()
-
-    def update_indicators(self, text: str):
-        """An "indicators" frame: the active indicator ids, space
-        separated, full state each time."""
-        active = set(text.split())
-        if "IconDEAD" in active:
-            self.status_strip.setText('<b style="color:#e05252">DEAD</b>')
-            return
-        parts = []
-        posture = next(
-            (word for icon, word in self.POSTURES.items() if icon in active), None
-        )
-        if posture:
-            parts.append(f'<span style="color:#808090">{posture}</span>')
-        for icon, (word, color) in self.INDICATOR_BADGES.items():
-            if icon in active:
-                parts.append(f'<b style="color:{color}">{word}</b>')
-        self.status_strip.setText("&nbsp;".join(parts))
-
-    def update_vitals(self, text: str):
-        """A "vitals" frame: "health 100 stamina 95 ..." — the full
-        current set every time (the engine accumulates the game's
-        partial updates)."""
-        parts = text.split()
-        for vital, value in zip(parts[::2], parts[1::2]):
-            try:
-                value = int(value)
-            except ValueError:
-                continue
-            bar = self.vitals_bars.get(vital)
-            if bar is None:
-                bar = OutlinedBar()
-                bar.setRange(0, 100)
-                bar.setFixedHeight(16)
-                bar.setFormat(f"{self.VITAL_LABELS.get(vital, vital)} %p%")
-                color = self.VITAL_COLORS.get(vital, "#808090")
-                bar.setStyleSheet(
-                    "QProgressBar { border: 1px solid #33333d;"
-                    " text-align: center; }"
-                    f"QProgressBar::chunk {{ background: {color}; }}"
-                )
-                self._vitals_layout.addWidget(bar)
-                self.vitals_bars[vital] = bar
-            bar.setValue(value)
-        if self.vitals_bars:
-            self._vitals_row.setVisible(True)
-
-    def _tick_timers(self):
-        now = time()
-        remaining_rt = ceil(self._timer_ends["roundtime"] - now)
-        remaining_ct = ceil(self._timer_ends["casttime"] - now)
-        self.rt_label.setText(f"RT {remaining_rt}" if remaining_rt > 0 else "")
-        if remaining_ct > 0:
-            self.ct_label.setVisible(True)
-            self.ct_label.setText(f"CT {remaining_ct}")
+    def toggle_menu(self, state):
+        if state:
+            self.status_bar.show()
         else:
-            self.ct_label.setText("")
-        if remaining_rt <= 0 and remaining_ct <= 0:
-            self.rt_timer.stop()
+            self.status_bar.hide()
 
-    def send_input(self):
-        text = self.input.text()
-        self.write(text)
-        self.input.history.record(text)
-        # Leave the text selected: plain Enter repeats it, typing
-        # replaces it — the classic frontends' feel.
-        self.input.selectAll()
+    # -- the menus' actions ---------------------------------------------------
 
     def reload_highlights(self):
         """View → Reload Highlights: re-read the patterns file so edits
@@ -870,7 +465,7 @@ class ClientGUI(QMainWindow, ClientLogger):
             return
         save_settings(dialog.values())
         self._apply_text_font()
-        self._reload_clock_settings()
+        self.clocks.reload_settings()
         self.status_bar.showMessage(f"Settings saved to {settings_path()}")
 
     def edit_profile(self):
@@ -960,11 +555,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         dock.show()
         dock.raise_()
 
-    def toggle_menu(self, state):
-        if state:
-            self.status_bar.show()
-        else:
-            self.status_bar.hide()
+    # -- game text in, commands out ------------------------------------------
 
     def dispatch_game_text(self, text: str, stream: str, style: str = ""):
         if style == "clear":
@@ -984,10 +575,10 @@ class ClientGUI(QMainWindow, ClientLogger):
             QApplication.beep()
             return
         if stream == "compass":
-            self.update_compass(text)
+            self.compass.set_exits(text)
             return
         if stream in ("roundtime", "casttime"):
-            self.update_timer(stream, text)
+            self.input_strip.update_timer(stream, text)
             return
         if stream == "character":
             name = text.strip()
@@ -999,15 +590,15 @@ class ClientGUI(QMainWindow, ClientLogger):
             return
         if stream == "timesync":
             try:
-                self._server_delta = float(text.strip())
+                self.clocks.server_delta = float(text.strip())
             except ValueError:
                 pass  # a malformed delta never breaks the dispatch
             return
         if stream == "vitals":
-            self.update_vitals(text)
+            self.input_strip.update_vitals(text)
             return
         if stream == "indicators":
-            self.update_indicators(text)
+            self.input_strip.update_indicators(text)
             return
         if stream == "room":
             # uid\ttitle per room change — the map dock follows it.
@@ -1066,6 +657,14 @@ class ClientGUI(QMainWindow, ClientLogger):
         if follow:
             scrollbar.setValue(scrollbar.maximum())
 
+    def send_input(self):
+        text = self.input.text()
+        self.write(text)
+        self.input.history.record(text)
+        # Leave the text selected: plain Enter repeats it, typing
+        # replaces it — the classic frontends' feel.
+        self.input.selectAll()
+
     def write(self, write_data: str):
         if self.client.connection is None:
             self.status_bar.showMessage("Not connected yet")
@@ -1085,13 +684,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         self._append(self.main_window, f"> {write_data}", "sent")
         self.input.clear()
 
-    def contextMenuEvent(self, event):
-        context_menu = QMenu(self)
-        exit_action = context_menu.addAction("Quit")
-        action = context_menu.exec(self.mapToGlobal(event.pos()))
-
-        if action == exit_action:
-            self.close()  # through closeEvent: quit the game, save layout
+    # -- the connection --------------------------------------------------------
 
     def gui_reactor(self):
         def output_loop():

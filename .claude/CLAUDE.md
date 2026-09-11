@@ -92,8 +92,13 @@ processes; the session owns the game socket and hosts scripts.
   `textfont.py`, `settings.py`, `window_layout.py`, `streamroute.py`,
   `maplayout.py`, `command_history.py`, `crashguard.py`, `reader.py`,
   `lnet_login.py` — Qt-free logic with the tests; the GUI only draws.
-- `client/gui/client_gui.py` — PyQt6 window; `chat_window.py` — the
-  standalone LNet window; `map_dock.py`, `settings_dialog.py`,
+- `client/gui/client_gui.py` — the PyQt6 window: menus, layout
+  restore, dispatch of each stream to its widget, styled text,
+  reconnect. The docks' widgets sit beside it: `compass_dock.py`,
+  `clocks_dock.py`, `input_strip.py` (command line, vitals bars,
+  status strip, RT/CT timers), `map_dock.py`, `text_views.py` (the
+  story/stream views and per-view fonts). `chat_window.py` — the
+  standalone LNet window; `settings_dialog.py`, `profile_dialog.py`,
   `login_dialog.py`, `highlights_dialog.py`.
 - `client/launch.py` — the `revenant` console script and the picker; one
   session per character on its own port, registry in

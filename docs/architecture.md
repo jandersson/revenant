@@ -188,7 +188,16 @@ One pipeline, one parser, several processes:
   model and its captured evidence). `scripts/clock.py` (`;clock`) is the
   ntpdate: TIME + OBSERVE MOONS, calibration stored in settings
   (`eltime_offset_seconds`, `eltime_moons`).
-- `client/client/gui/client_gui.py` — PyQt6 frontend. GUI-thread safety via
+- `client/client/gui/client_gui.py` — PyQt6 frontend: the window,
+  its menus, layout restore, the dispatch of each stream to the
+  widget it belongs to, styled text, and the connection. The docks'
+  widgets are modules of their own beside it — `compass_dock.py`,
+  `clocks_dock.py`, `input_strip.py` (the command line with its
+  vitals bars, status strip and RT/CT timers), `map_dock.py`,
+  `text_views.py` (the story and stream views, per-view fonts) — each
+  fed by dispatch and ignorant of the window; dock creation order and
+  object names stay in client_gui.py because a saved layout restores
+  onto them. GUI-thread safety via
   the `game_text` pyqtSignal; a sys.excepthook (`client/crashguard.py`,
   Qt-free) keeps the window alive when a Qt slot crashes, logging the
   traceback and surfacing it in the main window + status bar (#94);
