@@ -100,7 +100,7 @@ From this directory:
 uv run pytest
 ```
 
-There is a small XML parser test suite in [tests/test_xml_parser.py](tests/test_xml_parser.py) backed by a captured login session in [tests/login-sample.log](tests/login-sample.log).
+That collects two suites: [tests/](tests/), Qt-free (the parser against a captured login session in [tests/login-sample.log](tests/login-sample.log), the session over real sockets, every script's logic), and [tests_gui/](tests_gui/), which builds the window and its docks on Qt's offscreen platform — no display needed, every file it touches redirected to a temp dir — and pushes a frame of each stream through dispatch.
 
 ## Layout
 

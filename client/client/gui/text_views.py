@@ -42,9 +42,9 @@ def style_experience_view(view):
 def font_for(settings, view, default_font):
     """Settings' font for one view (#118), resolved through
     textfont.view_font so a dock_fonts override wins for that view
-    (#132). The Experience dock keeps its fixed-pitch family unless an
-    override names one; every other view starts from the platform
-    default the window kept."""
+    (#132). The Experience dock starts from the fixed-pitch font and
+    every other view from the platform default the window kept; a
+    family named in Settings, global or per-view, replaces either."""
     family, size = view_font(settings, view)
     font = fixed_pitch_font() if view == "Experience" else QFont(default_font)
     if family:

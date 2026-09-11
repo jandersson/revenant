@@ -36,12 +36,25 @@ jobs:
       - name: Sync workspace
         run: uv sync --all-packages
 
+      # The headless GUI suite (client/tests_gui) runs real PyQt6 widgets
+      # on Qt's offscreen platform; the wheel still links these system
+      # libraries, which the runner image does not promise. macOS needs
+      # nothing.
+      - name: Qt runtime libraries for the offscreen GUI tests
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libopengl0 libxkbcommon0 libfontconfig1 libdbus-1-3
+
       - name: Lint with ruff
         run: uv run ruff check client chat beholder
 
       - name: Check formatting with ruff
         run: uv run ruff format --check client chat beholder
 
+      # From client/, pytest collects both tests/ (Qt-free) and
+      # tests_gui/ (offscreen PyQt6).
       - name: Test with pytest
         working-directory: client
         run: uv run pytest

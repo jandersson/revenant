@@ -197,7 +197,9 @@ One pipeline, one parser, several processes:
   `text_views.py` (the story and stream views, per-view fonts) — each
   fed by dispatch and ignorant of the window; dock creation order and
   object names stay in client_gui.py because a saved layout restores
-  onto them. GUI-thread safety via
+  onto them. `client/tests_gui/` exercises all of it headless on Qt's
+  offscreen platform (a stub engine, every stream's frame through
+  dispatch, the layout round trip), in CI on every leg. GUI-thread safety via
   the `game_text` pyqtSignal; a sys.excepthook (`client/crashguard.py`,
   Qt-free) keeps the window alive when a Qt slot crashes, logging the
   traceback and surfacing it in the main window + status bar (#94);

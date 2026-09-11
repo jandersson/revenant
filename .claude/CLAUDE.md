@@ -13,6 +13,7 @@ long version of everything below, with the issue history.
 uv run revenant                      # launch: spawn/attach a session + GUI
 uv run revenant-chat [name]          # the standalone LNet window
 uv run pytest client/tests -q        # client suite (real sockets, threads)
+uv run pytest client/tests_gui -q    # the window and docks, offscreen PyQt6
 uv run pytest beholder/tests -q
 uv run pytest chat/tests -q
 uv run ruff check client chat beholder scripts    # CI enforces
@@ -162,8 +163,12 @@ Traps that cost time before:
   miss it): always `shutdown(SHUT_RDWR)` before `close()`.
 - Tests use real sockets on ephemeral ports; keep them hermetic (hold a
   bound socket rather than assuming a released port stays closed) and
-  generous with timeouts. Don't import PyQt6 in `client/tests` — CI is
-  headless.
+  generous with timeouts. Don't import PyQt6 in `client/tests`; GUI
+  behavior is tested in `client/tests_gui`, which runs real widgets on
+  Qt's offscreen platform (its conftest sets `QT_QPA_PLATFORM` and
+  points every file the window touches, QSettings included, at a temp
+  dir). Test what pure tests cannot reach — a frame landing in its
+  widget, a dock layout round trip — never Qt's own painting.
 - macOS: the filesystem is case-insensitive (`.venv/bin/Revenant` collides
   with the `revenant` script); CPython finds a venv only when `pyvenv.cfg`
   sits beside the interpreter's parent, hence `.venv/branded/`.

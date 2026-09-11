@@ -8,9 +8,14 @@ FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
 
 # tzdata: the clocks/eltime tests resolve real zones (Europe/Stockholm),
 # present on CI's ubuntu but not guaranteed in slim images (#67 was the
-# same hole on Windows).
+# same hole on Windows). The rest is what the PyQt6 wheel links for the
+# headless GUI suite (client/tests_gui, Qt's offscreen platform) — the
+# same list the workflow installs on ubuntu — plus one font so text
+# layout has a face to measure.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends tzdata \
+        libegl1 libgl1 libopengl0 libxkbcommon0 libfontconfig1 libdbus-1-3 \
+        fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
