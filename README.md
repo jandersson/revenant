@@ -46,7 +46,7 @@ The window shows the game's own styling (amber room names, blue speech, bold ale
 
 File → Settings covers the font, the autostarts, and whether closing the window quits the game. Highlight patterns of your own live in `~/.revenant/highlights.json`.
 
-Bundled scripts: `;go2` travel on the community map, `;xp` and `;sheet` history logging, `;deathwatch` for unattended deaths, `;tend` for bleeders, `;clock` for the Elanthian calendar, `;circle` for what gates your next circle, `;athletics`, `;favors`, `;mechlore`, `;wealth`, `;survey`, `;hunt` (a training loop driven by a per-character profile, File → Character Profile…), and `;lnet`. `;help` lists them with their manuals.
+Bundled scripts: `;go2` travel on the community map, `;xp` and `;sheet` history logging, `;deathwatch` for unattended deaths, `;tend` for bleeders, `;clock` for the Elanthian calendar, `;circle` for what gates your next circle, `;athletics`, `;favors`, `;mechlore`, `;wealth`, `;survey`, `;hunt` (a training loop driven by a per-character profile, File → Character Profile…), `;train` (the orchestrator: runs the trainers a per-character plan names until each skill's mindstate fills, then rests in a safe room until it drains), and `;lnet`. `;help` lists them with their manuals.
 
 ## Beholder
 
@@ -69,7 +69,7 @@ Passwords, logging, and the protocol: [docs/chat.md](docs/chat.md).
 - [running.md](docs/running.md) — launching, quit versus detach, which edits need which restart, `;reexec`, settings, logs
 - [scripting.md](docs/scripting.md) — writing a script
 - [chat.md](docs/chat.md) — LNet: the window, `;lnet`, passwords, logs, protocol
-- [movement.md](docs/movement.md), [death.md](docs/death.md), [favors.md](docs/favors.md), [circles.md](docs/circles.md), [experience.md](docs/experience.md), [eltime.md](docs/eltime.md), [combat.md](docs/combat.md) — the game models the scripts implement, each with its captured evidence
+- [movement.md](docs/movement.md), [death.md](docs/death.md), [favors.md](docs/favors.md), [circles.md](docs/circles.md), [experience.md](docs/experience.md), [training.md](docs/training.md), [eltime.md](docs/eltime.md), [combat.md](docs/combat.md) — the game models the scripts implement, each with its captured evidence
 - [architecture.md](docs/architecture.md) — how the pieces fit, module by module, with the history of why
 - [protocol.md](docs/protocol.md) — the wire protocol the parser implements
 - [why-python.md](docs/why-python.md) — what leaving the Ruby toolchain buys and costs

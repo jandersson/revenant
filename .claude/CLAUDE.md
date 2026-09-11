@@ -48,7 +48,9 @@ processes; the session owns the game socket and hosts scripts.
 - `client/scripting.py` — scripts are `main(s)` files in `scripts/`,
   loaded fresh from disk on every start; the pure-logic helpers in
   `RELOADABLE_MODULES` reload with them. Handle API: put/get/waitfor/
-  waitrt/echo/emit/sleep/command/state/args. `;help` renders docstrings.
+  waitrt/echo/emit/sleep/command/state/args, plus run/is_running/tell/
+  kill for a script that drives other scripts (`;train`). `;help`
+  renders docstrings.
 - `client/probe.py` — ask-and-classify shared by keyword scripts;
   `collect` glues per-segment pieces into whole lines.
 - `client/procspawn.py` + `client/frozen.py` — every sibling spawn
@@ -75,6 +77,14 @@ processes; the session owns the game socket and hosts scripts.
   hard-code (weapon, stance, skin, pouch, floor, ground, home). FIELDS
   is the schema; the GUI's Character Profile dialog builds itself from
   it. Model and assumptions: docs/hunting.md.
+- `client/training.py` — per-character training plans
+  (`~/.revenant/training/<name>.json`, hand-edited, `;train init`
+  writes a starter): tasks tying skills to the script or command loop
+  that trains them, the target mindstate, the safe rooms, the rest
+  floor. The pure decisions (next task, satisfied, rested, safe-room
+  rotation) live here; `scripts/train.py` is the loop, orchestrating
+  other scripts through the handle's `run`/`is_running`/`tell`/`kill`.
+  Model: docs/training.md.
 - `client/walker.py` + `client/mapdb.py` — travel on the community map
   (downloaded, never vendored). Twins: the map lists some rooms twice,
   one uid-less; `same_place` handles it. Model: docs/movement.md.

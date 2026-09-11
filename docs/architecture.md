@@ -98,7 +98,14 @@ One pipeline, one parser, several processes:
   `;stop x`). `;help` renders module docstrings — write them as the user
   manual.
   Handle API: put/get/waitfor/waitrt/echo/emit/sleep/state/args — `emit`
-  targets an arbitrary stream (e.g. "thoughts"). `scripts/lnet.py` uses it
+  targets an arbitrary stream (e.g. "thoughts") — and run/is_running/
+  tell/kill, through which one script drives others: `;train`
+  (scripts/train.py) is the training orchestrator, a loop over the
+  per-character plan in `client/training.py`
+  (~/.revenant/training/<name>.json) that starts each task's script
+  (;athletics, ;hunt) or cycles its commands until the task's skills
+  reach the target mindstate, then rests in a safe room until they
+  drain (docs/training.md). `scripts/lnet.py` uses it
   to mirror LNet chat into the Thoughts window (`;lnet`); the command
   grammar and dispatcher it shares with the standalone chat window live
   in the stdlib-only `chat/commands.py`, and `client/gui/chat_window.py`

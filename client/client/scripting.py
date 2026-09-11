@@ -13,6 +13,10 @@ in its own thread with `s` as its handle on the game:
     s.state                            # the session's XMLData (indicators etc.)
     s.dead                             # True while the character is dead
     s.args                             # arguments from `;run name arg1 arg2`
+    s.run("athletics", ["list"])       # start another script; False if it can't
+    s.is_running("athletics")          # is that script's thread alive?
+    s.tell("hunt", "stop")             # hand it a line, as ;hunt stop would
+    s.kill("athletics")                # stop it (;train orchestrates this way)
 
 Scripts are controlled from any attached front end with ;-commands:
 ;list, ;help [name], ;run <name> [args], ;stop <name|all> (;k and
@@ -214,6 +218,38 @@ class Script:
         """The session's XMLData: indicators, prompt, server_time, ..."""
         return self._manager.state
 
+    # -- other scripts: what an orchestrator (;train) needs -------------
+
+    def run(self, name: str, args=()):
+        """Start another script, as ;run <name> [args] would; True when
+        it started. False — with the reason echoed the usual way — when
+        there is no such script, it failed to load, or it is already
+        running (a script the user started by hand is theirs)."""
+        self._check()
+        return self._manager.start(name, list(args))
+
+    def is_running(self, name: str):
+        """True while that script's thread is alive."""
+        return self._manager.alive(name)
+
+    def tell(self, name: str, line: str):
+        """Hand a line to a running script, as typing ;<name> <line>
+        would (it arrives through that script's s.command()). False
+        when the script is not running."""
+        script = self._manager.script(name)
+        if script is None:
+            return False
+        script.feed_command(line)
+        return True
+
+    def kill(self, name: str):
+        """Stop another script; nothing when it is not running. Safe to
+        call while this script is itself being stopped, so a finally:
+        clause can take a child down with its parent."""
+        script = self._manager.script(name)
+        if script is not None:
+            script.stop()
+
     # -- plumbing --------------------------------------------------------
 
     def _check(self):
@@ -258,6 +294,7 @@ RELOADABLE_MODULES = (
     "client.inventory",
     "client.probe",
     "client.profile",
+    "client.training",  # binds names from profile: after it
     "client.mapdb",
     "client.walker",
 )
@@ -452,15 +489,27 @@ class ScriptManager(ClientLogger):
             f"available in {self.scripts_dir}/: {', '.join(self.available()) or '(none)'}"
         )
 
+    def script(self, name: str):
+        """The running script of that exact name, or None."""
+        with self.lock:
+            script = self.running.get(name)
+        return script if script is not None and script.alive else None
+
+    def alive(self, name: str):
+        return self.script(name) is not None
+
     def start(self, name: str, args):
+        """Start a script; True when its thread is running. False — the
+        reason emitted — when there is no such script, it failed to
+        load, or it is already running."""
         path = self.scripts_dir / f"{name}.py"
         if not path.is_file():
             self.emit(f"no script named {name!r} in {self.scripts_dir}/ (try ;list)")
-            return
+            return False
         with self.lock:
             if name in self.running and self.running[name].alive:
                 self.emit(f"{name} is already running (;stop {name} first)")
-                return
+                return False
         started = perf_counter()
         changed = self.reload_changed()
         if changed:
@@ -475,7 +524,7 @@ class ScriptManager(ClientLogger):
         except Exception as error:
             self.log.exception(f"failed to load script {name}")
             self.emit(f"{name} failed to load: {error!r}")
-            return
+            return False
         # A script's first import of a helper is stamped here, so a
         # later edit to it is noticed at the next start.
         self._stamp_modules()
@@ -485,6 +534,7 @@ class ScriptManager(ClientLogger):
         with self.lock:
             self.running[name] = script
         script.thread.start()
+        return True
 
     def _report_slow_load(self, name, seconds, changed):
         """Developer mode only: a load past SLOW_LOAD_SECONDS is worth a

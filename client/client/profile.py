@@ -90,11 +90,16 @@ def profiles_dir() -> Path:
     ).expanduser()
 
 
+def slug(character) -> str:
+    """A character name as a filename: lowercase, letters and digits
+    only — the game's name is a filename here, so nothing else gets
+    through. Shared with the training plans (client/training.py)."""
+    return _UNSAFE.sub("", (character or "").strip().lower()) or "unnamed"
+
+
 def profile_path(character) -> Path:
-    """The file for a character: lowercase, letters and digits only —
-    the game's name is a filename here, so nothing else gets through."""
-    slug = _UNSAFE.sub("", (character or "").strip().lower()) or "unnamed"
-    return profiles_dir() / f"{slug}.json"
+    """The profile file for a character."""
+    return profiles_dir() / f"{slug(character)}.json"
 
 
 def normalize(values: dict) -> dict:

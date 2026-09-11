@@ -15,6 +15,11 @@ lessons the code and docs cannot carry themselves.
   exact-match old string written from the unformatted text fails.
 - `set -o pipefail` before `pytest ... | tail`, or a red suite commits
   green.
+- A fake script handle that advances a scripted timeline on every
+  `sleep` gets its timeline eaten by inner waits the test didn't
+  count (a stop-word grace sleeps once a second): hold the last state
+  once the timeline is dry and end the run on a sleep budget instead
+  (`test_train_script.py`'s Fake). Two ;train tests failed that way.
 - Generated data modules get `# fmt: off` / `# fmt: on` around the
   literal so `ruff format --check` and the generator agree.
 - Windows: a running session never sees edits to `client/` modules

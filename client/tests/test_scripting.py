@@ -512,3 +512,56 @@ def test_revenant_scripts_overrides_everything(tmp_path, monkeypatch):
 
     monkeypatch.setenv("REVENANT_SCRIPTS", str(tmp_path / "mine"))
     assert scripting.default_scripts_dir() == tmp_path / "mine"
+
+
+# -- one script running another (the ;train orchestrator's needs) ---------
+
+
+def test_a_script_can_run_watch_tell_and_kill_another(tmp_path):
+    (tmp_path / "child.py").write_text(
+        "def main(s):\n"
+        "    s.echo('child args ' + ' '.join(s.args))\n"
+        "    while True:\n"
+        "        line = s.command(timeout=0.05)\n"
+        "        if line:\n"
+        "            s.echo('child heard ' + line)\n"
+    )
+    (tmp_path / "parent.py").write_text(
+        "def main(s):\n"
+        "    s.echo('started ' + str(s.run('child', ['a', 'b'])))\n"
+        "    s.echo('again ' + str(s.run('child')))\n"
+        "    s.echo('running ' + str(s.is_running('child')))\n"
+        "    s.tell('child', 'stop')\n"
+        "    s.sleep(0.3)\n"
+        "    s.kill('child')\n"
+        "    while s.is_running('child'):\n"
+        "        s.sleep(0.05)\n"
+        "    s.echo('gone ' + str(s.is_running('child')))\n"
+        "    s.echo('tell ' + str(s.tell('child', 'x')))\n"
+    )
+    manager, recorder = make_manager(tmp_path)
+    manager.start("parent", [])
+    assert wait_for(lambda: any("parent exited" in e for e in recorder.emitted))
+    assert "[parent] started True" in recorder.emitted
+    assert "[parent] again False" in recorder.emitted
+    assert any("already running" in e for e in recorder.emitted)
+    assert "[parent] running True" in recorder.emitted
+    assert "[child] child args a b" in recorder.emitted
+    assert "[child] child heard stop" in recorder.emitted
+    assert "[parent] gone False" in recorder.emitted
+    assert "[parent] tell False" in recorder.emitted
+    assert "child stopped" in recorder.emitted
+    assert not manager.running
+
+
+def test_run_reports_a_missing_script_and_start_says_whether_it_started(tmp_path):
+    (tmp_path / "parent.py").write_text(
+        "def main(s):\n    s.echo('started ' + str(s.run('nosuch')))\n"
+    )
+    manager, recorder = make_manager(tmp_path)
+    assert manager.start("parent", []) is True
+    assert wait_for(lambda: any("parent exited" in e for e in recorder.emitted))
+    assert "[parent] started False" in recorder.emitted
+    assert any("no script named 'nosuch'" in e for e in recorder.emitted)
+    assert manager.start("nosuch", []) is False
+    assert manager.alive("parent") is False
