@@ -139,7 +139,7 @@ def gather_login(character, fresh_account=False, account=None):
     Returns (account, character, key): key is None when the OS keychain
     holds the password (the session logs in by itself — and MUST be
     told the account, or it falls back to the saved default and logs
-    the wrong one in; captured live, the Alvin-on-CRANCHU failure).
+    the wrong one in; captured live, the Uthmor-on-TESTACCT failure).
     Otherwise the password is collected — terminal prompt when there's
     a tty and the account and character are already known, the Qt login
     screen when not — and used exactly once for the handshake; only the

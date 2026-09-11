@@ -12,7 +12,7 @@ DEFAULTS = {
     "account": "second",
     "character": "Sable",
     "accounts": {
-        "first": {"account": "first", "characters": ["Alvin", "Claude", "Lanival"]},
+        "first": {"account": "first", "characters": ["Ilsa", "Claude", "Lanival"]},
         "second": {"account": "second", "characters": ["Sable", "Uthmor"]},
     },
 }
@@ -22,7 +22,7 @@ class TestCachedCharacters:
     def test_every_roster_in_a_stable_order(self):
         # Accounts sorted by name; each roster keeps its own order.
         assert cached_characters(DEFAULTS) == [
-            ("first", "Alvin"),
+            ("first", "Ilsa"),
             ("first", "Claude"),
             ("first", "Lanival"),
             ("second", "Sable"),
@@ -32,8 +32,8 @@ class TestCachedCharacters:
     def test_the_legacy_flat_cache_still_reads(self):
         # Written before per-account rosters existed: one pair, no
         # "accounts" key at all.
-        assert cached_characters({"account": "solo", "character": "Alvin"}) == [
-            ("solo", "Alvin")
+        assert cached_characters({"account": "solo", "character": "Ilsa"}) == [
+            ("solo", "Ilsa")
         ]
 
     def test_an_empty_cache_yields_nothing(self):
@@ -47,7 +47,7 @@ class TestCachedCharacters:
 
 class TestPendingCharacters:
     def test_snapshotted_characters_drop_out(self):
-        assert pending_characters(DEFAULTS, ["Alvin", "Sable"]) == [
+        assert pending_characters(DEFAULTS, ["Ilsa", "Sable"]) == [
             ("first", "Claude"),
             ("first", "Lanival"),
             ("second", "Uthmor"),
@@ -55,7 +55,7 @@ class TestPendingCharacters:
 
     def test_matching_ignores_case(self):
         # xp.db holds the game's capitalisation; the roster may differ.
-        assert pending_characters(DEFAULTS, ["ALVIN", "lAnIvAl"]) == [
+        assert pending_characters(DEFAULTS, ["ILSA", "lAnIvAl"]) == [
             ("first", "Claude"),
             ("second", "Sable"),
             ("second", "Uthmor"),
@@ -71,7 +71,7 @@ class TestPendingCharacters:
 
 class TestSnapshotSummary:
     def test_counts_total_done_and_pending(self):
-        assert snapshot_summary(DEFAULTS, ["Alvin", "Sable"]) == (5, 2, 3)
+        assert snapshot_summary(DEFAULTS, ["Ilsa", "Sable"]) == (5, 2, 3)
 
     def test_a_full_roster_reports_nothing_pending(self):
         names = [name for _, name in cached_characters(DEFAULTS)]

@@ -34,7 +34,7 @@ DECAY_SCAN_SECONDS = 6  # how long to wait for the decay announcement
 # variant leaves you dead, and the next one steps in.
 DEPART_LADDER = ("depart full", "depart items", "depart grave", "depart")
 
-# Captured 2026-08-22 (the Alvin death log, docs/death.md).
+# Captured 2026-08-22 (the Uthmor death log, docs/death.md).
 DECAY_LINE = re.compile(r"decay beyond its ability to hold your soul in (\d+) minute")
 
 
