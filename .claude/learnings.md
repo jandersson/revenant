@@ -62,6 +62,12 @@ lessons the code and docs cannot carry themselves.
   lines of Python — that is how `client/game/wounds_data.py` was generated.
 - Elanthipedia item pages 404 under guessed names; shop pages
   (Tembeg's Armory) list items with coverage and price.
+- The game's hand tags are separate elements, `<left ...>` and
+  `<right ...>`, sent one at a time as each hand changes; a grep that
+  requires both on one line sees only the login pair and reports
+  "hands never changed". That misread a climb experiment twice on
+  2026-09-11 (the items had been stowed). Grep each tag on its own,
+  and give the parser `left_hand`/`right_hand` state (#159).
 
 ## Working with the operator
 
