@@ -85,6 +85,19 @@ refusal that names nothing retries bare. The wordings above are the
 fixtures; "climb back down" is the refusal signal, and other climbs'
 wordings are unknown until captured (#157).
 
+What decides a climb, per Elanthipedia's Athletics page: Athletics
+ranks first, then Agility and Strength, then encumbrance, armor
+hindrance and injuries; appraising the obstacle beforehand helps.
+Where the wiki's rank band and a character's result disagree — the
+tree is banded 0–19 and the Paladin above failed it at rank 7 —
+`;climbexp` measures it: every attempt becomes a row in history.db's
+`climbs` table (`client/game/climblog.py`, #159) with the outcome,
+the game's wording, the hindering-items line, rank and mindstate,
+INFO's stats, ENC, health and APPRAISE's answer, so the threshold is
+read off the rows. `train=<stat>` spends one point first, in the
+stat's training room the map tags (TRAIN twice, per the Time
+Development Points page), with INFO before and after.
+
 ## Edges the map can and cannot walk
 
 `wayto` commands are game commands, except embedded lich Ruby

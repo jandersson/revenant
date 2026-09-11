@@ -101,7 +101,9 @@ for `client/client/<pkg>/x.py`.
   footing gets one retry standing with the named items stowed, then
   a stop that says so (#157). Model: docs/movement.md.
 - `client/game/climbs.py`, `circles.py`, `eltime.py`, `inventory.py`,
-  `history.py`; `client/ui/textfont.py`, `window_layout.py`,
+  `history.py`, `climblog.py` (the `climbs` table `;climbexp` fills:
+  one row per climb attempt with rank, stats, load and outcome, #159);
+  `client/ui/textfont.py`, `window_layout.py`,
   `streamroute.py`, `maplayout.py`, `command_history.py`,
   `crashguard.py`, `highlights.py`, `inputfocus.py`, `roomids.py`
   (the map id after the room title, paired with the "room" frame in
