@@ -192,10 +192,29 @@ def send_line(host, port, text, timeout=5):
     login ("Closing your front end does NOT necessarily drop your
     character from the game! Type QUIT or EXIT!"), leaving the
     character linkdead instead of gone (#114).
+
+    The line goes out, then the socket is half-closed and read until
+    the session lets go: attach() replays the backlog to every new
+    connection before it reads a byte, and a sender that closed the
+    moment it had written made that replay fail against a dead peer —
+    the session dropped the connection and never read the command
+    (captured 2026-09-11: two sends logged as attached-and-detached
+    in the same second, nothing sent to the game, once the backlog
+    had grown past a few frames). Half-closing sends the FIN after
+    the line, so the session reads the command, then EOF, and drops
+    us — which is the EOF this waits for, under the same timeout.
     """
     try:
         with socket.create_connection((host, int(port)), timeout=timeout) as conn:
             conn.sendall(text.encode("UTF-8").rstrip(b"\n") + b"\n")
+            conn.shutdown(socket.SHUT_WR)
+            deadline = monotonic() + timeout
+            while monotonic() < deadline:
+                try:
+                    if not conn.recv(65536):
+                        break  # the session read our line and let go
+                except TimeoutError:
+                    break
         return True
     except OSError:
         return False

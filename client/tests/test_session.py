@@ -1223,3 +1223,34 @@ def test_the_setting_or_the_env_override_keeps_the_session_quiet(monkeypatch):
     assert sent == []
     sent, _ = _idle_warning_reaches(monkeypatch, REVENANT_NO_IDLE_ANSWER="1")
     assert sent == []
+
+
+def test_send_line_survives_a_large_replay_from_the_session():
+    # A session replays its backlog to every new connection before it
+    # reads a byte. A sender that closed right after writing made that
+    # replay fail against a dead peer, and the command was never read
+    # (captured 2026-09-11, two sends attached-and-detached in the same
+    # second). send_line half-closes and reads until the session lets
+    # go, so the replay lands and the line is read.
+    server = socket.create_server(("127.0.0.1", 0))
+    port = server.getsockname()[1]
+    received = []
+
+    def session_like():
+        conn, _ = server.accept()
+        with conn:
+            conn.sendall(b"x" * 4_000_000)  # a long-lived session's backlog
+            buffer = b""
+            while b"\n" not in buffer:
+                chunk = conn.recv(4096)
+                if not chunk:
+                    break
+                buffer += chunk
+            received.append(buffer)
+
+    thread = Thread(target=session_like, daemon=True)
+    thread.start()
+    assert session.send_line("127.0.0.1", port, "look", timeout=10) is True
+    thread.join(10)
+    assert received == [b"look\n"]
+    server.close()
