@@ -60,6 +60,35 @@ def get_free_port(host, start=DEFAULT_PORT, tries=20):
     raise SystemExit(f"revenant: no free port in {start}..{start + tries - 1}")
 
 
+def windows_phrase(attached):
+    """How many windows a running session has, for its picker row: a
+    detached session says "no window" — the row the operator is back
+    for — and a registry row from before the count existed says
+    "attach" (#158)."""
+    if attached is None:
+        return "attach"
+    if attached == 0:
+        return "no window"
+    return f"{attached} window" + ("" if attached == 1 else "s")
+
+
+def default_choice(choices, saved):
+    """The row the picker opens on: a running session with no window
+    (a detach, the usual reason to be back in the picker), else any
+    running session, else the saved login character, else the first.
+    None for an empty menu."""
+    if not choices:
+        return None
+    attach = [c for c in choices if c["kind"] == "attach"]
+    for choice in attach:
+        if choice.get("attached") == 0:
+            return choice
+    if attach:
+        return attach[0]
+    saved = (saved or "").lower()
+    return next((c for c in choices if c["character"].lower() == saved), choices[0])
+
+
 def launch_choices(defaults, sessions):
     """The picker's menu: running sessions first (attach), then every
     cached character on every account that isn't already online. Each
@@ -73,9 +102,10 @@ def launch_choices(defaults, sessions):
         choices.append(
             {
                 "kind": "attach",
-                "label": f"{name} — online, attach",
+                "label": f"{name} — online, {windows_phrase(entry.get('attached'))}",
                 "character": name,
                 "port": entry["port"],
+                "attached": entry.get("attached"),
             }
         )
     accounts = defaults.get("accounts")
@@ -369,12 +399,13 @@ def pick_and_go(host, base_port):
     if choices:
         from client.gui.login_dialog import ask_character
 
-        saved = (defaults.get("character") or "").lower()
-        default_label = next(
-            (c["label"] for c in choices if c["character"].lower() == saved),
-            choices[0]["label"],
+        default_label = default_choice(choices, defaults.get("character"))["label"]
+        answer = ask_character(
+            [c["label"] for c in choices],
+            default_label,
+            "",
+            online=[c["label"] for c in choices if c["kind"] == "attach"],
         )
-        answer = ask_character([c["label"] for c in choices], default_label, "")
         if answer is None:
             return  # picker cancelled: no session, no GUI
         picked = (

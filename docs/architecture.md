@@ -262,4 +262,10 @@ entries from a dock-layout module.
   connectability), `revenant <name>` attaches to that character's
   session or spawns on a free port, and `--pick` (the Start Menu
   shortcut) offers running sessions to attach plus every cached
-  character on every account to launch (#58).
+  character on every account to launch (#58). The session keeps an
+  `attached` window count in its registry row (updated on every
+  attach and drop), so the picker's online rows read "no window" or
+  "1 window", sit under their own header in amber and bold, and the
+  picker opens on the detached session rather than the saved login
+  character — an attach row at the top of an alphabetical roster
+  scrolled out of view once (#158).

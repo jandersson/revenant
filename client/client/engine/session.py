@@ -72,12 +72,19 @@ def sessions_path():
 
 
 def _load_sessions():
-    try:
-        with open(sessions_path()) as stream:
-            data = json.load(stream)
-    except (OSError, ValueError):
-        return []
-    return data if isinstance(data, list) else []
+    for attempt in range(_LOAD_TRIES):
+        try:
+            with open(sessions_path()) as stream:
+                data = json.load(stream)
+        except OSError:
+            return []
+        except ValueError:  # torn by another process's write: try again
+            if attempt + 1 < _LOAD_TRIES:
+                sleep(_LOAD_RETRY_SECONDS)
+                continue
+            return []
+        return data if isinstance(data, list) else []
+    return []
 
 
 def _write_sessions(entries):
@@ -86,14 +93,47 @@ def _write_sessions(entries):
     path.write_text(json.dumps(entries))
 
 
+# Registry reads and writes within one process happen from the accept
+# loop, every client thread's drop, and the launcher's poll, so they
+# take turns (#158). Another process reading mid-write (the picker
+# while a session rewrites its attached count) sees a torn file, which
+# json rejects: _load_sessions retries briefly before reporting none.
+_REGISTRY_LOCK = Lock()
+_LOAD_TRIES = 3
+_LOAD_RETRY_SECONDS = 0.02
+
+
 def register_session(port, character):
-    entries = [e for e in _load_sessions() if e.get("port") != port]
-    entries.append({"port": port, "character": character, "pid": os.getpid()})
-    _write_sessions(entries)
+    """Announce a session: {port, character, pid, attached} — attached
+    is the count of front ends on it, kept current by update_attached
+    so the launcher's picker can tell a detached session (no window)
+    from one already on screen (#158). Best effort: running_sessions'
+    liveness probe is a connection too, so the count blips up by one
+    for the milliseconds a probe lasts; the picker reads the file
+    before it probes, so what it shows is the settled value."""
+    with _REGISTRY_LOCK:
+        entries = [e for e in _load_sessions() if e.get("port") != port]
+        entries.append(
+            {"port": port, "character": character, "pid": os.getpid(), "attached": 0}
+        )
+        _write_sessions(entries)
+
+
+def update_attached(port, count):
+    """The registry row's attached-window count; a row that is gone
+    (deregistered) stays gone."""
+    with _REGISTRY_LOCK:
+        entries = _load_sessions()
+        for entry in entries:
+            if entry.get("port") == port:
+                entry["attached"] = count
+                _write_sessions(entries)
+                return
 
 
 def deregister_session(port):
-    _write_sessions([e for e in _load_sessions() if e.get("port") != port])
+    with _REGISTRY_LOCK:
+        _write_sessions([e for e in _load_sessions() if e.get("port") != port])
 
 
 def character_for_port(port):
@@ -114,16 +154,17 @@ def character_for_port(port):
 
 def running_sessions(host=DEFAULT_HOST):
     """Registered sessions that actually answer, pruning the rest."""
-    entries = _load_sessions()
-    live = []
-    for entry in entries:
-        try:
-            with socket.create_connection((host, int(entry["port"])), timeout=0.5):
-                live.append(entry)
-        except (OSError, ValueError, KeyError, TypeError):
-            pass
-    if live != entries:
-        _write_sessions(live)
+    with _REGISTRY_LOCK:
+        entries = _load_sessions()
+        live = []
+        for entry in entries:
+            try:
+                with socket.create_connection((host, int(entry["port"])), timeout=0.5):
+                    live.append(entry)
+            except (OSError, ValueError, KeyError, TypeError):
+                pass
+        if live != entries:
+            _write_sessions(live)
     return live
 
 
@@ -313,6 +354,7 @@ class SessionServer(ClientLogger):
                 return False
             with self.clients_lock:
                 self.clients.append(conn)
+        self._note_attached()
         return True
 
     def game_reader(self):
@@ -585,6 +627,21 @@ class SessionServer(ClientLogger):
                 self.clients.remove(conn)
         close_socket(conn)
         self.log.info("Front end detached")
+        self._note_attached()
+
+    def _note_attached(self):
+        """The registry's attached-window count for this session, after
+        every attach and drop (#158). A registry the disk refuses is not
+        worth a front-end thread: the count is advisory."""
+        port = getattr(self, "bound_port", None)
+        if not port:
+            return
+        with self.clients_lock:
+            count = len(self.clients)
+        try:
+            update_attached(port, count)
+        except OSError:
+            self.log.exception("could not update the session registry")
 
     def shutdown(self):
         if not self.running:

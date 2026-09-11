@@ -285,7 +285,7 @@ def test_launch_choices_lists_sessions_then_offline_characters():
     sessions = [{"port": 4242, "character": "Beta", "pid": 1}]
     choices = launch.launch_choices(defaults, sessions)
     assert [choice["label"] for choice in choices] == [
-        "Beta — online, attach",
+        "Beta — online, attach",  # a registry row from before the count
         "Gamma — OTHERACCT",
         "Alpha — TESTACCT",
     ]
@@ -297,6 +297,55 @@ def test_launch_choices_lists_sessions_then_offline_characters():
         "character": "Alpha",
         "account": "TESTACCT",
     }
+
+
+def test_online_rows_say_how_many_windows_a_session_has():
+    # A detached session reads "no window" — the row the operator is
+    # back in the picker for (#158).
+    defaults = {"accounts": {"t": {"account": "TESTACCT", "characters": ["Beta"]}}}
+    sessions = [
+        {"port": 4242, "character": "Beta", "pid": 1, "attached": 0},
+        {"port": 4243, "character": "Gamma", "pid": 2, "attached": 1},
+        {"port": 4244, "character": "Delta", "pid": 3, "attached": 2},
+    ]
+    labels = [c["label"] for c in launch.launch_choices(defaults, sessions)]
+    assert labels == [
+        "Beta — online, no window",
+        "Gamma — online, 1 window",
+        "Delta — online, 2 windows",
+    ]
+
+
+def test_the_picker_opens_on_the_detached_session_first():
+    # A session with no window beats one on screen beats the saved
+    # login character beats the first row (#158).
+    attach = lambda name, attached: {  # noqa: E731
+        "kind": "attach",
+        "label": name,
+        "character": name,
+        "port": 1,
+        "attached": attached,
+    }
+    login = lambda name: {"kind": "launch", "label": name, "character": name}  # noqa: E731
+    assert (
+        launch.default_choice([login("Alpha"), login("Beta")], "beta")["label"]
+        == "Beta"
+    )
+    assert (
+        launch.default_choice([login("Alpha"), login("Beta")], "Nobody")["label"]
+        == "Alpha"
+    )
+    assert (
+        launch.default_choice([attach("Gamma", 1), login("Beta")], "Beta")["label"]
+        == "Gamma"
+    )
+    assert (
+        launch.default_choice(
+            [attach("Gamma", 1), attach("Delta", 0), login("Beta")], "Beta"
+        )["label"]
+        == "Delta"
+    )
+    assert launch.default_choice([], "Beta") is None
 
 
 def test_launch_choices_single_account_drops_the_account_suffix():
@@ -373,7 +422,9 @@ def _stub_picker(monkeypatch, answer):
     import types
 
     stub = types.SimpleNamespace(
-        ask_character=lambda labels, default, account: answer(labels, default)
+        ask_character=lambda labels, default, account, online=(): answer(
+            labels, default
+        )
     )
     monkeypatch.setitem(sys.modules, "client.gui.login_dialog", stub)
 

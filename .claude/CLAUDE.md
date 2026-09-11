@@ -117,7 +117,10 @@ for `client/client/<pkg>/x.py`.
   `login_dialog.py`, `highlights_dialog.py`.
 - `client/engine/launch.py` — the `revenant` console script and the picker; one
   session per character on its own port, registry in
-  ~/.revenant/sessions.json. It exec's `client/engine/guiboot.py`, which arms
+  ~/.revenant/sessions.json (each row carries `attached`, the window
+  count the session keeps current, so the picker shows online rows
+  highlighted under their own header and opens on a detached one,
+  #158). It exec's `client/engine/guiboot.py`, which arms
   faulthandler and reports a GUI that cannot start (startup-/faults-
   logs, a message box on Windows) before importing the GUI.
 - `chat/chat.py` — LNet protocol (stdlib only); `chat/commands.py` — the

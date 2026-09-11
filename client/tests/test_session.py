@@ -149,19 +149,40 @@ def test_sessions_register_for_the_launcher_and_prune_stale_rows(monkeypatch):
     monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     game = FakeGame()
     server, port = _start_server(game)
-    assert _await(lambda: session.running_sessions()), "session never registered"
-    (entry,) = session.running_sessions()
-    assert (entry["port"], entry["character"]) == (port, "Lanival")
+
+    # By port: a server from an earlier test registers a beat after
+    # _start_server returns, into whatever file the env names by then.
+    def mine():
+        return next(
+            (e for e in session.running_sessions() if e.get("port") == port), None
+        )
+
+    assert _await(lambda: mine() is not None), "session never registered"
+    assert mine()["character"] == "Lanival"
+
+    # The attached count follows front ends in and out (#158): the
+    # picker tells a detached session from one already on screen.
+    # Polled, not read once: running_sessions' liveness probe is itself
+    # a connection the session counts for a few milliseconds.
+    def attached():
+        return (mine() or {}).get("attached")
+
+    assert _await(lambda: attached() == 0), "no window yet, count should be 0"
+    client = socket.create_connection(("127.0.0.1", port), timeout=2)
+    assert _await(lambda: attached() == 1), "attach not counted"
+    client.close()
+    assert _await(lambda: attached() == 0), "drop not counted"
 
     # A bound-but-not-listening socket: the stale row's port refuses.
     holder = socket.socket()
     holder.bind(("127.0.0.1", 0))
     session.register_session(holder.getsockname()[1], "Ghost")
-    assert [e["character"] for e in session.running_sessions()] == ["Lanival"]
+    names = [e["character"] for e in session.running_sessions()]
+    assert "Lanival" in names and "Ghost" not in names
     holder.close()
 
     game.closed = True  # the game EOF shuts the session down
-    assert _await(lambda: not session.running_sessions()), "never deregistered"
+    assert _await(lambda: mine() is None), "never deregistered"
 
 
 def test_new_front_end_receives_recent_backlog_on_attach():

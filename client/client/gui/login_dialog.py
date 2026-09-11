@@ -12,7 +12,7 @@ list instead of typed — handy on a machine with no cached names yet.
 from pathlib import Path
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QColor, QIcon
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -24,6 +24,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QListWidget,
+    QListWidgetItem,
     QPushButton,
     QVBoxLayout,
 )
@@ -37,6 +38,11 @@ from client.engine.login import (
 )
 
 ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
+
+# The picker's online rows: the amber the game paints room names in,
+# and bold — what the eye lands on above an alphabetical roster (#158).
+ONLINE_COLOR = "#d8b465"
+HEADER_COLOR = "#808090"
 
 
 def _application():
@@ -131,7 +137,7 @@ class CharacterPicker(QDialog):
     in a list — no dropdown to burrow into — with double-click (or
     Enter) to play, and the alternate paths as plain buttons."""
 
-    def __init__(self, roster, default="", account=""):
+    def __init__(self, roster, default="", account="", online=()):
         super().__init__()
         self.setWindowTitle("Revenant")
         self.setWindowIcon(QIcon(ICON_PATH))
@@ -143,9 +149,25 @@ class CharacterPicker(QDialog):
             layout.addWidget(QLabel(f"Account: {account}"))
         layout.addWidget(QLabel("Play as:"))
         self.list = QListWidget()
-        self.list.addItems(roster)
+        # Running sessions sit under their own header, in amber and
+        # bold, above the roster's header — they were easy to take for
+        # part of an alphabetical list and scroll past (#158).
+        online = set(online)
+        online_rows = [label for label in roster if label in online]
+        offline_rows = [label for label in roster if label not in online]
+        if online_rows:
+            self._add_header("Online — attach")
+            for label in online_rows:
+                item = QListWidgetItem(label)
+                item.setForeground(QColor(ONLINE_COLOR))
+                font = item.font()
+                font.setBold(True)
+                item.setFont(font)
+                self.list.addItem(item)
+            self._add_header("Log in as")
+        self.list.addItems(offline_rows)
         matches = self.list.findItems(default, Qt.MatchFlag.MatchExactly)
-        self.list.setCurrentItem(matches[0] if matches else self.list.item(0))
+        self.list.setCurrentItem(matches[0] if matches else self._first_choice())
         self.list.itemDoubleClicked.connect(lambda item: self.accept())
         # Show the whole roster without scrolling, up to a sane cap.
         row = max(self.list.sizeHintForRow(0), 1)
@@ -166,17 +188,33 @@ class CharacterPicker(QDialog):
         layout.addWidget(buttons)
         self.list.setFocus()
 
+    def _add_header(self, text):
+        """A dim, unselectable row that labels the rows below it."""
+        item = QListWidgetItem(text)
+        item.setFlags(Qt.ItemFlag.NoItemFlags)
+        item.setForeground(QColor(HEADER_COLOR))
+        self.list.addItem(item)
+
+    def _first_choice(self):
+        """The first selectable row (headers are not)."""
+        for index in range(self.list.count()):
+            item = self.list.item(index)
+            if item.flags() & Qt.ItemFlag.ItemIsSelectable:
+                return item
+        return None
+
     def _choose_other_account(self):
         self.other_account = True
         self.accept()
 
 
-def ask_character(roster, default="", account=""):
+def ask_character(roster, default="", account="", online=()):
     """The character-select screen (the launcher's --pick mode); returns
     the chosen name, OTHER_ACCOUNT when the user wants to log in with a
-    different account, or None when the user cancelled."""
+    different account, or None when the user cancelled. `online` names
+    the roster labels that are running sessions."""
     app = _application()  # noqa: F841
-    dialog = CharacterPicker(roster, default, account)
+    dialog = CharacterPicker(roster, default, account, online=online)
     if dialog.exec() != QDialog.DialogCode.Accepted:
         return None
     if dialog.other_account:
