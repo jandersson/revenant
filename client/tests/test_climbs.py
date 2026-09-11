@@ -1,6 +1,6 @@
 """The climbing knowledge base — rank bands keyed to the community map.
 
-client/climbs.py is the one table ;athletics builds its ladder from
+client/game/climbs.py is the one table ;athletics builds its ladder from
 (#87): travel loops carry two map room ids, practice spots one room
 and an obstacle, advice rows a description only. Bands come from
 Elanthipedia's "Climbing and Swimming list" (fetched 2026-08-22);
@@ -8,7 +8,7 @@ Elanthipedia's "Climbing and Swimming list" (fetched 2026-08-22);
 tighten them.
 """
 
-from client import climbs
+from client.game import climbs
 
 
 def test_every_entry_carries_its_kinds_required_fields():

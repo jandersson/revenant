@@ -62,7 +62,7 @@ def identities(defaults):
     (~/.revenant/login.json, never the repo). LNet names are character
     names; a made-up one risks the account, so the window offers these
     and refuses anything else."""
-    from client.roster import cached_characters
+    from client.engine.roster import cached_characters
 
     names = []
     for _, character in cached_characters(defaults):

@@ -12,7 +12,7 @@ order; status_line() folds the state frames (character, vitals,
 indicators, room, roundtime) into one line for a status bar.
 """
 
-from client.highlights import spans
+from client.ui.highlights import spans
 
 STYLES = {
     "roomName": (True, "#d8b465"),

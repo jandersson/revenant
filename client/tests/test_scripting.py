@@ -2,7 +2,7 @@ import pathlib
 import time
 import types
 
-from client.scripting import Script, ScriptManager
+from client.engine.scripting import Script, ScriptManager
 
 
 class Recorder:
@@ -415,18 +415,18 @@ def test_a_broken_edit_keeps_the_old_helper_and_says_so(tmp_path, monkeypatch):
 
 
 def test_the_reloadable_list_never_names_the_sessions_plumbing():
-    from client.scripting import RELOADABLE_MODULES
+    from client.engine.scripting import RELOADABLE_MODULES
 
     for forbidden in (
-        "client.session",
-        "client.core",
-        "client.xml_data",
-        "client.scripting",
+        "client.engine.session",
+        "client.engine.core",
+        "client.engine.xml_data",
+        "client.engine.scripting",
     ):
         assert forbidden not in RELOADABLE_MODULES
     # Dependency order: walker binds names from mapdb, which must go first.
-    assert RELOADABLE_MODULES.index("client.mapdb") < RELOADABLE_MODULES.index(
-        "client.walker"
+    assert RELOADABLE_MODULES.index("client.game.mapdb") < RELOADABLE_MODULES.index(
+        "client.game.walker"
     )
 
 
@@ -434,7 +434,7 @@ def test_the_reloadable_list_never_names_the_sessions_plumbing():
 
 
 def _slow_load_fixture(tmp_path, monkeypatch, dev):
-    import client.scripting as scripting
+    import client.engine.scripting as scripting
 
     monkeypatch.setenv("REVENANT_SETTINGS", str(tmp_path / "settings.json"))
     monkeypatch.setenv("REVENANT_DEV", "1" if dev else "0")
@@ -452,7 +452,7 @@ def test_developer_mode_reports_a_slow_script_load(tmp_path, monkeypatch):
 
 
 def test_the_slow_load_report_names_what_reloaded(tmp_path, monkeypatch):
-    import client.scripting as scripting
+    import client.engine.scripting as scripting
 
     manager, recorder, helper = _reload_fixture(tmp_path, monkeypatch)
     monkeypatch.setenv("REVENANT_SETTINGS", str(tmp_path / "settings.json"))
@@ -473,7 +473,7 @@ def test_without_developer_mode_a_slow_load_is_silent(tmp_path, monkeypatch):
 
 
 def test_a_fast_load_is_silent_even_in_developer_mode(tmp_path, monkeypatch):
-    import client.scripting as scripting
+    import client.engine.scripting as scripting
 
     manager, recorder = _slow_load_fixture(tmp_path, monkeypatch, dev=True)
     monkeypatch.setattr(scripting, "SLOW_LOAD_SECONDS", 60.0)
@@ -489,7 +489,7 @@ def test_scripts_default_to_the_repos_own_directory_from_anywhere(
 ):
     # Captured 2026-09-04: a session started outside the repo answered
     # ;go2 with "no script named 'go2'" — the default was ./scripts.
-    import client.scripting as scripting
+    import client.engine.scripting as scripting
 
     monkeypatch.delenv("REVENANT_SCRIPTS", raising=False)
     monkeypatch.chdir(tmp_path)
@@ -499,7 +499,7 @@ def test_scripts_default_to_the_repos_own_directory_from_anywhere(
 
 
 def test_a_scripts_directory_in_the_working_directory_still_wins(tmp_path, monkeypatch):
-    import client.scripting as scripting
+    import client.engine.scripting as scripting
 
     monkeypatch.delenv("REVENANT_SCRIPTS", raising=False)
     (tmp_path / "scripts").mkdir()
@@ -508,7 +508,7 @@ def test_a_scripts_directory_in_the_working_directory_still_wins(tmp_path, monke
 
 
 def test_revenant_scripts_overrides_everything(tmp_path, monkeypatch):
-    import client.scripting as scripting
+    import client.engine.scripting as scripting
 
     monkeypatch.setenv("REVENANT_SCRIPTS", str(tmp_path / "mine"))
     assert scripting.default_scripts_dir() == tmp_path / "mine"

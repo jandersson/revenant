@@ -13,7 +13,7 @@ geography is a non-goal (#56).
 
 import json
 
-from client.mapdb import local_mapdb_path, walkable
+from client.game.mapdb import local_mapdb_path, walkable
 
 # Screen-oriented grid steps: y grows downward, north is up.
 DIRECTION_VECTORS = {

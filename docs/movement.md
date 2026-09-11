@@ -2,9 +2,9 @@
 
 Anything in revenant that walks — `;go2`, `;athletics`' ladder trips,
 `;favors`' grotto run, every future traveler — goes through
-client/walker.py, and this file records the mechanics it leans on,
+client/game/walker.py, and this file records the mechanics it leans on,
 with their evidence. The map itself is the community database
-(client/mapdb.py, the elanthia-online lich map); this file is about
+(client/game/mapdb.py, the elanthia-online lich map); this file is about
 *moving* along it.
 
 ## Locating: uid first, title only as a guess

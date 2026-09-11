@@ -13,7 +13,7 @@ from PyQt6.QtCore import QRectF, QSize, Qt
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
 from PyQt6.QtWidgets import QGraphicsScene, QGraphicsView
 
-from client.maplayout import ROOM_LIMIT, layout, resolve_room
+from client.ui.maplayout import ROOM_LIMIT, layout, resolve_room
 
 CELL = 34  # grid pitch in pixels
 ROOM = 14  # room square side

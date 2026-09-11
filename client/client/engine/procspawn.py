@@ -1,9 +1,9 @@
 """Start a sibling process the way this one was started, frozen or not.
 
-Every `python -m client.session` / `-m beholder.app` spawn goes through
+Every `python -m client.engine.session` / `-m beholder.app` spawn goes through
 command_for(), so a packaged build (PyInstaller, #60) keeps working:
 there is no Python on the path in an installed copy, only the one
-executable, which client/frozen.py turns into whatever role it is asked
+executable, which client/engine/frozen.py turns into whatever role it is asked
 for with `--role <module>`. bundle_dir() is where the bundled data
 (scripts/, the icons) lives in that build.
 """

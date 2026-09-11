@@ -9,7 +9,7 @@ when needed (the overlay loads last, so its copy wins).
 import importlib.util
 import pathlib
 
-from client.mapdb import MapDB
+from client.game.mapdb import MapDB
 
 REPO = pathlib.Path(__file__).parents[2]
 

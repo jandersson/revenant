@@ -24,7 +24,7 @@ REPO="{repo}"
 cd "$REPO" || exit 1
 PY="$REPO/.venv/branded/Revenant"
 [[ -x "$PY" ]] || PY="$REPO/.venv/bin/python3"
-exec "$PY" -m client.launch
+exec "$PY" -m client.engine.launch
 """
 
 INFO = {

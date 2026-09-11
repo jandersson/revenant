@@ -7,7 +7,7 @@ default threading excepthook (a stderr print nobody sees) and the
 window sat half-dead, still claiming Connected.
 """
 
-from client import reader
+from client.engine import reader
 
 
 class FakeLog:

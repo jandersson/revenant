@@ -51,7 +51,9 @@ from time import monotonic, perf_counter
 from client.client_logger import ClientLogger
 from client.settings import dev_mode
 
-REPO_SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
+REPO_SCRIPTS_DIR = (
+    Path(__file__).resolve().parents[3] / "scripts"
+)  # repo/client/client/engine
 
 
 USER_SCRIPTS_DIR = "~/.revenant/scripts"
@@ -79,7 +81,7 @@ def default_scripts_dir():
     ~/.revenant/scripts, which is then the directory (#60)."""
     if override := os.environ.get("REVENANT_SCRIPTS"):
         return Path(override)
-    from client.procspawn import bundle_dir
+    from client.engine.procspawn import bundle_dir
 
     bundle = bundle_dir()
     if bundle is not None:
@@ -287,16 +289,16 @@ class Script:
 # parser and the threads, and only ;reexec may replace them.
 RELOADABLE_MODULES = (
     "client.settings",
-    "client.textfont",
-    "client.eltime",
-    "client.climbs",
-    "client.circles",
-    "client.inventory",
-    "client.probe",
-    "client.profile",
-    "client.training",  # binds names from profile: after it
-    "client.mapdb",
-    "client.walker",
+    "client.ui.textfont",
+    "client.game.eltime",
+    "client.game.climbs",
+    "client.game.circles",
+    "client.game.inventory",
+    "client.game.probe",
+    "client.game.profile",
+    "client.game.training",  # binds names from profile: after it
+    "client.game.mapdb",
+    "client.game.walker",
 )
 
 

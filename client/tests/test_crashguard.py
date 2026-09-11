@@ -9,7 +9,7 @@ then does is exercised here without a display.
 
 import sys
 
-from client import crashguard
+from client.ui import crashguard
 
 
 class FakeLog:

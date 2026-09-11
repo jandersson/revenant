@@ -4,11 +4,23 @@ How the pieces fit and why each one is shaped the way it is: one pipeline, one p
 
 The text below accreted a sentence per change as features shipped, so it doubles as a record of what was learned in the field: the socket that would not wake on Linux, the map twins, the dock layout that aborted inside Qt. Where a `docs/*.md` model file exists, it holds the captured evidence; this page holds the plumbing.
 
-One pipeline, one parser, several processes:
+One pipeline, one parser, several processes. The `client` package
+groups its modules by that shape: `engine/` is the connection and the
+session process (socket, login, parser, engine, the daemon and its
+script engine, spawning and attaching), `game/` is the Qt-free models
+scripts lean on (the map and walker, climbs, circles, the clock,
+inventory, wounds, profiles, training plans, the history database),
+`ui/` is frontend logic without a toolkit (text styling and fonts,
+stream routing, window layout, highlights, focus, the crash guard,
+and the Textual `tui.py`), and `gui/` is the PyQt6 window; `settings`
+and `client_logger` sit at the top because every package reads them.
+The grouping followed the seams the paragraphs below had already
+drawn, forty flat modules later: a training-plan module had landed two
+entries from a dock-layout module.
 
-- `client/client/netsock.py` — minimal buffered TCP socket (telnetlib-shaped
+- `client/client/engine/netsock.py` — minimal buffered TCP socket (telnetlib-shaped
   API: `read_until`, `read_very_eager`).
-- `client/client/login.py` — eaccess handshake. Credentials: password lives in
+- `client/client/engine/login.py` — eaccess handshake. Credentials: password lives in
   the OS keychain (`keyring`, service "revenant"); account/character come from
   `REVENANT_ACCOUNT` / `REVENANT_CHARACTER` env vars, falling back to the
   names saved in `~/.revenant/login.json` (override: `REVENANT_LOGIN_DEFAULTS`)
@@ -19,7 +31,7 @@ One pipeline, one parser, several processes:
   without one — and exchanges the password for a single-use launch key,
   passing only the key to the session over stdin (never argv or env).
   **Never store credentials in files, even gitignored ones.**
-- `client/client/xml_data.py` — XMLParser target holding parsed game state
+- `client/client/engine/xml_data.py` — XMLParser target holding parsed game state
   (indicators, compass, prompt, vitals, hostile creatures from
   `<crtrStatus>`) — docs/protocol.md is the wire-protocol reference it
   implements against (tag grammar cited to the GemStone wiki's Wrayth
@@ -40,7 +52,7 @@ One pipeline, one parser, several processes:
   `experience` (rank/percent/mindstate per learning skill); the engine
   rewrites a synthetic "exp" stream on change (Experience dock), and
   `scripts/xp.py` snapshots it to `~/.revenant/history.db` for history.
-- `client/client/core.py` — `Engine`: owns a connection, feeds lines through
+- `client/client/engine/core.py` — `Engine`: owns a connection, feeds lines through
   XMLData, invokes `output_callback(text, stream)` per segment. Emits a
   synthetic `"compass"` stream (one frame per room, identical exits
   included — scripts treat it as the room-arrival signal), a `"room"`
@@ -64,8 +76,8 @@ One pipeline, one parser, several processes:
   session.attach replays
   character, vitals, indicators, timesync, and the room to late
   attachers, like the compass.
-- `client/client/session.py` — the detachable session daemon
-  (`python -m client.session`): logs in, owns the game socket, serves
+- `client/client/engine/session.py` — the detachable session daemon
+  (`python -m client.engine.session`): logs in, owns the game socket, serves
   `(stream, text)` frames as JSON lines on 127.0.0.1:4242 to any number of
   attached frontends, and hosts the script engine. `AttachedEngine` is the
   client side; it presents the same surface as `Engine`. Typing `;reexec`
@@ -92,7 +104,7 @@ One pipeline, one parser, several processes:
   window (quit) and relaunch. File → Detach is the wrong move: it
   leaves the session running and a relaunch reattaches to the old
   code.
-- `client/client/scripting.py` — script engine. Scripts are `main(s)` Python
+- `client/client/engine/scripting.py` — script engine. Scripts are `main(s)` Python
   files in `scripts/` (repo root), run as threads in the session, controlled
   by `;`-commands typed in any frontend (`;list`, `;help [x]`, `;run x`,
   `;stop x`). `;help` renders module docstrings — write them as the user
@@ -101,7 +113,7 @@ One pipeline, one parser, several processes:
   targets an arbitrary stream (e.g. "thoughts") — and run/is_running/
   tell/kill, through which one script drives others: `;train`
   (scripts/train.py) is the training orchestrator, a loop over the
-  per-character plan in `client/training.py`
+  per-character plan in `client/game/training.py`
   (~/.revenant/training/<name>.json) that starts each task's script
   (;athletics, ;hunt) or cycles its commands until the task's skills
   reach the target mindstate, then rests in a safe room until they
@@ -113,12 +125,12 @@ One pipeline, one parser, several processes:
   characters (offered from the cached rosters and nothing else —
   LNet names are character names), no game session, password from
   the keychain via the Qt-free
-  `client/lnet_login.py` (service "revenant-lnet"; a rejected login
+  `client/engine/lnet_login.py` (service "revenant-lnet"; a rejected login
   asks once with a remember checkbox), one worker thread owning the
   socket as the script does (#141). `;tend`
   bandages bleeders (watch mode wakes on soak-through); `;wealth`
   passively logs teller balance statements into history.db.
-  `client/client/probe.py` is the ask-and-classify helper the keyword
+  `client/client/game/probe.py` is the ask-and-classify helper the keyword
   scripts (;mechlore, ;favors) share: send a command, gather the answer
   through its roundtime, match it against an ordered outcome table.
   Sessions autostart the xp history logger, the beholder dashboard
@@ -129,7 +141,7 @@ One pipeline, one parser, several processes:
   roundtime. The autostarted script waits on its command queue
   between snapshots, so `;sheet inv` typed at it takes one inventory
   snapshot and the schedule carries on; from cold it snapshots and
-  exits (#122). `client/inventory.py` flattens the indented tree
+  exits (#122). `client/game/inventory.py` flattens the indented tree
   into rows naming each item's container, identical items collapsed to
   a quantity, #117. Scripts read answers through `probe.collect`,
   which glues the per-segment pieces the session delivers back into
@@ -144,13 +156,13 @@ One pipeline, one parser, several processes:
   durably, and REVENANT_NO_XP=1 / REVENANT_NO_BEHOLDER=1 override
   everything for one launch — quit-on-close lives there too, and so
   does the game text's font: `font_family` / `font_size`, normalized
-  by the Qt-free `client/textfont.py` and applied live to every text
+  by the Qt-free `client/ui/textfont.py` and applied live to every text
   view and the input line, the Experience dock keeping its
   fixed-pitch family, #118);
   `;beholder` opens the dashboard in the browser, and the GUI embeds it
   via View → Experience History (QWebEngineView, lazy-created, browser
   fallback when QtWebEngine is missing).
-- `client/client/mapdb.py` — the community DR map database (elanthia-online
+- `client/client/game/mapdb.py` — the community DR map database (elanthia-online
   mapdb-backup-dr), downloaded to `~/.revenant/mapdb/` on first use, never
   vendored. Pathfinding on a networkx DiGraph of the walkable edges
   (#79): Dijkstra over the map's timeto travel times, detouring
@@ -165,25 +177,25 @@ One pipeline, one parser, several processes:
   identical exits), the walker accepts arrival in a twin of the
   planned room, and the graph plans through the uid-bearing twin
   when a room links to both.
-  `client/client/walker.py` (locate/walk; model in docs/movement.md) is
+  `client/client/game/walker.py` (locate/walk; model in docs/movement.md) is
   the shared travel engine; `scripts/go2.py` is the command on top, and
   `;favors` (scripts/favors.py) rides it for the favor-orb run — grotto
   ritual, attended puzzles, temple altar offer (docs/favors.md).
-- `client/client/climbs.py` — climbing spots with Athletics rank
+- `client/client/game/climbs.py` — climbing spots with Athletics rank
   bands and conditions, keyed to the community map's room ids
   (never written into the community db, which refreshes wholesale);
   `;athletics` derives its training ladder and its ;athletics-list
   advice from this one table (#87). Bands from Elanthipedia's
   Climbing and Swimming list; rank 100+ trains in town on the
   Crossing battlements.
-- `client/client/circles.py` — circle requirements, Qt-free: every
+- `client/client/game/circles.py` — circle requirements, Qt-free: every
   circled guild's Elanthipedia rate table + the slot/soft-requirement
   model; `;circle` (scripts/circle.py) and beholder's Circle-gates
   view report what gates the next circle from the latest ;sheet
   snapshot (which records guild). docs/circles.md holds the model,
   its captured guildleader validation, the wiki corrections, and the
   open anomalies.
-- `client/client/eltime.py` — the Elanthian clock, Qt-free: date, anlas,
+- `client/client/game/eltime.py` — the Elanthian clock, Qt-free: date, anlas,
   and moon phases computed from real time (docs/eltime.md holds the
   model and its captured evidence). `scripts/clock.py` (`;clock`) is the
   ntpdate: TIME + OBSERVE MOONS, calibration stored in settings
@@ -200,19 +212,19 @@ One pipeline, one parser, several processes:
   onto them. `client/tests_gui/` exercises all of it headless on Qt's
   offscreen platform (a stub engine, every stream's frame through
   dispatch, the layout round trip), in CI on every leg. GUI-thread safety via
-  the `game_text` pyqtSignal; a sys.excepthook (`client/crashguard.py`,
+  the `game_text` pyqtSignal; a sys.excepthook (`client/ui/crashguard.py`,
   Qt-free) keeps the window alive when a Qt slot crashes, logging the
   traceback and surfacing it in the main window + status bar (#94);
-  the reader thread runs `client/reader.py`'s Qt-free pump, which
+  the reader thread runs `client/engine/reader.py`'s Qt-free pump, which
   surfaces EOF and crashes in the status bar instead of dying
   silently (#96); stream docks route thoughts/spells/arrivals/deaths
   (the stream -> dock table and the rule that a "clear" wipes only
-  that stream's own dock live in the Qt-free `client/streamroute.py`,
+  that stream's own dock live in the Qt-free `client/ui/streamroute.py`,
   so tests reach them headless — a clear for an undocked stream like
   `inv` must be dropped, never applied to the main window, #109);
   compass dock renders the `"compass"` stream; the Map dock draws
   the community map around the character from the `"room"` stream
-  (grid layout in the Qt-free `client/maplayout.py`, drawing in
+  (grid layout in the Qt-free `client/ui/maplayout.py`, drawing in
   `client/gui/map_dock.py`; click a room to ;go2 it; docked on the
   right with a 320px size hint, the scene padded by half a viewport
   so the current room always centres — alone on the left with no
@@ -222,10 +234,10 @@ One pipeline, one parser, several processes:
   under a row of vitals bars (health/fatigue/spirit/concentration,
   mana for casters), next to the status strip (posture + stunned/
   bleeding/hidden badges, DEAD in alert red); the input line has
-  shell-style Up/Down history (client/command_history.py, Qt-free)
+  shell-style Up/Down history (client/ui/command_history.py, Qt-free)
   and re-selects after send so Enter repeats; the title bar names the
   logged-in character, and each character's window keeps its own saved
-  dock layout (`client/window_layout.py`, Qt-free; the unscoped legacy
+  dock layout (`client/ui/window_layout.py`, Qt-free; the unscoped legacy
   pair seeds characters without one, #74). The GUI learns its
   character before building the window — from the session registry
   (`session.character_for_port`) on attach, `REVENANT_CHARACTER` in
@@ -236,12 +248,12 @@ One pipeline, one parser, several processes:
   The hidden-restore-show path remains only for a character learned
   from the "character" frame. Direct mode logs in itself;
   `--attach` connects to a session. User highlight patterns
-  (`client/highlights.py`, ~/.revenant/highlights.json) color matched
+  (`client/ui/highlights.py`, ~/.revenant/highlights.json) color matched
   spans over any base style; View → Reload Highlights re-reads them.
-- `client/client/launch.py` — the `revenant` console script: attaches
+- `client/client/engine/launch.py` — the `revenant` console script: attaches
   the GUI to the right session, spawning one when needed. Characters
   run side by side, one session/window each on its own port: sessions
-  register in ~/.revenant/sessions.json (client/session.py; pruned by
+  register in ~/.revenant/sessions.json (client/engine/session.py; pruned by
   connectability), `revenant <name>` attaches to that character's
   session or spawns on a free port, and `--pick` (the Start Menu
   shortcut) offers running sessions to attach plus every cached

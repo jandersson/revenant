@@ -2,7 +2,7 @@ import socket
 
 import pytest
 
-from client.netsock import SocketClient
+from client.engine.netsock import SocketClient
 
 
 def test_from_fd_adopts_socket_and_seeds_buffer():

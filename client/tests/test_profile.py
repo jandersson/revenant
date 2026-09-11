@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from client.profile import (
+from client.game.profile import (
     DEFAULTS,
     FIELDS,
     describe,

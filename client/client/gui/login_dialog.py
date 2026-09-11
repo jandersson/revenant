@@ -28,7 +28,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
-from client.login import (
+from client.engine.login import (
     OTHER_ACCOUNT,
     LoginError,
     account_roster,

@@ -23,9 +23,9 @@ attended run captures them (#82) — anything unclassified is echoed as
 fixtures. Stop with:  ;stop favors
 """
 
-from client import probe
-from client.probe import classify
-from client.walker import locate
+from client.game import probe
+from client.game.probe import classify
+from client.game.walker import locate
 
 GROTTO = 1420  # [Siergelde, Stone Grotto] — Zoluren's general favor altar
 CRECHE = 5865  # [Resurrection Creche, Li Stil rae Kwego ia Kweld]
@@ -81,7 +81,7 @@ OFFER_OUTCOMES = (
 
 def ask(s, command, seconds=None):
     """The game's answer to a command, roundtime-delayed tail included
-    (client.probe.ask, with this script's collection windows)."""
+    (client.game.probe.ask, with this script's collection windows)."""
     return probe.ask(
         s, command, COLLECT_SECONDS if seconds is None else seconds, RESULT_SECONDS
     )
@@ -246,8 +246,8 @@ def main(s, db=None, walk=None):
         )
         return
     if db is None or walk is None:
-        from client.mapdb import MapDB, download, mapdb_path
-        from client.walker import walk as real_walk
+        from client.game.mapdb import MapDB, download, mapdb_path
+        from client.game.walker import walk as real_walk
 
         if not mapdb_path().is_file():
             s.echo("downloading map database (first use, ~13MB) ...")

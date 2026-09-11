@@ -22,7 +22,7 @@ from time import sleep, time
 import keyring
 import keyring.errors
 
-from client.login import (
+from client.engine.login import (
     KEYRING_SERVICE,
     OTHER_ACCOUNT,
     LoginError,
@@ -33,8 +33,8 @@ from client.login import (
     load_login_defaults,
     save_login_defaults,
 )
-from client.procspawn import command_for
-from client.session import DEFAULT_HOST, DEFAULT_PORT, running_sessions
+from client.engine.procspawn import command_for
+from client.engine.session import DEFAULT_HOST, DEFAULT_PORT, running_sessions
 
 
 def session_running(host, port):
@@ -186,9 +186,9 @@ def spawn_session(host, port, character, key=None, account=None):
         # The session's own login (the keychain-silent path) must use
         # the launcher's chosen account, not the saved default.
         env["REVENANT_ACCOUNT"] = account
-    # From source: python -m client.session; in a packaged build the
-    # one executable plays the session role (client/procspawn.py, #60).
-    command = command_for("client.session", "--host", host, "--port", str(port))
+    # From source: python -m client.engine.session; in a packaged build the
+    # one executable plays the session role (client/engine/procspawn.py, #60).
+    command = command_for("client.engine.session", "--host", host, "--port", str(port))
     # New process group: interrupting or closing the GUI must not take the
     # session (and with it the game connection) down too.
     if key is None:
@@ -256,7 +256,9 @@ def rebrand_for_dock():
         return
     branded = branded_interpreter(interpreter)
     if branded != interpreter:
-        os.execv(str(branded), [str(branded), "-m", "client.launch", *sys.argv[1:]])
+        os.execv(
+            str(branded), [str(branded), "-m", "client.engine.launch", *sys.argv[1:]]
+        )
 
 
 def exec_gui(gui_args):
@@ -265,11 +267,11 @@ def exec_gui(gui_args):
     interpreter = Path(sys.executable)
     if sys.platform == "darwin":
         interpreter = branded_interpreter(interpreter)
-    # client.guiboot, not the GUI module itself: the exec leaves every
+    # client.engine.guiboot, not the GUI module itself: the exec leaves every
     # guard behind, and guiboot puts one in the new process (#108).
     os.execv(
         str(interpreter),
-        [str(interpreter), "-m", "client.guiboot", *gui_args],
+        [str(interpreter), "-m", "client.engine.guiboot", *gui_args],
     )
 
 

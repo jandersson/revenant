@@ -1,9 +1,9 @@
-"""client.probe: ask the game a question, classify the answer by keyword.
+"""client.game.probe: ask the game a question, classify the answer by keyword.
 
 Shared by ;mechlore and ;favors — each script's own tests cover its
 outcome tables; these pin the mechanics they both lean on."""
 
-from client import probe
+from client.game import probe
 
 OUTCOMES = (
     ("nothing_here", ("find nothing", "nothing like that")),

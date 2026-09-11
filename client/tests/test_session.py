@@ -11,8 +11,8 @@ from time import sleep
 
 import pytest
 
-from client import session
-from client.netsock import SocketClient
+from client.engine import session
+from client.engine.netsock import SocketClient
 
 
 def test_main_key_stdin_uses_piped_key(monkeypatch):
@@ -690,7 +690,7 @@ def _windows_handoff(monkeypatch, listening=True):
 def test_windows_reexec_spawns_a_child_and_shares_the_socket_over_stdin(monkeypatch):
     server, spawned, child, stopped, broadcasts, exits = _windows_handoff(monkeypatch)
     argv = spawned["argv"]
-    assert argv[:3] == [session.sys.executable, "-m", "client.session"]
+    assert argv[:3] == [session.sys.executable, "-m", "client.engine.session"]
     assert "--game-share" in argv and "--game-fd" not in argv
     # The socket rides stdin as one base64 line — never argv or env.
     assert child.stdin.getvalue() == base64.b64encode(b"SHARE-FOR-4321") + b"\n"

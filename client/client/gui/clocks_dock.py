@@ -1,6 +1,6 @@
 """The clocks panel: what time it is everywhere that matters.
 
-Elanthia (computed from server time by client/eltime.py; ;clock
+Elanthia (computed from server time by client/game/eltime.py; ;clock
 calibrates through settings), the three game moons with their phase
 and whether they are up, Stockholm and Chicago wall time, and Earth's
 moon when the for-fun Settings row is on. Ticks once a second and
@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QGridLayout, QLabel, QWidget
 
-from client import eltime
+from client.game import eltime
 from client.settings import load_settings
 
 CITIES = (("Stockholm", "Europe/Stockholm"), ("Chicago", "America/Chicago"))

@@ -14,7 +14,7 @@ detaches - the session and the character stay in the game, exactly
 like File -> Detach; type quit to log out.
 
 Built on Textual; the rendering rules live in the toolkit-free
-client/textstyle.py with their tests. It never logs in by itself: with
+client/ui/textstyle.py with their tests. It never logs in by itself: with
 no session running it says so and points at `revenant` (#57).
 """
 
@@ -23,14 +23,14 @@ import sys
 from threading import Thread
 from time import time
 
-from client import reader
+from client.engine import reader
 from client.client_logger import ClientLogger
-from client.command_history import CommandHistory
-from client.highlights import load_rules
-from client.sendcmd import resolve_port
-from client.session import DEFAULT_HOST, AttachedEngine
-from client.streamroute import clears_window, window_title
-from client.textstyle import Status, render
+from client.ui.command_history import CommandHistory
+from client.ui.highlights import load_rules
+from client.engine.sendcmd import resolve_port
+from client.engine.session import DEFAULT_HOST, AttachedEngine
+from client.ui.streamroute import clears_window, window_title
+from client.ui.textstyle import Status, render
 
 
 def _to_app(app, fn, *args):

@@ -256,7 +256,7 @@ def test_the_identity_line_reads_as_a_sentence():
 def test_age_is_the_current_year_minus_the_birth_year():
     # Not stored anywhere: computed against the Elanthian calendar, so
     # it cannot go stale in the table (#115).
-    from client import eltime
+    from client.game import eltime
 
     now = 1788463232  # the captured observation instant
     current = eltime.elanthian_now(now).year

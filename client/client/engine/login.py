@@ -11,7 +11,7 @@ import keyring
 import keyring.errors
 
 from client.client_logger import ClientLogger
-from client.netsock import SocketClient
+from client.engine.netsock import SocketClient
 
 GAME_CODE = b"DR"
 DR_HOST = "dr.simutronics.net"

@@ -14,8 +14,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from client.mapdb import MapDB
-from client.training import DEFAULTS, normalize
+from client.game.mapdb import MapDB
+from client.game.training import DEFAULTS, normalize
 
 REPO = pathlib.Path(__file__).parents[2]
 

@@ -5,7 +5,7 @@ the character's own layout applied to the hidden window."""
 from PyQt6.QtCore import QSettings
 from PyQt6.QtWidgets import QDockWidget
 
-from client import window_layout
+from client.ui import window_layout
 
 DOCK_NAMES = {
     "Thoughts",

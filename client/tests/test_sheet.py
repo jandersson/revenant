@@ -10,7 +10,7 @@ import sqlite3
 
 import pytest
 
-from client.core import Engine
+from client.engine.core import Engine
 
 REPO = pathlib.Path(__file__).parents[2]
 

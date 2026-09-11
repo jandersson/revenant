@@ -46,7 +46,7 @@ DEFAULTS = {
     # Below this health % the loop breaks off and walks home.
     "health_floor": 60,
     # A wound this bad or worse (any area, any kind — HEALTH, parsed by
-    # client/wounds.py) breaks the loop off too: insignificant,
+    # client/game/wounds.py) breaks the loop off too: insignificant,
     # negligible, minor, harmful, damaging, severe, devastating,
     # useless. "" never asks HEALTH.
     "wound_floor": "",
@@ -93,7 +93,7 @@ def profiles_dir() -> Path:
 def slug(character) -> str:
     """A character name as a filename: lowercase, letters and digits
     only — the game's name is a filename here, so nothing else gets
-    through. Shared with the training plans (client/training.py)."""
+    through. Shared with the training plans (client/game/training.py)."""
     return _UNSAFE.sub("", (character or "").strip().lower()) or "unnamed"
 
 

@@ -1,7 +1,7 @@
 """How ;clock syncs the Elanthian clock and moons — the manual.
 
 The script sends TIME and OBSERVE MOONS, calibrates through
-client/eltime.py, and stores the results in settings for the GUI's
+client/game/eltime.py, and stores the results in settings for the GUI's
 clocks dock. Fixtures are the captured answers from test_eltime.
 """
 
@@ -10,7 +10,7 @@ import json
 import pathlib
 import types
 
-from client import eltime
+from client.game import eltime
 from test_eltime import OBSERVE_TEXT, TIME_TEXT, TIME_UNIX
 
 REPO = pathlib.Path(__file__).parents[2]

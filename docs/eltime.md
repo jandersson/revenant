@@ -24,7 +24,7 @@ Elanthia's calendar is a fixed function of real time:
 Years count up from the Victory of Lanival, exactly as `TIME` reports
 them, and are named on a seven-year cycle indexed by `year % 7`
 (Silver Unicorn first). Months, anlaen, and weeks have fixed names —
-the tuples in [client/client/eltime.py](https://github.com/jandersson/revenant/tree/master/client/client/eltime.py)
+the tuples in [client/client/game/eltime.py](https://github.com/jandersson/revenant/tree/master/client/client/game/eltime.py)
 list them in order.
 
 The epoch (`VICTORY_EPOCH`) is derived from a captured `TIME`, placing

@@ -31,10 +31,10 @@ dependencies = [
 Repository = "https://github.com/jandersson/revenant"
 
 [project.scripts]
-revenant = "client.launch:main"
+revenant = "client.engine.launch:main"
 revenant-chat = "client.gui.chat_window:main"
-revenant-send = "client.sendcmd:main"
-revenant-tui = "client.tui:main"
+revenant-send = "client.engine.sendcmd:main"
+revenant-tui = "client.ui.tui:main"
 
 [dependency-groups]
 dev = [

@@ -11,7 +11,7 @@ pin the same wordings. The fight itself follows [combat.md](combat.md).
 
 One JSON file per character, `~/.revenant/profiles/<name>.json`, edited
 from File → Character Profile… (the dialog builds itself from
-`client/profile.py`'s FIELDS, so the file and the form never disagree).
+`client/game/profile.py`'s FIELDS, so the file and the form never disagree).
 It holds what no script should hard-code:
 
 | setting | what the loop does with it |

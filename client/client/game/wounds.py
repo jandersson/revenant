@@ -11,7 +11,7 @@ reading only the health percentage (#151); ;tend takes its bleeders
 from here, ;hunt its wound floor.
 
 The wordings are Elanthipedia's Damage tables, generated into
-client/wounds_data.py by tools/wound_tables.py; the bleed rates follow
+client/game/wounds_data.py by tools/wound_tables.py; the bleed rates follow
 the same page and Lich's healing data. A phrase the wiki lists at two
 severities ("a constant twitching in the neck" is harmful and
 damaging) is read as the lower one. Captured HEALTH answers pin the
@@ -21,7 +21,7 @@ parser in client/tests/test_wounds.py.
 import re
 from dataclasses import dataclass, field
 
-from client.wounds_data import ROWS
+from client.game.wounds_data import ROWS
 
 SEVERITIES = (
     "none",

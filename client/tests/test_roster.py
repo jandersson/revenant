@@ -6,7 +6,7 @@ case-insensitively — the game's own capitalisation is what lands in the
 database, while a roster may hold anything.
 """
 
-from client.roster import cached_characters, pending_characters, snapshot_summary
+from client.engine.roster import cached_characters, pending_characters, snapshot_summary
 
 DEFAULTS = {
     "account": "second",

@@ -13,8 +13,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from client.mapdb import MapDB
-from client.profile import DEFAULTS
+from client.game.mapdb import MapDB
+from client.game.profile import DEFAULTS
 
 REPO = pathlib.Path(__file__).parents[2]
 

@@ -1,4 +1,4 @@
-"""Start the GUI with a net under it: `python -m client.guiboot [args]`.
+"""Start the GUI with a net under it: `python -m client.engine.guiboot [args]`.
 
 The launcher exec's the GUI as a fresh process, so the startup guard
 in tools/desktop.py never sees it, and under pythonw a crash before

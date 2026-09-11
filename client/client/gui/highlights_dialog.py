@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
-from client.highlights import pattern_error
+from client.ui.highlights import pattern_error
 
 DEFAULT_COLOR = "#e0c95e"
 

@@ -46,7 +46,7 @@ import json
 import os
 from pathlib import Path
 
-from client.profile import load_profile, slug
+from client.game.profile import load_profile, slug
 
 MIND_LOCK = 34
 

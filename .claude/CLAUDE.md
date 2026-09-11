@@ -31,54 +31,63 @@ checks above before every push.
 One pipeline, one parser, several processes. Session and GUI are separate
 processes; the session owns the game socket and hosts scripts.
 
-- `client/netsock.py` — buffered TCP socket, telnetlib-shaped.
-- `client/login.py` — eaccess handshake. Password in the OS keychain
+The `client` package is three subpackages and two shared modules:
+`engine/` (the connection and the session process: socket, login,
+parser, engine, session, scripting, spawning), `game/` (the Qt-free
+models scripts lean on — what `RELOADABLE_MODULES` reloads, plus
+wounds, circles, eltime, history), `ui/` (toolkit-free frontend logic
+the PyQt6 `gui/` and the Textual `tui.py` share), with `settings.py`
+and `client_logger.py` at the top. Paths below are `client/<pkg>/x.py`
+for `client/client/<pkg>/x.py`.
+
+- `client/engine/netsock.py` — buffered TCP socket, telnetlib-shaped.
+- `client/engine/login.py` — eaccess handshake. Password in the OS keychain
   (service "revenant"); names in ~/.revenant/login.json. The session gets
   a single-use launch key over stdin, never argv or env.
-- `client/xml_data.py` — parser state + `route(line)` → `(stream, text,
+- `client/engine/xml_data.py` — parser state + `route(line)` → `(stream, text,
   style)` segments. Styles: "" / a name / "clear" / "link:<cmd>". Control
   characters are stripped; a BEL becomes a "bell" segment.
-- `client/core.py` — `Engine`: feeds lines, emits synthetic streams
+- `client/engine/core.py` — `Engine`: feeds lines, emits synthetic streams
   (compass = room-arrival signal, room, vitals, indicators, character,
   timesync, roundtime/casttime, bell). It appends "\n" only to the last
   piece of a line per stream; frontends never add line breaks.
-- `client/session.py` — the detachable daemon: JSON frames on
+- `client/engine/session.py` — the detachable daemon: JSON frames on
   127.0.0.1:4242, backlog replay for late attachers (transient streams
   excluded), the script engine, `;reexec` (exec on POSIX; on Windows a
   spawned child adopts the game socket via socket.share over stdin, #129).
-- `client/scripting.py` — scripts are `main(s)` files in `scripts/`,
+- `client/engine/scripting.py` — scripts are `main(s)` files in `scripts/`,
   loaded fresh from disk on every start; the pure-logic helpers in
   `RELOADABLE_MODULES` reload with them. Handle API: put/get/waitfor/
   waitrt/echo/emit/sleep/command/state/args, plus run/is_running/tell/
   kill for a script that drives other scripts (`;train`). `;help`
   renders docstrings.
-- `client/probe.py` — ask-and-classify shared by keyword scripts;
+- `client/game/probe.py` — ask-and-classify shared by keyword scripts;
   `collect` glues per-segment pieces into whole lines.
-- `client/procspawn.py` + `client/frozen.py` — every sibling spawn
+- `client/engine/procspawn.py` + `client/engine/frozen.py` — every sibling spawn
   (session, dashboard, reexec child) goes through `command_for`, which
   is `python -m module` from source and `<exe> --role module` in the
   PyInstaller build (`packaging/revenant.spec`, `tools/build_installer.py`,
   the release workflow on `v*` tags, #60). Never spell `sys.executable -m`
   out again.
-- `client/tui.py` — `revenant-tui`, the Textual terminal frontend: attach-only,
-  renders through the toolkit-free `client/textstyle.py` (style table,
+- `client/ui/tui.py` — `revenant-tui`, the Textual terminal frontend: attach-only,
+  renders through the toolkit-free `client/ui/textstyle.py` (style table,
   highlight runs, status line — the tested half; keep its STYLES in step
   with client_gui's). Ctrl+Q detaches (#57).
-- `client/sendcmd.py` — `revenant-send`: one command into a running
+- `client/engine/sendcmd.py` — `revenant-send`: one command into a running
   session from outside, tagged with its origin; read-only allowlist
   always passes, the rest needs `allow_external_send` or
   `REVENANT_ALLOW_SEND=1`. The session echoes `>> [origin] cmd` to
   every window (#135). Use it instead of ad-hoc socket drivers.
-- `client/wounds.py` — HEALTH parsed into wounds by area, severity
+- `client/game/wounds.py` — HEALTH parsed into wounds by area, severity
   (1-8) and kind; `wounds_data.py` is generated from the wiki by
   `tools/wound_tables.py`, never hand-edited. `;tend` and `;hunt`'s
   wound floor read it. Model: docs/wounds.md.
-- `client/profile.py` — per-character profiles
+- `client/game/profile.py` — per-character profiles
   (`~/.revenant/profiles/<name>.json`): the quirks `;hunt` must not
   hard-code (weapon, stance, skin, pouch, floor, ground, home). FIELDS
   is the schema; the GUI's Character Profile dialog builds itself from
   it. Model and assumptions: docs/hunting.md.
-- `client/training.py` — per-character training plans
+- `client/game/training.py` — per-character training plans
   (`~/.revenant/training/<name>.json`, hand-edited, `;train init`
   writes a starter): tasks tying skills to the script or command loop
   that trains them, the target mindstate, the safe rooms, the rest
@@ -86,13 +95,16 @@ processes; the session owns the game socket and hosts scripts.
   rotation) live here; `scripts/train.py` is the loop, orchestrating
   other scripts through the handle's `run`/`is_running`/`tell`/`kill`.
   Model: docs/training.md.
-- `client/walker.py` + `client/mapdb.py` — travel on the community map
+- `client/game/walker.py` + `client/game/mapdb.py` — travel on the community map
   (downloaded, never vendored). Twins: the map lists some rooms twice,
   one uid-less; `same_place` handles it. Model: docs/movement.md.
-- `client/climbs.py`, `circles.py`, `eltime.py`, `inventory.py`,
-  `textfont.py`, `settings.py`, `window_layout.py`, `streamroute.py`,
-  `maplayout.py`, `command_history.py`, `crashguard.py`, `reader.py`,
-  `lnet_login.py` — Qt-free logic with the tests; the GUI only draws.
+- `client/game/climbs.py`, `circles.py`, `eltime.py`, `inventory.py`,
+  `history.py`; `client/ui/textfont.py`, `window_layout.py`,
+  `streamroute.py`, `maplayout.py`, `command_history.py`,
+  `crashguard.py`, `highlights.py`, `inputfocus.py`;
+  `client/engine/reader.py`, `roster.py`, `lnet_login.py`;
+  `client/settings.py` — Qt-free logic with the tests; the GUI only
+  draws.
 - `client/gui/client_gui.py` — the PyQt6 window: menus, layout
   restore, dispatch of each stream to its widget, styled text,
   reconnect. The docks' widgets sit beside it: `compass_dock.py`,
@@ -101,9 +113,9 @@ processes; the session owns the game socket and hosts scripts.
   story/stream views and per-view fonts). `chat_window.py` — the
   standalone LNet window; `settings_dialog.py`, `profile_dialog.py`,
   `login_dialog.py`, `highlights_dialog.py`.
-- `client/launch.py` — the `revenant` console script and the picker; one
+- `client/engine/launch.py` — the `revenant` console script and the picker; one
   session per character on its own port, registry in
-  ~/.revenant/sessions.json. It exec's `client/guiboot.py`, which arms
+  ~/.revenant/sessions.json. It exec's `client/engine/guiboot.py`, which arms
   faulthandler and reports a GUI that cannot start (startup-/faults-
   logs, a message box on Windows) before importing the GUI.
 - `chat/chat.py` — LNet protocol (stdlib only); `chat/commands.py` — the

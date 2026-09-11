@@ -2,7 +2,7 @@
 
 Computes the guildleader's answer locally: the latest ;sheet snapshot
 (~/.revenant/history.db) against your guild's circle-requirement table
-(client/circles.py, from Elanthipedia; all eleven circled guilds),
+(client/game/circles.py, from Elanthipedia; all eleven circled guilds),
 printed per knowledge set with have/need ranks. Nothing is sent to the game — run
 ;sheet once first if the snapshot might be stale; the snapshot's age
 is echoed. The model and its captured guildleader validation live in
@@ -14,12 +14,12 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
-from client import circles
-from client.history import database_path as history_database_path
+from client.game import circles
+from client.game.history import database_path as history_database_path
 
 
 def database_path() -> Path:
-    """~/.revenant/history.db (once history.db; client/history.py migrates)."""
+    """~/.revenant/history.db (once history.db; client/game/history.py migrates)."""
     return history_database_path()
 
 

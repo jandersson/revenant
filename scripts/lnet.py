@@ -44,7 +44,7 @@ RECV_TIMEOUT = 0.25  # also the user-command poll cadence
 
 def main(s):
     from chat.chat import LoginRejected, Server, default_log_dir, get_password
-    from client.lnet_login import lnet_password
+    from client.engine.lnet_login import lnet_password
 
     name = (
         os.environ.get("LNET_NAME")

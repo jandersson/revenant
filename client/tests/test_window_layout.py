@@ -6,7 +6,7 @@ characters that have never saved a layout (they inherit the most
 recently closed window's arrangement, then diverge).
 """
 
-from client import window_layout
+from client.ui import window_layout
 
 
 def test_layout_keys_are_scoped_to_the_character():

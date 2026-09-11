@@ -28,7 +28,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from client.textfont import MAX_SIZE, MIN_SIZE, TEXT_VIEWS, font_choice, view_font
+from client.ui.textfont import MAX_SIZE, MIN_SIZE, TEXT_VIEWS, font_choice, view_font
 
 
 class SettingsDialog(QDialog):

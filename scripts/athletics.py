@@ -9,7 +9,7 @@ Standard travel climbs award xp at most once per random 45–60s window
 of spammed; `climb practice` rungs are timer-exempt continuous
 activities — started once and watched, never spammed (#89).
 The ladder is Zoluren spots per Elanthipedia, encoded with their
-map rooms, rank bands, and conditions in client/climbs.py; rank 100+
+map rooms, rank bands, and conditions in client/game/climbs.py; rank 100+
 trains in town on the Crossing battlements. Auto mode checks
 ENCUMBRANCE once at start and warns when a load would blunt every
 climb. Also:
@@ -31,7 +31,7 @@ Stop with:  ;stop athletics
 import re
 import time
 
-from client import climbs
+from client.game import climbs
 
 MIND_LOCK = 34  # mindstate 34/34: nothing more fits
 RESUME_BELOW = 28  # resume once enough has drained to be worth the laps
@@ -50,7 +50,7 @@ CLEAR_HOLD = 15  # breather after hostiles clear, before resuming
 CONTESTED_LIMIT = 3  # hostile break-offs inside the window = contested
 CONTESTED_WINDOW = 600  # seconds the break-off count looks back over
 
-# The rank ladder and its advice rows live in client/climbs.py,
+# The rank ladder and its advice rows live in client/game/climbs.py,
 # keyed to the community map (#87) — one table for every map-aware
 # consumer. Travel rungs carry bottom/top rooms (loop commands are
 # read from the map's own edges at runtime, paced to the award
@@ -94,7 +94,7 @@ ENC_LINE = re.compile(r"Encumbrance\s*:\s*(.+)")
 
 def check_burden(s):
     """ENC once at auto-mode start: encumbrance penalizes every climb
-    (Elanthipedia, client/climbs.py's conditions note), so a loaded
+    (Elanthipedia, client/game/climbs.py's conditions note), so a loaded
     character gets told before laps are wasted on it. Levels from
     "Somewhat Burdened" up warn; None/Light pass silently."""
     s.put("encumbrance")
@@ -458,8 +458,8 @@ def auto_train(s, db=None, walk=None):
     """The no-arguments mode: walk to the optimal rung and train it,
     moving up the ladder when a rung goes stale."""
     if db is None or walk is None:
-        from client.mapdb import MapDB, download, mapdb_path
-        from client.walker import walk as real_walk
+        from client.game.mapdb import MapDB, download, mapdb_path
+        from client.game.walker import walk as real_walk
 
         if not mapdb_path().is_file():
             s.echo("downloading map database (first use, ~13MB) ...")

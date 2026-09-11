@@ -1,6 +1,6 @@
 """How the input line's Up/Down history behaves — the manual (#76)."""
 
-from client.command_history import CommandHistory
+from client.ui.command_history import CommandHistory
 
 
 def test_up_recalls_the_last_command():

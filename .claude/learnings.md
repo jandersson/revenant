@@ -27,6 +27,10 @@ lessons the code and docs cannot carry themselves.
   exit on Linux and macOS, never on Windows. End every thread, join
   it, and `deleteLater()` plus a flush in the fixture teardown; the
   conftest's widget sweep exists for this.
+- Moving a module a directory deeper breaks every `Path(__file__)
+  .parents[n]` in it silently: the script engine's REPO_SCRIPTS_DIR
+  pointed at `client/` instead of the repo after the engine/ move, and
+  only its test noticed. Grep `__file__` in whatever moves.
 - Generated data modules get `# fmt: off` / `# fmt: on` around the
   literal so `ruff format --check` and the generator agree.
 - Windows: a running session never sees edits to `client/` modules
@@ -49,7 +53,7 @@ lessons the code and docs cannot carry themselves.
   playing. Check both before asking the user what happened.
 - WebFetch summarizes; it will not reproduce a large wiki table. Curl
   the page into the scratchpad and pull the tables out with a few
-  lines of Python — that is how `client/wounds_data.py` was generated.
+  lines of Python — that is how `client/game/wounds_data.py` was generated.
 - Elanthipedia item pages 404 under guessed names; shop pages
   (Tembeg's Armory) list items with coverage and price.
 

@@ -19,7 +19,7 @@ views the GUI has, in the order the Settings dialog shows them.
 MIN_SIZE = 6
 MAX_SIZE = 72
 # The text views a font can be set for: the story window, the input
-# line, and the stream docks by title (client/streamroute.py).
+# line, and the stream docks by title (client/ui/streamroute.py).
 TEXT_VIEWS = ("Main", "Input", "Thoughts", "Spells", "Arrivals", "Deaths", "Experience")
 
 

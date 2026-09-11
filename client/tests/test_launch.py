@@ -5,7 +5,7 @@ from threading import Thread
 
 import pytest
 
-from client import launch
+from client.engine import launch
 
 
 def _listener():
@@ -322,7 +322,7 @@ def test_get_free_port_skips_occupied_ports():
 
 
 def test_main_with_character_attaches_to_its_own_session(monkeypatch):
-    from client import session as session_module
+    from client.engine import session as session_module
 
     server, port = _listener()
     session_module.register_session(port, "Beta")
@@ -337,7 +337,7 @@ def test_main_with_character_spawns_beside_a_running_session(monkeypatch):
     # The pre-#58 behavior attached to whatever ran on the port with
     # "character argument ignored" — now the other character gets a
     # session of their own on a free port.
-    from client import session as session_module
+    from client.engine import session as session_module
 
     server, port = _listener()
     session_module.register_session(port, "Beta")
@@ -379,7 +379,7 @@ def _stub_picker(monkeypatch, answer):
 
 
 def test_pick_and_go_attaches_to_a_picked_session(monkeypatch):
-    from client import session as session_module
+    from client.engine import session as session_module
 
     server, port = _listener()
     session_module.register_session(port, "Beta")
@@ -486,7 +486,7 @@ def test_pick_rebrands_the_dock_on_macos(monkeypatch, tmp_path):
     )
     launch.rebrand_for_dock()
     assert calls["path"] == str(branded)
-    assert calls["argv"] == [str(branded), "-m", "client.launch", "--pick"]
+    assert calls["argv"] == [str(branded), "-m", "client.engine.launch", "--pick"]
 
 
 def test_rebrand_is_a_noop_when_already_branded(monkeypatch, tmp_path):

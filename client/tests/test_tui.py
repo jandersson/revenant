@@ -9,7 +9,7 @@ import asyncio
 import pytest
 from test_session import FakeGame, _await, _start_server
 
-from client.tui import RevenantTUI
+from client.ui.tui import RevenantTUI
 
 ROOM = (
     b"<streamWindow id='room' title='Room' subtitle=\" - [Town Green]\"/>"

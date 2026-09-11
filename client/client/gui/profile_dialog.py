@@ -1,6 +1,6 @@
 """The character profile editor: File → Character Profile… in the client.
 
-One row per entry of client.profile.FIELDS, built from that schema, so
+One row per entry of client.game.profile.FIELDS, built from that schema, so
 a new profile setting appears here the moment it gets a default and a
 row — checkboxes for yes/no, spinners for numbers, text for the rest
 (lists as comma-separated text). Saves to
@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
-from client.profile import FIELDS
+from client.game.profile import FIELDS
 
 
 class ProfileDialog(QDialog):
@@ -61,7 +61,7 @@ class ProfileDialog(QDialog):
         layout.addWidget(buttons)
 
     def values(self):
-        """The form as profile values; client.profile.normalize coerces
+        """The form as profile values; client.game.profile.normalize coerces
         the text fields when they are saved."""
         values = {}
         for key, (kind, widget) in self.widgets.items():

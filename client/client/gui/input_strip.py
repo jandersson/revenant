@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from client.command_history import CommandHistory
+from client.ui.command_history import CommandHistory
 
 # The status strip's badge colors: alarming states loud, sneaky
 # states purple, posture plain. IconDEAD overrides everything.

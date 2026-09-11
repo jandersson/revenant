@@ -2,7 +2,7 @@ import logging
 
 import pytest
 
-from client import login
+from client.engine import login
 
 C_RESPONSE = (
     b"C\t16\t16\t0\t0"
@@ -91,7 +91,7 @@ def _recapture(caplog):
     root = logging.getLogger()
     if caplog.handler not in root.handlers:
         root.addHandler(caplog.handler)
-    logging.getLogger("client.login.EAccessClient").disabled = False
+    logging.getLogger("client.engine.login.EAccessClient").disabled = False
 
 
 def test_submit_login_logs_status_never_account_name_or_key(caplog):

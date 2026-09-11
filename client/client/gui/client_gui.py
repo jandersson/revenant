@@ -32,24 +32,26 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtCore import QEvent, QSettings, Qt, pyqtSignal
 
-from client import crashguard, reader, window_layout
-from client.core import Engine
+from client.ui import crashguard, window_layout
+
+from client.engine import reader
+from client.engine.core import Engine
 from client.client_logger import ClientLogger
 from client.gui.clocks_dock import ClocksPanel
 from client.gui.compass_dock import CompassRose
 from client.gui.input_strip import InputStrip
 from client.gui.map_dock import MapView
 from client.gui.text_views import GameTextView, font_for, style_experience_view
-from client.highlights import highlights_path, load_rules, spans
-from client.inputfocus import click_focuses_input, forwardable
-from client.session import (
+from client.ui.highlights import highlights_path, load_rules, spans
+from client.ui.inputfocus import click_focuses_input, forwardable
+from client.engine.session import (
     AttachedEngine,
     DEFAULT_HOST,
     DEFAULT_PORT,
     character_for_port,
 )
 from client.settings import load_settings, save_settings, setting, settings_path
-from client.streamroute import STREAM_WINDOWS as STREAM_WINDOW_TITLES, clears_window
+from client.ui.streamroute import STREAM_WINDOWS as STREAM_WINDOW_TITLES, clears_window
 
 ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
 
@@ -94,7 +96,7 @@ class ClientGUI(QMainWindow, ClientLogger):
 
     # style id -> (bold, color). The game's own styling markers, rendered
     # the way Stormfront players expect: amber room names, blue speech.
-    # client/textstyle.py keeps the TUI's copy in step.
+    # client/ui/textstyle.py keeps the TUI's copy in step.
     STYLE_FORMATS = {
         "roomName": (True, "#d8b465"),
         "bold": (True, None),
@@ -111,7 +113,7 @@ class ClientGUI(QMainWindow, ClientLogger):
 
     # stream id -> dock window title; a stream not listed here has no dock
     # of its own, and its text falls through to the main window. The table
-    # lives in client.streamroute, Qt-free, so tests can exercise the
+    # lives in client.ui.streamroute, Qt-free, so tests can exercise the
     # routing rules headless (#109).
     STREAM_WINDOWS = STREAM_WINDOW_TITLES
 
@@ -245,8 +247,8 @@ class ClientGUI(QMainWindow, ClientLogger):
         """Worker: load the community map (plus the survey overlay's ids)
         and hand it to the dock. A missing database is reported, never
         downloaded here — ;go2 update owns fetching the 13MB."""
-        from client.mapdb import MapDB, mapdb_path
-        from client.maplayout import local_room_ids
+        from client.game.mapdb import MapDB, mapdb_path
+        from client.ui.maplayout import local_room_ids
 
         if not mapdb_path().is_file():
             self.map_ready.emit(None, set())
@@ -408,7 +410,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         the input line; a printable keystroke that lands on a view is
         typed into the input line instead of being discarded (#150).
         Selections, control chords and scrolling keys stay with the
-        view (client/inputfocus.py holds the rule)."""
+        view (client/ui/inputfocus.py holds the rule)."""
         if isinstance(obj, QTextBrowser):
             kind = event.type()
             if kind == QEvent.Type.MouseButtonRelease:
@@ -473,7 +475,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         character this window plays, over profiles/<name>.json; the
         next ;hunt start reads them."""
         from client.gui.profile_dialog import ProfileDialog
-        from client.profile import load_profile, save_profile
+        from client.game.profile import load_profile, save_profile
 
         character = self._character or ""
         dialog = ProfileDialog(character, load_profile(character), self)
@@ -485,7 +487,7 @@ class ClientGUI(QMainWindow, ClientLogger):
     def edit_highlights(self):
         """View → Edit Highlights…: the table editor over the patterns
         file; saving reloads the rules immediately."""
-        from client.highlights import load_entries, save_entries
+        from client.ui.highlights import load_entries, save_entries
         from client.gui.highlights_dialog import HighlightsDialog
 
         dialog = HighlightsDialog(load_entries(), self)
@@ -533,7 +535,7 @@ class ClientGUI(QMainWindow, ClientLogger):
 
             from PyQt6.QtCore import QUrl
 
-            from client.login import load_login_defaults
+            from client.engine.login import load_login_defaults
 
             # The compact /dock view (issue #59); the full dashboard
             # stays a browser away via ;beholder. Character comes from
@@ -731,7 +733,7 @@ class ClientGUI(QMainWindow, ClientLogger):
             self._say("reconnect: logging in again (direct mode) ...")
             Thread(target=self._reconnect_direct, daemon=True).start()
             return
-        from client.launch import (
+        from client.engine.launch import (
             gather_login,
             session_running,
             spawn_session,
@@ -813,7 +815,7 @@ def main(argv=None):
         const=f"{DEFAULT_HOST}:{DEFAULT_PORT}",
         default=None,
         metavar="HOST:PORT",
-        help="attach to a running client.session instead of logging in directly",
+        help="attach to a running client.engine.session instead of logging in directly",
     )
     args = argparser.parse_args(argv)
     claim_taskbar_identity()  # before any window exists

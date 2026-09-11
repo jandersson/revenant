@@ -100,7 +100,7 @@ def test_circle_for_a_guild_without_circles(monkeypatch, tmp_path):
 
 
 def test_a_commoner_is_told_commoners_do_not_circle():
-    from client import circles
+    from client.game import circles
 
     assert circles.gates({}, 0, "Commoner") is None
     assert circles.explain_no_gates("Commoner") == (

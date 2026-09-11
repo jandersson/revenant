@@ -7,7 +7,7 @@ chords (Ctrl+C copies the view's selection) and textless keys (arrows,
 Page Up/Down scroll the view) stay with the view.
 """
 
-from client.inputfocus import click_focuses_input, forwardable
+from client.ui.inputfocus import click_focuses_input, forwardable
 
 
 def test_printable_keys_typed_onto_a_view_go_to_the_input_line():

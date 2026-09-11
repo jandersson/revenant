@@ -13,13 +13,13 @@ deathwatch owns death. Stop with:  ;stop tend
 
 Bleed rates and responses follow lich's healing data (DRCH), rates per
 https://elanthipedia.play.net/Damage#Bleeding_Levels; the HEALTH answer
-is read by client/wounds.py, shared with ;hunt's wound floor.
+is read by client/game/wounds.py, shared with ;hunt's wound floor.
 """
 
 import re
 
-from client.wounds import expand_area  # noqa: F401 — TEND's area spelling
-from client.wounds import parse_health as parse_health_answer
+from client.game.wounds import expand_area  # noqa: F401 — TEND's area spelling
+from client.game.wounds import parse_health as parse_health_answer
 
 CHECK_INTERVAL = 5  # seconds between bleeding-indicator polls
 UNTENDABLE_HOLD = 60  # back off when only untendable bleeders remain
@@ -122,7 +122,7 @@ def parse_health(s_or_lines):
 
 def _parse_health_lines(lines):
     """The bleeding table's rows, via the shared HEALTH parser
-    (client/wounds.py, #151) — the wound list rides along unused here."""
+    (client/game/wounds.py, #151) — the wound list rides along unused here."""
     return parse_health_answer(lines).bleeders()
 
 

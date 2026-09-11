@@ -1,4 +1,4 @@
-from client.mapdb import MapDB, normalize_title, walkable
+from client.game.mapdb import MapDB, normalize_title, walkable
 
 ROOMS = [
     {"id": 0, "title": ["[Town Square]"], "tags": ["town"], "wayto": {"1": "north"}},
@@ -94,7 +94,7 @@ def test_path_prefers_fast_steps_over_a_slow_shortcut():
 
 
 def test_unusable_timeto_falls_back_to_the_default_step():
-    from client.mapdb import DEFAULT_STEP_SECONDS, edge_seconds
+    from client.game.mapdb import DEFAULT_STEP_SECONDS, edge_seconds
 
     # Some timeto values are embedded-Ruby conditionals or null — they
     # cost a plain step, they don't poison the route.
@@ -168,7 +168,7 @@ def test_local_overlay_extends_the_community_map(monkeypatch, tmp_path):
     # into every load — ;go2 sees local rooms and their uids natively.
     import json
 
-    from client import mapdb
+    from client.game import mapdb
 
     (tmp_path / "mapdb.json").write_text(
         json.dumps([{"id": 1, "title": ["[Town Square]"], "wayto": {}}])

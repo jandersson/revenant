@@ -8,9 +8,9 @@ Related reading: [Pylanthia](https://github.com/robbintt/pylanthia).
 
 ## Components
 
-- **core** — the engine / middleman. Handles the telnet connection to Simutronics, feeds incoming bytes through an XML parser, strips game XML out of the text stream, and dispatches input/output. See [client/core.py](client/core.py) and [client/xml_data.py](client/xml_data.py).
-- **login** — handles the SAL-style login handshake to get a game connection. See [client/login.py](client/login.py). Credentials come from the OS keychain and environment variables — see [Running](#running).
-- **gui** — a PyQt6 front end. A main text output, a docked input line with a roundtime countdown beside it, a file/view menu, and dock windows: streams, the compass, and clocks (Elanthian date, anlas, and moon phases beside Stockholm and Chicago — computed in [client/eltime.py](client/eltime.py), calibrated by `;clock`). Reminiscent of the pre-Wizard/Stormfront AOL Gemstone clients. Currently the primary test bench for `core`. See [client/gui/client_gui.py](client/gui/client_gui.py).
+- **core** — the engine / middleman. Handles the telnet connection to Simutronics, feeds incoming bytes through an XML parser, strips game XML out of the text stream, and dispatches input/output. See [client/engine/core.py](client/engine/core.py) and [client/engine/xml_data.py](client/engine/xml_data.py).
+- **login** — handles the SAL-style login handshake to get a game connection. See [client/engine/login.py](client/engine/login.py). Credentials come from the OS keychain and environment variables — see [Running](#running).
+- **gui** — a PyQt6 front end. A main text output, a docked input line with a roundtime countdown beside it, a file/view menu, and dock windows: streams, the compass, and clocks (Elanthian date, anlas, and moon phases beside Stockholm and Chicago — computed in [client/game/eltime.py](client/game/eltime.py), calibrated by `;clock`). Reminiscent of the pre-Wizard/Stormfront AOL Gemstone clients. Currently the primary test bench for `core`. See [client/gui/client_gui.py](client/gui/client_gui.py).
 
 ## Install
 
@@ -42,7 +42,7 @@ and `revenant --direct` runs login + GUI in a single process.
 The pieces are also runnable by hand:
 
 ```sh
-uv run python -m client.session                    # terminal 1, stays running
+uv run python -m client.engine.session                    # terminal 1, stays running
 uv run python -m client.gui.client_gui --attach    # terminal 2, relaunch at will
 ```
 
@@ -107,13 +107,20 @@ That collects two suites: [tests/](tests/), Qt-free (the parser against a captur
 ```
 client/
 ├── client/
-│   ├── core.py            # Engine: connection, XML parsing, synthetic streams
-│   ├── login.py           # SAL login handshake
-│   ├── xml_data.py        # Game XML parser / text stripper
+│   ├── engine/            # the connection and the session process:
+│   │                      # netsock, login, xml_data, core, session,
+│   │                      # scripting, launch, procspawn, sendcmd, ...
+│   ├── game/              # the Qt-free models scripts lean on: mapdb,
+│   │                      # walker, climbs, circles, eltime, wounds,
+│   │                      # profile, training, history, ...
+│   ├── ui/                # toolkit-free frontend logic (textstyle,
+│   │                      # window_layout, streamroute, ...) and tui.py
+│   ├── gui/               # the PyQt6 window, its docks and dialogs
+│   ├── settings.py        # ~/.revenant/settings.json, shared by all
 │   ├── client_logger.py   # Logging mixin
-│   ├── logging_config.yaml
-│   └── gui/               # PyQt6 front end
+│   └── logging_config.yaml
 ├── notebooks/             # Scratch notebooks
-├── tests/
+├── tests/                 # Qt-free
+├── tests_gui/             # offscreen PyQt6
 └── pyproject.toml
 ```

@@ -10,7 +10,7 @@ more and a leading "-". Item names are the game's own; no character
 names appear.
 """
 
-from client.inventory import flatten, parse_inventory
+from client.game.inventory import flatten, parse_inventory
 
 # The captured shape, trimmed: worn items, a container with contents,
 # and a container inside that one holding duplicates.

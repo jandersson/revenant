@@ -6,7 +6,7 @@ file is ignored rather than turned into a surprise font.
 """
 
 from client.settings import DEFAULTS
-from client.textfont import MAX_SIZE, MIN_SIZE, font_choice
+from client.ui.textfont import MAX_SIZE, MIN_SIZE, font_choice
 
 
 def test_defaults_keep_the_platform_font():
@@ -45,7 +45,7 @@ def test_settings_missing_the_keys_entirely():
 
 # --- per-view overrides (#132) --------------------------------------------
 
-from client.textfont import TEXT_VIEWS, clean_overrides, view_font  # noqa: E402
+from client.ui.textfont import TEXT_VIEWS, clean_overrides, view_font  # noqa: E402
 
 BASE = {"font_family": "Georgia", "font_size": 12}
 
@@ -97,7 +97,7 @@ def test_clean_overrides_keeps_only_usable_entries_for_known_views():
 
 
 def test_the_views_are_the_story_input_and_the_stream_docks():
-    from client.streamroute import STREAM_WINDOWS
+    from client.ui.streamroute import STREAM_WINDOWS
 
     assert set(STREAM_WINDOWS.values()) <= set(TEXT_VIEWS)
     assert TEXT_VIEWS[:2] == ("Main", "Input")

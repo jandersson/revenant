@@ -25,11 +25,11 @@ cut: melee, one opponent at a time, no magic or ranged (#149).
 
 import re
 
-from client import probe
-from client.probe import classify
-from client.profile import describe, load_profile
-from client.walker import locate, walk
-from client.wounds import SEVERITIES, level, parse_health
+from client.game import probe
+from client.game.probe import classify
+from client.game.profile import describe, load_profile
+from client.game.walker import locate, walk
+from client.game.wounds import SEVERITIES, level, parse_health
 
 MAX_ACTIONS = 600  # a session, not forever — the fuse under every loop
 COLLECT_SECONDS = 3  # the swing's own lines
@@ -377,9 +377,9 @@ def hunt(s, profile, db, travel=True, avoid=()):
 
 
 def main(s):
-    from client.mapdb import MapDB, download, mapdb_path
+    from client.game.mapdb import MapDB, download, mapdb_path
     from client.settings import setting
-    from client.walker import avoided_rooms
+    from client.game.walker import avoided_rooms
 
     name = getattr(s.state, "name", None) or ""
     profile = load_profile(name)

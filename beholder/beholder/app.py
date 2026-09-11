@@ -21,14 +21,14 @@ from beholder import data
 # The circle-gates view computes with the client package's requirement
 # tables; a standalone beholder install without it just hides the view.
 try:
-    from client import circles
+    from client.game import circles
 except ImportError:  # pragma: no cover — the workspace always has it
     circles = None
 
 # Age is the current Elanthian year minus the birth year, so the panel
 # needs the calendar; without it the identity line simply omits age.
 try:
-    from client import eltime
+    from client.game import eltime
 except ImportError:  # pragma: no cover — the workspace always has it
     eltime = None
 

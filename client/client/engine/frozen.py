@@ -1,9 +1,9 @@
 """The packaged build's single entry point: one executable, several roles.
 
     Revenant.exe                       the launcher (window + session)
-    Revenant.exe --role client.session --port 4242 ...
-    revenant-cli.exe --role client.tui Lanival
-    revenant-cli.exe --role client.sendcmd exp all
+    Revenant.exe --role client.engine.session --port 4242 ...
+    revenant-cli.exe --role client.ui.tui Lanival
+    revenant-cli.exe --role client.engine.sendcmd exp all
 
 An installed copy (#60) has no Python on the path, so the launcher,
 the session it spawns, the dashboard the session autostarts, and the
@@ -18,14 +18,14 @@ import inspect
 import sys
 
 ROLES = {
-    "client.launch": "client.launch",
-    "client.session": "client.session",
+    "client.engine.launch": "client.engine.launch",
+    "client.engine.session": "client.engine.session",
     "beholder.app": "beholder.app",
     "client.gui.chat_window": "client.gui.chat_window",
-    "client.tui": "client.tui",
-    "client.sendcmd": "client.sendcmd",
+    "client.ui.tui": "client.ui.tui",
+    "client.engine.sendcmd": "client.engine.sendcmd",
 }
-DEFAULT_ROLE = "client.launch"
+DEFAULT_ROLE = "client.engine.launch"
 
 
 def split_role(argv):

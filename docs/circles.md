@@ -4,7 +4,7 @@
 circle — the guildleader's answer — locally from the latest `;sheet`
 snapshot, using the character's guild requirement table. All eleven
 circled guilds are encoded in
-[client/client/circles.py](https://github.com/jandersson/revenant/tree/master/client/client/circles.py); Commoners
+[client/client/game/circles.py](https://github.com/jandersson/revenant/tree/master/client/client/game/circles.py); Commoners
 don't circle. This file records the model, the evidence, the wiki
 corrections applied, and the open questions, so a future discrepancy
 has a dated record of what was believed and why. Canon lives on each

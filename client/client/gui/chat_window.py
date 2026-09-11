@@ -14,7 +14,7 @@ stats, channels [all], tune/untune <channel>.
 
 Identity: a roster name on the command line, else a picker over the
 roster, preselecting the last name used (settings lnet_name). The password comes from the OS
-keychain (client/lnet_login.py); a rejected login asks once, with a
+keychain (client/engine/lnet_login.py); a rejected login asks once, with a
 "remember" checkbox that writes the keychain entry — never a file.
 
 One worker thread owns the socket, the way ;lnet does: it drains the
@@ -60,8 +60,8 @@ from chat.commands import (  # noqa: E402
     remember_sender,
     reply_hint,
 )
-from client import lnet_login  # noqa: E402
-from client.login import load_login_defaults  # noqa: E402
+from client.engine import lnet_login  # noqa: E402
+from client.engine.login import load_login_defaults  # noqa: E402
 from client.settings import save_settings, setting  # noqa: E402
 
 ICON_PATH = str(Path(__file__).with_name("gweth.svg"))

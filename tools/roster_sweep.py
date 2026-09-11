@@ -31,17 +31,17 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(REPO / "client")]
 
-from client.launch import get_free_port, spawn_session, wait_for_session  # noqa: E402
-from client.login import account_for_character, load_login_defaults  # noqa: E402
-from client.roster import pending_characters, snapshot_summary  # noqa: E402
-from client.session import DEFAULT_HOST, DEFAULT_PORT, send_line  # noqa: E402
+from client.engine.launch import get_free_port, spawn_session, wait_for_session  # noqa: E402
+from client.engine.login import account_for_character, load_login_defaults  # noqa: E402
+from client.engine.roster import pending_characters, snapshot_summary  # noqa: E402
+from client.engine.session import DEFAULT_HOST, DEFAULT_PORT, send_line  # noqa: E402
 
 SNAPSHOT_TIMEOUT = 180  # ;sheet asks INFO and EXP ALL, re-asking what login noise ate
 POLL_SECONDS = 2
 
 
 def xp_db_path():
-    from client.history import database_path
+    from client.game.history import database_path
 
     return database_path()
 
@@ -222,7 +222,7 @@ def main(argv=None):
             for name in args.characters
         ]
     elif args.all:
-        from client.roster import cached_characters
+        from client.engine.roster import cached_characters
 
         plan = cached_characters(defaults)
     else:

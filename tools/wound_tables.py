@@ -1,4 +1,4 @@
-"""Regenerate client/client/wounds_data.py from Elanthipedia's Damage page.
+"""Regenerate client/client/game/wounds_data.py from Elanthipedia's Damage page.
 
     uv run python tools/wound_tables.py [damage.html]
 
@@ -78,7 +78,7 @@ def main(argv):
         "negligible, minor, harmful, damaging, severe, devastating, useless;",
         "kinds are external, scar, internal, internal_scar. Placeholders",
         '"[right/left]" / "[left/right]" and "[hand/arm/leg/tail]" are the',
-        "wiki's; client/wounds.py expands them.",
+        "wiki's; client/game/wounds.py expands them.",
         '"""',
         "",
         "# fmt: off",

@@ -10,8 +10,8 @@ import json
 
 import pytest
 
-from client import training
-from client.training import (
+from client.game import training
+from client.game.training import (
     DEFAULTS,
     describe,
     load_plan,
@@ -108,7 +108,7 @@ def test_unknown_keys_survive_for_a_newer_build():
 
 
 def test_the_starter_plan_takes_home_and_skills_from_the_profile(monkeypatch):
-    from client.profile import save_profile
+    from client.game.profile import save_profile
 
     save_profile("Lanival", {"home": "town green", "train_skills": ["Small Edged"]})
     starter = starter_plan("Lanival")
@@ -215,10 +215,10 @@ def test_describe_and_status_read_like_the_plan():
 
 
 def test_the_module_is_reloadable_by_the_script_engine():
-    from client.scripting import RELOADABLE_MODULES
+    from client.engine.scripting import RELOADABLE_MODULES
 
-    assert "client.training" in RELOADABLE_MODULES
-    assert RELOADABLE_MODULES.index("client.training") > RELOADABLE_MODULES.index(
-        "client.profile"
+    assert "client.game.training" in RELOADABLE_MODULES
+    assert RELOADABLE_MODULES.index("client.game.training") > RELOADABLE_MODULES.index(
+        "client.game.profile"
     )
     assert training.MIND_LOCK == 34

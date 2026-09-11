@@ -1,6 +1,6 @@
 # The wound model HEALTH is parsed against
 
-`client/wounds.py` turns a HEALTH answer into wounds by body area, each
+`client/game/wounds.py` turns a HEALTH answer into wounds by body area, each
 with four severities (fresh external, external scar, fresh internal,
 internal scar) on a 1–8 scale, plus the bleeding table. Scripts compare
 numbers instead of reading the health percentage: `;tend` takes its
@@ -30,7 +30,7 @@ damaging) is read as the lower one.
 
 ## Where the wordings come from
 
-`client/wounds_data.py` holds every phrase from the wiki's Damage page
+`client/game/wounds_data.py` holds every phrase from the wiki's Damage page
 tables — head, eyes, neck, chest, abdomen, back, limbs, skin/nerve —
 generated verbatim by `tools/wound_tables.py`, 240 rows, placeholders
 (`[right/left]`, `[hand/arm/leg/tail]`) expanded by the parser into the

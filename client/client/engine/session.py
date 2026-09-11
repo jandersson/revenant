@@ -6,7 +6,7 @@ connection. Wire format is one JSON object per line, {"stream", "text"},
 matching the (stream, text) segments XMLData.route produces; attached
 clients send plain command lines back.
 
-Run a session:   python -m client.session
+Run a session:   python -m client.engine.session
 Attach the GUI:  python -m client.gui.client_gui --attach
 
 Typing `;reexec` in any front end replaces the session process with one
@@ -27,11 +27,11 @@ from threading import Event, Lock, Thread
 from time import monotonic, sleep
 
 from client.client_logger import ClientLogger
-from client.core import Engine, indicators_frame, room_frame, vitals_frame
-from client.login import connect_game, simu_login
-from client.netsock import SocketClient
-from client.procspawn import command_for
-from client.scripting import ScriptManager
+from client.engine.core import Engine, indicators_frame, room_frame, vitals_frame
+from client.engine.login import connect_game, simu_login
+from client.engine.netsock import SocketClient
+from client.engine.procspawn import command_for
+from client.engine.scripting import ScriptManager
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = int(os.environ.get("REVENANT_SESSION_PORT", "4242"))
@@ -128,7 +128,7 @@ def running_sessions(host=DEFAULT_HOST):
 
 
 # A frontend line that starts with this byte was sent from outside the
-# frontends — revenant-send (client/sendcmd.py, #135): "\x1e<origin>\t
+# frontends — revenant-send (client/engine/sendcmd.py, #135): "\x1e<origin>\t
 # <command>". The session strips the tag, echoes the command to EVERY
 # attached window as ">> [<origin>] <command>" and logs it, so a line
 # the player did not type never acts invisibly.
@@ -502,7 +502,12 @@ class SessionServer(ClientLogger):
 
     def reexec_argv(self, handoff):
         return command_for(
-            "client.session", "--host", self.host, "--port", str(self.port), *handoff
+            "client.engine.session",
+            "--host",
+            self.host,
+            "--port",
+            str(self.port),
+            *handoff,
         )
 
     def carried_env(self):
@@ -629,7 +634,7 @@ class AttachedEngine(ClientLogger):
         except OSError as error:
             self.log.error(
                 f"Could not attach to a session at {self.host}:{self.port} — "
-                "is one running? Start it with: python -m client.session"
+                "is one running? Start it with: python -m client.engine.session"
             )
             self.log.error(error)
             sys.exit(1)

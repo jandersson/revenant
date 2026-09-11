@@ -74,7 +74,7 @@ the loop warns and stays.
 ## What it assumes
 
 - **The exp window is the gauge.** A task's progress is its skills'
-  mindstates as `client/xml_data.py` parses the window (0-34); a skill
+  mindstates as `client/engine/xml_data.py` parses the window (0-34); a skill
   the window doesn't show is at 0. Resting until the pool drains is
   the outflow model in [experience.md](experience.md): the pool
   converts to ranks in pulses regardless of activity, and a full pool

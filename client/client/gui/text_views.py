@@ -2,7 +2,7 @@
 
 A read-only view whose <d> command links are clickable (a click sends
 the command), the Experience dock's fixed-pitch dashboard treatment,
-and the per-view font resolution over Settings (client/textfont.py).
+and the per-view font resolution over Settings (client/ui/textfont.py).
 Split out of client_gui.py, which builds one view for the story and
 one per stream dock and appends the styled text.
 """
@@ -10,7 +10,7 @@ one per stream dock and appends the styled text.
 from PyQt6.QtGui import QFont, QFontDatabase
 from PyQt6.QtWidgets import QTextBrowser
 
-from client.textfont import view_font
+from client.ui.textfont import view_font
 
 
 class GameTextView(QTextBrowser):

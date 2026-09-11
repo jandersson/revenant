@@ -1,14 +1,14 @@
 """How the map dock lays rooms out — these tests are the manual.
 
-The layout engine (client/maplayout.py, Qt-free) places a BFS
+The layout engine (client/ui/maplayout.py, Qt-free) places a BFS
 neighborhood on grid cells: compass edges step their direction (north
 is up), everything else (go/climb/up/down) lands in the nearest free
 cell as an "other" edge, and colliding rooms slide instead of
 overlapping. The GUI's map dock only draws the result (#56).
 """
 
-from client.mapdb import MapDB
-from client.maplayout import ROOM_LIMIT, layout, resolve_room
+from client.game.mapdb import MapDB
+from client.ui.maplayout import ROOM_LIMIT, layout, resolve_room
 
 
 def _db(*rooms):

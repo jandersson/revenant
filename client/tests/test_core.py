@@ -1,4 +1,4 @@
-from client.core import Engine
+from client.engine.core import Engine
 
 
 class FakeConnection:
@@ -326,8 +326,8 @@ def test_engine_emits_the_server_clock_delta_once(monkeypatch):
 def test_room_frame_is_uid_tab_title_with_blanks_for_the_unknown_half():
     # The "room" stream's wire text, shared by Engine.read and the
     # session's attach replay: "uid<TAB>title", "" when neither is known.
-    from client.core import room_frame
-    from client.xml_data import XMLData
+    from client.engine.core import room_frame
+    from client.engine.xml_data import XMLData
 
     state = XMLData()
     assert room_frame(state) == ""

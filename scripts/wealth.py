@@ -17,7 +17,7 @@ import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from client.history import database_path as history_database_path
+from client.game.history import database_path as history_database_path
 
 COPPER_PER = {
     "platinum": 10_000,
@@ -52,7 +52,7 @@ def parse_balance(line):
 
 
 def database_path() -> Path:
-    """~/.revenant/history.db (once history.db; client/history.py migrates)."""
+    """~/.revenant/history.db (once history.db; client/game/history.py migrates)."""
     return history_database_path()
 
 

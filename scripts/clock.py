@@ -1,7 +1,7 @@
 """Sync the Elanthian clock against the game:  ;clock
 
 The ntpdate of Elanthia: sends TIME, compares the answer to the
-computed calendar (client/eltime.py), and stores the correction in
+computed calendar (client/game/eltime.py), and stores the correction in
 ~/.revenant/settings.json (eltime_offset_seconds) for the GUI's clocks
 dock — unless TIME's day-phase word ("and it is dusk") contradicts the
 computed hour, in which case the offset is refused and reported, since a
@@ -28,7 +28,9 @@ clock cannot skew the calendar.
 
 import time
 
-from client import eltime, settings
+from client.game import eltime
+
+from client import settings
 
 INTERVAL = 6 * 3600  # seconds between syncs
 COLLECT_SECONDS = 4  # how long to gather each command's response

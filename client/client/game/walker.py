@@ -7,7 +7,7 @@ any script can travel.
 """
 
 from client.client_logger import ClientLogger
-from client.mapdb import normalize_title, translate_embedded
+from client.game.mapdb import normalize_title, translate_embedded
 
 module_logger = ClientLogger()
 

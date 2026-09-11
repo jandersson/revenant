@@ -5,7 +5,7 @@ base style, and the status line folded from the state frames.
 
 import re
 
-from client.textstyle import STYLES, Status, base_style, render
+from client.ui.textstyle import STYLES, Status, base_style, render
 
 GLOW = {"pattern": "gleaming|glowing", "color": "#e0c95e", "bold": False}
 GLOW["regex"] = re.compile(GLOW["pattern"])

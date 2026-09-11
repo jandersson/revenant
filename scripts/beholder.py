@@ -36,7 +36,7 @@ def spawn_dashboard():
     """Start `python -m beholder.app` detached and windowless; it owns
     its own lifetime (closing the session does not stop it)."""
     flags = 0x08000000 if os.name == "nt" else 0  # CREATE_NO_WINDOW
-    from client.procspawn import command_for
+    from client.engine.procspawn import command_for
 
     return subprocess.Popen(
         command_for("beholder.app"),

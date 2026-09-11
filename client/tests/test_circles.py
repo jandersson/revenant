@@ -8,7 +8,7 @@ captured EXP ALL. Necromancer and Ranger publish no cumulative table,
 so their transcriptions carry no cross-check.
 """
 
-from client import circles
+from client.game import circles
 
 # The wiki Cumulative columns, keyed by requirement label. Values are
 # ranks required at circles 10/30/70/100 (Thief: also 150/200). Known

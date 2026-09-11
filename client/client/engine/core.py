@@ -3,9 +3,9 @@ import sys
 import time
 from xml.etree.ElementTree import ParseError, XMLParser
 
-from client.login import simu_login
+from client.engine.login import simu_login
 from client.client_logger import ClientLogger
-from client.xml_data import XMLData
+from client.engine.xml_data import XMLData
 
 
 def indicators_frame(indicator: dict) -> str:

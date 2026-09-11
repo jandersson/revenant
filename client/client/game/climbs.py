@@ -3,7 +3,7 @@ community map (#87). ;athletics derives its training ladder from this
 table; anything map-aware (the map dock, future planners) may read it.
 
 The community map database is refreshed from upstream and never edited
-(client/mapdb.py) — rank knowledge lives here, keyed by that map's
+(client/game/mapdb.py) — rank knowledge lives here, keyed by that map's
 room ids, not written into it. Bands come from Elanthipedia's
 "Climbing and Swimming list" (fetched 2026-08-22): low is the rank a
 spot starts teaching, high the rank it stops (None = the wiki gives

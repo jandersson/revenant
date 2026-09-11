@@ -11,7 +11,7 @@ lich's common scripts do. The session, engine and parser never reload
 that way; `;reexec` replaces those. With developer mode on (File →
 Settings, or `REVENANT_DEV=1` for one launch) a start that takes more
 than half a second to load says so — "go2 took 1.3s to load (reloaded
-client.mapdb, client.walker)" — which is how an import that does work
+client.game.mapdb, client.game.walker)" — which is how an import that does work
 it should defer gets noticed.
 
 ## Where scripts live

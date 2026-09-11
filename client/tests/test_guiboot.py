@@ -8,7 +8,7 @@ that is removed again when nothing crashed.
 
 import faulthandler
 
-from client import guiboot
+from client.engine import guiboot
 
 
 def test_a_startup_failure_is_written_to_a_log_with_the_traceback(tmp_path):

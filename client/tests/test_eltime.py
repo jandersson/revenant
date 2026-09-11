@@ -8,7 +8,7 @@ fixtures-pin-assumptions rule for calendar lore.
 
 from datetime import datetime, timezone
 
-from client import eltime
+from client.game import eltime
 
 # Captured 2026-08-22 12:21:56 UTC.
 TIME_TEXT = """It has been 457 years, 174 days since the Victory of Lanival the Redeemer.
@@ -404,7 +404,7 @@ def test_the_bands_that_wrap_midnight():
 
 # --- boundary events (#104) and orbits (#105) ------------------------------
 
-from client.eltime import (  # noqa: E402
+from client.game.eltime import (  # noqa: E402
     DEFAULT_MOON_RISES,
     MOON_ORBIT,
     describe_moon_position,
@@ -461,7 +461,7 @@ def test_room_prose_mentioning_the_sun_is_no_boundary():
 
 
 def test_fractional_hour_matches_the_minute_clock_with_seconds_kept():
-    from client.eltime import fractional_hour
+    from client.game.eltime import fractional_hour
 
     now = 1788554905
     et = eltime.elanthian_now(now, 0)

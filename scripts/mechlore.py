@@ -15,8 +15,8 @@ fixtures.
 
 import time
 
-from client import probe
-from client.probe import classify
+from client.game import probe
+from client.game.probe import classify
 
 MIND_LOCK = 34  # mindstate 34/34: nothing more fits
 RESUME_BELOW = 28  # resume once enough has drained to be worth it
@@ -77,7 +77,7 @@ def wait_for_drain(s):
 
 def ask(s, command):
     """The game's answer to a command, roundtime-delayed tail included
-    (client.probe.ask, with this script's collection windows)."""
+    (client.game.probe.ask, with this script's collection windows)."""
     return probe.ask(s, command, COLLECT_SECONDS, RESULT_SECONDS)
 
 

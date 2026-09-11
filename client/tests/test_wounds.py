@@ -3,11 +3,11 @@ are the manual (#151).
 
 The fixtures are captured HEALTH answers (2026-08 and 2026-09 sessions,
 names scrubbed); the wordings they contain are the ones Elanthipedia's
-Damage tables list, generated into client/wounds_data.py.
+Damage tables list, generated into client/game/wounds_data.py.
 """
 
-from client import wounds
-from client.wounds import SEVERITIES, describe, level, parse_health
+from client.game import wounds
+from client.game.wounds import SEVERITIES, describe, level, parse_health
 
 # Captured: a veteran with a fresh neck cut on top of old scars, and a
 # bleeding table with one row.

@@ -13,8 +13,8 @@ from threading import Thread
 
 import pytest
 
-from client import sendcmd
-from client.sendcmd import Result, allowlisted, resolve_port, send
+from client.engine import sendcmd
+from client.engine.sendcmd import Result, allowlisted, resolve_port, send
 
 SHUT = {"allow_external_send": False}
 OPEN = {"allow_external_send": True}

@@ -1,7 +1,7 @@
 # The wire protocol the parser reads
 
 DragonRealms speaks the Simutronics XML-ish frontend protocol, and this
-file is the reference `client/xml_data.py` implements against: what each
+file is the reference `client/engine/xml_data.py` implements against: what each
 tag means, which stream ids DR actually sends, and where our parser
 stops. The authority for the tag grammar is the GemStone IV wiki's
 [Wrayth protocol](https://gswiki.play.net/Wrayth_protocol) page —
@@ -55,7 +55,7 @@ lands. **The `id` is the whole point** — a clear names one stream and
 may only wipe that stream's own window. A clear for a stream the
 frontend gives no window must be *dropped*, never applied to the main
 window; doing the latter blanked the story pane on every GET/PUT/STOW
-(#109, `client/streamroute.py`).
+(#109, `client/ui/streamroute.py`).
 
 ### Stream ids in DR *(captured)*
 

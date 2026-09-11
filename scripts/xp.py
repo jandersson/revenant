@@ -12,7 +12,7 @@ import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from client.history import database_path as history_database_path
+from client.game.history import database_path as history_database_path
 
 INTERVAL = 60  # seconds between snapshots
 
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS mindstate (
 
 
 def database_path() -> Path:
-    """~/.revenant/history.db (once history.db; client/history.py migrates)."""
+    """~/.revenant/history.db (once history.db; client/game/history.py migrates)."""
     return history_database_path()
 
 

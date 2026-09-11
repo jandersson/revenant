@@ -9,8 +9,8 @@ unwalkable.
 
 from types import SimpleNamespace
 
-from client import walker
-from client.mapdb import MapDB, translate_embedded, walkable
+from client.game import walker
+from client.game.mapdb import MapDB, translate_embedded, walkable
 
 
 def test_translate_embedded_handles_lich_styles():

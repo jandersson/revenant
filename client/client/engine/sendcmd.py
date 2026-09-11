@@ -26,7 +26,7 @@ import os
 import sys
 from dataclasses import dataclass
 
-from client.session import DEFAULT_HOST, running_sessions, send_line
+from client.engine.session import DEFAULT_HOST, running_sessions, send_line
 from client.settings import load_settings
 
 # A line the session reads as "sent from outside": \x1e<origin>\t<command>.

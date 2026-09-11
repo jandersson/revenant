@@ -8,7 +8,7 @@ fall back to the main window, or handling any item erases the story.
 
 import pytest
 
-from client.streamroute import STREAM_WINDOWS, clears_window, window_title
+from client.ui.streamroute import STREAM_WINDOWS, clears_window, window_title
 
 
 class TestWindowTitle:

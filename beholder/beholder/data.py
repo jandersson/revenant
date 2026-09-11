@@ -14,11 +14,11 @@ from pathlib import Path
 
 def database_path() -> Path:
     """The history database, shared with the scripts that write it:
-    ~/.revenant/history.db, once xp.db (#121). client/history.py owns the
+    ~/.revenant/history.db, once xp.db (#121). client/game/history.py owns the
     rule and the one-time rename; without the client package (a
     dashboard-only install) the same rule is applied here."""
     try:
-        from client.history import database_path as shared
+        from client.game.history import database_path as shared
     except ImportError:  # pragma: no cover — the workspace always has it
         override = os.environ.get("REVENANT_HISTORY_DB") or os.environ.get(
             "REVENANT_XP_DB"

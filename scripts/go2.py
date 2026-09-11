@@ -7,15 +7,15 @@ timeto travel times) and detour around the rooms your avoid list names
 way around exists; ;go2 direct <target> skips the detour for one trip.
 ;go2 alone reports where the map thinks you are; ;go2 update refreshes
 the database. First use downloads it (~13MB) into ~/.revenant/mapdb/.
-The location and walking engine lives in client/walker.py, shared with
+The location and walking engine lives in client/game/walker.py, shared with
 other traveling scripts.
 """
 
-from client.walker import DIRECTIONS, avoided_rooms, locate, walk  # noqa: F401
+from client.game.walker import DIRECTIONS, avoided_rooms, locate, walk  # noqa: F401
 
 
 def main(s):
-    from client.mapdb import MapDB, download, mapdb_path
+    from client.game.mapdb import MapDB, download, mapdb_path
     from client.settings import setting
 
     if s.args and s.args[0] == "update":

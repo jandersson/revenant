@@ -6,7 +6,7 @@ is ~/.revenant/history.db, and an existing xp.db there is moved into
 place once, journal included, never copied and never lost.
 """
 
-from client import history
+from client.game import history
 
 
 def test_the_override_wins_in_either_spelling(monkeypatch, tmp_path):

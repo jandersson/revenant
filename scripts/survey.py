@@ -77,7 +77,7 @@ def known(db, overlay, uid):
 
 
 def main(s):
-    from client.mapdb import MapDB, local_mapdb_path, mapdb_path
+    from client.game.mapdb import MapDB, local_mapdb_path, mapdb_path
 
     if not mapdb_path().is_file():
         s.echo("map database missing — run ;go2 update first")

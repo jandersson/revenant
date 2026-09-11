@@ -7,7 +7,7 @@ quiet None rather than a crash.
 
 import keyring.errors
 
-from client import lnet_login
+from client.engine import lnet_login
 
 
 def test_the_env_var_wins_for_one_run(monkeypatch):

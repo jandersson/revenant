@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from client.mapdb import MapDB
+from client.game.mapdb import MapDB
 
 REPO = pathlib.Path(__file__).parents[2]
 
@@ -343,7 +343,7 @@ def test_practice_reports_read_as_time_not_laps(monkeypatch):
 
 
 def test_burden_warning_only_when_meaningfully_burdened():
-    # Encumbrance penalizes every climb (client/climbs.py's conditions
+    # Encumbrance penalizes every climb (client/game/climbs.py's conditions
     # note); auto mode probes ENC once and warns from Somewhat up.
     heavy = FakeHandle((), exp_response="   Encumbrance : Heavily Burdened")
     athletics.check_burden(heavy)

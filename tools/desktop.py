@@ -53,7 +53,7 @@ def _report_startup_failure(error):
 
 
 try:
-    from client.launch import main
+    from client.engine.launch import main
 
     main(["--pick"])
 except Exception as error:

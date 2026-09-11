@@ -33,10 +33,10 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from client.inventory import FOOTER as INV_END
-from client.inventory import parse_inventory
-from client.probe import collect
-from client.history import database_path as history_database_path
+from client.game.inventory import FOOTER as INV_END
+from client.game.inventory import parse_inventory
+from client.game.probe import collect
+from client.game.history import database_path as history_database_path
 
 INTERVAL = 3 * 3600  # seconds between snapshots
 COLLECT_SECONDS = 5  # patience per ask; the answer's last line ends it early
@@ -157,7 +157,7 @@ CREATE TABLE IF NOT EXISTS inventory (
 
 
 def database_path() -> Path:
-    """~/.revenant/history.db (once history.db; client/history.py migrates)."""
+    """~/.revenant/history.db (once history.db; client/game/history.py migrates)."""
     return history_database_path()
 
 

@@ -1,22 +1,22 @@
 """How a packaged build keeps spawning itself — these tests are the
 manual (#60). From source a sibling process is `python -m module`; in
 a PyInstaller build it is this executable with `--role module`, which
-client/frozen.py dispatches; the bundled scripts seed
+client/engine/frozen.py dispatches; the bundled scripts seed
 ~/.revenant/scripts once and are never overwritten.
 """
 
 import sys
 
-from client import frozen, procspawn
-from client.scripting import seed_scripts
+from client.engine import frozen, procspawn
+from client.engine.scripting import seed_scripts
 
 
 def test_from_source_a_sibling_is_python_dash_m(monkeypatch):
     monkeypatch.delattr(sys, "frozen", raising=False)
-    assert procspawn.command_for("client.session", "--port", "4242") == [
+    assert procspawn.command_for("client.engine.session", "--port", "4242") == [
         sys.executable,
         "-m",
-        "client.session",
+        "client.engine.session",
         "--port",
         "4242",
     ]
@@ -35,12 +35,12 @@ def test_in_a_bundle_a_sibling_is_this_executable_with_a_role(monkeypatch, tmp_p
 
 
 def test_the_role_leads_the_argv_and_the_launcher_is_the_default():
-    assert frozen.split_role(["--role", "client.session", "--port", "1"]) == (
-        "client.session",
+    assert frozen.split_role(["--role", "client.engine.session", "--port", "1"]) == (
+        "client.engine.session",
         ["--port", "1"],
     )
-    assert frozen.split_role(["--pick"]) == ("client.launch", ["--pick"])
-    assert frozen.split_role([]) == ("client.launch", [])
+    assert frozen.split_role(["--pick"]) == ("client.engine.launch", ["--pick"])
+    assert frozen.split_role([]) == ("client.engine.launch", [])
 
 
 def test_every_role_names_a_module_with_a_main():
@@ -49,15 +49,19 @@ def test_every_role_names_a_module_with_a_main():
     for role, module_name in frozen.ROLES.items():
         assert role == module_name
         assert module_name in (
-            "client.launch",
-            "client.session",
+            "client.engine.launch",
+            "client.engine.session",
             "beholder.app",
             "client.gui.chat_window",
-            "client.tui",
-            "client.sendcmd",
+            "client.ui.tui",
+            "client.engine.sendcmd",
         )
     # The Qt-free ones can be imported here; the GUI ones cannot (headless CI).
-    for module_name in ("client.session", "client.sendcmd", "client.tui"):
+    for module_name in (
+        "client.engine.session",
+        "client.engine.sendcmd",
+        "client.ui.tui",
+    ):
         assert callable(importlib.import_module(module_name).main)
 
 
