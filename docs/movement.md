@@ -47,6 +47,32 @@ would not leave). One burst per step; a stall it cannot fix still
 stops the walk. Spaced single retreats lose the race to re-advances
 (the #72 cougar death, captured 2026-08-22).
 
+## Climbs the game turns back
+
+A climb edge can be refused for skill, not engagement: the game
+weighs Athletics against the obstacle, and anything held or worn
+counts against you. Captured 2026-09-11 at the felled tree west of
+Crossing (map 6153 → 5705, the only edge to Knife Clan), a circle-1
+Paladin with a handaxe in hand and plate on:
+
+```
+Your oak-hafted handaxe and plate vambraces make the climb more difficult.
+You pick your way up the tree, but reach a point where your footing is questionable.  Reluctantly, you climb back down.
+```
+
+No room change follows, and the character was left sitting. The
+walker reads the story while it waits for the compass frame, so a
+refusal is recognised at once instead of after the 15-second stall:
+it stands when the posture indicator says otherwise, STOWs each item
+the first line names (the noun is the last word; a worn piece answers
+with a harmless refusal), and climbs once more. A second refusal stops
+the walk with the load and the choices — shed it, train Athletics
+(`;athletics` lists the tree itself as a rank 0–19 rung), or take the
+long way — rather than "stalled". A refusal that names nothing
+retries bare. The two wordings above are the fixtures; "climb back
+down" alone is the refusal signal, and other climbs' wordings are
+unknown until captured (#157).
+
 ## Edges the map can and cannot walk
 
 `wayto` commands are game commands, except embedded lich Ruby

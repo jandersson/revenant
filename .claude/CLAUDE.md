@@ -97,7 +97,9 @@ for `client/client/<pkg>/x.py`.
   Model: docs/training.md.
 - `client/game/walker.py` + `client/game/mapdb.py` — travel on the community map
   (downloaded, never vendored). Twins: the map lists some rooms twice,
-  one uid-less; `same_place` handles it. Model: docs/movement.md.
+  one uid-less; `same_place` handles it. A climb turned back for
+  footing gets one retry standing with the named items stowed, then
+  a stop that says so (#157). Model: docs/movement.md.
 - `client/game/climbs.py`, `circles.py`, `eltime.py`, `inventory.py`,
   `history.py`; `client/ui/textfont.py`, `window_layout.py`,
   `streamroute.py`, `maplayout.py`, `command_history.py`,

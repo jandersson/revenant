@@ -3,13 +3,41 @@
 locate() turns parsed game state into a community-map room id; walk()
 drives the character along a BFS route from the map database, verifying
 arrival room by room. Extracted from ;go2 (this is ;go2's engine) so
-any script can travel.
+any script can travel. A climb the game turns back for footing (#157)
+gets one retry standing with the hindering items stowed, then stops
+with what would help; an engagement gets the retreat burst
+(docs/movement.md).
 """
+
+import re
+from time import monotonic
 
 from client.client_logger import ClientLogger
 from client.game.mapdb import normalize_title, translate_embedded
 
 module_logger = ClientLogger()
+
+ARRIVAL_TIMEOUT = 15  # seconds for the compass frame after a move
+
+# The felled tree, captured 2026-09-11 (#157): a climb beyond the
+# character's Athletics — worse armed and armored — is turned back
+# with these two lines and no room change. The first names what
+# hinders; "Your oak-hafted handaxe and plate vambraces make the climb
+# more difficult." The second is the refusal.
+CLIMB_REFUSALS = ("footing is questionable", "climb back down")
+_HINDERS = re.compile(r"Your (.+?) makes? the climb more difficult")
+
+
+def hindering_nouns(text):
+    """The nouns of the items a "make the climb more difficult" line
+    names — "oak-hafted handaxe and plate vambraces" → handaxe,
+    vambraces — the words STOW takes."""
+    match = _HINDERS.search(text)
+    if not match:
+        return []
+    items = re.split(r",\s*|\s+and\s+", match.group(1))
+    return [item.split()[-1] for item in items if item.strip()]
+
 
 DIRECTIONS = {
     "n": "north",
@@ -76,6 +104,60 @@ def avoided_rooms(db, entries):
     return rooms
 
 
+def await_arrival(s, timeout=ARRIVAL_TIMEOUT):
+    """Wait for the compass frame that means the move landed, reading
+    the story meanwhile for a climb turned back. ("arrived" | "refused"
+    | "stalled", the hindering item nouns a refusal named)."""
+    deadline = monotonic() + timeout
+    hindering = []
+    while True:
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            return "stalled", hindering
+        item = s.get(timeout=remaining, streams=None)
+        if item is None:
+            return "stalled", hindering
+        stream, text = item
+        if stream == "compass":
+            return "arrived", hindering
+        if stream:
+            continue  # a dock's stream: not the story
+        hindering.extend(hindering_nouns(text))
+        if any(needle in text for needle in CLIMB_REFUSALS):
+            return "refused", hindering
+
+
+def _standing(state):
+    indicators = getattr(state, "indicator", None) or {}
+    return indicators.get("IconSTANDING") == "y"
+
+
+def retry_climb(s, command, hindering):
+    """The one retry a turned-back climb gets: on your feet (a failed
+    climb can leave you sitting — captured), the hindering items stowed
+    (a worn piece answers STOW with a refusal, harmless), the climb
+    again. Returns await_arrival's answer for the retry."""
+    steps = []
+    if not _standing(s.state):
+        s.put("stand")
+        s.waitrt()
+        steps.append("stood up")
+    for noun in hindering:
+        s.put(f"stow my {noun}")
+        s.waitrt()
+    if hindering:
+        steps.append("stowed " + ", ".join(hindering))
+    s.echo(
+        "the climb was turned back for footing — "
+        + (", ".join(steps) + ", " if steps else "")
+        + "trying it once more"
+    )
+    while s.get(timeout=0, streams=("compass",)) is not None:
+        pass
+    s.put(command)
+    return await_arrival(s)
+
+
 def walk(s, db, goals, describe="destination", avoid=()):
     """Walk to the nearest goal room; True on arrival (or already there).
 
@@ -127,8 +209,27 @@ def walk(s, db, goals, describe="destination", avoid=()):
         while s.get(timeout=0, streams=("compass",)) is not None:
             pass
         s.put(commands[-1])
-        arrived = s.get(timeout=15, streams=("compass",)) is not None
-        if not arrived:
+        outcome, hindering = await_arrival(s)
+        if outcome == "refused":
+            # A climb beyond the character's Athletics (#157): one
+            # retry standing and unburdened, then the truth and a stop.
+            outcome, again = retry_climb(s, commands[-1], hindering)
+            if outcome == "refused":
+                load = ", ".join(dict.fromkeys(hindering + again))
+                s.echo(
+                    f"the climb at step {number} ({commands[-1]!r}) is beyond "
+                    "your Athletics"
+                    + (f" with your {load}" if load else "")
+                    + " — shed the load, train it (;athletics), or take the "
+                    "long way — stopping here"
+                )
+                return False
+            if outcome == "arrived" and hindering:
+                s.echo(
+                    f"made it with your {', '.join(hindering)} stowed — "
+                    "get what you need back out"
+                )
+        if outcome == "stalled":
             # Engaged: moves and climbs refuse until retreated out to
             # missile range (docs/combat.md) — burst retreat/retreat/
             # step through the type-ahead and give the step one retry.
@@ -139,8 +240,8 @@ def walk(s, db, goals, describe="destination", avoid=()):
             s.put("retreat")
             s.put("retreat")
             s.put(commands[-1])
-            arrived = s.get(timeout=15, streams=("compass",)) is not None
-        if not arrived:
+            outcome, _ = await_arrival(s)
+        if outcome != "arrived":
             s.echo(f"stalled at step {number} ({commands[-1]!r}) — stopping here")
             return False
         # Arrival check: the nav uid is exact when the map knows it;

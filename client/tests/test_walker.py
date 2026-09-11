@@ -84,11 +84,111 @@ class FakeHandle:
             return None  # no stale compass frames queued
         if self._uids:
             self.state.room_uid = self._uids.pop(0)
-            return "compass frame"
+            # streams=None is the arrival wait: (stream, text) pairs.
+            return ("compass", "n s") if streams is None else "compass frame"
         return None
 
     def echo(self, text):
         self.echoes.append(text)
+
+
+TREE = MapDB(
+    [
+        {
+            "id": 6153,
+            "uid": [224005],
+            "title": ["[Wilderness, Deep Forest]"],
+            "wayto": {"5705": "climb felled tree"},
+        },
+        {
+            "id": 5705,
+            "uid": [224006],
+            "title": ["[Wilderness, Deep Forest]"],
+            "wayto": {},
+        },
+    ]
+)
+
+# The felled tree west of Crossing, captured 2026-09-11 (#157): a
+# circle-1 Paladin with a handaxe in hand and plate on was turned back,
+# and left sitting; everyone else in the log climbed it freely.
+HINDER = "Your oak-hafted handaxe and plate vambraces make the climb more difficult.\n"
+REFUSAL = (
+    "You pick your way up the tree, but reach a point where your footing "
+    "is questionable.  Reluctantly, you climb back down.\n"
+)
+
+
+class ClimbHandle(FakeHandle):
+    """Each climb answers from a script: "refused" delivers the two
+    captured lines and no compass frame; "ok" lands the climb."""
+
+    def __init__(self, uids, answers, standing=True):
+        super().__init__(uids)
+        self.answers = list(answers)
+        self.pending = []
+        self.state.indicator = {"IconSTANDING": "y" if standing else "n"}
+
+    def put(self, command):
+        super().put(command)
+        if command == "stand":
+            self.state.indicator["IconSTANDING"] = "y"
+        if command.startswith("climb"):
+            if self.answers.pop(0) == "refused":
+                self.pending = [("", HINDER), ("", REFUSAL)]
+            else:
+                self.state.room_uid = self._uids.pop(0)
+                self.pending = [("compass", "n")]
+
+    def get(self, timeout=None, streams=("",)):
+        if timeout == 0:
+            return None
+        return self.pending.pop(0) if self.pending else None
+
+
+def puts_of(handle):
+    return [call[1] for call in handle.calls if call[0] == "put"]
+
+
+def test_a_climb_turned_back_for_footing_is_retried_standing_and_unburdened():
+    handle = ClimbHandle(uids=[224006], answers=["refused", "ok"], standing=False)
+    handle.state.room_uid = 224005
+    assert walker.walk(handle, TREE, [5705], describe="Knife Clan") is True
+    assert puts_of(handle) == [
+        "climb felled tree",
+        "stand",
+        "stow my handaxe",
+        "stow my vambraces",
+        "climb felled tree",
+    ]
+    assert any("stood up, stowed handaxe, vambraces" in echo for echo in handle.echoes)
+    assert any("get what you need back out" in echo for echo in handle.echoes)
+
+
+def test_a_standing_character_is_not_told_to_stand():
+    handle = ClimbHandle(uids=[224006], answers=["refused", "ok"], standing=True)
+    handle.state.room_uid = 224005
+    assert walker.walk(handle, TREE, [5705]) is True
+    assert "stand" not in puts_of(handle)
+
+
+def test_a_climb_turned_back_twice_stops_with_what_would_help():
+    handle = ClimbHandle(uids=[], answers=["refused", "refused"], standing=False)
+    handle.state.room_uid = 224005
+    assert walker.walk(handle, TREE, [5705], describe="Knife Clan") is False
+    puts = puts_of(handle)
+    assert puts.count("climb felled tree") == 2
+    assert "retreat" not in puts  # not an engagement: no burst
+    advice = next(echo for echo in handle.echoes if "beyond your Athletics" in echo)
+    assert "handaxe, vambraces" in advice and ";athletics" in advice
+
+
+def test_hindering_nouns_are_the_last_word_of_each_item():
+    assert walker.hindering_nouns(HINDER) == ["handaxe", "vambraces"]
+    assert walker.hindering_nouns(
+        "Your heavy backpack makes the climb more difficult."
+    ) == ["backpack"]
+    assert walker.hindering_nouns("You climb the tree.") == []
 
 
 def test_walk_expands_a_scripted_edge_and_verifies_arrival():

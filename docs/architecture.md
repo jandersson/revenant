@@ -177,7 +177,10 @@ entries from a dock-layout module.
   identical exits), the walker accepts arrival in a twin of the
   planned room, and the graph plans through the uid-bearing twin
   when a room links to both.
-  `client/client/game/walker.py` (locate/walk; model in docs/movement.md) is
+  `client/client/game/walker.py` (locate/walk; model in docs/movement.md;
+  a climb turned back for footing is retried once standing with the
+  named items stowed, then reported as beyond the character's
+  Athletics rather than as a stall, #157) is
   the shared travel engine; `scripts/go2.py` is the command on top, and
   `;favors` (scripts/favors.py) rides it for the favor-orb run — grotto
   ritual, attended puzzles, temple altar offer (docs/favors.md).
