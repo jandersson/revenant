@@ -393,25 +393,32 @@ def stats_history(connection, character):
 
 
 def wealth_current(connection, character):
-    """The newest wealth snapshot: (logged_at, [{kind, currency,
-    copper}]) with carried coin first, debts after. None before any."""
-    row = connection.execute(
-        "SELECT max(logged_at) FROM wealth WHERE character_name = ?",
+    """The newest known figure per item — (kind, currency, bank) — as
+    (logged_at, [{kind, currency, copper, bank}]), carried coin first,
+    debts after, then bank branches; logged_at is the newest of them.
+    Items come from different moments (;sheet's INFO snapshot, a
+    teller, the BANK ACCOUNT report ;wealth logs per branch), so the
+    latest of each is the picture, not the latest single snapshot.
+    None before any. A wealth table from before the bank column reads
+    with bank None."""
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(wealth)")}
+    bank = "bank" if "bank" in columns else "NULL AS bank"
+    latest = {}
+    for row in connection.execute(
+        f"SELECT logged_at, kind, currency, copper, {bank} FROM wealth"
+        " WHERE character_name = ? ORDER BY logged_at, seq",
         (character,),
-    ).fetchone()
-    if not row or row[0] is None:
+    ):
+        latest[(row["kind"], row["currency"], row["bank"])] = dict(row)
+    if not latest:
         return None
-    logged_at = row[0]
-    rows = [
-        dict(r)
-        for r in connection.execute(
-            "SELECT kind, currency, copper FROM wealth"
-            " WHERE character_name = ? AND logged_at = ?"
-            " ORDER BY kind, currency",
-            (character, logged_at),
-        )
+    rows = sorted(
+        latest.values(), key=lambda r: (r["kind"], r["currency"], r["bank"] or "")
+    )
+    logged_at = max(r["logged_at"] for r in rows)
+    return logged_at, [
+        {k: r[k] for k in ("kind", "currency", "copper", "bank")} for r in rows
     ]
-    return logged_at, rows
 
 
 def wealth_history(connection, character):

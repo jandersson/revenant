@@ -289,14 +289,53 @@ def test_wealth_current_lists_coin_then_debt(sheet_connection):
 
     logged_at, rows = data.wealth_current(sheet_connection, "Lanival")
     assert logged_at == T2
+    # A table from before the bank column reads with bank None.
     assert rows == [
-        {"kind": "carried", "currency": "Dokoras", "copper": 6},
-        {"kind": "carried", "currency": "Lirums", "copper": 11},
-        {"kind": "debt", "currency": "Kronars", "copper": 90},
+        {"kind": "carried", "currency": "Dokoras", "copper": 6, "bank": None},
+        {"kind": "carried", "currency": "Lirums", "copper": 11, "bank": None},
+        {"kind": "debt", "currency": "Kronars", "copper": 90, "bank": None},
     ]
     history = data.wealth_history(sheet_connection, "Lanival")
     assert history["Lirums"] == {"times": [T1, T2], "values": [5, 11]}
     assert "Kronars" not in history  # debt never charts as coin
+
+
+def test_wealth_current_is_the_newest_figure_per_item(sheet_connection):
+    import sqlite3
+
+    # ;sheet's INFO snapshot, a teller's balance and the BANK ACCOUNT
+    # report (;wealth, one row per branch) land at different moments;
+    # the picture is the latest of each item, not one snapshot.
+    writer = sqlite3.connect(
+        sheet_connection.execute("PRAGMA database_list").fetchone()[2]
+    )
+    writer.executescript(
+        "CREATE TABLE wealth (seq INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " logged_at TEXT NOT NULL, character_name TEXT NOT NULL,"
+        " kind TEXT NOT NULL, currency TEXT NOT NULL, copper INTEGER NOT NULL,"
+        " bank TEXT)"
+    )
+    writer.executemany(
+        "INSERT INTO wealth (logged_at, character_name, kind, currency, copper, bank)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        [
+            (T1, "Lanival", "carried", "Kronars", 80_510, None),
+            (T1, "Lanival", "bank", "Kronars", 5_000, "Crossing"),
+            (T2, "Lanival", "bank", "Kronars", 12_345, "Crossing"),
+            (T2, "Lanival", "bank", "Lirums", 350, "Surlaenis"),
+            (T2, "Sable", "carried", "Kronars", 1, None),
+        ],
+    )
+    writer.commit()
+    writer.close()
+
+    logged_at, rows = data.wealth_current(sheet_connection, "Lanival")
+    assert logged_at == T2
+    assert rows == [
+        {"kind": "bank", "currency": "Kronars", "copper": 12_345, "bank": "Crossing"},
+        {"kind": "bank", "currency": "Lirums", "copper": 350, "bank": "Surlaenis"},
+        {"kind": "carried", "currency": "Kronars", "copper": 80_510, "bank": None},
+    ]
 
 
 # --- the picker and the identity panel (#116) ---------------------------

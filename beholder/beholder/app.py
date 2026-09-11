@@ -124,6 +124,7 @@ SPELL_COLUMNS = [
 
 WEALTH_COLUMNS = [
     {"name": "Kind", "id": "kind"},
+    {"name": "Bank", "id": "bank"},
     {"name": "Currency", "id": "currency"},
     {"name": "Copper", "id": "copper"},
 ]
