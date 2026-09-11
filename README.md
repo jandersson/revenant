@@ -70,7 +70,7 @@ Passwords, logging, and the protocol: [docs/chat.md](docs/chat.md).
 - [running.md](docs/running.md) — launching, quit versus detach, which edits need which restart, `;reexec`, settings, logs
 - [scripting.md](docs/scripting.md) — writing a script
 - [chat.md](docs/chat.md) — LNet: the window, `;lnet`, passwords, logs, protocol
-- [movement.md](docs/movement.md), [death.md](docs/death.md), [favors.md](docs/favors.md), [circles.md](docs/circles.md), [experience.md](docs/experience.md), [training.md](docs/training.md), [healing.md](docs/healing.md), [eltime.md](docs/eltime.md), [combat.md](docs/combat.md) — the game models the scripts implement, each with its captured evidence
+- [movement.md](docs/movement.md), [death.md](docs/death.md), [favors.md](docs/favors.md), [circles.md](docs/circles.md), [experience.md](docs/experience.md), [training.md](docs/training.md), [healing.md](docs/healing.md), [social.md](docs/social.md), [eltime.md](docs/eltime.md), [combat.md](docs/combat.md) — the game models the scripts implement, each with its captured evidence
 - [architecture.md](docs/architecture.md) — how the pieces fit, module by module, with the history of why
 - [protocol.md](docs/protocol.md) — the wire protocol the parser implements
 - [why-python.md](docs/why-python.md) — what leaving the Ruby toolchain buys and costs
