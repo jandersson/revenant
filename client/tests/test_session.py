@@ -366,12 +366,21 @@ def test_reexec_hands_the_indicators_across(monkeypatch):
     server = session.SessionServer(game, port=0)  # serve() never called
     server.engine.xml_data.indicator.update({"IconDEAD": "y", "IconPRONE": "y"})
     server.engine.xml_data.name = "Lanival"  # <app> never repeats (#95)
+    # Neither does the hands pair (#159): what is held rides along.
+    server.engine.xml_data.left_hand = {
+        "noun": "handaxe",
+        "exist": "1",
+        "name": "oak-hafted handaxe",
+    }
+    server.engine.xml_data.right_hand = None
 
     server.reexec(execv=lambda path, argv: None)
 
     handed_over = json.loads(os.environ[session.GAME_STATE_ENV])
     assert handed_over["indicator"] == {"IconDEAD": "y", "IconPRONE": "y"}
     assert handed_over["name"] == "Lanival"
+    assert handed_over["left_hand"]["noun"] == "handaxe"
+    assert handed_over["right_hand"] is None
     right.close()
     game.close()
 
@@ -381,7 +390,18 @@ def test_main_game_fd_primes_the_indicators_from_the_handoff(monkeypatch):
     fd = left.detach()
     monkeypatch.setenv(
         session.GAME_STATE_ENV,
-        json.dumps({"indicator": {"IconDEAD": "y"}, "name": "Lanival"}),
+        json.dumps(
+            {
+                "indicator": {"IconDEAD": "y"},
+                "name": "Lanival",
+                "left_hand": None,
+                "right_hand": {
+                    "noun": "vambraces",
+                    "exist": "2",
+                    "name": "plate vambraces",
+                },
+            }
+        ),
     )
     adopted = {}
     monkeypatch.setattr(
@@ -396,6 +416,8 @@ def test_main_game_fd_primes_the_indicators_from_the_handoff(monkeypatch):
     xml_data = adopted["server"].engine.xml_data
     assert xml_data.indicator["IconDEAD"] == "y"
     assert xml_data.name == "Lanival"  # the title bar stays named (#95)
+    assert xml_data.left_hand is None
+    assert xml_data.right_hand["noun"] == "vambraces"  # the hands too (#159)
     right.close()
     adopted["server"].game.close()
 

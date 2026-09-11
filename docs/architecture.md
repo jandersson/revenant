@@ -33,7 +33,9 @@ entries from a dock-layout module.
   **Never store credentials in files, even gitignored ones.**
 - `client/client/engine/xml_data.py` — XMLParser target holding parsed game state
   (indicators, compass, prompt, vitals, hostile creatures from
-  `<crtrStatus>`) — docs/protocol.md is the wire-protocol reference it
+  `<crtrStatus>`, what each hand holds from `<left>`/`<right>` — a
+  pair at login, then one tag per hand as it changes, carried across
+  `;reexec` like the name, #159) — docs/protocol.md is the wire-protocol reference it
   implements against (tag grammar cited to the GemStone wiki's Wrayth
   protocol page, DR's own stream/component/indicator ids derived from
   captured traffic) — plus `route(line)` which splits each line

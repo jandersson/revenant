@@ -46,7 +46,9 @@ for `client/client/<pkg>/x.py`.
   a single-use launch key over stdin, never argv or env.
 - `client/engine/xml_data.py` — parser state + `route(line)` → `(stream, text,
   style)` segments. Styles: "" / a name / "clear" / "link:<cmd>". Control
-  characters are stripped; a BEL becomes a "bell" segment.
+  characters are stripped; a BEL becomes a "bell" segment. State includes
+  `left_hand`/`right_hand` (`{noun, exist, name}` or None) from the
+  `<left>`/`<right>` tags, one per hand as it changes.
 - `client/engine/core.py` — `Engine`: feeds lines, emits synthetic streams
   (compass = room-arrival signal, room, vitals, indicators, character,
   timesync, roundtime/casttime, bell). It appends "\n" only to the last

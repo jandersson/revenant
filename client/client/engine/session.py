@@ -554,13 +554,16 @@ class SessionServer(ClientLogger):
 
     def carried_env(self):
         """What the new process inherits through its environment: the
-        indicators and the name (#92, #95), and the unparsed bytes —
+        indicators and the name (#92, #95), the hands (the login pair
+        never repeats either, #159), and the unparsed bytes —
         snapshotted as late as possible, once the reader is done."""
         return {
             GAME_STATE_ENV: json.dumps(
                 {
                     "indicator": self.engine.xml_data.indicator,
                     "name": self.engine.xml_data.name,
+                    "left_hand": self.engine.xml_data.left_hand,
+                    "right_hand": self.engine.xml_data.right_hand,
                 }
             ),
             GAME_BUFFER_ENV: base64.b64encode(self.game.buffered).decode("ASCII"),
@@ -816,6 +819,10 @@ def main(argv=None):
         server.engine.xml_data.name = (
             carried_state.get("name") or os.environ.get("REVENANT_CHARACTER") or None
         )
+    # The hands ride the same way: the game states them at login and
+    # then only as they change (#159).
+    server.engine.xml_data.left_hand = carried_state.get("left_hand")
+    server.engine.xml_data.right_hand = carried_state.get("right_hand")
     autostart_scripts(server)
     server.serve()
 

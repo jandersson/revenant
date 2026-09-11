@@ -169,8 +169,13 @@ feature knows the data is already on the wire:
 
 `compDef`, `right`, `left`, `spell`, `inv` and `prompt` are stripped as
 paired tags in `route` rather than parsed for display. `right` and
-`left` carry what each hand holds and are a ready source for a hands
-indicator that does not exist yet.
+`left` carry what each hand holds — `<left exist="45793296"
+noun="handaxe">oak-hafted handaxe</left>`, `<left>Empty</left>` —
+one tag per hand as that hand changes, a pair at login (captured
+2026-09-11); the parser keeps them as `left_hand` / `right_hand`
+(`{noun, exist, name}` or None) with a `hands_updated` flag, so scripts
+can read what is held (the climb log, #159) — no hands indicator draws
+them yet.
 
 ## Gotchas
 

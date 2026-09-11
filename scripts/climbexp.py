@@ -191,6 +191,10 @@ def log_attempt(s, db, experiment, phase, number, obstacle, outcome, text, facts
         health=health(s.state),
         appraise=facts.get("appraise"),
         stats=facts.get("stats"),
+        # What the hands held at the attempt, from the parser's hand
+        # state (#159): the item nouns, or None for an empty hand.
+        left_hand=(getattr(s.state, "left_hand", None) or {}).get("name"),
+        right_hand=(getattr(s.state, "right_hand", None) or {}).get("name"),
     )
     load = hindering_line(text)
     s.echo(

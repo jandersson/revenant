@@ -159,6 +159,16 @@ class XMLData:
         self.exp_updated = False
         self._exp_skill = None
         self._exp_text = ""
+        # What each hand holds, from <left exist='...' noun='...'>oak-
+        # hafted handaxe</left> and <right>...</right>: None when empty,
+        # else {"noun", "exist", "name"}. The game sends one tag per hand
+        # as that hand changes (a pair at login); the noun is what GET,
+        # STOW and the climb penalty line use (#159 — the felled tree
+        # went only once the hands were empty, and nothing tracked them).
+        self.left_hand = None
+        self.right_hand = None
+        self.hands_updated = False
+        self._hand = None  # (side, attributes, text) while inside the tag
 
         # Internal memo pad for stripping multi line tags
         self._strip_xml_multiline = ""
@@ -175,11 +185,15 @@ class XMLData:
             self.room_title = text_string.strip()
         if self._exp_skill is not None:
             self._exp_text += text_string
+        if self._hand is not None:
+            self._hand[2].append(text_string)
 
     def start(self, name: str, attributes: dict):
         self.active_tags.append(name)
 
-        if name == "playerID":
+        if name in ("left", "right"):
+            self._hand = (name, dict(attributes), [])
+        elif name == "playerID":
             self.player_id = attributes["id"]
         elif name == "style":
             self.current_style = attributes["id"]
@@ -252,6 +266,22 @@ class XMLData:
                 self.room_title = subtitle[3:].strip()
 
     def end(self, name: str):
+        if name in ("left", "right") and self._hand is not None:
+            side, attributes, pieces = self._hand
+            self._hand = None
+            text = "".join(pieces).strip()
+            held = (
+                None
+                if not text or text.lower() == "empty"
+                else {
+                    "noun": attributes.get("noun") or text.split()[-1],
+                    "exist": attributes.get("exist"),
+                    "name": text,
+                }
+            )
+            if held != getattr(self, f"{side}_hand"):
+                setattr(self, f"{side}_hand", held)
+                self.hands_updated = True
         if name == "dialogData":
             self._vitals_dialog = False
         if name == "compass" and not self._compass_in_component:

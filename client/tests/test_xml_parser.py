@@ -461,3 +461,63 @@ def test_a_dead_creature_is_no_hostile(xml_data):
     XMLParser(target=xml_data).feed(f"<r>{CRTR_ARRIVE}</r>")
     XMLParser(target=xml_data).feed(f"<r>{CRTR_DEAD}</r>")
     assert xml_data.hostiles == {}
+
+
+# -- hands: <left> and <right>, one tag per hand as it changes ---------------
+
+
+def _feed_one(xml_data, line):
+    XMLParser(target=xml_data).feed(f"<r>{line}</r>")
+
+
+def test_hands_from_the_login_pair(xml_data):
+    # Captured 2026-09-11: the pair the game sends at login, a handaxe
+    # in the left hand and a piece of armor carried in the right.
+    _feed_one(
+        xml_data,
+        '<left exist="45793296" noun="handaxe">oak-hafted handaxe</left>'
+        '<right exist="45793297" noun="vambraces">plate vambraces</right>',
+    )
+    assert xml_data.left_hand == {
+        "noun": "handaxe",
+        "exist": "45793296",
+        "name": "oak-hafted handaxe",
+    }
+    assert xml_data.right_hand == {
+        "noun": "vambraces",
+        "exist": "45793297",
+        "name": "plate vambraces",
+    }
+    assert xml_data.hands_updated
+
+
+def test_a_hand_empties_on_its_own_tag(xml_data):
+    # The tags come one at a time as each hand changes (the stow that
+    # emptied the left hand, captured 2026-09-11); the other hand keeps
+    # its state. "Empty" is the game's word for nothing held.
+    _feed_one(
+        xml_data,
+        '<left exist="45793296" noun="handaxe">oak-hafted handaxe</left>'
+        '<right exist="45793297" noun="vambraces">plate vambraces</right>',
+    )
+    xml_data.hands_updated = False
+    _feed_one(xml_data, "<left>Empty</left>")
+    assert xml_data.left_hand is None
+    assert xml_data.right_hand["noun"] == "vambraces"
+    assert xml_data.hands_updated
+    xml_data.hands_updated = False
+    _feed_one(xml_data, "<left>Empty</left>")  # no change: no update flag
+    assert not xml_data.hands_updated
+
+
+def test_hands_start_empty_in_the_login_sample(xml_data, login_strings):
+    _feed(xml_data, login_strings)
+    assert xml_data.left_hand is None and xml_data.right_hand is None
+
+
+def test_hand_tags_never_reach_the_story(xml_data):
+    # route() strips the element; the text is state, not a story line.
+    segments = xml_data.route(
+        '<left exist="1" noun="handaxe">oak-hafted handaxe</left><right>Empty</right>'
+    )
+    assert "handaxe" not in "".join(text for _, text, _ in segments)
