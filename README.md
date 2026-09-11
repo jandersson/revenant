@@ -41,6 +41,7 @@ The window shows the game's own styling (amber room names, blue speech, bold ale
 
 - **Experience** — a live skill dashboard, rank and percent and mindstate per learning skill.
 - **Map** — the community map drawn around you as you move; click a room to walk there with `;go2`.
+- **Injuries** — the game's own injuries panel as a body of badges: each part lights amber for a wound or purple for a scar, with the level, the moment it changes, no HEALTH needed.
 - **Compass, Clocks, Thoughts, Arrivals, Deaths** — exits you can click, Elanthian date and moons beside Stockholm and Chicago, and the game's side streams each in a window of their own.
 - **Around the input line** — roundtime and casttime counting down from the game's own timestamps, vitals bars, a status strip with posture, stunned, bleeding, hidden and a red DEAD, and shell-style command history.
 

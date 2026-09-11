@@ -24,6 +24,16 @@ def vitals_frame(vitals: dict) -> str:
     return " ".join(f"{vital} {value}" for vital, value in vitals.items())
 
 
+def injuries_frame(injuries: dict) -> str:
+    """The "injuries" stream's wire text: "head wound 1 chest scar 2 ..."
+    for every hurt part, sorted by part; "" when nothing is. Full state
+    every time — a part left out is clean (#163). Shared with
+    session.attach()'s replay."""
+    return " ".join(
+        f"{part} {kind} {level}" for part, (kind, level) in sorted(injuries.items())
+    )
+
+
 def room_frame(xml_data) -> str:
     """The "room" stream's wire text: "uid<TAB>title", either half ""
     when unknown; "" when neither is known. One frame per room change
@@ -193,6 +203,13 @@ class Engine(ClientLogger):
             self.xml_data.vitals_updated = False
             if output_callback:
                 output_callback(vitals_frame(self.xml_data.vitals), "vitals", "")
+
+        # Injuries (the panel the game pushes on every change, #163):
+        # the full hurt set each time, "" once everything is clean.
+        if self.xml_data.injuries_updated:
+            self.xml_data.injuries_updated = False
+            if output_callback:
+                output_callback(injuries_frame(self.xml_data.injuries), "injuries", "")
 
         # Indicators (posture, stunned, bleeding, dead, ...): the GUI's
         # status strip (#75). Full active set on any change.

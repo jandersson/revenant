@@ -8,6 +8,15 @@ bleeders from it, `;hunt` breaks off at the profile's wound floor
 (#151). This file records where the wordings come from and what the
 captured answers confirmed.
 
+The game also pushes an injuries panel, `<dialogData id="injuries">`,
+whenever a part changes (docs/protocol.md, #163): the parser keeps it
+as `injuries`, the Injuries dock draws it, and it needs no command.
+It is the coarser gauge — "minor abrasions" and "tiny scratches", two
+steps apart on the scale below, both showed as `Injury1` — so the
+panel says which parts and roughly how much, right now, and HEALTH's
+wording still says the exact severity, the kind, and whether it
+bleeds.
+
 ## The scale
 
 | level | name | note |

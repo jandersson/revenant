@@ -90,6 +90,9 @@ _EXP_TEXT = re.compile(
 
 # The exp window's non-skill components (TDPs, favors, rested exp).
 _EXP_NOT_SKILLS = {"exp tdp", "exp favor", "exp rexp", "exp mods"}
+# The injuries panel's hurt states: "Injury1" (captured), "Scar2" (the
+# pattern's assumption for scars, #163).
+_INJURY = re.compile(r"(Injury|Scar)(\d+)$", re.IGNORECASE)
 
 # The game's inline styling: bold runs, presets (speech, roomDesc, ...)
 # and style spans (roomName). Group 1: preset id; group 2: style id.
@@ -136,6 +139,15 @@ class XMLData:
         self.vitals = {}
         self.vitals_updated = False
         self._vitals_dialog = False
+        # The injuries panel, <dialogData id="injuries">: one <image> per
+        # body part whose name is the part's own id when unhurt and
+        # "Injury<N>" / "Scar<N>" when not (captured 2026-09-11, #163):
+        # {part: ("wound" | "scar", level)}, hurt parts only. Pushed by
+        # the game on every change, so it is current without HEALTH;
+        # coarser than HEALTH's wording (client/game/wounds.py).
+        self.injuries = {}
+        self.injuries_updated = False
+        self._injuries_dialog = False
         # Hostile creatures in the room, from <crtrStatus hostile='1'>
         # tags: {exist id: engaged}. Each crtrStatus burst replaces the
         # set wholesale (staged, swapped at the closing prompt so a
@@ -232,6 +244,9 @@ class XMLData:
             self.casttime = int(attributes["value"])
         elif name == "dialogData":
             self._vitals_dialog = attributes.get("id") == "minivitals"
+            self._injuries_dialog = attributes.get("id") == "injuries"
+        elif name == "image" and self._injuries_dialog:
+            self._note_injury(attributes.get("id", ""), attributes.get("name", ""))
         elif name == "progressBar" and self._vitals_dialog:
             # Scoped to minivitals: the injuries dialog reuses
             # progressBar ("health2") and must not pollute vitals.
@@ -265,7 +280,27 @@ class XMLData:
             if subtitle.startswith(" - "):
                 self.room_title = subtitle[3:].strip()
 
+    def _note_injury(self, part, name):
+        """One <image> of the injuries panel: name == part means clean;
+        Injury<N> a fresh wound, Scar<N> a scar (the scar form is the
+        pattern's assumption until captured). Skins and bars in the
+        same dialog carry other names and are ignored."""
+        if not part or part in ("injuredSkin", "healthSkin") or not name:
+            return
+        match = _INJURY.match(name)
+        if match:
+            level = int(match.group(2))
+            state = ("scar" if match.group(1).lower() == "scar" else "wound", level)
+            if self.injuries.get(part) != state:
+                self.injuries[part] = state
+                self.injuries_updated = True
+        elif name == part:
+            if self.injuries.pop(part, None) is not None:
+                self.injuries_updated = True
+
     def end(self, name: str):
+        if name == "dialogData":
+            self._injuries_dialog = False
         if name in ("left", "right") and self._hand is not None:
             side, attributes, pieces = self._hand
             self._hand = None

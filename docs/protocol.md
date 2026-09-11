@@ -177,6 +177,21 @@ one tag per hand as that hand changes, a pair at login (captured
 can read what is held (the climb log, #159) — no hands indicator draws
 them yet.
 
+`<dialogData id="injuries">` is the injuries panel: one `<image
+id="<part>" name="...">` per body part — head, neck, rightArm,
+leftArm, rightLeg, leftLeg, rightHand, leftHand, chest, abdomen, back,
+rightEye, leftEye, rightFoot, nsys (the nervous system) — plus a
+`health2` progress bar and two skins. The name is the gauge: the
+part's own id when clean (`name="head"`), `Injury<N>` when wounded
+(captured 2026-09-11: every limb and the trunk at `Injury1` after two
+falls, all back to their own names in the pulse the Empath's touch
+sent — #163); `Scar<N>` is the pattern's assumption for scars. The
+parser keeps it as `injuries` ({part: (kind, level)}), the engine
+emits an `injuries` frame ("head wound 1 chest wound 1", "" when
+clean) on every change and states it fresh to late attachers, and
+the Injuries dock draws it. It is coarser than HEALTH's wording
+(docs/wounds.md) and never needs asking.
+
 ## Gotchas
 
 - **Absolute, not relative.** Every timer is an epoch end time. Never

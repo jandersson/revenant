@@ -27,7 +27,13 @@ from threading import Event, Lock, Thread
 from time import monotonic, sleep
 
 from client.client_logger import ClientLogger
-from client.engine.core import Engine, indicators_frame, room_frame, vitals_frame
+from client.engine.core import (
+    Engine,
+    indicators_frame,
+    injuries_frame,
+    room_frame,
+    vitals_frame,
+)
 from client.engine.login import connect_game, simu_login
 from client.engine.netsock import SocketClient
 from client.engine.procspawn import command_for
@@ -335,6 +341,12 @@ class SessionServer(ClientLogger):
             if self.engine.xml_data.indicator:
                 replay += encode_frame(
                     indicators_frame(self.engine.xml_data.indicator), "indicators"
+                )
+            # The injuries panel changes only when something does (#163);
+            # a late attacher gets the hurt set stated fresh.
+            if self.engine.xml_data.injuries:
+                replay += encode_frame(
+                    injuries_frame(self.engine.xml_data.injuries), "injuries"
                 )
             # The server-clock delta emits once and rarely again; a
             # late attacher gets it stated fresh so its Elanthian

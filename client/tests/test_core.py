@@ -351,3 +351,31 @@ def test_engine_emits_a_bell_frame_for_a_bell_in_the_line():
     assert ("\n", "bell", "") in out
     texts = [text for text, stream, _ in out if stream == ""]
     assert texts == ["YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND.\n"]
+
+
+def test_engine_emits_the_injuries_panel_as_a_frame_on_change():
+    # The game pushes <dialogData id="injuries"> whenever a part changes
+    # (captured 2026-09-11, #163): the full hurt set each time, "" once
+    # everything is clean, and nothing for a pulse that changed nothing.
+    from client.engine.core import injuries_frame
+
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b'<dialogData id="injuries"><image id="head" name="Injury1"/>'
+            b'<image id="chest" name="Injury1"/></dialogData>\n',
+            b'<dialogData id="injuries"><image id="head" name="Injury1"/>'
+            b'<image id="chest" name="Injury1"/></dialogData>\n',
+            b'<dialogData id="injuries"><image id="head" name="head"/>'
+            b'<image id="chest" name="chest"/></dialogData>\n',
+        ]
+    )
+    out = _read_all(engine, 3)
+    frames = [frame for frame in out if frame[1] == "injuries"]
+    assert frames == [
+        ("chest wound 1 head wound 1", "injuries", ""),
+        ("", "injuries", ""),
+    ]
+    assert injuries_frame({"back": ("scar", 2), "head": ("wound", 1)}) == (
+        "back scar 2 head wound 1"
+    )

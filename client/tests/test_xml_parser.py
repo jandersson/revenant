@@ -521,3 +521,66 @@ def test_hand_tags_never_reach_the_story(xml_data):
         '<left exist="1" noun="handaxe">oak-hafted handaxe</left><right>Empty</right>'
     )
     assert "handaxe" not in "".join(text for _, text, _ in segments)
+
+
+# -- the injuries panel: one <image> per body part -----------------------
+
+
+WOUNDED_PANEL = (
+    '<dialogData id="injuries"><image id="head" name="Injury1" height="0" width="0"/>'
+    '<image id="neck" name="Injury1" height="0" width="0"/>'
+    '<image id="rightArm" name="Injury1" height="0" width="0"/>'
+    '<image id="rightHand" name="rightHand" height="0" width="0"/>'
+    '<image id="chest" name="Injury1" height="0" width="0"/>'
+    '<image id="nsys" name="nsys" height="0" width="0"/></dialogData>'
+)
+CLEAN_PANEL = (
+    '<dialogData id="injuries"><image id="head" name="head" height="0" width="0"/>'
+    '<image id="neck" name="neck" height="0" width="0"/>'
+    '<image id="rightArm" name="rightArm" height="0" width="0"/>'
+    '<image id="chest" name="chest" height="0" width="0"/></dialogData>'
+)
+
+
+def test_the_injuries_panel_names_the_hurt_parts(xml_data):
+    # Captured 2026-09-11 after the felled-tree falls: name == part id
+    # is clean, Injury<N> is a fresh wound.
+    _feed_one(xml_data, WOUNDED_PANEL)
+    assert xml_data.injuries == {
+        "head": ("wound", 1),
+        "neck": ("wound", 1),
+        "rightArm": ("wound", 1),
+        "chest": ("wound", 1),
+    }
+    assert xml_data.injuries_updated
+
+
+def test_a_clean_panel_clears_the_parts_it_lists(xml_data):
+    _feed_one(xml_data, WOUNDED_PANEL)
+    xml_data.injuries_updated = False
+    _feed_one(xml_data, CLEAN_PANEL)  # the Empath's touch, same pulse
+    assert xml_data.injuries == {}
+    assert xml_data.injuries_updated
+    xml_data.injuries_updated = False
+    _feed_one(xml_data, CLEAN_PANEL)
+    assert not xml_data.injuries_updated  # no change, no flag
+
+
+def test_scars_and_levels_follow_the_pattern(xml_data):
+    _feed_one(
+        xml_data,
+        '<dialogData id="injuries"><image id="back" name="Scar2" height="0" width="0"/>'
+        '<image id="leftLeg" name="Injury3" height="0" width="0"/></dialogData>',
+    )
+    assert xml_data.injuries == {"back": ("scar", 2), "leftLeg": ("wound", 3)}
+
+
+def test_the_panels_skins_and_bar_do_not_become_parts(xml_data):
+    _feed_one(
+        xml_data,
+        '<dialogData id="injuries"><skin id="injuredSkin" name="InjuriesPanel"/>'
+        '<skin id="healthSkin" name="healthBar2" controls="health2"/>'
+        '<progressBar id="health2" value="100" text="HEALTH 100%"/></dialogData>',
+    )
+    assert xml_data.injuries == {}
+    assert xml_data.vitals == {}  # health2 stays out of the vitals too

@@ -238,7 +238,12 @@ entries from a dock-layout module.
   Green] (1420)", the id ;go2 takes, Lich's roomnumbers idea — when
   `show_room_ids` is on, the Qt-free `client/ui/roomids.py` pairing
   the title line with the "room" frame in either arrival order since
-  the <nav> uid can land a line before the title (#156); the clocks dock ticks
+  the <nav> uid can land a line before the title (#156); the Injuries
+  dock (`client/gui/injuries_dock.py`) draws the game's injuries panel
+  from the `injuries` stream — one badge per body part, amber for a
+  wound, purple for a scar, the panel's level beside the name — which
+  the engine emits on every push of `<dialogData id="injuries">` and
+  the session states fresh on attach like vitals (#163); the clocks dock ticks
   Elanthian time, moons, Stockholm/Chicago, and (via a Settings toggle)
   Earth's moon; roundtime/casttime count down beside the input line
   under a row of vitals bars (health/fatigue/spirit/concentration,

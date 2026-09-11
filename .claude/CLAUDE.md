@@ -48,7 +48,8 @@ for `client/client/<pkg>/x.py`.
   style)` segments. Styles: "" / a name / "clear" / "link:<cmd>". Control
   characters are stripped; a BEL becomes a "bell" segment. State includes
   `left_hand`/`right_hand` (`{noun, exist, name}` or None) from the
-  `<left>`/`<right>` tags, one per hand as it changes.
+  `<left>`/`<right>` tags, one per hand as it changes, and `injuries`
+  ({part: (kind, level)}) from the injuries panel the game pushes.
 - `client/engine/core.py` — `Engine`: feeds lines, emits synthetic streams
   (compass = room-arrival signal, room, vitals, indicators, character,
   timesync, roundtime/casttime, bell). It appends "\n" only to the last
@@ -121,8 +122,10 @@ for `client/client/<pkg>/x.py`.
   restore, dispatch of each stream to its widget, styled text,
   reconnect. The docks' widgets sit beside it: `compass_dock.py`,
   `clocks_dock.py`, `input_strip.py` (command line, vitals bars,
-  status strip, RT/CT timers), `map_dock.py`, `text_views.py` (the
-  story/stream views and per-view fonts). `chat_window.py` — the
+  status strip, RT/CT timers), `map_dock.py`, `injuries_dock.py` (the
+  game's injuries panel as badges, from the `injuries` stream, #163),
+  `text_views.py` (the story/stream views and per-view fonts).
+  `chat_window.py` — the
   standalone LNet window; `settings_dialog.py`, `profile_dialog.py`,
   `login_dialog.py`, `highlights_dialog.py`.
 - `client/engine/launch.py` — the `revenant` console script and the picker; one

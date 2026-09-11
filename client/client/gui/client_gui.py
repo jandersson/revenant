@@ -39,6 +39,7 @@ from client.engine.core import Engine
 from client.client_logger import ClientLogger
 from client.gui.clocks_dock import ClocksPanel
 from client.gui.compass_dock import CompassRose
+from client.gui.injuries_dock import InjuriesPanel
 from client.gui.input_strip import InputStrip
 from client.gui.map_dock import MapView
 from client.gui.text_views import GameTextView, font_for, style_experience_view
@@ -176,6 +177,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.__add_compass_dock()
         self.__add_clocks_dock()
         self.__add_map_dock()
+        self.__add_injuries_dock()
         self.__add_input_field()
         self._apply_text_font()
         self.__add_menus()
@@ -238,6 +240,12 @@ class ClientGUI(QMainWindow, ClientLogger):
     def __add_clocks_dock(self):
         self.clocks = ClocksPanel()
         self._dock("Clocks", self.clocks)
+
+    def __add_injuries_dock(self):
+        """The game's injuries panel as badges (#163): fed by the
+        "injuries" stream, which states the hurt parts on every change."""
+        self.injuries = InjuriesPanel()
+        self._dock("Injuries", self.injuries)
 
     def __add_map_dock(self):
         """The visual map (#56): the community map drawn around the
@@ -619,6 +627,9 @@ class ClientGUI(QMainWindow, ClientLogger):
             return
         if stream == "indicators":
             self.input_strip.update_indicators(text)
+            return
+        if stream == "injuries":
+            self.injuries.show_frame(text)
             return
         if stream == "room":
             # uid\ttitle per room change — the map dock follows it.
