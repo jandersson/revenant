@@ -110,35 +110,44 @@ TREE = MapDB(
 )
 
 # The felled tree west of Crossing, captured 2026-09-11 (#157): a
-# circle-1 Paladin with a handaxe in hand and plate on was turned back,
-# and left sitting; everyone else in the log climbed it freely.
+# circle-1 Paladin (Athletics 7) with a handaxe in hand and plate on was
+# turned back two ways, and sat down each time; everyone else in the
+# log climbed it freely.
 HINDER = "Your oak-hafted handaxe and plate vambraces make the climb more difficult.\n"
 REFUSAL = (
     "You pick your way up the tree, but reach a point where your footing "
     "is questionable.  Reluctantly, you climb back down.\n"
 )
+VERTIGO = (
+    "You make your way up the tree.  Partway up, you make the mistake of "
+    "looking down.  Struck by vertigo, you cling to the tree for a few "
+    "moments, then slowly climb back down.\n"
+)
 
 
 class ClimbHandle(FakeHandle):
-    """Each climb answers from a script: "refused" delivers the two
-    captured lines and no compass frame; "ok" lands the climb."""
+    """Each climb answers from a script: "refused" / "vertigo" deliver
+    the captured lines and no compass frame; "ok" lands the climb."""
 
-    def __init__(self, uids, answers, standing=True):
+    ANSWERS = {"refused": REFUSAL, "vertigo": VERTIGO}
+    SITTING = "You must be standing to do that.\n"
+
+    def __init__(self, uids, answers):
         super().__init__(uids)
         self.answers = list(answers)
         self.pending = []
-        self.state.indicator = {"IconSTANDING": "y" if standing else "n"}
 
     def put(self, command):
         super().put(command)
-        if command == "stand":
-            self.state.indicator["IconSTANDING"] = "y"
         if command.startswith("climb"):
-            if self.answers.pop(0) == "refused":
-                self.pending = [("", HINDER), ("", REFUSAL)]
-            else:
+            answer = self.answers.pop(0)
+            if answer == "ok":
                 self.state.room_uid = self._uids.pop(0)
                 self.pending = [("compass", "n")]
+            elif answer == "sitting":
+                self.pending = [("", self.SITTING)]  # no hindering line
+            else:
+                self.pending = [("", HINDER), ("", self.ANSWERS[answer])]
 
     def get(self, timeout=None, streams=("",)):
         if timeout == 0:
@@ -150,10 +159,14 @@ def puts_of(handle):
     return [call[1] for call in handle.calls if call[0] == "put"]
 
 
-def test_a_climb_turned_back_for_footing_is_retried_standing_and_unburdened():
-    handle = ClimbHandle(uids=[224006], answers=["refused", "ok"], standing=False)
+def test_a_climb_turned_back_is_retried_standing_and_unburdened():
+    handle = ClimbHandle(uids=[224006], answers=["refused", "ok"])
     handle.state.room_uid = 224005
     assert walker.walk(handle, TREE, [5705], describe="Knife Clan") is True
+    # STAND unconditionally: the refusal sits you down, and the posture
+    # indicator lands after the text the walker reacts to (captured —
+    # both STOWs answered "You must stand first." when STAND was gated
+    # on the indicator). The refusal's roundtime is waited out first.
     assert puts_of(handle) == [
         "climb felled tree",
         "stand",
@@ -161,19 +174,33 @@ def test_a_climb_turned_back_for_footing_is_retried_standing_and_unburdened():
         "stow my vambraces",
         "climb felled tree",
     ]
+    first_climb = handle.calls.index(("put", "climb felled tree"))
+    assert handle.calls[first_climb + 1] == ("waitrt",)
     assert any("stood up, stowed handaxe, vambraces" in echo for echo in handle.echoes)
     assert any("get what you need back out" in echo for echo in handle.echoes)
 
 
-def test_a_standing_character_is_not_told_to_stand():
-    handle = ClimbHandle(uids=[224006], answers=["refused", "ok"], standing=True)
+def test_a_climb_refused_for_sitting_stands_and_retries_without_a_burst():
+    # "You must be standing to do that." (captured 2026-09-11, the climb
+    # sent while the previous refusal had sat the character down).
+    handle = ClimbHandle(uids=[224006], answers=["sitting", "ok"])
     handle.state.room_uid = 224005
     assert walker.walk(handle, TREE, [5705]) is True
-    assert "stand" not in puts_of(handle)
+    assert puts_of(handle) == ["climb felled tree", "stand", "climb felled tree"]
+
+
+def test_vertigo_is_a_refusal_too():
+    # The second wording (captured on the retry itself): "Struck by
+    # vertigo ... then slowly climb back down."
+    handle = ClimbHandle(uids=[224006], answers=["vertigo", "ok"])
+    handle.state.room_uid = 224005
+    assert walker.walk(handle, TREE, [5705]) is True
+    assert puts_of(handle).count("climb felled tree") == 2
+    assert "retreat" not in puts_of(handle)
 
 
 def test_a_climb_turned_back_twice_stops_with_what_would_help():
-    handle = ClimbHandle(uids=[], answers=["refused", "refused"], standing=False)
+    handle = ClimbHandle(uids=[], answers=["refused", "vertigo"])
     handle.state.room_uid = 224005
     assert walker.walk(handle, TREE, [5705], describe="Knife Clan") is False
     puts = puts_of(handle)

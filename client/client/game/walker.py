@@ -25,6 +25,10 @@ ARRIVAL_TIMEOUT = 15  # seconds for the compass frame after a move
 # hinders; "Your oak-hafted handaxe and plate vambraces make the climb
 # more difficult." The second is the refusal.
 CLIMB_REFUSALS = ("footing is questionable", "climb back down")
+# A climb (or a stow) attempted sitting — what a turned-back climb
+# leaves you — answers with these (captured on the retry, 2026-09-11);
+# the same retry, which STANDs first, is the remedy.
+POSTURE_REFUSALS = ("You must be standing", "You must stand first")
 _HINDERS = re.compile(r"Your (.+?) makes? the climb more difficult")
 
 
@@ -123,35 +127,28 @@ def await_arrival(s, timeout=ARRIVAL_TIMEOUT):
         if stream:
             continue  # a dock's stream: not the story
         hindering.extend(hindering_nouns(text))
-        if any(needle in text for needle in CLIMB_REFUSALS):
+        if any(needle in text for needle in CLIMB_REFUSALS + POSTURE_REFUSALS):
             return "refused", hindering
 
 
-def _standing(state):
-    indicators = getattr(state, "indicator", None) or {}
-    return indicators.get("IconSTANDING") == "y"
-
-
 def retry_climb(s, command, hindering):
-    """The one retry a turned-back climb gets: on your feet (a failed
-    climb can leave you sitting — captured), the hindering items stowed
-    (a worn piece answers STOW with a refusal, harmless), the climb
-    again. Returns await_arrival's answer for the retry."""
-    steps = []
-    if not _standing(s.state):
-        s.put("stand")
-        s.waitrt()
-        steps.append("stood up")
+    """The one retry a turned-back climb gets: the refusal's roundtime
+    waited out, STAND (a failed climb sits you down, and the posture
+    indicator lands a beat after the refusal text — reading it at once
+    said "standing" and both STOWs answered "You must stand first.",
+    captured 2026-09-11; standing already, STAND is harmless), the
+    hindering items stowed (a worn piece answers STOW with a refusal,
+    harmless), the climb again. Returns await_arrival's answer."""
+    s.waitrt()
+    s.put("stand")
+    s.waitrt()
+    steps = ["stood up"]
     for noun in hindering:
         s.put(f"stow my {noun}")
         s.waitrt()
     if hindering:
         steps.append("stowed " + ", ".join(hindering))
-    s.echo(
-        "the climb was turned back for footing — "
-        + (", ".join(steps) + ", " if steps else "")
-        + "trying it once more"
-    )
+    s.echo(f"the climb was turned back — {', '.join(steps)}, trying it once more")
     while s.get(timeout=0, streams=("compass",)) is not None:
         pass
     s.put(command)

@@ -60,18 +60,30 @@ Your oak-hafted handaxe and plate vambraces make the climb more difficult.
 You pick your way up the tree, but reach a point where your footing is questionable.  Reluctantly, you climb back down.
 ```
 
-No room change follows, and the character was left sitting. The
-walker reads the story while it waits for the compass frame, so a
+A second wording came on the retry, same shape, same ending:
+
+```
+You make your way up the tree.  Partway up, you make the mistake of looking down.  Struck by vertigo, you cling to the tree for a few moments, then slowly climb back down.
+```
+
+No room change follows, and each refusal sits the character down.
+The walker reads the story while it waits for the compass frame, so a
 refusal is recognised at once instead of after the 15-second stall:
-it stands when the posture indicator says otherwise, STOWs each item
-the first line names (the noun is the last word; a worn piece answers
-with a harmless refusal), and climbs once more. A second refusal stops
-the walk with the load and the choices — shed it, train Athletics
-(`;athletics` lists the tree itself as a rank 0–19 rung), or take the
-long way — rather than "stalled". A refusal that names nothing
-retries bare. The two wordings above are the fixtures; "climb back
-down" alone is the refusal signal, and other climbs' wordings are
-unknown until captured (#157).
+it waits the refusal's roundtime out, STANDs (unconditionally: the
+posture indicator lands a beat after the refusal text, and a STAND
+gated on it read "standing", after which both STOWs answered "You
+must stand first." and the climb "You must be standing to do that." —
+captured), STOWs each item the first line names (the noun is the last
+word; a worn piece answers with a harmless refusal), and climbs once
+more. Those two posture refusals count as a turned-back climb too, so
+a character who starts a step sitting is stood up rather than
+bursted at. A second refusal stops the walk with the load and the
+choices — shed it, train Athletics (`;athletics` lists the tree
+itself as a rank 0–19 rung, though the Paladin above failed it at
+rank 7 in plate), or take the long way — rather than "stalled". A
+refusal that names nothing retries bare. The wordings above are the
+fixtures; "climb back down" is the refusal signal, and other climbs'
+wordings are unknown until captured (#157).
 
 ## Edges the map can and cannot walk
 

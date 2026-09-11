@@ -31,6 +31,12 @@ lessons the code and docs cannot carry themselves.
   .parents[n]` in it silently: the script engine's REPO_SCRIPTS_DIR
   pointed at `client/` instead of the repo after the engine/ move, and
   only its test noticed. Grep `__file__` in whatever moves.
+- Parsed state lags the story line that announces the change: a
+  failed climb's text arrives before the `<indicator>` that says the
+  character is now sitting, so a script reacting to the text and
+  reading the posture indicator at once sees the old posture (the
+  walker's retry, 2026-09-11). Wait the roundtime out, or send the
+  corrective command unconditionally when it is harmless (STAND).
 - Generated data modules get `# fmt: off` / `# fmt: on` around the
   literal so `ruff format --check` and the generator agree.
 - Windows: a running session never sees edits to `client/` modules
