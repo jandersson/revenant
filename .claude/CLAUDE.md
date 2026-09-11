@@ -101,7 +101,9 @@ for `client/client/<pkg>/x.py`.
 - `client/game/climbs.py`, `circles.py`, `eltime.py`, `inventory.py`,
   `history.py`; `client/ui/textfont.py`, `window_layout.py`,
   `streamroute.py`, `maplayout.py`, `command_history.py`,
-  `crashguard.py`, `highlights.py`, `inputfocus.py`;
+  `crashguard.py`, `highlights.py`, `inputfocus.py`, `roomids.py`
+  (the map id after the room title, paired with the "room" frame in
+  either arrival order; setting `show_room_ids`);
   `client/engine/reader.py`, `roster.py`, `lnet_login.py`;
   `client/settings.py` — Qt-free logic with the tests; the GUI only
   draws.

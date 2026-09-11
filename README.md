@@ -37,14 +37,14 @@ powershell -ExecutionPolicy Bypass -File tools/install_shortcut.ps1
 
 One session per character, any number of windows attached to it, lich-style. The session logs in, owns the game socket, serves parsed text to every attached frontend over localhost, and hosts the script engine: `;list`, `;run <name>`, `;stop <name>`, `;help <name>`. A script is a `main(s)` in [scripts/](scripts/), reloaded from disk every time it starts; [docs/scripting.md](docs/scripting.md) is the guide.
 
-The window shows the game's own styling (amber room names, blue speech, bold alerts, clickable command links) and keeps the rest in docks:
+The window shows the game's own styling (amber room names, blue speech, bold alerts, clickable command links), adds the map's room id after each room name — `[The Crossing, Town Green] (1420)`, the id `;go2` takes; a setting — and keeps the rest in docks:
 
 - **Experience** — a live skill dashboard, rank and percent and mindstate per learning skill.
 - **Map** — the community map drawn around you as you move; click a room to walk there with `;go2`.
 - **Compass, Clocks, Thoughts, Arrivals, Deaths** — exits you can click, Elanthian date and moons beside Stockholm and Chicago, and the game's side streams each in a window of their own.
 - **Around the input line** — roundtime and casttime counting down from the game's own timestamps, vitals bars, a status strip with posture, stunned, bleeding, hidden and a red DEAD, and shell-style command history.
 
-File → Settings covers the font, the autostarts, and whether closing the window quits the game. Highlight patterns of your own live in `~/.revenant/highlights.json`.
+File → Settings covers the font, the autostarts, the room ids, and whether closing the window quits the game. Highlight patterns of your own live in `~/.revenant/highlights.json`.
 
 Bundled scripts: `;go2` travel on the community map, `;xp` and `;sheet` history logging, `;deathwatch` for unattended deaths, `;tend` for bleeders, `;clock` for the Elanthian calendar, `;circle` for what gates your next circle, `;athletics`, `;favors`, `;mechlore`, `;wealth`, `;survey`, `;hunt` (a training loop driven by a per-character profile, File → Character Profile…), `;train` (the orchestrator: runs the trainers a per-character plan names until each skill's mindstate fills, then rests in a safe room until it drains), and `;lnet`. `;help` lists them with their manuals.
 

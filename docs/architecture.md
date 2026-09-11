@@ -228,7 +228,12 @@ entries from a dock-layout module.
   `client/gui/map_dock.py`; click a room to ;go2 it; docked on the
   right with a 320px size hint, the scene padded by half a viewport
   so the current room always centres — alone on the left with no
-  hint it opened as a clipped strip, #146); the clocks dock ticks
+  hint it opened as a clipped strip, #146); the room the dock resolves
+  is also appended, dim, to the story's room-title line — "[Town
+  Green] (1420)", the id ;go2 takes, Lich's roomnumbers idea — when
+  `show_room_ids` is on, the Qt-free `client/ui/roomids.py` pairing
+  the title line with the "room" frame in either arrival order since
+  the <nav> uid can land a line before the title (#156); the clocks dock ticks
   Elanthian time, moons, Stockholm/Chicago, and (via a Settings toggle)
   Earth's moon; roundtime/casttime count down beside the input line
   under a row of vitals bars (health/fatigue/spirit/concentration,

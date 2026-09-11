@@ -23,6 +23,7 @@ The rule for the list: an entry names a specific source that a script, module or
 | `;xp`, the Experience dock, beholder | [Elanthipedia: Experience](https://elanthipedia.play.net/Experience) | Mindstates, the learning-rate model and the exp window's columns. See [experience.md](experience.md). |
 | `client/engine/xml_data.py`, [protocol.md](protocol.md) | The [Wrayth protocol](https://gswiki.play.net/Wrayth_protocol) page on the GemStone wiki | The tag grammar the parser implements; DragonRealms' own stream, component and indicator ids come from captured traffic. |
 | [combat.md](combat.md) | [Elanthipedia: Combat 101](https://elanthipedia.play.net/Combat_101), [Stance](https://elanthipedia.play.net/Stance) | The engagement and retreat model the walker's burst-through follows. |
+| The room id after the room title, `client/ui/roomids.py` | Lich's `;roomnumbers` script (shipped through [Lich](https://github.com/elanthia-online/lich-5)'s own script repository, not on GitHub) | The idea: the map id appended to the room title so `;go2` targets read straight off the story. Nothing ported; the pairing of title line and "room" frame is ours. |
 | `launcher/` | [Lich](https://github.com/elanthia-online/lich-5) and [ProfanityFE](https://github.com/elanthia-online/ProfanityFE) | Starts the Ruby toolchain headless and attaches Profanity; a bridge to those projects, not a reimplementation. |
 
 ## Whole-project influences

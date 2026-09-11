@@ -44,6 +44,7 @@ from client.gui.map_dock import MapView
 from client.gui.text_views import GameTextView, font_for, style_experience_view
 from client.ui.highlights import highlights_path, load_rules, spans
 from client.ui.inputfocus import click_focuses_input, forwardable
+from client.ui.roomids import RoomIdTracker, room_id_suffix
 from client.engine.session import (
     AttachedEngine,
     DEFAULT_HOST,
@@ -132,6 +133,12 @@ class ClientGUI(QMainWindow, ClientLogger):
         # character and must not stomp a live arrangement.
         self._character = character or None
         self._layout_applied = False
+        # The map room id after each room title (client/ui/roomids.py):
+        # a cursor parked at the end of the last title line, filled in
+        # when the Map dock has resolved the room, if Settings say so.
+        self._room_ids = RoomIdTracker()
+        self._title_cursor = None
+        self._show_room_ids = bool(setting("show_room_ids"))
         self.client = engine if engine is not None else Engine()
         self.__init_ui()
         self.game_text.connect(self.dispatch_game_text)
@@ -241,7 +248,17 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.map_view = MapView(send=self.write)
         self._dock("Map", self.map_view)
         self.map_ready.connect(self.map_view.set_database)
+        # After the dock has the database (the slot above runs first),
+        # a title shown while it was still loading gets its id.
+        self.map_ready.connect(self._map_loaded)
         Thread(target=self._load_map_database, daemon=True).start()
+
+    def _map_loaded(self, db, local_ids):
+        self._annotate_title(
+            self._room_ids.room_resolved(
+                self.map_view.room_id, self.map_view.room_title
+            )
+        )
 
     def _load_map_database(self):
         """Worker: load the community map (plus the survey overlay's ids)
@@ -468,6 +485,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         save_settings(dialog.values())
         self._apply_text_font()
         self.clocks.reload_settings()
+        self._show_room_ids = bool(setting("show_room_ids"))
         self.status_bar.showMessage(f"Settings saved to {settings_path()}")
 
     def edit_profile(self):
@@ -607,6 +625,9 @@ class ClientGUI(QMainWindow, ClientLogger):
             uid_text, _, title = text.partition("\t")
             uid = int(uid_text) if uid_text.strip().isdigit() else None
             self.map_view.update_room(uid, title.strip())
+            self._annotate_title(
+                self._room_ids.room_resolved(self.map_view.room_id, title.strip())
+            )
             return
         # An undocked stream's text still belongs in the main window;
         # only the clear control above is stream-exclusive.
@@ -656,6 +677,28 @@ class ClientGUI(QMainWindow, ClientLogger):
             cursor.insertText(text[start:end], highlight_format)
             position = end
         cursor.insertText(text[position:], text_format)
+        if follow:
+            scrollbar.setValue(scrollbar.maximum())
+        if view is self.main_window and style == "roomName":
+            # Park a cursor before the title's newline; the map id lands
+            # there once the room is resolved (or now, if it already is).
+            anchor = QTextCursor(view.document())
+            anchor.setPosition(cursor.position() - (1 if text.endswith("\n") else 0))
+            self._title_cursor = anchor
+            self._annotate_title(self._room_ids.title_shown(text))
+
+    def _annotate_title(self, room_id):
+        """Append " (1420)" to the last room title, once, when Settings
+        show room ids and the tracker handed an id back."""
+        if room_id is None or not self._show_room_ids or self._title_cursor is None:
+            return
+        view = self.main_window
+        scrollbar = view.verticalScrollBar()
+        follow = scrollbar.value() >= scrollbar.maximum() - 4
+        dim = QTextCharFormat()
+        dim.setForeground(QColor(self.STYLE_FORMATS["sent"][1]))
+        self._title_cursor.insertText(room_id_suffix(room_id), dim)
+        self._title_cursor = None
         if follow:
             scrollbar.setValue(scrollbar.maximum())
 

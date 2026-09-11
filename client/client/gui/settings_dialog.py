@@ -62,6 +62,10 @@ class SettingsDialog(QDialog):
             "Show Earth's moon in the clocks dock (for fun)"
         )
         self.clocks_earth_moon.setChecked(bool(settings.get("clocks_earth_moon")))
+        self.show_room_ids = QCheckBox(
+            "Show the map room id after each room name (the id ;go2 takes)"
+        )
+        self.show_room_ids.setChecked(bool(settings.get("show_room_ids")))
         self.dev_mode = QCheckBox(
             "Developer mode: report script starts that are slow to load"
         )
@@ -128,6 +132,7 @@ class SettingsDialog(QDialog):
             self.quit_on_close,
             self.answer_idle_warning,
             self.clocks_earth_moon,
+            self.show_room_ids,
             self.dev_mode,
             self.allow_external_send,
             extra_label,
@@ -159,6 +164,7 @@ class SettingsDialog(QDialog):
             "quit_on_close": self.quit_on_close.isChecked(),
             "answer_idle_warning": self.answer_idle_warning.isChecked(),
             "clocks_earth_moon": self.clocks_earth_moon.isChecked(),
+            "show_room_ids": self.show_room_ids.isChecked(),
             "dev_mode": self.dev_mode.isChecked(),
             "allow_external_send": self.allow_external_send.isChecked(),
             "font_family": self.font_family.currentFont().family(),

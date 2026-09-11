@@ -26,6 +26,10 @@ DEFAULTS = {
     "eltime_moons": {},  # ;clock's moon anchors: {moon: new-moon unix time}
     "eltime_moon_rises": {},  # ;clock watch's orbit anchors: {moon: rise unix time}
     "clocks_earth_moon": False,  # the for-fun Earth moon row in the clocks dock
+    # The map room id after each room name in the story — "[Town
+    # Green] (1420)", the id ;go2 takes — resolved by the Map dock
+    # (client/ui/roomids.py). Rooms off the map get nothing.
+    "show_room_ids": True,
     # Developer mode: the script engine reports a script start that took
     # long to load (helper reloads included). REVENANT_DEV=1 turns it on
     # for one launch.

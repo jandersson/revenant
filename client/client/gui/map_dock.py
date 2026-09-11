@@ -73,6 +73,18 @@ class MapView(QGraphicsView):
 
     # -- data feeds ------------------------------------------------------
 
+    @property
+    def room_id(self):
+        """The map id the last "room" frame resolved to; None off the
+        map or before the database loaded. The window reads it to
+        annotate the room title (client/ui/roomids.py)."""
+        return self._room
+
+    @property
+    def room_title(self):
+        """The title of the last "room" frame, resolved or not."""
+        return self._pending[1] if self._pending else None
+
     def set_database(self, db, local_ids):
         """The loader thread's delivery; None means no database on disk."""
         if db is None:
