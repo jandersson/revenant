@@ -28,7 +28,7 @@ A session is a detachable daemon that logs in and owns the game socket; the wind
 
 ![The character picker: your roster in a list, Play, Switch account, Cancel](launcher.png)
 
-`tools/install_shortcut.ps1` installs a Start Menu shortcut (pin it to the taskbar from there) that launches windowless: pick a character from your roster and play, or *Switch account…* to log in as a different account. Running sessions sit at the top under their own header, in amber, and say how many windows they have — "Cecil — online, no window" is a session you detached from, and the picker opens on it (#158); the roster below lists everyone else, alphabetically per account. `tools/make_icon.py` regenerates the icon from `revenant.svg`.
+`tools/install_shortcut.ps1` installs a Start Menu shortcut (pin it to the taskbar from there) that launches windowless: pick a character from your roster and play, or *Switch account…* to log in as a different account. Running sessions sit at the top under their own header, in amber, and say how many windows they have — "Lanival — online, no window" is a session you detached from, and the picker opens on it (#158); the roster below lists everyone else, alphabetically per account. `tools/make_icon.py` regenerates the icon from `revenant.svg`.
 
 ## Closing the window: quit or detach?
 

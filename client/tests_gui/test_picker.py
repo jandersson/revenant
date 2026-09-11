@@ -6,7 +6,7 @@ from PyQt6.QtCore import Qt
 
 from client.gui.login_dialog import ONLINE_COLOR, CharacterPicker
 
-ROSTER = ["Cecil — online, no window", "Alvin", "Cecil", "Zalvan"]
+ROSTER = ["Lanival — online, no window", "Sable", "Lanival", "Uthmor"]
 
 
 def rows(picker):
@@ -18,14 +18,14 @@ def selectable(picker, index):
 
 
 def test_online_rows_sit_under_their_own_header_above_the_roster(qapp):
-    picker = CharacterPicker(ROSTER, "Alvin", "", online=[ROSTER[0]])
+    picker = CharacterPicker(ROSTER, "Sable", "", online=[ROSTER[0]])
     assert rows(picker) == [
         "Online — attach",
-        "Cecil — online, no window",
+        "Lanival — online, no window",
         "Log in as",
-        "Alvin",
-        "Cecil",
-        "Zalvan",
+        "Sable",
+        "Lanival",
+        "Uthmor",
     ]
     assert not selectable(picker, 0) and not selectable(picker, 2)
     assert selectable(picker, 1)
@@ -47,7 +47,7 @@ def test_the_default_row_is_selected_and_a_header_never_is(qapp):
 
 
 def test_without_running_sessions_the_roster_is_plain(qapp):
-    picker = CharacterPicker(["Alvin", "Cecil"], "Cecil", "")
-    assert rows(picker) == ["Alvin", "Cecil"]
-    assert picker.list.currentItem().text() == "Cecil"
+    picker = CharacterPicker(["Sable", "Lanival"], "Lanival", "")
+    assert rows(picker) == ["Sable", "Lanival"]
+    assert picker.list.currentItem().text() == "Lanival"
     assert not picker.list.item(1).font().bold()

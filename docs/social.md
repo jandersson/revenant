@@ -17,7 +17,7 @@ knows the bank teller and the gates) and
 
 ```
 GIVE <person> <#> <metal>              the province's currency
-GIVE <person> <#> <metal> <currency>   e.g. GIVE Cecil 2 plat Kronars
+GIVE <person> <#> <metal> <currency>   e.g. GIVE Lanival 2 plat Kronars
 ```
 
 No ACCEPT is needed for coins (items need one). Two things refuse
@@ -26,8 +26,8 @@ the recipient's AVOID COINS flag, and a giver whose provincial debt
 is too great. The refusal is shown to the giver only — captured:
 
 ```
-> give cecil 2 plat
-Cecil is not interested in taking coins from you.
+> give lanival 2 plat
+Lanival is not interested in taking coins from you.
 ```
 
 and the recipient sees nothing at all.
