@@ -20,6 +20,13 @@ lessons the code and docs cannot carry themselves.
   count (a stop-word grace sleeps once a second): hold the last state
   once the timeline is dry and end the run on a sleep budget instead
   (`test_train_script.py`'s Fake). Two ;train tests failed that way.
+- Offscreen PyQt6 tests (`client/tests_gui`) can pass every test and
+  still exit 139: anything that keeps a widget alive past the
+  QApplication (a reader thread whose stub `read()` never raises
+  EOFError, a widget left for shutdown GC) segfaults at interpreter
+  exit on Linux and macOS, never on Windows. End every thread, join
+  it, and `deleteLater()` plus a flush in the fixture teardown; the
+  conftest's widget sweep exists for this.
 - Generated data modules get `# fmt: off` / `# fmt: on` around the
   literal so `ruff format --check` and the generator agree.
 - Windows: a running session never sees edits to `client/` modules
