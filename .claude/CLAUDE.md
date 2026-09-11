@@ -83,7 +83,11 @@ for `client/client/<pkg>/x.py`.
 - `client/game/wounds.py` — HEALTH parsed into wounds by area, severity
   (1-8) and kind; `wounds_data.py` is generated from the wiki by
   `tools/wound_tables.py`, never hand-edited. `;tend` and `;hunt`'s
-  wound floor read it. Model: docs/wounds.md.
+  wound floor read it. Model: docs/wounds.md. `client/game/herbs.py`
+  answers a parsed wound with the herbs that treat it and the shops
+  that stock them (`herbs_data.py`, generated from the wiki by
+  `tools/herb_tables.py`); Knife Clan's remedy cookies and the retired
+  NPC healer are captured there. Model: docs/healing.md.
 - `client/game/profile.py` — per-character profiles
   (`~/.revenant/profiles/<name>.json`): the quirks `;hunt` must not
   hard-code (weapon, stance, skin, pouch, floor, ground, home). FIELDS
