@@ -68,9 +68,35 @@ run is a Kronar problem before it is a healing one.
 ## Empaths
 
 Player Empaths heal by touch and take the wounds onto themselves; the
-Crossing guild is where to find one. Not data, not automated, and the
-only answer to internal damage a low-circle character has besides
-time.
+Crossing guild is where to find one, and asking works. Captured
+2026-09-11 in `[Empaths' Guild, Courtyard Garden]` (map room 5713, uid
+14002 — a `;go2 5713` from anywhere in town), a circle-1 Paladin with
+minor abrasions from the felled tree, names replaced with the
+synthetic cast:
+
+```
+You say, "Hey folks - anyone able to remove the bruises from my rat hunting attempts."
+Sable whispers, "need healing?"
+Sable rests her hand on your arm with a soft smile.
+You feel a warmth radiate from Sable's touch.
+You have a brief sensation that leaves your wounds tingling.
+Your external head, neck, right arm, left arm, right leg, left leg, chest, abdomen and back wounds feel fully healed.
+Your internal head, neck, right arm, left arm, right leg, left leg, chest, abdomen and back wounds feel fully healed.
+Your external head, neck, right arm, left arm, right leg, left leg, chest, abdomen and back scars feel fully healed.
+Your internal head, neck, right arm, left arm, right leg, left leg, chest, abdomen and back scars feel fully healed.
+Sable whispers, "what was once yours is now mine"
+Gushing geysers of bright blue and white energy spring up from under Sable's feet, enwreathing her body with a cool glow.  Her body twists and shakes as flesh and bone regrow immediately, leaving Sable completely healed.
+```
+
+One sentence aloud in the courtyard, an offer by whisper within a
+minute, a touch, and four lines that say every area and every kind
+is clean — the Empath's "what was once yours is now mine" is literal:
+the wounds went to her, and she cleared them off herself a moment
+later. Free, complete, internal damage and scars included, which no
+herb or cookie matches for a circle 1. The four "feel fully healed"
+lines are the signal a script would watch for; the guild courtyard is
+where to send `;go2` for it. Not data, not automated: an Empath is a
+person, and the ask is a sentence, not a command.
 
 ## What a healing script would do
 
