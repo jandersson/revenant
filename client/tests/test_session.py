@@ -724,7 +724,12 @@ def test_reexec_argv_carries_host_and_port_before_the_handoff_flag():
 def test_a_shared_socket_line_becomes_a_game_connection(monkeypatch):
     ours, theirs = socket.socketpair()
     try:
-        monkeypatch.setattr(session.socket, "fromshare", lambda blob: theirs)
+        # socket.fromshare exists only on Windows; raising=False lets the
+        # stand-in exist everywhere, since adopt_shared_game's own
+        # logic (the base64 line, the buffered tail) is platform-free.
+        monkeypatch.setattr(
+            session.socket, "fromshare", lambda blob: theirs, raising=False
+        )
         game = session.adopt_shared_game(
             base64.b64encode(b"opaque-share-bytes").decode() + "\n", initial=b"tail"
         )
