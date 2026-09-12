@@ -675,3 +675,64 @@ def test_a_rotation_walks_to_each_stop_before_climbing():
     puts = [c[1] for c in handle.calls if c[0] == "put"]
     assert walks[:2] == [[835], [1035]]
     assert puts[:2] == ["climb embrasure", "climb wall"]
+
+
+# --- the game's practice verdict, and the wait filler (#177) ----------------
+
+
+def test_the_games_practice_verdict_moves_the_ladder_at_once():
+    # dr-scripts' flags: "This climb is too difficult" means a rung down,
+    # "no challenge at all, so you stop practicing" a rung up — read at
+    # once instead of waiting for stale reports.
+    hard = PracticeHandle(
+        (), mindstates=(5,), sleeps=8, response="This climb is too difficult."
+    )
+    result = athletics.train(
+        hard, ["climb practice embrasure"], practice=True, stop_when_stale=True
+    )
+    assert result == "too_hard"
+    assert any("too difficult" in echo for echo in hard.echoes)
+
+    easy = PracticeHandle(
+        (),
+        mindstates=(5,),
+        sleeps=8,
+        response="This climb is no challenge at all, so you stop practicing.",
+    )
+    result = athletics.train(
+        easy, ["climb practice embrasure"], practice=True, stop_when_stale=True
+    )
+    assert result == "stale"
+
+
+def test_the_award_timer_wait_casts_the_profiles_buffs(monkeypatch):
+    from client.game import buffs
+    from client.game.profile import DEFAULTS as PROFILE_DEFAULTS
+
+    monkeypatch.setattr(athletics, "COLLECT_SECONDS", 0.01)
+    monkeypatch.setattr(athletics, "TAIL_SECONDS", 0.01)
+    monkeypatch.setattr(buffs, "PREPARE_SECONDS", 0.01)
+    profile = dict(PROFILE_DEFAULTS) | {"buffs": ["heroic strength"]}
+    monkeypatch.setattr("client.game.profile.load_profile", lambda name: profile)
+
+    handle = FakeHandle((), mindstates=(5,), sleeps=30)
+    fill = athletics.wait_filler(handle)
+    assert fill is not None
+    with pytest.raises(LoopDone):
+        athletics.train(
+            handle,
+            ["climb up", "climb down"],
+            pace=athletics.CLIMB_TIMER_PACE,
+            filler=fill,
+        )
+    puts = [call[1] for call in handle.calls if call[0] == "put"]
+    assert "prepare heroic strength" in puts
+    assert "cast" in puts
+    # Cast once and remembered: the next wait does not cast it again
+    # while the buff is younger than BUFF_MINUTES.
+    assert puts.count("prepare heroic strength") == 1
+
+    monkeypatch.setattr(
+        "client.game.profile.load_profile", lambda name: PROFILE_DEFAULTS
+    )
+    assert athletics.wait_filler(handle) is None

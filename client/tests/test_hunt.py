@@ -13,6 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from client.game import buffs
 from client.game.mapdb import MapDB
 from client.game.profile import DEFAULTS
 
@@ -34,8 +35,8 @@ hunt.TAIL_SECONDS = 0.01
 hunt.SETTLE_SECONDS = 0.0
 hunt.EMPTY_ROOM_WAIT = 0
 hunt.ADVANCE_WAIT = 0.01
-hunt.PREPARE_SECONDS = 0.01
-hunt.CAST_GAP_SECONDS = 0
+buffs.PREPARE_SECONDS = 0.01
+buffs.CAST_GAP_SECONDS = 0
 
 YARD = "[Barana's Shipyard, Lumber Storage]"
 GROUND = MapDB(

@@ -37,7 +37,7 @@ Stop with:  ;stop athletics
 import re
 import time
 
-from client.game import climbs
+from client.game import buffs, climbs, probe
 
 MIND_LOCK = 34  # mindstate 34/34: nothing more fits
 RESUME_BELOW = 28  # resume once enough has drained to be worth the laps
@@ -55,6 +55,8 @@ DANGER_POLL = 5  # seconds between checks while holding
 CLEAR_HOLD = 15  # breather after hostiles clear, before resuming
 CONTESTED_LIMIT = 3  # hostile break-offs inside the window = contested
 CONTESTED_WINDOW = 600  # seconds the break-off count looks back over
+COLLECT_SECONDS = 3  # a cast's answer window (client/game/probe.py)
+TAIL_SECONDS = 1.5
 
 # The rank ladder and its advice rows live in client/game/climbs.py,
 # keyed to the community map (#87) — one table for every map-aware
@@ -399,15 +401,28 @@ PRACTICE_ACTIVE = (
 )
 PRACTICE_ENDED = ("you stop practicing", "no longer practicing")
 PRACTICE_REASSERT = 120  # seconds between re-sends while it looks active
+# The game's own verdict on a practice obstacle (dr-scripts' flags,
+# #177; wordings as its Flags name them, unobserved here): too hard
+# means one rung down, no challenge means the next rung up — at once,
+# not after minutes of stale reports.
+PRACTICE_TOO_HARD = ("climb is too difficult",)
+PRACTICE_TOO_EASY = ("no challenge at all",)
 
 
 def practice_seen(s, practicing):
-    """Scan queued game lines for the practice activity's state (#89)."""
+    """Scan queued game lines for the practice activity's state (#89):
+    (practicing, verdict) — the verdict "too_hard" or "too_easy" when
+    the game passed one on the obstacle, else None."""
+    verdict = None
     while True:
         line = s.get(timeout=0)
         if line is None:
-            return practicing
+            return practicing, verdict
         lowered = line.lower()
+        if any(needle in lowered for needle in PRACTICE_TOO_HARD):
+            verdict = "too_hard"
+        elif any(needle in lowered for needle in PRACTICE_TOO_EASY):
+            verdict = "too_easy"
         if any(needle in lowered for needle in PRACTICE_ACTIVE):
             practicing = True
         elif any(needle in lowered for needle in PRACTICE_ENDED):
@@ -436,6 +451,7 @@ def train(
     practice=False,
     db=None,
     walk=None,
+    filler=None,
 ):
     """Cycle the movement commands, pausing at mind-lock. Returns
     "contested" when hostiles keep breaking the training (#86); with
@@ -491,7 +507,16 @@ def train(
                 practicing = False  # the escape moved us; practice ended
                 break  # start the lap over with fresh state
             if practice:
-                practicing = practice_seen(s, practicing)
+                practicing, verdict = practice_seen(s, practicing)
+                if verdict == "too_hard":
+                    s.echo("ATHLETICS: the game calls this climb too difficult")
+                    return "too_hard"
+                if verdict == "too_easy":
+                    s.echo("ATHLETICS: the game calls this climb no challenge")
+                    if stop_when_stale:
+                        return "stale"
+                    for line in recommendations(current_rank(s.state)):
+                        s.echo(line)
                 now = time.monotonic()
                 if not practicing or now - last_assert >= PRACTICE_REASSERT:
                     s.put(command)
@@ -517,6 +542,8 @@ def train(
             # The award-timer wait, at the lap's start room, reacting
             # to trouble within a poll instead of a full window.
             remaining = pace - PAUSE
+            if remaining > 0 and filler is not None:
+                filler(s)  # buffs and training casts ride the wait (#177)
             while remaining > 0:
                 s.sleep(min(DANGER_POLL, remaining))
                 remaining -= DANGER_POLL
@@ -548,6 +575,27 @@ def train(
                 return result
 
 
+def ask(s, command):
+    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
+
+
+def wait_filler(s):
+    """What the award-timer wait does instead of idling: the profile's
+    buffs kept up and its training casts (client/game/buffs.py, the
+    hunt's helpers), or None when the profile names no buff."""
+    from client.game.profile import load_profile
+
+    profile = load_profile(getattr(s.state, "name", None) or "")
+    if not profile["buffs"]:
+        return None
+    state = buffs.BuffState()
+
+    def fill(s):
+        buffs.cast_buffs(s, profile, state, ask, "ATHLETICS")
+
+    return fill
+
+
 def auto_train(s, db=None, walk=None):
     """The no-arguments mode: walk to the optimal rung and train it,
     moving up the ladder when a rung goes stale."""
@@ -566,6 +614,7 @@ def auto_train(s, db=None, walk=None):
         rank = probe_rank(s)
     empty_hands(s)
     check_burden(s)
+    filler = wait_filler(s)
     rung = optimal_rung(rank)
     if rung is None:
         s.echo(f"no ladder rung fits rank {rank} — train manually (;help athletics)")
@@ -606,11 +655,12 @@ def auto_train(s, db=None, walk=None):
             practice=practice_rung,
             db=db,
             walk=walk,
+            filler=filler,
         )
         if result == "danger":
             return
         rank = current_rank(s.state) or rank
-        if result == "contested":
+        if result in ("contested", "too_hard"):
             contested.add(rung["label"])
             rung = fall_back(s, rank, contested)
             if rung is None:

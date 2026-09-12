@@ -38,9 +38,8 @@ cut: melee, one opponent at a time, no offensive magic or ranged (#149).
 """
 
 import re
-from time import monotonic
 
-from client.game import probe
+from client.game import buffs, probe
 from client.game.probe import classify
 from client.game.profile import describe, load_profile
 from client.game.walker import locate, walk
@@ -168,44 +167,6 @@ BUNDLE_OUTCOMES = (
 )
 _MISSING = ("what were you referring",)
 
-# Buffs (the profile's `buffs`): PREPARE, then CAST once the pattern is
-# ready. Captured 2026-09-12 with Heroic Strength on a circle-1
-# Paladin: "You begin chanting a prayer to invoke the Heroic Strength
-# spell." / "You gesture." / "The spell takes effect, the invisible
-# flame of your soul intertwining with your flesh." A cast ten seconds
-# after the prepare went through at minimum mana. The Spells window
-# (state.active_spells, client/engine/xml_data.py) says when a buff has
-# run out; a session whose parser predates that state re-casts every
-# BUFF_MINUTES, the wiki's shortest duration for the intro buffs. The
-# failure wordings are assumptions until captured.
-PREPARE_SECONDS = 8  # from "begin chanting" to a castable pattern
-BUFF_MINUTES = 10
-PREPARE_OUTCOMES = (
-    (
-        "failed",
-        ("don't know", "unable to", "can't prepare", "cannot prepare", "no such"),
-    ),
-    # Too much mana asked for (the wiki's Prepare page wording; not
-    # yet observed here): the pattern is prepared but may not cast.
-    ("strain", ("have to strain",)),
-    ("ok", ("you begin", "gathering energy", "prepar")),
-)
-# Training casts (the profile's `train_casting`): the first buff recast
-# between swings while the skill sits below lock. Elanthipedia's magic
-# category: "fewer but larger spellcasts are more efficient in terms of
-# experience", so the mana fed grows by MANA_STEP each cast until the
-# strain warning or a collapsed cast, then holds one step under.
-MANA_STEP = 2  # 5 backfired on a circle-1 Paladin (2026-09-12)
-MANA_FLOOR = 40  # % of mana under which no training cast goes out
-CAST_GAP_SECONDS = 20  # between training casts, so the fight goes on
-# A recast of a running buff answers "Your soul and body intertwine
-# tighter, the bond renewed by the spell." after "You gesture."
-# (captured 2026-09-12, the first scripted cast).
-CAST_OUTCOMES = (
-    ("failed", ("pattern collapses", "backfire", "not enough mana", "nothing to cast")),
-    ("ok", ("takes effect", "renewed", "you gesture")),
-)
-
 
 class Tally:
     def __init__(self):
@@ -218,11 +179,7 @@ class Tally:
         # None: no bundle yet, the first skin starts one; True: a bundle
         # is worn; False: no rope (or the bundle refused), skins stowed loose.
         self.bundle = None
-        self.cast_at = {}  # buff -> monotonic() of its last cast
-        self.buffs_off = set()  # buffs that refused this run
-        self.mana = 0  # the next training cast's mana; 0 is the minimum
-        self.mana_cap = None  # one step under the strain, once met
-        self.training_off = False  # even the minimum failed this run
+        self.buffs = buffs.BuffState()  # the casts (client/game/buffs.py)
 
 
 def hostiles(state):
@@ -409,94 +366,17 @@ def make_bundle(s, profile, tally):
     return False
 
 
-def buff_running(s, spell, tally):
-    """True while the buff needs no cast: the Spells window lists it,
-    or — for a parser without that window — its last cast is younger
-    than BUFF_MINUTES."""
-    active = getattr(s.state, "active_spells", None)
-    if isinstance(active, dict):
-        return spell.lower() in {name.lower() for name in active}
-    cast = tally.cast_at.get(spell)
-    return cast is not None and monotonic() - cast < BUFF_MINUTES * 60
-
-
-def cast_once(s, spell, mana, tally):
-    """PREPARE (with a mana amount when given), wait for the pattern,
-    CAST. "refused" (the spell cannot be prepared), "collapsed" (the
-    cast failed), "strained" (cast, but the mana asked was too much) or
-    "ok"."""
-    answer = ask(s, f"prepare {spell} {mana}" if mana else f"prepare {spell}")
-    outcome = classify(answer, PREPARE_OUTCOMES)
-    if outcome == "failed":
-        return "refused"
-    probe.collect(s, PREPARE_SECONDS, until="fully prepared")
-    answer = ask(s, "cast")
-    cast = classify(answer, CAST_OUTCOMES)
-    if cast == "failed":
-        return "collapsed"
-    if cast is None:
-        unrecognized(s, tally, "cast", answer)
-    tally.cast_at[spell] = monotonic()
-    return "strained" if outcome == "strain" else "ok"
-
-
-def training_cast_due(s, profile, tally):
-    """True when the first buff should be recast for the skill named
-    in train_casting: the skill is below lock, mana is above the floor,
-    and the last cast is CAST_GAP_SECONDS old."""
-    skill = profile["train_casting"]
-    if not skill or not profile["buffs"] or tally.training_off:
-        return False
-    if locked(s.state, [skill]):
-        return False
-    mana = (getattr(s.state, "vitals", None) or {}).get("mana")
-    if mana is not None and mana < MANA_FLOOR:
-        return False
-    last = tally.cast_at.get(profile["buffs"][0])
-    return last is None or monotonic() - last >= CAST_GAP_SECONDS
-
-
 def cast_buffs(s, profile, tally):
-    """Every profile buff not running: PREPARE it, wait for the pattern,
-    CAST. A refusal takes that buff off for the run, said once. The
-    first buff is cast again for training when training_cast_due says
-    so, feeding tally.mana, which climbs a step per cast until the
-    strain warning or a collapsed cast and then holds one step under."""
-    for index, spell in enumerate(profile["buffs"]):
-        if spell in tally.buffs_off:
-            continue
-        training = index == 0 and training_cast_due(s, profile, tally)
-        if not training and buff_running(s, spell, tally):
-            continue
-        mana = tally.mana if training else 0
-        result = cast_once(s, spell, mana, tally)
-        if result == "refused":
-            s.echo(f"hunt: cannot prepare {spell} — off for this run")
-            tally.buffs_off.add(spell)
-        elif not training:
-            if result == "collapsed":
-                s.echo(f"hunt: {spell} did not cast — off for this run")
-                tally.buffs_off.add(spell)
-            else:
-                s.echo(f"hunt: cast {spell}")
-        elif result == "ok":
-            s.echo(
-                f"hunt: cast {spell} at {mana or 'minimum'} mana "
-                f"for {profile['train_casting']}"
-            )
-            if tally.mana_cap is None:
-                tally.mana += MANA_STEP
-        elif mana == 0:
-            # Even the minimum failed (a circle-1 Paladin's 5 mana
-            # "barely backfires", 2026-09-12): no more training casts.
-            tally.training_off = True
-            s.echo(f"hunt: {spell} fails at minimum mana — training casts off")
-        else:
-            tally.mana = tally.mana_cap = mana - MANA_STEP
-            s.echo(
-                f"hunt: {spell} at {mana} mana was too much ({result}) — "
-                f"holding at {tally.mana or 'minimum'}"
-            )
+    """The profile's buffs, cast and kept up by client/game/buffs.py
+    with the hunt's answer windows and its unrecognized-answer tally."""
+    buffs.cast_buffs(
+        s,
+        profile,
+        tally.buffs,
+        ask,
+        "hunt",
+        lambda what, answer: unrecognized(s, tally, what, answer),
+    )
 
 
 def bundled(s, profile, tally):

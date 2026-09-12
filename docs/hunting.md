@@ -26,7 +26,7 @@ It holds what no script should hard-code:
 | gem_pouch | finds are tried into the pouch first; what the pouch refuses is stowed like loot |
 | bundle | skins go onto a bundling rope worn as a lumpy bundle: one kept in the loot container is worn before the first swing, the first skin of a run starts one from the rope in that container, every later skin goes straight into the worn bundle as SKIN cuts it (the hand tags are the judge), and `;skins` sells it. No rope: said once, skins stowed loose |
 | buffs | self-cast spells kept up through the hunt: each is PREPAREd and CAST before the weapon is drawn and again, before a swing, whenever the Spells window no longer lists it (a parser without that window re-casts every ten minutes); a refusal drops the spell for the run, said once |
-| train_casting | a magic skill ("Augmentation"): while it sits below mind-lock and mana is above the floor, the first buff is recast between swings, at least twenty seconds apart, with the mana fed rising by five each cast until the game warns of strain (or a cast collapses), then held one step under; at lock, back to casting only when the buff runs out |
+| train_casting | a magic skill ("Augmentation"): while it sits below mind-lock and mana is above the floor, the first buff is recast between swings, at least twenty seconds apart, with the mana fed rising by two each cast from the minimum until the game warns of strain (or a cast fails), then held one step under — a failure at the minimum ends the training casts for the run; at lock, back to casting only when the buff runs out |
 | health_floor | below it: the burst escape (retreat, retreat, first exit), then home |
 | wound_floor | a severity name; HEALTH is asked after each kill and whenever the health bar drops, and a wound that bad or worse anywhere (external, scar, internal, internal scar) breaks off like the health floor. Empty never asks. Model: [wounds.md](wounds.md) |
 | train_skills | the hunt ends when every one of them sits at mindstate 34 in the exp window |
@@ -233,7 +233,9 @@ PREPARE rather than for a wording; and every cast of a Holy buff
 trains Augmentation, so a buffed hunt trains that skill on the side
 (list it in `train_skills` to hunt until it locks). To train it on
 purpose, `train_casting` names the skill and the loop recasts the
-first buff between swings until it locks: Elanthipedia's magic
+first buff between swings until it locks (the casting lives in
+`client/game/buffs.py`, which `;athletics` runs in its award-timer
+waits too): Elanthipedia's magic
 category says every standard cast trains Primary Magic, the spell's
 field and Attunement, and that "fewer but larger spellcasts are more
 efficient in terms of experience than smaller but more frequent

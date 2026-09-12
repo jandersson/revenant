@@ -159,7 +159,11 @@ entries from a dock-layout module.
   search it, keep the profile's buffs cast and recast the first to
   train a magic skill, move along the ground, break off on the health
   or wound floor. `scripts/skins.py` sells the worn bundle at the
-  nearest tannery and keeps the rope. `client/game/discard.py` is the
+  nearest tannery and keeps the rope. `client/game/buffs.py` is the
+  casting the hunt grew — the profile's buffs kept up, the first one
+  recast between actions to train a magic skill with a mana ramp that
+  backs off at the strain warning — shared with `;athletics`, which
+  fills its award-timer waits with it (#177). `client/game/discard.py` is the
   only way a script drops anything: an allowlist of the foraged junk
   ;mechlore braids (grass, grass rope) plus settings.json's
   `droppable`, and a `drop()` that refuses the rest with an echo — a
