@@ -31,9 +31,15 @@ Every start loads the script file fresh from disk, and reloads the
 client/ helper modules scripts lean on (RELOADABLE_MODULES: probe,
 walker, mapdb, inventory, profile, ...) when their files changed since they were
 imported — so a fix in the walker reaches a running session through
-;stop go2 and ;go2, the way lich's common scripts do (#138). Modules
-holding the socket, the parser, or threads never reload; that is
-;reexec's job.
+;stop go2 and ;go2, the way lich's common scripts do (#138). A reload
+is a fresh copy of the module, never a re-execution in place: a
+script already running keeps every function it imported, with the
+globals those functions were written against, and the next start gets
+the new code (#181 — an in-place reload once left ;hunt's old `walk`
+calling the walker's new three-value helper). Modules holding the
+socket, the parser, or threads never reload; that is ;reexec's job.
+A script that crashes is remembered (`s.crashed(name)`) so a driver
+like ;train can tell a crash from a clean exit.
 """
 
 import ast
@@ -46,7 +52,7 @@ import traceback
 from importlib import util as importlib_util
 from pathlib import Path
 from threading import Event, Lock, Thread
-from time import monotonic, perf_counter
+from time import monotonic, perf_counter, strftime
 
 from client.client_logger import ClientLogger
 from client.settings import dev_mode
@@ -107,6 +113,7 @@ class Script:
         self._commands = queue.Queue(maxsize=100)
         self._stop = Event()
         self.thread = None
+        self.started_at = None  # wall clock, for the reload log line (#181)
 
     # -- API for script code --------------------------------------------
 
@@ -282,6 +289,12 @@ class Script:
         if script is not None:
             script.stop()
 
+    def crashed(self, name: str):
+        """How that script's last run died — "ValueError(...) (file:line)"
+        — or None when it exited cleanly, was stopped, or never ran.
+        Cleared when the script starts again (#181)."""
+        return self._manager.crashes.get(name)
+
     # -- plumbing --------------------------------------------------------
 
     def _check(self):
@@ -359,6 +372,21 @@ def _mtime(module):
         return None
 
 
+def _fresh_import(name):
+    """Import `name` as a new module object, leaving the old one to
+    whoever still holds it. On failure the old module is back in
+    sys.modules and on its package, and the error propagates."""
+    old = sys.modules.pop(name)
+    try:
+        return importlib.import_module(name)
+    except BaseException:
+        sys.modules[name] = old
+        parent, _, child = name.rpartition(".")
+        if parent and parent in sys.modules:
+            setattr(sys.modules[parent], child, old)
+        raise
+
+
 class ScriptManager(ClientLogger):
     """Loads, runs, feeds, and stops scripts inside the session."""
 
@@ -382,6 +410,7 @@ class ScriptManager(ClientLogger):
         # Injectable for tests; scripts see time through their manager.
         self.clock = clock or monotonic
         self.running = {}
+        self.crashes = {}  # name -> how its last run died (#181)
         self.lock = Lock()
         # File stamps of the reloadable modules as last imported/reloaded;
         # a module is stamped when first seen imported (#138).
@@ -405,9 +434,13 @@ class ScriptManager(ClientLogger):
         One change reloads every imported reloadable module, in list
         order: a module that binds names from an earlier one (walker
         from mapdb) must re-import them from the fresh copy, and a
-        blanket reload in dependency order needs no import graph. A
-        reload that fails (a syntax error mid-edit) is reported and the
-        module keeps running its last good code."""
+        blanket reload in dependency order needs no import graph. Each
+        reload is a fresh module object (#181): the scripts already
+        running keep the functions they imported and those functions
+        keep the globals they were written against, so an edit that
+        changes a helper's signature cannot reach into a running walk.
+        A reload that fails (a syntax error mid-edit) is reported and
+        the module keeps running its last good code."""
         changed = [
             name
             for name, stamp in self._module_stamps.items()
@@ -415,13 +448,24 @@ class ScriptManager(ClientLogger):
         ]
         if not changed:
             return []
+        with self.lock:
+            keepers = [
+                f"{script.name} (started {script.started_at})"
+                for script in self.running.values()
+                if script.alive
+            ]
+        if keepers:
+            self.log.info(
+                f"reloading {', '.join(changed)} as fresh copies; running scripts "
+                f"keep the code they imported: {', '.join(keepers)}"
+            )
         moved = []
         for name in self.reloadable:
             module = sys.modules.get(name)
             if module is None:
                 continue
             try:
-                importlib.reload(module)
+                _fresh_import(name)
             except ModuleNotFoundError:
                 # The file is gone from where it was imported — the
                 # module moved (a regroup like 63c98c7). One line for
@@ -579,7 +623,14 @@ class ScriptManager(ClientLogger):
         started = perf_counter()
         changed = self.reload_changed()
         if changed:
-            self.emit(f"reloaded {', '.join(changed)} (edited since import)")
+            with self.lock:
+                keepers = [s.name for s in self.running.values() if s.alive]
+            keeping = (
+                f"; {', '.join(keepers)} keeps the code it started with"
+                if keepers
+                else ""
+            )
+            self.emit(f"reloaded {', '.join(changed)} (edited since import){keeping}")
         try:
             spec = importlib_util.spec_from_file_location(
                 f"revenant_script_{name}", path
@@ -596,9 +647,11 @@ class ScriptManager(ClientLogger):
         self._stamp_modules()
         self._report_slow_load(name, perf_counter() - started, changed)
         script = Script(name, args, self)
+        script.started_at = strftime("%H:%M:%S")
         script.thread = Thread(target=self._run, args=(script, entry), daemon=True)
         with self.lock:
             self.running[name] = script
+            self.crashes.pop(name, None)
         script.thread.start()
         return True
 
@@ -620,10 +673,10 @@ class ScriptManager(ClientLogger):
         except Exception as error:
             self.log.exception(f"script {script.name} crashed")
             last_frame = traceback.extract_tb(error.__traceback__)[-1]
-            self.emit(
-                f"{script.name} crashed: {error!r} "
-                f"({last_frame.filename}:{last_frame.lineno})"
-            )
+            where = f"{error!r} ({last_frame.filename}:{last_frame.lineno})"
+            with self.lock:
+                self.crashes[script.name] = where
+            self.emit(f"{script.name} crashed: {where}")
         else:
             self.emit(f"{script.name} exited")
         finally:

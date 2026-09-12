@@ -107,7 +107,14 @@ entries from a dock-layout module.
   textfont — pure logic, reloaded in dependency order when their
   file changed since import, #138), so a script or walker edit
   reaches a running session on any platform via `;stop <name>` and
-  running it again; developer mode (settings `dev_mode` / File →
+  running it again. A reload is a fresh module object, never a
+  re-execution in place: a script already running keeps the
+  functions it imported and the globals they were written against,
+  the next start gets the new code, and the log names the running
+  scripts that kept theirs (#181 — an in-place reload once left
+  `;hunt`'s old `walk` unpacking the walker's new three-value
+  helper). A crash is remembered on the manager (`s.crashed(name)`)
+  so `;train` can tell it from a clean exit. Developer mode (settings `dev_mode` / File →
   Settings, or `REVENANT_DEV=1`) reports a start slower than
   `scripting.SLOW_LOAD_SECONDS` with what reloaded. Everything else — session, core, xml_data, the
   GUI — needs `;reexec`, or on Windows a new session: close the

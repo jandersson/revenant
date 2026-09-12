@@ -160,6 +160,7 @@ lessons the code and docs cannot carry themselves.
   the new three-value `await_arrival` ("too many values to unpack",
   2026-09-12, #181). A traceback's source lines are the current files,
   so its line numbers mislead; read the session log's "loaded ...
-  (reloaded: [...])" lines around the crash instead. Until #181 lands,
-  a session with a long-running script should not start other scripts
-  after an edit to a helper they share.
+  (reloaded: [...])" lines around the crash instead. Since #181 a
+  reload is a fresh module copy — running scripts keep the code they
+  started with, the next start gets the new — and the log says which
+  running scripts kept theirs.

@@ -131,6 +131,9 @@ class Fake:
         self.killed.append(name)
         self.children.discard(name)
 
+    def crashed(self, name):
+        return getattr(self, "crashes", {}).get(name)
+
 
 @pytest.fixture(autouse=True)
 def clock(monkeypatch, tmp_path):
@@ -403,6 +406,20 @@ def test_a_cycle_with_one_trained_task_still_rests(clock):
     run(clock, fake, plan(poll=1, safe_rooms=["home"], rest_until=34))
     assert any("a failed start" in text for text in fake.echoed)
     assert fake.walks == [{1}]  # rats trained, so the cycle rests
+
+
+def test_a_script_that_crashed_is_a_failed_task_with_its_error(clock):
+    # #181: ;hunt died with a traceback and the loop read it as "ended
+    # on its own"; the handle remembers the crash now.
+    fake = Fake([{"Small Edged": 3}] * 10, exits={"hunt": 20})
+    fake.crashes = {"hunt": "ValueError('too many values to unpack') (walker.py:225)"}
+    run(clock, fake, plan(tasks=[plan()["tasks"][1]]))
+    assert any(
+        ";hunt crashed — ValueError('too many values to unpack')" in text
+        for text in fake.echoed
+    )
+    assert any("no task trained this cycle" in text for text in fake.echoed)
+    assert fake.walks == []
 
 
 def test_a_script_that_cannot_start_is_skipped(clock):

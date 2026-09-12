@@ -7,7 +7,11 @@ reloads the `client/` helper modules scripts lean on (probe, walker,
 mapdb, inventory, circles, climbs, eltime, settings, textfont) when
 their files changed since import, announcing which. A walker fix
 reaches a running session through `;stop go2` and `;go2`, the way
-lich's common scripts do. The session, engine and parser never reload
+lich's common scripts do. The reload is a fresh copy of the module:
+a script already running keeps the functions it imported (and their
+globals), so an edit that changes a helper's shape cannot reach into
+a running walk, and the announcement names the scripts that keep
+their code (#181). The session, engine and parser never reload
 that way; `;reexec` replaces those. With developer mode on (File →
 Settings, or `REVENANT_DEV=1` for one launch) a start that takes more
 than half a second to load says so — "go2 took 1.3s to load (reloaded
@@ -66,8 +70,9 @@ your frontend.
 | `s.is_running("athletics")`   | whether that script's thread is alive                                     |
 | `s.tell("hunt", "return")`    | hand a running script a line, as typing `;hunt return` would              |
 | `s.kill("athletics")`         | stop another script (safe from a `finally:` while you are being stopped)  |
+| `s.crashed("hunt")`           | how that script's last run died (`"ValueError(...) (file:line)"`), or None |
 
-The last four are what an orchestrator needs: `;train`
+The last five are what an orchestrator needs: `;train`
 (`scripts/train.py`) starts a task's script, polls the exp window
 until the task's skills reach their target, tells the script its
 return word (`;hunt return` finishes the kill and walks home) and

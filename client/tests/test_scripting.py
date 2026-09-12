@@ -438,6 +438,76 @@ def test_a_helper_not_yet_imported_is_not_touched(tmp_path, monkeypatch):
     assert "never_imported_helper" not in sys.modules
 
 
+def test_a_running_script_keeps_the_helper_it_imported_across_a_reload(
+    tmp_path, monkeypatch
+):
+    # #181 (2026-09-12): ;hunt held the walker's old `walk`, ;circle
+    # reloaded the walker in place, and the old walk died unpacking the
+    # new three-value helper. A reload is a fresh copy now: the running
+    # script's functions keep the globals they were written against.
+    import sys
+
+    monkeypatch.syspath_prepend(str(tmp_path))
+    helper = tmp_path / "pair_helper.py"
+    helper.write_text("def inner():\n    return 1\n\ndef read():\n    return inner()\n")
+    import os
+
+    os.utime(helper, (1_000_000, 1_000_000))
+    sys.modules.pop("pair_helper", None)
+    (tmp_path / "longrun.py").write_text(
+        "from pair_helper import read\n\n"
+        "def main(s):\n"
+        "    for _ in range(40):\n"
+        "        s.echo(str(read()))\n"
+        "        s.sleep(0.02)\n"
+    )
+    (tmp_path / "peek.py").write_text(
+        "import pair_helper\n\ndef main(s):\n    s.echo('peek ' + str(pair_helper.read()))\n"
+    )
+    recorder = Recorder()
+    manager = ScriptManager(
+        send=recorder.sent.append,
+        emit=recorder.emitted.append,
+        scripts_dir=tmp_path,
+        reloadable=("pair_helper",),
+    )
+    manager.start("longrun", [])
+    assert wait_for(lambda: "[longrun] 1" in recorder.emitted)
+    # The edit that changed the helper's shape underneath it.
+    helper.write_text(
+        "def inner():\n    return 2, 'more'\n\ndef read():\n    a, b = inner()\n    return a\n"
+    )
+    os.utime(helper, (2_000_000, 2_000_000))
+    out = _run_and_wait(manager, recorder, "peek")
+    assert "[peek] peek 2" in out  # the new start saw the fresh module
+    assert any(
+        e.startswith("reloaded pair_helper (edited since import); longrun keeps")
+        for e in out
+    )
+    assert wait_for(lambda: any("longrun exited" in e for e in recorder.emitted))
+    assert not any("longrun crashed" in e for e in recorder.emitted)
+    echoes = [e for e in recorder.emitted if e.startswith("[longrun] ")]
+    assert set(echoes) == {"[longrun] 1"}  # never the new inner's tuple
+
+
+def test_a_crash_is_remembered_until_the_next_start(tmp_path):
+    manager, recorder = make_manager(tmp_path)
+    (tmp_path / "boom.py").write_text(
+        "def main(s):\n    raise ValueError('too many values')\n"
+    )
+    (tmp_path / "fine.py").write_text("def main(s):\n    s.echo('ok')\n")
+    manager.start("boom", [])
+    assert wait_for(lambda: any("boom crashed" in e for e in recorder.emitted))
+    assert wait_for(lambda: not manager.alive("boom"))
+    record = manager.crashes["boom"]
+    assert record.startswith("ValueError('too many values')") and "boom.py:" in record
+    assert Script("driver", [], manager).crashed("boom") == record
+    assert Script("driver", [], manager).crashed("fine") is None
+    manager.start("boom", [])  # starting again clears the record first
+    assert wait_for(lambda: not manager.alive("boom"))
+    assert "boom" in manager.crashes  # ... and this run wrote a new one
+
+
 def test_a_broken_edit_keeps_the_old_helper_and_says_so(tmp_path, monkeypatch):
     manager, recorder, helper = _reload_fixture(tmp_path, monkeypatch)
     _run_and_wait(manager, recorder)

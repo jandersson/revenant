@@ -28,9 +28,10 @@ a task's script stops with it. A script task ends early with the
 task's return word when it has one (hunt's ;hunt return finishes
 the kill and walks home), killed after the grace otherwise; scripts that
 exit on their own (an empty hunting ground) end the task for this
-cycle and are not restarted until the next one, and a script gone
-within seconds of starting is a failed start, said so — a cycle in
-which no task trained stops the loop rather than resting. The loop is
+cycle and are not restarted until the next one; a script gone within
+seconds of starting is a failed start, and one that crashed is said
+so with its error — a cycle in which no task trained stops the loop
+rather than resting. The loop is
 scaffolding for training scripts still to be written: a task is one
 line of JSON, and the plan is the only place a character's routine
 lives.
@@ -68,6 +69,13 @@ def experience(s):
 
 def hostiles_present(state):
     return bool(getattr(state, "hostiles", None))
+
+
+def crash_of(s, name):
+    """How a task's script died, from the handle's crash record (#181);
+    None on a clean exit or a handle without the record."""
+    asking = getattr(s, "crashed", None)
+    return asking(name) if callable(asking) else None
 
 
 def user_word(s, plan):
@@ -153,6 +161,10 @@ def run_script_task(s, plan, task, deadline):
     try:
         while True:
             reason = watch(s, plan, task, deadline, running=lambda: s.is_running(name))
+            if reason == "ended" and (error := crash_of(s, name)):
+                # Died with a traceback (#181): the session log has it.
+                s.echo(f"train: ;{name} crashed — {error}; a failed {task['name']}")
+                return "crashed"
             if reason == "ended" and clock() - started < QUICK_EXIT:
                 # Gone within seconds: it refused its room (hostiles,
                 # no map edge), it did not train (#182).
@@ -193,8 +205,9 @@ ENDINGS = {
     "rest": "resting on request",
     "skipped": "could not start",
     "failed": "failed to start",
+    "crashed": "its script crashed",
 }
-UNTRAINED = ("skipped", "failed")  # a task that never trained this cycle
+UNTRAINED = ("skipped", "failed", "crashed")  # a task that never trained
 
 
 def run_task(s, plan, task):

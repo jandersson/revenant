@@ -71,10 +71,12 @@ for `client/client/<pkg>/x.py`.
   that fails keeps the old process serving, #162).
 - `client/engine/scripting.py` — scripts are `main(s)` files in `scripts/`,
   loaded fresh from disk on every start; the pure-logic helpers in
-  `RELOADABLE_MODULES` reload with them. Handle API: put/get/waitfor/
-  waitrt/echo/emit/sleep/command/state/args, plus run/is_running/tell/
-  kill for a script that drives other scripts (`;train`). `;help`
-  renders docstrings.
+  `RELOADABLE_MODULES` reload with them — as fresh module objects, so
+  a running script keeps the functions it imported and their globals
+  while the next start gets the new code (#181). Handle API:
+  put/get/waitfor/waitrt/echo/emit/sleep/command/state/args, plus
+  run/is_running/tell/kill/crashed for a script that drives other
+  scripts (`;train`). `;help` renders docstrings.
 - `client/game/probe.py` — ask-and-classify shared by keyword scripts;
   `collect` glues per-segment pieces into whole lines and reads the
   story and the `combat` stream both (every swing and kill line
