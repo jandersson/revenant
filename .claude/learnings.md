@@ -13,8 +13,11 @@ lessons the code and docs cannot carry themselves.
 - Run `ruff format` before writing an edit script against a file you
   just created: the formatter re-wraps tuples and long lines, and an
   exact-match old string written from the unformatted text fails.
-- `set -o pipefail` before `pytest ... | tail`, or a red suite commits
-  green.
+- Never chain a commit on `pytest ... | tail -1`: the Bash tool's shell
+  ran a whole chain past "19 failed" on 2026-09-12 with `set -o
+  pipefail` in front of it, and an issue got closed against a commit
+  that never happened. Run pytest into a file, keep `$?` in a
+  variable, print the tail, and gate the commit on the variable.
 - A fake script handle that advances a scripted timeline on every
   `sleep` gets its timeline eaten by inner waits the test didn't
   count (a stop-word grace sleeps once a second): hold the last state

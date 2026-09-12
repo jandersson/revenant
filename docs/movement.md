@@ -80,7 +80,11 @@ You start down the tree, but you find it hard going.  Rather than risking a fall
 Trying to judge the climb, you peer over the edge.  A wave of dizziness hits you, and you back away from the tree.
 ```
 
-Until the walker knew them, a turned-back descent read as a stall:
+Every climb the walker sends is a row in history.db's `climbs` table
+(#159) — up, the refusal's kind or a stall, with the wording, the
+Athletics rank and mindstate the state already holds, nothing asked;
+`;climbexp stats` sums them per obstacle and rank band. Until the
+walker knew them, a turned-back descent read as a stall:
 fifteen seconds of waiting for an arrival, then the retreat burst,
 "You are already as far away as you can get!" twice in a tree house,
 and one retry. All four wordings are refusals now, so the retry comes

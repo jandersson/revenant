@@ -80,7 +80,7 @@ def echoes(fake):
 
 
 def test_a_reading_names_the_band_and_the_points(tmp_path, monkeypatch):
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
     fake = Fake(weight=900)
     fake.args = []
     script.main(fake)
@@ -96,7 +96,7 @@ def test_a_reading_names_the_band_and_the_points(tmp_path, monkeypatch):
 
 
 def test_ballast_pins_the_load_and_deposits_the_coins_back(tmp_path, monkeypatch):
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
     fake = Fake(weight=900)  # 30 stones under the Very Heavy ceiling of 930
     script.ballast(fake, 50, mapdb=None)
     withdrawals = [c for c in fake.sent if c.startswith("withdraw")]
@@ -118,7 +118,7 @@ def test_ballast_pins_the_load_and_deposits_the_coins_back(tmp_path, monkeypatch
 def test_ballast_takes_several_steps_when_the_load_sits_low_in_its_band(
     tmp_path, monkeypatch
 ):
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
     fake = Fake(weight=845)
     script.ballast(fake, 50, mapdb=None)
     assert [c for c in fake.sent if c.startswith("withdraw")] == [
@@ -129,7 +129,7 @@ def test_ballast_takes_several_steps_when_the_load_sits_low_in_its_band(
 
 
 def test_a_refusal_stops_the_run_with_the_coins_returned(tmp_path, monkeypatch):
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
     fake = Fake(weight=845, refuse_at=300)
     script.ballast(fake, 50, mapdb=None)
     assert "the teller refused" in echoes(fake)
@@ -138,7 +138,7 @@ def test_a_refusal_stops_the_run_with_the_coins_returned(tmp_path, monkeypatch):
 
 
 def test_show_lists_the_readings(tmp_path, monkeypatch):
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
     fake = Fake(weight=900)
     fake.args = ["show"]
     script.main(fake)
@@ -156,7 +156,7 @@ def test_ballast_from_none_pins_without_advice_about_a_lighter_level(
     # captured 2026-09-12: the worn-plate run started at None and crashed
     # after the flip, before the pinned row, when it reached for a level
     # below None; the coins went back on the crash path
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
     fake = Fake(weight=480)  # None at 10 + 11 holds up to 510
     script.ballast(fake, 50, mapdb=None)
     assert "the load weighs over 460 and up to 510 stones" in echoes(fake)

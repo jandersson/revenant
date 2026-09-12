@@ -122,7 +122,7 @@ class FakeHandle:
 
 
 def snapshot_into(monkeypatch, tmp_path, responses, inventory=False):
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
     monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
     handle = FakeHandle(responses)
@@ -551,7 +551,7 @@ def test_the_sheet_still_snapshots_without_any_inventory(monkeypatch, tmp_path):
 
 def test_a_plain_snapshot_asks_for_no_inventory(monkeypatch, tmp_path):
     # The scheduled snapshot must never spend INV LIST's 5s roundtime.
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
     monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
     handle = FakeHandle(
@@ -571,7 +571,7 @@ def test_a_plain_snapshot_asks_for_no_inventory(monkeypatch, tmp_path):
 def test_the_renaming_room_is_never_asked_for_inventory(monkeypatch, tmp_path):
     # It refuses INV LIST like everything else, so asking only burns
     # roundtime and retries (#112).
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
     monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
     handle = FakeHandle(
@@ -664,7 +664,7 @@ def test_inventory_nesting_survives_the_links_the_game_wraps_items_in(
 
 
 def run_main(monkeypatch, tmp_path, responses, requests, args=()):
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
     monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
     handle = FakeHandle(responses, requests)
@@ -741,7 +741,7 @@ def test_a_request_while_dead_waits_like_the_schedule_does(monkeypatch, tmp_path
         }
     )
     handle.dead = True
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
     sheet.serve(handle, "inv")
     assert handle.sent == []  # a corpse is not interrogated (#93)
     assert any("ghost" in line for line in handle.echoed)

@@ -93,3 +93,65 @@ def test_summary_lines_read_like_a_lab_notebook():
         "21:22:24 after#2 vertigo: Ath 7 Agi 9 Str 10 enc None hp 98 "
         "[Your plate vambraces makes the climb more difficult.]"
     )
+
+
+# --- the walker's rows and the stats view (#159) ---------------------------
+
+
+def test_stats_group_attempts_by_obstacle_and_rank_band(tmp_path):
+    from client.game import climblog
+
+    db = climblog.open_history(tmp_path / "h.db")
+    for rank, outcome in (
+        (7, "footing"),
+        (7, "vertigo"),
+        (8, "up"),
+        (12, "up"),
+        (None, "up"),
+    ):
+        climblog.record(
+            db,
+            character_name="Lanival",
+            experiment="walk",
+            phase="walk",
+            attempt=1,
+            obstacle="climb felled tree",
+            outcome=outcome,
+            athletics_rank=rank,
+        )
+    lines = climblog.stats(climblog.rows(db))
+    assert lines == [
+        "climb felled tree: rank 0-9 1/3 up",
+        "climb felled tree: rank 10-19 1/1 up",
+        "climb felled tree: rank ? 1/1 up",
+    ]
+
+
+def test_log_walk_records_what_the_state_knows_for_free(tmp_path):
+    from types import SimpleNamespace
+
+    from client.game import climblog
+
+    handle = SimpleNamespace(
+        state=SimpleNamespace(
+            name="Lanival",
+            room_uid=224005,
+            experience={"Athletics": {"rank": 7, "percent": 10, "mindstate": 3}},
+        )
+    )
+    path = tmp_path / "h.db"
+    wording = (
+        "Your oak-hafted handaxe makes the climb more difficult.\n"
+        "You pick your way up the tree, but reach a point where your footing "
+        "is questionable.  Reluctantly, you climb back down.\n"
+    )
+    assert climblog.log_walk(
+        handle, "climb felled tree", "footing", wording, room=6153, path=path
+    )
+    (row,) = climblog.rows(climblog.open_history(path))
+    assert row["experiment"] == "walk" and row["outcome"] == "footing"
+    assert row["athletics_rank"] == 7 and row["athletics_mindstate"] == 3
+    assert row["room"] == 6153 and row["obstacle"] == "climb felled tree"
+    assert row["hindering"].startswith("Your oak-hafted handaxe")
+    # A logging failure never raises into the walk.
+    assert climblog.log_walk(handle, "climb x", "up", "", path=tmp_path) is None

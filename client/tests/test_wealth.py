@@ -54,7 +54,7 @@ def test_ordinary_text_is_not_a_balance():
 def test_balances_roundtrip_into_the_wealth_table(tmp_path, monkeypatch):
     import sqlite3
 
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
     connection = sqlite3.connect(wealth.database_path())
     wealth.record(connection, "Lanival", "Kronars", 13_502)
     stored = connection.execute(
@@ -105,7 +105,7 @@ def test_branch_rows_share_a_stamp_and_an_old_table_gains_the_bank_column(
 ):
     import sqlite3
 
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
     connection = sqlite3.connect(wealth.database_path())
     # The table as ;sheet created it before the bank column existed.
     connection.execute(
@@ -197,7 +197,7 @@ def run_tracker(fake, args=(), stop_after_sends=1, monkeypatch=None, tmp_path=No
     """Run main() until the fake has sent `stop_after_sends` BANK ACCOUNTs
     and the report settled, by making the interval end the loop."""
     fake.args = list(args)
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
     monkeypatch.setattr(wealth, "clock", lambda: fake.now)
     monkeypatch.setattr(wealth, "START_DELAY", 0)
     monkeypatch.setattr(wealth, "REPORT_SETTLE", 2)
@@ -271,7 +271,7 @@ def test_a_paid_debt_reaches_the_history_as_a_zero(tmp_path, monkeypatch):
 
 
 def test_the_summary_nets_the_sheet_s_carried_and_debt(tmp_path, monkeypatch):
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
     connection = sqlite3.connect(wealth.database_path())
     wealth.ensure_schema(connection)
     for stamp, kind, copper in (
@@ -298,7 +298,7 @@ def test_the_summary_nets_the_sheet_s_carried_and_debt(tmp_path, monkeypatch):
 def test_now_from_cold_asks_once_and_exits(tmp_path, monkeypatch):
     fake = Fake()
     fake.args = ["now"]
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
     monkeypatch.setattr(wealth, "clock", lambda: fake.now)
     monkeypatch.setattr(wealth, "REPORT_SETTLE", 2)
     monkeypatch.setattr(wealth, "INFO_SECONDS", 0.01)

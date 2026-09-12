@@ -5,11 +5,13 @@
                                               point, walk back, then attempt
     ;climbexp felled tree before=3 cap=20     3 attempts before the train, at most 20 after
     ;climbexp show [tag]                      print the logged rows (the last experiment)
+    ;climbexp stats                           attempts per obstacle and rank band, with how many went up
 
 An experiment in the sense of docs/movement.md's felled tree: what
 does it take for this character to make this climb? Each attempt is
 one row in history.db's `climbs` table (client/game/climblog.py,
-#159): the outcome (up, footing, vertigo, posture, other) with the
+#159; the walker logs every climb it sends there too, under
+experiment "walk", with the rank and the wording alone): the outcome (up, footing, vertigo, posture, other) with the
 game's wording and the line naming what hindered, Athletics rank and
 mindstate, the stats INFO gives, encumbrance, health, and APPRAISE's
 read of the obstacle — the factors Elanthipedia's Athletics page
@@ -41,6 +43,7 @@ from client.game.climblog import (
     record,
     refusal_kind,
     rows,
+    stats,
     summarize,
 )
 from client.game.history import database_path
@@ -332,6 +335,16 @@ def main(s):
     try:
         if s.args and s.args[0] == "show":
             show(s, db, " ".join(s.args[1:]))
+            return
+        if s.args and s.args[0] == "stats":
+            lines = stats(rows(db))
+            s.echo(
+                f"climbexp: {len(lines)} obstacle/rank band(s) logged"
+                if lines
+                else "climbexp: nothing logged yet"
+            )
+            for line in lines:
+                s.echo(f"  {line}")
             return
         obstacle, options = parse_args(s.args)
         if not obstacle:

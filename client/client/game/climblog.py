@@ -12,6 +12,7 @@ data for a human decision (what to train), never a trigger.
 """
 
 import json
+import logging
 import sqlite3
 from datetime import datetime, timezone
 
@@ -145,6 +146,63 @@ def summarize(entries):
             f"hp {entry['health']}{load}"
         )
     return lines
+
+
+def stats(entries):
+    """Attempts per obstacle and Athletics rank band with how many went
+    up — the ;climbexp stats view (#159): "climb felled tree: rank 0-9
+    2/5 up". Rows without a rank fall into "rank ?"."""
+    table = {}
+    for entry in entries:
+        rank = entry.get("athletics_rank")
+        if rank is None:
+            band = "rank ?"
+        else:
+            low = rank // 10 * 10
+            band = f"rank {low}-{low + 9}"
+        key = (entry["obstacle"], band)
+        up, total = table.get(key, (0, 0))
+        table[key] = (up + (entry["outcome"] == "up"), total + 1)
+    return [
+        f"{obstacle}: {band} {up}/{total} up"
+        for (obstacle, band), (up, total) in sorted(table.items())
+    ]
+
+
+def log_walk(s, command, outcome, wording, room=None, path=None):
+    """A climb the walker sent, recorded with what the state knows for
+    free (#159) — no INFO or ENC asked — under experiment "walk". A
+    logging failure is logged, never lets a walk fail. Returns the seq
+    or None."""
+    try:
+        if path is None:
+            from client.game.history import database_path
+
+            path = database_path()
+        state = s.state
+        experience = (getattr(state, "experience", None) or {}).get("Athletics") or {}
+        connection = open_history(path)
+        try:
+            return record(
+                connection,
+                character_name=getattr(state, "name", None) or "unknown",
+                experiment="walk",
+                phase="walk",
+                attempt=1,
+                room=room,
+                obstacle=command,
+                outcome=outcome,
+                wording=wording.strip(),
+                hindering=hindering_line(wording),
+                athletics_rank=experience.get("rank"),
+                athletics_mindstate=experience.get("mindstate"),
+                game_room=getattr(state, "room_uid", None),
+            )
+        finally:
+            connection.close()
+    except Exception:
+        logging.getLogger(__name__).exception("climb log failed")
+        return None
 
 
 def open_history(path):

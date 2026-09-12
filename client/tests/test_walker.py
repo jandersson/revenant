@@ -480,3 +480,23 @@ def test_walk_accepts_arrival_in_a_twin_of_the_planned_room():
         ("put", "south"),
         ("put", "east"),
     ]
+
+
+def test_every_climb_the_walker_sends_is_logged(tmp_path, monkeypatch):
+    # #159: a refused climb, its retry that went up — two rows in the
+    # climbs table, with the refusal's kind and the wording, no INFO asked.
+    from client.game import climblog
+
+    path = tmp_path / "history.db"
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(path))
+    handle = ClimbHandle(uids=[224006], answers=["refused", "ok"])
+    handle.state.room_uid = 224005
+    handle.state.name = "Lanival"
+    handle.state.experience = {"Athletics": {"rank": 7, "percent": 0, "mindstate": 2}}
+    assert walker.walk(handle, TREE, [5705]) is True
+    rows = climblog.rows(climblog.open_history(path))
+    assert [row["outcome"] for row in rows] == ["footing", "up"]
+    assert "footing is questionable" in rows[0]["wording"]
+    assert rows[0]["hindering"].startswith("Your oak-hafted handaxe")
+    assert rows[0]["athletics_rank"] == 7 and rows[0]["obstacle"] == "climb felled tree"
+    assert not any(call == ("put", "info") for call in handle.calls)

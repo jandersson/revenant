@@ -65,7 +65,7 @@ def test_the_tables_are_ag_grids_not_deprecated_datatables(monkeypatch, tmp_path
     # dash_table.DataTable is deprecated upstream (#39): every table is
     # a dash-ag-grid now — sorting native, the learning queue and full
     # roster filterable — fed through rowData by the callbacks.
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "empty.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "empty.db"))
     grids = {
         component.id: component
         for component in _components(app.serve_layout())
@@ -96,12 +96,12 @@ def test_the_tables_are_ag_grids_not_deprecated_datatables(monkeypatch, tmp_path
 def test_query_returns_default_when_xp_has_never_run(monkeypatch, tmp_path):
     from beholder import data
 
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "empty.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "empty.db"))
     assert app.query(data.characters, default=[]) == []
 
 
 def test_layout_hints_at_xp_when_there_is_no_history(monkeypatch, tmp_path):
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "empty.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "empty.db"))
     layout = app.serve_layout()
     hints = [
         component.children
@@ -132,7 +132,7 @@ def _seed(monkeypatch, tmp_path):
     )
     writer.commit()
     writer.close()
-    monkeypatch.setenv("REVENANT_XP_DB", str(path))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(path))
 
 
 def test_dock_route_renders_the_recent_window(monkeypatch, tmp_path):
@@ -153,7 +153,7 @@ def test_dock_route_falls_back_to_the_latest_character(monkeypatch, tmp_path):
 
 
 def test_dock_route_survives_an_empty_database(monkeypatch, tmp_path):
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "missing.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "missing.db"))
     client = app.app.server.test_client()
     response = client.get("/dock")
     assert response.status_code == 200
@@ -194,7 +194,7 @@ def _seed_sheet(monkeypatch, tmp_path, guild="Thief"):
     )
     writer.commit()
     writer.close()
-    monkeypatch.setenv("REVENANT_XP_DB", str(path))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(path))
 
 
 def test_circle_gates_reports_what_blocks_the_next_circle(monkeypatch, tmp_path):
@@ -214,7 +214,7 @@ def test_circle_gates_reports_what_blocks_the_next_circle(monkeypatch, tmp_path)
 
 
 def test_circle_gates_hint_at_sheet_without_a_snapshot(monkeypatch, tmp_path):
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "empty.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "empty.db"))
     rows, note = app.circle_gates("Lanival")
     assert rows == []
     assert ";sheet once" in note

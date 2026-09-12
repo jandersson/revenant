@@ -97,7 +97,7 @@ def test_unknown_character_yields_empty_results(connection):
 
 
 def test_database_path_honors_the_xp_scripts_override(monkeypatch, tmp_path):
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "elsewhere.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "elsewhere.db"))
     assert data.database_path() == tmp_path / "elsewhere.db"
 
 

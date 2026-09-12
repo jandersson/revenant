@@ -62,7 +62,7 @@ def seed_snapshot(path, character="Lanival", logged_at="2026-08-22T12:00:00+00:0
 def test_circle_reports_gates_from_the_latest_snapshot(monkeypatch, tmp_path):
     database = tmp_path / "xp.db"
     seed_snapshot(database)
-    monkeypatch.setenv("REVENANT_XP_DB", str(database))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(database))
     monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     handle = FakeHandle()
     circle.main(handle)
@@ -76,7 +76,7 @@ def test_circle_reports_gates_from_the_latest_snapshot(monkeypatch, tmp_path):
 
 
 def test_circle_without_a_snapshot_points_at_sheet(monkeypatch, tmp_path):
-    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
     monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     handle = FakeHandle()
     circle.main(handle)
@@ -90,7 +90,7 @@ def test_circle_for_a_guild_without_circles(monkeypatch, tmp_path):
     connection.execute("UPDATE character SET guild = 'Commoner'")
     connection.commit()
     connection.close()
-    monkeypatch.setenv("REVENANT_XP_DB", str(database))
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(database))
     monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
     handle = FakeHandle()
     circle.main(handle)

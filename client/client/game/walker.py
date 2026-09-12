@@ -127,24 +127,44 @@ def avoided_rooms(db, entries):
 def await_arrival(s, timeout=ARRIVAL_TIMEOUT):
     """Wait for the compass frame that means the move landed, reading
     the story meanwhile for a climb turned back. ("arrived" | "refused"
-    | "stalled", the hindering item nouns a refusal named)."""
+    | "stalled", the hindering item nouns a refusal named, the story
+    text seen — the climb log keeps the wording, #159)."""
     deadline = monotonic() + timeout
     hindering = []
+    seen = []
     while True:
         remaining = deadline - monotonic()
         if remaining <= 0:
-            return "stalled", hindering
+            return "stalled", hindering, "".join(seen)
         item = s.get(timeout=remaining, streams=None)
         if item is None:
-            return "stalled", hindering
+            return "stalled", hindering, "".join(seen)
         stream, text = item
         if stream == "compass":
-            return "arrived", hindering
+            return "arrived", hindering, "".join(seen)
         if stream:
             continue  # a dock's stream: not the story
+        seen.append(text)
         hindering.extend(hindering_nouns(text))
         if any(needle in text for needle in CLIMB_REFUSALS + POSTURE_REFUSALS):
-            return "refused", hindering
+            return "refused", hindering, "".join(seen)
+
+
+def note_climb(s, command, outcome, wording, room):
+    """Every climb the walker sends goes into history.db's climbs table
+    with what the state knows for free (#159): up, the refusal's kind,
+    or a stall. Other moves are not climbs and are not logged."""
+    if not command.lower().startswith("climb"):
+        return
+    from client.game import climblog  # climblog imports this module
+
+    if outcome == "arrived":
+        kind = "up"
+    elif outcome == "refused":
+        kind = climblog.refusal_kind(wording) or "other"
+    else:
+        kind = "stalled"
+    climblog.log_walk(s, command, kind, wording, room=room)
 
 
 def retry_climb(s, command, hindering):
@@ -222,11 +242,13 @@ def walk(s, db, goals, describe="destination", avoid=()):
         while s.get(timeout=0, streams=("compass",)) is not None:
             pass
         s.put(commands[-1])
-        outcome, hindering = await_arrival(s)
+        outcome, hindering, wording = await_arrival(s)
+        note_climb(s, commands[-1], outcome, wording, dest)
         if outcome == "refused":
             # A climb beyond the character's Athletics (#157): one
             # retry standing and unburdened, then the truth and a stop.
-            outcome, again = retry_climb(s, commands[-1], hindering)
+            outcome, again, wording = retry_climb(s, commands[-1], hindering)
+            note_climb(s, commands[-1], outcome, wording, dest)
             if outcome == "refused":
                 load = ", ".join(dict.fromkeys(hindering + again))
                 s.echo(
@@ -258,7 +280,8 @@ def walk(s, db, goals, describe="destination", avoid=()):
                 s.put("retreat")
                 s.put("retreat")
             s.put(commands[-1])
-            outcome, _ = await_arrival(s)
+            outcome, _, wording = await_arrival(s)
+            note_climb(s, commands[-1], outcome, wording, dest)
         if outcome != "arrived":
             s.echo(f"stalled at step {number} ({commands[-1]!r}) — stopping here")
             return False
