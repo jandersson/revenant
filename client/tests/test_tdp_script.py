@@ -59,8 +59,29 @@ def agility(value, cost, tdps):
     )
 
 
-CONFIRM = "Training Agility here will cost you 28 TDPs. Type TRAIN again to confirm.\n"
-DONE = "You feel more agile.\n"
+# Captured 2026-09-12 at Crossing's Academy of Agility.
+CONFIRM = (
+    "You consult with the teachers and together decide that it will take 28 moon "
+    "cycles until you successfully train your agility to 9 ranks.  There is also a "
+    "fee of 56 Kronars to complete this training.\n"
+    "That would leave you 319 time development points afterward.  If this is OK, "
+    "you will need to STUDY once again to get your new rank.\n"
+)
+DONE = (
+    "(You now have 319 time development points.)\n"
+    "The trainer notes how young you are and that you should keep some coins to "
+    "help you get equipped.  So, the cost of 56 Kronars is added to your Provincial "
+    "debt.\n"
+    "(Your debt has increased by 56 Kronars.)\n"
+    "After what seems an astonishing amount of time, you find you have completed "
+    "your training in agility.\n"
+    "Your attempts to train are praiseworthy, but you must find both the proper "
+    "place and the proper teacher first.\n"
+)
+WRONG_ROOM = (
+    "Your attempts to train are praiseworthy, but you must find both the proper "
+    "place and the proper teacher first.\n"
+)
 
 
 class Fake:
@@ -149,6 +170,9 @@ def test_training_walks_there_trains_twice_per_point_and_walks_back():
     assert "Agility is now 9, TDPs 319" in echoes(fake)
     assert "Agility is now 10, TDPs 288" in echoes(fake)
     assert "every goal reached" in echoes(fake)
+    # the fee shows even when the point took; the flavor does not
+    assert "tdp: (Your debt has increased by 56 Kronars.)" in fake.echoed
+    assert not any("astonishing" in line for line in fake.echoed)
 
 
 def test_stay_keeps_you_at_the_trainer():
@@ -183,12 +207,12 @@ def test_a_value_that_did_not_rise_stops_the_run_and_echoes_the_answers():
         {
             "info": [info(), info()],
             "agility": [agility(8, 28, 347), agility(8, 28, 347)],
-            "train": ["You cannot train here.\n", ""],
+            "train": [WRONG_ROOM, ""],
         }
     )
     script.run(fake, ["train", "agility", "12"], mapdb=MAP, walk_fn=walk)
     assert fake.sent.count("train") == 1  # a refusal is not followed by a confirm
-    assert "You cannot train here." in echoes(fake)
+    assert "you must find both the proper place" in echoes(fake)
     assert "did not rise" in echoes(fake)
     assert fake.walks == [{50986}, {100}]
 

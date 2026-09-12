@@ -11,14 +11,19 @@
 A stat rises one point per TRAIN typed twice in that stat's training
 room (the map tags it: `agility`, `strength`, ...), at the cost the
 game quotes first (Elanthipedia: Attributes, Time Development Points,
-Train command). The script never trusts the TRAIN wording alone: it
-asks the stat's own command (AGILITY, STRENGTH, ...) for the value,
+Train command). Each point also costs a fee of 2 Kronars per TDP;
+a character carrying no coins has it added to the provincial debt
+(captured 2026-09-12: 28 TDPs and 56 Kronars for Agility 8 → 9), and
+the script echoes that line. It never trusts the TRAIN wording alone:
+it asks the stat's own command (AGILITY, STRENGTH, ...) for the value,
 the next point's cost and the TDPs before every point, buys only what
 the TDPs cover, and asks again after the pair — a value that did not
 rise stops the run with the answers echoed, so an unexpected wording
 costs at most one point. It stops on death or a refusal, and walks
 back to where it started unless told to stay. Stop with:  ;stop tdp
 """
+
+import re
 
 from client.game import probe
 from client.game.tdp import (
@@ -34,6 +39,10 @@ from client.game.mapdb import MapDB
 from client.game.walker import locate, walk
 
 COLLECT_SECONDS = 3  # a command's answer, opening window
+# The lines of a TRAIN pair worth showing when it worked: the fee
+# (2 Kronars per TDP) and where it went — a coinless character's goes
+# on the provincial debt (captured 2026-09-12).
+_NOTE = re.compile(r"fee of|debt", re.IGNORECASE)
 TAIL_SECONDS = 1.5  # ... and the tail past its roundtime
 
 
@@ -91,7 +100,11 @@ def train_one(s, stat, before):
         second = ask(s, "train")
     after = parse_stat_answer(ask(s, stat.lower()))
     rose = after["value"] is not None and after["value"] > before
-    if not rose:
+    if rose:
+        echo_lines(
+            s, "\n".join(line for line in second.splitlines() if _NOTE.search(line))
+        )
+    else:
         echo_lines(s, first + "\n" + second)
     return rose, after
 

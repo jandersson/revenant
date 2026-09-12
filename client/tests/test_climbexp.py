@@ -183,8 +183,10 @@ def test_training_walks_to_the_tagged_room_trains_twice_and_walks_back():
         answers={
             "info": [INFO, INFO_AFTER],
             "train": [
-                "Training agility would cost 17 TDPs. Type TRAIN again to confirm.",
-                "You feel your agility increase.",
+                # captured 2026-09-12, see client/game/tdp.py
+                "If this is OK, you will need to STUDY once again to get your new rank.",
+                "After what seems an astonishing amount of time, you find you have "
+                "completed your training in agility.",
             ],
         },
     )

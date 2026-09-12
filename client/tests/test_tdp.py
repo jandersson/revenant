@@ -3,7 +3,7 @@ matching them, and ;tdp's words turned into goals."""
 
 import pytest
 
-from client.game import tdp
+from client.game import probe, tdp
 
 # Captured 2026-09-12, a Dwarf Paladin at Agility 8 with 347 TDPs.
 AGILITY = (
@@ -110,3 +110,24 @@ def test_goals_come_from_words():
 def test_bad_goal_words_are_refused_with_the_reason(words, complaint):
     with pytest.raises(ValueError, match=complaint):
         tdp.parse_goals(words, STATS)
+
+
+def test_the_captured_train_answers_classify_in_order():
+    first = (
+        "You consult with the teachers and together decide that it will take 28 moon "
+        "cycles until you successfully train your agility to 9 ranks.  There is also "
+        "a fee of 56 Kronars to complete this training.\nThat would leave you 319 "
+        "time development points afterward.  If this is OK, you will need to STUDY "
+        "once again to get your new rank.\n"
+    )
+    second = (
+        "(You now have 319 time development points.)\n(Your debt has increased by "
+        "56 Kronars.)\nAfter what seems an astonishing amount of time, you find you "
+        "have completed your training in agility.\nYour attempts to train are "
+        "praiseworthy, but you must find both the proper place and the proper "
+        "teacher first.\n"
+    )
+    wrong_room = second.splitlines()[-1]
+    assert probe.classify(first, tdp.TRAIN_OUTCOMES) == "confirm"
+    assert probe.classify(second, tdp.TRAIN_OUTCOMES) == "done"  # despite its last line
+    assert probe.classify(wrong_room, tdp.TRAIN_OUTCOMES) == "refused"

@@ -37,15 +37,29 @@ _NEXT = re.compile(r"cost you (\d+) TDPs to raise your (\w+) from (\d+) to (\d+)
 # "It will cost you 132 TDPs to reach 12 points in Agility."
 _PROJECT = re.compile(r"cost you (\d+) TDPs to reach (\d+) points in (\w+)")
 
-# TRAIN's answers — assumptions until captured (the wiki quotes none):
-# a first TRAIN states the cost and wants a second; the second raises
-# the stat; anything else is a refusal. Order matters: a refusal that
-# mentions the cost must not read as a prompt to confirm. The script
-# trusts none of them alone: it re-asks the stat after every pair.
+# TRAIN's answers, captured 2026-09-12 (Crossing's Academy of Agility,
+# a Dwarf at 8 with 347 TDPs). The first TRAIN quotes and asks for a
+# second: "You consult with the teachers and together decide that it
+# will take 28 moon cycles until you successfully train your agility
+# to 9 ranks.  There is also a fee of 56 Kronars to complete this
+# training. / That would leave you 319 time development points
+# afterward.  If this is OK, you will need to STUDY once again to get
+# your new rank." The second spends: "(You now have 319 time
+# development points.) / The trainer notes how young you are and that
+# you should keep some coins to help you get equipped.  So, the cost
+# of 56 Kronars is added to your Provincial debt. / (Your debt has
+# increased by 56 Kronars.) / After what seems an astonishing amount
+# of time, you find you have completed your training in agility. /
+# Your attempts to train are praiseworthy, but you must find both the
+# proper place and the proper teacher first." — that last line rides
+# along after a completed training, so "done" must be read before
+# "refused"; on its own (the wrong room) it is the refusal. The fee is
+# 2 Kronars per TDP and goes on the provincial debt when the character
+# carries no coins.
 TRAIN_OUTCOMES = (
-    ("refused", ("cannot", "can't", "unable", "not enough", "no training", "must be")),
-    ("done", ("increase", "raise", "you feel", "trained", "improve")),
-    ("confirm", ("again", "confirm", "cost", "would you like")),
+    ("done", ("completed your training",)),
+    ("refused", ("must find both the proper place", "cannot", "unable", "not enough")),
+    ("confirm", ("once again", "again", "confirm")),
 )
 
 

@@ -133,14 +133,36 @@ so the script never uses it — the map tags every training room
 (`agility`, `strength`, ... one per stat per city; Crossing's are
 50984-50989 plus the Academy rooms) and the walker takes it there.
 
-What the script assumes, until a TRAIN is captured: the first TRAIN
-quotes and asks again, the second raises the stat, a refusal says so.
-It re-asks the stat after every pair and stops the moment the value
-has not risen, echoing both answers, so a wording it did not expect
-costs at most one point. It buys only points the quoted TDPs cover,
-stops on death, and walks back to where it started unless told
-`stay`. The Elanthipedia rule of thumb that a guild may refuse a
-character with any stat below 8 is the reason to spend early.
+The TRAIN pair itself, captured the same day when `;tdp train agility
++2` ran attended (Agility 8 → 10, TDPs 347 → 288):
+
+```
+> train
+You consult with the teachers and together decide that it will take 28 moon cycles until you successfully train your agility to 9 ranks.  There is also a fee of 56 Kronars to complete this training.
+That would leave you 319 time development points afterward.  If this is OK, you will need to STUDY once again to get your new rank.
+> train
+(You now have 319 time development points.)
+The trainer notes how young you are and that you should keep some coins to help you get equipped.  So, the cost of 56 Kronars is added to your Provincial debt.
+(Your debt has increased by 56 Kronars.)
+After what seems an astonishing amount of time, you find you have completed your training in agility.
+Your attempts to train are praiseworthy, but you must find both the proper place and the proper teacher first.
+```
+
+Three things the wiki does not say. A point costs coins as well:
+a fee of 2 Kronars per TDP (56 for 28, 62 for 31), and a character
+carrying none has it put on the provincial debt (930 → 1048 copper
+over the two points), which is the debt that blocks GIVE in
+[social.md](social.md) — carry coins to the trainer. The "moon cycles"
+are flavor; the point lands at once. And the completed training is
+followed by the same "must find both the proper place and the proper
+teacher" line that TRAIN answers in the wrong room, so the script
+reads "completed your training" before it reads a refusal. It still
+re-asks the stat after every pair and stops the moment the value has
+not risen, echoing both answers; it buys only points the quoted TDPs
+cover, stops on death, echoes the fee and debt lines, and walks back
+to where it started unless told `stay`. The Elanthipedia rule of thumb
+that a guild may refuse a character with any stat below 8 is the
+reason to spend early.
 
 ## Out of scope in the first cut
 
