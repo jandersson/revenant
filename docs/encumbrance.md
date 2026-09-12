@@ -6,8 +6,9 @@ the rule that ties the two, so a level plus Strength and Stamina is a
 band of weights and the points that would lighten it are a small
 range. `;enc` does that arithmetic, and `;enc ballast` pins the load
 by adding coins of known weight until the level rises. The formula
-is the wiki's, from a pre-DR3 page, and unverified here until a
-ballast run agrees with it.
+is the wiki's, from a pre-DR3 page, and it held when tested on
+2026-09-12: two ballast runs pinned a load, the rule said two points
+would lighten it, and two points did.
 
 ## The rule
 
@@ -47,9 +48,11 @@ once: a load over 880 and up to 930 stones. With 10-stone steps, 10,
 a load over 890 and up to 900 stones. The runs agree, the teller
 hands over and takes back exactly the count named, and ENCUMBRANCE
 answered each time within seconds. By the rule, Heavy Burden holds
-880 stones at 22 combined points and 920 at 23, so the prediction is
-that two points of Strength or Stamina make him Heavy Burden and one
-point does not — the check on the formula itself, still to run.
+880 stones at 22 combined points and 920 at 23, so the prediction was
+that two points of Strength or Stamina make him Heavy Burden. `;tdp
+train stamina +2` took Stamina 11 → 13, and `;enc` read Heavy Burden:
+the rule holds. That one point alone would not have done it was not
+observed (both were bought in one run); the arithmetic says so.
 
 ## The experiment
 
@@ -63,5 +66,4 @@ copper so the count drawn is the count carried, they go back with
 DEPOSIT step by step, and the script says exactly
 how many points would drop the level at each end of the pinned range.
 Training that many (`;tdp train stamina +2`) and reading `;enc` again
-is the check on the formula itself: if the level drops where the rule
-says it should, the rule holds in DR3.
+is the check on the formula, and the first case passed it.

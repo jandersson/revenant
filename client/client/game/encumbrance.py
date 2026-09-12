@@ -8,9 +8,10 @@ level (its worked example: 10 Strength and 10 Stamina carry 480 stones
 with none). So each level is a band of weights, every point of
 Strength or Stamina widens every band by 4 x (level + 5) stones, and
 the burden you see says which band your load falls in. The formula is
-the wiki's (pre-DR3 page) and unverified here until ;enc ballast pins
-a threshold; coins weigh 0.2 stones each, which makes them the
-instrument. Rows go to history.db's `encumbrance` table, one per
+the wiki's (a pre-DR3 page) and held on 2026-09-12: ballast pinned a
+load to 890-900 stones at 10 + 11, the rule said two points, and two
+points of Stamina read Heavy Burden. Coins weigh 0.2 stones each,
+which makes them the instrument. Rows go to history.db's `encumbrance` table, one per
 reading: stats, level, ballast, note. Model: docs/encumbrance.md.
 """
 
