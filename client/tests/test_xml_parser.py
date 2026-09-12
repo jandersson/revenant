@@ -633,3 +633,29 @@ def test_prompts_are_counted(xml_data):
     )
     assert xml_data.prompt_count == 2
     assert xml_data.roundtime == 1789239202
+
+
+# -- the room's players: <component id='room players'> (#178) ------------------
+
+
+def test_room_players_are_read_from_also_here(xml_data):
+    # Captured 2026-09-12: titles before the name, " who is ..." after.
+    _feed_one(
+        xml_data,
+        "<component id='room players'>Also here: Sky Knight Kaldean who is "
+        "darkened by an unnatural shadow, Sand Flower Cyranth, Cecil and "
+        "Penello.</component>",
+    )
+    assert xml_data.room_players == ["Kaldean", "Cyranth", "Cecil", "Penello"]
+    assert xml_data.players_updated
+    xml_data.players_updated = False
+    _feed_one(xml_data, "<component id='room players'>Also here: Rhatler.</component>")
+    assert xml_data.room_players == ["Rhatler"]
+    _feed_one(
+        xml_data,
+        "<component id='room players'>Also here: Ghost Hunter Tedriel who is "
+        "emanating a bright holy aura.</component>",
+    )
+    assert xml_data.room_players == ["Tedriel"]
+    _feed_one(xml_data, "<component id='room players'></component>")
+    assert xml_data.room_players == []

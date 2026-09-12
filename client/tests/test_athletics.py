@@ -736,3 +736,23 @@ def test_the_award_timer_wait_casts_the_profiles_buffs(monkeypatch):
         "client.game.profile.load_profile", lambda name: PROFILE_DEFAULTS
     )
     assert athletics.wait_filler(handle) is None
+
+
+def test_an_occupied_rung_is_their_spot_and_the_ladder_falls_back():
+    # 2026-09-12, #178: a player already at the spot on arrival owns
+    # it; the next-best rung is taken instead, no laps there.
+    handle = FakeHandle(args=[], mindstates=[5], sleeps=60)
+    handle.state.experience["Athletics"]["rank"] = 7
+    walks = []
+
+    def fake_walk(s, db, goals, describe=""):
+        walks.append(list(goals))
+        s.state.room_players = ["Bankismo"] if goals == [19069] else []
+        return True
+
+    with pytest.raises(LoopDone):
+        athletics.auto_train(handle, db=LADDER_MAP, walk=fake_walk)
+    assert walks[0] == [19069]  # the swimming hole, occupied
+    assert any("their spot" in echo for echo in handle.echoes)
+    assert walks[1] == [1068]  # the oak, next-best
+    assert ("put", "west") not in handle.calls  # no lap in their room

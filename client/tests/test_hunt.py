@@ -807,3 +807,39 @@ def test_a_bundle_worn_from_the_last_run_is_left_where_it_is(travel):
     after_skin = arena.sent[arena.sent.index("skin rat") + 1 :]
     assert after_skin[0] == "search rat"
     assert "hunt: bundle worn — skins go straight into it" in arena.echoed
+
+
+# --- another player's room (#178) -------------------------------------------
+
+
+def test_an_occupied_room_of_the_ground_is_theirs_so_the_hunt_moves_on(travel):
+    # 2026-09-12: ;hunt fought rats in a shipyard room two other players
+    # were hunting. A player already in the room on arrival makes it
+    # theirs: move on without a swing, settle only in an empty one.
+    arena = Arena(
+        {"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]},
+        hostiles=(),
+    )
+    arena.state.room_players = ["Bankismo"]
+    arena.arrivals = {6047: {"2": True}}
+    original_walk = hunt.walk
+
+    def walk(s, db, goals, describe="", avoid=()):
+        result = original_walk(s, db, goals, describe=describe, avoid=avoid)
+        s.state.room_players = [] if s.room == 6047 else ["Bankismo"]
+        return result
+
+    hunt.walk = walk
+    _run(arena)  # travel first: arrives in 6046, Bankismo's room
+    assert arena.walks[1] == {6047}
+    attacks = [c for c in arena.sent if c.startswith("attack")]
+    assert attacks  # fought in 6047, the empty room ...
+    assert any("their room, moving on" in text for text in arena.echoed)
+
+
+def test_a_ground_with_someone_in_every_room_is_left_to_them(travel):
+    arena = Arena({"attack": [(KILL, kill)]}, hostiles=())
+    arena.state.room_players = ["Bankismo"]
+    _run(arena)
+    assert not any(c.startswith("attack") for c in arena.sent)
+    assert any("leaving it to them" in text for text in arena.echoed)

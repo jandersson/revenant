@@ -100,6 +100,11 @@ EXP_LINE = re.compile(r"Athletics:\s+(\d+)\s+[\d.]+%")
 ENC_LINE = re.compile(r"Encumbrance\s*:\s*(.+)")
 
 
+def occupants(s):
+    """The other players in the room, as the parser read "Also here"."""
+    return list(getattr(s.state, "room_players", None) or [])
+
+
 def empty_hands(s):
     """Whatever the hands hold goes into a container before the first
     climb: a held item makes every climb harder ("Your oak-hafted
@@ -534,6 +539,12 @@ def train(
                         f"ATHLETICS: could not reach room {command['room']} — skipping it"
                     )
                     continue
+                s.sleep(1)  # the room's players arrive with the room
+                if names := occupants(s):
+                    s.echo(
+                        f"ATHLETICS: {', '.join(names)} at this stop — theirs, skipping it"
+                    )
+                    continue
                 command = command["command"]
             s.put(command)
             s.waitrt()
@@ -636,6 +647,15 @@ def auto_train(s, db=None, walk=None):
                 "could not reach the spot — stopping (;go2 there and use manual mode?)"
             )
             return
+        s.sleep(1)  # the room's players arrive with the room
+        if names := occupants(s):
+            # Their spot (#178): the next-best rung, no laps here.
+            s.echo(f"ATHLETICS: {', '.join(names)} training here — their spot")
+            contested.add(rung["label"])
+            rung = fall_back(s, rank, contested)
+            if rung is None:
+                return
+            continue
         style = (
             "timer-exempt practice"
             if pace == PAUSE

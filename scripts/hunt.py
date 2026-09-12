@@ -21,6 +21,9 @@ the loot container): a bundle you already have is worn before the
 first swing, the first skin of a run starts one when there is none,
 and every later skin goes straight into it as it is cut — one item to
 sell with ;skins. No rope means skins are stowed loose, said once.
+A room of the ground with another player already in it on arrival is
+theirs: the loop says so and moves on without a swing, and a ground
+with someone in every room is left to them (#178).
 `buffs` are self-cast spells kept up through the hunt (PREPARE, CAST
 before the first swing and whenever the Spells window drops one), and
 `train_casting` names a magic skill to train by recasting the first
@@ -469,6 +472,27 @@ def dispose(s, profile, corpse, tally):
         unrecognized(s, tally, "search", answer)
 
 
+def occupants(s):
+    """The other players in the room, as the parser read "Also here"."""
+    return list(getattr(s.state, "room_players", None) or [])
+
+
+def settle(s, db, ground, avoid, tally):
+    """Arrived in a room of the ground: it is someone else's if a player
+    is already in it — the community's rule, the operator's (#178,
+    2026-09-12) — so move on until an empty room, and give up once the
+    whole ground has been tried. True in a room of our own."""
+    for _ in range(max(len(ground), 1)):
+        names = occupants(s)
+        if not names:
+            return True
+        s.echo(f"hunt: {', '.join(names)} hunting here — their room, moving on")
+        if not next_room(s, db, ground, avoid, tally):
+            return False
+    s.echo("hunt: every room of the ground has someone in it — leaving it to them")
+    return False
+
+
 def next_room(s, db, ground, avoid, tally):
     """The room is empty: on to the next room of the ground, cyclically;
     a one-room ground waits and looks instead. False once the ground
@@ -527,6 +551,8 @@ def loop(s, profile, db, ground, avoid, tally):
         if tally.room_clear or not hostiles(s.state):
             if not next_room(s, db, ground, avoid, tally):
                 return "ground empty"
+            if not settle(s, db, ground, avoid, tally):
+                return "ground taken"
             continue
         cast_buffs(s, profile, tally)  # a buff that ran out, before the swing
         text = ask(s, f"attack {prey}" if prey else "attack")
@@ -571,6 +597,8 @@ def hunt(s, profile, db, travel=True, avoid=()):
             return
         probe.collect(s, SETTLE_SECONDS)
     tally = Tally()
+    if travel and not settle(s, db, ground, avoid, tally):
+        return
     wear_bundle(s, profile, tally)
     cast_buffs(s, profile, tally)
     ready(s, profile)

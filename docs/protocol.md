@@ -235,3 +235,13 @@ a real minute — and `<popStream/>` on the next line, often followed by
 `<castTime .../>`. A clear with no push after it means nothing is
 running. The parser keeps the window as `active_spells`
 ({name: minutes left, or None for a count it cannot read}).
+
+## The room's players (captured 2026-09-12)
+
+`<component id='room players'>Also here: Sky Knight Kaldean who is
+darkened by an unnatural shadow, Sand Flower Cyranth, Cecil and
+Penello.</component>` comes with every room and on every change, empty
+(`<component id='room players'></component>`) when nobody else is
+there. Entries are split on commas and a final "and"; a title stands
+before the name and a " who is ..." state after it, so the name is the
+last word before that. The parser keeps the names as `room_players`.

@@ -16,6 +16,28 @@ _STREAM_MARKER = re.compile(r"<pushStream id=[\"'](\w+)[\"'][^>]*/>|<popStream[^
 _SPELL_LINE = re.compile(r"^\s*(.+?)\s+\((.*?)\)\s*$")
 
 
+# The room's players, from <component id='room players'>: "Also here:
+# Sky Knight Kaldean who is darkened by an unnatural shadow, Sand Flower
+# Cyranth, Cecil and Penello." (captured 2026-09-12), empty when alone.
+# Titles come before the name and " who is ..." after it; the name is
+# the last word before that.
+_PLAYERS_LEAD = re.compile(r"^\s*Also here:\s*", re.IGNORECASE)
+
+
+def _players(text):
+    """The character names an "Also here:" line names, in order."""
+    body = _PLAYERS_LEAD.sub("", text.strip()).rstrip(".")
+    if not body:
+        return []
+    names = []
+    for entry in re.split(r",\s*|\s+and\s+", body):
+        entry = re.split(r"\s+who\s+(?:is|are|has|have)\b", entry, maxsplit=1)[0]
+        words = entry.strip().split()
+        if words:
+            names.append(words[-1])
+    return names
+
+
 def _active_spells(text):
     """{name: minutes left or None} from the Spells window's lines."""
     spells = {}
@@ -168,6 +190,13 @@ class XMLData:
         self.active_spells = {}
         self._spell_text = None
         self._perc_text = None
+        # The other players in the room, by name, from the "room
+        # players" component the game sends with every room and on
+        # every change (#178): a room someone is already hunting or
+        # training in is theirs, and a script arriving there moves on.
+        self.room_players = []
+        self.players_updated = False
+        self._players_text = None
         # Vitals percentages from the minivitals dialog's progress bars:
         # {"health": 100, "stamina": 95, ...}; casters also get "mana".
         # The game sends partial updates, so this dict accumulates.
@@ -236,6 +265,8 @@ class XMLData:
             self._spell_text += text_string
         if self._perc_text is not None:
             self._perc_text += text_string
+        if self._players_text is not None:
+            self._players_text += text_string
         if self._hand is not None:
             self._hand[2].append(text_string)
 
@@ -310,6 +341,8 @@ class XMLData:
             if ident.startswith("exp ") and ident not in _EXP_NOT_SKILLS:
                 self._exp_skill = ident[4:]
                 self._exp_text = ""
+            elif ident == "room players":
+                self._players_text = ""
         elif name == "crtrStatus":
             # The first tag since the last swap opens a fresh staged
             # set — the burst is the enumeration (#85), nothing else
@@ -351,6 +384,11 @@ class XMLData:
     def end(self, name: str):
         if name == "dialogData":
             self._injuries_dialog = False
+        if name == "component" and self._players_text is not None:
+            players, self._players_text = _players(self._players_text), None
+            if players != self.room_players:
+                self.room_players = players
+                self.players_updated = True
         if name == "spell" and self._spell_text is not None:
             text, self._spell_text = self._spell_text.strip(), None
             self.prepared_spell = None if text.lower() in ("", "none") else text

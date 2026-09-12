@@ -122,12 +122,18 @@ moves; the loop pouches one find at a time instead.
 A room another player is already hunting in is theirs — the
 community's unwritten rule, and the operator's (2026-09-12, after
 `;hunt` fought rats in a shipyard room with two other players in it).
-Sharing a spawn takes their kills. The loop must therefore read "Also
-here: <names>" on arriving in a room of the ground and move on
-without a swing when a player is there, settling only in an empty
-room; that needs the parser's players list (#178), which is the next
-thing to build. Until then, a hunt started by hand is the operator's
-to place, and Claude driving one checks the room first.
+Sharing a spawn takes their kills. The parser keeps the room's
+players from the `room players` component ("Also here: Sky Knight
+Kaldean who is darkened by an unnatural shadow, Sand Flower Cyranth,
+Cecil and Penello." — the name is the last word before any "who is",
+titles before it), and the loop reads it on every arrival in a room
+of the ground: a player already there makes it theirs, the loop says
+so and moves on to the next room without a swing, and a ground with
+someone in every room is left to them ("ground taken"). Someone who
+arrives while the fight is on has come into our room and is not the
+rule's concern. `;athletics` does the same at a rung and at each
+rotation stop: their spot, the next-best rung. Claude driving by hand
+checks the room first.
 
 ## Bundling and selling skins
 
