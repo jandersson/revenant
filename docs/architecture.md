@@ -198,9 +198,10 @@ entries from a dock-layout module.
   everything for one launch — quit-on-close lives there too, and so
   does the game text's font: `font_family` / `font_size`, normalized
   by the Qt-free `client/ui/textfont.py` and applied live to every text
-  view and the input line, #118 — every view but the Experience dock,
-  which keeps the fixed-pitch font at its own size and follows only
-  its own `dock_fonts` row, #173);
+  view and the input line, #118 — every view but the status docks:
+  Experience keeps the fixed-pitch font and Spells the platform font,
+  each at its own size, following only its own `dock_fonts` row
+  (`textfont.STATUS_VIEWS`, #173, #179));
   `;beholder` opens the dashboard in the browser, and the GUI embeds it
   via View → Experience History (QWebEngineView, lazy-created, browser
   fallback when QtWebEngine is missing).

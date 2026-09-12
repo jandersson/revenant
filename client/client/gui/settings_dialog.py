@@ -4,9 +4,9 @@ Checkboxes over ~/.revenant/settings.json, plus the game text's font
 (family and point size, applied to every text view the moment the
 dialog is accepted, #118) and, under it, one row per text view to
 override that pair for the view alone — tick the view, pick its font
-(#132); an unticked row follows the default — except Experience, whose
-dashboard keeps the fixed-pitch font at its own size and changes only
-through its row (#173). The pickers open on the font the window
+(#132); an unticked row follows the default — except the status docks,
+Experience (fixed-pitch, its dashboard) and Spells (the platform font),
+which keep their own size and change only through their row (#173, #179). The pickers open on the font the window
 is using — the platform's until you choose one — and always save an
 explicit choice; a "use the default" checkbox that locked the pickers
 read as broken (#130), and a reset button would only exist to be

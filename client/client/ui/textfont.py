@@ -5,10 +5,11 @@ Two settings in ~/.revenant/settings.json drive it — `font_family`
 0 for the platform default). The defaults are what an untouched file
 holds; File → Settings always saves an explicit pair, pre-filled with
 the font in use. The GUI applies them live to the main window, every stream dock, and the input
-line — every view but the Experience dock, which keeps the fixed-pitch
-font at its own size (its dashboard is column-aligned, and the story's
-size made it unreadable, #173) and changes only through its own entry
-below. This module is the Qt-free half: it turns whatever the file
+line — every view but the status docks: the Experience dock keeps the
+fixed-pitch font at its own size (its dashboard is column-aligned, and
+the story's size made it unreadable, #173) and the Spells dock the
+platform font at its own size (#179); both change only through their
+own entry below. This module is the Qt-free half: it turns whatever the file
 holds into a clean choice.
 
 A third setting, `dock_fonts`, overrides the pair per text view (#132):
@@ -23,6 +24,11 @@ MAX_SIZE = 72
 # The text views a font can be set for: the story window, the input
 # line, and the stream docks by title (client/ui/streamroute.py).
 TEXT_VIEWS = ("Main", "Input", "Thoughts", "Spells", "Arrivals", "Deaths", "Experience")
+# The docks that hold status text rather than story: the story's
+# family and size never reach them, only their own dock_fonts row —
+# Experience (a column-aligned dashboard, fixed-pitch, #173) and
+# Spells (a few short lines, too large at a 15-point story font, #179).
+STATUS_VIEWS = ("Experience", "Spells")
 
 
 def font_choice(settings: dict) -> tuple[str | None, int | None]:
@@ -53,11 +59,12 @@ def view_font(settings: dict, view: str) -> tuple[str | None, int | None]:
     """(family, size) for one text view: the per-view override where
     it names a value, the default pair otherwise, None still meaning
     "keep the platform (or, for Experience, the fixed-pitch) font".
+    A status view (STATUS_VIEWS) ignores the default pair altogether.
     An override for a view the GUI has no view for, or with unusable
     values, changes nothing."""
-    # The Experience dock is a column-aligned dashboard: the story's
-    # family and size never reach it, only its own entry does (#173).
-    family, size = (None, None) if view == "Experience" else font_choice(settings)
+    # A status dock — the Experience dashboard, the Spells list — takes
+    # nothing from the story's pair, only its own entry (#173, #179).
+    family, size = (None, None) if view in STATUS_VIEWS else font_choice(settings)
     overrides = settings.get("dock_fonts")
     entry = overrides.get(view) if isinstance(overrides, dict) else None
     if isinstance(entry, dict):

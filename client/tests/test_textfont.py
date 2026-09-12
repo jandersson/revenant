@@ -57,8 +57,8 @@ def test_an_override_beats_the_default_for_its_view_only():
 
 
 def test_an_override_names_only_what_it_changes():
-    settings = BASE | {"dock_fonts": {"Spells": {"family": "Consolas"}}}
-    assert view_font(settings, "Spells") == ("Consolas", 12)
+    settings = BASE | {"dock_fonts": {"Deaths": {"family": "Consolas"}}}
+    assert view_font(settings, "Deaths") == ("Consolas", 12)
 
 
 def test_the_experience_dock_follows_only_its_own_entry():
@@ -81,11 +81,11 @@ def test_a_stale_or_unusable_override_is_ignored():
     settings = BASE | {
         "dock_fonts": {
             "Gone Dock": {"size": 30},
-            "Spells": {"family": "  ", "size": 500},
+            "Deaths": {"family": "  ", "size": 500},
             "Arrivals": "not a mapping",
         }
     }
-    assert view_font(settings, "Spells") == ("Georgia", 12)
+    assert view_font(settings, "Deaths") == ("Georgia", 12)
     assert view_font(settings, "Arrivals") == ("Georgia", 12)
     assert view_font(BASE | {"dock_fonts": "junk"}, "Main") == ("Georgia", 12)
 
@@ -112,3 +112,20 @@ def test_the_views_are_the_story_input_and_the_stream_docks():
 
     assert set(STREAM_WINDOWS.values()) <= set(TEXT_VIEWS)
     assert TEXT_VIEWS[:2] == ("Main", "Input")
+
+
+def test_the_spells_dock_is_a_status_dock_too():
+    # #179: a few short lines, too large at a 15-point story font; the
+    # story's pair never reaches it, only its own row.
+    from client.ui.textfont import STATUS_VIEWS
+
+    assert set(STATUS_VIEWS) == {"Experience", "Spells"}
+    assert view_font(BASE, "Spells") == (None, None)
+    assert view_font(BASE | {"dock_fonts": {"Spells": {"size": 9}}}, "Spells") == (
+        None,
+        9,
+    )
+    assert view_font(BASE, "Thoughts") == (
+        "Georgia",
+        12,
+    )  # a story-like dock still follows

@@ -104,3 +104,24 @@ def test_the_experience_view_keeps_fixed_pitch_unless_overridden(qapp):
     view = GameTextView(lambda command: None, QWidget())
     style_experience_view(view)
     assert "No skills learning" in view.placeholderText()
+
+
+def test_the_spells_dock_keeps_the_platform_size_whatever_the_story_uses(qapp):
+    # #179: the story at 15 points dragged the Spells dock with it.
+    default = QFont("Arial", 11)
+    spells = font_for(
+        {"font_family": "Noto Sans", "font_size": 15, "dock_fonts": {}},
+        "Spells",
+        default,
+    )
+    assert spells.pointSize() == 11 and spells.family() == "Arial"
+    own = font_for(
+        {
+            "font_family": "Noto Sans",
+            "font_size": 15,
+            "dock_fonts": {"Spells": {"size": 9}},
+        },
+        "Spells",
+        default,
+    )
+    assert own.pointSize() == 9

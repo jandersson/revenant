@@ -42,8 +42,9 @@ def style_experience_view(view):
 def font_for(settings, view, default_font):
     """Settings' font for one view (#118), resolved through
     textfont.view_font so a dock_fonts override wins for that view
-    (#132). The Experience dock starts from the fixed-pitch font and
-    follows only its own per-view entry (#173); every other view starts
+    (#132). The Experience dock starts from the fixed-pitch font and the
+    Spells dock from the platform default, and both follow only their
+    own per-view entry (textfont.STATUS_VIEWS, #173, #179); every other view starts
     from the platform default the window kept, and a family or size
     named in Settings, global or per-view, replaces it."""
     family, size = view_font(settings, view)
