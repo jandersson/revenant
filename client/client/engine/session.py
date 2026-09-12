@@ -78,68 +78,138 @@ def sessions_path():
 
 
 def _load_sessions():
+    """The registry's rows: [] when there is no file, None when the file
+    could not be read — torn or locked by another process's write, even
+    after the retries. None is never "no sessions": a writer that gets
+    it skips its write rather than saving what it did not read (#160)."""
+    path = sessions_path()
     for attempt in range(_LOAD_TRIES):
         try:
-            with open(sessions_path()) as stream:
+            with open(path) as stream:
                 data = json.load(stream)
-        except OSError:
+        except FileNotFoundError:
             return []
-        except ValueError:  # torn by another process's write: try again
+        except (OSError, ValueError):  # mid-rewrite: torn, or locked on Windows
             if attempt + 1 < _LOAD_TRIES:
                 sleep(_LOAD_RETRY_SECONDS)
                 continue
-            return []
+            return None
         return data if isinstance(data, list) else []
-    return []
+    return None
 
 
 def _write_sessions(entries):
+    """Write the rows atomically: a temp file renamed into place, so a
+    reader sees the old file or the new one and never a torn one. On
+    Windows the rename fails while another process holds the file open;
+    it is retried briefly, and the plain write is the last resort."""
     path = sessions_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(entries))
+    text = json.dumps(entries)
+    temp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    try:
+        temp.write_text(text)
+        for attempt in range(_REPLACE_TRIES):
+            try:
+                os.replace(temp, path)
+                return
+            except OSError:
+                if attempt + 1 < _REPLACE_TRIES:
+                    sleep(_LOAD_RETRY_SECONDS)
+        path.write_text(text)
+    finally:
+        try:
+            temp.unlink()
+        except OSError:
+            pass
 
 
 # Registry reads and writes within one process happen from the accept
-# loop, every client thread's drop, and the launcher's poll, so they
-# take turns (#158). Another process reading mid-write (the picker
-# while a session rewrites its attached count) sees a torn file, which
-# json rejects: _load_sessions retries briefly before reporting none.
+# loop, every client thread's drop, the heartbeat and the launcher's
+# poll, so they take turns (#158). Another process reading mid-write
+# (the picker while a session rewrites its attached count) sees a torn
+# or locked file: _load_sessions retries, then reports failure (None),
+# and no writer turns a failed read into an empty registry (#160).
 _REGISTRY_LOCK = Lock()
-_LOAD_TRIES = 3
-_LOAD_RETRY_SECONDS = 0.02
+_LOAD_TRIES = 5
+_LOAD_RETRY_SECONDS = 0.04
+_REPLACE_TRIES = 5
+HEARTBEAT_SECONDS = 30  # a session re-asserts its row this often
+# A liveness probe's patience. A live session answers at once (the
+# kernel completes the handshake before the accept loop turns), but
+# Windows refuses a dead localhost port only after ~2 s of retries
+# (measured 2026-09-12: 2.04 s to WinError 10061); with less than that
+# a dead row reads as a timeout and is never pruned.
+PROBE_TIMEOUT = 3.0
+PROBE_RETRY_SECONDS = 0.5  # between the two refused probes that prune a row
 
 
-def register_session(port, character):
+def register_session(port, character, pid=None, attached=0):
     """Announce a session: {port, character, pid, attached} — attached
     is the count of front ends on it, kept current by update_attached
     so the launcher's picker can tell a detached session (no window)
-    from one already on screen (#158). Best effort: running_sessions'
-    liveness probe is a connection too, so the count blips up by one
-    for the milliseconds a probe lasts; the picker reads the file
-    before it probes, so what it shows is the settled value."""
-    with _REGISTRY_LOCK:
-        entries = [e for e in _load_sessions() if e.get("port") != port]
-        entries.append(
-            {"port": port, "character": character, "pid": os.getpid(), "attached": 0}
-        )
-        _write_sessions(entries)
-
-
-def update_attached(port, count):
-    """The registry row's attached-window count; a row that is gone
-    (deregistered) stays gone."""
+    from one already on screen (#158). True when the row was written;
+    False when the registry could not be read, in which case nothing is
+    written and the session's heartbeat tries again (#160)."""
     with _REGISTRY_LOCK:
         entries = _load_sessions()
+        if entries is None:
+            return False
+        entries = [e for e in entries if e.get("port") != port]
+        entries.append(
+            {
+                "port": port,
+                "character": character,
+                "pid": pid or os.getpid(),
+                "attached": attached,
+            }
+        )
+        _write_sessions(entries)
+        return True
+
+
+def update_attached(port, count, character=None, pid=None):
+    """The registry row's attached-window count. With `character` the
+    call also heals: a row that is missing — pruned by a busy probe, or
+    lost to a bad rewrite — is put back (#160). Without it a missing
+    row stays missing (a deregistered session must not return). False
+    when the registry could not be read; nothing is written then."""
+    with _REGISTRY_LOCK:
+        entries = _load_sessions()
+        if entries is None:
+            return False
         for entry in entries:
             if entry.get("port") == port:
+                if entry.get("attached") == count:
+                    return True  # nothing to say: no write, no torn window
                 entry["attached"] = count
                 _write_sessions(entries)
-                return
+                return True
+        if character is None:
+            return True
+        entries.append(
+            {
+                "port": port,
+                "character": character,
+                "pid": pid or os.getpid(),
+                "attached": count,
+            }
+        )
+        _write_sessions(entries)
+        return True
 
 
 def deregister_session(port):
+    """Drop the row; when the registry cannot be read, drop nothing — a
+    stale row is pruned later by a refused probe."""
     with _REGISTRY_LOCK:
-        _write_sessions([e for e in _load_sessions() if e.get("port") != port])
+        entries = _load_sessions()
+        if entries is None:
+            return False
+        remaining = [e for e in entries if e.get("port") != port]
+        if remaining != entries:
+            _write_sessions(remaining)
+        return True
 
 
 def character_for_port(port):
@@ -148,7 +218,7 @@ def character_for_port(port):
     The GUI asks before it builds its window, so the character's own
     layout can be restored before the first show — the one order Qt
     restores every saved dock state safely (#140)."""
-    for entry in _load_sessions():
+    for entry in _load_sessions() or []:
         try:
             if int(entry.get("port")) == int(port):
                 name = entry.get("character")
@@ -158,20 +228,44 @@ def character_for_port(port):
     return None
 
 
+def _probe(host, port):
+    """ "live", "refused" or "unsure" for a registered port. Only a
+    refused connection says nothing listens; a timeout says the session
+    was busy (replaying a backlog, parsing INFO) and is no reason to
+    lose its row (#160)."""
+    try:
+        with socket.create_connection((host, int(port)), timeout=PROBE_TIMEOUT):
+            return "live"
+    except ConnectionRefusedError:
+        return "refused"
+    except (OSError, ValueError, TypeError):
+        return "unsure"
+
+
 def running_sessions(host=DEFAULT_HOST):
-    """Registered sessions that actually answer, pruning the rest."""
+    """Registered sessions that actually answer. A row is pruned only
+    when its port refuses twice, PROBE_RETRY_SECONDS apart — a crashed
+    session leaves a refusing port; a busy one times out and stays."""
     with _REGISTRY_LOCK:
         entries = _load_sessions()
-        live = []
+        if not entries:
+            return []
+        live, doubtful = [], []
         for entry in entries:
-            try:
-                with socket.create_connection((host, int(entry["port"])), timeout=0.5):
+            verdict = _probe(host, entry.get("port"))
+            if verdict == "refused":
+                doubtful.append(entry)
+            else:
+                live.append(entry)
+        if doubtful:
+            sleep(PROBE_RETRY_SECONDS)
+            for entry in doubtful:
+                if _probe(host, entry.get("port")) != "refused":
                     live.append(entry)
-            except (OSError, ValueError, KeyError, TypeError):
-                pass
+            live = [e for e in entries if e in live]  # the file's order
         if live != entries:
             _write_sessions(live)
-    return live
+    return live  # an unsure (busy) session is a running session
 
 
 # A frontend line that starts with this byte was sent from outside the
@@ -352,11 +446,12 @@ class SessionServer(ClientLogger):
         # Announce this session to the launcher's picker (#58); the
         # character name comes from the spawn env (frontends learn it
         # from the "character" stream instead).
-        register_session(
-            self.bound_port, os.environ.get("REVENANT_CHARACTER") or "unknown"
-        )
+        self.character = os.environ.get("REVENANT_CHARACTER") or "unknown"
+        if not register_session(self.bound_port, self.character):
+            self.log.warning("session registry unreadable at start; heartbeat retries")
         self.log.info(f"Session listening on {self.host}:{self.bound_port}")
         Thread(target=self.game_reader, daemon=True).start()
+        Thread(target=self._registry_heartbeat, daemon=True).start()
         try:
             while self.running:
                 conn, addr = self.listener.accept()
@@ -710,17 +805,31 @@ class SessionServer(ClientLogger):
 
     def _note_attached(self):
         """The registry's attached-window count for this session, after
-        every attach and drop (#158). A registry the disk refuses is not
-        worth a front-end thread: the count is advisory."""
+        every attach and drop (#158), and the row itself put back when
+        it is missing (#160). A registry the disk refuses is not worth a
+        front-end thread: the count is advisory."""
         port = getattr(self, "bound_port", None)
-        if not port:
+        if not port or not self.running:
             return
         with self.clients_lock:
             count = len(self.clients)
         try:
-            update_attached(port, count)
+            update_attached(
+                port, count, character=getattr(self, "character", None) or "unknown"
+            )
         except OSError:
             self.log.exception("could not update the session registry")
+
+    def _registry_heartbeat(self):
+        """Re-assert this session's registry row every HEARTBEAT_SECONDS,
+        so a row lost to a busy probe or a bad rewrite heals by itself
+        within the interval (#160)."""
+        while self.running:
+            deadline = monotonic() + HEARTBEAT_SECONDS
+            while self.running and monotonic() < deadline:
+                sleep(min(1.0, max(0.0, deadline - monotonic())))
+            if self.running:
+                self._note_attached()
 
     def shutdown(self):
         if not self.running:

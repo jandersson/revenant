@@ -185,6 +185,125 @@ def test_sessions_register_for_the_launcher_and_prune_stale_rows(monkeypatch):
     assert _await(lambda: mine() is None), "never deregistered"
 
 
+# --- the registry must not lose a live row (#160) --------------------------
+
+
+def _registry(monkeypatch, tmp_path, rows):
+    path = tmp_path / "sessions.json"
+    monkeypatch.setenv("REVENANT_SESSIONS", str(path))
+    path.write_text(json.dumps(rows))
+    return path
+
+
+ROWS = [
+    {"port": 4242, "character": "Lanival", "pid": 1, "attached": 0},
+    {"port": 4243, "character": "Sable", "pid": 2, "attached": 1},
+]
+
+
+def test_a_torn_registry_reads_as_failure_not_as_empty(monkeypatch, tmp_path):
+    path = _registry(monkeypatch, tmp_path, ROWS)
+    path.write_text('[{"port": 42')  # a rewrite caught halfway
+    monkeypatch.setattr(session, "_LOAD_RETRY_SECONDS", 0.001)
+    assert session._load_sessions() is None
+    # ... and no writer turns that into an empty file
+    assert session.update_attached(4242, 1) is False
+    assert session.deregister_session(4242) is False
+    assert session.register_session(4244, "Uthmor") is False
+    assert path.read_text() == '[{"port": 42'
+    assert session.character_for_port(4242) is None
+    path.unlink()
+    assert session._load_sessions() == []  # no file is genuinely empty
+
+
+def test_writes_are_atomic_and_leave_no_temp_file(monkeypatch, tmp_path):
+    path = _registry(monkeypatch, tmp_path, [])
+    session.register_session(4242, "Lanival", pid=7)
+    assert json.loads(path.read_text()) == [
+        {"port": 4242, "character": "Lanival", "pid": 7, "attached": 0}
+    ]
+    assert list(tmp_path.iterdir()) == [path]
+
+
+def test_update_attached_heals_a_missing_row_only_when_told_who(monkeypatch, tmp_path):
+    path = _registry(monkeypatch, tmp_path, ROWS[1:])
+    assert session.update_attached(4242, 1) is True  # no character: stays gone
+    assert [r["port"] for r in json.loads(path.read_text())] == [4243]
+    assert session.update_attached(4242, 1, character="Lanival", pid=9) is True
+    rows = json.loads(path.read_text())
+    assert rows[-1] == {"port": 4242, "character": "Lanival", "pid": 9, "attached": 1}
+    # an unchanged count writes nothing (fewer torn-read windows)
+    before = path.stat().st_mtime_ns
+    session.update_attached(4243, 1)
+    assert path.stat().st_mtime_ns == before
+
+
+def test_a_busy_session_keeps_its_row_and_a_refusing_one_loses_it(
+    monkeypatch, tmp_path
+):
+    path = _registry(monkeypatch, tmp_path, ROWS)
+    verdicts = {4242: TimeoutError(), 4243: ConnectionRefusedError()}
+    probes = []
+
+    def connect(address, timeout=None):
+        probes.append(address[1])
+        raise verdicts[address[1]]
+
+    monkeypatch.setattr(session.socket, "create_connection", connect)
+    monkeypatch.setattr(session, "PROBE_RETRY_SECONDS", 0.001)
+    live = session.running_sessions()
+    assert [r["port"] for r in live] == [4242]  # busy stays, refused goes
+    assert probes.count(4243) == 2  # pruned only on the second refusal
+    assert [r["port"] for r in json.loads(path.read_text())] == [4242]
+
+
+def test_a_single_refusal_does_not_prune(monkeypatch, tmp_path):
+    path = _registry(monkeypatch, tmp_path, ROWS[:1])
+    answers = [ConnectionRefusedError(), None]  # refused once, then answering
+
+    class Conn:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    def connect(address, timeout=None):
+        answer = answers.pop(0)
+        if answer is not None:
+            raise answer
+        return Conn()
+
+    monkeypatch.setattr(session.socket, "create_connection", connect)
+    monkeypatch.setattr(session, "PROBE_RETRY_SECONDS", 0.001)
+    assert [r["port"] for r in session.running_sessions()] == [4242]
+    assert [r["port"] for r in json.loads(path.read_text())] == [4242]
+
+
+def test_the_session_puts_its_row_back_by_heartbeat(monkeypatch, tmp_path):
+    path = tmp_path / "sessions.json"
+    monkeypatch.setenv("REVENANT_SESSIONS", str(path))
+    monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
+    monkeypatch.setattr(session, "HEARTBEAT_SECONDS", 0.2)
+    game = FakeGame()
+    server, port = _start_server(game)
+
+    def mine():
+        return next(
+            (e for e in (session._load_sessions() or []) if e.get("port") == port),
+            None,
+        )
+
+    assert _await(lambda: mine() is not None), "never registered"
+    path.write_text("[]")  # the row lost to a bad rewrite elsewhere
+    assert _await(lambda: mine() is not None, timeout=3), (
+        "the heartbeat never healed it"
+    )
+    assert mine()["character"] == "Lanival"
+    game.closed = True
+    assert _await(lambda: mine() is None), "never deregistered"
+
+
 def test_new_front_end_receives_recent_backlog_on_attach():
     # Attaching to a running session shows what already happened —
     # scrollback and compass state — not a blank window.

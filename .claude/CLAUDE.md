@@ -152,7 +152,9 @@ for `client/client/<pkg>/x.py`.
   ~/.revenant/sessions.json (each row carries `attached`, the window
   count the session keeps current, so the picker shows online rows
   highlighted under their own header and opens on a detached one,
-  #158). It exec's `client/engine/guiboot.py`, which arms
+  #158; the file is written atomically, a failed read is never
+  rewritten, a row is pruned only on two refused probes, and the
+  session re-asserts its row every thirty seconds, #160). It exec's `client/engine/guiboot.py`, which arms
   faulthandler and reports a GUI that cannot start (startup-/faults-
   logs, a message box on Windows) before importing the GUI.
 - `chat/chat.py` — LNet protocol (stdlib only); `chat/commands.py` — the

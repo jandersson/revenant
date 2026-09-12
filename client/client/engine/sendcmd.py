@@ -119,7 +119,10 @@ def resolve_port(character=None, sessions=None, host=DEFAULT_HOST):
     session when none is named. The message explains a None."""
     sessions = running_sessions(host) if sessions is None else list(sessions)
     if not sessions:
-        return None, "no session is running - nothing to send to"
+        return None, (
+            "no session in the registry - if one is running, name its port with "
+            "--port (a row can go missing for up to half a minute, #160)"
+        )
     if character:
         wanted = character.strip().lower()
         for entry in sessions:
@@ -128,7 +131,10 @@ def resolve_port(character=None, sessions=None, host=DEFAULT_HOST):
         names = ", ".join(
             str(e.get("character") or f"port {e.get('port')}") for e in sessions
         )
-        return None, f"no session is playing {character!r} (running: {names})"
+        return None, (
+            f"no session is playing {character!r} (running: {names}) - "
+            "--port sends to one the registry has not listed yet"
+        )
     if len(sessions) == 1:
         entry = sessions[0]
         return int(

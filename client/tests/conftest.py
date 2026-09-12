@@ -7,6 +7,12 @@ import pytest
 def pytest_configure(config):
     # Keep test logging out of the real ~/.revenant/logs archive.
     os.environ["REVENANT_LOG_DIR"] = tempfile.mkdtemp(prefix="revenant-test-logs-")
+    # And the session registry: a session thread that outlives its test
+    # deregisters into whatever the env names by then — never the
+    # operator's ~/.revenant/sessions.json (#160).
+    os.environ["REVENANT_SESSIONS"] = os.path.join(
+        tempfile.mkdtemp(prefix="revenant-test-sessions-"), "sessions.json"
+    )
 
 
 @pytest.fixture(autouse=True)

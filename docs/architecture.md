@@ -278,8 +278,10 @@ entries from a dock-layout module.
 - `client/client/engine/launch.py` — the `revenant` console script: attaches
   the GUI to the right session, spawning one when needed. Characters
   run side by side, one session/window each on its own port: sessions
-  register in ~/.revenant/sessions.json (client/engine/session.py; pruned by
-  connectability), `revenant <name>` attaches to that character's
+  register in ~/.revenant/sessions.json (client/engine/session.py: rows
+  written atomically, a failed read never rewritten, a row pruned only
+  when its port refuses twice, and the session re-asserting its own
+  row every thirty seconds, #160), `revenant <name>` attaches to that character's
   session or spawns on a free port, and `--pick` (the Start Menu
   shortcut) offers running sessions to attach plus every cached
   character on every account to launch (#58). The session keeps an
