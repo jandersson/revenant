@@ -98,3 +98,12 @@ lessons the code and docs cannot carry themselves.
   flag is the only thing that sets the tag; without it a line reads
   `[external]`, and the operator cannot tell who sent it (2026-09-12:
   a day of sends went out untagged).
+- When walks or docks go quiet mid-session, replay the session's raw
+  game log through the parser the way core.py feeds it (XMLParser
+  per line, then route) and find the first line after which the
+  signal stops; a line the game writes that XML forbids (a bare "&")
+  broke the parser and every walk for the rest of a session before
+  anyone looked (2026-09-12, #171).
+- A chain of `cmd | tail -1 && next` runs `next` on tail's exit code,
+  not cmd's: a failed test suite committed and pushed that way once.
+  `set -o pipefail` first, or check the summary line.
