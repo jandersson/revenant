@@ -98,6 +98,50 @@ own except the plan's (`rest_commands`, `setup`, `teardown`,
 `commands`) and the burst escape. The first attended run is the place
 to learn what the rest floor and the budgets should default to.
 
+## Spending TDPs: ;tdp
+
+Stats rise by spending Time Development Points, one point per TRAIN
+typed twice in that stat's training room, and `;tdp train <stat>
+[goal]` does the walk and the spending with every point confirmed by
+the game's own numbers. `;tdp` alone shows INFO's eight stats and the
+TDPs; `;tdp agility 12` quotes the next point (the stat's own command)
+and the whole climb (TDP PROJECT) without spending.
+
+Captured 2026-09-12 on a circle-1 Dwarf at Agility 8 with 347 TDPs:
+
+```
+> agility
+Your base Agility is eight (8).
+It will cost you 28 TDPs to raise your Agility from 8 to 9.
+You currently have 347 TDPs available.
+> tdp project agility 12
+It will cost you 132 TDPs to reach 12 points in Agility.
+> tdp
+You have 347 TDPs.
+> dir agility
+Directions towards Agility training in Crossing: Southwest.
+Type DIR STOP to stop these direction suggestions.
+```
+
+The figures match Elanthipedia's formula ([Attributes](https://elanthipedia.play.net/Attributes)):
+a point from value *v* costs 3*v* plus the race's modifier times
+*v* // 2 in integer math (a Dwarf pays +1 on Agility: 24 + 4 = 28; 28
++ 31 + 35 + 38 = 132), and 15*v* from 100 up. `client/game/tdp.py`
+carries the formula for estimates and tests; the script trusts the
+quote. DIR keeps repeating its hint every few lines until DIR STOP,
+so the script never uses it — the map tags every training room
+(`agility`, `strength`, ... one per stat per city; Crossing's are
+50984-50989 plus the Academy rooms) and the walker takes it there.
+
+What the script assumes, until a TRAIN is captured: the first TRAIN
+quotes and asks again, the second raises the stat, a refusal says so.
+It re-asks the stat after every pair and stops the moment the value
+has not risen, echoing both answers, so a wording it did not expect
+costs at most one point. It buys only points the quoted TDPs cover,
+stops on death, and walks back to where it started unless told
+`stay`. The Elanthipedia rule of thumb that a guild may refuse a
+character with any stat below 8 is the reason to spend early.
+
 ## Out of scope in the first cut
 
 A dialog for the plan (the file is the interface), a trainer per

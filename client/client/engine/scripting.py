@@ -297,6 +297,7 @@ RELOADABLE_MODULES = (
     "client.game.probe",
     "client.game.profile",
     "client.game.training",  # binds names from profile: after it
+    "client.game.tdp",
     "client.game.mapdb",
     "client.game.walker",
 )

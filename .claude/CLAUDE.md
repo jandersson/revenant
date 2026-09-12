@@ -101,7 +101,10 @@ for `client/client/<pkg>/x.py`.
   floor. The pure decisions (next task, satisfied, rested, safe-room
   rotation) live here; `scripts/train.py` is the loop, orchestrating
   other scripts through the handle's `run`/`is_running`/`tell`/`kill`.
-  Model: docs/training.md.
+  Model: docs/training.md. `client/game/tdp.py` is the stat side:
+  the game's TDP quotes parsed, the wiki's cost formula, ;tdp's
+  goals; `scripts/tdp.py` walks to the tagged trainer and buys one
+  confirmed point at a time.
 - `client/game/walker.py` + `client/game/mapdb.py` — travel on the community map
   (downloaded, never vendored). Twins: the map lists some rooms twice,
   one uid-less; `same_place` handles it. A climb turned back for

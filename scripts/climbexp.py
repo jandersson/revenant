@@ -44,6 +44,7 @@ from client.game.climblog import (
     summarize,
 )
 from client.game.history import database_path
+from client.game.tdp import STATS, TRAIN_OUTCOMES
 from client.game.walker import locate, walk
 
 CAP = 20  # attempts after the train, a fuse
@@ -52,29 +53,9 @@ ARRIVAL_TIMEOUT = 15  # seconds for the compass frame after a climb
 BETWEEN = 2  # seconds between attempts, past the roundtime
 COLLECT_SECONDS = 3  # a command's answer, opening window
 TAIL_SECONDS = 1.5  # ... and the tail past its roundtime
-STATS = (
-    "Strength",
-    "Reflex",
-    "Agility",
-    "Charisma",
-    "Discipline",
-    "Wisdom",
-    "Intelligence",
-    "Stamina",
-)
 _STAT = re.compile(rf"({'|'.join(STATS)})\s*:\s*(\d+)")
 _TDPS = re.compile(r"TDPs\s*:\s*(\d+)")
 _ENC = re.compile(r"Encumbrance\s*:\s*(.+)")
-
-# TRAIN's answers — assumptions until captured (the wiki quotes none):
-# a first TRAIN states the cost and wants a second; the second raises
-# the stat; anything else is a refusal. Order matters: a refusal that
-# mentions the cost must not read as a prompt to confirm.
-TRAIN_OUTCOMES = (
-    ("refused", ("cannot", "can't", "unable", "not enough", "no training", "must be")),
-    ("done", ("increase", "raise", "you feel", "trained", "improve")),
-    ("confirm", ("again", "confirm", "cost", "would you like")),
-)
 
 
 def parse_args(args):
