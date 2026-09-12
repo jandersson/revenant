@@ -148,3 +148,18 @@ def test_show_lists_the_readings(tmp_path, monkeypatch):
     fake.args = ["show"]
     script.main(fake)
     assert any("Very Heavy Burden — stowed the greaves" in line for line in fake.echoed)
+
+
+def test_ballast_from_none_pins_without_advice_about_a_lighter_level(
+    tmp_path, monkeypatch
+):
+    # captured 2026-09-12: the worn-plate run started at None and crashed
+    # after the flip, before the pinned row, when it reached for a level
+    # below None; the coins went back on the crash path
+    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    fake = Fake(weight=480)  # None at 10 + 11 holds up to 510
+    script.ballast(fake, 50, mapdb=None)
+    assert "the load weighs over 460 and up to 510 stones" in echoes(fake)
+    assert fake.coins == 0
+    db = enc.open_history(script.database_path())
+    assert enc.rows(db)[-1]["note"] == "pinned 460-510 stones"

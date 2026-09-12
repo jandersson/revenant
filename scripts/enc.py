@@ -147,6 +147,8 @@ def ballast(s, step, mapdb=None, walk_fn=walk):
         )
         for weight in (low + 1, high):
             points = points_to_lighten(LEVELS[start - 1], strength, stamina, weight)
+            if points is None:  # starting at None: nothing lighter to reach
+                break
             s.echo(
                 f"enc: at {weight} stones, {points[0]} point(s) of Strength or Stamina "
                 f"would make it {LEVELS[start - 2]}"

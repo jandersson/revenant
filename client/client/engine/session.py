@@ -276,24 +276,38 @@ def running_sessions(host=DEFAULT_HOST):
 EXTERNAL_MARK = b"\x1e"
 
 
-def send_and_read(host, port, text, seconds, timeout=5):
+def send_and_read(host, port, text, seconds, timeout=5, settle=0.3):
     """Send one command line and return what the session broadcast in
     the `seconds` after it: [(text, stream, style)] frames, the story
-    and the docks alike, from the line's own ">> [origin] ..." echo on
-    — the backlog replay that precedes it is dropped. None when nothing
-    was listening. This is how a tool reads the game's answer without
-    tailing a log: the connection is a frontend for those seconds."""
+    and the docks alike, from the line's own ">> [origin] ..." echo on.
+    None when nothing was listening. This is how a tool reads the
+    game's answer without tailing a log: the connection is a frontend
+    for those seconds.
+
+    The backlog replay comes first, and it can hold an identical echo
+    of an earlier send of the same line — so the replay is drained
+    (read until `settle` seconds pass with no bytes, two seconds at
+    most) before the line goes out, and the first matching echo after
+    that is this line's own."""
     try:
         conn = socket.create_connection((host, int(port)), timeout=timeout)
     except OSError:
         return None
-    frames, buffer, seen_echo = [], b"", False
-    # The line's own echo, exactly ">> [origin] command": a substring
-    # match caught an earlier echo in the backlog replay ("look" inside
-    # ">> [claude] look on rack") and printed the replay as the answer.
     origin, _, command = text.lstrip("\x1e").partition("\t")
     echo = f">> [{origin}] {' '.join(command.split())}"
+    frames, buffer, seen_echo = [], b"", False
     with conn:
+        drain_until = monotonic() + 2.0
+        while monotonic() < drain_until:
+            conn.settimeout(settle)
+            try:
+                chunk = conn.recv(65536)
+            except TimeoutError:
+                break  # quiet: the replay is over
+            except OSError:
+                break
+            if not chunk:
+                break
         conn.sendall(text.encode("UTF-8").rstrip(b"\n") + b"\n")
         deadline = monotonic() + seconds
         while (left := deadline - monotonic()) > 0:

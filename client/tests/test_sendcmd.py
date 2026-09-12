@@ -76,7 +76,13 @@ def answering():
             return
         with conn:
             conn.settimeout(5)
-            conn.sendall(frame("an old line from the backlog\n"))
+            # the replay: an old line, and an identical echo of an earlier
+            # send of the same command, which must not count as the answer
+            conn.sendall(
+                frame("an old line from the backlog\n")
+                + frame(">> [claude] tdp\n", "", "sent")
+                + frame("You have 999 TDPs.\n")
+            )
             buffer = b""
             while b"\n" not in buffer:
                 chunk = conn.recv(4096)

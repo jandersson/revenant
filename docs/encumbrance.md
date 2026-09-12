@@ -105,8 +105,22 @@ anomaly in numbers, and the practical rule with it: wear the armor,
 never carry it — in hand or in a sack, a piece counts in full.
 
 The rule's arithmetic, then, is right for what is carried; what is
-worn is discounted by a factor the bands cannot fix. Ballast at the
-teller with the plate held and then worn would give that factor.
+worn is discounted. Ballast at the teller gave the factor the same
+day: with the plate held the load pinned at 710-720 stones, worn at
+460-510, a difference of 200-260 for a 500-stone plate — **a worn
+full plate counts 240-300 stones, about half its weight**, and the
+rest of what he carries is 210-220.
+
+## Weighing things
+
+Ballast answers the burden question; for an item's weight in stones
+the direct instrument is MAMAS, the Merchant Adventurers' Mapping,
+Assay, and Survey Company ([Elanthipedia](https://elanthipedia.play.net/Category:MAMAS_shops)),
+with a Crossing branch: PUT <item> ON COUNTER weighs it for a fee,
+ASK CLERK ABOUT WEIGHT lists your 25 heaviest items, ASK CLERK ABOUT
+TOTAL your whole inventory lightest to heaviest. Appraising gives the
+weight too, but only with a great deal of Appraisal skill or as a
+Trader.
 
 ## The experiment
 
