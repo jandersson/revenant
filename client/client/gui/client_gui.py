@@ -319,6 +319,12 @@ class ClientGUI(QMainWindow, ClientLogger):
         )
         profile_action.triggered.connect(self.edit_profile)
 
+        plan_action = QAction("Training Pla&n…", self)
+        plan_action.setStatusTip(
+            "What ;train runs for this character (~/.revenant/training/<name>.json)"
+        )
+        plan_action.triggered.connect(self.edit_plan)
+
         detach_action = QAction("&Detach", self)
         detach_action.setShortcut("Ctrl+D")
         detach_action.setStatusTip(
@@ -367,6 +373,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         file_menu.addAction(reconnect_action)
         file_menu.addAction(settings_action)
         file_menu.addAction(profile_action)
+        file_menu.addAction(plan_action)
         file_menu.addAction(detach_action)
         file_menu.addAction(exit_action)
         view_menu = menubar.addMenu("View")
@@ -509,6 +516,26 @@ class ClientGUI(QMainWindow, ClientLogger):
             return
         path = save_profile(character, dialog.values())
         self.status_bar.showMessage(f"Profile saved to {path}")
+
+    def edit_plan(self):
+        """File → Training Plan…: the ;train plan for the character this
+        window plays, over training/<name>.json — the starter plan
+        (;train init's) when there is none yet; the next ;train start
+        reads it."""
+        from client.gui.plan_dialog import PlanDialog
+        from client.game.training import load_plan, plan_path, save_plan, starter_plan
+
+        character = self._character or ""
+        plan = (
+            load_plan(character)
+            if plan_path(character).is_file()
+            else starter_plan(character)
+        )
+        dialog = PlanDialog(character, plan, self)
+        if dialog.exec() != dialog.DialogCode.Accepted:
+            return
+        path = save_plan(character, dialog.values())
+        self.status_bar.showMessage(f"Training plan saved to {path}")
 
     def edit_highlights(self):
         """View → Edit Highlights…: the table editor over the patterns

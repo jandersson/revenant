@@ -1,8 +1,9 @@
 """Training plans: what a character trains, with what, and when to rest.
 
 A plan is ~/.revenant/training/<character>.json — one file per
-character, read by ;train (scripts/train.py) and hand-edited (there is
-no dialog yet). It names the tasks — each a skill list tied to the
+character, read by ;train (scripts/train.py), edited from the GUI's
+File → Training Plan… dialog (client/gui/plan_dialog.py, built from
+PLAN_FIELDS and TASK_FIELDS below) or by hand. It names the tasks — each a skill list tied to the
 script (or plain command loop) that trains it — the mindstate the
 skills must reach, where to rest and until what mindstate they must
 drain. This module is the Qt-free half: the schema with its defaults,
@@ -80,6 +81,38 @@ TASK_DEFAULTS = {
 }
 
 ORDERS = ("listed", "lowest")
+
+# The schema the GUI's Training Plan dialog builds from
+# (client/gui/plan_dialog.py): (key, label, kind, help) per plan setting
+# and per task setting, in display order. Kinds: "int", "optint" (blank
+# means the plan's value), "choice" (one of ORDERS), "str", "list"
+# (comma-separated in the dialog). Adding a key means a default and a
+# row here; the dialog picks it up without a change of its own.
+PLAN_FIELDS = (
+    ("safe_rooms", "Safe rooms (;go2 targets, rotated)", "list", "home, 1900"),
+    ("rest_commands", "Sent on arrival at the safe room", "list", "sit"),
+    ("target", "Train each task's skills to mindstate", "int", "0-34"),
+    ("rest_until", "Rest until every skill drains to", "int", "0-33"),
+    ("rest_minutes", "Cap on a rest, minutes", "int", "0: until drained"),
+    ("task_minutes", "Time budget per task, minutes", "int", "0: until the target"),
+    ("order", "Task order", "choice", "listed, or the least-trained first"),
+    ("poll", "Seconds between mindstate checks", "int", ""),
+    ("cycles", "Train-rest cycles", "int", "0: until stopped"),
+)
+TASK_FIELDS = (
+    ("name", "Name", "str", "how the task is reported"),
+    ("skills", "Skills it trains", "list", "Small Edged, Evasion"),
+    ("script", "Script", "str", "hunt — or leave empty and give commands"),
+    ("args", "Script arguments", "list", ""),
+    ("stop_word", "Stop word", "str", "stop — empty: killed at once"),
+    ("stop_grace", "Seconds before the kill", "int", "120"),
+    ("commands", "Commands cycled instead of a script", "list", "play my flute"),
+    ("pace", "Seconds between commands", "int", ""),
+    ("setup", "Before the task", "list", "get my flute"),
+    ("teardown", "After the task", "list", "stow my flute"),
+    ("target", "Own target mindstate", "optint", "blank: the plan's"),
+    ("minutes", "Own time budget, minutes", "optint", "blank: the plan's"),
+)
 
 _INTS = ("target", "rest_until", "rest_minutes", "task_minutes", "poll", "cycles")
 _TASK_INTS = ("stop_grace", "pace")

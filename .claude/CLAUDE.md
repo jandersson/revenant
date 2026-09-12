@@ -109,7 +109,8 @@ for `client/client/<pkg>/x.py`.
   `scripts/skins.py` sells the worn bundle at the nearest tannery.
   Model and assumptions: docs/hunting.md.
 - `client/game/training.py` — per-character training plans
-  (`~/.revenant/training/<name>.json`, hand-edited, `;train init`
+  (`~/.revenant/training/<name>.json`, File → Training Plan… in the
+  GUI or hand-edited, `;train init`
   writes a starter): tasks tying skills to the script or command loop
   that trains them, the target mindstate, the safe rooms, the rest
   floor. The pure decisions (next task, satisfied, rested, safe-room
@@ -160,6 +161,8 @@ for `client/client/<pkg>/x.py`.
   `text_views.py` (the story/stream views and per-view fonts).
   `chat_window.py` — the
   standalone LNet window; `settings_dialog.py`, `profile_dialog.py`,
+  `plan_dialog.py` (the ;train plan: plan form, ordered task list,
+  task form, built from training.PLAN_FIELDS / TASK_FIELDS),
   `login_dialog.py`, `highlights_dialog.py`.
 - `client/engine/launch.py` — the `revenant` console script and the picker; one
   session per character on its own port, registry in

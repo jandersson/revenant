@@ -15,7 +15,12 @@ One JSON file per character, `~/.revenant/training/<name>.json`
 (`REVENANT_TRAINING` moves the directory). `;train init` writes a
 starter — the two bundled trainers, the hunt task's skills taken from
 the character's profile — and `;train plan` prints what the file says.
-There is no dialog yet; the file is coerced on load, so a string where
+File → Training Plan… in the client edits it: the plan settings as a
+form, the tasks as an ordered list with add, remove, up and down, the
+selected task as a form, every row built from the same schema the
+loop reads (`PLAN_FIELDS` / `TASK_FIELDS`), and OK refuses a plan the
+validator rejects, listing why; the starter plan fills the dialog
+when no file exists yet. The file is coerced on load, so a string where
 a number belongs or a comma-separated list where a JSON list belongs
 still works, and a mistake the loop cannot live with (a task naming no
 script and no commands, an unknown order) is reported and refuses to

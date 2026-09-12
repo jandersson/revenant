@@ -222,3 +222,19 @@ def test_the_module_is_reloadable_by_the_script_engine():
         "client.game.profile"
     )
     assert training.MIND_LOCK == 34
+
+
+# --- the dialog's schema ------------------------------------------------------
+
+
+def test_the_plan_fields_cover_every_plan_and_task_key():
+    # The GUI's Training Plan dialog builds from these rows; a key with
+    # a default but no row would be invisible there.
+    from client.game.training import DEFAULTS, PLAN_FIELDS, TASK_DEFAULTS, TASK_FIELDS
+
+    assert [key for key, *_ in PLAN_FIELDS] == [k for k in DEFAULTS if k != "tasks"]
+    assert [key for key, *_ in TASK_FIELDS] == list(TASK_DEFAULTS)
+    assert all(
+        kind in ("int", "optint", "choice", "str", "list")
+        for _, _, kind, _ in PLAN_FIELDS + TASK_FIELDS
+    )
