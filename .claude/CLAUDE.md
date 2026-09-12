@@ -111,7 +111,11 @@ for `client/client/<pkg>/x.py`.
   `client/game/attune.py` is power walking: a loop of street rooms
   joined by two-way compass moves and the sixty-second timer per
   room; `scripts/attune.py` POWERs round it until mind-lock, or in
-  place with `here` for Moon Mages.
+  place with `here` for Moon Mages. `client/game/encumbrance.py` is the
+  wiki's capacity rule (a burden level is a band of weights for the
+  character's Strength + Stamina) and the readings' log; `scripts/enc.py`
+  reads it and `;enc ballast` pins the load with coins. Model:
+  docs/encumbrance.md.
 - `client/game/walker.py` + `client/game/mapdb.py` — travel on the community map
   (downloaded, never vendored). Twins: the map lists some rooms twice,
   one uid-less; `same_place` handles it. A climb turned back for

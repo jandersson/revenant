@@ -300,6 +300,7 @@ RELOADABLE_MODULES = (
     "client.game.tdp",
     "client.game.money",
     "client.game.attune",
+    "client.game.encumbrance",
     "client.game.mapdb",
     "client.game.walker",
 )

@@ -1,0 +1,54 @@
+# Encumbrance: what a burden level says about the load
+
+The game shows a burden level, not a weight, and Elanthipedia's
+[Encumbrance](https://elanthipedia.play.net/Encumbrance) page gives
+the rule that ties the two, so a level plus Strength and Stamina is a
+band of weights and the points that would lighten it are a small
+range. `;enc` does that arithmetic, and `;enc ballast` pins the load
+by adding coins of known weight until the level rises. The formula
+is the wiki's, from a pre-DR3 page, and unverified here until a
+ballast run agrees with it.
+
+## The rule
+
+Number the levels 1 to 12 — None, Light Burden, Somewhat Burdened,
+Burdened, Heavy Burden, Very Heavy Burden, Overburdened, Very
+Overburdened, Extremely Overburdened, Tottering Under Burden, "Are
+you even able to move?", "It's amazing you aren't squashed!". At
+level *L* a character carries up to
+
+    10 × ceil(0.4 × (L + 5) × (Strength + Stamina)) stones
+
+(the wiki's example: 10 Strength and 10 Stamina carry 480 stones with
+none). Strength and Stamina count alike, there are no racial terms,
+and a coin of any metal weighs 0.2 stones. The wiki also notes the
+"armor anomaly": worn armor burdens less than the same armor carried
+in a container.
+
+## The captured case
+
+2026-09-12, a circle-1 Dwarf Paladin at Strength 10 and Stamina 11,
+wearing light full plate, gauntlets and an armet with the greaves in
+hand and a sack holding a mask, vambraces, a leather jacket and a
+handaxe: `Encumbrance : Very Heavy Burden`. By the rule that is a
+load over 840 and up to 930 stones, and Heavy Burden holds up to
+40 × (Strength + Stamina): 880 at 22, 920 at 23, 960 at 24. So one
+to three points of either stat would lighten him, and which depends
+on where in the band the load sits. Stamina was the cheaper point
+for him (28 TDPs against 30, the Dwarf's discount), and each point
+widens every band the same.
+
+## The experiment
+
+`;enc ballast` at a teller withdraws coins in steps (50 stones, 250
+coins, by default), asks ENCUMBRANCE after each, and stops at the
+first step that lifts the level. The load then weighs over
+`ceiling − ballast` and up to `ceiling − ballast + step`, where the
+ceiling is the band's upper edge; a smaller `step=` narrows it. Every
+step is a row in history.db's `encumbrance` table, the coins are
+copper so the count drawn is the count carried, they go back with
+DEPOSIT step by step, and the script says exactly
+how many points would drop the level at each end of the pinned range.
+Training that many (`;tdp train stamina +2`) and reading `;enc` again
+is the check on the formula itself: if the level drops where the rule
+says it should, the rule holds in DR3.
