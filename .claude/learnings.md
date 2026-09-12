@@ -78,3 +78,7 @@ lessons the code and docs cannot carry themselves.
   gets an issue, not a fix inside an unrelated change.
 - Live game actions on the operator's character need their say-so;
   reading logs and the history database never does.
+- A brand-new client/ module needs no session restart: the first
+  script that imports it loads it from disk. RELOADABLE_MODULES and
+  ;reexec matter only for edits to a module the session already
+  holds (2026-09-12: ;tdp ran unrestarted; I had said otherwise).
