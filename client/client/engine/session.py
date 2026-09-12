@@ -288,7 +288,11 @@ def send_and_read(host, port, text, seconds, timeout=5):
     except OSError:
         return None
     frames, buffer, seen_echo = [], b"", False
-    marker = text.split("\t", 1)[-1].strip()
+    # The line's own echo, exactly ">> [origin] command": a substring
+    # match caught an earlier echo in the backlog replay ("look" inside
+    # ">> [claude] look on rack") and printed the replay as the answer.
+    origin, _, command = text.lstrip("\x1e").partition("\t")
+    echo = f">> [{origin}] {' '.join(command.split())}"
     with conn:
         conn.sendall(text.encode("UTF-8").rstrip(b"\n") + b"\n")
         deadline = monotonic() + seconds
@@ -306,11 +310,7 @@ def send_and_read(host, port, text, seconds, timeout=5):
             decoded, buffer = decode_frames(buffer)
             for frame in decoded:
                 if not seen_echo:
-                    if (
-                        frame[2] == "sent"
-                        and frame[0].startswith(">> [")
-                        and marker in frame[0]
-                    ):
+                    if frame[2] == "sent" and frame[0].strip() == echo:
                         seen_echo = True
                     continue
                 frames.append(frame)

@@ -83,7 +83,9 @@ def explain(s, strength, stamina, level):
     span = f"{fewest}" if fewest == most else f"{fewest} to {most}"
     s.echo(
         f"enc: {span} point(s) of Strength or Stamina would make it {lighter} — "
-        "the exact count needs the weight; ;enc ballast pins it"
+        "the exact count needs the weight; ;enc ballast pins it. Or shed load: "
+        "a piece of armor in hand or in a sack counts in full, worn it counts a "
+        "fraction (docs/encumbrance.md)"
     )
 
 

@@ -74,14 +74,39 @@ By the rule the jacket's departure took at least 221 stones off the
 load (from over 870 to at most 650), and the greaves' at least one
 (the wiki gives light plate greaves 101 stones, light full plate 500).
 A plain leather jacket is 150 stones on the wiki; a boiled one has no
-page. So either this jacket weighs over 220 stones, or a piece of
-armor carried rather than worn burdens more than its weight — the
-"armor anomaly" the wiki describes without numbers. The two are not
-separable from these readings: between the pinned reading and the
-vault the jacket moved from the sack to the hand with no reading in
-between. The experiment that separates them is one item read in three
-states — in hand, worn, in the sack — with the level after each, and
-ballast at the teller if the levels alone do not settle it.
+page. Either this jacket weighs over 220 stones, or a piece of armor
+carried rather than worn burdens more than its weight — the "armor
+anomaly" the wiki describes without numbers. The three-state readings
+below separate the two.
+
+## Three states: in hand, worn, in the sack
+
+The same day, in the vault chamber at 10 + 13, one item at a time with
+the level read after each move (bands: None to 560, Light 561-650,
+Somewhat 651-740, Burdened 741-830):
+
+| item | in hand | worn | in the sack |
+|---|---|---|---|
+| light plate greaves, 101 stones | Light | refused: the plate covers the legs | Light |
+| boiled leather jacket | Burdened | refused: the plate covers the torso | Burdened |
+| light full plate, 500 stones | Somewhat | None | — |
+
+Three things follow. **A container adds nothing**: hand and sack read
+the same band for both items, and a doubling would have crossed one.
+**The jacket burdens 220-359 stones** — from the bands, the base load
+with the plate worn is 460-549 (greaves in hand read Light), the base
+plus the jacket 741-830, and the earlier base plus jacket plus greaves
+870-920; heavy for a jacket, but it is what it is. **Worn armor burdens
+less than its weight**: held, the plate lifted the level from None to
+Somewhat, so everything else he carries is 151-240 stones; worn, the
+plate plus that rest fits under 560, so the worn plate counts at most
+320-409 of its 500 stones, and likely far less. That is the wiki's
+anomaly in numbers, and the practical rule with it: wear the armor,
+never carry it — in hand or in a sack, a piece counts in full.
+
+The rule's arithmetic, then, is right for what is carried; what is
+worn is discounted by a factor the bands cannot fix. Ballast at the
+teller with the plate held and then worn would give that factor.
 
 ## The experiment
 

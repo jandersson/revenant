@@ -10,8 +10,12 @@ Strength or Stamina widens every band by 4 x (level + 5) stones, and
 the burden you see says which band your load falls in. The formula is
 the wiki's (a pre-DR3 page) and held on 2026-09-12: ballast pinned a
 load to 890-900 stones at 10 + 11, the rule said two points, and two
-points of Stamina read Heavy Burden. Coins weigh 0.2 stones each,
-which makes them the instrument. Rows go to history.db's `encumbrance` table, one per
+points of Stamina read Heavy Burden. Worn armor is the exception the
+rule does not carry: held, a 500-stone full plate lifted the level two
+bands; worn, it fits under the lowest (2026-09-12), so a worn piece
+counts a fraction of its weight while anything in hand or in a
+container counts in full. Coins weigh 0.2 stones each, which makes
+them the instrument. Rows go to history.db's `encumbrance` table, one per
 reading: stats, level, ballast, note. Model: docs/encumbrance.md.
 """
 
