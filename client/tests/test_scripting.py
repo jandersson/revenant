@@ -601,3 +601,44 @@ def test_run_reports_a_missing_script_and_start_says_whether_it_started(tmp_path
     assert any("no script named 'nosuch'" in e for e in recorder.emitted)
     assert manager.start("nosuch", []) is False
     assert manager.alive("parent") is False
+
+
+def test_waitrt_after_put_waits_for_the_commands_own_prompt(tmp_path):
+    # The roundtime a command opens arrives with the prompt that closes
+    # its answer; a waitrt straight after put() read the previous, spent
+    # roundtime and sent ;athletics' next climb one second into a fresh
+    # one ("...wait 1 seconds.", 2026-09-12). It now waits for a prompt
+    # past the one seen at the send before trusting the roundtime.
+    script, state = _script_with_state(
+        tmp_path, server_time=100, roundtime=90, prompt_count=5
+    )
+    slept = []
+
+    def fake_sleep(seconds):
+        slept.append(seconds)
+        if seconds < 1:  # the answer lands during the settle
+            state.prompt_count = 6
+            state.roundtime = 103
+        else:
+            state.server_time = 104
+
+    script.sleep = fake_sleep
+    script.put("climb tree")
+    script.waitrt()
+    assert any(3 <= s <= 3.5 for s in slept), slept
+
+
+def test_waitrt_settle_gives_up_when_no_prompt_comes(tmp_path):
+    script, state = _script_with_state(
+        tmp_path, server_time=100, roundtime=90, prompt_count=5
+    )
+    ticks = {"clock": 0.0}
+    script._manager.clock = lambda: ticks["clock"]
+
+    def fake_sleep(seconds):
+        ticks["clock"] += seconds  # no prompt ever arrives
+
+    script.sleep = fake_sleep
+    script.put("look")
+    script.waitrt()
+    assert ticks["clock"] <= 2.0  # bounded by PROMPT_SETTLE, then a no-op

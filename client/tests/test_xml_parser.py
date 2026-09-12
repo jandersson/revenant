@@ -620,3 +620,16 @@ def test_a_wipe_alone_means_no_spell_is_running(xml_data):
     assert xml_data.active_spells == {"Heroic Strength": 1}
     _feed_one(xml_data, '<clearStream id="percWindow"/>')
     assert xml_data.active_spells == {}
+
+
+def test_prompts_are_counted(xml_data):
+    # Handle.waitrt waits for the count to move past the one seen at a
+    # send before trusting the roundtime (2026-09-12).
+    assert xml_data.prompt_count == 0
+    _feed_one(xml_data, '<prompt time="1789239200">&gt;</prompt>')
+    _feed_one(
+        xml_data,
+        '<roundTime value="1789239202"/><prompt time="1789239200">&gt;</prompt>',
+    )
+    assert xml_data.prompt_count == 2
+    assert xml_data.roundtime == 1789239202

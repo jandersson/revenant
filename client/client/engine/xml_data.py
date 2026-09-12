@@ -143,6 +143,10 @@ class XMLData:
         self.prompt = ""
         # UNIX timestamp sent with <prompt> tag
         self.server_time = None
+        # Prompts seen so far: a command's answer ends with one, so a
+        # script that sent a command waits for the count to move before
+        # trusting the roundtime it reads (Handle.waitrt).
+        self.prompt_count = 0
         # The prone/sitting/standing indicator
         self.indicator = {}
         # Obvious exits from the <compass> tag, e.g. ["n", "sw", "up"]
@@ -246,6 +250,7 @@ class XMLData:
             self.current_style = attributes["id"]
         elif name == "prompt":
             self.server_time = int(attributes["time"])
+            self.prompt_count += 1
             if self._staged_hostiles is not None:
                 self.hostiles = self._staged_hostiles
                 self._staged_hostiles = None

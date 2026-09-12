@@ -37,6 +37,12 @@ lessons the code and docs cannot carry themselves.
   reading the posture indicator at once sees the old posture (the
   walker's retry, 2026-09-11). Wait the roundtime out, or send the
   corrective command unconditionally when it is harmless (STAND).
+  The roundtime itself lags the send: it arrives with the prompt that
+  closes the command's answer, so `waitrt()` straight after `put()`
+  used to read the previous, spent roundtime and return at once
+  (;athletics climbed one second into a two-second roundtime,
+  2026-09-12). `Handle.waitrt` now waits for the command's own prompt
+  (`XMLData.prompt_count`) before it trusts the roundtime.
 - Generated data modules get `# fmt: off` / `# fmt: on` around the
   literal so `ruff format --check` and the generator agree.
 - Windows: a running session never sees edits to `client/` modules

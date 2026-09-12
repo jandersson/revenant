@@ -114,6 +114,11 @@ class Script:
         """Send a command to the game, echoing it to the front ends."""
         self._check()
         self._manager.emit(f"[{self.name}]> {command}")
+        state = self.state
+        self._sent = (
+            getattr(state, "prompt_count", None) if state is not None else None,
+            self._manager.clock(),
+        )
         self._manager.send(command)
 
     def echo(self, text: str):
@@ -197,6 +202,22 @@ class Script:
         state = self.state
         if state is None or state.server_time is None:
             return
+        # A waitrt straight after put() must see the command's own
+        # answer first: the roundtime it opens arrives with the prompt
+        # that closes it, a few hundred milliseconds later, and reading
+        # the previous, spent roundtime meanwhile sent ;athletics' next
+        # climb one second into a two-second roundtime ("...wait 1
+        # seconds.", 2026-09-12). Wait for a prompt past the one seen at
+        # the send, up to PROMPT_SETTLE seconds.
+        sent = getattr(self, "_sent", None)
+        if sent is not None and sent[0] is not None:
+            count, at = sent
+            while (
+                getattr(state, "prompt_count", count) <= count
+                and self._manager.clock() - at < PROMPT_SETTLE
+            ):
+                self.sleep(0.05)
+            self._sent = None
         seen = state.server_time
         remaining = max(state.roundtime, state.casttime) - seen
         while remaining > 0:
@@ -322,6 +343,10 @@ RELOADABLE_MODULES = (
 # dev_mode / REVENANT_DEV=1). Loads are normally milliseconds; a slow one
 # means an import doing work it should defer (networkx, a map read).
 SLOW_LOAD_SECONDS = 0.5
+# How long waitrt() straight after put() waits for the command's own
+# prompt before trusting the roundtime it reads (an answer's prompt
+# lands within a few hundred milliseconds; a lagging one gets this).
+PROMPT_SETTLE = 1.5
 
 
 def _mtime(module):
