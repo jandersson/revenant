@@ -10,9 +10,10 @@ of spammed; `climb practice` rungs are timer-exempt continuous
 activities — started once and watched, never spammed (#89).
 The ladder is Zoluren spots per Elanthipedia, encoded with their
 map rooms, rank bands, and conditions in client/game/climbs.py; rank 100+
-trains in town on the Crossing battlements. Auto mode checks
-ENCUMBRANCE once at start and warns when a load would blunt every
-climb. Also:
+trains in town on the Crossing battlements. Before the first climb the
+script STOWs whatever the hands hold (a held item makes every climb
+harder; nothing is ever dropped), and auto mode checks ENCUMBRANCE
+once and warns when a load would blunt every climb. Also:
 
     ;athletics list                     show the ladder for your rank
     ;athletics climb x | climb back     train a manual loop right here
@@ -92,6 +93,28 @@ EXP_LINE = re.compile(r"Athletics:\s+(\d+)\s+[\d.]+%")
 ENC_LINE = re.compile(r"Encumbrance\s*:\s*(.+)")
 
 
+def empty_hands(s):
+    """Whatever the hands hold goes into a container before the first
+    climb: a held item makes every climb harder ("Your oak-hafted
+    handaxe makes the climb more difficult", client/game/walker.py),
+    and a hunt now ends with the weapon in hand. STOW, never DROP — a
+    dropped item is a lost item (the operator, 2026-09-12). A handle
+    without hand state is left alone."""
+    stowed = []
+    for side in ("left", "right"):
+        held = getattr(s.state, f"{side}_hand", None)
+        noun = held.get("noun") if isinstance(held, dict) else None
+        if noun:
+            s.put(f"stow my {noun}")
+            s.waitrt()
+            stowed.append(noun)
+    if stowed:
+        s.echo(
+            f"ATHLETICS: stowed your {' and '.join(stowed)} — a held item "
+            "makes every climb harder"
+        )
+
+
 def check_burden(s):
     """ENC once at auto-mode start: encumbrance penalizes every climb
     (Elanthipedia, client/game/climbs.py's conditions note), so a loaded
@@ -106,7 +129,8 @@ def check_burden(s):
     if "burdened" in level.lower():
         s.echo(
             f"ATHLETICS: you are {level} — encumbrance penalizes every "
-            "climb; stow or drop the load for cleaner gains"
+            "climb; stow the load in a container or bank the coins for "
+            "cleaner gains (never drop it)"
         )
 
 
@@ -470,6 +494,7 @@ def auto_train(s, db=None, walk=None):
     rank = current_rank(s.state)
     if rank is None:
         rank = probe_rank(s)
+    empty_hands(s)
     check_burden(s)
     rung = optimal_rung(rank)
     if rung is None:
@@ -543,6 +568,7 @@ def main(s):
         return
     commands = parse_commands(s.args)
     if commands:
+        empty_hands(s)
         if train(s, commands) == "contested":
             s.echo(
                 "ATHLETICS: stopping — spawn areas never empty on their "

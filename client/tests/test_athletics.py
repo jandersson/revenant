@@ -570,3 +570,30 @@ def test_escape_succeeds_when_the_room_changes_despite_hostiles():
     assert athletics.escape(handle, ["climb ladder", "climb down"]) is True
     puts = [call[1] for call in handle.calls if call[0] == "put"]
     assert puts == ["retreat", "retreat", "climb ladder"]
+
+
+def test_held_items_are_stowed_before_the_first_climb_never_dropped():
+    # A hunt ends with the weapon in hand, and a held item makes every
+    # climb harder; the operator's rule (2026-09-12): STOW, never DROP.
+    handle = FakeHandle(())
+    handle.state.left_hand = {"noun": "pelt", "exist": "1", "name": "rat pelt"}
+    handle.state.right_hand = {
+        "noun": "handaxe",
+        "exist": "2",
+        "name": "oak-hafted handaxe",
+    }
+    athletics.empty_hands(handle)
+    puts = [call[1] for call in handle.calls if call[0] == "put"]
+    assert puts == ["stow my pelt", "stow my handaxe"]
+    assert not any("drop" in command for command in puts)
+    assert any("stowed your pelt and handaxe" in echo for echo in handle.echoes)
+
+    empty = FakeHandle(())
+    empty.state.left_hand = None
+    empty.state.right_hand = None
+    athletics.empty_hands(empty)
+    assert empty.calls == []
+
+    bare = FakeHandle(())  # no hand state at all: left alone
+    athletics.empty_hands(bare)
+    assert bare.calls == []
