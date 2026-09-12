@@ -378,6 +378,77 @@ def test_the_captured_rat_kill_is_recognized_and_skinned(travel):
     assert any(text.startswith("hunt: rat down (1)") for text in arena.echoed)
 
 
+# Captured 2026-09-12, the second live ;hunt: two skin successes the
+# table did not know (the tail's line landed after the roundtime and
+# the tail stayed in hand, so the next three skins refused), and the
+# answers a corpse noun gets once the corpse is gone and a live rat
+# matches it instead.
+PELT_LOOSE = (
+    "With preternatural poise, you work loose a sterling example of a rat "
+    "pelt from the rat carcass."
+)
+TAIL_REMOVED = (
+    "Working deftly, you skillfully remove a rat tail from the remains of a "
+    "ship's rat.  The task is difficult, but the rewards are worth it."
+)
+HANDS_FULL = "You must have one hand free to skin."
+SEARCHED_ALREADY = "The ship's rat has already been searched for that!"
+NOT_DEAD_YET = "You should probably wait until a ship's rat is dead first."
+
+
+def test_the_captured_skin_wordings_are_recognized_and_the_skin_stowed(travel):
+    for line, item in ((PELT_LOOSE, "pelt"), (TAIL_REMOVED, "tail")):
+        arena = Arena({"attack": [(KILL, kill)], "skin": [line], "search": [NOTHING]})
+        _run(arena, travel_first=False)
+        assert f"put my {item} in my sack" in arena.sent
+        assert not any("unrecognized" in text for text in arena.echoed)
+
+
+def test_a_full_hand_is_stowed_and_the_skin_tried_once_more(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "skin": [HANDS_FULL, TAIL_REMOVED],
+            "search": [NOTHING],
+        }
+    )
+    arena.state.left_hand = {"noun": "tail", "exist": "1", "name": "rat tail"}
+    _run(arena, travel_first=False)
+    first = arena.sent.index("skin rat")
+    assert arena.sent[first : first + 4] == [
+        "skin rat",
+        "put my tail in my sack",
+        "skin rat",
+        "put my tail in my sack",
+    ]
+
+
+def test_a_full_hand_the_parser_cannot_name_is_stowed_by_side(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "skin": [HANDS_FULL, PELT_LOOSE],
+            "search": [NOTHING],
+        }
+    )
+    _run(arena, travel_first=False)
+    first = arena.sent.index("skin rat")
+    assert arena.sent[first : first + 3] == ["skin rat", "stow left", "skin rat"]
+
+
+def test_a_gone_corpse_is_not_reported_as_unrecognized(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "skin": [NOT_DEAD_YET],
+            "search": [SEARCHED_ALREADY],
+        }
+    )
+    _run(arena, travel_first=False)
+    assert not any("unrecognized" in text for text in arena.echoed)
+    assert any("1 kill(s), 0 skin(s)" in text for text in arena.echoed)
+
+
 def test_a_corpse_that_keeps_answering_ends_the_room_not_the_evening(travel):
     # 2026-09-05: the hostile state still listed the corpse and the loop
     # swung at it five times. Disposed of once, then the room is clear.
@@ -399,6 +470,8 @@ def test_kill_and_item_nouns_are_read_from_the_game_lines():
     assert hunt.kill_noun("A large rat goes still.") == "rat"
     assert hunt.kill_noun("You miss.") is None
     assert hunt.items_in("You skin the rat, obtaining a rat pelt.") == ["pelt"]
+    assert hunt.items_in(PELT_LOOSE) == ["pelt"]
+    assert hunt.items_in(TAIL_REMOVED) == ["tail"]
     assert hunt.items_in("You find a small ruby. You find some coins.") == [
         "ruby",
         "coins",

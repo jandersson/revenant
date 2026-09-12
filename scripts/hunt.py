@@ -80,23 +80,56 @@ SKIN_OUTCOMES = (
         "no_knife",
         ("nothing to skin with", "bare hands", "need a knife", "need something sharp"),
     ),
-    ("gone", ("what were you referring", "nothing to skin", "already been skinned")),
+    # Both hands full — the last skin still in the off hand (captured
+    # 2026-09-12, three kills running): stowed, then skinned again.
+    ("hands_full", ("one hand free",)),
+    # "is dead first": the corpse noun found a live one (captured
+    # 2026-09-12) — the corpse is gone, the next swing gets the live one.
+    (
+        "gone",
+        (
+            "what were you referring",
+            "nothing to skin",
+            "already been skinned",
+            "is dead first",
+        ),
+    ),
     ("ruined", ("ruin", "botch", "worthless", "useless")),
-    ("ok", ("obtain", "you skin", "skinning", "you manage to skin")),
+    # Captured 2026-09-12: "you work loose a sterling example of a rat
+    # pelt from the rat carcass" and "you skillfully remove a rat tail
+    # from the remains of a ship's rat".
+    (
+        "ok",
+        (
+            "obtain",
+            "you skin",
+            "skinning",
+            "you manage to skin",
+            "work loose",
+            "you skillfully remove",
+            "from the remains",
+        ),
+    ),
 )
 SEARCH_OUTCOMES = (
-    ("gone", ("what were you referring",)),
+    # "already been searched" and "is dead first" captured 2026-09-12.
+    ("gone", ("what were you referring", "already been searched", "is dead first")),
     (
         "nothing",
         ("find nothing", "nothing of value", "nothing of interest", "nothing else"),
     ),
     ("found", ("you find", "you search", "you get", "you pick up")),
 )
-# The item a skin or a search produced: "... obtaining a rat pelt."
-# The noun is the last word.
+# The item a skin or a search produced: "... obtaining a rat pelt.",
+# "work loose a sterling example of a rat pelt from the rat carcass",
+# "remove a rat tail from the remains of a ship's rat" (the last two
+# captured 2026-09-12). The noun is the last word before the period
+# or the "from".
 _ITEM = re.compile(
     r"(?:obtain(?:ing)?|yielding|you find|you get|you pick up|and get) "
-    r"(?:a|an|some|the) ((?:[\w'-]+ )*?)([\w'-]+)[.,!]",
+    r"(?:a|an|some|the) ((?:[\w'-]+ )*?)([\w'-]+)[.,!]"
+    r"|(?:work loose|remove) (?:a|an|some|the) "
+    r"(?:[\w'-]+ example of (?:a|an|some|the) )?((?:[\w'-]+ )*?)([\w'-]+) from",
     re.IGNORECASE,
 )
 
@@ -139,7 +172,9 @@ def kill_noun(text):
 
 def items_in(text):
     """The item nouns a skin or search answer names, in order."""
-    return [match.group(2).lower() for match in _ITEM.finditer(text)]
+    return [
+        (match.group(2) or match.group(4)).lower() for match in _ITEM.finditer(text)
+    ]
 
 
 def ask(s, command):
@@ -228,6 +263,17 @@ def skin(s, profile, corpse, tally):
         ask(s, f"get my {knife}")
     answer = ask(s, f"skin {corpse}")
     outcome = classify(answer, SKIN_OUTCOMES)
+    if outcome == "hands_full":
+        # The last skin never left the off hand (2026-09-12: a rat
+        # tail whose success line landed after the roundtime): stow
+        # what the parser says is there, or the hand itself, and once more.
+        held = (getattr(s.state, "left_hand", None) or {}).get("noun")
+        if held:
+            stow(s, profile, held)
+        else:
+            ask(s, "stow left")
+        answer = ask(s, f"skin {corpse}")
+        outcome = classify(answer, SKIN_OUTCOMES)
     if outcome == "ok":
         tally.skins += 1
         found = items_in(answer)

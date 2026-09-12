@@ -54,13 +54,34 @@ Barana's Shipyard):
   the room is clear even while the hostile state lags;
 - SEARCH <corpse> removes it and clears the noun.
 
+Captured on the second live hunt (2026-09-12, the same character and
+ground, seven kills):
+
+- two skin successes: "With preternatural poise, you work loose a
+  sterling example of a rat pelt from the rat carcass." and "Working
+  deftly, you skillfully remove a rat tail from the remains of a ship's
+  rat.  The task is difficult, but the rewards are worth it." — the
+  item is the noun before "from". The tail's line landed after the
+  skin's roundtime and outside the table, so nothing stowed the tail
+  and the next three skins answered "You must have one hand free to
+  skin." That answer now stows what the parser's `left_hand` names
+  (or STOW LEFT) and skins once more;
+- "The ship's rat has already been searched for that!" and "You
+  should probably wait until a ship's rat is dead first." — the corpse
+  is gone and its noun found a live rat; both count as a gone corpse,
+  nothing to report;
+- the first instance of the hunt ended on its own after the second
+  kill without a line in the game log to say why (the script's echoes
+  go to the windows, which the log does not keep); restarted with
+  `;hunt here`, it fought on.
+
 Assumed, pending capture (each one is a keyword table in the script,
 and any answer outside the table is echoed as
 `hunt: unrecognized ...` so it can be reported and pinned):
 
 - the other kill wordings ("goes still", "collapses", "keels over");
-- the skinning answers — success is read as "obtain…" / "you skin",
-  and the produced item's noun is the last word of "obtaining a rat
+- the other skinning answers — success is also read as "obtain…" /
+  "you skin", with the item's noun the last word of "obtaining a rat
   pelt"; "nothing to skin with" / "bare hands" turns skinning off for
   the run; "ruin" / "botch" counts as a failed skin;
 - the search answers — "You find …" names what turned up, "find
