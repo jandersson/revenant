@@ -31,11 +31,15 @@ ARRIVAL_TIMEOUT = 15  # seconds for the compass frame after a move
 # purchase." and "You start down the tree, but you find it hard going.
 # Rather than risking a fall, you make your way back up." — unknown,
 # they read as a stall and drew the retreat burst in a tree house.
+# A third descent wording came on the next walk: "Trying to judge the
+# climb, you peer over the edge.  A wave of dizziness hits you, and you
+# back away from the tree."
 CLIMB_REFUSALS = (
     "footing is questionable",
     "climb back down",
     "find purchase",
     "make your way back up",
+    "back away from the tree",
 )
 # A climb (or a stow) attempted sitting — what a turned-back climb
 # leaves you — answers with these (captured on the retry, 2026-09-11);

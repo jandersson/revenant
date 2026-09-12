@@ -77,6 +77,7 @@ by a rank-10 climber:
 ```
 You attempt to climb down the tree, but you can't seem to find purchase.
 You start down the tree, but you find it hard going.  Rather than risking a fall, you make your way back up.
+Trying to judge the climb, you peer over the edge.  A wave of dizziness hits you, and you back away from the tree.
 ```
 
 Until the walker knew them, a turned-back descent read as a stall:

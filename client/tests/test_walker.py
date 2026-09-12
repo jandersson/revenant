@@ -135,6 +135,10 @@ HARD_GOING = (
     "You start down the tree, but you find it hard going.  Rather than "
     "risking a fall, you make your way back up.\n"
 )
+DIZZY = (
+    "Trying to judge the climb, you peer over the edge.  A wave of dizziness "
+    "hits you, and you back away from the tree.\n"
+)
 
 
 class ClimbHandle(FakeHandle):
@@ -146,6 +150,7 @@ class ClimbHandle(FakeHandle):
         "vertigo": VERTIGO,
         "purchase": NO_PURCHASE,
         "hard_going": HARD_GOING,
+        "dizzy": DIZZY,
     }
     SITTING = "You must be standing to do that.\n"
 
@@ -231,7 +236,7 @@ def test_a_descent_turned_back_is_a_refusal_not_a_stall():
     # 2026-09-12: "can't seem to find purchase" and "make your way back
     # up" were unknown, so the walker waited out the arrival timeout,
     # declared a stall and sent retreat twice from a tree house.
-    for first in ("purchase", "hard_going"):
+    for first in ("purchase", "hard_going", "dizzy"):
         handle = ClimbHandle(uids=[224006], answers=[first, "ok"])
         handle.state.room_uid = 224005
         assert walker.walk(handle, TREE, [5705]) is True
