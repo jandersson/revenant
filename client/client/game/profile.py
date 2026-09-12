@@ -52,6 +52,12 @@ DEFAULTS = {
     # before the first swing, and again whenever the Spells window no
     # longer lists it (Heroic Strength, Manifest Force, ...).
     "buffs": [],
+    # A magic skill to train by recasting the first buff between swings
+    # while it sits below mind-lock and mana holds: "Augmentation" for
+    # a Paladin's Heroic Strength. The mana fed grows by steps until
+    # the game warns of strain, then holds one step under. "" casts
+    # buffs only when they run out.
+    "train_casting": "",
     # Below this health % the loop breaks off and walks home.
     "health_floor": 60,
     # A wound this bad or worse (any area, any kind — HEALTH, parsed by
@@ -85,6 +91,12 @@ FIELDS = (
         "worn; ASK a tanner FOR ROPE",
     ),
     ("buffs", "Buff spells to keep up", "list", "Heroic Strength, Manifest Force"),
+    (
+        "train_casting",
+        "Recast the first buff to train",
+        "str",
+        "Augmentation — empty: cast only when it runs out",
+    ),
     ("health_floor", "Break off below health %", "int", "60"),
     (
         "wound_floor",

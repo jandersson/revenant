@@ -26,6 +26,7 @@ It holds what no script should hard-code:
 | gem_pouch | finds are tried into the pouch first; what the pouch refuses is stowed like loot |
 | bundle | skins go onto a bundling rope worn as a lumpy bundle: one kept in the loot container is worn before the first swing, the first skin of a run starts one from the rope in that container, every later skin goes straight into the worn bundle as SKIN cuts it (the hand tags are the judge), and `;skins` sells it. No rope: said once, skins stowed loose |
 | buffs | self-cast spells kept up through the hunt: each is PREPAREd and CAST before the weapon is drawn and again, before a swing, whenever the Spells window no longer lists it (a parser without that window re-casts every ten minutes); a refusal drops the spell for the run, said once |
+| train_casting | a magic skill ("Augmentation"): while it sits below mind-lock and mana is above the floor, the first buff is recast between swings, at least twenty seconds apart, with the mana fed rising by five each cast until the game warns of strain (or a cast collapses), then held one step under; at lock, back to casting only when the buff runs out |
 | health_floor | below it: the burst escape (retreat, retreat, first exit), then home |
 | wound_floor | a severity name; HEALTH is asked after each kill and whenever the health bar drops, and a wound that bad or worse anywhere (external, scar, internal, internal scar) breaks off like the health floor. Empty never asks. Model: [wounds.md](wounds.md) |
 | train_skills | the hunt ends when every one of them sits at mindstate 34 in the exp window |
@@ -226,7 +227,17 @@ first capture: no "fully prepared" line came in the
 ten seconds before the cast, so the loop waits eight seconds after
 PREPARE rather than for a wording; and every cast of a Holy buff
 trains Augmentation, so a buffed hunt trains that skill on the side
-(list it in `train_skills` to hunt until it locks). Manifest Force,
+(list it in `train_skills` to hunt until it locks). To train it on
+purpose, `train_casting` names the skill and the loop recasts the
+first buff between swings until it locks: Elanthipedia's magic
+category says every standard cast trains Primary Magic, the spell's
+field and Attunement, and that "fewer but larger spellcasts are more
+efficient in terms of experience than smaller but more frequent
+spellcasts", so each training cast feeds five more mana than the last
+until PREPARE answers "You have to strain to harness the energy for
+this spell" (the wiki's wording, unobserved here) or a cast collapses,
+and holds one step under from then on. A mana floor of 40% and a
+twenty-second gap between casts keep the fight going. Manifest Force,
 the apprenticeship barrier, stacks with Aspirant's Aegis, the circle-1
 ward the free spell slot could take. The failure wordings (a spell
 not known, a collapsed pattern) are assumptions until captured.

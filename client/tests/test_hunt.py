@@ -35,6 +35,7 @@ hunt.SETTLE_SECONDS = 0.0
 hunt.EMPTY_ROOM_WAIT = 0
 hunt.ADVANCE_WAIT = 0.01
 hunt.PREPARE_SECONDS = 0.01
+hunt.CAST_GAP_SECONDS = 0
 
 YARD = "[Barana's Shipyard, Lumber Storage]"
 GROUND = MapDB(
@@ -680,3 +681,82 @@ def test_a_buff_that_will_not_prepare_is_dropped_for_the_run(travel):
     assert "cast" not in arena.sent
     assert arena.sent.count("prepare heroic strength") == 1
     assert any("cannot prepare heroic strength" in text for text in arena.echoed)
+
+
+# --- training casts ----------------------------------------------------------
+STRAINED = (
+    "You have to strain to harness the energy for this spell, and you aren't "
+    "sure you can get enough to cast it.\n" + PREPARED
+)
+TRAINING = BUFFED | {"train_casting": "Augmentation"}
+
+
+def _exp(mindstate):
+    return {"Augmentation": {"rank": 3, "percent": 66, "mindstate": mindstate}}
+
+
+def prepares(arena):
+    return [command for command in arena.sent if command.startswith("prepare")]
+
+
+def test_training_casts_ramp_the_mana_between_swings(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, lambda a: None), (KILL, lambda a: None), (KILL, kill)],
+            "prepare": [PREPARED] * 5,
+            "cast": [CAST] * 5,
+            "skin": [SKINNED] * 3,
+            "search": [NOTHING] * 3,
+        },
+        experience=_exp(10),
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=TRAINING | {"max_kills": 3}, travel_first=False)
+    # One before the weapon, then one before each of the three swings.
+    assert prepares(arena) == [
+        "prepare heroic strength 5",
+        "prepare heroic strength 10",
+        "prepare heroic strength 15",
+        "prepare heroic strength 20",
+    ]
+    assert any("at 5 mana for Augmentation" in text for text in arena.echoed)
+
+
+def test_the_strain_warning_caps_the_mana_one_step_under(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, lambda a: None), (KILL, lambda a: None), (KILL, kill)],
+            "prepare": [PREPARED, STRAINED, PREPARED, PREPARED],
+            "cast": [CAST] * 4,
+            "skin": [SKINNED] * 3,
+            "search": [NOTHING] * 3,
+        },
+        experience=_exp(10),
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=TRAINING | {"max_kills": 3}, travel_first=False)
+    assert prepares(arena) == [
+        "prepare heroic strength 5",
+        "prepare heroic strength 10",
+        "prepare heroic strength 5",
+        "prepare heroic strength 5",
+    ]
+    assert any("was too much (strained)" in text for text in arena.echoed)
+
+
+def test_no_training_cast_at_lock_or_under_the_mana_floor(travel):
+    for experience, mana in ((_exp(34), 100), (_exp(10), 20)):
+        arena = Arena(
+            {
+                "attack": [(KILL, lambda a: None), (KILL, kill)],
+                "prepare": [PREPARED] * 3,
+                "cast": [CAST] * 3,
+                "skin": [SKINNED] * 2,
+                "search": [NOTHING] * 2,
+            },
+            experience=experience,
+        )
+        arena.state.vitals["mana"] = mana
+        _run(arena, profile=TRAINING | {"max_kills": 2}, travel_first=False)
+        # The buff itself is still cast once (no Spells window: the timer holds it).
+        assert prepares(arena) == ["prepare heroic strength"]

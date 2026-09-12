@@ -21,6 +21,11 @@ the loot container): a bundle you already have is worn before the
 first swing, the first skin of a run starts one when there is none,
 and every later skin goes straight into it as it is cut — one item to
 sell with ;skins. No rope means skins are stowed loose, said once.
+`buffs` are self-cast spells kept up through the hunt (PREPARE, CAST
+before the first swing and whenever the Spells window drops one), and
+`train_casting` names a magic skill to train by recasting the first
+buff between swings, feeding more mana each time until the game warns
+of strain, until the skill locks.
 The weapon stays in hand when the hunt ends — stowed, it parries
 nothing — and its container is only where the first swing fetches it
 from.
@@ -180,8 +185,19 @@ PREPARE_OUTCOMES = (
         "failed",
         ("don't know", "unable to", "can't prepare", "cannot prepare", "no such"),
     ),
+    # Too much mana asked for (the wiki's Prepare page wording; not
+    # yet observed here): the pattern is prepared but may not cast.
+    ("strain", ("have to strain",)),
     ("ok", ("you begin", "gathering energy", "prepar")),
 )
+# Training casts (the profile's `train_casting`): the first buff recast
+# between swings while the skill sits below lock. Elanthipedia's magic
+# category: "fewer but larger spellcasts are more efficient in terms of
+# experience", so the mana fed grows by MANA_STEP each cast until the
+# strain warning or a collapsed cast, then holds one step under.
+MANA_STEP = 5
+MANA_FLOOR = 40  # % of mana under which no training cast goes out
+CAST_GAP_SECONDS = 20  # between training casts, so the fight goes on
 # A recast of a running buff answers "Your soul and body intertwine
 # tighter, the bond renewed by the spell." after "You gesture."
 # (captured 2026-09-12, the first scripted cast).
@@ -204,6 +220,8 @@ class Tally:
         self.bundle = None
         self.cast_at = {}  # buff -> monotonic() of its last cast
         self.buffs_off = set()  # buffs that refused this run
+        self.mana = MANA_STEP  # the next training cast's mana
+        self.mana_cap = None  # one step under the strain, once met
 
 
 def hostiles(state):
@@ -389,28 +407,73 @@ def buff_running(s, spell, tally):
     return cast is not None and monotonic() - cast < BUFF_MINUTES * 60
 
 
+def cast_once(s, spell, mana, tally):
+    """PREPARE (with a mana amount when given), wait for the pattern,
+    CAST. "refused" (the spell cannot be prepared), "collapsed" (the
+    cast failed), "strained" (cast, but the mana asked was too much) or
+    "ok"."""
+    answer = ask(s, f"prepare {spell} {mana}" if mana else f"prepare {spell}")
+    outcome = classify(answer, PREPARE_OUTCOMES)
+    if outcome == "failed":
+        return "refused"
+    probe.collect(s, PREPARE_SECONDS, until="fully prepared")
+    answer = ask(s, "cast")
+    cast = classify(answer, CAST_OUTCOMES)
+    if cast == "failed":
+        return "collapsed"
+    if cast is None:
+        unrecognized(s, tally, "cast", answer)
+    tally.cast_at[spell] = monotonic()
+    return "strained" if outcome == "strain" else "ok"
+
+
+def training_cast_due(s, profile, tally):
+    """True when the first buff should be recast for the skill named
+    in train_casting: the skill is below lock, mana is above the floor,
+    and the last cast is CAST_GAP_SECONDS old."""
+    skill = profile["train_casting"]
+    if not skill or not profile["buffs"] or locked(s.state, [skill]):
+        return False
+    mana = (getattr(s.state, "vitals", None) or {}).get("mana")
+    if mana is not None and mana < MANA_FLOOR:
+        return False
+    last = tally.cast_at.get(profile["buffs"][0])
+    return last is None or monotonic() - last >= CAST_GAP_SECONDS
+
+
 def cast_buffs(s, profile, tally):
     """Every profile buff not running: PREPARE it, wait for the pattern,
-    CAST. A refusal takes that buff off for the run, said once."""
-    for spell in profile["buffs"]:
-        if spell in tally.buffs_off or buff_running(s, spell, tally):
+    CAST. A refusal takes that buff off for the run, said once. The
+    first buff is cast again for training when training_cast_due says
+    so, feeding tally.mana, which climbs a step per cast until the
+    strain warning or a collapsed cast and then holds one step under."""
+    for index, spell in enumerate(profile["buffs"]):
+        if spell in tally.buffs_off:
             continue
-        answer = ask(s, f"prepare {spell}")
-        if classify(answer, PREPARE_OUTCOMES) == "failed":
+        training = index == 0 and training_cast_due(s, profile, tally)
+        if not training and buff_running(s, spell, tally):
+            continue
+        mana = tally.mana if training else 0
+        result = cast_once(s, spell, mana, tally)
+        if result == "refused":
             s.echo(f"hunt: cannot prepare {spell} — off for this run")
             tally.buffs_off.add(spell)
-            continue
-        probe.collect(s, PREPARE_SECONDS, until="fully prepared")
-        answer = ask(s, "cast")
-        outcome = classify(answer, CAST_OUTCOMES)
-        if outcome == "failed":
-            s.echo(f"hunt: {spell} did not cast — off for this run")
-            tally.buffs_off.add(spell)
-            continue
-        if outcome is None:
-            unrecognized(s, tally, "cast", answer)
-        tally.cast_at[spell] = monotonic()
-        s.echo(f"hunt: cast {spell}")
+        elif not training:
+            if result == "collapsed":
+                s.echo(f"hunt: {spell} did not cast — off for this run")
+                tally.buffs_off.add(spell)
+            else:
+                s.echo(f"hunt: cast {spell}")
+        elif result == "ok":
+            s.echo(f"hunt: cast {spell} at {mana} mana for {profile['train_casting']}")
+            if tally.mana_cap is None:
+                tally.mana += MANA_STEP
+        else:
+            tally.mana = tally.mana_cap = max(MANA_STEP, mana - MANA_STEP)
+            s.echo(
+                f"hunt: {spell} at {mana} mana was too much ({result}) — "
+                f"holding at {tally.mana}"
+            )
 
 
 def bundled(s, profile, tally):
