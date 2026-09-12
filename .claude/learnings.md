@@ -87,3 +87,9 @@ lessons the code and docs cannot carry themselves.
   doubled backslash in a heredoc reaches Python as a single one and a
   test fixture's "\n" turns into a newline (three broken test files on
   2026-09-12 before this was pinned down).
+- A module added to RELOADABLE_MODULES is reloadable only in sessions
+  started after that edit: the list is engine code. A session that
+  first imported the module before the list knew it keeps that first
+  copy for good, and a script that later imports a new name from it
+  fails to load ("cannot import name ...") until the session is
+  restarted. Say so when landing a new game/ module (2026-09-12, tdp).
