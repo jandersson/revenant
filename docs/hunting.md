@@ -233,10 +233,16 @@ first buff between swings until it locks: Elanthipedia's magic
 category says every standard cast trains Primary Magic, the spell's
 field and Attunement, and that "fewer but larger spellcasts are more
 efficient in terms of experience than smaller but more frequent
-spellcasts", so each training cast feeds five more mana than the last
-until PREPARE answers "You have to strain to harness the energy for
-this spell" (the wiki's wording, unobserved here) or a cast collapses,
-and holds one step under from then on. A mana floor of 40% and a
+spellcasts", so each training cast feeds two more mana than the last,
+from the minimum up, until PREPARE answers "You have to strain to
+harness the energy for this spell" (the wiki's wording, unobserved
+here) or the cast fails, and holds one step under from then on; a
+failure at the minimum ends the training casts for the run. The
+first live run (2026-09-12) started the ramp at 5 mana and every cast
+answered "Your spell barely backfires." or "Your spell backfires
+somewhat." — a circle-1 Paladin cannot hold 5 — yet Augmentation
+went from 3 to 5 ranks in three casts, so a backfire still trains;
+the ramp now starts at the minimum. A mana floor of 40% and a
 twenty-second gap between casts keep the fight going. Manifest Force,
 the apprenticeship barrier, stacks with Aspirant's Aegis, the circle-1
 ward the free spell slot could take. The failure wordings (a spell

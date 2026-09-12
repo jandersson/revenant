@@ -195,7 +195,7 @@ PREPARE_OUTCOMES = (
 # category: "fewer but larger spellcasts are more efficient in terms of
 # experience", so the mana fed grows by MANA_STEP each cast until the
 # strain warning or a collapsed cast, then holds one step under.
-MANA_STEP = 5
+MANA_STEP = 2  # 5 backfired on a circle-1 Paladin (2026-09-12)
 MANA_FLOOR = 40  # % of mana under which no training cast goes out
 CAST_GAP_SECONDS = 20  # between training casts, so the fight goes on
 # A recast of a running buff answers "Your soul and body intertwine
@@ -220,8 +220,9 @@ class Tally:
         self.bundle = None
         self.cast_at = {}  # buff -> monotonic() of its last cast
         self.buffs_off = set()  # buffs that refused this run
-        self.mana = MANA_STEP  # the next training cast's mana
+        self.mana = 0  # the next training cast's mana; 0 is the minimum
         self.mana_cap = None  # one step under the strain, once met
+        self.training_off = False  # even the minimum failed this run
 
 
 def hostiles(state):
@@ -432,7 +433,9 @@ def training_cast_due(s, profile, tally):
     in train_casting: the skill is below lock, mana is above the floor,
     and the last cast is CAST_GAP_SECONDS old."""
     skill = profile["train_casting"]
-    if not skill or not profile["buffs"] or locked(s.state, [skill]):
+    if not skill or not profile["buffs"] or tally.training_off:
+        return False
+    if locked(s.state, [skill]):
         return False
     mana = (getattr(s.state, "vitals", None) or {}).get("mana")
     if mana is not None and mana < MANA_FLOOR:
@@ -465,14 +468,22 @@ def cast_buffs(s, profile, tally):
             else:
                 s.echo(f"hunt: cast {spell}")
         elif result == "ok":
-            s.echo(f"hunt: cast {spell} at {mana} mana for {profile['train_casting']}")
+            s.echo(
+                f"hunt: cast {spell} at {mana or 'minimum'} mana "
+                f"for {profile['train_casting']}"
+            )
             if tally.mana_cap is None:
                 tally.mana += MANA_STEP
+        elif mana == 0:
+            # Even the minimum failed (a circle-1 Paladin's 5 mana
+            # "barely backfires", 2026-09-12): no more training casts.
+            tally.training_off = True
+            s.echo(f"hunt: {spell} fails at minimum mana — training casts off")
         else:
-            tally.mana = tally.mana_cap = max(MANA_STEP, mana - MANA_STEP)
+            tally.mana = tally.mana_cap = mana - MANA_STEP
             s.echo(
                 f"hunt: {spell} at {mana} mana was too much ({result}) — "
-                f"holding at {tally.mana}"
+                f"holding at {tally.mana or 'minimum'}"
             )
 
 

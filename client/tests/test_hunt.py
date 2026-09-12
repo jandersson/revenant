@@ -712,14 +712,15 @@ def test_training_casts_ramp_the_mana_between_swings(travel):
     )
     arena.state.vitals["mana"] = 100
     _run(arena, profile=TRAINING | {"max_kills": 3}, travel_first=False)
-    # One before the weapon, then one before each of the three swings.
+    # One before the weapon, then one before each of the three swings:
+    # the minimum first, then two more mana each time.
     assert prepares(arena) == [
-        "prepare heroic strength 5",
-        "prepare heroic strength 10",
-        "prepare heroic strength 15",
-        "prepare heroic strength 20",
+        "prepare heroic strength",
+        "prepare heroic strength 2",
+        "prepare heroic strength 4",
+        "prepare heroic strength 6",
     ]
-    assert any("at 5 mana for Augmentation" in text for text in arena.echoed)
+    assert any("at minimum mana for Augmentation" in text for text in arena.echoed)
 
 
 def test_the_strain_warning_caps_the_mana_one_step_under(travel):
@@ -736,12 +737,33 @@ def test_the_strain_warning_caps_the_mana_one_step_under(travel):
     arena.state.vitals["mana"] = 100
     _run(arena, profile=TRAINING | {"max_kills": 3}, travel_first=False)
     assert prepares(arena) == [
-        "prepare heroic strength 5",
-        "prepare heroic strength 10",
-        "prepare heroic strength 5",
-        "prepare heroic strength 5",
+        "prepare heroic strength",
+        "prepare heroic strength 2",
+        "prepare heroic strength",
+        "prepare heroic strength",
     ]
     assert any("was too much (strained)" in text for text in arena.echoed)
+
+
+def test_a_backfire_at_minimum_mana_ends_the_training_casts(travel):
+    # Captured 2026-09-12: 5 mana "barely backfires" on a circle-1
+    # Paladin. Below the minimum there is nowhere to go, so training
+    # casts stop; the buff itself is still tried when it runs out.
+    backfire = "You gesture.\nYour spell barely backfires."
+    arena = Arena(
+        {
+            "attack": [(KILL, lambda a: None), (KILL, kill)],
+            "prepare": [PREPARED] * 3,
+            "cast": [backfire] * 3,
+            "skin": [SKINNED] * 2,
+            "search": [NOTHING] * 2,
+        },
+        experience=_exp(10),
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=TRAINING | {"max_kills": 2}, travel_first=False)
+    assert prepares(arena) == ["prepare heroic strength"] * 2
+    assert any("training casts off" in text for text in arena.echoed)
 
 
 def test_no_training_cast_at_lock_or_under_the_mana_floor(travel):
