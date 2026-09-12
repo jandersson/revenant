@@ -38,6 +38,19 @@ on where in the band the load sits. Stamina was the cheaper point
 for him (28 TDPs against 30, the Dwarf's discount), and each point
 widens every band the same.
 
+## The ballast result
+
+Two runs the same day, at the Crossing teller. With 50-stone steps,
+250 copper coins tipped him from Very Heavy Burden to Overburdened at
+once: a load over 880 and up to 930 stones. With 10-stone steps, 10,
+20 and 30 stones changed nothing and 40 stones (200 coins) tipped him:
+a load over 890 and up to 900 stones. The runs agree, the teller
+hands over and takes back exactly the count named, and ENCUMBRANCE
+answered each time within seconds. By the rule, Heavy Burden holds
+880 stones at 22 combined points and 920 at 23, so the prediction is
+that two points of Strength or Stamina make him Heavy Burden and one
+point does not — the check on the formula itself, still to run.
+
 ## The experiment
 
 `;enc ballast` at a teller withdraws coins in steps (50 stones, 250
