@@ -201,6 +201,16 @@ Traps that cost time before:
 - Never store credentials in files, even gitignored ones; the keychain is
   the only path.
 - Research a game mechanic on Elanthipedia before automating it.
+- **Claude drives a session only through `revenant-send --origin claude`**,
+  so every line it sends shows in the window as `>> [claude] ...` and
+  the operator can tell its commands from their own and from other
+  tools. Never a bare send (that reads `[external]`), never an ad-hoc
+  socket driver. Read-only commands (INFO, EXP, the stat and TDP
+  quotes, VAULT TIME) may go out to answer a question; anything that
+  acts on the character — moving, spending, training, wearing,
+  dropping — needs the operator's say-so first, and stays in the
+  allowlist gate (`REVENANT_ALLOW_SEND=1`) rather than a settings
+  change. Say what was sent and what the game answered.
 - Every feature gets a GitHub issue; every defect or gap found in passing
   gets one too, with the evidence, and is left alone unless it blocks the
   work. Every issue carries a label at creation: bug, enhancement, or
