@@ -173,7 +173,11 @@ for `client/client/<pkg>/x.py`.
   `clocks_dock.py`, `input_strip.py` (command line, vitals bars,
   status strip, RT/CT timers), `map_dock.py`, `injuries_dock.py` (the
   game's injuries panel as badges, from the `injuries` stream, #163),
-  `text_views.py` (the story/stream views and per-view fonts).
+  `spells_dock.py` (the running spells with countdowns and the
+  prepared one, from the `spells` stream the engine emits on any
+  change of `active_spells`/`prepared_spell`; the raw `percWindow`
+  text is dropped by the GUI, #175), `text_views.py` (the
+  story/stream views and per-view fonts).
   `chat_window.py` — the
   standalone LNet window; `settings_dialog.py`, `profile_dialog.py`,
   `plan_dialog.py` (the ;train plan: plan form, ordered task list,

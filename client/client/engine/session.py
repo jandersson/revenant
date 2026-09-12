@@ -33,6 +33,7 @@ from client.engine.core import (
     indicators_frame,
     injuries_frame,
     room_frame,
+    spells_frame,
     vitals_frame,
 )
 from client.engine.login import connect_game, simu_login
@@ -533,6 +534,14 @@ class SessionServer(ClientLogger):
                 replay += encode_frame(
                     injuries_frame(self.engine.xml_data.injuries), "injuries"
                 )
+            # The spells running and the one prepared (#175): the window
+            # pulses every minute, but a late attacher should not wait
+            # for the next one to see them.
+            if (
+                self.engine.xml_data.active_spells
+                or self.engine.xml_data.prepared_spell
+            ):
+                replay += encode_frame(spells_frame(self.engine.xml_data), "spells")
             # The server-clock delta emits once and rarely again; a
             # late attacher gets it stated fresh so its Elanthian
             # clock anchors to server time immediately (#102).

@@ -414,6 +414,42 @@ def test_engine_emits_a_bell_frame_for_a_bell_in_the_line():
     assert texts == ["YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND.\n"]
 
 
+def test_engine_emits_the_spells_as_a_frame_on_change():
+    # #175: the Spells window pulses every minute (captured 2026-09-12);
+    # the frame is the full state, once per change of the list or of
+    # the prepared spell, the prepared one first.
+    from client.engine.core import spells_frame
+
+    pulse = (
+        b'<clearStream id="percWindow"/><pushStream id="percWindow"/>'
+        b"Heroic Strength  (10 roisaen)\nManifest Force  (Indefinite)\n"
+        b"<popStream/>\n"
+    )
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b"<spell>Heroic Strength</spell>\n",
+            pulse,
+            pulse,  # the same list again: no frame
+            b"<spell>None</spell>\n",
+            b'<clearStream id="percWindow"/>\n',
+        ]
+    )
+    out = _read_all(engine, 5)
+    frames = [frame for frame in out if frame[1] == "spells"]
+    assert frames == [
+        ("prepared\tHeroic Strength", "spells", ""),
+        (
+            "prepared\tHeroic Strength\nHeroic Strength\t10\nManifest Force\t",
+            "spells",
+            "",
+        ),
+        ("Heroic Strength\t10\nManifest Force\t", "spells", ""),
+        ("", "spells", ""),
+    ]
+    assert spells_frame(engine.xml_data) == ""
+
+
 def test_engine_emits_the_injuries_panel_as_a_frame_on_change():
     # The game pushes <dialogData id="injuries"> whenever a part changes
     # (captured 2026-09-11, #163): the full hurt set each time, "" once

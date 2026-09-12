@@ -190,6 +190,7 @@ class XMLData:
         # window gives no count}.
         self.prepared_spell = None
         self.active_spells = {}
+        self.spells_updated = False  # either changed: the "spells" stream (#175)
         self._spell_text = None
         self._perc_text = None
         # The other players in the room, by name, from the "room
@@ -286,7 +287,12 @@ class XMLData:
         if self._spell_text is not None:
             self._spell_text += text_string
         if self._perc_text is not None:
+            # The engine feeds the window one line at a time with the
+            # newline split off, so each piece is a line: give it back,
+            # or two spells read as one (#175).
             self._perc_text += text_string
+            if not text_string.endswith("\n"):
+                self._perc_text += "\n"
         if self._players_text is not None:
             self._players_text += text_string
         if self._objs_bold is not None:
@@ -345,11 +351,15 @@ class XMLData:
         elif name == "pushStream" and attributes.get("id") == "percWindow":
             self._perc_text = ""
         elif name == "popStream" and self._perc_text is not None:
-            self.active_spells = _active_spells(self._perc_text)
-            self._perc_text = None
+            spells, self._perc_text = _active_spells(self._perc_text), None
+            if spells != self.active_spells:
+                self.active_spells = spells
+                self.spells_updated = True
         elif name == "clearStream" and attributes.get("id") == "percWindow":
             # The wipe comes alone once the last spell has run out.
-            self.active_spells = {}
+            if self.active_spells:
+                self.active_spells = {}
+                self.spells_updated = True
         elif name == "dialogData":
             self._vitals_dialog = attributes.get("id") == "minivitals"
             self._injuries_dialog = attributes.get("id") == "injuries"
@@ -439,7 +449,10 @@ class XMLData:
                 self.creatures_updated = True
         if name == "spell" and self._spell_text is not None:
             text, self._spell_text = self._spell_text.strip(), None
-            self.prepared_spell = None if text.lower() in ("", "none") else text
+            prepared = None if text.lower() in ("", "none") else text
+            if prepared != self.prepared_spell:
+                self.prepared_spell = prepared
+                self.spells_updated = True
         if name in ("left", "right") and self._hand is not None:
             side, attributes, pieces = self._hand
             self._hand = None

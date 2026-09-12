@@ -36,6 +36,20 @@ def injuries_frame(injuries: dict) -> str:
     )
 
 
+def spells_frame(xml_data) -> str:
+    """The "spells" stream's wire text (#175): "prepared<TAB>name" first
+    while a spell is prepared, then "name<TAB>minutes" per running
+    spell in the window's order (minutes "" when the window gives no
+    count), "" when nothing runs or is prepared. Full state every
+    time. Shared with session.attach()'s replay."""
+    lines = []
+    if xml_data.prepared_spell:
+        lines.append(f"prepared\t{xml_data.prepared_spell}")
+    for name, minutes in xml_data.active_spells.items():
+        lines.append(f"{name}\t{'' if minutes is None else minutes}")
+    return "\n".join(lines)
+
+
 def room_frame(xml_data) -> str:
     """The "room" stream's wire text: "uid<TAB>title", either half ""
     when unknown; "" when neither is known. One frame per room change
@@ -82,6 +96,9 @@ class Engine(ClientLogger):
         # stream. Starts as "" (not None) so a fresh engine doesn't
         # emit an empty frame before any indicator ever parses.
         self._last_indicators = ""
+        # Last emitted spells frame: a pulse wipes and refills the
+        # window, which reads as a change of state and back (#175).
+        self._last_spells = None
         # Last emitted server-minus-local clock delta ("timesync"
         # stream, #102); public so session.attach() can state it
         # fresh to late attachers. The delta is only meaningful at
@@ -241,6 +258,16 @@ class Engine(ClientLogger):
             self.xml_data.injuries_updated = False
             if output_callback:
                 output_callback(injuries_frame(self.xml_data.injuries), "injuries", "")
+
+        # Spells (#175): the running spells and the prepared one, full
+        # state on any change of either, for the Spells dock's countdowns.
+        if self.xml_data.spells_updated:
+            self.xml_data.spells_updated = False
+            frame = spells_frame(self.xml_data)
+            if frame != self._last_spells:
+                self._last_spells = frame
+                if output_callback:
+                    output_callback(frame, "spells", "")
 
         # Indicators (posture, stunned, bleeding, dead, ...): the GUI's
         # status strip (#75). Full active set on any change.

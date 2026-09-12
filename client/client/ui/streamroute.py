@@ -15,7 +15,9 @@ PyQt6 (headless CI) — the GUI reads it from this module.
 """
 
 # stream id -> dock title. Several streams may share one dock (thoughts
-# and chatter both land in Thoughts).
+# and chatter both land in Thoughts). The GUI draws "Spells" as a
+# widget dock from the parser's spell state and drops the raw
+# percWindow text (#175); the TUI still prints it under that title.
 STREAM_WINDOWS = {
     "thoughts": "Thoughts",
     "chatter": "Thoughts",

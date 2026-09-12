@@ -291,7 +291,13 @@ entries from a dock-layout module.
   from the `injuries` stream — one badge per body part, amber for a
   wound, purple for a scar, the panel's level beside the name — which
   the engine emits on every push of `<dialogData id="injuries">` and
-  the session states fresh on attach like vitals (#163); the clocks dock ticks
+  the session states fresh on attach like vitals (#163); the Spells
+  dock (`client/gui/spells_dock.py`) draws the running spells with a
+  countdown ticking between the window's pulses and the prepared
+  spell above them, from the `spells` stream the engine emits on any
+  change of the parser's `active_spells` / `prepared_spell` and the
+  session replays on attach — it took over the "Spells" dock name from
+  the raw text view, which the GUI no longer shows (#175); the clocks dock ticks
   Elanthian time, moons, Stockholm/Chicago, and (via a Settings toggle)
   Earth's moon; roundtime/casttime count down beside the input line
   under a row of vitals bars (health/fatigue/spirit/concentration,

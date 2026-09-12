@@ -614,6 +614,16 @@ def test_active_spells_come_from_the_spells_window(xml_data):
     assert xml_data.active_spells == {"Heroic Strength": 9, "Manifest Force": None}
 
 
+def test_the_windows_lines_arrive_one_per_feed_and_stay_apart(xml_data):
+    # The engine splits the chunk on newlines and feeds each line on
+    # its own, newline gone: two spells once glued into one (#175).
+    _feed_one(xml_data, '<pushStream id="percWindow"/>Heroic Strength  (9 roisaen)')
+    _feed_one(xml_data, "Manifest Force  (Indefinite)")
+    _feed_one(xml_data, "<popStream/>")
+    assert xml_data.active_spells == {"Heroic Strength": 9, "Manifest Force": None}
+    assert xml_data.spells_updated
+
+
 def test_a_wipe_alone_means_no_spell_is_running(xml_data):
     _feed_one(xml_data, '<pushStream id="percWindow"/>Heroic Strength  (1 roisan)\n')
     _feed_one(xml_data, "<popStream/>")

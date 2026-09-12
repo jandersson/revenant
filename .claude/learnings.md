@@ -80,6 +80,12 @@ lessons the code and docs cannot carry themselves.
   lines of Python — that is how `client/game/wounds_data.py` was generated.
 - Elanthipedia item pages 404 under guessed names; shop pages
   (Tembeg's Armory) list items with coverage and price.
+- The engine feeds the parser one line at a time with the newline
+  split off, so an accumulator that collects a multi-line window
+  (the Spells window's pushStream) sees the lines glued together
+  unless it puts the break back: two spells parsed as one until #175,
+  and the parser test never caught it because it fed both lines in
+  one string. Feed a fixture the way core.py does, line by line.
 - The game's hand tags are separate elements, `<left ...>` and
   `<right ...>`, sent one at a time as each hand changes; a grep that
   requires both on one line sees only the login pair and reports

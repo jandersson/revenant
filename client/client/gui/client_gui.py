@@ -40,6 +40,7 @@ from client.client_logger import ClientLogger
 from client.gui.clocks_dock import ClocksPanel
 from client.gui.compass_dock import CompassRose
 from client.gui.injuries_dock import InjuriesPanel
+from client.gui.spells_dock import SpellsPanel
 from client.gui.input_strip import InputStrip
 from client.gui.map_dock import MapView
 from client.gui.text_views import GameTextView, font_for, style_experience_view
@@ -178,6 +179,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.__add_clocks_dock()
         self.__add_map_dock()
         self.__add_injuries_dock()
+        self.__add_spells_dock()
         self.__add_input_field()
         self._apply_text_font()
         self.__add_menus()
@@ -222,16 +224,25 @@ class ClientGUI(QMainWindow, ClientLogger):
         # restore it after a custom font was applied.
         self._default_text_font = QFont(self.main_window.font())
 
+    # Stream titles a widget dock draws instead of a text view: the
+    # Spells dock renders the parser's spell state, not the raw window
+    # (#175); the TUI still prints the raw lines under that title.
+    WIDGET_DOCKS = ("Spells",)
+
     def __add_stream_docks(self):
-        """One dock window per title in STREAM_WINDOWS, stacked on the right."""
+        """One dock window per title in STREAM_WINDOWS, stacked on the
+        right — except the titles a widget dock takes (WIDGET_DOCKS)."""
         self.stream_windows = {}
         for title in dict.fromkeys(self.STREAM_WINDOWS.values()):
+            if title in self.WIDGET_DOCKS:
+                continue
             view = self._make_view()
             if title == "Experience":
                 style_experience_view(view)
             self._dock(title, view)
         for stream, title in self.STREAM_WINDOWS.items():
-            self.stream_windows[stream] = self.stream_docks[title].widget()
+            if title not in self.WIDGET_DOCKS:
+                self.stream_windows[stream] = self.stream_docks[title].widget()
 
     def __add_compass_dock(self):
         self.compass = CompassRose(send=self.write)
@@ -246,6 +257,13 @@ class ClientGUI(QMainWindow, ClientLogger):
         "injuries" stream, which states the hurt parts on every change."""
         self.injuries = InjuriesPanel()
         self._dock("Injuries", self.injuries)
+
+    def __add_spells_dock(self):
+        """The running spells with countdowns and the prepared one
+        (#175): fed by the "spells" stream. Keeps the "Spells" object
+        name the raw text dock had, so saved layouts keep its place."""
+        self.spells = SpellsPanel()
+        self._dock("Spells", self.spells)
 
     def __add_map_dock(self):
         """The visual map (#56): the community map drawn around the
@@ -613,6 +631,11 @@ class ClientGUI(QMainWindow, ClientLogger):
     # -- game text in, commands out ------------------------------------------
 
     def dispatch_game_text(self, text: str, stream: str, style: str = ""):
+        if stream == "percWindow":
+            # The raw Spells window: the parser reads it and the Spells
+            # dock draws the result from the "spells" stream (#175), so
+            # neither its lines nor its clear land anywhere here.
+            return
         if style == "clear":
             # A clear names one stream, so it is answered before the
             # synthetic-stream branches below: the game has its own
@@ -657,6 +680,9 @@ class ClientGUI(QMainWindow, ClientLogger):
             return
         if stream == "injuries":
             self.injuries.show_frame(text)
+            return
+        if stream == "spells":
+            self.spells.show_frame(text)
             return
         if stream == "room":
             # uid\ttitle per room change — the map dock follows it.
