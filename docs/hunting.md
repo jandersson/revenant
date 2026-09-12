@@ -163,7 +163,8 @@ and if it stays the bundle is taken as full and the run stows loose.
 The first skin of a run, with no bundle yet, starts one: weapon into
 its container, rope out, BUNDLE, WEAR, weapon back. `;skins` walks to
 the nearest `tannery`, REMOVEs the bundle, SELLs it from the hand,
-keeps the rope, walks back. The first bundled hunt ran the same
+keeps the rope, and stays there (`;skins back` walks back: the first
+scripted run returned to the rats with the weapon stowed). The first bundled hunt ran the same
 evening and captured the rest:
 
 ```

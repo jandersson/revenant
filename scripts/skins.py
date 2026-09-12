@@ -1,7 +1,7 @@
 """Sell the bundle of skins you wear at the nearest tannery:  ;skins
 
-    ;skins             walk to the nearest tannery, sell the bundle, keep the rope, walk back
-    ;skins stay        ... and stay at the tannery
+    ;skins             walk to the nearest tannery, sell the bundle, keep the rope, stay there
+    ;skins back        ... and walk back to where you started
 
 A worn lumpy bundle takes every skin ;hunt cuts (the profile's
 `bundle` setting) and sells as one item: the tanner pays the appraised
@@ -14,8 +14,10 @@ again." The script walks to the nearest room the map tags `tannery`,
 takes the bundle off (or out of the loot container when it is not
 worn), SELLs it from the hand, echoes what the tanner paid, puts the
 rope into the loot container the profile names (or STOWs it) for the
-next hunt's first skin, and walks back to where it started unless
-told `stay`. No bundle to sell, or a tanner who does not pay, stops it
+next hunt's first skin, and stays at the tannery — where it started
+is usually the hunting ground, and the first scripted run (2026-09-12)
+walked back into the rats with the weapon stowed; `back` walks back
+anyway. No bundle to sell, or a tanner who does not pay, stops it
 with the answer echoed. Stops on death.
 Stop with:  ;stop skins
 """
@@ -56,7 +58,7 @@ def take_bundle(s, container):
 
 
 def run(s, words, mapdb, walk_fn=walk, profile=None):
-    stay = bool(words) and words[-1].lower() == "stay"
+    back = bool(words) and words[-1].lower() == "back"
     if profile is None:
         profile = load_profile(getattr(s.state, "name", None) or "")
     container = profile["loot_container"]
@@ -83,7 +85,7 @@ def run(s, words, mapdb, walk_fn=walk, profile=None):
         return
     s.echo(f"skins: sold the bundle for {paid.group(1)} {paid.group(2)}")
     ask(s, f"put my rope in my {container}" if container else "stow my rope")
-    if not stay and start is not None and locate(mapdb, s.state) != start:
+    if back and start is not None and locate(mapdb, s.state) != start:
         if not walk_fn(s, mapdb, {start}, describe="where you started"):
             s.echo("skins: could not walk back — you are at the tannery")
 

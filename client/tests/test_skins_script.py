@@ -92,10 +92,12 @@ def walk(s, db, goals, describe="", avoid=()):
     return True
 
 
-def test_sells_the_worn_bundle_keeps_the_rope_and_walks_back():
+def test_sells_the_worn_bundle_keeps_the_rope_and_stays_at_the_tannery():
+    # The start is usually the hunting ground: the first scripted run
+    # walked back into the rats with the weapon stowed (2026-09-12).
     fake = Fake({"remove": [REMOVED], "sell": [SOLD]})
     script.run(fake, [], MAP, walk_fn=walk, profile=PROFILE)
-    assert fake.walks == [{8266}, {100}]
+    assert fake.walks == [{8266}]
     assert fake.sent == [
         "remove my bundle",
         "sell my bundle",
@@ -112,8 +114,8 @@ def test_a_bundle_in_the_sack_is_fetched_when_none_is_worn():
             "sell": [SOLD],
         }
     )
-    script.run(fake, ["stay"], MAP, walk_fn=walk, profile=PROFILE)
-    assert fake.walks == [{8266}]  # stay: no walk back
+    script.run(fake, ["back"], MAP, walk_fn=walk, profile=PROFILE)
+    assert fake.walks == [{8266}, {100}]  # back: the walk home
     assert fake.sent[:3] == [
         "remove my bundle",
         "get my bundle from my sack",
