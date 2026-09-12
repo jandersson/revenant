@@ -106,6 +106,48 @@ hand or a worn belt knife (Elanthipedia: Skinning) — a handaxe does.
 The gem pouch page describes `FILL POUCH WITH <container>` for bulk
 moves; the loop pouches one find at a time instead.
 
+## Bundling and selling skins
+
+Loose skins sell one SELL at a time; a bundle sells as one item and
+holds up to 200 ([Bundle command](https://elanthipedia.play.net/Bundle_command)).
+The rope is free at the tanner's, the bundle starts from a rope in one
+hand and a skin in the other, every further skin is one BUNDLE with
+the bundle held, and the tanner hands the rope back with the coins.
+Captured 2026-09-12 at [Falken's Tannery](https://elanthipedia.play.net/Falken's_Tannery)
+in the Crossing (map 8266, tag `crossing tannery`; every tannery on
+the map carries `tannery`), the whole pass by hand with seven rat skins
+from the day's hunt:
+
+```
+> ask falken for rope
+The tanner Falken says, "Sure, I have a piece here you can have for free."
+The tanner Falken hands you a rope.
+> get my pelt from my sack
+You get a rat pelt from inside your canvas sack.
+> bundle
+You bundle up your rat pelt with your bundling rope.
+> get my tail from my sack
+You get a rat tail from inside your canvas sack.
+> bundle
+You carefully fit a rat tail into your bundle.
+> ask falken to appraise my bundle
+You ask the tanner Falken to appraise a lumpy bundle.
+The tanner Falken looks the lumpy bundle over carefully, then whispers, "I can give 111 Kronars for it."
+> sell my bundle
+You ask the tanner Falken to buy a lumpy bundle.
+The tanner Falken ponders over the bundle for a while, then hands you 111 Kronars.
+Tanner Falken says, "And there's your rope back again."
+```
+
+INFO agreed: 4778 → 4889 copper. The rope lands in the free hand as a
+`bundling rope` (the hand tags name it `rope`), the bundle is a `lumpy
+bundle` in the hand that held the first skin, and none of the commands
+cost roundtime. What is not yet observed: whether a bundle can be worn
+while skinning (the wiki says skins join "any held or worn bundle"),
+and what SKIN answers with a bundle in the off hand — today's "one hand
+free" refusal suggests the bundle must be stowed or worn between kills.
+The script side is #174.
+
 ## Out of scope in the first cut
 
 Magic and ranged attacks, a policy for several opponents at once,
