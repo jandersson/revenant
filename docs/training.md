@@ -72,9 +72,16 @@ loop learns it.
 
 Death ends the loop at any point: deathwatch owns death, and the
 loop's only job is to take the child script down with it. Hostiles at
-the safe room move the rest to the next safe room when the plan has
-more than one (the burst escape, then the walk); with one safe room
-the loop warns and stays.
+the rest move it: to the next safe room when the plan has more than
+one (the burst escape, then the walk), out of the room to rest next
+door otherwise, and after five such moves in one rest it is given up
+for the cycle — a rest among things biting you never drains, since
+the attacked skills stay full (2026-09-12: twenty minutes among rats
+with Evasion and Parry locked, #182). A script task gone within five
+seconds of starting is a failed start (`;attune` refusing a room with
+hostiles in it, a rung the map lost), said so and not counted as
+trained; a cycle in which no task trained stops the loop instead of
+resting.
 
 ## What it assumes
 

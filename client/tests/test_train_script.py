@@ -321,15 +321,33 @@ def test_hostiles_at_the_safe_room_send_the_rest_to_the_next_one(clock):
     assert fake.sent == ["sit", "retreat", "retreat", "north", "sit"]
 
 
-def test_with_one_safe_room_hostiles_only_get_a_warning(clock):
+def test_with_one_safe_room_hostiles_send_the_rest_next_door(clock):
+    # #182 (2026-09-12): the loop stood among rats "resting" for twenty
+    # minutes, the attacked skills locked, the rest never draining.
+    def ambush(fake):
+        fake.state.hostiles = {"1": True}
+
+    def clear(fake):
+        fake.state.hostiles = {}
+
+    trained = {"Athletics": 30, "Small Edged": 30}
+    fake = Fake([trained, ambush, clear, {"Athletics": 0, "Small Edged": 0}])
+    run(clock, fake, plan(safe_rooms=["home"], rest_commands=["sit"]))
+    assert fake.walks == [{1}]  # no walk back: rest where the burst landed
+    assert fake.sent == ["sit", "retreat", "retreat", "north", "sit"]
+    assert any("leaving the room to rest next door" in text for text in fake.echoed)
+    assert not any("intervene" in text for text in fake.echoed)
+
+
+def test_a_rest_hostiles_keep_finding_is_given_up_for_the_cycle(clock):
     def ambush(fake):
         fake.state.hostiles = {"1": True}
 
     trained = {"Athletics": 30, "Small Edged": 30}
-    fake = Fake([trained, ambush, {"Athletics": 0, "Small Edged": 0}])
-    run(clock, fake, plan(safe_rooms=["home"]))
-    assert fake.walks == [{1}]
-    assert any("intervene" in text for text in fake.echoed)
+    fake = Fake([trained, ambush] + [ambush] * 20)
+    run(clock, fake, plan(safe_rooms=[]))
+    assert fake.sent.count("retreat") == 2 * train.LEAVE_ATTEMPTS
+    assert any("giving it up for this cycle" in text for text in fake.echoed)
 
 
 def test_death_stops_the_loop_and_kills_the_task_script(clock):
@@ -364,6 +382,27 @@ def test_train_status_answers_while_running(clock):
     assert any(
         "I understand ;train skip / rest / status" in text for text in fake.echoed
     )
+
+
+def test_a_script_gone_within_seconds_is_a_failed_start(clock):
+    # #182: ;attune started in a rat room and ended at once on its own
+    # hostiles rule; the loop called the task trained and went to rest.
+    fake = Fake([{"Athletics": 5}] * 10, exits={"athletics": 1})
+    run(clock, fake, plan(tasks=[plan()["tasks"][0]], poll=1))
+    assert any("a failed start" in text for text in fake.echoed)
+    assert any("no task trained this cycle" in text for text in fake.echoed)
+    assert fake.walks == []  # and no rest
+
+
+def test_a_cycle_with_one_trained_task_still_rests(clock):
+    fake = Fake(
+        [{"Athletics": 5, "Small Edged": 3}] * 3
+        + [{"Athletics": 5, "Small Edged": 30}],
+        exits={"athletics": 1},
+    )
+    run(clock, fake, plan(poll=1, safe_rooms=["home"], rest_until=34))
+    assert any("a failed start" in text for text in fake.echoed)
+    assert fake.walks == [{1}]  # rats trained, so the cycle rests
 
 
 def test_a_script_that_cannot_start_is_skipped(clock):

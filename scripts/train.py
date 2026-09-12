@@ -11,8 +11,10 @@ walks to a safe room (several rotate, rest by rest), sends the rest
 commands (sit), and holds until every trained skill has drained to
 the rest floor — that is when the pool converts to ranks — then
 starts the next cycle. Death ends the loop (deathwatch has it); a
-task's own script handles its own danger, and hostiles at the safe
-room send the rest to the next safe room.
+task's own script handles its own danger, and hostiles at the rest
+send it to the next safe room — or, with one or none, out of the
+room to rest next door, and after a few such moves the rest is given
+up for the cycle (a rest among things biting you never drains, #182).
 
     ;train           run the plan until stopped (or its cycles run out)
     ;train once      one train-rest cycle
@@ -26,7 +28,9 @@ a task's script stops with it. A script task ends early with the
 task's return word when it has one (hunt's ;hunt return finishes
 the kill and walks home), killed after the grace otherwise; scripts that
 exit on their own (an empty hunting ground) end the task for this
-cycle and are not restarted until the next one. The loop is
+cycle and are not restarted until the next one, and a script gone
+within seconds of starting is a failed start, said so — a cycle in
+which no task trained stops the loop rather than resting. The loop is
 scaffolding for training scripts still to be written: a task is one
 line of JSON, and the plan is the only place a character's routine
 lives.
@@ -53,6 +57,8 @@ from client.game.training import (
 
 clock = time.monotonic  # tests replace it
 EXIT_WAIT = 10  # seconds a killed task script gets to wind down
+QUICK_EXIT = 5  # a task script gone this soon after starting never got going
+LEAVE_ATTEMPTS = 5  # rooms left for hostiles before a rest is given up (#182)
 WORDS = ("skip", "rest", "status")
 
 
@@ -84,6 +90,16 @@ def send_each(s, commands):
     for command in commands:
         s.put(command)
         s.waitrt()
+
+
+def flee(s):
+    """The burst out of a room hostiles hold: retreat twice, then the
+    first exit (or out)."""
+    exits = list(getattr(s.state, "compass", None) or [])
+    s.put("retreat")
+    s.put("retreat")
+    s.put(exits[0] if exits else "out")
+    s.waitrt()
 
 
 def progress(plan, task, experience_now):
@@ -133,9 +149,18 @@ def run_script_task(s, plan, task, deadline):
     if not s.run(name, task["args"]):
         s.echo(f"train: could not start ;{name} — skipping {task['name']}")
         return "skipped"
+    started = clock()
     try:
         while True:
             reason = watch(s, plan, task, deadline, running=lambda: s.is_running(name))
+            if reason == "ended" and clock() - started < QUICK_EXIT:
+                # Gone within seconds: it refused its room (hostiles,
+                # no map edge), it did not train (#182).
+                s.echo(
+                    f"train: ;{name} ended within {QUICK_EXIT}s of starting — "
+                    f"a failed start, not a trained {task['name']}"
+                )
+                return "failed"
             if reason in ("ended", "dead"):
                 return reason  # nothing to wind down, or no time to
             if reason is not None:
@@ -167,7 +192,9 @@ ENDINGS = {
     "skip": "skipped",
     "rest": "resting on request",
     "skipped": "could not start",
+    "failed": "failed to start",
 }
+UNTRAINED = ("skipped", "failed")  # a task that never trained this cycle
 
 
 def run_task(s, plan, task):
@@ -192,20 +219,26 @@ def run_task(s, plan, task):
 
 def train_cycle(s, plan):
     """Every task once, in the plan's order, skipping the ones already
-    at target: "trained" when the cycle is complete, "dead" otherwise."""
+    at target: "trained" when the cycle is complete, "dead" on death,
+    "nothing" when every task that ran failed to start (#182)."""
     spent = set()
+    outcomes = []
     while True:
         if s.dead:
             return "dead"
         task = next_task(plan, experience(s), spent)
         if task is None:
-            return "trained"
+            break
         reason = run_task(s, plan, task)
         if reason == "dead":
             return "dead"
         spent.add(task["name"])
+        outcomes.append(reason)
         if reason == "rest":
             return "trained"
+    if outcomes and all(reason in UNTRAINED for reason in outcomes):
+        return "nothing"
+    return "trained"
 
 
 def go_to(s, db, walk, target):
@@ -230,6 +263,7 @@ def rest(s, plan, db, walk, index):
     until = f"every trained skill is at {plan['rest_until']}/34 or below"
     s.echo(f"train: resting until {until}" + (f" (at most {cap} min)" if cap else ""))
     started = clock()
+    moves = 0
     while True:
         if s.dead:
             return None
@@ -243,18 +277,25 @@ def rest(s, plan, db, walk, index):
             s.echo("train: rest skipped")
             return index
         if hostiles_present(s.state):
+            # A rest among things biting you never drains (#182): out of
+            # the room, to the next safe room when the plan has one,
+            # next door otherwise, and given up after a few moves.
+            moves += 1
+            if moves > LEAVE_ATTEMPTS:
+                s.echo(
+                    f"train: hostiles found the rest {LEAVE_ATTEMPTS} times — "
+                    "giving it up for this cycle"
+                )
+                return index
             if len(plan["safe_rooms"]) > 1:
                 s.echo("train: hostiles at the safe room — moving to the next one")
-                exits = list(getattr(s.state, "compass", None) or [])
-                s.put("retreat")
-                s.put("retreat")
-                s.put(exits[0] if exits else "out")
-                s.waitrt()
+                flee(s)
                 go_to(s, db, walk, safe_room(plan, index))
                 index += 1
-                send_each(s, plan["rest_commands"])
             else:
-                s.echo("train: hostiles at the safe room — intervene, I only rest here")
+                s.echo("train: hostiles here — leaving the room to rest next door")
+                flee(s)
+            send_each(s, plan["rest_commands"])
         s.sleep(plan["poll"])
 
 
@@ -265,8 +306,15 @@ def run(s, plan, cycles, db=None, walk=None):
     while not cycles or cycle < cycles:
         cycle += 1
         s.echo(f"train: cycle {cycle} — training")
-        if train_cycle(s, plan) == "dead":
+        outcome = train_cycle(s, plan)
+        if outcome == "dead":
             s.echo("train: you are dead — stopping; deathwatch has it")
+            return
+        if outcome == "nothing":
+            s.echo(
+                "train: no task trained this cycle — stopping rather than resting; "
+                "check the scripts' own echoes and the plan"
+            )
             return
         index = rest(s, plan, db, walk, index)
         if index is None:
