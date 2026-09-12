@@ -100,12 +100,38 @@ class OutlinedBar(QProgressBar):
         painter.fillPath(path, QColor("#f0f0f2"))
 
 
+# The command line has to read as the place to type at a glance,
+# among the docks and the story (the operator, 2026-09-13): a prompt
+# glyph in the roundtime amber before it, a rounded border that turns
+# amber and thick while it has the focus, room around the text, a
+# placeholder saying what it is, and its own dark slate ground with
+# light text (the story's palette: amber, blue, purple on dark), so it
+# reads as the console whatever the platform theme.
+PROMPT_GLYPH = ">"
+PROMPT_STYLE = "color: #d8b465; font-weight: bold; padding-left: 4px;"
+INPUT_STYLE = (
+    "QLineEdit { background: #23232e; color: #f0f0f2;"
+    " selection-background-color: #d8b465; selection-color: #1c1c24;"
+    " placeholder-text-color: #8a8a96;"
+    " border: 1px solid #8a8a96; border-radius: 4px; padding: 4px 8px; }"
+    " QLineEdit:focus { border: 2px solid #d8b465; padding: 3px 7px; }"
+    " QLineEdit:disabled { color: #8a8a96; border: 1px dashed #8a8a96; }"
+)
+PLACEHOLDER = "command — Enter sends, Up/Down browse history"
+
+
 class InputStrip(QWidget):
-    """The vitals row over the input row; `input` is the line edit."""
+    """The vitals row over the input row; `input` is the line edit,
+    `prompt` the glyph before it."""
 
     def __init__(self):
         super().__init__()
         self.input = HistoryLineEdit()
+        self.input.setStyleSheet(INPUT_STYLE)
+        self.input.setPlaceholderText(PLACEHOLDER)
+        self.input.setClearButtonEnabled(True)
+        self.prompt = QLabel(PROMPT_GLYPH)
+        self.prompt.setStyleSheet(PROMPT_STYLE)
         # Disabled until the game connection is up: Qt's input hook pumps
         # events while login blocks on stdin, so keystrokes meant for the
         # terminal must not reach this field or trigger a send.
@@ -136,7 +162,8 @@ class InputStrip(QWidget):
         row_layout.addWidget(self.status_strip)
         row_layout.addWidget(self.rt_label)
         row_layout.addWidget(self.ct_label)
-        row_layout.addWidget(self.input)
+        row_layout.addWidget(self.prompt)
+        row_layout.addWidget(self.input, 1)
         # Vitals bars above the input line — one bar per vital, created
         # as the game first mentions each (casters gain a mana bar the
         # moment it appears in the stream). Hidden until data arrives.

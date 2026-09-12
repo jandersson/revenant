@@ -31,6 +31,25 @@ def test_up_and_down_browse_the_history_and_keep_the_draft(qapp):
     assert line.text() == "dra"  # the unsent draft survives the browse (#76)
 
 
+def test_the_command_line_reads_as_the_place_to_type(qapp):
+    # 2026-09-13: the line edit was the platform default among the
+    # docks; now a prompt glyph, a focus border and a placeholder.
+    from client.gui.input_strip import INPUT_STYLE, PROMPT_GLYPH, InputStrip
+
+    strip = InputStrip()
+    assert strip.prompt.text() == PROMPT_GLYPH
+    assert "#d8b465" in strip.prompt.styleSheet()
+    assert strip.input.styleSheet() == INPUT_STYLE
+    assert "QLineEdit:focus" in INPUT_STYLE and "#d8b465" in INPUT_STYLE
+    assert (
+        "background: #23232e" in INPUT_STYLE
+    )  # its own ground: the operator wanted colour
+    assert "Enter sends" in strip.input.placeholderText()
+    row = strip.input.parentWidget().layout()
+    order = [row.itemAt(i).widget() for i in range(row.count())]
+    assert order.index(strip.prompt) == order.index(strip.input) - 1
+
+
 def test_the_outlined_bar_paints_its_label_itself(qapp):
     bar = OutlinedBar()
     bar.setRange(0, 100)
