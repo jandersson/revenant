@@ -108,6 +108,10 @@ for `client/client/<pkg>/x.py`.
   (denomination lists, copper, INFO's carried and owed), shared by
   `;sheet`, `;wealth` and `;debt` (`scripts/debt.py`: fetch the
   shortfall from the teller, PAY ALL at the debt office).
+  `client/game/attune.py` is power walking: a loop of street rooms
+  joined by two-way compass moves and the sixty-second timer per
+  room; `scripts/attune.py` POWERs round it until mind-lock, or in
+  place with `here` for Moon Mages.
 - `client/game/walker.py` + `client/game/mapdb.py` — travel on the community map
   (downloaded, never vendored). Twins: the map lists some rooms twice,
   one uid-less; `same_place` handles it. A climb turned back for

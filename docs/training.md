@@ -173,6 +173,41 @@ shows only in the next TRAIN's quote, and the game's three figures
 agree with each other every time, so the script's reading is not the
 cause; it trusts the quote before each point and cannot overspend.
 
+## Power walking: ;attune
+
+Attunement trains by perceiving mana — POWER, PERCEIVE or
+CONCENTRATE — and a room pays once per sixty seconds
+([Attunement skill](https://elanthipedia.play.net/Attunement_skill),
+[Perceive command](https://elanthipedia.play.net/Perceive_command)),
+so every guild but the Moon Mages walks: perceive, step to the next
+room, perceive again. `;attune` builds a chain of streets from where
+you stand (plain compass moves in both directions, so shop doors and
+climbs are never part of it), walks it out and back POWERing on each
+arrival, waits out a room that paid within the minute, and holds at
+mind-lock until enough drains to be worth the laps. `;attune here`
+perceives in place once a minute, which is how a Moon Mage trains it:
+lunar mana is everywhere. `;train` runs it as a task (`"script":
+"attune", "skills": ["Attunement"], "stop_word": "stop"`).
+
+Captured 2026-09-12 on a circle-1 Paladin at rank 2, on the
+Crossing's Hodierna Way:
+
+```
+> power
+You reach out with your weak senses and see glowing streams of golden Holy mana radiating through the area.  Waves of black ripple through the mana streams.
+Roundtime: 8 sec.
+```
+
+The room's first POWER took Attunement from thoughtful (4/34) to
+considering (6/34); a second POWER in the same room within the minute
+gave nothing; one room east, the next POWER paid again. The roundtime
+was 8-9 s, the wiki's 8-12 at low ranks. "Waves of black ripple
+through the mana streams" rode along on every perceive that day and
+is not understood — some influence on the local mana, not the
+character's. The script stops on death or hostiles, when eight
+perceives in a row gain nothing (a guild that cannot sense mana), and
+when the map has no street to loop from the starting room.
+
 ## Out of scope in the first cut
 
 A dialog for the plan (the file is the interface), a trainer per
