@@ -47,12 +47,21 @@ def test_phrase_reads_like_the_game():
 
 
 def test_info_splits_into_carried_and_owed_per_currency():
-    assert money.parse_wealth(INFO) == {"carried": {}, "debt": {"Kronars": 1510}}
+    assert money.parse_wealth(INFO) == {
+        "carried": {"Kronars": 0, "Lirums": 0, "Dokoras": 0},
+        "debt": {"Kronars": 1510},
+    }
     assert money.parse_wealth(INFO_RICH) == {
-        "carried": {"Kronars": 20300, "Lirums": 11},
+        "carried": {"Kronars": 20300, "Lirums": 11, "Dokoras": 0},
         "debt": {"Kronars": 90},
     }
+
+
+def test_nothing_carried_and_no_debt_are_zeros_not_silence():
+    # Captured 2026-09-12 once the debt was paid: the history must get a
+    # zero, or the newest debt row stays the old figure.
     assert money.parse_wealth("Wealth:\n  No Kronars.\nDebt:\n  No debt.\n") == {
-        "carried": {},
-        "debt": {},
+        "carried": {"Kronars": 0},
+        "debt": {"Kronars": 0},
     }
+    assert money.parse_wealth("") == {"carried": {}, "debt": {}}  # unanswered

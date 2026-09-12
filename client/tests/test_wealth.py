@@ -250,7 +250,24 @@ def test_the_tracker_asks_on_start_logs_every_branch_and_summarizes(
     held = connection.execute(
         "SELECT kind, currency, copper FROM wealth WHERE kind IN ('carried', 'debt')"
     ).fetchall()
-    assert held == [("carried", "Kronars", 300), ("debt", "Kronars", 930)]
+    assert held == [
+        ("carried", "Kronars", 300),
+        ("carried", "Lirums", 0),
+        ("debt", "Kronars", 930),
+    ]
+    assert "Lirums: on deposit 35 platinum" in text  # deposited, nothing carried
+
+
+def test_a_paid_debt_reaches_the_history_as_a_zero(tmp_path, monkeypatch):
+    fake = Fake(info=["Wealth:", "  No Kronars.", "Debt:", "  No debt."])
+    run_tracker(fake, monkeypatch=monkeypatch, tmp_path=tmp_path)
+    connection = sqlite3.connect(wealth.database_path())
+    held = connection.execute(
+        "SELECT kind, currency, copper FROM wealth WHERE kind IN ('carried', 'debt')"
+    ).fetchall()
+    assert held == [("carried", "Kronars", 0), ("debt", "Kronars", 0)]
+    text = "\n".join(fake.echoed)
+    assert "carrying 0 copper, owing 0 copper" in text
 
 
 def test_the_summary_nets_the_sheet_s_carried_and_debt(tmp_path, monkeypatch):

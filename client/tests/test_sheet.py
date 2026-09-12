@@ -244,7 +244,7 @@ def test_parse_wealth_reads_the_copper_parentheticals():
         " (90 copper Kronars)\n"
     )
     assert sheet.parse_wealth(text) == {
-        "carried": {"Lirums": 11, "Dokoras": 6},
+        "carried": {"Kronars": 0, "Lirums": 11, "Dokoras": 6},
         "debt": {"Kronars": 90},
     }
 

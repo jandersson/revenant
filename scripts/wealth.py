@@ -173,6 +173,8 @@ def summary(report, held):
         deposited = sum(branches.values())
         carried = held.get(("carried", currency), 0)
         owed = held.get(("debt", currency), 0)
+        if not (deposited or carried or owed):
+            continue  # a currency the character has nothing in
         where = ", ".join(f"{b} {phrase(v)}" for b, v in sorted(branches.items()))
         lines.append(
             f"{currency}: on deposit {phrase(deposited)}"

@@ -65,8 +65,11 @@ def wealth(s):
     for currency in sorted(set(info["carried"]) | set(info["debt"])):
         carried = info["carried"].get(currency, 0)
         owed = info["debt"].get(currency, 0)
-        s.echo(f"debt: {currency}: carrying {phrase(carried)}, owing {phrase(owed)}")
-    if not info["debt"]:
+        if carried or owed:
+            s.echo(
+                f"debt: {currency}: carrying {phrase(carried)}, owing {phrase(owed)}"
+            )
+    if not any(info["debt"].values()):
         s.echo("debt: you owe nothing")
     return info
 
