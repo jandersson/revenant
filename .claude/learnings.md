@@ -152,3 +152,14 @@ lessons the code and docs cannot carry themselves.
 - A chain of `cmd | tail -1 && next` runs `next` on tail's exit code,
   not cmd's: a failed test suite committed and pushed that way once.
   `set -o pipefail` first, or check the summary line.
+- A running script keeps the helper functions it imported by name,
+  and a later reload of that helper module (another script starting
+  after an edit) leaves those old functions running against the new
+  module globals: `;hunt` held the walker's `walk` from before
+  4c2a01c, `;circle` reloaded the walker, and the old `walk` died on
+  the new three-value `await_arrival` ("too many values to unpack",
+  2026-09-12, #181). A traceback's source lines are the current files,
+  so its line numbers mislead; read the session log's "loaded ...
+  (reloaded: [...])" lines around the crash instead. Until #181 lands,
+  a session with a long-running script should not start other scripts
+  after an edit to a helper they share.
