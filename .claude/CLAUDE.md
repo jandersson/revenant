@@ -56,7 +56,9 @@ for `client/client/<pkg>/x.py`.
   ({name: minutes left or None}) from the Spells window's pulses, and
   `room_players` (names) from the `room players` component and
   `room_creatures` (the bolded names of `room objs`, in order, repeats
-  kept) (#178).
+  kept) (#178), and `rested` ({stored, usable, refresh} minutes) from
+  the `exp rexp` footer the exp window pushes on every pulse (#176);
+  the engine's exp rewrite ends with that footer as a line.
 - `client/engine/core.py` — `Engine`: feeds lines, emits synthetic streams
   (compass = room-arrival signal, room, vitals, indicators, character,
   timesync, roundtime/casttime, bell). It appends "\n" only to the last
@@ -148,6 +150,10 @@ for `client/client/<pkg>/x.py`.
   one uid-less; `same_place` handles it. A climb turned back for
   footing gets one retry standing with the named items stowed, then
   a stop that says so (#157). Model: docs/movement.md.
+- `client/game/rested.py` — the rested-experience footer parsed
+  (shared by the parser, `;sheet` and `;xp`) and `burning(previous,
+  current)`, the per-minute flag `;xp` writes as `is_rexp` on every
+  mindstate row and beholder shades the 3x windows from (#176).
 - `client/game/climbs.py`, `circles.py`, `eltime.py`, `inventory.py`,
   `history.py`, `climblog.py` (the `climbs` table `;climbexp` fills:
   one row per climb attempt with rank, stats, load and outcome, #159);

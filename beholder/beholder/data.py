@@ -327,48 +327,115 @@ def sheet_history(connection, character):
     return history
 
 
+XP_INTERVAL_SECONDS = 60  # ;xp's cadence: a flagged minute lasts this long
+XP_GAP_SECONDS = 180  # flagged rows further apart than this are two runs
+
+
 def rexp_history(connection, character):
-    """Rested experience over time, from every ;sheet snapshot that
-    carried the EXP footer (#106): {"times": [...], "stored": [...],
-    "usable": [...], "refresh": [...]} in hours. Empty before the
-    columns exist (a database from before the migration) or before
-    any snapshot recorded the line."""
+    """Rested experience over time — every ;sheet snapshot that carried
+    the EXP footer (#106) and every change ;xp logged to the rested
+    table (#176), merged oldest first: {"times": [...], "stored":
+    [...], "usable": [...], "refresh": [...]} in hours. Empty before
+    either source exists or recorded the line."""
     history = {"times": [], "stored": [], "usable": [], "refresh": []}
-    try:
-        rows = connection.execute(
-            "SELECT logged_at, rexp_stored, rexp_usable, rexp_refresh FROM character"
-            " WHERE character_name = ? AND rexp_stored IS NOT NULL"
-            " ORDER BY logged_at",
-            (character,),
-        ).fetchall()
-    except sqlite3.OperationalError:  # no such column: an older database
-        return history
-    for row in rows:
-        history["times"].append(row["logged_at"])
-        history["stored"].append(row["rexp_stored"] / 60)
-        history["usable"].append((row["rexp_usable"] or 0) / 60)
-        history["refresh"].append((row["rexp_refresh"] or 0) / 60)
+    rows = []
+    for query in (
+        "SELECT logged_at, rexp_stored AS stored, rexp_usable AS usable,"
+        " rexp_refresh AS refresh FROM character"
+        " WHERE character_name = ? AND rexp_stored IS NOT NULL",
+        "SELECT logged_at, stored, usable, refresh FROM rested"
+        " WHERE character_name = ? AND stored IS NOT NULL",
+    ):
+        try:
+            rows += [
+                (row["logged_at"], row["stored"], row["usable"], row["refresh"])
+                for row in connection.execute(query, (character,))
+            ]
+        except sqlite3.OperationalError:  # no such column or table: older data
+            continue
+    for logged_at, stored, usable, refresh in sorted(rows):
+        history["times"].append(logged_at)
+        history["stored"].append(stored / 60)
+        history["usable"].append((usable or 0) / 60)
+        history["refresh"].append((refresh or 0) / 60)
     return history
 
 
 def rexp_windows(connection, character):
-    """When the 3x conversion was (probably) open: [(start, end)] ISO
-    pairs, one per snapshot with usable rested experience, closing at
-    the next snapshot or when the usable hours would have burnt out,
-    whichever comes first. Coarse — snapshots are three hours apart
-    and burning needs draining skills (docs/experience.md) — but it
-    tells a rested run from an ordinary one on the mindstate plot."""
+    """When the 3x conversion was open: [(start, end)] ISO pairs. Exact
+    where ;xp flagged its rows (#176): each run of consecutive minutes
+    logged with is_rexp set is one window, closing a minute after its
+    last row; a row flagged 0 or a gap ends the run. Before the first
+    flagged row, the older guess from the ;sheet snapshots (#106): a
+    window per snapshot with usable hours, closing at the next
+    snapshot or when the hours would have burnt out, whichever comes
+    first — coarse, but it tells a rested run from an ordinary one."""
+    exact = _flagged_windows(connection, character)
+    first_flag = exact[0][0] if exact else None
     history = rexp_history(connection, character)
     windows = []
     times = history["times"]
     for index, start in enumerate(times):
+        if first_flag is not None and start >= first_flag:
+            break
         usable = history["usable"][index]
         if usable <= 0:
             continue
         burnt_out = _plus_hours(start, usable)
         following = times[index + 1] if index + 1 < len(times) else burnt_out
-        windows.append((start, min(following, burnt_out)))
+        end = min(following, burnt_out)
+        if first_flag is not None:
+            end = min(end, first_flag)
+        windows.append((start, end))
+    return windows + (exact or [])
+
+
+def _flagged_windows(connection, character):
+    """The runs of minutes ;xp flagged is_rexp, or None when the column
+    or the flags do not exist yet (a database from before #176)."""
+    try:
+        rows = connection.execute(
+            "SELECT DISTINCT logged_at, is_rexp FROM mindstate"
+            " WHERE character_name = ? AND is_rexp IS NOT NULL"
+            " ORDER BY logged_at",
+            (character,),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return None
+    if not rows:
+        return None
+    windows = []
+    start = last = None
+    for row in rows:
+        moment = row["logged_at"]
+        if row["is_rexp"] and start is not None:
+            if _seconds_between(last, moment) <= XP_GAP_SECONDS:
+                last = moment
+                continue
+            windows.append((start, _plus_seconds(last, XP_INTERVAL_SECONDS)))
+            start = None
+        if row["is_rexp"]:
+            start = last = moment
+        elif start is not None:
+            windows.append((start, _plus_seconds(last, XP_INTERVAL_SECONDS)))
+            start = None
+    if start is not None:
+        windows.append((start, _plus_seconds(last, XP_INTERVAL_SECONDS)))
     return windows
+
+
+def _seconds_between(earlier, later):
+    from datetime import datetime
+
+    return (
+        datetime.fromisoformat(later) - datetime.fromisoformat(earlier)
+    ).total_seconds()
+
+
+def _plus_seconds(iso, seconds):
+    from datetime import datetime, timedelta
+
+    return (datetime.fromisoformat(iso) + timedelta(seconds=seconds)).isoformat()
 
 
 def _plus_hours(iso, hours):

@@ -321,6 +321,7 @@ RELOADABLE_MODULES = (
     "client.settings",
     "client.ui.textfont",
     "client.game.eltime",
+    "client.game.rested",
     "client.game.climbs",
     "client.game.circles",
     "client.game.inventory",

@@ -5,6 +5,7 @@ import time
 from xml.etree.ElementTree import ParseError, XMLParser
 
 from client.engine.login import simu_login
+from client.game.rested import describe as describe_rested
 from client.client_logger import ClientLogger
 from client.engine.xml_data import XMLData
 
@@ -181,6 +182,11 @@ class Engine(ClientLogger):
                 # The exp window: on any change, rewrite the whole "exp"
                 # stream (wipe + one line per learning skill), the same
                 # pattern the game itself uses for resident windows.
+                # The rested footer (#176) is the window's last line,
+                # as the game lays it out, so its change is a rewrite too.
+                if self.xml_data.rested_updated:
+                    self.xml_data.rested_updated = False
+                    self.xml_data.exp_updated = True
                 if self.xml_data.exp_updated:
                     self.xml_data.exp_updated = False
                     if output_callback:
@@ -192,6 +198,10 @@ class Engine(ClientLogger):
                                 f"{entry['percent']:>3}%  {entry['rate']}\n",
                                 "exp",
                                 "",
+                            )
+                        if self.xml_data.rested:
+                            output_callback(
+                                describe_rested(self.xml_data.rested) + "\n", "exp", ""
                             )
 
         # Roundtime / casttime as synthetic streams: the game states the

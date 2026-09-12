@@ -491,6 +491,82 @@ def test_a_database_from_before_the_rexp_columns_yields_nothing(tmp_path):
     connection.close()
 
 
+def test_rexp_history_merges_the_rested_table_xp_logs(tmp_path):
+    # #176: ;xp logs the footer per change; the sheet's three-hourly
+    # rows and those rows are one series, oldest first, in hours.
+    import sqlite3
+
+    path = tmp_path / "xp.db"
+    writer = sqlite3.connect(path)
+    writer.executescript(
+        SHEET_TABLES + "CREATE TABLE rested (seq INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " logged_at TEXT NOT NULL, character_name TEXT NOT NULL,"
+        " stored INTEGER, usable INTEGER, refresh INTEGER);"
+    )
+    writer.execute(
+        "INSERT INTO character (logged_at, character_name, rexp_stored,"
+        " rexp_usable, rexp_refresh) VALUES (?, ?, ?, ?, ?)",
+        (T1, "Lanival", 342, 342, 1260),
+    )
+    writer.execute(
+        "INSERT INTO rested (logged_at, character_name, stored, usable, refresh)"
+        " VALUES (?, ?, ?, ?, ?)",
+        ("2026-08-22T10:30:00+00:00", "Lanival", 312, 312, 1230),
+    )
+    writer.commit()
+    writer.close()
+    connection = data.connect(path)
+    history = data.rexp_history(connection, "Lanival")
+    assert history["times"] == [T1, "2026-08-22T10:30:00+00:00"]
+    assert history["stored"] == [5.7, 5.2]
+    connection.close()
+
+
+def test_rexp_windows_are_exact_where_xp_flagged_its_rows(tmp_path):
+    # #176: a run of minutes flagged is_rexp is one window, a minute
+    # past its last row; a 0 row or a gap ends it; the sheet's guess
+    # covers only the time before the first flagged row.
+    import sqlite3
+
+    path = tmp_path / "xp.db"
+    writer = sqlite3.connect(path)
+    writer.executescript(
+        SHEET_TABLES + "CREATE TABLE mindstate (seq INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " logged_at TEXT NOT NULL, character_name TEXT NOT NULL,"
+        " skill_name TEXT NOT NULL, rank INTEGER NOT NULL, percent INTEGER"
+        " NOT NULL, mindstate INTEGER NOT NULL, is_rexp INTEGER);"
+    )
+    writer.execute(
+        "INSERT INTO character (logged_at, character_name, rexp_stored,"
+        " rexp_usable, rexp_refresh) VALUES (?, ?, ?, ?, ?)",
+        ("2026-08-22T09:00:00+00:00", "Lanival", 342, 342, 1260),
+    )
+    minute = "2026-08-22T10:{:02d}:00+00:00"
+    writer.executemany(
+        "INSERT INTO mindstate (logged_at, character_name, skill_name, rank,"
+        " percent, mindstate, is_rexp) VALUES (?, 'Lanival', ?, 10, 0, 5, ?)",
+        [
+            (minute.format(0), "Athletics", None),  # the first minute: unknown
+            (minute.format(1), "Athletics", 1),
+            (minute.format(1), "Evasion", 1),  # the same minute, another skill
+            (minute.format(2), "Athletics", 1),
+            (minute.format(3), "Athletics", 0),
+            (minute.format(5), "Athletics", 1),
+            (minute.format(9), "Athletics", 1),  # a gap: a run of its own
+        ],
+    )
+    writer.commit()
+    writer.close()
+    connection = data.connect(path)
+    assert data.rexp_windows(connection, "Lanival") == [
+        ("2026-08-22T09:00:00+00:00", minute.format(1)),  # the guess, cut short
+        (minute.format(1), minute.format(3)),
+        (minute.format(5), minute.format(6)),
+        (minute.format(9), minute.format(10)),
+    ]
+    connection.close()
+
+
 # --- spells (#136) ----------------------------------------------------------
 
 

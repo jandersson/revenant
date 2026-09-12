@@ -19,7 +19,7 @@ The page auto-refreshes every 60 seconds to match the `;xp` cadence, and a brows
 
 - **Character** — dropdown over every character with logged history.
 - **Skills** — multi-select; preselects the character's current learning queue.
-- **Mindstate plot** — one line per skill with 1d/3d/all range buttons and a range slider; hover shows mindstate and rank. Gold shading marks when rested experience was burning (ranks come three times as fast there), from the `;sheet` snapshots.
+- **Mindstate plot** — one line per skill with 1d/3d/all range buttons and a range slider; hover shows mindstate and rank. Gold shading marks when rested experience was burning (ranks come three times as fast there): exact per minute where `;xp` flagged its rows (`is_rexp`, #176), the `;sheet` snapshots' guess before that.
 - **Experience table** — the latest snapshot per skill, sortable and filterable, with the snapshot timestamp above it.
 - **Spells** — the newest SPELL snapshot: learned spells by chapter, apprentice spells, cantrips with their keywords, magic feats, and the spell slots left.
 

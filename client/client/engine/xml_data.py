@@ -1,6 +1,8 @@
 import html
 import re
 
+from client.game.rested import parse_rested
+
 # Streams that duplicate text already present in the main window (or that
 # nothing renders yet), matching what the old strip() deleted outright.
 DISCARD_STREAMS = {"spellfront", "inv", "bounty", "society", "speech", "talk"}
@@ -208,6 +210,15 @@ class XMLData:
         self.creatures_updated = False
         self._objs_names = None  # the names read so far, inside room objs
         self._objs_bold = None  # the bold run being read, inside room objs
+        # Rested experience, from the footer the exp window pushes on
+        # every pulse (<component id='exp rexp'>Rested EXP Stored: 5:42
+        # hours  Usable This Cycle: 5:42 hours  Cycle Refreshes: 21
+        # hours</component>, 1535 times in one session, #176): {stored,
+        # usable, refresh} in minutes (client/game/rested.py), None
+        # until the first pulse.
+        self.rested = None
+        self.rested_updated = False
+        self._rested_text = None
         # Vitals percentages from the minivitals dialog's progress bars:
         # {"health": 100, "stamina": 95, ...}; casters also get "mana".
         # The game sends partial updates, so this dict accumulates.
@@ -280,6 +291,8 @@ class XMLData:
             self._players_text += text_string
         if self._objs_bold is not None:
             self._objs_bold.append(text_string)
+        if self._rested_text is not None:
+            self._rested_text += text_string
         if self._hand is not None:
             self._hand[2].append(text_string)
 
@@ -359,6 +372,8 @@ class XMLData:
                 self._players_text = ""
             elif ident == "room objs":
                 self._objs_names, self._objs_bold = [], None
+            elif ident == "exp rexp":
+                self._rested_text = ""
         elif name == "pushBold" and self._objs_names is not None:
             self._objs_bold = []
         elif name == "popBold" and self._objs_names is not None:
@@ -412,6 +427,11 @@ class XMLData:
             if players != self.room_players:
                 self.room_players = players
                 self.players_updated = True
+        if name == "component" and self._rested_text is not None:
+            rested, self._rested_text = parse_rested(self._rested_text), None
+            if rested is not None and rested != self.rested:
+                self.rested = rested
+                self.rested_updated = True
         if name == "component" and self._objs_names is not None:
             creatures, self._objs_names, self._objs_bold = self._objs_names, None, None
             if creatures != self.room_creatures:

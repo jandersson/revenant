@@ -51,19 +51,30 @@ one evening (the 2026-08-21 evidence below).
   instead of burns.
 - **Status** — the EXP footer, captured live 2026-08-23:
   `Rested EXP Stored: 5:42 hours  Usable This Cycle: 5:42 hours
-  Cycle Refreshes: 21 hours`. Times are H:MM; the sheet script's
-  3-hourly EXP ALL already receives this line (currently unparsed).
+  Cycle Refreshes: 21 hours`. Times are H:MM. The same line comes
+  as `<component id='exp rexp'>` on every exp pulse (1535 times in
+  one 2026-09-12 session): the parser keeps it as `rested` (stored,
+  usable, refresh in minutes, `client/game/rested.py`), the
+  Experience dock shows it as its last line, and `;sheet`'s 3-hourly
+  EXP ALL stores it too (#106, #176).
 
 What it means for the tooling: rank-per-hour numbers in beholder are
-meaningless without knowing whether the 3x window was open. The sheet
-snapshot stores the footer's three durations (`rexp_stored`,
-`rexp_usable`, `rexp_refresh`, minutes), beholder charts stored and
-usable hours on the character sheet, and its mindstate plot shades the
-stretches where a snapshot had usable hours — from that snapshot until
-the next one or until the hours would have burnt out, whichever comes
-first (#106). Coarse, since snapshots are three hours apart and burning
-needs a draining skill, but enough to tell a rested run from an
-ordinary one. Trainers might also prefer draining few skill groups
+meaningless without knowing whether the 3x window was open. Read live
+from the footer (2026-09-12): the bank fell one minute at a time from
+5:45 to 4:46 over an afternoon of hunting, and the 23:30 h cycle
+turned over mid-session (usable 5:35 back to 5:42, refresh 1:51 to
+23:01). So burning is the usable figure falling between two readings
+(`rested.burning`), and `;xp` flags every mindstate row it takes with
+`is_rexp` — 1 when the figure fell since the previous minute, 0 when
+it held or grew, NULL the first minute or before the footer has been
+seen — and logs the footer to the `rested` table on every change
+(#176). Beholder shades each run of flagged minutes exactly, a minute
+past its last row, and charts the bank's slope from the rested rows
+merged with the sheet's three-hourly `rexp_stored` / `rexp_usable` /
+`rexp_refresh`. Rows from before the flag keep the older guess: a
+window from a snapshot with usable hours until the next snapshot or
+the burn-out, whichever comes first (#106). Trainers might also
+prefer draining few skill groups
 while rested, per the burn rule.
 
 ## What the code assumes, and where

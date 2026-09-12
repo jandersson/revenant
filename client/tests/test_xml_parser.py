@@ -661,6 +661,38 @@ def test_room_players_are_read_from_also_here(xml_data):
     assert xml_data.room_players == []
 
 
+# -- rested experience: the exp window's footer (#176) ------------------------
+
+
+def test_the_rested_footer_is_kept_from_the_exp_window(xml_data):
+    # Captured 2026-09-12: the footer comes as its own exp component on
+    # every pulse, and the parser dropped it until #176.
+    assert xml_data.rested is None
+    _feed_one(
+        xml_data,
+        "<component id='exp rexp'>Rested EXP Stored: 5:44 hours  Usable This "
+        "Cycle: 5:30 hours  Cycle Refreshes: 1:17 hour</component>",
+    )
+    assert xml_data.rested == {"stored": 344, "usable": 330, "refresh": 77}
+    assert xml_data.rested_updated
+    xml_data.rested_updated = False
+    _feed_one(
+        xml_data,
+        "<component id='exp rexp'>Rested EXP Stored: 5:44 hours  Usable This "
+        "Cycle: 5:30 hours  Cycle Refreshes: 1:17 hour</component>",
+    )
+    assert not xml_data.rested_updated  # the same footer again is no change
+    _feed_one(
+        xml_data,
+        "<component id='exp rexp'>Rested EXP Stored: 5:02 hours  Usable This "
+        "Cycle: 5:58 hours  Cycle Refreshes: 23:27 hours</component>",
+    )
+    assert xml_data.rested == {"stored": 302, "usable": 358, "refresh": 1407}
+    assert xml_data.rested_updated
+    # The footer is not a skill: the exp window keeps only skills.
+    assert "rexp" not in xml_data.experience
+
+
 # -- the room's creatures: the bolded names of <component id='room objs'> (#178)
 
 

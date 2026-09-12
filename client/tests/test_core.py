@@ -168,6 +168,29 @@ def test_exp_change_rewrites_the_whole_exp_stream():
     assert "346" in exp_frames[1][0] and "deliberative" in exp_frames[1][0]
 
 
+def test_the_rested_footer_is_the_exp_streams_last_line():
+    # #176: the footer the game pushes with every pulse closes the
+    # rewrite, and its own change rewrites the window too.
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b"<component id='exp Athletics'>Athletics:  346 13% "
+            b"deliberative</component>\n",
+            b"<component id='exp rexp'>Rested EXP Stored: 5:42 hours  Usable "
+            b"This Cycle: 5:42 hours  Cycle Refreshes: 21 hours</component>\n",
+        ]
+    )
+    out = _read_all(engine, 2)
+    exp_frames = [frame for frame in out if frame[1] == "exp"]
+    assert exp_frames[0] == ("", "exp", "clear")
+    assert exp_frames[1][0].startswith("Athletics")
+    assert exp_frames[2] == ("", "exp", "clear")  # the footer's own rewrite
+    assert exp_frames[3][0].startswith("Athletics")
+    assert (
+        exp_frames[4][0] == "Rested EXP  stored 5:42  usable 5:42  refreshes in 21:00\n"
+    )
+
+
 def test_only_the_last_piece_of_a_line_carries_the_newline():
     # One line, two styled pieces: "You say" (speech) then the words.
     # Front ends just append pieces; the engine owns line endings.

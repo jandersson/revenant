@@ -37,6 +37,7 @@ from client.game.inventory import FOOTER as INV_END
 from client.game.money import parse_wealth  # noqa: F401 — the sheet's wealth parser
 from client.game.inventory import parse_inventory
 from client.game.probe import collect
+from client.game.rested import parse_duration, parse_rested  # noqa: F401 — the footer parser, shared with the parser and ;xp (#176)
 from client.game.history import database_path as history_database_path
 
 INTERVAL = 3 * 3600  # seconds between snapshots
@@ -299,46 +300,6 @@ def parse_exp_all(text):
         skill.strip(): (int(rank), int(percent))
         for skill, rank, percent in _SKILL.findall(text)
         if skill.strip() != "SKILL"
-    }
-
-
-# "Rested EXP Stored: 5:42 hours  Usable This Cycle: 5:42 hours  Cycle
-# Refreshes: 21 hours" — times are H:MM hours, bare hours, bare minutes,
-# or "less than a minute" (captured 2026-09-04/05).
-_RESTED = re.compile(
-    r"Rested EXP Stored:\s*(?P<stored>.+?)\s+Usable This Cycle:\s*(?P<usable>.+?)"
-    r"\s+Cycle Refreshes:\s*(?P<refresh>.+?)\s*$",
-    re.MULTILINE,
-)
-_DURATION = re.compile(r"(?:(\d+):(\d+)\s*hours?|(\d+)\s*hours?|(\d+)\s*minutes?)")
-
-
-def parse_duration(text):
-    """Minutes from the footer's wording, or None for anything unread:
-    "5:42 hours" → 342, "6 hours" → 360, "38 minutes" → 38,
-    "less than a minute" → 0."""
-    text = text.strip()
-    if text.startswith("less than a minute"):
-        return 0
-    match = _DURATION.match(text)
-    if not match:
-        return None
-    hours_mm, minutes_of, hours, minutes = match.groups()
-    if hours_mm is not None:
-        return int(hours_mm) * 60 + int(minutes_of)
-    if hours is not None:
-        return int(hours) * 60
-    return int(minutes)
-
-
-def parse_rested(text):
-    """{"stored", "usable", "refresh"} in minutes from EXP ALL's rested
-    line, or None when the line is absent (#106)."""
-    match = _RESTED.search(text)
-    if not match:
-        return None
-    return {
-        key: parse_duration(match.group(key)) for key in ("stored", "usable", "refresh")
     }
 
 
