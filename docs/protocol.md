@@ -209,3 +209,16 @@ the Injuries dock draws it. It is coarser than HEALTH's wording
 Fixtures live in `client/tests/` — captured traffic is how this file's
 claims stay checkable. A fixture that turns out wrong is an assumption
 to correct, not a test to delete.
+
+## The state in words
+
+Scripts do not read the tags: `client/game/status.py` wraps the
+parser's fields as a live view — `status(s.state)` or `s.status` —
+with the posture as one word (standing, kneeling, sitting, prone), the
+badges as booleans (dead, stunned, bleeding, webbed, hidden, invisible,
+joined), the hands as nouns, the vitals and injuries as dicts, the
+roundtime and casttime as seconds left by the game's own clock, the
+exp window as mindstates, and a one-line `summary()` that `;status`
+prints. It is Lich's `stunned?` / `hidden?` / `checkprone` idiom over
+this parser's state; every value is derived on access, so a view taken
+once stays current.

@@ -47,7 +47,7 @@ The window shows the game's own styling (amber room names, blue speech, bold ale
 
 File → Settings covers the font, the autostarts, the room ids, and whether closing the window quits the game. Highlight patterns of your own live in `~/.revenant/highlights.json`.
 
-Bundled scripts: `;go2` travel on the community map, `;xp` and `;sheet` history logging, `;deathwatch` for unattended deaths, `;tend` for bleeders, `;clock` for the Elanthian calendar, `;circle` for what gates your next circle, `;athletics`, `;attune` (power walking), `;tdp`, `;debt`, `;enc`, `;favors`, `;mechlore`, `;wealth`, `;survey`, `;hunt` (a training loop driven by a per-character profile, File → Character Profile…), `;train` (the orchestrator: runs the trainers a per-character plan names until each skill's mindstate fills, then rests in a safe room until it drains), and `;lnet`. `;help` lists them with their manuals.
+Bundled scripts: `;go2` travel on the community map, `;xp` and `;sheet` history logging, `;deathwatch` for unattended deaths, `;tend` for bleeders, `;clock` for the Elanthian calendar, `;circle` for what gates your next circle, `;athletics`, `;attune` (power walking), `;tdp`, `;debt`, `;enc`, `;status`, `;favors`, `;mechlore`, `;wealth`, `;survey`, `;hunt` (a training loop driven by a per-character profile, File → Character Profile…), `;train` (the orchestrator: runs the trainers a per-character plan names until each skill's mindstate fills, then rests in a safe room until it drains), and `;lnet`. `;help` lists them with their manuals.
 
 ## Beholder
 

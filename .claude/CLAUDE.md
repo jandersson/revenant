@@ -120,7 +120,10 @@ for `client/client/<pkg>/x.py`.
   wiki's capacity rule (a burden level is a band of weights for the
   character's Strength + Stamina) and the readings' log; `scripts/enc.py`
   reads it and `;enc ballast` pins the load with coins. Model:
-  docs/encumbrance.md.
+  docs/encumbrance.md. `client/game/status.py` is the parser's state in
+  words — `s.status.stunned`, `.posture`, `.hands_empty`, `.roundtime`,
+  `.mindstate(skill)`, `.summary()`, derived on every access; scripts
+  read it rather than spelling indicator ids, and `;status` prints it.
 - `client/game/walker.py` + `client/game/mapdb.py` — travel on the community map
   (downloaded, never vendored). Twins: the map lists some rooms twice,
   one uid-less; `same_place` handles it. A climb turned back for

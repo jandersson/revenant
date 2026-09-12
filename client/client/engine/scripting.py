@@ -220,6 +220,15 @@ class Script:
         """The session's XMLData: indicators, prompt, server_time, ..."""
         return self._manager.state
 
+    @property
+    def status(self):
+        """The state in words (client/game/status.py): s.status.stunned,
+        .posture, .hands_empty, .roundtime, .mindstate("Athletics"),
+        .summary() — a live view, derived on every access."""
+        from client.game.status import status
+
+        return status(self._manager.state)
+
     # -- other scripts: what an orchestrator (;train) needs -------------
 
     def run(self, name: str, args=()):
@@ -301,6 +310,7 @@ RELOADABLE_MODULES = (
     "client.game.money",
     "client.game.attune",
     "client.game.encumbrance",
+    "client.game.status",
     "client.game.mapdb",
     "client.game.walker",
 )
