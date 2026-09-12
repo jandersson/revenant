@@ -164,6 +164,15 @@ to where it started unless told `stay`. The Elanthipedia rule of thumb
 that a guild may refuse a character with any stat below 8 is the
 reason to spend early.
 
+One thing the game did that is not understood (#165): over eleven
+points in a day the TDP count rose six times by exactly the previous
+point's Kronar fee — after every mental-stat point (Discipline,
+Wisdom, Charisma, Intelligence), never after Agility or Reflex — so
+the character ended with more TDPs than he started with. The gain
+shows only in the next TRAIN's quote, and the game's three figures
+agree with each other every time, so the script's reading is not the
+cause; it trusts the quote before each point and cannot overspend.
+
 ## Out of scope in the first cut
 
 A dialog for the plan (the file is the interface), a trainer per
