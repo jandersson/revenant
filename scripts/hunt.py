@@ -8,8 +8,8 @@ this one runs empty. Breaks off and walks home below the health floor
 or at a wound at the profile's wound floor (HEALTH after each kill and
 whenever health drops), when the trained skills mind-lock, at the kill
 fuse, or when you type
-;hunt stop  (the current kill is finished first).  ;hunt here  skips
-the walk;  ;hunt profile  prints the profile it would use.
+;hunt return  (the current kill is finished first, then the walk home).
+;stop hunt  quits where it stands.  ;hunt here  skips the walk;  ;hunt profile  prints the profile it would use.
 
 Everything character-specific comes from the profile
 (~/.revenant/profiles/<name>.json — File → Character Profile… in the
@@ -505,8 +505,8 @@ def loop(s, profile, db, ground, avoid, tally):
     for _ in range(MAX_ACTIONS):
         if s.dead:
             return "dead — deathwatch has it"
-        if (s.command(timeout=0) or "").strip().lower() == "stop":
-            return "stopped on request"
+        if (s.command(timeout=0) or "").strip().lower() == "return":
+            return "returning on request"
         current = health(s.state)
         if current is not None and current < floor:
             escape(s)

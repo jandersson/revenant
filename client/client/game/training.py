@@ -27,7 +27,7 @@ A plan, with every key the loop reads:
      "tasks": [
       {"name": "climbs", "script": "athletics", "skills": ["Athletics"]},
       {"name": "rats", "script": "hunt", "skills": ["Small Edged", "Evasion"],
-       "stop_word": "stop", "minutes": 45},
+       "return_word": "return", "minutes": 45},
       {"name": "music", "commands": ["play my flute"], "pace": 8,
        "skills": ["Performance"], "setup": ["get my flute"],
        "teardown": ["stow my flute"]}
@@ -35,9 +35,10 @@ A plan, with every key the loop reads:
     }
 
 A task has either a script (started as ;<script> <args>, watched, and
-stopped once its skills reach the target — with stop_word first, the
-way ;hunt stop finishes the kill and walks home, killed after
-stop_grace seconds) or commands (cycled in this thread, pace seconds
+stopped once its skills reach the target — with return_word first,
+the way ;hunt return finishes the kill and walks home, killed after
+return_grace seconds; a plan saved with the old stop_word / stop_grace
+keys is read as these, its "stop" as "return") or commands (cycled in this thread, pace seconds
 apart, roundtime waited out). Its target and minutes override the
 plan's; setup and teardown bracket it. A task with no skills runs its
 time budget once per cycle.
@@ -69,8 +70,8 @@ TASK_DEFAULTS = {
     "skills": [],
     "script": "",
     "args": [],
-    "stop_word": "",
-    "stop_grace": 120,
+    "return_word": "",
+    "return_grace": 120,
     "commands": [],
     "pace": 5,
     "setup": [],
@@ -104,8 +105,8 @@ TASK_FIELDS = (
     ("skills", "Skills it trains", "list", "Small Edged, Evasion"),
     ("script", "Script", "str", "hunt — or leave empty and give commands"),
     ("args", "Script arguments", "list", ""),
-    ("stop_word", "Stop word", "str", "stop — empty: killed at once"),
-    ("stop_grace", "Seconds before the kill", "int", "120"),
+    ("return_word", "Return word", "str", "return — empty: killed at once"),
+    ("return_grace", "Seconds before the kill", "int", "120"),
     ("commands", "Commands cycled instead of a script", "list", "play my flute"),
     ("pace", "Seconds between commands", "int", ""),
     ("setup", "Before the task", "list", "get my flute"),
@@ -115,7 +116,7 @@ TASK_FIELDS = (
 )
 
 _INTS = ("target", "rest_until", "rest_minutes", "task_minutes", "poll", "cycles")
-_TASK_INTS = ("stop_grace", "pace")
+_TASK_INTS = ("return_grace", "pace")
 _TASK_OPTIONAL_INTS = ("target", "minutes")
 _LISTS = ("safe_rooms", "rest_commands")
 _TASK_LISTS = ("skills", "args", "commands", "setup", "teardown")
@@ -145,12 +146,26 @@ def _list(value):
     return [str(item).strip() for item in (value or []) if str(item).strip()]
 
 
+def _renamed(values):
+    """The task keys as this build names them: a plan saved before
+    2026-09-12 said stop_word / stop_grace, and its word "stop" is
+    what "return" means now (;stop <name> is the abrupt end)."""
+    values = dict(values)
+    if "stop_word" in values and "return_word" not in values:
+        word = str(values.pop("stop_word") or "").strip()
+        values["return_word"] = "return" if word.lower() == "stop" else word
+    if "stop_grace" in values and "return_grace" not in values:
+        values["return_grace"] = values.pop("stop_grace")
+    return values
+
+
 def normalize_task(values, index=0) -> dict:
     """A task with every key present and coerced. An unnamed task is
     named after its script, else task<n>."""
     task = dict(TASK_DEFAULTS)
     if not isinstance(values, dict):
         values = {}
+    values = _renamed(values)
     for key, value in values.items():
         if key in _TASK_LISTS:
             task[key] = _list(value)
@@ -158,7 +173,7 @@ def normalize_task(values, index=0) -> dict:
             task[key] = _int(value, TASK_DEFAULTS[key])
         elif key in _TASK_OPTIONAL_INTS:
             task[key] = None if value in (None, "") else _int(value, None)
-        elif key in ("name", "script", "stop_word"):
+        elif key in ("name", "script", "return_word"):
             task[key] = str(value or "").strip()
         else:
             task[key] = value  # a key this build doesn't know: kept as is
@@ -221,7 +236,7 @@ def starter_plan(character) -> dict:
                 "name": "hunt",
                 "script": "hunt",
                 "skills": list(profile["train_skills"]),
-                "stop_word": "stop",
+                "return_word": "return",
             }
         ),
     ]
@@ -357,8 +372,8 @@ def describe(plan: dict) -> list:
             how = f";{task['script']}" + (
                 " " + " ".join(task["args"]) if task["args"] else ""
             )
-            if task["stop_word"]:
-                how += f" (stop word {task['stop_word']!r})"
+            if task["return_word"]:
+                how += f" (return word {task['return_word']!r})"
         else:
             how = " | ".join(task["commands"]) + f" every {task['pace']}s"
         skills = ", ".join(task["skills"]) or "no skills (runs its budget)"

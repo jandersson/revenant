@@ -2,7 +2,7 @@
 
     ;status            room | posture and badges | vitals | hands | hostiles | RT
     ;status watch      print it again whenever it changes, until stopped
-    ;status stop       (typed while watching) stop
+    ;status return     (typed while watching) end the watch
 
 The same view scripts use: `from client.game.status import status`,
 then `status(s.state).stunned`, `.posture`, `.hands_empty`,
@@ -28,8 +28,8 @@ def main(s):
     last = view.summary()
     while True:
         line = s.command(timeout=POLL)
-        if line and "stop" in line.lower():
-            s.echo("status: stopped")
+        if line and "return" in line.lower():
+            s.echo("status: watch ended")
             return
         now = view.summary()
         if now != last:

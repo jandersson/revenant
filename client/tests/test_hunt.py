@@ -305,12 +305,12 @@ def test_no_wound_floor_never_asks_health(travel):
 CLEAN_HEALTH = "Your body feels at full strength.\nYou have no significant injuries.\n"
 
 
-def test_the_stop_word_ends_the_hunt_before_the_next_swing(travel):
+def test_the_return_word_ends_the_hunt_before_the_next_swing(travel):
     arena = Arena({"attack": []})
-    arena.commands = ["stop"]
+    arena.commands = ["return"]
     _run(arena, travel_first=False)
     assert not any(command.startswith("attack") for command in arena.sent)
-    assert any("stopped on request" in text for text in arena.echoed)
+    assert any("returning on request" in text for text in arena.echoed)
 
 
 def test_mind_locked_training_skills_end_the_hunt(travel):

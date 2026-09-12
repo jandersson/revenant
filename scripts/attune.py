@@ -5,7 +5,7 @@
     ;attune until=30     stop at that mindstate instead of 34
     ;attune here         perceive in place, once a minute (Moon Mages: lunar mana is everywhere)
     ;attune once         exit at mind-lock instead of holding for the drain
-    ;attune stop         (typed while it runs) finish the current perceive and stop
+    ;attune return       (typed while it runs) finish the current perceive and end
 
 Perceiving mana trains Attunement once per room per sixty seconds
 (Elanthipedia: Attunement skill, Perceive command), so the script
@@ -19,12 +19,12 @@ and the mindstate rising 4/34 → 6/34 on a room's first POWER. At
 mind-lock it holds, polling until enough has drained to be worth the
 walking, then resumes — a standalone run is a standing trainer, like
 ;athletics; `once` exits at the lock instead. ;train runs it as a
-task (skills: ["Attunement"], stop_word "stop") and ends it itself
-when the skill reaches the plan's target: the stop word lands within
+task (skills: ["Attunement"], return_word "return") and ends it
+itself when the skill reaches the plan's target: the word lands within
 a second, held or walking. It stops on death, on hostiles in the
 room, when eight perceives in a row gain nothing (a guild that cannot
 sense mana), and when the map has no street to loop.
-Stop with:  ;stop attune, or ;attune stop for a clean finish.
+Stop with:  ;stop attune (at once), or ;attune return for a clean finish.
 """
 
 import time
@@ -80,8 +80,11 @@ def danger(s):
 
 
 def wants_stop(s):
+    """True once "return" was typed at the script: finish the perceive
+    in hand and end. (;stop <name> is the abrupt end for every script;
+    a typed word is the graceful one, the operator's rule 2026-09-12.)"""
     while (line := s.command(timeout=0)) is not None:
-        if "stop" in line.lower():
+        if "return" in line.lower():
             return True
     return False
 

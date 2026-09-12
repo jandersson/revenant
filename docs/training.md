@@ -46,7 +46,7 @@ A task:
 | name | how it is reported; defaults to the script's name |
 | skills | the exp-window names it trains (`Small Edged`, case ignored); the task is done when all of them reach the target. No skills: the task runs its time budget once per cycle |
 | script, args | started as `;<script> <args>` and watched; a script the user already runs by hand is left alone and the task skipped |
-| stop_word, stop_grace | how the script is ended at the target: the word is delivered as `;<script> <word>` would be, and the kill follows once the grace (seconds, default 120) runs out. No word: killed at once |
+| return_word, return_grace | how the script is ended at the target: the word is delivered as `;<script> <word>` would be (`return` for the bundled trainers), and the kill follows once the grace (seconds, default 120) runs out. No word: killed at once. A plan saved with the old `stop_word` / `stop_grace` keys still loads, its "stop" read as "return" |
 | commands, pace | instead of a script: the commands cycled in the loop's own thread, roundtime waited out, `pace` seconds apart |
 | setup, teardown | commands sent before the task and after it (`get my flute` / `stow my flute`) |
 | target, minutes | this task's own target and time budget, overriding the plan's |
@@ -60,8 +60,8 @@ loop learns it.
    the ones whose skills already sit at the target. A task ends at the
    target, at its time budget, when its script exits on its own (an
    empty hunting ground, a rung the map lost), on `;train skip`, or on
-   death. Its script is ended with the stop word first — `;hunt stop`
-   finishes the kill and walks home — and killed after the grace.
+   death. Its script is ended with the return word first — `;hunt
+   return` finishes the kill and walks home — and killed after the grace.
 2. **Rest.** With every task trained, walk to the next safe room, send
    the rest commands, and hold, polling the exp window, until every
    skill the plan trains has drained to `rest_until` or below (or the
@@ -92,7 +92,7 @@ the loop warns and stays.
   slowest one sets the rest's length. `rest_minutes` caps it, and a
   higher floor shortens every rest.
 - **A stopped script leaves the character wherever it was.** A task
-  without a stop word is killed mid-action; the next task's script
+  without a return word is killed mid-action; the next task's script
   starts from there (the bundled trainers walk to their own spots).
   `teardown` is for what must be undone (a wielded instrument), not a
   walk home.
@@ -201,8 +201,8 @@ lunar mana is everywhere. Standalone it is a standing trainer like
 `;athletics`: it holds at the lock and walks again once the pool has
 drained, until stopped; `;attune once` exits at the lock instead.
 Under `;train` (`"script": "attune", "skills": ["Attunement"],
-"stop_word": "stop"`) the loop ends the task itself when Attunement
-reaches the plan's target — the stop word lands within a second,
+"return_word": "return"`) the loop ends the task itself when Attunement
+reaches the plan's target — the word lands within a second,
 held or walking — and moves to the next task.
 
 Captured 2026-09-12 on a circle-1 Paladin at rank 2, on the

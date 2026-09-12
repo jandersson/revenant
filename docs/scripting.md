@@ -64,14 +64,15 @@ your frontend.
 | `s.args`                      | the arguments from `;run forage rock` → `["rock"]`                        |
 | `s.run("athletics", ["list"])` | start another script as `;run` would; `False` (reason echoed) when it can't |
 | `s.is_running("athletics")`   | whether that script's thread is alive                                     |
-| `s.tell("hunt", "stop")`      | hand a running script a line, as typing `;hunt stop` would                |
+| `s.tell("hunt", "return")`    | hand a running script a line, as typing `;hunt return` would              |
 | `s.kill("athletics")`         | stop another script (safe from a `finally:` while you are being stopped)  |
 
 The last four are what an orchestrator needs: `;train`
 (`scripts/train.py`) starts a task's script, polls the exp window
-until the task's skills reach their target, tells the script its stop
-word (`;hunt stop` finishes the kill and walks home) and kills it
-after a grace. A script the user started by hand is theirs — `s.run`
+until the task's skills reach their target, tells the script its
+return word (`;hunt return` finishes the kill and walks home) and
+kills it after a grace. The convention for every script: a typed
+`return` is the graceful end, `;stop <name>` the abrupt one. A script the user started by hand is theirs — `s.run`
 refuses it rather than adopting it. Model: [training.md](training.md).
 
 Synthetic streams worth knowing: `compass` (one frame per room, the

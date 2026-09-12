@@ -159,8 +159,8 @@ def plan(**overrides):
             "name": "rats",
             "script": "hunt",
             "skills": ["Small Edged"],
-            "stop_word": "stop",
-            "stop_grace": 30,
+            "return_word": "return",
+            "return_grace": 30,
         },
     ]
     values.update(overrides)
@@ -193,24 +193,24 @@ def test_each_task_script_runs_until_its_skills_reach_the_target(clock):
     )
     assert fake.started == [("athletics", []), ("hunt", [])]
     assert fake.killed[0] == "athletics"
-    assert fake.told == [("hunt", "stop")]
+    assert fake.told == [("hunt", "return")]
     assert any("climbs at target — Athletics 30/30" in text for text in fake.echoed)
     assert any("rested" in text for text in fake.echoed)
     assert fake.echoed[-1] == "train: 1 cycle(s) done"
 
 
-def test_the_stop_word_gets_the_grace_then_the_kill(clock):
+def test_the_return_word_gets_the_grace_then_the_kill(clock):
     fake = Fake([{"Small Edged": 5}, {"Small Edged": 31}], obeys_stop=False)
     run(clock, fake, plan(tasks=[plan()["tasks"][1]], rest_until=34))
-    assert fake.told == [("hunt", "stop")]
+    assert fake.told == [("hunt", "return")]
     assert fake.now >= 10 + 30  # a poll, then the grace waited out
     assert fake.killed == ["hunt"]
 
 
-def test_a_script_that_obeys_its_stop_word_is_never_killed(clock):
+def test_a_script_that_obeys_its_return_word_is_never_killed(clock):
     fake = Fake([{"Small Edged": 5}, {"Small Edged": 31}])
     run(clock, fake, plan(tasks=[plan()["tasks"][1]], rest_until=34))
-    assert fake.told == [("hunt", "stop")]
+    assert fake.told == [("hunt", "return")]
     assert fake.killed == []
     assert any("rats at target" in text for text in fake.echoed)
 

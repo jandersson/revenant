@@ -211,7 +211,10 @@ Traps that cost time before:
   before the script is started or, when it runs, handed the word). So
   a script never parses "help" itself, and its docstring opens with
   the usage lines — every verb and option, one per line — before the
-  story.
+  story. Two ways to end a script, the same for all of them: `;stop
+  <name>` quits at once, wherever the character stands; a typed
+  `;<name> return` is the graceful end (finish the kill or the
+  perceive, walk home). Never a `stop` word of a script's own.
 - Every change freshens the documentation it staled, in the same commit:
   the module docstring (it is the `;help` manual), README claims, this
   file, docs/architecture.md, and any docs/ model whose assumptions moved.

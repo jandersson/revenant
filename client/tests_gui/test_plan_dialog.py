@@ -26,7 +26,7 @@ def _plan():
                     "name": "rats",
                     "script": "hunt",
                     "skills": ["Small Edged", "Evasion"],
-                    "stop_word": "stop",
+                    "return_word": "return",
                     "minutes": 45,
                 },
                 1,
@@ -99,7 +99,7 @@ def test_an_empty_plan_starts_with_the_task_form_disabled(qapp):
     dialog.add_task()
     assert dialog.task_widgets["name"][1].isEnabled()
     assert dialog.values()["tasks"][0] == normalize_task({}, 0)
-    assert dialog.values()["tasks"][0]["stop_grace"] == TASK_DEFAULTS["stop_grace"]
+    assert dialog.values()["tasks"][0]["return_grace"] == TASK_DEFAULTS["return_grace"]
 
 
 def test_values_round_trip_through_the_plan_file(qapp, isolated_files):

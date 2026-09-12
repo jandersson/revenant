@@ -44,7 +44,7 @@ def plan(**overrides):
             "name": "rats",
             "script": "hunt",
             "skills": ["Small Edged", "Evasion"],
-            "stop_word": "stop",
+            "return_word": "return",
         },
         {"name": "music", "commands": ["play my flute"], "skills": ["Performance"]},
     ]
@@ -97,7 +97,7 @@ def test_tasks_get_every_key_and_a_name():
     loaded = normalize({"tasks": [{"script": "athletics"}, {"commands": ["hum"]}]})
     first, second = loaded["tasks"]
     assert first["name"] == "athletics" and first["skills"] == []
-    assert first["stop_grace"] == 120 and first["target"] is None
+    assert first["return_grace"] == 120 and first["target"] is None
     assert second["name"] == "task2" and second["pace"] == 5
 
 
@@ -115,7 +115,7 @@ def test_the_starter_plan_takes_home_and_skills_from_the_profile(monkeypatch):
     assert starter["safe_rooms"] == ["town green"]
     assert [task["script"] for task in starter["tasks"]] == ["athletics", "hunt"]
     assert starter["tasks"][1]["skills"] == ["Small Edged"]
-    assert starter["tasks"][1]["stop_word"] == "stop"
+    assert starter["tasks"][1]["return_word"] == "return"
     assert validate(starter) == []
 
 
@@ -205,7 +205,7 @@ def test_describe_and_status_read_like_the_plan():
     assert lines[0] == "safe rooms: home"
     assert lines[1] == "rest commands: sit"
     assert any(
-        "rats: Small Edged, Evasion — ;hunt (stop word 'stop')" in line
+        "rats: Small Edged, Evasion — ;hunt (return word 'return')" in line
         for line in lines
     )
     assert any("music: Performance — play my flute every 5s" in line for line in lines)
@@ -238,3 +238,16 @@ def test_the_plan_fields_cover_every_plan_and_task_key():
         kind in ("int", "optint", "choice", "str", "list")
         for _, _, kind, _ in PLAN_FIELDS + TASK_FIELDS
     )
+
+
+def test_a_plan_saved_with_the_old_stop_keys_still_loads():
+    # 2026-09-12: the typed word became "return" (a graceful end, the
+    # walk home); ;stop <name> is the abrupt one. Old files keep working.
+    task = training.normalize_task(
+        {"script": "hunt", "stop_word": "stop", "stop_grace": 30}
+    )
+    assert task["return_word"] == "return"
+    assert task["return_grace"] == 30
+    assert "stop_word" not in task and "stop_grace" not in task
+    # A word that was never "stop" is carried as it was.
+    assert training.normalize_task({"stop_word": "home"})["return_word"] == "home"

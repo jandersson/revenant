@@ -32,7 +32,9 @@ It holds what no script should hard-code:
 | train_skills | the hunt ends when every one of them sits at mindstate 34 in the exp window |
 | max_kills | a fuse; 0 hunts until stopped, locked or the ground empties |
 
-`;hunt stop` (typed while it runs) ends the loop before the next swing.
+`;hunt return` (typed while it runs) ends the loop before the next
+swing and walks home; `;stop hunt` quits where it stands (the rule for
+every script: the typed word is the graceful end, `;stop` the abrupt one).
 `;hunt here` skips the walk to the ground; `;hunt profile` prints the
 profile it would use.
 

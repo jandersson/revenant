@@ -23,8 +23,8 @@ room send the rest to the next safe room.
 While it runs:  ;train skip  ends the current task (or the rest),
 ;train rest  stops training and rests now. Stop with:  ;stop train —
 a task's script stops with it. A script task ends early with the
-task's stop word when it has one (hunt's ;hunt stop finishes the
-kill and walks home), killed after the grace otherwise; scripts that
+task's return word when it has one (hunt's ;hunt return finishes
+the kill and walks home), killed after the grace otherwise; scripts that
 exit on their own (an empty hunting ground) end the task for this
 cycle and are not restarted until the next one. The loop is
 scaffolding for training scripts still to be written: a task is one
@@ -95,15 +95,15 @@ def progress(plan, task, experience_now):
 
 
 def stop_script(s, task):
-    """End a task's script: the stop word first, when it has one, then
-    the kill once the grace runs out; wait for the thread to go."""
+    """End a task's script: the return word first, when it has one,
+    then the kill once the grace runs out; wait for the thread to go."""
     name = task["script"]
     if not s.is_running(name):
         return
-    if task["stop_word"]:
-        s.tell(name, task["stop_word"])
-        s.echo(f"train: told ;{name} {task['stop_word']} — waiting for it to finish")
-        deadline = clock() + task["stop_grace"]
+    if task["return_word"]:
+        s.tell(name, task["return_word"])
+        s.echo(f"train: told ;{name} {task['return_word']} — waiting for it to finish")
+        deadline = clock() + task["return_grace"]
         while s.is_running(name) and clock() < deadline:
             s.sleep(1)
     if s.is_running(name):

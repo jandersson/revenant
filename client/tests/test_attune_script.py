@@ -53,7 +53,7 @@ MAP = street()
 class Fake:
     """A handle whose Attunement mindstate follows a script of values —
     one per POWER, or one per second while held at the lock — with a
-    fake clock (a POWER costs 9 s, a walk 2 s) and a typed "stop" that
+    fake clock (a POWER costs 9 s, a walk 2 s) and a typed "return" that
     arrives once the clock reaches `stop_at`."""
 
     def __init__(self, mindstates, stop_at=None, hostiles=None, dead=False):
@@ -96,7 +96,7 @@ class Fake:
     def command(self, timeout=None):
         if self.stop_at is not None and not self.stopped and self.now >= self.stop_at:
             self.stopped = True
-            return "stop"
+            return "return"
         return None
 
     def echo(self, text):
