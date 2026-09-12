@@ -182,9 +182,12 @@ PREPARE_OUTCOMES = (
     ),
     ("ok", ("you begin", "gathering energy", "prepar")),
 )
+# A recast of a running buff answers "Your soul and body intertwine
+# tighter, the bond renewed by the spell." after "You gesture."
+# (captured 2026-09-12, the first scripted cast).
 CAST_OUTCOMES = (
     ("failed", ("pattern collapses", "backfire", "not enough mana", "nothing to cast")),
-    ("ok", ("takes effect", "you feel")),
+    ("ok", ("takes effect", "renewed", "you gesture")),
 )
 
 

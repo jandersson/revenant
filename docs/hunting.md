@@ -217,8 +217,12 @@ a roisan being a real minute — which the parser keeps as
 `prepared_spell` and `active_spells` (client/engine/xml_data.py). The
 loop casts a buff the window does not list, before the first swing
 and before any later one; a session whose parser predates that state
-re-casts on a ten-minute timer, the wiki's shortest duration. Two
-things follow from the capture: no "fully prepared" line came in the
+re-casts on a ten-minute timer, the wiki's shortest duration. The
+first scripted cast, with the spell still running, answered "You
+gesture." and "Your soul and body intertwine tighter, the bond renewed
+by the spell." — no "takes effect" — and the window went back to 10
+roisaen, so a renewal counts as a cast. Two things follow from the
+first capture: no "fully prepared" line came in the
 ten seconds before the cast, so the loop waits eight seconds after
 PREPARE rather than for a wording; and every cast of a Holy buff
 trains Augmentation, so a buffed hunt trains that skill on the side
