@@ -1,0 +1,83 @@
+---
+name: drive
+description: Drive a running DragonRealms session from Claude — send a command, read the game's answer, act on the operator's character with their say-so. Use whenever the operator asks to try, test, check, capture or do something in the game ("try it on X", "run ;script and check", "what does INFO say", "capture the wording"), or when a script's assumption needs a live reading.
+---
+
+# Driving a session
+
+Claude reaches the game only through `revenant-send`, tagged as itself,
+and reads the answer through the same command. Everything sent shows in
+the operator's window as `>> [claude] ...`.
+
+## The rules
+
+1. **Say-so first for anything that acts.** Moving, spending TDPs or
+   coins, TRAIN, wearing, removing, dropping, stowing, giving, attacking:
+   only when the operator asked for that in this conversation. A request
+   to "try" or "test" a script is say-so for what that script does.
+2. **Read-only commands may go out to answer a question**: INFO, EXP,
+   the stat words (AGILITY, STRENGTH, ...), TDP, TDP PROJECT, ENCUMBRANCE,
+   VAULT TIME, BANK ACCOUNT, WEALTH, LOOK, TIME, HEALTH. They cost no
+   roundtime and change nothing. INFO prints a long block in the window;
+   ask once and keep the answer.
+3. **Never a bare send** (it reads `[external]`), never an ad-hoc socket
+   driver, never a change to the "allow external sends" setting. A gated
+   command opens the gate for that one call with `REVENANT_ALLOW_SEND=1`.
+4. **Report what was sent and what the game answered**, verbatim where
+   the wording matters; a captured wording goes into the script's fixture
+   and the docs in the same change (CLAUDE.md: fixtures pin what we
+   believe the server sends).
+5. **Never a name in the repo.** Logs and answers carry the operator's
+   character and account names; the synthetic cast replaces them in
+   anything committed (Lanival, Sable, Uthmor, TESTACCT).
+
+## The procedure
+
+```sh
+# which sessions run, and on which port
+cat ~/.revenant/sessions.json
+
+# a read-only command, with the answer printed (stay attached 4 s)
+uv run revenant-send --origin claude --answer 4 --character NAME "tdp"
+
+# a command that acts, with the operator's say-so, one call of the gate
+REVENANT_ALLOW_SEND=1 uv run revenant-send --origin claude --answer 6 --character NAME "stand"
+
+# a script, and a word typed at it while it runs
+REVENANT_ALLOW_SEND=1 uv run revenant-send --origin claude --character NAME ";tdp train stamina +2"
+uv run revenant-send --origin claude --character NAME ";tdp help"
+```
+
+- Use `--port N` when the registry has lost the row (#160); the port is
+  in the sessions file or the launcher's log.
+- `--answer` prints the story lines that followed the line's own echo;
+  a command with roundtime (POWER 8-12 s, CLIMB, INV LIST) needs a
+  window longer than it, and a walk or a script's run needs the log
+  instead: `~/.revenant/logs/game-<stamp>.log`, newest for that session,
+  read with the XML stripped (`sed 's/<[^>]*>//g'`). Scripts' echoes go
+  to the windows, not the game log; the session's debug log
+  (`revenant_client-*.log`) has script starts and external sends.
+- A script typed with `help` prints its manual without running it.
+- Between dependent commands, wait the roundtime (the answer's
+  "Roundtime: N sec." line) before the next; the engine's own scripts
+  do this with `s.waitrt()`, a sender has to sleep.
+- After the run, INFO or the relevant read-only command confirms the
+  state the script claimed; the game's own figures are the judge, not
+  the script's echo.
+
+## Things that bit before
+
+- **DIR STAT starts a hint that repeats every few lines until DIR STOP**
+  — never use it; the map's tags know the rooms.
+- **A registry row can vanish** (#160): a send by `--character` then
+  fails; `--port` still works.
+- **A running session cannot see an edit** to a `client/` module it
+  first imported before that module joined the reload list; a script
+  importing a new name from it fails to load until the session is
+  restarted. Scripts themselves always load fresh.
+- **A busy town room buries an answer** under arrivals and departures:
+  filter those lines out when reading the log, or use `--answer`.
+- **The parser's state lags the story line** (posture, hands): read the
+  answer text, not the indicator, right after a command.
+- **Every session change today needed a note somewhere durable**: an
+  issue for a gap, a doc section for a mechanic, a fixture for a wording.

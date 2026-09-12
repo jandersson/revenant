@@ -182,6 +182,51 @@ def running_sessions(host=DEFAULT_HOST):
 EXTERNAL_MARK = b"\x1e"
 
 
+def send_and_read(host, port, text, seconds, timeout=5):
+    """Send one command line and return what the session broadcast in
+    the `seconds` after it: [(text, stream, style)] frames, the story
+    and the docks alike, from the line's own ">> [origin] ..." echo on
+    — the backlog replay that precedes it is dropped. None when nothing
+    was listening. This is how a tool reads the game's answer without
+    tailing a log: the connection is a frontend for those seconds."""
+    try:
+        conn = socket.create_connection((host, int(port)), timeout=timeout)
+    except OSError:
+        return None
+    frames, buffer, seen_echo = [], b"", False
+    marker = text.split("\t", 1)[-1].strip()
+    with conn:
+        conn.sendall(text.encode("UTF-8").rstrip(b"\n") + b"\n")
+        deadline = monotonic() + seconds
+        while (left := deadline - monotonic()) > 0:
+            conn.settimeout(min(left, 0.5))
+            try:
+                chunk = conn.recv(65536)
+            except TimeoutError:
+                continue
+            except OSError:
+                break
+            if not chunk:
+                break
+            buffer += chunk
+            decoded, buffer = decode_frames(buffer)
+            for frame in decoded:
+                if not seen_echo:
+                    if (
+                        frame[2] == "sent"
+                        and frame[0].startswith(">> [")
+                        and marker in frame[0]
+                    ):
+                        seen_echo = True
+                    continue
+                frames.append(frame)
+        try:
+            conn.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+    return frames
+
+
 def send_line(host, port, text, timeout=5):
     """Send one command line to a running session, as a frontend would.
 

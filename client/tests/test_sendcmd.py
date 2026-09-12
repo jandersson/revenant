@@ -51,11 +51,94 @@ def listener():
     server.close()
 
 
+@pytest.fixture
+def answering():
+    """A fake session that replays a backlog, echoes the line it got as
+    the session does, answers with two story lines and a dock frame,
+    then waits for the sender to hang up."""
+    import json
+
+    server = socket.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+    server.settimeout(5)
+    got = []
+
+    def frame(text, stream="", style=""):
+        return (
+            json.dumps({"text": text, "stream": stream, "style": style}) + "\n"
+        ).encode()
+
+    def serve():
+        try:
+            conn, _ = server.accept()
+        except OSError:
+            return
+        with conn:
+            conn.settimeout(5)
+            conn.sendall(frame("an old line from the backlog\n"))
+            buffer = b""
+            while b"\n" not in buffer:
+                chunk = conn.recv(4096)
+                if not chunk:
+                    return
+                buffer += chunk
+            got.append(buffer)
+            origin, _, command = (
+                buffer.decode().lstrip("\x1e").rstrip("\n").partition("\t")
+            )
+            conn.sendall(frame(f">> [{origin}] {command}\n", "", "sent"))
+            conn.sendall(
+                frame("You have 347 TDPs.\n") + frame("bar", "vitals") + frame(">\n")
+            )
+            try:
+                while conn.recv(4096):
+                    pass
+            except OSError:
+                pass
+
+    thread = Thread(target=serve, daemon=True)
+    thread.start()
+    yield server.getsockname()[1], got, thread
+    server.close()
+
+
+def test_answer_returns_the_story_lines_after_the_echo_and_not_the_replay(answering):
+    port, got, thread = answering
+    result = send(
+        "tdp", port=port, origin="claude", settings=SHUT, environ=NO_ENV, answer=1.5
+    )
+    thread.join(5)
+    assert result.sent
+    assert got == [b"\x1eclaude\ttdp\n"]
+    assert (
+        result.answer == "You have 347 TDPs.\n>\n"
+    )  # the dock frame and the replay are not story
+
+
+def test_the_console_script_prints_the_answer(monkeypatch, capsys, answering):
+    port, got, thread = answering
+    monkeypatch.setenv("REVENANT_ALLOW_SEND", "0")
+    code = sendcmd.main(
+        ["--port", str(port), "--origin", "claude", "--answer", "1.5", "tdp"]
+    )
+    thread.join(5)
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "sent 'tdp'" in out and "You have 347 TDPs." in out
+
+
 def test_read_only_commands_are_allowlisted_and_the_rest_are_gated():
     assert allowlisted("exp all")
     assert allowlisted("INFO")
     assert allowlisted(";sheet inv")
     assert allowlisted(";stop hunt")
+    assert allowlisted("tdp project agility 12")
+    assert allowlisted("Stamina")
+    assert allowlisted("encumbrance")
+    assert not allowlisted("train")
+    assert not allowlisted("vault pay 1 5000")  # VAULT reads and pays alike: gated
+    assert not allowlisted("bank withdraw 1 all")
     assert not allowlisted("attack rat")
     assert not allowlisted("drop sack")
     assert not allowlisted(";hunt")

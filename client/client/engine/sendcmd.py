@@ -1,6 +1,6 @@
 """Send one command into a running session from outside:  revenant-send
 
-    revenant-send [--character NAME] [--dry-run] <command words ...>
+    revenant-send [--character NAME] [--origin WHO] [--answer SECONDS] [--dry-run] <command words ...>
 
 The supported, audited way for a tool or an agent to act on what it
 worked out - ";go2 bank", "exp all", ";stop hunt" - instead of handing
@@ -11,14 +11,19 @@ origin, and the session echoes it to every attached window as
 by the player never acts invisibly.
 
 Off by default, in two tiers. Read-only commands on the allowlist
-(INFO, EXP, SPELL, HEALTH, WEALTH, LOOK, TIME, INVENTORY, GLANCE and the
-;list / ;help / ;stop / ;sheet / ;clock scripts) go through whenever a
-session is listening. Anything else - everything that spends, drops,
+(INFO, EXP, SPELL, HEALTH, WEALTH, LOOK, TIME, INVENTORY, GLANCE, ASSESS,
+TDP, ENCUMBRANCE, the eight stat words, PREMIUM, and the ;list / ;help /
+;stop / ;sheet / ;clock scripts) go through whenever a session is
+listening. Anything else - everything that spends, drops,
 moves or attacks - needs the gate open: the "allow external sends"
 setting (~/.revenant/settings.json, allow_external_send) or
 REVENANT_ALLOW_SEND=1 for one call. --dry-run says what would happen
-and sends nothing. Exit status 0 when the line went out (or a dry run),
-1 when it was refused or nothing was listening.
+and sends nothing. --answer N stays attached for N seconds after the
+send and prints what the game answered (the story lines that followed
+the line's own echo), so a tool reads the reply here instead of
+tailing the log; --origin names the sender in that echo (Claude sends
+as claude). Exit status 0 when the line went out (or a dry run), 1
+when it was refused or nothing was listening.
 """
 
 import argparse
@@ -26,7 +31,12 @@ import os
 import sys
 from dataclasses import dataclass
 
-from client.engine.session import DEFAULT_HOST, running_sessions, send_line
+from client.engine.session import (
+    DEFAULT_HOST,
+    running_sessions,
+    send_and_read,
+    send_line,
+)
 from client.settings import load_settings
 
 # A line the session reads as "sent from outside": \x1e<origin>\t<command>.
@@ -49,6 +59,20 @@ ALLOWLIST = frozenset(
         "inv",
         "glance",
         "assess",
+        # the stat quotes, the TDP figures, the burden and the account
+        # perks: answers, no roundtime, nothing changed (2026-09-12)
+        "tdp",
+        "encumbrance",
+        "enc",
+        "strength",
+        "reflex",
+        "agility",
+        "charisma",
+        "discipline",
+        "wisdom",
+        "intelligence",
+        "stamina",
+        "premium",
     }
 )
 # Scripts that only read or stop something.
@@ -62,6 +86,7 @@ class Result:
     host: str = DEFAULT_HOST
     port: int | None = None
     command: str = ""
+    answer: str = ""
 
     @property
     def ok(self):
@@ -125,8 +150,11 @@ def send(
     settings=None,
     environ=None,
     sessions=None,
+    answer=0,
 ):
-    """Send one line, or say why not. Never raises for a missing session."""
+    """Send one line, or say why not. Never raises for a missing session.
+    With answer > 0, stay attached that many seconds and return the
+    story lines the game answered with in Result.answer."""
     command = " ".join(str(command).split())
     if not command:
         return Result(False, "nothing to send", host, port, command)
@@ -154,7 +182,23 @@ def send(
             command,
         )
     origin = "".join(ch for ch in origin if ch not in "\t\n\x1e") or DEFAULT_ORIGIN
-    if send_line(host, port, f"{EXTERNAL_MARK}{origin}\t{command}"):
+    line = f"{EXTERNAL_MARK}{origin}\t{command}"
+    if answer and answer > 0:
+        frames = send_and_read(host, port, line, answer)
+        if frames is None:
+            return Result(
+                False, f"nothing is listening on {host}:{port}", host, port, command
+            )
+        story = "".join(text for text, stream, _ in frames if stream == "")
+        return Result(
+            True,
+            f"sent {command!r} to {host}:{port} ({tier})",
+            host,
+            port,
+            command,
+            answer=story,
+        )
+    if send_line(host, port, line):
         return Result(
             True, f"sent {command!r} to {host}:{port} ({tier})", host, port, command
         )
@@ -175,6 +219,13 @@ def main(argv=None):
         default=DEFAULT_ORIGIN,
         help="who is sending, for the echo and the log",
     )
+    parser.add_argument(
+        "--answer",
+        type=float,
+        default=0,
+        metavar="SECONDS",
+        help="stay attached this long after sending and print the game's answer",
+    )
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument(
         "--port", type=int, help="a session port, bypassing the registry"
@@ -187,8 +238,11 @@ def main(argv=None):
         port=args.port,
         dry_run=args.dry_run,
         origin=args.origin,
+        answer=args.answer,
     )
     print(result.message)
+    if result.answer:
+        print(result.answer.rstrip("\n"))
     return 0 if result.ok else 1
 
 

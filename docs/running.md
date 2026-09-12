@@ -69,17 +69,22 @@ typed, for a tool or an agent that has already worked out what to do
 the session log records it, so nothing sent this way acts invisibly.
 
 Read-only commands go through whenever a session is listening: INFO,
-EXP, SPELL, HEALTH, WEALTH, LOOK, TIME, INVENTORY, GLANCE, ASSESS and
-the `;list`, `;help`, `;stop`, `;sheet`, `;clock` scripts. Everything
+EXP, SPELL, HEALTH, WEALTH, LOOK, TIME, INVENTORY, GLANCE, ASSESS,
+TDP, ENCUMBRANCE, the eight stat words, PREMIUM and the `;list`,
+`;help`, `;stop`, `;sheet`, `;clock` scripts. Everything
 else is refused until the gate is open: "allow external tools to send
 any command" in File → Settings, or `REVENANT_ALLOW_SEND=1` for one
 call. `--dry-run` reports what would happen and sends nothing;
-`--character NAME` picks a session when several run; the exit status
-is 0 when the line went out and 1 when it was refused or nothing was
-listening.
+`--character NAME` picks a session when several run (`--port` when
+the registry has lost the row); `--origin WHO` names the sender in
+the echo (Claude sends as `claude`); `--answer SECONDS` stays attached
+that long and prints what the game answered, so a tool reads the reply
+without tailing the log. The exit status is 0 when the line went out
+and 1 when it was refused or nothing was listening.
 
 ```sh
 revenant-send exp all
+revenant-send --origin claude --answer 4 "tdp"
 revenant-send --dry-run ";go2 bank"
 REVENANT_ALLOW_SEND=1 revenant-send --character Lanival "stance set 100 80 0"
 ```

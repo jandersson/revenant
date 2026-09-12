@@ -80,7 +80,9 @@ for `client/client/<pkg>/x.py`.
   session from outside, tagged with its origin; read-only allowlist
   always passes, the rest needs `allow_external_send` or
   `REVENANT_ALLOW_SEND=1`. The session echoes `>> [origin] cmd` to
-  every window (#135). Use it instead of ad-hoc socket drivers.
+  every window (#135); `--answer SECONDS` prints the game's reply.
+  Use it instead of ad-hoc socket drivers; the `drive` skill
+  (`.claude/skills/drive/SKILL.md`) is the procedure for Claude.
 - `client/game/wounds.py` — HEALTH parsed into wounds by area, severity
   (1-8) and kind; `wounds_data.py` is generated from the wiki by
   `tools/wound_tables.py`, never hand-edited. `;tend` and `;hunt`'s
