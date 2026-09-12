@@ -51,12 +51,12 @@ def test_unsupported_tags_fail_loudly():
 
 
 def test_render_data_formats_a_who_reply():
-    payload = b'\x04\x08[\x07I"\x0aAlvin\x06:\x06ETI"\x0bTestch\x06;\x00T'
+    payload = b'\x04\x08[\x07I"\x0aSable\x06:\x06ETI"\x0bTestch\x06;\x00T'
     element = ET.Element("data", {"type": "who"})
     element.text = base64.b64encode(payload).decode("ascii")
     rendered = render_data(element)
     assert rendered.startswith("[LNet who]")
-    assert "Alvin, Testch" in rendered
+    assert "Sable, Testch" in rendered
 
 
 def test_render_data_falls_back_on_garbage():
