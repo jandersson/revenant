@@ -143,12 +143,24 @@ REPORT_LINES = [
 ]
 
 
+INFO_LINES = [
+    "Wealth:",
+    "  3 silver Kronars (300 copper Kronars).",
+    "  No Lirums.",
+    "Debt:",
+    "  You owe 9 silver and 3 bronze Kronars to the Principality of Zoluren. "
+    "(930 copper Kronars)",
+]
+
+
 class Fake:
     """A handle with a fake clock: BANK ACCOUNT answers with the report
-    (or nothing), typed requests arrive through command()."""
+    (or nothing), INFO with the wealth block, typed requests arrive
+    through command()."""
 
-    def __init__(self, answers=None, requests=()):
+    def __init__(self, answers=None, requests=(), info=None):
         self.answers = list(answers if answers is not None else [REPORT_LINES])
+        self.info = list(INFO_LINES if info is None else info)
         self.requests = list(requests)
         self.now = 1000.0
         self.sent = []
@@ -161,11 +173,17 @@ class Fake:
         self.sent.append(command)
         if command == "bank account" and self.answers:
             self.pending = list(self.answers.pop(0))
+        if command == "info":
+            self.pending = list(self.info)
+
+    def waitrt(self):
+        pass
 
     def get(self, timeout=None, streams=("",)):
         if self.pending:
-            return self.pending.pop(0)
-        self.now += timeout or 1  # silence passes time
+            return self.pending.pop(0) + "\n"
+        if timeout is None or timeout >= 1:
+            self.now += timeout or 1  # the loop's waits pass time; probe's polls don't
         return None
 
     def command(self, timeout=None):
@@ -184,6 +202,8 @@ def run_tracker(fake, args=(), stop_after_sends=1, monkeypatch=None, tmp_path=No
     monkeypatch.setattr(wealth, "START_DELAY", 0)
     monkeypatch.setattr(wealth, "REPORT_SETTLE", 2)
     monkeypatch.setattr(wealth, "REPORT_WAIT", 5)
+    monkeypatch.setattr(wealth, "INFO_SECONDS", 0.01)
+    monkeypatch.setattr(wealth, "INFO_TAIL", 0.01)
 
     class Stop(Exception):
         pass
@@ -207,7 +227,7 @@ def test_the_tracker_asks_on_start_logs_every_branch_and_summarizes(
 ):
     fake = Fake()
     run_tracker(fake, monkeypatch=monkeypatch, tmp_path=tmp_path)
-    assert fake.sent == ["bank account"]
+    assert fake.sent == ["bank account", "info"]
     connection = sqlite3.connect(wealth.database_path())
     rows = connection.execute(
         "SELECT bank, currency, copper FROM wealth WHERE kind = 'bank' ORDER BY seq"
@@ -225,6 +245,12 @@ def test_the_tracker_asks_on_start_logs_every_branch_and_summarizes(
     )
     assert "(Crossing 33 platinum" in text and "Dirge 5 gold" in text
     assert "Dokoras: on deposit 1 gold, 4 silver, 9 bronze and 4 copper" in text
+    # INFO's carried and debt are fresh, logged like ;sheet's, and netted
+    assert "carrying 3 silver, owing 9 silver and 3 bronze" in text
+    held = connection.execute(
+        "SELECT kind, currency, copper FROM wealth WHERE kind IN ('carried', 'debt')"
+    ).fetchall()
+    assert held == [("carried", "Kronars", 300), ("debt", "Kronars", 930)]
 
 
 def test_the_summary_nets_the_sheet_s_carried_and_debt(tmp_path, monkeypatch):
@@ -258,8 +284,10 @@ def test_now_from_cold_asks_once_and_exits(tmp_path, monkeypatch):
     monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
     monkeypatch.setattr(wealth, "clock", lambda: fake.now)
     monkeypatch.setattr(wealth, "REPORT_SETTLE", 2)
+    monkeypatch.setattr(wealth, "INFO_SECONDS", 0.01)
+    monkeypatch.setattr(wealth, "INFO_TAIL", 0.01)
     wealth.main(fake)  # returns on its own once the report settled
-    assert fake.sent == ["bank account"]
+    assert fake.sent == ["bank account", "info"]
     assert any("on deposit" in line for line in fake.echoed)
 
 
@@ -276,6 +304,6 @@ def test_a_typed_now_asks_again_and_the_interval_asks_by_itself(tmp_path, monkey
 def test_a_silent_answer_is_reported_not_retried(tmp_path, monkeypatch):
     fake = Fake(answers=[[]])
     run_tracker(fake, monkeypatch=monkeypatch, tmp_path=tmp_path)
-    assert fake.sent == ["bank account"]
+    assert fake.sent == ["bank account"]  # no report, no INFO
     assert any("gave no report" in line for line in fake.echoed)
     assert not any("on deposit" in line for line in fake.echoed)

@@ -13,9 +13,10 @@ urchin-runner (SimuCoins) service otherwise, so a silent answer is
 reported as such and not retried until the next interval. Each branch
 line becomes a `bank` wealth row in ~/.revenant/history.db (the branch
 in the `bank` column, the report's own copper total as the amount; its
-Totals block is skipped, the branches add up to it), and the report is
-echoed as a summary per currency: on deposit, carried and owed as
-;sheet last recorded them from INFO, and the net. A teller's balance
+Totals block is skipped, the branches add up to it); INFO follows,
+its carried coin and provincial debt logged as `carried` and `debt`
+rows (the shape ;sheet writes), and the two are echoed as a summary
+per currency: on deposit, carrying, owing, net. A teller's balance
 line ("Your current balance is ...", "As expected, there are ...")
 heard in passing is logged the same way. The beholder Wealth view
 reads the table, newest row per item. Stop with:  ;stop wealth;
@@ -31,13 +32,16 @@ import sqlite3
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from client.game import probe
 from client.game.history import database_path as history_database_path
-from client.game.money import phrase, to_copper
+from client.game.money import parse_wealth, phrase, to_copper
 
 INTERVAL = 3 * 3600  # seconds between BANK ACCOUNT asks
 START_DELAY = 20  # seconds after the start before the first ask: login noise
 REPORT_WAIT = 20  # seconds a report gets to arrive before it counts as none
 REPORT_SETTLE = 3  # seconds of silence after a branch line that end a report
+INFO_SECONDS = 3  # INFO's answer, opening window
+INFO_TAIL = 1.5  # ... and the tail past its (nonexistent) roundtime
 NO_REPORT = (
     "bank account gave no report — the ACCOUNT option is free on a Premium "
     "account and an urchin-runner service otherwise"
@@ -126,9 +130,27 @@ def record(connection, character, currency, copper, bank=None, logged_at=None):
     connection.commit()
 
 
+def record_held(connection, character, wealth, logged_at=None):
+    """INFO's carried and debt as `carried`/`debt` rows, one per
+    currency, the shape ;sheet writes; {(kind, currency): copper}."""
+    ensure_schema(connection)
+    stamp = logged_at or datetime.now(timezone.utc).isoformat()
+    held = {}
+    for kind in ("carried", "debt"):
+        for currency, copper in wealth.get(kind, {}).items():
+            connection.execute(
+                "INSERT INTO wealth (logged_at, character_name, kind, currency, copper)"
+                " VALUES (?, ?, ?, ?, ?)",
+                (stamp, character, kind, currency, copper),
+            )
+            held[(kind, currency)] = copper
+    connection.commit()
+    return held
+
+
 def latest_carried_and_debt(connection, character):
     """{(kind, currency): copper} — the newest carried and debt rows
-    ;sheet logged from INFO, per currency."""
+    logged from INFO, per currency (;sheet's or this script's)."""
     ensure_schema(connection)
     latest = {}
     for kind, currency, copper in connection.execute(
@@ -181,8 +203,17 @@ def main(s):
     report, report_stamp, last_branch_at = {}, None, None
 
     def finish():
+        """The report is in: INFO for what is carried and owed right now
+        (logged like ;sheet's), then the summary of both."""
         nonlocal asked_at, report, report_stamp, last_branch_at
-        for line in summary(report, latest_carried_and_debt(connection, character)):
+        held = record_held(
+            connection,
+            character,
+            parse_wealth(probe.ask(s, "info", INFO_SECONDS, INFO_TAIL)),
+        )
+        if not held:  # INFO went unanswered: the newest logged figures
+            held = latest_carried_and_debt(connection, character)
+        for line in summary(report, held):
             s.echo(f"wealth: {line}")
         asked_at, report, report_stamp, last_branch_at = None, {}, None, None
 

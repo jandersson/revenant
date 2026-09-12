@@ -135,9 +135,10 @@ entries from a dock-layout module.
   ACCOUNT after login and every three hours — it works from anywhere,
   free on a Premium account — logs one `bank` row per branch (the
   branch in the `bank` column, captured 2026-09-12) into history.db,
-  echoes a per-currency summary with the carried coin and debt
-  `;sheet` last read from INFO, and still overhears teller balance
-  lines; `;wealth now` asks again. beholder's Wealth view shows the
+  follows with INFO (carried coin and debt as `carried`/`debt` rows,
+  the shape `;sheet` writes) and echoes a per-currency summary of
+  both, and still overhears teller balance lines; `;wealth now` asks
+  again. beholder's Wealth view shows the
   newest figure per item, since INFO, a teller and the report land at
   different moments.
   `client/client/game/probe.py` is the ask-and-classify helper the keyword
