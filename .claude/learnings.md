@@ -118,6 +118,12 @@ lessons the code and docs cannot carry themselves.
   every kill line. When a script misses a line the window shows, look
   at the raw log for the pushStream around it before touching the
   wording tables.
+- Run the whole CI battery before every push — `ruff check`, `ruff
+  format --check`, and all four suites (client/tests, client/tests_gui,
+  beholder/tests, chat/tests), `tools/docker_tests.py` too when sockets
+  or threads changed — not only the suite the change touched. A green
+  remote run is meant to be expected (the operator, 2026-09-12, after
+  a day of pushes checked against one suite each).
 - A chain of `cmd | tail -1 && next` runs `next` on tail's exit code,
   not cmd's: a failed test suite committed and pushed that way once.
   `set -o pipefail` first, or check the summary line.
