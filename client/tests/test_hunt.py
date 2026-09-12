@@ -843,3 +843,29 @@ def test_a_ground_with_someone_in_every_room_is_left_to_them(travel):
     _run(arena)
     assert not any(c.startswith("attack") for c in arena.sent)
     assert any("leaving it to them" in text for text in arena.echoed)
+
+
+# --- the injuries panel as the wound floor's pre-check (#163) ----------------
+
+
+def test_a_clean_injuries_panel_skips_health_and_a_lit_one_asks(travel):
+    # The game pushes the panel on every change, so an empty one means
+    # nothing is hurt and HEALTH need not be asked after the kill.
+    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+    arena.state.injuries = {}
+    _run(arena, profile=PROFILE | {"wound_floor": "harmful"}, travel_first=False)
+    assert "health" not in arena.sent
+
+    lit = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+            "health": [
+                "Your body feels at full strength.\nYou have no significant injuries."
+            ],
+        }
+    )
+    lit.state.injuries = {"head": ("wound", 1)}
+    _run(lit, profile=PROFILE | {"wound_floor": "harmful"}, travel_first=False)
+    assert "health" in lit.sent

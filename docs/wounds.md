@@ -78,3 +78,16 @@ The table under "Bleeding" is unchanged from what `;tend` always read:
 by the parser, rates ordered as Lich's healing data orders them, with
 `(tended)` and `clotted` rows at severity 0. An internal bleeder is a
 separate field (`inside_bleeding`) on the same area.
+
+## The injuries panel and HEALTH
+
+The game pushes its injuries panel (`<dialogData id="injuries">`, one
+`<image>` per body part whose name is the part's own id when unhurt
+and `Injury<N>` or `Scar<N>` when not) on every change, and the parser
+keeps it as `injuries` (#163). It is coarser than HEALTH — a level per
+part, not a wording — but it is current without asking, so `;hunt`'s
+wound floor reads it first: a clean panel means no HEALTH; a lit part
+means HEALTH decides how bad. `client/game/wounds.py`'s `PANEL_AREAS`
+names the HEALTH area each panel part belongs to (the limbs one row
+set, the eyes another); the nervous system, `nsys`, is read as the
+skin row until a nerve wound is captured in both.

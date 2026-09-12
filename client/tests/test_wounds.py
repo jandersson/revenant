@@ -148,3 +148,35 @@ def test_the_generated_table_covers_every_area_kind_and_level():
     assert areas == {"head", "eye", "neck", "chest", "abdomen", "back", "limb", "skin"}
     assert {row[1] for row in wounds.ROWS} == set(range(1, 9))
     assert {row[2] for row in wounds.ROWS} == set(wounds.KINDS)
+
+
+# --- the injuries panel's parts against HEALTH's areas (#163) ---------------
+
+
+def test_every_panel_part_maps_to_a_health_area():
+    from client.game import wounds
+
+    panel_parts = (
+        "head",
+        "neck",
+        "rightArm",
+        "leftArm",
+        "rightLeg",
+        "leftLeg",
+        "rightHand",
+        "leftHand",
+        "chest",
+        "abdomen",
+        "back",
+        "rightEye",
+        "leftEye",
+        "rightFoot",
+        "leftFoot",
+        "nsys",
+    )  # the ids the dialog carries (captured 2026-09-11)
+    areas = {row[0] for row in wounds.ROWS}
+    for part in panel_parts:
+        assert wounds.panel_area(part) in areas, part
+    assert wounds.panel_area("rightArm") == "limb"
+    assert wounds.panel_area("leftEye") == "eye"
+    assert wounds.panel_area("tail") is None

@@ -240,6 +240,12 @@ def wound_at_floor(s, profile):
         s.echo(f"hunt: wound floor {floor!r} is not a severity — ignoring it")
         profile["wound_floor"] = ""
         return None
+    # The injuries panel the game pushes on every change (#163) says
+    # whether anything is hurt at all: a clean panel means no HEALTH
+    # to ask; a lit one means HEALTH decides how bad.
+    panel = getattr(s.state, "injuries", None)
+    if isinstance(panel, dict) and not panel:
+        return None
     health = parse_health(ask(s, "health"))
     for fragment in health.unknown:
         s.echo(f"hunt: unrecognized wound {fragment!r} — please report it")

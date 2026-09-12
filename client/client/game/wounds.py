@@ -36,6 +36,39 @@ SEVERITIES = (
 )
 KINDS = ("external", "scar", "internal", "internal_scar")
 
+# The injuries panel's part ids (<dialogData id="injuries">, one <image>
+# per part — client/engine/xml_data.py, #163) and the HEALTH area of
+# ROWS each belongs to: the limbs share one row set, the eyes another,
+# and "nsys" (the nervous system) is read as the wiki's skin row — an
+# assumption until a nerve wound is captured in both. The panel is
+# pushed on every change, so a trainer reads it first and asks HEALTH
+# only when a part lights up.
+PANEL_AREAS = {
+    "head": "head",
+    "neck": "neck",
+    "chest": "chest",
+    "abdomen": "abdomen",
+    "back": "back",
+    "leftEye": "eye",
+    "rightEye": "eye",
+    "leftArm": "limb",
+    "rightArm": "limb",
+    "leftHand": "limb",
+    "rightHand": "limb",
+    "leftLeg": "limb",
+    "rightLeg": "limb",
+    "leftFoot": "limb",
+    "rightFoot": "limb",
+    "nsys": "skin",
+}
+
+
+def panel_area(part):
+    """The HEALTH area a panel part belongs to, or None for a part the
+    table does not know."""
+    return PANEL_AREAS.get(part)
+
+
 # Bleed rate -> (severity for triage, a bandage can help), the health
 # command's wordings; "(tended)" and clotted variants need no tending.
 RATES = {
