@@ -24,6 +24,7 @@ It holds what no script should hard-code:
 | skin, skin_knife | `SKIN <corpse>` after each kill; a named knife is fetched before and stowed after |
 | loot_container | where skins and non-gem finds go (`PUT my <item> IN my <container>`, else `STOW my <item>`) |
 | gem_pouch | finds are tried into the pouch first; what the pouch refuses is stowed like loot |
+| bundle | skins go onto a bundling rope worn as a lumpy bundle: one kept in the loot container is worn before the first swing, the first skin of a run starts one from the rope in that container, every later skin goes straight into the worn bundle as SKIN cuts it (the hand tags are the judge), and `;skins` sells it. No rope: said once, skins stowed loose |
 | health_floor | below it: the burst escape (retreat, retreat, first exit), then home |
 | wound_floor | a severity name; HEALTH is asked after each kill and whenever the health bar drops, and a wound that bad or worse anywhere (external, scar, internal, internal scar) breaks off like the health floor. Empty never asks. Model: [wounds.md](wounds.md) |
 | train_skills | the hunt ends when every one of them sits at mindstate 34 in the exp window |
@@ -142,11 +143,24 @@ Tanner Falken says, "And there's your rope back again."
 INFO agreed: 4778 → 4889 copper. The rope lands in the free hand as a
 `bundling rope` (the hand tags name it `rope`), the bundle is a `lumpy
 bundle` in the hand that held the first skin, and none of the commands
-cost roundtime. What is not yet observed: whether a bundle can be worn
-while skinning (the wiki says skins join "any held or worn bundle"),
-and what SKIN answers with a bundle in the off hand — today's "one hand
-free" refusal suggests the bundle must be stowed or worn between kills.
-The script side is #174.
+cost roundtime.
+
+The game's own BUNDLE HELP (quoted on the wiki page) settles where the
+bundle lives while hunting: "Bundles can be worn", and "when skinning,
+pelts are automatically bundled into any held or worn bundle" that is
+not full and has auto-bundling on — the default for a lumpy bundle
+(ADJUST BUNDLE switches it; a tied bundle defaults to off, and TOGGLE
+BUNDLE <location> picks where it is worn). So the profile's `bundle`
+setting has `;hunt` wear the bundle and expect the skinning hand to
+stay empty after SKIN; a skin that still lands in hand gets one BUNDLE,
+and if it stays the bundle is taken as full and the run stows loose.
+The first skin of a run, with no bundle yet, starts one: weapon into
+its container, rope out, BUNDLE, WEAR, weapon back. `;skins` walks to
+the nearest `tannery`, REMOVEs the bundle, SELLs it from the hand,
+keeps the rope, walks back. Still to capture on the first bundled
+hunt (#174): SKIN's wording when the skin auto-bundles, WEAR's and
+REMOVE's answers, and whether GET reaches a bundle worn from a
+previous run.
 
 ## Out of scope in the first cut
 

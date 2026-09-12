@@ -449,6 +449,104 @@ def test_a_gone_corpse_is_not_reported_as_unrecognized(travel):
     assert any("1 kill(s), 0 skin(s)" in text for text in arena.echoed)
 
 
+# --- bundling (#174) -------------------------------------------------------
+# Captured 2026-09-12 at Falken's Tannery; the hand tags, not a wording,
+# say whether a skin went into the worn bundle.
+BUNDLED = "You bundle up your rat pelt with your bundling rope."
+GOT_BUNDLE = "You get a lumpy bundle from inside your canvas sack."
+MISSING = "What were you referring to?"
+BUNDLING = PROFILE | {"bundle": True, "home": ""}
+
+
+def _hands(arena, left=None, right={"noun": "handaxe"}):
+    arena.state.left_hand = left
+    arena.state.right_hand = right
+
+
+def skin_in_hand(arena):
+    arena.state.left_hand = {"noun": "pelt", "exist": "1", "name": "rat pelt"}
+
+
+def hand_empty(arena):
+    arena.state.left_hand = None
+
+
+def test_a_bundle_kept_in_the_sack_is_worn_before_the_weapon_is_drawn(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "get my bundle": [GOT_BUNDLE],
+            "skin": [
+                PELT_LOOSE
+            ],  # the skin goes into the worn bundle: hand stays empty
+            "search": [NOTHING],
+        }
+    )
+    _hands(arena)
+    _run(arena, profile=BUNDLING, travel_first=False)
+    assert arena.sent[:3] == [
+        "get my bundle from my sack",
+        "wear my bundle",
+        "get my handaxe from my sack",
+    ]
+    after_skin = arena.sent[arena.sent.index("skin rat") + 1 :]
+    assert after_skin[0] == "search rat"  # nothing stowed, nothing bundled by hand
+    assert any("1 kill(s), 1 skin(s)" in text for text in arena.echoed)
+
+
+def test_the_first_skin_starts_the_bundle_and_wears_it(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "get my bundle": [MISSING],
+            "skin": [(PELT_LOOSE, skin_in_hand)],
+            "get my rope": ["You get a bundling rope from inside your canvas sack."],
+            "bundle": [(BUNDLED, hand_empty)],
+            "search": [NOTHING],
+        }
+    )
+    _hands(arena)
+    _run(arena, profile=BUNDLING, travel_first=False)
+    first = arena.sent.index("skin rat")
+    assert arena.sent[first : first + 7] == [
+        "skin rat",
+        "put my handaxe in my sack",
+        "get my rope from my sack",
+        "bundle",
+        "wear my bundle",
+        "get my handaxe from my sack",
+        "search rat",
+    ]
+    assert any("bundle started and worn" in text for text in arena.echoed)
+
+
+def test_without_a_rope_the_skin_is_stowed_and_the_run_says_so_once(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, lambda arena: None), (KILL, kill)],
+            "get my bundle": [MISSING],
+            "skin": [(PELT_LOOSE, skin_in_hand), (PELT_LOOSE, skin_in_hand)],
+            "get my rope": [MISSING],
+            "search": [NOTHING, NOTHING],
+        }
+    )
+    _hands(arena)
+    _run(arena, profile=BUNDLING | {"max_kills": 2}, travel_first=False)
+    assert "get my rope from my sack" in arena.sent
+    assert arena.sent.count("get my rope from my sack") == 1
+    assert arena.sent.count("put my pelt in my sack") == 2
+    assert sum("no bundling rope" in text for text in arena.echoed) == 1
+
+
+def test_the_weapon_is_stowed_when_the_hunt_ends_without_a_home(travel):
+    # The stop word on a homeless profile left the handaxe in hand
+    # (2026-09-12): the weapon goes back wherever the hunt ends.
+    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+    _run(arena, profile=PROFILE | {"home": "", "max_kills": 1}, travel_first=False)
+    assert arena.walks == []
+    assert arena.sent[-1] == "put my handaxe in my sack"
+
+
 def test_a_corpse_that_keeps_answering_ends_the_room_not_the_evening(travel):
     # 2026-09-05: the hostile state still listed the corpse and the loop
     # swung at it five times. Disposed of once, then the room is clear.

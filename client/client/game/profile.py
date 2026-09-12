@@ -43,6 +43,11 @@ DEFAULTS = {
     "loot_container": "",  # "" stows with the game's STOW default
     # Gems found on a corpse go into this pouch; "" leaves them stowed.
     "gem_pouch": "",
+    # Skins go on a bundling rope: a worn lumpy bundle takes each skin
+    # straight from SKIN (BUNDLE help's auto-bundling), the rope is free
+    # at any tannery (ASK <tanner> FOR ROPE) and lives in the loot
+    # container, and the bundle sells as one item (;skins).
+    "bundle": False,
     # Below this health % the loop breaks off and walks home.
     "health_floor": 60,
     # A wound this bad or worse (any area, any kind — HEALTH, parsed by
@@ -69,6 +74,12 @@ FIELDS = (
     ("skin_knife", "Skinning knife noun", "str", "empty: the wielded weapon"),
     ("loot_container", "Stow loot and skins in", "str", "empty: the STOW default"),
     ("gem_pouch", "Gem pouch noun", "str", "empty: gems are stowed like loot"),
+    (
+        "bundle",
+        "Bundle skins on a bundling rope",
+        "bool",
+        "worn; ASK a tanner FOR ROPE",
+    ),
     ("health_floor", "Break off below health %", "int", "60"),
     (
         "wound_floor",

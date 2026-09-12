@@ -112,7 +112,9 @@ for `client/client/<pkg>/x.py`.
   confirmed point at a time. `client/game/money.py` is coins both ways
   (denomination lists, copper, INFO's carried and owed), shared by
   `;sheet`, `;wealth` and `;debt` (`scripts/debt.py`: fetch the
-  shortfall from the teller, PAY ALL at the debt office).
+  shortfall from the teller, PAY ALL at the debt office); `;skins`
+  (`scripts/skins.py`) sells the skin bundle `;hunt` wears at the
+  nearest tannery and keeps the rope.
   `client/game/attune.py` is power walking: a loop of street rooms
   joined by two-way compass moves and the sixty-second timer per
   room; `scripts/attune.py` POWERs round it until mind-lock, or in

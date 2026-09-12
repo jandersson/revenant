@@ -79,7 +79,17 @@ Debt:
 ```
 
 Neither command costs roundtime, and a withdrawal of one
-denomination at a time is accepted without comment.
+denomination at a time is accepted without comment. The other
+direction, captured the same day with the day's takings in hand:
+
+```
+> deposit all
+The clerk slides a small metal box across the counter into which you drop all your Kronars.  She counts them carefully and records the deposit in her ledger.
+```
+
+after which INFO reads "No Kronars". Coins in hand are only a
+burden (0.2 stones each, [encumbrance.md](encumbrance.md)) and a
+loss on death, so a hunt's takings go to the teller.
 
 ## Vault rent on a Premium account
 

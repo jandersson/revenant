@@ -14,7 +14,15 @@ the walk;  ;hunt profile  prints the profile it would use.
 Everything character-specific comes from the profile
 (~/.revenant/profiles/<name>.json — File → Character Profile… in the
 GUI): weapon and its container, stance, skin or not and with what,
-loot container, gem pouch, health floor, ground, home, skills to train.
+loot container, gem pouch, bundle or not, health floor, ground, home,
+skills to train. With `bundle` on, skins go onto a bundling rope worn
+as a lumpy bundle (free at any tannery: ASK <tanner> FOR ROPE, kept in
+the loot container): a bundle you already have is worn before the
+first swing, the first skin of a run starts one when there is none,
+and every later skin goes straight into it as it is cut — one item to
+sell with ;skins. No rope means skins are stowed loose, said once.
+The weapon goes back into its container when the hunt ends, home or
+not.
 The game's answers are classified by keyword (the tables below, model
 in docs/hunting.md); a skin or search answer the script cannot place is
 echoed as "hunt: unrecognized ..." — report those and they become
@@ -134,6 +142,19 @@ _ITEM = re.compile(
 )
 
 
+# Bundling (Elanthipedia: Bundle command; captured 2026-09-12 at
+# Falken's Tannery): "You bundle up your rat pelt with your bundling
+# rope." starts a bundle, "You carefully fit a rat tail into your
+# bundle." adds to one. A worn lumpy bundle takes skins straight from
+# SKIN (BUNDLE help: auto-bundling, on by default), so the skinning
+# hand stays empty and the hand tags are the judge, not a wording.
+BUNDLE_OUTCOMES = (
+    ("none", ("what were you referring",)),
+    ("ok", ("you bundle up", "into your bundle")),
+)
+_MISSING = ("what were you referring",)
+
+
 class Tally:
     def __init__(self):
         self.kills = 0
@@ -142,6 +163,9 @@ class Tally:
         self.empty_moves = 0
         self.room_clear = False
         self.corpse_swings = 0
+        # None: no bundle yet, the first skin starts one; True: a bundle
+        # is worn; False: no rope (or the bundle refused), skins stowed loose.
+        self.bundle = None
 
 
 def hostiles(state):
@@ -216,8 +240,8 @@ def escape(s):
     s.echo(f"hunt: breaking off — retreating {direction}")
 
 
-def ready(s, profile):
-    """Weapon in hand and stance set before the first swing."""
+def draw(s, profile):
+    """The weapon into a hand."""
     weapon = profile["weapon"]
     if weapon:
         container = profile["weapon_container"]
@@ -225,6 +249,11 @@ def ready(s, profile):
             f"get my {weapon} from my {container}" if container else f"get my {weapon}"
         )
         ask(s, command)
+
+
+def ready(s, profile):
+    """Weapon in hand and stance set before the first swing."""
+    draw(s, profile)
     if profile["stance"]:
         ask(s, f"stance set {profile['stance']}")
 
@@ -233,6 +262,102 @@ def unready(s, profile):
     """The weapon back where it lives, when the profile says where."""
     if profile["weapon"] and profile["weapon_container"]:
         ask(s, f"put my {profile['weapon']} in my {profile['weapon_container']}")
+
+
+def free_hand(s, profile):
+    """The weapon out of the hand for a moment: its container, or STOW."""
+    weapon = profile["weapon"]
+    if weapon and profile["weapon_container"]:
+        unready(s, profile)
+    elif weapon:
+        ask(s, f"stow my {weapon}")
+
+
+def hand(s, side):
+    """The noun in a hand as the parser knows it — None for an empty
+    hand, and None for a handle that has no hand state at all."""
+    held = getattr(s.state, f"{side}_hand", None)
+    return held.get("noun") if isinstance(held, dict) else None
+
+
+def held_skin(s, profile):
+    """The noun of whatever a hand holds besides the weapon — the skin
+    SKIN just cut — or None when nothing did land. Only asked of a
+    handle with hand state (hasattr left_hand); a bare one never
+    reaches here."""
+    for side in ("left", "right"):
+        noun = hand(s, side)
+        if noun and noun != profile["weapon"]:
+            return noun
+    return None
+
+
+def wear_bundle(s, profile, tally):
+    """Before the weapon is drawn: a bundle the character already keeps
+    in the loot container goes on, so the run's skins land in it. None
+    there leaves tally.bundle None and the first skin starts one."""
+    if not profile["bundle"]:
+        return
+    container = profile["loot_container"]
+    answer = ask(
+        s, f"get my bundle from my {container}" if container else "get my bundle"
+    )
+    if any(word in answer.lower() for word in _MISSING):
+        return
+    ask(s, "wear my bundle")
+    tally.bundle = True
+    s.echo("hunt: bundle worn — skins go straight into it")
+
+
+def make_bundle(s, profile, tally):
+    """The first skin of the run, in hand, starts the bundle: the weapon
+    goes back to free a hand, the rope comes out of the loot container,
+    BUNDLE ties the skin to it, the bundle goes on, the weapon comes
+    back. True with the bundle worn. No rope: said once, and the run's
+    skins are stowed loose."""
+    free_hand(s, profile)
+    container = profile["loot_container"]
+    answer = ask(s, f"get my rope from my {container}" if container else "get my rope")
+    if any(word in answer.lower() for word in _MISSING):
+        s.echo(
+            "hunt: no bundling rope — ASK a tanner FOR ROPE (it is free); "
+            "skins are stowed loose this run"
+        )
+        tally.bundle = False
+        draw(s, profile)
+        return False
+    answer = ask(s, "bundle")
+    if classify(answer, BUNDLE_OUTCOMES) == "ok":
+        ask(s, "wear my bundle")
+        tally.bundle = True
+        s.echo("hunt: bundle started and worn — skins go straight into it")
+        draw(s, profile)
+        return True
+    unrecognized(s, tally, "bundle", answer)
+    tally.bundle = False
+    stow(s, profile, "rope")
+    draw(s, profile)
+    return False
+
+
+def bundled(s, profile, tally):
+    """True when the skin just cut is in a worn bundle: it went there on
+    its own (the skinning hand is empty), BUNDLE moved it there, or
+    make_bundle started one around it. False leaves it to be stowed."""
+    if not profile["bundle"] or tally.bundle is False:
+        return False
+    if not hasattr(s.state, "left_hand"):
+        return False  # no hand state to judge by
+    if held_skin(s, profile) is None:
+        return True
+    if tally.bundle:
+        ask(s, "bundle")
+        if held_skin(s, profile) is None:
+            return True
+        s.echo("hunt: the bundle took no more — skins are stowed loose from here")
+        tally.bundle = False
+        return False
+    return make_bundle(s, profile, tally)
 
 
 def stow(s, profile, item):
@@ -276,8 +401,9 @@ def skin(s, profile, corpse, tally):
         outcome = classify(answer, SKIN_OUTCOMES)
     if outcome == "ok":
         tally.skins += 1
-        found = items_in(answer)
-        if found:
+        if bundled(s, profile, tally):
+            pass  # in the worn bundle, nothing in hand to stow
+        elif found := items_in(answer):
             stow(s, profile, found[-1])
         else:
             ask(s, "stow left")  # the skin's hand, by convention (assumption)
@@ -402,8 +528,9 @@ def hunt(s, profile, db, travel=True, avoid=()):
             s.echo("hunt: could not reach the ground — stopping")
             return
         probe.collect(s, SETTLE_SECONDS)
-    ready(s, profile)
     tally = Tally()
+    wear_bundle(s, profile, tally)
+    ready(s, profile)
     reason = loop(s, profile, db, ground, avoid, tally)
     s.echo(
         f"hunt: {reason} — {tally.kills} kill(s), {tally.skins} skin(s)"
@@ -413,13 +540,22 @@ def hunt(s, profile, db, travel=True, avoid=()):
             else ""
         )
     )
-    if profile["home"] and not s.dead:
+    if s.dead:
+        return
+    # The weapon goes back wherever the hunt ends — a stop word on a
+    # homeless profile left it in hand (2026-09-12) — unless a walk
+    # home was tried and failed, where a fight may still be on.
+    settled = True
+    if profile["home"]:
         goals = db.resolve(profile["home"])
         if goals and walk(s, db, goals, describe=repr(profile["home"]), avoid=avoid):
             s.echo(f"hunt: home at {s.state.room_title}")
-            unready(s, profile)
         elif not goals:
             s.echo(f"hunt: nothing in the map matches home {profile['home']!r}")
+        else:
+            settled = False
+    if settled:
+        unready(s, profile)
 
 
 def main(s):
