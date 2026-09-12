@@ -33,6 +33,7 @@ hunt.COLLECT_SECONDS = 0.01
 hunt.TAIL_SECONDS = 0.01
 hunt.SETTLE_SECONDS = 0.0
 hunt.EMPTY_ROOM_WAIT = 0
+hunt.ADVANCE_WAIT = 0.01
 
 YARD = "[Barana's Shipyard, Lumber Storage]"
 GROUND = MapDB(
@@ -536,6 +537,24 @@ def test_without_a_rope_the_skin_is_stowed_and_the_run_says_so_once(travel):
     assert arena.sent.count("get my rope from my sack") == 1
     assert arena.sent.count("put my pelt in my sack") == 2
     assert sum("no bundling rope" in text for text in arena.echoed) == 1
+
+
+def test_an_attack_from_range_waits_for_melee_before_the_next(travel):
+    # Captured 2026-09-12: ATTACK beyond melee advances first, and a
+    # second ATTACK meanwhile only answers "already advancing".
+    advancing = (
+        "You aren't close enough to attack.\nYou begin to advance on a ship's rat."
+    )
+    arena = Arena(
+        {
+            "attack": [advancing, (KILL, kill)],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+        }
+    )
+    _run(arena, profile=PROFILE | {"max_kills": 1}, travel_first=False)
+    assert arena.sent.count("attack rat") == 2
+    assert not any("unrecognized" in text for text in arena.echoed)
 
 
 def test_the_weapon_is_stowed_when_the_hunt_ends_without_a_home(travel):

@@ -71,6 +71,12 @@ ground, seven kills):
   should probably wait until a ship's rat is dead first." — the corpse
   is gone and its noun found a live rat; both count as a gone corpse,
   nothing to report;
+- ATTACK from beyond melee advances first — "You aren't close enough
+  to attack." / "You begin to advance on a ship's rat." — and a second
+  ATTACK meanwhile only answers "You are already advancing on a ship's
+  rat." The three ranges are [combat.md](combat.md)'s; the loop now
+  waits for the "melee range" line (yours or the creature's) before
+  the next swing, up to ten seconds;
 - **every swing and kill line arrives inside `<pushStream
   id="combat"/>`**, in this log and in every hunt log since
   2026-08-22. The engine routes that block as the `combat` stream, the
@@ -157,10 +163,32 @@ and if it stays the bundle is taken as full and the run stows loose.
 The first skin of a run, with no bundle yet, starts one: weapon into
 its container, rope out, BUNDLE, WEAR, weapon back. `;skins` walks to
 the nearest `tannery`, REMOVEs the bundle, SELLs it from the hand,
-keeps the rope, walks back. Still to capture on the first bundled
-hunt (#174): SKIN's wording when the skin auto-bundles, WEAR's and
-REMOVE's answers, and whether GET reaches a bundle worn from a
-previous run.
+keeps the rope, walks back. The first bundled hunt ran the same
+evening and captured the rest:
+
+```
+> get my rope from my sack
+You get some bundling rope from inside your canvas sack.
+> bundle
+You bundle up your rat pelt with your bundling rope.
+> wear my bundle
+You sling a lumpy bundle over your shoulder.
+> skin rat                          (the next kill, bundle worn)
+With preternatural poise, you work loose a sterling example of a rat pelt from the rat carcass.
+You carefully fit a rat pelt into your bundle.
+> remove my bundle                  (;skins, at the tannery)
+You sling a lumpy bundle off from over your shoulder.
+> sell my bundle
+The tanner Falken ponders over the bundle for a while, then hands you 33 Kronars.
+```
+
+The auto-bundled skin shows in the hand tags for a moment and is gone
+by the time the answer window closes, so the empty hand is what the
+script reads. Two pelts fetched 33 Kronars where seven skins had
+fetched 111. Not yet observed: whether GET reaches a bundle worn from
+a previous run (today's runs ended with the bundle sold), and what
+`;skins` should do with loose skins still in the sack — it sells the
+bundle alone.
 
 ## Out of scope in the first cut
 

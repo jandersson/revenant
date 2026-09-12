@@ -38,6 +38,9 @@ MAP = MapDB(
 )
 PROFILE = {"loot_container": "sack"}
 
+# Captured 2026-09-12 on the first scripted sale: REMOVE's answer, and
+# the tanner's for two pelts.
+REMOVED = "You sling a lumpy bundle off from over your shoulder.\n"
 SOLD = (
     "You ask the tanner Falken to buy a lumpy bundle.\n"
     "The tanner Falken ponders over the bundle for a while, then hands you 111 Kronars.\n"
@@ -90,7 +93,7 @@ def walk(s, db, goals, describe="", avoid=()):
 
 
 def test_sells_the_worn_bundle_keeps_the_rope_and_walks_back():
-    fake = Fake({"remove": ["You remove a lumpy bundle."], "sell": [SOLD]})
+    fake = Fake({"remove": [REMOVED], "sell": [SOLD]})
     script.run(fake, [], MAP, walk_fn=walk, profile=PROFILE)
     assert fake.walks == [{8266}, {100}]
     assert fake.sent == [
@@ -128,7 +131,7 @@ def test_no_bundle_anywhere_stops_before_selling():
 def test_a_tanner_who_does_not_pay_is_quoted_and_the_rope_left_alone():
     fake = Fake(
         {
-            "remove": ["You remove a lumpy bundle."],
+            "remove": [REMOVED],
             "sell": ['The tanner Falken says, "I have no use for that."'],
         }
     )

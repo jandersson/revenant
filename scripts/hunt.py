@@ -77,6 +77,13 @@ _DEAD_NOUN = re.compile(r"The ((?:[\w'-]+ )*?)([\w'-]+) is already quite dead")
 # once (2026-09-05, before the parser learned dead="1").
 CORPSE_SWINGS = 2
 _NOTHING_THERE = ("what were you referring",)
+# ATTACK from pole or missile range advances first (docs/combat.md;
+# captured 2026-09-12): "You aren't close enough to attack." / "You
+# begin to advance on a ship's rat." / "You are already advancing on a
+# ship's rat." The swing comes once "melee range" is reached, so the
+# loop waits for that line rather than asking again.
+_ADVANCING = ("aren't close enough", "begin to advance", "already advancing")
+ADVANCE_WAIT = 10  # seconds for "melee range" before the next ATTACK
 
 # Failures before successes: a failure wording can contain a success
 # needle ("you skin" inside "you can't skin"). Assumptions pending
@@ -512,6 +519,8 @@ def loop(s, profile, db, ground, avoid, tally):
         elif any(word in lowered for word in _NOTHING_THERE):
             s.put("face next")
             probe.collect(s, TAIL_SECONDS)
+        elif any(word in lowered for word in _ADVANCING):
+            probe.collect(s, ADVANCE_WAIT, until="melee range")
     return "action budget spent"
 
 
