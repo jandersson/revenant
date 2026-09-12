@@ -164,14 +164,20 @@ to where it started unless told `stay`. The Elanthipedia rule of thumb
 that a guild may refuse a character with any stat below 8 is the
 reason to spend early.
 
-One thing the game did that is not understood (#165): over eleven
-points in a day the TDP count rose six times by exactly the previous
-point's Kronar fee — after every mental-stat point (Discipline,
-Wisdom, Charisma, Intelligence), never after Agility or Reflex — so
-the character ended with more TDPs than he started with. The gain
-shows only in the next TRAIN's quote, and the game's three figures
-agree with each other every time, so the script's reading is not the
-cause; it trusts the quote before each point and cannot overspend.
+One thing the game did that took a day to understand (#165): over
+eleven points the TDP count rose six times by exactly twice the
+previous point's cost — after every point that started *below* the
+character's racial starting stat, never after one at or above it.
+DR3 made TDPs a derived number, recalculated on every rank gain from
+ranks and circles minus the stats, and it assumes every character
+began at the race's starting values ([DR-Socharis,
+2012](https://elanthipedia.play.net/Post:Long_Time,_No_Post_-_10/02/2012_-_03:51));
+a DR1-era character whose rolled stats sit below those starts has
+each such point counted the other way, so raising it toward the start
+nets +cost. Predicted and confirmed with Stamina: the point that
+ended at the Dwarf start of 12 came back double, the one that ended
+at 13 did not. `;tdp` flags the stats still below the start; train
+those first.
 
 ## Power walking: ;attune
 

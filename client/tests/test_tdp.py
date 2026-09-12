@@ -18,6 +18,7 @@ AGILITY = (
 PROJECT = "It will cost you 132 TDPs to reach 12 points in Agility.\n"
 TDP = "You have 347 TDPs.\n"
 INFO = (
+    "Name: Lanival Redeemer   Race: Dwarf   Guild: Paladin\n"
     "     Strength :  10              Reflex :   8\n"
     "      Agility :   8            Charisma :  10\n"
     "   Discipline :  12              Wisdom :  10\n"
@@ -55,7 +56,28 @@ def test_tdp_and_info_give_the_points_on_hand():
             "Stamina": 12,
         },
         "tdps": 347,
+        "race": "Dwarf",
     }
+
+
+def test_stats_below_the_racial_start_are_the_points_dr3_hands_back():
+    # captured 2026-09-12 (#165): a DR1 Dwarf rolled under the starts
+    stats = {
+        "Strength": 10,
+        "Reflex": 8,
+        "Agility": 8,
+        "Charisma": 9,
+        "Discipline": 8,
+        "Stamina": 11,
+    }
+    assert tdp.below_start("Dwarf", stats) == {
+        "Charisma": 10,
+        "Discipline": 12,
+        "Stamina": 12,
+    }
+    assert tdp.below_start("Human", {"Strength": 10}) == {}
+    assert tdp.below_start("Nobody", stats) == {}
+    assert tdp.below_start("Gor'Tog", {"Strength": 16, "Wisdom": 5}) == {"Wisdom": 6}
 
 
 def test_the_wiki_formula_reproduces_the_captured_quotes():

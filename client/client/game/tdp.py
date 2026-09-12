@@ -28,6 +28,25 @@ STATS = (
 )
 _STAT_LINE = re.compile(rf"({'|'.join(STATS)})\s*:\s*(\d+)")
 _TDPS_INFO = re.compile(r"TDPs\s*:\s*(\d+)")
+_RACE = re.compile(r"Race:\s*([A-Za-z' ]+?)\s\s")
+# Every race's starting stats since January 2008, when rolls went away
+# (Elanthipedia: Attributes). DR3 assumes them for every character
+# when it recalculates TDPs, so a stat below its start is worth raising
+# first: the point comes back twice over at the next recalculation
+# (captured 2026-09-12 on a DR1-era Dwarf, #165).
+STARTING_STATS = {
+    "Dwarf": (10, 8, 8, 10, 12, 10, 10, 12),
+    "Elf": (8, 12, 12, 12, 8, 10, 10, 8),
+    "Elothean": (8, 12, 10, 10, 10, 12, 12, 6),
+    "Gnome": (4, 14, 12, 10, 10, 10, 14, 6),
+    "Gor'Tog": (16, 8, 10, 10, 10, 6, 6, 14),
+    "Halfling": (6, 12, 14, 10, 8, 8, 10, 12),
+    "Human": (10, 10, 10, 10, 10, 10, 10, 10),
+    "Kaldar": (12, 10, 10, 12, 10, 8, 8, 10),
+    "Prydaen": (10, 14, 10, 12, 8, 6, 10, 10),
+    "Rakash": (10, 12, 8, 10, 12, 8, 6, 14),
+    "S'Kra Mur": (12, 12, 10, 10, 10, 8, 8, 10),
+}
 # "You have 347 TDPs." (TDP) / "You currently have 347 TDPs available." (AGILITY)
 _TDPS_HAVE = re.compile(r"You (?:currently )?have (-?\d+) TDPs")
 # "Your base Agility is eight (8)."
@@ -74,11 +93,28 @@ def stat_name(word):
 
 
 def parse_info(text):
-    """{"stats": {name: value}, "tdps": int or None} from INFO."""
+    """{"stats": {name: value}, "tdps": int or None, "race": str or None}
+    from INFO."""
     tdps = _TDPS_INFO.search(text)
+    race = _RACE.search(text)
     return {
         "stats": {name: int(value) for name, value in _STAT_LINE.findall(text)},
         "tdps": int(tdps.group(1)) if tdps else None,
+        "race": race.group(1).strip() if race else None,
+    }
+
+
+def below_start(race, stats):
+    """{stat: racial start} for every stat under the race's starting
+    value — the points DR3's recalculation hands back; {} for an
+    unknown race."""
+    starts = STARTING_STATS.get(race or "")
+    if not starts:
+        return {}
+    return {
+        stat: start
+        for stat, start in zip(STATS, starts)
+        if stats.get(stat) is not None and stats[stat] < start
     }
 
 

@@ -14,7 +14,11 @@ game quotes first (Elanthipedia: Attributes, Time Development Points,
 Train command). Each point also costs a fee of 2 Kronars per TDP;
 a character carrying no coins has it added to the provincial debt
 (captured 2026-09-12: 28 TDPs and 56 Kronars for Agility 8 → 9), and
-the script echoes that line. It never trusts the TRAIN wording alone:
+the script echoes that line. A stat below its race's starting value
+is flagged: DR3 recalculates TDPs assuming every character started at
+the racial values, so such a point comes back twice over at the next
+recalculation (a DR1 character's rolled stats, #165) — train those
+first. It never trusts the TRAIN wording alone:
 it asks the stat's own command (AGILITY, STRENGTH, ...) for the value,
 the next point's cost and the TDPs before every point, buys only what
 the TDPs cover, and asks again after the pair — a value that did not
@@ -29,6 +33,7 @@ from client.game import probe
 from client.game.tdp import (
     STATS,
     TRAIN_OUTCOMES,
+    below_start,
     parse_goals,
     parse_info,
     parse_project,
@@ -67,6 +72,16 @@ def show_info(s):
         value = info["stats"].get(name)
         s.echo(f"tdp: {name:<{width}} {value if value is not None else '?':>4}")
     s.echo(f"tdp: TDPs {info['tdps'] if info['tdps'] is not None else '?'}")
+    under = below_start(info.get("race"), info["stats"])
+    if under:
+        listed = ", ".join(
+            f"{stat} {info['stats'][stat]} (start {start})"
+            for stat, start in under.items()
+        )
+        s.echo(
+            f"tdp: below the {info['race']} starting stats: {listed} — DR3 hands "
+            "those points back twice over; train them first"
+        )
     return info
 
 

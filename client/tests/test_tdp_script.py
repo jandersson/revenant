@@ -139,6 +139,21 @@ def test_bare_tdp_shows_the_stats_and_spends_nothing():
     assert "TDPs 347" in echoes(fake)
 
 
+def test_bare_tdp_flags_the_stats_below_the_racial_start():
+    fake = Fake({"info": ["Name: Lanival   Race: Dwarf   Guild: Paladin\n" + info()]})
+    script.run(fake, [])
+    assert "below the Dwarf starting stats: Reflex 8 (start 8)" not in echoes(fake)
+    assert "below the Dwarf starting stats: Stamina" not in echoes(
+        fake
+    )  # INFO fixture has none
+    fake = Fake(
+        {"info": ["Name: Lanival   Race: Dwarf   Guild: Paladin\n" + info(strength=9)]}
+    )
+    script.run(fake, [])
+    assert "below the Dwarf starting stats: Strength 9 (start 10)" in echoes(fake)
+    assert "twice over" in echoes(fake)
+
+
 def test_a_stat_word_quotes_the_next_point_and_a_goal_the_whole_climb():
     fake = Fake(
         {
