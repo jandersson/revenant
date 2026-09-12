@@ -110,6 +110,14 @@ lessons the code and docs cannot carry themselves.
   signal stops; a line the game writes that XML forbids (a bare "&")
   broke the parser and every walk for the rest of a session before
   anyone looked (2026-09-12, #171).
+- The game pushes every swing and kill line through `<pushStream
+  id="combat"/>`, which the engine routes as its own stream: the main
+  window shows it, but a handle's `get()` and anything reading the
+  story alone never see it. Two hunts on 2026-09-12 ended "ground
+  empty" among live rats before the raw log showed the tag before
+  every kill line. When a script misses a line the window shows, look
+  at the raw log for the pushStream around it before touching the
+  wording tables.
 - A chain of `cmd | tail -1 && next` runs `next` on tail's exit code,
   not cmd's: a failed test suite committed and pushed that way once.
   `set -o pipefail` first, or check the summary line.

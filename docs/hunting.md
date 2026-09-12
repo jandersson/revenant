@@ -70,10 +70,17 @@ ground, seven kills):
   should probably wait until a ship's rat is dead first." — the corpse
   is gone and its noun found a live rat; both count as a gone corpse,
   nothing to report;
-- the first instance of the hunt ended on its own after the second
-  kill without a line in the game log to say why (the script's echoes
-  go to the windows, which the log does not keep); restarted with
-  `;hunt here`, it fought on.
+- **every swing and kill line arrives inside `<pushStream
+  id="combat"/>`**, in this log and in every hunt log since
+  2026-08-22. The engine routes that block as the `combat` stream, the
+  main window shows it, but the answer collector read the story stream
+  alone — so no kill was ever seen from ATTACK's answer. The skins that
+  did happen came from the corpse-swing path ("is already quite dead"
+  is a plain story line), kills were never counted, and the empty-move
+  counter, which only a counted kill resets, ran out after eighteen
+  room moves: both instances that day ended "ground empty" among live
+  rats. `probe.collect` now reads the story and the combat stream
+  (`STORY_STREAMS`).
 
 Assumed, pending capture (each one is a keyword table in the script,
 and any answer outside the table is echoed as

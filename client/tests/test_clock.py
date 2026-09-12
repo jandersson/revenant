@@ -41,7 +41,7 @@ class FakeHandle:
     def put(self, command):
         self.pending = list(self.responses.get(command, []))
 
-    def get(self, timeout=None):
+    def get(self, timeout=None, streams=("",)):
         return self.pending.pop(0) if self.pending else None
 
     def echo(self, text):

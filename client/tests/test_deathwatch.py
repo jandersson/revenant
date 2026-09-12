@@ -52,7 +52,7 @@ class FakeHandle:
     def put(self, command):
         self.calls.append(("put", command))
 
-    def get(self, timeout=None):
+    def get(self, timeout=None, streams=("",)):
         return self.lines.pop(0) if self.lines else None
 
     def echo(self, text):

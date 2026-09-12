@@ -111,7 +111,7 @@ class FakeHandle:
             return self.requests.pop(0)
         raise Stopped()
 
-    def get(self, timeout=None):
+    def get(self, timeout=None, streams=("",)):
         return self.pending.pop(0) if self.pending else None
 
     def echo(self, text):

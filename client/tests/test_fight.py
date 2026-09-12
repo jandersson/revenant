@@ -48,7 +48,7 @@ class FakeHandle:
             for exist in drop:
                 self.state.hostiles.pop(exist, None)
 
-    def get(self, timeout=None):
+    def get(self, timeout=None, streams=("",)):
         return self.pending.pop(0) if self.pending else None
 
     def echo(self, text):

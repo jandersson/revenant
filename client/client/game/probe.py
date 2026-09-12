@@ -12,10 +12,22 @@ segments the session hands a script back into whole game lines. A line
 the game styles or links arrives as several pieces, only the last of
 which carries the newline (core.Engine.read marks it) — INV LIST's
 <d>-linked items came apart into one piece per link, and the inventory
-parser filed every nested item at the top level (#123).
+parser filed every nested item at the top level (#123). It reads the
+story and the combat stream both (STORY_STREAMS): the game pushes
+swings and kills through <pushStream id="combat"/>, which the main
+window shows but a handle's default get() does not deliver, and the
+second live ;hunt (2026-09-12) never saw one of its eight kills.
 """
 
 import time
+
+# What the main window shows: the story, and the combat stream the
+# game pushes every swing and kill line through (<pushStream
+# id="combat"/>). The engine routes that block as its own stream and a
+# handle's get() reads the story alone by default, so every kill of
+# the 2026-09-12 hunt was invisible to the answer collector — the loop
+# swung at corpses and walked the ground until it declared it empty.
+STORY_STREAMS = ("", "combat")
 
 
 def classify(text, outcomes):
@@ -46,7 +58,7 @@ def collect(s, seconds, until=None):
     partial = ""
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
-        piece = s.get(timeout=0.5)
+        piece = s.get(timeout=0.5, streams=STORY_STREAMS)
         if piece is None:
             continue
         partial += piece

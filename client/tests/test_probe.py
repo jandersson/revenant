@@ -98,3 +98,34 @@ def test_ask_includes_the_result_that_lands_after_the_roundtime():
     answer = probe.ask(handle, "forage grass", 0.02, 0.02)
     assert "find nothing" in answer
     assert probe.classify(answer, OUTCOMES) == "nothing_here"
+
+
+class StreamedHandle(FakeHandle):
+    """Pieces tagged with their stream, filtered the way a handle's get()
+    filters: only the streams asked for come back."""
+
+    def get(self, timeout=None, streams=("",)):
+        while self.pending:
+            stream, piece = self.pending.pop(0)
+            if streams is None:
+                return stream, piece
+            if stream in streams:
+                return piece
+        return None
+
+
+def test_collect_reads_the_combat_stream_with_the_story():
+    # Every swing and kill line of the 2026-09-12 hunt arrived inside
+    # <pushStream id="combat"/>; a story-only read saw none of them.
+    handle = StreamedHandle(
+        [
+            ("combat", "< You slice a handaxe at a rat.\n"),
+            ("combat", "The rat falls to the ground and lies still.\n"),
+            ("", "[Roundtime 6 sec.]\n"),
+            ("thoughts", "Someone thinks aloud.\n"),
+        ]
+    )
+    answer = probe.ask(handle, "attack", 0.1, 0)
+    assert "lies still" in answer
+    assert "[Roundtime 6 sec.]" in answer
+    assert "thinks aloud" not in answer
