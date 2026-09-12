@@ -386,6 +386,7 @@ class ScriptManager(ClientLogger):
         # a module is stamped when first seen imported (#138).
         self.reloadable = tuple(reloadable)
         self._module_stamps = {}
+        self._moved_warned = False  # the "restart the session" line, once (#155)
         self._stamp_modules()
 
     # -- helper-module reload (#138) ------------------------------------
@@ -413,17 +414,32 @@ class ScriptManager(ClientLogger):
         ]
         if not changed:
             return []
+        moved = []
         for name in self.reloadable:
             module = sys.modules.get(name)
             if module is None:
                 continue
             try:
                 importlib.reload(module)
+            except ModuleNotFoundError:
+                # The file is gone from where it was imported — the
+                # module moved (a regroup like 63c98c7). One line for
+                # all of them, once, saying what helps (#155).
+                moved.append(name)
+                continue
             except Exception as error:
                 self.log.exception(f"failed to reload {name}")
                 self.emit(f"{name} failed to reload, keeping the old code: {error!r}")
                 continue
             self._module_stamps[name] = _mtime(sys.modules[name])
+        if moved and not self._moved_warned:
+            self._moved_warned = True
+            self.log.warning(f"helper modules moved since import: {', '.join(moved)}")
+            self.emit(
+                "the helper modules moved since this session started "
+                f"({', '.join(moved)}) — the old code keeps running; restart "
+                "the session (quit the window and relaunch) to pick up the new"
+            )
         return changed
 
     # -- game-line fan-in ------------------------------------------------

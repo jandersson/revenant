@@ -30,7 +30,10 @@ lessons the code and docs cannot carry themselves.
 - Moving a module a directory deeper breaks every `Path(__file__)
   .parents[n]` in it silently: the script engine's REPO_SCRIPTS_DIR
   pointed at `client/` instead of the repo after the engine/ move, and
-  only its test noticed. Grep `__file__` in whatever moves.
+  only its test noticed. Grep `__file__` in whatever moves. A running
+  session whose helpers moved now says so once at the next script
+  start ("restart the session", #155) instead of one raw error per
+  module.
 - Parsed state lags the story line that announces the change: a
   failed climb's text arrives before the `<indicator>` that says the
   character is now sitting, so a script reacting to the text and

@@ -642,3 +642,19 @@ def test_waitrt_settle_gives_up_when_no_prompt_comes(tmp_path):
     script.put("look")
     script.waitrt()
     assert ticks["clock"] <= 2.0  # bounded by PROMPT_SETTLE, then a no-op
+
+
+def test_a_helper_whose_file_moved_says_restart_the_session_once(tmp_path, monkeypatch):
+    # 2026-09-11 (#155): a session started before the client/ regroup
+    # printed one raw ModuleNotFoundError per helper at every script
+    # start. Now: one line naming them, saying to restart, once.
+    manager, recorder, helper = _reload_fixture(tmp_path, monkeypatch)
+    _run_and_wait(manager, recorder)
+    helper.rename(helper.with_name("moved_away.py"))  # the file is gone
+    second = _run_and_wait(manager, recorder)
+    restart = [e for e in second if "restart the session" in e]
+    assert len(restart) == 1 and "hot_helper" in restart[0]
+    assert not any("failed to reload" in e for e in second)
+    assert "[probe_it] 1" in second  # the old code kept running
+    third = _run_and_wait(manager, recorder)
+    assert not any("restart the session" in e for e in third)
