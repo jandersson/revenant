@@ -4,6 +4,11 @@ With no arguments the script reads your rank (asking the game with EXP
 ATHLETICS when the exp window is empty), walks to the hardest ladder
 rung in reach — the community map knows the rooms — and trains it,
 pausing at mind-lock and moving up the ladder when gains go stale.
+Below rank 50 the rung is a swim: the Arthe Dale swimming hole's four
+rooms looped by plain moves, no roll to lose (dr-scripts' athletics.lic
+and its base-athletics.yaml, whose Crossing rotation of walls,
+embrasures and trees for 50-290 is the ladder's next kind: each stop
+walked to and climbed once per pass, no timer wait between rooms).
 Standard travel climbs award xp at most once per random 45–60s window
 (docs/experience.md), so climb loops are paced to that timer instead
 of spammed; `climb practice` rungs are timer-exempt continuous
@@ -158,6 +163,11 @@ def optimal_rung(rank, exclude=()):
     ]
     if not candidates:
         return None
+    # A swim in band beats every climb: no roll to lose, no fall, no
+    # refusal (dr-scripts' Crossing rule below rank 50, #177).
+    swims = [rung for rung in candidates if rung["kind"] == "swim"]
+    if swims:
+        return swims[-1]
     best_low = max(rung["low"] for rung in candidates)
     return [rung for rung in candidates if rung["low"] == best_low][-1]
 
@@ -181,17 +191,59 @@ def climb_loop(db, bottom, top):
     return None
 
 
+def swim_loop(db, rooms):
+    """The moves round a swim rung's rooms, read from the map's own
+    edges, the last room leading back to the first; None when an edge
+    is missing."""
+    moves = []
+    for here, there in zip(rooms, rooms[1:] + rooms[:1]):
+        move = (db.rooms.get(here, {}).get("wayto") or {}).get(str(there))
+        if not isinstance(move, str):
+            return None
+        moves.append(move)
+    return moves
+
+
+def rotation_steps(rung):
+    """A rotation rung's stops as {room, command} steps, the justice
+    stops left out when settings.json's avoid_justice_climbs is on."""
+    from client.settings import setting
+
+    avoid = bool(setting("avoid_justice_climbs"))
+    return [
+        {"room": room, "command": command}
+        for room, command, justice in rung["stops"]
+        if not (avoid and justice)
+    ]
+
+
 def rung_plan(db, rung):
     """(commands, pace) for a rung. Practice rungs spam their obstacle
-    (award-timer-exempt); travel rungs pace each climb past the timer.
-    commands is None when the map lost a travel rung's edges."""
+    (award-timer-exempt); travel rungs pace each climb past the timer;
+    a swim loops its rooms and a rotation walks its stops, each room's
+    timer being its own (no pacing). commands is None when the map lost
+    a travel or swim rung's edges. A rotation's commands are {room,
+    command} steps — train() walks to the room first."""
     if "practice" in rung:
         return [f"climb practice {rung['practice']}"], PAUSE
+    if rung.get("kind") == "swim":
+        return swim_loop(db, rung["rooms"]), PAUSE
+    if rung.get("kind") == "rotation":
+        return rotation_steps(rung), PAUSE
     return climb_loop(db, rung["bottom"], rung["top"]), CLIMB_TIMER_PACE
 
 
 def rung_goal(rung):
+    if rung.get("kind") == "swim":
+        return rung["rooms"][0]
+    if rung.get("kind") == "rotation":
+        return rung["stops"][0][0]
     return rung.get("bottom") or rung["room"]
+
+
+def step_command(step):
+    """The game command of a plain or a {room, command} step."""
+    return step["command"] if isinstance(step, dict) else step
 
 
 def recommendations(rank):
@@ -261,7 +313,7 @@ def escape(s, commands):
         before = getattr(s.state, "room_uid", None)
         s.put("retreat")
         s.put("retreat")
-        s.put(commands[attempt % len(commands)])
+        s.put(step_command(commands[attempt % len(commands)]))
         s.waitrt()
         s.sleep(1)
         if getattr(s.state, "room_uid", None) != before:
@@ -376,7 +428,15 @@ def stale_result(s, reports, stop_when_stale):
     return None
 
 
-def train(s, commands, stop_when_stale=False, pace=PAUSE, practice=False):
+def train(
+    s,
+    commands,
+    stop_when_stale=False,
+    pace=PAUSE,
+    practice=False,
+    db=None,
+    walk=None,
+):
     """Cycle the movement commands, pausing at mind-lock. Returns
     "contested" when hostiles keep breaking the training (#86); with
     stop_when_stale, returns "stale" so auto mode can advance; manual
@@ -440,6 +500,16 @@ def train(s, commands, stop_when_stale=False, pace=PAUSE, practice=False):
                 s.waitrt()
                 s.sleep(PAUSE)
                 continue
+            if isinstance(command, dict):
+                # A rotation stop (#177): walk there, then climb.
+                if walk is None or not walk(
+                    s, db, [command["room"]], describe=command["command"]
+                ):
+                    s.echo(
+                        f"ATHLETICS: could not reach room {command['room']} — skipping it"
+                    )
+                    continue
+                command = command["command"]
             s.put(command)
             s.waitrt()
             s.sleep(PAUSE)
@@ -522,10 +592,20 @@ def auto_train(s, db=None, walk=None):
             if pace == PAUSE
             else f"paced {pace}s to the award timer"
         )
-        s.echo(f"training: {' | '.join(commands)} ({style})")
+        shown = " | ".join(
+            f"{c['command']} @{c['room']}" if isinstance(c, dict) else c
+            for c in commands
+        )
+        s.echo(f"training: {shown} ({style})")
         practice_rung = "practice" in rung
         result = train(
-            s, commands, stop_when_stale=True, pace=pace, practice=practice_rung
+            s,
+            commands,
+            stop_when_stale=True,
+            pace=pace,
+            practice=practice_rung,
+            db=db,
+            walk=walk,
         )
         if result == "danger":
             return

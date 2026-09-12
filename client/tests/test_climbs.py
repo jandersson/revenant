@@ -2,7 +2,8 @@
 
 client/game/climbs.py is the one table ;athletics builds its ladder from
 (#87): travel loops carry two map room ids, practice spots one room
-and an obstacle, advice rows a description only. Bands come from
+and an obstacle, swims a loop of rooms, rotations a list of (room,
+climb command, justice) stops (#177), advice rows a description only. Bands come from
 Elanthipedia's "Climbing and Swimming list" (fetched 2026-08-22);
 "?"-flagged wiki figures are encoded as given until live captures
 tighten them.
@@ -13,7 +14,7 @@ from client.game import climbs
 
 def test_every_entry_carries_its_kinds_required_fields():
     for entry in climbs.CLIMBS:
-        assert entry["kind"] in ("travel", "practice", "advice")
+        assert entry["kind"] in ("swim", "travel", "practice", "rotation", "advice")
         assert isinstance(entry["low"], int)
         assert entry["high"] is None or entry["high"] > entry["low"]
         # Optional condition fields keep their shapes when present.
@@ -25,6 +26,16 @@ def test_every_entry_carries_its_kinds_required_fields():
         elif entry["kind"] == "practice":
             assert isinstance(entry["room"], int)
             assert entry["practice"]
+        elif entry["kind"] == "swim":
+            # A loop of map rooms joined by plain moves (#177).
+            assert len(entry["rooms"]) >= 2
+            assert all(isinstance(room, int) for room in entry["rooms"])
+        elif entry["kind"] == "rotation":
+            # (room, climb command, justice) stops, walked in turn (#177).
+            for room, command, justice in entry["stops"]:
+                assert isinstance(room, int)
+                assert command.startswith("climb ")
+                assert isinstance(justice, bool)
         else:
             assert entry["where"]
 

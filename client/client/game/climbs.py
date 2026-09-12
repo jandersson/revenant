@@ -18,6 +18,16 @@ Entry kinds:
   award-timer-exempt. The practice verb starts a CONTINUOUS activity
   (confirmed live at the NE gate embrasure, 2026-08-22 — #89);
   ;athletics starts it once and watches, never spams.
+- "swim"    — a loop of water rooms joined by plain moves (room ids in
+  order; the map's own edges close the loop). No roll to lose, no
+  fall, no refusal: dr-scripts' Crossing choice below rank 50
+  (athletics.lic / data/base-athletics.yaml, read 2026-09-12), and
+  ;athletics prefers a swim rung while the rank sits in its band.
+- "rotation" — in-town climb targets cycled room to room without an
+  award-timer wait, since every room's timer is its own: (room id,
+  climb command, justice) stops, dr-scripts' Crossing list for 50-290.
+  A justice stop is skipped when settings.json's `avoid_justice_climbs`
+  is on (a character the guards want).
 - "advice"  — a real spot the community map doesn't cover (or a swim
   the trainer can't loop); shown in ;athletics list only.
 
@@ -35,6 +45,17 @@ start and warns before laps are wasted under load.
 """
 
 CLIMBS = [
+    {
+        # dr-scripts' Crossing choice for 0-50 (base-athletics.yaml,
+        # swimming_options arthe_dale): a square of swimming-hole rooms
+        # west, south, east, north of one another.
+        "kind": "swim",
+        "low": 0,
+        "high": 50,
+        "label": "Arthe Dale swimming hole (swim the loop)",
+        "rooms": [19069, 19071, 19067, 19066],
+        "notes": "no roll to lose and no fall; the trainer prefers it in band",
+    },
     {
         "kind": "travel",
         "low": 0,
@@ -128,6 +149,32 @@ CLIMBS = [
         "notes": "2 walls",
     },
     {
+        # dr-scripts' Crossing list for 50-290 (base-athletics.yaml,
+        # athletics_options crossing): each stop is climbed once per
+        # pass, walked to in turn, no timer wait between them.
+        "kind": "rotation",
+        "low": 50,
+        "high": 290,
+        "label": "Crossing walls, embrasures and trees (the in-town rotation)",
+        "stops": [
+            (835, "climb embrasure", True),
+            (1035, "climb wall", True),
+            (1040, "climb wall", True),
+            (691, "climb wall", False),
+            (943, "climb break", True),
+            (943, "climb embrasure", True),
+            (939, "climb embrasure", True),
+            (1388, "climb wall", True),
+            (938, "climb embrasure", True),
+            (940, "climb break", True),
+            (940, "climb embrasure", True),
+            (1611, "climb wall", True),
+            (1609, "climb wall", True),
+            (1387, "climb wall", False),
+            (1642, "climb tree", False),
+        ],
+    },
+    {
         "kind": "advice",
         "low": 0,
         "high": 80,
@@ -163,7 +210,11 @@ CLIMBS = [
 def rungs():
     """The walkable training ladder: travel and practice spots, in
     table order (ties in optimal-rung selection go to later entries)."""
-    return [entry for entry in CLIMBS if entry["kind"] in ("travel", "practice")]
+    return [
+        entry
+        for entry in CLIMBS
+        if entry["kind"] in ("swim", "travel", "practice", "rotation")
+    ]
 
 
 def advice():

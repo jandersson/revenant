@@ -59,6 +59,9 @@ DEFAULTS = {
     # built-in foraged junk in client/game/discard.py — nothing else is
     # ever dropped: a dropped item is a lost item.
     "droppable": [],
+    # ;athletics' in-town rotation skips the stops dr-scripts flags as
+    # justice areas when this is on — for a character the guards want.
+    "avoid_justice_climbs": False,
 }
 
 

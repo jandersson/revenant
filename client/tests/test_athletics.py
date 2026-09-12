@@ -100,8 +100,24 @@ LADDER_MAP = MapDB(
         },
         {"id": 1068, "title": ["[Greensward]"], "wayto": {"14134": "climb oak tree"}},
         {"id": 14134, "title": ["[Tree House]"], "wayto": {"1068": "climb oak tree"}},
+        {
+            "id": 6153,
+            "title": ["[Deep Forest]"],
+            "wayto": {"5705": "climb felled tree"},
+        },
+        {
+            "id": 5705,
+            "title": ["[Deep Forest]"],
+            "wayto": {"6153": "climb felled tree"},
+        },
+        # The Arthe Dale swimming hole: a square, dr-scripts' 0-50 loop.
+        {"id": 19069, "title": ["[Swimming Hole]"], "wayto": {"19071": "west"}},
+        {"id": 19071, "title": ["[Swimming Hole]"], "wayto": {"19067": "south"}},
+        {"id": 19067, "title": ["[Swimming Hole]"], "wayto": {"19066": "east"}},
+        {"id": 19066, "title": ["[Swimming Hole]"], "wayto": {"19069": "north"}},
     ]
 )
+SWIM_MOVES = ["west", "south", "east", "north"]
 
 
 def test_list_mode_probes_the_game_when_the_exp_window_is_empty():
@@ -180,12 +196,22 @@ def test_going_stale_needs_consecutive_low_flat_reports():
 
 
 def test_optimal_rung_is_the_hardest_in_reach():
-    # Within the low-0 tie, the later (pear practice) entry wins.
-    assert athletics.optimal_rung(3)["label"].startswith("pear tree practice")
-    assert athletics.optimal_rung(None)["label"].startswith("pear tree practice")
-    assert athletics.optimal_rung(7)["label"].startswith("oak tree")
-    assert athletics.optimal_rung(25)["label"].startswith("rise")
-    assert athletics.optimal_rung(60)["label"].startswith("mine ladder")
+    # A swim in band beats every climb (dr-scripts' 0-50 rule, #177) ...
+    assert athletics.optimal_rung(3)["kind"] == "swim"
+    assert athletics.optimal_rung(None)["kind"] == "swim"
+    assert athletics.optimal_rung(7)["kind"] == "swim"
+    assert athletics.optimal_rung(49)["kind"] == "swim"
+    # ... and the swim rung out of reach, the hardest climb wins as before
+    # (later entries win a tie, so the oak beats the pear practice at 7).
+    assert athletics.optimal_rung(
+        7, exclude=("Arthe Dale swimming hole (swim the loop)",)
+    )["label"].startswith("oak tree")
+    swim = ("Arthe Dale swimming hole (swim the loop)",)
+    assert athletics.optimal_rung(25)["kind"] == "swim"
+    assert athletics.optimal_rung(25, exclude=swim)["label"].startswith("rise")
+    assert athletics.optimal_rung(45, exclude=swim)["label"].startswith("mine ladder")
+    # From 50 the in-town rotation outranks the wilderness rungs ...
+    assert athletics.optimal_rung(60)["kind"] == "rotation"
     # The #87 extension: rank 100+ trains in town, on the battlements.
     assert athletics.optimal_rung(144)["label"].startswith("NE gate embrasure")
     # At the 150 tie the later (NE gate, deeper band) entry wins.
@@ -219,11 +245,11 @@ def test_rung_plan_paces_travel_climbs_and_spams_practice():
 
 
 def test_auto_mode_walks_to_the_rung_and_advances_when_stale(monkeypatch):
-    # Rank 3 at start (pear practice rung); the first sleep bumps the
-    # fake exp entry to rank 7, so once the pear goes stale the oak
-    # rung (5-60) is in reach — but not the apple (10+), so the ladder
-    # advances exactly once and then carries on at the oak. Reports
-    # fire every poll here (practice reports go by clock in real use).
+    # Rank 3 at start (the swim rung); the first sleep bumps the fake
+    # exp entry to rank 7, so once the swim goes stale the next rung
+    # above it in reach is the felled tree (0-19), so the ladder
+    # advances exactly once and then carries on at the tree. Reports
+    # fire every poll here.
     monkeypatch.setattr(athletics, "REPORT_EVERY_SECONDS", 0)
     handle = FakeHandle(args=[], mindstates=[5, 5], sleeps=400)
     handle.state.experience["Athletics"]["rank"] = 3
@@ -235,12 +261,12 @@ def test_auto_mode_walks_to_the_rung_and_advances_when_stale(monkeypatch):
 
     with pytest.raises(LoopDone):
         athletics.auto_train(handle, db=LADDER_MAP, walk=fake_walk)
-    assert walks[0] == [1455]  # pear practice room first
-    assert ("put", "climb practice pear tree") in handle.calls
-    assert walks[1] == [1068]  # then the oak after going stale
+    assert walks[0] == [19069]  # the swimming hole first
+    assert ("put", "west") in handle.calls  # the loop's first move
+    assert walks[1] == [5705]  # then the felled tree after going stale
     assert any("moving up the ladder" in echo for echo in handle.echoes)
-    assert ("put", "climb oak tree") in handle.calls
-    # Travel climbs at the oak are paced to the award timer — slept at
+    assert ("put", "climb felled tree") in handle.calls
+    # Travel climbs at the tree are paced to the award timer — slept at
     # the lap's end in danger-poll chunks, never as one blind window.
     assert ("sleep", athletics.DANGER_POLL) in handle.calls
     assert ("sleep", athletics.CLIMB_TIMER_PACE) not in handle.calls
@@ -255,7 +281,7 @@ def test_auto_mode_stops_cleanly_when_the_walk_fails():
 
     athletics.auto_train(handle, db=LADDER_MAP, walk=failing_walk)
     assert any("could not reach" in echo for echo in handle.echoes)
-    assert ("put", "climb practice pear tree") not in handle.calls
+    assert ("put", "west") not in handle.calls
 
 
 def _state(**overrides):
@@ -449,28 +475,38 @@ def test_manual_mode_stops_with_advice_when_contested():
     assert any(";athletics list" in echo for echo in handle.echoes)
 
 
-class OakCampedHandle(FakeHandle):
-    """A creature camps the Greensward (the oak rung's bottom room);
-    the Tree House above is clear — the stalemate, auto-mode edition."""
+class HoleCampedHandle(FakeHandle):
+    """A creature camps the swimming hole's first room (the swim rung's
+    goal); the other three rooms are clear — the stalemate, auto-mode
+    edition. Moves follow the fake map's edges."""
 
     BEAR = {"79912449": True}
+    EDGES = {
+        (19069, "west"): 19071,
+        (19071, "south"): 19067,
+        (19067, "east"): 19066,
+        (19066, "north"): 19069,
+        (1068, "climb oak tree"): 14134,
+        (14134, "climb oak tree"): 1068,
+    }
 
     def _sync(self):
         here = getattr(self.state, "room_uid", None)
-        self.state.hostiles = dict(self.BEAR) if here == 1068 else {}
+        self.state.hostiles = dict(self.BEAR) if here == 19069 else {}
 
     def put(self, command):
         super().put(command)
-        if command == "climb oak tree":
-            self.state.room_uid = 14134 if self.state.room_uid == 1068 else 1068
+        here = getattr(self.state, "room_uid", None)
+        if (here, command) in self.EDGES:
+            self.state.room_uid = self.EDGES[(here, command)]
         self._sync()
 
 
 def test_auto_mode_abandons_a_contested_rung_for_the_next_best():
-    # Rank 7: the oak (5-60) is optimal; the camped Greensward turns it
-    # contested, and the ladder falls back to the pear practice rung
-    # instead of stopping (#86).
-    handle = OakCampedHandle(args=[], mindstates=[5], sleeps=200)
+    # Rank 7: the swim is optimal; the camped hole turns it contested,
+    # and the ladder falls back to the next-best rung — the oak, the
+    # hardest climb in reach — instead of stopping (#86).
+    handle = HoleCampedHandle(args=[], mindstates=[5], sleeps=200)
     handle.state.experience["Athletics"]["rank"] = 7
     walks = []
 
@@ -483,11 +519,11 @@ def test_auto_mode_abandons_a_contested_rung_for_the_next_best():
 
     with pytest.raises(LoopDone):
         athletics.auto_train(handle, db=LADDER_MAP, walk=fake_walk)
-    assert walks[0] == [1068]  # the oak bottom first
+    assert walks[0] == [19069]  # the swimming hole first
     assert any("contested" in echo for echo in handle.echoes)
     assert any("abandoning" in echo for echo in handle.echoes)
-    assert walks[1] == [1455]  # the pear practice rung, next-best
-    assert ("put", "climb practice pear tree") in handle.calls
+    assert walks[1] == [1068]  # the oak, next-best
+    assert ("put", "climb oak tree") in handle.calls
 
 
 def test_award_timer_wait_sits_at_the_laps_start_not_mid_loop():
@@ -597,3 +633,45 @@ def test_held_items_are_stowed_before_the_first_climb_never_dropped():
     bare = FakeHandle(())  # no hand state at all: left alone
     athletics.empty_hands(bare)
     assert bare.calls == []
+
+
+# --- swim and rotation rungs (#177, from dr-scripts) --------------------------
+
+
+def test_rung_plan_loops_a_swim_and_walks_a_rotation(monkeypatch):
+    swim = next(r for r in athletics.AUTO_LADDER if r["kind"] == "swim")
+    commands, pace = athletics.rung_plan(LADDER_MAP, swim)
+    assert commands == SWIM_MOVES
+    assert pace == athletics.PAUSE  # no award-timer wait
+    assert athletics.rung_goal(swim) == 19069
+
+    rotation = next(r for r in athletics.AUTO_LADDER if r["kind"] == "rotation")
+    monkeypatch.setattr("client.settings.setting", lambda name: False)
+    steps, pace = athletics.rung_plan(LADDER_MAP, rotation)
+    assert pace == athletics.PAUSE
+    assert steps[0] == {"room": 835, "command": "climb embrasure"}
+    assert len(steps) == 15
+    assert athletics.rung_goal(rotation) == 835
+    # avoid_justice_climbs leaves only the three stops outside justice.
+    monkeypatch.setattr("client.settings.setting", lambda name: True)
+    steps, _ = athletics.rung_plan(LADDER_MAP, rotation)
+    assert [s["room"] for s in steps] == [691, 1387, 1642]
+
+
+def test_a_rotation_walks_to_each_stop_before_climbing():
+    handle = FakeHandle((), mindstates=(5,), sleeps=8)
+    walks = []
+
+    def fake_walk(s, db, goals, describe=""):
+        walks.append(list(goals))
+        return True
+
+    steps = [
+        {"room": 835, "command": "climb embrasure"},
+        {"room": 1035, "command": "climb wall"},
+    ]
+    with pytest.raises(LoopDone):
+        athletics.train(handle, steps, db=LADDER_MAP, walk=fake_walk)
+    puts = [c[1] for c in handle.calls if c[0] == "put"]
+    assert walks[:2] == [[835], [1035]]
+    assert puts[:2] == ["climb embrasure", "climb wall"]
