@@ -845,6 +845,17 @@ def test_a_ground_with_someone_in_every_room_is_left_to_them(travel):
     assert any("leaving it to them" in text for text in arena.echoed)
 
 
+def test_a_room_full_of_creatures_is_hunted_not_left(travel):
+    # #178 asked for a crowd threshold; the operator's answer (2026-09-12):
+    # a hunt farms, so a full room is fought one at a time, never skipped.
+    arena = Arena({"attack": [(KILL, kill)]})
+    arena.state.room_creatures = ["a ship's rat"] * 5
+    _run(arena)
+    assert arena.walks[0] == {6046, 6047}
+    assert any(c.startswith("attack") for c in arena.sent)
+    assert not any("crowd" in text for text in arena.echoed)
+
+
 # --- the injuries panel as the wound floor's pre-check (#163) ----------------
 
 

@@ -23,7 +23,9 @@ and every later skin goes straight into it as it is cut — one item to
 sell with ;skins. No rope means skins are stowed loose, said once.
 A room of the ground with another player already in it on arrival is
 theirs: the loop says so and moves on without a swing, and a ground
-with someone in every room is left to them (#178).
+with someone in every room is left to them (#178). A room full of
+creatures is the point, not a reason to leave: the loop fights them
+one at a time (the health and wound floors are the guard).
 `buffs` are self-cast spells kept up through the hunt (PREPARE, CAST
 before the first swing and whenever the Spells window drops one), and
 `train_casting` names a magic skill to train by recasting the first
@@ -487,7 +489,9 @@ def settle(s, db, ground, avoid, tally):
     """Arrived in a room of the ground: it is someone else's if a player
     is already in it — the community's rule, the operator's (#178,
     2026-09-12) — so move on until an empty room, and give up once the
-    whole ground has been tried. True in a room of our own."""
+    whole ground has been tried. True in a room of our own. A crowd of
+    creatures is never a reason to move on: farming them is the point
+    (the operator, 2026-09-12)."""
     for _ in range(max(len(ground), 1)):
         names = occupants(s)
         if not names:

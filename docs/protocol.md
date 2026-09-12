@@ -245,3 +245,17 @@ Penello.</component>` comes with every room and on every change, empty
 there. Entries are split on commas and a final "and"; a title stands
 before the name and a " who is ..." state after it, so the name is the
 last word before that. The parser keeps the names as `room_players`.
+
+## The room's creatures (captured 2026-09-12)
+
+`<component id='room objs'>You also see <pushBold/>a town guard<popBold/>,
+<pushBold/>Forest Warden Hengwild<popBold/>, a large parchment and a big
+orange sign with a picture of a smiling Dwarf.</component>` — the same
+"You also see" line the story shows, with every creature and NPC in a
+bold run and the scenery plain; a repeated creature is listed once per
+head ("a musk hog and a musk hog"). It comes with every room and on
+every change, and empty when the room lists nothing. The parser keeps
+the bold names, in order, as `room_creatures` (dr-scripts' `DRRoom.npcs`),
+cleared on `<nav>` until the new room's listing lands. The hostile
+status tags (`<crtrStatus>`, above) are the fight's view; this is the
+head count on arrival, before anything engages (#178).

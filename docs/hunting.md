@@ -135,6 +135,16 @@ rule's concern. `;athletics` does the same at a rung and at each
 rotation stop: their spot, the next-best rung. Claude driving by hand
 checks the room first.
 
+A crowd of creatures is not the same rule. The room's own listing
+(`room objs`, "You also see a musk hog, a musk hog and a rusty
+ladder.") bolds each creature and NPC and arrives with the room,
+before any of them engages, so the parser's `room_creatures` is a head
+count on arrival. `;athletics` skips a rung or a rotation stop at
+three of them (dr-scripts' `climb?` rule: creatures interrupt a
+climb). `;hunt` never moves on for a crowd: a full room is what a hunt
+farms, fought one at a time with the health and wound floors as the
+guard (the operator, 2026-09-12). `;status` shows both lists.
+
 ## Bundling and selling skins
 
 Loose skins sell one SELL at a time; a bundle sells as one item and

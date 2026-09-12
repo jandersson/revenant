@@ -31,6 +31,10 @@ into an engagement. A spot that keeps re-engaging is contested (#86):
 after three hostile break-offs in ten minutes the script gives it up —
 spawn areas never empty on their own, so waiting is futile; auto mode
 falls back to the next-best rung and manual mode stops with advice.
+A rung or rotation stop with another player already in it on arrival
+is theirs, and one listing three or more creatures is a crowd
+(dr-scripts' climb? rule): the next-best rung, or the stop skipped,
+said either way (#178).
 Stop with:  ;stop athletics
 """
 
@@ -38,6 +42,7 @@ import re
 import time
 
 from client.game import buffs, climbs, probe
+from client.game.status import counted
 
 MIND_LOCK = 34  # mindstate 34/34: nothing more fits
 RESUME_BELOW = 28  # resume once enough has drained to be worth the laps
@@ -55,6 +60,7 @@ DANGER_POLL = 5  # seconds between checks while holding
 CLEAR_HOLD = 15  # breather after hostiles clear, before resuming
 CONTESTED_LIMIT = 3  # hostile break-offs inside the window = contested
 CONTESTED_WINDOW = 600  # seconds the break-off count looks back over
+CROWDED = 3  # creatures listed in the room on arrival = a crowd (dr-scripts' climb?)
 COLLECT_SECONDS = 3  # a cast's answer window (client/game/probe.py)
 TAIL_SECONDS = 1.5
 
@@ -103,6 +109,23 @@ ENC_LINE = re.compile(r"Encumbrance\s*:\s*(.+)")
 def occupants(s):
     """The other players in the room, as the parser read "Also here"."""
     return list(getattr(s.state, "room_players", None) or [])
+
+
+def crowd(s):
+    """The room's listed creatures when they make a crowd, else []."""
+    names = list(getattr(s.state, "room_creatures", None) or [])
+    return names if len(names) >= CROWDED else []
+
+
+def taken_by(s, doing):
+    """Why the room is not ours on arrival — "<names> <doing> — theirs"
+    for a player already in it, "<n> creatures here (...) — a crowd" for
+    CROWDED or more creatures listed — or None for a room of our own (#178)."""
+    if names := occupants(s):
+        return f"{', '.join(names)} {doing} — their"
+    if beasts := crowd(s):
+        return f"{len(beasts)} creatures here ({counted(beasts)}) — a crowd, not our"
+    return None
 
 
 def empty_hands(s):
@@ -540,10 +563,8 @@ def train(
                     )
                     continue
                 s.sleep(1)  # the room's players arrive with the room
-                if names := occupants(s):
-                    s.echo(
-                        f"ATHLETICS: {', '.join(names)} at this stop — theirs, skipping it"
-                    )
+                if why := taken_by(s, "at this stop"):
+                    s.echo(f"ATHLETICS: {why}s, skipping it")
                     continue
                 command = command["command"]
             s.put(command)
@@ -648,9 +669,9 @@ def auto_train(s, db=None, walk=None):
             )
             return
         s.sleep(1)  # the room's players arrive with the room
-        if names := occupants(s):
-            # Their spot (#178): the next-best rung, no laps here.
-            s.echo(f"ATHLETICS: {', '.join(names)} training here — their spot")
+        if why := taken_by(s, "training here"):
+            # Their spot, or a crowd (#178): the next-best rung, no laps here.
+            s.echo(f"ATHLETICS: {why} spot")
             contested.add(rung["label"])
             rung = fall_back(s, rank, contested)
             if rung is None:

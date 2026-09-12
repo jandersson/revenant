@@ -2,8 +2,9 @@
 raw fields, for scripts and for ;status.
 
 The parser (client/engine/xml_data.py) keeps what the game pushes:
-indicator flags by their icon id, vitals by name, the hands, the room,
-the injuries, the exp window, the roundtime clock. A script that wants
+indicator flags by their icon id, vitals by name, the hands, the room
+and who else is in it, the injuries, the exp window, the roundtime
+clock. A script that wants
 "is he stunned" should not spell IconSTUNNED and "y". This is the
 `status(state)` view — Lich's idiom, where dr-scripts read
 `stunned?`, `hidden?`, `checkprone` and friends off XMLData instead
@@ -29,6 +30,15 @@ BADGES = (
     ("IconJOINED", "joined"),
 )
 VITALS = ("health", "mana", "stamina", "spirit", "concentration")
+
+
+def counted(names):
+    """The room's listing with repeats counted, in the game's order:
+    ["a musk hog", "a musk hog", "a town guard"] -> "a musk hog x2, a town guard"."""
+    seen = {}
+    for name in names:
+        seen[name] = seen.get(name, 0) + 1
+    return ", ".join(f"{name} x{n}" if n > 1 else name for name, n in seen.items())
 
 
 class Status:
@@ -143,8 +153,20 @@ class Status:
 
     @property
     def hostiles(self):
-        """{name: count} of the creatures the room shows."""
+        """{exist id: engaged} of the creatures with a hostile status tag."""
         return dict(getattr(self._state, "hostiles", None) or {})
+
+    @property
+    def players(self):
+        """The other players in the room, by name, from "Also here" (#178)."""
+        return list(getattr(self._state, "room_players", None) or [])
+
+    @property
+    def creatures(self):
+        """The room's creatures and NPCs as its listing bolds them, in
+        order and with repeats ("a musk hog" twice); the crowd a trainer
+        counts before settling in (#178)."""
+        return list(getattr(self._state, "room_creatures", None) or [])
 
     @property
     def roundtime(self):
@@ -178,7 +200,8 @@ class Status:
     # -- summary ------------------------------------------------------------
 
     def summary(self):
-        """One line: room, posture and badges, vitals, hands, roundtime."""
+        """One line: room, posture and badges, vitals, hands, hostiles,
+        the room's players and creatures, roundtime."""
         parts = []
         if self.room:
             parts.append(self.room)
@@ -198,6 +221,10 @@ class Status:
         parts.append(hands)
         if self.hostiles:
             parts.append("hostiles: " + ", ".join(sorted(self.hostiles)))
+        if self.players:
+            parts.append("with: " + ", ".join(self.players))
+        if self.creatures:
+            parts.append("creatures: " + counted(self.creatures))
         if self.roundtime:
             parts.append(f"RT {self.roundtime}")
         if self.casttime:

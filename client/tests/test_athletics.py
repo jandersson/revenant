@@ -756,3 +756,43 @@ def test_an_occupied_rung_is_their_spot_and_the_ladder_falls_back():
     assert any("their spot" in echo for echo in handle.echoes)
     assert walks[1] == [1068]  # the oak, next-best
     assert ("put", "west") not in handle.calls  # no lap in their room
+
+
+def test_a_crowded_rung_is_left_like_an_occupied_one():
+    # #178, dr-scripts' climb? rule: three or more creatures listed in
+    # the room on arrival is a crowd, and the ladder falls back.
+    handle = FakeHandle(args=[], mindstates=[5], sleeps=60)
+    handle.state.experience["Athletics"]["rank"] = 7
+    walks = []
+
+    def fake_walk(s, db, goals, describe=""):
+        walks.append(list(goals))
+        s.state.room_creatures = (
+            ["a musk hog", "a musk hog", "a musk hog"] if goals == [19069] else []
+        )
+        return True
+
+    with pytest.raises(LoopDone):
+        athletics.auto_train(handle, db=LADDER_MAP, walk=fake_walk)
+    assert walks[:2] == [[19069], [1068]]
+    assert any("a musk hog x3" in echo and "a crowd" in echo for echo in handle.echoes)
+    assert ("put", "west") not in handle.calls
+
+
+def test_a_crowded_rotation_stop_is_skipped():
+    handle = FakeHandle((), mindstates=(5,), sleeps=8)
+
+    def fake_walk(s, db, goals, describe=""):
+        s.state.room_creatures = ["a rat"] * 3 if goals == [835] else ["a rat"]
+        return True
+
+    steps = [
+        {"room": 835, "command": "climb embrasure"},
+        {"room": 1035, "command": "climb wall"},
+    ]
+    with pytest.raises(LoopDone):
+        athletics.train(handle, steps, db=LADDER_MAP, walk=fake_walk)
+    puts = [c[1] for c in handle.calls if c[0] == "put"]
+    assert "climb embrasure" not in puts
+    assert puts[0] == "climb wall"
+    assert any("a crowd, not ours, skipping it" in echo for echo in handle.echoes)

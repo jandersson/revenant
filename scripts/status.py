@@ -1,6 +1,6 @@
 """Your character's state in one line, as the parser sees it:  ;status
 
-    ;status            room | posture and badges | vitals | hands | hostiles | RT
+    ;status            room | posture and badges | vitals | hands | hostiles | with | creatures | RT
     ;status watch      print it again whenever it changes, until stopped
     ;status return     (typed while watching) end the watch
 
@@ -8,7 +8,8 @@ The same view scripts use: `from client.game.status import status`,
 then `status(s.state).stunned`, `.posture`, `.hands_empty`,
 `.roundtime`, `.mindstate("Attunement")` — Lich's stunned?/hidden?/
 checkprone idiom over the parser's raw indicator, vitals, hands,
-room, hostiles and clock fields (client/game/status.py). It reads
+room, hostiles, the room's players and creatures (`.players`,
+`.creatures`, #178) and clock fields (client/game/status.py). It reads
 the parser's state only and sends nothing; a state the game has not
 pushed yet reads as None or 0, so the line right after login can be
 thinner than a minute later. Stop with:  ;stop status

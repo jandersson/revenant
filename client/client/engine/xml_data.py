@@ -197,6 +197,17 @@ class XMLData:
         self.room_players = []
         self.players_updated = False
         self._players_text = None
+        # The room's creatures and NPCs, from the "room objs" component
+        # the game sends with every room and on every change: the bolded
+        # names in order, articles kept ("a musk hog", "a musk hog",
+        # "Forest Warden Hengwild"); unbolded entries are scenery. What
+        # dr-scripts' DRRoom.npcs holds and its climb? rule counts (three
+        # or more = a crowd, #178). Cleared on a room change like
+        # hostiles, until the fresh listing arrives.
+        self.room_creatures = []
+        self.creatures_updated = False
+        self._objs_names = None  # the names read so far, inside room objs
+        self._objs_bold = None  # the bold run being read, inside room objs
         # Vitals percentages from the minivitals dialog's progress bars:
         # {"health": 100, "stamina": 95, ...}; casters also get "mana".
         # The game sends partial updates, so this dict accumulates.
@@ -267,6 +278,8 @@ class XMLData:
             self._perc_text += text_string
         if self._players_text is not None:
             self._players_text += text_string
+        if self._objs_bold is not None:
+            self._objs_bold.append(text_string)
         if self._hand is not None:
             self._hand[2].append(text_string)
 
@@ -309,6 +322,7 @@ class XMLData:
             # enumeration arrives.
             self.hostiles = {}
             self._staged_hostiles = None
+            self.room_creatures = []
         elif name == "roundTime":
             self.roundtime = int(attributes["value"])
         elif name == "castTime":
@@ -343,6 +357,15 @@ class XMLData:
                 self._exp_text = ""
             elif ident == "room players":
                 self._players_text = ""
+            elif ident == "room objs":
+                self._objs_names, self._objs_bold = [], None
+        elif name == "pushBold" and self._objs_names is not None:
+            self._objs_bold = []
+        elif name == "popBold" and self._objs_names is not None:
+            creature = "".join(self._objs_bold or []).strip()
+            self._objs_bold = None
+            if creature:
+                self._objs_names.append(creature)
         elif name == "crtrStatus":
             # The first tag since the last swap opens a fresh staged
             # set — the burst is the enumeration (#85), nothing else
@@ -389,6 +412,11 @@ class XMLData:
             if players != self.room_players:
                 self.room_players = players
                 self.players_updated = True
+        if name == "component" and self._objs_names is not None:
+            creatures, self._objs_names, self._objs_bold = self._objs_names, None, None
+            if creatures != self.room_creatures:
+                self.room_creatures = creatures
+                self.creatures_updated = True
         if name == "spell" and self._spell_text is not None:
             text, self._spell_text = self._spell_text.strip(), None
             self.prepared_spell = None if text.lower() in ("", "none") else text

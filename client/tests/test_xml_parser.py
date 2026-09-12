@@ -659,3 +659,43 @@ def test_room_players_are_read_from_also_here(xml_data):
     assert xml_data.room_players == ["Tedriel"]
     _feed_one(xml_data, "<component id='room players'></component>")
     assert xml_data.room_players == []
+
+
+# -- the room's creatures: the bolded names of <component id='room objs'> (#178)
+
+
+def test_room_creatures_are_the_bolded_names_of_the_room_listing(xml_data):
+    # Captured 2026-09-12: NPCs and creatures are bolded, scenery is not;
+    # a repeated creature is listed once per head.
+    _feed_one(
+        xml_data,
+        "<component id='room objs'>You also see <pushBold/>a town guard<popBold/>, "
+        "<pushBold/>Forest Warden Hengwild<popBold/>, a large parchment and a big "
+        "orange sign with a picture of a smiling Dwarf.</component>",
+    )
+    assert xml_data.room_creatures == ["a town guard", "Forest Warden Hengwild"]
+    assert xml_data.creatures_updated
+    xml_data.creatures_updated = False
+    _feed_one(
+        xml_data,
+        "<component id='room objs'>You also see <pushBold/>a musk hog<popBold/> and "
+        "<pushBold/>a musk hog<popBold/>.</component>",
+    )
+    assert xml_data.room_creatures == ["a musk hog", "a musk hog"]
+    assert xml_data.creatures_updated
+    xml_data.creatures_updated = False
+    _feed_one(
+        xml_data,
+        "<component id='room objs'>You also see a rusty ladder.</component>",
+    )
+    assert xml_data.room_creatures == []
+    assert xml_data.creatures_updated
+
+
+def test_a_room_change_clears_the_creatures_until_the_new_listing(xml_data):
+    XMLParser(target=xml_data).feed(f"<r>{CRTR_ARRIVE}</r>")
+    assert xml_data.room_creatures == ["a cougar", "a cougar", "a cougar"]
+    _feed_one(xml_data, "<nav rm='1234'/>")
+    assert xml_data.room_creatures == []
+    XMLParser(target=xml_data).feed(f"<r>{CRTR_FEWER}</r>")
+    assert xml_data.room_creatures == ["a cougar"]

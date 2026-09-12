@@ -4,7 +4,7 @@ on access from the parser's raw fields."""
 
 from types import SimpleNamespace
 
-from client.game.status import status
+from client.game.status import counted, status
 
 
 def state(**overrides):
@@ -86,3 +86,21 @@ def test_the_summary_is_one_line_in_the_strip_s_order():
         .startswith("[Provincial Bank, Teller] | DEAD |")
     )
     assert status(SimpleNamespace()).summary() == "L - R -"
+
+
+def test_the_rooms_players_and_creatures_are_in_the_view_and_the_line():
+    # #178: who else is here (the etiquette check) and what the room
+    # lists, repeats counted.
+    view = status(
+        state(
+            hostiles={},
+            room_players=["Bankismo", "Vintz"],
+            room_creatures=["a musk hog", "a musk hog", "a town guard"],
+        )
+    )
+    assert view.players == ["Bankismo", "Vintz"]
+    assert view.creatures == ["a musk hog", "a musk hog", "a town guard"]
+    assert view.summary().endswith(
+        "| with: Bankismo, Vintz | creatures: a musk hog x2, a town guard | RT 5"
+    )
+    assert counted([]) == ""

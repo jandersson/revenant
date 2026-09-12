@@ -54,7 +54,9 @@ for `client/client/<pkg>/x.py`.
   ({part: (kind, level)}) from the injuries panel the game pushes,
   `prepared_spell` from the `<spell>` tag and `active_spells`
   ({name: minutes left or None}) from the Spells window's pulses, and
-  `room_players` (names) from the `room players` component (#178).
+  `room_players` (names) from the `room players` component and
+  `room_creatures` (the bolded names of `room objs`, in order, repeats
+  kept) (#178).
 - `client/engine/core.py` — `Engine`: feeds lines, emits synthetic streams
   (compass = room-arrival signal, room, vitals, indicators, character,
   timesync, roundtime/casttime, bell). It appends "\n" only to the last
@@ -239,7 +241,9 @@ Traps that cost time before:
   starts a fight there (`;hunt` and `;athletics` read the parser's
   `room_players` on every arrival), and Claude driving by hand checks
   the room's players before any action that takes a kill (#178,
-  2026-09-12).
+  2026-09-12). A crowd of creatures is not that rule: `;athletics`
+  skips a rung or stop listing three (`room_creatures`, a climb gets
+  interrupted), `;hunt` fights them — a full room is what a hunt farms.
 - **Never DROP.** A dropped item is a lost item. A script drops only
   through `client/game/discard.py`'s `drop()`, which allows the
   built-in foraged junk (grass, grass rope) plus settings.json's
