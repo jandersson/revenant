@@ -44,6 +44,12 @@ lessons the code and docs cannot carry themselves.
   scripts and the reloadable helpers reach it through `;stop <name>`
   and running it again. Detach is not a restart.
 - PowerShell `Stop-Process` kills what `taskkill` silently does not.
+- A bound-but-not-listening socket refuses a connection on Linux and
+  Windows but not on macOS: XNU's tcp_input drops a SYN to a pcb still
+  in CLOSED without a reset, so the connect times out. A test that
+  wants a refusing port there must listen and close (the registry
+  prune test failed on every macOS CI run for a day after #160 made a
+  timeout mean "busy", 2026-09-12).
 
 ## Evidence first
 

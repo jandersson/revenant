@@ -173,9 +173,17 @@ def test_sessions_register_for_the_launcher_and_prune_stale_rows(monkeypatch):
     client.close()
     assert _await(lambda: attached() == 0), "drop not counted"
 
-    # A bound-but-not-listening socket: the stale row's port refuses.
+    # A bound-but-not-listening socket: the stale row's port refuses on
+    # Linux and Windows. macOS drops a SYN to such a socket without a
+    # reset (XNU's tcp_input discards segments for a pcb still in
+    # CLOSED), so there the probe times out and the row reads as busy,
+    # which #160 keeps on purpose; a listening socket closed again is
+    # what refuses there, at the small risk of the port being retaken.
     holder = socket.socket()
     holder.bind(("127.0.0.1", 0))
+    if sys.platform == "darwin":
+        holder.listen()
+        holder.close()
     session.register_session(holder.getsockname()[1], "Ghost")
     names = [e["character"] for e in session.running_sessions()]
     assert "Lanival" in names and "Ghost" not in names
