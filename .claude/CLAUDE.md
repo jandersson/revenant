@@ -82,7 +82,10 @@ for `client/client/<pkg>/x.py`.
   `REVENANT_ALLOW_SEND=1`. The session echoes `>> [origin] cmd` to
   every window (#135); `--answer SECONDS` prints the game's reply.
   Use it instead of ad-hoc socket drivers; the `drive` skill
-  (`.claude/skills/drive/SKILL.md`) is the procedure for Claude.
+  (`.claude/skills/drive/SKILL.md`) is the procedure for Claude, and
+  the `experiment` skill (`.claude/skills/experiment/SKILL.md`) the
+  method for testing a mechanic on a live session — results go to the
+  docs, the issue and the fixtures, never to the skill.
 - `client/game/wounds.py` — HEALTH parsed into wounds by area, severity
   (1-8) and kind; `wounds_data.py` is generated from the wiki by
   `tools/wound_tables.py`, never hand-edited. `;tend` and `;hunt`'s
