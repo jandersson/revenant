@@ -19,8 +19,8 @@ load's place in the band is unknown. `ballast` pins it: coins weigh
 brackets the load to one step, and the points needed become exact.
 The coins are copper, so the count drawn is the count carried, and
 they go back with DEPOSIT step by step; a teller's refusal stops the
-run with what was already drawn deposited. The formula is the wiki's and unverified until a ballast
-run agrees with it (docs/encumbrance.md). Stop with:  ;stop enc
+run with what was already drawn deposited. The formula is the wiki's
+and held its first test (docs/encumbrance.md). Stop with:  ;stop enc
 """
 
 from client.game import probe
