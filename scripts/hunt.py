@@ -21,8 +21,9 @@ the loot container): a bundle you already have is worn before the
 first swing, the first skin of a run starts one when there is none,
 and every later skin goes straight into it as it is cut — one item to
 sell with ;skins. No rope means skins are stowed loose, said once.
-The weapon goes back into its container when the hunt ends, home or
-not.
+The weapon stays in hand when the hunt ends — stowed, it parries
+nothing — and its container is only where the first swing fetches it
+from.
 The game's answers are classified by keyword (the tables below, model
 in docs/hunting.md); a skin or search answer the script cannot place is
 echoed as "hunt: unrecognized ..." — report those and they become
@@ -551,20 +552,16 @@ def hunt(s, profile, db, travel=True, avoid=()):
     )
     if s.dead:
         return
-    # The weapon goes back wherever the hunt ends — a stop word on a
-    # homeless profile left it in hand (2026-09-12) — unless a walk
-    # home was tried and failed, where a fight may still be on.
-    settled = True
+    # The weapon stays in hand at every end: a stowed weapon is no
+    # parry (2026-09-12, three rats and an empty hand after a stop),
+    # and nothing a hunt hands over to needs both hands. Its container
+    # is only where the first swing fetches it from.
     if profile["home"]:
         goals = db.resolve(profile["home"])
         if goals and walk(s, db, goals, describe=repr(profile["home"]), avoid=avoid):
             s.echo(f"hunt: home at {s.state.room_title}")
         elif not goals:
             s.echo(f"hunt: nothing in the map matches home {profile['home']!r}")
-        else:
-            settled = False
-    if settled:
-        unready(s, profile)
 
 
 def main(s):

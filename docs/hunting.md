@@ -19,7 +19,7 @@ It holds what no script should hard-code:
 | hunting_ground | a `;go2` target; every room it resolves to is the ground, walked to at the start and cycled when a room runs empty |
 | prey | the noun ATTACK gets; empty swings at whatever engages you |
 | home | a `;go2` target walked to when the hunt ends |
-| weapon, weapon_container | `GET my <weapon> [FROM my <container>]` before the first swing, `PUT` it back on coming home |
+| weapon, weapon_container | `GET my <weapon> [FROM my <container>]` before the first swing; it stays in hand when the hunt ends (stowed, it parries nothing — 2026-09-12), the container is only where it is fetched from, and where it goes for the moment the first skin of a run is bundled |
 | stance | `STANCE SET <args>` once, before the first swing |
 | skin, skin_knife | `SKIN <corpse>` after each kill; a named knife is fetched before and stowed after |
 | loot_container | where skins and non-gem finds go (`PUT my <item> IN my <container>`, else `STOW my <item>`) |

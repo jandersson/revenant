@@ -219,7 +219,7 @@ def test_an_empty_ground_ends_the_hunt_and_walks_home(travel):
     )
     assert any("ground empty" in text for text in arena.echoed)
     assert arena.walks[-1] == {1}
-    assert arena.sent[-1] == "put my handaxe in my sack"
+    assert "put my handaxe in my sack" not in arena.sent
 
 
 def test_an_empty_room_moves_to_the_next_room_of_the_ground(travel):
@@ -260,7 +260,7 @@ def test_a_wound_at_the_floor_breaks_the_hunt_off_after_a_kill(travel):
     assert any(
         "neck external harmful — at the wound floor" in text for text in arena.echoed
     )
-    assert arena.sent[-1] == "put my handaxe in my sack"  # walked home
+    assert "put my handaxe in my sack" not in arena.sent  # walked home, still armed
 
 
 def test_a_wound_below_the_floor_keeps_hunting(travel):
@@ -557,13 +557,20 @@ def test_an_attack_from_range_waits_for_melee_before_the_next(travel):
     assert not any("unrecognized" in text for text in arena.echoed)
 
 
-def test_the_weapon_is_stowed_when_the_hunt_ends_without_a_home(travel):
-    # The stop word on a homeless profile left the handaxe in hand
-    # (2026-09-12): the weapon goes back wherever the hunt ends.
-    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
-    _run(arena, profile=PROFILE | {"home": "", "max_kills": 1}, travel_first=False)
-    assert arena.walks == []
-    assert arena.sent[-1] == "put my handaxe in my sack"
+def test_the_weapon_stays_in_hand_at_every_end(travel):
+    # A stowed weapon parries nothing: the stop word among three live
+    # rats stowed the handaxe and left him taking bites (2026-09-12).
+    # Home or not, hostiles or not, the hunt ends with it in hand.
+    for profile, hostiles_left in (
+        (PROFILE | {"home": "", "max_kills": 1}, True),
+        (PROFILE | {"max_kills": 1}, False),
+    ):
+        effect = (lambda arena: None) if hostiles_left else kill
+        arena = Arena(
+            {"attack": [(KILL, effect)], "skin": [SKINNED], "search": [NOTHING]}
+        )
+        _run(arena, profile=profile, travel_first=False)
+        assert not any(command.startswith("put my handaxe") for command in arena.sent)
 
 
 def test_a_corpse_that_keeps_answering_ends_the_room_not_the_evening(travel):
