@@ -16,6 +16,13 @@ the only order Qt has proved safe with every saved state; apply() —
 hide, restore, show — is the fallback for a character learned only
 from the "character" frame, and one saved state still aborted inside
 Qt on that path (#124, #140).
+
+The collapsed docks (#180) ride beside the pair under a third key,
+`layout/<character>/collapsed` (legacy `collapsed`): the object names
+of the docks folded to their title bar, saved by closeEvent with the
+state and applied by the GUI after the state is restored
+(client/gui/dock_collapse.py). collapsed_from() reads what QSettings
+hands back — a list, a single string, or nothing.
 """
 
 
@@ -25,6 +32,28 @@ def layout_keys(character):
     if character:
         return (f"layout/{character}/geometry", f"layout/{character}/windowState")
     return ("geometry", "windowState")
+
+
+def collapsed_key(character):
+    """The settings key the collapsed dock names live under."""
+    return f"layout/{character}/collapsed" if character else "collapsed"
+
+
+def collapsed_from(value):
+    """The saved collapsed names as a list: QSettings returns a list, a
+    lone string for a one-element list, or None / "" for none."""
+    if isinstance(value, str):
+        return [value] if value else []
+    if isinstance(value, (list, tuple)):
+        return [str(name) for name in value if str(name)]
+    return []
+
+
+def startup_collapsed(get, character, scoped):
+    """The collapsed names to apply at startup: the character's own
+    when their layout was the one restored (scoped), else the legacy
+    key's — the same choice startup_layout made for the pair."""
+    return collapsed_from(get(collapsed_key(character) if scoped else "collapsed"))
 
 
 def startup_layout(get, character):
@@ -67,13 +96,15 @@ def apply(window, geometry, state):
     return True
 
 
-def save_pairs(character, geometry, state):
+def save_pairs(character, geometry, state, collapsed=()):
     """Everything closeEvent should write: the character's own keys
     plus the legacy pair, which doubles as the newest-layout fallback
-    for characters that have never saved an arrangement."""
-    pairs = {"geometry": geometry, "windowState": state}
+    for characters that have never saved an arrangement — and the
+    collapsed dock names beside each (#180)."""
+    pairs = {"geometry": geometry, "windowState": state, "collapsed": list(collapsed)}
     if character:
         geometry_key, state_key = layout_keys(character)
         pairs[geometry_key] = geometry
         pairs[state_key] = state
+        pairs[collapsed_key(character)] = list(collapsed)
     return pairs

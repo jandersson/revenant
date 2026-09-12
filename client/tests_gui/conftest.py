@@ -19,7 +19,7 @@ import pytest
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ["REVENANT_LOG_DIR"] = tempfile.mkdtemp(prefix="revenant-gui-test-logs-")
 
-from PyQt6.QtCore import QEvent, QSettings  # noqa: E402
+from PyQt6.QtCore import QEvent  # noqa: E402
 from PyQt6.QtWidgets import QApplication  # noqa: E402
 
 
@@ -44,12 +44,11 @@ def isolated_files(tmp_path, monkeypatch):
     monkeypatch.setenv("REVENANT_SESSIONS", str(tmp_path / "sessions.json"))
     monkeypatch.setenv("REVENANT_PROFILES", str(tmp_path / "profiles"))
     monkeypatch.setenv("REVENANT_TRAINING", str(tmp_path / "training"))
-    # QSettings("revenant", "revenant") is the window layout store — the
-    # registry on Windows, ~/.config on Linux. An ini file here instead.
-    QSettings.setDefaultFormat(QSettings.Format.IniFormat)
-    QSettings.setPath(
-        QSettings.Format.IniFormat, QSettings.Scope.UserScope, str(tmp_path / "qt")
-    )
+    # The window layout store (client_gui.layout_settings): an ini file
+    # here instead of the registry. QSettings.setDefaultFormat/setPath
+    # do not reach the two-argument constructor on Windows — every run
+    # before 2026-09-13 wrote "Lanival" layouts into the real registry.
+    monkeypatch.setenv("REVENANT_QSETTINGS", str(tmp_path / "layout.ini"))
     return tmp_path
 
 

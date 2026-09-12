@@ -23,6 +23,16 @@ lessons the code and docs cannot carry themselves.
   count (a stop-word grace sleeps once a second): hold the last state
   once the timeline is dry and end the run on a sleep budget instead
   (`test_train_script.py`'s Fake). Two ;train tests failed that way.
+- `QSettings("revenant", "revenant")` on Windows is the registry no
+  matter what `QSettings.setDefaultFormat` / `setPath` say: the
+  two-argument constructor ignores them, so the GUI suite's
+  "isolated" settings wrote every run's synthetic Lanival layout into
+  the real store until 2026-09-13, when a test's folded docks came
+  back folded in a fresh window. The GUI reads the store through
+  `client_gui.layout_settings()`, which the conftest points at an ini
+  file with `REVENANT_QSETTINGS`; a test never constructs QSettings
+  itself. Check the registry (`HKCU:\Software\revenant\revenant`)
+  when a GUI test's state seems to outlive it.
 - Offscreen PyQt6 tests (`client/tests_gui`) can pass every test and
   still exit 139: anything that keeps a widget alive past the
   QApplication (a reader thread whose stub `read()` never raises

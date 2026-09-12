@@ -38,6 +38,7 @@ from client.engine import reader
 from client.engine.core import Engine
 from client.client_logger import ClientLogger
 from client.gui.clocks_dock import ClocksPanel
+from client.gui import dock_collapse
 from client.gui.compass_dock import CompassRose
 from client.gui.injuries_dock import InjuriesPanel
 from client.gui.spells_dock import SpellsPanel
@@ -55,6 +56,22 @@ from client.engine.session import (
 )
 from client.settings import load_settings, save_settings, setting, settings_path
 from client.ui.streamroute import STREAM_WINDOWS as STREAM_WINDOW_TITLES, clears_window
+
+
+def layout_settings():
+    """The window-layout store: QSettings("revenant", "revenant") — the
+    registry on Windows, ~/.config on Linux — or the ini file
+    REVENANT_QSETTINGS names. The tests set the latter: on Windows the
+    two-argument constructor ignores QSettings.setDefaultFormat and
+    setPath, so the GUI suite's synthetic "Lanival" layouts had been
+    landing in the real registry on every run (found 2026-09-13 under
+    #180, when a test's folded docks came back folded in a fresh
+    window)."""
+    path = os.environ.get("REVENANT_QSETTINGS")
+    if path:
+        return QSettings(path, QSettings.Format.IniFormat)
+    return QSettings("revenant", "revenant")
+
 
 ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
 
@@ -189,7 +206,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         # the legacy unscoped pair otherwise — restored before the
         # first show (#140). A character learned later, from the
         # "character" frame, gets the hide-restore-show path (#74).
-        settings = QSettings("revenant", "revenant")
+        settings = layout_settings()
         geometry, state, scoped = window_layout.startup_layout(
             settings.value, self._character
         )
@@ -197,6 +214,10 @@ class ClientGUI(QMainWindow, ClientLogger):
             self.restoreGeometry(geometry)
         if state:
             self.restoreState(state)
+        dock_collapse.apply_collapsed(
+            self.findChildren(QDockWidget),
+            window_layout.startup_collapsed(settings.value, self._character, scoped),
+        )
         if scoped:
             self._layout_applied = True
             self.setWindowTitle(f"Revenant — {self._character}")
@@ -210,6 +231,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         dock = QDockWidget(title)
         dock.setObjectName(object_name or title)
         dock.setWidget(widget)
+        dock_collapse.install(dock)  # the title bar with the fold button (#180)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
         self.stream_docks[title] = dock
         return dock
@@ -394,6 +416,16 @@ class ClientGUI(QMainWindow, ClientLogger):
         file_menu.addAction(plan_action)
         file_menu.addAction(detach_action)
         file_menu.addAction(exit_action)
+        # Fold the dock holding the keyboard focus to its title bar, or
+        # open it again (#180); the title bar's button and a double-click
+        # on the title do the same with the mouse.
+        self.collapse_dock_action = QAction("Collapse/Expand &Dock", self)
+        self.collapse_dock_action.setShortcut("Ctrl+Shift+D")
+        self.collapse_dock_action.setStatusTip(
+            "Fold the focused dock to its title bar, or expand it again"
+        )
+        self.collapse_dock_action.triggered.connect(self.toggle_focused_dock)
+
         view_menu = menubar.addMenu("View")
         view_menu.addAction(view_status_bar)
         view_menu.addAction(history_action)
@@ -401,6 +433,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         view_menu.addAction(edit_highlights_action)
         view_menu.addAction(highlights_action)
         view_menu.addSeparator()
+        view_menu.addAction(self.collapse_dock_action)
         for dock in self.stream_docks.values():
             view_menu.addAction(dock.toggleViewAction())
 
@@ -423,11 +456,27 @@ class ClientGUI(QMainWindow, ClientLogger):
         the legacy layout restored at startup simply stays. Applied
         with the window hidden: dock state restored onto the shown
         window crashed the process at the next setVisible (#124)."""
-        settings = QSettings("revenant", "revenant")
+        settings = layout_settings()
         geometry_key, state_key = window_layout.layout_keys(name)
-        window_layout.apply(
+        if window_layout.apply(
             self, settings.value(geometry_key), settings.value(state_key)
-        )
+        ):
+            dock_collapse.apply_collapsed(
+                self.findChildren(QDockWidget),
+                window_layout.collapsed_from(
+                    settings.value(window_layout.collapsed_key(name))
+                ),
+            )
+
+    def toggle_dock_of(self, widget):
+        """Fold or open the dock holding `widget`; False when no dock
+        holds it (the story, the menu bar, nothing focused)."""
+        dock = dock_collapse.dock_of(widget)
+        return dock is not None and dock_collapse.toggle(dock)
+
+    def toggle_focused_dock(self):
+        """View → Collapse/Expand Dock (Ctrl+Shift+D)."""
+        return self.toggle_dock_of(QApplication.focusWidget())
 
     def detach(self):
         """File → Detach: close the window, stay logged in. The session
@@ -436,9 +485,12 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.close()
 
     def closeEvent(self, event):
-        settings = QSettings("revenant", "revenant")
+        settings = layout_settings()
         pairs = window_layout.save_pairs(
-            self._character, self.saveGeometry(), self.saveState()
+            self._character,
+            self.saveGeometry(),
+            self.saveState(),
+            dock_collapse.collapsed_names(self.findChildren(QDockWidget)),
         )
         for key, value in pairs.items():
             settings.setValue(key, value)

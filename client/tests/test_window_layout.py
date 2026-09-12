@@ -22,12 +22,14 @@ def test_no_character_falls_back_to_the_legacy_keys():
 
 
 def test_a_close_saves_both_the_character_and_the_fallback_layout():
-    pairs = window_layout.save_pairs("Lanival", b"geo", b"docks")
+    pairs = window_layout.save_pairs("Lanival", b"geo", b"docks", ["Map"])
     assert pairs == {
         "geometry": b"geo",
         "windowState": b"docks",
+        "collapsed": ["Map"],
         "layout/Lanival/geometry": b"geo",
         "layout/Lanival/windowState": b"docks",
+        "layout/Lanival/collapsed": ["Map"],
     }
 
 
@@ -35,7 +37,22 @@ def test_a_close_without_a_character_saves_only_the_legacy_pair():
     assert window_layout.save_pairs(None, b"geo", b"docks") == {
         "geometry": b"geo",
         "windowState": b"docks",
+        "collapsed": [],
     }
+
+
+def test_collapsed_docks_have_a_key_beside_the_layout_and_read_back_as_a_list():
+    # #180: QSettings hands a saved list back as a list, a one-element
+    # list as a lone string, and nothing as None or "".
+    assert window_layout.collapsed_key("Lanival") == "layout/Lanival/collapsed"
+    assert window_layout.collapsed_key(None) == "collapsed"
+    assert window_layout.collapsed_from(["Map", "Thoughts"]) == ["Map", "Thoughts"]
+    assert window_layout.collapsed_from("Map") == ["Map"]
+    assert window_layout.collapsed_from("") == []
+    assert window_layout.collapsed_from(None) == []
+    saved = {"layout/Lanival/collapsed": ["Map"], "collapsed": "Clocks"}
+    assert window_layout.startup_collapsed(saved.get, "Lanival", True) == ["Map"]
+    assert window_layout.startup_collapsed(saved.get, "Lanival", False) == ["Clocks"]
 
 
 class FakeWindow:

@@ -2,9 +2,9 @@
 guarded by hand: stable object names, a hidden dock restored hidden,
 the character's own layout applied to the hidden window."""
 
-from PyQt6.QtCore import QSettings
 from PyQt6.QtWidgets import QDockWidget
 
+from client.gui.client_gui import layout_settings
 from client.ui import window_layout
 
 DOCK_NAMES = {
@@ -53,7 +53,7 @@ def test_closing_saves_the_characters_own_layout(window, qapp):
     window._detaching = True
     window.close()
     qapp.processEvents()
-    settings = QSettings("revenant", "revenant")
+    settings = layout_settings()
     geometry_key, state_key = window_layout.layout_keys("Lanival")
     assert settings.value(geometry_key) is not None
     assert settings.value(state_key) is not None

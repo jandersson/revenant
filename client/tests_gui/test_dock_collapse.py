@@ -1,0 +1,101 @@
+"""A dock folds to its title bar and opens again — by its button, a
+double-click on the title, or the keyboard on the focused dock — and
+the fold survives the layout round trip (#180)."""
+
+from PyQt6.QtCore import Qt
+from PyQt6.QtTest import QTest
+from PyQt6.QtWidgets import QDockWidget
+
+from client.gui import dock_collapse
+from client.gui.client_gui import layout_settings
+from client.gui.dock_collapse import COLLAPSE_GLYPH, EXPAND_GLYPH, DockTitleBar
+from client.ui import window_layout
+
+
+def test_collapse_hides_the_content_and_expand_brings_it_back(window):
+    dock = window.stream_docks["Thoughts"]
+    content = dock.widget()
+    ceiling = dock.maximumHeight()
+    assert not dock_collapse.is_collapsed(dock)
+    assert dock_collapse.collapse(dock)
+    assert dock_collapse.is_collapsed(dock)
+    assert content.isHidden()
+    assert dock.maximumHeight() < 80  # the title bar, not the content
+    assert not dock_collapse.collapse(dock)  # already folded
+    assert dock_collapse.expand(dock)
+    assert not dock_collapse.is_collapsed(dock)
+    assert not content.isHidden()
+    assert dock.maximumHeight() == ceiling  # the dock's own ceiling is back
+    assert not dock_collapse.expand(dock)
+
+
+def test_a_floating_dock_is_left_alone(window):
+    dock = window.stream_docks["Clocks"]
+    dock.setFloating(True)
+    assert not dock_collapse.collapse(dock)
+    assert not dock.widget().isHidden()
+    dock.setFloating(False)
+
+
+def test_every_dock_but_the_command_line_has_the_title_bar_with_its_controls(
+    window,
+):
+    for dock in window.findChildren(QDockWidget):
+        bar = dock.titleBarWidget()
+        if dock.objectName() == "Input":
+            # The command line never folds: Ctrl+Shift+D with the cursor
+            # there must not take the input away.
+            assert bar is None
+            assert not dock_collapse.collapse(dock)
+            assert not window.toggle_dock_of(window.input)
+            continue
+        assert isinstance(bar, DockTitleBar), dock.objectName()
+        assert bar.label.text() == dock.windowTitle()
+    bar = window.stream_docks["Arrivals"].titleBarWidget()
+    assert bar.collapse_button.text() == COLLAPSE_GLYPH
+    bar.collapse_button.click()
+    assert dock_collapse.is_collapsed(window.stream_docks["Arrivals"])
+    assert bar.collapse_button.text() == EXPAND_GLYPH
+    bar.collapse_button.click()
+    assert not dock_collapse.is_collapsed(window.stream_docks["Arrivals"])
+    assert bar.collapse_button.text() == COLLAPSE_GLYPH
+
+
+def test_a_double_click_on_the_title_toggles(window):
+    dock = window.stream_docks["Deaths"]
+    bar = dock.titleBarWidget()
+    QTest.mouseDClick(bar, Qt.MouseButton.LeftButton)
+    assert dock_collapse.is_collapsed(dock)
+    QTest.mouseDClick(bar, Qt.MouseButton.LeftButton)
+    assert not dock_collapse.is_collapsed(dock)
+
+
+def test_the_keyboard_action_works_on_the_dock_holding_the_focus(window):
+    clocks = window.stream_docks["Clocks"]
+    assert window.toggle_dock_of(clocks.widget())
+    assert dock_collapse.is_collapsed(clocks)
+    assert window.toggle_dock_of(clocks.widget())
+    assert not dock_collapse.is_collapsed(clocks)
+    assert not window.toggle_dock_of(window.main_window)  # the story: no dock
+    assert not window.toggle_dock_of(None)
+    assert window.collapse_dock_action.shortcut().toString() == "Ctrl+Shift+D"
+
+
+def test_the_fold_is_saved_with_the_layout_and_applied_after_a_restore(window, qapp):
+    docks = window.findChildren(QDockWidget)
+    dock_collapse.collapse(window.stream_docks["Thoughts"])
+    dock_collapse.collapse(window.stream_docks["Map"])
+    assert dock_collapse.collapsed_names(docks) == ["Map", "Thoughts"]
+    # A restore folds exactly the saved set, opening the rest.
+    dock_collapse.apply_collapsed(docks, ["Clocks"])
+    assert dock_collapse.collapsed_names(docks) == ["Clocks"]
+    dock_collapse.collapse(window.stream_docks["Thoughts"])
+    window._detaching = True
+    window.close()
+    qapp.processEvents()
+    settings = layout_settings()
+    saved = window_layout.collapsed_from(
+        settings.value(window_layout.collapsed_key("Lanival"))
+    )
+    assert saved == ["Clocks", "Thoughts"]
+    assert window_layout.collapsed_from(settings.value("collapsed")) == saved

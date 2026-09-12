@@ -1,0 +1,169 @@
+"""Collapse a dock to its title bar and expand it again (#180).
+
+Ten docks crowd the window, and hiding one through the View menu
+loses its place in the layout. A collapsed dock keeps its place and
+its title bar and gives up its space: the content widget is hidden
+and the dock's height pinned to the title bar's; expanding lifts the
+pin, shows the content and asks the main window for the height the
+dock had. Three ways to do it — the ▾ button on the title bar, a
+double-click on the title, or the View menu's Collapse/Expand Dock
+action (Ctrl+Shift+D) on the dock holding the keyboard focus. The
+title bar is our own widget (a QDockWidget's default one has no room
+for a button), so it carries the float and close buttons too. A
+floating dock is left alone: collapsing is for docks in the layout,
+and only docks given this title bar fold at all — the Input dock (the
+command line) keeps Qt's own and never folds, so Ctrl+Shift+D with
+the cursor in the command line does nothing.
+
+The collapsed set rides the layout round trip: `collapsed_names`
+lists the docks to save beside the window state, `apply_collapsed`
+folds them again after a restore (client/ui/window_layout.py keys).
+"""
+
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import (
+    QDockWidget,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QToolButton,
+    QWidget,
+)
+
+COLLAPSED = "collapsed"  # the dock's dynamic property
+EXPANDED_HEIGHT = "expanded_height"  # remembered across a collapse
+EXPANDED_MAX = "expanded_max_height"  # the dock's own ceiling, restored
+QWIDGETSIZE_MAX = 16777215  # Qt's "no maximum"
+COLLAPSE_GLYPH, EXPAND_GLYPH = "▾", "▸"  # ▾ ▸
+FLOAT_GLYPH, CLOSE_GLYPH = "❐", "✕"  # ❐ ✕
+
+
+class DockTitleBar(QWidget):
+    """A dock's title bar: the title, then collapse, float and close."""
+
+    def __init__(self, dock):
+        super().__init__(dock)
+        self.dock = dock
+        row = QHBoxLayout(self)
+        row.setContentsMargins(6, 2, 2, 2)
+        row.setSpacing(2)
+        self.label = QLabel(dock.windowTitle())
+        row.addWidget(self.label, 1)
+        self.collapse_button = self._button(
+            COLLAPSE_GLYPH, "Collapse to the title bar (or double-click the title)"
+        )
+        self.collapse_button.clicked.connect(lambda: toggle(self.dock))
+        self.float_button = self._button(FLOAT_GLYPH, "Float / dock")
+        self.float_button.clicked.connect(
+            lambda: self.dock.setFloating(not self.dock.isFloating())
+        )
+        self.close_button = self._button(
+            CLOSE_GLYPH, "Close (View menu shows it again)"
+        )
+        self.close_button.clicked.connect(self.dock.close)
+        for button in (self.collapse_button, self.float_button, self.close_button):
+            row.addWidget(button)
+        dock.windowTitleChanged.connect(self.label.setText)
+
+    def _button(self, glyph, tip):
+        button = QToolButton(self)
+        button.setText(glyph)
+        button.setToolTip(tip)
+        button.setAutoRaise(True)
+        button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        return button
+
+    def mouseDoubleClickEvent(self, event):
+        toggle(self.dock)
+
+    def show_collapsed(self, collapsed):
+        self.collapse_button.setText(EXPAND_GLYPH if collapsed else COLLAPSE_GLYPH)
+        self.collapse_button.setToolTip(
+            "Expand (or double-click the title)"
+            if collapsed
+            else "Collapse to the title bar (or double-click the title)"
+        )
+
+
+def install(dock):
+    """Give a dock the title bar with the controls; returns it."""
+    bar = DockTitleBar(dock)
+    dock.setTitleBarWidget(bar)
+    return bar
+
+
+def is_collapsed(dock):
+    return bool(dock.property(COLLAPSED))
+
+
+def foldable(dock):
+    """Only a dock with our title bar folds; the Input dock keeps Qt's."""
+    return isinstance(dock.titleBarWidget(), DockTitleBar)
+
+
+def collapse(dock):
+    """Fold the dock to its title bar; False when it already is, floats,
+    or is not foldable."""
+    if is_collapsed(dock) or dock.isFloating() or not foldable(dock):
+        return False
+    bar = dock.titleBarWidget()
+    dock.setProperty(EXPANDED_HEIGHT, dock.height())
+    dock.setProperty(EXPANDED_MAX, dock.maximumHeight())
+    content = dock.widget()
+    if content is not None:
+        content.hide()
+    dock.setMaximumHeight(bar.sizeHint().height() + 4)
+    dock.setProperty(COLLAPSED, True)
+    bar.show_collapsed(True)
+    return True
+
+
+def expand(dock):
+    """Open a collapsed dock back to the height it had; False when it
+    is not collapsed."""
+    if not is_collapsed(dock):
+        return False
+    ceiling = dock.property(EXPANDED_MAX)
+    dock.setMaximumHeight(int(ceiling) if ceiling else QWIDGETSIZE_MAX)
+    content = dock.widget()
+    if content is not None:
+        content.show()
+    dock.setProperty(COLLAPSED, False)
+    bar = dock.titleBarWidget()
+    if isinstance(bar, DockTitleBar):
+        bar.show_collapsed(False)
+    height = dock.property(EXPANDED_HEIGHT)
+    main = dock.parentWidget()
+    if isinstance(main, QMainWindow) and height:
+        main.resizeDocks([dock], [int(height)], Qt.Orientation.Vertical)
+    return True
+
+
+def toggle(dock):
+    return expand(dock) if is_collapsed(dock) else collapse(dock)
+
+
+def dock_of(widget):
+    """The QDockWidget holding a widget, or None (the story, the menu)."""
+    while widget is not None:
+        if isinstance(widget, QDockWidget):
+            return widget
+        widget = widget.parentWidget()
+    return None
+
+
+def collapsed_names(docks):
+    """The object names of the collapsed docks, sorted — what the
+    layout saves."""
+    return sorted(dock.objectName() for dock in docks if is_collapsed(dock))
+
+
+def apply_collapsed(docks, names):
+    """Fold the named docks after a layout restore; unnamed ones are
+    expanded, so a stale fold does not outlive its saved state."""
+    wanted = set(names)
+    for dock in docks:
+        if dock.objectName() in wanted:
+            collapse(dock)
+        else:
+            expand(dock)

@@ -297,7 +297,13 @@ entries from a dock-layout module.
   spell above them, from the `spells` stream the engine emits on any
   change of the parser's `active_spells` / `prepared_spell` and the
   session replays on attach — it took over the "Spells" dock name from
-  the raw text view, which the GUI no longer shows (#175); the clocks dock ticks
+  the raw text view, which the GUI no longer shows (#175); every
+  dock folds to its title bar and back (`client/gui/dock_collapse.py`:
+  our own title bar with fold, float and close buttons, a double-click
+  on the title, or View → Collapse/Expand Dock, Ctrl+Shift+D, on the
+  focused dock; the content hides and the dock's height pins to the
+  bar, keeping its place; the folded names are saved beside the
+  layout keys and applied after each restore, #180); the clocks dock ticks
   Elanthian time, moons, Stockholm/Chicago, and (via a Settings toggle)
   Earth's moon; roundtime/casttime count down beside the input line
   under a row of vitals bars (health/fatigue/spirit/concentration,
