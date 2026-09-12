@@ -23,8 +23,10 @@ uv run python tools/docker_tests.py  # CI's Linux battery (--all: 3.10-3.12);
 uv run python tools/roster_sweep.py  # ;sheet every cached character (--list)
 ```
 
-CI runs ruff and pytest on 3.10–3.12 on ubuntu plus 3.12 on macOS. Run the
-checks above before every push.
+CI runs ruff and pytest on 3.10–3.12 on ubuntu plus 3.12 on macOS. Run
+every check above — ruff check, ruff format --check, and all four
+suites — before every push, never only the suite a change touched; a
+green remote run is expected, not hoped for.
 
 ## Architecture
 
