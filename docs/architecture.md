@@ -325,6 +325,10 @@ entries from a dock-layout module.
   `--attach` connects to a session. User highlight patterns
   (`client/ui/highlights.py`, ~/.revenant/highlights.json) color matched
   spans over any base style; View → Reload Highlights re-reads them.
+  Three named defaults ship in code (`DEFAULT_RULES`: the balance
+  line, the roundtime line, the spell-ready lines, soft colours) under
+  the file's own rules; a file entry `{"disable": "<name>"}` turns one
+  off and a file rule with that name replaces it (2026-09-13).
 - `client/client/engine/launch.py` — the `revenant` console script: attaches
   the GUI to the right session, spawning one when needed. Characters
   run side by side, one session/window each on its own port: sessions

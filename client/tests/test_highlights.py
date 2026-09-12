@@ -38,17 +38,62 @@ def test_bad_entries_are_skipped_not_fatal(monkeypatch, tmp_path):
         )
     )
     monkeypatch.setenv("REVENANT_HIGHLIGHTS", str(path))
-    rules = load_rules()
+    rules = load_rules(defaults=())
     assert len(rules) == 1
     assert rules[0]["regex"].pattern == "good"
     assert rules[0]["bold"] is True
 
 
-def test_unreadable_file_means_no_rules(monkeypatch, tmp_path):
+def test_unreadable_file_means_no_rules_of_its_own(monkeypatch, tmp_path):
     path = tmp_path / "highlights.json"
     path.write_text("{not json")
     monkeypatch.setenv("REVENANT_HIGHLIGHTS", str(path))
-    assert load_rules() == []
+    assert load_rules(defaults=()) == []
+    assert [rule["name"] for rule in load_rules()] == ["balance", "roundtime", "ready"]
+
+
+# --- the shipped defaults (2026-09-13) ---
+
+
+def test_the_defaults_soft_highlight_the_balance_roundtime_and_ready_lines(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("REVENANT_HIGHLIGHTS", str(tmp_path / "highlights.json"))
+    rules = load_rules()
+    by_name = {rule["name"]: rule for rule in rules if rule["name"]}
+    assert set(by_name) == {"balance", "roundtime", "ready"}
+    assert not any(rule["bold"] for rule in by_name.values())
+    line = "[You're solidly balanced and in strong position.]"
+    assert spans(line, rules) == [(0, len(line), by_name["balance"])]
+    assert spans("[Roundtime 6 sec.]", rules)[0][2] is by_name["roundtime"]
+    assert spans("Roundtime: 2 sec.", rules)[0][2] is by_name["roundtime"]
+    assert (
+        spans("You feel fully prepared to cast your spell.", rules)[0][2]
+        is (by_name["ready"])
+    )
+    assert (
+        spans("You feel fully attuned to the mana streams again.", rules)[0][2]
+        is (by_name["ready"])
+    )
+    assert spans("A ship's rat bites at you.", rules) == []
+
+
+def test_a_file_entry_disables_or_replaces_a_default_by_name(monkeypatch, tmp_path):
+    path = tmp_path / "highlights.json"
+    path.write_text(
+        json.dumps(
+            [
+                {"disable": "roundtime"},
+                {"name": "balance", "pattern": "balanced", "color": "#fff"},
+                {"pattern": "rat", "color": "#abc"},
+            ]
+        )
+    )
+    monkeypatch.setenv("REVENANT_HIGHLIGHTS", str(path))
+    rules = load_rules()
+    assert [rule["name"] for rule in rules] == ["balance", None, "ready"]
+    assert rules[0]["regex"].pattern == "balanced"  # the file's own balance rule
+    assert spans("[Roundtime 6 sec.]", rules) == []
 
 
 def test_spans_mark_only_the_matches():
