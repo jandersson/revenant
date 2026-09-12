@@ -35,6 +35,10 @@ TAIL_SECONDS = 1.5  # ... and the tail past its roundtime
 # A teller's refusals — the account line captured 2026-09-11 ("you do not
 # seem to have an account with us"); the rest are assumptions until
 # captured. Success is not classified: INFO afterwards is the judge.
+# Captured 2026-09-12: a withdrawal is "The clerk counts out 1 gold
+# Kronars and hands them over, making a notation in her ledger.", PAY
+# ALL "The clerk nods and takes your money, noting that your debt is
+# now settled.", and INFO then reads "Debt: / No debt."
 WITHDRAW_REFUSALS = (
     "do not seem to have an account",
     "not have enough",

@@ -52,4 +52,7 @@ def test_info_splits_into_carried_and_owed_per_currency():
         "carried": {"Kronars": 20300, "Lirums": 11},
         "debt": {"Kronars": 90},
     }
-    assert money.parse_wealth("Wealth:\n  No Kronars.\n") == {"carried": {}, "debt": {}}
+    assert money.parse_wealth("Wealth:\n  No Kronars.\nDebt:\n  No debt.\n") == {
+        "carried": {},
+        "debt": {},
+    }

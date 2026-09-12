@@ -60,8 +60,26 @@ Crossing's Town Hall and Leth Deriel) with `PAY ALL` or `PAY
 SimuCoins service. `;debt` shows what you carry and owe; `;debt pay`
 walks to the nearest teller for the shortfall (`WITHDRAW <#>
 <denomination>`, one coin type per command), then to the office,
-pays, and trusts only INFO's answer. The PAY and WITHDRAW wordings
-are not captured yet; the first run is where they get pinned.
+pays, and trusts only INFO's answer. Captured the same day, the
+first attended `;debt pay` (1510 copper owed, nothing carried, an
+account in Crossing):
+
+```
+> withdraw 1 gold
+The clerk counts out 1 gold Kronars and hands them over, making a notation in her ledger.
+> withdraw 5 silver
+The clerk counts out 5 silver Kronars and hands them over, making a notation in her ledger.
+> withdraw 1 bronze
+The clerk counts out 1 bronze Kronars and hands them over, making a notation in her ledger.
+> pay all
+The clerk nods and takes your money, noting that your debt is now settled.
+> info
+Debt:
+  No debt.
+```
+
+Neither command costs roundtime, and a withdrawal of one
+denomination at a time is accepted without comment.
 
 ## The ask
 

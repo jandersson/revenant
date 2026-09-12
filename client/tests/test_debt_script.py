@@ -54,11 +54,13 @@ def info(carried=0, owed=1510):
         else "  No Kronars."
     )
     lines += ["  No Lirums.", "  No Dokoras."]
+    lines.append("Debt:")
     if owed:
-        lines += [
-            "Debt:",
-            f"  You owe some Kronars to the Principality of Zoluren. ({owed} copper Kronars)",
-        ]
+        lines.append(
+            f"  You owe some Kronars to the Principality of Zoluren. ({owed} copper Kronars)"
+        )
+    else:
+        lines.append("  No debt.")  # captured 2026-09-12, once it was paid
     return "\n".join(lines) + "\n"
 
 
@@ -67,7 +69,9 @@ NO_ACCOUNT = (
     "have an account with us.  If you would like to open one, you need only "
     'deposit a few Kronars."\n'
 )
-PAID = "You pay off your debt.\n"
+# Captured 2026-09-12 at the Crossing teller and the Town Hall Debtors' Office.
+COUNTED = "The clerk counts out {} Kronars and hands them over, making a notation in her ledger.\n"
+PAID = "The clerk nods and takes your money, noting that your debt is now settled.\n"
 
 
 class Fake:
@@ -130,7 +134,11 @@ def test_paying_fetches_the_shortfall_then_pays_at_the_office_and_walks_back():
     fake = Fake(
         {
             "info": [info(carried=300), info(carried=1510), info(carried=0, owed=0)],
-            "withdraw": ["The clerk counts out your coins.\n"] * 3,
+            "withdraw": [
+                COUNTED.format("1 gold"),
+                COUNTED.format("2 silver"),
+                COUNTED.format("1 bronze"),
+            ],
             "pay": [PAID],
         }
     )
@@ -141,6 +149,10 @@ def test_paying_fetches_the_shortfall_then_pays_at_the_office_and_walks_back():
     assert fake.sent[-2:] == ["pay all", "info"] or "pay all" in fake.sent
     assert "debt: paid 1 gold, 5 silver and 1 bronze Kronars" in echoes(fake)
     assert "you owe nothing" in echoes(fake)
+    assert "debt: The clerk counts out 1 gold Kronars and hands them over" in echoes(
+        fake
+    )
+    assert "debt: The clerk nods and takes your money" in echoes(fake)
 
 
 def test_enough_in_hand_skips_the_bank():
