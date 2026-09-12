@@ -93,3 +93,8 @@ lessons the code and docs cannot carry themselves.
   copy for good, and a script that later imports a new name from it
   fails to load ("cannot import name ...") until the session is
   restarted. Say so when landing a new game/ module (2026-09-12, tdp).
+- Every command Claude sends into a session goes through revenant-send
+  with `--origin claude`, so the window shows `>> [claude] ...`. The
+  flag is the only thing that sets the tag; without it a line reads
+  `[external]`, and the operator cannot tell who sent it (2026-09-12:
+  a day of sends went out untagged).
