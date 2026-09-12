@@ -349,19 +349,31 @@ def held_skin(s, profile):
     return None
 
 
+# TAP says where a thing is without moving it (captured 2026-09-12:
+# "You tap a lumpy bundle that you are wearing." and, for nothing by
+# that name, "I could not find what you were referring to."). Any other
+# answer — in a hand, in a container — means fetch it and wear it.
+TAP_OUTCOMES = (
+    ("worn", ("that you are wearing",)),
+    ("none", ("could not find", "what were you referring")),
+)
+
+
 def wear_bundle(s, profile, tally):
-    """Before the weapon is drawn: a bundle the character already keeps
-    in the loot container goes on, so the run's skins land in it. None
-    there leaves tally.bundle None and the first skin starts one."""
+    """Before the weapon is drawn: a bundle the character already has
+    goes on, so the run's skins land in it — TAP finds it worn from
+    the last run, in hand, or in the loot container (a GET from the
+    container missed a worn one, 2026-09-12). None anywhere leaves
+    tally.bundle None and the first skin starts one."""
     if not profile["bundle"]:
         return
-    container = profile["loot_container"]
-    answer = ask(
-        s, f"get my bundle from my {container}" if container else "get my bundle"
-    )
-    if any(word in answer.lower() for word in _MISSING):
+    where = classify(ask(s, "tap my bundle"), TAP_OUTCOMES)
+    if where == "none":
         return
-    ask(s, "wear my bundle")
+    if where != "worn":
+        container = profile["loot_container"]
+        ask(s, f"get my bundle from my {container}" if container else "get my bundle")
+        ask(s, "wear my bundle")
     tally.bundle = True
     s.echo("hunt: bundle worn — skins go straight into it")
 

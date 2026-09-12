@@ -458,6 +458,7 @@ def test_a_gone_corpse_is_not_reported_as_unrecognized(travel):
 BUNDLED = "You bundle up your rat pelt with your bundling rope."
 GOT_BUNDLE = "You get a lumpy bundle from inside your canvas sack."
 MISSING = "What were you referring to?"
+NOT_FOUND = "I could not find what you were referring to."  # TAP, captured 2026-09-12
 BUNDLING = PROFILE | {"bundle": True, "home": ""}
 
 
@@ -478,6 +479,7 @@ def test_a_bundle_kept_in_the_sack_is_worn_before_the_weapon_is_drawn(travel):
     arena = Arena(
         {
             "attack": [(KILL, kill)],
+            "tap": ["You tap a lumpy bundle inside your canvas sack."],
             "get my bundle": [GOT_BUNDLE],
             "skin": [
                 PELT_LOOSE
@@ -487,7 +489,8 @@ def test_a_bundle_kept_in_the_sack_is_worn_before_the_weapon_is_drawn(travel):
     )
     _hands(arena)
     _run(arena, profile=BUNDLING, travel_first=False)
-    assert arena.sent[:3] == [
+    assert arena.sent[:4] == [
+        "tap my bundle",
         "get my bundle from my sack",
         "wear my bundle",
         "get my handaxe from my sack",
@@ -501,7 +504,7 @@ def test_the_first_skin_starts_the_bundle_and_wears_it(travel):
     arena = Arena(
         {
             "attack": [(KILL, kill)],
-            "get my bundle": [MISSING],
+            "tap": [NOT_FOUND],
             "skin": [(PELT_LOOSE, skin_in_hand)],
             "get my rope": ["You get a bundling rope from inside your canvas sack."],
             "bundle": [(BUNDLED, hand_empty)],
@@ -527,7 +530,7 @@ def test_without_a_rope_the_skin_is_stowed_and_the_run_says_so_once(travel):
     arena = Arena(
         {
             "attack": [(KILL, lambda arena: None), (KILL, kill)],
-            "get my bundle": [MISSING],
+            "tap": [NOT_FOUND],
             "skin": [(PELT_LOOSE, skin_in_hand), (PELT_LOOSE, skin_in_hand)],
             "get my rope": [MISSING],
             "search": [NOTHING, NOTHING],
@@ -782,3 +785,24 @@ def test_no_training_cast_at_lock_or_under_the_mana_floor(travel):
         _run(arena, profile=TRAINING | {"max_kills": 2}, travel_first=False)
         # The buff itself is still cast once (no Spells window: the timer holds it).
         assert prepares(arena) == ["prepare heroic strength"]
+
+
+def test_a_bundle_worn_from_the_last_run_is_left_where_it_is(travel):
+    # Captured 2026-09-12: the second bundled run began with a GET from
+    # the sack that missed the bundle still on his shoulder; TAP says
+    # "that you are wearing", and nothing needs fetching.
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "tap": ["You tap a lumpy bundle that you are wearing."],
+            "skin": [PELT_LOOSE],
+            "search": [NOTHING],
+        }
+    )
+    _hands(arena)
+    _run(arena, profile=BUNDLING, travel_first=False)
+    assert arena.sent[:2] == ["tap my bundle", "get my handaxe from my sack"]
+    assert "wear my bundle" not in arena.sent
+    after_skin = arena.sent[arena.sent.index("skin rat") + 1 :]
+    assert after_skin[0] == "search rat"
+    assert "hunt: bundle worn — skins go straight into it" in arena.echoed

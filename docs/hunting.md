@@ -188,9 +188,13 @@ The tanner Falken ponders over the bundle for a while, then hands you 33 Kronars
 The auto-bundled skin shows in the hand tags for a moment and is gone
 by the time the answer window closes, so the empty hand is what the
 script reads. Two pelts fetched 33 Kronars where seven skins had
-fetched 111. Not yet observed: whether GET reaches a bundle worn from
-a previous run (today's runs ended with the bundle sold), and what
-`;skins` should do with loose skins still in the sack — it sells the
+fetched 111. A later run began with the bundle still worn from the
+run before, and `GET my bundle FROM my sack` missed it ("What were
+you referring to?"); the operator's suggestion, TAP, answers "You tap
+a lumpy bundle that you are wearing." without moving anything, and "I
+could not find what you were referring to." for none, so the hunt
+asks TAP first and fetches only what is not already worn. Still open:
+what `;skins` should do with loose skins in the sack — it sells the
 bundle alone.
 
 ## Buffs under the hunt
