@@ -93,3 +93,15 @@ not yet encoded anywhere.
   break off under a health floor.
 - A proper hunting script would add stance, facing, loot/skinning,
   and multi-opponent policy — none of that exists yet.
+
+## Where the lines arrive
+
+Every swing, hit and kill line — yours and the creature's — comes
+inside `<pushStream id="combat"/>` ... `<popStream/>`, in every hunt
+log since 2026-08-22. The engine routes that block as the `combat`
+stream, the main window shows it like story text, and a script
+handle's default `get()` delivers the story alone, so an answer
+collector that reads only the story never sees a kill.
+`probe.collect` reads both (`STORY_STREAMS`, 2026-09-12); a script
+reading the story by hand for combat text must ask for the `combat`
+stream too.

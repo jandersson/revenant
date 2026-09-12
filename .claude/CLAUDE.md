@@ -69,7 +69,10 @@ for `client/client/<pkg>/x.py`.
   kill for a script that drives other scripts (`;train`). `;help`
   renders docstrings.
 - `client/game/probe.py` — ask-and-classify shared by keyword scripts;
-  `collect` glues per-segment pieces into whole lines.
+  `collect` glues per-segment pieces into whole lines and reads the
+  story and the `combat` stream both (every swing and kill line
+  arrives in `<pushStream id="combat"/>`; a story-only read sees no
+  kill, 2026-09-12).
 - `client/engine/procspawn.py` + `client/engine/frozen.py` — every sibling spawn
   (session, dashboard, reexec child) goes through `command_for`, which
   is `python -m module` from source and `<exe> --role module` in the
@@ -100,9 +103,11 @@ for `client/client/<pkg>/x.py`.
   NPC healer are captured there. Model: docs/healing.md.
 - `client/game/profile.py` — per-character profiles
   (`~/.revenant/profiles/<name>.json`): the quirks `;hunt` must not
-  hard-code (weapon, stance, skin, pouch, floor, ground, home). FIELDS
-  is the schema; the GUI's Character Profile dialog builds itself from
-  it. Model and assumptions: docs/hunting.md.
+  hard-code (weapon, stance, skin, pouch, bundle, buffs, the magic
+  skill to train by recasting, floors, ground, home). FIELDS is the
+  schema; the GUI's Character Profile dialog builds itself from it.
+  `scripts/skins.py` sells the worn bundle at the nearest tannery.
+  Model and assumptions: docs/hunting.md.
 - `client/game/training.py` — per-character training plans
   (`~/.revenant/training/<name>.json`, hand-edited, `;train init`
   writes a starter): tasks tying skills to the script or command loop

@@ -254,6 +254,7 @@ not known, a collapsed pattern) are assumptions until captured.
 
 ## Out of scope in the first cut
 
-Magic and ranged attacks, a policy for several opponents at once,
-selling skins and gems, and buying arrows or ammunition. Each is a
+Offensive magic and ranged attacks, a policy for several opponents at
+once, selling gems, and buying arrows or ammunition. Each is a
 profile setting and a branch away, once captures show the wordings.
+Buffs and skin bundles were the first two to land (2026-09-12).

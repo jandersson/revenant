@@ -222,3 +222,16 @@ exp window as mindstates, and a one-line `summary()` that `;status`
 prints. It is Lich's `stunned?` / `hidden?` / `checkprone` idiom over
 this parser's state; every value is derived on access, so a view taken
 once stays current.
+
+## Spell tags (captured 2026-09-12)
+
+`<spell>Heroic Strength</spell>` names the prepared spell and
+`<spell>None</spell>` follows the cast; the parser keeps it as
+`prepared_spell`. The Spells window is rewritten on every pulse:
+`<clearStream id="percWindow"/>` on its own line, then
+`<pushStream id="percWindow"/>Heroic Strength  (10 roisaen)` — one
+line per running spell, the time left in parentheses, a roisan being
+a real minute — and `<popStream/>` on the next line, often followed by
+`<castTime .../>`. A clear with no push after it means nothing is
+running. The parser keeps the window as `active_spells`
+({name: minutes left, or None for a count it cannot read}).

@@ -35,7 +35,9 @@ entries from a dock-layout module.
   (indicators, compass, prompt, vitals, hostile creatures from
   `<crtrStatus>`, what each hand holds from `<left>`/`<right>` — a
   pair at login, then one tag per hand as it changes, carried across
-  `;reexec` like the name, #159) — docs/protocol.md is the wire-protocol reference it
+  `;reexec` like the name, #159; the prepared spell from `<spell>` and
+  the running spells with minutes left from the Spells window's
+  `percWindow` pulses, 2026-09-12) — docs/protocol.md is the wire-protocol reference it
   implements against (tag grammar cited to the GemStone wiki's Wrayth
   protocol page, DR's own stream/component/indicator ids derived from
   captured traffic) — plus `route(line)` which splits each line
@@ -143,8 +145,21 @@ entries from a dock-layout module.
   newest figure per item, since INFO, a teller and the report land at
   different moments.
   `client/client/game/probe.py` is the ask-and-classify helper the keyword
-  scripts (;mechlore, ;favors) share: send a command, gather the answer
-  through its roundtime, match it against an ordered outcome table.
+  scripts (;mechlore, ;favors, ;hunt) share: send a command, gather the
+  answer through its roundtime, match it against an ordered outcome
+  table. It reads the story and the `combat` stream both
+  (`STORY_STREAMS`): the game pushes every swing and kill line through
+  `<pushStream id="combat"/>`, which the main window shows but a
+  handle's default `get()` does not deliver — two hunts ended "ground
+  empty" among live rats before that was seen (2026-09-12).
+  `scripts/hunt.py` is the hunting loop over the per-character profile
+  (`client/game/profile.py`, docs/hunting.md): weapon and stance,
+  attack until the room empties, skin each kill onto a worn bundle
+  (a bundling rope from any tannery) or into the loot container,
+  search it, keep the profile's buffs cast and recast the first to
+  train a magic skill, move along the ground, break off on the health
+  or wound floor. `scripts/skins.py` sells the worn bundle at the
+  nearest tannery and keeps the rope.
   Sessions autostart the xp history logger, the beholder dashboard
   server in quiet mode, the character-sheet snapshotter (`;sheet`:
   INFO + EXP ALL into stats/sheet_skills/character tables every 3h;

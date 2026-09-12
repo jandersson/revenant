@@ -34,7 +34,7 @@ in docs/hunting.md); a skin or search answer the script cannot place is
 echoed as "hunt: unrecognized ..." — report those and they become
 fixtures. The skinning and gem-pouch commands follow Elanthipedia's
 Skinning and Gem pouch pages; the fight follows docs/combat.md. First
-cut: melee, one opponent at a time, no magic or ranged (#149).
+cut: melee, one opponent at a time, no offensive magic or ranged (#149).
 """
 
 import re
