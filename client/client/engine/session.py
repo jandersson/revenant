@@ -902,6 +902,10 @@ def autostart_scripts(server):
         "autostart_deathwatch", True
     ):
         server.scripts.start("deathwatch", [])
+    if not os.environ.get("REVENANT_NO_WEALTH") and settings.get(
+        "autostart_wealth", True
+    ):
+        server.scripts.start("wealth", [])
     # User-chosen extras: script names with optional args ("lnet",
     # "athletics ladder"). Unknown names answer with the usual
     # no-script-named message rather than failing the startup.

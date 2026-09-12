@@ -16,6 +16,7 @@ DEFAULTS = {
     "autostart_beholder": True,  # keep the dashboard server up, quietly
     "autostart_sheet": True,  # snapshot the character sheet periodically
     "autostart_deathwatch": True,  # depart safely on unattended death (#90)
+    "autostart_wealth": True,  # BANK ACCOUNT after login and every 3 hours (;wealth)
     "autostart_extra": [],  # more scripts to start, e.g. ["lnet", "athletics"]
     "quit_on_close": True,  # closing the window sends quit to the game
     # The session answers the game's "YOU HAVE BEEN IDLE TOO LONG"

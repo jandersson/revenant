@@ -1,4 +1,7 @@
-"""How ;wealth reads a teller's balance — these tests are the manual.
+"""How ;wealth tracks money — these tests are the manual: BANK
+ACCOUNT asked after login and every interval (or on `now`), every
+branch a row, a summary per currency, a silent answer reported;
+teller balances overheard.
 
 The balance grammar follows lich's common-money: amounts as
 denomination lists, currencies pluralized, everything converted to
@@ -7,6 +10,8 @@ copper (platinum 10000 / gold 1000 / silver 100 / bronze 10 / copper 1).
 
 import importlib.util
 import pathlib
+import sqlite3
+from types import SimpleNamespace
 
 REPO = pathlib.Path(__file__).parents[2]
 
@@ -126,3 +131,151 @@ def test_branch_rows_share_a_stamp_and_an_old_table_gains_the_bank_column(
         (stamp, "bank", "Surlaenis", "Lirums", 350_464),
     ]
     connection.close()
+
+
+# -- the tracker: asks, logs, summarizes ------------------------------------
+
+REPORT_LINES = [
+    "You flag down a local you know works with the Estate Holders' Council and "
+    "send him to fetch info on your bank accounts.",
+    "He returns and hands you a slip of paper with figures on it...",
+    *REPORT,
+]
+
+
+class Fake:
+    """A handle with a fake clock: BANK ACCOUNT answers with the report
+    (or nothing), typed requests arrive through command()."""
+
+    def __init__(self, answers=None, requests=()):
+        self.answers = list(answers if answers is not None else [REPORT_LINES])
+        self.requests = list(requests)
+        self.now = 1000.0
+        self.sent = []
+        self.echoed = []
+        self.pending = []
+        self.args = []
+        self.state = SimpleNamespace(name="Lanival")
+
+    def put(self, command):
+        self.sent.append(command)
+        if command == "bank account" and self.answers:
+            self.pending = list(self.answers.pop(0))
+
+    def get(self, timeout=None, streams=("",)):
+        if self.pending:
+            return self.pending.pop(0)
+        self.now += timeout or 1  # silence passes time
+        return None
+
+    def command(self, timeout=None):
+        return self.requests.pop(0) if self.requests else None
+
+    def echo(self, text):
+        self.echoed.append(text)
+
+
+def run_tracker(fake, args=(), stop_after_sends=1, monkeypatch=None, tmp_path=None):
+    """Run main() until the fake has sent `stop_after_sends` BANK ACCOUNTs
+    and the report settled, by making the interval end the loop."""
+    fake.args = list(args)
+    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setattr(wealth, "clock", lambda: fake.now)
+    monkeypatch.setattr(wealth, "START_DELAY", 0)
+    monkeypatch.setattr(wealth, "REPORT_SETTLE", 2)
+    monkeypatch.setattr(wealth, "REPORT_WAIT", 5)
+
+    class Stop(Exception):
+        pass
+
+    real_get = fake.get
+
+    def get(timeout=None, streams=("",)):
+        if fake.now > 1000 + 60 * stop_after_sends:
+            raise Stop
+        return real_get(timeout, streams)
+
+    fake.get = get
+    try:
+        wealth.main(fake)
+    except Stop:
+        pass
+
+
+def test_the_tracker_asks_on_start_logs_every_branch_and_summarizes(
+    tmp_path, monkeypatch
+):
+    fake = Fake()
+    run_tracker(fake, monkeypatch=monkeypatch, tmp_path=tmp_path)
+    assert fake.sent == ["bank account"]
+    connection = sqlite3.connect(wealth.database_path())
+    rows = connection.execute(
+        "SELECT bank, currency, copper FROM wealth WHERE kind = 'bank' ORDER BY seq"
+    ).fetchall()
+    assert rows == [
+        ("Crossing", "Kronars", 337_317),
+        ("Dirge", "Kronars", 5_082),
+        ("Shard", "Dokoras", 1_494),
+        ("Surlaenis", "Lirums", 350_464),
+    ]
+    text = "\n".join(fake.echoed)
+    assert (
+        "Kronars: on deposit 34 platinum, 2 gold, 3 silver, 9 bronze and 9 copper"
+        in text
+    )
+    assert "(Crossing 33 platinum" in text and "Dirge 5 gold" in text
+    assert "Dokoras: on deposit 1 gold, 4 silver, 9 bronze and 4 copper" in text
+
+
+def test_the_summary_nets_the_sheet_s_carried_and_debt(tmp_path, monkeypatch):
+    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    connection = sqlite3.connect(wealth.database_path())
+    wealth.ensure_schema(connection)
+    for stamp, kind, copper in (
+        ("2026-09-12T10:00:00+00:00", "carried", 5),
+        ("2026-09-12T12:00:00+00:00", "carried", 300),
+        ("2026-09-12T12:00:00+00:00", "debt", 1510),
+    ):
+        connection.execute(
+            "INSERT INTO wealth (logged_at, character_name, kind, currency, copper)"
+            " VALUES (?, 'Lanival', ?, 'Kronars', ?)",
+            (stamp, kind, copper),
+        )
+    connection.commit()
+    held = wealth.latest_carried_and_debt(connection, "Lanival")
+    assert held == {("carried", "Kronars"): 300, ("debt", "Kronars"): 1510}
+    lines = wealth.summary({("Crossing", "Kronars"): 18_939}, held)
+    assert lines == [
+        "Kronars: on deposit 1 platinum, 8 gold, 9 silver, 3 bronze and 9 copper, "
+        "carrying 3 silver, owing 1 gold, 5 silver and 1 bronze — net "
+        "1 platinum, 7 gold, 7 silver, 2 bronze and 9 copper"
+    ]
+
+
+def test_now_from_cold_asks_once_and_exits(tmp_path, monkeypatch):
+    fake = Fake()
+    fake.args = ["now"]
+    monkeypatch.setenv("REVENANT_XP_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setattr(wealth, "clock", lambda: fake.now)
+    monkeypatch.setattr(wealth, "REPORT_SETTLE", 2)
+    wealth.main(fake)  # returns on its own once the report settled
+    assert fake.sent == ["bank account"]
+    assert any("on deposit" in line for line in fake.echoed)
+
+
+def test_a_typed_now_asks_again_and_the_interval_asks_by_itself(tmp_path, monkeypatch):
+    fake = Fake(
+        answers=[REPORT_LINES, REPORT_LINES, REPORT_LINES],
+        requests=[None, None, None, "now"],
+    )
+    monkeypatch.setattr(wealth, "INTERVAL", 30)
+    run_tracker(fake, stop_after_sends=2, monkeypatch=monkeypatch, tmp_path=tmp_path)
+    assert fake.sent.count("bank account") >= 3  # start, the typed now, the interval
+
+
+def test_a_silent_answer_is_reported_not_retried(tmp_path, monkeypatch):
+    fake = Fake(answers=[[]])
+    run_tracker(fake, monkeypatch=monkeypatch, tmp_path=tmp_path)
+    assert fake.sent == ["bank account"]
+    assert any("gave no report" in line for line in fake.echoed)
+    assert not any("on deposit" in line for line in fake.echoed)

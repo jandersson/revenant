@@ -591,6 +591,7 @@ def _autostart_with(monkeypatch, settings=None, **env):
     monkeypatch.delenv("REVENANT_NO_BEHOLDER", raising=False)
     monkeypatch.delenv("REVENANT_NO_SHEET", raising=False)
     monkeypatch.delenv("REVENANT_NO_DEATHWATCH", raising=False)
+    monkeypatch.delenv("REVENANT_NO_WEALTH", raising=False)
     import json
     import tempfile
     from pathlib import Path
@@ -616,6 +617,7 @@ def test_sessions_autostart_xp_and_the_quiet_dashboard(monkeypatch):
         ("beholder", ["quiet"]),
         ("sheet", []),
         ("deathwatch", []),
+        ("wealth", []),
     ]
 
 
@@ -625,25 +627,32 @@ def test_env_flags_disable_each_autostart(monkeypatch):
         REVENANT_NO_XP="1",
         REVENANT_NO_SHEET="1",
         REVENANT_NO_DEATHWATCH="1",
-    ) == [("beholder", ["quiet"])]
+    ) == [("beholder", ["quiet"]), ("wealth", [])]
     assert _autostart_with(
         monkeypatch,
         REVENANT_NO_BEHOLDER="1",
         REVENANT_NO_SHEET="1",
         REVENANT_NO_DEATHWATCH="1",
-    ) == [("xp", [])]
+    ) == [("xp", []), ("wealth", [])]
     assert _autostart_with(
         monkeypatch,
         REVENANT_NO_XP="1",
         REVENANT_NO_BEHOLDER="1",
         REVENANT_NO_DEATHWATCH="1",
-    ) == [("sheet", [])]
+    ) == [("sheet", []), ("wealth", [])]
     assert _autostart_with(
         monkeypatch,
         REVENANT_NO_XP="1",
         REVENANT_NO_BEHOLDER="1",
         REVENANT_NO_SHEET="1",
-    ) == [("deathwatch", [])]
+    ) == [("deathwatch", []), ("wealth", [])]
+    assert _autostart_with(
+        monkeypatch,
+        REVENANT_NO_XP="1",
+        REVENANT_NO_BEHOLDER="1",
+        REVENANT_NO_SHEET="1",
+        REVENANT_NO_DEATHWATCH="1",
+    ) == [("wealth", [])]
     assert (
         _autostart_with(
             monkeypatch,
@@ -651,6 +660,7 @@ def test_env_flags_disable_each_autostart(monkeypatch):
             REVENANT_NO_BEHOLDER="1",
             REVENANT_NO_SHEET="1",
             REVENANT_NO_DEATHWATCH="1",
+            REVENANT_NO_WEALTH="1",
         )
         == []
     )
@@ -855,7 +865,11 @@ def test_eof_after_quit_reads_as_a_clean_logoff():
 
 
 def test_settings_file_disables_autostarts_durably(monkeypatch):
-    off = {"autostart_sheet": False, "autostart_deathwatch": False}
+    off = {
+        "autostart_sheet": False,
+        "autostart_deathwatch": False,
+        "autostart_wealth": False,
+    }
     assert _autostart_with(monkeypatch, settings={"autostart_xp": False, **off}) == [
         ("beholder", ["quiet"])
     ]
@@ -869,7 +883,7 @@ def test_settings_file_disables_autostarts_durably(monkeypatch):
             "autostart_beholder": False,
             "autostart_sheet": False,
         },
-    ) == [("deathwatch", [])]
+    ) == [("deathwatch", []), ("wealth", [])]
     # Env vars still beat the file for a single launch.
     assert (
         _autostart_with(
@@ -879,6 +893,7 @@ def test_settings_file_disables_autostarts_durably(monkeypatch):
             REVENANT_NO_BEHOLDER="1",
             REVENANT_NO_SHEET="1",
             REVENANT_NO_DEATHWATCH="1",
+            REVENANT_NO_WEALTH="1",
         )
         == []
     )

@@ -50,6 +50,10 @@ class SettingsDialog(QDialog):
             "Depart safely if you die unattended (;deathwatch)"
         )
         self.autostart_deathwatch.setChecked(bool(settings.get("autostart_deathwatch")))
+        self.autostart_wealth = QCheckBox(
+            "Track money: BANK ACCOUNT after login and every few hours (;wealth)"
+        )
+        self.autostart_wealth.setChecked(bool(settings.get("autostart_wealth")))
         self.quit_on_close = QCheckBox(
             "Quit the game when the window closes (File → Detach skips this)"
         )
@@ -129,6 +133,7 @@ class SettingsDialog(QDialog):
             self.autostart_beholder,
             self.autostart_sheet,
             self.autostart_deathwatch,
+            self.autostart_wealth,
             self.quit_on_close,
             self.answer_idle_warning,
             self.clocks_earth_moon,
@@ -156,6 +161,7 @@ class SettingsDialog(QDialog):
             "autostart_beholder": self.autostart_beholder.isChecked(),
             "autostart_sheet": self.autostart_sheet.isChecked(),
             "autostart_deathwatch": self.autostart_deathwatch.isChecked(),
+            "autostart_wealth": self.autostart_wealth.isChecked(),
             "autostart_extra": [
                 entry.strip()
                 for entry in self.autostart_extra.text().split(",")
