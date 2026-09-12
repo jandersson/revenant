@@ -34,6 +34,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from client.game.inventory import FOOTER as INV_END
+from client.game.money import parse_wealth  # noqa: F401 — the sheet's wealth parser
 from client.game.inventory import parse_inventory
 from client.game.probe import collect
 from client.game.history import database_path as history_database_path
@@ -184,24 +185,6 @@ def ensure_schema(connection):
         except sqlite3.OperationalError:
             pass  # already there
     connection.commit()
-
-
-# "11 copper Lirums (11 copper Lirums)." / "(90 copper Kronars)" — INFO
-# states every holding and debt with a copper total in parentheses.
-_COPPER = re.compile(r"\((\d+) copper (Kronars|Lirums|Dokoras)\)")
-_DEBT_SECTION = re.compile(r"^Debt:", re.MULTILINE)
-
-
-def parse_wealth(text):
-    """Carried coin and debt in copper per currency, from INFO:
-    {"carried": {currency: copper}, "debt": {currency: copper}}."""
-    debt_at = _DEBT_SECTION.search(text)
-    split = debt_at.start() if debt_at else len(text)
-    wealth = {"carried": {}, "debt": {}}
-    for section, chunk in (("carried", text[:split]), ("debt", text[split:])):
-        for amount, currency in _COPPER.findall(chunk):
-            wealth[section][currency] = wealth[section].get(currency, 0) + int(amount)
-    return wealth
 
 
 def parse_info(text):

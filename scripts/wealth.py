@@ -25,21 +25,11 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from client.game.history import database_path as history_database_path
-
-COPPER_PER = {
-    "platinum": 10_000,
-    "gold": 1_000,
-    "silver": 100,
-    "bronze": 10,
-    "copper": 1,
-}
+from client.game.money import to_copper
 
 _BALANCE = re.compile(
     r"(?:current balance is|As expected, there are) "
     r"(?P<amounts>.+?) (?P<currency>Kronars?|Lirums?|Dokoras?)\b"
-)
-_AMOUNT = re.compile(
-    r"(?P<count>[\d,]+)\s+(?P<denomination>platinum|gold|silver|bronze|copper)"
 )
 # A branch line of the BANK ACCOUNT report: name, the copper total,
 # a bar, the denominations, the currency last. The Totals block's
@@ -55,10 +45,7 @@ def parse_balance(line):
     match = _BALANCE.search(line)
     if not match:
         return None
-    total = 0
-    for amount in _AMOUNT.finditer(match.group("amounts")):
-        count = int(amount.group("count").replace(",", ""))
-        total += count * COPPER_PER[amount.group("denomination")]
+    total = to_copper(match.group("amounts"))
     currency = match.group("currency")
     if not currency.endswith("s"):
         currency += "s"

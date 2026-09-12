@@ -104,7 +104,10 @@ for `client/client/<pkg>/x.py`.
   Model: docs/training.md. `client/game/tdp.py` is the stat side:
   the game's TDP quotes parsed, the wiki's cost formula, ;tdp's
   goals; `scripts/tdp.py` walks to the tagged trainer and buys one
-  confirmed point at a time.
+  confirmed point at a time. `client/game/money.py` is coins both ways
+  (denomination lists, copper, INFO's carried and owed), shared by
+  `;sheet`, `;wealth` and `;debt` (`scripts/debt.py`: fetch the
+  shortfall from the teller, PAY ALL at the debt office).
 - `client/game/walker.py` + `client/game/mapdb.py` — travel on the community map
   (downloaded, never vendored). Twins: the map lists some rooms twice,
   one uid-less; `same_place` handles it. A climb turned back for

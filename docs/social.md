@@ -44,8 +44,24 @@ same shape, and `AVOID !ALL` / `AVOID ALL` set or clear them all;
 FLAG, SET and TOGGLE hold the rest of a character's switches.
 
 Once the flag was cleared the same GIVE went through and the coins
-landed. Debt is paid separately, in person at the province's debt
-office or by an urchin runner (`BANK DEBT`, a SimuCoins service).
+landed.
+
+## Debt
+
+The province lends when you cannot pay: a stat trainer's fee with
+no coins in hand (2 Kronars per TDP, [training.md](training.md)), a
+fine, a fee. INFO lists it under Debt with a copper total —
+captured 2026-09-12: "You owe 1 gold, 5 silver and 1 bronze Kronars
+to the Principality of Zoluren. (1510 copper Kronars)" — and it is
+the giver's debt that GIVE refuses on. It is paid in person at a
+debt collector's office (the map tags them `debt`; Zoluren's are in
+Crossing's Town Hall and Leth Deriel) with `PAY ALL` or `PAY
+<amount>`, or remotely through the urchin runners' `BANK DEBT`, a
+SimuCoins service. `;debt` shows what you carry and owe; `;debt pay`
+walks to the nearest teller for the shortfall (`WITHDRAW <#>
+<denomination>`, one coin type per command), then to the office,
+pays, and trusts only INFO's answer. The PAY and WITHDRAW wordings
+are not captured yet; the first run is where they get pinned.
 
 ## The ask
 
