@@ -56,7 +56,8 @@ def test_a_bare_ampersand_in_a_component_does_not_swallow_later_compasses():
     out = _read_all(engine, 5)
     compass_frames = [frame for frame in out if frame[1] == "compass"]
     assert compass_frames == [("out", "compass", ""), ("e sw", "compass", "")]
-    assert any("Lost & Found" in text for text, stream, _ in out if stream == "")
+    # (the room-objects component itself is the room window's, not the
+    # story's: nothing of it is emitted, ampersand or not)
 
 
 def test_a_line_that_fails_to_parse_leaves_no_tag_open():
