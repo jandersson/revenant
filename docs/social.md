@@ -81,6 +81,30 @@ Debt:
 Neither command costs roundtime, and a withdrawal of one
 denomination at a time is accepted without comment.
 
+## Vault rent on a Premium account
+
+Vault rent is 5 gold Kronars per 30 days at a Carousel Square desk
+([Vaults](https://elanthipedia.play.net/Vaults)), but on a Premium
+(Estate Holder) account the clerk takes nothing and still credits the
+month — captured twice, 2026-09-03 and 2026-09-12, on two characters
+of two accounts, both accounts Premium:
+
+```
+> pay rent
+The clerk shuffles some papers.  "I have a note here that I'm supposed to waive yer fee," he says.  "So I'll just update yer record and you hang on to yer coins."
+> vault time
+Reading the note you realize that you have 30 days left before the rent on your standard vault is due.
+```
+
+The waiver is nowhere on Elanthipedia; the nearest words are VAULT
+INFO's "As a Premium subscriber, you have free access to the
+STANDARD, PAY (rental fees) and TIME options!" ([Tuesday Tidings
+78](https://elanthipedia.play.net/Post:Tuesday_Tidings_-_78_-_Vault_Verb_-_08/17/2021_-_20:03)),
+which reads as the runner being free and, given the desk, as the
+rent being free too. It is an account perk, not a DR3 mechanic (DR3,
+2013, changed stats and TDPs — [training.md](training.md)). VAULT
+TIME and VAULT STANDARD are free remote reads on such an account.
+
 ## The ask
 
 Empaths heal for a sentence said aloud in their guild's courtyard,
