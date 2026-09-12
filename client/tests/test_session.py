@@ -834,6 +834,9 @@ class _FakeChild:
     def poll(self):
         return None
 
+    def kill(self):
+        self.killed = True
+
 
 def _windows_handoff(monkeypatch, listening=True):
     """Run the Windows ;reexec path with every side effect stubbed:
@@ -888,12 +891,20 @@ def test_windows_reexec_spawns_a_child_and_shares_the_socket_over_stdin(monkeypa
     assert any("Windows handoff" in text for text in broadcasts)
 
 
-def test_windows_reexec_ends_the_session_if_the_child_never_listens(monkeypatch):
+def test_windows_reexec_keeps_serving_if_the_child_never_listens(monkeypatch):
+    # The old behaviour exited; twice the child died silently and took
+    # the session and the game link with it (#162). Now the child is
+    # killed, the port re-bound, and the old code serves on.
     server, spawned, child, stopped, broadcasts, exits = _windows_handoff(
         monkeypatch, listening=False
     )
-    assert exits == [1]
+    assert exits == []
+    assert server.running and server.listener is not None
+    assert getattr(child, "killed", False)
     assert any("never started listening" in text for text in broadcasts)
+    assert any("still running the old code" in text for text in broadcasts)
+    assert "stderr" in spawned["kwargs"]  # the child's crash has somewhere to go
+    server.shutdown()
 
 
 def test_reexec_argv_carries_host_and_port_before_the_handoff_flag():
@@ -1397,3 +1408,110 @@ def test_send_line_survives_a_large_replay_from_the_session():
     thread.join(10)
     assert received == [b"look\n"]
     server.close()
+
+
+# --- a Windows handoff that fails keeps the session serving (#162) ---------
+
+
+class DeadChild:
+    """A spawned child that dies at once: stdin accepted, exit code 1."""
+
+    pid = 4242
+
+    def __init__(self):
+        self.stdin = io.BytesIO()
+        self.killed = False
+
+    def poll(self):
+        return 1
+
+    def kill(self):
+        self.killed = True
+
+
+def _handoff(server, spawn=None, share=None, wait_for=None):
+    exits = []
+    server._reexec_windows(
+        spawn=spawn or (lambda *a, **k: DeadChild()),
+        share=share or (lambda pid: b"share-bytes"),
+        wait_for=wait_for or (lambda child: False),
+        exit_process=exits.append,
+    )
+    return exits
+
+
+def _listens(port):
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=2):
+            return True
+    except OSError:
+        return False
+
+
+def test_a_child_that_never_listens_leaves_the_session_serving(tmp_path, monkeypatch):
+    # Twice (2026-09-11, 2026-09-12) the child died silently and the
+    # parent went with it, the game link reset under the window.
+    monkeypatch.setenv("REVENANT_LOG_DIR", str(tmp_path))
+    game = FakeGame()
+    server, port = _start_server(game)
+    client = socket.create_connection(("127.0.0.1", port), timeout=2)
+    assert _await(lambda: server.clients)
+    exits = _handoff(server)
+    assert exits == []  # no os._exit
+    assert server.running
+    assert _await(lambda: _listens(port)), "the port was not re-bound"
+    # The window that stayed attached heard why, and the old code serves on.
+    client.settimeout(2)
+    heard = b""
+    for _ in range(50):
+        try:
+            heard += client.recv(4096)
+        except OSError:
+            break
+        if b"still running the old code" in heard:
+            break
+    assert b"re-exec failed" in heard and b"still running the old code" in heard
+    assert any(path.name.startswith("reexec-") for path in tmp_path.iterdir())
+    client.close()
+    game.closed = True
+    assert _await(lambda: not server.running)
+
+
+def test_an_exception_in_the_handoff_keeps_the_session_serving(tmp_path, monkeypatch):
+    monkeypatch.setenv("REVENANT_LOG_DIR", str(tmp_path))
+    game = FakeGame()
+    server, port = _start_server(game)
+
+    def broken_share(pid):
+        raise RuntimeError("WSADuplicateSocket refused")
+
+    exits = _handoff(server, share=broken_share)
+    assert exits == []
+    assert _await(lambda: _listens(port))
+    assert server.running
+    game.closed = True
+    assert _await(lambda: not server.running)
+
+
+def test_a_successful_handoff_still_exits_and_keeps_the_childs_row(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("REVENANT_LOG_DIR", str(tmp_path))
+    game = FakeGame()
+    server, port = _start_server(game)
+    exits = _handoff(server, wait_for=lambda child: True)
+    assert exits == [0]
+    assert not server.running
+    assert server.bound_port is None  # the child's registry row stays
+
+
+def test_a_reset_from_the_session_reads_as_a_drop_not_a_crash():
+    from client.engine import reader
+
+    statuses = []
+
+    def read():
+        raise ConnectionResetError(10054, "forcibly closed")
+
+    reader.pump(read, statuses.append, log=session.ClientLogger().log)
+    assert statuses == ["Disconnected — File → Reconnect"]

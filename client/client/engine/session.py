@@ -17,6 +17,7 @@ no logout, no re-login. Front ends drop and reattach on their own.
 import argparse
 import base64
 import json
+import logging
 import os
 import pathlib
 import socket
@@ -26,7 +27,7 @@ from collections import deque
 from threading import Event, Lock, Thread
 from time import monotonic, sleep
 
-from client.client_logger import ClientLogger
+from client.client_logger import ClientLogger, log_dir
 from client.engine.core import (
     Engine,
     indicators_frame,
@@ -433,6 +434,7 @@ class SessionServer(ClientLogger):
         # never reach the new one (#129).
         self._handoff = Event()
         self._reader_parked = Event()
+        self._resumed = Event()  # a failed handoff re-bound the listener (#162)
         # The game warns "YOU HAVE BEEN IDLE TOO LONG" before it drops an
         # idle character; remembered so that EOF reads as what it was
         # (#152). The parser styles the line "alert" (#42).
@@ -466,23 +468,33 @@ class SessionServer(ClientLogger):
         self.log.info(f"Session listening on {self.host}:{self.bound_port}")
         Thread(target=self.game_reader, daemon=True).start()
         Thread(target=self._registry_heartbeat, daemon=True).start()
-        try:
-            while self.running:
+        while self.running:
+            try:
                 conn, addr = self.listener.accept()
-                self.log.info(f"Front end attached from {addr}")
-                if not self.attach(conn):
-                    continue
-                Thread(target=self.client_reader, args=(conn,), daemon=True).start()
-        except OSError:
-            pass  # listener closed during shutdown
+            except (OSError, AttributeError):
+                # The listener closed: shutdown, or a Windows handoff
+                # in progress. A handoff that fails re-binds it and
+                # sets _resumed (#162); a shutdown clears running.
+                if not (self.running and self._handoff.is_set()):
+                    break
+                if not self._resumed.wait(60):
+                    break
+                self._resumed.clear()
+                continue
+            self.log.info(f"Front end attached from {addr}")
+            if not self.attach(conn):
+                continue
+            Thread(target=self.client_reader, args=(conn,), daemon=True).start()
 
-    def _bind(self, patience=10.0):
+    def _bind(self, patience=10.0, port=None):
         """The listener, retried for a few seconds: after a ;reexec the
         old process is still letting go of the port (#129)."""
         deadline = monotonic() + patience
         while True:
             try:
-                return socket.create_server((self.host, self.port))
+                return socket.create_server(
+                    (self.host, self.port if port is None else port)
+                )
             except OSError:
                 if monotonic() >= deadline:
                     raise
@@ -775,25 +787,78 @@ class SessionServer(ClientLogger):
             close_socket(self.listener)
             self.listener = None
         self.log.info(f"Re-exec (Windows): {' '.join(argv)}")
-        child = spawn(argv, stdin=subprocess.PIPE, env=env, start_new_session=True)
-        share = share or (lambda pid: self.game.sock.share(pid))
-        child.stdin.write(base64.b64encode(share(child.pid)) + b"\n")
-        child.stdin.close()
-        listening = (wait_for or self._child_listening)(child)
-        if not listening:
-            self.log.error("Re-exec child never started listening; ending")
-            self.broadcast(
-                "session: the new process never started listening — this "
-                "session is ending; File → Reconnect starts a fresh one\n",
-                "script",
+        # The child's stderr goes to a file: pythonw has none, and a
+        # child that died before its logging started left nothing
+        # twice (#162). Nothing the handoff does may take this session
+        # down — a failure logs, re-binds the port and carries on.
+        err_path = log_dir() / f"reexec-{_stamp()}.err"
+        child = None
+        try:
+            with open(err_path, "wb") as err:
+                child = spawn(
+                    argv,
+                    stdin=subprocess.PIPE,
+                    stderr=err,
+                    env=env,
+                    start_new_session=True,
+                )
+            share = share or (lambda pid: self.game.sock.share(pid))
+            child.stdin.write(base64.b64encode(share(child.pid)) + b"\n")
+            child.stdin.close()
+            listening = (wait_for or self._child_listening)(child)
+        except Exception as error:  # noqa: BLE001 — see above
+            self.log.exception("Re-exec failed before the handoff completed")
+            self._resume_after_failed_reexec(
+                child, f"{type(error).__name__}: {error}", err_path
             )
-            self.shutdown()
-            exit_process(1)
+            return
+        if not listening:
+            code = child.poll()
+            self.log.error(
+                f"Re-exec child never started listening (exit code {code}); "
+                f"its stderr is in {err_path}"
+            )
+            self._resume_after_failed_reexec(
+                child,
+                f"the new process never started listening (exit code {code}; "
+                f"its stderr is in {err_path.name})",
+                err_path,
+            )
             return
         self.bound_port = None  # the child registered the port; keep its entry
         self.shutdown()
         self.log.info(f"Handed the game socket to pid {child.pid}; exiting")
+        logging.shutdown()  # flushed before _exit, which skips atexit
         exit_process(0)
+
+    def _resume_after_failed_reexec(self, child, reason, err_path):
+        """Back to serving with the old code (#162): the child killed if
+        it lives, the listener re-bound on the same port, the game
+        reader restarted, every window told why."""
+        if child is not None and child.poll() is None:
+            try:
+                child.kill()
+            except OSError:
+                pass
+        try:
+            self.listener = self._bind(port=getattr(self, "bound_port", None))
+        except OSError as error:
+            self.log.error(f"could not re-bind the session port: {error}")
+            self.broadcast(
+                "session: re-exec failed and the port could not be re-bound — "
+                "this session is ending; File → Reconnect starts a fresh one\n",
+                "script",
+            )
+            self.shutdown()
+            return
+        self._handoff.clear()
+        self._reader_parked.clear()
+        Thread(target=self.game_reader, daemon=True).start()
+        self._resumed.set()
+        self.broadcast(
+            f"session: re-exec failed — {reason}; still running the old code\n",
+            "script",
+        )
 
     def _child_listening(self, child, patience=15.0):
         """True once something answers on the session port, False when
@@ -901,7 +966,9 @@ class AttachedEngine(ClientLogger):
     def read(self, output_callback=None):
         try:
             data = self._connection.read_very_eager()
-        except EOFError:
+        except (EOFError, ConnectionResetError):
+            # A reset is a process going away hard (a failed ;reexec,
+            # #162); the story is the same as a close.
             if self._session_ended:
                 if output_callback:
                     output_callback("session ended\n", "script", "")
@@ -1024,6 +1091,12 @@ def main(argv=None):
     server.engine.xml_data.right_hand = carried_state.get("right_hand")
     autostart_scripts(server)
     server.serve()
+
+
+def _stamp():
+    from datetime import datetime
+
+    return datetime.now().strftime("%Y%m%d-%H%M%S")
 
 
 def adopt_shared_game(line, initial=b""):

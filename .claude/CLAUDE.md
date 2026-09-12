@@ -61,7 +61,9 @@ for `client/client/<pkg>/x.py`.
 - `client/engine/session.py` — the detachable daemon: JSON frames on
   127.0.0.1:4242, backlog replay for late attachers (transient streams
   excluded), the script engine, `;reexec` (exec on POSIX; on Windows a
-  spawned child adopts the game socket via socket.share over stdin, #129).
+  spawned child adopts the game socket via socket.share over stdin, #129;
+  the child's stderr goes to `logs/reexec-<stamp>.err`, and a handoff
+  that fails keeps the old process serving, #162).
 - `client/engine/scripting.py` — scripts are `main(s)` files in `scripts/`,
   loaded fresh from disk on every start; the pure-logic helpers in
   `RELOADABLE_MODULES` reload with them. Handle API: put/get/waitfor/

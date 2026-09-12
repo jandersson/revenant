@@ -92,9 +92,15 @@ entries from a dock-layout module.
   the game only announces indicators on change and the login <app>
   tag never repeats, so a fresh parser could otherwise never learn
   a standing fact like DEAD (#92) or who is playing (#95).
-  **`;reexec` is POSIX-only**: on Windows it refuses with a note and
-  changes nothing (WinSock handles aren't CRT fds and exec spawns
-  rather than replaces, #38; a socket.share() port is #129). Scripts
+  **`;reexec` on Windows is a handoff**: exec would spawn and a WinSock
+  handle is no CRT fd, so a spawned child adopts the game socket from
+  socket.share() bytes over stdin and the old process exits once the
+  child listens (#129). The child's stderr goes to
+  `logs/reexec-<stamp>.err` — pythonw has none of its own — and a
+  handoff that fails (a child that never listens, an exception in the
+  share) re-binds the port, restarts the reader and keeps serving the
+  old code, telling every window why; twice before that it took the
+  session down silently (#162). Scripts
   reload from disk on every start, and so do the client/ helper
   modules they lean on (`scripting.RELOADABLE_MODULES`: probe,
   walker, mapdb, inventory, circles, climbs, eltime, settings,

@@ -19,7 +19,9 @@ def pump(read, emit_status, log, delay=0.01):
     while True:
         try:
             read()
-        except EOFError:
+        except (EOFError, ConnectionResetError):
+            # A reset is the session going away hard (a failed ;reexec,
+            # #162): a drop, not a crash of ours.
             emit_status("Disconnected — File → Reconnect")
             return
         except Exception:

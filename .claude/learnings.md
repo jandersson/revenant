@@ -124,6 +124,11 @@ lessons the code and docs cannot carry themselves.
   every kill line. When a script misses a line the window shows, look
   at the raw log for the pushStream around it before touching the
   wording tables.
+- `;reexec` on Windows died twice with nothing to read (#162): the
+  child is `pythonw`, which has no stderr, and it died before its
+  logging started. Its stderr now lands in `~/.revenant/logs/reexec-
+  <stamp>.err`, and a failed handoff no longer takes the old session
+  down. Read that file before guessing at the cause.
 - Never DROP. A script drops only through `client/game/discard.py`'s
   `drop()`, whose allowlist is the foraged junk ;mechlore braids
   (grass, grass rope) plus settings.json's `droppable`; anything else
