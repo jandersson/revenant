@@ -51,12 +51,15 @@ MAP = street()
 
 
 class Fake:
-    """A handle whose Attunement mindstate follows a script of values,
-    one per POWER, with a fake clock and typed requests."""
+    """A handle whose Attunement mindstate follows a script of values —
+    one per POWER, or one per second while held at the lock — with a
+    fake clock (a POWER costs 9 s, a walk 2 s) and a typed "stop" that
+    arrives once the clock reaches `stop_at`."""
 
-    def __init__(self, mindstates, requests=(), hostiles=None, dead=False):
+    def __init__(self, mindstates, stop_at=None, hostiles=None, dead=False):
         self.mindstates = list(mindstates)
-        self.requests = list(requests)
+        self.stop_at = stop_at
+        self.stopped = False
         self.now = 1000.0
         self.sent, self.echoed, self.walks, self.slept = [], [], [], []
         self.pending = []
@@ -76,21 +79,25 @@ class Fake:
             room_uid=101,
         )
 
+    def _next_mindstate(self):
+        if self.mindstates:
+            self.state.experience["Attunement"]["mindstate"] = self.mindstates.pop(0)
+
     def put(self, command):
         self.sent.append(command)
         if command == "power":
             self.pending = [line + "\n" for line in PERCEIVE.splitlines()]
             self.now += 9  # the roundtime
-            if self.mindstates:
-                self.state.experience["Attunement"]["mindstate"] = self.mindstates.pop(
-                    0
-                )
+            self._next_mindstate()
 
     def get(self, timeout=None, streams=("",)):
         return self.pending.pop(0) if self.pending else None
 
     def command(self, timeout=None):
-        return self.requests.pop(0) if self.requests else None
+        if self.stop_at is not None and not self.stopped and self.now >= self.stop_at:
+            self.stopped = True
+            return "stop"
+        return None
 
     def echo(self, text):
         self.echoed.append(text)
@@ -101,10 +108,12 @@ class Fake:
     def sleep(self, seconds):
         self.slept.append(seconds)
         self.now += seconds
-        if (
-            seconds == script.LOCK_POLL and self.mindstates
-        ):  # the pool drains while held
-            self.state.experience["Attunement"]["mindstate"] = self.mindstates.pop(0)
+        if self.held:  # the pool drains while held
+            self._next_mindstate()
+
+    @property
+    def held(self):
+        return any("mind-locked" in line for line in self.echoed)
 
 
 def walk(s, db, goals, describe="", avoid=()):
@@ -129,13 +138,19 @@ def test_args():
         "rooms": 3,
         "until": 30,
         "here": False,
+        "once": False,
     }
-    assert script.parse_args(["here"]) == {"rooms": 4, "until": 34, "here": True}
+    assert script.parse_args(["here", "once"]) == {
+        "rooms": 4,
+        "until": 34,
+        "here": True,
+        "once": True,
+    }
 
 
 def test_it_loops_the_street_perceiving_on_every_arrival_until_mind_lock():
-    # 4 → 34 in steps of 2: fifteen POWERs, then a lock, then a typed stop
-    fake = Fake(mindstates=list(range(4, 35, 2)), requests=[None] * 40 + ["stop"])
+    # 4 → 34 in steps of 2: fifteen POWERs, then the lock, then a typed stop
+    fake = Fake(mindstates=list(range(4, 35, 2)), stop_at=2000)
     run(fake)
     assert fake.sent.count("power") == 15
     assert fake.walks[:8] == [2, 3, 4, 5, 4, 3, 2, 1]  # out and back
@@ -147,18 +162,36 @@ def test_it_loops_the_street_perceiving_on_every_arrival_until_mind_lock():
 def test_a_room_that_paid_within_the_minute_is_waited_out():
     # two rooms: 1 ↔ 2; the loop is [2, 1]; a visit is a 2 s walk and a
     # 9 s roundtime, so room 2 comes round 13 s after it paid: wait 47 s
-    fake = Fake(mindstates=[4, 6, 8, 10], requests=[None, None, None, "stop"])
+    fake = Fake(mindstates=[4, 6, 8, 10], stop_at=1075)
     run(fake, ["rooms=1"], mapdb=street(2))
     assert fake.sent.count("power") == 3
-    assert fake.slept == [47]
+    assert 47 <= sum(fake.slept) <= 55  # in one-second slices, so a stop lands at once
+    assert all(slice_ <= 1 for slice_ in fake.slept)
 
 
 def test_here_perceives_in_place_once_a_minute_and_never_walks():
-    fake = Fake(mindstates=[4, 6, 8, 10], requests=[None, None, "stop"])
+    fake = Fake(mindstates=[4, 6, 8, 10], stop_at=1080)
     run(fake, ["here"], mapdb=None)
     assert fake.walks == []
     assert fake.sent.count("power") == 2
-    assert fake.slept and 50 <= fake.slept[0] <= 60
+    assert 60 <= sum(fake.slept) <= 65
+
+
+def test_a_stop_typed_during_the_hold_lands_within_a_second():
+    # the mindstate never drains; ;train's stop word arrives 3 s in
+    fake = Fake(mindstates=[34], stop_at=1003)
+    run(fake)
+    assert "mind-locked" in echoes(fake)
+    assert fake.echoed[-1] == "attune: stopping"
+    assert sum(fake.slept) <= 4  # not a 30-second poll
+
+
+def test_once_exits_at_mind_lock_instead_of_holding():
+    fake = Fake(mindstates=[32, 34])
+    run(fake, ["once"])
+    assert fake.sent.count("power") == 1
+    assert "Attunement at 34/34 — done" in echoes(fake)
+    assert "mind-locked" not in echoes(fake)
 
 
 def test_hostiles_stop_it_before_a_perceive():
@@ -184,7 +217,6 @@ def test_a_guild_without_attunement_is_told_so():
 
 def test_a_room_with_no_street_is_refused():
     fake = Fake(mindstates=[4])
-    fake.state.room_uid = 101
     lone = MapDB([{"id": 1, "uid": [101], "title": ["[Shop]"], "wayto": {}}])
     run(fake, mapdb=lone)
     assert "no street to loop" in echoes(fake)
@@ -192,8 +224,8 @@ def test_a_room_with_no_street_is_refused():
 
 
 def test_until_holds_at_a_lower_target_and_resumes_when_drained():
-    # to 30, hold, drain to 20 (one poll), resume one perceive, stop
-    fake = Fake(mindstates=[28, 30, 20, 22], requests=[None] * 4 + ["stop"])
+    # to 30, hold (the pool drains to 20 while held), one more perceive, stop
+    fake = Fake(mindstates=[28, 30, 20], stop_at=1052)
     run(fake, ["until=30"])
     assert "mind-locked (30/34)" in echoes(fake)
     assert "walking again" in echoes(fake)

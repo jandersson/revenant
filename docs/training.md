@@ -186,8 +186,13 @@ climbs are never part of it), walks it out and back POWERing on each
 arrival, waits out a room that paid within the minute, and holds at
 mind-lock until enough drains to be worth the laps. `;attune here`
 perceives in place once a minute, which is how a Moon Mage trains it:
-lunar mana is everywhere. `;train` runs it as a task (`"script":
-"attune", "skills": ["Attunement"], "stop_word": "stop"`).
+lunar mana is everywhere. Standalone it is a standing trainer like
+`;athletics`: it holds at the lock and walks again once the pool has
+drained, until stopped; `;attune once` exits at the lock instead.
+Under `;train` (`"script": "attune", "skills": ["Attunement"],
+"stop_word": "stop"`) the loop ends the task itself when Attunement
+reaches the plan's target — the stop word lands within a second,
+held or walking — and moves to the next task.
 
 Captured 2026-09-12 on a circle-1 Paladin at rank 2, on the
 Crossing's Hodierna Way:

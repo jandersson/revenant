@@ -4,6 +4,7 @@
     ;attune rooms=3      a shorter loop (default 4 rooms out and back)
     ;attune until=30     stop at that mindstate instead of 34
     ;attune here         perceive in place, once a minute (Moon Mages: lunar mana is everywhere)
+    ;attune once         exit at mind-lock instead of holding for the drain
     ;attune stop         (typed while it runs) finish the current perceive and stop
 
 Perceiving mana trains Attunement once per room per sixty seconds
@@ -16,10 +17,13 @@ paid within the minute. Captured 2026-09-12 on a circle-1 Paladin:
 golden Holy mana radiating through the area.", 8-9 s of roundtime,
 and the mindstate rising 4/34 → 6/34 on a room's first POWER. At
 mind-lock it holds, polling until enough has drained to be worth the
-walking, then resumes; ;train runs it as a task (skills:
-["Attunement"], stop_word "stop"). It stops on death, on hostiles in
-the room, when eight perceives in a row gain nothing (a guild that
-cannot sense mana), and when the map has no street to loop.
+walking, then resumes — a standalone run is a standing trainer, like
+;athletics; `once` exits at the lock instead. ;train runs it as a
+task (skills: ["Attunement"], stop_word "stop") and ends it itself
+when the skill reaches the plan's target: the stop word lands within
+a second, held or walking. It stops on death, on hostiles in the
+room, when eight perceives in a row gain nothing (a guild that cannot
+sense mana), and when the map has no street to loop.
 Stop with:  ;stop attune, or ;attune stop for a clean finish.
 """
 
@@ -42,13 +46,13 @@ clock = time.monotonic  # tests replace it
 
 
 def parse_args(args):
-    options = {"rooms": ROOMS, "until": MIND_LOCK, "here": False}
+    options = {"rooms": ROOMS, "until": MIND_LOCK, "here": False, "once": False}
     for arg in args:
         key, sep, value = str(arg).lower().partition("=")
         if sep and key in ("rooms", "until") and value.isdigit():
             options[key] = int(value)
-        elif key == "here":
-            options["here"] = True
+        elif key in ("here", "once"):
+            options[key] = True
     return options
 
 
@@ -89,14 +93,24 @@ def perceive(s):
     return PERCEIVED in answer
 
 
+def pause(s, seconds):
+    """Sleep in one-second slices so a typed stop or danger is noticed
+    at once; False when either arrived."""
+    end = clock() + seconds
+    while (left := end - clock()) > 0:
+        s.sleep(min(1, left))
+        if wants_stop(s) or danger(s):
+            return False
+    return True
+
+
 def hold_at_lock(s, until):
     """Wait at mind-lock until the mindstate drains below RESUME_BELOW
     (or the target, when lower); False when the wait is interrupted."""
     s.echo(f"attune: Attunement mind-locked ({until}/34) — holding until it drains")
     floor = min(RESUME_BELOW, until - 1)
     while True:
-        s.sleep(LOCK_POLL)
-        if wants_stop(s) or danger(s):
+        if not pause(s, LOCK_POLL):
             return False
         value = mindstate(s)
         if value is not None and value <= floor:
@@ -145,6 +159,9 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
             return
         value = mindstate(s)
         if value is not None and value >= options["until"]:
+            if options["once"]:
+                s.echo(f"attune: Attunement at {value}/34 — done")
+                return
             if not hold_at_lock(s, options["until"]):
                 s.echo("attune: stopping")
                 return
@@ -155,8 +172,9 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
                 s.echo("attune: the walk failed — stopping")
                 return
         wait = wait_for(room, last_seen, clock())
-        if wait:
-            s.sleep(wait)
+        if wait and not pause(s, wait):
+            s.echo("attune: stopping")
+            return
         before = mindstate(s)
         if not perceive(s):
             s.echo("attune: POWER gave no perceive line — stopping")
