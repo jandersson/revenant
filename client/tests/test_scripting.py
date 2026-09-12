@@ -239,6 +239,42 @@ def test_help_prints_full_docstring_without_running_the_script(tmp_path):
     assert any("The long story." in e for e in recorder.emitted)
 
 
+def test_name_help_prints_the_docstring_without_running_the_script(tmp_path):
+    (tmp_path / "walk.py").write_text(
+        '"""Walk somewhere.\n\nThe long story."""\nraise SystemExit("must not run")\n'
+    )
+    manager, recorder = make_manager(tmp_path)
+    manager.handle_command(";walk help")
+    assert any("The long story." in e for e in recorder.emitted)
+    assert not manager.alive("walk")
+
+
+def test_name_help_on_a_running_script_prints_the_docstring_and_hands_it_nothing(
+    tmp_path,
+):
+    (tmp_path / "waiter.py").write_text(
+        '"""Wait about:  ;waiter\n\nThe manual."""\n'
+        "def main(s):\n"
+        "    while True:\n"
+        "        line = s.command(timeout=5)\n"
+        "        if line:\n"
+        "            s.echo(f'got {line}')\n"
+    )
+    manager, recorder = make_manager(tmp_path)
+    manager.handle_command(";waiter")
+    manager.handle_command(";waiter help")
+    manager.handle_command(";waiter status")
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline and not any(
+        "got status" in e for e in recorder.emitted
+    ):
+        time.sleep(0.05)
+    assert any("The manual." in e for e in recorder.emitted)
+    assert any("got status" in e for e in recorder.emitted)
+    assert not any("got help" in e for e in recorder.emitted)
+    manager.stop("waiter")
+
+
 def test_help_unknown_script(tmp_path):
     manager, recorder = make_manager(tmp_path)
     manager.handle_command(";help nosuch")

@@ -109,7 +109,8 @@ entries from a dock-layout module.
 - `client/client/engine/scripting.py` — script engine. Scripts are `main(s)` Python
   files in `scripts/` (repo root), run as threads in the session, controlled
   by `;`-commands typed in any frontend (`;list`, `;help [x]`, `;run x`,
-  `;stop x`). `;help` renders module docstrings — write them as the user
+  `;stop x`, and `;x help` for the same page as `;help x`, running or
+  not). `;help` renders module docstrings — write them as the user
   manual.
   Handle API: put/get/waitfor/waitrt/echo/emit/sleep/state/args — `emit`
   targets an arbitrary stream (e.g. "thoughts") — and run/is_running/

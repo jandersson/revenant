@@ -82,3 +82,8 @@ lessons the code and docs cannot carry themselves.
   script that imports it loads it from disk. RELOADABLE_MODULES and
   ;reexec matter only for edits to a module the session already
   holds (2026-09-12: ;tdp ran unrestarted; I had said otherwise).
+- Patch files with a script written by the Write tool, not a Bash
+  heredoc: the Bash tool unescapes backslashes on the way in, so a
+  doubled backslash in a heredoc reaches Python as a single one and a
+  test fixture's "\n" turns into a newline (three broken test files on
+  2026-09-12 before this was pinned down).

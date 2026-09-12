@@ -174,6 +174,12 @@ Traps that cost time before:
   manual: plainly named, input → expected response. Captured fixtures pin
   what we believe the server sends; a fixture that turns out wrong is an
   assumption to correct, not a test to delete.
+- Every script's module docstring is its manual, and the engine serves
+  it two ways: `;help <name>` and `;<name> help` (the latter answered
+  before the script is started or, when it runs, handed the word). So
+  a script never parses "help" itself, and its docstring opens with
+  the usage lines — every verb and option, one per line — before the
+  story.
 - Every change freshens the documentation it staled, in the same commit:
   the module docstring (it is the `;help` manual), README claims, this
   file, docs/architecture.md, and any docs/ model whose assumptions moved.

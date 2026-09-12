@@ -407,8 +407,8 @@ class ScriptManager(ClientLogger):
         body = line.lstrip(";").strip()
         if not body:
             self.emit(
-                "script commands: ;list  ;help [name]  ;run <name> [args]  "
-                ";stop <name|all>"
+                "script commands: ;list  ;help [name]  ;<name> help  "
+                ";run <name> [args]  ;stop <name|all>"
             )
             return
         command, _, rest = body.partition(" ")
@@ -433,10 +433,16 @@ class ScriptManager(ClientLogger):
     def deliver(self, name: str, payload: str, queue_on_start=False):
         """Hand a line to a running script; start the script when it isn't.
 
+        `;<name> help` is answered here for every script, running or
+        not: its docstring, the same page ;help <name> shows, and the
+        script is neither started nor handed the word. Otherwise
         `;<name> <line>` reaches a running script through s.command().
         A bare `;<name>` on a running script is refused like before. With
         queue_on_start (the lnet shorthands), a stopped script is started
         and the line queued for it — `;chat hi` works from cold."""
+        if payload.split()[:1] == ["help"]:
+            self.help(name)
+            return
         with self.lock:
             script = self.running.get(name)
         if script is not None and script.alive:
