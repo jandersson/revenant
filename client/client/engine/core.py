@@ -1,4 +1,5 @@
 import logging
+import re
 import sys
 import time
 from xml.etree.ElementTree import ParseError, XMLParser
@@ -43,6 +44,17 @@ def room_frame(xml_data) -> str:
     if uid is None and title is None:
         return ""
     return f"{uid if uid is not None else ''}\t{title or ''}"
+
+
+# "&" followed by neither an entity name nor a character reference is
+# the game's own ampersand, not markup (captured 2026-09-12: the Carousel
+# Desk's 'a large bin labeled "Lost & Found"' broke the parser for the
+# rest of the session).
+_BARE_AMPERSAND = re.compile(r"&(?![A-Za-z]+;|#[0-9]+;|#x[0-9A-Fa-f]+;)")
+
+
+def escape_bare_ampersands(line: str) -> str:
+    return _BARE_AMPERSAND.sub("&amp;", line)
 
 
 class Engine(ClientLogger):
@@ -117,15 +129,24 @@ class Engine(ClientLogger):
             # A blank line ("\n\n" in the chunk) has nothing to parse or route.
             if line:
                 logging.getLogger("game").info(line)
+                depth = len(self.xml_data.active_tags)
                 try:
                     # Wrap in a synthetic root so multiple top-level
                     # self-closing tags on one line (e.g. successive
                     # <indicator .../> elements) all get walked. Without
                     # this, expat raises ParseError after the first tag
                     # and everything else on the line is silently lost.
-                    XMLParser(target=self.xml_data).feed(f"<r>{line}</r>")
+                    # Bare ampersands ("Lost & Found") are escaped first:
+                    # the game writes them, XML forbids them.
+                    XMLParser(target=self.xml_data).feed(
+                        f"<r>{escape_bare_ampersands(line)}</r>"
+                    )
                 except ParseError:
-                    pass
+                    # A line that failed halfway left its tags open, and an
+                    # open <component> made every later <compass> look
+                    # decorative — no arrival frames for the rest of the
+                    # session, every walk stalled (#171). Close them.
+                    del self.xml_data.active_tags[depth:]
                 segments = self.xml_data.route(line)
                 # One line can hold several styled pieces; the last piece
                 # per stream carries the newline so front ends never have

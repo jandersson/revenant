@@ -36,6 +36,43 @@ def test_engine_emits_compass_stream_once_per_room():
     assert compass_frames == [("n e", "compass", "")]
 
 
+def test_a_bare_ampersand_in_a_component_does_not_swallow_later_compasses():
+    # Captured 2026-09-12 at the Crossing Carousel Desk (#171): the room
+    # objects line holds a bare "&", expat fails halfway with the
+    # <component> open, and every later top-level <compass> read as the
+    # decorative in-component one — no arrival frame for the rest of the
+    # session, every walk stalled in the bank lobby.
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b"<component id='room objs'>You also see a large bin labeled "
+            b'"Lost & Found", a hastily scrawled notice.</component>\n',
+            b"<component id='room exits'>Obvious exits: <d>out</d>.<compass></compass></component>\n",
+            b'<compass><dir value="out"/></compass>Desk.\n',
+            b"You go out.\n",
+            b'<compass><dir value="e"/><dir value="sw"/></compass>Street.\n',
+        ]
+    )
+    out = _read_all(engine, 5)
+    compass_frames = [frame for frame in out if frame[1] == "compass"]
+    assert compass_frames == [("out", "compass", ""), ("e sw", "compass", "")]
+    assert any("Lost & Found" in text for text, stream, _ in out if stream == "")
+
+
+def test_a_line_that_fails_to_parse_leaves_no_tag_open():
+    # The backstop for whatever else the game writes that XML forbids: a
+    # line broken past an opening tag closes that tag at the line's end.
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b"<component id='room objs'>a broken <line here\n",
+            b'<compass><dir value="n"/></compass>Next room.\n',
+        ]
+    )
+    out = _read_all(engine, 2)
+    assert [frame for frame in out if frame[1] == "compass"] == [("n", "compass", "")]
+
+
 def test_engine_emits_compass_again_on_change():
     engine = Engine()
     engine.connection = FakeConnection(
