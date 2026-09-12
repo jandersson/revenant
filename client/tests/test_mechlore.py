@@ -107,7 +107,7 @@ def test_braid_piece_braids_to_rope_and_drops_it(monkeypatch):
     )
     braids = mechlore.braid_piece(handle)
     assert braids == 2
-    assert handle.sent == ["braid my grass", "braid my grass", "drop my rope"]
+    assert handle.sent == ["braid my grass", "braid my grass", "drop my grass rope"]
 
 
 def test_main_gives_up_somewhere_grassless(monkeypatch):

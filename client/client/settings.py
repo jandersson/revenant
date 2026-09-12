@@ -55,6 +55,10 @@ DEFAULTS = {
     # are the cougar grounds that killed a walker (#72); edit the file
     # to extend. ;go2 direct <target> ignores the list for one trip.
     "avoid_rooms": ["cougars", "cougars_vineyard"],
+    # Item names (as typed after DROP MY) a script may drop, beyond the
+    # built-in foraged junk in client/game/discard.py — nothing else is
+    # ever dropped: a dropped item is a lost item.
+    "droppable": [],
 }
 
 

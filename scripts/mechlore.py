@@ -2,7 +2,8 @@
 
 Stand outdoors somewhere grassy and run it: the script forages grass,
 braids it through its roundtimes until a rope forms (or the material
-is ruined), drops the result, and repeats — pausing at mind-lock and
+is ruined), drops the result — grass and grass rope are the only
+things any script may drop (client/game/discard.py) — and repeats — pausing at mind-lock and
 resuming as the pool drains, like ;athletics. Braiding grass is the
 free entry method (Elanthipedia); vines come later (#71). Progress is
 echoed about every five minutes. Stop with:  ;stop mechlore
@@ -16,6 +17,7 @@ fixtures.
 import time
 
 from client.game import probe
+from client.game.discard import drop
 from client.game.probe import classify
 
 MIND_LOCK = 34  # mindstate 34/34: nothing more fits
@@ -88,10 +90,10 @@ def braid_piece(s):
         answer = ask(s, "braid my grass")
         outcome = classify(answer, BRAID_OUTCOMES)
         if outcome == "done":
-            ask(s, "drop my rope")
+            drop(s, "grass rope", ask)
             return braids
         if outcome == "ruined":
-            ask(s, "drop my grass")
+            drop(s, "grass", ask)
             return braids
         if outcome == "no_material":
             return braids
@@ -102,7 +104,7 @@ def braid_piece(s):
                     break
         s.sleep(PAUSE)
     # The fuse blew: stop feeding a piece that never resolves.
-    ask(s, "drop my grass")
+    drop(s, "grass", ask)
     return MAX_BRAIDS_PER_PIECE
 
 

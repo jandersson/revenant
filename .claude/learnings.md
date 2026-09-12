@@ -118,12 +118,14 @@ lessons the code and docs cannot carry themselves.
   every kill line. When a script misses a line the window shows, look
   at the raw log for the pushStream around it before touching the
   wording tables.
-- Never DROP. No script sends DROP and no echo suggests it: a dropped
-  item is a lost item. A hand is freed with `stow my <noun>` from the
-  parser's `left_hand`/`right_hand` (athletics' `empty_hands`, hunt's
-  `free_hand`); a load is lightened by stowing or banking coins. An
-  advice line said "stow or drop the load" until the operator caught it
-  (2026-09-12). Grep new echo text for "drop".
+- Never DROP. A script drops only through `client/game/discard.py`'s
+  `drop()`, whose allowlist is the foraged junk ;mechlore braids
+  (grass, grass rope) plus settings.json's `droppable`; anything else
+  is refused with an echo. A hand is freed with `stow my <noun>` from
+  the parser's `left_hand`/`right_hand` (athletics' `empty_hands`,
+  hunt's `free_hand`); a load is lightened by stowing or banking
+  coins. An advice line said "stow or drop the load" until the
+  operator caught it (2026-09-12). Grep new echo text for "drop".
 - Run the whole CI battery before every push — `ruff check`, `ruff
   format --check`, and all four suites (client/tests, client/tests_gui,
   beholder/tests, chat/tests), `tools/docker_tests.py` too when sockets

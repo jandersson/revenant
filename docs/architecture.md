@@ -159,7 +159,11 @@ entries from a dock-layout module.
   search it, keep the profile's buffs cast and recast the first to
   train a magic skill, move along the ground, break off on the health
   or wound floor. `scripts/skins.py` sells the worn bundle at the
-  nearest tannery and keeps the rope.
+  nearest tannery and keeps the rope. `client/game/discard.py` is the
+  only way a script drops anything: an allowlist of the foraged junk
+  ;mechlore braids (grass, grass rope) plus settings.json's
+  `droppable`, and a `drop()` that refuses the rest with an echo — a
+  dropped item is a lost item, so hands are freed with STOW.
   Sessions autostart the xp history logger, the beholder dashboard
   server in quiet mode, the character-sheet snapshotter (`;sheet`:
   INFO + EXP ALL into stats/sheet_skills/character tables every 3h;
