@@ -54,6 +54,35 @@ train stamina +2` took Stamina 11 → 13, and `;enc` read Heavy Burden:
 the rule holds. That one point alone would not have done it was not
 observed (both were bought in one run); the arithmetic says so.
 
+## The vault readings: what a stowed jacket costs
+
+Later the same day, at Strength 10 + Stamina 13 (bands: None to 560,
+Light 561-650, Somewhat 651-740, Burdened 741-830, Heavy 831-920), the
+character walked into his vault carrying the boiled leather jacket in
+one hand and the light plate greaves in the other, the sack holding a
+map, a tunic and a handaxe. The last reading before that, with the
+jacket still in the sack, was Heavy Burden pinned to 870-920 stones.
+
+```
+You put your jacket on the wire rack which is inside a secure vault.
+  Encumbrance : Light Burden
+You put your greaves on the wire rack which is inside a secure vault.
+  Encumbrance : None
+```
+
+By the rule the jacket's departure took at least 221 stones off the
+load (from over 870 to at most 650), and the greaves' at least one
+(the wiki gives light plate greaves 101 stones, light full plate 500).
+A plain leather jacket is 150 stones on the wiki; a boiled one has no
+page. So either this jacket weighs over 220 stones, or a piece of
+armor carried rather than worn burdens more than its weight — the
+"armor anomaly" the wiki describes without numbers. The two are not
+separable from these readings: between the pinned reading and the
+vault the jacket moved from the sack to the hand with no reading in
+between. The experiment that separates them is one item read in three
+states — in hand, worn, in the sack — with the level after each, and
+ballast at the teller if the levels alone do not settle it.
+
 ## The experiment
 
 `;enc ballast` at a teller withdraws coins in steps (50 stones, 250
