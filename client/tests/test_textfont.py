@@ -57,8 +57,19 @@ def test_an_override_beats_the_default_for_its_view_only():
 
 
 def test_an_override_names_only_what_it_changes():
+    settings = BASE | {"dock_fonts": {"Spells": {"family": "Consolas"}}}
+    assert view_font(settings, "Spells") == ("Consolas", 12)
+
+
+def test_the_experience_dock_follows_only_its_own_entry():
+    # The dashboard is column-aligned text (#173): the story's Georgia
+    # 12 never reaches it, so it keeps the fixed-pitch font at its own
+    # size until its row in Settings names one.
+    assert view_font(BASE, "Experience") == (None, None)
+    settings = BASE | {"dock_fonts": {"Experience": {"size": 9}}}
+    assert view_font(settings, "Experience") == (None, 9)
     settings = BASE | {"dock_fonts": {"Experience": {"family": "Consolas"}}}
-    assert view_font(settings, "Experience") == ("Consolas", 12)
+    assert view_font(settings, "Experience") == ("Consolas", None)
 
 
 def test_a_missing_override_leaves_the_default():

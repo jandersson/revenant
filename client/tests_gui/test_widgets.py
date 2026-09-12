@@ -8,7 +8,12 @@ from PyQt6.QtWidgets import QWidget
 
 from client.gui.compass_dock import CompassRose
 from client.gui.input_strip import HistoryLineEdit, OutlinedBar
-from client.gui.text_views import GameTextView, font_for, style_experience_view
+from client.gui.text_views import (
+    GameTextView,
+    fixed_pitch_font,
+    font_for,
+    style_experience_view,
+)
 
 
 def test_up_and_down_browse_the_history_and_keep_the_draft(qapp):
@@ -67,26 +72,35 @@ def test_the_experience_view_keeps_fixed_pitch_unless_overridden(qapp):
         {"font_family": "", "font_size": 14, "dock_fonts": {}}, "Main", default
     )
     assert sized.pointSize() == 14
-    # Experience starts from the fixed-pitch font, not the platform
-    # default — the dashboard is column-aligned ...
+    # Experience is the fixed-pitch font at its own size: the story's
+    # family and size never reach it — the dashboard is column-aligned
+    # and a 15-point story font made it unreadable (#173) ...
+    fixed = fixed_pitch_font()
     experience = font_for(
-        {"font_family": "", "font_size": 14, "dock_fonts": {}}, "Experience", default
-    )
-    assert experience.family() != "Arial"
-    assert experience.pointSize() == 14
-    # ... but a family named in Settings replaces it like any view's.
-    named = font_for(
-        {"font_family": "Arial", "font_size": 0, "dock_fonts": {}},
+        {"font_family": "Arial", "font_size": 14, "dock_fonts": {}},
         "Experience",
         default,
     )
-    assert named.family() == "Arial"
+    assert experience.family() == fixed.family()
+    assert experience.pointSize() == fixed.pointSize()
+    # ... and only its own row in Settings changes it.
     overridden = font_for(
         {"font_family": "", "font_size": 0, "dock_fonts": {"Experience": {"size": 8}}},
         "Experience",
         default,
     )
     assert overridden.pointSize() == 8
+    assert overridden.family() == fixed.family()
+    named = font_for(
+        {
+            "font_family": "",
+            "font_size": 0,
+            "dock_fonts": {"Experience": {"family": "Arial"}},
+        },
+        "Experience",
+        default,
+    )
+    assert named.family() == "Arial"
     view = GameTextView(lambda command: None, QWidget())
     style_experience_view(view)
     assert "No skills learning" in view.placeholderText()

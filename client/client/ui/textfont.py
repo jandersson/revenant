@@ -5,9 +5,11 @@ Two settings in ~/.revenant/settings.json drive it — `font_family`
 0 for the platform default). The defaults are what an untouched file
 holds; File → Settings always saves an explicit pair, pre-filled with
 the font in use. The GUI applies them live to the main window, every stream dock, and the input
-line; the Experience dock keeps its fixed-pitch family (its dashboard
-is column-aligned) and only follows the size. This module is the
-Qt-free half: it turns whatever the file holds into a clean choice.
+line — every view but the Experience dock, which keeps the fixed-pitch
+font at its own size (its dashboard is column-aligned, and the story's
+size made it unreadable, #173) and changes only through its own entry
+below. This module is the Qt-free half: it turns whatever the file
+holds into a clean choice.
 
 A third setting, `dock_fonts`, overrides the pair per text view (#132):
 `{"Thoughts": {"size": 8}, "Experience": {"family": "Consolas"}}` —
@@ -53,7 +55,9 @@ def view_font(settings: dict, view: str) -> tuple[str | None, int | None]:
     "keep the platform (or, for Experience, the fixed-pitch) font".
     An override for a view the GUI has no view for, or with unusable
     values, changes nothing."""
-    family, size = font_choice(settings)
+    # The Experience dock is a column-aligned dashboard: the story's
+    # family and size never reach it, only its own entry does (#173).
+    family, size = (None, None) if view == "Experience" else font_choice(settings)
     overrides = settings.get("dock_fonts")
     entry = overrides.get(view) if isinstance(overrides, dict) else None
     if isinstance(entry, dict):

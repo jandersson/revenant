@@ -4,7 +4,9 @@ Checkboxes over ~/.revenant/settings.json, plus the game text's font
 (family and point size, applied to every text view the moment the
 dialog is accepted, #118) and, under it, one row per text view to
 override that pair for the view alone — tick the view, pick its font
-(#132); an unticked row follows the default. The pickers open on the font the window
+(#132); an unticked row follows the default — except Experience, whose
+dashboard keeps the fixed-pitch font at its own size and changes only
+through its row (#173). The pickers open on the font the window
 is using — the platform's until you choose one — and always save an
 explicit choice; a "use the default" checkbox that locked the pickers
 read as broken (#130), and a reset button would only exist to be
@@ -28,6 +30,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from client.gui.text_views import fixed_pitch_font
 from client.ui.textfont import MAX_SIZE, MIN_SIZE, TEXT_VIEWS, font_choice, view_font
 
 
@@ -110,12 +113,15 @@ class SettingsDialog(QDialog):
             tick = QCheckBox(view)
             tick.setChecked(isinstance(entry, dict) and bool(entry))
             own_family, own_size = view_font(settings, view)
+            # Pre-filled with the font the view shows now: the Experience
+            # dock's is the fixed-pitch one, not the dialog's (#173).
+            shown = fixed_pitch_font() if view == "Experience" else self.font()
             family_box = QFontComboBox()
-            family_box.setCurrentFont(QFont(own_family) if own_family else self.font())
+            family_box.setCurrentFont(QFont(own_family) if own_family else shown)
             size_box = QSpinBox()
             size_box.setRange(MIN_SIZE, MAX_SIZE)
             size_box.setSuffix(" pt")
-            size_box.setValue(own_size or max(MIN_SIZE, self.font().pointSize()))
+            size_box.setValue(own_size or max(MIN_SIZE, shown.pointSize()))
             for box in (family_box, size_box):
                 box.setEnabled(tick.isChecked())
                 tick.toggled.connect(box.setEnabled)
