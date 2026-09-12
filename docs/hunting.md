@@ -31,6 +31,7 @@ It holds what no script should hard-code:
 | wound_floor | a severity name; after each kill and whenever the health bar drops, the injuries panel the game pushes is read first — clean means nothing to ask — and HEALTH is asked only when it shows a wound; a wound that bad or worse anywhere (external, scar, internal, internal scar) breaks off like the health floor. Empty never asks. Model: [wounds.md](wounds.md) |
 | train_skills | the hunt ends when every one of them sits at mindstate 34 in the exp window |
 | max_kills | a fuse; 0 hunts until stopped, locked or the ground empties |
+| smite | a Paladin: one swing a minute is SMITE instead of ATTACK, spent only when the game answers with its conviction line — the free smite regenerates every minute and Conviction experience comes at most once a minute ([Smite command](https://elanthipedia.play.net/Smite_command), #183) |
 
 `;hunt return` (typed while it runs) ends the loop before the next
 swing and walks home; `;stop hunt` quits where it stands (the rule for
@@ -116,6 +117,22 @@ pelt, tail or bones (Elanthipedia: Rat). SKIN wants an edged weapon in
 hand or a worn belt knife (Elanthipedia: Skinning) — a handaxe does.
 The gem pouch page describes `FILL POUCH WITH <container>` for bulk
 moves; the loop pouches one find at a time instead.
+
+## Smiting for Conviction
+
+Paladins train Conviction two ways only: a SMITE with the weapon or a
+RUSH with a shield ([Conviction skill](https://elanthipedia.play.net/Conviction_skill)).
+Captured 2026-09-13 on a ship's rat: from range SMITE answers exactly
+as ATTACK does ("You aren't close enough to attack." / "You are
+already advancing on a ship's rat."), under roundtime "...wait 4
+seconds.", and at melee "Drawing strength from your conviction, you
+execute a divinely inspired strike!" followed by the ordinary swing
+line and a 6-second roundtime; Conviction entered the exp window at
+rank 4 after the one strike. Free smites regenerate one a minute and
+the experience is granted at most once a minute ([Smite command](https://elanthipedia.play.net/Smite_command)),
+so the loop smites one swing a minute and attacks the rest — a smite
+that drew the advance or a roundtime is not counted as spent. RUSH is
+not built: Cecil wears no shield and its answers are uncaptured.
 
 ## Another player's room
 

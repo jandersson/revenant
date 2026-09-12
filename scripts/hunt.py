@@ -26,6 +26,12 @@ theirs: the loop says so and moves on without a swing, and a ground
 with someone in every room is left to them (#178). A room full of
 creatures is the point, not a reason to leave: the loop fights them
 one at a time (the health and wound floors are the guard).
+With `smite` on (a Paladin), one swing a minute is SMITE instead of
+ATTACK: it is what trains Conviction, a free smite regenerates every
+minute and the experience comes at most once a minute (Elanthipedia:
+Smite command), so the rest of the swings stay ATTACK. A SMITE the
+game answered with the advance from range or a roundtime is not
+spent; the next swing tries again.
 `buffs` are self-cast spells kept up through the hunt (PREPARE, CAST
 before the first swing and whenever the Spells window drops one), and
 `train_casting` names a magic skill to train by recasting the first
@@ -43,6 +49,7 @@ cut: melee, one opponent at a time, no offensive magic or ranged (#149).
 """
 
 import re
+import time
 
 from client.game import buffs, probe
 from client.game.probe import classify
@@ -95,6 +102,15 @@ _NOTHING_THERE = ("what were you referring",)
 # loop waits for that line rather than asking again.
 _ADVANCING = ("aren't close enough", "begin to advance", "already advancing")
 ADVANCE_WAIT = 10  # seconds for "melee range" before the next ATTACK
+# SMITE (captured 2026-09-13 on a rat): "Drawing strength from your
+# conviction, you execute a divinely inspired strike!" then the swing
+# line as ATTACK would give it, 6 s roundtime. From range it answers
+# like ATTACK ("aren't close enough", advancing). One free smite a
+# minute, Conviction experience once a minute (Elanthipedia: Smite
+# command), so the loop smites once a minute at most (#183).
+_SMITE_STRUCK = ("divinely inspired strike",)
+SMITE_INTERVAL = 60  # seconds between smites
+clock = time.monotonic  # tests replace it
 
 # Failures before successes: a failure wording can contain a success
 # needle ("you skin" inside "you can't skin"). Assumptions pending
@@ -185,10 +201,22 @@ class Tally:
         # is worn; False: no rope (or the bundle refused), skins stowed loose.
         self.bundle = None
         self.buffs = buffs.BuffState()  # the casts (client/game/buffs.py)
+        self.last_smite = None  # clock() of the last smite that struck (#183)
 
 
 def hostiles(state):
     return dict(getattr(state, "hostiles", None) or {})
+
+
+def swing_verb(profile, tally):
+    """SMITE when the profile smites and a minute has passed since the
+    last one that struck, ATTACK otherwise (#183)."""
+    if not profile.get("smite"):
+        return "attack"
+    last = tally.last_smite
+    if last is None or clock() - last >= SMITE_INTERVAL:
+        return "smite"
+    return "attack"
 
 
 def health(state):
@@ -565,8 +593,11 @@ def loop(s, profile, db, ground, avoid, tally):
                 return "ground taken"
             continue
         cast_buffs(s, profile, tally)  # a buff that ran out, before the swing
-        text = ask(s, f"attack {prey}" if prey else "attack")
+        verb = swing_verb(profile, tally)
+        text = ask(s, f"{verb} {prey}" if prey else verb)
         lowered = text.lower()
+        if verb == "smite" and any(word in lowered for word in _SMITE_STRUCK):
+            tally.last_smite = clock()  # spent only when it struck
         if any(word in lowered for word in _KILL_WORDS):
             tally.kills += 1
             tally.empty_moves = 0

@@ -70,6 +70,10 @@ DEFAULTS = {
     "train_skills": [],
     # A fuse: kills per run, 0 = until stopped or locked.
     "max_kills": 0,
+    # Paladins: one swing a minute is SMITE instead of ATTACK, which is
+    # what trains Conviction (free smites regenerate one a minute and
+    # the experience comes at most once per minute, #183).
+    "smite": False,
 }
 
 # (key, label, kind, help) — kind is "bool", "int", "str" or "list".
@@ -106,6 +110,7 @@ FIELDS = (
     ),
     ("train_skills", "Stop when these skills lock", "list", "Small Edged, Evasion"),
     ("max_kills", "Kills per run (0 = until stopped)", "int", ""),
+    ("smite", "SMITE one swing a minute (Paladin: Conviction)", "bool", ""),
 )
 
 _KINDS = {key: kind for key, _, kind, _ in FIELDS}

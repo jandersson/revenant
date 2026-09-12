@@ -70,6 +70,11 @@ PROFILE = DEFAULTS | {
 }
 
 KILL = "The rat slowly tips over and falls down."
+# Captured 2026-09-13 (#183): SMITE's own line, then the swing as usual.
+SMITE_KILL = (
+    "Drawing strength from your conviction, you execute a divinely inspired "
+    "strike!\n" + KILL
+)
 # Captured 2026-09-05, the first live ;hunt: the kill line the script
 # did not know, and the corpse answer with a two-word noun.
 RAT_KILL = "The ship's rat falls to the ground and lies still."
@@ -843,6 +848,52 @@ def test_a_ground_with_someone_in_every_room_is_left_to_them(travel):
     _run(arena)
     assert not any(c.startswith("attack") for c in arena.sent)
     assert any("leaving it to them" in text for text in arena.echoed)
+
+
+def test_a_paladin_smites_one_swing_a_minute_and_attacks_the_rest(travel, monkeypatch):
+    # #183: SMITE trains Conviction, a free smite comes back every
+    # minute and the experience once a minute, so the loop smites at
+    # most once a minute; a smite the game answered from range (no
+    # strike) is not spent.
+    now = {"t": 1000.0}
+    monkeypatch.setattr(hunt, "clock", lambda: now["t"])
+    advancing = "You aren't close enough to attack.\nYou begin to advance on a rat."
+    arena = Arena(
+        {
+            "smite": [advancing, (SMITE_KILL, kill), (SMITE_KILL, kill)],
+            "attack": [(KILL, kill)] * 6,
+            "skin": [SKINNED] * 9,
+            "search": [NOTHING] * 9,
+        }
+    )
+    arena.arrivals = {6046: {"1": True}, 6047: {"1": True}}
+
+    def tick(seconds):
+        now["t"] += seconds
+
+    original_ask = hunt.ask
+
+    def ask(s, command):
+        tick(7)  # a swing's roundtime; the minute passes after nine swings
+        return original_ask(s, command)
+
+    monkeypatch.setattr(hunt, "ask", ask)
+    _run(arena, profile=PROFILE | {"smite": True, "max_kills": 4}, travel_first=False)
+    swings = [c for c in arena.sent if c.startswith(("smite", "attack"))]
+    # First swing: smite from range — no strike, not spent — so the next
+    # swing smites again and kills; then attacks until a minute passed.
+    assert swings[:3] == ["smite rat", "smite rat", "attack rat"]
+    assert swings.count("smite rat") >= 3  # a minute later, smite again
+    assert not any(
+        c.startswith("smite") for c in Arena({"attack": [(KILL, kill)]}).sent
+    )
+
+
+def test_without_smite_every_swing_is_attack(travel):
+    arena = _run(
+        Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+    )
+    assert not any(c.startswith("smite") for c in arena.sent)
 
 
 def test_a_room_full_of_creatures_is_hunted_not_left(travel):
