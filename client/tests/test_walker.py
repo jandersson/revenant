@@ -293,6 +293,27 @@ def test_walk_bursts_even_when_hostile_state_is_empty():
     assert puts == ["go door", "retreat", "retreat", "go door"]
 
 
+def test_walk_retries_without_a_burst_where_the_only_exit_is_out():
+    # The bank lobby (#171, captured 2026-09-12): a stall on the way
+    # into the teller room sent retreat twice — "You are already as far
+    # away as you can get!" — and stopped in the lobby. Where the
+    # compass shows "out" alone nothing engages, so the step is retried
+    # on its own.
+    handle = StallOnceHandle(uids=[102], hostiles={})
+    handle.state.room_uid = 101
+    handle.state.room_title = "[Lobby]"
+    handle.state.compass = ["out"]
+    db = MapDB(
+        [
+            {"id": 1, "uid": [101], "title": ["[Lobby]"], "wayto": {"2": "go window"}},
+            {"id": 2, "uid": [102], "title": ["[Teller]"], "wayto": {}},
+        ]
+    )
+    assert walker.walk(handle, db, [2], describe="the teller") is True
+    puts = [call[1] for call in handle.calls if call[0] == "put"]
+    assert puts == ["go window", "go window"]
+
+
 def test_walk_bursts_once_then_stops_on_a_persistent_stall():
     # A stall the burst cannot fix (bad edge, closed door): one retry,
     # then the old stop-and-report behavior — never a retreat loop.

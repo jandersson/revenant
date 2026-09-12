@@ -5,8 +5,9 @@ drives the character along a BFS route from the map database, verifying
 arrival room by room. Extracted from ;go2 (this is ;go2's engine) so
 any script can travel. A climb the game turns back for footing (#157)
 gets one retry standing with the hindering items stowed, then stops
-with what would help; an engagement gets the retreat burst
-(docs/movement.md).
+with what would help; an engagement gets the retreat burst, unless
+the room's only exit is "out" — a bank or shop, where nothing engages
+and a retreat has nowhere to go (#171) (docs/movement.md).
 """
 
 import re
@@ -233,9 +234,14 @@ def walk(s, db, goals, describe="destination", avoid=()):
             # Unconditionally: hostile state can be empty while engaged
             # (#88 — the #85 wipe left a walker stalled at melee with a
             # clean hostiles dict, and it walked away from the fight by
-            # exiting), and a retreat while unengaged is harmless.
-            s.put("retreat")
-            s.put("retreat")
+            # exiting), and a retreat while unengaged is harmless —
+            # except where the only exit is "out" (a bank's lobby, a
+            # shop, #171): nothing engages there and a retreat answers
+            # "You are already as far away as you can get!", so the
+            # step gets its one retry alone.
+            if list(getattr(s.state, "compass", None) or []) != ["out"]:
+                s.put("retreat")
+                s.put("retreat")
             s.put(commands[-1])
             outcome, _ = await_arrival(s)
         if outcome != "arrived":

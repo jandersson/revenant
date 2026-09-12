@@ -45,7 +45,12 @@ retreat → step through the game's type-ahead and judges success by
 the room changing, not by the room emptying (the cave bear that
 would not leave). One burst per step; a stall it cannot fix still
 stops the walk. Spaced single retreats lose the race to re-advances
-(the #72 cougar death, captured 2026-08-22).
+(the #72 cougar death, captured 2026-08-22). The one room the burst
+skips is one whose compass shows `out` alone — a bank lobby, a shop —
+where nothing engages and a retreat answers "You are already as far
+away as you can get!" (#171, captured 2026-09-12 in the First
+Provincial Bank when a parser fault, since fixed, hid the arrival);
+there the stalled step is simply retried once.
 
 ## Climbs the game turns back
 
