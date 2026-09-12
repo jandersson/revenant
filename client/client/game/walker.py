@@ -25,7 +25,18 @@ ARRIVAL_TIMEOUT = 15  # seconds for the compass frame after a move
 # with these two lines and no room change. The first names what
 # hinders; "Your oak-hafted handaxe and plate vambraces make the climb
 # more difficult." The second is the refusal.
-CLIMB_REFUSALS = ("footing is questionable", "climb back down")
+# Going up: "...your footing is questionable. Reluctantly, you climb
+# back down." Going down (captured 2026-09-12 on the Arthe Dale oak):
+# "You attempt to climb down the tree, but you can't seem to find
+# purchase." and "You start down the tree, but you find it hard going.
+# Rather than risking a fall, you make your way back up." — unknown,
+# they read as a stall and drew the retreat burst in a tree house.
+CLIMB_REFUSALS = (
+    "footing is questionable",
+    "climb back down",
+    "find purchase",
+    "make your way back up",
+)
 # A climb (or a stow) attempted sitting — what a turned-back climb
 # leaves you — answers with these (captured on the retry, 2026-09-11);
 # the same retry, which STANDs first, is the remedy.

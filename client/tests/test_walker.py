@@ -125,11 +125,28 @@ VERTIGO = (
 )
 
 
+# Going down (captured 2026-09-12 on the Arthe Dale oak, a rank-10
+# climber): both read as a stall until the walker learned them, and the
+# stall's retreat burst went out in a tree house.
+NO_PURCHASE = (
+    "You attempt to climb down the tree, but you can't seem to find purchase.\n"
+)
+HARD_GOING = (
+    "You start down the tree, but you find it hard going.  Rather than "
+    "risking a fall, you make your way back up.\n"
+)
+
+
 class ClimbHandle(FakeHandle):
     """Each climb answers from a script: "refused" / "vertigo" deliver
     the captured lines and no compass frame; "ok" lands the climb."""
 
-    ANSWERS = {"refused": REFUSAL, "vertigo": VERTIGO}
+    ANSWERS = {
+        "refused": REFUSAL,
+        "vertigo": VERTIGO,
+        "purchase": NO_PURCHASE,
+        "hard_going": HARD_GOING,
+    }
     SITTING = "You must be standing to do that.\n"
 
     def __init__(self, uids, answers):
@@ -208,6 +225,18 @@ def test_a_climb_turned_back_twice_stops_with_what_would_help():
     assert "retreat" not in puts  # not an engagement: no burst
     advice = next(echo for echo in handle.echoes if "beyond your Athletics" in echo)
     assert "handaxe, vambraces" in advice and ";athletics" in advice
+
+
+def test_a_descent_turned_back_is_a_refusal_not_a_stall():
+    # 2026-09-12: "can't seem to find purchase" and "make your way back
+    # up" were unknown, so the walker waited out the arrival timeout,
+    # declared a stall and sent retreat twice from a tree house.
+    for first in ("purchase", "hard_going"):
+        handle = ClimbHandle(uids=[224006], answers=[first, "ok"])
+        handle.state.room_uid = 224005
+        assert walker.walk(handle, TREE, [5705]) is True
+        assert puts_of(handle).count("climb felled tree") == 2
+        assert "retreat" not in puts_of(handle)
 
 
 def test_hindering_nouns_are_the_last_word_of_each_item():

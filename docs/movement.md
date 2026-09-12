@@ -71,6 +71,20 @@ A second wording came on the retry, same shape, same ending:
 You make your way up the tree.  Partway up, you make the mistake of looking down.  Struck by vertigo, you cling to the tree for a few moments, then slowly climb back down.
 ```
 
+Going down has its own two, captured 2026-09-12 on the Arthe Dale oak
+by a rank-10 climber:
+
+```
+You attempt to climb down the tree, but you can't seem to find purchase.
+You start down the tree, but you find it hard going.  Rather than risking a fall, you make your way back up.
+```
+
+Until the walker knew them, a turned-back descent read as a stall:
+fifteen seconds of waiting for an arrival, then the retreat burst,
+"You are already as far away as you can get!" twice in a tree house,
+and one retry. All four wordings are refusals now, so the retry comes
+at once and a second refusal stops with the advice.
+
 No room change follows, and each refusal sits the character down.
 The walker reads the story while it waits for the compass frame, so a
 refusal is recognised at once instead of after the 15-second stall:
