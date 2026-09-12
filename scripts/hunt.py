@@ -33,6 +33,7 @@ cut: melee, one opponent at a time, no magic or ranged (#149).
 """
 
 import re
+from time import monotonic
 
 from client.game import probe
 from client.game.probe import classify
@@ -162,6 +163,30 @@ BUNDLE_OUTCOMES = (
 )
 _MISSING = ("what were you referring",)
 
+# Buffs (the profile's `buffs`): PREPARE, then CAST once the pattern is
+# ready. Captured 2026-09-12 with Heroic Strength on a circle-1
+# Paladin: "You begin chanting a prayer to invoke the Heroic Strength
+# spell." / "You gesture." / "The spell takes effect, the invisible
+# flame of your soul intertwining with your flesh." A cast ten seconds
+# after the prepare went through at minimum mana. The Spells window
+# (state.active_spells, client/engine/xml_data.py) says when a buff has
+# run out; a session whose parser predates that state re-casts every
+# BUFF_MINUTES, the wiki's shortest duration for the intro buffs. The
+# failure wordings are assumptions until captured.
+PREPARE_SECONDS = 8  # from "begin chanting" to a castable pattern
+BUFF_MINUTES = 10
+PREPARE_OUTCOMES = (
+    (
+        "failed",
+        ("don't know", "unable to", "can't prepare", "cannot prepare", "no such"),
+    ),
+    ("ok", ("you begin", "gathering energy", "prepar")),
+)
+CAST_OUTCOMES = (
+    ("failed", ("pattern collapses", "backfire", "not enough mana", "nothing to cast")),
+    ("ok", ("takes effect", "you feel")),
+)
+
 
 class Tally:
     def __init__(self):
@@ -174,6 +199,8 @@ class Tally:
         # None: no bundle yet, the first skin starts one; True: a bundle
         # is worn; False: no rope (or the bundle refused), skins stowed loose.
         self.bundle = None
+        self.cast_at = {}  # buff -> monotonic() of its last cast
+        self.buffs_off = set()  # buffs that refused this run
 
 
 def hostiles(state):
@@ -348,6 +375,41 @@ def make_bundle(s, profile, tally):
     return False
 
 
+def buff_running(s, spell, tally):
+    """True while the buff needs no cast: the Spells window lists it,
+    or — for a parser without that window — its last cast is younger
+    than BUFF_MINUTES."""
+    active = getattr(s.state, "active_spells", None)
+    if isinstance(active, dict):
+        return spell.lower() in {name.lower() for name in active}
+    cast = tally.cast_at.get(spell)
+    return cast is not None and monotonic() - cast < BUFF_MINUTES * 60
+
+
+def cast_buffs(s, profile, tally):
+    """Every profile buff not running: PREPARE it, wait for the pattern,
+    CAST. A refusal takes that buff off for the run, said once."""
+    for spell in profile["buffs"]:
+        if spell in tally.buffs_off or buff_running(s, spell, tally):
+            continue
+        answer = ask(s, f"prepare {spell}")
+        if classify(answer, PREPARE_OUTCOMES) == "failed":
+            s.echo(f"hunt: cannot prepare {spell} — off for this run")
+            tally.buffs_off.add(spell)
+            continue
+        probe.collect(s, PREPARE_SECONDS, until="fully prepared")
+        answer = ask(s, "cast")
+        outcome = classify(answer, CAST_OUTCOMES)
+        if outcome == "failed":
+            s.echo(f"hunt: {spell} did not cast — off for this run")
+            tally.buffs_off.add(spell)
+            continue
+        if outcome is None:
+            unrecognized(s, tally, "cast", answer)
+        tally.cast_at[spell] = monotonic()
+        s.echo(f"hunt: cast {spell}")
+
+
 def bundled(s, profile, tally):
     """True when the skin just cut is in a worn bundle: it went there on
     its own (the skinning hand is empty), BUNDLE moved it there, or
@@ -497,6 +559,7 @@ def loop(s, profile, db, ground, avoid, tally):
             if not next_room(s, db, ground, avoid, tally):
                 return "ground empty"
             continue
+        cast_buffs(s, profile, tally)  # a buff that ran out, before the swing
         text = ask(s, f"attack {prey}" if prey else "attack")
         lowered = text.lower()
         if any(word in lowered for word in _KILL_WORDS):
@@ -540,6 +603,7 @@ def hunt(s, profile, db, travel=True, avoid=()):
         probe.collect(s, SETTLE_SECONDS)
     tally = Tally()
     wear_bundle(s, profile, tally)
+    cast_buffs(s, profile, tally)
     ready(s, profile)
     reason = loop(s, profile, db, ground, avoid, tally)
     s.echo(

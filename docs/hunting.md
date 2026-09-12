@@ -25,6 +25,7 @@ It holds what no script should hard-code:
 | loot_container | where skins and non-gem finds go (`PUT my <item> IN my <container>`, else `STOW my <item>`) |
 | gem_pouch | finds are tried into the pouch first; what the pouch refuses is stowed like loot |
 | bundle | skins go onto a bundling rope worn as a lumpy bundle: one kept in the loot container is worn before the first swing, the first skin of a run starts one from the rope in that container, every later skin goes straight into the worn bundle as SKIN cuts it (the hand tags are the judge), and `;skins` sells it. No rope: said once, skins stowed loose |
+| buffs | self-cast spells kept up through the hunt: each is PREPAREd and CAST before the weapon is drawn and again, before a swing, whenever the Spells window no longer lists it (a parser without that window re-casts every ten minutes); a refusal drops the spell for the run, said once |
 | health_floor | below it: the burst escape (retreat, retreat, first exit), then home |
 | wound_floor | a severity name; HEALTH is asked after each kill and whenever the health bar drops, and a wound that bad or worse anywhere (external, scar, internal, internal scar) breaks off like the health floor. Empty never asks. Model: [wounds.md](wounds.md) |
 | train_skills | the hunt ends when every one of them sits at mindstate 34 in the exp window |
@@ -190,6 +191,41 @@ fetched 111. Not yet observed: whether GET reaches a bundle worn from
 a previous run (today's runs ended with the bundle sold), and what
 `;skins` should do with loose skins still in the sack — it sells the
 bundle alone.
+
+## Buffs under the hunt
+
+A Paladin's first spells are self-buffs, and the hunt keeps the
+profile's `buffs` list up. Captured 2026-09-12 on the circle-1 Paladin,
+Heroic Strength ([Elanthipedia](https://elanthipedia.play.net/Heroic_Strength):
++Strength and +Stamina for 10-40 minutes, minimum prep 1, an intro
+spell for Paladins) prepared and cast by hand with the hunt stopped:
+
+```
+> prepare heroic strength
+Since you're not feeding enough power into the spell pattern to make it coherent, you quickly work your way to the minimum required.
+You begin chanting a prayer to invoke the Heroic Strength spell.
+> cast                              (ten seconds later)
+You gesture.
+The spell takes effect, the invisible flame of your soul intertwining with your flesh.  You feel holy strength and vigor course through your body.
+You feel fully attuned to the mana streams again.
+```
+
+The game marks the prepared spell with `<spell>Heroic Strength</spell>`
+(`None` once cast) and rewrites the Spells window on every pulse —
+`<clearStream id="percWindow"/>` then `Heroic Strength  (10 roisaen)`,
+a roisan being a real minute — which the parser keeps as
+`prepared_spell` and `active_spells` (client/engine/xml_data.py). The
+loop casts a buff the window does not list, before the first swing
+and before any later one; a session whose parser predates that state
+re-casts on a ten-minute timer, the wiki's shortest duration. Two
+things follow from the capture: no "fully prepared" line came in the
+ten seconds before the cast, so the loop waits eight seconds after
+PREPARE rather than for a wording; and every cast of a Holy buff
+trains Augmentation, so a buffed hunt trains that skill on the side
+(list it in `train_skills` to hunt until it locks). Manifest Force,
+the apprenticeship barrier, stacks with Aspirant's Aegis, the circle-1
+ward the free spell slot could take. The failure wordings (a spell
+not known, a collapsed pattern) are assumptions until captured.
 
 ## Out of scope in the first cut
 

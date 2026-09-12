@@ -48,8 +48,10 @@ for `client/client/<pkg>/x.py`.
   style)` segments. Styles: "" / a name / "clear" / "link:<cmd>". Control
   characters are stripped; a BEL becomes a "bell" segment. State includes
   `left_hand`/`right_hand` (`{noun, exist, name}` or None) from the
-  `<left>`/`<right>` tags, one per hand as it changes, and `injuries`
-  ({part: (kind, level)}) from the injuries panel the game pushes.
+  `<left>`/`<right>` tags, one per hand as it changes, `injuries`
+  ({part: (kind, level)}) from the injuries panel the game pushes,
+  `prepared_spell` from the `<spell>` tag and `active_spells`
+  ({name: minutes left or None}) from the Spells window's pulses.
 - `client/engine/core.py` — `Engine`: feeds lines, emits synthetic streams
   (compass = room-arrival signal, room, vitals, indicators, character,
   timesync, roundtime/casttime, bell). It appends "\n" only to the last

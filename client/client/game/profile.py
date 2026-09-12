@@ -48,6 +48,10 @@ DEFAULTS = {
     # at any tannery (ASK <tanner> FOR ROPE) and lives in the loot
     # container, and the bundle sells as one item (;skins).
     "bundle": False,
+    # Self-cast buffs kept up through the hunt: PREPARE <spell>, CAST
+    # before the first swing, and again whenever the Spells window no
+    # longer lists it (Heroic Strength, Manifest Force, ...).
+    "buffs": [],
     # Below this health % the loop breaks off and walks home.
     "health_floor": 60,
     # A wound this bad or worse (any area, any kind — HEALTH, parsed by
@@ -80,6 +84,7 @@ FIELDS = (
         "bool",
         "worn; ASK a tanner FOR ROPE",
     ),
+    ("buffs", "Buff spells to keep up", "list", "Heroic Strength, Manifest Force"),
     ("health_floor", "Break off below health %", "int", "60"),
     (
         "wound_floor",

@@ -34,6 +34,7 @@ hunt.TAIL_SECONDS = 0.01
 hunt.SETTLE_SECONDS = 0.0
 hunt.EMPTY_ROOM_WAIT = 0
 hunt.ADVANCE_WAIT = 0.01
+hunt.PREPARE_SECONDS = 0.01
 
 YARD = "[Barana's Shipyard, Lumber Storage]"
 GROUND = MapDB(
@@ -600,3 +601,82 @@ def test_kill_and_item_nouns_are_read_from_the_game_lines():
         "ruby",
         "coins",
     ]
+
+
+# --- buffs ------------------------------------------------------------------
+# Captured 2026-09-12: Heroic Strength prepared and cast by a circle-1
+# Paladin (docs/hunting.md). The Spells window says when it has run out.
+PREPARED = "You begin chanting a prayer to invoke the Heroic Strength spell."
+CAST = (
+    "You gesture.\nThe spell takes effect, the invisible flame of your soul "
+    "intertwining with your flesh.  You feel holy strength and vigor course "
+    "through your body."
+)
+BUFFED = PROFILE | {"buffs": ["heroic strength"], "home": ""}
+
+
+def test_buffs_are_cast_before_the_weapon_is_drawn(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "prepare": [PREPARED],
+            "cast": [CAST],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+        }
+    )
+    _run(arena, profile=BUFFED | {"max_kills": 1}, travel_first=False)
+    assert arena.sent[:4] == [
+        "prepare heroic strength",
+        "cast",
+        "get my handaxe from my sack",
+        "stance set 100 80 0",
+    ]
+    assert arena.sent.count("cast") == 1  # no Spells window: the timer holds it
+    assert "hunt: cast heroic strength" in arena.echoed
+
+
+def test_a_buff_the_spells_window_lists_is_not_recast_until_it_runs_out(travel):
+    def running(arena):
+        arena.state.active_spells = {"Heroic Strength": 10}
+
+    arena = Arena(
+        {
+            "attack": [(KILL, lambda a: None), (KILL, kill)],
+            "prepare": [PREPARED, PREPARED],
+            "cast": [(CAST, running), (CAST, running)],
+            "skin": [SKINNED, SKINNED],
+            "search": [NOTHING, NOTHING],
+        }
+    )
+    arena.state.active_spells = {}
+    _run(arena, profile=BUFFED | {"max_kills": 2}, travel_first=False)
+    assert arena.sent.count("cast") == 1
+
+    arena = Arena(
+        {
+            "attack": [(KILL, lambda a: None), (KILL, kill)],
+            "prepare": [PREPARED, PREPARED],
+            "cast": [CAST, CAST],
+            "skin": [SKINNED, SKINNED],
+            "search": [NOTHING, NOTHING],
+        }
+    )
+    arena.state.active_spells = {}  # never lists it: at the start, then before each swing
+    _run(arena, profile=BUFFED | {"max_kills": 2}, travel_first=False)
+    assert arena.sent.count("cast") == 3
+
+
+def test_a_buff_that_will_not_prepare_is_dropped_for_the_run(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "prepare": ["You don't know that spell."],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+        }
+    )
+    _run(arena, profile=BUFFED | {"max_kills": 1}, travel_first=False)
+    assert "cast" not in arena.sent
+    assert arena.sent.count("prepare heroic strength") == 1
+    assert any("cannot prepare heroic strength" in text for text in arena.echoed)

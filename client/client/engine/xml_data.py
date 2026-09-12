@@ -10,6 +10,25 @@ DISCARD_STREAMS = {"spellfront", "inv", "bounty", "society", "speech", "talk"}
 # matches contribute None.
 _STREAM_MARKER = re.compile(r"<pushStream id=[\"'](\w+)[\"'][^>]*/>|<popStream[^>]*/>")
 
+# One Spells-window line: "Heroic Strength  (10 roisaen)" — the name,
+# then the time left in parentheses (captured 2026-09-12). A count of
+# roisaen becomes minutes; anything else ("Indefinite") is None.
+_SPELL_LINE = re.compile(r"^\s*(.+?)\s+\((.*?)\)\s*$")
+
+
+def _active_spells(text):
+    """{name: minutes left or None} from the Spells window's lines."""
+    spells = {}
+    for line in text.splitlines():
+        match = _SPELL_LINE.match(line)
+        if not match:
+            continue
+        name, note = match.group(1), match.group(2)
+        count = re.match(r"(\d+)\s+roisa", note)
+        spells[name] = int(count.group(1)) if count else None
+    return spells
+
+
 # Attention-critical lines the server sends with no markup at all —
 # the official frontend supplies their emphasis, so we supply ours as
 # the "alert" style (issue #42). Extend only with captured evidence.
@@ -106,8 +125,9 @@ _STYLE_MARKER = re.compile(
 class XMLData:
     """The game state parsed from the XML stream — an XMLParser target
     in the shape of lich's XMLData: start()/data()/end() accumulate
-    state (prompt, indicators, compass, vitals, room, exp window), and
-    route() splits a raw line into (stream, text, style) segments.
+    state (prompt, indicators, compass, vitals, room, exp window, hands,
+    the prepared spell and the running ones), and route() splits a raw
+    line into (stream, text, style) segments.
     Engine.read drives both; the *_updated flags tell it what changed."""
 
     def __init__(self):
@@ -133,6 +153,17 @@ class XMLData:
         # Epoch seconds (server clock) when roundtime / spellcast time end
         self.roundtime = 0
         self.casttime = 0
+        # Spells: the one prepared (<spell>Heroic Strength</spell>,
+        # "None" between casts) and the ones running, from the Spells
+        # window the game rewrites on every pulse — <clearStream
+        # id="percWindow"/> then a pushStream of "Name  (N roisaen)"
+        # lines (captured 2026-09-12; a roisan is a real minute,
+        # client/game/eltime.py). {name: minutes left, or None when the
+        # window gives no count}.
+        self.prepared_spell = None
+        self.active_spells = {}
+        self._spell_text = None
+        self._perc_text = None
         # Vitals percentages from the minivitals dialog's progress bars:
         # {"health": 100, "stamina": 95, ...}; casters also get "mana".
         # The game sends partial updates, so this dict accumulates.
@@ -197,6 +228,10 @@ class XMLData:
             self.room_title = text_string.strip()
         if self._exp_skill is not None:
             self._exp_text += text_string
+        if self._spell_text is not None:
+            self._spell_text += text_string
+        if self._perc_text is not None:
+            self._perc_text += text_string
         if self._hand is not None:
             self._hand[2].append(text_string)
 
@@ -242,6 +277,16 @@ class XMLData:
             self.roundtime = int(attributes["value"])
         elif name == "castTime":
             self.casttime = int(attributes["value"])
+        elif name == "spell":
+            self._spell_text = ""
+        elif name == "pushStream" and attributes.get("id") == "percWindow":
+            self._perc_text = ""
+        elif name == "popStream" and self._perc_text is not None:
+            self.active_spells = _active_spells(self._perc_text)
+            self._perc_text = None
+        elif name == "clearStream" and attributes.get("id") == "percWindow":
+            # The wipe comes alone once the last spell has run out.
+            self.active_spells = {}
         elif name == "dialogData":
             self._vitals_dialog = attributes.get("id") == "minivitals"
             self._injuries_dialog = attributes.get("id") == "injuries"
@@ -301,6 +346,9 @@ class XMLData:
     def end(self, name: str):
         if name == "dialogData":
             self._injuries_dialog = False
+        if name == "spell" and self._spell_text is not None:
+            text, self._spell_text = self._spell_text.strip(), None
+            self.prepared_spell = None if text.lower() in ("", "none") else text
         if name in ("left", "right") and self._hand is not None:
             side, attributes, pieces = self._hand
             self._hand = None

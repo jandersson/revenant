@@ -584,3 +584,39 @@ def test_the_panels_skins_and_bar_do_not_become_parts(xml_data):
     )
     assert xml_data.injuries == {}
     assert xml_data.vitals == {}  # health2 stays out of the vitals too
+
+
+# -- spells: the prepared one and the Spells window's timers ----------------
+# Captured 2026-09-12: Heroic Strength prepared and cast by a circle-1
+# Paladin; the window is wiped and rewritten on every pulse, and a
+# roisan is a real minute (client/game/eltime.py).
+
+
+def test_the_prepared_spell_comes_from_the_spell_tag(xml_data):
+    _feed_one(xml_data, "<spell>Heroic Strength</spell>")
+    assert xml_data.prepared_spell == "Heroic Strength"
+    _feed_one(xml_data, "<spell>None</spell>You gesture.")
+    assert xml_data.prepared_spell is None
+
+
+def test_active_spells_come_from_the_spells_window(xml_data):
+    _feed_one(xml_data, '<clearStream id="percWindow"/>')
+    _feed_one(xml_data, '<pushStream id="percWindow"/>Heroic Strength  (10 roisaen)\n')
+    _feed_one(xml_data, "<popStream/><castTime value='1789234651'/>")
+    assert xml_data.active_spells == {"Heroic Strength": 10}
+    _feed_one(xml_data, '<clearStream id="percWindow"/>')
+    _feed_one(
+        xml_data,
+        '<pushStream id="percWindow"/>Heroic Strength  (9 roisaen)\n'
+        "Manifest Force  (Indefinite)\n",
+    )
+    _feed_one(xml_data, "<popStream/>")
+    assert xml_data.active_spells == {"Heroic Strength": 9, "Manifest Force": None}
+
+
+def test_a_wipe_alone_means_no_spell_is_running(xml_data):
+    _feed_one(xml_data, '<pushStream id="percWindow"/>Heroic Strength  (1 roisan)\n')
+    _feed_one(xml_data, "<popStream/>")
+    assert xml_data.active_spells == {"Heroic Strength": 1}
+    _feed_one(xml_data, '<clearStream id="percWindow"/>')
+    assert xml_data.active_spells == {}
