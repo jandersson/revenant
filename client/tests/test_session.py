@@ -181,10 +181,11 @@ def test_sessions_register_for_the_launcher_and_prune_stale_rows(monkeypatch):
     # what refuses there, at the small risk of the port being retaken.
     holder = socket.socket()
     holder.bind(("127.0.0.1", 0))
+    ghost_port = holder.getsockname()[1]
     if sys.platform == "darwin":
         holder.listen()
         holder.close()
-    session.register_session(holder.getsockname()[1], "Ghost")
+    session.register_session(ghost_port, "Ghost")
     names = [e["character"] for e in session.running_sessions()]
     assert "Lanival" in names and "Ghost" not in names
     holder.close()
