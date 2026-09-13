@@ -141,9 +141,10 @@ def test_args():
         "once": False,
         "from": "",
     }
+    assert script.parse_args([])["rooms"] == 8  # a revisit past the minute
     assert script.parse_args(["from=Hodierna"])["from"] == "hodierna"
     assert script.parse_args(["here", "once"]) == {
-        "rooms": 4,
+        "rooms": 8,
         "until": 34,
         "here": True,
         "once": True,

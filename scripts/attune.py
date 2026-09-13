@@ -1,7 +1,7 @@
 """Train Attunement by power walking — perceive mana room after room:  ;attune
 
     ;attune              loop a chain of nearby streets, POWER in each, until mind-lock
-    ;attune rooms=3      a shorter loop (default 4 rooms out and back)
+    ;attune rooms=4      a shorter loop (default 8 rooms out and back)
     ;attune until=30     stop at that mindstate instead of 34
     ;attune from=1420    walk to that ;go2 target first (the profile's attune_start otherwise)
     ;attune here         perceive in place, once a minute (Moon Mages: lunar mana is everywhere)
@@ -43,7 +43,9 @@ from client.settings import load_settings
 MIND_LOCK = 34
 RESUME_BELOW = 28  # resume once enough has drained to be worth the laps
 LOCK_POLL = 30  # seconds between mindstate checks while locked
-ROOMS = 4  # rooms beyond the start in the loop
+ROOMS = 8  # rooms beyond the start in the loop: a room pays once a minute,
+# and four out and back came round in ~35 s, so the loop waited out the
+# rest each lap (2026-09-13); eight puts every revisit past the minute
 STALE_LIMIT = 8  # perceives in a row without gain before giving up
 COLLECT_SECONDS = 2  # the perceive line lands before its roundtime
 TAIL_SECONDS = 0.5
