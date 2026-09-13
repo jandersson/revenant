@@ -27,7 +27,7 @@ While it runs:  ;train skip  ends the current task (or the rest),
 a task's script stops with it. A script task ends early with the
 task's return word when it has one (hunt's ;hunt return finishes
 the kill and walks home), killed after the grace otherwise; scripts that
-exit on their own (an empty hunting ground) end the task for this
+exit on their own (a rung the map lost) end the task for this
 cycle and are not restarted until the next one; a script gone within
 seconds of starting is a failed start, and one that crashed is said
 so with its error — a cycle in which no task trained stops the loop

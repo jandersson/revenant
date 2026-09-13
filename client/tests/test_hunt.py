@@ -3,8 +3,9 @@
 Ready the weapon and stance, attack the prey until the room is empty,
 skin and search each kill (skins into the loot container, gems into the
 pouch), move along the ground's rooms, and end on the health floor, a
-stop word, mind-lock, the kill fuse, or an empty ground — walking home
-after. The game wordings here are the assumptions docs/hunting.md lists.
+stop word, mind-lock or the kill fuse — walking home after; an empty
+ground is waited out, never left. The game wordings here are the
+assumptions docs/hunting.md lists.
 """
 
 import importlib.util
@@ -34,6 +35,7 @@ hunt.COLLECT_SECONDS = 0.01
 hunt.TAIL_SECONDS = 0.01
 hunt.SETTLE_SECONDS = 0.0
 hunt.EMPTY_ROOM_WAIT = 0
+hunt.MAX_ITERATIONS = 400  # a ground the arena cannot fill ends on the fuse
 hunt.ADVANCE_WAIT = 0.01
 buffs.PREPARE_SECONDS = 0.01
 buffs.CAST_GAP_SECONDS = 0
@@ -221,13 +223,35 @@ def test_what_the_pouch_refuses_is_stowed_like_loot(travel):
     assert "put my nail in my sack" in arena.sent
 
 
-def test_an_empty_ground_ends_the_hunt_and_walks_home(travel):
-    arena = _run(
-        Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+class Patient(Arena):
+    """An arena whose operator types ;hunt return once the loop has
+    paused on an empty ground the given number of times."""
+
+    def __init__(self, *args, pauses=1, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.pauses = pauses
+
+    def echo(self, text):
+        super().echo(text)
+        if "ground empty" in text:
+            self.pauses -= 1
+            if self.pauses == 0:
+                self.commands.append("return")
+
+
+def test_an_empty_ground_is_waited_out_not_left(travel):
+    # 2026-09-13, the operator: an empty ground is not a reason to go
+    # home — pause after every empty lap and lap again until told.
+    arena = Patient(
+        {"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]}, pauses=3
     )
-    assert any("ground empty" in text for text in arena.echoed)
-    assert arena.walks[-1] == {1}
-    assert "put my handaxe in my sack" not in arena.sent
+    _run(arena)
+    waits = [text for text in arena.echoed if "ground empty" in text]
+    assert len(waits) == 3 and "looking again" in waits[0]
+    laps = sum(1 for text in arena.echoed if text == "hunt: room empty — moving on")
+    assert laps >= 3 * hunt.EMPTY_LAPS * 2  # kept lapping between the pauses
+    assert any("returning on request" in text for text in arena.echoed)
+    assert arena.walks[-1] == {1}  # then home, on the word
 
 
 def test_an_empty_room_moves_to_the_next_room_of_the_ground(travel):
@@ -588,8 +612,9 @@ def test_a_corpse_that_keeps_answering_ends_the_room_not_the_evening(travel):
     # 2026-09-05: the hostile state still listed the corpse and the loop
     # swung at it five times. Disposed of once, then the room is clear.
     # The hostile state never empties here, so each room is declared
-    # clear after CORPSE_SWINGS + 1 swings and the ground is lapped out.
-    arena = Arena({"attack": [RAT_CORPSE] * 100, "search": [NOTHING] * 100})
+    # clear after CORPSE_SWINGS + 1 swings and the ground is lapped
+    # until the pause, where the operator's word ends it.
+    arena = Patient({"attack": [RAT_CORPSE] * 100, "search": [NOTHING] * 100})
     _run(arena, profile=PROFILE | {"skin": False}, travel_first=False)
     assert "search rat" in arena.sent
     rooms_visited = hunt.EMPTY_LAPS * len(GROUND.rooms_tagged("rats")) + 1

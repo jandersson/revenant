@@ -58,8 +58,9 @@ loop learns it.
 
 1. **Train.** Every task once per cycle, in the plan's order, skipping
    the ones whose skills already sit at the target. A task ends at the
-   target, at its time budget, when its script exits on its own (an
-   empty hunting ground, a rung the map lost), on `;train skip`, or on
+   target, at its time budget, when its script exits on its own (a
+   rung the map lost; `;hunt` waits an empty ground out rather than
+   exiting), on `;train skip`, or on
    death. Its script is ended with the return word first — `;hunt
    return` finishes the kill and walks home — and killed after the grace.
 2. **Rest.** With every task trained, walk to the next safe room, send

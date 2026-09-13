@@ -30,7 +30,7 @@ It holds what no script should hard-code:
 | health_floor | below it: the burst escape (retreat, retreat, first exit), then home |
 | wound_floor | a severity name; after each kill and whenever the health bar drops, the injuries panel the game pushes is read first — clean means nothing to ask — and HEALTH is asked only when it shows a wound; a wound that bad or worse anywhere (external, scar, internal, internal scar) breaks off like the health floor. Empty never asks. Model: [wounds.md](wounds.md) |
 | train_skills | the hunt ends when every one of them sits at mindstate 34 in the exp window |
-| max_kills | a fuse; 0 hunts until stopped, locked or the ground empties |
+| max_kills | a fuse; 0 hunts until stopped or locked — an empty ground is waited out (a pause after every empty lap, then the next lap), never left |
 | smite | a Paladin: one swing a minute is SMITE instead of ATTACK, spent only when the game answers with its conviction line — the free smite regenerates every minute and Conviction experience comes at most once a minute ([Smite command](https://elanthipedia.play.net/Smite_command), #183) |
 | attune_start | not the hunt's: where `;attune` walks before building its street loop, a `;go2` target; empty loops from wherever it stands (`;attune from=<target>` overrides it for one run) |
 

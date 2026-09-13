@@ -4,7 +4,9 @@ Walks to your profile's hunting ground (;go2's map), readies the weapon
 and stance, and fights whatever engages you until you say stop: attack,
 retarget past corpses, skin the kill if the profile says so, search the
 corpse, pouch any gems, and move on to the next room of the ground when
-this one runs empty. Breaks off and walks home below the health floor
+this one runs empty — and when the whole ground is empty, wait a
+while and lap it again, as long as it takes (the operator, 2026-09-13:
+an empty ground is not a reason to go home). Breaks off and walks home below the health floor
 or at a wound at the profile's wound floor (HEALTH after each kill and
 whenever health drops), when the trained skills mind-lock, at the kill
 fuse, or when you type
@@ -57,12 +59,15 @@ from client.game.profile import describe, load_profile
 from client.game.walker import locate, walk
 from client.game.wounds import SEVERITIES, level, parse_health
 
-MAX_ACTIONS = 600  # a session, not forever — the fuse under every loop
+MAX_ACTIONS = 600  # swings per run, not forever — the fuse under the loop
+# The outer fuse, moves and waits included: an empty ground laps for
+# hours (a pause every EMPTY_LAPS laps), never for ever.
+MAX_ITERATIONS = 5000
 COLLECT_SECONDS = 3  # the swing's own lines
 TAIL_SECONDS = 1.5  # what lands once the roundtime runs out
 SETTLE_SECONDS = 1.0  # after arriving: the room's creature enumeration
 EMPTY_ROOM_WAIT = 20  # seconds between looks when the whole ground is empty
-EMPTY_LAPS = 2  # laps of the ground with nothing in it before giving up
+EMPTY_LAPS = 2  # laps of the ground with nothing in it before the pause
 MIND_LOCK = 34
 
 # Captured kill lines: "The cougar slowly tips over and falls down."
@@ -533,12 +538,17 @@ def settle(s, db, ground, avoid, tally):
 
 def next_room(s, db, ground, avoid, tally):
     """The room is empty: on to the next room of the ground, cyclically;
-    a one-room ground waits and looks instead. False once the ground
-    has been lapped EMPTY_LAPS times with nothing in it."""
+    a one-room ground waits and looks instead. Once the ground has
+    been lapped EMPTY_LAPS times with nothing in it, a pause of
+    EMPTY_ROOM_WAIT and the laps go on — an empty ground is waited
+    out, never left (the operator, 2026-09-13). False only when a walk
+    fails."""
     tally.room_clear = False
     tally.empty_moves += 1
     if tally.empty_moves > EMPTY_LAPS * max(len(ground), 1):
-        return False
+        s.echo(f"hunt: ground empty — waiting {EMPTY_ROOM_WAIT}s, then looking again")
+        s.sleep(EMPTY_ROOM_WAIT)
+        tally.empty_moves = 0
     here = locate(db, s.state)
     others = [room for room in ground if room != here]
     if not others:
@@ -564,7 +574,10 @@ def loop(s, profile, db, ground, avoid, tally):
     floor = profile["health_floor"]
     last_health = health(s.state)
     check_wounds = False
-    for _ in range(MAX_ACTIONS):
+    swings = 0
+    for _ in range(MAX_ITERATIONS):
+        if swings >= MAX_ACTIONS:
+            break  # empty rooms and waits do not count against the swings
         if s.dead:
             return "dead — deathwatch has it"
         if (s.command(timeout=0) or "").strip().lower() == "return":
@@ -588,10 +601,11 @@ def loop(s, profile, db, ground, avoid, tally):
             return "kill fuse reached"
         if tally.room_clear or not hostiles(s.state):
             if not next_room(s, db, ground, avoid, tally):
-                return "ground empty"
+                return "the walk to the next room failed"
             if not settle(s, db, ground, avoid, tally):
                 return "ground taken"
             continue
+        swings += 1
         cast_buffs(s, profile, tally)  # a buff that ran out, before the swing
         verb = swing_verb(profile, tally)
         text = ask(s, f"{verb} {prey}" if prey else verb)
