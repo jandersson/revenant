@@ -305,6 +305,75 @@ def test_the_choking_plant_room_is_solved_by_opening_the_window(monkeypatch):
     assert any("favor earned" in echo for echo in handle.echoed)
 
 
+VASE_ROOM = (
+    "[Siergelde, Labyrinth]\n"
+    "A peaceful grotto bathed in an ethereal light is swathed in hedges of "
+    "oleander and nutflower.  The path upon which you stand winds around a "
+    "simple white altar hewn of shimmering marble, and disappears in a copse of "
+    "juniper trees.    You also see a vase on top of the altar.\n"
+    "Obvious exits: none.\n"
+)
+
+
+def test_the_vase_room_is_filled_with_a_free_hand_and_left_by_the_path(monkeypatch):
+    # Captured 2026-09-13, the second favor: GET NUTFLOWER arranges the
+    # blossoms itself, GO PATH teleports back; the orb and the handaxe
+    # had both hands, so the handaxe is stowed first.
+    _quick(monkeypatch)
+    handle = FakeHandle(
+        {
+            "get orb on altar": [[("", "You get a glass orb from the altar.")]],
+            "go arch": [[("compass", "none")]],
+            "look": [[("", line) for line in VASE_ROOM.splitlines()]],
+            "stow my handaxe": [[("", "You put your handaxe in your canvas sack.")]],
+            "get nutflower": [
+                [
+                    (
+                        "",
+                        "You carefully pick some of the nutflower blossoms and "
+                        "arrange them neatly in the vase.",
+                    )
+                ],
+                [("", "You have already filled the vase to overflowing.")],
+            ],
+            "go path": [
+                [
+                    (
+                        "",
+                        "Having filled the vase with flowers, you stride along the "
+                        "branching path toward the copse of juniper trees.",
+                    ),
+                    (
+                        "",
+                        "You feel giddy all over and you grin widely as everything "
+                        "about you disappears and you suddenly find yourself "
+                        "transported to...",
+                    ),
+                ]
+            ],
+            "rub my orb": [
+                [("", "You sense that your sacrifice is properly prepared.")],
+            ],
+            "put my orb on altar": [
+                [("", "The multicolored lights gather around you and mix together.")]
+            ],
+            "favor": [[("", "You currently have 2 favors with the gods.")]],
+        }
+    )
+    handle.state.left_hand = {"noun": "orb", "exist": "1", "name": "Truffenyi orb"}
+    handle.state.right_hand = {"noun": "handaxe", "exist": "2", "name": "handaxe"}
+    monkeypatch.setattr(
+        favors,
+        "locate",
+        lambda db, state: favors.GROTTO if "go path" in handle.sent else None,
+    )
+    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    puzzle = handle.sent[handle.sent.index("go arch") + 1 :]
+    assert puzzle[:4] == ["look", "stow my handaxe", "get nutflower", "go path"]
+    assert any("the empty vase" in echo for echo in handle.echoed)
+    assert any("favor earned" in echo for echo in handle.echoed)
+
+
 def test_an_unknown_puzzle_room_is_left_to_the_human(monkeypatch):
     _quick(monkeypatch)
     handle = FakeHandle(

@@ -37,8 +37,19 @@ a mirror, it is what our code believes and why.
    hoist yourself off the floor and manage to swing yourself through
    the open window." / "You feel giddy all over and you grin widely as
    everything about you disappears and you suddenly find yourself
-   transported to..." — the grotto); the sponge and tinder rooms are
-   the wiki's spoilers, uncaptured — and hands a room it does not
+   transported to..." — the grotto), and the empty vase (the second
+   favor: "A peaceful grotto ... swathed in hedges of oleander and
+   nutflower ... a simple white altar hewn of shimmering marble ...
+   a vase on top of the altar", solved by GET NUTFLOWER alone — "You
+   carefully pick some of the nutflower blossoms and arrange them
+   neatly in the vase.", again "You have already filled the vase to
+   overflowing." — and GO PATH: "Having filled the vase with flowers,
+   you stride along the branching path toward the copse of juniper
+   trees." then the teleport; with the orb and a weapon in hand the
+   game says "You must clear one of your hands first.", so the script
+   stows whatever is not the orb before a puzzle); the sponge and
+   tinder rooms are the wiki's spoilers, uncaptured — and hands a room
+   it does not
    know (levers) to the human, resuming when it can locate a mapped
    room with a path to the temple.
 4. **Filling**: the orb's sacrifice is the unabsorbed experience pool

@@ -3,9 +3,11 @@ Run it from anywhere in walking range of Crossing: the script walks to
 the Stone Grotto west of town, prays a favor orb loose in the name of
 a neutral Immortal (default Truffenyi; e.g. ;favors Meraud), takes the
 easy exit (GO ARCH), solves the puzzle rooms it knows — the choking
-plant (OPEN WINDOW until it slides open, GO WINDOW), the dirty altar
-(GET SPONGE, CLEAN ALTAR WITH SPONGE), the unlit candles (GET TINDER,
-LIGHT CANDLE), each followed by GO STAIR and GO DOOR — and hands a
+plant (OPEN WINDOW until it slides open, GO WINDOW), the empty vase
+(GET NUTFLOWER fills it, GO PATH), the dirty altar (GET SPONGE, CLEAN
+ALTAR WITH SPONGE), the unlit candles (GET TINDER, LIGHT CANDLE), the
+last two followed by GO STAIR and GO DOOR; a puzzle that needs a hand
+gets one, the item that is not the orb stowed — and hands a
 room it does not recognise to you, then walks to the temple's
 Resurrection Creche, rubs the orb full of
 unabsorbed experience, and lays it on the altar. Favors are what stand
@@ -17,10 +19,11 @@ A puzzle room the script does not know (levers, say) it describes
 and leaves to you; it notices when you are back on the map and
 resumes on its own — ;favors done forces it, ;favors abort stops the
 run, and DROP MY ORB abandons the puzzles entirely (the game destroys
-the orb and teleports you out). The choking plant's room was captured
-on 2026-09-13 (the window takes three OPENs, and GO WINDOW teleports
-you back to the grotto); the sponge and tinder rooms are Elanthipedia's
-spoilers, uncaptured. Carry at most one other orb:
+the orb and teleports you out). The choking plant's and the vase's
+rooms were captured on 2026-09-13 (the window takes three OPENs, the
+flowers arrange themselves on GET, and the exit teleports you back to
+the grotto); the sponge and tinder rooms are Elanthipedia's spoilers,
+uncaptured. Carry at most one other orb:
 beyond two, fed experience is wasted (docs/favors.md).
 
 Wordings beyond the Elanthipedia-quoted ones are assumptions until an
@@ -80,6 +83,22 @@ PUZZLES = (
         "cues": ("choking", "window"),
         "steps": (("open window", ("slides open", "already open")),),
         "exit": ("go window",),
+    },
+    {
+        # "A peaceful grotto ... swathed in hedges of oleander and
+        # nutflower ... a simple white altar hewn of shimmering marble
+        # ... You also see a vase on top of the altar." (captured
+        # 2026-09-13, the second favor). GET NUTFLOWER does the whole
+        # task: "You carefully pick some of the nutflower blossoms and
+        # arrange them neatly in the vase."; again: "You have already
+        # filled the vase to overflowing." GO PATH: "Having filled the
+        # vase with flowers, you stride along the branching path toward
+        # the copse of juniper trees." then the teleport. With the orb
+        # and a weapon in hand: "You must clear one of your hands first."
+        "name": "the empty vase",
+        "cues": ("vase", "nutflower"),
+        "steps": (("get nutflower", ("arrange", "already filled")),),
+        "exit": ("go path",),
     },
     {
         # Elanthipedia (Favors/Puzzles): "granite altar with several
@@ -201,6 +220,19 @@ def on_the_map(s, db):
     return here is not None and db.path(here, {CRECHE}) is not None
 
 
+def free_hand(s):
+    """A puzzle that picks something up needs a hand, and the orb has
+    one: with both full, STOW the item that is not the orb (captured
+    2026-09-13: "You must clear one of your hands first.")."""
+    hands = [getattr(s.state, side, None) for side in ("left_hand", "right_hand")]
+    if not all(hands):
+        return
+    other = next((h for h in hands if "orb" not in str(h.get("noun") or "")), None)
+    if other and other.get("noun"):
+        ask(s, f"stow my {other['noun']}")
+        s.waitrt()
+
+
 def match_puzzle(description):
     """The PUZZLES entry whose every cue word the room's LOOK holds."""
     text = description.lower()
@@ -248,6 +280,7 @@ def solve_puzzles(s, db):
             return wait_out_puzzles(s, db)
         steps = ", ".join(command for command, _ in puzzle["steps"])
         s.echo(f"favors: {puzzle['name']} — {steps}, then {', '.join(puzzle['exit'])}")
+        free_hand(s)
         for command, done in puzzle["steps"]:
             for _ in range(STEP_TRIES):
                 answer = ask(s, command).lower()
