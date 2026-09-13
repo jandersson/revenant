@@ -12,11 +12,16 @@ rescue is underway. A death that predates the watch — a restart or
 ;reexec mid-death — counts as freshly observed: the countdown starts
 the moment the script does.
 
-Why depart and not quit: the decay clock runs offline — captured
-2026-08-22 (docs/death.md), when an idle disconnect while dead ended
-in decay anyway. The death announcement's own countdown ("Your body
-will decay beyond its ability to hold your soul in N minutes") sets
-the ceiling this script works within.
+Why depart and not quit: this script was built on the belief that
+the decay clock runs offline. Re-read on 2026-09-13, the 2026-08-22
+capture shows the opposite — the character logged back in two and a
+half hours after the death still a ghost, body intact (docs/death.md)
+— so a logout while dead keeps the body for a raise, and departing
+spends favors or items. Whether the watch should log out instead is
+#186; until that is decided it departs, as before. The death
+announcement's own countdown ("Your body will decay beyond its
+ability to hold your soul in N minutes") sets the ceiling this script
+works within while the character stays in the game.
 """
 
 import re

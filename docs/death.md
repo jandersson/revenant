@@ -13,12 +13,19 @@ pages; the sharpest facts here are captured from a real death
   the window's length to spirit and charisma). ;deathwatch parses
   this line and keeps its rescue grace inside the window, with a
   five-minute safety margin.
-- **The clock runs offline.** The captured death ended with *"YOU
-  HAVE BEEN IDLE TOO LONG. PLEASE RESPOND."* — an idle disconnect
-  while dead — and the next login found the character already
-  departed by decay. Quitting or disconnecting on death protects
-  nothing; ;deathwatch instead answers the idle check (a harmless
-  LOOK every two minutes) and departs deliberately.
+- **The clock does NOT run offline.** This file said the opposite
+  until 2026-09-13, misreading its own capture: the 2026-08-22 death
+  (a 21-minute window announced at 16:04) ended in an idle disconnect,
+  and the *same character's* next login at 18:52 — two and a half
+  hours later — opened with "[You are dead.]" and "You are a ghost!",
+  the body still there, before a DEPART ("You feel yourself lifted
+  gently, cradled as if by a mother's hand."). The 17:07 login in
+  between was another character. A dead character who logs out keeps
+  the body until the next login, as the operator remembers the game
+  always working. ;deathwatch's "depart rather than quit" rationale
+  rested on the misreading; which end is right — depart (favors and
+  items at stake) or log out and wait for a raise — is #186's
+  question.
 
 ## The DEAD indicator
 
