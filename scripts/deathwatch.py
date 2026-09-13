@@ -1,35 +1,35 @@
-"""Depart safely if you die unattended:  ;deathwatch  (autostarted)
+"""Log out safely if you die unattended, keeping the body for a raise:  ;deathwatch  (autostarted)
+
+    ;deathwatch            quit after a 10-minute rescue grace (the default)
+    ;deathwatch 5          a five-minute grace
+    ;deathwatch depart     depart at the grace instead (the old behaviour)
+    ;deathwatch 5 depart   both
 
 Watches the DEAD indicator; while you live it costs nothing. On death
 it alerts loudly, keeps the connection alive through the game's idle
-check, and waits a rescue grace — default 10 minutes, `;deathwatch 5`
-for five — capped inside the body's announced decay window. If nobody
-resurrects you in time it departs with the best variant your favors
+check, and waits a rescue grace — default 10 minutes — capped inside
+the body's announced decay window ("Your body will decay beyond its
+ability to hold your soul in N minutes"). If nobody resurrects you in
+time it QUITs: the game accepts QUIT while dead (the operator,
+2026-09-13), and a logged-out body does not decay — the 2026-08-22
+capture found the character still a ghost two and a half hours after
+a 21-minute window (docs/death.md) — so the body waits for a raise at
+the next login, and no favors or items are spent. `depart` asks for
+the old ending instead: DEPART with the best variant your favors
 afford, trying DEPART FULL (keeps items and coins, 3 favors), then
 ITEMS, then GRAVE, then bare DEPART, judging each attempt by the DEAD
-indicator actually clearing. `;stop deathwatch` holds it off while a
-rescue is underway. A death that predates the watch — a restart or
+indicator actually clearing. `;stop deathwatch` holds either off while
+a rescue is underway. A death that predates the watch — a restart or
 ;reexec mid-death — counts as freshly observed: the countdown starts
 the moment the script does.
-
-Why depart and not quit: this script was built on the belief that
-the decay clock runs offline. Re-read on 2026-09-13, the 2026-08-22
-capture shows the opposite — the character logged back in two and a
-half hours after the death still a ghost, body intact (docs/death.md)
-— so a logout while dead keeps the body for a raise, and departing
-spends favors or items. Whether the watch should log out instead is
-#186; until that is decided it departs, as before. The death
-announcement's own countdown ("Your body will decay beyond its
-ability to hold your soul in N minutes") sets the ceiling this script
-works within while the character stays in the game.
 """
 
 import re
 import time
 
 POLL = 2  # seconds between DEAD-indicator checks
-DEFAULT_GRACE_MINUTES = 10  # rescue window before departing
-DECAY_SAFETY_MINUTES = 5  # depart this long before the announced decay
+DEFAULT_GRACE_MINUTES = 10  # rescue window before the ending
+DECAY_SAFETY_MINUTES = 5  # end this long before the announced decay
 KEEPALIVE_SECONDS = 120  # a harmless command per this, against idle-out
 COUNTDOWN_SECONDS = 60  # progress echo cadence while dead
 DEPART_WAIT = 12  # seconds to give each depart attempt to take
@@ -50,10 +50,28 @@ def is_dead(state):
 
 def grace_minutes_from(args):
     """The rescue grace from the arguments, or the default."""
-    try:
-        return max(0.0, float(args[0]))
-    except (IndexError, ValueError):
-        return float(DEFAULT_GRACE_MINUTES)
+    for arg in args:
+        try:
+            return max(0.0, float(arg))
+        except ValueError:
+            continue
+    return float(DEFAULT_GRACE_MINUTES)
+
+
+def mode_from(args):
+    """ "quit" (the default) or "depart", from the word in the arguments."""
+    words = {str(arg).lower() for arg in args}
+    return "depart" if "depart" in words else "quit"
+
+
+def leave(s):
+    """QUIT while dead: the body keeps for a raise at the next login
+    (docs/death.md). Said first, since the connection ends with it."""
+    s.echo(
+        "DEATHWATCH: still dead — logging out to keep the body for a raise "
+        "(QUIT); log back in when someone can resurrect you"
+    )
+    s.put("quit")
 
 
 def scan_decay_minutes(s):
@@ -90,7 +108,7 @@ def wait_for_rescue(s, grace_seconds):
             last_countdown = now
             remaining = max(0, round((deadline - now) / 60))
             s.echo(
-                f"DEATHWATCH: still dead — departing in about {remaining} "
+                f"DEATHWATCH: still dead — the grace ends in about {remaining} "
                 "minute(s) unless rescued (;stop deathwatch to hold)"
             )
         s.sleep(POLL)
@@ -113,31 +131,43 @@ def depart(s):
     return False
 
 
-def handle_death(s, grace_minutes):
+def handle_death(s, grace_minutes, mode="quit"):
     decay = scan_decay_minutes(s)
     grace = grace_minutes
     if decay is not None:
         grace = min(grace, max(decay - DECAY_SAFETY_MINUTES, 1))
     window = f"{decay} minute decay window" if decay else "decay window unknown"
+    ending = "departing" if mode == "depart" else "logging out"
     s.echo(
-        f"DEATHWATCH: you are DEAD ({window}) — departing in "
+        f"DEATHWATCH: you are DEAD ({window}) — {ending} in "
         f"{grace:.0f} minute(s) unless rescued. ;stop deathwatch holds it."
     )
     if wait_for_rescue(s, grace * 60):
         s.echo("DEATHWATCH: alive again — standing down to watch")
-        return
-    depart(s)
+        return "rescued"
+    if mode == "depart":
+        depart(s)
+        return "departed"
+    leave(s)
+    return "left"
 
 
 def main(s):
     grace_minutes = grace_minutes_from(s.args)
+    mode = mode_from(s.args)
+    ending = (
+        "departing (best variant your favors afford)"
+        if mode == "depart"
+        else "logging out to keep the body for a raise"
+    )
     s.echo(
-        f"deathwatch: watching — on an unattended death, departing after "
-        f"{grace_minutes:.0f} minute(s) (best variant your favors afford)"
+        f"deathwatch: watching — on an unattended death, {ending} after "
+        f"{grace_minutes:.0f} minute(s)"
     )
     while True:
         if is_dead(s.state):
-            handle_death(s, grace_minutes)
+            if handle_death(s, grace_minutes, mode) == "left":
+                return  # the connection ends with the QUIT; nothing to watch
         else:
             # Keep the queue drained so a death scans only fresh lines.
             while s.get(timeout=0) is not None:

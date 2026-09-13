@@ -1,8 +1,10 @@
 # The death model automation assumes
 
-`;deathwatch` (scripts/deathwatch.py) departs an unattended corpse
-before it decays — dying AFK must never again cost a character their
-belongings. Canon lives on Elanthipedia's Death and Depart command
+`;deathwatch` (scripts/deathwatch.py) logs an unattended corpse out
+after a rescue grace, before it decays, so the body keeps for a raise
+at the next login (`;deathwatch depart` departs instead) — dying AFK
+must never again cost a character their belongings. Canon lives on
+Elanthipedia's Death and Depart command
 pages; the sharpest facts here are captured from a real death
 (2026-08-22, the 16:04 session log).
 
@@ -23,9 +25,10 @@ pages; the sharpest facts here are captured from a real death
   between was another character. A dead character who logs out keeps
   the body until the next login, as the operator remembers the game
   always working. ;deathwatch's "depart rather than quit" rationale
-  rested on the misreading; which end is right — depart (favors and
-  items at stake) or log out and wait for a raise — is #186's
-  question.
+  rested on the misreading. Decided 2026-09-13 (#186): the watch QUITs
+  at the grace — the game accepts QUIT while dead — and the body waits
+  for a raise at the next login; `;deathwatch depart` keeps the old
+  ending for whoever wants it.
 
 ## The DEAD indicator
 
@@ -61,9 +64,10 @@ pages; the sharpest facts here are captured from a real death
 | DEPART GRAVE | 1      | items go to a grave         |
 | DEPART       | 0      | maximum penalties           |
 
-;deathwatch walks the ladder best-variant-first and judges each
-attempt by the DEAD indicator actually clearing — no refusal wording
-ever needs to be known. Favors are the fuel: ;favors (docs/favors.md)
+`;deathwatch depart` walks the ladder best-variant-first and judges
+each attempt by the DEAD indicator actually clearing — no refusal
+wording ever needs to be known; the default ending is a QUIT, which
+spends nothing. Favors are the fuel: ;favors (docs/favors.md)
 is how a character keeps at least three banked.
 
 ## Open anomaly

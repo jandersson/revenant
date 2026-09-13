@@ -1,10 +1,11 @@
 """How ;deathwatch protects an unattended death — these tests are the manual.
 
 Watch the DEAD indicator; on death, parse the announced decay window,
-hold a rescue grace inside it (answering the idle check), then walk
-the depart ladder best-variant-first, judging every attempt by the
-indicator actually clearing. The wordings come from a captured death
-(2026-08-22, docs/death.md).
+hold a rescue grace inside it (answering the idle check), then QUIT —
+a logged-out body keeps for a raise (the operator's decision, #186) —
+or, asked for with `depart`, walk the depart ladder best-variant-first,
+judging every attempt by the indicator actually clearing. The wordings
+come from a captured death (2026-08-22, docs/death.md).
 """
 
 import importlib.util
@@ -79,6 +80,27 @@ def test_grace_argument_and_default():
     assert deathwatch.grace_minutes_from(["5"]) == 5.0
     assert deathwatch.grace_minutes_from([]) == 10.0
     assert deathwatch.grace_minutes_from(["soon"]) == 10.0
+    assert deathwatch.grace_minutes_from(["depart", "5"]) == 5.0
+
+
+def test_the_ending_is_quit_unless_depart_is_asked_for():
+    # The operator's decision (2026-09-13, #186): a logged-out body
+    # keeps for a raise; departing spends favors or items.
+    assert deathwatch.mode_from([]) == "quit"
+    assert deathwatch.mode_from(["5"]) == "quit"
+    assert deathwatch.mode_from(["depart"]) == "depart"
+    assert deathwatch.mode_from(["5", "DEPART"]) == "depart"
+
+
+def test_zero_grace_logs_out_by_default(monkeypatch):
+    monkeypatch.setattr(deathwatch, "DECAY_SCAN_SECONDS", 0.05)
+    handle = FakeHandle(dead=True, sleeps=40)
+    handle.lines = [DECAY_LINE]
+    deathwatch.handle_death(handle, grace_minutes=0)
+    puts = [call[1] for call in handle.calls if call[0] == "put"]
+    assert puts == ["quit"]
+    assert any("logging out to keep the body for a raise" in e for e in handle.echoes)
+    assert any("logging out in 0 minute(s)" in e for e in handle.echoes)
 
 
 def test_decay_window_parsed_from_the_captured_line(monkeypatch):
@@ -97,12 +119,12 @@ def test_depart_ladder_steps_down_until_the_indicator_clears(monkeypatch):
     assert any("departed (depart grave)" in echo for echo in handle.echoes)
 
 
-def test_zero_grace_departs_immediately(monkeypatch):
+def test_zero_grace_departs_immediately_when_asked(monkeypatch):
     monkeypatch.setattr(deathwatch, "DECAY_SCAN_SECONDS", 0.05)
     monkeypatch.setattr(deathwatch, "DEPART_WAIT", 2)
     handle = DepartAtGraveHandle(dead=True, sleeps=40)
     handle.lines = [DECAY_LINE]
-    deathwatch.handle_death(handle, grace_minutes=0)
+    deathwatch.handle_death(handle, grace_minutes=0, mode="depart")
     assert any("21 minute decay window" in echo for echo in handle.echoes)
     puts = [call[1] for call in handle.calls if call[0] == "put"]
     assert "depart full" in puts
@@ -123,7 +145,11 @@ def test_a_rescue_during_the_grace_stands_the_watch_down(monkeypatch):
     handle = RescuedHandle(dead=True, sleeps=30)
     deathwatch.handle_death(handle, grace_minutes=10)
     assert any("standing down" in echo for echo in handle.echoes)
-    assert not any("depart" in call[1] for call in handle.calls if call[0] == "put")
+    assert not any(
+        call[1] in ("quit",) or "depart" in call[1]
+        for call in handle.calls
+        if call[0] == "put"
+    )
 
 
 def test_the_grace_wait_answers_the_idle_check(monkeypatch):
@@ -142,12 +168,17 @@ def test_a_death_that_predates_the_watch_starts_the_countdown(monkeypatch):
     # at startup must count as a freshly observed death.
     monkeypatch.setattr(deathwatch, "DECAY_SCAN_SECONDS", 0.05)
     monkeypatch.setattr(deathwatch, "DEPART_WAIT", 2)
-    handle = DepartAtGraveHandle(args=["0"], dead=True, sleeps=40)
+    handle = DepartAtGraveHandle(args=["0", "depart"], dead=True, sleeps=40)
     with pytest.raises(LoopDone):
         deathwatch.main(handle)
     puts = [call[1] for call in handle.calls if call[0] == "put"]
     assert "depart full" in puts
     assert any("you are DEAD" in echo for echo in handle.echoes)
+    # ... and by default the same start logs out instead.
+    quiet = FakeHandle(args=["0"], dead=True, sleeps=40)
+    deathwatch.main(quiet)  # returns: the QUIT ends the connection
+    assert [call[1] for call in quiet.calls if call[0] == "put"] == ["quit"]
+    assert any("logging out to keep the body" in echo for echo in quiet.echoes)
 
 
 def test_watching_costs_nothing_while_alive():

@@ -195,7 +195,8 @@ entries from a dock-layout module.
   which glues the per-segment pieces the session delivers back into
   whole lines — the last piece of a line carries the newline — so
   <d>-linked item lines keep their indentation, #123),
-  and the death watchdog (`;deathwatch`: departs an unattended corpse
+  and the death watchdog (`;deathwatch`: logs an unattended corpse out
+  after a rescue grace so the body keeps for a raise, or departs it
   with the best variant the favors afford before it decays —
   docs/death.md holds the captured model)
   (`session.autostart_scripts`; `;stop <name>` opts
