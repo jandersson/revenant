@@ -139,12 +139,15 @@ def test_args():
         "until": 30,
         "here": False,
         "once": False,
+        "from": "",
     }
+    assert script.parse_args(["from=Hodierna"])["from"] == "hodierna"
     assert script.parse_args(["here", "once"]) == {
         "rooms": 4,
         "until": 34,
         "here": True,
         "once": True,
+        "from": "",
     }
 
 
@@ -249,6 +252,33 @@ def test_a_clear_pool_is_read_from_the_exp_answer_not_called_no_magic():
     assert "cannot train it" not in echoes(fake)
     assert fake.sent[0] == "exp attunement"
     assert "power" in fake.sent
+
+
+def test_from_walks_to_the_start_room_before_looping():
+    # 2026-09-13: started at the shipyard, "no street to loop from
+    # here"; the start room is where the streets are.
+    fake = Fake(mindstates=[4, 6, 8, 10, 34])
+    run(fake, ["from=3", "once"])
+    assert fake.walks[0] == 3  # the start room first
+    assert fake.sent[0] == "power"
+    assert "nothing in the map" not in echoes(fake)
+
+
+def test_the_profiles_attune_start_is_the_default_start_room(monkeypatch, tmp_path):
+    import json
+
+    monkeypatch.setenv("REVENANT_PROFILES", str(tmp_path))
+    (tmp_path / "lanival.json").write_text(json.dumps({"attune_start": "4"}))
+    fake = Fake(mindstates=[4, 6, 8, 10, 34])
+    fake.state.name = "Lanival"
+    run(fake, ["once"])
+    assert fake.walks[0] == 4
+    # from= overrides it for the run; an unknown target is said.
+    fake = Fake(mindstates=[4, 34])
+    fake.state.name = "Lanival"
+    run(fake, ["from=nowhere"])
+    assert fake.walks == []
+    assert "nothing in the map matches start room 'nowhere'" in echoes(fake)
 
 
 def test_a_room_with_no_street_is_refused():

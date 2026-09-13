@@ -32,6 +32,7 @@ It holds what no script should hard-code:
 | train_skills | the hunt ends when every one of them sits at mindstate 34 in the exp window |
 | max_kills | a fuse; 0 hunts until stopped, locked or the ground empties |
 | smite | a Paladin: one swing a minute is SMITE instead of ATTACK, spent only when the game answers with its conviction line — the free smite regenerates every minute and Conviction experience comes at most once a minute ([Smite command](https://elanthipedia.play.net/Smite_command), #183) |
+| attune_start | not the hunt's: where `;attune` walks before building its street loop, a `;go2` target; empty loops from wherever it stands (`;attune from=<target>` overrides it for one run) |
 
 `;hunt return` (typed while it runs) ends the loop before the next
 swing and walks home; `;stop hunt` quits where it stands (the rule for

@@ -74,6 +74,9 @@ DEFAULTS = {
     # what trains Conviction (free smites regenerate one a minute and
     # the experience comes at most once per minute, #183).
     "smite": False,
+    # Where ;attune walks before building its street loop — a ;go2
+    # target (room id, tag, title); "" loops from wherever it stands.
+    "attune_start": "",
 }
 
 # (key, label, kind, help) — kind is "bool", "int", "str" or "list".
@@ -111,6 +114,7 @@ FIELDS = (
     ("train_skills", "Stop when these skills lock", "list", "Small Edged, Evasion"),
     ("max_kills", "Kills per run (0 = until stopped)", "int", ""),
     ("smite", "SMITE one swing a minute (Paladin: Conviction)", "bool", ""),
+    ("attune_start", ";attune walks to (;go2 target)", "str", "empty: from here"),
 )
 
 _KINDS = {key: kind for key, _, kind, _ in FIELDS}

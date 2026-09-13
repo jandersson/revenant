@@ -3,13 +3,17 @@
     ;attune              loop a chain of nearby streets, POWER in each, until mind-lock
     ;attune rooms=3      a shorter loop (default 4 rooms out and back)
     ;attune until=30     stop at that mindstate instead of 34
+    ;attune from=1420    walk to that ;go2 target first (the profile's attune_start otherwise)
     ;attune here         perceive in place, once a minute (Moon Mages: lunar mana is everywhere)
     ;attune once         exit at mind-lock instead of holding for the drain
     ;attune return       (typed while it runs) finish the current perceive and end
 
 Perceiving mana trains Attunement once per room per sixty seconds
 (Elanthipedia: Attunement skill, Perceive command), so the script
-builds a chain of rooms from where you stand — plain compass moves
+builds a chain of rooms from where you stand — or, first, walks to
+the profile's `attune_start` (a ;go2 target: a room id, a tag, a
+title) or the run's `from=` target, so a hunting ground or a shop with
+no street to loop is no reason to give up — plain compass moves
 in both directions, streets rather than shop doors — and walks it out
 and back, POWERing on every arrival and waiting out any room that
 paid within the minute. Captured 2026-09-12 on a circle-1 Paladin:
@@ -47,14 +51,33 @@ clock = time.monotonic  # tests replace it
 
 
 def parse_args(args):
-    options = {"rooms": ROOMS, "until": MIND_LOCK, "here": False, "once": False}
+    options = {
+        "rooms": ROOMS,
+        "until": MIND_LOCK,
+        "here": False,
+        "once": False,
+        "from": "",
+    }
     for arg in args:
         key, sep, value = str(arg).lower().partition("=")
         if sep and key in ("rooms", "until") and value.isdigit():
             options[key] = int(value)
+        elif sep and key == "from" and value:
+            options["from"] = value
         elif key in ("here", "once"):
             options[key] = True
     return options
+
+
+def start_room(s):
+    """The profile's attune_start, a ;go2 target, or "" for the
+    character without a profile or a name."""
+    name = getattr(s.state, "name", None)
+    if not name:
+        return ""
+    from client.game.profile import load_profile
+
+    return str(load_profile(name).get("attune_start") or "").strip()
 
 
 def mindstate(s):
@@ -149,6 +172,17 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
                 "attune: power walking needs the map — none loaded; ;attune here perceives in place"
             )
             return
+        target = options["from"] or start_room(s)
+        if target:
+            goals = mapdb.resolve(target)
+            if not goals:
+                s.echo(f"attune: nothing in the map matches start room {target!r}")
+                return
+            if not walk_fn(
+                s, mapdb, goals, describe=f"start room {target!r}", avoid=avoid
+            ):
+                s.echo("attune: could not reach the start room — stopping")
+                return
         start = locate(mapdb, s.state)
         if start is None:
             s.echo("attune: current room unknown — 'look' once and retry")
