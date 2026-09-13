@@ -27,6 +27,7 @@ sense mana), and when the map has no street to loop.
 Stop with:  ;stop attune (at once), or ;attune return for a clean finish.
 """
 
+import re
 import time
 
 from client.game import probe
@@ -61,13 +62,25 @@ def mindstate(s):
     return entry["mindstate"] if entry else None
 
 
+# EXP ATTUNEMENT answers in the story — "Attunement:     18 97.08% clear
+# (0/34)" (captured 2026-09-13) — while the exp window lists a skill
+# only while it has experience in it, so a clear pool is absent from
+# the window and read as "no such skill" until this line is parsed.
+_EXP_ANSWER = re.compile(r"Attunement:\s+\d+\s+[\d.]+%\s+.*?\((\d+)/34\)")
+
+
 def ensure_mindstate(s):
-    """The mindstate, asking EXP ATTUNEMENT once when the exp window
-    has not shown the skill yet."""
+    """The mindstate: the exp window's, or EXP ATTUNEMENT's own answer
+    when the window does not list the skill (a clear pool is 0/34, a
+    guild without the skill gets no such line)."""
     value = mindstate(s)
     if value is None:
-        probe.ask(s, "exp attunement", COLLECT_SECONDS, TAIL_SECONDS)
+        answer = probe.ask(s, "exp attunement", COLLECT_SECONDS, TAIL_SECONDS)
         value = mindstate(s)
+        if value is None:
+            match = _EXP_ANSWER.search(answer or "")
+            if match:
+                value = int(match.group(1))
     return value
 
 

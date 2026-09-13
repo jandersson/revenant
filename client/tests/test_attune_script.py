@@ -215,6 +215,42 @@ def test_a_guild_without_attunement_is_told_so():
     assert "cannot train it" in echoes(fake)
 
 
+def test_a_clear_pool_is_read_from_the_exp_answer_not_called_no_magic():
+    # 2026-09-13: a Paladin's Attunement drained to "clear" left the exp
+    # window, and the script said a guild without magic cannot train it.
+    class Answering(Fake):
+        def put(self, command):
+            super().put(command)
+            if command == "exp attunement":
+                self.pending = [
+                    "SKILL: Rank/Percent towards next rank/Amount learning/"
+                    "Mindstate fraction\n",
+                    "      Attunement:     18 97.08% clear          (0/34)\n",
+                ]
+                # The first POWER puts the skill back in the window.
+                self.mindstates = [2, 4, 34]
+
+    fake = Answering(mindstates=[])
+    fake.state.experience = {}
+    original = fake._next_mindstate
+
+    def next_mindstate():
+        if "Attunement" not in fake.state.experience and fake.mindstates:
+            fake.state.experience["Attunement"] = {
+                "rank": 18,
+                "percent": 97,
+                "mindstate": fake.mindstates.pop(0),
+            }
+        else:
+            original()
+
+    fake._next_mindstate = next_mindstate
+    run(fake, ["once"])
+    assert "cannot train it" not in echoes(fake)
+    assert fake.sent[0] == "exp attunement"
+    assert "power" in fake.sent
+
+
 def test_a_room_with_no_street_is_refused():
     fake = Fake(mindstates=[4])
     lone = MapDB([{"id": 1, "uid": [101], "title": ["[Shop]"], "wayto": {}}])
