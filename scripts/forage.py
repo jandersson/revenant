@@ -20,8 +20,11 @@ practice answers "You wander around and poke your fingers into a few
 places, wondering what you might find." and "You find something dead
 and lifeless, is this what you were looking for?" (6 s roundtime —
 not the wiki's 15 — and Outdoorsmanship 1 74% dabbling → learning on
-the first), the near miss "You are certain you could find what you
-were looking for, if you had a bit more luck.", and "You forage
+the first), the near misses "You are certain you could find what you
+were looking for, if you had a bit more luck." / "You are sure you
+knew what you were looking for when you started to forage." / "You
+begin to forage around, but can't quite seem to remember what it was
+you were looking for.", and "You forage
 around but are unable to find anything." (6 s), which a room without
 the item answers every time and a room with it answers on a failed
 try, so three of those in a row end the run only before the first
@@ -57,9 +60,16 @@ clock = time.monotonic  # tests replace it
 # wording.
 _EMPTY = ("unable to find anything",)
 _COLLECTED = ("poke your fingers", "dead and lifeless", "you collect", "pile")
-# A failed try that says the item is here: "You are certain you could
-# find what you were looking for, if you had a bit more luck."
-_TRIED = ("a bit more luck",)
+# A failed try that says the item is here, in three flavors (2026-09-14):
+# "You are certain you could find what you were looking for, if you had
+# a bit more luck.", "You are sure you knew what you were looking for
+# when you started to forage.", "You begin to forage around, but can't
+# quite seem to remember what it was you were looking for."
+_TRIED = (
+    "a bit more luck",
+    "knew what you were looking for",
+    "remember what it was you were looking for",
+)
 _REFUSED = ("can't do that", "cannot do that", "not something you can", "what were you")
 
 

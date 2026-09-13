@@ -218,8 +218,11 @@ into a few places, wondering what you might find." and "You find
 something dead and lifeless, is this what you were looking for?" with
 a 6-second roundtime (the wiki's 15-second base is not what a rank-1
 character saw) and Outdoorsmanship rising 1 74% dabbling → learning
-on the first; the near miss "You are certain you could find what you
-were looking for, if you had a bit more luck."; and "You forage around
+on the first; the near misses "You are certain you could find what
+you were looking for, if you had a bit more luck.", "You are sure you
+knew what you were looking for when you started to forage." and "You
+begin to forage around, but can't quite seem to remember what it was
+you were looking for."; and "You forage around
 but are unable to find anything." (6 s) in a room with nothing to
 collect and on a failed try where there is something — so three of
 those in a row end the run only before the first success, ten after.

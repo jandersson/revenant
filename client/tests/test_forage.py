@@ -62,6 +62,11 @@ TRIED = (
     "You are certain you could find what you were looking for, if you had a bit "
     "more luck.\nRoundtime: 6 sec."
 )
+FORGOT = (
+    "You begin to forage around, but can't quite seem to remember what it was "
+    "you were looking for.\nRoundtime: 6 sec."
+)
+KNEW = "You are sure you knew what you were looking for when you started to forage."
 ODD = "Something odd happens.\nRoundtime: 15 sec."
 
 
@@ -181,9 +186,11 @@ def test_three_empty_answers_before_any_find_end_the_run_ten_after(travel):
 
 def test_a_near_miss_counts_as_a_try_and_keeps_the_run_going(travel):
     # "... if you had a bit more luck." says the item is here (2026-09-14).
-    s = Fake([EMPTY, EMPTY, TRIED, EMPTY, EMPTY, EMPTY], experience=_exp(10))
+    s = Fake(
+        [EMPTY, EMPTY, TRIED, FORGOT, KNEW, EMPTY, EMPTY, EMPTY], experience=_exp(10)
+    )
     reason, collected = forage.run(s, forage.parse_args([]), db=MAP)
-    assert (len(s.sent), collected) == (6, 1)
+    assert (len(s.sent), collected) == (8, 3)
     assert reason.startswith("nothing to collect here (3")
     assert not any("unrecognized" in text for text in s.echoed)
 
