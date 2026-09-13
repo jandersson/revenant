@@ -2,19 +2,25 @@
 Run it from anywhere in walking range of Crossing: the script walks to
 the Stone Grotto west of town, prays a favor orb loose in the name of
 a neutral Immortal (default Truffenyi; e.g. ;favors Meraud), takes the
-easy exit (GO ARCH), waits while you solve the favor puzzles by hand,
-then walks to the temple's Resurrection Creche, rubs the orb full of
+easy exit (GO ARCH), solves the puzzle rooms it knows — the choking
+plant (OPEN WINDOW until it slides open, GO WINDOW), the dirty altar
+(GET SPONGE, CLEAN ALTAR WITH SPONGE), the unlit candles (GET TINDER,
+LIGHT CANDLE), each followed by GO STAIR and GO DOOR — and hands a
+room it does not recognise to you, then walks to the temple's
+Resurrection Creche, rubs the orb full of
 unabsorbed experience, and lays it on the altar. Favors are what stand
 between dying and a zero-favor DEPART. The orb's sacrifice is your
 experience pool: with nothing learning the script refuses and tells
 you to train first.
 
-The puzzles past the arch are yours (typical tasks per Elanthipedia:
-GET SPONGE / CLEAN ALTAR WITH SPONGE, or GET TINDER / LIGHT CANDLE,
-then GO STAIR and GO DOOR); the script notices when you are back on
-the map and resumes on its own — ;favors done forces it, ;favors abort
-stops the run, and DROP MY ORB abandons the puzzles entirely (the game
-destroys the orb and teleports you out). Carry at most one other orb:
+A puzzle room the script does not know (levers, say) it describes
+and leaves to you; it notices when you are back on the map and
+resumes on its own — ;favors done forces it, ;favors abort stops the
+run, and DROP MY ORB abandons the puzzles entirely (the game destroys
+the orb and teleports you out). The choking plant's room was captured
+on 2026-09-13 (the window takes three OPENs, and GO WINDOW teleports
+you back to the grotto); the sponge and tinder rooms are Elanthipedia's
+spoilers, uncaptured. Carry at most one other orb:
 beyond two, fed experience is wasted (docs/favors.md).
 
 Wordings beyond the Elanthipedia-quoted ones are assumptions until an
@@ -55,6 +61,45 @@ RESULT_SECONDS = 2  # the tail that lands once the roundtime expires
 OFFER_SECONDS = 6  # the altar's light show is long and multi-line
 ARRIVAL_TIMEOUT = 10  # room change after GO ARCH
 PUZZLE_POLL = 5  # seconds between are-we-back checks while puzzling
+# The Labyrinth's puzzle rooms past the arch, each one task; the last
+# exit teleports you back to the grotto ("You feel giddy all over and
+# you grin widely as everything about you disappears and you suddenly
+# find yourself transported to...", captured 2026-09-13). The cue
+# words in the room's LOOK pick the puzzle; a room no cue fits is left
+# to the human. Steps repeat until their done-words show.
+PUZZLES = (
+    {
+        # "[Siergelde, Labyrinth] ... a plant upon the table looks as
+        # though it is slowly choking to death in the heat." OPEN WINDOW
+        # three times (captured): "you shimmy the frame ... a thin
+        # crack", "loosen it even further", "hoist it upward ... slides
+        # open"; once more says "That is already open." GO WINDOW: "You
+        # hoist yourself off the floor and manage to swing yourself
+        # through the open window." then the teleport to the grotto.
+        "name": "the choking plant",
+        "cues": ("choking", "window"),
+        "steps": (("open window", ("slides open", "already open")),),
+        "exit": ("go window",),
+    },
+    {
+        # Elanthipedia (Favors/Puzzles): "granite altar with several
+        # candles on it, a granite font and a small sponge".
+        "name": "the dirty altar",
+        "cues": ("sponge",),
+        "steps": (("get sponge", ()), ("clean altar with sponge", ())),
+        "exit": ("go stair", "go door"),
+    },
+    {
+        # Elanthipedia: "some tinders, several candles, a granite font
+        # and a granite altar".
+        "name": "the unlit candles",
+        "cues": ("tinder",),
+        "steps": (("get tinder", ()), ("light candle", ())),
+        "exit": ("go stair", "go door"),
+    },
+)
+STEP_TRIES = 6  # repeats of a step waiting for its done-words
+MAX_PUZZLES = 12  # rooms solved before the script hands over anyway
 MAX_RUBS = 100  # the orb fills well before this; a fuse, not a plan
 RUB_REPORT_EVERY = 10
 
@@ -150,12 +195,77 @@ def enter_puzzles(s):
     return now != before
 
 
-def wait_out_puzzles(s, db):
-    """Hold while the human solves the favor puzzles. True to resume the
-    run (back on the map, or ;favors done), False on ;favors abort."""
+def on_the_map(s, db):
+    """Back from the puzzles: a mapped room with a path to the creche."""
+    here = locate(db, s.state)
+    return here is not None and db.path(here, {CRECHE}) is not None
+
+
+def match_puzzle(description):
+    """The PUZZLES entry whose every cue word the room's LOOK holds."""
+    text = description.lower()
+    for puzzle in PUZZLES:
+        if all(cue in text for cue in puzzle["cues"]):
+            return puzzle
+    return None
+
+
+def typed_word(s):
+    """A ;favors word typed since the last look: "done", "abort" or None."""
+    word = None
+    while (line := s.command(timeout=0)) is not None:
+        candidate = line.strip().lower()
+        if candidate in ("done", "abort"):
+            word = candidate
+        else:
+            s.echo(
+                "favors: mid-puzzle I only understand ;favors done and ;favors abort"
+            )
+    return word
+
+
+def solve_puzzles(s, db):
+    """Solve the Labyrinth's rooms the script knows (PUZZLES), room by
+    room, until the character is back on the map; a room it does not
+    know goes to the human (wait_out_puzzles). True to resume the run,
+    False on ;favors abort."""
     while s.command(timeout=0) is not None:
         pass  # stale ;favors lines from earlier must not fake a done
-    s.echo("favors: puzzle rooms — solve each task by hand (;help favors has spoilers)")
+    for _ in range(MAX_PUZZLES):
+        if on_the_map(s, db):
+            s.echo("favors: back on the map — resuming the run")
+            return True
+        word = typed_word(s)
+        if word == "abort":
+            return False
+        if word == "done":
+            return True
+        room = ask(s, "look")
+        puzzle = match_puzzle(room)
+        if puzzle is None:
+            first = next((line for line in room.splitlines() if line.strip()), "")
+            s.echo(f"favors: a puzzle room I do not know — {first.strip()[:90]}")
+            return wait_out_puzzles(s, db)
+        steps = ", ".join(command for command, _ in puzzle["steps"])
+        s.echo(f"favors: {puzzle['name']} — {steps}, then {', '.join(puzzle['exit'])}")
+        for command, done in puzzle["steps"]:
+            for _ in range(STEP_TRIES):
+                answer = ask(s, command).lower()
+                s.waitrt()
+                if not done or any(sign in answer for sign in done):
+                    break
+        for command in puzzle["exit"]:
+            ask(s, command)
+            s.waitrt()
+            s.sleep(PAUSE)
+    s.echo(f"favors: still in the puzzles after {MAX_PUZZLES} rooms — over to you")
+    return wait_out_puzzles(s, db)
+
+
+def wait_out_puzzles(s, db):
+    """Hold while the human solves a puzzle room. True to resume the
+    run (back on the map, or ;favors done), False on ;favors abort."""
+    s.echo("favors: solve this room by hand (;help favors has the known ones)")
     s.echo(
         "favors: I resume when you're back on the map — "
         ";favors done forces it, ;favors abort stops"
@@ -172,8 +282,7 @@ def wait_out_puzzles(s, db):
                 "favors: mid-puzzle I only understand ;favors done and ;favors abort"
             )
             continue
-        here = locate(db, s.state)
-        if here is not None and db.path(here, {CRECHE}) is not None:
+        if on_the_map(s, db):
             s.echo("favors: back on the map — resuming the run")
             return True
 
@@ -276,7 +385,7 @@ def main(s, db=None, walk=None):
             "favors: GO ARCH went nowhere — capture the lines above and take it from here by hand (#82)"
         )
         return
-    if not wait_out_puzzles(s, db):
+    if not solve_puzzles(s, db):
         s.echo(
             "favors: aborted — DROP MY ORB abandons the puzzles "
             "(destroys the orb, teleports you out)"

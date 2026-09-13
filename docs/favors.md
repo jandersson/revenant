@@ -28,8 +28,19 @@ a mirror, it is what our code believes and why.
    DOOR. Puzzle count grows with favors already held (near zero for
    our audience); solving them returns you to the grotto. DROP MY ORB
    abandons: the orb is destroyed and you are teleported out. The
-   script leaves the puzzles to the human and resumes when it can
-   locate a mapped room with a path to the temple.
+   script solves the rooms it knows from the room's LOOK — captured
+   2026-09-13 at zero favors, one room: `[Siergelde, Labyrinth]`, "a
+   plant upon the table looks as though it is slowly choking to death
+   in the heat", solved by OPEN WINDOW three times ("you shimmy the
+   frame ... a thin crack", "loosen it even further", "hoist it upward
+   ... slides open", then "That is already open.") and GO WINDOW ("You
+   hoist yourself off the floor and manage to swing yourself through
+   the open window." / "You feel giddy all over and you grin widely as
+   everything about you disappears and you suddenly find yourself
+   transported to..." — the grotto); the sponge and tinder rooms are
+   the wiki's spoilers, uncaptured — and hands a room it does not
+   know (levers) to the human, resuming when it can locate a mapped
+   room with a path to the temple.
 4. **Filling**: the orb's sacrifice is the unabsorbed experience pool
    (favors held plus circles size the requirement; favors dominate).
    RUB MY ORB drains a little per rub; HUG MY ORB dumps the whole
@@ -65,7 +76,8 @@ and become fixtures:
 
 - The grotto prayer wordings (kneel/pray/say/stand responses) and the
   get-orb success line.
-- The arch/trees appearance line and the puzzle prompts past GO ARCH.
+- The arch/trees appearance line, and the sponge and tinder rooms'
+  wordings (the choking plant's are captured above).
 - Rub progress wordings as RUB reports them (the staged wordings above
   are LOOK's), and the empty-pool refusal, if the game words one.
 - The altar's refusal of an unfilled orb, and the FAVOR count line.
