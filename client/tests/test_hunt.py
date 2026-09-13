@@ -55,7 +55,14 @@ GROUND = MapDB(
             "uid": [21102],
             "title": [YARD],
             "tags": ["rats"],
-            "wayto": {"6046": "west"},
+            "wayto": {"6046": "west", "6048": "north"},
+        },
+        {
+            "id": 6048,
+            "uid": [21103],
+            "title": ["[Barana's Shipyard, Gate]"],
+            "tags": [],
+            "wayto": {"6047": "south"},
         },
         {"id": 1, "uid": [1], "title": ["[Town Green]"], "tags": ["home"], "wayto": {}},
     ]
@@ -271,6 +278,26 @@ def test_below_the_health_floor_the_hunt_breaks_off_and_goes_home(travel):
     assert not any(command.startswith("attack") for command in arena.sent)
     assert any("health 40% below the floor" in text for text in arena.echoed)
     assert arena.walks[-1] == {1}
+
+
+def test_a_break_off_with_no_home_leaves_the_ground(travel):
+    # #185 (2026-09-13): the loop broke off on the health floor with no
+    # home and ended on the ground; the rats killed the character two
+    # and a half hours later. Now: the nearest room off the ground.
+    arena = _run(
+        Arena({"attack": []}, health=40),
+        profile=PROFILE | {"home": ""},
+        travel_first=False,
+    )
+    assert arena.sent[2:5] == ["retreat", "retreat", "west"]
+    assert arena.walks[-1] == {6048}  # the gate, the only room off the ground
+    assert any("left the ground for" in text for text in arena.echoed)
+    assert any("set home" in text for text in arena.echoed)
+
+
+def test_off_ground_is_the_rooms_one_move_outside():
+    assert hunt.off_ground(GROUND, [6046, 6047]) == {6048}
+    assert hunt.off_ground(GROUND, [6048]) == {6047}
 
 
 HURT = "Your body feels slightly battered.\nYou have deep cuts across the neck.\n"

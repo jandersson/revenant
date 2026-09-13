@@ -7,6 +7,9 @@ corpse, pouch any gems, and move on to the next room of the ground when
 this one runs empty — and when the whole ground is empty, wait a
 while and lap it again, as long as it takes (the operator, 2026-09-13:
 an empty ground is not a reason to go home). Breaks off and walks home below the health floor
+(with no home set, a break-off still leaves the ground for the nearest
+room off it — a character left standing among what hurt it died there,
+2026-09-13, #185)
 or at a wound at the profile's wound floor (HEALTH after each kill and
 whenever health drops), when the trained skills mind-lock, at the kill
 fuse, or when you type
@@ -286,6 +289,43 @@ def wound_at_floor(s, profile):
         s.echo(f"hunt: unrecognized wound {fragment!r} — please report it")
     hits = health.at_least(wanted)
     return max(hits, key=lambda hit: hit[2]) if hits else None
+
+
+BROKE_OFF = ("below the floor", "at the wound floor")  # a break-off's reasons
+
+
+def off_ground(db, ground):
+    """The mapped rooms one move outside the ground: where a break-off
+    with no home goes (#185)."""
+    inside = set(ground)
+    outside = set()
+    for room in ground:
+        for dest in db.rooms.get(room, {}).get("wayto") or {}:
+            try:
+                dest = int(dest)
+            except (TypeError, ValueError):
+                continue
+            if dest not in inside and dest in db.rooms:
+                outside.add(dest)
+    return outside
+
+
+def leave_ground(s, db, ground, avoid):
+    """No home to walk to after a break-off: the nearest room off the
+    ground, said so — never the ground itself (Cecil stood on it two
+    and a half hours and died there, 2026-09-13, #185)."""
+    goals = off_ground(db, ground)
+    if goals and walk(s, db, goals, describe="off the ground", avoid=avoid):
+        s.echo(
+            f"hunt: no home in the profile — left the ground for "
+            f"{s.state.room_title}; set home so a break-off walks somewhere safe"
+        )
+        return True
+    s.echo(
+        "hunt: no home in the profile and no room off the ground to reach — "
+        "you are still on the ground; move, and set home"
+    )
+    return False
 
 
 def escape(s):
@@ -678,6 +718,8 @@ def hunt(s, profile, db, travel=True, avoid=()):
             s.echo(f"hunt: home at {s.state.room_title}")
         elif not goals:
             s.echo(f"hunt: nothing in the map matches home {profile['home']!r}")
+    elif any(word in reason for word in BROKE_OFF) and ground:
+        leave_ground(s, db, ground, avoid)
 
 
 def main(s):
@@ -691,6 +733,11 @@ def main(s):
         s.echo(f"hunt: profile for {name or 'an unnamed character'}")
         for line in describe(profile):
             s.echo(f"  {line}")
+        if not profile["home"]:
+            s.echo(
+                "hunt: home is empty — a break-off leaves you just off the ground; "
+                "set it in the profile"
+            )
         return
     if not mapdb_path().is_file():
         s.echo("downloading map database (first use, ~13MB) ...")

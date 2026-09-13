@@ -83,7 +83,12 @@ DEFAULTS = {
 FIELDS = (
     ("hunting_ground", "Hunting ground (;go2 target)", "str", "rats, 6046, a title"),
     ("prey", "Prey noun to attack", "str", "empty: whatever engages you"),
-    ("home", "Walk home to (;go2 target)", "str", "empty: stay where the hunt ends"),
+    (
+        "home",
+        "Walk home to (;go2 target)",
+        "str",
+        "empty: a break-off leaves you just off the ground",
+    ),
     ("weapon", "Weapon noun", "str", "empty: barehanded"),
     ("weapon_container", "Weapon is kept in", "str", "sack, sheath — empty: in hand"),
     ("stance", "STANCE SET arguments", "str", "e.g. 100 80 0 — empty: leave it"),
