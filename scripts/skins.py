@@ -13,7 +13,8 @@ a lumpy bundle." / "The tanner Falken ponders over the bundle for a
 while, then hands you 111 Kronars." / "And there's your rope back
 again." The script walks to the nearest room the map tags `tannery`,
 takes the bundle off (or out of the loot container when it is not
-worn), SELLs it from the hand, echoes what the tanner paid, puts the
+worn; one already in a hand — a run stopped between REMOVE and SELL,
+2026-09-14 — is sold as it is), SELLs it from the hand, echoes what the tanner paid, puts the
 rope into the loot container the profile names (or STOWs it) for the
 next hunt's first skin, and stays at the tannery — where it started
 is usually the hunting ground, and the first scripted run (2026-09-12)
@@ -55,9 +56,21 @@ def _missing(answer):
     return any(needle in lowered for needle in _NO_BUNDLE)
 
 
+def in_hand(s):
+    """True when the parser's hand tags show the bundle held already —
+    a run stopped between REMOVE and SELL left it there (2026-09-14)."""
+    for side in ("left", "right"):
+        held = getattr(s.state, f"{side}_hand", None)
+        if isinstance(held, dict) and held.get("noun") == "bundle":
+            return True
+    return False
+
+
 def take_bundle(s, container):
-    """The bundle into a hand — off the body, or out of the container;
-    False when there is none either place."""
+    """The bundle into a hand — there already, off the body, or out of
+    the container; False when there is none any place."""
+    if in_hand(s):
+        return True
     if not _missing(ask(s, "remove my bundle")):
         return True
     command = f"get my bundle from my {container}" if container else "get my bundle"

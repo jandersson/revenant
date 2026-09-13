@@ -113,6 +113,20 @@ def test_sells_the_worn_bundle_keeps_the_rope_and_stays_at_the_tannery():
     assert "skins: sold the bundle for 111 Kronars" in fake.echoed
 
 
+def test_a_bundle_already_in_hand_is_sold_without_a_remove():
+    # 2026-09-14: a run stopped between REMOVE and SELL left the bundle
+    # in the left hand, and the next run said "nothing to sell".
+    fake = Fake({"sell": [SOLD]})
+    fake.state.left_hand = {"noun": "bundle", "exist": "1", "name": "lumpy bundle"}
+    fake.state.right_hand = {
+        "noun": "handaxe",
+        "exist": "2",
+        "name": "oak-hafted handaxe",
+    }
+    script.run(fake, [], MAP, walk_fn=walk, profile=PROFILE)
+    assert fake.sent == ["sell my bundle", "put my rope in my sack"]
+
+
 def test_a_bundle_in_the_sack_is_fetched_when_none_is_worn():
     fake = Fake(
         {
