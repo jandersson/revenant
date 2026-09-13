@@ -47,9 +47,19 @@ a mirror, it is what our code believes and why.
    you stride along the branching path toward the copse of juniper
    trees." then the teleport; with the orb and a weapon in hand the
    game says "You must clear one of your hands first.", so the script
-   stows whatever is not the orb before a puzzle); the sponge and
-   tinder rooms are the wiki's spoilers, uncaptured — and hands a room
-   it does not
+   stows whatever is not the orb before a puzzle), and the empty font
+   (the third favor: "Two fiery braziers stand astride a steep stone
+   stairway which leads to a massive iron door ... a granite altar
+   with several candles and a water jug on it, and a granite font";
+   the font "is empty. Something in the back of your mind tells you
+   this doesn't seem right."; GET JUG "You reverently take the jug
+   from the altar.", POUR JUG IN FONT "You carefully carry the earthen
+   jug to the font and pour the water out. The soft scent of lilac
+   rises from the filled basin ..." and the jug is gone, GO STAIR "You
+   reach the top of the stairway, and notice that the door has swung
+   open of its own accord!", GO DOOR "You step gleefully through the
+   door ..." then the teleport); the sponge and tinder rooms are the
+   wiki's spoilers, uncaptured — and hands a room it does not
    know (levers) to the human, resuming when it can locate a mapped
    room with a path to the temple.
 4. **Filling**: the orb's sacrifice is the unabsorbed experience pool

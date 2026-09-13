@@ -4,9 +4,10 @@ the Stone Grotto west of town, prays a favor orb loose in the name of
 a neutral Immortal (default Truffenyi; e.g. ;favors Meraud), takes the
 easy exit (GO ARCH), solves the puzzle rooms it knows — the choking
 plant (OPEN WINDOW until it slides open, GO WINDOW), the empty vase
-(GET NUTFLOWER fills it, GO PATH), the dirty altar (GET SPONGE, CLEAN
-ALTAR WITH SPONGE), the unlit candles (GET TINDER, LIGHT CANDLE), the
-last two followed by GO STAIR and GO DOOR; a puzzle that needs a hand
+(GET NUTFLOWER fills it, GO PATH), the empty font (GET JUG, POUR JUG
+IN FONT), the dirty altar (GET SPONGE, CLEAN ALTAR WITH SPONGE), the
+unlit candles (GET TINDER, LIGHT CANDLE), the last three followed by
+GO STAIR and GO DOOR; a puzzle that needs a hand
 gets one, the item that is not the orb stowed — and hands a
 room it does not recognise to you, then walks to the temple's
 Resurrection Creche, rubs the orb full of
@@ -19,11 +20,12 @@ A puzzle room the script does not know (levers, say) it describes
 and leaves to you; it notices when you are back on the map and
 resumes on its own — ;favors done forces it, ;favors abort stops the
 run, and DROP MY ORB abandons the puzzles entirely (the game destroys
-the orb and teleports you out). The choking plant's and the vase's
-rooms were captured on 2026-09-13 (the window takes three OPENs, the
-flowers arrange themselves on GET, and the exit teleports you back to
-the grotto); the sponge and tinder rooms are Elanthipedia's spoilers,
-uncaptured. Carry at most one other orb:
+the orb and teleports you out). The choking plant's, the vase's and
+the font's rooms were captured on 2026-09-13 (the window takes three
+OPENs, the flowers arrange themselves on GET, the jug empties into
+the font and the stair opens the door, and every exit teleports you
+back to the grotto); the sponge and tinder rooms are Elanthipedia's
+spoilers, uncaptured. Carry at most one other orb:
 beyond two, fed experience is wasted (docs/favors.md).
 
 Wordings beyond the Elanthipedia-quoted ones are assumptions until an
@@ -99,6 +101,27 @@ PUZZLES = (
         "cues": ("vase", "nutflower"),
         "steps": (("get nutflower", ("arrange", "already filled")),),
         "exit": ("go path",),
+    },
+    {
+        # "Two fiery braziers stand astride a steep stone stairway which
+        # leads to a massive iron door ... a granite altar with several
+        # candles and a water jug on it, and a granite font." (captured
+        # 2026-09-13, the third favor). The font "is empty. Something in
+        # the back of your mind tells you this doesn't seem right."
+        # GET JUG: "You reverently take the jug from the altar."; POUR
+        # JUG IN FONT: "You carefully carry the earthen jug to the font
+        # and pour the water out. The soft scent of lilac rises from the
+        # filled basin ..." (the jug is gone after). GO STAIR: "You reach
+        # the top of the stairway, and notice that the door has swung
+        # open of its own accord!"; GO DOOR: "You step gleefully through
+        # the door ..." then the teleport.
+        "name": "the empty font",
+        "cues": ("jug", "font"),
+        "steps": (
+            ("get jug", ("take the jug",)),
+            ("pour jug in font", ("pour the water out",)),
+        ),
+        "exit": ("go stair", "go door"),
     },
     {
         # Elanthipedia (Favors/Puzzles): "granite altar with several
