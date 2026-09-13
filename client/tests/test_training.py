@@ -116,9 +116,11 @@ def test_the_starter_plan_takes_home_and_skills_from_the_profile(monkeypatch):
     assert [task["script"] for task in starter["tasks"]] == [
         "athletics",
         "hunt",
+        "skins",
         "forage",
     ]
-    assert starter["tasks"][2]["skills"] == ["Outdoorsmanship"]
+    assert starter["tasks"][2]["args"] == ["bank"]  # sold and banked once a cycle
+    assert starter["tasks"][3]["skills"] == ["Outdoorsmanship"]
     assert starter["tasks"][1]["skills"] == ["Small Edged"]
     assert starter["tasks"][1]["return_word"] == "return"
     assert validate(starter) == []

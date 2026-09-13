@@ -497,6 +497,20 @@ def test_a_full_hand_the_parser_cannot_name_is_stowed_by_side(travel):
     assert arena.sent[first : first + 3] == ["skin rat", "stow left", "skin rat"]
 
 
+def test_a_skin_that_found_the_live_one_is_a_gone_corpse_too(travel):
+    # Captured 2026-09-14 on a striped badger: SKIN badger after the
+    # kill reached the live badger still in the room.
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "skin": ["You can't skin something that's not dead!"],
+            "search": [NOTHING],
+        }
+    )
+    _run(arena)
+    assert not any("unrecognized" in text for text in arena.echoed)
+
+
 def test_a_gone_corpse_is_not_reported_as_unrecognized(travel):
     arena = Arena(
         {

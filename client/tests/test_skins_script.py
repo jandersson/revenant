@@ -34,6 +34,13 @@ MAP = MapDB(
             "tags": ["tannery", "crossing tannery"],
             "wayto": {},
         },
+        {
+            "id": 1200,
+            "uid": [9004],
+            "title": ["[Provincial Bank, Teller]"],
+            "tags": ["bank"],
+            "wayto": {},
+        },
     ]
 )
 PROFILE = {"loot_container": "sack"}
@@ -121,6 +128,39 @@ def test_a_bundle_in_the_sack_is_fetched_when_none_is_worn():
         "get my bundle from my sack",
         "sell my bundle",
     ]
+
+
+def test_bank_deposits_all_at_the_nearest_teller_after_the_sale():
+    # #196: the teller's wording is uncaptured, so the answer is echoed
+    # as it came; `back` then walks home from the bank.
+    fake = Fake(
+        {
+            "remove": [REMOVED],
+            "sell": [SOLD],
+            "deposit": ["You deposit 111 Kronars.\nYour balance is now 4,889 Kronars."],
+        }
+    )
+    script.run(fake, ["bank", "back"], MAP, walk_fn=walk, profile=PROFILE)
+    assert fake.walks == [{8266}, {1200}, {100}]
+    assert fake.sent == [
+        "remove my bundle",
+        "sell my bundle",
+        "put my rope in my sack",
+        "deposit all",
+    ]
+    assert "skins: You deposit 111 Kronars." in fake.echoed
+    assert "skins: Your balance is now 4,889 Kronars." in fake.echoed
+    # No bundle: nothing sold, so nothing walks to the bank either.
+    fake = Fake({"remove": [MISSING], "get my bundle": [MISSING]})
+    script.run(fake, ["bank"], MAP, walk_fn=walk, profile=PROFILE)
+    assert fake.walks == [{8266}]
+    assert "deposit all" not in fake.sent
+    # No teller on the map: said so, the coins stay.
+    fake = Fake({"remove": [REMOVED], "sell": [SOLD]})
+    no_bank = MapDB([MAP.rooms[100], MAP.rooms[8266]])
+    script.run(fake, ["bank"], no_bank, walk_fn=walk, profile=PROFILE)
+    assert "deposit all" not in fake.sent
+    assert any("no room tagged 'bank'" in text for text in fake.echoed)
 
 
 def test_no_bundle_anywhere_stops_before_selling():

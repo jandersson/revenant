@@ -443,6 +443,7 @@ def test_train_init_writes_the_starter_and_refuses_to_overwrite(clock, tmp_path)
     assert [task["script"] for task in written["tasks"]] == [
         "athletics",
         "hunt",
+        "skins",
         "forage",
     ]
     train.main(Fake(args=["init"]))

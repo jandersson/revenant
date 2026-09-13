@@ -186,8 +186,10 @@ minimum mana the first scripted cast (2026-09-14, a striped badger)
 read "You gesture at a striped badger. / A stream of dull golden light
 jumps from you to a striped badger, which warps into a spiraling force
 as it slams into it! / You also see a striped badger that appears
-stunned." — the light scales with the mana fed. The resist and failure
-wordings are uncaptured. A stunned creature does not attack, so the
+stunned." — the light scales with the mana fed. Too much mana answers
+"Your spell hopelessly backfires." (captured 2026-09-14 on the ramp's
+second step; the ramp then holds one step under, and the next cast
+landed). The resist wording is uncaptured. A stunned creature does not attack, so the
 cast spares bites
 while the weapon works. The profile's `debilitation` names the spell,
 and the loop casts it at the prey before a swing on the same cast gap
@@ -341,7 +343,11 @@ The first skin of a run, with no bundle yet, starts one: weapon into
 its container, rope out, BUNDLE, WEAR, weapon back. `;skins` walks to
 the nearest `tannery`, REMOVEs the bundle, SELLs it from the hand,
 keeps the rope, and stays there (`;skins back` walks back: the first
-scripted run returned to the rats with the weapon stowed). The first bundled hunt ran the same
+scripted run returned to the rats with the weapon stowed); `;skins
+bank` goes on to the nearest room tagged `bank` and DEPOSITs ALL, the
+teller's answer echoed until captured, which is how a `;train` task
+(`"script": "skins", "args": ["bank"]`, no skills, once a cycle)
+turns a hunt's skins into banked coins (#196). The first bundled hunt ran the same
 evening and captured the rest:
 
 ```

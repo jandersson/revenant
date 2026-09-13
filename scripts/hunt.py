@@ -170,8 +170,9 @@ SKIN_OUTCOMES = (
     # Both hands full — the last skin still in the off hand (captured
     # 2026-09-12, three kills running): stowed, then skinned again.
     ("hands_full", ("one hand free",)),
-    # "is dead first": the corpse noun found a live one (captured
-    # 2026-09-12) — the corpse is gone, the next swing gets the live one.
+    # "is dead first" (a rat, 2026-09-12) and "You can't skin something
+    # that's not dead!" (a badger, 2026-09-14): the corpse noun found a
+    # live one — the corpse is gone, the next swing gets the live one.
     (
         "gone",
         (
@@ -179,6 +180,7 @@ SKIN_OUTCOMES = (
             "nothing to skin",
             "already been skinned",
             "is dead first",
+            "not dead",
         ),
     ),
     ("ruined", ("ruin", "botch", "worthless", "useless")),

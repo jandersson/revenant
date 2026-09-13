@@ -1,7 +1,8 @@
 """Sell the bundle of skins you wear at the nearest tannery:  ;skins
 
     ;skins             walk to the nearest tannery, sell the bundle, keep the rope, stay there
-    ;skins back        ... and walk back to where you started
+    ;skins bank        ... then walk to the nearest teller and DEPOSIT ALL
+    ;skins back        ... and walk back to where you started (bank back: both)
 
 A worn lumpy bundle takes every skin ;hunt cuts (the profile's
 `bundle` setting) and sells as one item: the tanner pays the appraised
@@ -18,7 +19,13 @@ next hunt's first skin, and stays at the tannery — where it started
 is usually the hunting ground, and the first scripted run (2026-09-12)
 walked back into the rats with the weapon stowed; `back` walks back
 anyway. No bundle to sell, or a tanner who does not pay, stops it
-with the answer echoed. Stops on death.
+with the answer echoed. `bank` goes on from the sale to the nearest
+room the map tags `bank` and DEPOSITs ALL (Elanthipedia: Deposit
+command), echoing the teller's answer — its wording is the first
+run's to capture, and until then it is not judged (#196); under
+;train a task `{"script": "skins", "args": ["bank"]}` with no skills
+runs once a cycle after the hunt and ends when the script does. Stops
+on death.
 Stop with:  ;stop skins
 """
 
@@ -57,8 +64,28 @@ def take_bundle(s, container):
     return not _missing(ask(s, command))
 
 
+def deposit(s, mapdb, walk_fn):
+    """Walk to the nearest teller and DEPOSIT ALL, the answer echoed
+    line by line (its wording is uncaptured, #196). False when no
+    teller is on the map or reachable — the coins stay in the purse."""
+    tellers = mapdb.rooms_tagged("bank")
+    if not tellers:
+        s.echo("skins: the map has no room tagged 'bank' — the coins stay with you")
+        return False
+    if not walk_fn(s, mapdb, set(tellers), describe="the bank teller"):
+        s.echo("skins: could not reach a teller — the coins stay with you")
+        return False
+    answer = ask(s, "deposit all")
+    lines = [line for line in answer.strip().splitlines() if line.strip()]
+    for line in lines or ["the teller said nothing to DEPOSIT ALL"]:
+        s.echo(f"skins: {line}")
+    return True
+
+
 def run(s, words, mapdb, walk_fn=walk, profile=None):
-    back = bool(words) and words[-1].lower() == "back"
+    lowered = [word.lower() for word in words]
+    back = bool(lowered) and lowered[-1] == "back"
+    bank = "bank" in lowered
     if profile is None:
         profile = load_profile(getattr(s.state, "name", None) or "")
     container = profile["loot_container"]
@@ -85,6 +112,11 @@ def run(s, words, mapdb, walk_fn=walk, profile=None):
         return
     s.echo(f"skins: sold the bundle for {paid.group(1)} {paid.group(2)}")
     ask(s, f"put my rope in my {container}" if container else "stow my rope")
+    if bank and s.dead:
+        s.echo("skins: you are dead — stopping")
+        return
+    if bank:
+        deposit(s, mapdb, walk_fn)
     if back and start is not None and locate(mapdb, s.state) != start:
         if not walk_fn(s, mapdb, {start}, describe="where you started"):
             s.echo("skins: could not walk back — you are at the tannery")
