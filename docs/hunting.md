@@ -26,9 +26,10 @@ It holds what no script should hard-code:
 | gem_pouch | finds are tried into the pouch first; what the pouch refuses is stowed like loot |
 | bundle | skins go onto a bundling rope worn as a lumpy bundle: one kept in the loot container is worn before the first swing, the first skin of a run starts one from the rope in that container, every later skin goes straight into the worn bundle as SKIN cuts it (the hand tags are the judge), and `;skins` sells it. No rope: said once, skins stowed loose |
 | buffs | self-cast spells kept up through the hunt: each is PREPAREd and CAST before the weapon is drawn and again, before a swing, whenever the Spells window no longer lists it (a parser without that window re-casts every ten minutes); a refusal drops the spell for the run, said once |
-| train_casting | a magic skill ("Augmentation"): while it sits below mind-lock and mana is above the floor, the first buff is recast between swings, at least twenty seconds apart, with the mana fed rising by two each cast from the minimum until the game warns of strain (or a cast fails), then held one step under — a failure at the minimum ends the training casts for the run; at lock, back to casting only when the buff runs out |
+| train_casting | a magic skill ("Augmentation"): while it sits below mind-lock and mana is above the floor, the first buff is recast between swings, `cast_gap` seconds apart, with the mana fed rising by two each cast from the minimum until the game warns of strain (or a cast fails), then held one step under — a failure at the minimum ends the training casts for the run; at lock, back to casting only when the buff runs out |
 | cambrinth | a held cambrinth piece's noun ("flake"): before every training cast the loop GETs it, CHARGEs it with `cambrinth_mana` (the charge is what trains Arcana), INVOKEs it so the stored mana feeds the cast, CASTs, and stows it; a piece the game will not charge (worn, or outranking the skill) is off for the run, said once; with no `train_casting` the cambrinth alone drives the cast cadence until Arcana locks. Wordings and the pieces' capacities: [Cambrinth](#cambrinth) below |
 | cambrinth_mana | mana per charge, the piece's capacity (1 for a flake, 5 for the grey ring) |
+| cast_gap | seconds between training casts, 60 by default. A cast cycle with a cambrinth piece is eight commands, and at 20 s the first badger hunt (2026-09-14, #189) ran cast cycle, one or two swings, cast cycle: seven swings to the badger's 42 in four minutes. One cast a minute trains both skills the same and leaves the fight to the weapon |
 | health_floor | below it: the burst escape (retreat, retreat, first exit), then home — or, with no home, the nearest room off the ground, said so (#185: a break-off that ended on the ground left the character among the rats that hurt it, and they killed it two and a half hours later, 2026-09-13) |
 | wound_floor | a severity name; after each kill and whenever the health bar drops, the injuries panel the game pushes is read first — clean means nothing to ask — and HEALTH is asked only when it shows a wound; a wound that bad or worse anywhere (external, scar, internal, internal scar) breaks off like the health floor. Empty never asks. Model: [wounds.md](wounds.md) |
 | train_skills | the hunt ends when every one of them sits at mindstate 34 in the exp window |
@@ -328,8 +329,12 @@ first live run (2026-09-12) started the ramp at 5 mana and every cast
 answered "Your spell barely backfires." or "Your spell backfires
 somewhat." — a circle-1 Paladin cannot hold 5 — yet Augmentation
 went from 3 to 5 ranks in three casts, so a backfire still trains;
-the ramp now starts at the minimum. A mana floor of 40% and a
-twenty-second gap between casts keep the fight going. Manifest Force,
+the ramp now starts at the minimum. A mana floor of 40% and the
+profile's `cast_gap` between casts (60 s by default) keep the fight
+going: at 20 s the first badger hunt (2026-09-14) ran cast cycle, one
+or two swings, cast cycle — with the flake a cycle is eight commands —
+and in four minutes the Paladin swung seven times to the badger's 42
+(#189). Manifest Force,
 the apprenticeship barrier, stacks with Aspirant's Aegis, the circle-1
 ward the free spell slot could take. The failure wordings (a spell
 not known, a collapsed pattern) are assumptions until captured.

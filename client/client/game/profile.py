@@ -64,6 +64,12 @@ DEFAULTS = {
     # Herilo's Artifacts; 2026-09-14). "" charges nothing.
     "cambrinth": "",
     "cambrinth_mana": 1,
+    # Seconds between training casts. A cast cycle with a cambrinth
+    # piece is eight commands, and at 20 s the first badger fight was
+    # seven swings to the badger's 42 in four minutes (2026-09-14,
+    # #189); one a minute trains both skills and leaves the fight to
+    # the weapon.
+    "cast_gap": 60,
     # Below this health % the loop breaks off and walks home.
     "health_floor": 60,
     # A wound this bad or worse (any area, any kind — HEALTH, parsed by
@@ -117,6 +123,7 @@ FIELDS = (
     ),
     ("cambrinth", "Cambrinth piece to charge for Arcana", "str", "flake — empty: none"),
     ("cambrinth_mana", "Mana per cambrinth charge", "int", "1: the piece's capacity"),
+    ("cast_gap", "Seconds between training casts", "int", "60"),
     ("health_floor", "Break off below health %", "int", "60"),
     (
         "wound_floor",

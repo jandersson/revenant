@@ -70,6 +70,7 @@ GROUND = MapDB(
 
 PROFILE = DEFAULTS | {
     "weapon": "handaxe",
+    "cast_gap": 0,  # the cadence tests count casts per swing
     "weapon_container": "sack",
     "stance": "100 80 0",
     "prey": "rat",
@@ -940,6 +941,43 @@ def test_cambrinth_alone_drives_the_training_cadence_until_arcana_locks(travel):
         arena.state.vitals["mana"] = 100
         _run(arena, profile=profile | {"max_kills": 1}, travel_first=False)
         assert arena.sent.count("charge my flake 1") == charges, arcana
+
+
+def test_the_profile_cast_gap_paces_the_training_casts(travel, monkeypatch):
+    # #189: at a 20-second gap the first badger fight was seven swings
+    # to the badger's 42, a cambrinth cycle being eight commands. The
+    # profile's cast_gap (60 s by default) spaces the casts; 0 casts
+    # before every swing.
+    now = {"t": 1000.0}
+    monkeypatch.setattr(buffs, "monotonic", lambda: now["t"])
+    original_ask = hunt.ask
+
+    def ask(s, command):
+        now["t"] += 7  # every command costs a swing's worth of time
+        return original_ask(s, command)
+
+    monkeypatch.setattr(hunt, "ask", ask)
+    casts = {}
+    for gap in (0, 60):
+        arena = Arena(
+            {
+                "attack": [(KILL, lambda a: None)] * 5 + [(KILL, kill)],
+                "prepare": [PREPARED] * 9,
+                "cast": [CAST] * 9,
+                "skin": [SKINNED] * 6,
+                "search": [NOTHING] * 6,
+            },
+            experience=_exp(10),
+        )
+        arena.state.vitals["mana"] = 100
+        _run(
+            arena,
+            profile=TRAINING | {"cast_gap": gap, "max_kills": 6},
+            travel_first=False,
+        )
+        casts[gap] = arena.sent.count("cast")
+    assert casts[0] == 7  # before the weapon is drawn, then before every swing
+    assert 1 < casts[60] < 4  # a kill is three commands, so one cast in three
 
 
 def test_no_training_cast_at_lock_or_under_the_mana_floor(travel):

@@ -41,7 +41,9 @@ spent; the next swing tries again.
 before the first swing and whenever the Spells window drops one), and
 `train_casting` names a magic skill to train by recasting the first
 buff between swings, feeding more mana each time until the game warns
-of strain, until the skill locks.
+of strain, until the skill locks — one cast per the profile's
+`cast_gap` seconds (60 by default: at 20 a badger got six bites per
+swing, #189).
 The weapon stays in hand when the hunt ends — stowed, it parries
 nothing — and its container is only where the first swing fetches it
 from.

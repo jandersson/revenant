@@ -8,7 +8,10 @@ wait for the pattern, CAST) and, when the profile names a magic skill
 in `train_casting`, recasts the first buff between actions while that
 skill sits below mind-lock and mana holds, feeding more mana each time
 until the game warns of strain or a cast fails, then holding one step
-under. The Spells window (state.active_spells, client/engine/xml_data.py)
+under — at most one cast per the profile's `cast_gap` seconds (60 by
+default: at 20 the first badger fight was seven swings to the badger's
+42 in four minutes, a cambrinth cycle being eight commands, 2026-09-14,
+#189). The Spells window (state.active_spells, client/engine/xml_data.py)
 says when a buff has run out; a session whose parser predates that
 state recasts on BUFF_MINUTES instead.
 
@@ -84,7 +87,7 @@ CHARGE_OUTCOMES = (
     ("ok", ("absorbs all of the energy", "channel all the energy", "absorbs")),
 )
 MANA_FLOOR = 40  # % of mana under which no training cast goes out
-CAST_GAP_SECONDS = 20  # between training casts, so the fight goes on
+CAST_GAP_SECONDS = 60  # between training casts, for a profile without cast_gap
 
 
 class BuffState:
@@ -190,7 +193,8 @@ def cast_once(s, spell, mana, state, ask, report, invoke=None):
 def training_cast_due(s, profile, state):
     """True when the first buff should be recast for the skill named
     in train_casting: the skill is below lock, mana is above the floor,
-    and the last cast is CAST_GAP_SECONDS old."""
+    and the last cast is the profile's cast_gap seconds old
+    (CAST_GAP_SECONDS for a profile without the key, #189)."""
     skill = profile["train_casting"]
     piece = profile.get("cambrinth") and not state.cambrinth_off
     if not (skill or piece) or not profile["buffs"] or state.training_off:
@@ -203,7 +207,9 @@ def training_cast_due(s, profile, state):
     if mana is not None and mana < MANA_FLOOR:
         return False
     last = state.cast_at.get(profile["buffs"][0])
-    return last is None or monotonic() - last >= CAST_GAP_SECONDS
+    gap = profile.get("cast_gap")
+    gap = CAST_GAP_SECONDS if gap is None else float(gap)
+    return last is None or monotonic() - last >= gap
 
 
 def cast_buffs(s, profile, state, ask, prefix="buffs", report=None):
