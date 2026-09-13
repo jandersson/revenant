@@ -27,6 +27,8 @@ It holds what no script should hard-code:
 | bundle | skins go onto a bundling rope worn as a lumpy bundle: one kept in the loot container is worn before the first swing, the first skin of a run starts one from the rope in that container, every later skin goes straight into the worn bundle as SKIN cuts it (the hand tags are the judge), and `;skins` sells it. No rope: said once, skins stowed loose |
 | buffs | self-cast spells kept up through the hunt: each is PREPAREd and CAST before the weapon is drawn and again, before a swing, whenever the Spells window no longer lists it (a parser without that window re-casts every ten minutes); a refusal drops the spell for the run, said once |
 | train_casting | a magic skill ("Augmentation"): while it sits below mind-lock and mana is above the floor, the first buff is recast between swings, at least twenty seconds apart, with the mana fed rising by two each cast from the minimum until the game warns of strain (or a cast fails), then held one step under — a failure at the minimum ends the training casts for the run; at lock, back to casting only when the buff runs out |
+| cambrinth | a held cambrinth piece's noun ("flake"): before every training cast the loop GETs it, CHARGEs it with `cambrinth_mana` (the charge is what trains Arcana), INVOKEs it so the stored mana feeds the cast, CASTs, and stows it; a piece the game will not charge (worn, or outranking the skill) is off for the run, said once; with no `train_casting` the cambrinth alone drives the cast cadence until Arcana locks. Wordings and the pieces' capacities: [Cambrinth](#cambrinth) below |
+| cambrinth_mana | mana per charge, the piece's capacity (1 for a flake, 5 for the grey ring) |
 | health_floor | below it: the burst escape (retreat, retreat, first exit), then home — or, with no home, the nearest room off the ground, said so (#185: a break-off that ended on the ground left the character among the rats that hurt it, and they killed it two and a half hours later, 2026-09-13) |
 | wound_floor | a severity name; after each kill and whenever the health bar drops, the injuries panel the game pushes is read first — clean means nothing to ask — and HEALTH is asked only when it shows a wound; a wound that bad or worse anywhere (external, scar, internal, internal scar) breaks off like the health floor. Empty never asks. Model: [wounds.md](wounds.md) |
 | train_skills | the hunt ends when every one of them sits at mindstate 34 in the exp window |
@@ -118,6 +120,36 @@ pelt, tail or bones (Elanthipedia: Rat). SKIN wants an edged weapon in
 hand or a worn belt knife (Elanthipedia: Skinning) — a handaxe does.
 The gem pouch page describes `FILL POUCH WITH <container>` for bulk
 moves; the loop pouches one find at a time instead.
+
+## Cambrinth
+
+Charging a cambrinth piece is what trains Arcana (Elanthipedia:
+[Cambrinth](https://elanthipedia.play.net/Cambrinth), [Arcana
+skill](https://elanthipedia.play.net/Arcana_skill)); the stored mana
+then feeds the next cast through INVOKE or decays an eighth every 500
+seconds. A piece that outranks the skill channels nothing: the
+32-mana braided armband at Arcana 1 answered every CHARGE with "You
+fail to channel any of the energy into the armband." and taught
+nothing, while a 1-mana round flake took the charge and moved Arcana
+1.00 to 1.36 on one mana (2026-09-14). [Herilo's
+Artifacts](https://elanthipedia.play.net/Herilo's_Artifacts), the
+Crossing's artificer (map tag `artificer`), sells the pieces by
+capacity — flake 1 (162 Kronars), grey ring 5, anklet 12, armband 32,
+orb 50 — and notes that only the 1- and 5-mana pieces work at 0 ranks.
+Captured on the flake: CHARGE "You harness a small amount of energy
+and attempt to channel it into your cambrinth flake. / You are able to
+channel all the energy into the flake. / The cambrinth flake absorbs
+all of the energy. / Roundtime: 2 sec."; a full piece "is already
+holding as much power as you could possibly charge it with. / Your
+harnessed energy dissipates uselessly."; FOCUS "pulses brightly with
+Holy energy. You guess you can perceive 1 line worth of spell energy
+bound within the flake. [You can use INVOKE to activate the energy
+held in this device.]"; INVOKE "You reach for its center and forge a
+magical link to it, readying all of its mana for your use."; the cast
+"Your cambrinth flake emits a loud *snap* as it discharges all its
+power to aid your spell."; and a worn piece "Try though you may, you
+find it too clumsy to charge the cambrinth armband while wearing it."
+— so the profile names a held piece, kept in the loot container.
 
 ## Smiting for Conviction
 

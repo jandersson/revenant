@@ -58,6 +58,12 @@ DEFAULTS = {
     # the game warns of strain, then holds one step under. "" casts
     # buffs only when they run out.
     "train_casting": "",
+    # A cambrinth piece held for Arcana: its noun ("flake"), charged with
+    # cambrinth_mana before every training cast and INVOKEd into it. The
+    # piece must not outrank the skill (a 1- or 5-mana piece at 0 ranks,
+    # Herilo's Artifacts; 2026-09-14). "" charges nothing.
+    "cambrinth": "",
+    "cambrinth_mana": 1,
     # Below this health % the loop breaks off and walks home.
     "health_floor": 60,
     # A wound this bad or worse (any area, any kind — HEALTH, parsed by
@@ -109,6 +115,8 @@ FIELDS = (
         "str",
         "Augmentation — empty: cast only when it runs out",
     ),
+    ("cambrinth", "Cambrinth piece to charge for Arcana", "str", "flake — empty: none"),
+    ("cambrinth_mana", "Mana per cambrinth charge", "int", "1: the piece's capacity"),
     ("health_floor", "Break off below health %", "int", "60"),
     (
         "wound_floor",

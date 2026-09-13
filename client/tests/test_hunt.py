@@ -827,6 +827,121 @@ def test_a_backfire_at_minimum_mana_ends_the_training_casts(travel):
     assert any("training casts off" in text for text in arena.echoed)
 
 
+# Captured 2026-09-14 on a round cambrinth flake (1 mana).
+GOT_FLAKE = "You get a round cambrinth flake from inside your canvas sack."
+CHARGED = (
+    "You harness a small amount of energy and attempt to channel it into your "
+    "cambrinth flake.\nYou are able to channel all the energy into the flake.\n"
+    "The cambrinth flake absorbs all of the energy.\nRoundtime: 2 sec."
+)
+FLAKE_FULL = (
+    "You are able to channel all the energy into the flake.\nThe cambrinth flake "
+    "is already holding as much power as you could possibly charge it with.\n"
+    "Your harnessed energy dissipates uselessly.\nRoundtime: 4 sec."
+)
+NOT_CHANNELLED = (
+    "You harness a small amount of energy and attempt to channel it into your "
+    "cambrinth armband.\nYou fail to channel any of the energy into the armband."
+)
+INVOKED = (
+    "The cambrinth flake pulses with Holy energy.  You reach for its center and "
+    "forge a magical link to it, readying all of its mana for your use.\n"
+    "Roundtime: 1 sec."
+)
+SNAP_CAST = (
+    "You gesture.\nYour cambrinth flake emits a loud *snap* as it discharges all "
+    "its power to aid your spell.\nYour soul and body intertwine tighter, the "
+    "bond renewed by the spell."
+)
+CAMBRINTH = TRAINING | {"cambrinth": "flake", "cambrinth_mana": 1}
+
+
+def test_a_cambrinth_piece_is_charged_and_invoked_into_the_training_cast(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, lambda a: None), (KILL, kill)],
+            "get my flake": [GOT_FLAKE] * 3,
+            "charge my flake": [CHARGED, FLAKE_FULL, FLAKE_FULL],
+            "prepare": [PREPARED] * 4,
+            "invoke my flake": [INVOKED] * 3,
+            "cast": [CAST, SNAP_CAST, SNAP_CAST, SNAP_CAST],
+            "stow my flake": ["You put your flake in your canvas sack."] * 3,
+            "skin": [SKINNED] * 2,
+            "search": [NOTHING] * 2,
+        },
+        experience=_exp(10) | {"Arcana": {"rank": 1, "percent": 36, "mindstate": 3}},
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=CAMBRINTH | {"max_kills": 2}, travel_first=False)
+    first = arena.sent.index("get my flake")
+    assert arena.sent[first : first + 6] == [
+        "get my flake",
+        "charge my flake 1",
+        "prepare heroic strength",
+        "invoke my flake",
+        "cast",
+        "stow my flake",
+    ]
+    # One training cast at the start and one before each of two swings;
+    # the later ones found the flake still full, invoked all the same.
+    assert arena.sent.count("charge my flake 1") == 3
+    assert arena.sent.count("invoke my flake") == 3
+    assert any("charged the flake with 1 mana for Arcana" in t for t in arena.echoed)
+    assert any("(+flake)" in t for t in arena.echoed)
+
+
+def test_a_piece_that_outranks_arcana_is_off_for_the_run(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, lambda a: None), (KILL, kill)],
+            "get my armband": [
+                "You get a braided cambrinth armband from inside your sack."
+            ],
+            "charge my armband": [NOT_CHANNELLED],
+            "prepare": [PREPARED] * 4,
+            "cast": [CAST] * 4,
+            "stow my armband": ["You put your armband in your canvas sack."],
+            "skin": [SKINNED] * 2,
+            "search": [NOTHING] * 2,
+        },
+        experience=_exp(10),
+    )
+    arena.state.vitals["mana"] = 100
+    _run(
+        arena,
+        profile=CAMBRINTH
+        | {"cambrinth": "armband", "cambrinth_mana": 3, "max_kills": 2},
+        travel_first=False,
+    )
+    assert arena.sent.count("charge my armband 3") == 1
+    assert "invoke my armband" not in arena.sent
+    assert "stow my armband" in arena.sent
+    assert any("outranks Arcana" in t for t in arena.echoed)
+    assert len(prepares(arena)) >= 2  # the training casts go on without it
+
+
+def test_cambrinth_alone_drives_the_training_cadence_until_arcana_locks(travel):
+    profile = BUFFED | {"train_casting": "", "cambrinth": "flake", "cambrinth_mana": 1}
+    for arcana, charges in ((3, 2), (34, 0)):  # the start, then before the swing
+        arena = Arena(
+            {
+                "attack": [(KILL, kill)],
+                "get my flake": [GOT_FLAKE] * 2,
+                "charge my flake": [CHARGED, FLAKE_FULL],
+                "prepare": [PREPARED] * 3,
+                "invoke my flake": [INVOKED] * 2,
+                "cast": [SNAP_CAST] * 3,
+                "stow my flake": ["You put your flake in your canvas sack."] * 2,
+                "skin": [SKINNED],
+                "search": [NOTHING],
+            },
+            experience={"Arcana": {"rank": 1, "percent": 0, "mindstate": arcana}},
+        )
+        arena.state.vitals["mana"] = 100
+        _run(arena, profile=profile | {"max_kills": 1}, travel_first=False)
+        assert arena.sent.count("charge my flake 1") == charges, arcana
+
+
 def test_no_training_cast_at_lock_or_under_the_mana_floor(travel):
     for experience, mana in ((_exp(34), 100), (_exp(10), 20)):
         arena = Arena(

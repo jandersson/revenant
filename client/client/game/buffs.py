@@ -22,6 +22,26 @@ minimum and climbs by MANA_STEP. The failure wordings are assumptions
 until captured. Callers pass their own ask() (client/game/probe.py
 with their collection windows) and a report(what, answer) for an
 answer outside the tables.
+
+Cambrinth rides the training cast when the profile names a piece
+(`cambrinth`, a held noun such as "flake", and `cambrinth_mana`, the
+mana per charge — the piece's capacity): GET it, CHARGE it (the charge
+is what trains Arcana: Elanthipedia's Cambrinth and Arcana pages, and
+one mana on a 1-capacity flake moved Arcana 1.00 to 1.36 on
+2026-09-14), PREPARE, INVOKE it so the stored mana feeds the cast
+instead of decaying, CAST, stow it. Captured on Cecil's round
+cambrinth flake, 2026-09-14: "You are able to channel all the energy
+into the flake. / The cambrinth flake absorbs all of the energy."; a
+full piece "is already holding as much power as you could possibly
+charge it with. / Your harnessed energy dissipates uselessly."; a piece
+that outranks the skill (the 32-capacity armband at Arcana 1) "You
+fail to channel any of the energy into the armband."; a worn piece
+"Try though you may, you find it too clumsy to charge the cambrinth
+armband while wearing it."; INVOKE "You reach for its center and forge
+a magical link to it, readying all of its mana for your use."; the cast
+"Your cambrinth flake emits a loud *snap* as it discharges all its
+power to aid your spell." Herilo's Artifacts sells the pieces by
+capacity; only the 1- and 5-mana ones work at 0 ranks.
 """
 
 from time import monotonic
@@ -51,6 +71,18 @@ CAST_OUTCOMES = (
 # fed grows by MANA_STEP each cast until the strain warning or a
 # failed cast, then holds one step under.
 MANA_STEP = 2  # 5 backfired on a circle-1 Paladin (2026-09-12)
+# Cambrinth answers, failures before successes: a full piece's answer
+# still says "channel all the energy" on its first line.
+GET_OUTCOMES = (
+    ("missing", ("what were you referring", "could not find", "referring to")),
+    ("ok", ("you get", "already holding", "in your hand")),
+)
+CHARGE_OUTCOMES = (
+    ("worn", ("too clumsy",)),
+    ("full", ("already holding as much power", "dissipates uselessly")),
+    ("failed", ("fail to channel any",)),
+    ("ok", ("absorbs all of the energy", "channel all the energy", "absorbs")),
+)
 MANA_FLOOR = 40  # % of mana under which no training cast goes out
 CAST_GAP_SECONDS = 20  # between training casts, so the fight goes on
 
@@ -64,6 +96,7 @@ class BuffState:
         self.mana = 0  # the next training cast's mana; 0 is the minimum
         self.mana_cap = None  # one step under the strain, once met
         self.training_off = False  # even the minimum failed this run
+        self.cambrinth_off = False  # the piece refused this run, said once
 
 
 def locked(state, skills):
@@ -89,18 +122,63 @@ def buff_running(s, spell, state):
     return cast is not None and monotonic() - cast < BUFF_MINUTES * 60
 
 
-def cast_once(s, spell, mana, state, ask, report):
+def charge_cambrinth(s, profile, state, ask, prefix, report):
+    """GET the profile's cambrinth piece and CHARGE it for Arcana;
+    True when it holds mana for the coming cast (charged now, or
+    already full). A piece the game will not charge — missing, worn,
+    or outranking the skill — is off for the run, said once; a locked
+    Arcana skips the charge. The piece stays in hand for INVOKE."""
+    noun = profile.get("cambrinth") or ""
+    if not noun or state.cambrinth_off or locked(s.state, ["Arcana"]):
+        return False
+    answer = ask(s, f"get my {noun}")
+    if classify(answer, GET_OUTCOMES) == "missing":
+        s.echo(f"{prefix}: no {noun} to charge — cambrinth off for this run")
+        state.cambrinth_off = True
+        return False
+    mana = int(profile.get("cambrinth_mana") or 1)
+    answer = ask(s, f"charge my {noun} {mana}")
+    outcome = classify(answer, CHARGE_OUTCOMES)
+    if outcome == "worn":
+        s.echo(
+            f"{prefix}: the {noun} cannot be charged while worn — cambrinth off for this run"
+        )
+    elif outcome == "failed":
+        s.echo(
+            f"{prefix}: the {noun} outranks Arcana (nothing channelled) — cambrinth off for this run"
+        )
+    elif outcome == "full":
+        return True
+    elif outcome == "ok":
+        s.echo(f"{prefix}: charged the {noun} with {mana} mana for Arcana")
+        return True
+    else:
+        report("charge", answer)
+        return True
+    state.cambrinth_off = True
+    ask(s, f"stow my {noun}")
+    return False
+
+
+def cast_once(s, spell, mana, state, ask, report, invoke=None):
     """PREPARE (with a mana amount when given), wait for the pattern,
-    CAST. "refused" (the spell cannot be prepared), "collapsed" (the
-    cast failed), "strained" (cast, but the mana asked was too much) or
-    "ok"."""
+    INVOKE the cambrinth piece when one is charged (`invoke`, its
+    noun), CAST, and stow the piece. "refused" (the spell cannot be
+    prepared), "collapsed" (the cast failed), "strained" (cast, but the
+    mana asked was too much) or "ok"."""
     answer = ask(s, f"prepare {spell} {mana}" if mana else f"prepare {spell}")
     outcome = classify(answer, PREPARE_OUTCOMES)
     if outcome == "failed":
+        if invoke:
+            ask(s, f"stow my {invoke}")
         return "refused"
     probe.collect(s, PREPARE_SECONDS, until="fully prepared")
+    if invoke:
+        ask(s, f"invoke my {invoke}")
     answer = ask(s, "cast")
     cast = classify(answer, CAST_OUTCOMES)
+    if invoke:
+        ask(s, f"stow my {invoke}")
     if cast == "failed":
         return "collapsed"
     if cast is None:
@@ -114,10 +192,13 @@ def training_cast_due(s, profile, state):
     in train_casting: the skill is below lock, mana is above the floor,
     and the last cast is CAST_GAP_SECONDS old."""
     skill = profile["train_casting"]
-    if not skill or not profile["buffs"] or state.training_off:
+    piece = profile.get("cambrinth") and not state.cambrinth_off
+    if not (skill or piece) or not profile["buffs"] or state.training_off:
         return False
-    if locked(s.state, [skill]):
+    if skill and locked(s.state, [skill]):
         return False
+    if not skill and locked(s.state, ["Arcana"]):
+        return False  # the cambrinth was the only reason to recast
     mana = (getattr(s.state, "vitals", None) or {}).get("mana")
     if mana is not None and mana < MANA_FLOOR:
         return False
@@ -144,7 +225,10 @@ def cast_buffs(s, profile, state, ask, prefix="buffs", report=None):
         if not training and buff_running(s, spell, state):
             continue
         mana = state.mana if training else 0
-        result = cast_once(s, spell, mana, state, ask, report)
+        invoke = None
+        if training and charge_cambrinth(s, profile, state, ask, prefix, report):
+            invoke = profile["cambrinth"]
+        result = cast_once(s, spell, mana, state, ask, report, invoke=invoke)
         if result == "refused":
             s.echo(f"{prefix}: cannot prepare {spell} — off for this run")
             state.buffs_off.add(spell)
@@ -157,7 +241,8 @@ def cast_buffs(s, profile, state, ask, prefix="buffs", report=None):
         elif result == "ok":
             s.echo(
                 f"{prefix}: cast {spell} at {mana or 'minimum'} mana "
-                f"for {profile['train_casting']}"
+                f"for {profile['train_casting'] or 'Arcana'}"
+                + (f" (+{profile['cambrinth']})" if invoke else "")
             )
             if state.mana_cap is None:
                 state.mana += MANA_STEP
