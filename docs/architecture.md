@@ -329,6 +329,16 @@ entries from a dock-layout module.
   line, the roundtime line, the spell-ready lines, soft colours) under
   the file's own rules; a file entry `{"disable": "<name>"}` turns one
   off and a file rule with that name replaces it (2026-09-13).
+- `client/client/engine/policy.py` — the session's command policy for
+  outside senders (#161): every line tagged with an origin is decided
+  before the game sees it — read-only verbs pass, the giving,
+  dropping, spending and leaving verbs (and `;reexec`) are refused
+  with a reason echoed to every window in the alert style, DROP
+  allows the junk list only, PUT only into the character's own
+  container, a listed valuable is refused whatever the verb — with
+  `~/.revenant/policy/<name>.json` adjusting the built-ins. The
+  player's typing is never policed, and nothing on the sending side
+  lifts it.
 - `client/client/engine/launch.py` — the `revenant` console script: attaches
   the GUI to the right session, spawning one when needed. Characters
   run side by side, one session/window each on its own port: sessions

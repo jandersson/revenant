@@ -273,7 +273,11 @@ Traps that cost time before:
   acts on the character — moving, spending, training, wearing,
   dropping — needs the operator's say-so first, and stays in the
   allowlist gate (`REVENANT_ALLOW_SEND=1`) rather than a settings
-  change. Say what was sent and what the game answered.
+  change. Say what was sent and what the game answered. The session's
+  own policy (`client/engine/policy.py`, #161) refuses an outside
+  GIVE, SELL, WITHDRAW, TRAIN, QUIT, DROP of a non-junk item and the
+  like whatever the gate says; a refusal reads "session: refused
+  [claude] ..." in every window, and is the operator's to send.
 - Every feature gets a GitHub issue; every defect or gap found in passing
   gets one too, with the evidence, and is left alone unless it blocks the
   work. Every issue carries a label at creation: bug, enhancement, or

@@ -20,14 +20,22 @@ the operator's window as `>> [claude] ...`.
    VAULT TIME, BANK ACCOUNT, WEALTH, LOOK, TIME, HEALTH. They cost no
    roundtime and change nothing. INFO prints a long block in the window;
    ask once and keep the answer.
-3. **Never a bare send** (it reads `[external]`), never an ad-hoc socket
+3. **The session refuses what an outsider must not do** (#161): GIVE,
+   HAND, OFFER, SELL, TRADE, EXCHANGE, ACCEPT, WITHDRAW, TRAIN, STUDY,
+   DEPART, QUIT, EXIT, DISCARD, DROP of anything but the junk list,
+   PUT into anything but the character's own container, `;reexec`,
+   and any noun in the character's `~/.revenant/policy/<name>.json`
+   valuables. A refusal echoes "session: refused [claude] ... — <why>"
+   in every window; ask the operator to send it themselves, never
+   look for a way round.
+4. **Never a bare send** (it reads `[external]`), never an ad-hoc socket
    driver, never a change to the "allow external sends" setting. A gated
    command opens the gate for that one call with `REVENANT_ALLOW_SEND=1`.
-4. **Report what was sent and what the game answered**, verbatim where
+5. **Report what was sent and what the game answered**, verbatim where
    the wording matters; a captured wording goes into the script's fixture
    and the docs in the same change (CLAUDE.md: fixtures pin what we
    believe the server sends).
-5. **Never a name in the repo.** Logs and answers carry the operator's
+6. **Never a name in the repo.** Logs and answers carry the operator's
    character and account names; the synthetic cast replaces them in
    anything committed (Lanival, Sable, Uthmor, TESTACCT).
 

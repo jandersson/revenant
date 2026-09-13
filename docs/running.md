@@ -82,6 +82,21 @@ that long and prints what the game answered, so a tool reads the reply
 without tailing the log. The exit status is 0 when the line went out
 and 1 when it was refused or nothing was listening.
 
+Behind that gate stands the session's own policy for outsiders
+(`client/engine/policy.py`, #161), which the sender cannot lift: a
+line that gives something away (GIVE, HAND, OFFER), spends it (SELL,
+TRADE, EXCHANGE, ACCEPT, WITHDRAW, TRAIN, STUDY), throws it away
+(DISCARD; DROP of anything but the junk list), leaves or quits
+(DEPART, QUIT, EXIT), PUTs into anything but your own container, or
+`;reexec`s is refused in the session with a one-line reason every
+window sees in red ("session: refused [claude] drop my handaxe — DROP
+of handaxe: only the junk list is droppable ..."), and the game never
+receives it. Your own typing is never policed. A per-character file,
+`~/.revenant/policy/<name>.json`, adjusts it: `"deny"` adds verbs,
+`"allow"` lifts built-in ones, `"patterns"` adds regexes over the
+whole line, and `"valuables"` names item nouns an outsider may never
+drop, give, sell, hand, offer, trade or put anywhere.
+
 ```sh
 revenant-send exp all
 revenant-send --origin claude --answer 4 "tdp"

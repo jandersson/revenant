@@ -1307,6 +1307,34 @@ def test_an_external_send_reaches_the_game_and_is_echoed_with_its_origin():
     window.close()
 
 
+def test_an_external_send_the_policy_refuses_never_reaches_the_game():
+    # #161: DROP of anything but the junk list is refused in the
+    # session, said to every window in the alert style, and the game
+    # never sees it; a read-only line right after still goes through.
+    game = FakeGame()
+    server, port = _start_server(game)
+    window = socket.create_connection(("127.0.0.1", port), timeout=5)
+    window.settimeout(5)
+    assert _await(lambda: server.clients), "window never registered"
+
+    assert session.send_line("127.0.0.1", port, "\x1ebot\tdrop my handaxe")
+    assert session.send_line("127.0.0.1", port, "\x1ebot\texp all")
+    assert _await(lambda: game.sent), "the read-only line never reached the game"
+    assert game.sent == [b"exp all\n"]
+    buffer = b""
+    deadline = 50
+    while b"refused" not in buffer and deadline:
+        buffer += window.recv(4096)
+        deadline -= 1
+    frames, _ = session.decode_frames(buffer)
+    refusal = next((text, style) for text, _, style in frames if "refused" in text)
+    assert refusal[1] == "alert"
+    assert refusal[0].startswith(
+        "session: refused [bot] drop my handaxe — DROP of handaxe"
+    )
+    window.close()
+
+
 def test_eof_after_the_idle_warning_reads_as_an_idle_drop():
     # Captured 2026-09-05: "YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND."
     # twice, then the game closed the connection (#152).

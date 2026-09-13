@@ -36,6 +36,7 @@ from client.engine.core import (
     spells_frame,
     vitals_frame,
 )
+from client.engine import policy as command_policy
 from client.engine.login import connect_game, simu_login
 from client.engine.netsock import SocketClient
 from client.engine.procspawn import command_for
@@ -682,6 +683,24 @@ class SessionServer(ClientLogger):
                     # Every window, the sender included if it is one:
                     # this line was not typed by the player (#135).
                     self.broadcast(f">> [{origin}] {shown}\n", "", "sent")
+                    # The session's policy for outsiders (#161): a line
+                    # that gives away, drops, spends, leaves or quits is
+                    # refused here, said to every window, and never
+                    # reaches the game — whatever the sender claims.
+                    verdict = self.policy().decide(shown)
+                    if not verdict.allowed:
+                        self.log.warning(
+                            "refused external send from %s: %r — %s",
+                            origin,
+                            shown,
+                            verdict.reason,
+                        )
+                        self.broadcast(
+                            f"session: refused [{origin}] {shown} — {verdict.reason}\n",
+                            "",
+                            "alert",
+                        )
+                        continue
                 try:
                     if command == b";reexec":
                         self.reexec()
@@ -774,6 +793,15 @@ class SessionServer(ClientLogger):
             ),
             GAME_BUFFER_ENV: base64.b64encode(self.game.buffered).decode("ASCII"),
         }
+
+    def policy(self):
+        """The command policy for outside senders, loaded once per
+        character name the parser has seen (#161)."""
+        name = getattr(self.engine.xml_data, "name", None) or ""
+        policies = self.__dict__.setdefault("_policies", {})
+        if name not in policies:
+            policies[name] = command_policy.load_policy(name)
+        return policies[name]
 
     def _reexec_windows(self, spawn, share, wait_for, exit_process):
         """The Windows handoff (#129): park the game reader, close the
