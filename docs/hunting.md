@@ -35,6 +35,7 @@ It holds what no script should hard-code:
 | train_skills | the hunt ends when every one of them sits at mindstate 34 in the exp window |
 | max_kills | a fuse; 0 hunts until stopped or locked — an empty ground is waited out (a pause after every empty lap, then the next lap), never left |
 | smite | a Paladin: one swing a minute is SMITE instead of ATTACK, spent only when the game answers with its conviction line — the free smite regenerates every minute and Conviction experience comes at most once a minute ([Smite command](https://elanthipedia.play.net/Smite_command), #183) |
+| tactics | tactical maneuvers in rotation (`bob`, `circle`, `weave`): every third swing is the next one instead of ATTACK while Tactics sits below mind-lock; SMITE keeps its minute ahead of them; three answers outside the table turn them off for the run. Model and captures: [Tactics](#tactics) below (#190) |
 | attune_start | not the hunt's: where `;attune` walks before building its street loop, a `;go2` target; empty loops from wherever it stands (`;attune from=<target>` overrides it for one run) |
 
 `;hunt return` (typed while it runs) ends the loop before the next
@@ -167,6 +168,44 @@ the experience is granted at most once a minute ([Smite command](https://elanthi
 so the loop smites one swing a minute and attacks the rest — a smite
 that drew the advance or a roundtime is not counted as spent. RUSH is
 not built: Cecil wears no shield and its answers are uncaptured.
+
+## Tactics
+
+Tactics trains like a weapon skill, at melee against an opponent of
+suitable challenge, from the tactical maneuvers and ANALYZE
+([Tactics skill](https://elanthipedia.play.net/Tactics_skill): "the
+current way to train it is to use tactical maneuvers (like WEAVE and
+BOB) and using ANALYZE"); it is a Lore skill, secondary for a Paladin.
+The wiki's low-risk rotation is BOB, CIRCLE and WEAVE between attacks:
+[BOB](https://elanthipedia.play.net/Bob_command) is "barely fatiguing",
+"very balance building" and restores a little fatigue,
+[CIRCLE](https://elanthipedia.play.net/Circle_command) is "moderately
+fatiguing" and builds position,
+[WEAVE](https://elanthipedia.play.net/Weave_command) is "extremely
+fatiguing" and "much costlier than BOB or CIRCLE for the same purpose";
+all three are non-damaging, "temporarily penalize all defenses", cannot
+be used while grappled, and take `<verb> [<target>]`. Captured
+2026-09-14 by hand on a striped badger, each followed by a balance line
+and "Roundtime: 3 sec.":
+
+```
+> bob badger
+You bob suddenly, lowering yourself into a smaller target.
+> circle badger
+You sidestep a striped badger suddenly, moving in a short circle around it.
+> weave badger
+You weave back and forth, trying to distract your opponent.
+```
+
+Tactics entered the exp window at rank 3 on the first BOB. So the
+profile's `tactics` list is a rotation and the loop makes every third
+swing the next maneuver in it, with the prey as target, while Tactics
+sits below lock: a maneuver takes a swing's roundtime and deals no
+damage, so the other two swings keep the kill coming and SMITE keeps
+its minute ahead of them. A maneuver answered from range advances like
+ATTACK; any other answer outside the three lines is echoed as
+unrecognized, and three of them in a row turn the maneuvers off for
+the run. ANALYZE, GRAPPLE, SHOVE and TRIP are not built.
 
 ## Another player's room
 

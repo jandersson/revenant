@@ -1094,6 +1094,143 @@ def test_a_paladin_smites_one_swing_a_minute_and_attacks_the_rest(travel, monkey
     )
 
 
+# --- tactics ---------------------------------------------------------------
+# Captured 2026-09-14 on a striped badger (#190): each maneuver's line,
+# then a balance line and a 3-second roundtime; Tactics entered the exp
+# window at rank 3 on the first BOB.
+BOBBED = (
+    "You bob suddenly, lowering yourself into a smaller target.\n"
+    "[You're nimbly balanced and in superior position.]\nRoundtime: 3 sec."
+)
+CIRCLED = (
+    "You sidestep a rat suddenly, moving in a short circle around it.\n"
+    "[You're nimbly balanced and opponent has slight advantage.]\nRoundtime: 3 sec."
+)
+WEAVED = (
+    "You weave back and forth, trying to distract your opponent.\n"
+    "[You're slightly off balance with opponent in better position.]\n"
+    "Roundtime: 3 sec."
+)
+TACTICAL = PROFILE | {"tactics": ["bob", "circle"]}
+TACTICS_OPEN = {"Tactics": {"rank": 3, "percent": 0, "mindstate": 1}}
+
+
+def _stands(arena):
+    """A kill line whose rat stays: the room keeps its hostile."""
+
+
+def test_every_third_swing_is_the_next_maneuver_while_tactics_is_unlocked(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands)] * 5 + [(KILL, kill)],
+            "bob": [BOBBED] * 3,
+            "circle": [CIRCLED] * 3,
+            "skin": [SKINNED] * 9,
+            "search": [NOTHING] * 9,
+        },
+        experience=TACTICS_OPEN,
+    )
+    _run(arena, profile=TACTICAL | {"max_kills": 6}, travel_first=False)
+    swings = [c for c in arena.sent if c.split()[0] in ("attack", "bob", "circle")]
+    assert swings == [
+        "attack rat",
+        "attack rat",
+        "bob rat",
+        "attack rat",
+        "attack rat",
+        "circle rat",
+        "attack rat",
+        "attack rat",
+    ]
+    assert any("2 maneuver(s)" in text for text in arena.echoed)
+
+
+def test_no_maneuver_once_tactics_locks_or_with_none_listed(travel):
+    locked = {"Tactics": {"rank": 3, "percent": 0, "mindstate": 34}}
+    for profile, experience in ((TACTICAL, locked), (PROFILE, TACTICS_OPEN)):
+        arena = Arena(
+            {
+                "attack": [(KILL, _stands)] * 5 + [(KILL, kill)],
+                "bob": [BOBBED] * 3,
+                "circle": [CIRCLED] * 3,
+                "skin": [SKINNED] * 6,
+                "search": [NOTHING] * 6,
+            },
+            experience=experience,
+        )
+        _run(arena, profile=profile | {"max_kills": 6}, travel_first=False)
+        assert not any(c.startswith(("bob", "circle")) for c in arena.sent)
+        assert not any("maneuver" in text for text in arena.echoed)
+
+
+def test_a_smite_keeps_its_minute_ahead_of_the_maneuvers(travel, monkeypatch):
+    monkeypatch.setattr(hunt, "clock", lambda: 1000.0)  # one smite, never again
+    arena = Arena(
+        {
+            "smite": [(SMITE_KILL, _stands)],
+            "attack": [(KILL, _stands)] * 3 + [(KILL, kill)],
+            "bob": [BOBBED],
+            "circle": [CIRCLED],
+            "skin": [SKINNED] * 6,
+            "search": [NOTHING] * 6,
+        },
+        experience=TACTICS_OPEN,
+    )
+    _run(arena, profile=TACTICAL | {"smite": True, "max_kills": 5}, travel_first=False)
+    swings = [
+        c for c in arena.sent if c.split()[0] in ("attack", "smite", "bob", "circle")
+    ]
+    assert swings == [
+        "smite rat",
+        "attack rat",
+        "bob rat",
+        "attack rat",
+        "attack rat",
+        "circle rat",
+        "attack rat",
+    ]
+
+
+def test_a_maneuver_from_range_advances_like_an_attack(travel):
+    advancing = "You aren't close enough to attack.\nYou begin to advance on a rat."
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands), (KILL, _stands), (KILL, kill)],
+            "weave": [advancing],
+            "skin": [SKINNED] * 3,
+            "search": [NOTHING] * 3,
+        },
+        experience=TACTICS_OPEN,
+    )
+    _run(
+        arena,
+        profile=PROFILE | {"tactics": ["weave"], "max_kills": 3},
+        travel_first=False,
+    )
+    assert "weave rat" in arena.sent
+    assert not any("unrecognized" in text for text in arena.echoed)
+
+
+def test_a_maneuver_answered_with_nothing_known_three_times_turns_tactics_off(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands)] * 11 + [(KILL, kill)],
+            "bob": ["You can't do that right now."] * 5,
+            "skin": [SKINNED] * 12,
+            "search": [NOTHING] * 12,
+        },
+        experience=TACTICS_OPEN,
+    )
+    _run(
+        arena,
+        profile=PROFILE | {"tactics": ["bob"], "max_kills": 12},
+        travel_first=False,
+    )
+    assert arena.sent.count("bob rat") == 3
+    assert sum("unrecognized bob" in text for text in arena.echoed) == 3
+    assert any("tactics off for this run" in text for text in arena.echoed)
+
+
 def test_without_smite_every_swing_is_attack(travel):
     arena = _run(
         Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})

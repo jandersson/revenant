@@ -86,6 +86,11 @@ DEFAULTS = {
     # what trains Conviction (free smites regenerate one a minute and
     # the experience comes at most once per minute, #183).
     "smite": False,
+    # Tactical maneuvers in rotation ("bob", "circle", "weave"): every
+    # third swing is the next one while Tactics sits below mind-lock,
+    # which is what trains Tactics (Elanthipedia: Tactics skill, #190).
+    # [] is off.
+    "tactics": [],
     # Where ;attune walks before building its street loop — a ;go2
     # target (room id, tag, title); "" loops from wherever it stands.
     "attune_start": "",
@@ -134,6 +139,12 @@ FIELDS = (
     ("train_skills", "Stop when these skills lock", "list", "Small Edged, Evasion"),
     ("max_kills", "Kills per run (0 = until stopped)", "int", ""),
     ("smite", "SMITE one swing a minute (Paladin: Conviction)", "bool", ""),
+    (
+        "tactics",
+        "Maneuvers every third swing (Tactics)",
+        "list",
+        "bob, circle — empty: off",
+    ),
     ("attune_start", ";attune walks to (;go2 target)", "str", "empty: from here"),
 )
 

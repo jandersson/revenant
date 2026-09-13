@@ -37,6 +37,13 @@ minute and the experience comes at most once a minute (Elanthipedia:
 Smite command), so the rest of the swings stay ATTACK. A SMITE the
 game answered with the advance from range or a roundtime is not
 spent; the next swing tries again.
+`tactics` lists tactical maneuvers in rotation ("bob", "circle",
+"weave"): every third swing is the next one instead of ATTACK while
+Tactics sits below mind-lock in the exp window — a maneuver is what
+trains Tactics (Elanthipedia: Tactics skill; Bob, Circle and Weave
+commands), it is non-damaging and takes a swing's roundtime, so the
+rest stay ATTACK and SMITE keeps its minute; a maneuver answered with
+nothing the table knows three times is off for the run (#190).
 `buffs` are self-cast spells kept up through the hunt (PREPARE, CAST
 before the first swing and whenever the Spells window drops one), and
 `train_casting` names a magic skill to train by recasting the first
@@ -120,6 +127,17 @@ ADVANCE_WAIT = 10  # seconds for "melee range" before the next ATTACK
 # command), so the loop smites once a minute at most (#183).
 _SMITE_STRUCK = ("divinely inspired strike",)
 SMITE_INTERVAL = 60  # seconds between smites
+# Tactical maneuvers (captured 2026-09-14 on a striped badger, #190):
+# BOB "You bob suddenly, lowering yourself into a smaller target.",
+# CIRCLE "You sidestep a striped badger suddenly, moving in a short
+# circle around it.", WEAVE "You weave back and forth, trying to
+# distract your opponent." — each followed by a balance line and
+# "Roundtime: 3 sec.", and Tactics entered the exp window at rank 3 on
+# the first BOB. From range they advance like ATTACK. Anything else is
+# reported, and after TACTIC_MISSES of them the maneuvers are off.
+_MANEUVER_DONE = ("you bob", "you sidestep", "you weave")
+TACTICS_EVERY = 3  # every third swing is a maneuver while Tactics is unlocked
+TACTIC_MISSES = 3  # unrecognized maneuver answers before tactics go off
 clock = time.monotonic  # tests replace it
 
 # Failures before successes: a failure wording can contain a success
@@ -212,20 +230,41 @@ class Tally:
         self.bundle = None
         self.buffs = buffs.BuffState()  # the casts (client/game/buffs.py)
         self.last_smite = None  # clock() of the last smite that struck (#183)
+        self.maneuvers = 0  # tactical maneuvers the game answered (#190)
+        self.since_maneuver = 0  # plain swings since the last maneuver
+        self.tactic = 0  # the rotation index
+        self.tactic_misses = 0  # unrecognized maneuver answers in a row
+        self.tactics_off = False  # the maneuvers refused this run, said once
 
 
 def hostiles(state):
     return dict(getattr(state, "hostiles", None) or {})
 
 
-def swing_verb(profile, tally):
+def maneuvers(profile):
+    """The profile's tactical maneuvers, lower-case, blanks dropped."""
+    return [m.strip().lower() for m in profile.get("tactics") or [] if m.strip()]
+
+
+def swing_verb(profile, tally, state=None):
     """SMITE when the profile smites and a minute has passed since the
-    last one that struck, ATTACK otherwise (#183)."""
-    if not profile.get("smite"):
-        return "attack"
-    last = tally.last_smite
-    if last is None or clock() - last >= SMITE_INTERVAL:
-        return "smite"
+    last one that struck (#183); else the next tactical maneuver when
+    the profile lists them, Tactics is unlocked and TACTICS_EVERY - 1
+    plain swings have gone since the last (#190); ATTACK otherwise."""
+    if profile.get("smite"):
+        last = tally.last_smite
+        if last is None or clock() - last >= SMITE_INTERVAL:
+            return "smite"
+    rotation = maneuvers(profile)
+    if (
+        rotation
+        and not tally.tactics_off
+        and tally.since_maneuver >= TACTICS_EVERY - 1
+        and not locked(state, ["Tactics"])
+    ):
+        verb = rotation[tally.tactic % len(rotation)]
+        tally.tactic += 1
+        return verb
     return "attack"
 
 
@@ -649,11 +688,27 @@ def loop(s, profile, db, ground, avoid, tally):
             continue
         swings += 1
         cast_buffs(s, profile, tally)  # a buff that ran out, before the swing
-        verb = swing_verb(profile, tally)
+        verb = swing_verb(profile, tally, s.state)
         text = ask(s, f"{verb} {prey}" if prey else verb)
         lowered = text.lower()
         if verb == "smite" and any(word in lowered for word in _SMITE_STRUCK):
             tally.last_smite = clock()  # spent only when it struck
+        if verb in ("attack", "smite"):
+            tally.since_maneuver += 1
+        else:
+            tally.since_maneuver = 0
+            if any(word in lowered for word in _MANEUVER_DONE):
+                tally.maneuvers += 1
+                tally.tactic_misses = 0
+            elif not any(word in lowered for word in _ADVANCING + _NOTHING_THERE):
+                tally.tactic_misses += 1
+                unrecognized(s, tally, verb, text)
+                if tally.tactic_misses >= TACTIC_MISSES:
+                    tally.tactics_off = True
+                    s.echo(
+                        f"hunt: {verb} answered nothing known {TACTIC_MISSES} "
+                        "times — tactics off for this run"
+                    )
         if any(word in lowered for word in _KILL_WORDS):
             tally.kills += 1
             tally.empty_moves = 0
@@ -702,6 +757,7 @@ def hunt(s, profile, db, travel=True, avoid=()):
     reason = loop(s, profile, db, ground, avoid, tally)
     s.echo(
         f"hunt: {reason} — {tally.kills} kill(s), {tally.skins} skin(s)"
+        + (f", {tally.maneuvers} maneuver(s)" if tally.maneuvers else "")
         + (
             f", {tally.unrecognized} unrecognized answer(s)"
             if tally.unrecognized
