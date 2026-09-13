@@ -1,6 +1,7 @@
 import html
 import re
 
+from client.game.possessions import build as build_possessions
 from client.game.rested import parse_rested
 
 # Streams that duplicate text already present in the main window (or that
@@ -220,6 +221,17 @@ class XMLData:
         self.rested = None
         self.rested_updated = False
         self._rested_text = None
+        # Possessions from the last INV LIST (#184): the listing's
+        # command links carry the exist ids — <d cmd='remove #id'> for
+        # a worn item, <d cmd='get #id in #container'> for a content —
+        # collected as it streams, whoever asked, and built at its
+        # footer into [{exist, name, noun, verb, container_exist, worn,
+        # depth}] (client/game/possessions.py). Exact as of the listing.
+        self.possessions = []
+        self.possessions_updated = False
+        self._inv_links = None  # [(indent, cmd, name)] while a listing streams
+        self._inv_indent = ""  # the text before a link on the current line
+        self._link = None  # (cmd, pieces) inside a <d> of the listing
         # Vitals percentages from the minivitals dialog's progress bars:
         # {"health": 100, "stamina": 95, ...}; casters also get "mana".
         # The game sends partial updates, so this dict accumulates.
@@ -280,6 +292,14 @@ class XMLData:
     def data(self, text_string):
         if self.active_tags and self.active_tags[-1] == "prompt":
             self.prompt = text_string
+        if self._link is not None:
+            self._link[1].append(text_string)
+        elif self._inv_links is not None:
+            self._inv_indent = text_string
+            if "for more options" in text_string:
+                self._finish_listing()
+        elif text_string.strip() == "You have:":
+            self._inv_links = []
         if self.current_style == "roomName" and text_string.strip():
             self.room_title = text_string.strip()
         if self._exp_skill is not None:
@@ -314,6 +334,8 @@ class XMLData:
         elif name == "prompt":
             self.server_time = int(attributes["time"])
             self.prompt_count += 1
+            if self._inv_links:
+                self._finish_listing()  # a listing without its footer
             if self._staged_hostiles is not None:
                 self.hostiles = self._staged_hostiles
                 self._staged_hostiles = None
@@ -384,6 +406,8 @@ class XMLData:
                 self._objs_names, self._objs_bold = [], None
             elif ident == "exp rexp":
                 self._rested_text = ""
+        elif name == "d" and self._inv_links is not None:
+            self._link = (attributes.get("cmd", ""), [])
         elif name == "pushBold" and self._objs_names is not None:
             self._objs_bold = []
         elif name == "popBold" and self._objs_names is not None:
@@ -429,7 +453,18 @@ class XMLData:
             if self.injuries.pop(part, None) is not None:
                 self.injuries_updated = True
 
+    def _finish_listing(self):
+        links, self._inv_links, self._link = self._inv_links, None, None
+        self.possessions = build_possessions(links or [])
+        self.possessions_updated = True
+
     def end(self, name: str):
+        if name == "d" and self._link is not None:
+            cmd, pieces = self._link
+            self._link = None
+            self._inv_links.append((self._inv_indent, cmd, "".join(pieces)))
+        if name == "r":
+            self._inv_indent = ""  # the engine's per-line root
         if name == "dialogData":
             self._injuries_dialog = False
         if name == "component" and self._players_text is not None:

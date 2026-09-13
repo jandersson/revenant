@@ -246,6 +246,20 @@ there. Entries are split on commas and a final "and"; a title stands
 before the name and a " who is ..." state after it, so the name is the
 last word before that. The parser keeps the names as `room_players`.
 
+## Inventory links carry the exist ids (captured 2026-09-13)
+
+INV LIST answers in the main stream with one command link per item:
+`<d cmd='remove #53174575'>a lumpy bundle</d>` for a worn item,
+`     -<d cmd='get #50886622 in #53174575'>a rat tail</d>` for a
+container's content (the indentation before the link is the tree's
+depth, as in the plain text), closed by `[Use <d cmd='inventory
+help'>INVENTORY HELP</d> for more options.]`. The ids are the same
+exist ids the hand tags carry, and `#<id>` works as a noun in a
+command. The parser collects the links as the listing streams and
+builds `possessions` at the footer (client/game/possessions.py, #184).
+Story lines ("You put your handaxe in your canvas sack") and the
+room's objects carry no ids in our stream.
+
 ## The room's creatures (captured 2026-09-12)
 
 `<component id='room objs'>You also see <pushBold/>a town guard<popBold/>,

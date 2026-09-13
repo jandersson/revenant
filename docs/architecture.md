@@ -329,6 +329,14 @@ entries from a dock-layout module.
   line, the roundtime line, the spell-ready lines, soft colours) under
   the file's own rules; a file entry `{"disable": "<name>"}` turns one
   off and a file rule with that name replaces it (2026-09-13).
+- `client/client/game/possessions.py` — possessions by the game's exist
+  ids (#184): INV LIST wraps each item in a command link (`remove #id`
+  worn, `get #id in #container` a content), the parser collects the
+  links as the listing streams and builds `possessions` at the
+  footer, `;sheet inv` stores the ids beside the names (twins no
+  longer collapse), and a script can name an item exactly (`;favors`
+  fetches a listed orb with `get #<id>`). Only INV LIST and the hand
+  tags carry ids, so the model is exact as of the last listing.
 - `client/client/engine/policy.py` — the session's command policy for
   outside senders (#161): every line tagged with an origin is decided
   before the game sees it — read-only verbs pass, the giving,

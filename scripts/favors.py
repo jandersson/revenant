@@ -38,7 +38,7 @@ attended run captures them (#82) — anything unclassified is echoed as
 fixtures. Stop with:  ;stop favors
 """
 
-from client.game import probe
+from client.game import possessions, probe
 from client.game.probe import classify
 from client.game.walker import locate
 
@@ -258,7 +258,11 @@ def fetch_orb(s):
     hands = [getattr(s.state, side, None) for side in ("left_hand", "right_hand")]
     if all(hands):
         return False
-    answer = ask(s, "get my orb")
+    # The last INV LIST's ids (#184) name the orb exactly; without a
+    # listing, GET MY ORB asks the game.
+    listed = possessions.find(getattr(s.state, "possessions", None), "orb")
+    command = f"get #{listed[0]['exist']}" if listed else "get my orb"
+    answer = ask(s, command)
     return classify(answer, ORB_OUTCOMES) == "ok"
 
 

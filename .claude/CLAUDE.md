@@ -58,7 +58,10 @@ for `client/client/<pkg>/x.py`.
   `room_creatures` (the bolded names of `room objs`, in order, repeats
   kept) (#178), and `rested` ({stored, usable, refresh} minutes) from
   the `exp rexp` footer the exp window pushes on every pulse (#176);
-  the engine's exp rewrite ends with that footer as a line.
+  the engine's exp rewrite ends with that footer as a line. `possessions`
+  ([{exist, name, noun, container_exist, worn, depth}]) from the
+  command links INV LIST wraps each item in (`remove #id`, `get #id in
+  #container`), built at the listing's footer whoever asked (#184).
 - `client/engine/core.py` — `Engine`: feeds lines, emits synthetic streams
   (compass = room-arrival signal, room, vitals, indicators, character,
   timesync, roundtime/casttime, bell). It appends "\n" only to the last
@@ -152,6 +155,11 @@ for `client/client/<pkg>/x.py`.
   one uid-less; `same_place` handles it. A climb turned back for
   footing gets one retry standing with the named items stowed, then
   a stop that says so (#157). Model: docs/movement.md.
+- `client/game/possessions.py` — possessions by exist id: the parser's
+  listing built into items, `find(items, noun)` for a script that
+  wants exactly this orb (`get #<id>`), `rows()` for `;sheet inv`'s
+  table, which stores `exist` / `container_exist` beside the names
+  (#184). Exact as of the last INV LIST, which costs roundtime.
 - `client/game/rested.py` — the rested-experience footer parsed
   (shared by the parser, `;sheet` and `;xp`) and `burning(previous,
   current)`, the per-minute flag `;xp` writes as `is_rexp` on every

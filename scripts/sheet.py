@@ -13,8 +13,10 @@ whatever still won't answer is left out of the snapshot rather than
 stored as blanks. ;sheet once takes a single snapshot and exits.
 
 ;sheet inv adds your inventory: INV LIST, flattened into rows naming
-each item's container, so "which character has that thing?" is a query
-instead of a login. It is on demand only and never scheduled — INV LIST
+each item's container and, when the parser saw the listing, the
+game's exist ids for the item and its container (#184), so "which
+character has that thing?" is a query instead of a login and twins
+are told apart. It is on demand only and never scheduled — INV LIST
 costs a few seconds of roundtime (4-5s captured), which is fine when you ask for it and not
 fine arriving mid-fight. Typed while the script runs (it always does —
 it is an autostart), ;sheet inv asks the running script for one
@@ -36,6 +38,7 @@ from pathlib import Path
 from client.game.inventory import FOOTER as INV_END
 from client.game.money import parse_wealth  # noqa: F401 — the sheet's wealth parser
 from client.game.inventory import parse_inventory
+from client.game import possessions
 from client.game.probe import collect
 from client.game.rested import parse_duration, parse_rested  # noqa: F401 — the footer parser, shared with the parser and ;xp (#176)
 from client.game.history import database_path as history_database_path
@@ -163,8 +166,20 @@ def database_path() -> Path:
     return history_database_path()
 
 
+def _add_columns(connection, table, columns):
+    present = {row[1] for row in connection.execute(f"PRAGMA table_info({table})")}
+    for column, kind in columns:
+        if column not in present:
+            connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {kind}")
+
+
 def ensure_schema(connection):
     connection.executescript(SCHEMA)
+    # The exist ids INV LIST's links carry (#184): NULL on rows from
+    # before, and on a listing the parser did not see.
+    _add_columns(
+        connection, "inventory", (("exist", "TEXT"), ("container_exist", "TEXT"))
+    )
     # CREATE IF NOT EXISTS won't add columns to a table that already
     # exists, so every column added after the first release needs its
     # own additive migration. Older rows keep NULLs; the next snapshot
@@ -335,8 +350,9 @@ def insert_snapshot(
     )
     connection.executemany(
         "INSERT INTO inventory"
-        " (logged_at, character_name, container, item, quantity, depth)"
-        " VALUES (?, ?, ?, ?, ?, ?)",
+        " (logged_at, character_name, container, item, quantity, depth,"
+        " exist, container_exist)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         [
             (
                 logged_at,
@@ -345,6 +361,8 @@ def insert_snapshot(
                 row["item"],
                 row["quantity"],
                 row["depth"],
+                row.get("exist"),
+                row.get("container_exist"),
             )
             for row in items or []
         ],
@@ -475,7 +493,13 @@ def snapshot(s, inventory=False):
     # refuses it like everything else, so it is skipped there (#112).
     items = []
     if inventory and not renaming:
+        if s.state is not None:
+            s.state.possessions_updated = False
         items, refused_inv = ask(s, "inv list", parse_inventory, INV_END, bool)
+        # The parser saw the same listing with its links (#184): its
+        # rows carry the exist ids, one row per item, twins apart.
+        if getattr(s.state, "possessions_updated", False):
+            items = possessions.rows(s.state.possessions) or items
         if refused_inv:
             s.echo(
                 "sheet: the game answered INV LIST with its syntax help — "

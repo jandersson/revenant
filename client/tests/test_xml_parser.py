@@ -671,6 +671,52 @@ def test_room_players_are_read_from_also_here(xml_data):
     assert xml_data.room_players == []
 
 
+# -- possessions: INV LIST's links carry the exist ids (#184) ------------------
+
+INV_LIST_LINES = (
+    "You have:",
+    "  <d cmd='remove #53174575'>a lumpy bundle</d>",
+    "     -<d cmd='get #50886622 in #53174575'>a rat tail</d>",
+    "     -<d cmd='get #50886623 in #53174575'>a rat tail</d>",
+    "  <d cmd='remove #50886620'>a large canvas sack</d>",
+    "     -<d cmd='get #50886688 in #50886620'>an oak-hafted handaxe</d>",
+    "[Use <d cmd='inventory help'>INVENTORY HELP</d> for more options.]",
+)
+
+
+def test_inv_lists_links_become_possessions_at_the_footer(xml_data):
+    # Captured 2026-09-13: worn items are "remove #id" links, contents
+    # "get #id in #container"; the engine feeds one line per root.
+    for line in INV_LIST_LINES[:-1]:
+        _feed_one(xml_data, line)
+        assert xml_data.possessions == [] and not xml_data.possessions_updated
+    _feed_one(xml_data, INV_LIST_LINES[-1])
+    assert xml_data.possessions_updated
+    assert [
+        (item["exist"], item["name"], item["container_exist"], item["depth"])
+        for item in xml_data.possessions
+    ] == [
+        ("53174575", "a lumpy bundle", None, 0),
+        ("50886622", "a rat tail", "53174575", 1),
+        ("50886623", "a rat tail", "53174575", 1),
+        ("50886620", "a large canvas sack", None, 0),
+        ("50886688", "an oak-hafted handaxe", "50886620", 1),
+    ]
+    assert xml_data.possessions[0]["worn"] and not xml_data.possessions[1]["worn"]
+    # An ordinary line with a link outside a listing is not an item.
+    xml_data.possessions_updated = False
+    _feed_one(xml_data, "Obvious paths: <d>north</d>.")
+    assert not xml_data.possessions_updated
+
+
+def test_a_listing_without_its_footer_closes_at_the_prompt(xml_data):
+    for line in INV_LIST_LINES[:3]:
+        _feed_one(xml_data, line)
+    _feed_one(xml_data, '<prompt time="1789234651">&gt;</prompt>')
+    assert [item["exist"] for item in xml_data.possessions] == ["53174575", "50886622"]
+    assert xml_data.possessions_updated
+
+
 # -- rested experience: the exp window's footer (#176) ------------------------
 
 

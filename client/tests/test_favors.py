@@ -527,6 +527,30 @@ def test_a_stowed_orb_is_fetched_and_the_prayer_skipped(monkeypatch):
     assert "kneel" not in handle.sent
 
 
+def test_a_listed_orb_is_fetched_by_its_id(monkeypatch):
+    # #184: the last INV LIST named the orb; GET #id, not GET MY ORB.
+    _quick(monkeypatch)
+    monkeypatch.setattr(favors, "locate", lambda db, state: favors.GROTTO)
+    handle = FakeHandle(
+        _creche_answers()
+        | {"get #50886699": [[("", "You get a Truffenyi orb from your canvas sack.")]]}
+    )
+    handle.state.possessions = [
+        {
+            "exist": "50886699",
+            "name": "a Truffenyi orb",
+            "noun": "orb",
+            "verb": "get",
+            "container_exist": "50886620",
+            "worn": False,
+            "depth": 1,
+        }
+    ]
+    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    assert handle.sent[:2] == ["get #50886699", "rub my orb"]
+    assert "get my orb" not in handle.sent
+
+
 def test_no_orb_anywhere_means_the_usual_prayer(monkeypatch):
     _quick(monkeypatch)
     monkeypatch.setattr(favors, "locate", lambda db, state: favors.GROTTO)

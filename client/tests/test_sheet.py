@@ -514,6 +514,54 @@ def test_the_snapshot_stores_the_inventory(monkeypatch, tmp_path):
     assert ("a lunch pail", "a goblet of rich bloodwyne", 2, 1) in rows
 
 
+def test_the_snapshot_stores_the_exist_ids_the_parser_saw(monkeypatch, tmp_path):
+    # #184: the parser collected the listing's links while the sheet
+    # collected its text; the rows come from the parser, ids and all.
+    from types import SimpleNamespace
+
+    from client.game import possessions
+
+    listed = possessions.build(
+        [
+            ("  ", "remove #53174575", "a lumpy bundle"),
+            ("     -", "get #50886622 in #53174575", "a rat tail"),
+            ("     -", "get #50886623 in #53174575", "a rat tail"),
+        ]
+    )
+
+    class Listing(FakeHandle):
+        def put(self, command):
+            super().put(command)
+            if command == "inv list":
+                self.state.possessions = listed
+                self.state.possessions_updated = True
+
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
+    monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
+    handle = Listing(
+        {
+            "info": [INFO_TEXT.splitlines(keepends=True)],
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
+            "inv list": [INV_LIST_TEXT.splitlines(keepends=True)],
+        }
+    )
+    handle.state = SimpleNamespace(
+        name="Lanival", possessions=[], possessions_updated=True
+    )
+    sheet.snapshot(handle, inventory=True)
+    connection = sqlite3.connect(tmp_path / "xp.db")
+    rows = connection.execute(
+        "SELECT container, item, quantity, exist, container_exist FROM inventory"
+        " ORDER BY seq"
+    ).fetchall()
+    assert rows == [
+        (None, "a lumpy bundle", 1, "53174575", None),
+        ("a lumpy bundle", "a rat tail", 1, "50886622", "53174575"),
+        ("a lumpy bundle", "a rat tail", 1, "50886623", "53174575"),  # twins apart
+    ]
+
+
 def test_an_unanswered_inv_full_stores_no_inventory(monkeypatch, tmp_path):
     # Nothing is not the same as owning nothing: a command the game ate
     # must leave the table untouched.

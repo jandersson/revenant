@@ -338,6 +338,7 @@ RELOADABLE_MODULES = (
     "client.game.climbs",
     "client.game.circles",
     "client.game.inventory",
+    "client.game.possessions",  # binds _depth from inventory: after it
     "client.game.probe",
     "client.game.discard",
     "client.game.buffs",
