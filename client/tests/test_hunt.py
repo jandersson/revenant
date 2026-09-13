@@ -1095,11 +1095,14 @@ def test_a_paladin_smites_one_swing_a_minute_and_attacks_the_rest(travel, monkey
 
 
 # --- debilitation ----------------------------------------------------------
-# Stun Foe's cast line is Elanthipedia's (#192); the resist and failure
-# wordings are uncaptured until the first run.
+# Stun Foe's cast at minimum mana, captured 2026-09-14 on a striped
+# badger (#192) — the wiki's "brilliant stream of pure white light" is
+# the line at more mana; the resist and failure wordings are still
+# uncaptured.
 STUNNED = (
-    "You gesture.\nA brilliant stream of pure white light jumps from you to a "
-    "rat, warping into a spiraling force that slams into it!"
+    "You gesture at a rat.\nA stream of dull golden light jumps from you to a "
+    "rat, which warps into a spiraling force as it slams into it!\n"
+    "You also see a rat that appears stunned."
 )
 SF_PREPARED = "You begin chanting a prayer to invoke the Stun Foe spell."
 STUNNING = PROFILE | {"debilitation": "stun foe"}

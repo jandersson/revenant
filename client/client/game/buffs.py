@@ -51,8 +51,13 @@ Paladin) is cast at the prey the same way — cast_debilitation(), with
 a mana ramp of its own — and takes turns with the training cast when
 both are due, so a swing never carries two casts; the caller passes
 the target. Debilitation "is trained in combat, by casting spells on
-enemies" (Elanthipedia: Debilitation skill), and Stun Foe's cast line
-is the wiki's until captured (#192).
+enemies" (Elanthipedia: Debilitation skill). Captured 2026-09-14 at
+minimum mana on a striped badger: "You gesture at a striped badger. /
+A stream of dull golden light jumps from you to a striped badger,
+which warps into a spiraling force as it slams into it! / You also
+see a striped badger that appears stunned." — the wiki's "brilliant
+stream of pure white light" is the line at more mana; the resist and
+failure wordings are still to capture (#192).
 """
 
 from time import monotonic

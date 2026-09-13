@@ -179,11 +179,16 @@ utilizing skill caps comparable with other combat skills"
 a Paladin's are Halt, Stun Foe and Shatter.
 [Stun Foe](https://elanthipedia.play.net/Stun_Foe) is the intro one: a
 battle spell on a PC or creature, Holy, prep 1 to 33 mana, instant,
-"Stuns target" on a magic-versus-fortitude contest, with the cast line
-"A brilliant stream of pure white light jumps from you to <target>,
-warping into a spiraling force that slams into it!" — the wiki's; the
-resist and failure wordings are uncaptured, and the first run pins
-them. A stunned creature does not attack, so the cast spares bites
+"Stuns target" on a magic-versus-fortitude contest. The wiki's cast
+line is "A brilliant stream of pure white light jumps from you to
+<target>, warping into a spiraling force that slams into it!"; at
+minimum mana the first scripted cast (2026-09-14, a striped badger)
+read "You gesture at a striped badger. / A stream of dull golden light
+jumps from you to a striped badger, which warps into a spiraling force
+as it slams into it! / You also see a striped badger that appears
+stunned." — the light scales with the mana fed. The resist and failure
+wordings are uncaptured. A stunned creature does not attack, so the
+cast spares bites
 while the weapon works. The profile's `debilitation` names the spell,
 and the loop casts it at the prey before a swing on the same cast gap
 and mana ramp as the buff training cast, the two taking turns when
