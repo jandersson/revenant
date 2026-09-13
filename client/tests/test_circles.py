@@ -275,6 +275,50 @@ def test_required_ranks_inside_a_band():
     assert circles.required_ranks(thief["1st Survival"], 15) == 4 * 10 + 4 * 5
 
 
+def test_armor_slots_draw_from_the_four_armor_skills_by_rank():
+    # 2026-09-13: a Paladin in plate with a leather cowl — Plate Armor
+    # 37, Light Armor 29 — was told "2nd Armor 0/4" because the armor
+    # set knew "Heavy Armor", a name DR3 does not have. Plate fills the
+    # first slot, the next-best armor skill the second.
+    roster = {
+        "Plate Armor": (37, 10),
+        "Light Armor": (1, 0),
+        "Chain Armor": (4, 0),
+        "Brigandine": (4, 0),
+        "Shield Usage": (4, 0),
+        "Defending": (30, 0),
+        "Conviction": (30, 97),
+        "Parry Ability": (35, 0),
+        "Evasion": (34, 0),
+        "Small Edged": (35, 0),
+        "Holy Magic": (30, 0),
+        "Attunement": (18, 0),
+        "Augmentation": (30, 0),
+        "Arcana": (1, 0),
+    }
+    unmet = circles.gates(roster, circle=1, guild="Paladin")
+    armor = [
+        (g["label"], g["skill"], g["have"], g["need"])
+        for g in unmet
+        if "Armor" in g["label"]
+    ]
+    assert armor == [("2nd Armor", "Chain Armor", 4, 2)] or armor == [], armor
+    roster["Chain Armor"] = (1, 0)
+    unmet = circles.gates(roster, circle=1, guild="Paladin")
+    armor = [
+        (g["label"], g["skill"], g["have"], g["need"])
+        for g in unmet
+        if "Armor" in g["label"]
+    ]
+    assert armor == [("2nd Armor", "Brigandine", 4, 2)] or armor == [], armor
+    roster["Brigandine"] = (1, 0)
+    roster["Light Armor"] = (2, 0)  # ties order by name; two ranks makes it second
+    unmet = circles.gates(roster, circle=1, guild="Paladin")
+    assert [
+        (g["label"], g["skill"], g["have"]) for g in unmet if "Armor" in g["label"]
+    ] == [("2nd Armor", "Light Armor", 2)]
+
+
 def test_gates_reproduce_the_guildleaders_answer():
     # Captured ASK KALAG ABOUT CIRCLE for this roster at circle 1:
     #   armor:    1st Armor (Light Armor)

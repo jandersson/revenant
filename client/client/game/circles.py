@@ -82,7 +82,13 @@ SLOT_SKILLS = {
         "Tactics",
         "Trading",
     ),
-    "armor": ("Light Armor", "Heavy Armor"),
+    # DR3's four armor skills (Elanthipedia, Paladin page: "Eligible armor
+    # skills include Shield Usage, Light Armor, Chain Armor, Brigandine,
+    # and Plate Armor"). "Heavy Armor" was a pre-DR3 name: with it in the
+    # set, a Paladin at Plate Armor 37 and Light Armor 29 read "2nd Armor
+    # 0/4" while the guildleader asked for nothing (2026-09-13). Shield
+    # Usage stays a named requirement where a guild names it.
+    "armor": ("Light Armor", "Chain Armor", "Brigandine", "Plate Armor"),
     "magic": (
         "Arcana",
         "Astrology",

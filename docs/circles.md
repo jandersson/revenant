@@ -34,9 +34,13 @@ is a slot over the two Mastery skills.
 Assumptions not directly stated by the wiki:
 
 - Parry Ability, Expertise, and the Masteries never fill Nth-Weapon
-  slots; armor slots draw from Light and Heavy Armor, never Defending,
-  Shield Usage, or Conviction (those appear only as named rows in
-  every guild's table).
+  slots; armor slots draw from the four armor skills — Light Armor,
+  Chain Armor, Brigandine, Plate Armor — never Defending, Shield
+  Usage, or Conviction (those appear only as named rows in every
+  guild's table). Until 2026-09-13 the set read "Light and Heavy
+  Armor", a pre-DR3 name, and a Paladin wearing plate with a leather
+  cowl was told "2nd Armor 0/4" while his guildleader asked for
+  nothing; the four names are the wiki's.
 - Equal-rank ties: our order (percent, then name) can differ from the
   game's slot labels; the *set* of unmet requirements is unaffected.
 - The Primary Magic skills (Holy Magic, Lunar Magic, Arcane Magic, Life
