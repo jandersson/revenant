@@ -446,11 +446,13 @@ def gates(ranks, circle, guild):
     """The unmet requirements for advancing from `circle` to the next.
 
     ranks: {skill: (rank, percent)} — a ;sheet snapshot's roster.
-    Returns [{category, label, skill, have, need}] in table order, or
-    None for a guild without circles (Commoner). Slots fill best-first
-    by (rank, percent); equal-rank ties may sit in different slots
-    than the game shows, but the same requirements come out unmet
-    either way.
+    Returns [{category, label, skill, have, need, tied}] in table
+    order, or None for a guild without circles (Commoner). Slots fill
+    best-first by (rank, percent); the game fills a tie in an order of
+    its own (a guildleader named Locksmithing where this named First
+    Aid, both at 1.0, 2026-09-14, #195), so `tied` lists the other
+    skills on the slot holder's rank and percent — the same
+    requirement whichever the game names.
     """
     table = GUILDS.get(guild)
     if table is None:
@@ -479,6 +481,7 @@ def gates(ranks, circle, guild):
         need = required_ranks(rates, target)
         if not need:
             continue
+        tied = []
         if kind == "named":
             label, skill = which, which
             have = ranks.get(which, (0, 0))[0]
@@ -486,7 +489,12 @@ def gates(ranks, circle, guild):
             slot_set, n = which
             label = slot_label(guild, slot_set, n)
             if n <= len(filled[slot_set]):
-                skill, have, _ = filled[slot_set][n - 1]
+                skill, have, percent = filled[slot_set][n - 1]
+                tied = [
+                    name
+                    for name, rank, pct in filled[slot_set]
+                    if (rank, pct) == (have, percent) and name != skill
+                ]
             else:
                 skill, have = None, 0  # nothing trained for this slot yet
         if have < need:
@@ -497,9 +505,22 @@ def gates(ranks, circle, guild):
                     "skill": skill,
                     "have": have,
                     "need": need,
+                    "tied": tied,
                 }
             )
     return unmet
+
+
+def holders(gate):
+    """The skill a gate names, with the ones tied to it on rank and
+    percent as one choice: "First Aid, Locksmithing or Outdoorsmanship"
+    (the game names any of them, #195); None for an untrained slot."""
+    if not gate["skill"]:
+        return None
+    names = [gate["skill"], *gate.get("tied", ())]
+    if len(names) == 1:
+        return names[0]
+    return ", ".join(names[:-1]) + f" or {names[-1]}"
 
 
 def describe(unmet, target):
@@ -519,7 +540,7 @@ def describe(unmet, target):
         for gate in entries:
             name = gate["label"]
             if gate["skill"] and gate["skill"] != gate["label"]:
-                name += f" ({gate['skill']})"
+                name += f" ({holders(gate)})"
             parts.append(f"{name} {gate['have']}/{gate['need']}")
         lines.append(f"  {category}: " + ", ".join(parts))
     return lines

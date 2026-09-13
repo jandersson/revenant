@@ -385,6 +385,33 @@ def test_barbarians_primary_mastery_is_the_better_mastery():
     assert mastery["have"] == 7
 
 
+def test_a_tied_slot_names_every_skill_on_that_rank():
+    # 2026-09-14 (#195): a Paladin's guildleader named Locksmithing for
+    # the 4th Survival slot where the sort named First Aid — both at
+    # rank 1, 0%, with Outdoorsmanship beside them. Evasion is a named
+    # Paladin requirement, so it never fills a survival slot.
+    roster = {
+        "Evasion": (34, 61),
+        "Skinning": (32, 22),
+        "Athletics": (28, 78),
+        "Perception": (6, 10),
+        "First Aid": (1, 0),
+        "Locksmithing": (1, 0),
+        "Outdoorsmanship": (1, 0),
+    }
+    unmet = circles.gates(roster, circle=1, guild="Paladin")
+    fourth = [gate for gate in unmet if gate["label"] == "4th Survival"]
+    assert fourth and fourth[0]["skill"] == "First Aid"
+    assert fourth[0]["tied"] == ["Locksmithing", "Outdoorsmanship"]
+    line = [text for text in circles.describe(unmet, 2) if "survival:" in text][0]
+    assert "4th Survival (First Aid, Locksmithing or Outdoorsmanship) 1/2" in line
+    # An untied slot reads as before.
+    assert [gate["tied"] for gate in unmet if gate["skill"] == "Perception"] in (
+        [],
+        [[]],
+    )
+
+
 def test_a_guild_without_circles_returns_none():
     assert circles.gates({}, circle=0, guild="Commoner") is None
 

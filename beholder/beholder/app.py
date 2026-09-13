@@ -158,7 +158,12 @@ def circle_gates(character):
     )
     if not unmet:
         return [], f"Nothing gates the next circle. {note}"
-    rows = [dict(gate, skill=gate["skill"] or "—") for gate in unmet]
+    # The table's skill column carries a tied slot as one choice (#195).
+    rows = [
+        {key: value for key, value in gate.items() if key != "tied"}
+        | {"skill": circles.holders(gate) or "—"}
+        for gate in unmet
+    ]
     return rows, note
 
 

@@ -41,8 +41,13 @@ Assumptions not directly stated by the wiki:
   Armor", a pre-DR3 name, and a Paladin wearing plate with a leather
   cowl was told "2nd Armor 0/4" while his guildleader asked for
   nothing; the four names are the wiki's.
-- Equal-rank ties: our order (percent, then name) can differ from the
-  game's slot labels; the *set* of unmet requirements is unaffected.
+- Equal-rank ties: the game fills a tied slot in an order of its own
+  — a Paladin's guildleader named "4th Survival (Locksmithing)" where
+  the sort (percent, then name) named First Aid, both at rank 1, 0%,
+  Outdoorsmanship beside them (2026-09-14, #195) — so a tied slot is
+  reported with every skill on that rank and percent: "4th Survival
+  (First Aid, Locksmithing or Outdoorsmanship) 1/2". The *set* of
+  unmet requirements is unaffected.
 - The Primary Magic skills (Holy Magic, Lunar Magic, Arcane Magic, Life
   Magic, Elemental Magic, Inner Fire, Inner Magic) never fill an
   Nth-Magic slot. This one is stated by the wiki, not assumed: the
