@@ -1,5 +1,9 @@
 """Earn a favor — the orb run, grotto to temple altar:  ;favors [immortal]
-Run it from anywhere in walking range of Crossing: the script walks to
+Run it from anywhere in walking range of Crossing: the script first
+checks for an orb already in your possession — one in a hand, or one
+GET MY ORB fetches from a container — and finishes that one (the
+puzzles if you are still in them, then the creche) rather than pray
+for another; otherwise it walks to
 the Stone Grotto west of town, prays a favor orb loose in the name of
 a neutral Immortal (default Truffenyi; e.g. ;favors Meraud), takes the
 easy exit (GO ARCH), solves the puzzle rooms it knows — the choking
@@ -237,6 +241,27 @@ def enter_puzzles(s):
     return now != before
 
 
+def held_orb(s):
+    """The orb in a hand, from the parser's hand state, or None."""
+    for side in ("left_hand", "right_hand"):
+        held = getattr(s.state, side, None)
+        if isinstance(held, dict) and "orb" in str(held.get("noun") or ""):
+            return held
+    return None
+
+
+def fetch_orb(s):
+    """GET MY ORB: True when a container gave one up (the operator's
+    ask, 2026-09-13 — a run that already has an orb must not pray for
+    another; beyond two, fed experience is wasted). With both hands
+    full there is nothing to fetch into, so False without a send."""
+    hands = [getattr(s.state, side, None) for side in ("left_hand", "right_hand")]
+    if all(hands):
+        return False
+    answer = ask(s, "get my orb")
+    return classify(answer, ORB_OUTCOMES) == "ok"
+
+
 def on_the_map(s, db):
     """Back from the puzzles: a mapped room with a path to the creche."""
     here = locate(db, s.state)
@@ -404,12 +429,6 @@ def main(s, db=None, walk=None):
     if is_dead(s.state):
         s.echo("favors: you are dead — this run needs a living body")
         return
-    if not pool_active(s.state):
-        s.echo(
-            "favors: nothing is learning — the orb's sacrifice is your "
-            "experience pool; train something first"
-        )
-        return
     if db is None or walk is None:
         from client.game.mapdb import MapDB, download, mapdb_path
         from client.game.walker import walk as real_walk
@@ -419,6 +438,26 @@ def main(s, db=None, walk=None):
             download()
         db = db or MapDB.load()
         walk = walk or real_walk
+    # An orb already yours comes first: in a hand (the parser knows,
+    # nothing sent), or — once the pool is worth a run — in a container.
+    if held_orb(s) is None and not pool_active(s.state):
+        s.echo(
+            "favors: nothing is learning — the orb's sacrifice is your "
+            "experience pool; train something first"
+        )
+        return
+    if held_orb(s) or fetch_orb(s):
+        s.echo(
+            "favors: an orb is already in your possession — finishing it, no new prayer"
+        )
+        if not on_the_map(s, db) and not solve_puzzles(s, db):
+            s.echo(
+                "favors: aborted — DROP MY ORB abandons the puzzles "
+                "(destroys the orb, teleports you out)"
+            )
+            return
+        finish(s, db, walk)
+        return
     if not walk(s, db, [GROTTO], describe="the Stone Grotto"):
         s.echo("favors: could not reach the grotto — stopping")
         return
@@ -447,6 +486,12 @@ def main(s, db=None, walk=None):
             "(destroys the orb, teleports you out)"
         )
         return
+    finish(s, db, walk)
+
+
+def finish(s, db, walk):
+    """The orb in hand and the character on the map: to the creche,
+    fill, offer, report."""
     if not walk(s, db, [CRECHE], describe="the temple creche"):
         s.echo(
             "favors: could not reach the creche — walk there (;go2 5865), "

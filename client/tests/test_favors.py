@@ -360,8 +360,15 @@ def test_the_vase_room_is_filled_with_a_free_hand_and_left_by_the_path(monkeypat
             "favor": [[("", "You currently have 2 favors with the gods.")]],
         }
     )
-    handle.state.left_hand = {"noun": "orb", "exist": "1", "name": "Truffenyi orb"}
     handle.state.right_hand = {"noun": "handaxe", "exist": "2", "name": "handaxe"}
+    original_put = handle.put
+
+    def put(command):  # the altar's orb fills the other hand
+        original_put(command)
+        if command == "get orb on altar":
+            handle.state.left_hand = {"noun": "orb", "exist": "1", "name": "orb"}
+
+    handle.put = put
     monkeypatch.setattr(
         favors,
         "locate",
@@ -482,6 +489,79 @@ def test_an_unknown_puzzle_room_is_left_to_the_human(monkeypatch):
     assert any("solve this room by hand" in echo for echo in handle.echoed)
     assert "open window" not in handle.sent
     assert "rub my orb" in handle.sent  # ;favors done resumed the run
+
+
+def _creche_answers():
+    return {
+        "rub my orb": [[("", "You sense that your sacrifice is properly prepared.")]],
+        "put my orb on altar": [
+            [("", "The multicolored lights gather around you and mix together.")]
+        ],
+        "favor": [[("", "You currently have 4 favors with the gods.")]],
+    }
+
+
+def test_an_orb_already_in_hand_skips_the_prayer(monkeypatch):
+    # 2026-09-13, the operator: a run with an orb in hand must not pray
+    # for another (beyond two, fed experience is wasted).
+    _quick(monkeypatch)
+    monkeypatch.setattr(favors, "locate", lambda db, state: favors.GROTTO)
+    handle = FakeHandle(_creche_answers())
+    handle.state.left_hand = {"noun": "orb", "exist": "1", "name": "Truffenyi orb"}
+    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    assert "kneel" not in handle.sent and "get my orb" not in handle.sent
+    assert any("already in your possession" in echo for echo in handle.echoed)
+    assert handle.sent[0] == "rub my orb"
+    assert any("favor earned" in echo for echo in handle.echoed)
+
+
+def test_a_stowed_orb_is_fetched_and_the_prayer_skipped(monkeypatch):
+    _quick(monkeypatch)
+    monkeypatch.setattr(favors, "locate", lambda db, state: favors.GROTTO)
+    handle = FakeHandle(
+        _creche_answers()
+        | {"get my orb": [[("", "You get a Truffenyi orb from your canvas sack.")]]}
+    )
+    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    assert handle.sent[:2] == ["get my orb", "rub my orb"]
+    assert "kneel" not in handle.sent
+
+
+def test_no_orb_anywhere_means_the_usual_prayer(monkeypatch):
+    _quick(monkeypatch)
+    monkeypatch.setattr(favors, "locate", lambda db, state: favors.GROTTO)
+    handle = FakeHandle(
+        _creche_answers()
+        | {
+            "get my orb": [[("", "What were you referring to?")]],
+            "get orb on altar": [[("", "You get a glass orb from the altar.")]],
+            "go arch": [[("compass", "none")]],
+        }
+    )
+    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    assert handle.sent[0] == "get my orb"
+    assert "kneel" in handle.sent and "get orb on altar" in handle.sent
+
+
+def test_an_orb_in_hand_off_the_map_solves_the_puzzles_first(monkeypatch):
+    _quick(monkeypatch)
+    handle = FakeHandle(
+        _creche_answers()
+        | {
+            "look": [[("", line) for line in PLANT_ROOM.splitlines()]],
+            "open window": [[("", "...soon it slides open with jerking movements.")]],
+            "go window": [[("", "You feel giddy all over ... transported to...")]],
+        }
+    )
+    handle.state.right_hand = {"noun": "orb", "exist": "1", "name": "Truffenyi orb"}
+    monkeypatch.setattr(
+        favors,
+        "locate",
+        lambda db, state: favors.GROTTO if "go window" in handle.sent else None,
+    )
+    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    assert handle.sent[:4] == ["look", "open window", "go window", "rub my orb"]
+    assert "kneel" not in handle.sent
 
 
 def test_no_orb_from_the_altar_stops_before_the_arch(monkeypatch):

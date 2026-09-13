@@ -9,6 +9,14 @@ a mirror, it is what our code believes and why.
 
 ## The run (Zoluren)
 
+0. **An orb already yours comes first.** The script checks the
+   parser's hand state for an orb (nothing sent) and, once the pool is
+   worth a run and a hand is free, tries GET MY ORB for one in a
+   container; with an orb in hand it skips the prayer
+   and finishes that orb — the puzzles if it cannot locate a mapped
+   room, then the creche — since beyond two orbs fed experience is
+   wasted and a second prayer would only add one (the operator,
+   2026-09-13). "What were you referring to?" means none.
 1. **The Stone Grotto** at the Siergelde ruins west of Crossing — map
    room 1420, `[Siergelde, Stone Grotto]`. The game's own `DIR FAVOR`
    gives step-by-step directions; we walk with the shared walker
