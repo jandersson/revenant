@@ -1202,6 +1202,90 @@ def test_the_debilitation_and_training_casts_take_turns(travel):
     ]
 
 
+# --- tracks ----------------------------------------------------------------
+# Captured 2026-09-14 (#194): HUNT's answer, a numbered list, an 8-second
+# roundtime; the empty answer is the wiki's.
+TRACKED = (
+    "You take note of all the tracks in the area, so that you can hunt anything "
+    "nearby down.\nTo the east:\n  1)   a rat\nRoundtime: 8 sec."
+)
+PERCEPTION_OPEN = {"Perception": {"rank": 10, "percent": 0, "mindstate": 3}}
+TRACKING = PROFILE | {"perception": True}
+
+
+def _ticking(monkeypatch, seconds):
+    """A clock that advances `seconds` per command sent."""
+    now = {"t": 1000.0}
+    monkeypatch.setattr(hunt, "clock", lambda: now["t"])
+    original_ask = hunt.ask
+
+    def ask(s, command):
+        now["t"] += seconds
+        return original_ask(s, command)
+
+    monkeypatch.setattr(hunt, "ask", ask)
+
+
+def test_a_hunt_for_tracks_when_the_room_empties_once_per_timer(travel, monkeypatch):
+    # Three kills empty three rooms in turn; the fuse ends the run at
+    # the third. With the clock frozen the second emptying is inside
+    # the 75-second timer; ticking 30 s a command, a kill is 90 s and
+    # every emptying earns a HUNT.
+    for seconds, hunts in ((0, 1), (30, 2)):
+        _ticking(monkeypatch, seconds)
+        arena = Arena(
+            {
+                "attack": [(KILL, kill)] * 3,
+                "hunt": [TRACKED] * 3,
+                "skin": [SKINNED] * 3,
+                "search": [NOTHING] * 3,
+            },
+            experience=PERCEPTION_OPEN,
+        )
+        arena.arrivals = {6046: {"1": True}, 6047: {"1": True}}
+        _run(arena, profile=TRACKING | {"max_kills": 3}, travel_first=False)
+        assert arena.sent.count("hunt") == hunts, seconds
+        first = arena.sent.index("hunt")
+        assert (
+            arena.sent[first - 1] == "search rat"
+        )  # after the corpse, before the move
+        assert any(f"{hunts} HUNT(s)" in text for text in arena.echoed)
+
+
+def test_no_hunt_for_tracks_at_lock_or_with_the_flag_off(travel):
+    locked = {"Perception": {"rank": 10, "percent": 0, "mindstate": 34}}
+    for profile, experience in ((TRACKING, locked), (PROFILE, PERCEPTION_OPEN)):
+        arena = Arena(
+            {
+                "attack": [(KILL, kill)] * 2,
+                "hunt": [TRACKED] * 2,
+                "skin": [SKINNED] * 2,
+                "search": [NOTHING] * 2,
+            },
+            experience=experience,
+        )
+        arena.arrivals = {6046: {"1": True}, 6047: {"1": True}}
+        _run(arena, profile=profile | {"max_kills": 2}, travel_first=False)
+        assert "hunt" not in arena.sent
+
+
+def test_three_unknown_hunt_answers_turn_tracking_off(travel, monkeypatch):
+    _ticking(monkeypatch, 30)
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)] * 5,
+            "hunt": ["You can't hunt here."] * 5,
+            "skin": [SKINNED] * 5,
+            "search": [NOTHING] * 5,
+        },
+        experience=PERCEPTION_OPEN,
+    )
+    arena.arrivals = {6046: {"1": True}, 6047: {"1": True}}
+    _run(arena, profile=TRACKING | {"max_kills": 5}, travel_first=False)
+    assert arena.sent.count("hunt") == 3
+    assert any("tracking off for this run" in text for text in arena.echoed)
+
+
 # --- tactics ---------------------------------------------------------------
 # Captured 2026-09-14 on a striped badger (#190): each maneuver's line,
 # then a balance line and a 3-second roundtime; Tactics entered the exp

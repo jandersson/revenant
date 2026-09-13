@@ -37,6 +37,7 @@ It holds what no script should hard-code:
 | max_kills | a fuse; 0 hunts until stopped or locked — an empty ground is waited out (a pause after every empty lap, then the next lap), never left |
 | smite | a Paladin: one swing a minute is SMITE instead of ATTACK, spent only when the game answers with its conviction line — the free smite regenerates every minute and Conviction experience comes at most once a minute ([Smite command](https://elanthipedia.play.net/Smite_command), #183) |
 | tactics | tactical maneuvers in rotation (`bob`, `circle`, `weave`): every third swing is the next one instead of ATTACK while Tactics sits below mind-lock; SMITE keeps its minute ahead of them; three answers outside the table turn them off for the run. Model and captures: [Tactics](#tactics) below (#190) |
+| perception | HUNT for tracks once a room of the ground has emptied, and on every lap of an empty ground, at most once per 75 seconds while Perception sits below lock — the skill's own learning timer; the tracks are not followed. Model: [Tracks](#tracks) below (#194) |
 | attune_start | not the hunt's: where `;attune` walks before building its street loop, a `;go2` target; empty loops from wherever it stands (`;attune from=<target>` overrides it for one run) |
 
 `;hunt return` (typed while it runs) ends the loop before the next
@@ -225,6 +226,36 @@ its minute ahead of them. A maneuver answered from range advances like
 ATTACK; any other answer outside the three lines is echoed as
 unrecognized, and three of them in a row turn the maneuvers off for
 the run. ANALYZE, GRAPPLE, SHOVE and TRIP are not built.
+
+## Tracks
+
+HUNT "searches the rooms around you for the tracks of nearby creatures
+and players, and travels to whichever one you choose"
+([Hunt command](https://elanthipedia.play.net/Hunt_command)): `HUNT`
+reads the tracks in an 8-second roundtime, `HUNT <#>` walks to one. It
+teaches Instinct (Rangers) and Perception, each on its own 75-second
+learning timer, and fails where hunting is not permitted, with items
+underfoot, or while engaged. Captured 2026-09-14, of all places in a
+guild office:
+
+```
+> hunt
+You take note of all the tracks in the area, so that you can hunt anything nearby down.
+To the out:
+  1)   an armored sentry
+To the out, east:
+  2)   an armored sentry
+Roundtime: 8 sec.
+```
+
+The wiki's empty answer is "You were unable to locate any followable
+tracks." With the profile's `perception` on, the loop HUNTs once when a
+room of the ground has emptied (after the corpse is searched, before
+the move) and on every lap of an empty ground, at most once per 75
+seconds, until Perception locks; the tracks are not followed, the
+ground's rooms are the map's. Three answers outside the two lines in a
+row turn the step off for the run. Following a track to the next
+creature is not built (#194).
 
 ## Another player's room
 

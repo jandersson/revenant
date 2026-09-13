@@ -55,6 +55,11 @@ swing, #189).
 between swings while Debilitation sits below lock — the same cast gap
 and mana ramp, taking turns with the buff training cast so a swing
 never carries two casts; a stunned foe bites nothing (#192).
+`perception` on: when a room of the ground has emptied, and on every
+lap of an empty ground, one HUNT for tracks before moving on, at most
+once per 75 seconds while Perception sits below lock — HUNT teaches
+Perception on a 75-second timer (Elanthipedia: Hunt command); the
+tracks are not followed, the ground's rooms are the map's (#194).
 The weapon stays in hand when the hunt ends — stowed, it parries
 nothing — and its container is only where the first swing fetches it
 from.
@@ -142,6 +147,14 @@ SMITE_INTERVAL = 60  # seconds between smites
 _MANEUVER_DONE = ("you bob", "you sidestep", "you weave")
 TACTICS_EVERY = 3  # every third swing is a maneuver while Tactics is unlocked
 TACTIC_MISSES = 3  # unrecognized maneuver answers before tactics go off
+# HUNT for tracks (captured 2026-09-14 in a guild office, #194): "You
+# take note of all the tracks in the area, so that you can hunt
+# anything nearby down.", a numbered list, "Roundtime: 8 sec."; the
+# wiki's "You were unable to locate any followable tracks." is the
+# empty answer. Perception learns from it once per 75 seconds.
+_TRACKS_READ = ("take note of all the tracks", "unable to locate any followable tracks")
+HUNT_INTERVAL = 75  # seconds between HUNTs: the skill's learning timer
+TRACK_MISSES = 3  # unrecognized HUNT answers before the step goes off
 clock = time.monotonic  # tests replace it
 
 # Failures before successes: a failure wording can contain a success
@@ -239,6 +252,10 @@ class Tally:
         self.tactic = 0  # the rotation index
         self.tactic_misses = 0  # unrecognized maneuver answers in a row
         self.tactics_off = False  # the maneuvers refused this run, said once
+        self.last_track = None  # clock() of the last HUNT that read tracks (#194)
+        self.tracks = 0  # HUNTs the game answered
+        self.track_misses = 0  # unrecognized HUNT answers in a row
+        self.tracking_off = False  # HUNT refused this run, said once
 
 
 def hostiles(state):
@@ -663,6 +680,34 @@ def next_room(s, db, ground, avoid, tally):
     return True
 
 
+def track(s, profile, tally):
+    """One HUNT for tracks when the room has emptied, for Perception: at
+    most once per HUNT_INTERVAL while the skill sits below lock. The
+    tracks are not followed. TRACK_MISSES answers outside the table in
+    a row turn the step off for the run, said once (#194)."""
+    if not profile.get("perception") or tally.tracking_off:
+        return
+    if locked(s.state, ["Perception"]):
+        return
+    last = tally.last_track
+    if last is not None and clock() - last < HUNT_INTERVAL:
+        return
+    text = ask(s, "hunt")
+    if any(word in text.lower() for word in _TRACKS_READ):
+        tally.last_track = clock()
+        tally.tracks += 1
+        tally.track_misses = 0
+        return
+    tally.track_misses += 1
+    unrecognized(s, tally, "hunt", text)
+    if tally.track_misses >= TRACK_MISSES:
+        tally.tracking_off = True
+        s.echo(
+            f"hunt: HUNT answered nothing known {TRACK_MISSES} times — "
+            "tracking off for this run"
+        )
+
+
 def loop(s, profile, db, ground, avoid, tally):
     """Fight until something ends the hunt; returns why."""
     prey = profile["prey"]
@@ -695,6 +740,7 @@ def loop(s, profile, db, ground, avoid, tally):
         if profile["max_kills"] and tally.kills >= profile["max_kills"]:
             return "kill fuse reached"
         if tally.room_clear or not hostiles(s.state):
+            track(s, profile, tally)
             if not next_room(s, db, ground, avoid, tally):
                 return "the walk to the next room failed"
             if not settle(s, db, ground, avoid, tally):
@@ -774,6 +820,7 @@ def hunt(s, profile, db, travel=True, avoid=()):
     s.echo(
         f"hunt: {reason} — {tally.kills} kill(s), {tally.skins} skin(s)"
         + (f", {tally.maneuvers} maneuver(s)" if tally.maneuvers else "")
+        + (f", {tally.tracks} HUNT(s)" if tally.tracks else "")
         + (
             f", {tally.unrecognized} unrecognized answer(s)"
             if tally.unrecognized

@@ -96,6 +96,10 @@ DEFAULTS = {
     # which is what trains Tactics (Elanthipedia: Tactics skill, #190).
     # [] is off.
     "tactics": [],
+    # HUNT for tracks when a room of the ground empties, at most once
+    # per 75 seconds while Perception sits below lock — HUNT teaches
+    # Perception on that timer (Elanthipedia: Hunt command, #194).
+    "perception": False,
     # Where ;attune walks before building its street loop — a ;go2
     # target (room id, tag, title); "" loops from wherever it stands.
     "attune_start": "",
@@ -156,6 +160,7 @@ FIELDS = (
         "list",
         "bob, circle — empty: off",
     ),
+    ("perception", "HUNT for tracks when a room empties (Perception)", "bool", ""),
     ("attune_start", ";attune walks to (;go2 target)", "str", "empty: from here"),
 )
 
