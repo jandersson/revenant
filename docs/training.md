@@ -192,6 +192,41 @@ ended at the Dwarf start of 12 came back double, the one that ended
 at 13 did not. `;tdp` flags the stats still below the start; train
 those first.
 
+## Foraging: ;forage
+
+Outdoorsmanship, a Survival skill, trains by foraging (also mining,
+lumberjacking, fishing, tending parasites, companions), and COLLECT
+for the easiest item pays best: "the easier item you collect, the more
+you will get, which grants more experience" ([Outdoorsmanship
+skill](https://elanthipedia.play.net/Outdoorsmanship_skill)). `COLLECT
+<item> PRACTICE` "gains experience without generating items", so no
+piles are left to KICK; the base roundtime is 15 seconds, falling only
+past 1350 ranks ([Collect
+command](https://elanthipedia.play.net/Collect_command)). Perception
+lists "Foraging (COLLECT <item> being the most efficient)" first among
+its trainers, so the same loop feeds it ([Perception
+skill](https://elanthipedia.play.net/Perception_skill)). `;forage`
+(scripts/forage.py) COLLECTs the item — rock by default — with
+PRACTICE until Outdoorsmanship mind-locks, `;forage <item> <n>` for n
+collects, `;forage return` to end after the one in hand. The community
+map tags each room with what it yields (`rock` on 142 of the
+Crossing's rooms, 1204 map-wide), so a room without the item is left
+for the nearest tagged one through the walker; `here` skips that.
+Captured on the first run, 2026-09-14, on the Crossing's streets at
+rank 1: the practice answers "You wander around and poke your fingers
+into a few places, wondering what you might find." and "You find
+something dead and lifeless, is this what you were looking for?" with
+a 6-second roundtime (the wiki's 15-second base is not what a rank-1
+character saw) and Outdoorsmanship rising 1 74% dabbling → learning
+on the first; the near miss "You are certain you could find what you
+were looking for, if you had a bit more luck."; and "You forage around
+but are unable to find anything." (6 s) in a room with nothing to
+collect and on a failed try where there is something — so three of
+those in a row end the run only before the first success, ten after.
+An answer outside the table is echoed once per wording while the run
+goes on. Under `;train`: `"script": "forage",
+"skills": ["Outdoorsmanship"], "return_word": "return"` (#193).
+
 ## Power walking: ;attune
 
 Attunement trains by perceiving mana — POWER, PERCEIVE or
