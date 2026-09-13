@@ -443,13 +443,16 @@ def hand(s, side):
 
 
 def held_skin(s, profile):
-    """The noun of whatever a hand holds besides the weapon — the skin
-    SKIN just cut — or None when nothing did land. Only asked of a
-    handle with hand state (hasattr left_hand); a bare one never
-    reaches here."""
+    """The noun of whatever a hand holds besides the weapon and the
+    profile's skinning knife — the skin SKIN just cut — or None when
+    nothing did land. Only asked of a handle with hand state (hasattr
+    left_hand); a bare one never reaches here. (A held skinning knife,
+    Grek's, bought 2026-09-14, sat in the off hand after every cut and
+    would have been taken for the skin.)"""
+    tools = {profile["weapon"], profile.get("skin_knife") or ""}
     for side in ("left", "right"):
         noun = hand(s, side)
-        if noun and noun != profile["weapon"]:
+        if noun and noun not in tools:
             return noun
     return None
 

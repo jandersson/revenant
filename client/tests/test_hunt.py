@@ -195,6 +195,36 @@ def test_a_kill_is_skinned_stowed_and_searched(travel):
     assert any("1 kill(s), 1 skin(s)" in text for text in arena.echoed)
 
 
+def test_a_held_skinning_knife_is_fetched_stowed_and_never_taken_for_the_skin(travel):
+    # Grek's skinning knife (2026-09-14) cannot be worn: the hunt GETs
+    # it before the cut and stows it after, and the hand it sits in is
+    # not the skin's hand — with a worn bundle the cut goes straight in.
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "tap my bundle": ["You tap a lumpy bundle that you are wearing."],
+            "get my knife": ["You get a skinning knife from inside your canvas sack."],
+            "skin": [
+                "Working deftly, you skillfully remove a curved claw from the "
+                "remains of a rat.\nYou carefully fit a curved claw into your bundle."
+            ],
+            "search": [NOTHING],
+        }
+    )
+    arena.state.left_hand = {"noun": "knife", "exist": "1", "name": "skinning knife"}
+    arena.state.right_hand = {
+        "noun": "handaxe",
+        "exist": "2",
+        "name": "oak-hafted handaxe",
+    }
+    _run(arena, profile=PROFILE | {"skin_knife": "knife", "bundle": True})
+    after_kill = arena.sent[arena.sent.index("attack rat") + 1 :]
+    assert after_kill[:3] == ["get my knife", "skin rat", "put my knife in my sack"]
+    assert "bundle" not in arena.sent
+    assert not any("took no more" in text for text in arena.echoed)
+    assert any("1 kill(s), 1 skin(s)" in text for text in arena.echoed)
+
+
 def test_skinning_off_in_the_profile_skips_the_knife(travel):
     arena = _run(
         Arena({"attack": [(KILL, kill)], "search": [NOTHING]}),

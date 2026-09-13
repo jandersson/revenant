@@ -21,7 +21,7 @@ It holds what no script should hard-code:
 | home | a `;go2` target walked to when the hunt ends |
 | weapon, weapon_container | `GET my <weapon> [FROM my <container>]` before the first swing; it stays in hand when the hunt ends (stowed, it parries nothing — 2026-09-12), the container is only where it is fetched from, and where it goes for the moment the first skin of a run is bundled |
 | stance | `STANCE SET <args>` once, before the first swing |
-| skin, skin_knife | `SKIN <corpse>` after each kill; a named knife is fetched before and stowed after |
+| skin, skin_knife | `SKIN <corpse>` after each kill; a named knife is fetched before and stowed after. Grek's skinning knife (Kaerna Village, 375 Kronars, bought 2026-09-14) cannot be worn ("You can't wear that!"), so it is a held one, `skin_knife: knife` in the sack; the hand it sits in is never taken for the skin. Elanthipedia's Skinning page: "Using a skinning knife gives the largest bonus, closely followed by the belt worn knives" |
 | loot_container | where skins and non-gem finds go (`PUT my <item> IN my <container>`, else `STOW my <item>`) |
 | gem_pouch | finds are tried into the pouch first; what the pouch refuses is stowed like loot |
 | bundle | skins go onto a bundling rope worn as a lumpy bundle: one kept in the loot container is worn before the first swing, the first skin of a run starts one from the rope in that container, every later skin goes straight into the worn bundle as SKIN cuts it (the hand tags are the judge), and `;skins` sells it. No rope: said once, skins stowed loose |
