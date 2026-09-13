@@ -30,6 +30,7 @@ It holds what no script should hard-code:
 | cambrinth | a held cambrinth piece's noun ("flake"): before every training cast the loop GETs it, CHARGEs it with `cambrinth_mana` (the charge is what trains Arcana), INVOKEs it so the stored mana feeds the cast, CASTs, and stows it; a piece the game will not charge (worn, or outranking the skill) is off for the run, said once; with no `train_casting` the cambrinth alone drives the cast cadence until Arcana locks. Wordings and the pieces' capacities: [Cambrinth](#cambrinth) below |
 | cambrinth_mana | mana per charge, the piece's capacity (1 for a flake, 5 for the grey ring) |
 | cast_gap | seconds between training casts, 60 by default. A cast cycle with a cambrinth piece is eight commands, and at 20 s the first badger hunt (2026-09-14, #189) ran cast cycle, one or two swings, cast cycle: seven swings to the badger's 42 in four minutes. One cast a minute trains both skills the same and leaves the fight to the weapon |
+| debilitation | a targeted spell ("Stun Foe") cast at the prey between swings while Debilitation sits below lock: PREPARE (the mana ramping like the training casts), CAST <prey>, one per `cast_gap`, taking turns with the buff training cast so a swing never carries two casts; a collapse at the minimum turns it off for the run. Model: [Debilitation](#debilitation) below (#192) |
 | health_floor | below it: the burst escape (retreat, retreat, first exit), then home — or, with no home, the nearest room off the ground, said so (#185: a break-off that ended on the ground left the character among the rats that hurt it, and they killed it two and a half hours later, 2026-09-13) |
 | wound_floor | a severity name; after each kill and whenever the health bar drops, the injuries panel the game pushes is read first — clean means nothing to ask — and HEALTH is asked only when it shows a wound; a wound that bad or worse anywhere (external, scar, internal, internal scar) breaks off like the health floor. Empty never asks. Model: [wounds.md](wounds.md) |
 | train_skills | the hunt ends when every one of them sits at mindstate 34 in the exp window |
@@ -168,6 +169,24 @@ the experience is granted at most once a minute ([Smite command](https://elanthi
 so the loop smites one swing a minute and attacks the rest — a smite
 that drew the advance or a roundtime is not counted as spent. RUSH is
 not built: Cecil wears no shield and its answers are uncaptured.
+
+## Debilitation
+
+Debilitation "is trained in combat, by casting spells on enemies
+utilizing skill caps comparable with other combat skills"
+([Debilitation skill](https://elanthipedia.play.net/Debilitation_skill));
+a Paladin's are Halt, Stun Foe and Shatter.
+[Stun Foe](https://elanthipedia.play.net/Stun_Foe) is the intro one: a
+battle spell on a PC or creature, Holy, prep 1 to 33 mana, instant,
+"Stuns target" on a magic-versus-fortitude contest, with the cast line
+"A brilliant stream of pure white light jumps from you to <target>,
+warping into a spiraling force that slams into it!" — the wiki's; the
+resist and failure wordings are uncaptured, and the first run pins
+them. A stunned creature does not attack, so the cast spares bites
+while the weapon works. The profile's `debilitation` names the spell,
+and the loop casts it at the prey before a swing on the same cast gap
+and mana ramp as the buff training cast, the two taking turns when
+both are due — a swing never carries two casts (2026-09-14, #192).
 
 ## Tactics
 

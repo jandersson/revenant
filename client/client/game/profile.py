@@ -70,6 +70,11 @@ DEFAULTS = {
     # #189); one a minute trains both skills and leaves the fight to
     # the weapon.
     "cast_gap": 60,
+    # A targeted spell cast at the prey between swings to train
+    # Debilitation ("Stun Foe" for a Paladin): one per cast_gap, the
+    # mana ramping like the training casts, taking turns with them so
+    # a swing never carries two casts (#192). "" casts none.
+    "debilitation": "",
     # Below this health % the loop breaks off and walks home.
     "health_floor": 60,
     # A wound this bad or worse (any area, any kind — HEALTH, parsed by
@@ -129,6 +134,12 @@ FIELDS = (
     ("cambrinth", "Cambrinth piece to charge for Arcana", "str", "flake — empty: none"),
     ("cambrinth_mana", "Mana per cambrinth charge", "int", "1: the piece's capacity"),
     ("cast_gap", "Seconds between training casts", "int", "60"),
+    (
+        "debilitation",
+        "Spell cast at the prey (Debilitation)",
+        "str",
+        "Stun Foe — empty: none",
+    ),
     ("health_floor", "Break off below health %", "int", "60"),
     (
         "wound_floor",

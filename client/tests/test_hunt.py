@@ -1094,6 +1094,114 @@ def test_a_paladin_smites_one_swing_a_minute_and_attacks_the_rest(travel, monkey
     )
 
 
+# --- debilitation ----------------------------------------------------------
+# Stun Foe's cast line is Elanthipedia's (#192); the resist and failure
+# wordings are uncaptured until the first run.
+STUNNED = (
+    "You gesture.\nA brilliant stream of pure white light jumps from you to a "
+    "rat, warping into a spiraling force that slams into it!"
+)
+SF_PREPARED = "You begin chanting a prayer to invoke the Stun Foe spell."
+STUNNING = PROFILE | {"debilitation": "stun foe"}
+DEBIL_OPEN = {"Debilitation": {"rank": 1, "percent": 0, "mindstate": 5}}
+
+
+def test_the_debilitation_spell_is_cast_at_the_prey_before_the_swing(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands), (KILL, _stands), (KILL, kill)],
+            "prepare": [SF_PREPARED] * 3,
+            "cast": [STUNNED] * 3,
+            "skin": [SKINNED] * 3,
+            "search": [NOTHING] * 3,
+        },
+        experience=DEBIL_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STUNNING | {"max_kills": 3}, travel_first=False)
+    assert arena.sent[:5] == [
+        "get my handaxe from my sack",
+        "stance set 100 80 0",
+        "prepare stun foe",
+        "cast rat",
+        "attack rat",
+    ]
+    # The mana climbs a step per cast that took, like the training casts.
+    assert prepares(arena) == [
+        "prepare stun foe",
+        "prepare stun foe 2",
+        "prepare stun foe 4",
+    ]
+    assert any("for Debilitation" in text for text in arena.echoed)
+
+
+def test_no_debilitation_cast_at_lock_under_the_mana_floor_or_with_no_spell(travel):
+    locked = {"Debilitation": {"rank": 1, "percent": 0, "mindstate": 34}}
+    for profile, experience, mana in (
+        (STUNNING, locked, 100),
+        (STUNNING, DEBIL_OPEN, 20),
+        (PROFILE, DEBIL_OPEN, 100),
+    ):
+        arena = Arena(
+            {
+                "attack": [(KILL, kill)],
+                "prepare": [SF_PREPARED],
+                "cast": [STUNNED],
+                "skin": [SKINNED],
+                "search": [NOTHING],
+            },
+            experience=experience,
+        )
+        arena.state.vitals["mana"] = mana
+        _run(arena, profile=profile | {"max_kills": 1}, travel_first=False)
+        assert prepares(arena) == []
+
+
+def test_a_collapse_at_minimum_mana_turns_the_debilitation_spell_off(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands), (KILL, kill)],
+            "prepare": [SF_PREPARED] * 2,
+            "cast": ["You gesture.\nYour spell barely backfires."] * 2,
+            "skin": [SKINNED] * 2,
+            "search": [NOTHING] * 2,
+        },
+        experience=DEBIL_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STUNNING | {"max_kills": 2}, travel_first=False)
+    assert prepares(arena) == ["prepare stun foe"]
+    assert any("off for this run" in text for text in arena.echoed)
+
+
+def test_the_debilitation_and_training_casts_take_turns(travel):
+    # Both due before every swing (cast_gap 0): the buff trains first,
+    # the stun takes the next swing, and so on — never two casts before
+    # one swing.
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands)] * 2 + [(KILL, kill)],
+            "prepare": [PREPARED, SF_PREPARED, PREPARED, SF_PREPARED],
+            "cast": [CAST, STUNNED, CAST, STUNNED],
+            "skin": [SKINNED] * 3,
+            "search": [NOTHING] * 3,
+        },
+        experience=_exp(10) | DEBIL_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(
+        arena,
+        profile=TRAINING | {"debilitation": "stun foe", "max_kills": 3},
+        travel_first=False,
+    )
+    assert prepares(arena) == [
+        "prepare heroic strength",  # before the weapon is drawn
+        "prepare stun foe",  # swing 1: the buff went last, the stun's turn
+        "prepare heroic strength 2",  # swing 2
+        "prepare stun foe 2",  # swing 3
+    ]
+
+
 # --- tactics ---------------------------------------------------------------
 # Captured 2026-09-14 on a striped badger (#190): each maneuver's line,
 # then a balance line and a 3-second roundtime; Tactics entered the exp

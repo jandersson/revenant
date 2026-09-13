@@ -51,6 +51,10 @@ buff between swings, feeding more mana each time until the game warns
 of strain, until the skill locks — one cast per the profile's
 `cast_gap` seconds (60 by default: at 20 a badger got six bites per
 swing, #189).
+`debilitation` names a targeted spell ("Stun Foe") cast at the prey
+between swings while Debilitation sits below lock — the same cast gap
+and mana ramp, taking turns with the buff training cast so a swing
+never carries two casts; a stunned foe bites nothing (#192).
 The weapon stays in hand when the hunt ends — stowed, it parries
 nothing — and its container is only where the first swing fetches it
 from.
@@ -491,17 +495,27 @@ def make_bundle(s, profile, tally):
     return False
 
 
-def cast_buffs(s, profile, tally):
+def cast_buffs(s, profile, tally, fight=False):
     """The profile's buffs, cast and kept up by client/game/buffs.py
-    with the hunt's answer windows and its unrecognized-answer tally."""
-    buffs.cast_buffs(
-        s,
-        profile,
-        tally.buffs,
-        ask,
-        "hunt",
-        lambda what, answer: unrecognized(s, tally, what, answer),
-    )
+    with the hunt's answer windows and its unrecognized-answer tally.
+    In the fight (`fight`) the debilitation spell goes out at the prey
+    too, taking turns with the buff training cast when both are due,
+    so a swing never carries two casts (#192)."""
+    state = tally.buffs
+
+    def report(what, answer):
+        unrecognized(s, tally, what, answer)
+
+    debilitate = fight and buffs.debilitation_due(s, profile, state)
+    if debilitate and (
+        state.last_training == "buff" or not buffs.training_cast_due(s, profile, state)
+    ):
+        buffs.cast_debilitation(
+            s, profile, state, ask, "hunt", report, target=profile["prey"]
+        )
+        buffs.cast_buffs(s, profile, state, ask, "hunt", report, train=False)
+    else:
+        buffs.cast_buffs(s, profile, state, ask, "hunt", report)
 
 
 def bundled(s, profile, tally):
@@ -687,7 +701,9 @@ def loop(s, profile, db, ground, avoid, tally):
                 return "ground taken"
             continue
         swings += 1
-        cast_buffs(s, profile, tally)  # a buff that ran out, before the swing
+        cast_buffs(
+            s, profile, tally, fight=True
+        )  # a buff that ran out, before the swing
         verb = swing_verb(profile, tally, s.state)
         text = ask(s, f"{verb} {prey}" if prey else verb)
         lowered = text.lower()

@@ -45,6 +45,14 @@ a magical link to it, readying all of its mana for your use."; the cast
 "Your cambrinth flake emits a loud *snap* as it discharges all its
 power to aid your spell." Herilo's Artifacts sells the pieces by
 capacity; only the 1- and 5-mana ones work at 0 ranks.
+
+A debilitation spell (the profile's `debilitation`, "Stun Foe" for a
+Paladin) is cast at the prey the same way — cast_debilitation(), with
+a mana ramp of its own — and takes turns with the training cast when
+both are due, so a swing never carries two casts; the caller passes
+the target. Debilitation "is trained in combat, by casting spells on
+enemies" (Elanthipedia: Debilitation skill), and Stun Foe's cast line
+is the wiki's until captured (#192).
 """
 
 from time import monotonic
@@ -67,7 +75,7 @@ PREPARE_OUTCOMES = (
 )
 CAST_OUTCOMES = (
     ("failed", ("pattern collapses", "backfire", "not enough mana", "nothing to cast")),
-    ("ok", ("takes effect", "renewed", "you gesture")),
+    ("ok", ("takes effect", "renewed", "you gesture", "slams into")),
 )
 # Training casts: Elanthipedia's magic category — "fewer but larger
 # spellcasts are more efficient in terms of experience" — so the mana
@@ -100,6 +108,10 @@ class BuffState:
         self.mana_cap = None  # one step under the strain, once met
         self.training_off = False  # even the minimum failed this run
         self.cambrinth_off = False  # the piece refused this run, said once
+        self.debilitation_mana = 0  # the next debilitation cast's mana (#192)
+        self.debilitation_cap = None  # one step under its strain, once met
+        self.debilitation_off = False  # the spell refused this run, said once
+        self.last_training = None  # "buff" or "debilitation": whose turn it was
 
 
 def locked(state, skills):
@@ -163,10 +175,11 @@ def charge_cambrinth(s, profile, state, ask, prefix, report):
     return False
 
 
-def cast_once(s, spell, mana, state, ask, report, invoke=None):
+def cast_once(s, spell, mana, state, ask, report, invoke=None, target=""):
     """PREPARE (with a mana amount when given), wait for the pattern,
     INVOKE the cambrinth piece when one is charged (`invoke`, its
-    noun), CAST, and stow the piece. "refused" (the spell cannot be
+    noun), CAST (at `target` when one is named), and stow the piece.
+    "refused" (the spell cannot be
     prepared), "collapsed" (the cast failed), "strained" (cast, but the
     mana asked was too much) or "ok"."""
     answer = ask(s, f"prepare {spell} {mana}" if mana else f"prepare {spell}")
@@ -178,7 +191,7 @@ def cast_once(s, spell, mana, state, ask, report, invoke=None):
     probe.collect(s, PREPARE_SECONDS, until="fully prepared")
     if invoke:
         ask(s, f"invoke my {invoke}")
-    answer = ask(s, "cast")
+    answer = ask(s, f"cast {target}" if target else "cast")
     cast = classify(answer, CAST_OUTCOMES)
     if invoke:
         ask(s, f"stow my {invoke}")
@@ -207,27 +220,81 @@ def training_cast_due(s, profile, state):
     if mana is not None and mana < MANA_FLOOR:
         return False
     last = state.cast_at.get(profile["buffs"][0])
+    return last is None or monotonic() - last >= cast_gap(profile)
+
+
+def cast_gap(profile):
+    """Seconds between training casts: the profile's cast_gap, or
+    CAST_GAP_SECONDS for a profile without the key (#189)."""
     gap = profile.get("cast_gap")
-    gap = CAST_GAP_SECONDS if gap is None else float(gap)
-    return last is None or monotonic() - last >= gap
+    return CAST_GAP_SECONDS if gap is None else float(gap)
 
 
-def cast_buffs(s, profile, state, ask, prefix="buffs", report=None):
+def debilitation_due(s, profile, state):
+    """True when the profile's debilitation spell should go out at the
+    prey: one is named and has not refused this run, Debilitation sits
+    below lock, mana is above the floor, and its last cast is the
+    cast gap old (#192)."""
+    spell = profile.get("debilitation") or ""
+    if not spell or state.debilitation_off or locked(s.state, ["Debilitation"]):
+        return False
+    mana = (getattr(s.state, "vitals", None) or {}).get("mana")
+    if mana is not None and mana < MANA_FLOOR:
+        return False
+    last = state.cast_at.get(spell)
+    return last is None or monotonic() - last >= cast_gap(profile)
+
+
+def cast_debilitation(s, profile, state, ask, prefix, report, target=""):
+    """PREPARE the profile's debilitation spell with its ramp's mana and
+    CAST it at the target (the prey's noun; "" casts at whatever is
+    engaged). The mana climbs by MANA_STEP per cast that took until the
+    strain warning or a collapse, then holds one step under; a collapse
+    at the minimum turns the spell off for the run, said once (#192)."""
+    spell = profile["debilitation"]
+    mana = state.debilitation_mana
+    result = cast_once(s, spell, mana, state, ask, report, target=target)
+    state.last_training = "debilitation"
+    if result == "refused":
+        s.echo(f"{prefix}: cannot prepare {spell} — off for this run")
+        state.debilitation_off = True
+    elif result == "ok":
+        s.echo(
+            f"{prefix}: cast {spell} at {target or 'the foe'} with "
+            f"{mana or 'minimum'} mana for Debilitation"
+        )
+        if state.debilitation_cap is None:
+            state.debilitation_mana += MANA_STEP
+    elif mana == 0:
+        state.debilitation_off = True
+        s.echo(f"{prefix}: {spell} fails at minimum mana — off for this run")
+    else:
+        state.debilitation_mana = state.debilitation_cap = mana - MANA_STEP
+        s.echo(
+            f"{prefix}: {spell} at {mana} mana was too much ({result}) — "
+            f"holding at {state.debilitation_mana or 'minimum'}"
+        )
+
+
+def cast_buffs(s, profile, state, ask, prefix="buffs", report=None, train=True):
     """Every profile buff not running: PREPARE it, wait for the pattern,
     CAST. A refusal takes that buff off for the run, said once. The
     first buff is cast again for training when training_cast_due says
-    so, feeding state.mana, which climbs a step per cast until the
-    strain warning or a collapsed cast and then holds one step under."""
+    so (and `train` allows it — a caller whose debilitation cast took
+    this turn passes False), feeding state.mana, which climbs a step
+    per cast until the strain warning or a collapsed cast and then
+    holds one step under. True when any cast went out."""
     if report is None:
 
         def report(what, answer):
             first = (answer.strip().splitlines() or ["(silence)"])[0]
             s.echo(f"{prefix}: unrecognized {what} answer {first!r} — please report it")
 
+    cast = False
     for index, spell in enumerate(profile["buffs"]):
         if spell in state.buffs_off:
             continue
-        training = index == 0 and training_cast_due(s, profile, state)
+        training = train and index == 0 and training_cast_due(s, profile, state)
         if not training and buff_running(s, spell, state):
             continue
         mana = state.mana if training else 0
@@ -235,6 +302,9 @@ def cast_buffs(s, profile, state, ask, prefix="buffs", report=None):
         if training and charge_cambrinth(s, profile, state, ask, prefix, report):
             invoke = profile["cambrinth"]
         result = cast_once(s, spell, mana, state, ask, report, invoke=invoke)
+        cast = True
+        if training:
+            state.last_training = "buff"
         if result == "refused":
             s.echo(f"{prefix}: cannot prepare {spell} — off for this run")
             state.buffs_off.add(spell)
@@ -263,3 +333,4 @@ def cast_buffs(s, profile, state, ask, prefix="buffs", report=None):
                 f"{prefix}: {spell} at {mana} mana was too much ({result}) — "
                 f"holding at {state.mana or 'minimum'}"
             )
+    return cast
