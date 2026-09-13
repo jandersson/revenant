@@ -221,9 +221,10 @@ def save_plan(character, plan: dict) -> Path:
 
 
 def starter_plan(character) -> dict:
-    """The plan ;train init writes: the two bundled trainers, the hunt
-    task taking its skills from the character's profile. Edit from
-    there — every key is documented in this module's docstring."""
+    """The plan ;train init writes: the bundled trainers — climbs, the
+    hunt (its skills from the character's profile) and foraging for
+    Outdoorsmanship. Edit from there — every key is documented in this
+    module's docstring."""
     profile = load_profile(character)
     plan = dict(DEFAULTS)
     plan["safe_rooms"] = [profile["home"]] if profile["home"] else []
@@ -236,6 +237,14 @@ def starter_plan(character) -> dict:
                 "name": "hunt",
                 "script": "hunt",
                 "skills": list(profile["train_skills"]),
+                "return_word": "return",
+            }
+        ),
+        normalize_task(
+            {
+                "name": "forage",
+                "script": "forage",
+                "skills": ["Outdoorsmanship"],
                 "return_word": "return",
             }
         ),

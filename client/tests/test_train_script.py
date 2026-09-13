@@ -440,7 +440,11 @@ def test_train_init_writes_the_starter_and_refuses_to_overwrite(clock, tmp_path)
     path = tmp_path / "training" / "lanival.json"
     assert path.is_file()
     written = json.loads(path.read_text())
-    assert [task["script"] for task in written["tasks"]] == ["athletics", "hunt"]
+    assert [task["script"] for task in written["tasks"]] == [
+        "athletics",
+        "hunt",
+        "forage",
+    ]
     train.main(Fake(args=["init"]))
     fake = Fake(args=["init"])
     train.main(fake)

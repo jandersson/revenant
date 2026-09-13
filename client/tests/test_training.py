@@ -113,7 +113,12 @@ def test_the_starter_plan_takes_home_and_skills_from_the_profile(monkeypatch):
     save_profile("Lanival", {"home": "town green", "train_skills": ["Small Edged"]})
     starter = starter_plan("Lanival")
     assert starter["safe_rooms"] == ["town green"]
-    assert [task["script"] for task in starter["tasks"]] == ["athletics", "hunt"]
+    assert [task["script"] for task in starter["tasks"]] == [
+        "athletics",
+        "hunt",
+        "forage",
+    ]
+    assert starter["tasks"][2]["skills"] == ["Outdoorsmanship"]
     assert starter["tasks"][1]["skills"] == ["Small Edged"]
     assert starter["tasks"][1]["return_word"] == "return"
     assert validate(starter) == []

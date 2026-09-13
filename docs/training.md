@@ -13,7 +13,7 @@ and `test_train_script.py` pin the same behavior.
 
 One JSON file per character, `~/.revenant/training/<name>.json`
 (`REVENANT_TRAINING` moves the directory). `;train init` writes a
-starter — the two bundled trainers, the hunt task's skills taken from
+starter — climbs, the hunt and foraging, the hunt task's skills taken from
 the character's profile — and `;train plan` prints what the file says.
 File → Training Plan… in the client edits it: the plan settings as a
 form, the tasks as an ordered list with add, remove, up and down, the
