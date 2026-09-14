@@ -98,10 +98,33 @@ lines are the signal a script would watch for; the guild courtyard is
 where to send `;go2` for it. Not data, not automated: an Empath is a
 person, and the ask is a sentence, not a command.
 
-## What a healing script would do
+## The healing script: ;heal
 
-Read HEALTH through `wounds.py`, tend any bleeder, then for each
-wound at or above a floor ask `remedies(area, kind)`, check the
-inventory snapshot for one in the sack, and eat it or say which shop
-sells it. Everything it needs is in the two modules; the script and
-the eat-and-wait wordings are the part still to capture.
+`;heal` (scripts/heal.py, #198) reads HEALTH through `wounds.py`, points
+a bleeder at `;tend`, and for every wound at the floor or worse
+(`insignificant` by default, `floor=minor` to leave scratches to close
+on their own) asks `remedies(area, kind)` for the first herb the town
+sells, else the table's first — one EAT per herb per run, since a herb
+heals its part over time. `;heal list` prints the plan with each
+herb's shop; `;heal buy` reads INFO for the coins carried, WITHDRAWs the
+shortfall against the wiki's prices at the nearest teller, walks to the
+herbalist (map tag `herbalist`: Mauriga's Botanicals, room 8259), and
+ORDERs then OFFERs each missing herb the way HELP SHOPS describes a
+catalog merchant (Grek's knife, 2026-09-14: "I can let that go for a
+mere 375 kronars." / "Well done! Here, take your knife."), then eats
+it. [Mauriga's Botanicals](https://elanthipedia.play.net/Mauriga's_Botanicals)
+lists jadice, plovik, nilos, hulnik, nemoih, georin and sufil at 812 to
+875 Kronars and yelith, ithor, muljin, junliar, blocil and riolur at
+937 to 1000 (2026-09-14); the [Alchemy Society](https://elanthipedia.play.net/Alchemy_Society_(Crossing))
+sells dried herbs in 25-piece lots for crafting, not for eating. Still
+uncaptured: EAT's answer, the herbalist's own quote and sale lines, and
+what an eaten herb says as it heals — the first run pins them, and an
+answer outside the tables is echoed as unrecognized.
+
+The first plan, from the badger-hunting Paladin's HEALTH of
+2026-09-14 (minor abrasions to the head and left arm, external and
+internal minor damage to the left leg, tiny scratches to the chest,
+minor twitching): jadice flower for both limbs, nemoih root for the
+head, plovik leaves for the chest, yelith root for the leg's internal
+damage, and aloe leaves for the skin — the last one no shop in town
+stocks, which the script says.

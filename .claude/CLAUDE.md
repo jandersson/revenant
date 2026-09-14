@@ -112,7 +112,8 @@ for `client/client/<pkg>/x.py`.
   answers a parsed wound with the herbs that treat it and the shops
   that stock them (`herbs_data.py`, generated from the wiki by
   `tools/herb_tables.py`); Knife Clan's remedy cookies and the retired
-  NPC healer are captured there. Model: docs/healing.md.
+  NPC healer are captured there. `scripts/heal.py` eats them and
+  buys the missing ones at the herbalist (#198). Model: docs/healing.md.
 - `client/game/profile.py` — per-character profiles
   (`~/.revenant/profiles/<name>.json`): the quirks `;hunt` must not
   hard-code (weapon, stance, skin, pouch, bundle, buffs, the magic
