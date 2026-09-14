@@ -116,10 +116,19 @@ it. [Mauriga's Botanicals](https://elanthipedia.play.net/Mauriga's_Botanicals)
 lists jadice, plovik, nilos, hulnik, nemoih, georin and sufil at 812 to
 875 Kronars and yelith, ithor, muljin, junliar, blocil and riolur at
 937 to 1000 (2026-09-14); the [Alchemy Society](https://elanthipedia.play.net/Alchemy_Society_(Crossing))
-sells dried herbs in 25-piece lots for crafting, not for eating. Still
-uncaptured: EAT's answer, the herbalist's own quote and sale lines, and
-what an eaten herb says as it heals — the first run pins them, and an
-answer outside the tables is echoed as unrecognized.
+sells dried herbs in 25-piece lots for crafting, not for eating.
+Captured on the first buy, 2026-09-14: the quote "That is a very wise
+selection.  I can give the root to you for 875 kronars.", the sale
+"Mauriga smiles as she hands you your purchase.", with both hands full
+"Mauriga notices that your hands are full, and places it on the
+counter instead." — the first run bought three herbs before eating
+any, and two landed on the counter out of EAT's reach, so the script
+now orders by the herb's stem ("plovik leaf" on her catalog refused
+"plovik leaves"), eats each on the spot and stows the rest — out of
+stock "I'm so sorry to disappoint you, but I don't have that reagent
+in stock." (plovik and aloe that day), and EAT's "You eat a portion
+of a nemoih root." What an eaten herb says as it heals is still to
+capture; an answer outside the tables is echoed as unrecognized.
 
 The first plan, from the badger-hunting Paladin's HEALTH of
 2026-09-14 (minor abrasions to the head and left arm, external and

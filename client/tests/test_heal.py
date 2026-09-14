@@ -60,11 +60,23 @@ HEALTH = (
     "twitching."
 )
 CLEAN = "Your body feels at full strength.\nYour spirit feels full of life.\nYou have no significant injuries."
-ATE = "You eat the jadice flower.\nYou feel a little better."  # assumed
+# Captured 2026-09-14 on the first ;heal buy at Mauriga's Botanicals.
+ATE = "You eat a portion of a nemoih root."
 MISSING = "What were you referring to?"
 INFO_BROKE = "Wealth:\n  No Kronars.\n  No Lirums.\n  No Dokoras.\n"
-QUOTE = 'Mauriga says, "I can let that go for a mere 812 kronars."'  # Grek's shape
-SOLD = 'Mauriga says, "Well done! Here, take your flower."'
+QUOTE = (
+    'Mauriga says, "That is a very wise selection.  I can give the root to you '
+    'for 812 kronars."'
+)
+SOLD = "Mauriga smiles as she hands you your purchase."
+ON_COUNTER = (
+    SOLD + "\nMauriga notices that your hands are full, and places it on the "
+    "counter instead."
+)
+NO_STOCK = (
+    "Mauriga says, \"I'm so sorry to disappoint you, but I don't have that "
+    'reagent in stock."'
+)
 
 
 class Fake:
@@ -175,11 +187,37 @@ def test_buy_fetches_the_shortfall_orders_offers_and_eats(travel_map=MAP):
     assert s.walks == [{1900}, {8259}]
     withdrawn = [c for c in s.sent if c.startswith("withdraw")]
     assert withdrawn  # the wiki-priced estimate, largest coins first
-    assert "order jadice flower" in s.sent and "offer 812" in s.sent
+    # ORDER by the stem (her "plovik leaf" refused "plovik leaves"),
+    # then eat and stow at once so a hand stays free for the next.
+    at = s.sent.index("order jadice")
+    assert s.sent[at : at + 4] == [
+        "order jadice",
+        "offer 812",
+        "eat my jadice",
+        "stow my jadice",
+    ]
     assert sorted(eaten) == sorted(
         ["aloe leaves", "jadice flower", "nemoih root", "plovik leaves", "yelith root"]
     )
     assert sum("bought" in t for t in s.echoed) == 5
+
+
+def test_a_purchase_set_on_the_counter_is_fetched_and_one_out_of_stock_is_said():
+    s = Fake(
+        {
+            "health": [HEALTH],
+            "eat": [MISSING] * 5 + [ATE] * 5,
+            "info": ["Wealth:\n  9 gold Kronars (9000 copper Kronars).\n"],
+            "order": [NO_STOCK, QUOTE, QUOTE, QUOTE, NO_STOCK],
+            "offer": [SOLD, ON_COUNTER, SOLD],
+        }
+    )
+    reason, eaten = heal.run(s, heal.parse_args(["buy"]), mapdb=MAP, walk_fn=walk)
+    assert s.walks == [{8259}]  # coins enough: no teller
+    assert any(c.endswith(" from counter") for c in s.sent)
+    assert len(eaten) == 3
+    assert sum("not in stock here" in t for t in s.echoed) == 2
+    assert sum("no " in t and " carried" in t for t in s.echoed) == 2
 
 
 def test_a_quote_above_the_purse_is_skipped_and_said():
@@ -189,7 +227,7 @@ def test_a_quote_above_the_purse_is_skipped_and_said():
             "eat": [MISSING] * 5,
             "info": ["Wealth:\n  9 silver Kronars (900 copper Kronars).\n"],
             "withdraw": ["The clerk counts out some coins and hands them over."] * 6,
-            "order": ['Mauriga says, "I can let that go for a mere 5000 kronars."'] * 5,
+            "order": [QUOTE.replace("812", "5000")] * 5,
         }
     )
     heal.run(s, heal.parse_args(["buy"]), mapdb=MAP, walk_fn=walk)

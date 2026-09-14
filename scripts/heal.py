@@ -23,10 +23,18 @@ ORDER, which quotes, then OFFER of the quoted sum (HELP SHOPS; Grek's
 knife 2026-09-14: "Well done! Here, take your knife."). `buy` reads
 INFO for the coins carried, WITHDRAWs the wiki-priced shortfall at the
 nearest teller (map tag `bank`), walks to the herbalist, ORDERs and
-OFFERs each missing herb, and eats it — the herbalist's own wordings
-and EAT's are uncaptured: answers outside the tables are echoed as
-unrecognized and the first run pins them. A herb the shop quotes
-above the purse is skipped, said so. Nothing walks back afterwards.
+OFFERs each missing herb by its first word (her catalog says "plovik
+leaf" where the table says "plovik leaves"), eats it on the spot and
+stows what is left, so a hand stays free for the next one. Captured
+2026-09-14 at Mauriga's: "That is a very wise selection.  I can give
+the root to you for 875 kronars.", "Mauriga smiles as she hands you
+your purchase.", with both hands full "Mauriga notices that your
+hands are full, and places it on the counter instead." (the script
+GETs it from the counter), "I'm so sorry to disappoint you, but I
+don't have that reagent in stock.", and EAT's "You eat a portion of
+a nemoih root." — a root has portions, and the rest goes in the sack.
+A herb the shop quotes above the purse is skipped, said so. Nothing
+walks back afterwards.
 Stops on death and on `return`.
 Stop with:  ;stop heal (at once), or ;heal return for a clean finish.
 """
@@ -64,20 +72,26 @@ PRICES = {
     "riolur leaf": 1000,
 }
 FALLBACK_PRICE = 1000  # a herb the table does not price
-# EAT's answers are assumptions until captured (#198); an answer
-# outside the tables counts as eaten and is reported.
+# EAT, captured 2026-09-14: "You eat a portion of a nemoih root." An
+# answer outside the tables counts as eaten and is reported.
 EAT_OUTCOMES = (
     ("missing", ("what were you referring", "could not find", "referring to")),
     ("ok", ("you eat", "you take a bite", "you chew", "you swallow", "you nibble")),
 )
-# ORDER's quote and OFFER's sale at a catalog merchant: Grek's
-# 2026-09-14 ("I can let that go for a mere 375 kronars." / "Well
-# done! Here, take your knife."); the herbalist's own lines are to
-# capture.
+# ORDER's quote and OFFER's sale at a catalog merchant. Grek's
+# 2026-09-14: "I can let that go for a mere 375 kronars." / "Well
+# done! Here, take your knife."; Mauriga's the same day: "That is a
+# very wise selection.  I can give the root to you for 875 kronars.",
+# "Mauriga smiles as she hands you your purchase.", with both hands
+# full "Mauriga notices that your hands are full, and places it on
+# the counter instead.", and out of stock "I'm so sorry to disappoint
+# you, but I don't have that reagent in stock."
 _QUOTE = re.compile(r"(\d[\d,]*)\s*kronars?", re.IGNORECASE)
+OUT_OF_STOCK = ("don't have that reagent", "not in stock", "don't carry")
 SALE_OUTCOMES = (
     ("refused", ("don't have enough", "not enough", "can't afford", "insufficient")),
-    ("ok", ("take your", "hands you", "here you go", "here you are", "enjoy")),
+    ("counter", ("places it on the counter",)),
+    ("ok", ("hands you your purchase", "take your", "hands you", "here you go")),
 )
 WITHDRAW_REFUSALS = ("you do not have", "insufficient", "no account", "don't have that")
 
@@ -150,11 +164,32 @@ def describe_plan(s, plan, town=TOWN):
             )
 
 
+def stem(herb):
+    """The word the shop and the hands know a herb by: "jadice" of
+    "jadice flower"."""
+    return herb.split()[0]
+
+
 def eat(s, herb):
     """EAT the herb; "missing", "ok", or None for a wording outside the
     tables (reported by the caller, counted as eaten)."""
     answer = ask(s, f"eat my {herb}")
     return probe.classify(answer, EAT_OUTCOMES), answer
+
+
+def eat_and_stow(s, herb, eaten):
+    """EAT a herb just bought (by its stem, the noun in hand) and stow
+    what is left — a root has portions — so a hand stays free."""
+    outcome, answer = eat(s, stem(herb))
+    if outcome == "missing":
+        s.echo(f"heal: {herb} is not in hand to eat")
+        return
+    if outcome is None:
+        first = (answer.strip().splitlines() or ["(silence)"])[0]
+        s.echo(f"heal: unrecognized eat answer {first!r} — please report it")
+    eaten.append(herb)
+    s.echo(f"heal: ate {herb}")
+    ask(s, f"stow my {stem(herb)}")
 
 
 def carried(s):
@@ -184,8 +219,9 @@ def withdraw(s, shortfall, mapdb, walk_fn, avoid=()):
 
 
 def buy(s, wanted, mapdb, walk_fn, avoid=(), town=TOWN):
-    """Coins for the wanted herbs, then each ORDERed and paid for at
-    the nearest herbalist; the herbs bought, in order."""
+    """Coins for the wanted herbs, then each ORDERed by its stem, paid
+    for and eaten at the nearest herbalist, one at a time so a hand
+    stays free; the herbs eaten, in order."""
     estimate = sum(PRICES.get(herb, FALLBACK_PRICE) for herb in wanted)
     purse = carried(s)
     if purse < estimate and not withdraw(s, estimate - purse, mapdb, walk_fn, avoid):
@@ -198,14 +234,17 @@ def buy(s, wanted, mapdb, walk_fn, avoid=(), town=TOWN):
     if not walk_fn(s, mapdb, set(shops), describe="the herbalist", avoid=avoid):
         s.echo("heal: could not reach the herbalist — stopping")
         return []
-    bought = []
+    eaten = []
     for herb in wanted:
         if s.dead:
             break
-        answer = ask(s, f"order {herb}")
+        answer = ask(s, f"order {stem(herb)}")
+        first = (answer.strip().splitlines() or ["(silence)"])[0]
+        if any(word in answer.lower() for word in OUT_OF_STOCK):
+            s.echo(f"heal: {herb} is not in stock here")
+            continue
         match = _QUOTE.search(answer)
         if not match:
-            first = (answer.strip().splitlines() or ["(silence)"])[0]
             s.echo(f"heal: no quote for {herb} — {first}")
             continue
         price = int(match.group(1).replace(",", ""))
@@ -215,18 +254,19 @@ def buy(s, wanted, mapdb, walk_fn, avoid=(), town=TOWN):
             )
             continue
         answer = ask(s, f"offer {price}")
+        first = (answer.strip().splitlines() or ["(silence)"])[0]
         outcome = probe.classify(answer, SALE_OUTCOMES)
         if outcome == "refused":
-            first = (answer.strip().splitlines() or ["(silence)"])[0]
             s.echo(f"heal: the herbalist refused {price} for {herb} — {first}")
             continue
         if outcome is None:
-            first = (answer.strip().splitlines() or ["(silence)"])[0]
             s.echo(f"heal: unrecognized sale answer {first!r} — please report it")
         purse -= price
-        bought.append(herb)
         s.echo(f"heal: bought {herb} for {price} Kronars")
-    return bought
+        if outcome == "counter":
+            ask(s, f"get {stem(herb)} from counter")
+        eat_and_stow(s, herb, eaten)
+    return eaten
 
 
 def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
@@ -260,11 +300,7 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
         eaten.append(herb)
         s.echo(f"heal: ate {herb}")
     if missing and options["mode"] == "buy" and mapdb is not None:
-        for herb in buy(s, missing, mapdb, walk_fn, avoid):
-            outcome, answer = eat(s, herb)
-            if outcome != "missing":
-                eaten.append(herb)
-                s.echo(f"heal: ate {herb}")
+        eaten.extend(buy(s, missing, mapdb, walk_fn, avoid))
         missing = [herb for herb in missing if herb not in eaten]
     for herb in missing:
         where = ", ".join(shops_for(herb)) or "no shop the table knows"
