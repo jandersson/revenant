@@ -54,6 +54,12 @@ SOLD = (
     'Tanner Falken says, "And there\'s your rope back again."\n'
 )
 MISSING = "What were you referring to?\n"
+# DEPOSIT ALL's answer, captured 2026-09-14 at the Provincial Bank.
+DEPOSITED = (
+    "The clerk slides a small metal box across the counter into which you drop "
+    "all your Kronars.  She counts them carefully and records the deposit in "
+    "her ledger.\n"
+)
 
 
 class Fake:
@@ -151,7 +157,7 @@ def test_bank_deposits_all_at_the_nearest_teller_after_the_sale():
         {
             "remove": [REMOVED],
             "sell": [SOLD],
-            "deposit": ["You deposit 111 Kronars.\nYour balance is now 4,889 Kronars."],
+            "deposit": [DEPOSITED],
         }
     )
     script.run(fake, ["bank", "back"], MAP, walk_fn=walk, profile=PROFILE)
@@ -162,8 +168,11 @@ def test_bank_deposits_all_at_the_nearest_teller_after_the_sale():
         "put my rope in my sack",
         "deposit all",
     ]
-    assert "skins: You deposit 111 Kronars." in fake.echoed
-    assert "skins: Your balance is now 4,889 Kronars." in fake.echoed
+    assert "skins: deposited all your coins — the clerk recorded it" in fake.echoed
+    # An answer outside the table is echoed as it came.
+    fake = Fake({"remove": [REMOVED], "sell": [SOLD], "deposit": ["The clerk frowns."]})
+    script.run(fake, ["bank"], MAP, walk_fn=walk, profile=PROFILE)
+    assert "skins: The clerk frowns." in fake.echoed
     # No bundle: nothing sold, so nothing walks to the bank either.
     fake = Fake({"remove": [MISSING], "get my bundle": [MISSING]})
     script.run(fake, ["bank"], MAP, walk_fn=walk, profile=PROFILE)

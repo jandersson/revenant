@@ -22,8 +22,8 @@ walked back into the rats with the weapon stowed; `back` walks back
 anyway. No bundle to sell, or a tanner who does not pay, stops it
 with the answer echoed. `bank` goes on from the sale to the nearest
 room the map tags `bank` and DEPOSITs ALL (Elanthipedia: Deposit
-command), echoing the teller's answer — its wording is the first
-run's to capture, and until then it is not judged (#196); under
+command) — the clerk "records the deposit in her ledger", captured
+2026-09-14; any other answer is echoed as it came (#196); under
 ;train a task `{"script": "skins", "args": ["bank"]}` with no skills
 runs once a cycle after the hunt and ends when the script does. Stops
 on death.
@@ -77,10 +77,19 @@ def take_bundle(s, container):
     return not _missing(ask(s, command))
 
 
+# The teller's answer to DEPOSIT ALL, captured 2026-09-14 at the
+# Crossing's Provincial Bank: "The clerk slides a small metal box across
+# the counter into which you drop all your Kronars.  She counts them
+# carefully and records the deposit in her ledger." Anything else is
+# echoed as it came.
+_DEPOSITED = ("records the deposit",)
+
+
 def deposit(s, mapdb, walk_fn):
-    """Walk to the nearest teller and DEPOSIT ALL, the answer echoed
-    line by line (its wording is uncaptured, #196). False when no
-    teller is on the map or reachable — the coins stay in the purse."""
+    """Walk to the nearest teller and DEPOSIT ALL: the clerk's ledger
+    line is reported as a deposit, any other answer echoed line by
+    line. False when no teller is on the map or reachable — the coins
+    stay in the purse (#196)."""
     tellers = mapdb.rooms_tagged("bank")
     if not tellers:
         s.echo("skins: the map has no room tagged 'bank' — the coins stay with you")
@@ -89,6 +98,9 @@ def deposit(s, mapdb, walk_fn):
         s.echo("skins: could not reach a teller — the coins stay with you")
         return False
     answer = ask(s, "deposit all")
+    if any(word in answer.lower() for word in _DEPOSITED):
+        s.echo("skins: deposited all your coins — the clerk recorded it")
+        return True
     lines = [line for line in answer.strip().splitlines() if line.strip()]
     for line in lines or ["the teller said nothing to DEPOSIT ALL"]:
         s.echo(f"skins: {line}")

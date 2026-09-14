@@ -351,8 +351,12 @@ its container, rope out, BUNDLE, WEAR, weapon back. `;skins` walks to
 the nearest `tannery`, REMOVEs the bundle, SELLs it from the hand,
 keeps the rope, and stays there (`;skins back` walks back: the first
 scripted run returned to the rats with the weapon stowed); `;skins
-bank` goes on to the nearest room tagged `bank` and DEPOSITs ALL, the
-teller's answer echoed until captured, which is how a `;train` task
+bank` goes on to the nearest room tagged `bank` and DEPOSITs ALL —
+captured 2026-09-14 at the Provincial Bank after Falken paid 217
+Kronars for four badger pelts: "The clerk slides a small metal box
+across the counter into which you drop all your Kronars.  She counts
+them carefully and records the deposit in her ledger." — which is
+how a `;train` task
 (`"script": "skins", "args": ["bank"]`, no skills, once a cycle)
 turns a hunt's skins into banked coins (#196). The first bundled hunt ran the same
 evening and captured the rest:
