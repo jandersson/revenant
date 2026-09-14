@@ -79,7 +79,13 @@ PROFILE = DEFAULTS | {
     "home": "home",
 }
 
-KILL = "The rat slowly tips over and falls down."
+# The kill line as captured on a rat (2026-09-05) and a badger
+# (2026-09-14). "The rat slowly tips over and falls down." stood here
+# until 2026-09-14: it is a knockdown (#197), see KNOCKED_DOWN.
+KILL = "The rat falls to the ground and lies still."
+KNOCKED_DOWN = (
+    "The rat slowly tips over and falls down.\nYou also see a rat that appears stunned."
+)
 # Captured 2026-09-13 (#183): SMITE's own line, then the swing as usual.
 SMITE_KILL = (
     "Drawing strength from your conviction, you execute a divinely inspired "
@@ -527,6 +533,25 @@ def test_a_full_hand_the_parser_cannot_name_is_stowed_by_side(travel):
     assert arena.sent[first : first + 3] == ["skin rat", "stow left", "skin rat"]
 
 
+def test_a_knockdown_is_not_a_kill(travel):
+    # #197: every capture of "slowly tips over and falls down" (a cougar
+    # 2026-08-22, rats 2026-09-12/13, a badger 2026-09-14) was a stunned,
+    # prone creature that stood back up; the loop had skinned and
+    # searched it and counted a kill. Now it swings on.
+    arena = Arena(
+        {
+            "attack": [(KNOCKED_DOWN, _stands), (KILL, kill)],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+        }
+    )
+    _run(arena)
+    assert arena.sent.count("skin rat") == 1
+    assert arena.sent.count("search rat") == 1
+    assert any("1 kill(s), 1 skin(s)" in text for text in arena.echoed)
+    assert not any("rat down (2)" in text for text in arena.echoed)
+
+
 def test_a_skin_that_found_the_live_one_is_a_gone_corpse_too(travel):
     # Captured 2026-09-14 on a striped badger: SKIN badger after the
     # kill reached the live badger still in the room.
@@ -696,7 +721,8 @@ def test_a_corpse_that_keeps_answering_ends_the_room_not_the_evening(travel):
 
 
 def test_kill_and_item_nouns_are_read_from_the_game_lines():
-    assert hunt.kill_noun("The cougar slowly tips over and falls down.") == "cougar"
+    assert hunt.kill_noun("The cougar falls to the ground and lies still.") == "cougar"
+    assert hunt.kill_noun("The cougar slowly tips over and falls down.") is None
     assert hunt.kill_noun(RAT_KILL) == "rat"
     assert hunt._DEAD_NOUN.search(RAT_CORPSE).group(2) == "rat"
     assert hunt.kill_noun("A large rat goes still.") == "rat"

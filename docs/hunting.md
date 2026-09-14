@@ -52,10 +52,17 @@ Captured (the 2026-08-22 traffic behind combat.md, and the first live
 `;hunt` on 2026-09-05 — a circle-1 Paladin against ship's rats at
 Barana's Shipyard):
 
-- the kill lines "The cougar slowly tips over and falls down." and
-  "The ship's rat falls to the ground and lies still." — the corpse
-  noun is the word before the kill phrase ("rat"). The first run knew
-  only the cougar wording, missed the rat's kill and never skinned;
+- the kill line "The ship's rat falls to the ground and lies still."
+  — the corpse noun is the word before the kill phrase ("rat"). The
+  first run knew only "The cougar slowly tips over and falls down."
+  from 2026-08-22, missed the rat's kill and never skinned — and that
+  cougar line was never a kill: every capture of it (the cougar, the
+  rats of 2026-09-12 and 13, a badger on 2026-09-14) is a knockdown,
+  the creature's `<crtrStatus>` gaining `stunned="1" prone="1"`,
+  "lying down" in the room listing, then "leaps to its feet"; the
+  badger hunt skinned and searched one that stood up ("You can't skin
+  something that's not dead!") and counted the kill (#197). Since
+  2026-09-14 a knockdown is nothing to act on;
 - "The ship's rat is already quite dead." — a corpse soaking swings,
   which the loop disposes of (skin, search) like a fresh kill, and
   after two more such answers declares the room clear; the noun can

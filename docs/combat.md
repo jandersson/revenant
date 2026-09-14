@@ -47,9 +47,12 @@ and the shared walker both encode the burst.
 
 `ATTACK <noun>` picks the balance-regaining maneuver automatically;
 roundtime scales with the weapon and maneuver. Barehanded works
-(brawling). Captured kill line (cougar, 2026-08-22): "The cougar
-slowly tips over and falls down." — with a stun beforehand: "A cougar
-shakes its head back and forth, its dark eyes befuddled."
+(brawling). Captured knockdown (cougar, 2026-08-22): "The cougar
+slowly tips over and falls down." — the cougar stunned and prone, not
+dead (it was read as the kill line until 2026-09-14, #197) — with a
+stun beforehand: "A cougar shakes its head back and forth, its dark
+eyes befuddled." The kill line is "The ship's rat falls to the ground
+and lies still." (2026-09-05).
 
 **Corpses keep their noun**: after a kill, `ATTACK cougar` resolves
 to the body — "The cougar is already quite dead." — while a second,

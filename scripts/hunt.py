@@ -91,14 +91,17 @@ EMPTY_ROOM_WAIT = 20  # seconds between looks when the whole ground is empty
 EMPTY_LAPS = 2  # laps of the ground with nothing in it before the pause
 MIND_LOCK = 34
 
-# Captured kill lines: "The cougar slowly tips over and falls down."
-# (2026-08-22) and "The ship's rat falls to the ground and lies still."
-# (2026-09-05 — the first ;hunt missed it and kept swinging). The
-# other wordings are assumptions until captured.
+# The captured kill line: "The ship's rat falls to the ground and lies
+# still." (2026-09-05 — the first ;hunt missed it and kept swinging),
+# the badger's the same (2026-09-14). "The cougar slowly tips over and
+# falls down." (2026-08-22) was read as a kill until 2026-09-14: every
+# capture of it — the cougar, the rats, a badger — is a KNOCKDOWN, the
+# creature stunned and prone ("lying down", then "leaps to its feet"),
+# and the badger hunt skinned and searched one that stood back up
+# (#197). A knockdown is nothing to act on. The other wordings are
+# assumptions until captured.
 _KILL_WORDS = (
-    "tips over",
     "goes still",
-    "falls down",
     "falls to the ground",
     "lies still",
     " dies",
@@ -107,7 +110,7 @@ _KILL_WORDS = (
 )
 _KILL_NOUN = re.compile(
     r"\b(?:the|a|an) ((?:[\w'-]+ )*?)([\w'-]+) (?:slowly |suddenly )?"
-    r"(?:tips over|goes still|falls down|falls to the ground|lies still|dies|"
+    r"(?:goes still|falls to the ground|lies still|dies|"
     r"collapses|keels over)",
     re.IGNORECASE,
 )
