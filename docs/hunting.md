@@ -262,8 +262,9 @@ To the out, east:
 Roundtime: 8 sec.
 ```
 
-The wiki's empty answer is "You were unable to locate any followable
-tracks." With the profile's `perception` on, the loop HUNTs once when a
+The empty answer, "You were unable to locate any followable tracks.",
+is the wiki's and was captured the same night on an empty Brambles
+room. With the profile's `perception` on, the loop HUNTs once when a
 room of the ground has emptied (after the corpse is searched, before
 the move) and on every lap of an empty ground, at most once per 75
 seconds, until Perception locks; the tracks are not followed, the

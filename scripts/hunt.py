@@ -152,9 +152,10 @@ TACTICS_EVERY = 3  # every third swing is a maneuver while Tactics is unlocked
 TACTIC_MISSES = 3  # unrecognized maneuver answers before tactics go off
 # HUNT for tracks (captured 2026-09-14 in a guild office, #194): "You
 # take note of all the tracks in the area, so that you can hunt
-# anything nearby down.", a numbered list, "Roundtime: 8 sec."; the
-# wiki's "You were unable to locate any followable tracks." is the
-# empty answer. Perception learns from it once per 75 seconds.
+# anything nearby down.", a numbered list, "Roundtime: 8 sec."; "You
+# were unable to locate any followable tracks." is the empty answer
+# (the wiki's, captured on an empty Brambles room the same night).
+# Perception learns from it once per 75 seconds.
 _TRACKS_READ = ("take note of all the tracks", "unable to locate any followable tracks")
 HUNT_INTERVAL = 75  # seconds between HUNTs: the skill's learning timer
 TRACK_MISSES = 3  # unrecognized HUNT answers before the step goes off
