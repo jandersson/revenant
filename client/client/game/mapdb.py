@@ -64,11 +64,14 @@ DEFAULT_STEP_SECONDS = 0.2
 # crossing as start_script('bescort', ['faldesu', ...]) for lich, and
 # the walker boards the Faldesu ferry between North Road, Ferry and
 # Riverhaven, Ferry Dock on its own (walker.ride_ferry). Any other
-# bescort route stays unwalkable.
+# bescort route stays unwalkable. Only an edge that IS the call rides:
+# the Marsh's Stone Road ↔ Riverhaven's Stone Bridge edges name the
+# same route inside an `if Script.exists?('bescort')` with a swim as
+# the else, and there is no dock there to wait at (2026-09-18).
 RIDES = {"faldesu": "ferry"}
 RIDE_SECONDS = 300.0  # the wait and the crossing: a land route wins where one exists
 _BESCORT = re.compile(
-    r"start_script\s*\(\s*'bescort'\s*,\s*\[\s*'(?P<route>[a-z0-9_]+)'"
+    r"^;e\s*start_script\s*\(\s*'bescort'\s*,\s*\[\s*'(?P<route>[a-z0-9_]+)'"
 )
 
 # What entering an avoided room costs on top of its real travel time:

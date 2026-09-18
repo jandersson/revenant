@@ -66,6 +66,15 @@ def test_a_bescort_route_the_walker_rides_is_walkable_and_named():
     assert walkable(FALDESU_NORTH)
     assert ride_of(";e start_script('bescort', ['airship'])") is None
     assert ride_of("north") is None
+    # The Marsh's swim edge names the route inside a branch with no dock
+    # to wait at: not a ride (it sent the walker to wait at a bridge).
+    marsh = (
+        ";e if Script.exists?('bescort') then start_script('bescort', "
+        "['faldesu', 'haven']);wait_while{running?('bescort')}; else "
+        "fput 'dive river';pause;waitrt?;fput 'swim n' end"
+    )
+    assert ride_of(marsh) is None
+    assert not walkable(marsh)
     assert not walkable(";e start_script('bescort', ['airship'])")
 
 
