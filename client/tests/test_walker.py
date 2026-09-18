@@ -754,3 +754,135 @@ def test_every_way_closed_stops_the_walk():
     assert puts_of(handle) == ["go trail"]
     assert not any(put == "retreat" for put in puts_of(handle))
     assert any("no walkable path" in echo for echo in handle.echoes)
+
+
+# --- the Obsidian Pass gondola (#211) ---------------------------------------
+GONDOLA_SOUTH = (
+    ";e if Script.exists?('bescort'); start_script('bescort', ['gondola', 'south']); "
+    "wait_while{running?('bescort')}; else; result = dothistimeout 'go gondola', 5, "
+    "/no wooden gondola here|Gondola, Cab/; end;"
+)
+GONDOLA = MapDB(
+    [
+        {
+            "id": 2249,
+            "uid": [12249],
+            "title": ["[Obsidian Pass, Platform]"],
+            "wayto": {"2904": GONDOLA_SOUTH, "2246": "go ridge"},
+        },
+        {
+            "id": 2904,
+            "uid": [12904],
+            "title": ["[Obsidian Pass, Platform]"],
+            "wayto": {"2903": "go frame"},
+        },
+        {"id": 2903, "uid": [12903], "title": ["[Obsidian Pass, Frame]"]},
+        {"id": 2246, "uid": [12246], "title": ["[Obsidian Pass, Ridge]"]},
+    ]
+)
+
+
+def test_the_gondola_edge_is_a_ride_in_its_if_form_with_its_direction():
+    from client.game.mapdb import ride_args
+
+    assert ride_of(GONDOLA_SOUTH) == "gondola"
+    assert ride_args(GONDOLA_SOUTH) == "south"
+    assert ride_args(FALDESU_NORTH) == "haven"
+    assert walkable(GONDOLA_SOUTH)
+    assert GONDOLA.graph[2249][2904]["seconds"] == RIDE_SECONDS
+
+
+class GondolaHandle(FakeHandle):
+    """GO GONDOLA answers "away" (no cab; the platform's story then
+    brings it) or "aboard" (the cab, a compass frame); the ride's story
+    ends with the soft bump; OUT lands like any move."""
+
+    AWAY = "There is no wooden gondola here.\n"
+    DOOR = "The gondola stops on the platform and the door silently swings open.\n"
+    BUMP = "With a soft bump, the gondola comes to a stop at its destination.\n"
+
+    def __init__(self, uids, answers):
+        super().__init__(uids)
+        self.answers = list(answers)
+        self.answer = None
+        self.story = []
+
+    def put(self, command):
+        super().put(command)
+        if command == "go gondola":
+            answer = self.answers.pop(0)
+            if answer == "away":
+                self.answer, self.story = [("", self.AWAY)], [self.DOOR]
+            else:
+                self.answer, self.story = [("compass", "")], [self.BUMP]
+        elif command == "out":
+            self.state.room_uid = self._uids.pop(0)
+            self.answer = [("compass", "")]
+        elif command in ("north", "south"):
+            self.answer = []  # the cab's way: no room change
+        else:
+            self.answer = None
+
+    def get(self, timeout=None, streams=("",)):
+        if timeout == 0:
+            return None
+        if streams is None:
+            if self.answer is None:
+                return super().get(timeout, streams)
+            return self.answer.pop(0) if self.answer else None
+        return self.story.pop(0) if self.story else None
+
+
+def test_walk_waits_for_the_gondola_rides_it_and_steps_off(monkeypatch):
+    monkeypatch.setattr(walker, "GONDOLA_ANSWER_SECONDS", 0.05)
+    monkeypatch.setattr(walker, "GONDOLA_WAIT_SECONDS", 0.05)
+    handle = GondolaHandle(uids=[12904, 12903], answers=["away", "aboard"])
+    handle.state.room_uid = 12249
+    assert walker.walk(handle, GONDOLA, [2903], describe="the frame") is True
+    assert puts_of(handle) == ["go gondola", "go gondola", "south", "out", "go frame"]
+    assert any("no gondola at the platform" in echo for echo in handle.echoes)
+    assert any("aboard the gondola" in echo for echo in handle.echoes)
+
+
+# --- a climb turned back twice is a closed edge (#211) ----------------------
+AROUND = MapDB(
+    [
+        {
+            "id": 6153,
+            "uid": [224005],
+            "title": ["[Wilderness, Deep Forest]"],
+            "wayto": {"5705": "climb felled tree", "6154": "west"},
+        },
+        {"id": 5705, "uid": [224006], "title": ["[Wilderness, Deep Forest]"]},
+        {
+            "id": 6154,
+            "uid": [224007],
+            "title": ["[Wilderness, Long Way]"],
+            "wayto": {"5705": "north"},
+        },
+    ]
+)
+
+
+class ClimbAroundHandle(ClimbHandle):
+    """The climb answers the script; a plain move lands from the uids."""
+
+    def get(self, timeout=None, streams=("",)):
+        if timeout == 0:
+            return None
+        if self.pending:
+            return self.pending.pop(0)
+        if streams is None and puts_of(self)[-1:] != ["climb felled tree"]:
+            return FakeHandle.get(self, timeout, streams)
+        return None
+
+
+def test_a_climb_turned_back_twice_is_routed_around():
+    handle = ClimbAroundHandle(uids=[224007, 224006], answers=["refused", "vertigo"])
+    handle.state.room_uid = 224005
+    assert walker.walk(handle, AROUND, [5705], describe="the far side") is True
+    puts = puts_of(handle)
+    assert puts.count("climb felled tree") == 2
+    assert puts[-2:] == ["west", "north"]
+    assert "retreat" not in puts
+    assert any("going round" in echo for echo in handle.echoes)

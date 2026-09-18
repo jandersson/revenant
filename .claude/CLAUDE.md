@@ -166,10 +166,12 @@ for `client/client/<pkg>/x.py`.
   one uid-less; `same_place` handles it. A climb turned back for
   footing gets one retry standing with the named items stowed, then
   a stop that says so (#157). The Faldesu ferry between the Crossing
-  and Riverhaven is ridden (the map's bescort edge, #205); other
-  bescort routes stay unwalkable. A way the game closes to the
-  character ("not experienced enough to go there") is routed around,
-  never retreated from (#209). Model: docs/movement.md.
+  and Riverhaven and the Obsidian Pass gondola are ridden (the
+  map's bescort edges, #205, #211); other bescort routes stay
+  unwalkable. A way the game closes to the character ("not
+  experienced enough to go there") and a climb turned back twice are
+  routed around, never retreated from (#209, #211). Model:
+  docs/movement.md.
 - `client/game/possessions.py` — possessions by exist id: the parser's
   listing built into items, `find(items, noun)` for a script that
   wants exactly this orb (`get #<id>`), `rows()` for `;sheet inv`'s

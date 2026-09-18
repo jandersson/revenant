@@ -19,7 +19,7 @@ import re
 from time import monotonic
 
 from client.client_logger import ClientLogger
-from client.game.mapdb import normalize_title, ride_of, translate_embedded
+from client.game.mapdb import normalize_title, ride_args, ride_of, translate_embedded
 
 module_logger = ClientLogger()
 
@@ -62,6 +62,21 @@ FERRY_FEE = re.compile(r"transportation fee of (\d+ \w+)")
 FERRY_ON_DEBT = ("add it to yer debt", "debt to the province")
 FERRY_ARRIVES = ("pulls into the dock", "pulls up to the dock")
 FERRY_LANDS = ("ties the ferry off",)
+# The Obsidian Pass gondola (#211), after bescort's ride_gondola: GO
+# GONDOLA at a platform lands in the cab (a room: a compass frame) or
+# answers "There is no wooden gondola here" — then the wait is for
+# "The gondola stops on the platform and the door silently swings
+# open"; aboard, the direction is sent as bescort does, and the ride
+# ends with "With a soft bump, the gondola comes to a stop at its
+# destination", then OUT onto the far platform. The wiki: three
+# minutes across, two at each platform, LOOK GONDOLA for its progress.
+# Wordings bescort's until the first ride.
+GONDOLA_ANSWER_SECONDS = 4
+GONDOLA_WAIT_SECONDS = 600  # a stop and a crossing
+GONDOLA_ATTEMPTS = 3
+GONDOLA_AWAY = ("no wooden gondola here",)
+GONDOLA_DOOR = ("door silently swings open",)
+GONDOLA_STOPS = ("soft bump",)
 
 # The felled tree, captured 2026-09-11 (#157): a climb beyond the
 # character's Athletics — worse armed and armored — is turned back
@@ -194,7 +209,49 @@ def read_story(s, seconds, until=()):
     return "".join(seen)
 
 
-def ride_ferry(s):
+def ride_gondola(s, direction=""):
+    """Board the gondola at this platform and cross (#211): "landed"
+    when it stopped at the far platform (OUT is still the caller's to
+    send, with the arrival check), "no gondola" when none came within
+    GONDOLA_WAIT_SECONDS, "stuck" when the ride never stopped,
+    "unknown" for an answer outside the table."""
+    for _ in range(GONDOLA_ATTEMPTS):
+        s.waitrt()
+        s.put("go gondola")
+        outcome, _, answer = await_arrival(s, timeout=GONDOLA_ANSWER_SECONDS)
+        first = (answer.strip().splitlines() or ["(silence)"])[0]
+        if outcome == "arrived":
+            s.echo("aboard the gondola — crossing the pass")
+            if direction:
+                s.put(direction)  # bescort moves the cab's way once aboard
+            ride = read_story(s, GONDOLA_WAIT_SECONDS, until=GONDOLA_STOPS)
+            if not any(needle in ride for needle in GONDOLA_STOPS):
+                s.echo(
+                    f"the gondola never stopped in {GONDOLA_WAIT_SECONDS // 60} "
+                    "minutes — stopping here"
+                )
+                return "stuck"
+            s.waitrt()
+            return "landed"
+        if any(needle in answer for needle in GONDOLA_AWAY):
+            s.echo("no gondola at the platform — waiting for it")
+            arrival = read_story(s, GONDOLA_WAIT_SECONDS, until=GONDOLA_DOOR)
+            if not any(needle in arrival for needle in GONDOLA_DOOR):
+                s.echo(
+                    f"no gondola came in {GONDOLA_WAIT_SECONDS // 60} minutes"
+                    " — stopping here"
+                )
+                return "no gondola"
+            continue
+        s.echo(f"GO GONDOLA answered {first!r} — please report it — stopping here")
+        return "unknown"
+    s.echo(
+        f"the gondola would not take you in {GONDOLA_ATTEMPTS} tries — stopping here"
+    )
+    return "no gondola"
+
+
+def ride_ferry(s, direction=""):
     """Board the ferry at this dock and cross (#205): "landed" when the
     far dock is reached (GO DOCK is still the caller's to send, with
     the arrival check), "fare" when refused for coin and left on the
@@ -247,6 +304,10 @@ def ride_ferry(s):
         return "unknown"
     s.echo(f"the ferry would not take you in {FERRY_ATTEMPTS} tries — stopping here")
     return "no ferry"
+
+
+# route -> (the ride, the step's own move off it)
+RIDE_HANDLERS = {"faldesu": (ride_ferry, "go dock"), "gondola": (ride_gondola, "out")}
 
 
 def await_arrival(s, timeout=ARRIVAL_TIMEOUT):
@@ -378,12 +439,14 @@ def _follow(s, db, route, here, closed):
         # A scripted edge translates to several game commands; the last
         # one lands in the destination room and gets the arrival check.
         commands = translate_embedded(command) or [command]
-        if ride_of(command):
-            # A ferry edge (#205): the ride first, then GO DOCK is the
-            # step's own move, with the usual compass sync and check.
-            if ride_ferry(s) != "landed":
+        ride = ride_of(command)
+        if ride:
+            # A ride edge (#205, #211): the ride first, then the move
+            # off it is the step's own, with the compass sync and check.
+            handler, leave = RIDE_HANDLERS[ride]
+            if handler(s, ride_args(command)) != "landed":
                 return False
-            commands = ["go dock"]
+            commands = [leave]
         s.waitrt()
         for preliminary in commands[:-1]:
             s.put(preliminary)
@@ -408,15 +471,20 @@ def _follow(s, db, route, here, closed):
             outcome, again, wording = retry_climb(s, commands[-1], hindering)
             note_climb(s, commands[-1], outcome, wording, dest)
             if outcome == "refused":
+                # Beyond the character (#157): the edge is closed for
+                # this walk and the route planned again without it
+                # (#211: the way under the gondola is six climbs the
+                # gondola avoids); no other way, and the walk ends.
                 load = ", ".join(dict.fromkeys(hindering + again))
                 s.echo(
                     f"the climb at step {number} ({commands[-1]!r}) is beyond "
                     "your Athletics"
                     + (f" with your {load}" if load else "")
                     + " — shed the load, train it (;athletics), or take the "
-                    "long way — stopping here"
+                    "long way — going round if the map has one"
                 )
-                return False
+                closed.add((here, dest))
+                return "closed"
             if outcome == "arrived" and hindering:
                 s.echo(
                     f"made it with your {', '.join(hindering)} stowed — "

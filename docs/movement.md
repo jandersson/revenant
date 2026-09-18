@@ -135,7 +135,10 @@ retry, stop — and it ended the song he was playing. Now the wording
 closed set, "the way to <title> is closed to you (...) — going round"
 is echoed, and the route is planned again from where he stands with
 that edge excluded (`MapDB.path(..., closed=)`), up to three times on
-one walk. No retreat, no retry.
+one walk. No retreat, no retry. A climb turned back after its one
+retry is closed the same way (#211): the walk says what would help
+and goes round if the map has another way — the gondola over the
+Chasm — and ends only when it has none.
 
 ## Edges the map can and cannot walk
 
@@ -165,7 +168,7 @@ step — the cougar cliffs are a corridor on the real map, so routes
 through them warn rather than pretend safety. `;go2 direct <target>`
 skips the list for one trip.
 
-## Ferries
+## Rides: the Faldesu ferry and the Obsidian Pass gondola
 
 The Crossing and Riverhaven are joined only by the Faldesu ferry: the
 map's two edges between North Road, Ferry (1385) and Riverhaven,
@@ -215,6 +218,23 @@ Dock). The other bescort routes (airships, barges, the Segoltha rope)
 stay unwalkable; the Faldesu swim the map also offers (The Marsh,
 Stone Road ↔ Riverhaven, Stone Bridge) is bescort's choice only at
 Athletics 140.
+
+The Obsidian Pass gondola (Obsidian Pass, Platform 2249 ↔ 2904) is
+the second ride (#211). The map writes it in the `if
+Script.exists?('bescort')` form with GO GONDOLA as the else, so
+`ride_of` accepts that form for this route alone, and the walker
+follows bescort's `ride_gondola`: GO GONDOLA lands in the cab (a
+room, so a compass frame) or answers "There is no wooden gondola
+here", in which case it waits for "The gondola stops on the platform
+and the door silently swings open" and tries again; aboard, it sends
+the direction the edge names (bescort does) and waits for "With a
+soft bump, the gondola comes to a stop at its destination", then OUT
+is the step's move onto the far platform. The wiki: three minutes
+across, two at each platform, LOOK GONDOLA shows its progress, and the
+way under it wants 550 ranks of Athletics — the walk from the Crossing
+to Shard's Tower of Honor (the circle-5 glyph quest's orb) was routed
+under it through six climbs until the gondola was ridable. Wordings
+are bescort's until the first ride.
 
 ## Finding a wandering NPC
 

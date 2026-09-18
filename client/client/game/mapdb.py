@@ -64,14 +64,24 @@ DEFAULT_STEP_SECONDS = 0.2
 # crossing as start_script('bescort', ['faldesu', ...]) for lich, and
 # the walker boards the Faldesu ferry between North Road, Ferry and
 # Riverhaven, Ferry Dock on its own (walker.ride_ferry). Any other
-# bescort route stays unwalkable. Only an edge that IS the call rides:
-# the Marsh's Stone Road ↔ Riverhaven's Stone Bridge edges name the
-# same route inside an `if Script.exists?('bescort')` with a swim as
-# the else, and there is no dock there to wait at (2026-09-18).
-RIDES = {"faldesu": "ferry"}
+# bescort route stays unwalkable. For the ferry only an edge that IS
+# the call rides: the Marsh's Stone Road ↔ Riverhaven's Stone Bridge
+# edges name the same route inside an `if Script.exists?('bescort')`
+# with a swim as the else, and there is no dock there to wait at
+# (2026-09-18). The Obsidian Pass gondola (#211) is written in that
+# `if` form with GO GONDOLA as the else, so that route rides from it
+# too; the way under the gondola wants 550 ranks of Athletics.
+RIDES = {"faldesu": "ferry", "gondola": "gondola"}
+IF_FORM_RIDES = frozenset({"gondola"})
 RIDE_SECONDS = 300.0  # the wait and the crossing: a land route wins where one exists
-_BESCORT = re.compile(
-    r"^;e\s*start_script\s*\(\s*'bescort'\s*,\s*\[\s*'(?P<route>[a-z0-9_]+)'"
+_BESCORT_CALL = (
+    r"start_script\s*\(\s*'bescort'\s*,\s*\[\s*'(?P<route>[a-z0-9_]+)'"
+    r"(?:\s*,\s*'(?P<arg>[a-z0-9_]+)')?"
+)
+_BESCORT = re.compile(r"^;e\s*" + _BESCORT_CALL)
+_BESCORT_IF = re.compile(
+    r"^;e\s*if\s+Script\.exists\?\(\s*'bescort'\s*\)\s*;?\s*(?:then\s*)?"
+    + _BESCORT_CALL
 )
 
 # What entering an avoided room costs on top of its real travel time:
@@ -121,15 +131,30 @@ def translate_embedded(command):
     return commands or None
 
 
-def ride_of(command):
-    """The bescort route a scripted edge names when the walker rides it
-    ("faldesu"), else None (#205)."""
+def _ride_match(command):
     if not isinstance(command, str) or not command.startswith(";e"):
         return None
     match = _BESCORT.search(command)
     if match and match.group("route") in RIDES:
-        return match.group("route")
+        return match
+    match = _BESCORT_IF.search(command)
+    if match and match.group("route") in IF_FORM_RIDES:
+        return match
     return None
+
+
+def ride_of(command):
+    """The bescort route a scripted edge names when the walker rides it
+    ("faldesu", "gondola"), else None (#205, #211)."""
+    match = _ride_match(command)
+    return match.group("route") if match else None
+
+
+def ride_args(command):
+    """The route's argument on a ride edge — the ferry's bank ("haven",
+    "crossing"), the gondola's direction ("north", "south") — or ""."""
+    match = _ride_match(command)
+    return (match.group("arg") or "") if match else ""
 
 
 def walkable(command) -> bool:
