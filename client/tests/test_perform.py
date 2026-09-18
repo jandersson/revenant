@@ -1,0 +1,228 @@
+"""How ;perform trains — these tests are the manual. It PLAYs the
+rank's song off-key on the profile's instrument, keeps the song going,
+stops it and holds at mind-lock, and stops the song on a typed return
+(#208)."""
+
+import importlib.util
+import pathlib
+from types import SimpleNamespace
+
+from client.game import perform
+
+REPO = pathlib.Path(__file__).parents[2]
+
+
+def _script():
+    spec = importlib.util.spec_from_file_location(
+        "perform_script", REPO / "scripts/perform.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+script = _script()
+
+# Captured 2026-09-18 on copper zills.
+STARTED = "You fumble slightly as you begin an off-key ruff on your copper zills.\n"
+CONTINUES = "You continue playing on your copper zills.\n"
+ALREADY = "You're already playing a song!  You'll need to stop that one first.\n"
+STOPPED = "You stop playing your song.\n"
+RETREATED = "You stop your performance.\n"  # a RETREAT ended it, 2026-09-18
+
+
+class Fake:
+    """A handle whose Performance mindstate follows a script of values,
+    one per second of the fake clock; the story is read a second at a
+    time through `collect` (the song plays on, or ran out after
+    `ends_after` seconds), a command is answered through `ask`, and a
+    typed "return" arrives once the clock reaches `stop_at`."""
+
+    def __init__(
+        self, mindstates, rank=2, stop_at=None, ends_after=None, hostiles=None
+    ):
+        self.mindstates = list(mindstates)
+        self.stop_at = stop_at
+        self.ends_after = ends_after
+        self.stopped = False
+        self.now = 1000.0
+        self.played_at = None
+        self.sent, self.echoed = [], []
+        self.dead = False
+        self.args = []
+        self.state = SimpleNamespace(
+            name="Lanival",
+            experience={
+                "Performance": {
+                    "rank": rank,
+                    "percent": 0,
+                    "mindstate": self.mindstates.pop(0),
+                }
+            }
+            if self.mindstates
+            else {},
+            hostiles=hostiles or {},
+        )
+
+    def _tick(self):
+        if self.mindstates and self.state.experience:
+            self.state.experience["Performance"]["mindstate"] = self.mindstates.pop(0)
+
+    # --- what the script's probe module does, on the fake clock ---
+    def ask(self, s, command, *_):
+        self.sent.append(command)
+        if command.startswith("play "):
+            if self.played_at is not None:
+                return ALREADY
+            self.played_at = self.now
+            return STARTED
+        if command == "stop play":
+            self.played_at = None
+            return STOPPED
+        return ""
+
+    def collect(self, s, seconds, until=None):
+        self.now += seconds
+        self._tick()
+        if (
+            self.played_at is not None
+            and self.ends_after is not None
+            and self.now - self.played_at >= self.ends_after
+        ):
+            self.played_at = None
+            return "You finish your song.\n"
+        return CONTINUES if self.played_at is not None else ""
+
+    # --- the handle ---
+    def put(self, command):
+        self.sent.append(command)
+
+    def get(self, timeout=None, streams=("",)):
+        return None
+
+    def command(self, timeout=None):
+        if self.stop_at is not None and not self.stopped and self.now >= self.stop_at:
+            self.stopped = True
+            return "return"
+        return None
+
+    def echo(self, text):
+        self.echoed.append(text)
+
+    def waitrt(self):
+        pass
+
+    def sleep(self, seconds):
+        self.now += seconds
+        self._tick()
+
+
+def run(fake, args=(), instrument="zills"):
+    script.clock = lambda: fake.now
+    script.probe = SimpleNamespace(ask=fake.ask, collect=fake.collect)
+    extra = [f"instrument={instrument}"] if instrument else []
+    script.run(fake, script.parse_args(list(args) + extra))
+    return "\n".join(fake.echoed)
+
+
+def plays(fake):
+    return [c for c in fake.sent if c.startswith("play ")]
+
+
+def test_the_song_follows_the_rank_band():
+    assert perform.song_for(0) == "scales"
+    assert perform.song_for(39) == "scales"
+    assert perform.song_for(40) == "arpeggios"
+    assert perform.song_for(99) == "march"
+    assert perform.song_for(600) == "concerto"
+    assert perform.song_for(None) == "scales"
+
+
+def test_the_play_line_and_the_args():
+    assert perform.play_command("scales", "off-key", "zills") == (
+        "play scales off-key on my zills"
+    )
+    assert perform.play_command("ballad", "", "lyre") == "play ballad on my lyre"
+    options = perform.parse_args(["instrument=lyre", "song=ballad", "until=30", "once"])
+    assert options == {
+        "instrument": "lyre",
+        "song": "ballad",
+        "mood": "off-key",
+        "until": 30,
+        "once": True,
+    }
+    assert perform.parse_args(["mood="])["mood"] == ""
+
+
+def test_a_retreat_ends_the_song_for_the_watch():
+    assert any(word in RETREATED.lower() for word in perform.STOPPED)
+    assert any(word in STOPPED.lower() for word in perform.STOPPED)
+
+
+def test_it_plays_once_and_lets_the_song_run_until_mind_lock():
+    fake = Fake(mindstates=[5, 10, 20, 30, 34], stop_at=1000 + 60)
+    out = run(fake, ["once"])
+    assert plays(fake) == ["play scales off-key on my zills"]
+    assert "perform: playing scales off-key on the zills (Performance 5/34)" in out
+    assert fake.sent[-1] == "stop play"
+    assert "Performance at 34/34 — done" in out
+    assert fake.now < 1000 + 10  # the lock was noticed within seconds
+
+
+def test_a_song_that_ran_out_is_started_again():
+    fake = Fake(mindstates=[5] * 40 + [34], ends_after=3, stop_at=1000 + 200)
+    run(fake, ["once"])
+    assert len(plays(fake)) >= 2
+    assert fake.sent[-1] == "stop play"
+
+
+def test_it_holds_at_the_lock_and_resumes_when_drained():
+    # Locked from the start; the pool drains to 27 while held; a song,
+    # the lock again, then a typed return ends the hold.
+    fake = Fake(mindstates=[34] + [27] * 35 + [34] * 200, stop_at=1000 + 120)
+    out = run(fake)
+    assert "mind-locked" in out
+    assert "drained to 27/34 — playing again" in out
+    assert plays(fake) == ["play scales off-key on my zills"]
+    assert out.endswith("perform: stopping")
+
+
+def test_a_typed_return_stops_the_song_and_ends():
+    fake = Fake(mindstates=[5] * 50, stop_at=1000 + 10)
+    out = run(fake)
+    assert fake.sent[-1] == "stop play"
+    assert "stopping as asked" in out
+
+
+def test_hostiles_stop_it_before_a_song():
+    fake = Fake(mindstates=[5] * 50, hostiles={"1": True})
+    out = run(fake)
+    assert "hostiles in the room" in out
+    assert plays(fake) == []
+
+
+def test_the_profiles_instrument_is_the_default(monkeypatch, tmp_path):
+    monkeypatch.setenv("REVENANT_PROFILES", str(tmp_path))
+    from client.game import profile
+
+    profile.save_profile(
+        "Lanival", profile.load_profile("Lanival") | {"instrument": "lyre"}
+    )
+    fake = Fake(mindstates=[5, 34], stop_at=1000 + 60)
+    run(fake, ["once"], instrument="")
+    assert fake.sent[0] == "play scales off-key on my lyre"
+
+
+def test_no_instrument_anywhere_is_told_so(monkeypatch, tmp_path):
+    monkeypatch.setenv("REVENANT_PROFILES", str(tmp_path))
+    fake = Fake(mindstates=[5])
+    out = run(fake, instrument="")
+    assert "no instrument" in out
+    assert fake.sent == []
+
+
+def test_a_guild_without_performance_is_told_so():
+    fake = Fake(mindstates=[])
+    out = run(fake)
+    assert "EXP shows no Performance" in out
+    assert fake.sent == ["exp performance"]

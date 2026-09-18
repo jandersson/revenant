@@ -148,7 +148,9 @@ for `client/client/<pkg>/x.py`.
   place with `here` for Moon Mages. `client/game/seek.py` walks the
   same loop reading each room's listing (the parser's `room_objs`)
   for a wandering NPC; `scripts/seek.py` stops in the room that has
-  it (#207). `client/game/encumbrance.py` is the
+  it (#207). `client/game/perform.py` is the song per rank band and
+  PLAY's wordings; `scripts/perform.py` plays the profile's
+  `instrument` until mind-lock (#208). `client/game/encumbrance.py` is the
   wiki's capacity rule (a burden level is a band of weights for the
   character's Strength + Stamina) and the readings' log; `scripts/enc.py`
   reads it and `;enc ballast` pins the load with coins. Model:

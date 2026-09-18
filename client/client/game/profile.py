@@ -108,6 +108,9 @@ DEFAULTS = {
     # Where ;attune walks before building its street loop — a ;go2
     # target (room id, tag, title); "" loops from wherever it stands.
     "attune_start": "",
+    # The instrument ;perform plays for Performance, worn or held
+    # ("zills"); "" means ;perform needs instrument=<noun> (#208).
+    "instrument": "",
 }
 
 # (key, label, kind, help) — kind is "bool", "int", "str" or "list".
@@ -173,6 +176,12 @@ FIELDS = (
     ),
     ("perception", "HUNT for tracks when a room empties (Perception)", "bool", ""),
     ("attune_start", ";attune walks to (;go2 target)", "str", "empty: from here"),
+    (
+        "instrument",
+        "Instrument ;perform plays (Performance)",
+        "str",
+        "zills — empty: none",
+    ),
 )
 
 _KINDS = {key: kind for key, _, kind, _ in FIELDS}

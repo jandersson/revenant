@@ -270,6 +270,47 @@ character's. The script stops on death or hostiles, when eight
 perceives in a row gain nothing (a guild that cannot sense mana), and
 when the map has no street to loop from the starting room.
 
+## Playing: ;perform
+
+Performance trains by playing an instrument: PLAY (song) {mood} ON
+{instrument} starts a song that then runs on its own, and the skill
+learns while it plays ([Performance skill](https://elanthipedia.play.net/Performance_skill),
+[Play command](https://elanthipedia.play.net/Play_command)). The Play
+page gives the song per rank band — scales to 39, arpeggios to 49,
+ditty to 58, ballad to 69, waltz to 79, march to 99, lament to 124,
+hymn to 179, polka to 219, reel to 249, serenade to 299, psalm to
+349, tango to 449, bolero to 474, nocturne to 524, requiem to 549, a
+concerto from 550 — and says off-key or halting moods make any song
+easier, so `;perform` plays the band's song off-key on the profile's
+`instrument` (`instrument=`, `song=`, `mood=` override it), watches
+the mindstate, starts the song again when the story says it ended,
+and at mind-lock STOPs PLAY and holds until the pool has drained
+(`once` exits instead). Under `;train` (`"script": "perform",
+"skills": ["Performance"], "return_word": "return"`) the loop ends it
+at the plan's target; the word stops the song first. It stops on
+death, on hostiles, without the instrument, and when EXP shows no
+Performance.
+
+Captured 2026-09-18 on a rank-2 Paladin, a pair of copper zills worn
+on a finger (Riverhaven's peddler, 500 Lirums), aboard the Faldesu
+ferry:
+
+```
+> play scales off-key on my zills
+You fumble slightly as you begin an off-key ruff on your copper zills.
+You continue playing on your copper zills.
+You continue to fumble through a few uncertain rhythms on your copper zills, but it doesn't sound like what you intended.
+> play scales on my zills
+You're already playing a song!  You'll need to stop that one first.
+> stop play
+You stop playing your song.
+```
+
+Performance went 2 00% learning → thoughtful within the first minute
+and reached rank 3 on the second song. Whether a song ends on its
+own, and its wording, is uncaptured (the script's ENDED table is a
+guess); so is a PLAY with no instrument on you.
+
 ## Out of scope in the first cut
 
 A dialog for the plan (the file is the interface), a trainer per
