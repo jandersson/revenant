@@ -59,7 +59,11 @@ never carries two casts; a stunned foe bites nothing (#192).
 the same way while Targeted Magic sits below lock — it takes the
 weapon in hand as its focus, which the fight already holds; the buff
 training cast, the debilitation cast and this one take turns, one
-cast per swing at most (#200).
+cast per swing at most (#200). Each of the two is DISCERNed once
+before the weapon is drawn, and a spell the character's ranks cannot
+carry — DISCERN's "You don't think you are able to cast this spell",
+or a cast that "fails completely" for lack of skill — is off for the
+run, the rank named (#202).
 `perception` on: when a room of the ground has emptied, and on every
 lap of an empty ground, one HUNT for tracks before moving on, at most
 once per 75 seconds while Perception sits below lock — HUNT teaches
@@ -533,12 +537,16 @@ def cast_buffs(s, profile, tally, fight=False):
     In the fight (`fight`) the targeted spells — the profile's
     `debilitation` and `targeted` — go out at the prey too, taking
     turns with the buff training cast (buffs.next_cast), so a swing
-    never carries two casts (#192, #200)."""
+    never carries two casts (#192, #200). Outside the fight, each
+    targeted spell is DISCERNed once per run first, so one the ranks
+    cannot carry never costs a PREPARE (#202)."""
     state = tally.buffs
 
     def report(what, answer):
         unrecognized(s, tally, what, answer)
 
+    if not fight:
+        buffs.discern_slots(s, profile, state, ask, "hunt", report)
     turn = buffs.next_cast(s, profile, state) if fight else None
     if turn in buffs.TARGETED_SLOTS:
         buffs.cast_targeted(

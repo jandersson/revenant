@@ -71,7 +71,18 @@ before a swing — the buff training cast and the targeted slots in
 rotation, one cast per swing at most. Footman's Strike's cast line is
 the wiki's "You gesture at <target> with your <weapon>." until
 captured; the hit, resist and unarmed wordings are still to capture
-(#200).
+(#200). A spell the character lacks the ranks for answers the cast
+with "Currently lacking the skill to complete the pattern, your spell
+fails completely." (captured 2026-09-18: Footman's Strike, a basic
+spell, at Targeted Magic 1 — the wiki puts a basic spell at around 20
+ranks to cast at minimum mana), which cast_once() returns as
+"lacking": the spell is off for the run, its rank named, no mana
+step. Before a run's first cast of each targeted slot, discern_slots()
+DISCERNs the spell (8 seconds of roundtime, no mana; Elanthipedia:
+Discern command) and turns the slot off on "You don't think you are
+able to cast this spell" before any PREPARE is spent; the estimate
+wording is the wiki's "You think you could weave at most N mana
+streams into this spell." until captured (#202).
 """
 
 from time import monotonic
@@ -93,6 +104,9 @@ PREPARE_OUTCOMES = (
     ("ok", ("you begin", "gathering energy", "prepar")),
 )
 CAST_OUTCOMES = (
+    # The spell's own skill is short of the spell (captured 2026-09-18,
+    # Footman's Strike at Targeted Magic 1, #202): no mana will help.
+    ("lacking", ("lacking the skill to complete the pattern",)),
     ("failed", ("pattern collapses", "backfire", "not enough mana", "nothing to cast")),
     ("ok", ("takes effect", "renewed", "you gesture", "slams into")),
 )
@@ -112,6 +126,14 @@ CHARGE_OUTCOMES = (
     ("full", ("already holding as much power", "dissipates uselessly")),
     ("failed", ("fail to channel any",)),
     ("ok", ("absorbs all of the energy", "channel all the energy", "absorbs")),
+)
+# DISCERN <spell> before a targeted slot's first cast of a run (#202):
+# the refusal is the wiki's (Talk:Regenerate), the estimate the Discern
+# command page's, both until captured.
+DISCERN_OUTCOMES = (
+    ("unable", ("don't think you are able",)),
+    ("unknown", ("don't know", "no such spell", "what spell")),
+    ("ok", ("mana streams", "weave at most")),
 )
 MANA_FLOOR = 40  # % of mana under which no training cast goes out
 CAST_GAP_SECONDS = 60  # between training casts, for a profile without cast_gap
@@ -137,6 +159,7 @@ class BuffState:
         self.slot_mana = {}  # targeted slot -> its next cast's mana (#192, #200)
         self.slot_cap = {}  # targeted slot -> one step under its strain, once met
         self.slots_off = set()  # targeted slots whose spell refused this run
+        self.discerned = set()  # targeted slots DISCERNed this run (#202)
         self.last_training = None  # "buff" or a targeted slot: whose turn it was
 
 
@@ -150,6 +173,12 @@ def locked(state, skills):
         (experience.get(skill) or {}).get("mindstate", 0) >= MIND_LOCK
         for skill in skills
     )
+
+
+def rank_of(state, skill):
+    """The skill's rank in the exp window, or None before it has shown."""
+    experience = getattr(state, "experience", None) or {}
+    return (experience.get(skill) or {}).get("rank")
 
 
 def buff_running(s, spell, state):
@@ -206,8 +235,9 @@ def cast_once(s, spell, mana, state, ask, report, invoke=None, target=""):
     INVOKE the cambrinth piece when one is charged (`invoke`, its
     noun), CAST (at `target` when one is named), and stow the piece.
     "refused" (the spell cannot be
-    prepared), "collapsed" (the cast failed), "strained" (cast, but the
-    mana asked was too much) or "ok"."""
+    prepared), "lacking" (the character's ranks cannot carry the spell
+    at all, #202), "collapsed" (the cast failed), "strained" (cast, but
+    the mana asked was too much) or "ok"."""
     answer = ask(s, f"prepare {spell} {mana}" if mana else f"prepare {spell}")
     outcome = classify(answer, PREPARE_OUTCOMES)
     if outcome == "failed":
@@ -221,6 +251,8 @@ def cast_once(s, spell, mana, state, ask, report, invoke=None, target=""):
     cast = classify(answer, CAST_OUTCOMES)
     if invoke:
         ask(s, f"stow my {invoke}")
+    if cast == "lacking":
+        return "lacking"
     if cast == "failed":
         return "collapsed"
     if cast is None:
@@ -298,13 +330,41 @@ def next_cast(s, profile, state):
     return next(turn for turn in order if turn in due)
 
 
+def discern_slots(s, profile, state, ask, prefix, report):
+    """DISCERN each targeted slot's spell once per run, before its
+    first cast: "You don't think you are able to cast this spell" (or a
+    spell the character does not know) turns the slot off, its skill's
+    rank named, before a PREPARE is spent on it. Eight seconds of
+    roundtime per spell, waited out; an answer outside the table is
+    reported and the slot cast anyway (#202)."""
+    for slot, skill in TARGETED_SLOTS.items():
+        spell = profile.get(slot) or ""
+        if not spell or slot in state.slots_off or slot in state.discerned:
+            continue
+        state.discerned.add(slot)
+        answer = ask(s, f"discern {spell}")
+        s.waitrt()
+        outcome = classify(answer, DISCERN_OUTCOMES)
+        if outcome == "unable":
+            state.slots_off.add(slot)
+            s.echo(
+                f"{prefix}: DISCERN says {spell} is beyond {skill} rank "
+                f"{rank_of(s.state, skill)} — off for this run"
+            )
+        elif outcome == "unknown":
+            state.slots_off.add(slot)
+            s.echo(f"{prefix}: {spell} is not a spell you know — off for this run")
+        elif outcome is None:
+            report("discern", answer)
+
+
 def cast_targeted(s, profile, state, ask, prefix, report, slot, target=""):
     """PREPARE the profile's spell in `slot` with its ramp's mana and
     CAST it at the target (the prey's noun; "" casts at whatever is
     engaged). The mana climbs by MANA_STEP per cast that took until the
     strain warning or a collapse, then holds one step under; a collapse
-    at the minimum turns the spell off for the run, said once (#192,
-    #200)."""
+    at the minimum, or a cast the ranks cannot carry, turns the spell
+    off for the run, said once (#192, #200, #202)."""
     spell = profile[slot]
     skill = TARGETED_SLOTS[slot]
     mana = state.slot_mana.get(slot, 0)
@@ -312,6 +372,12 @@ def cast_targeted(s, profile, state, ask, prefix, report, slot, target=""):
     state.last_training = slot
     if result == "refused":
         s.echo(f"{prefix}: cannot prepare {spell} — off for this run")
+        state.slots_off.add(slot)
+    elif result == "lacking":
+        s.echo(
+            f"{prefix}: {spell} fails for lack of {skill} ranks "
+            f"({rank_of(s.state, skill)}) — off for this run"
+        )
         state.slots_off.add(slot)
     elif result == "ok":
         s.echo(
@@ -362,6 +428,9 @@ def cast_buffs(s, profile, state, ask, prefix="buffs", report=None, train=True):
             state.last_training = "buff"
         if result == "refused":
             s.echo(f"{prefix}: cannot prepare {spell} — off for this run")
+            state.buffs_off.add(spell)
+        elif result == "lacking":
+            s.echo(f"{prefix}: {spell} fails for lack of ranks — off for this run")
             state.buffs_off.add(spell)
         elif not training:
             if result == "collapsed":

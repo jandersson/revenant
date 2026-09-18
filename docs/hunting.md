@@ -224,6 +224,25 @@ the same cast gap and mana ramp as the debilitation spell; the buff
 training cast, the debilitation cast and this one take turns in that
 order, so a swing never carries two casts (#200).
 
+The ranks come first. Footman's Strike is a basic-tier spell
+([Paladin spells](https://elanthipedia.play.net/Paladin_spells)), and
+the Targeted Magic page puts the ranks to cast one at minimum mana at
+"around 1 rank for intro, around 20 for basic"; Paladins have no intro
+Targeted Magic spell. At Targeted Magic 1 the first scripted strike
+(2026-09-18, a striped badger) answered "You gesture at a striped
+badger with your oak-hafted handaxe. / Currently lacking the skill to
+complete the pattern, your spell fails completely." — and the loop,
+not knowing the line, stepped the mana up and spent a PREPARE and a
+CAST on it every rotation (#202). Now that answer turns the slot off
+for the run with the rank named, and before the weapon is drawn each
+targeted spell is DISCERNed once
+([Discern command](https://elanthipedia.play.net/Discern_command):
+eight seconds of roundtime, no mana, "You think you could weave at
+most 27 mana streams into this spell."), so "You don't think you are
+able to cast this spell" ([Talk:Regenerate](https://elanthipedia.play.net/Talk:Regenerate))
+costs no cast at all. How a Paladin earns the first Targeted Magic
+ranks is an open question for the operator; the slot waits.
+
 ## Tactics
 
 Tactics trains like a weapon skill, at melee against an opponent of

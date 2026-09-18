@@ -1176,6 +1176,8 @@ STUNNED = (
 )
 SF_PREPARED = "You begin chanting a prayer to invoke the Stun Foe spell."
 STUNNING = PROFILE | {"debilitation": "stun foe"}
+# DISCERN's estimate is the wiki's until captured (#202).
+DISCERNED = "You think you could weave at most 27 mana streams into this spell."
 DEBIL_OPEN = {"Debilitation": {"rank": 1, "percent": 0, "mindstate": 5}}
 
 
@@ -1187,12 +1189,15 @@ def test_the_debilitation_spell_is_cast_at_the_prey_before_the_swing(travel):
             "cast": [STUNNED] * 3,
             "skin": [SKINNED] * 3,
             "search": [NOTHING] * 3,
+            "discern": [DISCERNED],
         },
         experience=DEBIL_OPEN,
     )
     arena.state.vitals["mana"] = 100
     _run(arena, profile=STUNNING | {"max_kills": 3}, travel_first=False)
-    assert arena.sent[:5] == [
+    # DISCERN first, before the weapon is drawn (#202); the cast in the fight.
+    assert arena.sent[:6] == [
+        "discern stun foe",
         "get my handaxe from my sack",
         "stance set 100 80 0",
         "prepare stun foe",
@@ -1294,13 +1299,15 @@ def test_the_targeted_spell_is_cast_at_the_prey_before_the_swing(travel):
             "cast": [STRUCK] * 3,
             "skin": [SKINNED] * 3,
             "search": [NOTHING] * 3,
+            "discern": [DISCERNED],
         },
         experience=TM_OPEN,
     )
     arena.state.vitals["mana"] = 100
     _run(arena, profile=STRIKING | {"max_kills": 3}, travel_first=False)
     # Only in the fight, the weapon drawn: the spell takes it as its focus.
-    assert arena.sent[:5] == [
+    assert arena.sent[:6] == [
+        "discern footman's strike",
         "get my handaxe from my sack",
         "stance set 100 80 0",
         "prepare footman's strike",
@@ -1408,6 +1415,103 @@ def test_the_buff_debilitation_and_targeted_casts_take_turns(travel):
         "prepare stun foe 2",  # swing 4
         "prepare footman's strike 2",  # swing 5
     ]
+
+
+# Captured 2026-09-18 (#202): Footman's Strike, a basic spell, at
+# Targeted Magic rank 1.
+LACKING = (
+    "You gesture at a rat with your handaxe.\nCurrently lacking the skill to "
+    "complete the pattern, your spell fails completely."
+)
+TM_RANK_1 = {"Targeted Magic": {"rank": 1, "percent": 0, "mindstate": 0}}
+
+
+def test_a_strike_the_ranks_cannot_carry_is_off_for_the_run_with_the_rank_named(
+    travel,
+):
+    # The loop used to take "fails completely" for a cast that landed,
+    # step the mana up and prepare it again every rotation.
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands)] * 3 + [(KILL, kill)],
+            "prepare": [FS_PREPARED] * 4,
+            "cast": [LACKING] * 4,
+            "skin": [SKINNED] * 4,
+            "search": [NOTHING] * 4,
+            "discern": [DISCERNED],
+        },
+        experience=TM_RANK_1,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STRIKING | {"max_kills": 4}, travel_first=False)
+    assert prepares(arena) == ["prepare footman's strike"]
+    assert any(
+        "footman's strike fails for lack of Targeted Magic ranks (1) — off for this run"
+        in text
+        for text in arena.echoed
+    )
+    assert not any("for Targeted Magic" in text for text in arena.echoed)
+
+
+def test_discern_saying_no_spares_the_prepare_and_names_the_rank(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands), (KILL, kill)],
+            "prepare": [FS_PREPARED] * 2,
+            "cast": [LACKING] * 2,
+            "skin": [SKINNED] * 2,
+            "search": [NOTHING] * 2,
+            "discern": ["You don't think you are able to cast this spell."],
+        },
+        experience=TM_RANK_1,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STRIKING | {"max_kills": 2}, travel_first=False)
+    assert arena.sent.count("discern footman's strike") == 1
+    assert prepares(arena) == []
+    assert any(
+        "DISCERN says footman's strike is beyond Targeted Magic rank 1" in text
+        for text in arena.echoed
+    )
+
+
+def test_discern_goes_out_once_per_slot_and_not_for_an_empty_one(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands)] * 2 + [(KILL, kill)],
+            "prepare": [SF_PREPARED] * 3,
+            "cast": [STUNNED] * 3,
+            "skin": [SKINNED] * 3,
+            "search": [NOTHING] * 3,
+            "discern": [DISCERNED] * 3,
+        },
+        experience=DEBIL_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STUNNING | {"max_kills": 3}, travel_first=False)
+    discerns = [c for c in arena.sent if c.startswith("discern")]
+    assert discerns == ["discern stun foe"]
+
+
+def test_a_buff_the_ranks_cannot_carry_is_off_for_the_run(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands), (KILL, kill)],
+            "prepare": [PREPARED] * 2,
+            "cast": [
+                "You gesture.\nCurrently lacking the skill to complete the pattern, your spell fails completely."
+            ]
+            * 2,
+            "skin": [SKINNED] * 2,
+            "search": [NOTHING] * 2,
+        }
+    )
+    _run(arena, profile=BUFFED | {"max_kills": 2}, travel_first=False)
+    assert prepares(arena) == ["prepare heroic strength"]
+    assert any(
+        "heroic strength fails for lack of ranks — off for this run" in text
+        for text in arena.echoed
+    )
 
 
 # --- tracks ----------------------------------------------------------------
