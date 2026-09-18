@@ -893,7 +893,9 @@ class ClientGUI(QMainWindow, ClientLogger):
             Thread(target=self._reconnect_direct, daemon=True).start()
             return
         from client.engine.launch import (
+            account_for_character,
             gather_login,
+            load_login_defaults,
             session_running,
             spawn_session,
             wait_for_session,
@@ -901,10 +903,24 @@ class ClientGUI(QMainWindow, ClientLogger):
 
         process = None
         if not session_running(self.client.host, self.client.port):
+            # This window's character, on the account that owns it —
+            # gather_login(None) took the saved login default and logged
+            # the account's other character in (2026-09-19).
+            character = self._character or None
+            account = (
+                account_for_character(load_login_defaults(), character)
+                if character
+                else None
+            )
+            if not character:
+                self._say(
+                    "reconnect: this window never learned its character — "
+                    "logging in the saved default"
+                )
             try:
                 # Three values since the multi-account rework — the old
                 # two-value unpack crashed the whole GUI on click.
-                account, character, key = gather_login(None)
+                account, character, key = gather_login(character, account=account)
             except SystemExit:
                 self._say("reconnect: cancelled")
                 return

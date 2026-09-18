@@ -90,7 +90,10 @@ entries from a dock-layout module.
   client side; it presents the same surface as `Engine`. Typing `;reexec`
   in any frontend re-execs the session with the code currently on disk,
   handing the live game socket across (`--game-fd`) — no logout, no
-  re-login; frontends drop and auto-reattach within ~10s. Indicator
+  re-login; frontends drop and auto-reattach within ~10s. File →
+  Reconnect in a window whose session is gone starts a new one for the
+  window's own character on the account that owns it (the saved login
+  default logged the account's other character in, 2026-09-19). Indicator
   state and the character name ride along (`REVENANT_GAME_STATE`):
   the game only announces indicators on change and the login <app>
   tag never repeats, so a fresh parser could otherwise never learn
