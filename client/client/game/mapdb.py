@@ -271,14 +271,16 @@ class MapDB:
             self._graph = graph
         return self._graph
 
-    def path(self, start, goals, avoid=()):
+    def path(self, start, goals, avoid=(), closed=()):
         """Fastest walkable path from start to the nearest goal —
         weighted by the map's timeto travel times, so a route optimizes
         minutes, not hop count (a 30s swim loses to three 0.2s steps).
 
         Rooms in `avoid` are detoured around whenever a clean route
         exists; when none does, the route crosses them anyway (the
-        caller can warn — walker.walk does).
+        caller can warn — walker.walk does). Edges in `closed` — (room,
+        dest) pairs the game refused this run, "not experienced enough
+        to go there" (#209) — are never taken.
 
         Returns a list of (room_id, command) steps ([] if already there),
         or None when every route needs an unwalkable (scripted) edge."""
@@ -288,10 +290,13 @@ class MapDB:
         if start not in self.rooms:
             raise KeyError(start)
         avoid = frozenset(avoid)
+        closed = frozenset(closed)
         weight = "seconds"
-        if avoid:
+        if avoid or closed:
 
             def weight(here, dest, data):
+                if (here, dest) in closed:
+                    return None  # not an edge, for this walk
                 penalty = AVOID_PENALTY_SECONDS if dest in avoid else 0.0
                 return data["seconds"] + penalty
 

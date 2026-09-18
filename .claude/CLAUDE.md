@@ -164,7 +164,9 @@ for `client/client/<pkg>/x.py`.
   footing gets one retry standing with the named items stowed, then
   a stop that says so (#157). The Faldesu ferry between the Crossing
   and Riverhaven is ridden (the map's bescort edge, #205); other
-  bescort routes stay unwalkable. Model: docs/movement.md.
+  bescort routes stay unwalkable. A way the game closes to the
+  character ("not experienced enough to go there") is routed around,
+  never retreated from (#209). Model: docs/movement.md.
 - `client/game/possessions.py` — possessions by exist id: the parser's
   listing built into items, `find(items, noun)` for a script that
   wants exactly this orb (`get #<id>`), `rows()` for `;sheet inv`'s

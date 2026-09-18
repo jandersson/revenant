@@ -122,6 +122,21 @@ read off the rows. `train=<stat>` spends one point first, in the
 stat's training room the map tags (TRAIN twice, per the Time
 Development Points page), with INFO before and after.
 
+## Ways closed to the character
+
+Some edges the map knows are gated by a circle or a guild the map
+cannot see: from The Crossing, Northeast Customs the fastest way to
+the Paladins' Guild library is `go trail` into the guild's back
+promenade, and a circle-2 Paladin was answered "You're not
+experienced enough to go there." and left where he stood (2026-09-18,
+#209). The walker used to read that as a stall — retreat burst, one
+retry, stop — and it ended the song he was playing. Now the wording
+(`GATE_REFUSALS`) is a "closed" arrival: the edge goes into the walk's
+closed set, "the way to <title> is closed to you (...) — going round"
+is echoed, and the route is planned again from where he stands with
+that edge excluded (`MapDB.path(..., closed=)`), up to three times on
+one walk. No retreat, no retry.
+
 ## Edges the map can and cannot walk
 
 `wayto` commands are game commands, except embedded lich Ruby

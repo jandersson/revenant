@@ -88,6 +88,14 @@ CLIMB_REFUSALS = (
 # leaves you — answers with these (captured on the retry, 2026-09-11);
 # the same retry, which STANDs first, is the remedy.
 POSTURE_REFUSALS = ("You must be standing", "You must stand first")
+# A way the game closes to the character — a circle or guild gate the
+# map cannot know: the Paladins' Guild's back trail from the Northeast
+# Customs answered a circle-2 Paladin "You're not experienced enough to
+# go there." and left him where he stood (captured 2026-09-18, #209).
+# Not a stall: no retreat, no retry — the edge is closed for the run
+# and the route planned again without it.
+GATE_REFUSALS = ("not experienced enough to go there",)
+REROUTES = 3  # closed ways worked around on one walk before giving up
 _HINDERS = re.compile(r"Your (.+?) makes? the climb more difficult")
 
 
@@ -243,9 +251,10 @@ def ride_ferry(s):
 
 def await_arrival(s, timeout=ARRIVAL_TIMEOUT):
     """Wait for the compass frame that means the move landed, reading
-    the story meanwhile for a climb turned back. ("arrived" | "refused"
-    | "stalled", the hindering item nouns a refusal named, the story
-    text seen — the climb log keeps the wording, #159)."""
+    the story meanwhile for a climb turned back or a way closed to the
+    character. ("arrived" | "refused" | "closed" | "stalled", the
+    hindering item nouns a refusal named, the story text seen — the
+    climb log keeps the wording, #159)."""
     deadline = monotonic() + timeout
     hindering = []
     seen = []
@@ -265,6 +274,8 @@ def await_arrival(s, timeout=ARRIVAL_TIMEOUT):
         hindering.extend(hindering_nouns(text))
         if any(needle in text for needle in CLIMB_REFUSALS + POSTURE_REFUSALS):
             return "refused", hindering, "".join(seen)
+        if any(needle in text for needle in GATE_REFUSALS):
+            return "closed", hindering, "".join(seen)
 
 
 def note_climb(s, command, outcome, wording, room):
@@ -327,21 +338,39 @@ def walk(s, db, goals, describe="destination", avoid=()):
             s.echo("current room unknown yet — 'look' once and retry")
         return False
     avoid = frozenset(avoid)
-    route = db.path(here, set(goals), avoid=avoid)
-    if route is None:
-        s.echo(f"no walkable path to {describe} (a scripted-only edge may be needed)")
-        return False
-    if not route:
-        return True
+    closed = set()  # (room, dest) edges the game refused this walk (#209)
+    for _ in range(REROUTES + 1):
+        route = db.path(here, set(goals), avoid=avoid, closed=closed)
+        if route is None:
+            s.echo(
+                f"no walkable path to {describe} (a scripted-only edge may be needed)"
+            )
+            return False
+        if not route:
+            return True
+        crossed = [dest for dest, _ in route if dest in avoid]
+        if crossed:
+            titles = db.rooms[crossed[0]].get("title") or ["?"]
+            s.echo(
+                f"warning: no clean detour — the route crosses "
+                f"{len(crossed)} avoided room(s), first {titles[0]}"
+            )
+        s.echo(f"walking {len(route)} steps to {describe}")
+        outcome = _follow(s, db, route, here, closed)
+        if outcome != "closed":
+            return outcome
+        here = locate(db, s.state)
+        if here is None:
+            s.echo("current room unknown after the refusal — stopping here")
+            return False
+    s.echo(f"{REROUTES} ways closed to you on one walk — stopping here")
+    return False
 
-    crossed = [dest for dest, _ in route if dest in avoid]
-    if crossed:
-        titles = db.rooms[crossed[0]].get("title") or ["?"]
-        s.echo(
-            f"warning: no clean detour — the route crosses "
-            f"{len(crossed)} avoided room(s), first {titles[0]}"
-        )
-    s.echo(f"walking {len(route)} steps to {describe}")
+
+def _follow(s, db, route, here, closed):
+    """Walk one planned route from `here`: True on arrival, False on a
+    stop, "closed" when the game refused an edge — added to `closed`
+    for the caller to plan again without it (#209)."""
     for number, (dest, command) in enumerate(route, 1):
         if s.dead:
             s.echo(f"died en route at step {number} — stopping; deathwatch takes it")
@@ -367,6 +396,12 @@ def walk(s, db, goals, describe="destination", avoid=()):
         s.put(commands[-1])
         outcome, hindering, wording = await_arrival(s)
         note_climb(s, commands[-1], outcome, wording, dest)
+        if outcome == "closed":
+            closed.add((here, dest))
+            titles = db.rooms[dest].get("title") or ["?"]
+            first = (wording.strip().splitlines() or ["?"])[0]
+            s.echo(f"the way to {titles[0]} is closed to you ({first!r}) — going round")
+            return "closed"
         if outcome == "refused":
             # A climb beyond the character's Athletics (#157): one
             # retry standing and unburdened, then the truth and a stop.
@@ -408,6 +443,7 @@ def walk(s, db, goals, describe="destination", avoid=()):
         if outcome != "arrived":
             s.echo(f"stalled at step {number} ({commands[-1]!r}) — stopping here")
             return False
+        here = dest  # the planned room, or its twin: the same place
         # Arrival check: the nav uid is exact when the map knows it;
         # title comparison is the fallback for unmapped-uid rooms.
         uid = getattr(s.state, "room_uid", None)

@@ -674,3 +674,83 @@ def test_every_climb_the_walker_sends_is_logged(tmp_path, monkeypatch):
     assert rows[0]["hindering"].startswith("Your oak-hafted handaxe")
     assert rows[0]["athletics_rank"] == 7 and rows[0]["obstacle"] == "climb felled tree"
     assert not any(call == ("put", "info") for call in handle.calls)
+
+
+# --- a way closed to the character (#209) ----------------------------------
+GATED = MapDB(
+    [
+        {
+            "id": 818,
+            "uid": [10818],
+            "title": ["[The Crossing, Northeast Customs]"],
+            "wayto": {"15122": "go trail", "817": "west"},
+        },
+        {
+            "id": 15122,
+            "uid": [15122],
+            "title": ["[Paladins' Guild, Holy Warrior's Promenade]"],
+            "wayto": {"11716": "south"},
+        },
+        {"id": 817, "uid": [10817], "title": ["[Street]"], "wayto": {"816": "west"}},
+        {"id": 816, "uid": [10816], "title": ["[Street]"], "wayto": {"11716": "north"}},
+        {"id": 11716, "uid": [11716], "title": ["[Paladins' Guild, Library]"]},
+    ]
+)
+NOT_EXPERIENCED = "You're not experienced enough to go there.\n"  # captured 2026-09-18
+
+
+class GateHandle(FakeHandle):
+    """The trail answers the refusal and no compass frame; every other
+    move lands like any move."""
+
+    def __init__(self, uids):
+        super().__init__(uids)
+        self.pending = []
+
+    def put(self, command):
+        super().put(command)
+        if command == "go trail":
+            self.pending = [("", NOT_EXPERIENCED)]
+
+    def get(self, timeout=None, streams=("",)):
+        if timeout == 0:
+            return None
+        if self.pending:
+            return self.pending.pop(0)
+        if command_was_trail(self):
+            return None  # no arrival follows the refusal
+        return super().get(timeout, streams)
+
+
+def command_was_trail(handle):
+    return puts_of(handle)[-1:] == ["go trail"]
+
+
+def test_a_closed_way_is_routed_around_without_a_retreat():
+    handle = GateHandle(uids=[10817, 10816, 11716])
+    handle.state.room_uid = 10818
+    assert walker.walk(handle, GATED, [11716], describe="the library") is True
+    assert puts_of(handle) == ["go trail", "west", "west", "north"]
+    assert any("closed to you" in echo for echo in handle.echoes)
+    assert any("going round" in echo for echo in handle.echoes)
+
+
+def test_a_closed_edge_is_out_of_the_route_for_the_rest_of_the_walk():
+    route = GATED.path(818, [11716], closed={(818, 15122)})
+    assert [dest for dest, _ in route] == [817, 816, 11716]
+    assert GATED.path(818, [11716])[0] == (15122, "go trail")
+
+
+def test_every_way_closed_stops_the_walk():
+    lone = MapDB(
+        [
+            {"id": 1, "uid": [1], "title": ["[A]"], "wayto": {"2": "go trail"}},
+            {"id": 2, "uid": [2], "title": ["[B]"]},
+        ]
+    )
+    handle = GateHandle(uids=[])
+    handle.state.room_uid = 1
+    assert walker.walk(handle, lone, [2]) is False
+    assert puts_of(handle) == ["go trail"]
+    assert not any(put == "retreat" for put in puts_of(handle))
+    assert any("no walkable path" in echo for echo in handle.echoes)
