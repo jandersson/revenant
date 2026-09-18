@@ -311,6 +311,45 @@ and reached rank 3 on the second song. Whether a song ends on its
 own, and its wording, is uncaptured (the script's ENDED table is a
 guess); so is a PLAY with no instrument on you.
 
+## Reading: ;scholarship books
+
+Scholarship trains by "reading books at a library"
+([Scholarship skill](https://elanthipedia.play.net/Scholarship_skill));
+the RECALL forms the wiki also lists ([Recall command](https://elanthipedia.play.net/Recall_command):
+HOLIDAY, IMMORTAL <name>, HERB) answered but registered nothing at
+rank 2 (2026-09-18), so the plan's recall task is gone and
+`;scholarship books` reads. A Lorethew library lends by call letters
+(the sign: "Use the Call Letters of a book to get it (GET). Look on
+the shelves for a complete listing ... You are granted use of our
+books (READ) ... Please return all books"): LOOK SHELVES prints the
+table of titles and letters; GET <letters>; READ MY BOOK ("You get an
+urge to open it up and read the contents."); OPEN MY BOOK; READ MY
+BOOK again into the page reader, where a bare number turns to that
+page ("Reading:  INTRODUCTION: ..."), "?" prints the help, a number
+past the end answers "'17' is not a page in this book!" and Q closes
+the book. Nothing but a number or Q goes out while the reader is open
+(it takes anything else for a page), and Q never goes out outside it
+(it is some other verb there). STOW MY BOOK — or PUT ... IN MY
+<container> — returns the book: "You return the book to where it
+belongs." No DROP.
+
+Measured on a Paladin at Scholarship 2 in the guild library: four
+books (13, about 3, 15 and 19 pages) took the skill to rank 4 at 24
+percent in fifteen minutes; a book teaches per read, not per page
+(the three-page story moved it as much as the thirteen-page
+introduction), teaches nothing read again at once, and taught again
+70 minutes later. So the script reads the shelves through, returns
+each book, and after a lap that taught nothing waits `timer` minutes
+(60 by default; the timer's true length is unmeasured). At mind-lock
+the book is closed and returned and the script holds like `;attune`
+(`once` exits). It stops on death or hostiles with the book returned,
+waits out bleeding (the sign: "Please do not read a book while
+bleeding"), and walks to the profile's `library` first (`library=`
+overrides). Under `;train`: `"script": "scholarship", "args":
+["books"], "skills": ["Scholarship"], "return_word": "return"`.
+`;scholarship classes` — listening to classes at the town's nexus
+rooms — is planned on #210 and not built.
+
 ## Out of scope in the first cut
 
 A dialog for the plan (the file is the interface), a trainer per

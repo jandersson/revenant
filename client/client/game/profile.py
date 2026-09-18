@@ -111,6 +111,9 @@ DEFAULTS = {
     # The instrument ;perform plays for Performance, worn or held
     # ("zills"); "" means ;perform needs instrument=<noun> (#208).
     "instrument": "",
+    # The library ;scholarship books reads in — a ;go2 target (the
+    # Paladins' Guild library is 11716); "" reads where it stands (#210).
+    "library": "",
 }
 
 # (key, label, kind, help) — kind is "bool", "int", "str" or "list".
@@ -181,6 +184,12 @@ FIELDS = (
         "Instrument ;perform plays (Performance)",
         "str",
         "zills — empty: none",
+    ),
+    (
+        "library",
+        "Library ;scholarship reads in (;go2 target)",
+        "str",
+        "11716 — empty: here",
     ),
 )
 
