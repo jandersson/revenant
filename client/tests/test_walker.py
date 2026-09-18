@@ -960,3 +960,39 @@ def test_an_exit_the_game_cannot_find_is_routed_around():
     assert puts_of(handle) == ["go panel", "south", "north"]
     assert "retreat" not in puts_of(handle)
     assert any("closed to you" in echo for echo in handle.echoes)
+
+
+# Captured 2026-09-18 on Obsidian Pass's silverwood branch: the dizziness
+# refusal names the branch, not a tree.
+DIZZY_BRANCH = (
+    "Trying to judge the climb, you peer over the edge.  A wave of dizziness "
+    "hits you, and you back away from the branch.\n"
+)
+
+
+def test_the_dizziness_refusal_is_known_for_any_climb():
+    assert any(needle in DIZZY_BRANCH for needle in walker.CLIMB_REFUSALS)
+
+
+class BranchHandle(ClimbAroundHandle):
+    """The branch: dizziness first (a stall until the table knew it),
+    then hard going on the retry."""
+
+    ANSWERS = dict(ClimbHandle.ANSWERS, branch=DIZZY_BRANCH)
+
+
+def test_a_climb_refused_on_the_stall_retry_is_routed_around_too(monkeypatch):
+    # Even when the first answer reads as a stall, a refusal on the
+    # retry closes the edge instead of stopping the walk.
+    monkeypatch.setattr(
+        walker,
+        "CLIMB_REFUSALS",
+        tuple(n for n in walker.CLIMB_REFUSALS if "back away" not in n),
+    )
+    handle = BranchHandle(uids=[224007, 224006], answers=["branch", "hard_going"])
+    handle.state.room_uid = 224005
+    assert walker.walk(handle, AROUND, [5705]) is True
+    puts = puts_of(handle)
+    assert puts.count("climb felled tree") == 2
+    assert puts[-2:] == ["west", "north"]
+    assert any("turned back for you" in echo for echo in handle.echoes)

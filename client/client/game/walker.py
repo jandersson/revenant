@@ -99,7 +99,7 @@ CLIMB_REFUSALS = (
     "climb back down",
     "find purchase",
     "make your way back up",
-    "back away from the tree",
+    "back away from the",  # "...from the tree" / "...from the branch" (Obsidian Pass, 2026-09-18)
 )
 # A climb (or a stow) attempted sitting — what a turned-back climb
 # leaves you — answers with these (captured on the retry, 2026-09-11);
@@ -517,6 +517,16 @@ def _follow(s, db, route, here, closed):
             s.put(commands[-1])
             outcome, _, wording = await_arrival(s)
             note_climb(s, commands[-1], outcome, wording, dest)
+            if outcome in ("refused", "closed"):
+                # The retry was turned back in words (a climb's refusal
+                # that came late, or a way closed): the edge is closed
+                # for this walk and the route planned again (#211).
+                closed.add((here, dest))
+                s.echo(
+                    f"step {number} ({commands[-1]!r}) is turned back for you — "
+                    "going round if the map has a way"
+                )
+                return "closed"
         if outcome != "arrived":
             s.echo(f"stalled at step {number} ({commands[-1]!r}) — stopping here")
             return False
