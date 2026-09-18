@@ -2,7 +2,10 @@
 
 `;circle` and beholder's Circle-gates view compute what gates the next
 circle — the guildleader's answer — locally from the latest `;sheet`
-snapshot, using the character's guild requirement table. All eleven
+snapshot, using the character's guild requirement table; `;circle`
+lays the exp window's ranks over the snapshot (a skill that ranked
+since the sheet was taken counts at its current rank), and `;circle
+fresh` runs `;sheet` first. All eleven
 circled guilds are encoded in
 [client/client/game/circles.py](https://github.com/jandersson/revenant/tree/master/client/client/game/circles.py); Commoners
 don't circle. This file records the model, the evidence, the wiki

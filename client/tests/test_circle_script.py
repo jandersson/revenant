@@ -110,3 +110,61 @@ def test_a_commoner_is_told_commoners_do_not_circle():
     assert circles.explain_no_gates("Muppet") == (
         "no circle requirements known for guild 'Muppet'"
     )
+
+
+def test_the_exp_windows_ranks_lie_over_the_snapshot(monkeypatch, tmp_path):
+    # Parry Ability is 1/2 in the snapshot; the window says rank 2 now.
+    database = tmp_path / "xp.db"
+    seed_snapshot(database)
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(database))
+    monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
+    handle = FakeHandle()
+    from types import SimpleNamespace
+
+    handle.state = SimpleNamespace(
+        name="Lanival",
+        experience={"Parry Ability": {"rank": 2, "percent": 10, "mindstate": 5}},
+    )
+    circle.main(handle)
+    text = "\n".join(handle.echoed)
+    assert "Parry Ability 1/2" not in text
+    assert "1st Weapon (Small Edged) 3/6" in text
+    assert "the exp window's ranks over it" in text
+
+
+def test_overlay_never_lowers_a_snapshot_rank():
+    from client.game import circles
+
+    merged = circles.overlay_live(
+        {"Evasion": (10, 50), "Tactics": (3, 0)},
+        {"Evasion": (9, 0), "Tactics": {"rank": 4, "percent": 1}, "New": {"rank": 1}},
+    )
+    assert merged == {"Evasion": (10, 50), "Tactics": (4, 1), "New": (1, 0)}
+
+
+def test_fresh_runs_sheet_first_and_waits_for_it(monkeypatch, tmp_path):
+    database = tmp_path / "xp.db"
+    seed_snapshot(database)
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(database))
+    monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
+
+    class Runner(FakeHandle):
+        args = ["fresh"]
+        started = []
+        polls = 0
+
+        def run(self, name, args=()):
+            self.started.append(name)
+            return True
+
+        def is_running(self, name):
+            self.polls += 1
+            return self.polls < 3
+
+        def sleep(self, seconds):
+            pass
+
+    handle = Runner()
+    circle.main(handle)
+    assert handle.started == ["sheet"]
+    assert any("gates to circle 2:" in line for line in handle.echoed)

@@ -394,6 +394,23 @@ GUILDS = {
 }
 
 
+def overlay_live(ranks, experience):
+    """The snapshot's {skill: (rank, percent)} with the exp window's
+    ranks over it: a skill the window lists has learned since the sheet
+    was taken, so its higher rank counts (Performance went 2 → 3 in an
+    hour of playing while ;circle still read the morning's sheet,
+    2026-09-18). A rank the window shows lower is the snapshot's own
+    (the window is per-pulse and never below the sheet)."""
+    merged = dict(ranks)
+    for skill, entry in (experience or {}).items():
+        if not isinstance(entry, dict) or entry.get("rank") is None:
+            continue
+        live = (int(entry["rank"]), int(entry.get("percent") or 0))
+        if skill not in merged or live > tuple(merged[skill]):
+            merged[skill] = live
+    return merged
+
+
 def required_ranks(rates, circle):
     """Ranks required to hold a circle: the per-circle rate summed
     across bands up to it (matches the tables' Cumulative columns)."""

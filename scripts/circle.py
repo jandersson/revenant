@@ -1,12 +1,18 @@
 """What gates your next circle:  ;circle
 
+    ;circle          the gates, from the latest ;sheet snapshot with the exp window's ranks over it
+    ;circle fresh    run ;sheet first (EXP and INFO, no roundtime), then the gates
+
 Computes the guildleader's answer locally: the latest ;sheet snapshot
 (~/.revenant/history.db) against your guild's circle-requirement table
 (client/game/circles.py, from Elanthipedia; all eleven circled guilds),
-printed per knowledge set with have/need ranks. Nothing is sent to the game — run
-;sheet once first if the snapshot might be stale; the snapshot's age
-is echoed. The model and its captured guildleader validation live in
-docs/circles.md.
+printed per knowledge set with have/need ranks. The exp window's ranks
+are laid over the snapshot, so a skill that ranked since the sheet was
+taken counts at its current rank (Performance 2 → 3 in an hour of
+playing, 2026-09-18); a skill the window does not list is the
+snapshot's. Plain ;circle sends nothing; `fresh` runs ;sheet and waits
+for it. The snapshot's age is echoed. The model and its captured
+guildleader validation live in docs/circles.md.
 """
 
 import os
@@ -66,7 +72,28 @@ def snapshot_age(logged_at):
     return f"{minutes / 60:.1f}h" if minutes >= 90 else f"{minutes:.0f}m"
 
 
+SHEET_WAIT = 60  # seconds for ;sheet to finish under `fresh`
+
+
+def refresh(s):
+    """Run ;sheet and wait for it; False when it would not start or
+    did not finish in time (said so)."""
+    if not s.run("sheet"):
+        s.echo("circle: ;sheet did not start — reading the last snapshot")
+        return False
+    for _ in range(SHEET_WAIT):
+        if not s.is_running("sheet"):
+            return True
+        s.sleep(1)
+    s.echo(
+        f"circle: ;sheet still running after {SHEET_WAIT}s — reading the last snapshot"
+    )
+    return False
+
+
 def main(s):
+    if str((getattr(s, "args", None) or [""])[0]).lower() == "fresh":
+        refresh(s)
     name = (s.state.name if s.state else None) or os.environ.get("REVENANT_CHARACTER")
     connection = sqlite3.connect(database_path())
     try:
@@ -80,6 +107,8 @@ def main(s):
     if circle is None or guild is None:
         s.echo("circle: the snapshot predates circle/guild tracking — run ;sheet once")
         return
+    live = getattr(s.state, "experience", None) if s.state else None
+    ranks = circles.overlay_live(ranks, live)
     unmet = circles.gates(ranks, circle, guild)
     if unmet is None:
         s.echo(f"circle: {circles.explain_no_gates(guild)}")
@@ -88,5 +117,7 @@ def main(s):
         s.echo(f"circle: {line}")
     s.echo(
         f"circle: from {character}'s sheet snapshot of {snapshot_age(logged_at)}"
-        " ago (;sheet once refreshes)"
+        " ago"
+        + (", the exp window's ranks over it" if live else "")
+        + " (;circle fresh runs ;sheet first)"
     )
