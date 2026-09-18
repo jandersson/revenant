@@ -821,7 +821,11 @@ class GondolaHandle(FakeHandle):
     brings it) or "aboard" (the cab, a compass frame); the ride's story
     ends with the soft bump; OUT lands like any move."""
 
-    AWAY = "There is no wooden gondola here.\n"
+    # Captured 2026-09-18 on the first ride.
+    AWAY = (
+        "There is no wooden gondola here.  You'll have to wait for it to come "
+        "back around.\n"
+    )
     DOOR = "The gondola stops on the platform and the door silently swings open.\n"
     BUMP = "With a soft bump, the gondola comes to a stop at its destination.\n"
 

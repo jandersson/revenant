@@ -54,25 +54,35 @@ FERRY_AWAY = (
     "not here",
     "could not find what you were referring",
     "until the next one arrives",
-    # Alfren's Ferry (bescort's take_xing_ferry), uncaptured
+    # Alfren's Ferry (bescort's take_xing_ferry; the first captured on
+    # the first crossing, 2026-09-18, the second still bescort's)
     "no ferry here to go aboard",
     "just pulled away from the dock",
 )
 FERRY_NO_FARE = ("afford the fare",)
 FERRY_FEE = re.compile(r"transportation fee of (\d+ \w+)")
-FERRY_PAID = ("you hand him", "gives you a little nod")  # Alfren's, uncaptured
+# Alfren's, captured 2026-09-18: "The Captain stops you and requests a
+# transportation fee of 35 kronars as you board the craft." / "You
+# hand him your kronars and climb aboard." — the fee line is the
+# Faldesu's shape, so FERRY_FEE reads it; the nod is bescort's.
+FERRY_PAID = ("you hand him", "gives you a little nod")
 FERRY_ON_DEBT = ("add it to yer debt", "debt to the province")
 FERRY_ARRIVES = ("pulls into the dock", "pulls up to the dock")
 FERRY_LANDS = ("ties the ferry off",)
-# The Obsidian Pass gondola (#211), after bescort's ride_gondola: GO
-# GONDOLA at a platform lands in the cab (a room: a compass frame) or
-# answers "There is no wooden gondola here" — then the wait is for
-# "The gondola stops on the platform and the door silently swings
-# open"; aboard, the direction is sent as bescort does, and the ride
-# ends with "With a soft bump, the gondola comes to a stop at its
-# destination", then OUT onto the far platform. The wiki: three
+# The Obsidian Pass gondola (#211), after bescort's ride_gondola and
+# captured on the first ride (2026-09-18): GO GONDOLA at a platform
+# lands in the cab ([Gondola, Cab North], a room: a compass frame) or
+# answers "There is no wooden gondola here.  You'll have to wait for
+# it to come back around." — the platform's story then reads "The
+# gondola arrives at the center of the chasm, and keeps heading
+# north.", "The gondola swings closer to the platform." and "The
+# gondola stops on the platform and the door silently swings open.";
+# aboard, the direction is sent as bescort does ("You go south." into
+# [Gondola, Cab South]), "The door swings shut of its own accord, and
+# the gondola pushes off.", the crossing's lines, and "With a soft
+# bump, the gondola comes to a stop at its destination.", then OUT
+# ("You go out." onto [Obsidian Pass, Platform]). The wiki: three
 # minutes across, two at each platform, LOOK GONDOLA for its progress.
-# Wordings bescort's until the first ride.
 GONDOLA_ANSWER_SECONDS = 4
 GONDOLA_WAIT_SECONDS = 600  # a stop and a crossing
 GONDOLA_ATTEMPTS = 3
@@ -268,9 +278,9 @@ def ride_ferry(s, direction=""):
     frame), whatever the captain says about the fare — the Faldesu's
     captain puts it on your Therengian debt when you have no lirums and
     lets you aboard. While the ferry is out, GO FERRY is tried again
-    every FERRY_POLL_SECONDS (its arrival line is captured for the
-    Faldesu only); the same routine serves Alfren's Ferry over the
-    Segoltha, whose wordings are bescort's until the first ride."""
+    every FERRY_POLL_SECONDS; the same routine serves Alfren's Ferry
+    over the Segoltha, captured on 2026-09-18 with the same arrival
+    ("pulls into the dock") and fee lines, 35 kronars."""
     for _ in range(max(1, round(FERRY_WAIT_SECONDS / FERRY_POLL_SECONDS))):
         s.waitrt()
         s.put("go ferry")

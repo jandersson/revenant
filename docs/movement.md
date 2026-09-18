@@ -223,14 +223,21 @@ Athletics 140.
 
 Alfren's Ferry over the Segoltha (The Crossing, Alfren's Ferry 957 ↔
 Southern Trade Route, Segoltha South Bank 1904; bescort's `ferry`
-route, in the `if` form) is the same ride with other words: bescort's
-`take_xing_ferry` boards on "The Captain gives you a little nod" or
-"You hand him" (a fare of 70 Kronars from the Crossing side, 35 from
-the south, for a non-citizen of Zoluren) and waits on "There is no
-ferry here to go aboard" or "The ferry has just pulled away from the
-dock"; the docking line is the Faldesu's. While a ferry is out the
-walker tries GO FERRY again every minute rather than trusting an
-arrival line it has only captured on the Faldesu. It is the way south
+route, in the `if` form) is the same ride with other words, captured
+on the first crossing (2026-09-18, the ferries Hodierna's Grace and
+Kertigen's Honor): with the ferry out GO FERRY answers "[Assuming you
+mean the ferry Hodierna's Grace.]" and "There is no ferry here to go
+aboard."; the dock's story then reads "You can see that the ferry
+Kertigen's Honor is nearing the dock." and "The ferry Kertigen's
+Honor pulls into the dock."; boarding answers "The Captain stops you
+and requests a transportation fee of 35 kronars as you board the
+craft." and "You hand him your kronars and climb aboard." (the ferry
+is the room [Kertigen's Honor]); "You feel the ferry Kertigen's Honor
+shudder slightly as it shoves off." and "You are nearing the docks."
+come on the way. bescort's other answers ("The Captain gives you a
+little nod", "The ferry has just pulled away from the dock") stay in
+the tables uncaptured. While a ferry is out the walker tries GO FERRY
+again every minute. It is the way south
 to Leth Deriel and Shard: the map's other way, the Riverbank tunnel,
 runs through a silverfish ground to a panel the game could not find
 ("I could not find what you were referring to.", 2026-09-18 — the
@@ -241,19 +248,25 @@ answer is a closed edge.
 The Obsidian Pass gondola (Obsidian Pass, Platform 2249 ↔ 2904) is
 the second ride (#211). The map writes it in the `if
 Script.exists?('bescort')` form with GO GONDOLA as the else, so
-`ride_of` accepts that form for this route alone, and the walker
-follows bescort's `ride_gondola`: GO GONDOLA lands in the cab (a
+`ride_of` accepts that form for this route, and the walker follows
+bescort's `ride_gondola`, every line captured on the first ride
+(2026-09-18): GO GONDOLA lands in the cab ([Gondola, Cab North], a
 room, so a compass frame) or answers "There is no wooden gondola
-here", in which case it waits for "The gondola stops on the platform
-and the door silently swings open" and tries again; aboard, it sends
-the direction the edge names (bescort does) and waits for "With a
-soft bump, the gondola comes to a stop at its destination", then OUT
-is the step's move onto the far platform. The wiki: three minutes
-across, two at each platform, LOOK GONDOLA shows its progress, and the
-way under it wants 550 ranks of Athletics — the walk from the Crossing
-to Shard's Tower of Honor (the circle-5 glyph quest's orb) was routed
-under it through six climbs until the gondola was ridable. Wordings
-are bescort's until the first ride.
+here.  You'll have to wait for it to come back around.", in which
+case it waits for "The gondola stops on the platform and the door
+silently swings open." (after "The gondola arrives at the center of
+the chasm, and keeps heading north." and "The gondola swings closer
+to the platform.") and tries again; aboard, it sends the direction
+the edge names ("You go south." into [Gondola, Cab South], as bescort
+does), "The door swings shut of its own accord, and the gondola
+pushes off.", and it waits for "With a soft bump, the gondola comes
+to a stop at its destination.", then OUT is the step's move onto the
+far platform ("You go out."). The wiki: three minutes across, two at
+each platform, LOOK GONDOLA shows its progress, and the way under it
+wants 550 ranks of Athletics — the first walk was routed under it
+until the branch's refusal ("A wave of dizziness hits you, and you
+back away from the branch.") closed that way and the route went
+through the gondola.
 
 ## Finding a wandering NPC
 
