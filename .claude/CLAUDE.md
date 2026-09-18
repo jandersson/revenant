@@ -157,7 +157,9 @@ for `client/client/<pkg>/x.py`.
   (downloaded, never vendored). Twins: the map lists some rooms twice,
   one uid-less; `same_place` handles it. A climb turned back for
   footing gets one retry standing with the named items stowed, then
-  a stop that says so (#157). Model: docs/movement.md.
+  a stop that says so (#157). The Faldesu ferry between the Crossing
+  and Riverhaven is ridden (the map's bescort edge, #205); other
+  bescort routes stay unwalkable. Model: docs/movement.md.
 - `client/game/possessions.py` — possessions by exist id: the parser's
   listing built into items, `find(items, noun)` for a script that
   wants exactly this orb (`get #<id>`), `rows()` for `;sheet inv`'s

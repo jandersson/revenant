@@ -9,8 +9,10 @@ unwalkable.
 
 from types import SimpleNamespace
 
+import pytest
+
 from client.game import walker
-from client.game.mapdb import MapDB, translate_embedded, walkable
+from client.game.mapdb import MapDB, ride_of, RIDE_SECONDS, translate_embedded, walkable
 
 
 def test_translate_embedded_handles_lich_styles():
@@ -46,6 +48,25 @@ def test_walkable_accepts_translatable_edges_only():
     assert walkable(";e fput 'say grek'; move 'go door'")
     assert not walkable(";e start_script('bescort', ['airship'])")
     assert not walkable(1234)
+
+
+# The map's Faldesu crossing, verbatim (#205).
+FALDESU_NORTH = (
+    ";e start_script('bescort', ['faldesu', 'haven']);wait_while{running?('bescort')};"
+)
+FALDESU_SOUTH = (
+    ";e start_script('bescort', ['faldesu', 'crossing']);"
+    "wait_while{running?('bescort')};"
+)
+
+
+def test_a_bescort_route_the_walker_rides_is_walkable_and_named():
+    assert ride_of(FALDESU_NORTH) == "faldesu"
+    assert ride_of(FALDESU_SOUTH) == "faldesu"
+    assert walkable(FALDESU_NORTH)
+    assert ride_of(";e start_script('bescort', ['airship'])") is None
+    assert ride_of("north") is None
+    assert not walkable(";e start_script('bescort', ['airship'])")
 
 
 DOOR = MapDB(
@@ -179,6 +200,114 @@ class ClimbHandle(FakeHandle):
 
 def puts_of(handle):
     return [call[1] for call in handle.calls if call[0] == "put"]
+
+
+# --- the Faldesu ferry (#205) --------------------------------------------
+FERRY = MapDB(
+    [
+        {
+            "id": 1385,
+            "uid": [10385],
+            "title": ["[North Road, Ferry]"],
+            "wayto": {"470": FALDESU_NORTH, "1384": "south"},
+        },
+        {
+            "id": 470,
+            "uid": [10470],
+            "title": ["[Riverhaven, Ferry Dock]"],
+            "wayto": {"1385": FALDESU_SOUTH, "471": "east"},
+        },
+        {"id": 471, "uid": [10471], "title": ["[Riverhaven, Pier]"], "wayto": {}},
+        {"id": 1384, "uid": [10384], "title": ["[North Road]"], "wayto": {}},
+    ]
+)
+
+
+class FerryHandle(FakeHandle):
+    """GO FERRY answers from a script ("away", "aboard", "fare") with
+    bescort's wordings; the dock's story then brings the ferry in (or
+    not) and the crossing docks (or not); GO DOCK lands with a compass
+    frame like any move."""
+
+    AWAY = "I could not find what you were referring to.\n"
+    ABOARD = "You climb aboard the ferry.\n"
+    FARE = 'The ferryman says, "Come back when you can afford the fare."\n'
+    ARRIVES = "Her Opulence pulls into the dock.\n"
+    LANDS = "The ferry reaches the dock and its crew ties the ferry off.\n"
+
+    def __init__(self, uids, answers, arrives=True, lands=True):
+        super().__init__(uids)
+        self.answers = list(answers)
+        self.arrives = arrives
+        self.lands = lands
+        self.pending = []
+
+    def put(self, command):
+        super().put(command)
+        if command == "go ferry":
+            answer = self.answers.pop(0)
+            if answer == "away":
+                self.pending = [self.AWAY] + ([self.ARRIVES] if self.arrives else [])
+            elif answer == "aboard":
+                self.pending = [self.ABOARD] + ([self.LANDS] if self.lands else [])
+            else:
+                self.pending = [self.FARE]
+        elif command == "go dock":
+            self.state.room_uid = self._uids.pop(0)
+            self.pending = [("compass", "e")]
+
+    def get(self, timeout=None, streams=("",)):
+        if timeout == 0:
+            return None
+        if self.pending:
+            return self.pending.pop(0)
+        if streams is None:
+            return super().get(timeout, streams)
+        return None
+
+
+@pytest.fixture
+def quick_ferry(monkeypatch):
+    monkeypatch.setattr(walker, "FERRY_ANSWER_SECONDS", 0.05)
+    monkeypatch.setattr(walker, "FERRY_WAIT_SECONDS", 0.05)
+
+
+def test_the_ferry_edge_is_routed_at_its_own_cost():
+    assert FERRY.graph[1385][470]["seconds"] == RIDE_SECONDS
+    assert FERRY.path(1385, [471]) == [(470, FALDESU_NORTH), (471, "east")]
+
+
+def test_walk_waits_for_the_ferry_boards_crosses_and_steps_off(quick_ferry):
+    handle = FerryHandle(uids=[10470, 10471], answers=["away", "aboard"])
+    handle.state.room_uid = 10385
+    assert walker.walk(handle, FERRY, [471], describe="the pier") is True
+    assert puts_of(handle) == ["go ferry", "go ferry", "go dock", "east"]
+    assert any("no ferry at the dock" in echo for echo in handle.echoes)
+    assert any("aboard the ferry" in echo for echo in handle.echoes)
+
+
+def test_a_refused_fare_stops_the_walk_at_the_dock(quick_ferry):
+    handle = FerryHandle(uids=[10470], answers=["fare"])
+    handle.state.room_uid = 10385
+    assert walker.walk(handle, FERRY, [470]) is False
+    assert puts_of(handle) == ["go ferry"]
+    assert any("refused the fare" in echo for echo in handle.echoes)
+
+
+def test_a_ferry_that_never_comes_stops_the_walk(quick_ferry):
+    handle = FerryHandle(uids=[10470], answers=["away"] * 3, arrives=False)
+    handle.state.room_uid = 10385
+    assert walker.walk(handle, FERRY, [470]) is False
+    assert "go dock" not in puts_of(handle)
+    assert any("no ferry came" in echo for echo in handle.echoes)
+
+
+def test_a_crossing_that_never_docks_stops_the_walk(quick_ferry):
+    handle = FerryHandle(uids=[10470], answers=["aboard"], lands=False)
+    handle.state.room_uid = 10385
+    assert walker.walk(handle, FERRY, [470]) is False
+    assert "go dock" not in puts_of(handle)
+    assert any("never docked" in echo for echo in handle.echoes)
 
 
 def test_a_climb_turned_back_is_retried_standing_and_unburdened():

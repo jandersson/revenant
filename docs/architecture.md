@@ -233,7 +233,8 @@ entries from a dock-layout module.
   `client/client/game/walker.py` (locate/walk; model in docs/movement.md;
   a climb turned back for footing is retried once standing with the
   named items stowed, then reported as beyond the character's
-  Athletics rather than as a stall, #157) is
+  Athletics rather than as a stall, #157; the Faldesu ferry between
+  the Crossing and Riverhaven ridden after bescort's routine, #205) is
   the shared travel engine; `scripts/go2.py` is the command on top, and
   `;favors` (scripts/favors.py) rides it for the favor-orb run — grotto
   ritual, attended puzzles, temple altar offer (docs/favors.md).

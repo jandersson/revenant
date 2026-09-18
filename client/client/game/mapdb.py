@@ -8,7 +8,8 @@ Schema notes (as observed in the real data): a list of rooms with id,
 title (list of bracketed strings), wayto (dest-id -> movement command),
 tags, paths. Movement commands starting with ";e" are embedded Ruby for
 lich; simple fput/move sequences translate to plain game commands
-(translate_embedded), the rest are unwalkable.
+(translate_embedded), a bescort route the walker knows how to ride is
+a ride edge (ride_of: the Faldesu ferry, #205), the rest are unwalkable.
 """
 
 import json
@@ -59,6 +60,16 @@ def normalize_title(title: str) -> str:
 # non-numeric (some carry embedded-Ruby conditionals): the community
 # db's modal value — an ordinary one-command step.
 DEFAULT_STEP_SECONDS = 0.2
+# A bescort route the walker rides itself (#205): the map writes the
+# crossing as start_script('bescort', ['faldesu', ...]) for lich, and
+# the walker boards the Faldesu ferry between North Road, Ferry and
+# Riverhaven, Ferry Dock on its own (walker.ride_ferry). Any other
+# bescort route stays unwalkable.
+RIDES = {"faldesu": "ferry"}
+RIDE_SECONDS = 300.0  # the wait and the crossing: a land route wins where one exists
+_BESCORT = re.compile(
+    r"start_script\s*\(\s*'bescort'\s*,\s*\[\s*'(?P<route>[a-z0-9_]+)'"
+)
 
 # What entering an avoided room costs on top of its real travel time:
 # an hour dominates any honest route, so a route only crosses an
@@ -107,11 +118,22 @@ def translate_embedded(command):
     return commands or None
 
 
+def ride_of(command):
+    """The bescort route a scripted edge names when the walker rides it
+    ("faldesu"), else None (#205)."""
+    if not isinstance(command, str) or not command.startswith(";e"):
+        return None
+    match = _BESCORT.search(command)
+    if match and match.group("route") in RIDES:
+        return match.group("route")
+    return None
+
+
 def walkable(command) -> bool:
     if not isinstance(command, str):
         return False
     if command.startswith(";e"):
-        return translate_embedded(command) is not None
+        return translate_embedded(command) is not None or ride_of(command) is not None
     return True
 
 
@@ -239,7 +261,9 @@ class MapDB:
                         room_id,
                         dest,
                         command=command,
-                        seconds=edge_seconds(room, str(dest)),
+                        seconds=RIDE_SECONDS
+                        if ride_of(command)
+                        else edge_seconds(room, str(dest)),
                     )
             self._graph = graph
         return self._graph

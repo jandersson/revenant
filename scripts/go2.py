@@ -5,6 +5,9 @@ Targets: a room id (;go2 1234), a tag (;go2 bank), or a title substring
 timeto travel times) and detour around the rooms your avoid list names
 (settings "avoid_rooms" — cougar grounds by default) whenever a clean
 way around exists; ;go2 direct <target> skips the detour for one trip.
+The Faldesu ferry between the Crossing's North Road and Riverhaven is
+ridden on the way (the map's bescort edge; the walker boards, waits for
+a ferry that is out, and steps off at the far dock, #205).
 ;go2 alone reports where the map thinks you are; ;go2 update refreshes
 the database. First use downloads it (~13MB) into ~/.revenant/mapdb/.
 The location and walking engine lives in client/game/walker.py, shared with

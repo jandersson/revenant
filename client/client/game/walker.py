@@ -7,18 +7,41 @@ any script can travel. A climb the game turns back for footing (#157)
 gets one retry standing with the hindering items stowed, then stops
 with what would help; an engagement gets the retreat burst, unless
 the room's only exit is "out" — a bank or shop, where nothing engages
-and a retreat has nowhere to go (#171) (docs/movement.md).
+and a retreat has nowhere to go (#171) (docs/movement.md). A ferry edge
+(the map's bescort 'faldesu' crossing, #205) is ridden: GO FERRY when
+the ferry is at the dock, the wait for it when not, the crossing, then
+GO DOCK as the step's move — after dr-scripts' bescort take_rh_ferry,
+whose match strings are the wordings until the first ride captures them.
 """
 
 import re
 from time import monotonic
 
 from client.client_logger import ClientLogger
-from client.game.mapdb import normalize_title, translate_embedded
+from client.game.mapdb import normalize_title, ride_of, translate_embedded
 
 module_logger = ClientLogger()
 
 ARRIVAL_TIMEOUT = 15  # seconds for the compass frame after a move
+
+# The Faldesu ferry (#205), after bescort's take_rh_ferry: GO FERRY is
+# answered one of three ways, and the two waits read the dock's story.
+# The wordings are bescort's match strings until captured; the fare
+# and the crossing time are unknown.
+FERRY_ANSWER_SECONDS = 4  # GO FERRY's answer
+FERRY_WAIT_SECONDS = (
+    900  # a ferry's round trip: the wait at the dock, then the crossing
+)
+FERRY_ATTEMPTS = 3  # boardings tried per crossing
+FERRY_ABOARD = ("climb aboard",)
+FERRY_AWAY = (
+    "not here",
+    "could not find what you were referring",
+    "until the next one arrives",
+)
+FERRY_NO_FARE = ("afford the fare",)
+FERRY_ARRIVES = ("pulls into the dock", "pulls up to the dock")
+FERRY_LANDS = ("ties the ferry off",)
 
 # The felled tree, captured 2026-09-11 (#157): a climb beyond the
 # character's Athletics — worse armed and armored — is turned back
@@ -122,6 +145,67 @@ def avoided_rooms(db, entries):
     for entry in entries or []:
         rooms.update(db.resolve(str(entry)))
     return rooms
+
+
+def read_story(s, seconds, until=()):
+    """The story text that arrives within `seconds`, ending early once
+    a piece holds any of `until`."""
+    deadline = monotonic() + seconds
+    seen = []
+    while True:
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            break
+        item = s.get(timeout=min(remaining, 0.5), streams=("",))
+        if item is None:
+            continue
+        text = item[1] if isinstance(item, tuple) else item
+        seen.append(text)
+        if any(needle in text for needle in until):
+            break
+    return "".join(seen)
+
+
+def ride_ferry(s):
+    """Board the ferry at this dock and cross (#205): "landed" when the
+    far dock is reached (GO DOCK is still the caller's to send, with
+    the arrival check), "fare" when refused for coin, "no ferry" when
+    none came within FERRY_WAIT_SECONDS, "stuck" when the crossing
+    never docked, "unknown" for an answer outside the table."""
+    for _ in range(FERRY_ATTEMPTS):
+        s.waitrt()
+        s.put("go ferry")
+        answer = read_story(
+            s, FERRY_ANSWER_SECONDS, until=FERRY_ABOARD + FERRY_AWAY + FERRY_NO_FARE
+        )
+        first = (answer.strip().splitlines() or ["(silence)"])[0]
+        if any(needle in answer for needle in FERRY_NO_FARE):
+            s.echo(f"the ferry refused the fare: {first!r} — stopping here")
+            return "fare"
+        if any(needle in answer for needle in FERRY_ABOARD):
+            s.echo("aboard the ferry — crossing")
+            crossing = read_story(s, FERRY_WAIT_SECONDS, until=FERRY_LANDS)
+            if not any(needle in crossing for needle in FERRY_LANDS):
+                s.echo(
+                    f"the ferry never docked in {FERRY_WAIT_SECONDS // 60} minutes"
+                    " — stopping here"
+                )
+                return "stuck"
+            return "landed"
+        if any(needle in answer for needle in FERRY_AWAY):
+            s.echo("no ferry at the dock — waiting for one")
+            arrival = read_story(s, FERRY_WAIT_SECONDS, until=FERRY_ARRIVES)
+            if not any(needle in arrival for needle in FERRY_ARRIVES):
+                s.echo(
+                    f"no ferry came in {FERRY_WAIT_SECONDS // 60} minutes"
+                    " — stopping here"
+                )
+                return "no ferry"
+            continue
+        s.echo(f"GO FERRY answered {first!r} — please report it — stopping here")
+        return "unknown"
+    s.echo(f"the ferry would not take you in {FERRY_ATTEMPTS} tries — stopping here")
+    return "no ferry"
 
 
 def await_arrival(s, timeout=ARRIVAL_TIMEOUT):
@@ -232,6 +316,12 @@ def walk(s, db, goals, describe="destination", avoid=()):
         # A scripted edge translates to several game commands; the last
         # one lands in the destination room and gets the arrival check.
         commands = translate_embedded(command) or [command]
+        if ride_of(command):
+            # A ferry edge (#205): the ride first, then GO DOCK is the
+            # step's own move, with the usual compass sync and check.
+            if ride_ferry(s) != "landed":
+                return False
+            commands = ["go dock"]
         s.waitrt()
         for preliminary in commands[:-1]:
             s.put(preliminary)

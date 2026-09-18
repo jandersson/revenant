@@ -150,6 +150,32 @@ step — the cougar cliffs are a corridor on the real map, so routes
 through them warn rather than pretend safety. `;go2 direct <target>`
 skips the list for one trip.
 
+## Ferries
+
+The Crossing and Riverhaven are joined only by the Faldesu ferry: the
+map's two edges between North Road, Ferry (1385) and Riverhaven,
+Ferry Dock (470) are `start_script('bescort', ['faldesu', ...])`, a
+call to dr-scripts' escort script, and until 2026-09-18 the walker
+answered "no walkable path" for the whole town (#205). The walker now
+rides it (`mapdb.ride_of` names the route, `walker.ride_ferry` boards),
+after bescort's `take_rh_ferry`: GO FERRY at the dock; "climb aboard"
+means aboard, and the crossing ends with "reaches the dock and its
+crew ties the ferry off", then GO DOCK is the step's move with the
+usual compass sync and room check; "not here", "could not find what
+you were referring to" or "stuck here until the next one arrives"
+means the ferry is out, so the walker waits for "pulls into the dock"
+/ "pulls up to the dock" and tries again; "Come back when you can
+afford the fare" stops the walk. The waits are generous (fifteen
+minutes each, a ferry's round trip) and say what they wait for. The
+edge costs five minutes in the router, so a land route wins where one
+exists. The wordings are bescort's match strings until the first ride
+captures them, and the fare is unknown (the ferries are Her Opulence
+and His Daring Exploit, Elanthipedia: Riverhaven Ferry Dock). The
+other bescort routes (airships, barges, the Segoltha rope) stay
+unwalkable; the Faldesu swim the map also offers (The Marsh, Stone
+Road ↔ Riverhaven, Stone Bridge) is bescort's choice only at
+Athletics 140.
+
 ## Pacing
 
 Every step waits out roundtime before moving (Script.waitrt: the
