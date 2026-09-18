@@ -72,29 +72,42 @@ def snapshot_age(logged_at):
     return f"{minutes / 60:.1f}h" if minutes >= 90 else f"{minutes:.0f}m"
 
 
-SHEET_WAIT = 60  # seconds for ;sheet to finish under `fresh`
+SHEET_WAIT = 60  # seconds for a fresh snapshot under `fresh`
 
 
-def refresh(s):
-    """Run ;sheet and wait for it; False when it would not start or
-    did not finish in time (said so)."""
-    if not s.run("sheet"):
+def refresh(s, name):
+    """A fresh ;sheet snapshot: the autostart runs in every session, so
+    it is asked for one (`;sheet once` handed to it, #122); from cold
+    ;sheet once is started. Waits until the snapshot's stamp moves;
+    False, said so, when nothing came in SHEET_WAIT seconds."""
+    before = snapshot_stamp(name)
+    if s.is_running("sheet"):
+        s.tell("sheet", "once")
+    elif not s.run("sheet", ["once"]):
         s.echo("circle: ;sheet did not start — reading the last snapshot")
         return False
     for _ in range(SHEET_WAIT):
-        if not s.is_running("sheet"):
+        if snapshot_stamp(name) != before:
             return True
         s.sleep(1)
-    s.echo(
-        f"circle: ;sheet still running after {SHEET_WAIT}s — reading the last snapshot"
-    )
+    s.echo(f"circle: no fresh sheet in {SHEET_WAIT}s — reading the last snapshot")
     return False
 
 
+def snapshot_stamp(name):
+    """The latest snapshot's logged_at for the character, or None."""
+    connection = sqlite3.connect(database_path())
+    try:
+        row = latest_snapshot(connection, name)
+    finally:
+        connection.close()
+    return row[1] if row else None
+
+
 def main(s):
-    if str((getattr(s, "args", None) or [""])[0]).lower() == "fresh":
-        refresh(s)
     name = (s.state.name if s.state else None) or os.environ.get("REVENANT_CHARACTER")
+    if str((getattr(s, "args", None) or [""])[0]).lower() == "fresh":
+        refresh(s, name)
     connection = sqlite3.connect(database_path())
     try:
         snapshot = latest_snapshot(connection, name)

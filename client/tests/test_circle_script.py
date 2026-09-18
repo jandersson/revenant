@@ -142,7 +142,9 @@ def test_overlay_never_lowers_a_snapshot_rank():
     assert merged == {"Evasion": (10, 50), "Tactics": (4, 1), "New": (1, 0)}
 
 
-def test_fresh_runs_sheet_first_and_waits_for_it(monkeypatch, tmp_path):
+def test_fresh_asks_the_running_sheet_for_a_snapshot_and_waits_for_it(
+    monkeypatch, tmp_path
+):
     database = tmp_path / "xp.db"
     seed_snapshot(database)
     monkeypatch.setenv("REVENANT_HISTORY_DB", str(database))
@@ -150,21 +152,55 @@ def test_fresh_runs_sheet_first_and_waits_for_it(monkeypatch, tmp_path):
 
     class Runner(FakeHandle):
         args = ["fresh"]
-        started = []
-        polls = 0
+        told, started, slept = [], [], 0
+
+        def is_running(self, name):
+            return name == "sheet"  # the autostart is up, as always
+
+        def tell(self, name, line):
+            self.told.append((name, line))
+            return True
 
         def run(self, name, args=()):
             self.started.append(name)
             return True
 
+        def sleep(self, seconds):
+            self.slept += 1
+            if self.slept == 2:  # the snapshot lands on the second look
+                seed_snapshot(database, logged_at="2026-08-22T13:00:00+00:00")
+
+    handle = Runner()
+    circle.main(handle)
+    assert handle.told == [("sheet", "once")]
+    assert handle.started == []
+    assert handle.slept == 2
+    assert any("gates to circle 2:" in line for line in handle.echoed)
+
+
+def test_fresh_from_cold_starts_sheet_once(monkeypatch, tmp_path):
+    database = tmp_path / "xp.db"
+    seed_snapshot(database)
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(database))
+    monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
+    circle.SHEET_WAIT = 2
+
+    class Runner(FakeHandle):
+        args = ["fresh"]
+        started = []
+
         def is_running(self, name):
-            self.polls += 1
-            return self.polls < 3
+            return False
+
+        def run(self, name, args=()):
+            self.started.append((name, list(args)))
+            return True
 
         def sleep(self, seconds):
             pass
 
     handle = Runner()
     circle.main(handle)
-    assert handle.started == ["sheet"]
+    assert handle.started == [("sheet", ["once"])]
+    assert any("no fresh sheet in 2s" in line for line in handle.echoed)
     assert any("gates to circle 2:" in line for line in handle.echoed)
