@@ -682,7 +682,9 @@ def test_attached_engine_reads_frames_and_writes_commands():
         engine.read(
             output_callback=lambda text, stream, style: received.append((text, stream))
         )
-        return bool(received)
+        # The attach replay (empty injuries and spells frames, #213)
+        # lands first; wait for the story line itself.
+        return any(stream == "" for _, stream in received)
 
     assert _await(pump), "no frames received"
     assert ("You see a stunted forest troll.\n", "") in received
@@ -1069,6 +1071,36 @@ def test_late_attach_learns_the_indicators(monkeypatch):
         buffer += late.recv(4096)
     frames, _ = session.decode_frames(buffer)
     assert ("IconBLEEDING IconSTANDING", "indicators", "") in frames
+    late.close()
+
+
+def test_late_attach_learns_the_wounds_healed():
+    # The injuries panel is stated fresh on attach (#163), an empty
+    # hurt set included: a window that attaches after the wounds
+    # healed would otherwise keep the last wounds it was told about,
+    # and so would one reattaching after a ;reexec, whose fresh parser
+    # starts with no injuries (#213). The same for the spells: the
+    # ones that expired while the window was away are gone.
+    game = FakeGame()
+    server, port = _start_server(game)
+    game.pending.append(
+        b'<dialogData id="injuries"><image id="head" name="Injury1"/></dialogData>\n'
+    )
+    assert _await(lambda: server.engine.xml_data.injuries), "never parsed"
+    game.pending.append(
+        b'<dialogData id="injuries"><image id="head" name="head"/></dialogData>\n'
+    )
+    assert _await(lambda: not server.engine.xml_data.injuries), "never healed"
+    server.backlog.clear()
+
+    late = socket.create_connection(("127.0.0.1", port), timeout=5)
+    late.settimeout(5)
+    buffer = b""
+    while b"spells" not in buffer:
+        buffer += late.recv(4096)
+    frames, _ = session.decode_frames(buffer)
+    assert ("", "injuries", "") in frames
+    assert ("", "spells", "") in frames
     late.close()
 
 

@@ -530,19 +530,18 @@ class SessionServer(ClientLogger):
                     indicators_frame(self.engine.xml_data.indicator), "indicators"
                 )
             # The injuries panel changes only when something does (#163);
-            # a late attacher gets the hurt set stated fresh.
-            if self.engine.xml_data.injuries:
-                replay += encode_frame(
-                    injuries_frame(self.engine.xml_data.injuries), "injuries"
-                )
+            # a late attacher gets the hurt set stated fresh — an empty
+            # one included, or a window that attaches after the wounds
+            # healed (or after a ;reexec, whose parser starts clean)
+            # keeps showing the last wounds it was told about (#213).
+            replay += encode_frame(
+                injuries_frame(self.engine.xml_data.injuries), "injuries"
+            )
             # The spells running and the one prepared (#175): the window
             # pulses every minute, but a late attacher should not wait
-            # for the next one to see them.
-            if (
-                self.engine.xml_data.active_spells
-                or self.engine.xml_data.prepared_spell
-            ):
-                replay += encode_frame(spells_frame(self.engine.xml_data), "spells")
+            # for the next one to see them — nor keep the ones that
+            # expired while it was away (#213).
+            replay += encode_frame(spells_frame(self.engine.xml_data), "spells")
             # The server-clock delta emits once and rarely again; a
             # late attacher gets it stated fresh so its Elanthian
             # clock anchors to server time immediately (#102).

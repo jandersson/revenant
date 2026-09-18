@@ -4,9 +4,12 @@ One label per body part in a rough body layout, dim when the part is
 clean, amber for a fresh wound and purple for a scar with the panel's
 level beside the name — driven by the "injuries" stream ("head wound
 1 chest scar 2", "" for clean), which the engine emits whenever the
-game pushes its <dialogData id="injuries"> (#163). Coarser than HEALTH
+game pushes its <dialogData id="injuries"> (#163) and the session
+states on every attach, clean or not, so a window that attaches after
+the wounds healed shows none (#213). Coarser than HEALTH
 (docs/wounds.md): the panel says which parts and roughly how much,
-right now, without asking.
+right now, without asking — and the panel omits light hits, so the
+dock can look clean while the health bar says hurt.
 """
 
 from PyQt6.QtCore import Qt

@@ -79,7 +79,10 @@ entries from a dock-layout module.
   for the idle warning; transient like the timers (#131).
   session.attach replays
   character, vitals, indicators, timesync, and the room to late
-  attachers, like the compass.
+  attachers, like the compass, and the injuries and spells frames
+  whether or not anything is hurt or running — a state that is only
+  stated when non-empty leaves a late attacher's dock showing what
+  healed or expired while it was away (#213).
 - `client/client/engine/session.py` — the detachable session daemon
   (`python -m client.engine.session`): logs in, owns the game socket, serves
   `(stream, text)` frames as JSON lines on 127.0.0.1:4242 to any number of
@@ -295,7 +298,8 @@ entries from a dock-layout module.
   from the `injuries` stream — one badge per body part, amber for a
   wound, purple for a scar, the panel's level beside the name — which
   the engine emits on every push of `<dialogData id="injuries">` and
-  the session states fresh on attach like vitals (#163); the Spells
+  the session states fresh on attach like vitals (#163), an empty
+  set included (#213); the Spells
   dock (`client/gui/spells_dock.py`) draws the running spells with a
   countdown ticking between the window's pulses and the prepared
   spell above them, from the `spells` stream the engine emits on any

@@ -39,3 +39,7 @@ def test_the_window_routes_the_injuries_stream_to_the_dock(window):
     assert window.injuries.labels["rightArm"].text() == "r.arm 1"
     assert "Injuries" in window.stream_docks
     assert "rightArm" not in window.main_window.toPlainText()
+    # The replay's empty frame (#213) clears what the dock showed.
+    window.dispatch_game_text("", "injuries", "")
+    assert window.injuries.hurt == {}
+    assert window.injuries.labels["rightArm"].text() == "r.arm"
