@@ -233,46 +233,72 @@ FERRY = MapDB(
 
 
 class FerryHandle(FakeHandle):
-    """GO FERRY answers from a script ("away", "aboard", "fare") with
-    bescort's wordings; the dock's story then brings the ferry in (or
-    not) and the crossing docks (or not); GO DOCK lands with a compass
-    frame like any move."""
+    """GO FERRY answers from a script with the captured wordings (#205):
+    "away" (the ferry is out; the dock's story then brings one in, or
+    not), "aboard" (the fee, then the ferry's room — a compass frame),
+    "debt" (no lirums: the captain's grumble, the debt line, and aboard
+    all the same) or "fare" (refused and left on the dock, uncaptured).
+    The crossing's story docks the ferry (or not); GO DOCK lands with a
+    compass frame like any move."""
 
     AWAY = "I could not find what you were referring to.\n"
-    ABOARD = "You climb aboard the ferry.\n"
-    FARE = 'The ferryman says, "Come back when you can afford the fare."\n'
-    ARRIVES = "Her Opulence pulls into the dock.\n"
-    LANDS = "The ferry reaches the dock and its crew ties the ferry off.\n"
+    FEE = (
+        "The Captain stops you and requests a transportation fee of 30 lirums "
+        "as you board the craft.\n"
+    )
+    NO_LIRUMS = (
+        '"Hey," he says, "You haven\'t got enough lirums to pay for your trip.  '
+        'Come back when you can afford the fare."\n'
+    )
+    ON_DEBT = (
+        "The Captain frowns.  \"But I see you're pretty young and don't have the "
+        "sense to keep enough coins on ya fer emergencies, so I'll just add it "
+        "to yer debt.\n[Your debt to the province of Therengia is being "
+        "increased by 30 lirums.]\n"
+    )
+    ARRIVES = 'The ferry "Her Opulence" pulls up to the dock.\n'
+    LANDS = (
+        'The ferry "Her Opulence" reaches the dock and its crew ties the ferry off.\n'
+    )
 
     def __init__(self, uids, answers, arrives=True, lands=True):
         super().__init__(uids)
         self.answers = list(answers)
         self.arrives = arrives
         self.lands = lands
-        self.pending = []
+        self.answer = None  # (stream, text) items for the arrival wait
+        self.story = []  # story pieces for the dock's and the crossing's waits
 
     def put(self, command):
         super().put(command)
         if command == "go ferry":
             answer = self.answers.pop(0)
             if answer == "away":
-                self.pending = [self.AWAY] + ([self.ARRIVES] if self.arrives else [])
-            elif answer == "aboard":
-                self.pending = [self.ABOARD] + ([self.LANDS] if self.lands else [])
+                self.answer = [("", self.AWAY)]
+                self.story = [self.ARRIVES] if self.arrives else []
+            elif answer in ("aboard", "debt"):
+                lines = [self.FEE]
+                if answer == "debt":
+                    lines += [self.NO_LIRUMS, self.ON_DEBT]
+                self.answer = [("", line) for line in lines] + [("compass", "")]
+                self.story = [self.LANDS] if self.lands else []
             else:
-                self.pending = [self.FARE]
+                self.answer = [("", self.FEE), ("", self.NO_LIRUMS)]
+                self.story = []
         elif command == "go dock":
             self.state.room_uid = self._uids.pop(0)
-            self.pending = [("compass", "e")]
+            self.answer = [("compass", "e")]
+        else:
+            self.answer = None  # a plain move: the base handle's compass
 
     def get(self, timeout=None, streams=("",)):
         if timeout == 0:
             return None
-        if self.pending:
-            return self.pending.pop(0)
         if streams is None:
-            return super().get(timeout, streams)
-        return None
+            if self.answer is None:
+                return super().get(timeout, streams)
+            return self.answer.pop(0) if self.answer else None
+        return self.story.pop(0) if self.story else None
 
 
 @pytest.fixture
@@ -292,10 +318,20 @@ def test_walk_waits_for_the_ferry_boards_crosses_and_steps_off(quick_ferry):
     assert walker.walk(handle, FERRY, [471], describe="the pier") is True
     assert puts_of(handle) == ["go ferry", "go ferry", "go dock", "east"]
     assert any("no ferry at the dock" in echo for echo in handle.echoes)
-    assert any("aboard the ferry" in echo for echo in handle.echoes)
+    assert any("aboard the ferry — fare 30 lirums" in echo for echo in handle.echoes)
 
 
-def test_a_refused_fare_stops_the_walk_at_the_dock(quick_ferry):
+def test_a_fare_put_on_the_debt_still_boards(quick_ferry):
+    # The first ride (2026-09-18): the walker stopped on "afford the
+    # fare" while the character stood on the deck.
+    handle = FerryHandle(uids=[10470], answers=["debt"])
+    handle.state.room_uid = 10385
+    assert walker.walk(handle, FERRY, [470]) is True
+    assert puts_of(handle) == ["go ferry", "go dock"]
+    assert any("on your Therengian debt" in echo for echo in handle.echoes)
+
+
+def test_a_refusal_that_leaves_you_on_the_dock_stops_the_walk(quick_ferry):
     handle = FerryHandle(uids=[10470], answers=["fare"])
     handle.state.room_uid = 10385
     assert walker.walk(handle, FERRY, [470]) is False

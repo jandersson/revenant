@@ -157,23 +157,48 @@ map's two edges between North Road, Ferry (1385) and Riverhaven,
 Ferry Dock (470) are `start_script('bescort', ['faldesu', ...])`, a
 call to dr-scripts' escort script, and until 2026-09-18 the walker
 answered "no walkable path" for the whole town (#205). The walker now
-rides it (`mapdb.ride_of` names the route, `walker.ride_ferry` boards),
-after bescort's `take_rh_ferry`: GO FERRY at the dock; "climb aboard"
-means aboard, and the crossing ends with "reaches the dock and its
-crew ties the ferry off", then GO DOCK is the step's move with the
-usual compass sync and room check; "not here", "could not find what
-you were referring to" or "stuck here until the next one arrives"
-means the ferry is out, so the walker waits for "pulls into the dock"
-/ "pulls up to the dock" and tries again; "Come back when you can
-afford the fare" stops the walk. The waits are generous (fifteen
-minutes each, a ferry's round trip) and say what they wait for. The
-edge costs five minutes in the router, so a land route wins where one
-exists. The wordings are bescort's match strings until the first ride
-captures them, and the fare is unknown (the ferries are Her Opulence
-and His Daring Exploit, Elanthipedia: Riverhaven Ferry Dock). The
-other bescort routes (airships, barges, the Segoltha rope) stay
-unwalkable; the Faldesu swim the map also offers (The Marsh, Stone
-Road ↔ Riverhaven, Stone Bridge) is bescort's choice only at
+rides it (`mapdb.ride_of` names the route — only an edge that *is*
+the call; the Marsh's swim edges name the route inside a branch and
+have no dock — and `walker.ride_ferry` boards), after bescort's
+`take_rh_ferry`, with every wording captured on the first ride
+(2026-09-18, Cecil, North Road → Riverhaven):
+
+1. GO FERRY with the ferry out: "[Assuming you mean the ferry His
+   Daring Exploit.]" then "I could not find what you were referring
+   to." The walker waits for "You can see the ferry "Her Opulence"
+   approaching the dock." / "The ferry "Her Opulence" pulls up to the
+   dock." and tries again (bescort's other two wordings, "not here"
+   and "stuck here until the next one arrives", stay in the table).
+2. GO FERRY with the ferry in: "The Captain stops you and requests a
+   transportation fee of 30 lirums as you board the craft." and the
+   room is the ferry ([Her Opulence], "Obvious paths: none"). Boarding
+   is that room change — the compass frame — not a wording: with no
+   lirums on you the captain says "Hey," he says, "You haven't got
+   enough lirums to pay for your trip.  Come back when you can afford
+   the fare." and then "The Captain frowns.  "But I see you're pretty
+   young and don't have the sense to keep enough coins on ya fer
+   emergencies, so I'll just add it to yer debt." / "[Your debt to the
+   province of Therengia is being increased by 30 lirums.]", and you
+   are aboard all the same (the first ride stopped the walk on that
+   refusal while the character stood on the deck). The fare is in
+   lirums on both banks; a refusal that leaves an older character on
+   the dock is uncaptured, and the walker stops on "afford the fare"
+   only when no room change followed.
+3. Aboard: "Next departure in one minute!", "All ashore who's going
+   ashore!", "Cast off!", "You feel the ferry shudder slightly as it
+   shoves off.", the quarter-way and half-way lines, "You are nearing
+   the docks.", then "The ferry "Her Opulence" reaches the dock and
+   its crew ties the ferry off." — the walker's cue for GO DOCK, which
+   lands on [Riverhaven, Ferry Dock] with the usual compass sync and
+   room check. The crossing took about four minutes.
+
+The waits are generous (fifteen minutes each, a ferry's round trip)
+and say what they wait for; the edge costs five minutes in the
+router, so a land route wins where one exists. The ferries are Her
+Opulence and His Daring Exploit (Elanthipedia: Riverhaven Ferry
+Dock). The other bescort routes (airships, barges, the Segoltha rope)
+stay unwalkable; the Faldesu swim the map also offers (The Marsh,
+Stone Road ↔ Riverhaven, Stone Bridge) is bescort's choice only at
 Athletics 140.
 
 ## Pacing

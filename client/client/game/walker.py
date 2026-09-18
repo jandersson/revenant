@@ -11,7 +11,8 @@ and a retreat has nowhere to go (#171) (docs/movement.md). A ferry edge
 (the map's bescort 'faldesu' crossing, #205) is ridden: GO FERRY when
 the ferry is at the dock, the wait for it when not, the crossing, then
 GO DOCK as the step's move — after dr-scripts' bescort take_rh_ferry,
-whose match strings are the wordings until the first ride captures them.
+the wordings captured on the first ride (2026-09-18): the fare is 30
+lirums, put on the Therengian debt when there are none on you.
 """
 
 import re
@@ -24,22 +25,41 @@ module_logger = ClientLogger()
 
 ARRIVAL_TIMEOUT = 15  # seconds for the compass frame after a move
 
-# The Faldesu ferry (#205), after bescort's take_rh_ferry: GO FERRY is
-# answered one of three ways, and the two waits read the dock's story.
-# The wordings are bescort's match strings until captured; the fare
-# and the crossing time are unknown.
-FERRY_ANSWER_SECONDS = 4  # GO FERRY's answer
+# The Faldesu ferry (#205), after bescort's take_rh_ferry, captured on
+# the first ride (2026-09-18, North Road, Ferry → Riverhaven). GO FERRY
+# with the ferry out: "[Assuming you mean the ferry His Daring
+# Exploit.]" / "I could not find what you were referring to."; then
+# "You can see the ferry "Her Opulence" approaching the dock." and "The
+# ferry "Her Opulence" pulls up to the dock." GO FERRY with it in: "The
+# Captain stops you and requests a transportation fee of 30 lirums as
+# you board the craft." and the room is the ferry ([Her Opulence],
+# "Obvious paths: none", a compass frame) — boarding is the room
+# change, not a wording. With no lirums on you: "Hey," he says, "You
+# haven't got enough lirums to pay for your trip.  Come back when you
+# can afford the fare." / "The Captain frowns.  "But I see you're
+# pretty young and don't have the sense to keep enough coins on ya fer
+# emergencies, so I'll just add it to yer debt." / "[Your debt to the
+# province of Therengia is being increased by 30 lirums.]" — and you
+# are aboard all the same (the refusal that leaves you on the dock, for
+# a character the captain does not call young, is still uncaptured).
+# Aboard: "Next departure in one minute!", "All ashore who's going
+# ashore!", "Cast off!", "You feel the ferry shudder slightly as it
+# shoves off.", the quarter-way lines, "You are nearing the docks.",
+# then "The ferry "Her Opulence" reaches the dock and its crew ties the
+# ferry off." GO DOCK lands on [Riverhaven, Ferry Dock].
+FERRY_ANSWER_SECONDS = 4  # GO FERRY's answer: the room change, or the refusal
 FERRY_WAIT_SECONDS = (
     900  # a ferry's round trip: the wait at the dock, then the crossing
 )
 FERRY_ATTEMPTS = 3  # boardings tried per crossing
-FERRY_ABOARD = ("climb aboard",)
 FERRY_AWAY = (
     "not here",
     "could not find what you were referring",
     "until the next one arrives",
 )
 FERRY_NO_FARE = ("afford the fare",)
+FERRY_FEE = re.compile(r"transportation fee of (\d+ \w+)")
+FERRY_ON_DEBT = ("add it to yer debt", "debt to the province")
 FERRY_ARRIVES = ("pulls into the dock", "pulls up to the dock")
 FERRY_LANDS = ("ties the ferry off",)
 
@@ -169,21 +189,31 @@ def read_story(s, seconds, until=()):
 def ride_ferry(s):
     """Board the ferry at this dock and cross (#205): "landed" when the
     far dock is reached (GO DOCK is still the caller's to send, with
-    the arrival check), "fare" when refused for coin, "no ferry" when
-    none came within FERRY_WAIT_SECONDS, "stuck" when the crossing
-    never docked, "unknown" for an answer outside the table."""
+    the arrival check), "fare" when refused for coin and left on the
+    dock, "no ferry" when none came within FERRY_WAIT_SECONDS, "stuck"
+    when the crossing never docked, "unknown" for an answer outside the
+    table. Boarding is the room change after GO FERRY (a compass
+    frame), whatever the captain says about the fare — with no lirums
+    on you he puts it on your Therengian debt and lets you aboard."""
     for _ in range(FERRY_ATTEMPTS):
         s.waitrt()
         s.put("go ferry")
-        answer = read_story(
-            s, FERRY_ANSWER_SECONDS, until=FERRY_ABOARD + FERRY_AWAY + FERRY_NO_FARE
-        )
+        outcome, _, answer = await_arrival(s, timeout=FERRY_ANSWER_SECONDS)
         first = (answer.strip().splitlines() or ["(silence)"])[0]
-        if any(needle in answer for needle in FERRY_NO_FARE):
-            s.echo(f"the ferry refused the fare: {first!r} — stopping here")
-            return "fare"
-        if any(needle in answer for needle in FERRY_ABOARD):
-            s.echo("aboard the ferry — crossing")
+        if outcome == "arrived":
+            fee = FERRY_FEE.search(answer)
+            if any(needle in answer for needle in FERRY_ON_DEBT):
+                s.echo(
+                    "aboard the ferry — no lirums on you, so the captain put the "
+                    f"fare{' of ' + fee.group(1) if fee else ''} on your Therengian "
+                    "debt (;debt pay settles it) — crossing"
+                )
+            else:
+                s.echo(
+                    "aboard the ferry"
+                    + (f" — fare {fee.group(1)}" if fee else "")
+                    + " — crossing"
+                )
             crossing = read_story(s, FERRY_WAIT_SECONDS, until=FERRY_LANDS)
             if not any(needle in crossing for needle in FERRY_LANDS):
                 s.echo(
@@ -192,6 +222,9 @@ def ride_ferry(s):
                 )
                 return "stuck"
             return "landed"
+        if any(needle in answer for needle in FERRY_NO_FARE):
+            s.echo(f"the ferry refused the fare: {first!r} — stopping here")
+            return "fare"
         if any(needle in answer for needle in FERRY_AWAY):
             s.echo("no ferry at the dock — waiting for one")
             arrival = read_story(s, FERRY_WAIT_SECONDS, until=FERRY_ARRIVES)
