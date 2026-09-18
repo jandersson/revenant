@@ -26,8 +26,12 @@ the operator's window as `>> [claude] ...`.
    PUT into anything but the character's own container, `;reexec`,
    and any noun in the character's `~/.revenant/policy/<name>.json`
    valuables. A refusal echoes "session: refused [claude] ... — <why>"
-   in every window; ask the operator to send it themselves, never
-   look for a way round.
+   in every window; ask the operator to send it themselves, or to add
+   the verb to the file's `allow` list (a denied verb, or `put` for
+   the own-container rule — an almsbox tithe, #219; the session
+   re-reads the file on change, but the rule itself is engine code, so
+   a session started before #219 needs a `;reexec` or a relaunch),
+   never look for a way round.
 4. **Never a bare send** (it reads `[external]`), never an ad-hoc socket
    driver, never a change to the "allow external sends" setting. A gated
    command opens the gate for that one call with `REVENANT_ALLOW_SEND=1`.

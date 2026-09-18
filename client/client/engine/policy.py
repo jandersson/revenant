@@ -17,7 +17,10 @@ tag, claim or setting on the sending side lifts it.
 
 A per-character file, ~/.revenant/policy/<name>.json (REVENANT_POLICIES
 moves the directory), adjusts it: "deny" adds verbs, "allow" lifts
-built-in ones, "patterns" adds regexes over the whole line, and
+built-in ones — a denied verb, or "put" for the own-container rule
+(an almsbox tithe, a teller's tray, #219); DROP of a non-junk item
+and a valuable are never lifted — "patterns" adds regexes over the
+whole line, and
 "valuables" names item nouns an outsider may never drop, give, sell,
 hand, offer, trade or put anywhere — the weapon, the armor, the
 containers — whatever the verb. The file is the operator's live
@@ -106,6 +109,7 @@ class Policy:
     denied: dict = field(default_factory=lambda: dict(DENIED))
     patterns: list = field(default_factory=list)  # compiled regexes
     valuables: tuple = ()
+    allowed: tuple = ()  # the file's "allow" words, for the rules a verb lifts
 
     def decide(self, line):
         """(allowed, tier, reason) for one command line from outside."""
@@ -142,7 +146,8 @@ def load_policy(character) -> Policy:
         raw = {}
     for verb in _words(raw.get("deny")):
         denied.setdefault(verb, f"{verb.upper()} is denied by the policy file")
-    for verb in _words(raw.get("allow")):
+    allowed = tuple(_words(raw.get("allow")))
+    for verb in allowed:
         denied.pop(verb, None)
     for pattern in raw.get("patterns") or []:
         try:
@@ -150,7 +155,9 @@ def load_policy(character) -> Policy:
         except re.error:
             continue
     valuables = tuple(_words(raw.get("valuables")))
-    return Policy(denied=denied, patterns=patterns, valuables=valuables)
+    return Policy(
+        denied=denied, patterns=patterns, valuables=valuables, allowed=allowed
+    )
 
 
 class PolicyStore:
@@ -198,7 +205,13 @@ def decide(line, policy=None) -> Verdict:
                 f"DROP of {item or 'that'}: only the junk list is droppable "
                 "(grass, grass rope, settings.json droppable)",
             )
-    if verb == "put" and " in " in f" {' '.join(words)} ":
+    if (
+        verb == "put"
+        and "put" not in policy.allowed
+        and " in " in f" {' '.join(words)} "
+    ):
+        # An explicit allow of put lifts this rule (#219: the almsbox
+        # tithe); a valuable noun still refuses below.
         target = " ".join(words).split(" in ", 1)[1].split()
         if not target or target[0] != "my":
             return Verdict(False, "denied", "PUT into anything but your own container")

@@ -356,7 +356,10 @@ entries from a dock-layout module.
   with a reason echoed to every window in the alert style, DROP
   allows the junk list only, PUT only into the character's own
   container, a listed valuable is refused whatever the verb — with
-  `~/.revenant/policy/<name>.json` adjusting the built-ins. The
+  `~/.revenant/policy/<name>.json` adjusting the built-ins: "allow"
+  lifts a denied verb or, for `put`, the own-container rule (the
+  almsbox tithe, #219); DROP of a non-junk item and a valuable never
+  lift. The
   player's typing is never policed, and nothing on the sending side
   lifts it.
 - `client/client/engine/launch.py` — the `revenant` console script: attaches

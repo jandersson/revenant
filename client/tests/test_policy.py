@@ -58,6 +58,25 @@ def test_put_goes_into_your_own_container_only():
     assert not policy.decide("put my coins in Sable's pouch").allowed
 
 
+def test_an_allowed_put_lifts_the_container_rule_but_not_a_valuable(
+    monkeypatch, tmp_path
+):
+    # The almsbox tithe a Paladin's soul needs (2026-09-19, #219): the
+    # operator allows put, and the tithe goes in; the weapon still
+    # never leaves the character's hands by an outsider's PUT.
+    monkeypatch.setenv("REVENANT_POLICIES", str(tmp_path))
+    (tmp_path / "lanival.json").write_text(
+        json.dumps({"allow": ["put"], "valuables": ["handaxe"]})
+    )
+    pol = policy.load_policy("Lanival")
+    assert pol.allowed == ("put",)
+    assert policy.decide("put 5 silver dokoras in almsbox", pol).allowed
+    refused = policy.decide("put my handaxe in bin", pol)
+    assert not refused.allowed and "valuable" in refused.reason
+    # Without the allow the rule stands, as before.
+    assert not policy.decide("put 5 silver dokoras in almsbox").allowed
+
+
 def test_a_valuable_is_refused_whatever_the_verb():
     pol = policy.Policy(valuables=("handaxe", "canvas sack"))
     refused = policy.decide("put my handaxe in my sack", pol)  # even into our own
