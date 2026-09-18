@@ -71,8 +71,14 @@ DEFAULT_STEP_SECONDS = 0.2
 # (2026-09-18). The Obsidian Pass gondola (#211) is written in that
 # `if` form with GO GONDOLA as the else, so that route rides from it
 # too; the way under the gondola wants 550 ranks of Athletics.
-RIDES = {"faldesu": "ferry", "gondola": "gondola"}
-IF_FORM_RIDES = frozenset({"gondola"})
+# Alfren's Ferry over the Segoltha (The Crossing, Alfren's Ferry 957 ↔
+# Southern Trade Route, Segoltha South Bank 1904) is bescort's 'ferry'
+# route, written in the `if` form too; it is the way south to Leth
+# Deriel and Shard — the map's other way, the Riverbank tunnel, goes
+# through a silverfish ground to a panel the game could not find
+# (2026-09-18).
+RIDES = {"faldesu": "ferry", "ferry": "ferry", "gondola": "gondola"}
+IF_FORM_RIDES = frozenset({"gondola", "ferry"})
 RIDE_SECONDS = 300.0  # the wait and the crossing: a land route wins where one exists
 _BESCORT_CALL = (
     r"start_script\s*\(\s*'bescort'\s*,\s*\[\s*'(?P<route>[a-z0-9_]+)'"

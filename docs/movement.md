@@ -135,7 +135,9 @@ retry, stop — and it ended the song he was playing. Now the wording
 closed set, "the way to <title> is closed to you (...) — going round"
 is echoed, and the route is planned again from where he stands with
 that edge excluded (`MapDB.path(..., closed=)`), up to three times on
-one walk. No retreat, no retry. A climb turned back after its one
+one walk. No retreat, no retry. An exit the game cannot find ("I
+could not find what you were referring to.", "You can't go there") is
+closed the same way. A climb turned back after its one
 retry is closed the same way (#211): the walk says what would help
 and goes round if the map has another way — the gondola over the
 Chasm — and ends only when it has none.
@@ -218,6 +220,23 @@ Dock). The other bescort routes (airships, barges, the Segoltha rope)
 stay unwalkable; the Faldesu swim the map also offers (The Marsh,
 Stone Road ↔ Riverhaven, Stone Bridge) is bescort's choice only at
 Athletics 140.
+
+Alfren's Ferry over the Segoltha (The Crossing, Alfren's Ferry 957 ↔
+Southern Trade Route, Segoltha South Bank 1904; bescort's `ferry`
+route, in the `if` form) is the same ride with other words: bescort's
+`take_xing_ferry` boards on "The Captain gives you a little nod" or
+"You hand him" (a fare of 70 Kronars from the Crossing side, 35 from
+the south, for a non-citizen of Zoluren) and waits on "There is no
+ferry here to go aboard" or "The ferry has just pulled away from the
+dock"; the docking line is the Faldesu's. While a ferry is out the
+walker tries GO FERRY again every minute rather than trusting an
+arrival line it has only captured on the Faldesu. It is the way south
+to Leth Deriel and Shard: the map's other way, the Riverbank tunnel,
+runs through a silverfish ground to a panel the game could not find
+("I could not find what you were referring to.", 2026-09-18 — the
+walk stalled there and the character was bitten to 64 percent before
+he was walked out), so the mudflats are on the avoid list and that
+answer is a closed edge.
 
 The Obsidian Pass gondola (Obsidian Pass, Platform 2249 ↔ 2904) is
 the second ride (#211). The map writes it in the `if

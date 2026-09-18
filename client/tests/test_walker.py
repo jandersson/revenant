@@ -304,7 +304,22 @@ class FerryHandle(FakeHandle):
 @pytest.fixture
 def quick_ferry(monkeypatch):
     monkeypatch.setattr(walker, "FERRY_ANSWER_SECONDS", 0.05)
-    monkeypatch.setattr(walker, "FERRY_WAIT_SECONDS", 0.05)
+    monkeypatch.setattr(walker, "FERRY_WAIT_SECONDS", 0.15)
+    monkeypatch.setattr(walker, "FERRY_POLL_SECONDS", 0.05)
+
+
+ALFREN_SOUTH = (
+    ";e if Script.exists?('bescort'); start_script('bescort', ['ferry', 'leth']); "
+    "wait_while{ running?('bescort') }; else; echo 'ESCORT REQUIRED'; end"
+)
+
+
+def test_alfrens_ferry_is_a_ride_in_its_if_form():
+    from client.game.mapdb import ride_args
+
+    assert ride_of(ALFREN_SOUTH) == "ferry"
+    assert ride_args(ALFREN_SOUTH) == "leth"
+    assert walkable(ALFREN_SOUTH)
 
 
 def test_the_ferry_edge_is_routed_at_its_own_cost():
@@ -340,11 +355,20 @@ def test_a_refusal_that_leaves_you_on_the_dock_stops_the_walk(quick_ferry):
 
 
 def test_a_ferry_that_never_comes_stops_the_walk(quick_ferry):
-    handle = FerryHandle(uids=[10470], answers=["away"] * 3, arrives=False)
+    handle = FerryHandle(uids=[10470], answers=["away"] * 20, arrives=False)
     handle.state.room_uid = 10385
     assert walker.walk(handle, FERRY, [470]) is False
     assert "go dock" not in puts_of(handle)
     assert any("no ferry came" in echo for echo in handle.echoes)
+
+
+def test_a_ferry_that_is_out_is_tried_again_every_poll(quick_ferry):
+    handle = FerryHandle(
+        uids=[10470], answers=["away", "away", "aboard"], arrives=False
+    )
+    handle.state.room_uid = 10385
+    assert walker.walk(handle, FERRY, [470]) is True
+    assert puts_of(handle)[:4] == ["go ferry", "go ferry", "go ferry", "go dock"]
 
 
 def test_a_crossing_that_never_docks_stops_the_walk(quick_ferry):
@@ -886,3 +910,53 @@ def test_a_climb_turned_back_twice_is_routed_around():
     assert puts[-2:] == ["west", "north"]
     assert "retreat" not in puts
     assert any("going round" in echo for echo in handle.echoes)
+
+
+# --- an exit the game cannot find is a closed edge --------------------------
+PANEL = MapDB(
+    [
+        {
+            "id": 9953,
+            "uid": [19953],
+            "title": ["[Riverbank Mudflats]"],
+            "wayto": {"9954": "go panel", "9952": "south"},
+        },
+        {"id": 9954, "uid": [19954], "title": ["[Riverbank Mudflats, Rough Stairway]"]},
+        {
+            "id": 9952,
+            "uid": [19952],
+            "title": ["[Riverbank Mudflats]"],
+            "wayto": {"9954": "north"},
+        },
+    ]
+)
+NOT_FOUND = "I could not find what you were referring to.\n"  # captured 2026-09-18
+
+
+class NoWayHandle(FakeHandle):
+    def __init__(self, uids):
+        super().__init__(uids)
+        self.pending = []
+
+    def put(self, command):
+        super().put(command)
+        if command == "go panel":
+            self.pending = [("", NOT_FOUND)]
+
+    def get(self, timeout=None, streams=("",)):
+        if timeout == 0:
+            return None
+        if self.pending:
+            return self.pending.pop(0)
+        if puts_of(self)[-1:] == ["go panel"]:
+            return None
+        return super().get(timeout, streams)
+
+
+def test_an_exit_the_game_cannot_find_is_routed_around():
+    handle = NoWayHandle(uids=[19952, 19954])
+    handle.state.room_uid = 19953
+    assert walker.walk(handle, PANEL, [9954]) is True
+    assert puts_of(handle) == ["go panel", "south", "north"]
+    assert "retreat" not in puts_of(handle)
+    assert any("closed to you" in echo for echo in handle.echoes)

@@ -48,17 +48,19 @@ ARRIVAL_TIMEOUT = 15  # seconds for the compass frame after a move
 # then "The ferry "Her Opulence" reaches the dock and its crew ties the
 # ferry off." GO DOCK lands on [Riverhaven, Ferry Dock].
 FERRY_ANSWER_SECONDS = 4  # GO FERRY's answer: the room change, or the refusal
-FERRY_WAIT_SECONDS = (
-    900  # a ferry's round trip: the wait at the dock, then the crossing
-)
-FERRY_ATTEMPTS = 3  # boardings tried per crossing
+FERRY_WAIT_SECONDS = 900  # a ferry's round trip: the longest wait for one
+FERRY_POLL_SECONDS = 60  # between GO FERRYs while the ferry is out
 FERRY_AWAY = (
     "not here",
     "could not find what you were referring",
     "until the next one arrives",
+    # Alfren's Ferry (bescort's take_xing_ferry), uncaptured
+    "no ferry here to go aboard",
+    "just pulled away from the dock",
 )
 FERRY_NO_FARE = ("afford the fare",)
 FERRY_FEE = re.compile(r"transportation fee of (\d+ \w+)")
+FERRY_PAID = ("you hand him", "gives you a little nod")  # Alfren's, uncaptured
 FERRY_ON_DEBT = ("add it to yer debt", "debt to the province")
 FERRY_ARRIVES = ("pulls into the dock", "pulls up to the dock")
 FERRY_LANDS = ("ties the ferry off",)
@@ -103,6 +105,11 @@ CLIMB_REFUSALS = (
 # leaves you — answers with these (captured on the retry, 2026-09-11);
 # the same retry, which STANDs first, is the remedy.
 POSTURE_REFUSALS = ("You must be standing", "You must stand first")
+# An exit the map has and the game has not: the Riverbank Mudflats'
+# "go panel" answered "I could not find what you were referring to."
+# (2026-09-18) — a hidden way, or a map edge that is wrong. Closed for
+# the walk like a gated way, and the route planned again.
+WAY_REFUSALS = ("could not find what you were referring", "You can't go there")
 # A way the game closes to the character — a circle or guild gate the
 # map cannot know: the Paladins' Guild's back trail from the Northeast
 # Customs answered a circle-2 Paladin "You're not experienced enough to
@@ -258,9 +265,13 @@ def ride_ferry(s, direction=""):
     dock, "no ferry" when none came within FERRY_WAIT_SECONDS, "stuck"
     when the crossing never docked, "unknown" for an answer outside the
     table. Boarding is the room change after GO FERRY (a compass
-    frame), whatever the captain says about the fare — with no lirums
-    on you he puts it on your Therengian debt and lets you aboard."""
-    for _ in range(FERRY_ATTEMPTS):
+    frame), whatever the captain says about the fare — the Faldesu's
+    captain puts it on your Therengian debt when you have no lirums and
+    lets you aboard. While the ferry is out, GO FERRY is tried again
+    every FERRY_POLL_SECONDS (its arrival line is captured for the
+    Faldesu only); the same routine serves Alfren's Ferry over the
+    Segoltha, whose wordings are bescort's until the first ride."""
+    for _ in range(max(1, round(FERRY_WAIT_SECONDS / FERRY_POLL_SECONDS))):
         s.waitrt()
         s.put("go ferry")
         outcome, _, answer = await_arrival(s, timeout=FERRY_ANSWER_SECONDS)
@@ -292,22 +303,20 @@ def ride_ferry(s, direction=""):
             return "fare"
         if any(needle in answer for needle in FERRY_AWAY):
             s.echo("no ferry at the dock — waiting for one")
-            arrival = read_story(s, FERRY_WAIT_SECONDS, until=FERRY_ARRIVES)
-            if not any(needle in arrival for needle in FERRY_ARRIVES):
-                s.echo(
-                    f"no ferry came in {FERRY_WAIT_SECONDS // 60} minutes"
-                    " — stopping here"
-                )
-                return "no ferry"
+            read_story(s, FERRY_POLL_SECONDS, until=FERRY_ARRIVES)
             continue
         s.echo(f"GO FERRY answered {first!r} — please report it — stopping here")
         return "unknown"
-    s.echo(f"the ferry would not take you in {FERRY_ATTEMPTS} tries — stopping here")
+    s.echo(f"no ferry came in {FERRY_WAIT_SECONDS // 60} minutes — stopping here")
     return "no ferry"
 
 
 # route -> (the ride, the step's own move off it)
-RIDE_HANDLERS = {"faldesu": (ride_ferry, "go dock"), "gondola": (ride_gondola, "out")}
+RIDE_HANDLERS = {
+    "faldesu": (ride_ferry, "go dock"),
+    "ferry": (ride_ferry, "go dock"),
+    "gondola": (ride_gondola, "out"),
+}
 
 
 def await_arrival(s, timeout=ARRIVAL_TIMEOUT):
@@ -335,7 +344,7 @@ def await_arrival(s, timeout=ARRIVAL_TIMEOUT):
         hindering.extend(hindering_nouns(text))
         if any(needle in text for needle in CLIMB_REFUSALS + POSTURE_REFUSALS):
             return "refused", hindering, "".join(seen)
-        if any(needle in text for needle in GATE_REFUSALS):
+        if any(needle in text for needle in GATE_REFUSALS + WAY_REFUSALS):
             return "closed", hindering, "".join(seen)
 
 
