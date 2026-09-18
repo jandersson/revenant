@@ -63,7 +63,14 @@ cast per swing at most (#200). Each of the two is DISCERNed once
 before the weapon is drawn, and a spell the character's ranks cannot
 carry — DISCERN's "You don't think you are able to cast this spell",
 or a cast that "fails completely" for lack of skill — is off for the
-run, the rank named (#202).
+run, the rank named, and the ranks the spell wants when DISCERN says
+("reach the rank of a promising novice": 10) (#202, #203).
+A cast never idles: the spell is PREPAREd (and a targeted one
+TARGETed at the prey, as DISCERN says it must be), the swing goes out
+while the pattern forms — PREPARE is answered during weapon roundtime,
+so the swing's own roundtime covers the wait — and CAST follows the
+swing; a foe that went down under that swing has the pattern RELEASEd
+rather than cast at nothing (#203, after dr-scripts' combat-trainer).
 `perception` on: when a room of the ground has emptied, and on every
 lap of an empty ground, one HUNT for tracks before moving on, at most
 once per 75 seconds while Perception sits below lock — HUNT teaches
@@ -272,6 +279,8 @@ class Tally:
         self.tracks = 0  # HUNTs the game answered
         self.track_misses = 0  # unrecognized HUNT answers in a row
         self.tracking_off = False  # HUNT refused this run, said once
+        self.swings = 0  # swings this run, against MAX_ACTIONS
+        self.check_wounds = False  # HEALTH before the next swing (a kill, a hit)
 
 
 def hostiles(state):
@@ -531,7 +540,7 @@ def make_bundle(s, profile, tally):
     return False
 
 
-def cast_buffs(s, profile, tally, fight=False):
+def cast_buffs(s, profile, tally, fight=False, filler=None):
     """The profile's buffs, cast and kept up by client/game/buffs.py
     with the hunt's answer windows and its unrecognized-answer tally.
     In the fight (`fight`) the targeted spells — the profile's
@@ -539,22 +548,44 @@ def cast_buffs(s, profile, tally, fight=False):
     turns with the buff training cast (buffs.next_cast), so a swing
     never carries two casts (#192, #200). Outside the fight, each
     targeted spell is DISCERNed once per run first, so one the ranks
-    cannot carry never costs a PREPARE (#202)."""
+    cannot carry never costs a PREPARE (#202). In the fight the
+    iteration's swing (`filler`) goes out while the first pattern
+    forms, and the roundtime is waited before the cast; True when it
+    did, so the loop does not swing again (#203)."""
     state = tally.buffs
+    taken = {"alive": None}
 
     def report(what, answer):
         unrecognized(s, tally, what, answer)
 
+    def fill():
+        if taken["alive"] is None:
+            taken["alive"] = filler()
+            s.waitrt()
+        return taken["alive"]
+
+    swing_first = fill if fight and filler is not None else None
     if not fight:
         buffs.discern_slots(s, profile, state, ask, "hunt", report)
     turn = buffs.next_cast(s, profile, state) if fight else None
     if turn in buffs.TARGETED_SLOTS:
         buffs.cast_targeted(
-            s, profile, state, ask, "hunt", report, turn, target=profile["prey"]
+            s,
+            profile,
+            state,
+            ask,
+            "hunt",
+            report,
+            turn,
+            target=profile["prey"],
+            filler=swing_first,
         )
-        buffs.cast_buffs(s, profile, state, ask, "hunt", report, train=False)
+        buffs.cast_buffs(
+            s, profile, state, ask, "hunt", report, train=False, filler=swing_first
+        )
     else:
-        buffs.cast_buffs(s, profile, state, ask, "hunt", report)
+        buffs.cast_buffs(s, profile, state, ask, "hunt", report, filler=swing_first)
+    return taken["alive"] is not None
 
 
 def bundled(s, profile, tally):
@@ -730,15 +761,65 @@ def track(s, profile, tally):
         )
 
 
+def swing(s, profile, tally, prey):
+    """One swing — ATTACK, SMITE or a maneuver (swing_verb) — and what
+    its answer means: a kill disposed of, a maneuver tallied, a corpse
+    or an empty room noted, an advance waited out. True while the room
+    still holds a live hostile (a cast's filler asks, #203)."""
+    verb = swing_verb(profile, tally, s.state)
+    text = ask(s, f"{verb} {prey}" if prey else verb)
+    lowered = text.lower()
+    if verb == "smite" and any(word in lowered for word in _SMITE_STRUCK):
+        tally.last_smite = clock()  # spent only when it struck
+    if verb in ("attack", "smite"):
+        tally.since_maneuver += 1
+    else:
+        tally.since_maneuver = 0
+        if any(word in lowered for word in _MANEUVER_DONE):
+            tally.maneuvers += 1
+            tally.tactic_misses = 0
+        elif not any(word in lowered for word in _ADVANCING + _NOTHING_THERE):
+            tally.tactic_misses += 1
+            unrecognized(s, tally, verb, text)
+            if tally.tactic_misses >= TACTIC_MISSES:
+                tally.tactics_off = True
+                s.echo(
+                    f"hunt: {verb} answered nothing known {TACTIC_MISSES} "
+                    "times — tactics off for this run"
+                )
+    if any(word in lowered for word in _KILL_WORDS):
+        tally.kills += 1
+        tally.empty_moves = 0
+        tally.corpse_swings = 0
+        corpse = kill_noun(text) or prey or "corpse"
+        s.echo(f"hunt: {corpse} down ({tally.kills})")
+        dispose(s, profile, corpse, tally)
+        tally.check_wounds = True
+    elif any(word in lowered for word in _ALL_DEAD):
+        tally.room_clear = True  # the game says so; the hostile state lags
+    elif corpse := _DEAD_NOUN.search(text):
+        tally.corpse_swings += 1
+        if tally.corpse_swings > CORPSE_SWINGS:
+            s.echo("hunt: only a corpse answers — the room is clear")
+            tally.room_clear = True
+            tally.corpse_swings = 0
+        else:
+            dispose(s, profile, corpse.group(2), tally)
+    elif any(word in lowered for word in _NOTHING_THERE):
+        s.put("face next")
+        probe.collect(s, TAIL_SECONDS)
+    elif any(word in lowered for word in _ADVANCING):
+        probe.collect(s, ADVANCE_WAIT, until="melee range")
+    return not tally.room_clear and bool(hostiles(s.state))
+
+
 def loop(s, profile, db, ground, avoid, tally):
     """Fight until something ends the hunt; returns why."""
     prey = profile["prey"]
     floor = profile["health_floor"]
     last_health = health(s.state)
-    check_wounds = False
-    swings = 0
     for _ in range(MAX_ITERATIONS):
-        if swings >= MAX_ACTIONS:
+        if tally.swings >= MAX_ACTIONS:
             break  # empty rooms and waits do not count against the swings
         if s.dead:
             return "dead — deathwatch has it"
@@ -749,10 +830,10 @@ def loop(s, profile, db, ground, avoid, tally):
             escape(s)
             return f"health {current}% below the floor"
         if current is not None and last_health is not None and current < last_health:
-            check_wounds = True
+            tally.check_wounds = True
         last_health = current
-        if check_wounds:
-            check_wounds = False
+        if tally.check_wounds:
+            tally.check_wounds = False
             if hit := wound_at_floor(s, profile):
                 area, kind, lvl = hit
                 escape(s)
@@ -768,54 +849,13 @@ def loop(s, profile, db, ground, avoid, tally):
             if not settle(s, db, ground, avoid, tally):
                 return "ground taken"
             continue
-        swings += 1
-        cast_buffs(
-            s, profile, tally, fight=True
-        )  # a buff that ran out, before the swing
-        verb = swing_verb(profile, tally, s.state)
-        text = ask(s, f"{verb} {prey}" if prey else verb)
-        lowered = text.lower()
-        if verb == "smite" and any(word in lowered for word in _SMITE_STRUCK):
-            tally.last_smite = clock()  # spent only when it struck
-        if verb in ("attack", "smite"):
-            tally.since_maneuver += 1
-        else:
-            tally.since_maneuver = 0
-            if any(word in lowered for word in _MANEUVER_DONE):
-                tally.maneuvers += 1
-                tally.tactic_misses = 0
-            elif not any(word in lowered for word in _ADVANCING + _NOTHING_THERE):
-                tally.tactic_misses += 1
-                unrecognized(s, tally, verb, text)
-                if tally.tactic_misses >= TACTIC_MISSES:
-                    tally.tactics_off = True
-                    s.echo(
-                        f"hunt: {verb} answered nothing known {TACTIC_MISSES} "
-                        "times — tactics off for this run"
-                    )
-        if any(word in lowered for word in _KILL_WORDS):
-            tally.kills += 1
-            tally.empty_moves = 0
-            tally.corpse_swings = 0
-            corpse = kill_noun(text) or prey or "corpse"
-            s.echo(f"hunt: {corpse} down ({tally.kills})")
-            dispose(s, profile, corpse, tally)
-            check_wounds = True
-        elif any(word in lowered for word in _ALL_DEAD):
-            tally.room_clear = True  # the game says so; the hostile state lags
-        elif corpse := _DEAD_NOUN.search(text):
-            tally.corpse_swings += 1
-            if tally.corpse_swings > CORPSE_SWINGS:
-                s.echo("hunt: only a corpse answers — the room is clear")
-                tally.room_clear = True
-                tally.corpse_swings = 0
-            else:
-                dispose(s, profile, corpse.group(2), tally)
-        elif any(word in lowered for word in _NOTHING_THERE):
-            s.put("face next")
-            probe.collect(s, TAIL_SECONDS)
-        elif any(word in lowered for word in _ADVANCING):
-            probe.collect(s, ADVANCE_WAIT, until="melee range")
+        tally.swings += 1
+        # A cast due before this swing wraps it: PREPARE, the swing while
+        # the pattern forms, CAST (#203). Otherwise the swing alone.
+        if not cast_buffs(
+            s, profile, tally, fight=True, filler=lambda: swing(s, profile, tally, prey)
+        ):
+            swing(s, profile, tally, prey)
     return "action budget spent"
 
 

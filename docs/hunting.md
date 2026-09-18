@@ -240,8 +240,40 @@ targeted spell is DISCERNed once
 eight seconds of roundtime, no mana, "You think you could weave at
 most 27 mana streams into this spell."), so "You don't think you are
 able to cast this spell" ([Talk:Regenerate](https://elanthipedia.play.net/Talk:Regenerate))
-costs no cast at all. How a Paladin earns the first Targeted Magic
-ranks is an open question for the operator; the slot waits.
+costs no cast at all. The operator's own DISCERN (2026-09-18) gave
+the spell's description first — "This is a targeted spell, which must
+be TARGETed at a specific opponent. ... To begin to be able to cast
+this spell, you will need to reach the rank of a promising novice.
+... It requires the Targeted Magic skill to cast effectively." — then
+the refusal and "Roundtime: 13 sec." A promising novice is ranks 10 to
+19 ([Experience](https://elanthipedia.play.net/Experience): the novice
+tier is lowly, promising, able, trained and full by tens), so the
+strike wants Targeted Magic 10, and the DISCERN echo names that floor
+beside the rank held. How a Paladin earns those first ranks is an open
+question for the operator; the slot waits.
+
+Being targeted magic, the strike is cast the TARGET way
+([Target command](https://elanthipedia.play.net/Target_command)):
+PREPARE <spell> <mana>, TARGET <prey> ("You begin to weave mana lines
+into a target pattern around <target>." then, after the pattern's
+time, "Your formation of a targeting pattern around <target> has
+completed."), CAST with no argument. Those wordings are the wiki's
+until a cast lands; a missing target RELEASEs the pattern (#203).
+
+## Casts between swings
+
+A cast never idles. PREPARE is answered during weapon roundtime — in
+the 2026-09-18 log every "You begin chanting a prayer" landed one to
+nine seconds before the preceding swing's roundtime ended — so the
+loop PREPAREs (and TARGETs), sends the iteration's swing while the
+pattern forms, waits the swing's roundtime, collects what is left of
+the prepare time for the ready line, and CASTs; the cast wraps the
+swing rather than adding one, so the cadence is still one swing per
+iteration and the prepare wait costs nothing. It is dr-scripts'
+combat-trainer shape (its spell process prepares, keeps attacking,
+and casts on the ready flag or the prep timer). A foe that went down
+under the filler swing has a pattern aimed at it RELEASEd rather than
+cast at nothing; a self-cast buff casts regardless (#203).
 
 ## Tactics
 

@@ -82,9 +82,32 @@ DISCERNs the spell (8 seconds of roundtime, no mana; Elanthipedia:
 Discern command) and turns the slot off on "You don't think you are
 able to cast this spell" before any PREPARE is spent; the estimate
 wording is the wiki's "You think you could weave at most N mana
-streams into this spell." until captured (#202).
+streams into this spell." until captured (#202). Captured 2026-09-18
+on Footman's Strike at Targeted Magic 1: the spell's description, then
+"This is a targeted spell, which must be TARGETed at a specific
+opponent. ... To begin to be able to cast this spell, you will need to
+reach the rank of a promising novice. ... It requires the Targeted
+Magic skill to cast effectively.", then "You don't think you are able
+to cast this spell." and "Roundtime: 13 sec." — rank_floor() reads the
+title (a promising novice is ranks 10 to 19, Elanthipedia: Experience)
+so the echo names the ranks the spell wants.
+
+A cast never idles (#203). PREPARE is answered during weapon roundtime
+(every chant in the 2026-09-18 log landed one to nine seconds before
+the swing's roundtime ended), so cast_once() takes a `filler`: after
+PREPARE (and, for the `targeted` slot, TARGET <prey>) the caller's
+swing goes out while the pattern forms, then what is left of
+PREPARE_SECONDS is collected for the ready line, then CAST — the way
+dr-scripts' combat-trainer runs its spell process beside its attacks.
+A filler that reports the foe down RELEASEs a pattern aimed at it
+instead of casting at nothing ("released"). The targeted slot's flow
+is DISCERN's: PREPARE, TARGET (the wiki's "You begin to weave mana
+lines into a target pattern around <target>." / "Your formation of a
+targeting pattern around <target> has completed." until captured),
+CAST with no argument (Elanthipedia: Target command).
 """
 
+import re
 from time import monotonic
 
 from client.game import probe
@@ -135,6 +158,31 @@ DISCERN_OUTCOMES = (
     ("unknown", ("don't know", "no such spell", "what spell")),
     ("ok", ("mana streams", "weave at most")),
 )
+# TARGET <prey> after PREPARE for a targeted-magic spell (#203): the
+# wiki's wordings until captured; a missing target is guessed from the
+# game's usual "referring to" refusal.
+TARGET_OUTCOMES = (
+    ("missing", ("what were you referring", "could not find", "nothing to target")),
+    ("ok", ("weave mana lines", "target pattern", "targeting pattern")),
+)
+# DISCERN's "you will need to reach the rank of a <title>": the title's
+# first rank (Elanthipedia: Experience). The novice tier is split by
+# tens; the other tiers' sub-titles vary, so their base rank stands.
+TIER_RANKS = {
+    "novice": 1,
+    "practitioner": 50,
+    "dilettante": 100,
+    "aficionado": 150,
+    "adept": 200,
+    "expert": 300,
+    "professional": 400,
+    "authority": 500,
+    "genius": 600,
+    "savant": 700,
+    "master": 800,
+}
+NOVICE_STEPS = {"lowly": 1, "promising": 10, "able": 20, "trained": 30, "full": 40}
+_RANK_OF = re.compile(r"rank of an? ([a-z]+(?: [a-z]+)?)")
 MANA_FLOOR = 40  # % of mana under which no training cast goes out
 CAST_GAP_SECONDS = 60  # between training casts, for a profile without cast_gap
 # The targeted casts: profile slot -> the skill it trains. Each is cast
@@ -179,6 +227,22 @@ def rank_of(state, skill):
     """The skill's rank in the exp window, or None before it has shown."""
     experience = getattr(state, "experience", None) or {}
     return (experience.get(skill) or {}).get("rank")
+
+
+def rank_floor(text):
+    """(rank, title) from DISCERN's "reach the rank of a <title>", or
+    None when the answer names none (#203)."""
+    match = _RANK_OF.search(text.lower())
+    if not match:
+        return None
+    title = match.group(1)
+    words = title.split()
+    base = TIER_RANKS.get(words[-1])
+    if base is None:
+        return None
+    if words[-1] == "novice" and len(words) == 2:
+        base = NOVICE_STEPS.get(words[0], base)
+    return base, title
 
 
 def buff_running(s, spell, state):
@@ -230,24 +294,55 @@ def charge_cambrinth(s, profile, state, ask, prefix, report):
     return False
 
 
-def cast_once(s, spell, mana, state, ask, report, invoke=None, target=""):
-    """PREPARE (with a mana amount when given), wait for the pattern,
-    INVOKE the cambrinth piece when one is charged (`invoke`, its
-    noun), CAST (at `target` when one is named), and stow the piece.
-    "refused" (the spell cannot be
-    prepared), "lacking" (the character's ranks cannot carry the spell
-    at all, #202), "collapsed" (the cast failed), "strained" (cast, but
-    the mana asked was too much) or "ok"."""
+def cast_once(
+    s,
+    spell,
+    mana,
+    state,
+    ask,
+    report,
+    invoke=None,
+    target="",
+    filler=None,
+    targeted=False,
+):
+    """PREPARE (with a mana amount when given), TARGET the prey when the
+    spell is targeted magic (`targeted`), run the caller's `filler` (a
+    swing) while the pattern forms, wait out the rest of the prepare
+    time, INVOKE the cambrinth piece when one is charged (`invoke`,
+    its noun), CAST (at `target` when one is named and the spell is not
+    targeted — a targeted one casts at its pattern), and stow the
+    piece. "refused" (the spell cannot be prepared), "lacking" (the
+    character's ranks cannot carry the spell at all, #202), "released"
+    (the target was gone before the cast — the pattern is let go,
+    #203), "collapsed" (the cast failed), "strained" (cast, but the
+    mana asked was too much) or "ok"."""
     answer = ask(s, f"prepare {spell} {mana}" if mana else f"prepare {spell}")
     outcome = classify(answer, PREPARE_OUTCOMES)
     if outcome == "failed":
         if invoke:
             ask(s, f"stow my {invoke}")
         return "refused"
-    probe.collect(s, PREPARE_SECONDS, until="fully prepared")
+    started = monotonic()
+    ready = "fully prepared"
+    if targeted:
+        answer = ask(s, f"target {target}" if target else "target")
+        aim = classify(answer, TARGET_OUTCOMES)
+        if aim == "missing":
+            ask(s, "release")
+            return "released"
+        if aim is None:
+            report("target", answer)
+        ready = "has completed"
+    if filler is not None and not filler() and (target or targeted):
+        ask(s, "release")
+        return "released"
+    remaining = PREPARE_SECONDS - (monotonic() - started)
+    if remaining > 0:
+        probe.collect(s, remaining, until=ready)
     if invoke:
         ask(s, f"invoke my {invoke}")
-    answer = ask(s, f"cast {target}" if target else "cast")
+    answer = ask(s, f"cast {target}" if target and not targeted else "cast")
     cast = classify(answer, CAST_OUTCOMES)
     if invoke:
         ask(s, f"stow my {invoke}")
@@ -334,9 +429,11 @@ def discern_slots(s, profile, state, ask, prefix, report):
     """DISCERN each targeted slot's spell once per run, before its
     first cast: "You don't think you are able to cast this spell" (or a
     spell the character does not know) turns the slot off, its skill's
-    rank named, before a PREPARE is spent on it. Eight seconds of
-    roundtime per spell, waited out; an answer outside the table is
-    reported and the slot cast anyway (#202)."""
+    rank named — and the rank the spell wants, when the answer says
+    "reach the rank of a <title>" — before a PREPARE is spent on it.
+    Thirteen seconds of roundtime per spell (captured 2026-09-18),
+    waited out; an answer outside the table is reported and the slot
+    cast anyway (#202, #203)."""
     for slot, skill in TARGETED_SLOTS.items():
         spell = profile.get(slot) or ""
         if not spell or slot in state.slots_off or slot in state.discerned:
@@ -347,9 +444,11 @@ def discern_slots(s, profile, state, ask, prefix, report):
         outcome = classify(answer, DISCERN_OUTCOMES)
         if outcome == "unable":
             state.slots_off.add(slot)
+            floor = rank_floor(answer)
+            wants = f"needs {skill} {floor[0]} ({floor[1]})" if floor else "is beyond"
             s.echo(
-                f"{prefix}: DISCERN says {spell} is beyond {skill} rank "
-                f"{rank_of(s.state, skill)} — off for this run"
+                f"{prefix}: DISCERN says {spell} {wants}; "
+                f"{skill} is {rank_of(s.state, skill)} — off for this run"
             )
         elif outcome == "unknown":
             state.slots_off.add(slot)
@@ -358,19 +457,34 @@ def discern_slots(s, profile, state, ask, prefix, report):
             report("discern", answer)
 
 
-def cast_targeted(s, profile, state, ask, prefix, report, slot, target=""):
+def cast_targeted(s, profile, state, ask, prefix, report, slot, target="", filler=None):
     """PREPARE the profile's spell in `slot` with its ramp's mana and
     CAST it at the target (the prey's noun; "" casts at whatever is
-    engaged). The mana climbs by MANA_STEP per cast that took until the
-    strain warning or a collapse, then holds one step under; a collapse
-    at the minimum, or a cast the ranks cannot carry, turns the spell
-    off for the run, said once (#192, #200, #202)."""
+    engaged) — the `targeted` slot TARGETs it first, the way targeted
+    magic must be, and casts at the pattern. The caller's `filler` (a
+    swing) runs while the pattern forms (#203). The mana climbs by
+    MANA_STEP per cast that took until the strain warning or a
+    collapse, then holds one step under; a collapse at the minimum, or
+    a cast the ranks cannot carry, turns the spell off for the run,
+    said once (#192, #200, #202)."""
     spell = profile[slot]
     skill = TARGETED_SLOTS[slot]
     mana = state.slot_mana.get(slot, 0)
-    result = cast_once(s, spell, mana, state, ask, report, target=target)
+    result = cast_once(
+        s,
+        spell,
+        mana,
+        state,
+        ask,
+        report,
+        target=target,
+        filler=filler,
+        targeted=slot == "targeted",
+    )
     state.last_training = slot
-    if result == "refused":
+    if result == "released":
+        s.echo(f"{prefix}: {spell} released — the foe was down before the cast")
+    elif result == "refused":
         s.echo(f"{prefix}: cannot prepare {spell} — off for this run")
         state.slots_off.add(slot)
     elif result == "lacking":
@@ -397,14 +511,17 @@ def cast_targeted(s, profile, state, ask, prefix, report, slot, target=""):
         )
 
 
-def cast_buffs(s, profile, state, ask, prefix="buffs", report=None, train=True):
+def cast_buffs(
+    s, profile, state, ask, prefix="buffs", report=None, train=True, filler=None
+):
     """Every profile buff not running: PREPARE it, wait for the pattern,
     CAST. A refusal takes that buff off for the run, said once. The
     first buff is cast again for training when training_cast_due says
     so (and `train` allows it — a caller whose targeted cast took
     this turn passes False), feeding state.mana, which climbs a step
     per cast until the strain warning or a collapsed cast and then
-    holds one step under. True when any cast went out."""
+    holds one step under. The caller's `filler` (a swing) runs while
+    each pattern forms (#203). True when any cast went out."""
     if report is None:
 
         def report(what, answer):
@@ -422,7 +539,9 @@ def cast_buffs(s, profile, state, ask, prefix="buffs", report=None, train=True):
         invoke = None
         if training and charge_cambrinth(s, profile, state, ask, prefix, report):
             invoke = profile["cambrinth"]
-        result = cast_once(s, spell, mana, state, ask, report, invoke=invoke)
+        result = cast_once(
+            s, spell, mana, state, ask, report, invoke=invoke, filler=filler
+        )
         cast = True
         if training:
             state.last_training = "buff"

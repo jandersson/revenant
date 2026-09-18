@@ -1196,14 +1196,16 @@ def test_the_debilitation_spell_is_cast_at_the_prey_before_the_swing(travel):
     arena.state.vitals["mana"] = 100
     _run(arena, profile=STUNNING | {"max_kills": 3}, travel_first=False)
     # DISCERN first, before the weapon is drawn (#202); the cast in the fight.
-    assert arena.sent[:6] == [
+    # PREPARE, the swing while the pattern forms (its kill skinned and
+    # searched, the pattern holding), CAST (#203).
+    assert arena.sent[:5] == [
         "discern stun foe",
         "get my handaxe from my sack",
         "stance set 100 80 0",
         "prepare stun foe",
-        "cast rat",
         "attack rat",
     ]
+    assert arena.sent.index("cast rat") < arena.sent.index("prepare stun foe 2")
     # The mana climbs a step per cast that took, like the training casts.
     assert prepares(arena) == [
         "prepare stun foe",
@@ -1287,6 +1289,22 @@ def test_the_debilitation_and_training_casts_take_turns(travel):
 STRUCK = "You gesture at a rat with your handaxe."
 FS_PREPARED = "You begin chanting a prayer to invoke the Footman's Strike spell."
 STRIKING = PROFILE | {"targeted": "footman's strike"}
+# TARGET's wordings are the wiki's until captured (#203).
+TARGETING = "You begin to weave mana lines into a target pattern around a rat."
+# The operator's DISCERN, captured 2026-09-18 (#203): the description,
+# the rank the spell wants, the refusal, 13 seconds of roundtime.
+DISCERN_REFUSED = (
+    "Footman's Strike draws on the caster's melee weapon in hand as a focus for "
+    "the spell, which dictates the shape of its manifestation.\n\nThis is a "
+    "targeted spell, which must be TARGETed at a specific opponent.  This spell "
+    "does slice and impact damage.  It requires a minimum of two mana streams, "
+    "and can expand to a maximum of fifty mana streams woven into it.  To begin "
+    "to be able to cast this spell, you will need to reach the rank of a "
+    "promising novice.  By the time you have mastered this spell, you will be "
+    "ranked as a genius in your abilities as a caster.  It requires the Targeted "
+    "Magic skill to cast effectively.\n\nYou don't think you are able to cast "
+    "this spell.\nRoundtime: 13 sec."
+)
 TM_OPEN = {"Targeted Magic": {"rank": 1, "percent": 0, "mindstate": 5}}
 TM_LOCKED = {"Targeted Magic": {"rank": 1, "percent": 0, "mindstate": 34}}
 
@@ -1300,20 +1318,25 @@ def test_the_targeted_spell_is_cast_at_the_prey_before_the_swing(travel):
             "skin": [SKINNED] * 3,
             "search": [NOTHING] * 3,
             "discern": [DISCERNED],
+            "target": [TARGETING] * 3,
         },
         experience=TM_OPEN,
     )
     arena.state.vitals["mana"] = 100
     _run(arena, profile=STRIKING | {"max_kills": 3}, travel_first=False)
     # Only in the fight, the weapon drawn: the spell takes it as its focus.
+    # Targeted magic: PREPARE, TARGET the prey, the swing while the
+    # pattern forms, CAST at the pattern (#203).
     assert arena.sent[:6] == [
         "discern footman's strike",
         "get my handaxe from my sack",
         "stance set 100 80 0",
         "prepare footman's strike",
-        "cast rat",
+        "target rat",
         "attack rat",
     ]
+    assert arena.sent.index("cast") < arena.sent.index("prepare footman's strike 2")
+    assert "cast rat" not in arena.sent
     assert prepares(arena) == [
         "prepare footman's strike",
         "prepare footman's strike 2",
@@ -1461,7 +1484,7 @@ def test_discern_saying_no_spares_the_prepare_and_names_the_rank(travel):
             "cast": [LACKING] * 2,
             "skin": [SKINNED] * 2,
             "search": [NOTHING] * 2,
-            "discern": ["You don't think you are able to cast this spell."],
+            "discern": [DISCERN_REFUSED],
         },
         experience=TM_RANK_1,
     )
@@ -1470,9 +1493,84 @@ def test_discern_saying_no_spares_the_prepare_and_names_the_rank(travel):
     assert arena.sent.count("discern footman's strike") == 1
     assert prepares(arena) == []
     assert any(
-        "DISCERN says footman's strike is beyond Targeted Magic rank 1" in text
+        "DISCERN says footman's strike needs Targeted Magic 10 (promising novice); "
+        "Targeted Magic is 1 — off for this run" in text
         for text in arena.echoed
     )
+
+
+def test_rank_floor_reads_the_title_discern_names():
+    assert buffs.rank_floor(DISCERN_REFUSED) == (10, "promising novice")
+    assert buffs.rank_floor("reach the rank of a lowly novice.") == (1, "lowly novice")
+    assert buffs.rank_floor("reach the rank of an adept.") == (200, "adept")
+    assert buffs.rank_floor("You don't think you are able to cast this spell.") is None
+
+
+def test_the_swing_goes_out_while_the_training_cast_prepares(travel):
+    # cast_gap 0: the buff trains before every swing — PREPARE, the
+    # swing, CAST, never a swing on its own while a cast is due (#203).
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands)] * 2 + [(KILL, kill)],
+            "prepare": [PREPARED] * 4,
+            "cast": [CAST] * 4,
+            "skin": [SKINNED] * 3,
+            "search": [NOTHING] * 3,
+        },
+        experience=_exp(10),
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=TRAINING | {"max_kills": 3}, travel_first=False)
+    fight = arena.sent[arena.sent.index("stance set 100 80 0") + 1 :]
+    casts = [c for c in fight if c.split()[0] in ("prepare", "attack", "cast")]
+    assert casts == [
+        "prepare heroic strength 2",
+        "attack rat",
+        "cast",
+        "prepare heroic strength 4",
+        "attack rat",
+        "cast",
+        "prepare heroic strength 6",
+        "attack rat",
+        "cast",
+    ]
+
+
+def test_a_foe_down_under_the_filler_swing_releases_the_targeted_pattern(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "prepare": [SF_PREPARED],
+            "cast": [STUNNED],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+            "discern": [DISCERNED],
+        },
+        experience=DEBIL_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STUNNING | {"max_kills": 1}, travel_first=False)
+    assert "release" in arena.sent
+    assert "cast rat" not in arena.sent
+    assert any("stun foe released" in text for text in arena.echoed)
+
+
+def test_a_missing_target_releases_the_pattern_before_the_swing(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "prepare": [FS_PREPARED],
+            "target": ["What were you referring to?"],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+            "discern": [DISCERNED],
+        },
+        experience=TM_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STRIKING | {"max_kills": 1}, travel_first=False)
+    assert arena.sent.index("release") < arena.sent.index("attack rat")
+    assert "cast" not in arena.sent
 
 
 def test_discern_goes_out_once_per_slot_and_not_for_an_empty_one(travel):
