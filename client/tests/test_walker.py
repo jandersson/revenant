@@ -1000,3 +1000,86 @@ def test_a_climb_refused_on_the_stall_retry_is_routed_around_too(monkeypatch):
     assert puts.count("climb felled tree") == 2
     assert puts[-2:] == ["west", "north"]
     assert any("turned back for you" in echo for echo in handle.echoes)
+
+
+# --- the skill gates the map writes as Ruby timeto values (#214) -----------
+BRANCH = ";e unless DRSkill.getmodrank('Athletics') >= 540 then nil else 0.2 end"
+PASS = MapDB(
+    [
+        {
+            "id": 2245,
+            "uid": [2245],
+            "title": ["[Obsidian Pass, Mountain Trail]"],
+            "wayto": {"19459": "go branch", "2246": "north"},
+            "timeto": {"19459": BRANCH, "2246": 0.2},
+        },
+        {
+            "id": 19459,
+            "uid": [19459],
+            "title": ["[Chasm, Vertical Pothole]"],
+            "wayto": {"2247": "up"},
+        },
+        {
+            "id": 2246,
+            "uid": [2246],
+            "title": ["[Obsidian Pass, Trail]"],
+            "wayto": {"2247": "north"},
+            "timeto": {"2247": 30},
+        },
+        {"id": 2247, "uid": [2247], "title": ["[Obsidian Pass, Summit]"]},
+    ]
+)
+
+
+def test_a_gate_the_ranks_cannot_pass_is_never_planned():
+    # The exp window says Athletics 37: the branch into the Chasm is
+    # not an edge for this walk, and the long way round is taken
+    # without a single refused climb (2026-09-18, #214).
+    handle = FakeHandle(uids=[2246, 2247])
+    handle.state.room_uid = 2245
+    handle.state.experience = {"Athletics": {"rank": 37, "percent": 0, "mindstate": 0}}
+    assert walker.walk(handle, PASS, [2247]) is True
+    assert puts_of(handle) == ["north", "north"]
+
+
+def test_a_gate_the_ranks_pass_is_taken():
+    handle = FakeHandle(uids=[19459, 2247])
+    handle.state.room_uid = 2245
+    handle.state.experience = {"Athletics": {"rank": 540, "percent": 0, "mindstate": 0}}
+    assert walker.walk(handle, PASS, [2247]) is True
+    assert puts_of(handle) == ["go branch", "up"]
+
+
+def test_the_only_way_gated_stops_before_the_first_step_and_names_the_gate():
+    lone = MapDB(
+        [
+            {
+                "id": 2245,
+                "uid": [2245],
+                "title": ["[Obsidian Pass, Mountain Trail]"],
+                "wayto": {"19459": "go branch"},
+                "timeto": {"19459": BRANCH},
+            },
+            {"id": 19459, "uid": [19459], "title": ["[Chasm, Vertical Pothole]"]},
+        ]
+    )
+    handle = FakeHandle(uids=[])
+    handle.state.room_uid = 2245
+    handle.state.experience = {"Athletics": {"rank": 37, "percent": 0, "mindstate": 0}}
+    assert walker.walk(handle, lone, [19459], describe="the Chasm") is False
+    assert puts_of(handle) == []
+    assert any(
+        "the route needs Athletics 540 (you have Athletics 37)" in echo
+        for echo in handle.echoes
+    )
+
+
+def test_character_ranks_reads_the_exp_window_and_tolerates_none():
+    from types import SimpleNamespace
+
+    state = SimpleNamespace(
+        experience={"Athletics": {"rank": 37, "percent": 4, "mindstate": 2}}
+    )
+    assert walker.character_ranks(state) == {"Athletics": 37}
+    assert walker.character_ranks(SimpleNamespace()) == {}
+    assert walker.character_ranks(None) == {}

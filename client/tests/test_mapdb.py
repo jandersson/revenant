@@ -93,13 +93,15 @@ def test_path_prefers_fast_steps_over_a_slow_shortcut():
     assert MapDB(rooms).path(0, [2]) == [(1, "north"), (2, "east")]
 
 
-def test_unusable_timeto_falls_back_to_the_default_step():
-    from client.game.mapdb import DEFAULT_STEP_SECONDS, edge_seconds
+def test_a_missing_timeto_is_a_plain_step_and_a_ruby_one_a_gate():
+    from client.game.mapdb import DEFAULT_STEP_SECONDS, edge_seconds, gate_of
 
-    # Some timeto values are embedded-Ruby conditionals or null — they
-    # cost a plain step, they don't poison the route.
+    # A null or absent timeto costs a plain step; an embedded-Ruby one
+    # is a gate (#214) priced by its own number — and one the walker
+    # cannot judge (a premium account) never opens.
     room = {"timeto": {"1": ";e UserVars.premium ? 2 : nil", "2": None, "3": 4}}
-    assert edge_seconds(room, "1") == DEFAULT_STEP_SECONDS
+    assert edge_seconds(room, "1") == 2.0
+    assert gate_of(room["timeto"]["1"]).needs
     assert edge_seconds(room, "2") == DEFAULT_STEP_SECONDS
     assert edge_seconds(room, "3") == 4.0
     assert edge_seconds(room, "9") == DEFAULT_STEP_SECONDS  # absent entirely
@@ -259,3 +261,124 @@ def test_a_route_plans_through_the_twin_the_game_will_report():
     db = MapDB(MIDDENS)
     assert db.path(684, [669]) == [(13100, "south"), (669, "east")]
     assert 670 not in db.graph.successors(684)
+
+
+# --- the skill gates the map writes as Ruby timeto values (#214) -----------
+# Every shape below is from the community map as of 2026-09-19.
+BRANCH = ";e unless DRSkill.getmodrank('Athletics') >= 540 then nil else 0.2 end"
+
+
+def test_gate_of_reads_every_captured_shape():
+    from client.game.mapdb import Gate, gate_of
+
+    # The Obsidian Pass branch into the Chasm.
+    assert gate_of(BRANCH) == Gate(seconds=0.2, skill="Athletics", ranks=540)
+    # A Thief's footpath and a Thief's sewer grate: guild and skill,
+    # guild and circle (> 5 is circle 6 at least).
+    assert gate_of(
+        ";e (DRStats.guild == 'Thief' &&  DRSkill.getmodrank('Athletics') >= 25) ? 0.2 : nil"
+    ) == Gate(seconds=0.2, skill="Athletics", ranks=25, guild="Thief")
+    assert gate_of(
+        ";e (DRStats.guild == 'Thief' && DRStats.circle > 5) ? 0.2 : nil"
+    ) == Gate(seconds=0.2, guild="Thief", circle=6)
+    # The Thieves' Guild Master's Den.
+    assert gate_of(";e Scripting::DRStats.circle >= 30 ? 0.2 : nil rescue nil") == Gate(
+        seconds=0.2, circle=30
+    )
+    # The Segoltha swim: a rank above 500 with bescort standing in.
+    assert gate_of(
+        ";e unless DRSkill.getmodrank('Athletics') > 500 && Script.exists?('bescort') then nil else 20.0 end"
+    ) == Gate(seconds=20.0, skill="Athletics", ranks=501)
+    # The Crossing's Northeast Customs gate: open to a character seen.
+    assert gate_of(";e if invisible? then nil else 0.2 end") == Gate(seconds=0.2)
+    # The Obsidian Pass guard house and its DRF-only twin.
+    assert gate_of(";e XMLData.game == 'DRF' ? nil : 0.2") == Gate(seconds=0.2)
+    assert gate_of(";e XMLData.game == 'DRF' ? 0.2 : nil").needs
+    # Conditions the walker cannot judge close the edge and say so.
+    citizenship = gate_of(
+        ";e if UserVars.citizenship == 'Ilithi' then 0.2 else nil end"
+    )
+    assert citizenship.needs and "citizenship" in citizenship.needs
+    assert gate_of(";e unless UserVars.riverhaven_password then nil else 3 end").needs
+    assert gate_of(";e some new shape").needs
+    # A plain travel time is no gate at all.
+    assert gate_of(0.2) is None and gate_of(None) is None
+
+
+def test_a_gate_is_met_by_ranks_and_never_by_an_unknown_guild_or_circle():
+    from client.game.mapdb import Gate
+
+    branch = Gate(seconds=0.2, skill="Athletics", ranks=540)
+    assert branch.met({"Athletics": 540})
+    assert not branch.met({"Athletics": 539})
+    assert not branch.met({})  # a skill the window has not listed is rank 0
+    assert not branch.met(None)
+    assert branch.describe() == "Athletics 540"
+    sewer = Gate(seconds=0.2, guild="Thief", circle=6)
+    assert sewer.met({}, guild="Thief", circle=6)
+    assert not sewer.met({}, guild="Thief", circle=5)
+    assert not sewer.met({}, guild="Paladin", circle=40)
+    assert not sewer.met({})  # unknown guild and circle pass no gate
+    assert sewer.describe() == "Thief circle 6"
+    assert not Gate(needs="a condition the walker cannot judge (x)").met(
+        {"Athletics": 900}
+    )
+
+
+PASS = MapDB(
+    [
+        {
+            "id": 2245,
+            "title": ["[Obsidian Pass, Mountain Trail]"],
+            "wayto": {"19459": "climb branch", "2246": "north"},
+            "timeto": {"19459": BRANCH, "2246": 0.2},
+        },
+        {"id": 19459, "title": ["[Chasm, Vertical Pothole]"], "wayto": {"2247": "up"}},
+        {
+            "id": 2246,
+            "title": ["[Obsidian Pass, Trail]"],
+            "wayto": {"2247": "north"},
+            "timeto": {"2247": 30},
+        },
+        {"id": 2247, "title": ["[Obsidian Pass, Summit]"]},
+    ]
+)
+
+
+def test_path_goes_round_a_gate_the_ranks_cannot_pass():
+    # 37 ranks of Athletics (the Paladin, 2026-09-18) take the long way;
+    # no ranks known at all is the same — a gate is never assumed open.
+    assert PASS.path(2245, [2247], ranks={"Athletics": 37}) == [
+        (2246, "north"),
+        (2247, "north"),
+    ]
+    assert PASS.path(2245, [2247]) == [(2246, "north"), (2247, "north")]
+
+
+def test_path_takes_a_gate_the_ranks_pass_at_the_gates_own_price():
+    assert PASS.path(2245, [2247], ranks={"Athletics": 540}) == [
+        (19459, "climb branch"),
+        (2247, "up"),
+    ]
+    assert PASS.graph.edges[2245, 19459]["seconds"] == 0.2
+    assert PASS.graph.edges[2245, 19459]["gate"].skill == "Athletics"
+    assert PASS.graph.edges[2245, 2246]["gate"] is None
+
+
+def test_gates_off_prices_every_gate_open_and_route_gates_lists_them():
+    lone = MapDB(
+        [
+            {
+                "id": 2245,
+                "title": ["[Obsidian Pass, Mountain Trail]"],
+                "wayto": {"19459": "climb branch"},
+                "timeto": {"19459": BRANCH},
+            },
+            {"id": 19459, "title": ["[Chasm, Vertical Pothole]"]},
+        ]
+    )
+    assert lone.path(2245, [19459], ranks={"Athletics": 37}) is None
+    route = lone.path(2245, [19459], ranks={"Athletics": 37}, gates=False)
+    assert route == [(19459, "climb branch")]
+    [(here, dest, gate)] = lone.route_gates(2245, route)
+    assert (here, dest, gate.describe()) == (2245, 19459, "Athletics 540")

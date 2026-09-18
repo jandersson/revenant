@@ -170,7 +170,9 @@ for `client/client/<pkg>/x.py`.
   map's bescort edges, #205, #211); other bescort routes stay
   unwalkable. A way the game closes to the character ("not
   experienced enough to go there") and a climb turned back twice are
-  routed around, never retreated from (#209, #211). Model:
+  routed around, never retreated from (#209, #211), and the skill
+  gates the map writes as Ruby timeto values are honored against
+  the exp window's ranks before the first step (#214). Model:
   docs/movement.md.
 - `client/game/possessions.py` — possessions by exist id: the parser's
   listing built into items, `find(items, noun)` for a script that

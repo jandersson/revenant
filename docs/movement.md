@@ -142,6 +142,33 @@ retry is closed the same way (#211): the walk says what would help
 and goes round if the map has another way — the gondola over the
 Chasm — and ends only when it has none.
 
+## Gates the map itself writes
+
+Some travel times are Ruby for Lich to evaluate at routing time —
+`;e unless DRSkill.getmodrank('Athletics') >= 540 then nil else 0.2
+end` on the Obsidian Pass branch into the Chasm — and nil is no edge:
+that is how Lich's go2 keeps a low character off a climb. The walker
+priced every such edge at a plain step and sent a circle-5 Paladin
+with 37 ranks up that branch, turned back twice (2026-09-18, #214).
+Now `mapdb.gate_of` reads the expression into a Gate (the skill and
+its least rank, the guild, the circle, the edge's price once open)
+and `MapDB.path` drops a gated edge the character does not pass,
+judged against the exp window's ranks (`walker.character_ranks`; a
+skill the window has not listed is rank 0). The parser does not yet
+know the character's guild or circle, so a Thief-only door or the
+circle-30 Master's Den stays shut for everyone until it does.
+Conditions the walker cannot judge — a premium portal, the Riverhaven
+Thieves' password, Ilithi citizenship (#215), a known spell — close
+the edge outright: a gate is a reason to be careful, not optimistic.
+Fixed facts are settled when the expression is read: the walker is
+its own bescort where it rides, it walks seen (`invisible?` is
+false, so the Crossing's Northeast Customs gate stays open), and this
+is DragonRealms Prime (`XMLData.game == 'DRF'` is false, which shuts
+the DRF-only twin of the Obsidian Pass guard house). When the only
+way is gated the walk stops before its first step and says which
+gate and what the character holds: "the route needs Athletics 540
+(you have Athletics 37)".
+
 ## Edges the map can and cannot walk
 
 `wayto` commands are game commands, except embedded lich Ruby
@@ -160,8 +187,9 @@ among them) hang off simple scripted edges, and a graph that drops
 every `;e` partitions them away — that was the 1429↔10171
 "unreachable" mystery, resolved 2026-08-23.
 
-Routes are weighted by the map's `timeto` travel times (Dijkstra;
-missing/Ruby values cost a plain 0.2s step), so they optimize
+Routes are weighted by the map's `timeto` travel times (Dijkstra; a
+missing value costs a plain 0.2s step, a Ruby value is a gate — see
+"Gates the map itself writes"), so they optimize
 minutes, not hops. Rooms on the settings avoid list (`avoid_rooms`,
 ;go2-style targets; the #72 cougar grounds by default) carry an
 hour's penalty on entry: travel detours around them whenever a clean

@@ -223,7 +223,11 @@ entries from a dock-layout module.
   vendored. Pathfinding on a networkx DiGraph of the walkable edges
   (#79): Dijkstra over the map's timeto travel times, detouring
   around the settings avoid list (`avoid_rooms`, cougar grounds by
-  default; forced crossings warn; `;go2 direct` bypasses once).
+  default; forced crossings warn; `;go2 direct` bypasses once). A
+  timeto written in Ruby is a gate (`gate_of`: the skill and its least
+  rank, the guild, the circle) that the router judges against the exp
+  window's ranks before the first step; one it cannot judge closes
+  the edge (#214).
   wayto commands starting with ";e" are embedded
   Ruby, walked only when they translate to plain fput/move commands —
   and those translatable ;e edges stay in the graph (dropping them

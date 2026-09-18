@@ -399,11 +399,49 @@ def retry_climb(s, command, hindering):
     return await_arrival(s)
 
 
+def character_ranks(state):
+    """The exp window's {skill: rank} from the parser's state, {} before
+    the window has said anything — what the router's gates read (#214);
+    a skill the window has not listed counts as rank 0 there."""
+    experience = getattr(state, "experience", None) or {}
+    return {
+        skill: row.get("rank", 0)
+        for skill, row in experience.items()
+        if isinstance(row, dict)
+    }
+
+
+def _explain_no_path(s, db, here, goals, avoid, closed, ranks, describe):
+    """Say why no route exists: the gate the character does not pass on
+    the only way (#214), else the scripted-edge answer of old."""
+    ungated = db.path(here, goals, avoid=avoid, closed=closed, gates=False)
+    if ungated:
+        shut = [
+            gate for _, _, gate in db.route_gates(here, ungated) if not gate.met(ranks)
+        ]
+        if shut:
+            asks = ", ".join(gate.describe() for gate in shut)
+            held = ", ".join(
+                f"{gate.skill} {ranks.get(gate.skill, 0)}"
+                for gate in shut
+                if gate.skill
+            )
+            s.echo(
+                f"no way to {describe} within your reach — the route needs {asks}"
+                + (f" (you have {held})" if held else "")
+            )
+            return
+    s.echo(f"no walkable path to {describe} (a scripted-only edge may be needed)")
+
+
 def walk(s, db, goals, describe="destination", avoid=()):
     """Walk to the nearest goal room; True on arrival (or already there).
 
     Rooms in `avoid` are routed around when a clean detour exists;
     a route forced through them is announced before the first step.
+    A gated edge the character's ranks cannot pass — the map's Ruby
+    timeto values (#214) — is never planned, and a walk whose only way
+    is gated stops before its first step saying which gate.
     Echoes progress and failure detail the way ;go2 always has: stalls
     and off-course rooms stop the walk rather than guessing onward."""
     if s.dead:
@@ -419,12 +457,12 @@ def walk(s, db, goals, describe="destination", avoid=()):
         return False
     avoid = frozenset(avoid)
     closed = set()  # (room, dest) edges the game refused this walk (#209)
+    ranks = character_ranks(s.state)
+    goals = set(goals)
     for _ in range(REROUTES + 1):
-        route = db.path(here, set(goals), avoid=avoid, closed=closed)
+        route = db.path(here, goals, avoid=avoid, closed=closed, ranks=ranks)
         if route is None:
-            s.echo(
-                f"no walkable path to {describe} (a scripted-only edge may be needed)"
-            )
+            _explain_no_path(s, db, here, goals, avoid, closed, ranks, describe)
             return False
         if not route:
             return True
