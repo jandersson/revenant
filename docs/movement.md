@@ -201,6 +201,28 @@ stay unwalkable; the Faldesu swim the map also offers (The Marsh,
 Stone Road ↔ Riverhaven, Stone Bridge) is bescort's choice only at
 Athletics 140.
 
+## Finding a wandering NPC
+
+A wandering NPC — Riverhaven's Tall Human Peddler, who sells the copper
+zills — has no room on the map, so `;go2` cannot reach him (#207).
+`;seek <noun>` walks the streets instead: from where the character
+stands (or a `from=` target), `client/game/seek.py` builds the same
+loop `;attune` power-walks (a chain of nearby rooms joined by plain
+compass moves in both directions, out and back, `rooms=` long) and the
+script walks it lap after lap (`laps=`, three by default) with the
+walker, reading every arrival's listing for the noun. The listing is
+the parser's `room_objs`, the whole text of the "room objs" component
+— "You also see a news stand with a grinning imp on it, a festive
+meeting portal, a simple bench, the Temple, a mud-splattered chest, a
+uniformed representative and a young alchemist student." (Riverhaven's
+Town Square, 2026-09-18) — split on its commas and "and", and the
+entry holding the noun as a whole word is the answer ("a tall human
+peddler" for "peddler"); the room's players are read the same way. On
+a session whose parser predates `room_objs` the script LOOKs on each
+arrival instead. Found, it stops in that room and says so, and nothing
+more: the asking and buying are the operator's. Not found, it stops
+at the start after the laps. Another player's room is passed through.
+
 ## Pacing
 
 Every step waits out roundtime before moving (Script.waitrt: the

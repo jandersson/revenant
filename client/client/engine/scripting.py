@@ -347,6 +347,7 @@ RELOADABLE_MODULES = (
     "client.game.tdp",
     "client.game.money",
     "client.game.attune",
+    "client.game.seek",  # binds chain/circuit from attune: after it
     "client.game.encumbrance",
     "client.game.status",
     "client.game.mapdb",

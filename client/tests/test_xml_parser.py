@@ -787,3 +787,21 @@ def test_a_room_change_clears_the_creatures_until_the_new_listing(xml_data):
     assert xml_data.room_creatures == []
     XMLParser(target=xml_data).feed(f"<r>{CRTR_FEWER}</r>")
     assert xml_data.room_creatures == ["a cougar"]
+
+
+def test_room_objs_is_the_listings_whole_text_cleared_on_a_room_change(xml_data):
+    # Riverhaven's Town Square, captured 2026-09-18 (#207): a wandering
+    # NPC is not bolded, so ;seek reads the listing's text itself.
+    _feed_one(
+        xml_data,
+        "<component id='room objs'>You also see a news stand with a grinning imp "
+        "on it, <pushBold/>a uniformed representative<popBold/> and a young "
+        "alchemist student.</component>",
+    )
+    assert xml_data.room_objs == (
+        "You also see a news stand with a grinning imp on it, a uniformed "
+        "representative and a young alchemist student."
+    )
+    assert xml_data.room_creatures == ["a uniformed representative"]
+    _feed_one(xml_data, "<nav rm='1234'/>")
+    assert xml_data.room_objs == ""

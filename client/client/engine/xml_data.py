@@ -212,6 +212,12 @@ class XMLData:
         self.creatures_updated = False
         self._objs_names = None  # the names read so far, inside room objs
         self._objs_bold = None  # the bold run being read, inside room objs
+        # The listing's whole text, "You also see a news stand ..., a
+        # uniformed representative and a young alchemist student." —
+        # what ;seek reads for a wandering NPC that is not bolded
+        # (#207). "" until the fresh listing arrives after a room change.
+        self.room_objs = ""
+        self._objs_text = None
         # Rested experience, from the footer the exp window pushes on
         # every pulse (<component id='exp rexp'>Rested EXP Stored: 5:42
         # hours  Usable This Cycle: 5:42 hours  Cycle Refreshes: 21
@@ -317,6 +323,8 @@ class XMLData:
             self._players_text += text_string
         if self._objs_bold is not None:
             self._objs_bold.append(text_string)
+        if self._objs_text is not None:
+            self._objs_text.append(text_string)
         if self._rested_text is not None:
             self._rested_text += text_string
         if self._hand is not None:
@@ -364,6 +372,7 @@ class XMLData:
             self.hostiles = {}
             self._staged_hostiles = None
             self.room_creatures = []
+            self.room_objs = ""
         elif name == "roundTime":
             self.roundtime = int(attributes["value"])
         elif name == "castTime":
@@ -404,6 +413,7 @@ class XMLData:
                 self._players_text = ""
             elif ident == "room objs":
                 self._objs_names, self._objs_bold = [], None
+                self._objs_text = []
             elif ident == "exp rexp":
                 self._rested_text = ""
         elif name == "d" and self._inv_links is not None:
@@ -477,6 +487,8 @@ class XMLData:
             if rested is not None and rested != self.rested:
                 self.rested = rested
                 self.rested_updated = True
+        if name == "component" and self._objs_text is not None:
+            self.room_objs, self._objs_text = "".join(self._objs_text).strip(), None
         if name == "component" and self._objs_names is not None:
             creatures, self._objs_names, self._objs_bold = self._objs_names, None, None
             if creatures != self.room_creatures:
