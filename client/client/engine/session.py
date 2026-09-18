@@ -37,6 +37,7 @@ from client.engine.core import (
     vitals_frame,
 )
 from client.engine import policy as command_policy
+from client.engine.snapshot import snapshot
 from client.engine.login import connect_game, simu_login
 from client.engine.netsock import SocketClient
 from client.engine.procspawn import command_for
@@ -277,15 +278,71 @@ def running_sessions(host=DEFAULT_HOST):
 # attached window as ">> [<origin>] <command>" and logs it, so a line
 # the player did not type never acts invisibly.
 EXTERNAL_MARK = b"\x1e"
+# A frontend line that starts with this byte asks for the parser's
+# state (#216): "\x1d<origin>\t<field,field>" (no fields: all). The
+# session answers that connection alone with one "state" frame of
+# JSON (client/engine/snapshot.py) — nothing goes to the game, nothing
+# is echoed or logged to a window, so an outside reader learns the
+# room, the vitals, the exp window or the hands without typing LOOK,
+# EXP or INV at the character.
+STATE_MARK = b"\x1d"
 
 
-def send_and_read(host, port, text, seconds, timeout=5, settle=0.3):
+def request_state(host, port, fields=(), origin="external", timeout=5):
+    """The parser's state of a running session as a dict (#216), or
+    None when nothing was listening or no answer came in `timeout`
+    seconds. `fields` narrows it (see snapshot.FIELDS); the replay a
+    new connection gets first is read past."""
+    try:
+        conn = socket.create_connection((host, int(port)), timeout=timeout)
+    except OSError:
+        return None
+    origin = "".join(ch for ch in origin if ch not in "\t\n\x1d\x1e") or "external"
+    line = STATE_MARK + f"{origin}\t{','.join(fields)}\n".encode("UTF-8")
+    buffer = b""
+    answer = None
+    with conn:
+        try:
+            conn.sendall(line)
+        except OSError:
+            return None
+        deadline = monotonic() + timeout
+        while answer is None and (left := deadline - monotonic()) > 0:
+            conn.settimeout(min(left, 0.5))
+            try:
+                chunk = conn.recv(65536)
+            except TimeoutError:
+                continue
+            except OSError:
+                break
+            if not chunk:
+                break
+            buffer += chunk
+            decoded, buffer = decode_frames(buffer)
+            for text, stream, _ in decoded:
+                if stream == "state":
+                    try:
+                        answer = json.loads(text)
+                    except ValueError:
+                        answer = None
+                    break
+        try:
+            conn.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+    return answer
+
+
+def send_and_read(host, port, text, seconds, timeout=5, settle=0.3, until=None):
     """Send one command line and return what the session broadcast in
     the `seconds` after it: [(text, stream, style)] frames, the story
     and the docks alike, from the line's own ">> [origin] ..." echo on.
     None when nothing was listening. This is how a tool reads the
     game's answer without tailing a log: the connection is a frontend
-    for those seconds.
+    for those seconds. With `text` None nothing is sent and the
+    frames are simply what arrived in the window; with `until` the
+    read ends as soon as a story line holds that text (#216: the
+    story window a driver used to poll the raw log for).
 
     The backlog replay comes first, and it can hold an identical echo
     of an earlier send of the same line — so the replay is drained
@@ -296,11 +353,16 @@ def send_and_read(host, port, text, seconds, timeout=5, settle=0.3):
         conn = socket.create_connection((host, int(port)), timeout=timeout)
     except OSError:
         return None
-    origin, _, command = text.lstrip("\x1e").partition("\t")
-    echo = f">> [{origin}] {' '.join(command.split())}"
-    frames, buffer, seen_echo = [], b"", False
+    if text is None:
+        echo, seen_echo = None, True
+    else:
+        origin, _, command = text.lstrip("\x1e").partition("\t")
+        echo = f">> [{origin}] {' '.join(command.split())}"
+        seen_echo = False
+    frames, buffer, done = [], b"", False
     with conn:
-        drain_until = monotonic() + 2.0
+        # Nothing to drain when nothing is sent: every line counts.
+        drain_until = monotonic() + (2.0 if text is not None else 0.0)
         while monotonic() < drain_until:
             conn.settimeout(settle)
             try:
@@ -311,9 +373,10 @@ def send_and_read(host, port, text, seconds, timeout=5, settle=0.3):
                 break
             if not chunk:
                 break
-        conn.sendall(text.encode("UTF-8").rstrip(b"\n") + b"\n")
+        if text is not None:
+            conn.sendall(text.encode("UTF-8").rstrip(b"\n") + b"\n")
         deadline = monotonic() + seconds
-        while (left := deadline - monotonic()) > 0:
+        while not done and (left := deadline - monotonic()) > 0:
             conn.settimeout(min(left, 0.5))
             try:
                 chunk = conn.recv(65536)
@@ -331,6 +394,9 @@ def send_and_read(host, port, text, seconds, timeout=5, settle=0.3):
                         seen_echo = True
                     continue
                 frames.append(frame)
+                if until and frame[1] == "" and until in frame[0]:
+                    done = True
+                    break
         try:
             conn.shutdown(socket.SHUT_RDWR)
         except OSError:
@@ -628,6 +694,18 @@ class SessionServer(ClientLogger):
     # countdown, so they are never kept in the backlog.
     TRANSIENT_STREAMS = ("roundtime", "casttime", "bell")
 
+    def reply(self, conn, text: str, stream: str):
+        """One frame to one connection — never the backlog, never the
+        other windows (a state request's answer, #216). Under the
+        broadcast lock so it cannot interleave with a broadcast's bytes
+        on the same socket."""
+        frame = encode_frame(text, stream)
+        with self.broadcast_lock:
+            try:
+                conn.sendall(frame)
+            except OSError:
+                self.drop(conn)
+
     def broadcast(self, text: str, stream: str, style: str = "", exclude=None):
         frame = encode_frame(text, stream, style)
         with self.clients_lock:
@@ -671,6 +749,23 @@ class SessionServer(ClientLogger):
                 if not command:
                     continue
                 origin = None
+                if command.startswith(STATE_MARK):
+                    # A state request (#216): answered to this connection
+                    # alone, nothing to the game or the windows.
+                    tag, _, fields = command[1:].partition(b"\t")
+                    asker = tag.decode("UTF-8", "replace").strip() or "external"
+                    wanted = [
+                        name
+                        for name in fields.decode("UTF-8", "replace").split(",")
+                        if name.strip()
+                    ]
+                    self.log.info("state request from %s: %s", asker, wanted or "all")
+                    self.reply(
+                        conn,
+                        json.dumps(snapshot(self.engine.xml_data, wanted), default=str),
+                        "state",
+                    )
+                    continue
                 if command.startswith(EXTERNAL_MARK):
                     tag, _, command = command[1:].partition(b"\t")
                     origin = tag.decode("UTF-8", "replace").strip() or "external"

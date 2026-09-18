@@ -1104,6 +1104,43 @@ def test_late_attach_learns_the_wounds_healed():
     late.close()
 
 
+def test_a_state_request_is_answered_to_the_asker_alone():
+    # revenant-send --state (#216): the parser's state as one "state"
+    # frame to the asking connection; nothing to the game, nothing to
+    # the other windows.
+    game = FakeGame()
+    server, port = _start_server(game)
+    game.pending.append(b'<indicator id="IconSTANDING" visible="y"/>\n')
+    assert _await(lambda: server.engine.xml_data.indicator), "never parsed"
+    watcher = socket.create_connection(("127.0.0.1", port), timeout=5)
+    assert _await(lambda: len(server.clients) == 1), "watcher never registered"
+
+    state = session.request_state(
+        "127.0.0.1", port, ["status", "room", "moon"], origin="claude"
+    )
+    assert state["status"]["posture"] == "standing"
+    assert state["unknown"] == ["moon"]
+    assert "vitals" not in state
+    assert session.request_state("127.0.0.1", port)["room"] == {
+        "title": None,
+        "uid": None,
+        "compass": [],
+    }
+
+    watcher.settimeout(0.5)
+    buffer = b""
+    try:
+        while chunk := watcher.recv(4096):
+            buffer += chunk
+    except TimeoutError:
+        pass
+    frames, _ = session.decode_frames(buffer)
+    assert not any(stream == "state" for _, stream, _ in frames)
+    assert not any(style == "sent" for _, _, style in frames)
+    assert not game.sent
+    watcher.close()
+
+
 def test_sent_commands_reach_the_other_frontends():
     # A command from one frontend (a probe, a twin window) is echoed
     # to every other frontend, dim — driven characters must never act

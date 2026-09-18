@@ -15,11 +15,18 @@ the operator's window as `>> [claude] ...`.
    coins, TRAIN, wearing, removing, dropping, stowing, giving, attacking:
    only when the operator asked for that in this conversation. A request
    to "try" or "test" a script is say-so for what that script does.
-2. **Read-only commands may go out to answer a question**: INFO, EXP,
-   the stat words (AGILITY, STRENGTH, ...), TDP, TDP PROJECT, ENCUMBRANCE,
-   VAULT TIME, BANK ACCOUNT, WEALTH, LOOK, TIME, HEALTH. They cost no
-   roundtime and change nothing. INFO prints a long block in the window;
-   ask once and keep the answer.
+2. **Read the session before asking the game.** `revenant-send
+   --state` (all of it, or `--state room,vitals,hands`) prints what
+   the parser already holds — the room and compass, vitals, the exp
+   window's ranks and mindstates, hands, posture and badges, injuries,
+   spells, who and what is in the room — with nothing typed at the
+   character and nothing echoed (#216); `--wait-for TEXT` waits for a
+   story line instead of polling the log. Read-only commands may go
+   out for what the parser does not hold: INFO, the stat words
+   (AGILITY, STRENGTH, ...), TDP, TDP PROJECT, ENCUMBRANCE, VAULT
+   TIME, BANK ACCOUNT, WEALTH, TIME, HEALTH. They cost no roundtime
+   and change nothing. INFO prints a long block in the window; ask
+   once and keep the answer.
 3. **The session refuses what an outsider must not do** (#161): GIVE,
    HAND, OFFER, SELL, TRADE, EXCHANGE, ACCEPT, WITHDRAW, TRAIN, STUDY,
    DEPART, QUIT, EXIT, DISCARD, DROP of anything but the junk list,
@@ -48,6 +55,13 @@ the operator's window as `>> [claude] ...`.
 ```sh
 # which sessions run, and on which port
 cat ~/.revenant/sessions.json
+
+# the parser's state, no command sent (all fields, or a comma list)
+uv run revenant-send --origin claude --character NAME --state
+uv run revenant-send --origin claude --character NAME --state room,status,hands
+
+# a command, then wait up to 60 s for the story line that answers it
+REVENANT_ALLOW_SEND=1 uv run revenant-send --origin claude --character NAME --wait-for "ragged pants" --timeout 60 "focus orb"
 
 # a read-only command, with the answer printed (stay attached 4 s)
 uv run revenant-send --origin claude --answer 4 --character NAME "tdp"

@@ -100,7 +100,12 @@ for `client/client/<pkg>/x.py`.
   always passes, the rest needs `allow_external_send` or
   `REVENANT_ALLOW_SEND=1`. The session echoes `>> [origin] cmd` to
   every window (#135); `--answer SECONDS` prints the game's reply.
-  Use it instead of ad-hoc socket drivers; the `drive` skill
+  `--state [fields]` prints the parser's state as JSON (room, vitals,
+  exp window, hands, status words, injuries, spells, room players
+  and creatures, possessions — `client/engine/snapshot.py`) and
+  `--wait-for TEXT [--timeout N]` stays attached until a story line
+  holds it; both read-only, nothing typed at the game, nothing echoed
+  (#216). Use it instead of ad-hoc socket drivers; the `drive` skill
   (`.claude/skills/drive/SKILL.md`) is the procedure for Claude, and
   the `experiment` skill (`.claude/skills/experiment/SKILL.md`) the
   method for testing a mechanic on a live session — results go to the

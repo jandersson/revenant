@@ -244,3 +244,174 @@ def test_the_console_script_exits_nonzero_on_a_refusal(monkeypatch, capsys, list
     assert "refused" in capsys.readouterr().out
     assert sendcmd.main(["--port", str(port), "--dry-run", "exp", "all"]) == 0
     assert got == []
+
+
+# --- the read-only forms (#216) --------------------------------------------
+@pytest.fixture
+def stateful():
+    """A fake session that answers a state request with one "state"
+    frame, after a replay line, and keeps the request it got."""
+    import json
+
+    server = socket.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+    server.settimeout(5)
+    got = []
+
+    def frame(text, stream="", style=""):
+        return (
+            json.dumps({"text": text, "stream": stream, "style": style}) + "\n"
+        ).encode()
+
+    def serve():
+        try:
+            conn, _ = server.accept()
+        except OSError:
+            return
+        with conn:
+            conn.settimeout(5)
+            conn.sendall(frame("an old line from the backlog\n"))
+            buffer = b""
+            while b"\n" not in buffer:
+                chunk = conn.recv(4096)
+                if not chunk:
+                    return
+                buffer += chunk
+            got.append(buffer)
+            conn.sendall(
+                frame(
+                    json.dumps({"room": {"title": "[Town Square]"}, "vitals": {}}),
+                    "state",
+                )
+            )
+            try:
+                while conn.recv(4096):
+                    pass
+            except OSError:
+                pass
+
+    thread = Thread(target=serve, daemon=True)
+    thread.start()
+    yield server.getsockname()[1], got, thread
+    server.close()
+
+
+@pytest.fixture
+def talker():
+    """A fake session that says two story lines on its own, a second
+    apart, without waiting for any line from the client."""
+    import json
+    from time import sleep
+
+    server = socket.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+    server.settimeout(5)
+
+    def frame(text, stream="", style=""):
+        return (
+            json.dumps({"text": text, "stream": stream, "style": style}) + "\n"
+        ).encode()
+
+    def serve():
+        try:
+            conn, _ = server.accept()
+        except OSError:
+            return
+        with conn:
+            conn.settimeout(5)
+            try:
+                conn.sendall(frame("The girl runs past.\n"))
+                sleep(1.0)
+                conn.sendall(frame("The girl's breath comes in ragged pants.\n"))
+                while conn.recv(4096):
+                    pass
+            except OSError:
+                pass
+
+    thread = Thread(target=serve, daemon=True)
+    thread.start()
+    yield server.getsockname()[1], thread
+    server.close()
+
+
+def test_state_asks_with_the_mark_and_returns_the_sessions_answer(stateful):
+    port, got, thread = stateful
+    result = sendcmd.query_state(port=port, fields=["room", "vitals"], origin="claude")
+    thread.join(5)
+    assert result.sent and result.state == {
+        "room": {"title": "[Town Square]"},
+        "vitals": {},
+    }
+    assert got == [b"\x1dclaude\troom,vitals\n"]
+
+
+def test_the_console_script_prints_the_state_as_json(monkeypatch, capsys, stateful):
+    port, got, thread = stateful
+    code = sendcmd.main(["--port", str(port), "--origin", "claude", "--state"])
+    thread.join(5)
+    out = capsys.readouterr().out
+    assert code == 0
+    assert '"title": "[Town Square]"' in out
+    assert got == [b"\x1dclaude\t\n"]  # no fields: all of them
+
+
+def test_state_needs_no_gate_and_says_when_nothing_listens(monkeypatch, capsys):
+    holder = socket.socket()
+    holder.bind(("127.0.0.1", 0))
+    port = holder.getsockname()[1]  # bound, not listening: refused
+    code = sendcmd.main(["--port", str(port), "--state", "room"])
+    assert code == 1 and "no state answer" in capsys.readouterr().out
+    holder.close()
+
+
+def test_wait_for_ends_on_the_line_and_says_so(answering):
+    port, got, thread = answering
+    result = send(
+        "tdp",
+        port=port,
+        origin="claude",
+        settings=SHUT,
+        environ=NO_ENV,
+        wait_for="347 TDPs",
+        timeout=5,
+    )
+    thread.join(5)
+    assert result.sent and result.found is True and result.ok
+    assert "came" in result.message
+    assert result.answer == "You have 347 TDPs.\n"  # nothing past the line
+
+
+def test_wait_for_times_out_with_exit_status_one(monkeypatch, capsys, answering):
+    port, got, thread = answering
+    code = sendcmd.main(
+        [
+            "--port",
+            str(port),
+            "--origin",
+            "claude",
+            "--wait-for",
+            "never",
+            "--timeout",
+            "1",
+            "tdp",
+        ]
+    )
+    thread.join(5)
+    out = capsys.readouterr().out
+    assert code == 1 and "did not come" in out and "You have 347 TDPs." in out
+
+
+def test_wait_for_alone_sends_nothing_and_returns_on_the_line(talker):
+    port, thread = talker
+    result = sendcmd.wait("ragged pants", port=port, timeout=5)
+    thread.join(5)
+    assert result.found is True
+    assert result.answer.endswith("ragged pants.\n")
+    assert "The girl runs past." in result.answer
+
+
+def test_the_console_script_needs_a_command_or_a_read_only_form(capsys):
+    with pytest.raises(SystemExit):
+        sendcmd.main(["--port", "1"])
