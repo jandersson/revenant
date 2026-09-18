@@ -20,8 +20,9 @@ every page — no command but a page number or Q goes out while the reader
 is open, because the reader takes anything else for a page — and at
 mind-lock the book is closed and returned and the script holds until
 enough has drained to be worth reading again (`once` exits instead).
-A book teaches once per timer, so after a lap of the shelves the script
-waits `timer` minutes before the next. It stops on death or hostiles
+A book teaches once per timer, so a book read within the last `timer`
+minutes is skipped, and when every book is, the script waits for the
+first timer to run out. It stops on death or hostiles
 (the book returned first), waits out bleeding (the sign's warning), and
 says so when the shelves are not a library's. ;train runs it as a task
 (skills: ["Scholarship"], return_word "return"). Measured 2026-09-18:
@@ -76,6 +77,14 @@ def entry(s):
 def mindstate(s):
     value = entry(s)
     return value["mindstate"] if value else None
+
+
+def standing(s):
+    """Scholarship as the exp window has it: "3 09% (1/34)", or "?"."""
+    value = entry(s)
+    if not value:
+        return "?"
+    return f"{value.get('rank', '?')} {value.get('percent', 0):02d}% ({value['mindstate']}/34)"
 
 
 def ensure_mindstate(s):
@@ -162,6 +171,7 @@ def read_book(s, title, letters, options):
     mindstate reached `until`; the book returned), "stop" (a typed
     return or danger; the book returned), "missing" (no such book),
     "unknown" (an answer outside the tables; the book returned)."""
+    before = standing(s)
     answer = ask(s, f"get {letters}").lower()
     if any(word in answer for word in NO_SUCH):
         s.echo(f"scholarship: no {letters!r} on the shelves — skipping {title!r}")
@@ -191,12 +201,14 @@ def read_book(s, title, letters, options):
         if value is not None and value >= options["until"]:
             close_and_return(s, reading)
             s.echo(
-                f"scholarship: {title!r} after {pages} page(s) — Scholarship {value}/34"
+                f"scholarship: {title!r} after {pages} page(s) — "
+                f"Scholarship {before} → {standing(s)}"
             )
             return "target"
     close_and_return(s, reading)
     s.echo(
-        f"scholarship: read {title!r}, {pages} page(s) — Scholarship {mindstate(s)}/34"
+        f"scholarship: read {title!r}, {pages} page(s) — "
+        f"Scholarship {before} → {standing(s)}"
     )
     return "done"
 
@@ -228,9 +240,13 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
         )
         return
     s.echo(f"scholarship: {len(books)} book(s) on the shelves")
+    read_at = {}  # call letters -> clock() of the last read this run
     while True:
-        gained = False
+        read_any = False
         for title, letters in books:
+            since = clock() - read_at.get(letters, -float("inf"))
+            if since < options["timer"] * 60:
+                continue  # its timer is not up: it would teach nothing
             reason = danger(s)
             if reason:
                 s.echo(f"scholarship: {reason} — stopping")
@@ -251,22 +267,21 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
                 if not hold_at_lock(s, options["until"]):
                     s.echo("scholarship: stopping")
                     return
-            before = mindstate(s)
             outcome = read_book(s, title, letters, options)
             if outcome == "stop":
                 s.echo("scholarship: stopping")
                 return
-            after = mindstate(s)
-            if after is not None and before is not None and after > before:
-                gained = True
-            if outcome == "target":
-                gained = True
-        if not gained:
+            if outcome in ("done", "target"):
+                read_at[letters] = clock()
+                read_any = True
+        if not read_any:
+            oldest = min(read_at.values(), default=clock())
+            wait = max(60.0, options["timer"] * 60 - (clock() - oldest))
             s.echo(
-                f"scholarship: a lap of the shelves taught nothing — the books' "
-                f"timer; waiting {options['timer']} minutes"
+                f"scholarship: every book read within the last {options['timer']} "
+                f"minutes — waiting {wait / 60:.0f} minutes for the first timer"
             )
-            if not pause(s, options["timer"] * 60):
+            if not pause(s, wait):
                 s.echo("scholarship: stopping")
                 return
 

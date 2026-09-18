@@ -219,7 +219,10 @@ def test_it_reads_every_book_page_by_page_and_returns_each():
     assert fake.sent[first - 1] == "q"
     assert fake.sent[first - 2] == "15"  # the fourteenth number: not a page
     assert fake.sent[first + 1] == "get FtvNJ"
-    assert "read 'Introduction to the Guild of Paladins', 13 page(s)" in out
+    assert (
+        "read 'Introduction to the Guild of Paladins', 13 page(s) — "
+        "Scholarship 2 00% (0/34) → 2 00% (1/34)" in out
+    )
     assert "Scholarship at 34/34 — done" in out or "34/34" in out
 
 
@@ -235,13 +238,21 @@ def test_the_lock_mid_book_closes_and_returns_it():
     assert "done" in out
 
 
-def test_a_lap_that_taught_nothing_waits_for_the_timer():
-    # The pool never moves: one lap, then the timer's wait, then a return.
-    fake = Fake(mindstates=[0] * 40, stop_at=1000 + 500)  # the return lands mid-wait
+def test_a_book_read_within_the_timer_is_skipped_and_the_lap_waits():
+    # One lap reads both books; the next finds both within the timer
+    # and waits for the first to run out; the return lands mid-wait.
+    fake = Fake(mindstates=[0] * 40, stop_at=1000 + 500)
     out = run(fake, ["books", "timer=30"])
     assert fake.sent.count("get IdsPG") == 1
-    assert "taught nothing" in out and "waiting 30 minutes" in out
+    assert fake.sent.count("get FtvNJ") == 1
+    assert "every book read within the last 30 minutes" in out
     assert "stopping" in out
+
+
+def test_after_the_timer_the_books_are_read_again():
+    fake = Fake(mindstates=[0] * 80, stop_at=1000 + 4000)
+    run(fake, ["books", "timer=30"])
+    assert fake.sent.count("get IdsPG") >= 2
 
 
 def test_a_typed_return_closes_the_reader_returns_the_book_and_ends():
