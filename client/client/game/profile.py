@@ -75,6 +75,11 @@ DEFAULTS = {
     # mana ramping like the training casts, taking turns with them so
     # a swing never carries two casts (#192). "" casts none.
     "debilitation": "",
+    # An attack spell cast at the prey between swings to train Targeted
+    # Magic ("Footman's Strike" for a Paladin, cast through the melee
+    # weapon in hand): the same cast gap, mana ramp and turn-taking as
+    # the debilitation spell (#200). "" casts none.
+    "targeted": "",
     # Below this health % the loop breaks off and walks home.
     "health_floor": 60,
     # A wound this bad or worse (any area, any kind — HEALTH, parsed by
@@ -143,6 +148,12 @@ FIELDS = (
         "Spell cast at the prey (Debilitation)",
         "str",
         "Stun Foe — empty: none",
+    ),
+    (
+        "targeted",
+        "Attack spell cast at the prey (Targeted Magic)",
+        "str",
+        "Footman's Strike — empty: none",
     ),
     ("health_floor", "Break off below health %", "int", "60"),
     (

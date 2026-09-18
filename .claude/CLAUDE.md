@@ -120,8 +120,10 @@ for `client/client/<pkg>/x.py`.
   skill to train by recasting, floors, ground, home). FIELDS is the
   schema; the GUI's Character Profile dialog builds itself from it.
   `scripts/skins.py` sells the worn bundle at the nearest tannery.
-  `client/game/buffs.py` is the profile's buffs kept up and the
-  training casts (the mana ramp), shared by `;hunt` and `;athletics`'
+  `client/game/buffs.py` is the profile's buffs kept up, the
+  training casts (the mana ramp) and the targeted casts at the prey
+  (`debilitation`, `targeted`: Debilitation and Targeted Magic, in
+  turn with the training cast), shared by `;hunt` and `;athletics`'
   wait filler. Model and assumptions: docs/hunting.md.
 - `client/game/training.py` — per-character training plans
   (`~/.revenant/training/<name>.json`, File → Training Plan… in the

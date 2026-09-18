@@ -55,6 +55,11 @@ swing, #189).
 between swings while Debilitation sits below lock — the same cast gap
 and mana ramp, taking turns with the buff training cast so a swing
 never carries two casts; a stunned foe bites nothing (#192).
+`targeted` names an attack spell ("Footman's Strike") cast at the prey
+the same way while Targeted Magic sits below lock — it takes the
+weapon in hand as its focus, which the fight already holds; the buff
+training cast, the debilitation cast and this one take turns, one
+cast per swing at most (#200).
 `perception` on: when a room of the ground has emptied, and on every
 lap of an empty ground, one HUNT for tracks before moving on, at most
 once per 75 seconds while Perception sits below lock — HUNT teaches
@@ -68,7 +73,8 @@ in docs/hunting.md); a skin or search answer the script cannot place is
 echoed as "hunt: unrecognized ..." — report those and they become
 fixtures. The skinning and gem-pouch commands follow Elanthipedia's
 Skinning and Gem pouch pages; the fight follows docs/combat.md. First
-cut: melee, one opponent at a time, no offensive magic or ranged (#149).
+cut: melee, one opponent at a time, no ranged; the only offensive
+magic is the profile's targeted spell (#149, #200).
 """
 
 import re
@@ -524,20 +530,19 @@ def make_bundle(s, profile, tally):
 def cast_buffs(s, profile, tally, fight=False):
     """The profile's buffs, cast and kept up by client/game/buffs.py
     with the hunt's answer windows and its unrecognized-answer tally.
-    In the fight (`fight`) the debilitation spell goes out at the prey
-    too, taking turns with the buff training cast when both are due,
-    so a swing never carries two casts (#192)."""
+    In the fight (`fight`) the targeted spells — the profile's
+    `debilitation` and `targeted` — go out at the prey too, taking
+    turns with the buff training cast (buffs.next_cast), so a swing
+    never carries two casts (#192, #200)."""
     state = tally.buffs
 
     def report(what, answer):
         unrecognized(s, tally, what, answer)
 
-    debilitate = fight and buffs.debilitation_due(s, profile, state)
-    if debilitate and (
-        state.last_training == "buff" or not buffs.training_cast_due(s, profile, state)
-    ):
-        buffs.cast_debilitation(
-            s, profile, state, ask, "hunt", report, target=profile["prey"]
+    turn = buffs.next_cast(s, profile, state) if fight else None
+    if turn in buffs.TARGETED_SLOTS:
+        buffs.cast_targeted(
+            s, profile, state, ask, "hunt", report, turn, target=profile["prey"]
         )
         buffs.cast_buffs(s, profile, state, ask, "hunt", report, train=False)
     else:

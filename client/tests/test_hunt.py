@@ -1275,6 +1275,141 @@ def test_the_debilitation_and_training_casts_take_turns(travel):
     ]
 
 
+# --- targeted magic --------------------------------------------------------
+# Footman's Strike (#200): the cast line is the wiki's "You gesture at
+# <target> with your <weapon>." until captured; the hit, resist and
+# unarmed-failure wordings are still to capture.
+STRUCK = "You gesture at a rat with your handaxe."
+FS_PREPARED = "You begin chanting a prayer to invoke the Footman's Strike spell."
+STRIKING = PROFILE | {"targeted": "footman's strike"}
+TM_OPEN = {"Targeted Magic": {"rank": 1, "percent": 0, "mindstate": 5}}
+TM_LOCKED = {"Targeted Magic": {"rank": 1, "percent": 0, "mindstate": 34}}
+
+
+def test_the_targeted_spell_is_cast_at_the_prey_before_the_swing(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands), (KILL, _stands), (KILL, kill)],
+            "prepare": [FS_PREPARED] * 3,
+            "cast": [STRUCK] * 3,
+            "skin": [SKINNED] * 3,
+            "search": [NOTHING] * 3,
+        },
+        experience=TM_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STRIKING | {"max_kills": 3}, travel_first=False)
+    # Only in the fight, the weapon drawn: the spell takes it as its focus.
+    assert arena.sent[:5] == [
+        "get my handaxe from my sack",
+        "stance set 100 80 0",
+        "prepare footman's strike",
+        "cast rat",
+        "attack rat",
+    ]
+    assert prepares(arena) == [
+        "prepare footman's strike",
+        "prepare footman's strike 2",
+        "prepare footman's strike 4",
+    ]
+    assert any("for Targeted Magic" in text for text in arena.echoed)
+
+
+def test_no_targeted_cast_at_lock_under_the_mana_floor_or_with_no_spell(travel):
+    for profile, experience, mana in (
+        (STRIKING, TM_LOCKED, 100),
+        (STRIKING, TM_OPEN, 20),
+        (PROFILE, TM_OPEN, 100),
+    ):
+        arena = Arena(
+            {
+                "attack": [(KILL, kill)],
+                "prepare": [FS_PREPARED],
+                "cast": [STRUCK],
+                "skin": [SKINNED],
+                "search": [NOTHING],
+            },
+            experience=experience,
+        )
+        arena.state.vitals["mana"] = mana
+        _run(arena, profile=profile | {"max_kills": 1}, travel_first=False)
+        assert prepares(arena) == []
+
+
+def test_each_targeted_slot_is_gated_on_its_own_skill(travel):
+    # Debilitation locked, Targeted Magic open: the strike goes out and
+    # the stun stays home — and the other way round.
+    both = STRIKING | {"debilitation": "stun foe", "max_kills": 1}
+    for experience, expected in (
+        (DEBIL_OPEN | TM_LOCKED, ["prepare stun foe"]),
+        (
+            {"Debilitation": {"rank": 1, "percent": 0, "mindstate": 34}} | TM_OPEN,
+            ["prepare footman's strike"],
+        ),
+    ):
+        arena = Arena(
+            {
+                "attack": [(KILL, kill)],
+                "prepare": [SF_PREPARED, FS_PREPARED],
+                "cast": [STUNNED, STRUCK],
+                "skin": [SKINNED],
+                "search": [NOTHING],
+            },
+            experience=experience,
+        )
+        arena.state.vitals["mana"] = 100
+        _run(arena, profile=both, travel_first=False)
+        assert prepares(arena) == expected
+
+
+def test_a_collapse_at_minimum_mana_turns_the_targeted_spell_off(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands), (KILL, kill)],
+            "prepare": [FS_PREPARED] * 2,
+            "cast": ["You gesture.\nYour spell barely backfires."] * 2,
+            "skin": [SKINNED] * 2,
+            "search": [NOTHING] * 2,
+        },
+        experience=TM_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STRIKING | {"max_kills": 2}, travel_first=False)
+    assert prepares(arena) == ["prepare footman's strike"]
+    assert any("off for this run" in text for text in arena.echoed)
+
+
+def test_the_buff_debilitation_and_targeted_casts_take_turns(travel):
+    # All three due before every swing (cast_gap 0): the buff trains
+    # before the weapon is drawn, then stun, strike, buff, stun, strike
+    # — never two casts before one swing.
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands)] * 4 + [(KILL, kill)],
+            "prepare": [PREPARED, SF_PREPARED, FS_PREPARED] * 2,
+            "cast": [CAST, STUNNED, STRUCK] * 2,
+            "skin": [SKINNED] * 5,
+            "search": [NOTHING] * 5,
+        },
+        experience=_exp(10) | DEBIL_OPEN | TM_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(
+        arena,
+        profile=TRAINING
+        | {"debilitation": "stun foe", "targeted": "footman's strike", "max_kills": 5},
+        travel_first=False,
+    )
+    assert prepares(arena) == [
+        "prepare heroic strength",  # before the weapon is drawn
+        "prepare stun foe",  # swing 1
+        "prepare footman's strike",  # swing 2
+        "prepare heroic strength 2",  # swing 3
+        "prepare stun foe 2",  # swing 4
+        "prepare footman's strike 2",  # swing 5
+    ]
+
+
 # --- tracks ----------------------------------------------------------------
 # Captured 2026-09-14 (#194): HUNT's answer, a numbered list, an 8-second
 # roundtime; the empty answer is the wiki's.

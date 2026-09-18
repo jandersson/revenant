@@ -175,7 +175,9 @@ entries from a dock-layout module.
   nearest tannery and keeps the rope. `client/game/buffs.py` is the
   casting the hunt grew — the profile's buffs kept up, the first one
   recast between actions to train a magic skill with a mana ramp that
-  backs off at the strain warning — shared with `;athletics`, which
+  backs off at the strain warning, and the profile's spells cast at
+  the prey between swings for Debilitation and Targeted Magic, the
+  three taking turns (#192, #200) — shared with `;athletics`, which
   fills its award-timer waits with it (#177). `client/game/discard.py` is the
   only way a script drops anything: an allowlist of the foraged junk
   ;mechlore braids (grass, grass rope) plus settings.json's

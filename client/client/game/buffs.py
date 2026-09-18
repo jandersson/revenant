@@ -47,8 +47,8 @@ power to aid your spell." Herilo's Artifacts sells the pieces by
 capacity; only the 1- and 5-mana ones work at 0 ranks.
 
 A debilitation spell (the profile's `debilitation`, "Stun Foe" for a
-Paladin) is cast at the prey the same way — cast_debilitation(), with
-a mana ramp of its own — and takes turns with the training cast when
+Paladin) is cast at the prey the same way — cast_targeted(), with a
+mana ramp of its own — and takes turns with the training cast when
 both are due, so a swing never carries two casts; the caller passes
 the target. Debilitation "is trained in combat, by casting spells on
 enemies" (Elanthipedia: Debilitation skill). Captured 2026-09-14 at
@@ -58,6 +58,20 @@ which warps into a spiraling force as it slams into it! / You also
 see a striped badger that appears stunned." — the wiki's "brilliant
 stream of pure white light" is the line at more mana; the resist and
 failure wordings are still to capture (#192).
+
+The profile's `targeted` slot is the same cast for Targeted Magic:
+an attack spell ("Footman's Strike" for a Paladin, which "draws on the
+caster's melee weapon in hand as a focus for the spell ... Holding a
+missile weapon or being unarmed causes the spell to fail" —
+Elanthipedia: Footman's Strike) cast at the prey while Targeted Magic
+sits below lock, so only in the fight with the weapon drawn.
+TARGETED_SLOTS maps each slot to the skill it trains, targeted_due()
+and cast_targeted() serve both, and next_cast() says whose turn it is
+before a swing — the buff training cast and the targeted slots in
+rotation, one cast per swing at most. Footman's Strike's cast line is
+the wiki's "You gesture at <target> with your <weapon>." until
+captured; the hit, resist and unarmed wordings are still to capture
+(#200).
 """
 
 from time import monotonic
@@ -101,6 +115,13 @@ CHARGE_OUTCOMES = (
 )
 MANA_FLOOR = 40  # % of mana under which no training cast goes out
 CAST_GAP_SECONDS = 60  # between training casts, for a profile without cast_gap
+# The targeted casts: profile slot -> the skill it trains. Each is cast
+# at the prey between swings while that skill sits below lock, on the
+# profile's cast gap and a mana ramp of its own (#192, #200).
+TARGETED_SLOTS = {"debilitation": "Debilitation", "targeted": "Targeted Magic"}
+# Whose turn it can be before a swing, in rotation after the last cast
+# that went out: the buff training cast, then each targeted slot.
+CAST_TURNS = ("buff",) + tuple(TARGETED_SLOTS)
 
 
 class BuffState:
@@ -113,10 +134,10 @@ class BuffState:
         self.mana_cap = None  # one step under the strain, once met
         self.training_off = False  # even the minimum failed this run
         self.cambrinth_off = False  # the piece refused this run, said once
-        self.debilitation_mana = 0  # the next debilitation cast's mana (#192)
-        self.debilitation_cap = None  # one step under its strain, once met
-        self.debilitation_off = False  # the spell refused this run, said once
-        self.last_training = None  # "buff" or "debilitation": whose turn it was
+        self.slot_mana = {}  # targeted slot -> its next cast's mana (#192, #200)
+        self.slot_cap = {}  # targeted slot -> one step under its strain, once met
+        self.slots_off = set()  # targeted slots whose spell refused this run
+        self.last_training = None  # "buff" or a targeted slot: whose turn it was
 
 
 def locked(state, skills):
@@ -235,13 +256,16 @@ def cast_gap(profile):
     return CAST_GAP_SECONDS if gap is None else float(gap)
 
 
-def debilitation_due(s, profile, state):
-    """True when the profile's debilitation spell should go out at the
-    prey: one is named and has not refused this run, Debilitation sits
-    below lock, mana is above the floor, and its last cast is the
-    cast gap old (#192)."""
-    spell = profile.get("debilitation") or ""
-    if not spell or state.debilitation_off or locked(s.state, ["Debilitation"]):
+def targeted_due(s, profile, state, slot):
+    """True when the profile's spell in `slot` ("debilitation",
+    "targeted") should go out at the prey: one is named and has not
+    refused this run, the skill the slot trains (TARGETED_SLOTS) sits
+    below lock, mana is above the floor, and its last cast is the cast
+    gap old (#192, #200)."""
+    spell = profile.get(slot) or ""
+    if not spell or slot in state.slots_off:
+        return False
+    if locked(s.state, [TARGETED_SLOTS[slot]]):
         return False
     mana = (getattr(s.state, "vitals", None) or {}).get("mana")
     if mana is not None and mana < MANA_FLOOR:
@@ -250,34 +274,60 @@ def debilitation_due(s, profile, state):
     return last is None or monotonic() - last >= cast_gap(profile)
 
 
-def cast_debilitation(s, profile, state, ask, prefix, report, target=""):
-    """PREPARE the profile's debilitation spell with its ramp's mana and
+def next_cast(s, profile, state):
+    """Whose turn it is before this swing: "buff" when the training
+    cast is due, or a targeted slot whose spell is due — the first due
+    one in CAST_TURNS after the last cast that went out, so the casts
+    take turns and a swing never carries two. None when nothing is
+    due (#192, #200)."""
+    due = {
+        turn
+        for turn in CAST_TURNS
+        if (
+            training_cast_due(s, profile, state)
+            if turn == "buff"
+            else targeted_due(s, profile, state, turn)
+        )
+    }
+    if not due:
+        return None
+    order = CAST_TURNS
+    if state.last_training in CAST_TURNS:
+        after = CAST_TURNS.index(state.last_training) + 1
+        order = CAST_TURNS[after:] + CAST_TURNS[:after]
+    return next(turn for turn in order if turn in due)
+
+
+def cast_targeted(s, profile, state, ask, prefix, report, slot, target=""):
+    """PREPARE the profile's spell in `slot` with its ramp's mana and
     CAST it at the target (the prey's noun; "" casts at whatever is
     engaged). The mana climbs by MANA_STEP per cast that took until the
     strain warning or a collapse, then holds one step under; a collapse
-    at the minimum turns the spell off for the run, said once (#192)."""
-    spell = profile["debilitation"]
-    mana = state.debilitation_mana
+    at the minimum turns the spell off for the run, said once (#192,
+    #200)."""
+    spell = profile[slot]
+    skill = TARGETED_SLOTS[slot]
+    mana = state.slot_mana.get(slot, 0)
     result = cast_once(s, spell, mana, state, ask, report, target=target)
-    state.last_training = "debilitation"
+    state.last_training = slot
     if result == "refused":
         s.echo(f"{prefix}: cannot prepare {spell} — off for this run")
-        state.debilitation_off = True
+        state.slots_off.add(slot)
     elif result == "ok":
         s.echo(
             f"{prefix}: cast {spell} at {target or 'the foe'} with "
-            f"{mana or 'minimum'} mana for Debilitation"
+            f"{mana or 'minimum'} mana for {skill}"
         )
-        if state.debilitation_cap is None:
-            state.debilitation_mana += MANA_STEP
+        if slot not in state.slot_cap:
+            state.slot_mana[slot] = mana + MANA_STEP
     elif mana == 0:
-        state.debilitation_off = True
+        state.slots_off.add(slot)
         s.echo(f"{prefix}: {spell} fails at minimum mana — off for this run")
     else:
-        state.debilitation_mana = state.debilitation_cap = mana - MANA_STEP
+        state.slot_mana[slot] = state.slot_cap[slot] = mana - MANA_STEP
         s.echo(
             f"{prefix}: {spell} at {mana} mana was too much ({result}) — "
-            f"holding at {state.debilitation_mana or 'minimum'}"
+            f"holding at {state.slot_mana[slot] or 'minimum'}"
         )
 
 
@@ -285,7 +335,7 @@ def cast_buffs(s, profile, state, ask, prefix="buffs", report=None, train=True):
     """Every profile buff not running: PREPARE it, wait for the pattern,
     CAST. A refusal takes that buff off for the run, said once. The
     first buff is cast again for training when training_cast_due says
-    so (and `train` allows it — a caller whose debilitation cast took
+    so (and `train` allows it — a caller whose targeted cast took
     this turn passes False), feeding state.mana, which climbs a step
     per cast until the strain warning or a collapsed cast and then
     holds one step under. True when any cast went out."""

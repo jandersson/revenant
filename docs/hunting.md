@@ -31,6 +31,7 @@ It holds what no script should hard-code:
 | cambrinth_mana | mana per charge, the piece's capacity (1 for a flake, 5 for the grey ring) |
 | cast_gap | seconds between training casts, 60 by default. A cast cycle with a cambrinth piece is eight commands, and at 20 s the first badger hunt (2026-09-14, #189) ran cast cycle, one or two swings, cast cycle: seven swings to the badger's 42 in four minutes. One cast a minute trains both skills the same and leaves the fight to the weapon |
 | debilitation | a targeted spell ("Stun Foe") cast at the prey between swings while Debilitation sits below lock: PREPARE (the mana ramping like the training casts), CAST <prey>, one per `cast_gap`, taking turns with the buff training cast so a swing never carries two casts; a collapse at the minimum turns it off for the run. Model: [Debilitation](#debilitation) below (#192) |
+| targeted | an attack spell ("Footman's Strike") cast at the prey between swings while Targeted Magic sits below lock, on the same cast gap and mana ramp as `debilitation`; the buff training cast, the debilitation cast and this one rotate, one cast per swing at most. Model: [Targeted Magic](#targeted-magic) below (#200) |
 | health_floor | below it: the burst escape (retreat, retreat, first exit), then home — or, with no home, the nearest room off the ground, said so (#185: a break-off that ended on the ground left the character among the rats that hurt it, and they killed it two and a half hours later, 2026-09-13) |
 | wound_floor | a severity name; after each kill and whenever the health bar drops, the injuries panel the game pushes is read first — clean means nothing to ask — and HEALTH is asked only when it shows a wound; a wound that bad or worse anywhere (external, scar, internal, internal scar) breaks off like the health floor. Empty never asks. Model: [wounds.md](wounds.md) |
 | train_skills | the hunt ends when every one of them sits at mindstate 34 in the exp window |
@@ -202,6 +203,26 @@ while the weapon works. The profile's `debilitation` names the spell,
 and the loop casts it at the prey before a swing on the same cast gap
 and mana ramp as the buff training cast, the two taking turns when
 both are due — a swing never carries two casts (2026-09-14, #192).
+
+## Targeted Magic
+
+Targeted Magic is trained by casting attack spells at creatures, at
+the challenge a weapon skill would want
+([Targeted Magic skill](https://elanthipedia.play.net/Targeted_Magic_skill)).
+A Paladin's first is
+[Footman's Strike](https://elanthipedia.play.net/Footman%27s_Strike):
+Holy, prep 2 to 50 mana, instant, prerequisite Stun Foe. It "draws on
+the caster's melee weapon in hand as a focus for the spell, which
+dictates the shape of its manifestation ... Holding a missile weapon
+or being unarmed causes the spell to fail", so the loop casts it only
+in the fight, weapon drawn. The wiki's cast line is "You gesture at
+<target> with your <weapon>."; the hit, resist and unarmed-failure
+wordings are uncaptured until the first live run (an "unrecognized
+cast answer" echo is the thing to report). The profile's `targeted`
+names the spell, and the loop casts it at the prey before a swing on
+the same cast gap and mana ramp as the debilitation spell; the buff
+training cast, the debilitation cast and this one take turns in that
+order, so a swing never carries two casts (#200).
 
 ## Tactics
 
@@ -453,7 +474,8 @@ not known, a collapsed pattern) are assumptions until captured.
 
 ## Out of scope in the first cut
 
-Offensive magic and ranged attacks, a policy for several opponents at
-once, selling gems, and buying arrows or ammunition. Each is a
-profile setting and a branch away, once captures show the wordings.
-Buffs and skin bundles were the first two to land (2026-09-12).
+Ranged attacks, a policy for several opponents at once, selling
+gems, and buying arrows or ammunition. Each is a profile setting and a
+branch away, once captures show the wordings. Buffs and skin bundles
+were the first two to land (2026-09-12); offensive magic followed as
+the profile's targeted spell, one cast per swing (#200).
