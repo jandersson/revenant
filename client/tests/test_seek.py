@@ -158,14 +158,14 @@ def test_it_stops_in_the_room_that_lists_the_noun():
     fake = Fake(listings={1: [SQUARE], 2: [SQUARE], 3: [PEDDLER]})
     out = run(fake, ["peddler", "rooms=3"])
     assert fake.walks == [2, 3]
-    assert "seek: a tall human peddler here" in out
+    assert "seek: a tall Human peddler here" in out
 
 
 def test_the_noun_already_here_means_no_walk():
     fake = Fake(listings={1: [PEDDLER]})
     out = run(fake, ["peddler"])
     assert fake.walks == []
-    assert "seek: a tall human peddler here" in out
+    assert "seek: a tall Human peddler here" in out
 
 
 def test_it_laps_the_loop_and_gives_up_at_the_start():
@@ -180,7 +180,7 @@ def test_a_noun_that_appears_on_a_later_lap_is_found_then():
     fake = Fake(listings={2: [SQUARE, PEDDLER]})  # the second arrival at room 2
     out = run(fake, ["peddler", "rooms=2", "laps=3"])
     assert fake.walks == [2, 3, 2]
-    assert "seek: a tall human peddler here" in out
+    assert "seek: a tall Human peddler here" in out
 
 
 def test_a_typed_return_walks_back_to_the_start():
@@ -194,7 +194,7 @@ def test_a_parser_without_room_objs_looks_instead():
     fake = Fake(listings={2: [PEDDLER]}, parser_objs=False)
     out = run(fake, ["peddler", "rooms=2"])
     assert fake.sent.count("look") >= 1
-    assert "seek: a tall human peddler here" in out
+    assert "seek: a tall Human peddler here" in out
 
 
 def test_a_room_with_no_street_is_refused():

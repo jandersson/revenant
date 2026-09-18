@@ -13,8 +13,8 @@ target): the chain ;attune power-walks, plain compass moves in both
 directions, out and back, and reads every room's "You also see ..."
 listing (the parser's room objs; LOOK on a session whose parser
 predates it) and its players for the noun, whole word, any case. Found:
-it stops in that room and says what it saw — "seek: a tall human
-Human peddler here" (captured 2026-09-18 on River Road East: "You
+it stops in that room and says what it saw — "seek: a tall Human
+peddler here" (captured 2026-09-18 on River Road East: "You
 also see a Riverhaven Warden, a tall Human peddler and some rickety
 steps.") — and does nothing more; asking, ordering and buying are
 yours (the peddler: ASK PEDDLER ABOUT INSTRUMENTS lists his six with
