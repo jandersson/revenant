@@ -20,7 +20,11 @@ moves the directory), adjusts it: "deny" adds verbs, "allow" lifts
 built-in ones, "patterns" adds regexes over the whole line, and
 "valuables" names item nouns an outsider may never drop, give, sell,
 hand, offer, trade or put anywhere — the weapon, the armor, the
-containers — whatever the verb. Lich and Genie have no such gate; a
+containers — whatever the verb. The file is the operator's live
+control: PolicyStore re-reads it whenever its modification time
+changes, so an "allow" added mid-session applies to the next line
+(#206: an EXCHANGE allowed during a ferry test was refused by the
+policy the session had read at its first outside command). Lich and Genie have no such gate; a
 driver there is a script with full rights (docs/running.md).
 """
 
@@ -147,6 +151,26 @@ def load_policy(character) -> Policy:
             continue
     valuables = tuple(_words(raw.get("valuables")))
     return Policy(denied=denied, patterns=patterns, valuables=valuables)
+
+
+class PolicyStore:
+    """Per-character policies, re-read when the file changes (#206):
+    the file's modification time is kept beside the loaded policy, and
+    a different stamp — or the file appearing or going — loads again."""
+
+    def __init__(self):
+        self._loaded = {}  # character -> (mtime_ns or None, Policy)
+
+    def get(self, character) -> Policy:
+        try:
+            stamp = policy_path(character).stat().st_mtime_ns
+        except OSError:
+            stamp = None
+        cached = self._loaded.get(character)
+        if cached is None or cached[0] != stamp:
+            cached = (stamp, load_policy(character))
+            self._loaded[character] = cached
+        return cached[1]
 
 
 def _words(value):

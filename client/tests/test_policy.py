@@ -95,3 +95,23 @@ def test_the_policy_file_lives_beside_the_profiles_by_character(monkeypatch, tmp
     monkeypatch.setenv("REVENANT_POLICIES", str(tmp_path))
     assert policy.policy_path("Lanival") == tmp_path / "lanival.json"
     assert policy.policy_path("") == tmp_path / "default.json"
+
+
+def test_the_store_rereads_a_policy_file_that_changed(tmp_path, monkeypatch):
+    # An allow added mid-session applies to the next line (#206): the
+    # store keeps the file's mtime and loads again when it moves.
+    import os
+
+    monkeypatch.setenv("REVENANT_POLICIES", str(tmp_path))
+    store = policy.PolicyStore()
+    assert not policy.decide("exchange 100 kronars", store.get("Lanival")).allowed
+    path = tmp_path / "lanival.json"
+    path.write_text('{"allow": ["exchange"]}', encoding="utf-8")
+    assert policy.decide("exchange 100 kronars", store.get("Lanival")).allowed
+    path.write_text('{"allow": ["withdraw"]}', encoding="utf-8")
+    later = path.stat().st_mtime_ns + 2_000_000_000
+    os.utime(path, ns=(later, later))  # a rewrite within the clock's tick
+    assert not policy.decide("exchange 100 kronars", store.get("Lanival")).allowed
+    assert policy.decide("withdraw 8 gold kronars", store.get("Lanival")).allowed
+    path.unlink()
+    assert not policy.decide("withdraw 8 gold kronars", store.get("Lanival")).allowed

@@ -795,13 +795,12 @@ class SessionServer(ClientLogger):
         }
 
     def policy(self):
-        """The command policy for outside senders, loaded once per
-        character name the parser has seen (#161)."""
+        """The command policy for outside senders, for the character
+        name the parser has seen (#161) — re-read whenever the
+        character's policy file changes (#206)."""
         name = getattr(self.engine.xml_data, "name", None) or ""
-        policies = self.__dict__.setdefault("_policies", {})
-        if name not in policies:
-            policies[name] = command_policy.load_policy(name)
-        return policies[name]
+        store = self.__dict__.setdefault("_policies", command_policy.PolicyStore())
+        return store.get(name)
 
     def _reexec_windows(self, spawn, share, wait_for, exit_process):
         """The Windows handoff (#129): park the game reader, close the
