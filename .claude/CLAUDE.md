@@ -21,6 +21,8 @@ uv run ruff format client chat beholder scripts   # CI enforces --check
 uv run python tools/docker_tests.py  # CI's Linux battery (--all: 3.10-3.12);
                                      # catches Linux-only socket hangs
 uv run python tools/roster_sweep.py  # ;sheet every cached character (--list)
+uv run python tools/wiki.py "Soul system" [--grep WORD]  # an Elanthipedia page's raw
+                                     # wikitext, cached under ~/.revenant/wiki (--list)
 ```
 
 CI runs ruff and pytest on 3.10–3.12 on ubuntu plus 3.12 on macOS. Run
@@ -290,7 +292,13 @@ Traps that cost time before:
   TESTACCT. Scrub captured traffic before committing it. No exceptions.
 - Never store credentials in files, even gitignored ones; the keychain is
   the only path.
-- Research a game mechanic on Elanthipedia before automating it.
+- Research a game mechanic on Elanthipedia before automating it,
+  through `uv run python tools/wiki.py "<Title>"`: the page's raw
+  wikitext (tables intact), cached under `~/.revenant/wiki/` for 30
+  days — mechanics pages change rarely, a shop's stock now and then,
+  and the game's own answers correct a stale page anyway — with
+  `--refresh` for a page known to have moved and `--grep WORD` for
+  the lines that matter. Never a summarizing fetch of a table.
 - **Another player's room is theirs.** A room someone else is already
   hunting or training in ("Also here: …") is left, not shared: a
   script arriving in one moves on to the next room or rung and never

@@ -85,9 +85,14 @@ lessons the code and docs cannot carry themselves.
 - The session's debug log (`revenant_client-<stamp>-<pid>.log`) says
   which scripts started and when; the sessions registry says who is
   playing. Check both before asking the user what happened.
-- WebFetch summarizes; it will not reproduce a large wiki table. Curl
-  the page into the scratchpad and pull the tables out with a few
-  lines of Python — that is how `client/game/wounds_data.py` was generated.
+- WebFetch summarizes; it will not reproduce a large wiki table. Read
+  a wiki page through `uv run python tools/wiki.py "<Title>"` (raw
+  wikitext, tables intact, cached under ~/.revenant/wiki so the
+  second evening's read costs nothing and survives the site being
+  down; `--grep WORD` for the lines that matter) and pull tables out
+  with a few lines of Python — that is how `client/game/wounds_data.py`
+  was generated. The operator asked for the cache on 2026-09-20 after
+  a night of refetching the same soul and quest pages.
 - Elanthipedia item pages 404 under guessed names; shop pages
   (Tembeg's Armory) list items with coverage and price.
 - The engine feeds the parser one line at a time with the newline

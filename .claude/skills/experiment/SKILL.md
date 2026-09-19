@@ -1,6 +1,6 @@
 ---
 name: experiment
-description: Run a game-mechanic experiment on a live DragonRealms session the way this repo does it — wiki first, a hypothesis with its falsifier, one variable per step, the prediction written before the reading, every reading logged, the result recorded where the code will find it. Use whenever the operator asks to test, verify, measure, pin down or "set up an experiment" for a mechanic (a threshold, a formula, a cost, a wording), or when a script rests on an assumption a live reading could settle.
+description: Run a game-mechanic experiment on a live DragonRealms session the way this repo does it — wiki first (`uv run python tools/wiki.py "<Title>"` reads and caches a page's raw text), a hypothesis with its falsifier, one variable per step, the prediction written before the reading, every reading logged, the result recorded where the code will find it. Use whenever the operator asks to test, verify, measure, pin down or "set up an experiment" for a mechanic (a threshold, a formula, a cost, a wording), or when a script rests on an assumption a live reading could settle.
 ---
 
 # Running an experiment
