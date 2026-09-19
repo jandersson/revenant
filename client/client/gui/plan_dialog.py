@@ -28,8 +28,8 @@ from PyQt6.QtWidgets import (
 )
 
 from client.game.training import (
+    CHOICES,
     DEFAULTS,
-    ORDERS,
     PLAN_FIELDS,
     TASK_DEFAULTS,
     TASK_FIELDS,
@@ -41,7 +41,7 @@ from client.game.training import (
 NO_VALUE = -1  # an "optint" spinner at this reads as blank: the plan's value
 
 
-def _make_widget(kind, value, help_text):
+def _make_widget(kind, value, help_text, choices=()):
     if kind == "int":
         widget = QSpinBox()
         widget.setRange(0, 100000)
@@ -51,7 +51,7 @@ def _make_widget(kind, value, help_text):
         widget.setSpecialValueText("the plan's")
     elif kind == "choice":
         widget = QComboBox()
-        widget.addItems(list(ORDERS))
+        widget.addItems(list(choices))
     else:
         widget = QLineEdit()
         if help_text:
@@ -68,7 +68,7 @@ def _set_widget(kind, widget, value):
     elif kind == "optint":
         widget.setValue(NO_VALUE if value is None else int(value))
     elif kind == "choice":
-        widget.setCurrentText(str(value or ORDERS[0]))
+        widget.setCurrentText(str(value or widget.itemText(0)))
     else:
         widget.setText(
             ", ".join(value) if isinstance(value, list) else str(value or "")
@@ -105,7 +105,9 @@ class PlanDialog(QDialog):
         plan_form = QFormLayout()
         self.plan_widgets = {}
         for key, label, kind, help_text in PLAN_FIELDS:
-            widget = _make_widget(kind, plan.get(key, DEFAULTS[key]), help_text)
+            widget = _make_widget(
+                kind, plan.get(key, DEFAULTS[key]), help_text, CHOICES.get(key, ())
+            )
             plan_form.addRow(f"{label}:", widget)
             self.plan_widgets[key] = (kind, widget)
         columns.addLayout(plan_form, 1)

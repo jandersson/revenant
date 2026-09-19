@@ -66,6 +66,8 @@ DEFAULTS = {
     "tasks": [],
 }
 SOUL = ("off", "on")
+# The choices behind each "choice" plan field, for the dialog.
+CHOICES = {"order": None, "soul": SOUL}  # order's are ORDERS, defined below
 
 TASK_DEFAULTS = {
     "name": "",
@@ -160,6 +162,9 @@ def _renamed(values):
     if "stop_grace" in values and "return_grace" not in values:
         values["return_grace"] = values.pop("stop_grace")
     return values
+
+
+CHOICES["order"] = ORDERS
 
 
 def normalize_task(values, index=0) -> dict:
