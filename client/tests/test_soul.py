@@ -120,6 +120,10 @@ def test_the_timers_persist_per_character_and_say_when_a_deed_is_due(
     soul.mark(again, "pray", False, now=5000)
     assert soul.due(again, "pray", now=5000) == soul.REFUSED_BACKOFF
     assert soul.due(again, "pray", now=5000 + soul.REFUSED_BACKOFF) == 0
+    # The badge's own timer is the wiki's thirty-one minutes.
+    soul.mark(again, "badge", True, now=6000)
+    assert soul.due(again, "badge", now=6000 + 30 * 60) == 60
+    assert soul.parse_args(["badge"])["verb"] == "badge"
     (tmp_path / "sable.json").write_text("{not json")
     assert soul.load_timers("Sable") == {}
 

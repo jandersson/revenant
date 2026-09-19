@@ -40,7 +40,7 @@ MAP = MapDB(
             "id": 2522,
             "uid": [1],
             "title": ["[Shard, Xibar's Crescent Road]"],
-            "wayto": {},
+            "wayto": {"13143": "east", "13430": "north", "8228": "up"},
         },
         {
             "id": 13143,
@@ -287,9 +287,8 @@ def test_the_scene_guards_the_girl_on_her_line_and_ends_on_the_gift():
 
 def test_keep_does_the_due_deeds_and_ends_on_return(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
-    soul.save_timers(
-        "Lanival", {"pray": 5000.0}
-    )  # the tithe never done, the prayer just
+    # The tithe never done; the prayer and the badge just.
+    soul.save_timers("Lanival", {"pray": 5000.0, "badge": 5000.0})
     monkeypatch.setattr(script, "clock", lambda: 5000.0 + 60)
     fake = Fake({"wealth": [WEALTH_RICH], "put": [TITHED]})
     fake.commands = [None, "return"]  # read on the second loop, after the tithe
@@ -300,3 +299,135 @@ def test_keep_does_the_due_deeds_and_ends_on_return(monkeypatch, tmp_path):
     assert "next tithe in 240 min" in echoes(fake)
     assert "stopping as asked" in echoes(fake)
     assert soul.load_timers("Lanival")["tithe"] == 5060.0
+
+
+# --- the pilgrim's badge (captured 2026-09-20 with four sites on it) ------
+BADGE_DONE = (
+    "As you feel your connection to them grow, you sense the eyes of the gods upon you.\n"
+    "Roundtime: 10 sec.\n"
+    "A warm, soothing sensation washes over your soul.\n"
+    "You feel a strengthening of your faith and bolstering of your soul.\n"
+)
+BADGE_EMPTY = (
+    "You think really hard about your badge.  It doesn't do anything though.\n"
+)
+
+
+def test_the_badge_deed_removes_prays_and_wears(monkeypatch, tmp_path):
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    monkeypatch.setattr(script, "clock", lambda: 7000.0)
+    fake = Fake(
+        {
+            "remove": ["You remove a pilgrim's badge.\n"],
+            "pray": [BADGE_DONE],
+            "wear": [""],
+        }
+    )
+    script.run(fake, ["badge"], mapdb=MAP, walk_fn=walk)
+    assert fake.sent == ["remove my badge", "pray badge", "wear my badge"]
+    assert "soul: prayed on the badge" in echoes(fake)
+    assert soul.load_timers("Lanival") == {"badge": 7000.0}
+
+
+def test_a_badge_in_the_sack_is_fetched_and_an_empty_one_said(monkeypatch, tmp_path):
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    monkeypatch.setattr(script, "clock", lambda: 7000.0)
+    fake = Fake(
+        {
+            "remove": ["What were you referring to?\n"],  # in the sack, not worn
+            "get": ["You get a pilgrim's badge.\n"],
+            "pray": [BADGE_EMPTY],
+            "wear": [""],
+        }
+    )
+    script.run(fake, ["badge"], mapdb=MAP, walk_fn=walk)
+    assert fake.sent == [
+        "remove my badge",
+        "get my badge",
+        "pray badge",
+        "wear my badge",
+    ]
+    assert "PUSH an attuned altar WITH BADGE first" in echoes(fake)
+
+
+def test_no_badge_turns_the_deed_off_for_the_run(monkeypatch, tmp_path):
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    none = Fake(
+        {
+            "remove": ["What were you referring to?\n"],
+            "get": ["What were you referring to?\n"],
+        }
+    )
+    script.run(none, ["badge"], mapdb=MAP, walk_fn=walk)
+    assert none.sent == ["remove my badge", "get my badge"]
+    assert "no pilgrim's badge on you" in echoes(none)
+
+
+def test_a_badge_prayer_within_its_timer_is_said_and_backed_off(monkeypatch, tmp_path):
+    # Captured 2026-09-20, nine minutes after a boost: the contemplation
+    # without the soul line.
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    monkeypatch.setattr(script, "clock", lambda: 9000.0)
+    soon = (
+        "You think upon the Immortals, and the holy places built in their honor by "
+        "mortals who have heard them speak, or seen the power of their beings.\n"
+        "As you feel your connection to them grow, you sense the eyes of the gods upon you.\n"
+    )
+    fake = Fake(
+        {"remove": ["You remove a pilgrim's badge.\n"], "pray": [soon], "wear": [""]}
+    )
+    script.run(fake, ["badge"], mapdb=MAP, walk_fn=walk)
+    assert "timer has not cleared" in echoes(fake)
+    assert soul.load_timers("Lanival") == {"badge_refused": 9000.0}
+
+
+def test_keep_prays_on_the_badge_when_its_timer_allows(monkeypatch, tmp_path):
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    soul.save_timers("Lanival", {"tithe": 5000.0, "pray": 5000.0})  # only the badge due
+    monkeypatch.setattr(script, "clock", lambda: 5000.0 + 60)
+    fake = Fake(
+        {
+            "remove": ["You remove a pilgrim's badge.\n"],
+            "pray": [BADGE_DONE],
+            "wear": [""],
+        }
+    )
+    fake.commands = [None, "return"]
+    script.run(fake, ["keep"], mapdb=MAP, walk_fn=walk)
+    assert fake.sent == ["remove my badge", "pray badge", "wear my badge"]
+    assert "badge in 31 min" in echoes(fake)
+    assert soul.load_timers("Lanival")["badge"] == 5060.0
+
+
+def test_a_deed_room_across_the_world_is_skipped_not_walked_to(monkeypatch, tmp_path):
+    # A keep in the Crossing must not set off for Shard's almsbox
+    # (2026-09-20): farther than MAX_STEPS is skipped and backed off,
+    # and so is an almsbox the map cannot reach at all.
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    monkeypatch.setattr(script, "clock", lambda: 8000.0)
+    monkeypatch.setattr(script, "MAX_STEPS", 0)
+    far = MapDB(
+        [
+            {"id": 1, "uid": [1], "title": ["[A]"], "wayto": {"13143": "north"}},
+            {
+                "id": 13143,
+                "uid": [9001],
+                "title": ["[Temple of Light, Alcove of Smaragdaus]"],
+                "tags": ["tithe"],
+            },
+        ]
+    )
+    fake = Fake({"wealth": [WEALTH_RICH]}, room_uid=1)
+    script.run(fake, ["tithe"], mapdb=far, walk_fn=walk)
+    assert fake.walks == [] and fake.sent == []
+    assert "1 rooms away" in echoes(fake) and "skipping it" in echoes(fake)
+    assert "tithe_refused" in soul.load_timers("Lanival")
+    cut = MapDB(
+        [
+            {"id": 1, "uid": [1], "title": ["[A]"]},
+            {"id": 13143, "uid": [9001], "title": ["[Alcove]"], "tags": ["tithe"]},
+        ]
+    )
+    lost = Fake({"wealth": [WEALTH_RICH]}, room_uid=1)
+    script.run(lost, ["tithe"], mapdb=cut, walk_fn=walk)
+    assert "unreachable" in echoes(lost) and lost.walks == []

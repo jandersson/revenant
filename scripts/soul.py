@@ -1,9 +1,10 @@
 """Keep a Paladin's soul up and read it:  ;soul
 
     ;soul                     read the soul: RUB and EXHALE the orb here (or your soulstone), say the state and pool
-    ;soul keep                keep the boosts running on their timers — tithe every 4 h, pray to Chadatru every 2 h — until ;soul return
+    ;soul keep                keep the boosts running on their timers — badge every 31 min, tithe every 4 h, Chadatru every 2 h — until ;soul return
     ;soul tithe               one tithe of 5 silver at the nearest almsbox (the map's `tithe` rooms), then back
     ;soul pray                one prayer at the nearest Chadatru altar, knelt until it completes
+    ;soul badge               one PRAY BADGE on the pilgrim's badge (REMOVE it, pray, WEAR it), wherever you stand
     ;soul quest               the Glyph of Warding scene at the guild orb once the readings say ready (FOCUS ORB, GUARD GIRL)
     ;soul quest force         FOCUS the orb whatever the readings say
     ;soul ... almsbox=ID      an almsbox room the map has not tagged;  altar=ID likewise;  currency=lirums to override the coin
@@ -18,10 +19,17 @@ run them inside a training loop: walk to the almsbox, PUT 5 silver of
 the town's coin in it, walk to the altar, PRAY CHADATRU and stay
 knelt until "A warm, soothing sensation washes over your soul" — and
 the readings the scripts there never take: RUB for the state, EXHALE
-for the pool. `keep` does both deeds whenever their timers allow and
-waits at the altar between, reading the orb when it stands in the Orb
-Room; the timers live in ~/.revenant/soul/<name>.json across runs, a
-refusal ("inappropriate so soon") backs off twenty minutes. `quest`
+for the pool. The pilgrim's badge is the third deed (2026-09-20):
+REMOVE MY BADGE (it is worn; GET it when it is not), PRAY BADGE, WEAR
+it again, every thirty-one minutes wherever
+the character stands — "A warm, soothing sensation washes over your
+soul. / You feel a strengthening of your faith and bolstering of your
+soul." with sites on it, "It doesn't do anything though." with none,
+and no badge at all turns the deed off for the run. `keep` does every
+deed whenever its timer allows and waits between, reading the orb when
+it stands in the Orb Room; the timers live in
+~/.revenant/soul/<name>.json across runs, a refusal ("inappropriate so
+soon") backs off twenty minutes. `quest`
 is paladin-quests.lic's warding scene with the readings in front of
 it: FOCUS ORB, wait for the girl's line, GUARD GIRL, wait for the
 gift, every line echoed so the first accepted run captures the scene.
@@ -38,6 +46,11 @@ from client.game.money import parse_wealth
 from client.game.soul import (
     ALMSBOXES,
     ALTARS,
+    BADGE_DONE,
+    BADGE_EMPTY,
+    BADGE_NONE,
+    BADGE_NOT_YOURS,
+    BADGE_SOON,
     FOCUS_BEGUN,
     FOCUS_REFUSED,
     FOCUS_REST,
@@ -74,6 +87,10 @@ TAIL_SECONDS = 0.5
 FOCUS_SECONDS = 4  # the orb's answer to FOCUS
 GUARD_SECONDS = 4  # the answer to GUARD GIRL
 KEEP_POLL = 60  # seconds between looks at the timers while keeping
+# A deed's room farther than this is skipped, not walked to: the map
+# tags Shard's and Ratha's almsboxes and none of the Crossing's, and a
+# keep in the Crossing must not set off for Shard (2026-09-20).
+MAX_STEPS = 80
 clock = time.time  # tests replace it
 
 
@@ -157,11 +174,33 @@ def rooms_for(mapdb, tag, known, override):
     return rooms
 
 
+def too_far(s, mapdb, rooms, what):
+    """True (said) when the nearest of `rooms` is more than MAX_STEPS
+    away — or unreachable — so a deed never walks across the world."""
+    here = locate(mapdb, s.state)
+    if here is None:
+        return False  # the walker will say what it cannot do
+    from client.game.walker import character_ranks
+
+    route = mapdb.path(here, set(rooms), ranks=character_ranks(s.state))
+    if route is None or len(route) > MAX_STEPS:
+        s.echo(
+            f"soul: the nearest {what} is "
+            f"{'unreachable' if route is None else f'{len(route)} rooms away'} — "
+            f"skipping it (an {what} room id as almsbox=/altar= names a nearer one)"
+        )
+        return True
+    return False
+
+
 def tithe(s, mapdb, timers, options, walk_fn=walk):
     """Walk to an almsbox and tithe. True when the box took the coins."""
     rooms = rooms_for(mapdb, "tithe", ALMSBOXES, options["almsbox"])
     if not rooms:
         s.echo("soul: no almsbox known on the map — almsbox=<room id>")
+        mark(timers, "tithe", False, clock())
+        return False
+    if too_far(s, mapdb, rooms, "almsbox"):
         mark(timers, "tithe", False, clock())
         return False
     if not walk_fn(s, mapdb, rooms, describe="the almsbox"):
@@ -205,6 +244,9 @@ def pray(s, mapdb, timers, options, walk_fn=walk):
         s.echo("soul: no Chadatru altar known on the map — altar=<room id>")
         mark(timers, "pray", False, clock())
         return False
+    if too_far(s, mapdb, rooms, "altar"):
+        mark(timers, "pray", False, clock())
+        return False
     if not walk_fn(s, mapdb, rooms, describe="Chadatru's altar"):
         s.echo("soul: could not reach an altar")
         mark(timers, "pray", False, clock())
@@ -230,6 +272,62 @@ def pray(s, mapdb, timers, options, walk_fn=walk):
         s.echo("soul: too soon since the last prayer — backing off twenty minutes")
     else:
         s.echo(f"soul: the prayer did not complete ({outcome})")
+    return False
+
+
+def pray_badge(s, timers):
+    """REMOVE the worn pilgrim's badge (GET it from a container when it
+    is not worn), PRAY on it, WEAR it again. True when the prayer gave
+    the soul line; a missing badge turns the deed off for the run
+    (timers["badge_off"]), an empty or unbonded one is said."""
+    held = any(
+        (getattr(s.state, side, None) or {}).get("noun") == "badge"
+        for side in ("left_hand", "right_hand")
+    )
+    if not held:
+        answer = ask(s, "remove my badge")
+        if classify(answer, ("none", BADGE_NONE)):
+            answer = ask(s, "get my badge")
+            if classify(answer, ("none", BADGE_NONE)):
+                s.echo(
+                    "soul: no pilgrim's badge on you — the badge deed is off for this run"
+                )
+                timers["badge_off"] = True
+                return False
+    answer = ask(s, "pray badge", 4)
+    echo_lines(s, answer)
+    outcome = classify(
+        answer,
+        ("done", BADGE_DONE),
+        ("soon", BADGE_SOON),
+        ("empty", BADGE_EMPTY),
+        ("not yours", BADGE_NOT_YOURS),
+        ("none", BADGE_NONE),
+    )
+    if not held:
+        ask(s, "wear my badge")
+    if outcome == "done":
+        mark(timers, "badge", True, clock())
+        s.echo("soul: prayed on the badge")
+        return True
+    mark(timers, "badge", False, clock())
+    if outcome == "soon":
+        s.echo(
+            "soul: the badge's timer has not cleared — no boost this time, backing off"
+        )
+    elif outcome == "empty":
+        s.echo(
+            "soul: the badge has no sites on it — PUSH an attuned altar WITH BADGE first"
+        )
+    elif outcome == "not yours":
+        s.echo("soul: the badge is not bonded to you — KISS it first")
+    elif outcome == "none":
+        s.echo("soul: no pilgrim's badge on you — the badge deed is off for this run")
+        timers["badge_off"] = True
+    else:
+        s.echo(
+            "soul: PRAY BADGE answered nothing known — please report the lines above"
+        )
     return False
 
 
@@ -294,6 +392,10 @@ def keep(s, mapdb, timers, options, walk_fn=walk):
             s.echo("soul: stopping as asked")
             return
         did = False
+        if not timers.get("badge_off") and due(timers, "badge", clock()) == 0:
+            pray_badge(s, timers)
+            save_timers(character(s), timers)
+            did = True
         if due(timers, "tithe", clock()) == 0:
             tithe(s, mapdb, timers, options, walk_fn)
             save_timers(character(s), timers)
@@ -304,12 +406,15 @@ def keep(s, mapdb, timers, options, walk_fn=walk):
             did = True
         if did and locate(mapdb, s.state) == ORB_ROOM:
             read_soul(s)
-        waits = {deed: due(timers, deed, clock()) for deed in ("tithe", "pray")}
+        deeds = ("tithe", "pray") + (() if timers.get("badge_off") else ("badge",))
+        waits = {deed: due(timers, deed, clock()) for deed in deeds}
         soonest = min(waits.values())
         if did:
             s.echo(
-                "soul: next tithe in "
-                f"{waits['tithe'] / 60:.0f} min, next prayer in {waits['pray'] / 60:.0f} min"
+                "soul: next "
+                + ", ".join(
+                    f"{deed} in {wait / 60:.0f} min" for deed, wait in waits.items()
+                )
             )
         # Never faster than the poll: a deed that failed without a
         # timer mark would otherwise be tried every second.
@@ -322,10 +427,15 @@ def run(s, words, mapdb=None, walk_fn=walk):
     if verb == "read":
         read_soul(s)
         return
+    timers = load_timers(character(s))
+    timers.pop("badge_off", None)  # a new run looks for the badge again
+    if verb == "badge":
+        pray_badge(s, timers)
+        save_timers(character(s), timers)
+        return
     if mapdb is None:
         s.echo("soul: the deeds need the map — none loaded")
         return
-    timers = load_timers(character(s))
     if verb == "tithe":
         tithe(s, mapdb, timers, options, walk_fn)
     elif verb == "pray":

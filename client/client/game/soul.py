@@ -47,7 +47,15 @@ girl's line as the walkthrough has it, "Despite the hopelessness of
 the situation, you move to guard the fleeing girl, raising your
 battered old sword in defiance. ...", and "'Go now, and use my gift
 to preserve those who have fallen with honor.'"; GLYPH then lists
-"the Glyph of Warding". Model: docs/soul.md.
+"the Glyph of Warding". The pilgrim's badge (2026-09-20: bought by a
+Cleric in Brother Durantine's storeroom, bonded with KISS, four
+attuned sites PUSHed onto it) is the cheap deed: PRAY BADGE, held,
+every thirty-one minutes — "As you feel your connection to them grow,
+you sense the eyes of the gods upon you." / "A warm, soothing
+sensation washes over your soul." / "You feel a strengthening of your
+faith and bolstering of your soul."; with nothing on it "You think
+really hard about your badge.  It doesn't do anything though." Model:
+docs/soul.md.
 """
 
 import json
@@ -103,6 +111,7 @@ POOL_FULL = 11
 # reading says otherwise, and a refusal backs off twenty minutes.
 TITHE_SECONDS = 4 * 3600
 PRAY_SECONDS = 2 * 3600
+BADGE_SECONDS = 31 * 60  # PRAY BADGE (Elanthipedia: Pilgrim's badge)
 REFUSED_BACKOFF = 20 * 60
 TITHE_SILVER = 5
 PRAYER_WAIT = 150  # seconds knelt for the prayer to complete (about 75)
@@ -111,6 +120,19 @@ PRAYER_WAIT = 150  # seconds knelt for the prayer to complete (about 75)
 TITHED = ("soft prayer as the coins clink", "soothing sensation")
 TITHE_SHORT = ("but you do not",)  # dr-scripts' tithe.lic: not enough coins
 TITHE_REFUSED = ("attend to thy own woes",)  # dr-scripts' tithe.lic
+# PRAY BADGE, the pilgrim's badge held (captured 2026-09-20 with four
+# attuned sites on it): the boost, an empty badge, one not bonded to
+# the character, and no badge at all.
+BADGE_DONE = ("strengthening of your faith", "soothing sensation")
+# Within the timer the contemplation plays without the soul line
+# (captured 2026-09-20, nine minutes after a boost): "You think upon
+# the Immortals, and the holy places built in their honor ..." / "As
+# you feel your connection to them grow, you sense the eyes of the
+# gods upon you." and nothing more.
+BADGE_SOON = ("eyes of the gods upon you",)
+BADGE_EMPTY = ("doesn't do anything",)
+BADGE_NOT_YOURS = ("not your pilgrim's badge",)
+BADGE_NONE = ("what were you referring", "could not find")
 # The prayer's answers.
 PRAYER_BEGUN = ("head is not cleared enough",)
 PRAYER_DONE = ("soothing sensation washes over your soul",)
@@ -235,7 +257,9 @@ def due(timers, deed, now=None):
     the deed's own timer since the last acceptance, or the backoff
     since the last refusal, whichever ends later."""
     now = time.time() if now is None else now
-    period = {"tithe": TITHE_SECONDS, "pray": PRAY_SECONDS}[deed]
+    period = {"tithe": TITHE_SECONDS, "pray": PRAY_SECONDS, "badge": BADGE_SECONDS}[
+        deed
+    ]
     waits = []
     if deed in timers:
         waits.append(timers[deed] + period)
@@ -256,8 +280,8 @@ _OPTION = re.compile(r"^(\w+)=(.*)$")
 
 def parse_args(words):
     """;soul's words: the verb ("read" by default, "keep", "tithe",
-    "pray", "quest") and the options almsbox=ID, altar=ID, currency=X,
-    force."""
+    "pray", "badge", "quest") and the options almsbox=ID, altar=ID,
+    currency=X, force."""
     options = {
         "verb": "read",
         "almsbox": None,
@@ -277,6 +301,6 @@ def parse_args(words):
         lowered = word.lower()
         if lowered == "force":
             options["force"] = True
-        elif lowered in ("read", "keep", "tithe", "pray", "quest"):
+        elif lowered in ("read", "keep", "tithe", "pray", "badge", "quest"):
             options["verb"] = lowered
     return options
