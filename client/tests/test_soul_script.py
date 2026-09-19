@@ -220,6 +220,9 @@ def test_a_short_purse_skips_the_tithe_and_never_withdraws(monkeypatch, tmp_path
     assert fake.sent == ["wealth"]
     assert "427 copper dokoras on you" in echoes(fake)
     assert not any(c.startswith("withdraw") for c in fake.sent)
+    # The short purse counts as a refusal: keep backs off instead of
+    # asking WEALTH every second (2026-09-19).
+    assert "tithe_refused" in soul.load_timers("Lanival")
 
 
 def test_the_prayer_stays_knelt_for_the_completion_then_stands(monkeypatch, tmp_path):

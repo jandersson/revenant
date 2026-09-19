@@ -162,9 +162,11 @@ def tithe(s, mapdb, timers, options, walk_fn=walk):
     rooms = rooms_for(mapdb, "tithe", ALMSBOXES, options["almsbox"])
     if not rooms:
         s.echo("soul: no almsbox known on the map — almsbox=<room id>")
+        mark(timers, "tithe", False, clock())
         return False
     if not walk_fn(s, mapdb, rooms, describe="the almsbox"):
         s.echo("soul: could not reach an almsbox")
+        mark(timers, "tithe", False, clock())
         return False
     here = locate(mapdb, s.state)
     title = (mapdb.rooms.get(here) or {}).get("title", [""])[0] if here else ""
@@ -176,6 +178,10 @@ def tithe(s, mapdb, timers, options, walk_fn=walk):
             f"soul: {carried} copper {currency} on you — the tithe is "
             f"{TITHE_SILVER} silver; fetch coins (;debt, the teller) and try again"
         )
+        # A short purse is a refusal for the timers: the next look is
+        # twenty minutes off, not the next second (2026-09-19, when a
+        # keep asked WEALTH once a second at the box).
+        mark(timers, "tithe", False, clock())
         return False
     answer = ask(s, tithe_command(currency))
     echo_lines(s, answer)
@@ -197,9 +203,11 @@ def pray(s, mapdb, timers, options, walk_fn=walk):
     rooms = rooms_for(mapdb, "chadatru", ALTARS, options["altar"])
     if not rooms:
         s.echo("soul: no Chadatru altar known on the map — altar=<room id>")
+        mark(timers, "pray", False, clock())
         return False
     if not walk_fn(s, mapdb, rooms, describe="Chadatru's altar"):
         s.echo("soul: could not reach an altar")
+        mark(timers, "pray", False, clock())
         return False
     stow_hands(s)
     answer = ask(s, "pray chadatru")
@@ -303,7 +311,9 @@ def keep(s, mapdb, timers, options, walk_fn=walk):
                 "soul: next tithe in "
                 f"{waits['tithe'] / 60:.0f} min, next prayer in {waits['pray'] / 60:.0f} min"
             )
-        s.sleep(min(KEEP_POLL, max(1, soonest)))
+        # Never faster than the poll: a deed that failed without a
+        # timer mark would otherwise be tried every second.
+        s.sleep(max(KEEP_POLL, min(soonest, KEEP_POLL * 10)))
 
 
 def run(s, words, mapdb=None, walk_fn=walk):
