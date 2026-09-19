@@ -155,7 +155,14 @@ for `client/client/<pkg>/x.py`.
   for a wandering NPC; `scripts/seek.py` stops in the room that has
   it (#207). `client/game/perform.py` is the song per rank band and
   PLAY's wordings; `scripts/perform.py` plays the profile's
-  `instrument` until mind-lock (#208). `client/game/scholarship.py`
+  `instrument` until mind-lock (#208). `client/game/soul.py` is a
+  Paladin's soul: the seven states and eleven pool levels parsed off
+  RUB, EXHALE and the arch, the deeds that raise it (the 5-silver
+  tithe every 4 h, the Chadatru prayer knelt until "soothing
+  sensation") and their timers in `~/.revenant/soul/<name>.json`;
+  `scripts/soul.py` reads it, `keep`s the deeds running, and runs the
+  Glyph of Warding scene at the guild orb once pristine and full
+  (#224). Model: docs/soul.md. `client/game/scholarship.py`
   is the Lorethew library's grammar and the reader's page loop;
   `scripts/scholarship.py books` reads every book on the profile's
   `library` shelves and returns each with STOW (#210). `client/game/encumbrance.py` is the
