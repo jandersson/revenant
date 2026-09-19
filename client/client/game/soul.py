@@ -39,7 +39,15 @@ orb accepts a FOCUS here: "You clear your mind of all thoughts" opens
 the vision, "You focus your magical senses" is its own refusal, the
 girl's "in a few brief moments she will be past you and beyond help"
 wants GUARD GIRL ("Despite the hopelessness of the situation"), and
-"and use my gift" ends it. Model: docs/soul.md.
+"and use my gift" ends it — all three held when the orb accepted the
+FOCUS (2026-09-19 05:40, 65 minutes after a refusal at pristine and
+full): "You clear your mind of all thoughts and focus only on the task
+ahead.  Vision fades as darkness slowly overcomes you. ...", the
+girl's line as the walkthrough has it, "Despite the hopelessness of
+the situation, you move to guard the fleeing girl, raising your
+battered old sword in defiance. ...", and "'Go now, and use my gift
+to preserve those who have fallen with honor.'"; GLYPH then lists
+"the Glyph of Warding". Model: docs/soul.md.
 """
 
 import json
@@ -110,10 +118,10 @@ PRAYER_SOON = ("inappropriate so soon",)
 # The quest's orb (FOCUS ORB): the refusals and the vision's lines.
 FOCUS_REST = ("rest and contemplate",)
 FOCUS_REFUSED = ("you focus your magical senses",)  # dr-scripts' requirements line
-FOCUS_BEGUN = ("you clear your mind of all thoughts",)  # dr-scripts
+FOCUS_BEGUN = ("you clear your mind of all thoughts",)  # captured 2026-09-19
 GIRL = "in a few brief moments she will be past you and beyond help"
-GUARDED = ("despite the hopelessness of the situation",)  # dr-scripts
-QUEST_DONE = ("and use my gift",)  # dr-scripts
+GUARDED = ("despite the hopelessness of the situation",)  # captured
+QUEST_DONE = ("and use my gift",)  # captured
 SCENE_SECONDS = 600  # the vision "will take a while"
 
 # Where the deeds are done: map rooms with a Chadatru altar or statue

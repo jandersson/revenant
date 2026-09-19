@@ -91,15 +91,22 @@ FOCUS_REST = (
     "You attempt to focus on the orb, but you feel you need to rest and "
     "contemplate a bit first.\n"
 )
-# dr-scripts' paladin-quests.lic lines: the scene is uncaptured here.
-FOCUS_BEGUN = "You clear your mind of all thoughts...\n"
+# The scene, captured 2026-09-19 05:40 (the first accepted FOCUS).
+FOCUS_BEGUN = (
+    "You clear your mind of all thoughts and focus only on the task ahead.  "
+    "Vision fades as darkness slowly overcomes you.\n"
+    "You suddenly find yourself in another place...\n"
+)
 GIRL = (
     "The girl's breath comes in ragged pants, as she desperately flees from her "
     "pursuers.  Her flight has brought her almost past you, and in a few brief "
     "moments she will be past you and beyond help.\n"
 )
-GUARDED = "Despite the hopelessness of the situation, you step forward.\n"
-GIFT = "Go now, and use my gift wisely.\n"
+GUARDED = (
+    "Despite the hopelessness of the situation, you move to guard the fleeing "
+    "girl, raising your battered old sword in defiance.\n"
+)
+GIFT = "'Go now, and use my gift to preserve those who have fallen with honor.'\n"
 
 
 class Fake:
