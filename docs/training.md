@@ -37,6 +37,7 @@ run.
 | order | `listed` runs tasks in file order; `lowest` runs the task whose least-trained skill is lowest first |
 | poll | seconds between mindstate checks |
 | cycles | train-rest cycles before exiting; 0 loops until stopped (`;train once` is 1) |
+| soul | `on` for a Paladin: the soul deeds run in the rests — `;soul badge` every 31 minutes where the character stands, `;soul tithe` and `;soul pray` when their timers allow and their rooms are near, each waited for and the rest's room walked back to — and a `;soul keep` started by hand is taken over, since a prayer with ten seconds of roundtime must never land mid-hunt (#227, [soul.md](soul.md)). `off` by default |
 | tasks | the list below |
 
 A task:
@@ -83,6 +84,10 @@ seconds of starting is a failed start (`;attune` refusing a room with
 hostiles in it, a rung the map lost), said so and not counted as
 trained; a cycle in which no task trained stops the loop instead of
 resting.
+
+## The soul in the rests
+
+A Paladin's soul is on timers (docs/soul.md): the badge every 31 minutes, the tithe every 4 hours, the Chadatru prayer every 2. With `soul: on` `;train` runs those deeds in its rests — a rest is idle by design, the badge prays where the character stands, the tithe and the prayer only when `;soul`'s own guard finds their rooms near — through `;soul <deed>` on the handle (run, is_running, kill), sharing the timer file so the two never tithe twice, and it kills a `;soul keep` it finds running, because keep does not know what the character is doing and a ten-second prayer in a hunt is a bad idea. Never in a task: `;hunt` wants only the pool reading (#217).
 
 ## What it assumes
 

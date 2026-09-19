@@ -60,6 +60,8 @@ clock = time.monotonic  # tests replace it
 EXIT_WAIT = 10  # seconds a killed task script gets to wind down
 QUICK_EXIT = 5  # a task script gone this soon after starting never got going
 LEAVE_ATTEMPTS = 5  # rooms left for hostiles before a rest is given up (#182)
+SOUL_DEEDS = ("badge", "tithe", "pray")  # the order ;train runs them in a rest
+SOUL_MINUTES = 12  # a deed's run, walk included, before train stops waiting
 WORDS = ("skip", "rest", "status")
 
 
@@ -263,6 +265,49 @@ def go_to(s, db, walk, target):
     return walk(s, db, goals, describe=repr(target))
 
 
+def soul_due(s, plan):
+    """The soul deeds whose timers allow them now, in SOUL_DEEDS order —
+    [] unless the plan's `soul` is on (#227). Reads the timers `;soul`
+    keeps in ~/.revenant/soul/<name>.json, so the two never tithe twice."""
+    if plan.get("soul", "off") != "on":
+        return []
+    from client.game import soul
+
+    timers = soul.load_timers(getattr(s.state, "name", None) or "")
+    return [
+        deed
+        for deed in SOUL_DEEDS
+        if not timers.get(f"{deed}_off") and soul.due(timers, deed) == 0
+    ]
+
+
+def soul_step(s, plan, db, walk, room):
+    """One due soul deed, run as `;soul <deed>` and waited for, then the
+    walk back to the rest's room when the deed moved the character
+    (the tithe, the prayer); the badge prays where it stands. True
+    when a deed ran (#227)."""
+    due = soul_due(s, plan)
+    if not due:
+        return False
+    deed = due[0]
+    if s.is_running("soul"):
+        s.echo("train: a ;soul is already running — leaving the deed to it")
+        return False
+    if not s.run("soul", [deed]):
+        return False
+    s.echo(f"train: soul deed — ;soul {deed}")
+    started = clock()
+    while s.is_running("soul"):
+        if s.dead or clock() - started >= SOUL_MINUTES * 60:
+            s.kill("soul")
+            break
+        s.sleep(min(5, plan["poll"]))
+    if room is not None and deed != "badge":
+        go_to(s, db, walk, room)
+        send_each(s, plan["rest_commands"])
+    return True
+
+
 def rest(s, plan, db, walk, index):
     """The rest: to the index-th safe room, the rest commands, then hold
     until every trained skill has drained (or the cap). Returns the
@@ -278,6 +323,9 @@ def rest(s, plan, db, walk, index):
     started = clock()
     moves = 0
     while True:
+        if s.dead:
+            return None
+        soul_step(s, plan, db, walk, room)
         if s.dead:
             return None
         if rested(plan, experience(s)):
@@ -316,6 +364,12 @@ def run(s, plan, cycles, db=None, walk=None):
     """The loop: train, rest, repeat cycles times (0 = until stopped)."""
     cycle = 0
     index = 0
+    if plan.get("soul", "off") == "on" and s.is_running("soul"):
+        # ;train manages the soul deeds itself (#227): a keep loop
+        # started by hand would pray with roundtime in the middle of a
+        # hunt, so it is taken over here and its deeds run in the rests.
+        s.kill("soul")
+        s.echo("train: taking over ;soul — its deeds run in the rests from now on")
     while not cycles or cycle < cycles:
         cycle += 1
         s.echo(f"train: cycle {cycle} — training")

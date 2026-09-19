@@ -142,8 +142,10 @@ for `client/client/<pkg>/x.py`.
   that trains them, the target mindstate, the safe rooms, the rest
   floor. The pure decisions (next task, satisfied, rested, safe-room
   rotation) live here; `scripts/train.py` is the loop, orchestrating
-  other scripts through the handle's `run`/`is_running`/`tell`/`kill`.
-  Model: docs/training.md. `client/game/tdp.py` is the stat side:
+  other scripts through the handle's `run`/`is_running`/`tell`/`kill`,
+  and with the plan's `soul: on` runs the soul deeds (`;soul badge`,
+  `tithe`, `pray`) in its rests, taking a hand-started `;soul keep`
+  over — never a prayer mid-hunt (#227). Model: docs/training.md. `client/game/tdp.py` is the stat side:
   the game's TDP quotes parsed, the wiki's cost formula, ;tdp's
   goals; `scripts/tdp.py` walks to the tagged trainer and buys one
   confirmed point at a time. `client/game/money.py` is coins both ways

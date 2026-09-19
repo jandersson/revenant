@@ -473,3 +473,44 @@ def test_train_without_a_plan_points_at_init(clock):
     fake = Fake(args=[])
     train.main(fake)
     assert any(";train init writes a starter" in text for text in fake.echoed)
+
+
+# --- the soul deeds in the rests (#227) ------------------------------------
+def test_a_rest_runs_the_due_soul_deed_and_walks_back(clock, monkeypatch, tmp_path):
+    from client.game import soul
+
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path / "soul"))
+    import time
+
+    now = time.time()  # soul's timers run on the wall clock, not the fake's
+    soul.save_timers("Lanival", {"badge": now, "pray": now})  # the tithe never done
+    fake = Fake(
+        [{"Athletics": 30, "Small Edged": 30}, {"Athletics": 20}, {"Athletics": 10}],
+        exits={"soul": 15},
+    )
+    run(clock, fake, plan(safe_rooms=["home"], rest_commands=["sit"], soul="on"))
+    # The tithe (never done) is the one deed due; the badge and the
+    # prayer were just done and their timers have not cleared.
+    assert fake.started == [("soul", ["tithe"])]
+    assert fake.walks == [{1}, {1}]  # the rest's room, then back after the tithe
+    assert fake.sent == ["sit", "sit"]
+    assert any("soul deed — ;soul tithe" in text for text in fake.echoed)
+
+
+def test_train_takes_a_running_soul_keep_over(clock):
+    fake = Fake([{"Athletics": 30, "Small Edged": 30}, {"Athletics": 10}])
+    fake.children.add("soul")
+    run(clock, fake, plan(soul="on"))
+    assert fake.killed[0] == "soul"
+    assert any("taking over ;soul" in text for text in fake.echoed)
+
+
+def test_a_plan_with_soul_off_never_touches_it(clock, monkeypatch, tmp_path):
+    from client.game import soul
+
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path / "soul"))
+    soul.save_timers("Lanival", {})
+    fake = Fake([{"Athletics": 30, "Small Edged": 30}, {"Athletics": 10}])
+    fake.children.add("soul")
+    run(clock, fake, plan())
+    assert fake.started == [] and fake.killed == []

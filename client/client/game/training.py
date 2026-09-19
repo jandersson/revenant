@@ -62,8 +62,10 @@ DEFAULTS = {
     "order": "listed",
     "poll": 30,
     "cycles": 0,
+    "soul": "off",
     "tasks": [],
 }
+SOUL = ("off", "on")
 
 TASK_DEFAULTS = {
     "name": "",
@@ -99,6 +101,7 @@ PLAN_FIELDS = (
     ("order", "Task order", "choice", "listed, or the least-trained first"),
     ("poll", "Seconds between mindstate checks", "int", ""),
     ("cycles", "Train-rest cycles", "int", "0: until stopped"),
+    ("soul", "Soul deeds in the rests (a Paladin)", "choice", "on or off"),
 )
 TASK_FIELDS = (
     ("name", "Name", "str", "how the task is reported"),
@@ -190,8 +193,8 @@ def normalize(values: dict) -> dict:
             clean[key] = _list(value)
         elif key in _INTS:
             clean[key] = _int(value, DEFAULTS[key])
-        elif key == "order":
-            clean[key] = str(value or "").strip().lower() or DEFAULTS["order"]
+        elif key in ("order", "soul"):
+            clean[key] = str(value or "").strip().lower() or DEFAULTS[key]
         elif key == "tasks":
             tasks = value if isinstance(value, list) else []
             clean[key] = [normalize_task(task, i) for i, task in enumerate(tasks)]
@@ -258,6 +261,8 @@ def validate(plan: dict) -> list:
     problems = []
     if plan["order"] not in ORDERS:
         problems.append(f"order {plan['order']!r} is not one of {', '.join(ORDERS)}")
+    if plan.get("soul", "off") not in SOUL:
+        problems.append(f"soul {plan['soul']!r} is not one of {', '.join(SOUL)}")
     if not 0 <= plan["target"] <= MIND_LOCK:
         problems.append(f"target {plan['target']} is outside 0-{MIND_LOCK}")
     if not 0 <= plan["rest_until"] < MIND_LOCK:
