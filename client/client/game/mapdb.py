@@ -281,9 +281,14 @@ def gate_of(timeto):
 
 
 # One statement of a simple embedded-Ruby edge: fput/move with a string
-# literal (lich style, parens optional), or a bare waitrt?.
+# literal (lich style, parens optional), a bare waitrt?, or a waitfor
+# with a literal — the Crossing temple's stairs into the Eyes of the
+# Thirteen are `fput 'go stair'; waitfor 'Obvious paths:'` (2026-09-20),
+# and the walker waits for the room's arrival on its own.
 _SIMPLE_STATEMENT = re.compile(
-    r"^(?:(?:fput|move)\s*\(?\s*(['\"])(?P<literal>.*?)\1\s*\)?|waitrt\??)$"
+    r"^(?:(?:fput|move)\s*\(?\s*(['\"])(?P<literal>.*?)\1\s*\)?"
+    r"|waitrt\??"
+    r"|waitfor\s*\(?\s*(['\"]).*?\3\s*\)?)$"
 )
 
 
@@ -295,12 +300,18 @@ def translate_embedded(command):
     gate'; waitrt?; move 'climb wall'). Sequences of fput/move string
     literals translate directly to game commands — 754 of the map's
     1087 scripted edges at last count. waitrt? drops out because the
-    walker waits out roundtime around every command anyway. Anything
+    walker waits out roundtime around every command anyway, and a
+    waitfor with a literal AFTER the last command likewise: the walker
+    waits for the arrival itself (the temple stairs' "waitfor 'Obvious
+    paths:'"). A waitfor before a command is a real wait (a ferry
+    arriving) the walker does not do, so that edge stays untranslated.
+    Anything
     with logic (start_script, UserVars, waits, conditionals) stays
     untranslatable."""
     if not isinstance(command, str) or not command.startswith(";e"):
         return None
     commands = []
+    waited = False  # a waitfor seen since the last command
     for statement in command[2:].split(";"):
         statement = statement.strip()
         if not statement:
@@ -309,7 +320,13 @@ def translate_embedded(command):
         if not match:
             return None
         if match.group("literal") is not None:
+            if waited:
+                # A waitfor BEFORE a command is a real wait — the ferry
+                # arriving — that the walker does not do: untranslatable.
+                return None
             commands.append(match.group("literal"))
+        elif statement.startswith("waitfor"):
+            waited = True
     return commands or None
 
 

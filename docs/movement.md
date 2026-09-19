@@ -175,7 +175,12 @@ gate and what the character holds: "the route needs Athletics 540
 (";e ..."). Simple sequences of fput/move string literals translate
 directly to plain commands (754 of the map's 1087 scripted edges at
 last count); `waitrt?` drops out because the walker waits out
-roundtime around every command anyway. Anything with logic
+roundtime around every command anyway, and so does a `waitfor` with
+a literal after the last command (the Crossing temple's stairs into
+the Eyes of the Thirteen, `fput 'go stair'; waitfor 'Obvious
+paths:'`, 2026-09-20): the walker waits for the arrival itself. A
+`waitfor` before a move is a real wait — the ferry arriving — the
+walker does not do, so that edge stays untranslated. Anything with logic
 (start_script, UserVars, conditionals) stays untranslatable, and the
 router routes around it or reports "no walkable path"
 (mapdb.translate_embedded / mapdb.walkable).

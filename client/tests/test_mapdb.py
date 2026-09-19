@@ -26,6 +26,22 @@ def test_normalize_title_strips_any_bracket_depth():
     assert normalize_title("[[Rooftop]]") == "rooftop"
 
 
+def test_a_waitfor_in_a_scripted_edge_drops_out_like_waitrt():
+    from client.game.mapdb import translate_embedded
+
+    # The Crossing temple's stairs into the Eyes of the Thirteen
+    # (2026-09-20): the walker waits for the arrival on its own.
+    assert translate_embedded(";e fput 'go stair'; waitfor 'Obvious paths:'") == [
+        "go stair"
+    ]
+    assert translate_embedded(';e fput "go stair"; waitfor("Obvious paths:")') == [
+        "go stair"
+    ]
+    assert translate_embedded(";e fput 'go stair'; waitfor room_name") is None
+    # A waitfor before a move is a real wait (the ferry): untranslated.
+    assert translate_embedded(";e waitfor 'The ferry arrives'; move 'go ferry'") is None
+
+
 def test_walkable_accepts_simple_and_translated_edges_only():
     assert walkable("north")
     assert walkable("go gate")
