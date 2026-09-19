@@ -163,6 +163,8 @@ power to aid your spell."; and a worn piece "Try though you may, you
 find it too clumsy to charge the cambrinth armband while wearing it."
 — so the profile names a held piece, kept in the loot container.
 
+The simple cambrinth anklet (12 mana, 1,500 Kronars at Herilo's Artifacts, map 19152, bought 2026-09-20 at Arcana 17 — the wiki's rule of thumb is Arcana ranks equal to the capacity, and the 32-mana armband failed at rank 1) takes a full charge: "You harness a small amount of energy and attempt to channel it into your cambrinth anklet. / You are able to channel all the energy into the anklet. / The cambrinth anklet absorbs all of the energy. / Roundtime: 4 sec." and INVOKE answers "The cambrinth anklet pulses with Holy energy.  You reach for its center and forge a magical link to it, readying all of its mana for your use. / Roundtime: 1 sec." It lives in the sack, not on the ankle: a worn piece cannot be charged.
+
 ## Smiting for Conviction
 
 Paladins train Conviction two ways only: a SMITE with the weapon or a
