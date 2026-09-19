@@ -357,6 +357,8 @@ skill (each new script is one task line away), conditions beyond
 mindstate (time of day, rested-experience hours, a spell's duration),
 and running two tasks at once. `;hunt` keeps its own buffs up and
 recasts one to train a magic skill (its profile's `buffs` and
-`train_casting`, [hunting.md](hunting.md)); a buff kept up under any
+`train_casting`, [hunting.md](hunting.md); `;cast` runs that loop on
+its own, standing still, with a POWER a minute for Attunement — the
+gondola ride, the ferry, the wait at an altar, #225); a buff kept up under any
 other trainer is still the orchestrator's to learn. Each is a plan key
 and a branch away.

@@ -125,7 +125,10 @@ for `client/client/<pkg>/x.py`.
   skill to train by recasting, floors, ground, home). FIELDS is the
   schema; the GUI's Character Profile dialog builds itself from it.
   `scripts/skins.py` sells the worn bundle at the nearest tannery.
-  `client/game/buffs.py` is the profile's buffs kept up, the
+  `scripts/cast.py` (`;cast`, #225) is that cast loop on its own —
+  the first buff on the mana ramp with the cambrinth and a POWER a
+  minute, for a gondola ride or a wait at an altar, until the skills
+  lock. `client/game/buffs.py` is the profile's buffs kept up, the
   training casts (the mana ramp) and the targeted casts at the prey
   (`debilitation`, `targeted`: Debilitation and Targeted Magic, in
   turn with the training cast), shared by `;hunt` and `;athletics`'

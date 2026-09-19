@@ -141,7 +141,10 @@ entries from a dock-layout module.
   (~/.revenant/training/<name>.json) that starts each task's script
   (;athletics, ;hunt) or cycles its commands until the task's skills
   reach the target mindstate, then rests in a safe room until they
-  drain (docs/training.md). `scripts/soul.py` (`;soul`) keeps a
+  drain (docs/training.md). `scripts/cast.py` (`;cast`, #225) runs
+  the hunt's cast loop standing still — the first buff on the mana
+  ramp with the cambrinth, a POWER a minute — for the idle stretches
+  (docs/training.md). `scripts/soul.py` (`;soul`) keeps a
   Paladin's soul up on the deeds' timers and reads it through
   `client/game/soul.py` (docs/soul.md, #224). `scripts/lnet.py` uses it
   to mirror LNet chat into the Thoughts window (`;lnet`); the command
