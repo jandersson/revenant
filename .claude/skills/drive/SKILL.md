@@ -76,9 +76,12 @@ uv run revenant-send --origin claude --character NAME ";tdp help"
 
 - Use `--port N` when the registry has lost the row (#160); the port is
   in the sessions file or the launcher's log.
-- `--answer` prints the story lines that followed the line's own echo;
-  a command with roundtime (POWER 8-12 s, CLIMB, INV LIST) needs a
-  window longer than it, and a walk or a script's run needs the log
+- `--answer` prints the story lines that followed the line's own echo
+  and the scripts' own echoes (`[soul] walking 20 steps ...`, a
+  refusal's reason — since 2026-09-20; before that a script's answer
+  was invisible here); a command with roundtime (POWER 8-12 s, CLIMB,
+  INV LIST) needs a window longer than it, and a long walk or a
+  script's whole run needs the log
   instead: `~/.revenant/logs/game-<stamp>.log`, newest for that session,
   read with the XML stripped (`sed 's/<[^>]*>//g'`). Scripts' echoes go
   to the windows, not the game log; the session's debug log

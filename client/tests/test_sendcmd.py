@@ -95,7 +95,10 @@ def answering():
             )
             conn.sendall(frame(f">> [{origin}] {command}\n", "", "sent"))
             conn.sendall(
-                frame("You have 347 TDPs.\n") + frame("bar", "vitals") + frame(">\n")
+                frame("You have 347 TDPs.\n")
+                + frame("bar", "vitals")
+                + frame("[soul] no arch near\n", "script")
+                + frame(">\n")
             )
             try:
                 while conn.recv(4096):
@@ -117,8 +120,9 @@ def test_answer_returns_the_story_lines_after_the_echo_and_not_the_replay(answer
     thread.join(5)
     assert result.sent
     assert got == [b"\x1eclaude\ttdp\n"]
+    # The story and the scripts' echoes; the dock frame is not an answer.
     assert (
-        result.answer == "You have 347 TDPs.\n>\n"
+        result.answer == "You have 347 TDPs.\n[soul] no arch near\n>\n"
     )  # the dock frame and the replay are not story
 
 

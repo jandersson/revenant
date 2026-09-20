@@ -22,9 +22,10 @@ setting (~/.revenant/settings.json, allow_external_send) or
 REVENANT_ALLOW_SEND=1 for one call. --dry-run says what would happen
 and sends nothing. --answer N stays attached for N seconds after the
 send and prints what the game answered (the story lines that followed
-the line's own echo), so a tool reads the reply here instead of
-tailing the log; --origin names the sender in that echo (Claude sends
-as claude). Exit status 0 when the line went out (or a dry run), 1
+the line's own echo, and the scripts' echoes — the "script" stream,
+"[soul] ..." — when the line started one), so a tool reads the reply
+here instead of tailing the log; --origin names the sender in that
+echo (Claude sends as claude). Exit status 0 when the line went out (or a dry run), 1
 when it was refused or nothing was listening.
 
 Two read-only forms (#216) type nothing at the game and echo nothing
@@ -291,7 +292,12 @@ def send(
             return Result(
                 False, f"nothing is listening on {host}:{port}", host, port, command
             )
-        story = "".join(text for text, stream, _ in frames if stream == "")
+        # The story, and the scripts' own echoes (the "script" stream:
+        # "[soul] ..."), which are the answer when the line started a
+        # script — a refusal echoed there was invisible here until
+        # 2026-09-20, when a `;soul` read failed in three seconds
+        # with nothing to show for it.
+        story = "".join(text for text, stream, _ in frames if stream in ("", "script"))
         return Result(
             True,
             f"sent {command!r} to {host}:{port} ({tier})",
