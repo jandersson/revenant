@@ -83,8 +83,25 @@ def test_a_long_silence_gets_one_time_probe_and_a_dead_link_ends_the_session():
     server.game.closed = True
 
 
+_STARTED = []  # every server a test started, shut down after it (#246)
+
+
+@pytest.fixture(autouse=True)
+def _stop_started_servers():
+    """Shut down every server a test started. 27 of 32 tests left theirs
+    running, and each one's registry heartbeat ticked on every thirty
+    seconds in the same process, writing its row into whatever registry
+    file the test then running pointed REVENANT_SESSIONS at — the torn
+    registry test found its torn file rewritten now and then, only when
+    the suite ran long enough for a tick to land inside it (#246)."""
+    yield
+    while _STARTED:
+        _STARTED.pop().shutdown()
+
+
 def _start_server(game):
     server = session.SessionServer(game, port=0)
+    _STARTED.append(server)
     Thread(target=server.serve, daemon=True).start()
     for _ in range(200):
         if server.listener is not None:
