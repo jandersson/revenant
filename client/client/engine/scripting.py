@@ -128,6 +128,7 @@ class Script:
         if not cleanup:
             self._check()
         self._manager.emit(f"[{self.name}]> {command}")
+        self._manager.log.debug(f"[{self.name}]> {command}")
         state = self.state
         self._sent = (
             getattr(state, "prompt_count", None) if state is not None else None,
@@ -136,8 +137,14 @@ class Script:
         self._manager.send(command)
 
     def echo(self, text: str):
-        """Show text in the front ends without sending anything to the game."""
+        """Show text in the front ends without sending anything to the game.
+
+        The line goes into the session's debug log too (INFO, with the
+        commands a script puts at DEBUG): a hunt's six "unrecognized ...
+        answer" reports had scrolled off the window and nothing held
+        them, so two could not be traced (2026-09-20, #241)."""
         self._manager.emit(f"[{self.name}] {text}")
+        self._manager.log.info(f"[{self.name}] {text}")
 
     def emit(self, text: str, stream: str):
         """Show text in the front ends on a chosen stream — e.g. "thoughts"

@@ -55,8 +55,8 @@ your frontend.
 
 | Call                          | What it does                                                             |
 | ----------------------------- | ------------------------------------------------------------------------ |
-| `s.put("look")`               | send a command to the game (echoed to frontends)                          |
-| `s.echo("hi")`                | show text in frontends only — never sent to the game                      |
+| `s.put("look")`               | send a command to the game (echoed to frontends, DEBUG in the session's debug log) |
+| `s.echo("hi")`                | show text in frontends — never sent to the game; kept in the session's debug log at INFO, so a report ("unrecognized ... answer") can be read back later (#241) |
 | `s.emit(text, "thoughts")`    | frontend text on a chosen stream (lands in that dock)                     |
 | `s.get(timeout=5)`            | next main-stream game line; `None` on timeout; `timeout=0` polls          |
 | `s.get(streams=None)`         | every stream as `(stream, text)` — includes the synthetic ones below      |

@@ -1,3 +1,4 @@
+import logging
 import pathlib
 import time
 import types
@@ -39,6 +40,35 @@ def test_run_script_puts_and_echoes(tmp_path):
     assert "[greet]> look" in recorder.emitted
     assert recorder.sent == ["look"]
     assert not manager.running
+
+
+def test_echoes_and_commands_reach_the_debug_log(tmp_path):
+    # #241: a hunt ended with "6 unrecognized answer(s)", the echoes had
+    # scrolled off the window, and the log held none of them — two could
+    # not be traced from the game log alone. Every echo is logged at
+    # INFO now, every command a script puts at DEBUG.
+    (tmp_path / "greet.py").write_text(
+        "def main(s):\n    s.echo('hi there')\n    s.put('look')\n"
+    )
+    manager, recorder = make_manager(tmp_path)
+    records = []
+
+    class Grab(logging.Handler):
+        def emit(self, record):
+            records.append((record.levelname, record.getMessage()))
+
+    handler = Grab(level=logging.DEBUG)
+    old_level = manager.log.level
+    manager.log.addHandler(handler)
+    manager.log.setLevel(logging.DEBUG)
+    try:
+        manager.start("greet", [])
+        assert wait_for(lambda: any("exited" in e for e in recorder.emitted))
+    finally:
+        manager.log.removeHandler(handler)
+        manager.log.setLevel(old_level)
+    assert ("INFO", "[greet] hi there") in records
+    assert ("DEBUG", "[greet]> look") in records
 
 
 def test_get_with_zero_timeout_polls_queued_frames_without_blocking(tmp_path):
