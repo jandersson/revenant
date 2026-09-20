@@ -26,6 +26,10 @@ def _circle():
 
 
 circle = _circle()
+# INFO's real windows (3 s and a 1 s tail) were four seconds per test
+# (2026-09-20); the fake answers at once.
+circle.INFO_SECONDS = 0.01
+circle.INFO_TAIL = 0.01
 
 
 class FakeHandle:

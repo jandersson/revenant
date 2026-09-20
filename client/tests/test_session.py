@@ -1544,8 +1544,11 @@ def test_eof_after_the_idle_warning_reads_as_an_idle_drop():
     assert not any("connection closed by the game" in text for text, _, _ in frames)
 
 
-def _idle_warning_reaches(monkeypatch, settings=None, **env):
-    """Feed the captured warning through a server; what the game got."""
+def _idle_warning_reaches(monkeypatch, settings=None, quiet=False, **env):
+    """Feed the captured warning through a server; what the game got.
+    `quiet` is the case where no answer must go out: a short wait for
+    one, no wait for the echo frame — the two waits for things that
+    never come cost fourteen seconds a run (2026-09-20)."""
     import json
     import tempfile
     from pathlib import Path
@@ -1563,13 +1566,14 @@ def _idle_warning_reaches(monkeypatch, settings=None, **env):
     assert _await(lambda: server.clients), "client never registered"
     game.pending.append(b"YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND.\r\n")
     assert _await(lambda: server.idle_warned), "the warning never reached the session"
-    _await(lambda: game.sent)  # give an answer time to go out
+    _await(lambda: game.sent, timeout=0.3 if quiet else 2.0)  # an answer's time
     buffer = b""
-    try:
-        while b"idle warning" not in buffer:
-            buffer += client.recv(4096)
-    except (TimeoutError, OSError):
-        pass
+    if not quiet:
+        try:
+            while b"idle warning" not in buffer:
+                buffer += client.recv(4096)
+        except (TimeoutError, OSError):
+            pass
     client.close()
     server.shutdown()
     return game.sent, buffer
@@ -1585,10 +1589,12 @@ def test_the_idle_warning_is_answered_with_one_time(monkeypatch):
 
 def test_the_setting_or_the_env_override_keeps_the_session_quiet(monkeypatch):
     sent, _ = _idle_warning_reaches(
-        monkeypatch, settings={"answer_idle_warning": False}
+        monkeypatch, settings={"answer_idle_warning": False}, quiet=True
     )
     assert sent == []
-    sent, _ = _idle_warning_reaches(monkeypatch, REVENANT_NO_IDLE_ANSWER="1")
+    sent, _ = _idle_warning_reaches(
+        monkeypatch, quiet=True, REVENANT_NO_IDLE_ANSWER="1"
+    )
     assert sent == []
 
 

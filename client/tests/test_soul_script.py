@@ -30,8 +30,12 @@ script.COLLECT_SECONDS = 0.01
 script.TAIL_SECONDS = 0.01
 script.FOCUS_SECONDS = 0.01
 script.GUARD_SECONDS = 0.01
-script.SCENE_SECONDS = 3
-script.PRAYER_WAIT = 3
+script.BADGE_SECONDS_ANSWER = 0.01
+# The waits end on their `until` line, and the fake's second answer
+# comes LATER (0.3 s) after the first, so a second is a ceiling only the
+# negative cases reach; at 3 s it was the suite's wall (2026-09-20).
+script.SCENE_SECONDS = 1.0
+script.PRAYER_WAIT = 1.0
 LATER = 0.3  # seconds before an answer's second part arrives
 
 MAP = MapDB(

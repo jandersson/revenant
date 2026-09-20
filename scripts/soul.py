@@ -99,6 +99,7 @@ COLLECT_SECONDS = 2
 TAIL_SECONDS = 0.5
 FOCUS_SECONDS = 4  # the orb's answer to FOCUS
 GUARD_SECONDS = 4  # the answer to GUARD GIRL
+BADGE_SECONDS_ANSWER = 4  # PRAY BADGE's answer past its 10 s roundtime
 KEEP_POLL = 60  # seconds between looks at the timers while keeping
 # A deed's room farther than this is skipped, not walked to: the map
 # tags Shard's and Ratha's almsboxes, ALMSBOXES adds the Crossing's
@@ -108,8 +109,13 @@ MAX_STEPS = 80
 clock = time.time  # tests replace it
 
 
-def ask(s, command, seconds=COLLECT_SECONDS):
-    return probe.ask(s, command, seconds, TAIL_SECONDS)
+def ask(s, command, seconds=None):
+    # The window is read at call time, not bound as a default: the tests
+    # set COLLECT_SECONDS to a hundredth and every soul test still waited
+    # two real seconds per ask (2026-09-20, the suite's slowest file).
+    return probe.ask(
+        s, command, COLLECT_SECONDS if seconds is None else seconds, TAIL_SECONDS
+    )
 
 
 def echo_lines(s, text):
@@ -350,7 +356,7 @@ def pray_badge(s, timers):
                 )
                 timers["badge_off"] = True
                 return False
-    answer = ask(s, "pray badge", 4)
+    answer = ask(s, "pray badge", BADGE_SECONDS_ANSWER)
     echo_lines(s, answer)
     outcome = classify(
         answer,
