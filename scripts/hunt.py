@@ -114,6 +114,13 @@ fixtures. The skinning and gem-pouch commands follow Elanthipedia's
 Skinning and Gem pouch pages; the fight follows docs/combat.md. First
 cut: melee, one opponent at a time, no ranged; the only offensive
 magic is the profile's targeted spell (#149, #200).
+Three things end a fight the character is losing without the health
+bar saying so (#236: an hour of grass eels — no kill, nine stuns,
+every limb to deep cuts, the bar never below 67): 60 swings without a
+kill or three stuns in one fight break the hunt off ("the ground is
+beyond you", the burst escape, then home), and an unset `wound_floor`
+means harmful, where bleeding starts — said once at the start; `off`
+never asks HEALTH.
 """
 
 import re
@@ -135,6 +142,19 @@ SETTLE_SECONDS = 1.0  # after arriving: the room's creature enumeration
 EMPTY_ROOM_WAIT = 20  # seconds between looks when the whole ground is empty
 EMPTY_LAPS = 2  # laps of the ground with nothing in it before the pause
 MIND_LOCK = 34
+# The ground-is-beyond-you fuses (#236): an hour of grass eels gave no
+# kill and nine stuns, the health bar never crossed the floor, and the
+# profile's wound floor was unset — nothing in the loop said stop while
+# every limb went to deep cuts. Now a run of swings without a kill, or
+# three stuns in one fight, is a break-off, and an unset wound floor is
+# DEFAULT_WOUND_FLOOR (bleeding starts at harmful, docs/wounds.md) with
+# "off" for never asking.
+KILL_LESS_SWINGS = 60  # swings since the last kill before the hunt ends
+STUN_LIMIT = 3  # stuns taken in one fight (a kill resets) before it ends
+# Captured 2026-09-20 on the eels: "The teeth lands a light hit that
+# lightly pierces the left forearm, lightly stunning you."
+_STUNNED = ("stunning you",)
+DEFAULT_WOUND_FLOOR = "harmful"
 
 # The captured kill line: "The ship's rat falls to the ground and lies
 # still." (2026-09-05 — the first ;hunt missed it and kept swinging),
@@ -174,7 +194,11 @@ _DEAD_NOUN = re.compile(r"The ((?:[\w'-]+ )*?)([\w'-]+) is already quite dead")
 # declared clear anyway — the hostile state lagged for a whole hunt
 # once (2026-09-05, before the parser learned dead="1").
 CORPSE_SWINGS = 2
-_NOTHING_THERE = ("what were you referring",)
+# The game has two "no such thing" wordings, "What were you referring
+# to?" and "I could not find what you were referring to." (70 and 80
+# times in the logs); a SEARCH answered the second went unrecognized on
+# 2026-09-20, so every table that knows the first knows both.
+_NOTHING_THERE = ("what were you referring", "could not find")
 # ATTACK from pole or missile range advances first (docs/combat.md;
 # captured 2026-09-12): "You aren't close enough to attack." / "You
 # begin to advance on a ship's rat." / "You are already advancing on a
@@ -276,6 +300,7 @@ SKIN_OUTCOMES = (
         "gone",
         (
             "what were you referring",
+            "could not find",
             "nothing to skin",
             "already been skinned",
             "is dead first",
@@ -303,7 +328,15 @@ SKIN_OUTCOMES = (
 )
 SEARCH_OUTCOMES = (
     # "already been searched" and "is dead first" captured 2026-09-12.
-    ("gone", ("what were you referring", "already been searched", "is dead first")),
+    (
+        "gone",
+        (
+            "what were you referring",
+            "could not find",
+            "already been searched",
+            "is dead first",
+        ),
+    ),
     (
         "nothing",
         ("find nothing", "nothing of value", "nothing of interest", "nothing else"),
@@ -331,10 +364,10 @@ _ITEM = re.compile(
 # SKIN (BUNDLE help: auto-bundling, on by default), so the skinning
 # hand stays empty and the hand tags are the judge, not a wording.
 BUNDLE_OUTCOMES = (
-    ("none", ("what were you referring",)),
+    ("none", ("what were you referring", "could not find")),
     ("ok", ("you bundle up", "into your bundle")),
 )
-_MISSING = ("what were you referring",)
+_MISSING = ("what were you referring", "could not find")
 
 
 class Tally:
@@ -360,6 +393,8 @@ class Tally:
         self.last_track = None  # clock() of the last HUNT that read tracks (#194)
         self.tracks = 0  # HUNTs the game answered
         self.track_misses = 0  # unrecognized HUNT answers in a row
+        self.stuns = 0  # stuns taken since the last kill (#236)
+        self.swings_at_kill = 0  # tally.swings at the last kill (#236)
         self.tracking_off = False  # HUNT refused this run, said once
         self.swings = 0  # swings this run, against MAX_ACTIONS
         self.check_wounds = False  # HEALTH before the next swing (a kill, a hit)
@@ -563,17 +598,27 @@ def unrecognized(s, tally, what, answer):
     s.echo(f"hunt: unrecognized {what} answer {first!r} — please report it")
 
 
+def wound_floor(profile):
+    """The profile's wound floor as a severity name: an empty one is
+    DEFAULT_WOUND_FLOOR (#236: an unset floor guarded nothing through
+    an hour of eels), "off" is "" — never ask HEALTH."""
+    floor = str(profile.get("wound_floor") or "").strip().lower()
+    if floor == "off":
+        return ""
+    return floor or DEFAULT_WOUND_FLOOR
+
+
 def wound_at_floor(s, profile):
     """HEALTH, read against the profile's wound floor: the (area, kind,
     level) that meets it, or None. "" never asks."""
-    floor = profile.get("wound_floor") or ""
+    floor = wound_floor(profile)
     if not floor:
         return None
     try:
         wanted = level(floor)
     except ValueError:
         s.echo(f"hunt: wound floor {floor!r} is not a severity — ignoring it")
-        profile["wound_floor"] = ""
+        profile["wound_floor"] = "off"
         return None
     # The injuries panel the game pushes on every change (#163) says
     # whether anything is hurt at all: a clean panel means no HEALTH
@@ -588,7 +633,11 @@ def wound_at_floor(s, profile):
     return max(hits, key=lambda hit: hit[2]) if hits else None
 
 
-BROKE_OFF = ("below the floor", "at the wound floor")  # a break-off's reasons
+BROKE_OFF = (  # a break-off's reasons: the ground is left, home or not
+    "below the floor",
+    "at the wound floor",
+    "beyond you",
+)
 
 
 def off_ground(db, ground):
@@ -1053,6 +1102,7 @@ def swing(s, profile, tally, prey):
         verb = "attack"
     text = ask(s, f"{verb} {prey}" if prey else verb)
     lowered = text.lower()
+    tally.stuns += sum(lowered.count(word) for word in _STUNNED)
     if verb == "smite" and any(word in lowered for word in _SMITE_WRATH):
         # The pool paid for that one: no more smites this run (#217).
         tally.smite_off = True
@@ -1081,6 +1131,8 @@ def swing(s, profile, tally, prey):
         tally.kills += 1
         tally.empty_moves = 0
         tally.corpse_swings = 0
+        tally.stuns = 0  # a kill resets the fight's fuses (#236)
+        tally.swings_at_kill = tally.swings
         corpse = kill_noun(text) or prey or "corpse"
         s.echo(f"hunt: {corpse} down ({tally.kills})")
         dispose(s, profile, corpse, tally)
@@ -1122,6 +1174,16 @@ def loop(s, profile, db, ground, avoid, tally):
         if current is not None and current < floor:
             escape(s)
             return f"health {current}% below the floor"
+        if tally.stuns >= STUN_LIMIT:
+            escape(s)
+            return (
+                f"stunned {tally.stuns} times in one fight — the ground is beyond you"
+            )
+        if tally.swings - tally.swings_at_kill >= KILL_LESS_SWINGS:
+            escape(s)
+            return (
+                f"{KILL_LESS_SWINGS} swings without a kill — the ground is beyond you"
+            )
         if current is not None and last_health is not None and current < last_health:
             tally.check_wounds = True
         last_health = current
@@ -1186,6 +1248,11 @@ def hunt(s, profile, db, travel=True, avoid=()):
     if first is None:
         s.echo("hunt: every weapon skill is mind-locked — nothing to train")
         return
+    if not str(profile.get("wound_floor") or "").strip():
+        s.echo(
+            f"hunt: wound floor unset — {DEFAULT_WOUND_FLOOR} by default "
+            "(profile wound_floor; off never asks HEALTH)"
+        )
     ready(s, profile, tally, first)
     reason = loop(s, profile, db, ground, avoid, tally)
     s.echo(

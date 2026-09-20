@@ -77,6 +77,7 @@ PROFILE = DEFAULTS | {
     "skin": True,
     "loot_container": "sack",
     "home": "home",
+    "wound_floor": "off",  # the floor's own tests set one (#236: empty is harmful)
 }
 
 # The kill line as captured on a rat (2026-09-05) and a badger
@@ -584,10 +585,77 @@ def test_health_is_also_asked_when_the_bar_drops_mid_fight(travel):
     assert arena.sent.index("health") < arena.sent.index("skin rat")
 
 
-def test_no_wound_floor_never_asks_health(travel):
-    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+def test_an_empty_wound_floor_is_harmful_and_off_never_asks(travel):
+    # #236: the eel evening's profile had no floor, so nothing read the
+    # deep cuts. Empty means harmful now, said once at the start; "off"
+    # is the old silence.
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+            "health": [HURT],
+        }
+    )
+    _run(arena, profile=PROFILE | {"wound_floor": ""}, travel_first=False)
+    assert "health" in arena.sent
+    assert any("wound floor unset — harmful by default" in t for t in arena.echoed)
+    assert any("neck external harmful — at the wound floor" in t for t in arena.echoed)
+    off = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+    _run(off, profile=PROFILE | {"wound_floor": "off"}, travel_first=False)
+    assert "health" not in off.sent
+    assert not any("wound floor" in t for t in off.echoed)
+
+
+# Captured 2026-09-20 on the Applebrandy riverbeds (#236): the stun that
+# came with a third of the eels' bites, nine in an hour without a kill.
+STUN_BITE = (
+    "* Moving well, a grass eel bares a set of short but wickedly sharp fangs "
+    "at you.  You barely fail to block with target shield.  The teeth lands a "
+    "light hit that lightly pierces the left forearm, lightly stunning you."
+)
+MISSED = "< You slice an oak-hafted handaxe at a rat.  A rat dodges, barely stepping to one side.  "
+
+
+def test_swings_without_a_kill_end_the_hunt_as_a_break_off(travel):
+    # An hour of eels, no kill, and nothing in the loop said stop.
+    arena = Arena({"attack": [(MISSED, _stands)] * (hunt.KILL_LESS_SWINGS + 10)})
     _run(arena, travel_first=False)
-    assert "health" not in arena.sent
+    assert arena.sent.count("attack rat") == hunt.KILL_LESS_SWINGS
+    assert "retreat" in arena.sent
+    assert any(
+        f"{hunt.KILL_LESS_SWINGS} swings without a kill — the ground is beyond you" in t
+        for t in arena.echoed
+    )
+
+
+def test_three_stuns_in_one_fight_break_the_hunt_off_and_a_kill_resets_them(travel):
+    arena = Arena({"attack": [(STUN_BITE, _stands)] * 6})
+    _run(arena, travel_first=False)
+    assert arena.sent.count("attack rat") == 3
+    assert "retreat" in arena.sent
+    assert any(
+        "stunned 3 times in one fight — the ground is beyond you" in t
+        for t in arena.echoed
+    )
+    # Two stuns, a kill, two stuns, a kill: the fuse never trips.
+    reset = Arena(
+        {
+            "attack": [
+                (STUN_BITE, _stands),
+                (STUN_BITE, _stands),
+                (KILL, _stands),
+                (STUN_BITE, _stands),
+                (STUN_BITE, _stands),
+                (KILL, kill),
+            ],
+            "skin": [SKINNED] * 2,
+            "search": [NOTHING] * 2,
+        }
+    )
+    _run(reset, profile=PROFILE | {"wound_floor": "off"}, travel_first=False)
+    assert reset.sent.count("attack rat") == 6
+    assert not any("beyond you" in t for t in reset.echoed)
 
 
 CLEAN_HEALTH = "Your body feels at full strength.\nYou have no significant injuries.\n"

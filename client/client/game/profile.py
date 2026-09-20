@@ -89,7 +89,8 @@ DEFAULTS = {
     # A wound this bad or worse (any area, any kind — HEALTH, parsed by
     # client/game/wounds.py) breaks the loop off too: insignificant,
     # negligible, minor, harmful, damaging, severe, devastating,
-    # useless. "" never asks HEALTH.
+    # useless. "" is harmful, where bleeding starts (#236); "off" never
+    # asks HEALTH.
     "wound_floor": "",
     # Skills the hunt is for: when every one of them is mind-locked the
     # hunt ends (the exp window's mindstate). [] hunts until stopped.
@@ -193,7 +194,7 @@ FIELDS = (
         "wound_floor",
         "Break off at a wound this bad",
         "str",
-        "harmful, severe — empty: off",
+        "harmful, severe — empty: harmful; off: never asks",
     ),
     ("train_skills", "Stop when these skills lock", "list", "Small Edged, Evasion"),
     ("max_kills", "Kills per run (0 = until stopped)", "int", ""),
