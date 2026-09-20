@@ -18,7 +18,11 @@ Crossing the herbalist is Mauriga's Botanicals (map tag `herbalist`,
 room 8259; Elanthipedia lists jadice, plovik, nilos, hulnik, nemoih,
 georin and sufil at 812-875 Kronars and yelith, ithor, muljin,
 junliar, blocil and riolur at 937-1000, 2026-09-14); the Alchemy
-Society's dried lots are crafting stock. A catalog merchant sells by
+Society's dried lots are crafting stock, so a herb only the Society
+lists — the scar herbs genich, ojhenik, nuloe, dioica — is not for
+sale to eat in the Crossing, said so before any walk (a run walked to
+Mauriga's and ORDERed all four of them, 2026-09-20; scars mend under
+an Empath). A catalog merchant sells by
 ORDER, which quotes, then OFFER of the quoted sum (HELP SHOPS; Grek's
 knife 2026-09-14: "Well done! Here, take your knife."). `buy` reads
 INFO for the coins carried, WITHDRAWs the wiki-priced shortfall at the
@@ -132,14 +136,38 @@ def prescriptions(health, floor, town=TOWN):
     return plan
 
 
+# The stores the map knows, by the herb table's (the wiki's) name and
+# the map's tag. A herb none of them lists is not for sale to eat in
+# the town: the Alchemy Society's dried lots are crafting stock, and
+# the scar herbs come only that way in the Crossing (2026-09-20).
+STORE_TAGS = {"Mauriga's Botanicals (Crossing)": "herbalist"}
+UNSOLD = "not sold to eat in the {town} (the Alchemy Society's lots are crafting stock; scars mend under an Empath)"
+_DOUBLED_TOWN = re.compile(r"\(([^()]+)\) \(\1\)")  # "... (Crossing) (Crossing)"
+
+
 def shops_for(herb, town=TOWN):
-    """The town's stores for a herb, deduplicated, in the wiki's order."""
+    """The town's stores for a herb, deduplicated, in the wiki's order,
+    a doubled town name folded ("Alchemy Society (Crossing) (Crossing)"
+    is how the wiki writes it)."""
     stores = []
     for _, names in herbs.sources_in(herb, town):
         for name in names:
+            name = _DOUBLED_TOWN.sub(r"(\1)", name)
             if name not in stores:
                 stores.append(name)
     return stores
+
+
+def store_tag(herb, town=TOWN):
+    """The map tag of a store that sells the herb to eat — the
+    herbalist for everything on her catalog (PRICES, Elanthipedia's
+    page of it, whole) or in whose store list she stands — or None."""
+    if herb in PRICES:
+        return "herbalist"
+    for store in shops_for(herb, town):
+        if store in STORE_TAGS:
+            return STORE_TAGS[store]
+    return None
 
 
 def wants_stop(s):
@@ -220,16 +248,24 @@ def withdraw(s, shortfall, mapdb, walk_fn, avoid=()):
 
 def buy(s, wanted, mapdb, walk_fn, avoid=(), town=TOWN):
     """Coins for the wanted herbs, then each ORDERed by its stem, paid
-    for and eaten at the nearest herbalist, one at a time so a hand
-    stays free; the herbs eaten, in order."""
+    for and eaten at the store the table says sells it (STORE_TAGS),
+    one at a time so a hand stays free; the herbs eaten, in order. A
+    herb no known store sells to eat is said so, and walked for by no
+    one."""
+    for herb in [herb for herb in wanted if store_tag(herb, town) is None]:
+        s.echo(f"heal: {herb} is {UNSOLD.format(town=town)}")
+    wanted = [herb for herb in wanted if store_tag(herb, town) is not None]
+    if not wanted:
+        return []
     estimate = sum(PRICES.get(herb, FALLBACK_PRICE) for herb in wanted)
     purse = carried(s)
     if purse < estimate and not withdraw(s, estimate - purse, mapdb, walk_fn, avoid):
         return []
     purse = max(purse, estimate)
-    shops = mapdb.rooms_tagged("herbalist")
+    tag = store_tag(wanted[0], town)
+    shops = mapdb.rooms_tagged(tag)
     if not shops:
-        s.echo("heal: the map has no room tagged 'herbalist'")
+        s.echo(f"heal: the map has no room tagged {tag!r}")
         return []
     if not walk_fn(s, mapdb, set(shops), describe="the herbalist", avoid=avoid):
         s.echo("heal: could not reach the herbalist — stopping")

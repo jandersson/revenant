@@ -196,10 +196,12 @@ def test_buy_fetches_the_shortfall_orders_offers_and_eats(travel_map=MAP):
         "eat my jadice",
         "stow my jadice",
     ]
+    # Aloe leaves are on no Crossing catalog: said so, never ordered.
     assert sorted(eaten) == sorted(
-        ["aloe leaves", "jadice flower", "nemoih root", "plovik leaves", "yelith root"]
+        ["jadice flower", "nemoih root", "plovik leaves", "yelith root"]
     )
-    assert sum("bought" in t for t in s.echoed) == 5
+    assert sum("bought" in t for t in s.echoed) == 4
+    assert any("aloe leaves is not sold to eat" in t for t in s.echoed)
 
 
 def test_a_purchase_set_on_the_counter_is_fetched_and_one_out_of_stock_is_said():
@@ -216,8 +218,29 @@ def test_a_purchase_set_on_the_counter_is_fetched_and_one_out_of_stock_is_said()
     assert s.walks == [{8259}]  # coins enough: no teller
     assert any(c.endswith(" from counter") for c in s.sent)
     assert len(eaten) == 3
-    assert sum("not in stock here" in t for t in s.echoed) == 2
+    # Four herbs ordered (aloe is on no catalog): one out of stock.
+    assert sum("not in stock here" in t for t in s.echoed) == 1
     assert sum("no " in t and " carried" in t for t in s.echoed) == 2
+
+
+def test_a_herb_no_store_sells_to_eat_is_said_and_never_walked_for():
+    # 2026-09-20: scars only — genich stem, nuloe stem and the rest come
+    # from the Alchemy Society's dried lots, crafting stock, and the run
+    # walked to Mauriga's and ORDERed all of them out of stock.
+    scars = (
+        "Your body feels at full strength.\nYour spirit feels full of life.\n"
+        "You have a few nearly invisible scars along the neck, a constant "
+        "twitching in the left arm, a few nearly invisible scars along the abdomen."
+    )
+    s = Fake({"health": [scars], "eat": [MISSING] * 5})
+    reason, eaten = heal.run(s, heal.parse_args(["buy"]), mapdb=MAP, walk_fn=walk)
+    assert reason == "done" and eaten == []
+    assert s.walks == []  # no teller, no herbalist
+    assert not any(c.startswith("order") for c in s.sent)
+    assert sum("not sold to eat in the Crossing" in t for t in s.echoed) >= 2
+    assert not any("(Crossing) (Crossing)" in t for t in s.echoed)
+    assert heal.store_tag("jadice flower") == "herbalist"
+    assert heal.store_tag("genich stem") is None
 
 
 def test_a_quote_above_the_purse_is_skipped_and_said():
@@ -232,7 +255,7 @@ def test_a_quote_above_the_purse_is_skipped_and_said():
     )
     heal.run(s, heal.parse_args(["buy"]), mapdb=MAP, walk_fn=walk)
     assert not any(c.startswith("offer") for c in s.sent)
-    assert sum("skipped" in t for t in s.echoed) == 5
+    assert sum("skipped" in t for t in s.echoed) == 4  # aloe never quoted
 
 
 def test_bleeding_is_pointed_at_tend_and_an_unknown_eat_answer_is_reported():
