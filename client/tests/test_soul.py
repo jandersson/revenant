@@ -85,6 +85,19 @@ def test_the_coin_follows_the_province_and_the_tithe_command_says_it():
     assert soul.tithe_command("dokoras") == "put 5 silver dokoras in almsbox"
 
 
+def test_the_crossing_guilds_box_is_put_in_as_box_and_the_others_as_almsbox():
+    # Captured 2026-09-20 on Herald Street: "You also see a paladin guard
+    # and a steel tithe box." / "To donate: PUT [amount] [coin type]
+    # KRONARS IN BOX"; the temple gate lists "the locked almsbox".
+    guild = "You also see a paladin guard and a steel tithe box."
+    gate = "You also see a town guard, the Longbow Bridge, the locked almsbox and a high granite wall surrounding the temple grounds."
+    assert soul.box_noun(guild) == "box"
+    assert soul.box_noun(gate) == "almsbox"
+    assert soul.box_noun("") == "almsbox"
+    assert soul.tithe_command("kronars", "box") == "put 5 silver kronars in box"
+    assert {741, 815} <= set(soul.ALMSBOXES)
+
+
 def test_classify_names_the_first_outcome_whose_phrase_is_there():
     tithed = (
         "You drop 5 silver dokoras into the almsbox and say a soft prayer as the coins clink in.\n"

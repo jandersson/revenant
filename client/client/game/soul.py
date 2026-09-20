@@ -160,7 +160,14 @@ ALTARS = {
 ALMSBOXES = {
     13143: "Temple of Light, Alcove of Smaragdaus (Shard)",
     12961: "Paladins' Guild, Foyer (Ratha)",
+    # The Crossing's two, read off the rooms 2026-09-20: "the locked
+    # almsbox" outside the temple gate, and "a steel tithe box" outside
+    # the Paladins' Guild whose inscription reads "To donate: PUT
+    # [amount] [coin type] KRONARS IN BOX" — so the PUT says `box` there.
+    741: "The Crossing, Immortals' Approach (outside the temple gate)",
+    815: "The Crossing, Herald Street (outside the Paladins' Guild)",
 }
+TITHE_BOX = "tithe box"  # the guild's box: the noun is `box`, not `almsbox`
 ORB_ROOM = 8228  # Tower of Honor, Orb Room: the soulstone orb
 # The coin the almsbox asks for, by the province the room's title names
 # (Elanthipedia: Currency): Ilithi, Qi and the islands take Dokoras,
@@ -211,6 +218,13 @@ def currency_for(title):
     if any(town in lowered for town in _LIRUM_TOWNS):
         return "lirums"
     return "kronars"
+
+
+def box_noun(room_objs):
+    """The noun the PUT names, off the room's listing: `box` where the
+    listing shows a tithe box (the Crossing's Paladins' Guild, whose
+    steel box reads "PUT ... KRONARS IN BOX"), `almsbox` otherwise."""
+    return "box" if TITHE_BOX in (room_objs or "").lower() else "almsbox"
 
 
 def tithe_command(currency, noun="almsbox"):

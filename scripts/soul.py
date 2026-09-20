@@ -2,7 +2,7 @@
 
     ;soul                     read the soul: RUB and EXHALE the orb here (or your soulstone), say the state and pool
     ;soul keep                keep the boosts running on their timers — badge every 31 min, tithe every 4 h, Chadatru every 2 h — until ;soul return
-    ;soul tithe               one tithe of 5 silver at the nearest almsbox (the map's `tithe` rooms), then back
+    ;soul tithe               one tithe of 5 silver at the nearest almsbox (the map's `tithe` rooms and the Crossing's two), then back
     ;soul pray                one prayer at the nearest Chadatru altar, knelt until it completes
     ;soul badge               one PRAY BADGE on the pilgrim's badge (REMOVE it, pray, WEAR it), wherever you stand
     ;soul quest               the Glyph of Warding scene at the guild orb once the readings say ready (FOCUS ORB, GUARD GIRL)
@@ -16,7 +16,9 @@ timers (Elanthipedia: Soul system, Glyph of Warding walkthrough;
 client/game/soul.py is the model). This script is those deeds, the
 way dr-scripts' tithe.lic and crossing-training.lic's check_chadatru
 run them inside a training loop: walk to the almsbox, PUT 5 silver of
-the town's coin in it, walk to the altar, PRAY CHADATRU and stay
+the town's coin in it (IN BOX at the Crossing guild's steel tithe box,
+whose inscription says so, IN ALMSBOX elsewhere — the noun is read off
+the room's listing), walk to the altar, PRAY CHADATRU and stay
 knelt until "A warm, soothing sensation washes over your soul" — and
 the readings the scripts there never take: RUB for the state, EXHALE
 for the pool. The pilgrim's badge is the third deed (2026-09-20):
@@ -67,6 +69,7 @@ from client.game.soul import (
     TITHE_SHORT,
     TITHE_SILVER,
     TITHED,
+    box_noun,
     classify,
     currency_for,
     describe,
@@ -88,8 +91,9 @@ FOCUS_SECONDS = 4  # the orb's answer to FOCUS
 GUARD_SECONDS = 4  # the answer to GUARD GIRL
 KEEP_POLL = 60  # seconds between looks at the timers while keeping
 # A deed's room farther than this is skipped, not walked to: the map
-# tags Shard's and Ratha's almsboxes and none of the Crossing's, and a
-# keep in the Crossing must not set off for Shard (2026-09-20).
+# tags Shard's and Ratha's almsboxes, ALMSBOXES adds the Crossing's
+# two, and a keep in one town must not set off for the other's box
+# (2026-09-20).
 MAX_STEPS = 80
 clock = time.time  # tests replace it
 
@@ -222,7 +226,8 @@ def tithe(s, mapdb, timers, options, walk_fn=walk):
         # keep asked WEALTH once a second at the box).
         mark(timers, "tithe", False, clock())
         return False
-    answer = ask(s, tithe_command(currency))
+    noun = box_noun(getattr(s.state, "room_objs", ""))
+    answer = ask(s, tithe_command(currency, noun))
     echo_lines(s, answer)
     outcome = classify(
         answer, ("done", TITHED), ("short", TITHE_SHORT), ("refused", TITHE_REFUSED)

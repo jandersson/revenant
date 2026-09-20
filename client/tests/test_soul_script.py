@@ -183,7 +183,10 @@ def walk(s, db, goals, describe="", avoid=()):
     room = min(goals)
     s.state.room_uid = db.rooms[room]["uid"][0]
     s.state.room_title = db.rooms[room]["title"][0]
-    s.state.room_objs = "a soulstone orb" if room == 8228 else ""
+    s.state.room_objs = {
+        8228: "a soulstone orb",
+        815: "You also see a paladin guard and a steel tithe box.",
+    }.get(room, "")
     return True
 
 
@@ -218,6 +221,35 @@ def test_the_tithe_walks_to_the_almsbox_and_puts_the_towns_coin_in(
     assert fake.sent == ["wealth", "put 5 silver dokoras in almsbox"]
     assert "soul: tithed 5 silver dokoras" in echoes(fake)
     assert soul.load_timers("Lanival") == {"tithe": 1000.0}
+
+
+def test_the_crossing_guilds_tithe_box_takes_kronars_in_box(monkeypatch, tmp_path):
+    # Herald Street outside the Paladins' Guild (map 815), read 2026-09-20:
+    # "a steel tithe box" whose inscription says PUT ... KRONARS IN BOX.
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    monkeypatch.setattr(script, "clock", lambda: 1000.0)
+    crossing = MapDB(
+        [
+            {
+                "id": 815,
+                "uid": [10078],
+                "title": ["[The Crossing, Herald Street]"],
+                "wayto": {"814": "south"},
+            },
+            {"id": 814, "uid": [10079], "title": ["[The Crossing, Herald Street]"]},
+        ]
+    )
+    rich = "Wealth:\n  1 gold, 1 silver, 5 bronze, and 5 copper Kronars (1155 copper Kronars).\n  No Lirums.\n  No Dokoras.\n"
+    tithed = TITHED.replace("dokoras", "kronars").replace("almsbox", "box")
+    fake = Fake(
+        {"wealth": [rich], "put": [tithed]},
+        room_uid=10078,
+        objs="You also see a paladin guard and a steel tithe box.",
+    )
+    script.run(fake, ["tithe"], mapdb=crossing, walk_fn=walk)
+    assert fake.walks == [{815}]
+    assert fake.sent == ["wealth", "put 5 silver kronars in box"]
+    assert "soul: tithed 5 silver kronars" in echoes(fake)
 
 
 def test_a_short_purse_skips_the_tithe_and_never_withdraws(monkeypatch, tmp_path):
