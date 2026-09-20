@@ -113,7 +113,7 @@ What the loop does with it: the climbs until Athletics reaches 30, the hunt (its
 
 ```json
 {
- "hunting_ground": "grass_eels", "prey": "eel", "home": "11716",
+ "hunting_ground": "badgers", "prey": "badger", "home": "11716",
  "weapon": "handaxe", "weapon_container": "sack", "stance": "100 40 40",
  "skin": true, "bundle": true, "loot_container": "sack",
  "buffs": ["heroic strength", "aspirant's aegis"],
@@ -122,12 +122,12 @@ What the loop does with it: the climbs until Athletics reaches 30, the hunt (its
  "debilitation": "stun foe", "targeted": "",
  "smite": false,
  "tactics": ["bob", "circle"], "perception": true,
- "health_floor": 60,
+ "health_floor": 60, "wound_floor": "harmful",
  "attune_start": "732", "instrument": "zills", "library": "11716"
 }
 ```
 
-The profile is the hunt's and the trainers' quirks ([hunting.md](hunting.md)): grass eels at the Applebrandy riverbeds (level 5 on the Zoluren ladder, 25-50 ranks — the badgers before them capped at 42), the handaxe drawn from the sack, a defensive stance, every kill skinned into a worn bundle, two buffs kept up with Heroic Strength recast for Augmentation through a 12-mana cambrinth anklet worn between casts, Stun Foe at the prey for Debilitation, no smiting (the soul pool pays for smites past the free ones, #217 — the hunt asks SMITE CHECK first when it is on), bob and circle for Tactics, HUNT for Perception, a break-off at 60% health to the guild library, the power-walking start room, the copper zills, the guild library's shelves.
+The profile is the hunt's and the trainers' quirks ([hunting.md](hunting.md)): striped badgers in the Brambles (level 3 on the Zoluren ladder, 19-42 ranks; an evening on the level-5 grass eels gave no kill, nine stuns and deep cuts on every limb, #236, so the badgers it is until the weapon ranks say otherwise), the handaxe drawn from the sack, a defensive stance, every kill skinned into a worn bundle, two buffs kept up with Heroic Strength recast for Augmentation through a 12-mana cambrinth anklet worn between casts, Stun Foe at the prey for Debilitation, no smiting (the soul pool pays for smites past the free ones, #217 — the hunt asks SMITE CHECK first when it is on), bob and circle for Tactics, HUNT for Perception, a break-off at 60% health or at a harmful wound (HEALTH after each kill and on every drop) to the guild library, the power-walking start room, the copper zills, the guild library's shelves.
 
 ## The soul in the rests
 
