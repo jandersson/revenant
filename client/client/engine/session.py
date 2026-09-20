@@ -142,6 +142,9 @@ _LOAD_TRIES = 5
 _LOAD_RETRY_SECONDS = 0.04
 _REPLACE_TRIES = 5
 HEARTBEAT_SECONDS = 30  # a session re-asserts its row this often
+# Ten minutes with no byte from the game and the heartbeat writes one
+# TIME (#221): a link dead without a FIN went 52 minutes unnoticed.
+SILENCE_PROBE_SECONDS = 600
 # A liveness probe's patience. A live session answers at once (the
 # kernel completes the handshake before the accept loop turns), but
 # Windows refuses a dead localhost port only after ~2 s of retries
@@ -510,6 +513,7 @@ class SessionServer(ClientLogger):
         # idle character; remembered so that EOF reads as what it was
         # (#152). The parser styles the line "alert" (#42).
         self.idle_warned = False
+        self._silence_probed = False  # one TIME per stretch of silence (#221)
         self.engine = Engine()
         self.engine.connection = game_connection
 
@@ -1085,6 +1089,38 @@ class SessionServer(ClientLogger):
                 sleep(min(1.0, max(0.0, deadline - monotonic())))
             if self.running:
                 self._note_attached()
+                self._probe_silence()
+
+    def _probe_silence(self):
+        """One TIME after SILENCE_PROBE_SECONDS with no byte from the game
+        (#221): a link dead without a FIN — 52 minutes unnoticed on
+        2026-09-19 — fails on the write, and the session ends saying so
+        instead of on the next command hours later; a living link
+        answers, the clock restarts. Once per stretch of silence; the
+        keepalive on the socket itself (netsock.keepalive) is the first
+        line, this the second."""
+        silent_for = getattr(self.game, "silent_for", None)
+        if silent_for is None or self._handoff.is_set():
+            return
+        quiet = silent_for()
+        if quiet < SILENCE_PROBE_SECONDS:
+            self._silence_probed = False
+            return
+        if self._silence_probed:
+            return
+        self._silence_probed = True
+        self.log.info(f"no byte from the game for {quiet / 60:.0f} min — TIME probe")
+        try:
+            self.game.write(b"time\n")
+        except OSError as error:
+            self.log.error(f"the TIME probe failed: {error}; the game link is dead")
+            self.broadcast(
+                f"session: nothing from the game for {quiet / 60:.0f} minutes and "
+                "the link is dead; session ending — File → Reconnect starts a "
+                "new one\n",
+                "script",
+            )
+            self.shutdown()
 
     def shutdown(self):
         if not self.running:

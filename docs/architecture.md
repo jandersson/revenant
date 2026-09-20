@@ -19,7 +19,12 @@ drawn, forty flat modules later: a training-plan module had landed two
 entries from a dock-layout module.
 
 - `client/client/engine/netsock.py` — minimal buffered TCP socket (telnetlib-shaped
-  API: `read_until`, `read_very_eager`).
+  API: `read_until`, `read_very_eager`), with TCP keepalive on every
+  game socket it makes or adopts and a clock of the last byte received
+  (`silent_for`): a link dead without a FIN went 52 minutes unnoticed
+  on 2026-09-19, found only on the next write (#221). The session's
+  heartbeat adds one TIME after ten silent minutes — a living link
+  answers, a dead one fails on the write and the session ends saying so.
 - `client/client/engine/login.py` — eaccess handshake. Credentials: password lives in
   the OS keychain (`keyring`, service "revenant"); account/character come from
   `REVENANT_ACCOUNT` / `REVENANT_CHARACTER` env vars, falling back to the

@@ -7,6 +7,42 @@ sequences), so a plain buffered TCP socket is a faithful replacement.
 
 import socket
 from select import select
+from time import monotonic
+
+# TCP keepalive on the game socket (#221): a peer gone without a FIN —
+# a NAT's table, a server-side drop — was found only on the next write,
+# 52 minutes after the last byte on 2026-09-19, with a character left
+# standing in a chapel. Probes from the second minute of silence, four
+# of them half a minute apart, so the OS resets the socket within about
+# four minutes and the reader's reset path ends the session and says so.
+KEEPALIVE_IDLE = 120  # seconds of silence before the first probe
+KEEPALIVE_INTERVAL = 30  # seconds between probes
+KEEPALIVE_COUNT = 4  # unanswered probes before the reset (where settable)
+
+
+def keepalive(
+    sock, idle=KEEPALIVE_IDLE, interval=KEEPALIVE_INTERVAL, count=KEEPALIVE_COUNT
+):
+    """Turn TCP keepalive on with these timings, best effort: True when
+    the option took. Windows sets the timings through an ioctl, Linux
+    through TCP_KEEPIDLE/INTVL/CNT, macOS TCP_KEEPALIVE for the idle
+    alone; a socket that refuses (a test's socketpair) is left as it is."""
+    try:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        if hasattr(socket, "SIO_KEEPALIVE_VALS"):
+            sock.ioctl(socket.SIO_KEEPALIVE_VALS, (1, idle * 1000, interval * 1000))
+        else:
+            if hasattr(socket, "TCP_KEEPIDLE"):
+                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, idle)
+            elif hasattr(socket, "TCP_KEEPALIVE"):
+                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPALIVE, idle)
+            if hasattr(socket, "TCP_KEEPINTVL"):
+                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, interval)
+            if hasattr(socket, "TCP_KEEPCNT"):
+                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, count)
+        return True
+    except (OSError, ValueError, AttributeError):
+        return False
 
 
 class SocketClient:
@@ -14,11 +50,13 @@ class SocketClient:
         self.sock = None
         self._buffer = b""
         self._eof = False
+        self.last_received = monotonic()  # when the last byte came (#221)
         if host is not None:
             self.open(host, port, timeout)
 
     def open(self, host, port, timeout=None):
         self.sock = socket.create_connection((host, port), timeout)
+        keepalive(self.sock)
 
     @classmethod
     def from_fd(cls, fd, initial=b""):
@@ -28,6 +66,7 @@ class SocketClient:
         client = cls()
         client.sock = socket.socket(fileno=fd)
         client._buffer = initial
+        keepalive(client.sock)
         return client
 
     @classmethod
@@ -37,7 +76,12 @@ class SocketClient:
         client = cls()
         client.sock = sock
         client._buffer = initial
+        keepalive(client.sock)
         return client
+
+    def silent_for(self):
+        """Seconds since the last byte arrived from the peer (#221)."""
+        return monotonic() - self.last_received
 
     @property
     def buffered(self):
@@ -56,6 +100,7 @@ class SocketClient:
                 self._eof = True
                 raise EOFError("Connection closed by remote end")
             self._buffer += data
+            self.last_received = monotonic()
         end = self._buffer.index(expected) + len(expected)
         result, self._buffer = self._buffer[:end], self._buffer[end:]
         return result
@@ -71,6 +116,7 @@ class SocketClient:
                 self._eof = True
                 break
             self._buffer += data
+            self.last_received = monotonic()
         if self._eof and not self._buffer:
             raise EOFError("Connection closed by remote end")
         result, self._buffer = self._buffer, b""

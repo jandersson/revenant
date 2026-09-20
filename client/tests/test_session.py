@@ -33,6 +33,11 @@ class FakeGame:
         self.pending = []
         self.sent = []
         self.closed = False
+        self.silence = 0.0  # what silent_for() answers (#221)
+        self.dead_on_write = False
+
+    def silent_for(self):
+        return self.silence
 
     def read_very_eager(self):
         if self.closed:
@@ -42,11 +47,40 @@ class FakeGame:
         return b""
 
     def write(self, data):
+        if self.dead_on_write:
+            raise ConnectionResetError(10054, "forcibly closed by the remote host")
         self.sent.append(data)
 
     @property
     def buffered(self):
         return b"".join(self.pending)
+
+
+def test_a_long_silence_gets_one_time_probe_and_a_dead_link_ends_the_session():
+    # #221: nothing from the game for 52 minutes on 2026-09-19 and the
+    # session learned of the dead link only from an outside PRAY. The
+    # heartbeat now probes with TIME once per stretch of silence past
+    # SILENCE_PROBE_SECONDS; a write that fails ends the session, said.
+    game = FakeGame()
+    server = session.SessionServer(game, port=0)  # serve() never called
+    server._probe_silence()
+    assert game.sent == []  # no silence yet
+    game.silence = session.SILENCE_PROBE_SECONDS + 1
+    server._probe_silence()
+    server._probe_silence()
+    assert game.sent == [b"time\n"]  # once per stretch
+    game.silence = 0.0
+    server._probe_silence()
+    game.silence = session.SILENCE_PROBE_SECONDS + 1
+    server._probe_silence()
+    assert game.sent == [b"time\n", b"time\n"]  # a new stretch, a new probe
+    dead = FakeGame()
+    dead.silence = session.SILENCE_PROBE_SECONDS + 1
+    dead.dead_on_write = True
+    ending = session.SessionServer(dead, port=0)
+    ending._probe_silence()
+    assert ending.running is False
+    server.game.closed = True
 
 
 def _start_server(game):
