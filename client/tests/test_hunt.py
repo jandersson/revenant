@@ -2230,6 +2230,25 @@ def test_circles_second_wording_is_a_maneuver_done(travel):
     assert not any("tactics off" in text for text in arena.echoed)
 
 
+def test_a_maneuver_at_a_corpse_is_the_corpse_answer_not_a_miss(travel):
+    # 2026-09-20: a BOB went out at a badger already dead and was reported
+    # as unrecognized although the corpse branch disposed of it.
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands)] * 2 + [(KILL, kill)],
+            "bob": [RAT_CORPSE],
+            "skin": [SKINNED] * 4,
+            "search": [NOTHING] * 4,
+        },
+        experience=TACTICS_OPEN,
+    )
+    _run(arena, profile=TACTICAL | {"max_kills": 3}, travel_first=False)
+    assert "bob rat" in arena.sent
+    assert not any("unrecognized" in t for t in arena.echoed)
+    assert not any("tactics off" in t for t in arena.echoed)
+    assert arena.sent.count("skin rat") == 4  # the corpse the BOB found, disposed
+
+
 def test_a_maneuver_from_range_advances_on_the_prey_and_waits_for_melee(travel):
     # Captured 2026-09-20 on a badger closing from pole range: a maneuver
     # does not advance the way ATTACK does, so the loop ADVANCEs itself.

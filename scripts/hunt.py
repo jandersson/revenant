@@ -265,8 +265,11 @@ _NUMBER_WORDS = {
 # fake a striped badger, first moving one way and then another, leaving
 # it off balance." From range they do not advance like ATTACK: "You must
 # be closer to use tactical abilities on your opponent." (2026-09-20),
-# so the loop ADVANCEs on the prey itself (_NEED_MELEE). Anything else is
-# reported, and after TACTIC_MISSES of them the maneuvers are off.
+# so the loop ADVANCEs on the prey itself (_NEED_MELEE). A maneuver
+# aimed at a corpse answers as a swing would — "The striped badger is
+# already quite dead." (2026-09-20, a BOB) — and the corpse branch below
+# disposes of it; that is not a miss. Anything else is reported, and
+# after TACTIC_MISSES of them the maneuvers are off.
 _MANEUVER_DONE = ("you bob", "you sidestep", "you fake", "you weave")
 TACTICS_EVERY = 3  # every third swing is a maneuver while Tactics is unlocked
 TACTIC_MISSES = 3  # unrecognized maneuver answers before tactics go off
@@ -1131,7 +1134,7 @@ def swing(s, profile, tally, prey):
             tally.tactic_misses = 0
         elif not any(
             word in lowered for word in _ADVANCING + _NOTHING_THERE + _NEED_MELEE
-        ):
+        ) and not _DEAD_NOUN.search(text):
             tally.tactic_misses += 1
             unrecognized(s, tally, verb, text)
             if tally.tactic_misses >= TACTIC_MISSES:
