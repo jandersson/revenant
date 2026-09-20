@@ -333,6 +333,53 @@ def test_an_empty_ground_is_waited_out_not_left(travel):
     assert arena.walks[-1] == {1}  # then home, on the word
 
 
+class Visited(Arena):
+    """An arena where a badger walks in a few seconds into the empty
+    ground's pause (2026-09-20), and the operator returns after the kill."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.slept = 0
+        self.arrived = set()
+
+    def sleep(self, seconds):
+        self.slept += seconds
+        if self.slept >= 5 and not self.state.hostiles and "2" not in self.arrived:
+            self.arrived.add("2")
+            self.state.hostiles = {"2": True}
+
+
+def test_prey_arriving_during_the_pause_is_fought_not_walked_away_from(
+    travel, monkeypatch
+):
+    # The loop paused 20 s on an empty ground, a badger arrived, closed to
+    # melee and bit, and the pause ended with "room empty — moving on".
+    monkeypatch.setattr(hunt, "EMPTY_ROOM_WAIT", 20)  # the module's tests use 0
+
+    def kill_and_return(arena):
+        arena.state.hostiles.clear()
+        arena.commands.append("return")
+
+    arena = Visited(
+        {
+            "attack": [(KILL, kill), (KILL, kill_and_return)],
+            "skin": [SKINNED] * 2,
+            "search": [NOTHING] * 2,
+        }
+    )
+    _run(arena)
+    assert [t for t in arena.echoed if "something arrived — staying" in t], (
+        arena.echoed[-14:],
+        arena.slept,
+    )
+    assert arena.slept < 20  # the pause ended the second it showed
+    after = arena.echoed.index(
+        next(t for t in arena.echoed if "something arrived" in t)
+    )
+    assert not any("moving on" in text for text in arena.echoed[after:])
+    assert arena.sent.count("attack rat") == 2
+
+
 def test_an_empty_room_moves_to_the_next_room_of_the_ground(travel):
     arena = Arena(
         {"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]}, hostiles=()
@@ -781,6 +828,39 @@ CAST = (
     "through your body."
 )
 BUFFED = PROFILE | {"buffs": ["heroic strength"], "home": ""}
+
+
+def test_with_a_walk_the_buffs_are_cast_before_it_not_among_the_prey(monkeypatch):
+    # The operator, 2026-09-20: four casts on arrival were a minute
+    # standing in the badgers' room. The walk itself is recorded in
+    # `sent` here so the order shows; the Spells window then lists the
+    # buff and the second pass casts nothing.
+    def walk(s, db, goals, describe="", avoid=()):
+        s.sent.append("<walk>")
+        s.room = s.state.room = min(goals)
+        s.state.active_spells = {"Heroic Strength": 9}
+        return True
+
+    monkeypatch.setattr(hunt, "walk", walk)
+    monkeypatch.setattr(hunt, "locate", lambda db, state: state.room)
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "prepare": [PREPARED],
+            "cast": [CAST],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+        }
+    )
+    arena.state.active_spells = {}
+    _run(arena, profile=BUFFED | {"max_kills": 1})
+    assert arena.sent[:4] == [
+        "prepare heroic strength",
+        "cast",
+        "<walk>",
+        "get my handaxe from my sack",
+    ]
+    assert arena.sent.count("cast") == 1
 
 
 def test_buffs_are_cast_before_the_weapon_is_drawn(travel):
@@ -1783,6 +1863,27 @@ def test_every_third_swing_is_the_next_maneuver_while_tactics_is_unlocked(travel
     assert any("2 maneuver(s)" in text for text in arena.echoed)
 
 
+def test_a_maneuver_from_range_advances_on_the_prey_and_waits_for_melee(travel):
+    # Captured 2026-09-20 on a badger closing from pole range: a maneuver
+    # does not advance the way ATTACK does, so the loop ADVANCEs itself.
+    too_far = "You must be closer to use tactical abilities on your opponent.\n"
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands)] * 2 + [(KILL, kill)],
+            "bob": [too_far, BOBBED],
+            "advance": ["You begin to advance on a rat.\n"],
+            "skin": [SKINNED] * 3,
+            "search": [NOTHING] * 3,
+        },
+        experience=TACTICS_OPEN,
+    )
+    _run(arena, profile=TACTICAL | {"max_kills": 3}, travel_first=False)
+    at = arena.sent.index("bob rat")
+    assert arena.sent[at : at + 2] == ["bob rat", "advance rat"]
+    assert not any("unrecognized" in text for text in arena.echoed)
+    assert not any("tactics off" in text for text in arena.echoed)
+
+
 def test_no_maneuver_once_tactics_locks_or_with_none_listed(travel):
     locked = {"Tactics": {"rank": 3, "percent": 0, "mindstate": 34}}
     for profile, experience in ((TACTICAL, locked), (PROFILE, TACTICS_OPEN)):
@@ -1955,6 +2056,74 @@ def test_a_worn_cambrinth_piece_is_removed_for_the_charge_and_worn_again(travel)
         "wear my anklet",
     ]
     assert "get my anklet" not in arena.sent and "stow my anklet" not in arena.sent
+
+
+def test_a_worn_piece_found_in_the_sack_is_got_instead_and_worn_back(travel):
+    # 2026-09-20 in the badgers' room, after a death and a raising: the
+    # anklet was in the sack, REMOVE answered "Remove what?", the charge
+    # went out anyway and the game said "You'll have to hold it, set it
+    # on the ground, or put it on something first."
+    unheld = (
+        "You'll have to hold it, set it on the ground, or put it on something first.\n"
+    )
+    arena = Arena(
+        {
+            "attack": [(KILL, lambda a: None), (KILL, kill)],
+            "remove my anklet": [
+                "Remove what?\n",
+                "You remove a simple cambrinth anklet from your ankle.\n",
+            ]
+            + ["You remove a simple cambrinth anklet from your ankle.\n"] * 4,
+            "get my anklet": [
+                "You get a simple cambrinth anklet from inside your canvas sack.\n"
+            ]
+            * 4,
+            "charge my anklet": [
+                CHARGED.replace("flake", "anklet"),
+                unheld,
+                CHARGED.replace("flake", "anklet"),
+            ]
+            + [CHARGED.replace("flake", "anklet")] * 4,
+            "prepare": [PREPARED] * 8,
+            "invoke my anklet": [INVOKED.replace("flake", "anklet")] * 6,
+            "cast": [CAST] + [SNAP_CAST] * 6,
+            "wear my anklet": ["You attach a simple cambrinth anklet to your ankle.\n"]
+            * 6,
+            "skin": [SKINNED] * 2,
+            "search": [NOTHING] * 2,
+        },
+        experience=_exp(10) | {"Arcana": {"rank": 17, "percent": 0, "mindstate": 3}},
+    )
+    arena.state.vitals["mana"] = 100
+    worn = TRAINING | {
+        "cambrinth": "anklet",
+        "cambrinth_mana": 12,
+        "cambrinth_worn": True,
+    }
+    _run(arena, profile=worn | {"max_kills": 2}, travel_first=False)
+    first = arena.sent.index("remove my anklet")
+    # Not worn: GET it, charge, cast, WEAR it — on the ankle from now on.
+    assert arena.sent[first : first + 7] == [
+        "remove my anklet",
+        "get my anklet",
+        "charge my anklet 12",
+        "prepare heroic strength",
+        "invoke my anklet",
+        "cast",
+        "wear my anklet",
+    ]
+    # The next cycle's charge finds nothing in hand: once more from the
+    # container, then the charge again.
+    second = arena.sent.index("remove my anklet", first + 1)
+    assert arena.sent[second : second + 5] == [
+        "remove my anklet",
+        "charge my anklet 12",
+        "get my anklet",
+        "charge my anklet 12",
+        "prepare heroic strength 2",  # the training ramp's second step
+    ]
+    assert not [text for text in arena.echoed if "unrecognized" in text]
+    assert not [text for text in arena.echoed if "cambrinth off" in text]
 
 
 # --- the soul pool gate on SMITE (#217) -------------------------------------

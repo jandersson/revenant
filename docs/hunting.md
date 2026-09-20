@@ -29,7 +29,7 @@ It holds what no script should hard-code:
 | train_casting | a magic skill ("Augmentation"): while it sits below mind-lock and mana is above the floor, the first buff is recast between swings, `cast_gap` seconds apart, with the mana fed rising by two each cast from the minimum until the game warns of strain (or a cast fails), then held one step under — a failure at the minimum ends the training casts for the run; at lock, back to casting only when the buff runs out |
 | cambrinth | a held cambrinth piece's noun ("flake"): before every training cast the loop GETs it, CHARGEs it with `cambrinth_mana` (the charge is what trains Arcana), INVOKEs it so the stored mana feeds the cast, CASTs, and stows it; a piece the game will not charge (worn, or outranking the skill) is off for the run, said once; with no `train_casting` the cambrinth alone drives the cast cadence until Arcana locks; a `;stop` between the GET and the stow puts the piece back on the way out (`buffs.put_back_if_held`, the script's finally, 2026-09-20). Wordings and the pieces' capacities: [Cambrinth](#cambrinth) below |
 | cambrinth_mana | mana per charge, the piece's capacity (1 for a flake, 5 for the grey ring, 12 for the anklet) |
-| cambrinth_worn | the piece is worn between casts (an anklet, an armband): the cycle REMOVEs it for the charge and WEARs it back, since a worn piece refuses a charge — "Try though you may, you find it too clumsy to charge the cambrinth anklet while wearing it." (2026-09-20) |
+| cambrinth_worn | the piece is worn between casts (an anklet, an armband): the cycle REMOVEs it for the charge and WEARs it back, since a worn piece refuses a charge — "Try though you may, you find it too clumsy to charge the cambrinth anklet while wearing it." (2026-09-20). A piece that is not on the body after all (REMOVE: "Remove what?" — the anklet was in the sack after a death and a raising, 2026-09-20) is GOT from its container instead and worn back afterwards; a charge that finds it in neither hand ("You'll have to hold it, set it on the ground, or put it on something first.") gets one more GET and one more charge before the cambrinth is off for the run |
 | cast_gap | seconds between training casts, 60 by default. A cast cycle with a cambrinth piece is eight commands, and at 20 s the first badger hunt (2026-09-14, #189) ran cast cycle, one or two swings, cast cycle: seven swings to the badger's 42 in four minutes. One cast a minute trains both skills the same and leaves the fight to the weapon |
 | debilitation | a targeted spell ("Stun Foe") cast at the prey between swings while Debilitation sits below lock: PREPARE (the mana ramping like the training casts), CAST <prey>, one per `cast_gap`, taking turns with the buff training cast so a swing never carries two casts; a collapse at the minimum turns it off for the run. Model: [Debilitation](#debilitation) below (#192) |
 | targeted | an attack spell ("Footman's Strike") cast at the prey between swings while Targeted Magic sits below lock, on the same cast gap and mana ramp as `debilitation`; the buff training cast, the debilitation cast and this one rotate, one cast per swing at most. Model: [Targeted Magic](#targeted-magic) below (#200) |
@@ -352,8 +352,11 @@ profile's `tactics` list is a rotation and the loop makes every third
 swing the next maneuver in it, with the prey as target, while Tactics
 sits below lock: a maneuver takes a swing's roundtime and deals no
 damage, so the other two swings keep the kill coming and SMITE keeps
-its minute ahead of them. A maneuver answered from range advances like
-ATTACK; any other answer outside the three lines is echoed as
+its minute ahead of them. A maneuver from range does not advance the
+way ATTACK does — "You must be closer to use tactical abilities on
+your opponent." (captured 2026-09-20 on a badger closing from pole
+range) — so the loop ADVANCEs on the prey and waits for melee range
+before the next swing; any other answer outside the three lines is echoed as
 unrecognized, and three of them in a row turn the maneuvers off for
 the run. ANALYZE, GRAPPLE, SHOVE and TRIP are not built.
 

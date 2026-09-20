@@ -51,7 +51,9 @@ commands), it is non-damaging and takes a swing's roundtime, so the
 rest stay ATTACK and SMITE keeps its minute; a maneuver answered with
 nothing the table knows three times is off for the run (#190).
 `buffs` are self-cast spells kept up through the hunt (PREPARE, CAST
-before the first swing and whenever the Spells window drops one), and
+before the walk to the ground — not among the prey, where four casts
+were a minute standing in the badgers' room, 2026-09-20 — and whenever
+the Spells window drops one), and
 `train_casting` names a magic skill to train by recasting the first
 buff between swings, feeding more mana each time until the game warns
 of strain, until the skill locks — one cast per the profile's
@@ -163,6 +165,11 @@ _NOTHING_THERE = ("what were you referring",)
 # loop waits for that line rather than asking again.
 _ADVANCING = ("aren't close enough", "begin to advance", "already advancing")
 ADVANCE_WAIT = 10  # seconds for "melee range" before the next ATTACK
+# A maneuver from range does not advance on its own (captured 2026-09-20
+# on a badger closing from pole range): "You must be closer to use
+# tactical abilities on your opponent." — the loop ADVANCEs on the prey
+# and waits for melee range, as ATTACK's own advance would.
+_NEED_MELEE = ("must be closer",)
 # SMITE (captured 2026-09-13 on a rat): "Drawing strength from your
 # conviction, you execute a divinely inspired strike!" then the swing
 # line as ATTACK would give it, 6 s roundtime. From range it answers
@@ -210,7 +217,9 @@ _NUMBER_WORDS = {
 # circle around it.", WEAVE "You weave back and forth, trying to
 # distract your opponent." — each followed by a balance line and
 # "Roundtime: 3 sec.", and Tactics entered the exp window at rank 3 on
-# the first BOB. From range they advance like ATTACK. Anything else is
+# the first BOB. From range they do not advance like ATTACK: "You must
+# be closer to use tactical abilities on your opponent." (2026-09-20),
+# so the loop ADVANCEs on the prey itself (_NEED_MELEE). Anything else is
 # reported, and after TACTIC_MISSES of them the maneuvers are off.
 _MANEUVER_DONE = ("you bob", "you sidestep", "you weave")
 TACTICS_EVERY = 3  # every third swing is a maneuver while Tactics is unlocked
@@ -783,6 +792,18 @@ def settle(s, db, ground, avoid, tally):
     return False
 
 
+def wait_for_prey(s, seconds):
+    """Wait `seconds`, a second at a time, watching the room: True the
+    moment a hostile shows. The 20-second pause used to sleep blind — a
+    badger walked in, closed to melee and bit, and the loop walked out
+    on it engaged (the operator, 2026-09-20)."""
+    for _ in range(int(seconds)):
+        if hostiles(s.state):
+            return True
+        s.sleep(1)
+    return bool(hostiles(s.state))
+
+
 def next_room(s, db, ground, avoid, tally):
     """The room is empty: on to the next room of the ground, cyclically;
     a one-room ground waits and looks instead. Once the ground has
@@ -794,17 +815,26 @@ def next_room(s, db, ground, avoid, tally):
     tally.empty_moves += 1
     if tally.empty_moves > EMPTY_LAPS * max(len(ground), 1):
         s.echo(f"hunt: ground empty — waiting {EMPTY_ROOM_WAIT}s, then looking again")
-        s.sleep(EMPTY_ROOM_WAIT)
         tally.empty_moves = 0
+        if wait_for_prey(s, EMPTY_ROOM_WAIT):
+            s.echo("hunt: something arrived — staying")
+            return True
     here = locate(db, s.state)
     others = [room for room in ground if room != here]
     if not others:
         s.echo(
             f"hunt: room empty — waiting {EMPTY_ROOM_WAIT}s for something to turn up"
         )
-        s.sleep(EMPTY_ROOM_WAIT)
+        if wait_for_prey(s, EMPTY_ROOM_WAIT):
+            s.echo("hunt: something arrived — staying")
+            return True
         s.put("look")
         probe.collect(s, SETTLE_SECONDS)
+        return True
+    if hostiles(s.state):
+        # A room that filled while the loop was deciding is a room to
+        # fight in, never to walk out of engaged.
+        s.echo("hunt: something arrived — staying")
         return True
     later = [room for room in others if here is not None and room > here]
     target = (later or others)[0]
@@ -898,7 +928,9 @@ def swing(s, profile, tally, prey):
         if any(word in lowered for word in _MANEUVER_DONE):
             tally.maneuvers += 1
             tally.tactic_misses = 0
-        elif not any(word in lowered for word in _ADVANCING + _NOTHING_THERE):
+        elif not any(
+            word in lowered for word in _ADVANCING + _NOTHING_THERE + _NEED_MELEE
+        ):
             tally.tactic_misses += 1
             unrecognized(s, tally, verb, text)
             if tally.tactic_misses >= TACTIC_MISSES:
@@ -929,6 +961,9 @@ def swing(s, profile, tally, prey):
         s.put("face next")
         probe.collect(s, TAIL_SECONDS)
     elif any(word in lowered for word in _ADVANCING):
+        probe.collect(s, ADVANCE_WAIT, until="melee range")
+    elif any(word in lowered for word in _NEED_MELEE):
+        ask(s, f"advance {prey}" if prey else "advance")
         probe.collect(s, ADVANCE_WAIT, until="melee range")
     return not tally.room_clear and bool(hostiles(s.state))
 
@@ -982,17 +1017,23 @@ def loop(s, profile, db, ground, avoid, tally):
 def hunt(s, profile, db, travel=True, avoid=()):
     ground_name = profile["hunting_ground"]
     ground = sorted(db.resolve(ground_name)) if ground_name else []
+    tally = Tally()
     if travel:
         if not ground:
             s.echo(
                 f"hunt: nothing in the map matches ground {ground_name!r} — check the profile"
             )
             return
+        # The buffs before the walk, not among the prey: four casts on
+        # arrival were a minute spent standing in the badgers' room
+        # (the operator, 2026-09-20), and a buff at minimum mana lasts
+        # nine, so the walk costs it little. On arrival the Spells
+        # window lists them and the second cast_buffs casts nothing.
+        cast_buffs(s, profile, tally)
         if not walk(s, db, set(ground), describe=repr(ground_name), avoid=avoid):
             s.echo("hunt: could not reach the ground — stopping")
             return
         probe.collect(s, SETTLE_SECONDS)
-    tally = Tally()
     if travel and not settle(s, db, ground, avoid, tally):
         return
     wear_bundle(s, profile, tally)

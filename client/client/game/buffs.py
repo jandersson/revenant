@@ -144,8 +144,17 @@ GET_OUTCOMES = (
     ("missing", ("what were you referring", "could not find", "referring to")),
     ("ok", ("you get", "already holding", "in your hand")),
 )
+# REMOVE of a piece that is not worn — it was in the sack after a death
+# and a raising (captured 2026-09-20 in the badgers' room): "Remove
+# what?" — so the piece is GOT instead, and worn back afterwards as
+# the profile says.
+NOT_WORN = ("remove what",)
 CHARGE_OUTCOMES = (
     ("worn", ("too clumsy",)),
+    # The piece is neither held nor worn — in a container (captured
+    # 2026-09-20): "You'll have to hold it, set it on the ground, or
+    # put it on something first."
+    ("unheld", ("have to hold it",)),
     ("full", ("already holding as much power", "dissipates uselessly")),
     ("failed", ("fail to channel any",)),
     ("ok", ("absorbs all of the energy", "channel all the energy", "absorbs")),
@@ -314,6 +323,12 @@ def charge_cambrinth(s, profile, state, ask, prefix, report):
     if not noun or state.cambrinth_off or locked(s.state, ["Arcana"]):
         return False
     answer = ask(s, fetch_command(profile))
+    if profile.get("cambrinth_worn") and any(
+        phrase in answer.lower() for phrase in NOT_WORN
+    ):
+        # Not on the ankle after all (a death, a raising, a hand-stow):
+        # out of the container it went to, and WEAR puts it back after.
+        answer = ask(s, f"get my {noun}")
     if classify(answer, GET_OUTCOMES) == "missing":
         s.echo(f"{prefix}: no {noun} to charge — cambrinth off for this run")
         state.cambrinth_off = True
@@ -321,7 +336,18 @@ def charge_cambrinth(s, profile, state, ask, prefix, report):
     mana = int(profile.get("cambrinth_mana") or 1)
     answer = ask(s, f"charge my {noun} {mana}")
     outcome = classify(answer, CHARGE_OUTCOMES)
-    if outcome == "worn":
+    if outcome == "unheld":
+        # The fetch did not land it in a hand (a full hand, a piece in
+        # a closed container): once more from the container, then the
+        # charge again; still not in hand, off for the run.
+        ask(s, f"get my {noun}")
+        answer = ask(s, f"charge my {noun} {mana}")
+        outcome = classify(answer, CHARGE_OUTCOMES)
+    if outcome == "unheld":
+        s.echo(
+            f"{prefix}: the {noun} is not in hand to charge — cambrinth off for this run"
+        )
+    elif outcome == "worn":
         s.echo(
             f"{prefix}: the {noun} cannot be charged while worn — cambrinth off for this run"
         )
