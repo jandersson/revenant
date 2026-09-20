@@ -73,6 +73,17 @@ lessons the code and docs cannot carry themselves.
   prune test failed on every macOS CI run for a day after #160 made a
   timeout mean "busy", 2026-09-12).
 
+- A catalog merchant (the True Bard D'Or, Berolt's Dry Goods, Grek's)
+  sells by haggling: ORDER <item> quotes ("I can let that go for...62
+  kronars"), OFFER <amount> closes it, and a second ORDER or a BUY
+  answers "We're still dealing" while a slow answer ends the deal. The
+  session policy refuses an outside OFFER as a hand-over (#234) until
+  `offer` is in `~/.revenant/policy/<name>.json`'s allow list — the
+  operator added it for Cecil on 2026-09-20 after two stalled deals.
+- A wet instrument (a river crossing, rain) refuses CLEAN until WIPEd
+  with the cloth ("so wet that they are still dripping"); DRY is not a
+  verb. CLEAN wants the instrument in hand (REMOVE a worn one).
+
 ## Evidence first
 
 - The game logs under `~/.revenant/logs/game-*.log` are the record of

@@ -32,7 +32,7 @@ Stop with:  ;stop skins
 
 import re
 
-from client.game import probe
+from client.game import bank, probe
 from client.game.mapdb import MapDB
 from client.game.profile import load_profile
 from client.game.walker import locate, walk
@@ -77,34 +77,11 @@ def take_bundle(s, container):
     return not _missing(ask(s, command))
 
 
-# The teller's answer to DEPOSIT ALL, captured 2026-09-14 at the
-# Crossing's Provincial Bank: "The clerk slides a small metal box across
-# the counter into which you drop all your Kronars.  She counts them
-# carefully and records the deposit in her ledger." Anything else is
-# echoed as it came.
-_DEPOSITED = ("records the deposit",)
-
-
 def deposit(s, mapdb, walk_fn):
-    """Walk to the nearest teller and DEPOSIT ALL: the clerk's ledger
-    line is reported as a deposit, any other answer echoed line by
-    line. False when no teller is on the map or reachable — the coins
-    stay in the purse (#196)."""
-    tellers = mapdb.rooms_tagged("bank")
-    if not tellers:
-        s.echo("skins: the map has no room tagged 'bank' — the coins stay with you")
-        return False
-    if not walk_fn(s, mapdb, set(tellers), describe="the bank teller"):
-        s.echo("skins: could not reach a teller — the coins stay with you")
-        return False
-    answer = ask(s, "deposit all")
-    if any(word in answer.lower() for word in _DEPOSITED):
-        s.echo("skins: deposited all your coins — the clerk recorded it")
-        return True
-    lines = [line for line in answer.strip().splitlines() if line.strip()]
-    for line in lines or ["the teller said nothing to DEPOSIT ALL"]:
-        s.echo(f"skins: {line}")
-    return True
+    """Walk to the nearest teller and DEPOSIT ALL — client/game/bank.py's,
+    the teller's ledger line captured 2026-09-14 (#196), shared with
+    ;bank (#235)."""
+    return bank.deposit(s, mapdb, walk_fn, ask, "skins")
 
 
 def run(s, words, mapdb, walk_fn=walk, profile=None):

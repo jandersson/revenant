@@ -157,7 +157,11 @@ for `client/client/<pkg>/x.py`.
   `;sheet`, `;wealth` and `;debt` (`scripts/debt.py`: fetch the
   shortfall from the teller, PAY ALL at the debt office); `;skins`
   (`scripts/skins.py`) sells the skin bundle `;hunt` wears at the
-  nearest tannery and keeps the rope.
+  nearest tannery and keeps the rope. `client/game/bank.py` + `;bank`
+  (`scripts/bank.py`, #235): the purse banked — every foreign coin
+  EXCHANGEd at the map's `exchange` room into the province's own,
+  DEPOSIT ALL at the `bank` room, `keep=N` copper withdrawn back;
+  a skill-less `;train` task runs it once a cycle, coins weigh.
   `client/game/attune.py` is power walking: a loop of street rooms
   joined by two-way compass moves and the sixty-second timer per
   room; `scripts/attune.py` POWERs round it until mind-lock, or in

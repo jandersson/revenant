@@ -100,6 +100,7 @@ Lanival's files as they stand on 2026-09-20, the shapes every other character's 
   {"name": "climbs",      "skills": ["Athletics"],       "script": "athletics"},
   {"name": "hunt",        "skills": [],                  "script": "hunt",        "return_word": "return"},
   {"name": "skins",       "skills": [],                  "script": "skins",       "args": ["bank"]},
+  {"name": "bank",        "skills": [],                  "script": "bank"},
   {"name": "scholarship", "skills": ["Scholarship"],     "script": "scholarship", "args": ["books"], "return_word": "return"},
   {"name": "performance", "skills": ["Performance"],     "script": "perform",     "return_word": "return", "pace": 90},
   {"name": "attunement",  "skills": ["Attunement"],      "script": "attune"},
@@ -108,7 +109,7 @@ Lanival's files as they stand on 2026-09-20, the shapes every other character's 
 }
 ```
 
-What the loop does with it: the climbs until Athletics reaches 30, the hunt (its own skills come from the profile's weapon and armor, so `skills` stays empty and the task runs its thirty minutes), the skins sold and banked, four library books, the zills until Performance locks, a lap of power walking, a forage — then the rest, wherever the last task ended (no `safe_rooms`), until every trained skill drains to 10, with the badge prayer, the tithe and the Chadatru prayer whenever their timers allow and up to three stat points bought on the guild's tiers. `return_word` marks the scripts that end gracefully on a typed `return` (the hunt finishes the kill and walks home); the others are killed at the target.
+What the loop does with it: the climbs until Athletics reaches 30, the hunt (its own skills come from the profile's weapon and armor, so `skills` stays empty and the task runs its thirty minutes), the skins sold and banked, the purse banked (`;bank`: every foreign coin exchanged at the money-changer into the province's own, then DEPOSIT ALL — coins weigh, #235), four library books, the zills until Performance locks, a lap of power walking, a forage — then the rest, wherever the last task ended (no `safe_rooms`), until every trained skill drains to 10, with the badge prayer, the tithe and the Chadatru prayer whenever their timers allow and up to three stat points bought on the guild's tiers. `return_word` marks the scripts that end gracefully on a typed `return` (the hunt finishes the kill and walks home); the others are killed at the target.
 
 ```json
 {

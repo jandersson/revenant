@@ -248,7 +248,8 @@ def save_plan(character, plan: dict) -> Path:
 def starter_plan(character) -> dict:
     """The plan ;train init writes: the bundled trainers — climbs, the
     hunt (its skills from the character's profile), the skins sold and
-    banked after it, and foraging for Outdoorsmanship. Edit from there
+    banked after it, the purse banked (the foreign coins exchanged,
+    everything deposited, #235), and foraging for Outdoorsmanship. Edit from there
     — every key is documented in this module's docstring."""
     profile = load_profile(character)
     plan = dict(DEFAULTS)
@@ -266,6 +267,7 @@ def starter_plan(character) -> dict:
             }
         ),
         normalize_task({"name": "skins", "script": "skins", "args": ["bank"]}),
+        normalize_task({"name": "bank", "script": "bank"}),
         normalize_task(
             {
                 "name": "forage",
