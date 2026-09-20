@@ -733,15 +733,17 @@ def test_sheet_inv_typed_at_the_running_script_snapshots_the_inventory(
         {
             "info": [INFO_TEXT.splitlines(keepends=True)] * 2,
             "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)] * 2,
-            "inv list": [INV_LIST_TEXT.splitlines(keepends=True)],
+            "inv list": [INV_LIST_TEXT.splitlines(keepends=True)] * 2,
         },
         requests=["inv"],
     )
-    # The scheduled snapshot asks no inventory; the request asks it once.
+    # The login snapshot takes the inventory (2026-09-20); the request
+    # asks it once more.
     assert handle.sent == [
         "info",
         "exp all",
         "spell",
+        "inv list",
         "info",
         "exp all",
         "spell",
@@ -760,10 +762,20 @@ def test_sheet_once_typed_at_the_running_script_takes_a_plain_snapshot(
         {
             "info": [INFO_TEXT.splitlines(keepends=True)] * 2,
             "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)] * 2,
+            "inv list": [INV_LIST_TEXT.splitlines(keepends=True)],
         },
         requests=["once"],
     )
-    assert handle.sent == ["info", "exp all", "spell", "info", "exp all", "spell"]
+    # The login snapshot takes the inventory; the requested plain one does not.
+    assert handle.sent == [
+        "info",
+        "exp all",
+        "spell",
+        "inv list",
+        "info",
+        "exp all",
+        "spell",
+    ]
     assert connection.execute("SELECT count(*) FROM character").fetchone()[0] == 2
 
 
@@ -774,10 +786,11 @@ def test_an_unknown_request_is_explained_not_ignored(monkeypatch, tmp_path):
         {
             "info": [INFO_TEXT.splitlines(keepends=True)],
             "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
+            "inv list": [INV_LIST_TEXT.splitlines(keepends=True)],
         },
         requests=["wealth"],
     )
-    assert handle.sent == ["info", "exp all", "spell"]
+    assert handle.sent == ["info", "exp all", "spell", "inv list"]
     assert any("unknown request 'wealth'" in line for line in handle.echoed)
 
 
@@ -1004,3 +1017,29 @@ def test_the_renaming_room_is_never_asked_for_spells(monkeypatch, tmp_path):
         },
     )
     assert "spell" not in handle.sent
+
+
+def test_the_autostart_takes_the_inventory_once_at_login_and_plain_after(
+    monkeypatch, tmp_path
+):
+    # The first snapshot of a run (the login) asks INV LIST, roundtime
+    # or not; the scheduled snapshot after it does not (2026-09-20).
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
+    monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
+    monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
+    handle = FakeHandle(
+        {
+            "info": [INFO_TEXT.splitlines(keepends=True)] * 2,
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)] * 2,
+            "inv list": [INV_LIST_TEXT.splitlines(keepends=True)] * 2,
+        },
+        requests=[None],  # the first interval runs out, the second stops the run
+    )
+    handle.args = []
+    try:
+        sheet.main(handle)
+    except Stopped:
+        pass
+    assert handle.sent.count("info") == 2
+    assert handle.sent.count("inv list") == 1
+    assert handle.sent.index("inv list") < handle.sent.index("info", 1)

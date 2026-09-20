@@ -16,8 +16,11 @@ stored as blanks. ;sheet once takes a single snapshot and exits.
 each item's container and, when the parser saw the listing, the
 game's exist ids for the item and its container (#184), so "which
 character has that thing?" is a query instead of a login and twins
-are told apart. It is on demand only and never scheduled — INV LIST
-costs a few seconds of roundtime (4-5s captured), which is fine when you ask for it and not
+are told apart. The autostart's first snapshot — the login — takes
+it too, roundtime or not (the character is safe at login, and the
+possessions are wanted from the first minute); after that it is on
+demand only and never scheduled — INV LIST costs a few seconds of
+roundtime (4-5s captured), which is fine when you ask for it and not
 fine arriving mid-fight. Typed while the script runs (it always does —
 it is an autostart), ;sheet inv asks the running script for one
 inventory snapshot and the schedule carries on; from cold it takes the
@@ -574,6 +577,11 @@ def main(s):
     inventory = "inv" in args
     # `inv` is a request, not a schedule: take the snapshot and stop.
     once = inventory or "once" in args
+    # The first snapshot of a run — the login, for the autostart —
+    # takes the inventory too: the character is safe at login and the
+    # possessions are wanted from the first minute (the operator,
+    # 2026-09-20); the scheduled snapshots after it stay plain.
+    first = True
     while True:
         if s.dead:
             # A ghost answers INFO with a warning, not a sheet — the
@@ -583,7 +591,8 @@ def main(s):
                 return
             s.sleep(60)  # check again once breathing resumes
             continue
-        snapshot(s, inventory=inventory)
+        snapshot(s, inventory=inventory or first)
+        first = False
         if once:
             return
         # Until the next scheduled snapshot, listen instead of sleeping:
