@@ -19,6 +19,7 @@ window shows but a handle's default get() does not deliver, and the
 second live ;hunt (2026-09-12) never saw one of its eight kills.
 """
 
+import re
 import time
 
 # An answer is complete once the game's prompt has followed it and the
@@ -30,6 +31,12 @@ import time
 # another player's arrival, right after the send, from closing the
 # window before the answer itself arrives.
 QUIET_SECONDS = 0.25
+
+# The game's refusal of a command sent inside a roundtime; the command
+# did not run and ask() sends it again after the seconds named (#251).
+_WAIT = re.compile(r"^\.\.\.wait (\d+) seconds?\.", re.MULTILINE)
+WAIT_RETRIES = 3
+WAIT_PAD = 0.2
 
 # What the main window shows: the story, and the combat stream the
 # game pushes every swing and kill line through (<pushStream
@@ -131,10 +138,24 @@ def ask(s, command, seconds, tail_seconds):
     game's prompt has closed the answer and the stream has gone quiet,
     and a command that opened no roundtime gets no tail at all — nothing
     lands later. A handle whose state counts no prompts (a test's fake)
-    waits the windows out as before."""
-    before = _prompts(s)
-    s.put(command)
-    opening = collect(s, seconds, prompts_from=before)
+    waits the windows out as before.
+
+    "...wait N seconds." is not an answer: the game did not run the
+    command. It is sent again after those seconds, up to WAIT_RETRIES
+    times, and the answer of the send the game took comes back (#251:
+    a CAST one second after INVOKE's one-second roundtime — the parser's
+    clock is whole seconds, and a roundtime ending in the current
+    second is still running for a fraction no prompt stamp can show;
+    32 refusals in one day's logs). Lich's DragonRealms commons resend
+    on the same line (`DRC.bput`, docs/bibliography.md)."""
+    for attempt in range(WAIT_RETRIES + 1):
+        before = _prompts(s)
+        s.put(command)
+        opening = collect(s, seconds, prompts_from=before)
+        held = _WAIT.search(opening)
+        if held is None or attempt == WAIT_RETRIES:
+            break
+        s.sleep(int(held.group(1)) + WAIT_PAD)
     if before is not None and roundtime_open(s) is False:
         return opening
     s.waitrt()

@@ -94,7 +94,9 @@ for `client/client/<pkg>/x.py`.
   kill, 2026-09-12). `ask`'s windows are ceilings: each ends once the
   game's prompt has closed the answer and the stream has gone quiet a
   quarter second, and a command with no roundtime gets no tail (#248:
-  the fixed windows held every command 4.5 s in the hunt).
+  the fixed windows held every command 4.5 s in the hunt). A command
+  answered "...wait N seconds." did not run and is sent again after
+  those seconds, up to three times (#251).
 - `client/engine/procspawn.py` + `client/engine/frozen.py` — every sibling spawn
   (session, dashboard, reexec child) goes through `command_for`, which
   is `python -m module` from source and `<exe> --role module` in the

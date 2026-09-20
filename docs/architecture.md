@@ -178,7 +178,11 @@ entries from a dock-layout module.
   `client/client/game/probe.py` is the ask-and-classify helper the keyword
   scripts (;mechlore, ;favors, ;hunt) share: send a command, gather the
   answer through its roundtime, match it against an ordered outcome
-  table. It reads the story and the `combat` stream both
+  table. A command the game answers "...wait N seconds." did not run,
+  and `ask` sends it again after those seconds, up to three times,
+  before any classifier sees the answer (#251: the parser's clock is
+  whole seconds, so a roundtime ending in the current second still
+  has a fraction to run that no prompt stamp shows). It reads the story and the `combat` stream both
   (`STORY_STREAMS`): the game pushes every swing and kill line through
   `<pushStream id="combat"/>`, which the main window shows but a
   handle's default `get()` does not deliver — two hunts ended "ground

@@ -225,3 +225,40 @@ def test_collect_reads_the_combat_stream_with_the_story():
     assert "lies still" in answer
     assert "[Roundtime 6 sec.]" in answer
     assert "thinks aloud" not in answer
+
+
+class RefusingHandle(FakeHandle):
+    """The game refuses the first `refusals` sends with "...wait 1
+    seconds." — a roundtime with a fraction of a second left that no
+    prompt stamp could show (#251) — and takes the next."""
+
+    def __init__(self, answers, refusals=1):
+        super().__init__(answers)
+        self.refusals = refusals
+        self.slept = []
+
+    def put(self, command):
+        self.sent.append(command)
+        if len(self.sent) <= self.refusals:
+            self.pending = ["...wait 1 seconds.\n"]
+        else:
+            self.pending = list(self.answers)
+
+    def sleep(self, seconds):
+        self.slept.append(seconds)
+
+
+def test_ask_resends_a_command_the_game_refused_inside_a_roundtime():
+    # Captured 2026-09-20: INVOKE's one-second roundtime ended in the
+    # second the prompt showed, the CAST went out and "...wait 1
+    # seconds." came back as its answer — the spell never cast.
+    handle = RefusingHandle(["You gesture.\n"])
+    assert probe.ask(handle, "cast", 0.02, 0) == "You gesture."
+    assert handle.sent == ["cast", "cast"]
+    assert len(handle.slept) == 1 and 1 <= handle.slept[0] <= 1.5
+
+
+def test_ask_gives_the_refusal_back_after_three_resends():
+    handle = RefusingHandle(["You gesture.\n"], refusals=10)
+    assert probe.ask(handle, "cast", 0.02, 0) == "...wait 1 seconds."
+    assert handle.sent == ["cast"] * (probe.WAIT_RETRIES + 1)
