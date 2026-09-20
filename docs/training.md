@@ -418,7 +418,10 @@ Scholarship trains by "reading books at a library"
 the RECALL forms the wiki also lists ([Recall command](https://elanthipedia.play.net/Recall_command):
 HOLIDAY, IMMORTAL <name>, HERB) answered but registered nothing at
 rank 2 (2026-09-18), so the plan's recall task is gone and
-`;scholarship books` reads. A Lorethew library lends by call letters
+`;scholarship books` reads (LOOK SHELVES, and LOOK BOOKCASE where a
+library has both: the Asemath Academy's 55 books sit on two, 20 steps
+from the Paladins' guild library whose four gave rank 11 three percent
+on 2026-09-20, #256). A Lorethew library lends by call letters
 (the sign: "Use the Call Letters of a book to get it (GET). Look on
 the shelves for a complete listing ... You are granted use of our
 books (READ) ... Please return all books"): LOOK SHELVES prints the

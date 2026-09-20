@@ -90,6 +90,8 @@ class Fake:
         self.now += 2
         if command == "look shelves":
             return SHELVES
+        if command == "look bookcase":
+            return getattr(self, "bookcase", NO_SUCH)
         if command.startswith("get "):
             letters = command[4:]
             if letters not in self.pages:
@@ -210,8 +212,9 @@ def test_it_reads_every_book_page_by_page_and_returns_each():
     # Thirteen pages then the story's three; the lock comes on the last page.
     fake = Fake(mindstates=[0] + [1] * 13 + [34], stop_at=1000 + 600)
     out = run(fake, ["books", "once"])
-    assert fake.sent[:6] == [
+    assert fake.sent[:7] == [
         "look shelves",
+        "look bookcase",
         "get IdsPG",
         "read my book",
         "open my book",
@@ -257,6 +260,25 @@ def test_after_the_timer_the_books_are_read_again():
     fake = Fake(mindstates=[0] * 80, stop_at=1000 + 4000)
     run(fake, ["books", "timer=30", "wait=60"])
     assert fake.sent.count("get IdsPG") >= 2
+
+
+def test_the_bookcase_is_read_beside_the_shelves():
+    # #256: the Asemath Academy shelves 18 books on the shelf and 37 on
+    # the bookcase; a title on both is read once.
+    fake = Fake(mindstates=[0] * 60, stop_at=1000 + 5000)
+    fake.bookcase = (
+        "Glancing over the contents of the bookcase, you see the following titles:\n"
+        "  TITLE                                        CALL LETTERS\n"
+        "  --------------------------------             ------------\n"
+        "  A Night in Jail                              FtvNJ\n"
+        "  Estate Rights                                FcpER\n"
+    )
+    fake.pages["FcpER"] = 2
+    out = run(fake, ["books"])
+    assert fake.sent[:2] == ["look shelves", "look bookcase"]
+    assert "3 book(s) on the shelves" in out
+    assert fake.sent.count("get FtvNJ") == 1
+    assert fake.sent.count("get FcpER") == 1
 
 
 def test_a_far_off_timer_ends_the_run_so_the_plan_moves_on():

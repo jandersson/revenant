@@ -11,8 +11,9 @@
 
 Reading a library's books trains Scholarship (Elanthipedia: Scholarship
 skill; the wordings and the measurements are client/game/scholarship.py's).
-The script walks to the library, LOOKs at the SHELVES for the titles and
-their call letters, and for each book: GET <letters>, READ MY BOOK, OPEN
+The script walks to the library, LOOKs at the SHELVES (and the BOOKCASE,
+where a library has both — the Asemath Academy's 55 books sit on two,
+#256) for the titles and their call letters, and for each book: GET <letters>, READ MY BOOK, OPEN
 MY BOOK, READ MY BOOK into the page reader, then the page numbers one by
 one until the book says a number is not a page, Q to close it, and STOW
 MY BOOK, which the library takes as the return ("You return the book to
@@ -246,6 +247,11 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
         s.echo("scholarship: EXP shows no Scholarship — nothing to train")
         return
     books = parse_shelves(ask(s, "look shelves"))
+    # A library may shelve on more than one piece (#256: the Asemath
+    # Academy's 18 books on the shelf and 37 on the bookcase); a room
+    # without a bookcase refuses, which parses to no rows.
+    shelved = {letters for _, letters in books}
+    books += [b for b in parse_shelves(ask(s, "look bookcase")) if b[1] not in shelved]
     if not books:
         s.echo(
             "scholarship: no shelves to read here — a Lorethew library "
