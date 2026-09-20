@@ -142,6 +142,24 @@ retry is closed the same way (#211): the walk says what would help
 and goes round if the map has another way — the gondola over the
 Chasm — and ends only when it has none.
 
+## A room the map lists without exits is left by the compass
+
+The Shrine of Ushnish in the Crossing is map room 19242 with an empty
+`wayto`: it is entered by `go shrine` from Varlet's Run and the map
+never recorded the way back, so `;go2` from inside it planned nothing
+and said "no walkable path" while the parser's compass read `["out"]`
+the whole time (2026-09-20, #229). Now, when no route exists and the
+room the character stands in has no walkable exit this walk has not
+found closed, the walker takes the compass exits one at a time — OUT
+first, then the directions — with the usual arrival wait, and plans
+again from wherever the move landed; a landing that the map knows is
+also written to the personal overlay (`~/.revenant/mapdb/local.json`,
+a full copy of the room with the new edge, `MapDB.record_edge`) so the
+next walk plans through it: "the map knows no way out of [Shrine of
+Ushnish] — trying OUT" / "map: 19242 out -> 19241 recorded locally".
+A room with no compass either, or whose exits all fail to land, ends
+as before with the no-path explanation.
+
 ## Gates the map itself writes
 
 Some travel times are Ruby for Lich to evaluate at routing time —

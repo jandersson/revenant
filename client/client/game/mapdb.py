@@ -372,9 +372,9 @@ class MapDB:
         self._by_uid = {}
         for room in rooms:
             for title in room.get("title") or []:
-                self._by_title.setdefault(normalize_title(title), []).append(
-                    int(room["id"])
-                )
+                ids = self._by_title.setdefault(normalize_title(title), [])
+                if int(room["id"]) not in ids:  # a local copy of a room (#229)
+                    ids.append(int(room["id"]))
             for uid in room.get("uid") or []:
                 self._by_uid[int(uid)] = int(room["id"])
 
@@ -390,6 +390,29 @@ class MapDB:
             with open(local) as stream:
                 rooms = rooms + json.load(stream)
         return cls(rooms)
+
+    def record_edge(self, room_id, dest, command, path=None):
+        """Remember a way the game showed and the map lacks — the compass
+        exit out of a room the map lists without exits (#229) — in this
+        map at once and in the local overlay (`local_mapdb_path()`) as a
+        full copy of the room with the edge added, which a later load's
+        merge takes over the community room (the last copy of an id
+        wins). The overlay's path."""
+        path = path or local_mapdb_path()
+        room = self.rooms[room_id]
+        wayto = dict(room.get("wayto") or {})
+        wayto[str(dest)] = command
+        room["wayto"] = wayto
+        self._graph = None
+        overlay = []
+        if path.is_file():
+            with open(path) as stream:
+                overlay = json.load(stream)
+        overlay = [entry for entry in overlay if int(entry.get("id", -1)) != room_id]
+        overlay.append(room)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(overlay, indent=1))
+        return path
 
     def rooms_titled(self, title):
         return list(self._by_title.get(normalize_title(title), []))

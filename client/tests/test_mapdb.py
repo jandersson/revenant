@@ -203,6 +203,42 @@ def test_local_overlay_extends_the_community_map(monkeypatch, tmp_path):
     assert db.room_by_uid(499002) == 900001  # local survey merged
 
 
+def test_a_recorded_edge_is_kept_in_the_overlay_and_taken_over_the_community_room(
+    monkeypatch, tmp_path
+):
+    # #229: the compass exit out of a dead-end room, once it landed.
+    import json
+
+    from client.game import mapdb
+
+    (tmp_path / "mapdb.json").write_text(
+        json.dumps(
+            [
+                {"id": 19242, "uid": [1], "title": ["[Shrine]"], "wayto": {}},
+                {
+                    "id": 19241,
+                    "uid": [2],
+                    "title": ["[Run]"],
+                    "wayto": {"19242": "go shrine"},
+                },
+            ]
+        )
+    )
+    monkeypatch.setenv("REVENANT_MAPDB", str(tmp_path / "mapdb.json"))
+    monkeypatch.setenv("REVENANT_MAPDB_LOCAL", str(tmp_path / "local.json"))
+    db = mapdb.MapDB.load()
+    assert db.path(19242, [19241]) is None
+    assert db.record_edge(19242, 19241, "out") == tmp_path / "local.json"
+    assert db.path(19242, [19241]) == [(19241, "out")]
+    again = mapdb.MapDB.load()
+    assert again.path(19242, [19241]) == [(19241, "out")]
+    assert again.rooms_titled("[Shrine]") == [19242]  # the copy is no twin
+    # A second edge out of the same room replaces the copy, never doubles it.
+    db.record_edge(19242, 19241, "north")
+    overlay = json.loads((tmp_path / "local.json").read_text())
+    assert len(overlay) == 1 and overlay[0]["wayto"] == {"19241": "north"}
+
+
 # One Middens room, listed twice — captured 2026-09-04 (#137). The
 # community map does this in 39 places; only one twin carries the uid.
 MIDDENS = [

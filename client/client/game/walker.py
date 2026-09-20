@@ -19,7 +19,13 @@ import re
 from time import monotonic
 
 from client.client_logger import ClientLogger
-from client.game.mapdb import normalize_title, ride_args, ride_of, translate_embedded
+from client.game.mapdb import (
+    normalize_title,
+    ride_args,
+    ride_of,
+    translate_embedded,
+    walkable,
+)
 
 module_logger = ClientLogger()
 
@@ -434,6 +440,45 @@ def _explain_no_path(s, db, here, goals, avoid, closed, ranks, describe):
     s.echo(f"no walkable path to {describe} (a scripted-only edge may be needed)")
 
 
+def _dead_end(db, here, closed):
+    """True when the map lists no walkable way out of `here` that this
+    walk has not found closed."""
+    wayto = (db.rooms.get(here) or {}).get("wayto") or {}
+    return not any(
+        walkable(command) and (here, int(dest)) not in closed
+        for dest, command in wayto.items()
+    )
+
+
+def leave_dead_end(s, db, here):
+    """Leave a room the map lists without exits by the compass — the
+    Shrine of Ushnish, entered by `go shrine` and never mapped back
+    (#229): OUT first, then each direction, until a move lands in a
+    room the map knows. That room's id, or None when no exit landed.
+    A landing is written to the local map overlay so the next walk
+    plans through it."""
+    compass = list(getattr(s.state, "compass", None) or [])
+    exits = sorted(compass, key=lambda direction: direction != "out")
+    title = ((db.rooms.get(here) or {}).get("title") or ["?"])[0]
+    for direction in exits:
+        command = DIRECTIONS.get(direction, direction)
+        s.echo(f"the map knows no way out of {title} — trying {command.upper()}")
+        s.waitrt()
+        while s.get(timeout=0, streams=("compass",)) is not None:
+            pass
+        s.put(command)
+        outcome, _, _ = await_arrival(s)
+        if outcome != "arrived":
+            continue
+        there = locate(db, s.state)
+        if there is None or db.same_place(there, here):
+            continue
+        db.record_edge(here, there, command)
+        s.echo(f"map: {here} {command} -> {there} recorded locally")
+        return there
+    return None
+
+
 def walk(s, db, goals, describe="destination", avoid=()):
     """Walk to the nearest goal room; True on arrival (or already there).
 
@@ -462,6 +507,13 @@ def walk(s, db, goals, describe="destination", avoid=()):
     for _ in range(REROUTES + 1):
         route = db.path(here, goals, avoid=avoid, closed=closed, ranks=ranks)
         if route is None:
+            if _dead_end(db, here, closed):
+                # A room the map lists without exits (#229): out by the
+                # compass, then plan again from wherever that landed.
+                left = leave_dead_end(s, db, here)
+                if left is not None:
+                    here = left
+                    continue
             _explain_no_path(s, db, here, goals, avoid, closed, ranks, describe)
             return False
         if not route:

@@ -780,6 +780,61 @@ def test_every_way_closed_stops_the_walk():
     assert any("no walkable path" in echo for echo in handle.echoes)
 
 
+# --- a room the map lists without exits (#229) ------------------------------
+# The Shrine of Ushnish, 2026-09-20: entered by `go shrine` from Varlet's
+# Run, wayto {} on the map, the compass reading ["out"] the whole time.
+DEAD_END_ROOMS = [
+    {"id": 19242, "uid": [19242], "title": ["[Shrine of Ushnish]"], "wayto": {}},
+    {
+        "id": 19241,
+        "uid": [19241],
+        "title": ["[The Crossing, Varlet's Run]"],
+        "wayto": {"19242": "go shrine", "11716": "north"},
+    },
+    {"id": 11716, "uid": [11716], "title": ["[Paladins' Guild, Library]"]},
+]
+
+
+def test_a_room_the_map_lists_without_exits_is_left_by_the_compass(
+    tmp_path, monkeypatch
+):
+    import json
+
+    monkeypatch.setenv("REVENANT_MAPDB_LOCAL", str(tmp_path / "local.json"))
+    db = MapDB(json.loads(json.dumps(DEAD_END_ROOMS)))
+    handle = FakeHandle(uids=[19241, 11716])
+    handle.state.room_uid = 19242
+    handle.state.compass = ["out"]
+    assert walker.walk(handle, db, [11716], describe="the library") is True
+    assert puts_of(handle) == ["out", "north"]
+    assert any(
+        "knows no way out of [Shrine of Ushnish] — trying OUT" in echo
+        for echo in handle.echoes
+    )
+    assert any("map: 19242 out -> 19241 recorded locally" in e for e in handle.echoes)
+    # The way is the map's now, in memory and in the overlay.
+    assert db.path(19242, [11716]) == [(19241, "out"), (11716, "north")]
+    overlay = json.loads((tmp_path / "local.json").read_text())
+    assert [room["id"] for room in overlay] == [19242]
+    assert overlay[0]["wayto"] == {"19241": "out"}
+
+
+def test_a_dead_end_whose_exits_never_land_ends_with_the_no_path_answer(
+    tmp_path, monkeypatch
+):
+    import json
+
+    monkeypatch.setenv("REVENANT_MAPDB_LOCAL", str(tmp_path / "local.json"))
+    db = MapDB(json.loads(json.dumps(DEAD_END_ROOMS)))
+    handle = FakeHandle(uids=[])  # no compass frame follows either move
+    handle.state.room_uid = 19242
+    handle.state.compass = ["out", "n"]
+    assert walker.walk(handle, db, [11716]) is False
+    assert puts_of(handle) == ["out", "north"]
+    assert any("no walkable path" in echo for echo in handle.echoes)
+    assert not (tmp_path / "local.json").exists()
+
+
 # --- the Obsidian Pass gondola (#211) ---------------------------------------
 GONDOLA_SOUTH = (
     ";e if Script.exists?('bescort'); start_script('bescort', ['gondola', 'south']); "
