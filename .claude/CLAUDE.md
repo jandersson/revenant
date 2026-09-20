@@ -186,7 +186,10 @@ for `client/client/<pkg>/x.py`.
   says below pristine — a fresh pristine reading gates every deed,
   in `;train`'s rests too — and runs the
   Glyph of Warding scene at the guild orb once pristine and full
-  (#224). Model: docs/soul.md. `client/game/scholarship.py`
+  (#224). Model: docs/soul.md; docs/paladin.md indexes every
+  Paladin fact the scripts rest on — circles, soul, glyphs, smite,
+  spells, the guild's rooms — with the model per fact linked (#228).
+  `client/game/scholarship.py`
   is the Lorethew library's grammar and the reader's page loop;
   `scripts/scholarship.py books` reads every book on the profile's
   `library` shelves and returns each with STOW (#210). `client/game/encumbrance.py` is the
