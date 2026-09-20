@@ -7,6 +7,7 @@
     ;tdp train agility 12 strength +2 [stay]
                                  several goals in order: to 12, then two points of Strength;
                                  `stay` stays in the last training room
+    ;tdp plan [N]                up to N points (3) where the training plan's `tdp` list says — the stat targets, or the guild's tiers on `auto` — leaving `tdp_reserve` unspent; the ;train task
 
 A stat rises one point per TRAIN typed twice in that stat's training
 room (the map tags it: `agility`, `strength`, ...), at the cost the
@@ -18,7 +19,15 @@ the script echoes that line. A stat below its race's starting value
 is flagged: DR3 recalculates TDPs assuming every character started at
 the racial values, so such a point comes back twice over at the next
 recalculation (a DR1 character's rolled stats, #165) — train those
-first. It never trusts the TRAIN wording alone:
+first. `plan` is the ;train task's form (the operator, 2026-09-20: a task
+in the plan's order, not only the rest's spending, "then I could
+structure the train loop with it"): the character's training plan
+names where the TDPs go (`tdp`: stat targets, or `auto` for the
+guild's tiers — client/game/tdp.py's GUILD_TIERS) and what to keep
+(`tdp_reserve`), and each point is INFO, the next stat, its cost
+against the points past the reserve, then one confirmed TRAIN pair
+at its trainer; a `{"script": "tdp", "args": ["plan"]}` task runs
+it once a cycle wherever the plan puts it. It never trusts the TRAIN wording alone:
 it asks the stat's own command (AGILITY, STRENGTH, ...) for the value,
 the next point's cost and the TDPs before every point, buys only what
 the TDPs cover, and asks again after the pair — a value that did not
@@ -34,10 +43,13 @@ from client.game.tdp import (
     STATS,
     TRAIN_OUTCOMES,
     below_start,
+    next_stat,
     parse_goals,
     parse_info,
     parse_project,
     parse_stat_answer,
+    plan_goals,
+    point_cost,
     stat_name,
 )
 from client.game.mapdb import MapDB
@@ -154,10 +166,68 @@ def train_stat(s, stat, goal, mapdb, walk_fn):
     return answer["value"] is not None and answer["value"] >= goal
 
 
+PLAN_POINTS = 3  # points one `;tdp plan` buys unless told otherwise
+
+
+def plan_points(s, mapdb, walk_fn, points=PLAN_POINTS):
+    """Up to `points` points where the character's training plan says:
+    INFO for the stats, the points and the guild, the plan's goals or
+    the guild's tiers for the stat, the wiki's cost against the points
+    past `tdp_reserve`, then one confirmed point at its trainer; the
+    walk back at the end. The points bought."""
+    from client.game.training import load_plan
+
+    plan = load_plan(getattr(s.state, "name", None) or "")
+    entries = plan.get("tdp") or []
+    if not entries:
+        s.echo("tdp: the training plan's tdp list is empty — nothing to spend on")
+        return 0
+    reserve = int(plan.get("tdp_reserve") or 0)
+    start = locate(mapdb, s.state)
+    bought = 0
+    for _ in range(max(points, 0)):
+        info = parse_info(ask(s, "info"))
+        if info["tdps"] is None or not info["stats"]:
+            s.echo("tdp: INFO gave no TDPs — stopping")
+            break
+        try:
+            goals = plan_goals(entries, info["stats"])
+        except ValueError as error:
+            s.echo(f"tdp: the plan's tdp list — {error}")
+            break
+        choice = next_stat(info["stats"], goals, info.get("guild"))
+        if choice is None:
+            s.echo("tdp: every goal of the plan reached")
+            break
+        stat, value = choice
+        cost = point_cost(value)
+        if info["tdps"] - reserve < cost:
+            s.echo(
+                f"tdp: {stat} {value} → {value + 1} costs about {cost} and "
+                f"{info['tdps']} on hand keeps {reserve} — stopping"
+            )
+            break
+        if not train_stat(s, stat, value + 1, mapdb, walk_fn):
+            break
+        bought += 1
+    if start is not None and locate(mapdb, s.state) != start:
+        if not walk_fn(s, mapdb, {start}, describe="where you started"):
+            s.echo("tdp: could not walk back — you are at the trainer")
+    s.echo(f"tdp: {bought} point(s) bought by the plan")
+    return bought
+
+
 def run(s, words, mapdb=None, walk_fn=walk):
-    """The verb: show, quote, or train."""
+    """The verb: show, quote, train, or plan."""
     if not words:
         show_info(s)
+        return
+    if words[0].lower() == "plan":
+        if mapdb is None:
+            s.echo("tdp: training needs the map — none loaded")
+            return
+        points = int(words[1]) if len(words) > 1 and str(words[1]).isdigit() else None
+        plan_points(s, mapdb, walk_fn, PLAN_POINTS if points is None else points)
         return
     training = words[0].lower() == "train"
     stay = training and words[-1].lower() == "stay"
@@ -200,7 +270,7 @@ def run(s, words, mapdb=None, walk_fn=walk):
 
 def main(s):
     words = list(s.args)
-    if words and words[0].lower() == "train":
+    if words and words[0].lower() in ("train", "plan"):
         mapdb = MapDB.load()
         run(s, words, mapdb=mapdb)
     else:

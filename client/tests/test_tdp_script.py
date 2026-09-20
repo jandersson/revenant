@@ -170,6 +170,57 @@ def test_a_stat_word_quotes_the_next_point_and_a_goal_the_whole_climb():
     assert "train" not in fake.sent
 
 
+PALADIN_INFO = (
+    "Name: Lanival Redeemer   Race: Dwarf   Guild: Paladin\n"
+    "     Strength :  10              Reflex :   8\n"
+    "      Agility :   8            Charisma :  10\n"
+    "   Discipline :  12              Wisdom :  10\n"
+    " Intelligence :  10             Stamina :  12\n"
+    "         TDPs : 347\n"
+)
+
+
+def strength(value, cost, tdps):
+    return (
+        f"Your base Strength is ten ({value}).\n"
+        f"It will cost you {cost} TDPs to raise your Strength from {value} to {value + 1}.\n"
+        f"You currently have {tdps} TDPs available.\n"
+    )
+
+
+def test_plan_buys_where_the_training_plan_says_and_keeps_the_reserve(
+    monkeypatch, tmp_path
+):
+    # The ;train task (the operator, 2026-09-20): `auto` is the Paladin
+    # tiers — Strength and Stamina to 15 first — so a Paladin at Strength
+    # 10 buys Strength; the reserve stops the second point.
+    monkeypatch.setenv("REVENANT_TRAINING", str(tmp_path))
+    from client.game import training
+
+    training.save_plan(
+        "Lanival", training.load_plan("Lanival") | {"tdp": ["auto"], "tdp_reserve": 300}
+    )
+    fake = Fake(
+        {
+            "info": [PALADIN_INFO, PALADIN_INFO.replace("347", "317")],
+            "strength": [strength(10, 30, 347), strength(11, 33, 317)],
+            "train": [CONFIRM, DONE],
+        }
+    )
+    script.run(fake, ["plan", "2"], mapdb=MAP, walk_fn=walk)
+    assert fake.walks == [{50984}, {100}]  # the bellows, then back
+    assert fake.sent.count("train") == 2
+    assert "Strength is now 11, TDPs 317" in echoes(fake)
+    assert "317 on hand keeps 300 — stopping" in echoes(fake)
+    assert "tdp: 1 point(s) bought by the plan" in echoes(fake)
+    # An empty tdp list spends nothing and walks nowhere.
+    training.save_plan("Lanival", training.load_plan("Lanival") | {"tdp": []})
+    idle = Fake({"info": [PALADIN_INFO]})
+    script.run(idle, ["plan"], mapdb=MAP, walk_fn=walk)
+    assert idle.sent == [] and idle.walks == []
+    assert "tdp list is empty" in echoes(idle)
+
+
 def test_training_walks_there_trains_twice_per_point_and_walks_back():
     fake = Fake(
         {
