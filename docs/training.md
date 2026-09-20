@@ -98,7 +98,7 @@ Lanival's files as they stand on 2026-09-20, the shapes every other character's 
  "tdp": ["auto"], "tdp_reserve": 0,
  "tasks": [
   {"name": "climbs",      "skills": ["Athletics"],       "script": "athletics"},
-  {"name": "hunt",        "skills": ["Small Edged", "Brawling"], "script": "hunt", "return_word": "return"},
+  {"name": "hunt",        "skills": ["Brawling"],        "script": "hunt",        "return_word": "return"},
   {"name": "skins",       "skills": [],                  "script": "skins",       "args": ["bank"]},
   {"name": "bank",        "skills": [],                  "script": "bank"},
   {"name": "tdps",        "skills": [],                  "script": "tdp",         "args": ["plan"]},
@@ -110,7 +110,7 @@ Lanival's files as they stand on 2026-09-20, the shapes every other character's 
 }
 ```
 
-What the loop does with it: the climbs until Athletics reaches 30, the hunt with the scimitar and the fists taking turns per kill until Small Edged and Brawling both reach the target (the profile's `weapons`, #238; the parry stick and the knuckles are worn), the skins sold and banked, the purse banked (`;bank`: every foreign coin exchanged at the money-changer into the province's own, then DEPOSIT ALL — coins weigh, #235), four library books, the zills until Performance locks, a lap of power walking, a forage — then the rest, wherever the last task ended (no `safe_rooms`), until every trained skill drains to 10, with the badge prayer, the tithe and the Chadatru prayer whenever their timers allow and up to three stat points bought on the guild's tiers. `return_word` marks the scripts that end gracefully on a typed `return` (the hunt finishes the kill and walks home); the others are killed at the target.
+What the loop does with it: the climbs until Athletics reaches 30, the hunt with the fists until Brawling reaches the target (the profile's `weapons` holds the fists turn alone since the evening of 2026-09-20 — Small Edged at 40-odd ranks stopped learning from the level-3 badgers, so the scimitar's turn was spending kills on nothing and the operator dropped it; the parry stick and the knuckles are worn, #238), the skins sold and banked, the purse banked (`;bank`: every foreign coin exchanged at the money-changer into the province's own, then DEPOSIT ALL — coins weigh, #235), four library books, the zills until Performance locks, a lap of power walking, a forage — then the rest, wherever the last task ended (no `safe_rooms`), until every trained skill drains to 10, with the badge prayer, the tithe and the Chadatru prayer whenever their timers allow and up to three stat points bought on the guild's tiers. `return_word` marks the scripts that end gracefully on a typed `return` (the hunt finishes the kill and walks home); the others are killed at the target.
 
 ```json
 {
@@ -123,7 +123,7 @@ What the loop does with it: the climbs until Athletics reaches 30, the hunt with
  "debilitation": "stun foe", "targeted": "footman's strike",
  "smite": false,
  "tactics": ["bob", "circle"], "perception": true,
- "weapons": ["scimitar:Small Edged:scabbard", "fists:Brawling"], "brawling": ["punch", "kick", "elbow"],
+ "weapons": ["fists:Brawling"], "brawling": ["punch", "kick", "elbow"],
  "health_floor": 60, "wound_floor": "harmful",
  "attune_start": "732", "instrument": "zills", "library": "11716"
 }
@@ -343,8 +343,10 @@ and at mind-lock STOPs PLAY and holds until the pool has drained
 (`once` exits instead). Under `;train` (`"script": "perform",
 "skills": ["Performance"], "return_word": "return"`) the loop ends it
 at the plan's target; the word stops the song first. It stops on
-death, on hostiles, without the instrument, and when EXP shows no
-Performance.
+death, on hostiles, on the game's own refusal for a fight the parser
+has not shown yet ("You cannot use the copper zills while in combat!",
+2026-09-20 right after a `;reexec`, #243), without the instrument,
+and when EXP shows no Performance.
 
 Captured 2026-09-18 on a rank-2 Paladin, a pair of copper zills worn
 on a finger (Riverhaven's peddler, 500 Lirums), aboard the Faldesu

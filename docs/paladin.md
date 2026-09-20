@@ -10,7 +10,7 @@ This page is the index of every Paladin fact the scripts rest on — the circles
 | Glyphs | Dueling (from the start) and Warding (the quest, 2026-09-19 05:41) — GLYPH lists them under "You have attained..." |
 | Spells | Heroic Strength, Aspirant's Aegis, Stun Foe, Sentinel's Resolve, Courage, Footman's Strike; a 12-mana cambrinth anklet worn between casts. "There was an error with the number of your available spell slots, which has now been corrected to 3." came unasked on 2026-09-19 |
 | Soul | pristine at the guild's arch (2026-09-20 04:3x); the deeds gated off while it reads so |
-| Training | the plan and profile in [training.md](training.md#a-worked-example-a-circle-5-paladin): badgers with a scimitar and the fists in turn, climbs, books, the zills, power walking, forage; TDPs on the guild's tiers |
+| Training | the plan and profile in [training.md](training.md#a-worked-example-a-circle-5-paladin): badgers with the fists for Brawling (Small Edged outgrew them on 2026-09-20 and left the rotation; the scimitar stays the profile's weapon for whatever else draws one), climbs, books, the zills, power walking, forage; TDPs on the guild's tiers |
 
 ## Circles
 
