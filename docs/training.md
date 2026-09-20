@@ -109,12 +109,12 @@ Lanival's files as they stand on 2026-09-20, the shapes every other character's 
 }
 ```
 
-What the loop does with it: the climbs until Athletics reaches 30, the hunt with the handaxe and the fists taking turns per kill until Small Edged and Brawling both reach the target (the profile's `weapons`, #238; the parry stick and the knuckles are worn), the skins sold and banked, the purse banked (`;bank`: every foreign coin exchanged at the money-changer into the province's own, then DEPOSIT ALL — coins weigh, #235), four library books, the zills until Performance locks, a lap of power walking, a forage — then the rest, wherever the last task ended (no `safe_rooms`), until every trained skill drains to 10, with the badge prayer, the tithe and the Chadatru prayer whenever their timers allow and up to three stat points bought on the guild's tiers. `return_word` marks the scripts that end gracefully on a typed `return` (the hunt finishes the kill and walks home); the others are killed at the target.
+What the loop does with it: the climbs until Athletics reaches 30, the hunt with the scimitar and the fists taking turns per kill until Small Edged and Brawling both reach the target (the profile's `weapons`, #238; the parry stick and the knuckles are worn), the skins sold and banked, the purse banked (`;bank`: every foreign coin exchanged at the money-changer into the province's own, then DEPOSIT ALL — coins weigh, #235), four library books, the zills until Performance locks, a lap of power walking, a forage — then the rest, wherever the last task ended (no `safe_rooms`), until every trained skill drains to 10, with the badge prayer, the tithe and the Chadatru prayer whenever their timers allow and up to three stat points bought on the guild's tiers. `return_word` marks the scripts that end gracefully on a typed `return` (the hunt finishes the kill and walks home); the others are killed at the target.
 
 ```json
 {
  "hunting_ground": "badgers", "prey": "badger", "home": "11716",
- "weapon": "handaxe", "weapon_container": "sack", "stance": "100 40 40",
+ "weapon": "scimitar", "weapon_container": "scabbard", "stance": "100 40 40",
  "skin": true, "bundle": true, "loot_container": "sack",
  "buffs": ["heroic strength", "aspirant's aegis", "sentinel's resolve", "courage"],
  "train_casting": "Augmentation",
@@ -122,13 +122,13 @@ What the loop does with it: the climbs until Athletics reaches 30, the hunt with
  "debilitation": "stun foe", "targeted": "footman's strike",
  "smite": false,
  "tactics": ["bob", "circle"], "perception": true,
- "weapons": ["handaxe:Small Edged:sack", "fists:Brawling"], "brawling": ["punch", "kick", "elbow"],
+ "weapons": ["scimitar:Small Edged:scabbard", "fists:Brawling"], "brawling": ["punch", "kick", "elbow"],
  "health_floor": 60, "wound_floor": "harmful",
  "attune_start": "732", "instrument": "zills", "library": "11716"
 }
 ```
 
-The profile is the hunt's and the trainers' quirks ([hunting.md](hunting.md)): striped badgers in the Brambles (level 3 on the Zoluren ladder, 19-42 ranks; an evening on the level-5 grass eels gave no kill, nine stuns and deep cuts on every limb, #236, so the badgers it is until the weapon ranks say otherwise), the handaxe drawn from the sack, a defensive stance, every kill skinned into a worn bundle, four buffs kept up (Heroic Strength, Aspirant's Aegis, and from circle 8 Sentinel's Resolve for Defending and Shield Usage and Courage, the Warding spell that opens a fourth magic skill) with Heroic Strength recast for Augmentation through a 12-mana cambrinth anklet worn between casts, Stun Foe at the prey for Debilitation, Footman's Strike at the prey for Targeted Magic, no smiting (the soul pool pays for smites past the free ones, #217 — the hunt asks SMITE CHECK first when it is on), bob and circle for Tactics, HUNT for Perception, a break-off at 60% health or at a harmful wound (HEALTH after each kill and on every drop) to the guild library, the power-walking start room, the copper zills, the guild library's shelves.
+The profile is the hunt's and the trainers' quirks ([hunting.md](hunting.md)): striped badgers in the Brambles (level 3 on the Zoluren ladder, 19-42 ranks; an evening on the level-5 grass eels gave no kill, nine stuns and deep cuts on every limb, #236, so the badgers it is until the weapon ranks say otherwise), the watered steel scimitar drawn from a shoulder scabbard (Milgrym's and Berolt's, 2026-09-20 — two steps of slice and balance over the handaxe, which stays in the sack as a spare), a defensive stance, every kill skinned into a worn bundle, four buffs kept up (Heroic Strength, Aspirant's Aegis, and from circle 8 Sentinel's Resolve for Defending and Shield Usage and Courage, the Warding spell that opens a fourth magic skill) with Heroic Strength recast for Augmentation through a 12-mana cambrinth anklet worn between casts, Stun Foe at the prey for Debilitation, Footman's Strike at the prey for Targeted Magic, no smiting (the soul pool pays for smites past the free ones, #217 — the hunt asks SMITE CHECK first when it is on), bob and circle for Tactics, HUNT for Perception, a break-off at 60% health or at a harmful wound (HEALTH after each kill and on every drop) to the guild library, the power-walking start room, the copper zills, the guild library's shelves.
 
 ## The soul in the rests
 
