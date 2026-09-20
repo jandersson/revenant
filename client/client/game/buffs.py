@@ -256,16 +256,34 @@ def buff_running(s, spell, state):
     return cast is not None and monotonic() - cast < BUFF_MINUTES * 60
 
 
+def fetch_command(profile):
+    """How the cambrinth piece comes to hand: REMOVE for a worn piece
+    (profile `cambrinth_worn`), GET from a container otherwise."""
+    verb = "remove" if profile.get("cambrinth_worn") else "get"
+    return f"{verb} my {profile.get('cambrinth') or ''}"
+
+
+def put_back_command(profile):
+    """How the piece goes back: WEAR for a worn piece, STOW otherwise.
+    A worn piece refuses a charge — "Try though you may, you find it
+    too clumsy to charge the cambrinth anklet while wearing it."
+    (captured 2026-09-20 on the anklet, 2026-09-14 on the armband) —
+    so a piece the character wears is taken off for the cycle."""
+    verb = "wear" if profile.get("cambrinth_worn") else "stow"
+    return f"{verb} my {profile.get('cambrinth') or ''}"
+
+
 def charge_cambrinth(s, profile, state, ask, prefix, report):
-    """GET the profile's cambrinth piece and CHARGE it for Arcana;
-    True when it holds mana for the coming cast (charged now, or
-    already full). A piece the game will not charge — missing, worn,
-    or outranking the skill — is off for the run, said once; a locked
-    Arcana skips the charge. The piece stays in hand for INVOKE."""
+    """Bring the profile's cambrinth piece to hand (GET, or REMOVE when
+    it is worn) and CHARGE it for Arcana; True when it holds mana for
+    the coming cast (charged now, or already full). A piece the game
+    will not charge — missing, worn, or outranking the skill — is off
+    for the run, said once; a locked Arcana skips the charge. The
+    piece stays in hand for INVOKE."""
     noun = profile.get("cambrinth") or ""
     if not noun or state.cambrinth_off or locked(s.state, ["Arcana"]):
         return False
-    answer = ask(s, f"get my {noun}")
+    answer = ask(s, fetch_command(profile))
     if classify(answer, GET_OUTCOMES) == "missing":
         s.echo(f"{prefix}: no {noun} to charge — cambrinth off for this run")
         state.cambrinth_off = True
@@ -290,7 +308,7 @@ def charge_cambrinth(s, profile, state, ask, prefix, report):
         report("charge", answer)
         return True
     state.cambrinth_off = True
-    ask(s, f"stow my {noun}")
+    ask(s, put_back_command(profile))
     return False
 
 
@@ -305,6 +323,7 @@ def cast_once(
     target="",
     filler=None,
     targeted=False,
+    put_back=None,
 ):
     """PREPARE (with a mana amount when given), TARGET the prey when the
     spell is targeted magic (`targeted`), run the caller's `filler` (a
@@ -321,7 +340,7 @@ def cast_once(
     outcome = classify(answer, PREPARE_OUTCOMES)
     if outcome == "failed":
         if invoke:
-            ask(s, f"stow my {invoke}")
+            ask(s, put_back or f"stow my {invoke}")
         return "refused"
     started = monotonic()
     ready = "fully prepared"
@@ -345,7 +364,7 @@ def cast_once(
     answer = ask(s, f"cast {target}" if target and not targeted else "cast")
     cast = classify(answer, CAST_OUTCOMES)
     if invoke:
-        ask(s, f"stow my {invoke}")
+        ask(s, put_back or f"stow my {invoke}")
     if cast == "lacking":
         return "lacking"
     if cast == "failed":
@@ -540,7 +559,15 @@ def cast_buffs(
         if training and charge_cambrinth(s, profile, state, ask, prefix, report):
             invoke = profile["cambrinth"]
         result = cast_once(
-            s, spell, mana, state, ask, report, invoke=invoke, filler=filler
+            s,
+            spell,
+            mana,
+            state,
+            ask,
+            report,
+            invoke=invoke,
+            filler=filler,
+            put_back=put_back_command(profile) if invoke else None,
         )
         cast = True
         if training:

@@ -63,6 +63,10 @@ DEFAULTS = {
     # piece must not outrank the skill (a 1- or 5-mana piece at 0 ranks,
     # Herilo's Artifacts; 2026-09-14). "" charges nothing.
     "cambrinth": "",
+    # The piece is worn between casts (an anklet, an armband): the
+    # cycle REMOVEs it for the charge and WEARs it back, since a worn
+    # piece refuses a charge ("too clumsy ... while wearing it").
+    "cambrinth_worn": False,
     "cambrinth_mana": 1,
     # Seconds between training casts. A cast cycle with a cambrinth
     # piece is eight commands, and at 20 s the first badger fight was
@@ -148,6 +152,12 @@ FIELDS = (
     ),
     ("cambrinth", "Cambrinth piece to charge for Arcana", "str", "flake — empty: none"),
     ("cambrinth_mana", "Mana per cambrinth charge", "int", "1: the piece's capacity"),
+    (
+        "cambrinth_worn",
+        "The cambrinth piece is worn (REMOVE, charge, WEAR)",
+        "bool",
+        "",
+    ),
     ("cast_gap", "Seconds between training casts", "int", "60"),
     (
         "debilitation",

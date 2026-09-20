@@ -1875,3 +1875,44 @@ def test_a_clean_injuries_panel_skips_health_and_a_lit_one_asks(travel):
     lit.state.injuries = {"head": ("wound", 1)}
     _run(lit, profile=PROFILE | {"wound_floor": "harmful"}, travel_first=False)
     assert "health" in lit.sent
+
+
+def test_a_worn_cambrinth_piece_is_removed_for_the_charge_and_worn_again(travel):
+    # The anklet (2026-09-20): worn between casts, since a worn piece
+    # refuses a charge, so the cycle is REMOVE, CHARGE, PREPARE, INVOKE,
+    # CAST, WEAR instead of GET ... STOW.
+    arena = Arena(
+        {
+            "attack": [(KILL, lambda a: None), (KILL, kill)],
+            "remove my anklet": [
+                "You remove a simple cambrinth anklet from your ankle.\n"
+            ]
+            * 3,
+            "charge my anklet": [CHARGED.replace("flake", "anklet")] * 3,
+            "prepare": [PREPARED] * 4,
+            "invoke my anklet": [INVOKED.replace("flake", "anklet")] * 3,
+            "cast": [CAST, SNAP_CAST, SNAP_CAST, SNAP_CAST],
+            "wear my anklet": ["You attach a simple cambrinth anklet to your ankle.\n"]
+            * 3,
+            "skin": [SKINNED] * 2,
+            "search": [NOTHING] * 2,
+        },
+        experience=_exp(10) | {"Arcana": {"rank": 17, "percent": 0, "mindstate": 3}},
+    )
+    arena.state.vitals["mana"] = 100
+    worn = TRAINING | {
+        "cambrinth": "anklet",
+        "cambrinth_mana": 12,
+        "cambrinth_worn": True,
+    }
+    _run(arena, profile=worn | {"max_kills": 2}, travel_first=False)
+    first = arena.sent.index("remove my anklet")
+    assert arena.sent[first : first + 6] == [
+        "remove my anklet",
+        "charge my anklet 12",
+        "prepare heroic strength",
+        "invoke my anklet",
+        "cast",
+        "wear my anklet",
+    ]
+    assert "get my anklet" not in arena.sent and "stow my anklet" not in arena.sent
