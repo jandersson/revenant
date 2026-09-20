@@ -2,6 +2,7 @@
 
     ;perform                    play the rank's song off-key on the profile's instrument until mind-lock
     ;perform instrument=zills   another instrument (the profile's `instrument` otherwise)
+                                a room that refuses a song (a bank's teller: "now isn't the best time to be playing") sends it home once, the profile's `home`, to play there
     ;perform song=ballad        a song of your own instead of the rank's band
     ;perform mood=halting       another style (off-key by default; mood= alone for the plain style)
     ;perform until=30           stop at that mindstate instead of 34
@@ -38,6 +39,7 @@ from client.game.perform import (
     ALREADY,
     ENDED,
     NO_INSTRUMENT,
+    NOT_HERE,
     STARTED,
     STOPPED,
     parse_args,
@@ -135,7 +137,33 @@ def start_song(s, options):
         return "playing"
     if any(word in answer for word in NO_INSTRUMENT):
         return "no instrument"
+    if any(word in answer for word in NOT_HERE):
+        return "not here"
     return "unknown"
+
+
+def home_of(s):
+    """The profile's home — a ;go2 target — or ""."""
+    name = getattr(s.state, "name", None)
+    if not name:
+        return ""
+    from client.game.profile import load_profile
+
+    return str(load_profile(name).get("home") or "").strip()
+
+
+def walk_home(s, home):
+    """Walk to the profile's home for a room that allows a song; False
+    when the map has no such room or the walk failed."""
+    from client.game.mapdb import MapDB
+    from client.game.walker import walk
+
+    mapdb = MapDB.load()
+    goals = mapdb.resolve(home)
+    if not goals:
+        s.echo(f"perform: nothing in the map matches home {home!r}")
+        return False
+    return walk(s, mapdb, set(goals), describe=repr(home))
 
 
 def stop_song(s):
@@ -172,7 +200,7 @@ def hold_at_lock(s, until):
             return True
 
 
-def run(s, options):
+def run(s, options, walker=walk_home):
     if not options["instrument"]:
         options["instrument"] = instrument_of(s)
     if not options["instrument"]:
@@ -184,6 +212,7 @@ def run(s, options):
         return
     playing = False
     songs = 0
+    moved = False  # walked home once for a room that refuses a song
     while True:
         reason = danger(s)
         if reason:
@@ -208,6 +237,27 @@ def run(s, options):
             if outcome == "no instrument":
                 s.echo(f"perform: no {options['instrument']} on you — stopping")
                 return
+            if outcome == "not here":
+                # A bank's teller refused the song (2026-09-20): once,
+                # walk to the profile's home and play there.
+                home = home_of(s)
+                if moved or not home:
+                    s.echo(
+                        "perform: the game refuses a song here"
+                        + (
+                            " and at home too"
+                            if moved
+                            else " and the profile names no home"
+                        )
+                        + " — stopping"
+                    )
+                    return
+                s.echo(f"perform: the game refuses a song here — walking home ({home})")
+                moved = True
+                if not walker(s, home):
+                    s.echo("perform: could not walk home — stopping")
+                    return
+                continue
             if outcome == "unknown":
                 s.echo(
                     "perform: PLAY answered nothing known — please report it — stopping"

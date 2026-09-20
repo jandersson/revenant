@@ -213,6 +213,54 @@ def test_the_profiles_instrument_is_the_default(monkeypatch, tmp_path):
     assert fake.sent[0] == "play scales off-key on my lyre"
 
 
+class RefusingHere(Fake):
+    """The room refuses the first PLAY (captured 2026-09-20 at the bank's
+    teller); after the walk home the song starts."""
+
+    REFUSAL = "You decide that now isn't the best time to be playing, and stop.\n"
+
+    def __init__(self, *args, refusals=1, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.refusals = refusals
+
+    def ask(self, s, command, *_):
+        if command.startswith("play ") and self.refusals:
+            self.refusals -= 1
+            self.sent.append(command)
+            return self.REFUSAL
+        return super().ask(s, command, *_)
+
+
+def test_a_room_that_refuses_the_song_sends_it_home_once(monkeypatch, tmp_path):
+    monkeypatch.setenv("REVENANT_PROFILES", str(tmp_path))
+    from client.game import profile
+
+    profile.save_profile("Lanival", profile.load_profile("Lanival") | {"home": "11716"})
+
+    def drive(fake, walker):
+        script.clock = lambda: fake.now
+        script.probe = SimpleNamespace(ask=fake.ask, collect=fake.collect)
+        script.run(fake, script.parse_args(["once", "instrument=zills"]), walker=walker)
+
+    walks = []
+    fake = RefusingHere(mindstates=[5, 34])
+    drive(fake, lambda s, home: walks.append(home) or True)
+    assert walks == ["11716"]
+    assert plays(fake) == ["play scales off-key on my zills"] * 2
+    assert any("refuses a song here — walking home (11716)" in t for t in fake.echoed)
+    # Refused at home too: the run ends with the reason, no third try.
+    twice = RefusingHere(mindstates=[5, 34], refusals=2)
+    drive(twice, lambda s, home: True)
+    assert len(plays(twice)) == 2
+    assert any("and at home too — stopping" in t for t in twice.echoed)
+    # No home in the profile: said so, one try.
+    profile.save_profile("Lanival", profile.load_profile("Lanival") | {"home": ""})
+    none = RefusingHere(mindstates=[5, 34])
+    drive(none, lambda s, home: True)
+    assert len(plays(none)) == 1
+    assert any("names no home — stopping" in t for t in none.echoed)
+
+
 def test_no_instrument_anywhere_is_told_so(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_PROFILES", str(tmp_path))
     fake = Fake(mindstates=[5])

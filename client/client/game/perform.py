@@ -52,6 +52,10 @@ STOPPED = ("you stop playing", "you stop your performance")
 ENDED = ("you finish", "finish playing", "finish your song", "song ends")
 # Uncaptured: a PLAY with the instrument not on you.
 NO_INSTRUMENT = ("what were you referring", "could not find", "don't have")
+# Captured 2026-09-20 at the Provincial Bank's teller: a room where the
+# game refuses a song — "You decide that now isn't the best time to be
+# playing, and stop." The song is for another room, not another try.
+NOT_HERE = ("isn't the best time to be playing",)
 
 
 def song_for(rank):
