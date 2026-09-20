@@ -145,7 +145,9 @@ for `client/client/<pkg>/x.py`.
   other scripts through the handle's `run`/`is_running`/`tell`/`kill`,
   and with the plan's `soul: on` runs the soul deeds (`;soul badge`,
   `tithe`, `pray`) in its rests, taking a hand-started `;soul keep`
-  over — never a prayer mid-hunt (#227). Model: docs/training.md. `client/game/tdp.py` is the stat side:
+  over — never a prayer mid-hunt (#227) — and with a `tdp` list spends
+  TDPs in the rests through `;tdp`, by the plan's stat targets or the
+  guild's tiers on `auto` (#230). Model: docs/training.md. `client/game/tdp.py` is the stat side:
   the game's TDP quotes parsed, the wiki's cost formula, ;tdp's
   goals; `scripts/tdp.py` walks to the tagged trainer and buys one
   confirmed point at a time. `client/game/money.py` is coins both ways

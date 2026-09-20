@@ -62,6 +62,10 @@ QUICK_EXIT = 5  # a task script gone this soon after starting never got going
 LEAVE_ATTEMPTS = 5  # rooms left for hostiles before a rest is given up (#182)
 SOUL_DEEDS = ("badge", "tithe", "pray")  # the order ;train runs them in a rest
 SOUL_MINUTES = 12  # a deed's run, walk included, before train stops waiting
+TDP_POINTS_PER_REST = 3  # stat points bought in one rest at most (#230)
+TDP_MINUTES = 12  # one ;tdp run, the walk there and back included
+INFO_SECONDS = 2  # INFO's answer window in the rest
+INFO_TAIL = 0.5
 WORDS = ("skip", "rest", "status")
 
 
@@ -308,6 +312,49 @@ def soul_step(s, plan, db, walk, room):
     return True
 
 
+def tdp_step(s, plan):
+    """One stat point bought in a rest when the plan says where the
+    TDPs go (#230): INFO for the stats and the points, the plan's goals
+    or the guild's tiers for the stat (client/game/tdp.py), the wiki's
+    cost against the points past the reserve, then `;tdp train <stat>
+    +1` — which walks to the trainer, buys the one point the game
+    quotes and walks back — waited for. True when a point was bought."""
+    entries = plan.get("tdp") or []
+    if not entries or s.is_running("tdp"):
+        return False
+    from client.game import probe
+    from client.game import tdp as tdp_model
+
+    info = tdp_model.parse_info(probe.ask(s, "info", INFO_SECONDS, INFO_TAIL))
+    if info["tdps"] is None or not info["stats"]:
+        s.echo("train: INFO gave no TDPs — no stat bought this rest")
+        return False
+    try:
+        goals = tdp_model.plan_goals(entries, info["stats"])
+    except ValueError as error:
+        s.echo(f"train: the plan's tdp list — {error}")
+        return False
+    choice = tdp_model.next_stat(info["stats"], goals, info.get("guild"))
+    if choice is None:
+        return False  # every goal reached
+    stat, value = choice
+    cost = tdp_model.point_cost(value)
+    if info["tdps"] - plan.get("tdp_reserve", 0) < cost:
+        return False
+    if not s.run("tdp", ["train", stat.lower(), "+1"]):
+        return False
+    s.echo(
+        f"train: TDPs — {stat} {value} → {value + 1} (about {cost} of {info['tdps']})"
+    )
+    started = clock()
+    while s.is_running("tdp"):
+        if s.dead or clock() - started >= TDP_MINUTES * 60:
+            s.kill("tdp")
+            break
+        s.sleep(min(5, plan["poll"]))
+    return True
+
+
 def rest(s, plan, db, walk, index):
     """The rest: to the index-th safe room, the rest commands, then hold
     until every trained skill has drained (or the cap). Returns the
@@ -322,12 +369,16 @@ def rest(s, plan, db, walk, index):
     s.echo(f"train: resting until {until}" + (f" (at most {cap} min)" if cap else ""))
     started = clock()
     moves = 0
+    bought = 0
     while True:
         if s.dead:
             return None
         soul_step(s, plan, db, walk, room)
         if s.dead:
             return None
+        if bought < TDP_POINTS_PER_REST and tdp_step(s, plan):
+            bought += 1
+            continue
         if rested(plan, experience(s)):
             s.echo("train: rested — the pool has drained")
             return index

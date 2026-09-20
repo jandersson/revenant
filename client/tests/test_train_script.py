@@ -91,6 +91,14 @@ class Fake:
 
     def put(self, command):
         self.sent.append(command)
+        answers = getattr(self, "answers", {}).get(command)
+        self.pending = (
+            [line + "\n" for line in answers.pop(0).splitlines()] if answers else []
+        )
+
+    def get(self, timeout=None, streams=("",)):
+        pending = getattr(self, "pending", [])
+        return pending.pop(0) if pending else None
 
     def echo(self, text):
         self.echoed.append(text)
@@ -514,3 +522,56 @@ def test_a_plan_with_soul_off_never_touches_it(clock, monkeypatch, tmp_path):
     fake.children.add("soul")
     run(clock, fake, plan())
     assert fake.started == [] and fake.killed == []
+
+
+# --- TDPs spent in the rests (#230) -------------------------------------------
+INFO_TEXT = (
+    "Name: Lanival Redeemer   Race: Dwarf   Guild: Paladin\n"
+    "     Strength :  10              Reflex :   8\n"
+    "      Agility :   8            Charisma :  10\n"
+    "   Discipline :  12              Wisdom :  10\n"
+    " Intelligence :  10             Stamina :  12\n"
+    "         TDPs : 347\n"
+)
+
+
+def _tdp_fake(rounds=4):
+    fake = Fake(
+        [{"Athletics": 30, "Small Edged": 30}, {"Athletics": 20}, {"Athletics": 10}],
+        exits={"tdp": 15},
+    )
+    fake.answers = {"info": [INFO_TEXT] * rounds}
+    return fake
+
+
+def test_a_rest_buys_the_plans_next_stat_point_through_tdp(clock, monkeypatch):
+    monkeypatch.setattr(train, "INFO_SECONDS", 0.01)
+    monkeypatch.setattr(train, "INFO_TAIL", 0.01)
+    fake = _tdp_fake()
+    run(clock, fake, plan(tdp=["stamina 30"]))
+    # Stamina 12 at 36 TDPs a point, 347 on hand: three points a rest at most.
+    assert fake.started[:3] == [("tdp", ["train", "stamina", "+1"])] * 3
+    assert fake.sent.count("info") == 3
+    assert any("Stamina 12 → 13" in text for text in fake.echoed)
+
+
+def test_auto_buys_the_guilds_tier_and_the_reserve_holds_points_back(
+    clock, monkeypatch
+):
+    monkeypatch.setattr(train, "INFO_SECONDS", 0.01)
+    monkeypatch.setattr(train, "INFO_TAIL", 0.01)
+    fake = _tdp_fake()
+    run(clock, fake, plan(tdp=["auto"]))
+    assert fake.started[0] == (
+        "tdp",
+        ["train", "strength", "+1"],
+    )  # the Paladin's first tier
+    held = _tdp_fake()
+    run(clock, held, plan(tdp=["auto"], tdp_reserve=340))
+    assert held.started == []  # 347 - 340 covers no 30-TDP point
+
+
+def test_no_tdp_plan_asks_no_info(clock):
+    fake = _tdp_fake()
+    run(clock, fake, plan())
+    assert "info" not in fake.sent

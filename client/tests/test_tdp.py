@@ -57,6 +57,7 @@ def test_tdp_and_info_give_the_points_on_hand():
         },
         "tdps": 347,
         "race": "Dwarf",
+        "guild": "Paladin",
     }
 
 
@@ -153,3 +154,43 @@ def test_the_captured_train_answers_classify_in_order():
     assert probe.classify(first, tdp.TRAIN_OUTCOMES) == "confirm"
     assert probe.classify(second, tdp.TRAIN_OUTCOMES) == "done"  # despite its last line
     assert probe.classify(wrong_room, tdp.TRAIN_OUTCOMES) == "refused"
+
+
+# --- TDPs by a plan or the guild's tiers (#230) --------------------------------
+def test_parse_info_reads_the_guild():
+    assert tdp.parse_info(INFO)["guild"] == "Paladin"
+
+
+def test_plan_goals_read_stat_targets_and_auto():
+    stats = tdp.parse_info(INFO)["stats"]
+    assert tdp.plan_goals(["stamina 30", "Strength 20"], stats) == [
+        ("Stamina", 30),
+        ("Strength", 20),
+    ]
+    assert tdp.plan_goals(["auto"], stats) is None
+    for bad in (["stamina"], ["stamina x"], ["luck 30"]):
+        with pytest.raises(ValueError):
+            tdp.plan_goals(bad, stats)
+
+
+def test_next_stat_follows_the_goals_then_says_when_all_are_met():
+    stats = tdp.parse_info(INFO)["stats"]  # Stamina 12, Strength 10
+    goals = [("Stamina", 12), ("Strength", 12)]
+    assert tdp.next_stat(stats, goals) == ("Strength", 10)
+    assert tdp.next_stat(stats, [("Stamina", 12)]) is None
+
+
+def test_auto_follows_the_paladins_tiers_then_balances():
+    stats = tdp.parse_info(INFO)["stats"]  # Strength 10, Stamina 12, Reflex 8 ...
+    assert tdp.next_stat(stats, None, "Paladin") == (
+        "Strength",
+        10,
+    )  # the lower of the two
+    plate = dict(stats, Strength=15, Stamina=15)
+    assert tdp.next_stat(plate, None, "Paladin") == ("Reflex", 8)
+    ready = dict(plate, Reflex=15, Agility=15, Discipline=15)
+    assert tdp.next_stat(ready, None, "Paladin") == (
+        "Charisma",
+        10,
+    )  # the lowest of all
+    assert tdp.next_stat(stats, None, "Bard") == ("Reflex", 8)  # no tiers: balanced

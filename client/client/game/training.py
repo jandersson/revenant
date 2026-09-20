@@ -63,6 +63,8 @@ DEFAULTS = {
     "poll": 30,
     "cycles": 0,
     "soul": "off",
+    "tdp": [],
+    "tdp_reserve": 0,
     "tasks": [],
 }
 SOUL = ("off", "on")
@@ -104,6 +106,13 @@ PLAN_FIELDS = (
     ("poll", "Seconds between mindstate checks", "int", ""),
     ("cycles", "Train-rest cycles", "int", "0: until stopped"),
     ("soul", "Soul deeds in the rests (a Paladin)", "choice", "on or off"),
+    (
+        "tdp",
+        "TDPs spent in the rests: stat targets, or auto",
+        "list",
+        "stamina 30, strength 30 — or auto",
+    ),
+    ("tdp_reserve", "TDPs kept unspent", "int", "0"),
 )
 TASK_FIELDS = (
     ("name", "Name", "str", "how the task is reported"),
@@ -120,10 +129,18 @@ TASK_FIELDS = (
     ("minutes", "Own time budget, minutes", "optint", "blank: the plan's"),
 )
 
-_INTS = ("target", "rest_until", "rest_minutes", "task_minutes", "poll", "cycles")
+_INTS = (
+    "target",
+    "rest_until",
+    "rest_minutes",
+    "task_minutes",
+    "poll",
+    "cycles",
+    "tdp_reserve",
+)
 _TASK_INTS = ("return_grace", "pace")
 _TASK_OPTIONAL_INTS = ("target", "minutes")
-_LISTS = ("safe_rooms", "rest_commands")
+_LISTS = ("safe_rooms", "rest_commands", "tdp")
 _TASK_LISTS = ("skills", "args", "commands", "setup", "teardown")
 
 
@@ -268,6 +285,26 @@ def validate(plan: dict) -> list:
         problems.append(f"order {plan['order']!r} is not one of {', '.join(ORDERS)}")
     if plan.get("soul", "off") not in SOUL:
         problems.append(f"soul {plan['soul']!r} is not one of {', '.join(SOUL)}")
+    for entry in plan.get("tdp") or []:
+        words = str(entry).split()
+        if words == ["auto"]:
+            continue
+        if (
+            len(words) != 2
+            or not words[1].isdigit()
+            or words[0].lower()
+            not in (
+                "strength",
+                "reflex",
+                "agility",
+                "charisma",
+                "discipline",
+                "wisdom",
+                "intelligence",
+                "stamina",
+            )
+        ):
+            problems.append(f"tdp entry {entry!r} is not '<stat> <target>' or 'auto'")
     if not 0 <= plan["target"] <= MIND_LOCK:
         problems.append(f"target {plan['target']} is outside 0-{MIND_LOCK}")
     if not 0 <= plan["rest_until"] < MIND_LOCK:

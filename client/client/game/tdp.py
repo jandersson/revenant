@@ -29,6 +29,21 @@ STATS = (
 _STAT_LINE = re.compile(rf"({'|'.join(STATS)})\s*:\s*(\d+)")
 _TDPS_INFO = re.compile(r"TDPs\s*:\s*(\d+)")
 _RACE = re.compile(r"Race:\s*([A-Za-z' ]+?)\s\s")
+_GUILD = re.compile(r"Guild:\s*([A-Za-z ]+?)\s*$", re.MULTILINE)
+# Where a guild's points go when the plan says "auto" (#230): tiers of
+# (stats, floor) taken in order — the lowest stat of a tier that is
+# still under its floor is the next point — and past the tiers the
+# lowest of all eight, so growth stays balanced. The Paladin's tiers
+# are Elanthipedia's Paladin new player guide: Strength and Stamina
+# equally to about 15 (the plate's burden), then Reflex, Agility and
+# Discipline to about 15 (evasion, parry, shields), then the rest. A
+# guild without a table goes straight to the balanced rule.
+GUILD_TIERS = {
+    "Paladin": (
+        (("Strength", "Stamina"), 15),
+        (("Reflex", "Agility", "Discipline"), 15),
+    ),
+}
 # Every race's starting stats since January 2008, when rolls went away
 # (Elanthipedia: Attributes). DR3 assumes them for every character
 # when it recalculates TDPs, so a stat below its start is worth raising
@@ -97,11 +112,65 @@ def parse_info(text):
     from INFO."""
     tdps = _TDPS_INFO.search(text)
     race = _RACE.search(text)
+    guild = _GUILD.search(text)
     return {
         "stats": {name: int(value) for name, value in _STAT_LINE.findall(text)},
         "tdps": int(tdps.group(1)) if tdps else None,
         "race": race.group(1).strip() if race else None,
+        "guild": guild.group(1).strip() if guild else None,
     }
+
+
+def plan_goals(entries, stats):
+    """[(stat, target)] from a training plan's `tdp` list — "stamina 30",
+    "strength 30" — or None for "auto" (the guild's tiers, next_stat).
+    Raises ValueError for an entry that names no stat or no number."""
+    goals = []
+    for entry in entries or []:
+        words = str(entry).split()
+        if len(words) == 1 and words[0].lower() == "auto":
+            return None
+        if len(words) != 2 or not words[1].isdigit():
+            raise ValueError(f"{entry!r}: write it as '<stat> <target>' or 'auto'")
+        stat = stat_name(words[0])
+        if stat is None:
+            raise ValueError(f"{entry!r}: {words[0]!r} names no stat")
+        goals.append((stat, int(words[1])))
+    return goals
+
+
+def next_stat(stats, goals=None, guild=None):
+    """The stat the next point goes to, as (name, value): with `goals`
+    ([(stat, target)]) the first still under its target, None once all
+    are met; with goals None (auto) the guild's tiers (GUILD_TIERS),
+    then the lowest of all eight (#230)."""
+    if goals is not None:
+        for stat, target in goals:
+            value = stats.get(stat)
+            if value is not None and value < target:
+                return stat, value
+        return None
+    for names, floor in GUILD_TIERS.get(guild or "", ()):
+        under = [
+            (stats[name], index, name)
+            for index, name in enumerate(names)
+            if name in stats and stats[name] < floor
+        ]
+        if under:
+            value, _, name = min(under)  # ties go to the tier's listed order
+            return name, value
+    known = [
+        (stats[name], index, name) for index, name in enumerate(STATS) if name in stats
+    ]
+    if not known:
+        return None
+    value, _, name = min(known)
+    return name, value
+    known = [(stats[name], name) for name in STATS if name in stats]
+    if not known:
+        return None
+    value, name = min(known)
+    return name, value
 
 
 def below_start(race, stats):
