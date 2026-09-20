@@ -105,6 +105,17 @@ DEFAULTS = {
     # which is what trains Tactics (Elanthipedia: Tactics skill, #190).
     # [] is off.
     "tactics": [],
+    # `;hunt brawl`: the brawling attacks in rotation instead of ATTACK
+    # ("punch", "kick", "elbow" — Elanthipedia: Brawling skill; punch
+    # wants a free hand, elbow and kick none), which is what trains
+    # Brawling (#238). [] means ;hunt brawl has nothing to swing.
+    "brawling": [],
+    # The parry stick held in the weapon hand while brawling, its noun
+    # ("stick": Milgrym's polished steel parry stick, 1,250 Kronars):
+    # parrying with it is what trains Parry Ability without a weapon
+    # skill's damage (Elanthipedia: Parry Ability skill). "" brawls
+    # bare-handed.
+    "parry_stick": "",
     # HUNT for tracks when a room of the ground empties, at most once
     # per 75 seconds while Perception sits below lock — HUNT teaches
     # Perception on that timer (Elanthipedia: Hunt command, #194).
@@ -188,6 +199,18 @@ FIELDS = (
         "bob, circle — empty: off",
     ),
     ("perception", "HUNT for tracks when a room empties (Perception)", "bool", ""),
+    (
+        "brawling",
+        "Brawling attacks for ;hunt brawl (Brawling)",
+        "list",
+        "punch, kick, elbow — empty: nothing to swing",
+    ),
+    (
+        "parry_stick",
+        "Parry stick noun held while brawling (Parry Ability)",
+        "str",
+        "stick — empty: bare-handed",
+    ),
     ("attune_start", ";attune walks to (;go2 target)", "str", "empty: from here"),
     (
         "instrument",

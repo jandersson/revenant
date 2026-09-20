@@ -192,6 +192,41 @@ def test_readies_the_weapon_and_stance_walks_to_the_ground_then_hunts(travel):
     assert any(text.startswith("hunt: rat down (1)") for text in arena.echoed)
 
 
+def test_brawl_holds_the_parry_stick_and_rotates_the_brawling_attacks(travel):
+    # #238: `;hunt brawl` — the stick in the weapon hand, PUNCH, KICK,
+    # ELBOW in turn instead of ATTACK, the kill handled as ever.
+    profile = PROFILE | {
+        "parry_stick": "stick",
+        "brawling": ["punch", "kick", "elbow"],
+        "tactics": [],
+    }
+    arena = _run(
+        Arena(
+            {
+                "punch": ["You punch at a rat.  A rat dodges.\n"],
+                "kick": ["You kick at a rat.  A rat dodges.\n"],
+                "elbow": [(KILL, kill)],
+                "skin": [SKINNED],
+                "search": [NOTHING],
+            }
+        ),
+        profile=hunt.brawling_profile(profile),
+    )
+    assert arena.sent[:5] == [
+        "get my stick",
+        "stance set 100 80 0",
+        "punch rat",
+        "kick rat",
+        "elbow rat",
+    ]
+    assert not any(c.startswith("attack") for c in arena.sent)
+    assert any(text.startswith("hunt: rat down (1)") for text in arena.echoed)
+    assert not any("unrecognized" in text for text in arena.echoed)
+    # Bare-handed when the profile names no stick; nothing to swing with none listed.
+    assert hunt.brawling_profile(PROFILE | {"brawling": ["punch"]})["weapon"] == ""
+    assert hunt.brawling(PROFILE) == []
+
+
 def test_a_kill_is_skinned_stowed_and_searched(travel):
     arena = _run(
         Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})

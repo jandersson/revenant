@@ -40,6 +40,8 @@ It holds what no script should hard-code:
 | smite | a Paladin: one swing a minute is SMITE instead of ATTACK, spent only when the game answers with its conviction line — the free smite regenerates every minute and Conviction experience comes at most once a minute ([Smite command](https://elanthipedia.play.net/Smite_command), #183). SMITE CHECK goes out first and with no free blow the swing is an ATTACK: a smite past the free ones draws on the soul pool, and with the pool empty it harms the soul (#217, [soul.md](soul.md)) |
 | tactics | tactical maneuvers in rotation (`bob`, `circle`, `weave`): every third swing is the next one instead of ATTACK while Tactics sits below mind-lock; SMITE keeps its minute ahead of them; three answers outside the table turn them off for the run. Model and captures: [Tactics](#tactics) below (#190) |
 | perception | HUNT for tracks once a room of the ground has emptied, and on every lap of an empty ground, at most once per 75 seconds while Perception sits below lock — the skill's own learning timer; the tracks are not followed. Model: [Tracks](#tracks) below (#194) |
+| brawling | the brawling attacks `;hunt brawl` swings in rotation instead of ATTACK (`punch`, `kick`, `elbow`): what trains Brawling; punch wants a free hand, the other two none. Empty: `;hunt brawl` has nothing to swing and says so (#238) |
+| parry_stick | the parry stick's noun (`stick`), GOT into the weapon hand under `;hunt brawl` in the weapon's place so the parries train Parry Ability; empty brawls bare-handed. [Brawling](#brawling) below |
 | attune_start | not the hunt's: where `;attune` walks before building its street loop, a `;go2` target; empty loops from wherever it stands (`;attune from=<target>` overrides it for one run) |
 
 `;hunt return` (typed while it runs) ends the loop before the next
@@ -289,6 +291,33 @@ combat-trainer shape (its spell process prepares, keeps attacking,
 and casts on the ready flag or the prep timer). A foe that went down
 under the filler swing has a pattern aimed at it RELEASEd rather than
 cast at nothing; a self-cast buff casts regardless (#203).
+
+## Brawling
+
+`;hunt brawl` is the hunt with fists (#238): the profile's `brawling`
+attacks in rotation — PUNCH, KICK, ELBOW — in place of ATTACK, and the
+`parry_stick` in the weapon hand in place of the weapon. Brawling
+"encompasses the use of a character's body and improvised or
+brawling-specific weapons" and is "commonly trained as an auxiliary
+weapon skill" ([Brawling skill](https://elanthipedia.play.net/Brawling_skill));
+[PUNCH](https://elanthipedia.play.net/Punch_command) "requires a free
+hand", [ELBOW](https://elanthipedia.play.net/Elbow_command) "does not
+require a free hand, so it stays available when both hands are full",
+and KICK works with both hands full too. Parry Ability "dictates your
+character's ability to fend off an incoming melee or pole-ranged
+attack with the weapon in your right hand" and "parrying also teaches
+some of the skill of the weapon you are parrying with"
+([Parry Ability skill](https://elanthipedia.play.net/Parry_Ability_skill)),
+so a parry stick — a weapon with no skill of its own — held in the
+right hand trains Parry Ability while the left hand punches. Milgrym's
+Weapons in the Crossing (map 8263) sells a polished steel parry stick
+at 1,250 Kronars and brass knuckles or elbow spikes at 575 each
+([Milgrym's Weapons](https://elanthipedia.play.net/Milgrym%27s_Weapons)),
+worn brawling gear that PUNCH and ELBOW use on their own. The kill
+line, the skinning, the casts and the maneuvers are the plain hunt's;
+the brawling attacks' wordings are assumptions until the first live
+run captures them. A `;train` task `{"script": "hunt", "args":
+["brawl"], "skills": ["Brawling"]}` runs it until Brawling locks.
 
 ## Tactics
 

@@ -15,6 +15,7 @@ whenever health drops), when the trained skills mind-lock, at the kill
 fuse, or when you type
 ;hunt return  (the current kill is finished first, then the walk home).
 ;stop hunt  quits where it stands.  ;hunt here  skips the walk;  ;hunt profile  prints the profile it would use.
+;hunt brawl [here]  the same hunt with the profile's brawling attacks in rotation instead of ATTACK and the parry stick in hand instead of the weapon (Brawling, Parry Ability).
 
 Everything character-specific comes from the profile
 (~/.revenant/profiles/<name>.json — File → Character Profile… in the
@@ -76,6 +77,15 @@ while the pattern forms — PREPARE is answered during weapon roundtime,
 so the swing's own roundtime covers the wait — and CAST follows the
 swing; a foe that went down under that swing has the pattern RELEASEd
 rather than cast at nothing (#203, after dr-scripts' combat-trainer).
+`brawl` (the word on the command line) fights the same ground with
+the profile's `brawling` attacks in rotation — PUNCH, KICK, ELBOW
+(Elanthipedia: Brawling skill, Punch command, Elbow command) — in
+place of ATTACK, the `parry_stick` GOT into the weapon hand instead
+of the weapon so the parries train Parry Ability (Elanthipedia: Parry
+Ability skill — the weapon in the right hand parries), the knife, the
+skins, the casts and the maneuvers as ever; SMITE keeps its minute
+when the profile smites (#238). No brawling attacks in the profile
+is nothing to swing, said so.
 `perception` on: when a room of the ground has emptied, and on every
 lap of an empty ground, one HUNT for tracks before moving on, at most
 once per 75 seconds while Perception sits below lock — HUNT teaches
@@ -321,6 +331,7 @@ class Tally:
         self.tracking_off = False  # HUNT refused this run, said once
         self.swings = 0  # swings this run, against MAX_ACTIONS
         self.check_wounds = False  # HEALTH before the next swing (a kill, a hit)
+        self.brawl = 0  # the brawling rotation index (;hunt brawl, #238)
 
 
 def hostiles(state):
@@ -330,6 +341,32 @@ def hostiles(state):
 def maneuvers(profile):
     """The profile's tactical maneuvers, lower-case, blanks dropped."""
     return [m.strip().lower() for m in profile.get("tactics") or [] if m.strip()]
+
+
+def brawling(profile):
+    """The profile's brawling attacks, lower-case, blanks dropped."""
+    return [m.strip().lower() for m in profile.get("brawling") or [] if m.strip()]
+
+
+def brawling_profile(profile):
+    """The profile as `;hunt brawl` fights it (#238): the parry stick as
+    the thing in the weapon hand (GET my <stick>, from wherever it
+    lives; "" is bare-handed), the brawling attacks in rotation instead
+    of ATTACK; the knife, the skins, the casts and the maneuvers as
+    they are."""
+    shaped = dict(profile)
+    shaped["weapon"] = profile.get("parry_stick") or ""
+    shaped["weapon_container"] = ""
+    shaped["_brawl"] = True
+    return shaped
+
+
+def plain_swing(profile, verb):
+    """True for a swing that is not a tactical maneuver: ATTACK, SMITE,
+    or a brawling attack under `;hunt brawl`."""
+    return verb in ("attack", "smite") or (
+        bool(profile.get("_brawl")) and verb in brawling(profile)
+    )
 
 
 def swing_verb(profile, tally, state=None):
@@ -350,6 +387,11 @@ def swing_verb(profile, tally, state=None):
     ):
         verb = rotation[tally.tactic % len(rotation)]
         tally.tactic += 1
+        return verb
+    if profile.get("_brawl"):
+        attacks = brawling(profile)
+        verb = attacks[tally.brawl % len(attacks)]
+        tally.brawl += 1
         return verb
     return "attack"
 
@@ -849,7 +891,7 @@ def swing(s, profile, tally, prey):
         s.echo("hunt: that SMITE drew on the soul pool — smiting off for this run")
     if verb == "smite" and any(word in lowered for word in _SMITE_STRUCK):
         tally.last_smite = clock()  # spent only when it struck
-    if verb in ("attack", "smite"):
+    if plain_swing(profile, verb):
         tally.since_maneuver += 1
     else:
         tally.since_maneuver = 0
@@ -1004,7 +1046,16 @@ def main(s):
         s.echo("downloading map database (first use, ~13MB) ...")
         download()
     db = MapDB.load()
-    travel = not (s.args and s.args[0] == "here")
+    words = [str(word).lower() for word in (s.args or [])]
+    travel = "here" not in words
+    if "brawl" in words:
+        if not brawling(profile):
+            s.echo(
+                "hunt: the profile lists no brawling attacks (brawling: punch, "
+                "kick, elbow) — nothing to swing"
+            )
+            return
+        profile = brawling_profile(profile)
     try:
         hunt(
             s,

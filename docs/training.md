@@ -99,6 +99,7 @@ Lanival's files as they stand on 2026-09-20, the shapes every other character's 
  "tasks": [
   {"name": "climbs",      "skills": ["Athletics"],       "script": "athletics"},
   {"name": "hunt",        "skills": [],                  "script": "hunt",        "return_word": "return"},
+  {"name": "brawl",       "skills": ["Brawling"],        "script": "hunt",        "args": ["brawl"], "return_word": "return"},
   {"name": "skins",       "skills": [],                  "script": "skins",       "args": ["bank"]},
   {"name": "bank",        "skills": [],                  "script": "bank"},
   {"name": "scholarship", "skills": ["Scholarship"],     "script": "scholarship", "args": ["books"], "return_word": "return"},
@@ -109,7 +110,7 @@ Lanival's files as they stand on 2026-09-20, the shapes every other character's 
 }
 ```
 
-What the loop does with it: the climbs until Athletics reaches 30, the hunt (its own skills come from the profile's weapon and armor, so `skills` stays empty and the task runs its thirty minutes), the skins sold and banked, the purse banked (`;bank`: every foreign coin exchanged at the money-changer into the province's own, then DEPOSIT ALL — coins weigh, #235), four library books, the zills until Performance locks, a lap of power walking, a forage — then the rest, wherever the last task ended (no `safe_rooms`), until every trained skill drains to 10, with the badge prayer, the tithe and the Chadatru prayer whenever their timers allow and up to three stat points bought on the guild's tiers. `return_word` marks the scripts that end gracefully on a typed `return` (the hunt finishes the kill and walks home); the others are killed at the target.
+What the loop does with it: the climbs until Athletics reaches 30, the hunt (its own skills come from the profile's weapon and armor, so `skills` stays empty and the task runs its thirty minutes), the same ground with fists until Brawling locks (`;hunt brawl`, the parry stick in hand once bought, #238), the skins sold and banked, the purse banked (`;bank`: every foreign coin exchanged at the money-changer into the province's own, then DEPOSIT ALL — coins weigh, #235), four library books, the zills until Performance locks, a lap of power walking, a forage — then the rest, wherever the last task ended (no `safe_rooms`), until every trained skill drains to 10, with the badge prayer, the tithe and the Chadatru prayer whenever their timers allow and up to three stat points bought on the guild's tiers. `return_word` marks the scripts that end gracefully on a typed `return` (the hunt finishes the kill and walks home); the others are killed at the target.
 
 ```json
 {
@@ -122,6 +123,7 @@ What the loop does with it: the climbs until Athletics reaches 30, the hunt (its
  "debilitation": "stun foe", "targeted": "footman's strike",
  "smite": false,
  "tactics": ["bob", "circle"], "perception": true,
+ "brawling": ["punch", "kick", "elbow"], "parry_stick": "",
  "health_floor": 60, "wound_floor": "harmful",
  "attune_start": "732", "instrument": "zills", "library": "11716"
 }
