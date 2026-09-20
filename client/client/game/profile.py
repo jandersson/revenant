@@ -129,6 +129,9 @@ DEFAULTS = {
     # The instrument ;perform plays for Performance, worn or held
     # ("zills"); "" means ;perform needs instrument=<noun> (#208).
     "instrument": "",
+    # The cloth ;perform cleans the instrument with when the game says
+    # its dirt weighs on the song ("rag"); "" plays it dirty (#233).
+    "instrument_cloth": "",
     # The library ;scholarship books reads in — a ;go2 target (the
     # Paladins' Guild library is 11716); "" reads where it stands (#210).
     "library": "",
@@ -220,6 +223,12 @@ FIELDS = (
         "Instrument ;perform plays (Performance)",
         "str",
         "zills — empty: none",
+    ),
+    (
+        "instrument_cloth",
+        "Cloth ;perform cleans the instrument with",
+        "str",
+        "rag — empty: a dirty instrument plays on",
     ),
     (
         "library",

@@ -174,7 +174,9 @@ for `client/client/<pkg>/x.py`.
   for a wandering NPC; `scripts/seek.py` stops in the room that has
   it (#207). `client/game/perform.py` is the song per rank band and
   PLAY's wordings; `scripts/perform.py` plays the profile's
-  `instrument` until mind-lock (#208). `client/game/soul.py` is a
+  `instrument` until mind-lock (#208), cleaning it once with the
+  profile's `instrument_cloth` when PLAY calls it dirty (#233).
+  `client/game/soul.py` is a
   Paladin's soul: the seven states and eleven pool levels parsed off
   RUB, EXHALE and the arch, the deeds that raise it (the 5-silver
   tithe every 4 h, the Chadatru prayer knelt until "soothing

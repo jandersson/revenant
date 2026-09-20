@@ -274,3 +274,118 @@ def test_a_guild_without_performance_is_told_so():
     out = run(fake)
     assert "EXP shows no Performance" in out
     assert fake.sent == ["exp performance"]
+
+
+# Captured 2026-09-20 on the copper zills (#233): the dirt warning at
+# PLAY, CLEAN's two demands, the wipe, the clean, and the zills on and
+# off the finger.
+DIRTY = "Your zills's dirtiness may affect your performance.\n"
+MUST_HOLD = "You must be holding the copper zills to clean them.\n"
+REMOVED = "You slide a pair of copper zills off your finger.\n"
+WET = (
+    "Your copper zills are so wet that they are still dripping!  Maybe you "
+    "should dry them off before attempting to clean them.\n"
+)
+WIPED = (
+    "Using your rag, you scrub at your copper zills in attempt to wipe the "
+    "water from them.  Your rag soaks up the water easily, but remains "
+    "noticably damp afterwards.\n[Roundtime: 4 seconds.]\n"
+)
+CLEANED = (
+    "With sure strokes that display your innate talent, you spend a few "
+    "moments cleaning your copper zills.  You manage to clean a very large "
+    "amount of dirt and grime from them.\n[Roundtime: 5 seconds.]\n"
+)
+WORN = "You slide a pair of copper zills onto your finger.\n"
+GOT_RAG = "You get a cotton rag from inside your canvas sack.\n"
+STOWED_RAG = "You put your rag in your canvas sack.\n"
+
+
+class DirtyZills(Fake):
+    """The first PLAY warns of dirt; CLEAN wants the zills in hand, then
+    finds them wet, then cleans them — the captured sequence."""
+
+    def __init__(self, *args, rag=True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.rag = rag
+        self.cleans = [MUST_HOLD, WET, CLEANED]
+        self.warned = False
+
+    def ask(self, s, command, *_):
+        if command.startswith("play ") and not self.warned:
+            self.warned = True
+            return DIRTY + super().ask(s, command)
+        answers = {
+            "get my rag": GOT_RAG if self.rag else "What were you referring to?\n",
+            "remove my zills": REMOVED,
+            "wipe my zills with my rag": WIPED,
+            "wear my zills": WORN,
+            "stow my rag": STOWED_RAG,
+        }
+        if command in answers:
+            self.sent.append(command)
+            return answers[command]
+        if command == "clean my zills with my rag":
+            self.sent.append(command)
+            return self.cleans.pop(0)
+        return super().ask(s, command)
+
+
+def _with_cloth(monkeypatch, tmp_path, cloth):
+    monkeypatch.setenv("REVENANT_PROFILES", str(tmp_path))
+    from client.game import profile
+
+    profile.save_profile(
+        "Lanival", profile.load_profile("Lanival") | {"instrument_cloth": cloth}
+    )
+
+
+def test_a_dirty_instrument_is_cleaned_once_with_the_profiles_cloth(
+    monkeypatch, tmp_path
+):
+    # #233: the game warned of the zills' dirt before every song of an
+    # evening and the ranks paid for it. The first warning of a run has
+    # the cloth fetched, the song stopped, the zills removed (CLEAN wants
+    # them held), wiped (they were wet), cleaned, worn again, the cloth
+    # stowed, and the song started over.
+    _with_cloth(monkeypatch, tmp_path, "rag")
+    fake = DirtyZills(mindstates=[5, 34])
+    run(fake, ["once"])
+    assert fake.sent[:11] == [
+        "play scales off-key on my zills",
+        "get my rag",
+        "stop play",
+        "clean my zills with my rag",
+        "remove my zills",
+        "clean my zills with my rag",
+        "wipe my zills with my rag",
+        "clean my zills with my rag",
+        "wear my zills",
+        "stow my rag",
+        "play scales off-key on my zills",
+    ]
+    assert any("zills cleaned with the rag" in t for t in fake.echoed)
+    assert not any("drop" in c for c in fake.sent)
+
+
+def test_a_dirty_instrument_plays_on_without_a_cloth(monkeypatch, tmp_path):
+    # No cloth in the profile: said once, the song plays dirty.
+    _with_cloth(monkeypatch, tmp_path, "")
+    fake = DirtyZills(mindstates=[5, 34])
+    run(fake, ["once"])
+    assert plays(fake) == ["play scales off-key on my zills"]
+    assert not any(c.startswith(("clean", "get")) for c in fake.sent)
+    assert any(
+        "names no cloth (instrument_cloth) — playing on" in t for t in fake.echoed
+    )
+    # A cloth named but not on you: said, the song plays on unstopped.
+    _with_cloth(monkeypatch, tmp_path, "rag")
+    gone = DirtyZills(mindstates=[5, 34], rag=False)
+    run(gone, ["once"])
+    assert gone.sent[:3] == [
+        "play scales off-key on my zills",
+        "get my rag",
+        "stop play",
+    ]
+    assert plays(gone) == ["play scales off-key on my zills"]
+    assert any("no rag on you — the zills plays dirty" in t for t in gone.echoed)

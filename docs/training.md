@@ -366,6 +366,42 @@ and reached rank 3 on the second song. Whether a song ends on its
 own, and its wording, is uncaptured (the script's ENDED table is a
 guess); so is a PLAY with no instrument on you.
 
+An instrument gathers dirt as it plays, and the game says so at PLAY:
+"Your zills's dirtiness may affect your performance." (2026-09-20,
+before every song of the evening). The first such warning of a run
+has `;perform` clean it with the profile's `instrument_cloth` (a
+cotton rag, the True Bard D'Or, 62 Kronars) and start the song over;
+no cloth in the profile, or none on you, is said once and the song
+plays dirty (#233). CLEAN <instrument> WITH <cloth> is the wiki's
+verb ([Clean command](https://elanthipedia.play.net/Clean_command):
+"CLEAN (stringed/percussion instrument) WITH (cloth)"), and it wants
+the instrument in hand and dry, so the sequence, captured by hand
+that day, is:
+
+```
+> get my rag
+> stop play
+> clean my zills with my rag
+You must be holding the copper zills to clean them.
+> remove my zills
+You slide a pair of copper zills off your finger.
+> clean my zills with my rag
+Your copper zills are so wet that they are still dripping!  Maybe you should dry them off before attempting to clean them.
+> wipe my zills with my rag
+Using your rag, you scrub at your copper zills in attempt to wipe the water from them.  Your rag soaks up the water easily, but remains noticably damp afterwards.
+[Roundtime: 4 seconds.]
+> clean my zills with my rag
+With sure strokes that display your innate talent, you spend a few moments cleaning your copper zills.  You manage to clean a very large amount of dirt and grime from them.
+[Roundtime: 5 seconds.]
+> wear my zills
+You slide a pair of copper zills onto your finger.
+> stow my rag
+```
+
+DRY is not a verb ("Please rephrase that command."); the wet zills
+were a river crossing's. Whatever else a hand holds is STOWed before
+the cloth is fetched, never dropped.
+
 ## Reading: ;scholarship books
 
 Scholarship trains by "reading books at a library"

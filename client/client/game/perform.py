@@ -20,7 +20,9 @@ GO DOCK and a walk of a hundred rooms (it was still going after 95
 seconds), but the walker's RETREAT burst ended it: "You stop your
 performance." Whether a song ends on its own, and its wording, is
 uncaptured (ENDED is a guess), as is a PLAY without the instrument.
-Model: docs/training.md.
+An instrument gathers dirt as it plays and the game says so at PLAY;
+CLEAN with a cloth takes it off (Elanthipedia: Clean command; the
+wordings below, #233). Model: docs/training.md.
 """
 
 # (first rank of the band, song) — Elanthipedia: Play command.
@@ -56,6 +58,30 @@ NO_INSTRUMENT = ("what were you referring", "could not find", "don't have")
 # game refuses a song — "You decide that now isn't the best time to be
 # playing, and stop." The song is for another room, not another try.
 NOT_HERE = ("isn't the best time to be playing",)
+
+# Instrument care (#233; Elanthipedia: Clean command — "CLEAN
+# (stringed/percussion instrument) WITH (cloth)"), captured 2026-09-20
+# on the copper zills. The game says at PLAY when dirt weighs on the
+# song: "Your zills's dirtiness may affect your performance." CLEAN
+# wants the instrument in hand — "You must be holding the copper zills
+# to clean them." (REMOVE: "You slide a pair of copper zills off your
+# finger.") — and dry: "Your copper zills are so wet that they are
+# still dripping!  Maybe you should dry them off before attempting to
+# clean them.", which WIPE <instrument> WITH <cloth> answers, "Using
+# your rag, you scrub at your copper zills in attempt to wipe the water
+# from them.  Your rag soaks up the water easily, but remains noticably
+# damp afterwards." (4 s). The clean itself: "With sure strokes that
+# display your innate talent, you spend a few moments cleaning your
+# copper zills.  You manage to clean a very large amount of dirt and
+# grime from them." (5 s); WEAR puts it back, "You slide a pair of
+# copper zills onto your finger." A GET of a cloth not on you is
+# assumed to answer the usual "What were you referring to?".
+DIRTY = ("dirtiness may affect",)
+MUST_HOLD = ("must be holding",)
+WET = ("still dripping",)
+WIPED = ("wipe the water",)
+CLEANED = ("moments cleaning", "dirt and grime")
+NO_CLOTH = ("what were you referring", "could not find")
 
 
 def song_for(rank):

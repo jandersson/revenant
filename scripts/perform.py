@@ -3,6 +3,7 @@
     ;perform                    play the rank's song off-key on the profile's instrument until mind-lock
     ;perform instrument=zills   another instrument (the profile's `instrument` otherwise)
                                 a room that refuses a song (a bank's teller: "now isn't the best time to be playing") sends it home once, the profile's `home`, to play there
+                                an instrument the game calls dirty at PLAY is cleaned once per run with the profile's `instrument_cloth` (REMOVE, WIPE when wet, CLEAN, WEAR), then played again; no cloth is said once and the song plays dirty
     ;perform song=ballad        a song of your own instead of the rank's band
     ;perform mood=halting       another style (off-key by default; mood= alone for the plain style)
     ;perform until=30           stop at that mindstate instead of 34
@@ -27,6 +28,17 @@ ruff on your copper zills." / "You continue playing on your copper
 zills." / "You're already playing a song!  You'll need to stop that
 one first." / "You stop playing your song." — and a RETREAT ends a
 song too: "You stop your performance."
+An instrument gathers dirt as it plays, and the game says so at PLAY
+("Your zills's dirtiness may affect your performance.", 2026-09-20 —
+every song of an evening, the ranks paying for it). The first such
+warning of a run has the script GET the profile's `instrument_cloth`
+(a cotton rag), STOP PLAY and CLEAN <instrument> WITH MY <cloth>
+(Elanthipedia: Clean command; client/game/perform.py's wordings):
+CLEAN wants the instrument in hand, so a worn one is REMOVEd and worn
+again after; a wet one ("so wet that they are still dripping") is
+WIPEd with the cloth first; the cloth is stowed and the song starts
+over (#233). No cloth in the profile, or none on you, is said once
+and the song plays dirty; nothing is ever dropped.
 Stop with:  ;stop perform (the song plays on — STOP PLAY yourself), or ;perform return.
 """
 
@@ -37,11 +49,16 @@ from client.engine.xml_data import LEARNING_RATES
 from client.game import probe
 from client.game.perform import (
     ALREADY,
+    CLEANED,
+    DIRTY,
     ENDED,
+    MUST_HOLD,
+    NO_CLOTH,
     NO_INSTRUMENT,
     NOT_HERE,
     STARTED,
     STOPPED,
+    WET,
     parse_args,
     play_command,
     song_for,
@@ -60,12 +77,68 @@ _EXP_ANSWER = re.compile(r"Performance:\s+(\d+)\s+[\d.]+%\s+.*?\((\d+)/34\)")
 
 def instrument_of(s):
     """The profile's instrument, or ""."""
+    return _profile_field(s, "instrument")
+
+
+def cloth_of(s):
+    """The profile's cleaning cloth (`instrument_cloth`), or "" (#233)."""
+    return _profile_field(s, "instrument_cloth")
+
+
+def _profile_field(s, key):
     name = getattr(s.state, "name", None)
     if not name:
         return ""
     from client.game.profile import load_profile
 
-    return str(load_profile(name).get("instrument") or "").strip()
+    return str(load_profile(name).get(key) or "").strip()
+
+
+def ask(s, command):
+    """The game's answer to one command, lower-cased."""
+    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS).lower()
+
+
+def fetch_cloth(s, instrument, cloth):
+    """The cleaning cloth into a hand: whatever else a hand holds is
+    STOWed first (never dropped), then GET. False, said once, when the
+    game finds no such cloth on you."""
+    for side in ("left", "right"):
+        held = getattr(s.state, f"{side}_hand", None)
+        noun = held.get("noun") if isinstance(held, dict) else None
+        if noun and noun.lower() not in (instrument.lower(), cloth.lower()):
+            ask(s, f"stow my {noun}")
+    answer = ask(s, f"get my {cloth}")
+    if any(word in answer for word in NO_CLOTH):
+        s.echo(f"perform: no {cloth} on you — the {instrument} plays dirty")
+        return False
+    return True
+
+
+def clean_instrument(s, instrument, cloth):
+    """CLEAN the instrument with the cloth in hand (#233): REMOVE it when
+    the game wants it held, WIPE it when wet, then CLEAN; worn again if
+    removed, the cloth stowed. True when the game said it was cleaned."""
+    removed = cleaned = False
+    for _ in range(4):
+        answer = ask(s, f"clean my {instrument} with my {cloth}")
+        if any(word in answer for word in CLEANED):
+            cleaned = True
+            break
+        if any(word in answer for word in MUST_HOLD):
+            ask(s, f"remove my {instrument}")
+            removed = True
+        elif any(word in answer for word in WET):
+            ask(s, f"wipe my {instrument} with my {cloth}")
+        else:
+            s.echo("perform: CLEAN answered nothing known — please report it")
+            break
+    if removed:
+        ask(s, f"wear my {instrument}")
+    ask(s, f"stow my {cloth}")
+    if cleaned:
+        s.echo(f"perform: {instrument} cleaned with the {cloth}")
+    return cleaned
 
 
 def entry(s):
@@ -124,22 +197,21 @@ def wants_stop(s):
 
 
 def start_song(s, options):
-    """PLAY; "playing" when the song started (or was already running),
-    "no instrument" when the game found none, "unknown" otherwise."""
+    """PLAY; ("playing", dirty) when the song started (or was already
+    running) — dirty True when the game said the instrument's dirt
+    weighs on it (#233) — ("no instrument", False) when the game found
+    none, ("not here", False) for a room that refuses a song,
+    ("unknown", False) otherwise."""
     song = options["song"] or song_for(rank(s))
-    answer = probe.ask(
-        s,
-        play_command(song, options["mood"], options["instrument"]),
-        COLLECT_SECONDS,
-        TAIL_SECONDS,
-    ).lower()
+    answer = ask(s, play_command(song, options["mood"], options["instrument"]))
+    dirty = any(word in answer for word in DIRTY)
     if any(word in answer for word in STARTED + ALREADY):
-        return "playing"
+        return "playing", dirty
     if any(word in answer for word in NO_INSTRUMENT):
-        return "no instrument"
+        return "no instrument", False
     if any(word in answer for word in NOT_HERE):
-        return "not here"
-    return "unknown"
+        return "not here", False
+    return "unknown", False
 
 
 def home_of(s):
@@ -213,6 +285,7 @@ def run(s, options, walker=walk_home):
     playing = False
     songs = 0
     moved = False  # walked home once for a room that refuses a song
+    cleaned = False  # the instrument cleaned once for a dirt warning (#233)
     while True:
         reason = danger(s)
         if reason:
@@ -233,7 +306,7 @@ def run(s, options, walker=walk_home):
                 return
             continue
         if not playing:
-            outcome = start_song(s, options)
+            outcome, dirty = start_song(s, options)
             if outcome == "no instrument":
                 s.echo(f"perform: no {options['instrument']} on you — stopping")
                 return
@@ -263,6 +336,21 @@ def run(s, options, walker=walk_home):
                     "perform: PLAY answered nothing known — please report it — stopping"
                 )
                 return
+            if dirty and not cleaned:
+                # The game says the dirt weighs on the song (#233): once
+                # per run, the profile's cloth cleans the instrument and
+                # the song starts over; no cloth means playing dirty.
+                cleaned = True
+                cloth = cloth_of(s)
+                if not cloth:
+                    s.echo(
+                        f"perform: the {options['instrument']} is dirty and the "
+                        "profile names no cloth (instrument_cloth) — playing on"
+                    )
+                elif fetch_cloth(s, options["instrument"], cloth):
+                    stop_song(s)
+                    clean_instrument(s, options["instrument"], cloth)
+                    continue
             playing = True
             songs += 1
             s.echo(
