@@ -272,12 +272,20 @@ def go_to(s, db, walk, target):
 def soul_due(s, plan):
     """The soul deeds whose timers allow them now, in SOUL_DEEDS order —
     [] unless the plan's `soul` is on (#227). Reads the timers `;soul`
-    keeps in ~/.revenant/soul/<name>.json, so the two never tithe twice."""
+    keeps in ~/.revenant/soul/<name>.json, so the two never tithe twice.
+    With no fresh state reading the reading comes first (["read"]: RUB
+    at an orb, else the nearest soulstone arch, #231), and while the
+    reading says pristine nothing is due: the deeds restore a soul,
+    they do not maintain one (the operator, 2026-09-20)."""
     if plan.get("soul", "off") != "on":
         return []
     from client.game import soul
 
     timers = soul.load_timers(getattr(s.state, "name", None) or "")
+    if soul.last_state(timers) is None and soul.due(timers, "read") == 0:
+        return ["read"]
+    if not soul.deeds_needed(timers):
+        return []
     return [
         deed
         for deed in SOUL_DEEDS
@@ -299,7 +307,11 @@ def soul_step(s, plan, db, walk, room):
         return False
     if not s.run("soul", [deed]):
         return False
-    s.echo(f"train: soul deed — ;soul {deed}")
+    s.echo(
+        "train: soul reading — ;soul read"
+        if deed == "read"
+        else f"train: soul deed — ;soul {deed}"
+    )
     started = clock()
     while s.is_running("soul"):
         if s.dead or clock() - started >= SOUL_MINUTES * 60:

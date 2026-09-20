@@ -20,7 +20,9 @@ FOCUS ORB in the Tower of Honor's Orb Room (map 8228) answered "You attempt to f
 
 The timers live in `~/.revenant/soul/<name>.json` (the last acceptance and the last refusal per deed), so a restarted `;soul keep` does not tithe twice. A deed's room more than 80 rooms away is skipped, not walked to: a keep in Shard must not set off for the Crossing's boxes, nor the other way round.
 
-The readings (`;soul` alone) want an orb in the room or a carried soulstone; the Crossing guild has no orb, so there the state comes off the soulstone archway between the Chambers and the Hallway on every pass ("The archway gleams with a pristine luminescence in welcome!", 2026-09-20, the same words as a RUB) and the pool has no reading short of Shard's Orb Room.
+The readings (`;soul` alone) RUB and EXHALE an orb in the room; with none — the Crossing guild has no orb — the state comes off the nearest soulstone arch (`soul.ARCHES`: the guild's Chambers `go arch` into the Hallway, Shard's `go tower` from Xibar's Crescent Road), stepped through for "The archway gleams with a pristine luminescence in welcome!" (2026-09-20), the same words as a RUB (#231); the pool has no reading short of Shard's Orb Room. A state reading is kept in the timers file (`read`, `state`) for four hours.
+
+**The pristine gate** (the operator, 2026-09-20): while a reading younger than four hours says pristine, `;soul keep` and `;train`'s rests run no deed at all — the deeds restore a soul, they do not maintain one, and the wiki's soul drift is slow and never takes the soul below chalky grey on its own. With no fresh reading the reading comes first (`;train` runs `;soul read` in the rest, then walks back); a reading that fails (no arch within 80 rooms, an answer the table does not know) backs off twenty minutes and the deeds run on the old rule meanwhile. Below pristine the deeds run on their timers as before.
 
 ## What lowers it
 

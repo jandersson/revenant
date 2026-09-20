@@ -194,7 +194,8 @@ def echoes(fake):
     return "\n".join(fake.echoed)
 
 
-def test_a_bare_soul_rubs_and_exhales_the_orb_and_says_both():
+def test_a_bare_soul_rubs_and_exhales_the_orb_and_says_both(monkeypatch, tmp_path):
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
     fake = Fake(
         {"rub": [RUB_WHITE], "exhale": [EXHALE_FLICKER]}, objs="a soulstone orb"
     )
@@ -203,11 +204,68 @@ def test_a_bare_soul_rubs_and_exhales_the_orb_and_says_both():
     assert "soul: steady white hue (5/7), pool: 2/11" in echoes(fake)
 
 
-def test_without_an_orb_the_reading_asks_your_soulstone_and_reports_nothing_to_read():
+def test_without_an_orb_the_reading_asks_your_soulstone_and_reports_nothing_to_read(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
     fake = Fake({"rub": ["What were you referring to?\n"], "exhale": [""]})
-    script.run(fake, [])
+    script.run(fake, [])  # no map: the soulstone in the pocket is the only try
     assert fake.sent == ["rub my soulstone", "exhale my soulstone"]
     assert "nothing to read here" in echoes(fake)
+
+
+# The arches' lines: the Crossing guild 2026-09-20, Shard's tower 2026-09-19.
+ARCH_PRISTINE = (
+    "You step through a shining soulstone archway....\n"
+    "The archway gleams with a pristine luminescence in welcome!\n"
+)
+ARCH_WHITE = (
+    "You step through a gleaming soulstone archway....\n"
+    "The archway emits a warm, steady white hue!\n"
+)
+
+
+def test_without_an_orb_the_reading_walks_through_the_nearest_arch_and_keeps_the_state(
+    monkeypatch, tmp_path
+):
+    # #231: the Crossing guild has no orb; the soulstone arch answers the
+    # state in the RUB's words, the pool has no reading there.
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    monkeypatch.setattr(script, "clock", lambda: 1000.0)
+    fake = Fake({"go": [ARCH_PRISTINE]})
+    script.run(fake, [], mapdb=MAP, walk_fn=walk)
+    assert fake.walks == [{2522}]  # Xibar's Crescent Road: `go tower` is the arch
+    assert fake.sent == ["go tower"]
+    assert "(7/7) (the arch; the pool wants an orb" in echoes(fake)
+    assert soul.load_timers("Lanival") == {"read": 1000.0, "state": 7}
+    # An arch that answers nothing the table knows is a refusal: backoff.
+    silent = Fake({"go": ["You can't go there.\n"]})
+    script.run(silent, [], mapdb=MAP, walk_fn=walk)
+    assert "nothing the table knows" in echoes(silent)
+    assert soul.load_timers("Lanival")["read_refused"] == 1000.0
+
+
+def test_keep_reads_the_state_first_and_skips_every_deed_while_pristine(
+    monkeypatch, tmp_path
+):
+    # The operator, 2026-09-20: a pristine soul wants no deeds.
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    monkeypatch.setattr(script, "clock", lambda: 5000.0)
+    soul.save_timers("Lanival", {})  # no reading, every deed due
+    fake = Fake({"go": [ARCH_PRISTINE]})
+    fake.commands = [None, "return"]
+    script.run(fake, ["keep"], mapdb=MAP, walk_fn=walk)
+    assert fake.sent == ["go tower"]  # no badge, no tithe, no prayer
+    assert "soul: pristine — no deeds needed" in echoes(fake)
+    assert soul.load_timers("Lanival") == {"read": 5000.0, "state": 7}
+    # Below pristine the deeds run as before (the tithe here).
+    monkeypatch.setattr(script, "clock", lambda: 9000.0)
+    soul.save_timers("Lanival", {"badge": 9000.0, "pray": 9000.0})
+    fake = Fake({"go": [ARCH_WHITE], "wealth": [WEALTH_RICH], "put": [TITHED]})
+    fake.commands = [None, "return"]
+    script.run(fake, ["keep"], mapdb=MAP, walk_fn=walk)
+    assert fake.sent == ["go tower", "wealth", "put 5 silver dokoras in almsbox"]
+    assert soul.load_timers("Lanival")["state"] == 5
 
 
 def test_the_tithe_walks_to_the_almsbox_and_puts_the_towns_coin_in(
@@ -319,8 +377,11 @@ def test_the_scene_guards_the_girl_on_her_line_and_ends_on_the_gift():
 
 def test_keep_does_the_due_deeds_and_ends_on_return(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
-    # The tithe never done; the prayer and the badge just.
-    soul.save_timers("Lanival", {"pray": 5000.0, "badge": 5000.0})
+    # The tithe never done; the prayer and the badge just; the soul read
+    # steady white a minute ago (below pristine: the deeds run).
+    soul.save_timers(
+        "Lanival", soul.mark_state({"pray": 5000.0, "badge": 5000.0}, 5, 5000.0)
+    )
     monkeypatch.setattr(script, "clock", lambda: 5000.0 + 60)
     fake = Fake({"wealth": [WEALTH_RICH], "put": [TITHED]})
     fake.commands = [None, "return"]  # read on the second loop, after the tithe
@@ -415,7 +476,9 @@ def test_a_badge_prayer_within_its_timer_is_said_and_backed_off(monkeypatch, tmp
 
 def test_keep_prays_on_the_badge_when_its_timer_allows(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
-    soul.save_timers("Lanival", {"tithe": 5000.0, "pray": 5000.0})  # only the badge due
+    soul.save_timers(  # only the badge due, the soul read below pristine
+        "Lanival", soul.mark_state({"tithe": 5000.0, "pray": 5000.0}, 5, 5000.0)
+    )
     monkeypatch.setattr(script, "clock", lambda: 5000.0 + 60)
     fake = Fake(
         {

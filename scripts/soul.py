@@ -1,7 +1,7 @@
 """Keep a Paladin's soul up and read it:  ;soul
 
-    ;soul                     read the soul: RUB and EXHALE the orb here (or your soulstone), say the state and pool
-    ;soul keep                keep the boosts running on their timers — badge every 31 min, tithe every 4 h, Chadatru every 2 h — until ;soul return
+    ;soul                     read the soul: RUB and EXHALE the orb here, else walk through the nearest soulstone arch for the state; say it
+    ;soul keep                keep the boosts running on their timers — badge every 31 min, tithe every 4 h, Chadatru every 2 h — while the soul reads below pristine, until ;soul return
     ;soul tithe               one tithe of 5 silver at the nearest almsbox (the map's `tithe` rooms and the Crossing's two), then back
     ;soul pray                one prayer at the nearest Chadatru altar, knelt until it completes
     ;soul badge               one PRAY BADGE on the pilgrim's badge (REMOVE it, pray, WEAR it), wherever you stand
@@ -21,7 +21,14 @@ whose inscription says so, IN ALMSBOX elsewhere — the noun is read off
 the room's listing), walk to the altar, PRAY CHADATRU and stay
 knelt until "A warm, soothing sensation washes over your soul" — and
 the readings the scripts there never take: RUB for the state, EXHALE
-for the pool. The pilgrim's badge is the third deed (2026-09-20):
+for the pool at an orb, and where there is none — the Crossing guild
+has no orb — a walk through the nearest soulstone arch (the guild's
+Chambers, Shard's tower door) for the state alone, in the RUB's words
+(#231). A reading is kept four hours in the timers file, and while
+it says pristine no deed runs: the deeds restore a soul, they do not
+maintain one, and the soul drifts slowly and never below chalky grey
+on its own (Elanthipedia: Soul system; the operator, 2026-09-20). A
+stale reading is taken again first. The pilgrim's badge is the third deed (2026-09-20):
 REMOVE MY BADGE (it is worn; GET it when it is not), PRAY BADGE, WEAR
 it again, every thirty-one minutes wherever
 the character stands — "A warm, soothing sensation washes over your
@@ -48,6 +55,7 @@ from client.game.money import parse_wealth
 from client.game.soul import (
     ALMSBOXES,
     ALTARS,
+    ARCHES,
     BADGE_DONE,
     BADGE_EMPTY,
     BADGE_NONE,
@@ -72,10 +80,12 @@ from client.game.soul import (
     box_noun,
     classify,
     currency_for,
+    deeds_needed,
     describe,
     due,
     load_timers,
     mark,
+    mark_state,
     parse_args,
     parse_pool,
     parse_state,
@@ -151,19 +161,60 @@ def reading_noun(s):
     return "my soulstone"
 
 
-def read_soul(s):
-    """RUB and EXHALE: (state, pool), either None when unread."""
+def read_soul(s, mapdb=None, walk_fn=walk, timers=None):
+    """The readings: RUB and EXHALE the orb here (or a carried soulstone
+    when no map is given), else a walk through the nearest soulstone
+    arch for the state alone (#231). (state, pool), either None when
+    unread; a state read is recorded in `timers` when given."""
     noun = reading_noun(s)
-    rub = ask(s, f"rub {noun}")
-    state = parse_state(rub)
-    exhale = ask(s, f"exhale {noun}")
-    pool = parse_pool(exhale)
-    if state is None and pool is None:
-        s.echo(f"soul: nothing to read here — RUB {noun} answered:")
-        echo_lines(s, rub)
-        return None, None
-    s.echo(f"soul: {describe(state, pool)}")
+    if noun == "orb" or mapdb is None:
+        rub = ask(s, f"rub {noun}")
+        state = parse_state(rub)
+        exhale = ask(s, f"exhale {noun}")
+        pool = parse_pool(exhale)
+        if state is None and pool is None:
+            s.echo(f"soul: nothing to read here — RUB {noun} answered:")
+            echo_lines(s, rub)
+            if timers is not None:
+                mark(timers, "read", False, clock())
+            return None, None
+        s.echo(f"soul: {describe(state, pool)}")
+    else:
+        state, pool = read_arch(s, mapdb, walk_fn), None
+    if timers is not None:
+        if state is not None:
+            mark_state(timers, state, clock())
+        else:
+            mark(timers, "read", False, clock())
     return state, pool
+
+
+def read_arch(s, mapdb, walk_fn=walk):
+    """Walk to the nearest soulstone arch and step through it; the
+    state its line carries, or None (no arch near, or an answer the
+    table does not know). The pool has no reading here."""
+    rooms = {room for room in ARCHES if room in mapdb.rooms}
+    if not rooms:
+        s.echo("soul: no soulstone arch on the map — read the orb (Shard's Orb Room)")
+        return None
+    if too_far(s, mapdb, rooms, "soulstone arch"):
+        return None
+    if not walk_fn(s, mapdb, rooms, describe="the soulstone arch"):
+        s.echo("soul: could not reach a soulstone arch")
+        return None
+    here = locate(mapdb, s.state)
+    command = ARCHES.get(here, ("go arch", None, ""))[0]
+    answer = ask(s, command)
+    state = parse_state(answer)
+    if state is None:
+        s.echo(f"soul: the arch answered nothing the table knows to {command.upper()}:")
+        echo_lines(s, answer)
+        return None
+    s.echo(
+        f"soul: {describe(state, None)} (the arch; the pool wants an orb — "
+        "Shard's Orb Room)"
+    )
+    return state
 
 
 # --- the deeds --------------------------------------------------------------
@@ -388,6 +439,7 @@ def quest(s, mapdb, options, walk_fn=walk):
 def keep(s, mapdb, timers, options, walk_fn=walk):
     """The deeds whenever their timers allow, forever."""
     s.echo("soul: keeping the boosts running — ;soul return ends it")
+    said_pristine = False
     while True:
         reason = danger(s)
         if reason:
@@ -397,6 +449,21 @@ def keep(s, mapdb, timers, options, walk_fn=walk):
             s.echo("soul: stopping as asked")
             return
         did = False
+        if due(timers, "read", clock()) == 0:
+            # No fresh reading (or the last one aged out): the state
+            # first, since a pristine soul wants no deed.
+            read_soul(s, mapdb, walk_fn, timers)
+            save_timers(character(s), timers)
+            said_pristine = False
+        if not deeds_needed(timers, clock()):
+            if not said_pristine:
+                s.echo(
+                    "soul: pristine — no deeds needed; the arch is read again in "
+                    f"{due(timers, 'read', clock()) / 60:.0f} min"
+                )
+                said_pristine = True
+            s.sleep(max(KEEP_POLL, min(due(timers, "read", clock()), KEEP_POLL * 10)))
+            continue
         if not timers.get("badge_off") and due(timers, "badge", clock()) == 0:
             pray_badge(s, timers)
             save_timers(character(s), timers)
@@ -410,7 +477,7 @@ def keep(s, mapdb, timers, options, walk_fn=walk):
             save_timers(character(s), timers)
             did = True
         if did and locate(mapdb, s.state) == ORB_ROOM:
-            read_soul(s)
+            read_soul(s, mapdb, walk_fn, timers)
         deeds = ("tithe", "pray") + (() if timers.get("badge_off") else ("badge",))
         waits = {deed: due(timers, deed, clock()) for deed in deeds}
         soonest = min(waits.values())
@@ -429,10 +496,11 @@ def keep(s, mapdb, timers, options, walk_fn=walk):
 def run(s, words, mapdb=None, walk_fn=walk):
     options = parse_args(words)
     verb = options["verb"]
-    if verb == "read":
-        read_soul(s)
-        return
     timers = load_timers(character(s))
+    if verb == "read":
+        read_soul(s, mapdb, walk_fn, timers)
+        save_timers(character(s), timers)
+        return
     timers.pop("badge_off", None)  # a new run looks for the badge again
     if verb == "badge":
         pray_badge(s, timers)
@@ -454,6 +522,4 @@ def run(s, words, mapdb=None, walk_fn=walk):
 
 
 def main(s):
-    words = list(s.args or [])
-    options = parse_args(words)
-    run(s, words, mapdb=None if options["verb"] == "read" else MapDB.load())
+    run(s, list(s.args or []), mapdb=MapDB.load())

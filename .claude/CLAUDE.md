@@ -175,7 +175,10 @@ for `client/client/<pkg>/x.py`.
   RUB, EXHALE and the arch, the deeds that raise it (the 5-silver
   tithe every 4 h, the Chadatru prayer knelt until "soothing
   sensation") and their timers in `~/.revenant/soul/<name>.json`;
-  `scripts/soul.py` reads it, `keep`s the deeds running, and runs the
+  `scripts/soul.py` reads it (an orb, else the nearest soulstone arch
+  for the state, #231), `keep`s the deeds running while the reading
+  says below pristine — a fresh pristine reading gates every deed,
+  in `;train`'s rests too — and runs the
   Glyph of Warding scene at the guild orb once pristine and full
   (#224). Model: docs/soul.md. `client/game/scholarship.py`
   is the Lorethew library's grammar and the reader's page loop;

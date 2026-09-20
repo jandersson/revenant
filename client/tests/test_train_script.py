@@ -492,7 +492,9 @@ def test_a_rest_runs_the_due_soul_deed_and_walks_back(clock, monkeypatch, tmp_pa
     import time
 
     now = time.time()  # soul's timers run on the wall clock, not the fake's
-    soul.save_timers("Lanival", {"badge": now, "pray": now})  # the tithe never done
+    # The tithe never done, the soul read steady white just now (below
+    # pristine: the deeds run).
+    soul.save_timers("Lanival", soul.mark_state({"badge": now, "pray": now}, 5, now))
     fake = Fake(
         [{"Athletics": 30, "Small Edged": 30}, {"Athletics": 20}, {"Athletics": 10}],
         exits={"soul": 15},
@@ -504,6 +506,34 @@ def test_a_rest_runs_the_due_soul_deed_and_walks_back(clock, monkeypatch, tmp_pa
     assert fake.walks == [{1}, {1}]  # the rest's room, then back after the tithe
     assert fake.sent == ["sit", "sit"]
     assert any("soul deed — ;soul tithe" in text for text in fake.echoed)
+
+
+def test_a_fresh_pristine_reading_skips_the_deeds_and_none_asks_for_one(
+    clock, monkeypatch, tmp_path
+):
+    # The operator, 2026-09-20: at pristine no soul action in ;train;
+    # with no reading the reading comes first (#231).
+    from client.game import soul
+
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path / "soul"))
+    import time
+
+    now = time.time()
+    soul.save_timers("Lanival", soul.mark_state({}, 7, now))  # the tithe never done
+    fake = Fake(
+        [{"Athletics": 30, "Small Edged": 30}, {"Athletics": 20}, {"Athletics": 10}],
+        exits={"soul": 15},
+    )
+    run(clock, fake, plan(soul="on"))
+    assert fake.started == []
+    soul.save_timers("Lanival", {"badge": now, "pray": now})  # no reading at all
+    fake = Fake(
+        [{"Athletics": 30, "Small Edged": 30}, {"Athletics": 20}, {"Athletics": 10}],
+        exits={"soul": 15},
+    )
+    run(clock, fake, plan(soul="on"))
+    assert fake.started[0] == ("soul", ["read"])
+    assert any("soul reading — ;soul read" in text for text in fake.echoed)
 
 
 def test_train_takes_a_running_soul_keep_over(clock):

@@ -85,6 +85,28 @@ def test_the_coin_follows_the_province_and_the_tithe_command_says_it():
     assert soul.tithe_command("dokoras") == "put 5 silver dokoras in almsbox"
 
 
+def test_a_fresh_pristine_reading_gates_the_deeds_and_ages_out_in_four_hours():
+    # The operator, 2026-09-20: at pristine no deed is needed; the wiki's
+    # soul drift is slow, so a reading stands four hours (#231).
+    timers = soul.mark_state({}, 7, now=1000.0)
+    assert timers == {"read": 1000.0, "state": 7}
+    assert soul.last_state(timers, now=1000.0 + 3 * 3600) == 7
+    assert not soul.deeds_needed(timers, now=1000.0 + 3 * 3600)
+    assert soul.last_state(timers, now=1000.0 + 4 * 3600) is None
+    assert soul.deeds_needed(timers, now=1000.0 + 4 * 3600)
+    assert soul.due(timers, "read", now=1000.0 + 3600) == 3 * 3600
+    assert soul.due(timers, "read", now=1000.0 + 4 * 3600) == 0
+    assert soul.deeds_needed(soul.mark_state({}, 5, now=1000.0), now=1000.0)
+    assert soul.deeds_needed({}, now=1000.0)  # unknown: the deeds run
+    refused = soul.mark({}, "read", False, now=1000.0)  # no arch near: backoff
+    assert soul.due(refused, "read", now=1000.0) == 20 * 60
+    assert {7890, 2522} <= set(soul.ARCHES)
+    assert (
+        soul.parse_state("The archway gleams with a pristine luminescence in welcome!")
+        == 7
+    )
+
+
 def test_the_crossing_guilds_box_is_put_in_as_box_and_the_others_as_almsbox():
     # Captured 2026-09-20 on Herald Street: "You also see a paladin guard
     # and a steel tithe box." / "To donate: PUT [amount] [coin type]

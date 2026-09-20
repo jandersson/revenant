@@ -169,6 +169,23 @@ ALMSBOXES = {
 }
 TITHE_BOX = "tithe box"  # the guild's box: the noun is `box`, not `almsbox`
 ORB_ROOM = 8228  # Tower of Honor, Orb Room: the soulstone orb
+# The soulstone arches: stepping through one answers the state in the
+# RUB's words — "You step through a shining soulstone archway.... / The
+# archway gleams with a pristine luminescence in welcome!" (the
+# Crossing guild, 2026-09-20), "You step through a gleaming soulstone
+# archway.... / The archway emits a warm, steady white hue!" (Shard,
+# 2026-09-19) — so a character with no orb at hand reads the state by
+# walking through one (#231). room: (the map's command through it, the
+# room it lands in). The pool has no arch reading; that wants an orb.
+ARCHES = {
+    7890: ("go arch", 11712, "Paladins' Guild, Chambers → Hallway (the Crossing)"),
+    2522: ("go tower", 8219, "Xibar's Crescent Road → Tower of Honor (Shard)"),
+}
+# A state reading this old still stands: the soul drifts slowly and
+# never below chalky grey on its own (Elanthipedia: Soul system), so a
+# pristine reading gates the deeds for four hours — the tithe's own
+# period — before the arch is walked through again.
+STATE_FRESH_SECONDS = 4 * 3600
 # The coin the almsbox asks for, by the province the room's title names
 # (Elanthipedia: Currency): Ilithi, Qi and the islands take Dokoras,
 # Therengia Lirums, Zoluren and the rest Kronars.
@@ -271,9 +288,12 @@ def due(timers, deed, now=None):
     the deed's own timer since the last acceptance, or the backoff
     since the last refusal, whichever ends later."""
     now = time.time() if now is None else now
-    period = {"tithe": TITHE_SECONDS, "pray": PRAY_SECONDS, "badge": BADGE_SECONDS}[
-        deed
-    ]
+    period = {
+        "tithe": TITHE_SECONDS,
+        "pray": PRAY_SECONDS,
+        "badge": BADGE_SECONDS,
+        "read": STATE_FRESH_SECONDS,  # the state reading, a deed for the timers
+    }[deed]
     waits = []
     if deed in timers:
         waits.append(timers[deed] + period)
@@ -287,6 +307,32 @@ def mark(timers, deed, accepted, now=None):
     now = time.time() if now is None else now
     timers[deed if accepted else f"{deed}_refused"] = now
     return timers
+
+
+def mark_state(timers, state, now=None):
+    """Record a state reading (1-7) at `now`: the reading is the "read"
+    deed's acceptance, the state beside it."""
+    mark(timers, "read", True, now)
+    timers["state"] = state
+    return timers
+
+
+def last_state(timers, now=None):
+    """The state the last reading gave, while it is younger than
+    STATE_FRESH_SECONDS; None with no reading or a stale one."""
+    now = time.time() if now is None else now
+    if "state" not in timers or "read" not in timers:
+        return None
+    if now - timers["read"] >= STATE_FRESH_SECONDS:
+        return None
+    return timers["state"]
+
+
+def deeds_needed(timers, now=None):
+    """False while a fresh reading says pristine — the deeds restore a
+    soul, they do not maintain one (the operator, 2026-09-20); True
+    otherwise, an unknown state included."""
+    return last_state(timers, now) != PRISTINE
 
 
 _OPTION = re.compile(r"^(\w+)=(.*)$")
