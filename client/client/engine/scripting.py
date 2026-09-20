@@ -214,12 +214,18 @@ class Script:
         if self._stop.wait(timeout=seconds):
             raise ScriptStopped()
 
-    def waitrt(self, pad=0.15):
-        """Sleep out any active roundtime or spellcast time.
+    def waitrt(self, pad=0.15, cast=False):
+        """Sleep out any active roundtime — and, with `cast`, the spell
+        pattern's formation time too.
 
-        Remaining time is the announced end (server clock) minus the last
-        prompt's server time; if no fresher prompt arrives while sleeping,
-        the local sleep is trusted and we return."""
+        A forming pattern does not hold your commands, only the CAST: a
+        plain waitrt after PREPARE used to sleep the cast time out as if
+        it were a roundtime, so the swing meant to fill the formation
+        went out only after "You feel fully prepared" — thirty seconds of
+        badger bites with nothing sent, every training cast (#249,
+        2026-09-20). Remaining time is the announced end (server clock)
+        minus the last prompt's server time; if no fresher prompt arrives
+        while sleeping, the local sleep is trusted and we return."""
         state = self.state
         if state is None or state.server_time is None:
             return
@@ -240,13 +246,17 @@ class Script:
                 self.sleep(0.05)
             self._sent = None
         seen = state.server_time
-        remaining = max(state.roundtime, state.casttime) - seen
+        remaining = (
+            max(state.roundtime, state.casttime) if cast else state.roundtime
+        ) - seen
         while remaining > 0:
             self.sleep(remaining + pad)
             if state.server_time == seen:
                 return
             seen = state.server_time
-            remaining = max(state.roundtime, state.casttime) - seen
+            remaining = (
+                max(state.roundtime, state.casttime) if cast else state.roundtime
+            ) - seen
 
     @property
     def dead(self):

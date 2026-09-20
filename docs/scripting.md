@@ -61,7 +61,7 @@ your frontend.
 | `s.get(timeout=5)`            | next main-stream game line; `None` on timeout; `timeout=0` polls          |
 | `s.get(streams=None)`         | every stream as `(stream, text)` — includes the synthetic ones below      |
 | `s.waitfor(r"pattern", ...)`  | block until a line matches any regex; the line, or `None` on timeout      |
-| `s.waitrt()`                  | sleep out any active roundtime or cast time                               |
+| `s.waitrt()`                  | sleep out any active roundtime; `s.waitrt(cast=True)` the pattern's cast time too — a forming pattern holds no command but the CAST (#249) |
 | `s.sleep(2)`                  | sleep that wakes instantly when the script is stopped                     |
 | `s.command(timeout=0)`        | the next line a user typed at you (`;forage <line>` while running)        |
 | `s.state`                     | the parsed game state: `room_title`, `room_uid`, `compass`, `experience`, ... |

@@ -61,14 +61,15 @@ def _prompts(s):
 
 
 def roundtime_open(s):
-    """True when the state says a roundtime or cast time is still to run,
-    False when none is, None when the state cannot say (a fake)."""
+    """True when the state says a roundtime is still to run, False when
+    none is, None when the state cannot say (a fake). A cast time is not
+    one: a forming pattern holds no command but the CAST (#249), so a
+    PREPARE's answer gets no tail."""
     state = getattr(s, "state", None)
     seen = getattr(state, "server_time", None) if state is not None else None
     if seen is None:
         return None
-    waits = (getattr(state, "roundtime", 0) or 0, getattr(state, "casttime", 0) or 0)
-    return max(waits) > seen
+    return (getattr(state, "roundtime", 0) or 0) > seen
 
 
 def collect(s, seconds, until=None, prompts_from=None, quiet=QUIET_SECONDS):

@@ -200,8 +200,22 @@ def test_waitrt_trusts_local_sleep_without_fresh_prompts(tmp_path):
     script, state = _script_with_state(tmp_path, server_time=100, casttime=102)
     slept = []
     script.sleep = lambda seconds: slept.append(seconds)  # clock never advances
-    script.waitrt()
+    script.waitrt(cast=True)
     assert len(slept) == 1, "must not spin when no new prompt arrives"
+
+
+def test_a_forming_pattern_holds_only_a_cast(tmp_path):
+    # #249: a plain waitrt after PREPARE slept the cast time out as if it
+    # were a roundtime, and the swing meant to fill the formation went out
+    # only after "You feel fully prepared". A cast time alone holds
+    # nothing but the CAST, which asks for it.
+    script, state = _script_with_state(tmp_path, server_time=100, casttime=130)
+    script.sleep = lambda seconds: (_ for _ in ()).throw(AssertionError("slept"))
+    script.waitrt()
+    slept = []
+    script.sleep = lambda seconds: slept.append(seconds)
+    script.waitrt(cast=True)
+    assert len(slept) == 1 and 30 <= slept[0] <= 30.5
 
 
 def test_waitrt_is_a_noop_outside_roundtime(tmp_path):

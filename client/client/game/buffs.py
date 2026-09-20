@@ -403,6 +403,17 @@ def charge_cambrinth(s, profile, state, ask, prefix, report):
     return False
 
 
+def cast_left(s):
+    """Seconds the pattern PREPARE opened has still to form, by the
+    parser's cast time against the last prompt's server time; 0 when
+    the state cannot say (a fake) or the pattern is ready."""
+    state = getattr(s, "state", None)
+    seen = getattr(state, "server_time", None) if state is not None else None
+    if seen is None:
+        return 0
+    return max(0, (getattr(state, "casttime", 0) or 0) - seen)
+
+
 def cast_once(
     s,
     spell,
@@ -447,7 +458,12 @@ def cast_once(
     if filler is not None and not filler() and (target or targeted):
         ask(s, "release")
         return "released"
-    remaining = PREPARE_SECONDS - (monotonic() - started)
+    # The pattern's own time, read off the state the PREPARE set, is the
+    # ceiling — twenty to thirty seconds at a low Holy Magic, far past
+    # PREPARE_SECONDS — and the ready line ends the wait early. The
+    # swing above went out while it formed (#249): a forming pattern
+    # holds no command but the CAST.
+    remaining = max(PREPARE_SECONDS - (monotonic() - started), cast_left(s))
     if remaining > 0:
         probe.collect(s, remaining, until=ready)
     if invoke:
