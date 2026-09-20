@@ -1978,6 +1978,114 @@ def test_a_battle_spells_pattern_gets_the_one_swing(travel):
     assert _casts(arena)[:3] == ["prepare stun foe", "attack rat", "cast rat"]
 
 
+# Captured 2026-09-20 at 20:28 (#252): the filler CIRCLE killed the
+# badger, the parser kept it listed, and the CAST, the next PREPARE and
+# its TARGET each answered on the pattern still held.
+POINTLESS = "The striped badger is already dead, so that's a bit pointless."
+HELD = "You have already fully prepared the Stun Foe spell!"
+UNTARGETABLE = "This spell cannot be targeted."
+
+
+def _casting(arena):
+    fight = arena.sent[arena.sent.index("stance set 100 80 0") + 1 :]
+    return [
+        c
+        for c in fight
+        if c.split()[0] in ("prepare", "target", "attack", "cast", "release")
+    ]
+
+
+def test_a_solo_kill_under_the_filler_clears_the_room_though_the_parser_lags(travel):
+    # The kill line arrives; the dead badger's status frame never does
+    # (#244), so the parser's set still lists it. One listed and it just
+    # fell: the pattern aimed at it is released, never cast at a corpse.
+    arena = Arena(
+        {
+            "attack": [(KILL, lambda arena: None)],
+            "prepare": [SF_PREPARED],
+            "cast": [STUNNED],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+            "discern": [DISCERNED],
+        },
+        experience=DEBIL_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STUNNING | {"max_kills": 1}, travel_first=False)
+    assert "release" in arena.sent
+    assert "cast rat" not in arena.sent
+    assert any("stun foe released" in text for text in arena.echoed)
+
+
+def test_a_cast_answered_already_dead_releases_the_held_pattern(travel):
+    arena = Arena(
+        {
+            "attack": [MISSED, (KILL, kill)],
+            "prepare": [SF_PREPARED, SF_PREPARED],
+            "cast": [POINTLESS],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+            "discern": [DISCERNED],
+        },
+        experience=DEBIL_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STUNNING | {"max_kills": 1}, travel_first=False)
+    assert _casting(arena)[:4] == [
+        "prepare stun foe",
+        "attack rat",
+        "cast rat",
+        "release",
+    ]
+    assert any("stun foe released" in text for text in arena.echoed)
+
+
+def test_a_prepare_refused_for_a_held_pattern_releases_it_and_prepares_again(travel):
+    arena = Arena(
+        {
+            "attack": [MISSED, (KILL, kill)],
+            "prepare": [HELD, SF_PREPARED],
+            "cast": [STUNNED],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+            "discern": [DISCERNED],
+        },
+        experience=DEBIL_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STUNNING | {"max_kills": 1}, travel_first=False)
+    assert _casting(arena)[:5] == [
+        "prepare stun foe",
+        "release",
+        "prepare stun foe",
+        "attack rat",
+        "cast rat",
+    ]
+    assert any("cast stun foe at rat" in text for text in arena.echoed)
+
+
+def test_a_target_refused_as_untargetable_releases_the_held_pattern(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "prepare": [FS_PREPARED],
+            "target": [UNTARGETABLE],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+            "discern": [DISCERNED],
+        },
+        experience=TM_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STRIKING | {"max_kills": 1}, travel_first=False)
+    assert _casting(arena)[:3] == ["prepare footman's strike", "target rat", "release"]
+    assert "cast" not in arena.sent
+    assert any(
+        "the pattern held was not footman's strike — released" in text
+        for text in arena.echoed
+    )
+
+
 def test_a_foe_down_under_the_filler_swing_releases_the_targeted_pattern(travel):
     arena = Arena(
         {
@@ -2265,7 +2373,10 @@ TACTICS_OPEN = {"Tactics": {"rank": 3, "percent": 0, "mindstate": 1}}
 
 
 def _stands(arena):
-    """A kill line whose rat stays: the room keeps its hostile."""
+    """A kill line after which the room still holds a live hostile:
+    another rat stands beside the fallen one in the parser's set. One
+    hostile listed and it just fell is a clear room (#252)."""
+    arena.state.hostiles["2"] = True
 
 
 def test_every_third_swing_is_the_next_maneuver_while_tactics_is_unlocked(travel):

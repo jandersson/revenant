@@ -131,9 +131,17 @@ PREPARE_OUTCOMES = (
     # Too much mana asked for (the wiki's Prepare page wording; not
     # yet observed here): the pattern is prepared but may not cast.
     ("strain", ("have to strain",)),
+    # A pattern from an earlier PREPARE is still held ("You have already
+    # fully prepared the Stun Foe spell!", captured 2026-09-20 after a
+    # cast at a corpse, #252): RELEASE it and prepare again.
+    ("held", ("already fully prepared",)),
     ("ok", ("you begin", "gathering energy", "prepar")),
 )
 CAST_OUTCOMES = (
+    # The foe died under the filler swing ("The striped badger is already
+    # dead, so that's a bit pointless.", captured 2026-09-20, #252): the
+    # pattern stays held, so it is RELEASEd.
+    ("corpse", ("already dead",)),
     # The spell's own skill is short of the spell (captured 2026-09-18,
     # Footman's Strike at Targeted Magic 1, #202): no mana will help.
     ("lacking", ("lacking the skill to complete the pattern",)),
@@ -179,6 +187,9 @@ DISCERN_OUTCOMES = (
 # game's usual "referring to" refusal.
 TARGET_OUTCOMES = (
     ("missing", ("what were you referring", "could not find", "nothing to target")),
+    # The held spell is not the targeted one ("This spell cannot be
+    # targeted.", captured 2026-09-20 with Stun Foe still held, #252).
+    ("untargetable", ("cannot be targeted",)),
     ("ok", ("weave mana lines", "target pattern", "targeting pattern")),
 )
 # DISCERN's "you will need to reach the rank of a <title>": the title's
@@ -438,12 +449,21 @@ def cast_once(
     targeted — a targeted one casts at its pattern), and stow the
     piece. "refused" (the spell cannot be prepared), "lacking" (the
     character's ranks cannot carry the spell at all, #202), "released"
-    (the target was gone before the cast — the pattern is let go,
-    #203), "collapsed" (the cast failed), "strained" (cast, but the
-    mana asked was too much) or "ok"."""
-    answer = ask(s, f"prepare {spell} {mana}" if mana else f"prepare {spell}")
+    (the target was gone before the cast, or died under it — the
+    pattern is let go, #203, #252), "held" (the pattern held was
+    another spell's and TARGET refused it — released, #252),
+    "collapsed" (the cast failed), "strained" (cast, but the mana
+    asked was too much) or "ok"."""
+    prepare = f"prepare {spell} {mana}" if mana else f"prepare {spell}"
+    answer = ask(s, prepare)
     outcome = classify(answer, PREPARE_OUTCOMES)
-    if outcome == "failed":
+    if outcome == "held":
+        # An earlier pattern is still held (a cast at a corpse leaves
+        # it, #252): let it go and prepare once more.
+        ask(s, "release")
+        answer = ask(s, prepare)
+        outcome = classify(answer, PREPARE_OUTCOMES)
+    if outcome in ("failed", "held"):
         if invoke:
             ask(s, put_back or f"stow my {invoke}")
         return "refused"
@@ -455,6 +475,9 @@ def cast_once(
         if aim == "missing":
             ask(s, "release")
             return "released"
+        if aim == "untargetable":
+            ask(s, "release")
+            return "held"
         if aim is None:
             report("target", answer)
         ready = "has completed"
@@ -464,11 +487,15 @@ def cast_once(
         # pattern forms for twenty-odd seconds at a low Holy Magic
         # (Heroic Strength: 26 s captured 2026-09-20) and one swing fills
         # four of them, so the filler swings again while a swing's
-        # roundtime still fits before the ready line (#250).
+        # roundtime still fits before the ready line (#250). A filler
+        # that finds no live foe ends the swinging: a pattern aimed at
+        # the foe is released, a self-cast waits for its ready line.
         while True:
-            if not filler() and (target or targeted):
-                ask(s, "release")
-                return "released"
+            if not filler():
+                if target or targeted:
+                    ask(s, "release")
+                    return "released"
+                break
             if cast_left(s) <= SWING_SECONDS:
                 break
     # The pattern's own time, read off the state the PREPARE set, is the
@@ -483,6 +510,9 @@ def cast_once(
     cast = classify(answer, CAST_OUTCOMES)
     if invoke:
         ask(s, put_back or f"stow my {invoke}")
+    if cast == "corpse":
+        ask(s, "release")
+        return "released"
     if cast == "lacking":
         return "lacking"
     if cast == "failed":
@@ -653,6 +683,8 @@ def cast_targeted(s, profile, state, ask, prefix, report, slot, target="", fille
     state.last_training = slot
     if result == "released":
         s.echo(f"{prefix}: {spell} released — the foe was down before the cast")
+    elif result == "held":
+        s.echo(f"{prefix}: the pattern held was not {spell} — released")
     elif result == "refused":
         s.echo(f"{prefix}: cannot prepare {spell} — off for this run")
         state.slots_off.add(slot)

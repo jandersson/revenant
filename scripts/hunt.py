@@ -1158,6 +1158,13 @@ def swing(s, profile, tally, prey):
         s.echo(f"hunt: {corpse} down ({tally.kills})")
         dispose(s, profile, corpse, tally)
         tally.check_wounds = True
+        if len(hostiles(s.state)) <= 1:
+            # The kill line is the truth; the parser keeps the dead one
+            # until a status frame it never sends (#244), and a cast at
+            # it answered "already dead, so that's a bit pointless"
+            # (#252). One hostile listed and it just fell: the room is
+            # clear, as the game's own "nothing else to face" says.
+            tally.room_clear = True
     elif any(word in lowered for word in _ALL_DEAD):
         tally.room_clear = True  # the game says so; the hostile state lags
     elif corpse := _DEAD_NOUN.search(text):

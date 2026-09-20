@@ -307,7 +307,15 @@ non-battle spell's is not — Heroic Strength formed for 26 s at Cecil's
 Holy Magic on 2026-09-20 and the hunt stood the other 22 under the
 badger's claws, once a minute — so while the parser's cast time says
 a swing's roundtime (4 s) still fits before the ready line, the loop
-swings again, each swing counted toward the fuses (#250). It is dr-scripts'
+swings again, each swing counted toward the fuses (#250). A kill read
+off a swing with one hostile in the parser's set clears the room in
+the tally — the dead one's status frame never comes (#244), and a
+CAST at it answered "The striped badger is already dead, so that's a
+bit pointless." while the pattern stayed held, so the next PREPARE
+was refused ("You have already fully prepared the Stun Foe spell!")
+and its TARGET said "This spell cannot be targeted." (#252, all three
+captured 2026-09-20): each of those wordings now RELEASEs the pattern,
+and the refused PREPARE is sent once more. It is dr-scripts'
 combat-trainer shape (its spell process prepares, keeps attacking,
 and casts on the ready flag or the prep timer). A foe that went down
 under the filler swing has a pattern aimed at it RELEASEd rather than
