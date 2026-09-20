@@ -121,6 +121,11 @@ CLIMB_REFUSALS = (
 # leaves you — answers with these (captured on the retry, 2026-09-11);
 # the same retry, which STANDs first, is the remedy.
 POSTURE_REFUSALS = ("You must be standing", "You must stand first")
+# A plain move sent kneeling — a prayer leaves you so — answers "You
+# can't do that while kneeling!" (captured 2026-09-19 in the Tower of
+# Honor's chapel, #220); the sitting and lying wordings are assumed.
+# STAND and one retry, not the engaged-stall burst.
+KNEELING_REFUSALS = ("while kneeling", "while sitting", "while lying down")
 # An exit the map has and the game has not: the Riverbank Mudflats'
 # "go panel" answered "I could not find what you were referring to."
 # (2026-09-18) — a hidden way, or a map edge that is wrong. Closed for
@@ -362,6 +367,8 @@ def await_arrival(s, timeout=ARRIVAL_TIMEOUT):
             return "refused", hindering, "".join(seen)
         if any(needle in text for needle in GATE_REFUSALS + WAY_REFUSALS):
             return "closed", hindering, "".join(seen)
+        if any(needle in text for needle in KNEELING_REFUSALS):
+            return "posture", hindering, "".join(seen)
 
 
 def note_climb(s, command, outcome, wording, room):
@@ -500,6 +507,15 @@ def walk(s, db, goals, describe="destination", avoid=()):
         else:
             s.echo("current room unknown yet — 'look' once and retry")
         return False
+    # Standing first when the parser says otherwise: a ;go2 sent kneeling
+    # after a prayer was answered "You can't do that while kneeling!" and
+    # went nowhere (#220). The refusal path below covers a posture the
+    # state has not caught up with.
+    posture = getattr(getattr(s, "status", None), "posture", None)
+    if posture and posture != "standing":
+        s.put("stand")
+        s.waitrt()
+        s.echo(f"stood up first (you were {posture})")
     avoid = frozenset(avoid)
     closed = set()  # (room, dest) edges the game refused this walk (#209)
     ranks = character_ranks(s.state)
@@ -568,6 +584,20 @@ def _follow(s, db, route, here, closed):
         s.put(commands[-1])
         outcome, hindering, wording = await_arrival(s)
         note_climb(s, commands[-1], outcome, wording, dest)
+        if outcome == "posture":
+            # Kneeling (a prayer), sitting or lying: STAND and one retry
+            # (#220); the engaged-stall burst below would not help.
+            first = (wording.strip().splitlines() or ["?"])[0]
+            s.waitrt()
+            s.put("stand")
+            s.waitrt()
+            s.echo(f"step {number}: stood up first ({first!r})")
+            s.put(commands[-1])
+            outcome, hindering, wording = await_arrival(s)
+            note_climb(s, commands[-1], outcome, wording, dest)
+            if outcome == "posture":
+                s.echo(f"step {number}: still cannot move ({first!r}) — stopping here")
+                return False
         if outcome == "closed":
             closed.add((here, dest))
             titles = db.rooms[dest].get("title") or ["?"]

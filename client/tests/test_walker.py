@@ -183,6 +183,9 @@ class ClimbHandle(FakeHandle):
         "dizzy": DIZZY,
     }
     SITTING = "You must be standing to do that.\n"
+    # Captured 2026-09-19 in the Tower of Honor's chapel, kneeling after
+    # PRAY CHADATRU (#220).
+    KNEELING = "You can't do that while kneeling!\n"
 
     def __init__(self, uids, answers):
         super().__init__(uids)
@@ -198,6 +201,8 @@ class ClimbHandle(FakeHandle):
                 self.pending = [("compass", "n")]
             elif answer == "sitting":
                 self.pending = [("", self.SITTING)]  # no hindering line
+            elif answer == "kneeling":
+                self.pending = [("", self.KNEELING)]  # a plain move's refusal (#220)
             else:
                 self.pending = [("", HINDER), ("", self.ANSWERS[answer])]
 
@@ -407,6 +412,40 @@ def test_a_climb_refused_for_sitting_stands_and_retries_without_a_burst():
     handle.state.room_uid = 224005
     assert walker.walk(handle, TREE, [5705]) is True
     assert puts_of(handle) == ["climb felled tree", "stand", "climb felled tree"]
+
+
+def test_a_move_refused_for_kneeling_stands_and_retries_once():
+    # #220: a ;go2 sent kneeling after a prayer was answered "You can't do
+    # that while kneeling!" and went nowhere. STAND, one retry — not the
+    # engaged-stall burst, which cannot help a kneeling character.
+    handle = ClimbHandle(uids=[224006], answers=["kneeling", "ok"])
+    handle.state.room_uid = 224005
+    assert walker.walk(handle, TREE, [5705]) is True
+    assert puts_of(handle) == ["climb felled tree", "stand", "climb felled tree"]
+    assert any("stood up first" in echo for echo in handle.echoes)
+    # Still refused after the STAND: the walk stops with the reason.
+    stuck = ClimbHandle(uids=[224006], answers=["kneeling", "kneeling"])
+    stuck.state.room_uid = 224005
+    assert walker.walk(stuck, TREE, [5705]) is False
+    assert puts_of(stuck) == ["climb felled tree", "stand", "climb felled tree"]
+    assert any("still cannot move" in echo for echo in stuck.echoes)
+    assert not any("retreat" in put for put in puts_of(stuck))
+
+
+def test_a_walk_stands_first_when_the_parser_says_you_are_not_standing():
+    # The posture the state already knows (client/game/status.py) spares
+    # the refused first step altogether.
+    handle = ClimbHandle(uids=[224006], answers=["ok"])
+    handle.state.room_uid = 224005
+    handle.status = SimpleNamespace(posture="kneeling")
+    assert walker.walk(handle, TREE, [5705]) is True
+    assert puts_of(handle) == ["stand", "climb felled tree"]
+    assert any("stood up first (you were kneeling)" in echo for echo in handle.echoes)
+    standing = ClimbHandle(uids=[224006], answers=["ok"])
+    standing.state.room_uid = 224005
+    standing.status = SimpleNamespace(posture="standing")
+    assert walker.walk(standing, TREE, [5705]) is True
+    assert puts_of(standing) == ["climb felled tree"]
 
 
 def test_vertigo_is_a_refusal_too():

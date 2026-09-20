@@ -33,6 +33,14 @@ captured bugs:
   walker.walk).
 - **Stalls and off-course rooms stop the walk.** Never guess onward;
   the failure echo names the step, the command, and the room.
+- **A walk stands up first.** The posture the parser knows
+  (`s.status.posture`) is not "standing" — a prayer leaves you
+  kneeling — the walker STANDs before the first step and says so; a
+  step the game refuses with "You can't do that while kneeling!"
+  (captured 2026-09-19 in the Tower of Honor's chapel; "while sitting"
+  and "while lying down" assumed) gets a STAND and one retry, never
+  the engaged-stall burst, and a second refusal stops the walk with
+  the wording (#220).
 
 ## Engagements: escape by burst, judge by the room
 
