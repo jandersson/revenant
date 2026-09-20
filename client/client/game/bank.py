@@ -22,10 +22,55 @@ Deposit command, Currency.
 
 import re
 
-from client.game.money import CURRENCIES
+from client.game.money import CURRENCIES, phrase, split
 from client.game.soul import currency_for
 
 EXCHANGED = ("hands you",)  # the money-changer's line, the new coins after it
+# The teller's withdrawal line (captured 2026-09-12): "The clerk counts
+# out 1 gold Kronars and hands them over, making a notation in her
+# ledger." The account refusal is captured too ("you do not seem to
+# have an account with us", 2026-09-11); the rest are assumptions.
+COUNTED = ("counts out",)
+WITHDRAW_REFUSALS = (
+    "do not seem to have an account",
+    "not have enough",
+    "don't have enough",
+    "insufficient",
+    "cannot",
+    "can't",
+)
+
+
+def withdraw(s, mapdb, walk_fn, ask, prefix, copper, currency, retry="try again"):
+    """Walk to the nearest teller and WITHDRAW `copper` of `currency`, one
+    denomination per command (WITHDRAW 6 silver; the teller counts in
+    the province's coin). Only the teller's own lines are echoed — the
+    bank is a busy room, and ;debt used to echo every arrival and
+    exchange of words in its answer window as its own (the operator,
+    2026-09-20). False, said, when the map has no teller, the walk
+    failed or the teller refused. Shared by ;debt (the shortfall) and
+    ;tdp (the trainer's fee, #247)."""
+    tellers = mapdb.rooms_tagged("bank")
+    if not tellers:
+        s.echo(f"{prefix}: the map has no room tagged 'bank'")
+        return False
+    if not walk_fn(s, mapdb, set(tellers), describe="the bank teller"):
+        s.echo(f"{prefix}: could not reach a teller — stopping")
+        return False
+    s.echo(f"{prefix}: withdrawing {phrase(copper, currency)}")
+    for count, denomination in split(copper):
+        answer = ask(s, f"withdraw {count} {denomination}")
+        lowered = answer.lower()
+        for line in answer.splitlines():
+            if any(word in line.lower() for word in COUNTED + WITHDRAW_REFUSALS):
+                s.echo(f"{prefix}: {line.strip()}")
+        if any(needle in lowered for needle in WITHDRAW_REFUSALS):
+            s.echo(
+                f"{prefix}: the teller refused — put the coins in your hands "
+                f"(GIVE from another character) and {retry}"
+            )
+            return False
+    return True
 
 
 def home_currency(title):

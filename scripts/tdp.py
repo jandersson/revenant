@@ -12,10 +12,16 @@
 A stat rises one point per TRAIN typed twice in that stat's training
 room (the map tags it: `agility`, `strength`, ...), at the cost the
 game quotes first (Elanthipedia: Attributes, Time Development Points,
-Train command). Each point also costs a fee of 2 Kronars per TDP;
-a character carrying no coins has it added to the provincial debt
-(captured 2026-09-12: 28 TDPs and 56 Kronars for Agility 8 → 9), and
-the script echoes that line. A stat below its race's starting value
+Train command). Each point also costs a fee of 2 Kronars per TDP,
+quoted by the first TRAIN ("There is also a fee of 70 Kronars to
+complete this training."); a character carrying no coins has it added
+to the provincial debt (captured 2026-09-12: 28 TDPs and 56 Kronars
+for Agility 8 → 9; 674 copper owed by the end of 2026-09-20, a day
+whose plan banked the purse right before the tdps task, #247). So the
+script reads the quoted fee, checks INFO's purse, and when it falls
+short WITHDRAWs the difference at the nearest teller and walks back
+before the confirming TRAIN — a teller that refuses stops the run,
+said. A stat below its race's starting value
 is flagged: DR3 recalculates TDPs assuming every character started at
 the racial values, so such a point comes back twice over at the next
 recalculation (a DR1 character's rolled stats, #165) — train those
@@ -38,11 +44,13 @@ back to where it started unless told to stay. Stop with:  ;stop tdp
 
 import re
 
-from client.game import probe
+from client.game import bank, probe
+from client.game.money import parse_wealth, phrase
 from client.game.tdp import (
     STATS,
     TRAIN_OUTCOMES,
     below_start,
+    fee_of,
     next_stat,
     parse_goals,
     parse_info,
@@ -117,11 +125,22 @@ def quote(s, stat, goal=None):
     return answer
 
 
-def train_one(s, stat, before):
-    """TRAIN twice, then the stat's command: (rose, answer). The two
-    TRAIN answers are echoed when the value did not rise."""
+def train_one(s, stat, before, fetch_fee=None):
+    """TRAIN twice, then the stat's command: (rose, answer). The first
+    TRAIN quotes the coin fee beside the moon cycles; `fetch_fee(copper,
+    currency)` — None when the purse covers it, True when it fetched
+    the coins (the quote is asked again from the trainer's room), False
+    when it could not — keeps the fee off the province's debt (#247).
+    The two TRAIN answers are echoed when the value did not rise."""
     first = ask(s, "train")
     outcome = probe.classify(first, TRAIN_OUTCOMES)
+    fee = fee_of(first)
+    if outcome != "refused" and fee and fetch_fee is not None:
+        fetched = fetch_fee(*fee)
+        if fetched is False:
+            return False, parse_stat_answer(ask(s, stat.lower()))
+        if fetched:
+            first = ask(s, "train")
     second = ""
     if outcome != "refused":
         second = ask(s, "train")
@@ -146,6 +165,40 @@ def train_stat(s, stat, goal, mapdb, walk_fn):
     if not walk_fn(s, mapdb, set(rooms), describe=f"the {stat} trainer"):
         s.echo(f"tdp: could not reach the {stat} trainer — stopping")
         return False
+
+    def fetch_fee(copper, currency):
+        """The fee in the purse before the confirming TRAIN: INFO's carried
+        coins against it, the difference WITHDRAWn at the nearest teller
+        and the walk back to the trainer (#247). None when the purse
+        covers it or INFO shows no purse to read, True when fetched,
+        False when the teller refused or the walk failed."""
+        carried = parse_wealth(ask(s, "info"))["carried"]
+        if not carried:
+            return None
+        have = carried.get(currency, 0)
+        if have >= copper:
+            return None
+        s.echo(
+            f"tdp: the fee is {phrase(copper, currency)} and you carry "
+            f"{phrase(have, currency)} — fetching the rest from the teller, "
+            "not the province's debt"
+        )
+        if not bank.withdraw(
+            s,
+            mapdb,
+            walk_fn,
+            ask,
+            "tdp",
+            copper - have,
+            currency,
+            retry="run ;tdp again",
+        ):
+            return False
+        if not walk_fn(s, mapdb, set(rooms), describe=f"the {stat} trainer"):
+            s.echo(f"tdp: could not walk back to the {stat} trainer — stopping")
+            return False
+        return True
+
     answer = quote(s, stat)
     while answer["value"] is not None and answer["value"] < goal:
         if s.dead:
@@ -158,7 +211,7 @@ def train_stat(s, stat, goal, mapdb, walk_fn):
         if cost > have:
             s.echo(f"tdp: the next point costs {cost} and you have {have} — stopping")
             return False
-        rose, answer = train_one(s, stat, answer["value"])
+        rose, answer = train_one(s, stat, answer["value"], fetch_fee)
         if not rose:
             s.echo(f"tdp: {stat} did not rise — stopping before another point")
             return False

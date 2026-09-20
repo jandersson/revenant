@@ -64,6 +64,15 @@ STARTING_STATS = {
 }
 # "You have 347 TDPs." (TDP) / "You currently have 347 TDPs available." (AGILITY)
 _TDPS_HAVE = re.compile(r"You (?:currently )?have (-?\d+) TDPs")
+# The trainer's coin fee, quoted by the first TRAIN beside the moon
+# cycles: "There is also a fee of 70 Kronars to complete this training."
+# — two Kronars a TDP on every capture (28 → 56 on 2026-09-12, 35 → 70
+# on 2026-09-20), and a purse without them puts it on the province's
+# debt: "Since you aren't carrying any Kronars, the cost of the
+# training, 70 Kronars, is added to your debt." — 674 copper owed by
+# the end of a day whose plan banked the purse right before the
+# tdps task (#247). The fee is read off the quote, never assumed.
+_FEE = re.compile(r"fee of (\d+) (\w+)")
 # "Your base Agility is eight (8)."
 _BASE = re.compile(r"Your base (\w+) is [A-Za-z\- ]+\((\d+)\)")
 # "It will cost you 28 TDPs to raise your Agility from 8 to 9."
@@ -190,6 +199,15 @@ def below_start(race, stats):
         for stat, start in zip(STATS, starts)
         if stats.get(stat) is not None and stats[stat] < start
     }
+
+
+def fee_of(text):
+    """(copper, currency) of the fee a TRAIN quote names — "fee of 70
+    Kronars" is 70 copper Kronars, the game's counting — or None."""
+    match = _FEE.search(text)
+    if not match:
+        return None
+    return int(match.group(1)), match.group(2).capitalize()
 
 
 def parse_tdps(text):

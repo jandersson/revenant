@@ -24,29 +24,19 @@ PAY answer names the right towns and the script echoes it.
 Stop with:  ;stop debt
 """
 
-from client.game import probe
+from client.game import bank, probe
 from client.game.mapdb import MapDB
-from client.game.money import parse_wealth, phrase, split
+from client.game.money import parse_wealth, phrase
 from client.game.walker import locate, walk
 
 COLLECT_SECONDS = 3  # a command's answer, opening window
 TAIL_SECONDS = 1.5  # ... and the tail past its roundtime
 
-# A teller's refusals — the account line captured 2026-09-11 ("you do not
-# seem to have an account with us"); the rest are assumptions until
-# captured. Success is not classified: INFO afterwards is the judge.
-# Captured 2026-09-12: a withdrawal is "The clerk counts out 1 gold
-# Kronars and hands them over, making a notation in her ledger.", PAY
-# ALL "The clerk nods and takes your money, noting that your debt is
-# now settled.", and INFO then reads "Debt: / No debt."
-WITHDRAW_REFUSALS = (
-    "do not seem to have an account",
-    "not have enough",
-    "don't have enough",
-    "insufficient",
-    "cannot",
-    "can't",
-)
+# The teller's lines and refusals are client/game/bank.py's (shared with
+# ;tdp's fee, #247). Success is not classified: INFO afterwards is the
+# judge. Captured 2026-09-12: PAY ALL "The clerk nods and takes your
+# money, noting that your debt is now settled.", and INFO then reads
+# "Debt: / No debt."
 
 
 def ask(s, command):
@@ -84,26 +74,13 @@ def owed_first(info):
 
 
 def fetch(s, shortfall, currency, mapdb, walk_fn):
-    """Walk to the nearest teller and WITHDRAW the shortfall, one
-    denomination per command. False when a teller refused."""
-    tellers = mapdb.rooms_tagged("bank")
-    if not tellers:
-        s.echo("debt: the map has no room tagged 'bank'")
-        return False
-    if not walk_fn(s, mapdb, set(tellers), describe="the bank teller"):
-        s.echo("debt: could not reach a teller — stopping")
-        return False
-    s.echo(f"debt: withdrawing {phrase(shortfall, currency)}")
-    for count, denomination in split(shortfall):
-        answer = ask(s, f"withdraw {count} {denomination}")
-        echo_lines(s, answer)
-        if any(needle in answer.lower() for needle in WITHDRAW_REFUSALS):
-            s.echo(
-                "debt: the teller refused — put the coins in your hands "
-                "(GIVE from another character) and run ;debt pay again"
-            )
-            return False
-    return True
+    """Walk to the nearest teller and WITHDRAW the shortfall —
+    client/game/bank.py's, echoing the teller's lines alone (a busy
+    bank's arrivals and chatter came back as "debt: ..." until
+    2026-09-20). False when a teller refused."""
+    return bank.withdraw(
+        s, mapdb, walk_fn, ask, "debt", shortfall, currency, retry="run ;debt pay again"
+    )
 
 
 def run(s, words, mapdb=None, walk_fn=walk):

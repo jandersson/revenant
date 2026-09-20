@@ -202,7 +202,9 @@ def test_plan_buys_where_the_training_plan_says_and_keeps_the_reserve(
     )
     fake = Fake(
         {
-            "info": [PALADIN_INFO, PALADIN_INFO.replace("347", "317")],
+            # The plan's INFO, the fee check's INFO (no purse to read in
+            # this fixture, #247), the plan's INFO for the second point.
+            "info": [PALADIN_INFO, PALADIN_INFO, PALADIN_INFO.replace("347", "317")],
             "strength": [strength(10, 30, 347), strength(11, 33, 317)],
             "train": [CONFIRM, DONE],
         }
@@ -239,6 +241,71 @@ def test_training_walks_there_trains_twice_per_point_and_walks_back():
     # the fee shows even when the point took; the flavor does not
     assert "tdp: (Your debt has increased by 56 Kronars.)" in fake.echoed
     assert not any("astonishing" in line for line in fake.echoed)
+
+
+BANKED_MAP = MapDB(
+    list(MAP.rooms.values())
+    + [
+        {
+            "id": 1200,
+            "uid": [9100],
+            "title": ["[Bank, Teller]"],
+            "tags": ["bank"],
+            "wayto": {},
+        }
+    ]
+)
+EMPTY_PURSE = "Wealth:\n  No Kronars.\n  No Lirums.\n  No Dokoras.\nDebt:\n  No debt.\n"
+FULL_PURSE = (  # INFO's shape for a purse with coins (client/game/money.py)
+    "Wealth:\n  5 bronze, 6 copper Kronars (56 copper Kronars).\n  No Lirums.\n"
+    "Debt:\n  No debt.\n"
+)
+COUNTED = (
+    "The clerk counts out {} and hands them over, making a notation in her ledger.\n"
+)
+
+
+def test_the_fee_is_fetched_from_the_teller_before_the_confirming_train():
+    # #247: a day's trainings put 674 copper Kronars on the province's
+    # debt — "Since you aren't carrying any Kronars, the cost of the
+    # training, 70 Kronars, is added to your debt." — because the plan
+    # banked the purse right before the tdps task. The first TRAIN's quote
+    # names the fee; INFO's purse is checked against it, the difference
+    # withdrawn at the teller, and the trainer asked again on return.
+    fake = Fake(
+        {
+            "info": [
+                info() + EMPTY_PURSE,  # the run's own INFO
+                info() + EMPTY_PURSE,  # the purse check: nothing carried
+                info(agility=9, tdps=319) + FULL_PURSE,  # after the withdrawal
+                info(agility=10, tdps=288) + EMPTY_PURSE,
+            ],
+            "agility": [agility(8, 28, 347), agility(9, 31, 319), agility(10, 35, 288)],
+            "train": [CONFIRM, CONFIRM, DONE, CONFIRM, DONE],
+            "withdraw": [
+                COUNTED.format("5 bronze Kronars"),
+                COUNTED.format("6 copper Kronars"),
+            ],
+        }
+    )
+    script.run(fake, ["train", "agility", "10"], mapdb=BANKED_MAP, walk_fn=walk)
+    # The trainer, the teller, the trainer again, then home.
+    assert fake.walks == [{50986}, {1200}, {50986}, {100}]
+    assert [c for c in fake.sent if c.startswith("withdraw")] == [
+        "withdraw 5 bronze",
+        "withdraw 6 copper",
+    ]
+    assert (
+        fake.sent.count("train") == 5
+    )  # quote, quote again after the bank, confirm; quote, confirm
+    assert any(
+        "the fee is 5 bronze and 6 copper Kronars and you carry 0 copper Kronars"
+        in line
+        for line in fake.echoed
+    )
+    assert "Agility is now 10, TDPs 288" in echoes(fake)
+    # Only the teller's line comes back as the script's own, not the room's chatter.
+    assert any("counts out 5 bronze Kronars" in line for line in fake.echoed)
 
 
 def test_stay_keeps_you_at_the_trainer():

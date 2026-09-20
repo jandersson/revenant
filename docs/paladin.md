@@ -60,7 +60,7 @@ Verika lists what the circle allows on ASK ... ABOUT MAGIC ("I see you are worth
 
 ## TDPs
 
-`;tdp` on `auto` follows the guild's tiers from Elanthipedia's Paladin new player guide (`client/game/tdp.py`): Strength and Stamina to about 15 (the plate's burden), then Reflex, Agility and Discipline to about 15, then the lowest of all eight. A plan's `tdps` task spends up to three points a cycle (#230); 402 to 571 points piled up in one day before it did.
+`;tdp` on `auto` follows the guild's tiers from Elanthipedia's Paladin new player guide (`client/game/tdp.py`): Strength and Stamina to about 15 (the plate's burden), then Reflex, Agility and Discipline to about 15, then the lowest of all eight. A plan's `tdps` task spends up to three points a cycle (#230); 402 to 571 points piled up in one day before it did. Every point also costs the trainer two Kronars a TDP, quoted by the first TRAIN, and a purse without them puts the fee on the province's debt — 674 copper Kronars by the end of 2026-09-20, the plan having banked the purse right before the task — so `;tdp` fetches the fee from the teller first (#247) and `;debt pay` cleared what was owed.
 
 ## The guild's rooms, by map id
 

@@ -219,8 +219,15 @@ Your attempts to train are praiseworthy, but you must find both the proper place
 Three things the wiki does not say. A point costs coins as well:
 a fee of 2 Kronars per TDP (56 for 28, 62 for 31), and a character
 carrying none has it put on the provincial debt (930 → 1048 copper
-over the two points), which is the debt that blocks GIVE in
-[social.md](social.md) — carry coins to the trainer. The "moon cycles"
+over the two points; 674 copper by the end of 2026-09-20, a day whose
+plan banked the purse right before the `tdps` task — "Since you aren't
+carrying any Kronars, the cost of the training, 70 Kronars, is added
+to your debt."), which is the debt that blocks GIVE in
+[social.md](social.md). So `;tdp` reads the quoted fee, checks INFO's
+purse and, when it falls short, WITHDRAWs the difference at the nearest
+teller and walks back before the confirming TRAIN (#247; the withdrawal
+is `client/game/bank.py`'s, shared with `;debt`, and echoes the teller's
+lines alone). The "moon cycles"
 are flavor; the point lands at once. And the completed training is
 followed by the same "must find both the proper place and the proper
 teacher" line that TRAIN answers in the wrong room, so the script
