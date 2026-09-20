@@ -915,8 +915,12 @@ class SessionServer(ClientLogger):
     def carried_env(self):
         """What the new process inherits through its environment: the
         indicators and the name (#92, #95), the hands (the login pair
-        never repeats either, #159), and the unparsed bytes —
-        snapshotted as late as possible, once the reader is done."""
+        never repeats either, #159), the hostiles (the creatures' status
+        frames come with their next attack, not with the LOOK that
+        re-primes the room — a ;perform started right after a handoff
+        saw a clear room among three badgers, #244), and the unparsed
+        bytes — snapshotted as late as possible, once the reader is
+        done."""
         return {
             GAME_STATE_ENV: json.dumps(
                 {
@@ -924,6 +928,7 @@ class SessionServer(ClientLogger):
                     "name": self.engine.xml_data.name,
                     "left_hand": self.engine.xml_data.left_hand,
                     "right_hand": self.engine.xml_data.right_hand,
+                    "hostiles": self.engine.xml_data.hostiles,
                 }
             ),
             GAME_BUFFER_ENV: base64.b64encode(self.game.buffered).decode("ASCII"),
@@ -1260,6 +1265,11 @@ def main(argv=None):
     # then only as they change (#159).
     server.engine.xml_data.left_hand = carried_state.get("left_hand")
     server.engine.xml_data.right_hand = carried_state.get("right_hand")
+    # And the hostiles: the LOOK above brings the room and its creatures
+    # back, but a creature's status frame comes only with its next
+    # attack, so a script started at once read a safe room among three
+    # badgers (2026-09-20, #244). The next room change replaces the set.
+    server.engine.xml_data.hostiles = dict(carried_state.get("hostiles") or {})
     autostart_scripts(server)
     server.serve()
 

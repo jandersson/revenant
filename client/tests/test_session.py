@@ -530,6 +530,8 @@ def test_reexec_hands_the_indicators_across(monkeypatch):
         "name": "oak-hafted handaxe",
     }
     server.engine.xml_data.right_hand = None
+    # Nor the creatures' status frames (#244): the hostile set rides too.
+    server.engine.xml_data.hostiles = {"83671290": True, "83689762": False}
 
     server.reexec(execv=lambda path, argv: None)
 
@@ -538,6 +540,7 @@ def test_reexec_hands_the_indicators_across(monkeypatch):
     assert handed_over["name"] == "Lanival"
     assert handed_over["left_hand"]["noun"] == "handaxe"
     assert handed_over["right_hand"] is None
+    assert handed_over["hostiles"] == {"83671290": True, "83689762": False}
     right.close()
     game.close()
 
@@ -557,6 +560,7 @@ def test_main_game_fd_primes_the_indicators_from_the_handoff(monkeypatch):
                     "exist": "2",
                     "name": "plate vambraces",
                 },
+                "hostiles": {"83671290": True},
             }
         ),
     )
@@ -575,6 +579,9 @@ def test_main_game_fd_primes_the_indicators_from_the_handoff(monkeypatch):
     assert xml_data.name == "Lanival"  # the title bar stays named (#95)
     assert xml_data.left_hand is None
     assert xml_data.right_hand["noun"] == "vambraces"  # the hands too (#159)
+    # And the hostiles (#244): a script started at once sees the badger
+    # the old process was fighting, not a clear room.
+    assert xml_data.hostiles == {"83671290": True}
     right.close()
     adopted["server"].game.close()
 

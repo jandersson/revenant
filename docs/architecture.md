@@ -35,7 +35,9 @@ entries from a dock-layout module.
   (indicators, compass, prompt, vitals, hostile creatures from
   `<crtrStatus>`, what each hand holds from `<left>`/`<right>` — a
   pair at login, then one tag per hand as it changes, carried across
-  `;reexec` like the name, #159; the prepared spell from `<spell>` and
+  `;reexec` like the name, #159, and like the hostile set, whose
+  frames come only with the creatures' next attacks, #244; the
+  prepared spell from `<spell>` and
   the running spells with minutes left from the Spells window's
   `percWindow` pulses, 2026-09-12) — docs/protocol.md is the wire-protocol reference it
   implements against (tag grammar cited to the GemStone wiki's Wrayth
