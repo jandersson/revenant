@@ -80,9 +80,13 @@ ranks to cast at minimum mana), which cast_once() returns as
 step. Before a run's first cast of each targeted slot, discern_slots()
 DISCERNs the spell (8 seconds of roundtime, no mana; Elanthipedia:
 Discern command) and turns the slot off on "You don't think you are
-able to cast this spell" before any PREPARE is spent; the estimate
-wording is the wiki's "You think you could weave at most N mana
-streams into this spell." until captured (#202). Captured 2026-09-18
+able to cast this spell" before any PREPARE is spent, and reads the
+estimate — "The spell requires at minimum 1 mana streams and you
+think you can reinforce it with 2 more, for a total of 3 streams."
+(captured 2026-09-20) — as the ramp's ceiling: no cast climbs past
+the game's own idea of this caster's most, the training buff's ramp
+included (it is DISCERNed too), after five backfires in one evening
+had each left a nerve wound (#202). Captured 2026-09-18
 on Footman's Strike at Targeted Magic 1: the spell's description, then
 "This is a targeted spell, which must be TARGETed at a specific
 opponent. ... To begin to be able to cast this spell, you will need to
@@ -215,8 +219,10 @@ class BuffState:
         self.cambrinth_off = False  # the piece refused this run, said once
         self.slot_mana = {}  # targeted slot -> its next cast's mana (#192, #200)
         self.slot_cap = {}  # targeted slot -> one step under its strain, once met
+        self.slot_limit = {}  # targeted slot -> DISCERN's total, the ramp's ceiling
+        self.mana_limit = None  # the training buff's DISCERN total, likewise
         self.slots_off = set()  # targeted slots whose spell refused this run
-        self.discerned = set()  # targeted slots DISCERNed this run (#202)
+        self.discerned = set()  # targeted slots (and "buff") DISCERNed this run (#202)
         self.last_training = None  # "buff" or a targeted slot: whose turn it was
 
 
@@ -236,6 +242,35 @@ def rank_of(state, skill):
     """The skill's rank in the exp window, or None before it has shown."""
     experience = getattr(state, "experience", None) or {}
     return (experience.get(skill) or {}).get("rank")
+
+
+# DISCERN's estimate, captured 2026-09-20 (Stun Foe at Debilitation 15,
+# Footman's Strike at Targeted Magic 11): "The spell requires at minimum
+# 1 mana streams and you think you can reinforce it with 2 more, for a
+# total of 3 streams." — the game's own ceiling for this caster. The
+# ramp climbed past it to 4 and 6 and backfired five times in one
+# evening, each "A tingling sensation spreads through your body." a
+# nerve wound that dampens the casting after it (the operator), so no
+# ramp climbs above the estimate now.
+_MANA_LIMIT = re.compile(
+    r"requires at minimum (\d+) mana streams? and you think you can "
+    r"reinforce it with (\d+) more, for a total of (\d+) streams?"
+)
+
+
+def mana_limit(text):
+    """(minimum, total) from DISCERN's estimate, or None."""
+    match = _MANA_LIMIT.search(text)
+    return (int(match.group(1)), int(match.group(3))) if match else None
+
+
+def climb(mana, limit):
+    """The ramp's next mana: a step up, never past DISCERN's limit; the
+    same mana when the limit is reached (0 is the spell's minimum)."""
+    step = mana + MANA_STEP
+    if limit is not None:
+        step = min(step, limit)
+    return step if step > mana else mana
 
 
 def rank_floor(text):
@@ -517,6 +552,9 @@ def discern_slots(s, profile, state, ask, prefix, report):
         answer = ask(s, f"discern {spell}")
         s.waitrt()
         outcome = classify(answer, DISCERN_OUTCOMES)
+        # The estimate is the ramp's ceiling (2026-09-20): "The spell
+        # requires at minimum 1 mana streams and you think you can
+        # reinforce it with 2 more, for a total of 3 streams."
         if outcome == "unable":
             state.slots_off.add(slot)
             floor = rank_floor(answer)
@@ -530,6 +568,35 @@ def discern_slots(s, profile, state, ask, prefix, report):
             s.echo(f"{prefix}: {spell} is not a spell you know — off for this run")
         elif outcome is None:
             report("discern", answer)
+        else:
+            _cap_by_discern(s, prefix, spell, answer, state.slot_limit, slot)
+    # The training buff too: its ramp climbed the same way, with no
+    # estimate to stop it (2026-09-20).
+    spell = profile.get("buffs") or []
+    spell = spell[0] if profile.get("train_casting") and spell else ""
+    if spell and "buff" not in state.discerned and not state.training_off:
+        state.discerned.add("buff")
+        answer = ask(s, f"discern {spell}")
+        s.waitrt()
+        limits = {}
+        _cap_by_discern(s, prefix, spell, answer, limits, "buff")
+        state.mana_limit = limits.get("buff")
+
+
+def _cap_by_discern(s, prefix, spell, answer, limits, key):
+    """DISCERN's estimate as the ramp's ceiling for `key`, said once;
+    an answer without the estimate leaves the ramp uncapped, as before."""
+    limit = mana_limit(answer)
+    if limit is None:
+        return
+    minimum, total = limit
+    # 0 is "the minimum" to the ramp (a bare PREPARE): an estimate that
+    # allows nothing past it pins the ramp there.
+    limits[key] = 0 if total <= minimum else total
+    s.echo(
+        f"{prefix}: DISCERN caps {spell} at {total} mana"
+        + (" — the minimum, no ramp" if total <= minimum else f" (minimum {minimum})")
+    )
 
 
 def cast_targeted(s, profile, state, ask, prefix, report, slot, target="", filler=None):
@@ -574,7 +641,7 @@ def cast_targeted(s, profile, state, ask, prefix, report, slot, target="", fille
             f"{mana or 'minimum'} mana for {skill}"
         )
         if slot not in state.slot_cap:
-            state.slot_mana[slot] = mana + MANA_STEP
+            state.slot_mana[slot] = climb(mana, state.slot_limit.get(slot))
     elif mana == 0:
         state.slots_off.add(slot)
         s.echo(f"{prefix}: {spell} fails at minimum mana — off for this run")
@@ -647,7 +714,7 @@ def cast_buffs(
                 + (f" (+{profile['cambrinth']})" if invoke else "")
             )
             if state.mana_cap is None:
-                state.mana += MANA_STEP
+                state.mana = climb(mana, state.mana_limit)
         elif mana == 0:
             # Even the minimum failed (a circle-1 Paladin's 5 mana
             # "barely backfires", 2026-09-12): no more training casts.

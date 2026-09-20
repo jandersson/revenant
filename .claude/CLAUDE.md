@@ -136,7 +136,8 @@ for `client/client/<pkg>/x.py`.
   the first buff on the mana ramp with the cambrinth and a POWER a
   minute, for a gondola ride or a wait at an altar, until the skills
   lock. `client/game/buffs.py` is the profile's buffs kept up, the
-  training casts (the mana ramp) and the targeted casts at the prey
+  training casts (the mana ramp, capped at DISCERN's estimate of the
+  caster's most since 2026-09-20) and the targeted casts at the prey
   (`debilitation`, `targeted`: Debilitation and Targeted Magic, in
   turn with the training cast), shared by `;hunt` and `;athletics`'
   wait filler. Model and assumptions: docs/hunting.md.

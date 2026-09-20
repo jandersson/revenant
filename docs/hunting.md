@@ -31,7 +31,7 @@ It holds what no script should hard-code:
 | cambrinth_mana | mana per charge, the piece's capacity (1 for a flake, 5 for the grey ring, 12 for the anklet) |
 | cambrinth_worn | the piece is worn between casts (an anklet, an armband): the cycle REMOVEs it for the charge and WEARs it back, since a worn piece refuses a charge — "Try though you may, you find it too clumsy to charge the cambrinth anklet while wearing it." (2026-09-20). A piece that is not on the body after all (REMOVE: "Remove what?" — the anklet was in the sack after a death and a raising, 2026-09-20) is GOT from its container instead and worn back afterwards; a charge that finds it in neither hand ("You'll have to hold it, set it on the ground, or put it on something first.") gets one more GET and one more charge before the cambrinth is off for the run |
 | cast_gap | seconds between training casts, 60 by default. A cast cycle with a cambrinth piece is eight commands, and at 20 s the first badger hunt (2026-09-14, #189) ran cast cycle, one or two swings, cast cycle: seven swings to the badger's 42 in four minutes. One cast a minute trains both skills the same and leaves the fight to the weapon |
-| debilitation | a targeted spell ("Stun Foe") cast at the prey between swings while Debilitation sits below lock: PREPARE (the mana ramping like the training casts), CAST <prey>, one per `cast_gap`, taking turns with the buff training cast so a swing never carries two casts; a collapse at the minimum turns it off for the run. Model: [Debilitation](#debilitation) below (#192) |
+| debilitation | a targeted spell ("Stun Foe") cast at the prey between swings while Debilitation sits below lock: PREPARE (the mana ramping like the training casts, never past DISCERN's estimate of the caster's most — five backfires on 2026-09-20), CAST <prey>, one per `cast_gap`, taking turns with the buff training cast so a swing never carries two casts; a collapse at the minimum turns it off for the run. Model: [Debilitation](#debilitation) below (#192) |
 | targeted | an attack spell ("Footman's Strike") cast at the prey between swings while Targeted Magic sits below lock, on the same cast gap and mana ramp as `debilitation`; the buff training cast, the debilitation cast and this one rotate, one cast per swing at most. Model: [Targeted Magic](#targeted-magic) below (#200) |
 | health_floor | below it: the burst escape (retreat, retreat, first exit), then home — or, with no home, the nearest room off the ground, said so (#185: a break-off that ended on the ground left the character among the rats that hurt it, and they killed it two and a half hours later, 2026-09-13) |
 | wound_floor | a severity name — empty means `harmful`, where bleeding starts, said once at the start (#236: an unset floor guarded nothing through an hour of eels), `off` never asks; after each kill and whenever the health bar drops, the injuries panel the game pushes is read first — clean means nothing to ask — and HEALTH is asked only when it shows a wound; a wound that bad or worse anywhere (external, scar, internal, internal scar) breaks off like the health floor. Empty never asks. Model: [wounds.md](wounds.md) |
@@ -220,7 +220,16 @@ as it slams into it! / You also see a striped badger that appears
 stunned." — the light scales with the mana fed. Too much mana answers
 "Your spell hopelessly backfires." (captured 2026-09-14 on the ramp's
 second step; the ramp then holds one step under, and the next cast
-landed). The resist wording is uncaptured. A stunned creature does not attack, so the
+landed). A backfire is not free: "A tingling sensation spreads through
+your body." is a nerve wound that dampens the casting after it, and
+five of them came in one evening (2026-09-20: Stun Foe at 4 mana,
+Footman's Strike at 6) while DISCERN had said "The spell requires at
+minimum 1 mana streams and you think you can reinforce it with 2
+more, for a total of 3 streams." and "... with 0 more, for a total of
+2 streams." So the estimate is the ceiling now: every ramp — the two
+targeted slots' and the training buff's, which is DISCERNed for it —
+climbs to the game's total and no further, and an estimate at the
+spell's minimum means no ramp at all. The resist wording is uncaptured. A stunned creature does not attack, so the
 cast spares bites
 while the weapon works. The profile's `debilitation` names the spell,
 and the loop casts it at the prey before a swing on the same cast gap

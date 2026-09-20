@@ -137,6 +137,7 @@ def test_one_pass_powers_charges_and_casts_the_first_buff_then_returns(monkeypat
     script.run(fake, [], PROFILE)
     assert fake.sent == [
         "power",
+        "discern heroic strength",  # the ramp's ceiling, once (2026-09-20)
         "get my flake",
         "charge my flake 1",
         "prepare heroic strength",
@@ -204,7 +205,12 @@ def test_a_stop_mid_cycle_puts_the_piece_back_on_the_way_out(monkeypatch):
     fake = StopAfterCharge(ANSWERS, learning(10))
     with pytest.raises(ScriptStopped):
         script.run(fake, ["nopower"], PROFILE)
-    assert fake.sent == ["get my flake", "charge my flake 1", "stow my flake"]
+    assert fake.sent == [
+        "discern heroic strength",
+        "get my flake",
+        "charge my flake 1",
+        "stow my flake",
+    ]
     assert "cast: the flake was still in hand — put back" in echoes(fake)
     worn = StopAfterCharge(
         dict(ANSWERS, remove=ANSWERS["get"], wear=[""] * 9), learning(10)
@@ -215,7 +221,12 @@ def test_a_stop_mid_cycle_puts_the_piece_back_on_the_way_out(monkeypatch):
             ["nopower"],
             {**PROFILE, "cambrinth": "anklet", "cambrinth_worn": True},
         )
-    assert worn.sent == ["remove my anklet", "charge my anklet 1", "wear my anklet"]
+    assert worn.sent == [
+        "discern heroic strength",
+        "remove my anklet",
+        "charge my anklet 1",
+        "wear my anklet",
+    ]
 
 
 def test_held_piece_reads_either_hand_by_noun_or_name():

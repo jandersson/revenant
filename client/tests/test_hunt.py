@@ -1949,6 +1949,106 @@ def test_discern_goes_out_once_per_slot_and_not_for_an_empty_one(travel):
     assert discerns == ["discern stun foe"]
 
 
+# DISCERN's estimate, captured 2026-09-20 on Stun Foe at Debilitation
+# 15 and Footman's Strike at Targeted Magic 11: the game's own ceiling,
+# which the ramp had climbed past (4 and 6 mana) and backfired five
+# times in one evening — nerve wounds that dampen the casting after.
+DISCERN_SF = (
+    "The spell requires at minimum 1 mana streams and you think you can "
+    "reinforce it with 2 more, for a total of 3 streams.\nRoundtime: 13 sec."
+)
+DISCERN_FS_MIN = (
+    "The spell requires at minimum 2 mana streams and you think you can "
+    "reinforce it with 0 more, for a total of 2 streams.\nRoundtime: 13 sec."
+)
+DISCERN_HS = (
+    "The spell requires at minimum 1 mana streams and you think you can "
+    "reinforce it with 3 more, for a total of 4 streams.\nRoundtime: 13 sec."
+)
+FS_CAST = (
+    "You gesture at a rat with your handaxe.\nA stream of stark white light "
+    "jumps from you to a rat, which warps into a spiraling force as it slams "
+    "into it!"
+)
+TM_OPEN = {"Targeted Magic": {"rank": 11, "percent": 0, "mindstate": 5}}
+
+
+def test_discerns_estimate_caps_the_debilitation_ramp(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands)] * 4 + [(KILL, kill)],
+            "prepare": [SF_PREPARED] * 5,
+            "cast": [STUNNED] * 5,
+            "skin": [SKINNED] * 5,
+            "search": [NOTHING] * 5,
+            "discern": [DISCERN_SF],
+        },
+        experience=DEBIL_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STUNNING | {"max_kills": 5}, travel_first=False)
+    assert prepares(arena)[:3] == [
+        "prepare stun foe",
+        "prepare stun foe 2",
+        "prepare stun foe 3",
+    ]
+    assert set(prepares(arena)[3:]) == {"prepare stun foe 3"}  # never 4 again
+    assert any("DISCERN caps stun foe at 3 mana (minimum 1)" in t for t in arena.echoed)
+
+
+def test_an_estimate_at_the_minimum_pins_the_targeted_ramp_there(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands)] * 2 + [(KILL, kill)],
+            "prepare": [FS_PREPARED] * 3,
+            "target": [TARGETING] * 3,
+            "cast": [FS_CAST] * 3,
+            "skin": [SKINNED] * 3,
+            "search": [NOTHING] * 3,
+            "discern": [DISCERN_FS_MIN],
+        },
+        experience=TM_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STRIKING | {"max_kills": 3}, travel_first=False)
+    assert prepares(arena) == ["prepare footman's strike"] * 3
+    assert any(
+        "DISCERN caps footman's strike at 2 mana — the minimum, no ramp" in t
+        for t in arena.echoed
+    )
+
+
+def test_the_training_buff_is_discerned_and_its_ramp_capped_too(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, lambda a: None), (KILL, lambda a: None), (KILL, kill)],
+            "prepare": [PREPARED] * 5,
+            "cast": [CAST] * 5,
+            "skin": [SKINNED] * 3,
+            "search": [NOTHING] * 3,
+            "discern": [DISCERN_HS],
+        },
+        experience=_exp(10),
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=TRAINING | {"max_kills": 3}, travel_first=False)
+    assert arena.sent.count("discern heroic strength") == 1
+    assert prepares(arena) == [
+        "prepare heroic strength",
+        "prepare heroic strength 2",
+        "prepare heroic strength 4",
+        "prepare heroic strength 4",  # the estimate's total, not 6
+    ]
+    assert any(
+        "DISCERN caps heroic strength at 4 mana (minimum 1)" in t for t in arena.echoed
+    )
+    assert buffs.mana_limit("You think you could weave at most 27 mana streams") is None
+    assert (
+        buffs.climb(0, None) == 2 and buffs.climb(2, 3) == 3 and buffs.climb(3, 3) == 3
+    )
+    assert buffs.climb(0, 0) == 0
+
+
 def test_a_buff_the_ranks_cannot_carry_is_off_for_the_run(travel):
     arena = Arena(
         {

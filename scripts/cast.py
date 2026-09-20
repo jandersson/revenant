@@ -253,6 +253,11 @@ def loop(s, options, shaped):
                 skills = skills_watched(shaped, options)
             last_power = clock()
         if not busy["song"]:
+            # DISCERN once, before the first cast: the game's estimate of
+            # the most mana this caster can weave is the ramp's ceiling —
+            # the hunt's ramp climbed past it and backfired five times in
+            # one evening, each a nerve wound (2026-09-20).
+            buffs.discern_slots(s, shaped, state, ask, "cast", report)
             buffs.cast_buffs(s, shaped, state, ask, "cast", report)
         if busy["song"]:
             s.echo(
