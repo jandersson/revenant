@@ -640,11 +640,18 @@ def _follow(s, db, route, here, closed):
             # lists some places twice, only one entry carrying the
             # game's uid (#137).
             if not db.same_place(mapped, dest):
+                # The map's edge led somewhere else — Varlet's Run's
+                # north is Goodwhate Pike 864 in the game, 863 on the
+                # map (2026-09-20, #232): the edge is closed for this
+                # walk and the route planned again from the room the
+                # game says we are in, the way a closed way is.
+                closed.add((here, dest))
                 s.echo(
                     f"off course at step {number}: in room {mapped} "
-                    f"({s.state.room_title!r}), expected {dest} — stopping here"
+                    f"({s.state.room_title!r}), expected {dest} — planning "
+                    "again from here"
                 )
-                return False
+                return "closed"
             continue
         expected = db.rooms[dest].get("title") or []
         actual = s.state.room_title

@@ -819,6 +819,42 @@ def test_a_room_the_map_lists_without_exits_is_left_by_the_compass(
     assert overlay[0]["wayto"] == {"19241": "out"}
 
 
+def test_an_edge_that_lands_off_course_is_closed_and_the_walk_planned_again():
+    # Varlet's Run (888) north is Goodwhate Pike 863 on the map and 864
+    # (uid 10147) in the game, 2026-09-20 (#232): a mapped landing off
+    # the plan is a closed edge, not the end of the walk.
+    road = MapDB(
+        [
+            {
+                "id": 888,
+                "uid": [10150],
+                "title": ["[The Crossing, Varlet's Run]"],
+                "wayto": {"863": "north"},
+            },
+            {
+                "id": 863,
+                "uid": [10148],
+                "title": ["[The Crossing, Goodwhate Pike]"],
+                "wayto": {"862": "east"},
+            },
+            {
+                "id": 864,
+                "uid": [10147],
+                "title": ["[The Crossing, Goodwhate Pike]"],
+                "wayto": {"862": "west"},
+            },
+            {"id": 862, "uid": [10100], "title": ["[The Crossing, Oxenwaithe Bridge]"]},
+        ]
+    )
+    handle = FakeHandle(uids=[10147, 10100])
+    handle.state.room_uid = 10150
+    assert walker.walk(handle, road, [862], describe="the bridge") is True
+    assert puts_of(handle) == ["north", "west"]
+    assert any("off course at step 1" in echo for echo in handle.echoes)
+    assert any("planning again from here" in echo for echo in handle.echoes)
+    assert not any("stopping here" in echo for echo in handle.echoes)
+
+
 def test_a_dead_end_whose_exits_never_land_ends_with_the_no_path_answer(
     tmp_path, monkeypatch
 ):

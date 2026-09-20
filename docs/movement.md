@@ -160,6 +160,15 @@ Ushnish] — trying OUT" / "map: 19242 out -> 19241 recorded locally".
 A room with no compass either, or whose exits all fail to land, ends
 as before with the no-path explanation.
 
+An edge that lands somewhere the map did not say is treated the same
+way as a closed way (#232): on the first walk out of the shrine the map
+sent the character north from Varlet's Run to Goodwhate Pike 863 and
+the game put him in 864, its neighbour with its own uid; the walker
+used to stop there ("off course ... — stopping here"). Now a landing
+by uid in a mapped room that is not the planned one closes that edge
+for the walk and plans again from the room the game reports, up to
+the same three reroutes; an unmapped landing still stops.
+
 ## Gates the map itself writes
 
 Some travel times are Ruby for Lich to evaluate at routing time —
