@@ -977,6 +977,29 @@ def test_the_first_skin_starts_the_bundle_and_wears_it(travel):
     assert any("bundle started and worn" in text for text in arena.echoed)
 
 
+def test_a_full_bundle_is_known_and_the_skin_is_stowed_loose(travel):
+    # Captured 2026-09-20 on the fourth badger skin of a run (#254): the
+    # worn bundle takes no more, BUNDLE says so, the skin stays in hand.
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "tap": ["You tap a lumpy bundle that you are wearing."],
+            "skin": [(PELT_LOOSE, skin_in_hand)],
+            "bundle": [
+                "Where did you intend to put that?  You don't have any bundles or "
+                "they're all full or too tightly packed!  Type BUNDLE HELP for "
+                "more details."
+            ],
+            "search": [NOTHING],
+        }
+    )
+    _hands(arena)
+    _run(arena, profile=BUNDLING, travel_first=False)
+    assert "bundle" in arena.sent
+    assert any("took no more" in text for text in arena.echoed)
+    assert not any("unrecognized bundle" in text for text in arena.echoed)
+
+
 def test_without_a_rope_the_skin_is_stowed_and_the_run_says_so_once(travel):
     arena = Arena(
         {

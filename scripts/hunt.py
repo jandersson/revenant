@@ -373,6 +373,11 @@ _ITEM = re.compile(
 # hand stays empty and the hand tags are the judge, not a wording.
 BUNDLE_OUTCOMES = (
     ("none", ("what were you referring", "could not find")),
+    # The worn bundle is full (captured 2026-09-20, the fourth badger
+    # skin): "Where did you intend to put that?  You don't have any
+    # bundles or they're all full or too tightly packed!" — the skin
+    # stays in hand and is stowed loose (bundled()).
+    ("full", ("all full", "don't have any bundles")),
     ("ok", ("you bundle up", "into your bundle")),
 )
 _MISSING = ("what were you referring", "could not find")
