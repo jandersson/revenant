@@ -87,7 +87,13 @@ back; the fists turn draws nothing and swings the profile's
 `brawling` attacks in rotation — PUNCH, KICK, ELBOW (Elanthipedia:
 Brawling skill, Punch command, Elbow command) — with the hands empty,
 since PUNCH wants a free hand and a worn parry stick parries as it
-is (Elanthipedia: Parry Ability skill), brass knuckles likewise. A
+is (Elanthipedia: Parry Ability skill), brass knuckles likewise.
+Captured 2026-09-20 on a striped badger, the first live fists turn:
+"you punch your brass knuckle at a striped badger" (the worn knuckles
+are the fist), "you kick your foot at a striped badger", "you elbow
+your plate-clad elbow at a striped badger" — each shaped like a
+weapon swing in the combat stream, the kill line the same, so the
+attacks need no table of their own. A
 weapon whose skill sits at mind-lock is skipped until it drains; all
 of them locked ends the hunt. The knife, the skins, the casts and the
 maneuvers are the same whatever is in hand, SMITE keeps its minute
@@ -137,19 +143,25 @@ MIND_LOCK = 34
 # capture of it — the cougar, the rats, a badger — is a KNOCKDOWN, the
 # creature stunned and prone ("lying down", then "leaps to its feet"),
 # and the badger hunt skinned and searched one that stood back up
-# (#197). A knockdown is nothing to act on. The other wordings are
-# assumptions until captured.
+# (#197). A knockdown is nothing to act on. "A striped badger screams
+# and falls to the ground grasping its mangled left leg!" (2026-09-20)
+# is a knockdown too — the badger "grimaces as it stands back up" — so
+# the needle is the whole phrase, "falls to the ground and lies
+# still", never "falls to the ground" alone (#240). "Twisting in
+# agony, the cougar falls to the ground lifeless." (2026-08-22, eight
+# times, "a cougar which appears dead" after it) is the other captured
+# kill. The rest are assumptions until captured.
 _KILL_WORDS = (
     "goes still",
-    "falls to the ground",
-    "lies still",
+    "falls to the ground and lies still",
+    "falls to the ground lifeless",
     " dies",
     "collapses",
     "keels over",
 )
 _KILL_NOUN = re.compile(
     r"\b(?:the|a|an) ((?:[\w'-]+ )*?)([\w'-]+) (?:slowly |suddenly )?"
-    r"(?:goes still|falls to the ground|lies still|dies|"
+    r"(?:goes still|falls to the ground(?: and lies still| lifeless)|dies|"
     r"collapses|keels over)",
     re.IGNORECASE,
 )
@@ -222,11 +234,13 @@ _NUMBER_WORDS = {
 # circle around it.", WEAVE "You weave back and forth, trying to
 # distract your opponent." — each followed by a balance line and
 # "Roundtime: 3 sec.", and Tactics entered the exp window at rank 3 on
-# the first BOB. From range they do not advance like ATTACK: "You must
+# the first BOB. CIRCLE has a second wording (2026-09-20, #240): "You
+# fake a striped badger, first moving one way and then another, leaving
+# it off balance." From range they do not advance like ATTACK: "You must
 # be closer to use tactical abilities on your opponent." (2026-09-20),
 # so the loop ADVANCEs on the prey itself (_NEED_MELEE). Anything else is
 # reported, and after TACTIC_MISSES of them the maneuvers are off.
-_MANEUVER_DONE = ("you bob", "you sidestep", "you weave")
+_MANEUVER_DONE = ("you bob", "you sidestep", "you fake", "you weave")
 TACTICS_EVERY = 3  # every third swing is a maneuver while Tactics is unlocked
 TACTIC_MISSES = 3  # unrecognized maneuver answers before tactics go off
 # HUNT for tracks (captured 2026-09-14 in a guild office, #194): "You
@@ -253,9 +267,11 @@ SKIN_OUTCOMES = (
     # Both hands full — the last skin still in the off hand (captured
     # 2026-09-12, three kills running): stowed, then skinned again.
     ("hands_full", ("one hand free",)),
-    # "is dead first" (a rat, 2026-09-12) and "You can't skin something
-    # that's not dead!" (a badger, 2026-09-14): the corpse noun found a
-    # live one — the corpse is gone, the next swing gets the live one.
+    # "is dead first" (a rat, 2026-09-12), "You can't skin something
+    # that's not dead!" (a badger, 2026-09-14) and "The striped badger
+    # grimaces as it stands back up. / Skin what?" (2026-09-20, #240):
+    # the corpse noun found a live one — the corpse is gone, the next
+    # swing gets the live one.
     (
         "gone",
         (
@@ -264,6 +280,8 @@ SKIN_OUTCOMES = (
             "already been skinned",
             "is dead first",
             "not dead",
+            "stands back up",
+            "skin what",
         ),
     ),
     ("ruined", ("ruin", "botch", "worthless", "useless")),

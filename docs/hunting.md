@@ -66,7 +66,13 @@ Barana's Shipyard):
   "lying down" in the room listing, then "leaps to its feet"; the
   badger hunt skinned and searched one that stood up ("You can't skin
   something that's not dead!") and counted the kill (#197). Since
-  2026-09-14 a knockdown is nothing to act on;
+  2026-09-14 a knockdown is nothing to act on. A second knockdown
+  wording shares the kill line's first words — "A striped badger
+  screams and falls to the ground grasping its mangled left leg!",
+  then "grimaces as it stands back up" at the SKIN (2026-09-20, #240)
+  — so the needle is the whole phrase, "falls to the ground and lies
+  still", or the cougars' "falls to the ground lifeless" (2026-08-22),
+  never the first words alone;
 - "The ship's rat is already quite dead." — a corpse soaking swings,
   which the loop disposes of (skin, search) like a fresh kill, and
   after two more such answers declares the room clear; the noun can
@@ -325,9 +331,21 @@ Weapons in the Crossing (map 8263) sells a polished steel parry stick
 at 1,250 Kronars and brass knuckles or elbow spikes at 575 each
 ([Milgrym's Weapons](https://elanthipedia.play.net/Milgrym%27s_Weapons)),
 worn brawling gear that PUNCH and ELBOW use on their own. The kill
-line, the skinning, the casts and the maneuvers are the plain hunt's;
-the brawling attacks' wordings are assumptions until the first live
-run captures them. The `;train` hunt task lists every weapon skill —
+line, the skinning, the casts and the maneuvers are the plain hunt's,
+and the attacks answer in the combat stream shaped like any weapon
+swing, so they need no table of their own. Captured 2026-09-20 on the
+first live fists turn, a striped badger, the knuckles and the stick
+worn (Brawling 7 78% → 8 02% and a rank in one turn):
+
+```
+< Moving with the precision of a mongoose, you punch your brass knuckle at a striped badger.  A striped badger attempts to dodge, avoiding only some of the blow.  The knuckle lands a hard hit to the badger's right arm.
+< You punch your brass knuckle at a striped badger.  A striped badger evades, just stepping out of harm's way.
+< Moving with indomitable grace, you kick your foot at a striped badger.  A striped badger fails to dodge, avoiding only some of the blow.  The foot lands a good strike to the badger's left arm.
+< Moving as a single sinuous force, you elbow your plate-clad elbow at a striped badger.  A striped badger fails to dodge, only slightly avoiding the blow.  The elbow lands a solid hit to the badger's left leg.
+```
+
+The targeted cast on that turn gestured "with your brass knuckles"
+and struck as ever. The `;train` hunt task lists every weapon skill —
 `"skills": ["Small Edged", "Brawling"]` — so the task runs until all
 of them reach the plan's target.
 
@@ -355,6 +373,8 @@ and "Roundtime: 3 sec.":
 You bob suddenly, lowering yourself into a smaller target.
 > circle badger
 You sidestep a striped badger suddenly, moving in a short circle around it.
+> circle badger
+You fake a striped badger, first moving one way and then another, leaving it off balance.
 > weave badger
 You weave back and forth, trying to distract your opponent.
 ```

@@ -86,6 +86,19 @@ KILL = "The rat falls to the ground and lies still."
 KNOCKED_DOWN = (
     "The rat slowly tips over and falls down.\nYou also see a rat that appears stunned."
 )
+# Captured 2026-09-20 on a striped badger (#240): a knockdown that
+# shares "falls to the ground" with the kill line, the badger standing
+# back up at the skin, and the 2026-08-22 cougars' own kill wording.
+MANGLED = (
+    "A striped badger screams and falls to the ground grasping its mangled "
+    "left leg!\n[You're nimbly balanced and in dominating position.]\n"
+    "[Roundtime 4 sec.]\nYou also see a striped badger that is lying down."
+)
+STOOD_UP = (
+    "The striped badger grimaces as it stands back up.\n"
+    "You also see a striped badger.\nSkin what?"
+)
+LIFELESS = "Twisting in agony, the cougar falls to the ground lifeless."
 # Captured 2026-09-13 (#183): SMITE's own line, then the swing as usual.
 SMITE_KILL = (
     "Drawing strength from your conviction, you execute a divinely inspired "
@@ -97,6 +110,29 @@ RAT_KILL = "The ship's rat falls to the ground and lies still."
 RAT_CORPSE = "The ship's rat is already quite dead."
 SKINNED = "You skin the rat, obtaining a rat pelt."
 NOTHING = "You search the rat.\nYou find nothing of value."
+# Captured 2026-09-20 on the first live fists turn (#238), a striped
+# badger, brass knuckles and a parry stick worn: PUNCH swings the worn
+# knuckles, KICK the foot, ELBOW the armored elbow — each in the
+# combat stream, shaped like a weapon swing, and the kill line the same.
+PUNCHED = (
+    "< Moving with the precision of a mongoose, you punch your brass knuckle "
+    "at a striped badger.  A striped badger attempts to dodge, avoiding only "
+    "some of the blow.  The knuckle lands a hard hit to the badger's right arm."
+)
+PUNCH_MISSED = (
+    "< You punch your brass knuckle at a striped badger.  A striped badger "
+    "evades, just stepping out of harm's way.  "
+)
+KICKED = (
+    "< Moving with indomitable grace, you kick your foot at a striped badger.  "
+    "A striped badger fails to dodge, avoiding only some of the blow.  The foot "
+    "lands a good strike to the badger's left arm."
+)
+ELBOWED = (
+    "< Moving as a single sinuous force, you elbow your plate-clad elbow at a "
+    "striped badger.  A striped badger fails to dodge, only slightly avoiding "
+    "the blow.  The elbow lands a solid hit to the badger's left leg."
+)
 
 
 class Arena:
@@ -206,14 +242,16 @@ def test_the_weapons_take_turns_per_kill_and_the_fists_turn_swings_the_brawling_
     # lists the weapons and the hunt cycles them, one per kill, so every
     # weapon skill learns in one evening. The fists turn draws nothing
     # (the parry stick and the knuckles are worn and work worn) and
-    # swings PUNCH, KICK, ELBOW in turn.
+    # swings PUNCH, KICK, ELBOW in turn — the answers are the captured
+    # ones, a hit, a miss and a hit, none of them read as anything but a
+    # swing that did not kill.
     arena = _run(
         Arena(
             {
                 "attack": [(KILL, _stands), (KILL, kill)],
-                "punch": ["You punch at a rat.  A rat dodges.\n"],
-                "kick": ["You kick at a rat.  A rat dodges.\n"],
-                "elbow": [(KILL, _stands)],
+                "punch": [PUNCHED + "\n", PUNCH_MISSED + "\n"],
+                "kick": [KICKED + "\n"],
+                "elbow": [(ELBOWED + "\n" + KILL, _stands)],
                 "skin": [SKINNED] * 3,
                 "search": [NOTHING] * 3,
             },
@@ -707,6 +745,40 @@ def test_a_knockdown_is_not_a_kill(travel):
     assert arena.sent.count("search rat") == 1
     assert any("1 kill(s), 1 skin(s)" in text for text in arena.echoed)
     assert not any("rat down (2)" in text for text in arena.echoed)
+
+
+def test_a_fall_grasping_a_mangled_leg_is_a_knockdown_and_lifeless_is_a_kill(travel):
+    # #240: "falls to the ground grasping its mangled left leg" shares
+    # its first words with the kill line and was read as one — the loop
+    # skinned a badger that stood back up and rotated weapons on no
+    # kill. The needle is the whole phrase now; the cougars' "falls to
+    # the ground lifeless" is the other captured kill.
+    arena = Arena(
+        {
+            "attack": [(MANGLED, _stands), (KILL, kill)],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+        }
+    )
+    _run(arena)
+    assert arena.sent.count("skin rat") == 1
+    assert not any("rat down (2)" in text for text in arena.echoed)
+    assert not any("unrecognized" in text for text in arena.echoed)
+    assert hunt.kill_noun(LIFELESS) == "cougar"
+    assert any(word in LIFELESS.lower() for word in hunt._KILL_WORDS)
+    assert not any(word in MANGLED.lower() for word in hunt._KILL_WORDS)
+    # The badger that stood up before the SKIN reached it: a gone corpse,
+    # nothing to report.
+    stood = Arena(
+        {
+            "attack": [(KILL, _stands), (KILL, kill)],
+            "skin": [STOOD_UP, SKINNED],
+            "search": [NOTHING] * 2,
+        }
+    )
+    _run(stood)
+    assert stood.sent.count("skin rat") == 2
+    assert [text for text in stood.echoed if "unrecognized" in text] == []
 
 
 def test_a_skin_that_found_the_live_one_is_a_gone_corpse_too(travel):
@@ -1904,6 +1976,11 @@ WEAVED = (
     "[You're slightly off balance with opponent in better position.]\n"
     "Roundtime: 3 sec."
 )
+# CIRCLE's second wording, captured 2026-09-20 on a striped badger (#240).
+FAKED = (
+    "You fake a rat, first moving one way and then another, leaving it off "
+    "balance.\n[You're nimbly balanced and in strong position.]\nRoundtime: 3 sec."
+)
 TACTICAL = PROFILE | {"tactics": ["bob", "circle"]}
 TACTICS_OPEN = {"Tactics": {"rank": 3, "percent": 0, "mindstate": 1}}
 
@@ -1936,6 +2013,26 @@ def test_every_third_swing_is_the_next_maneuver_while_tactics_is_unlocked(travel
         "attack rat",
     ]
     assert any("2 maneuver(s)" in text for text in arena.echoed)
+
+
+def test_circles_second_wording_is_a_maneuver_done(travel):
+    # #240: three "You fake ..." answers in one evening were reported as
+    # unrecognized, and three would have turned tactics off for the run.
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands)] * 5 + [(KILL, kill)],
+            "bob": [BOBBED] * 3,
+            "circle": [FAKED] * 3,
+            "skin": [SKINNED] * 9,
+            "search": [NOTHING] * 9,
+        },
+        experience=TACTICS_OPEN,
+    )
+    _run(arena, profile=TACTICAL | {"max_kills": 6}, travel_first=False)
+    assert arena.sent.count("circle rat") == 1
+    assert any("2 maneuver(s)" in text for text in arena.echoed)
+    assert not any("unrecognized" in text for text in arena.echoed)
+    assert not any("tactics off" in text for text in arena.echoed)
 
 
 def test_a_maneuver_from_range_advances_on_the_prey_and_waits_for_melee(travel):
