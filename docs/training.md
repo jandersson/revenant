@@ -87,6 +87,47 @@ hostiles in it, a rung the map lost), said so and not counted as
 trained; a cycle in which no task trained stops the loop instead of
 resting.
 
+## A worked example: a circle-5 Paladin
+
+Lanival's files as they stand on 2026-09-20, the shapes every other character's copy: the plan in `~/.revenant/training/lanival.json` and the profile in `~/.revenant/profiles/lanival.json` (the keys left at their defaults are omitted here; `;train init` writes a starter with every key).
+
+```json
+{
+ "target": 30, "rest_until": 10, "task_minutes": 30, "order": "listed", "poll": 30,
+ "soul": "on",
+ "tdp": ["auto"], "tdp_reserve": 0,
+ "tasks": [
+  {"name": "climbs",      "skills": ["Athletics"],       "script": "athletics"},
+  {"name": "hunt",        "skills": [],                  "script": "hunt",        "return_word": "return"},
+  {"name": "skins",       "skills": [],                  "script": "skins",       "args": ["bank"]},
+  {"name": "scholarship", "skills": ["Scholarship"],     "script": "scholarship", "args": ["books"], "return_word": "return"},
+  {"name": "performance", "skills": ["Performance"],     "script": "perform",     "return_word": "return", "pace": 90},
+  {"name": "attunement",  "skills": ["Attunement"],      "script": "attune"},
+  {"name": "forage",      "skills": ["Outdoorsmanship"], "script": "forage",      "return_word": "return"}
+ ]
+}
+```
+
+What the loop does with it: the climbs until Athletics reaches 30, the hunt (its own skills come from the profile's weapon and armor, so `skills` stays empty and the task runs its thirty minutes), the skins sold and banked, four library books, the zills until Performance locks, a lap of power walking, a forage — then the rest, wherever the last task ended (no `safe_rooms`), until every trained skill drains to 10, with the badge prayer, the tithe and the Chadatru prayer whenever their timers allow and up to three stat points bought on the guild's tiers. `return_word` marks the scripts that end gracefully on a typed `return` (the hunt finishes the kill and walks home); the others are killed at the target.
+
+```json
+{
+ "hunting_ground": "grass_eels", "prey": "eel", "home": "11716",
+ "weapon": "handaxe", "weapon_container": "sack", "stance": "100 40 40",
+ "skin": true, "bundle": true, "loot_container": "sack",
+ "buffs": ["heroic strength", "aspirant's aegis"],
+ "train_casting": "Augmentation",
+ "cambrinth": "anklet", "cambrinth_mana": 12, "cambrinth_worn": true, "cast_gap": 60,
+ "debilitation": "stun foe", "targeted": "",
+ "smite": false,
+ "tactics": ["bob", "circle"], "perception": true,
+ "health_floor": 60,
+ "attune_start": "732", "instrument": "zills", "library": "11716"
+}
+```
+
+The profile is the hunt's and the trainers' quirks ([hunting.md](hunting.md)): grass eels at the Applebrandy riverbeds (level 5 on the Zoluren ladder, 25-50 ranks — the badgers before them capped at 42), the handaxe drawn from the sack, a defensive stance, every kill skinned into a worn bundle, two buffs kept up with Heroic Strength recast for Augmentation through a 12-mana cambrinth anklet worn between casts, Stun Foe at the prey for Debilitation, no smiting (the soul pool pays for smites past the free ones, #217 — the hunt asks SMITE CHECK first when it is on), bob and circle for Tactics, HUNT for Perception, a break-off at 60% health to the guild library, the power-walking start room, the copper zills, the guild library's shelves.
+
 ## The soul in the rests
 
 A Paladin's soul is on timers (docs/soul.md): the badge every 31 minutes, the tithe every 4 hours, the Chadatru prayer every 2. With `soul: on` `;train` runs those deeds in its rests — a rest is idle by design, the badge prays where the character stands, the tithe and the prayer only when `;soul`'s own guard finds their rooms near — through `;soul <deed>` on the handle (run, is_running, kill), sharing the timer file so the two never tithe twice, and it kills a `;soul keep` it finds running, because keep does not know what the character is doing and a ten-second prayer in a hunt is a bad idea. Never in a task: `;hunt` wants only the pool reading (#217).
