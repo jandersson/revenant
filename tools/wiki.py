@@ -11,7 +11,9 @@ quest walkthrough, a shop's stock. This keeps each page's raw
 wikitext (`?action=raw`, the tables intact — a summarizing fetch
 garbles them, .claude/learnings.md) under ~/.revenant/wiki/<title>.txt
 with the fetch time beside it, so the second look costs nothing and
-survives the site being slow or down. The cache is the operator's
+survives the site being slow or down; a redirect page is followed to
+the page it names, and the console is written as UTF-8 whatever the
+page holds. The cache is the operator's
 machine's, never the repo's; a page older than REFRESH_DAYS is fetched
 again on the next read. REVENANT_WIKI_DIR moves the directory.
 """
@@ -72,10 +74,31 @@ def fetch(title: str, timeout: float = 30) -> str:
         return response.read().decode("utf-8", "replace")
 
 
+_REDIRECT = re.compile(r"^\s*#REDIRECT\s*\[\[([^\]|]+)", re.IGNORECASE)
+
+
+def follow_redirect(title: str, text: str, fetcher, hops: int = 3) -> str:
+    """The page a redirect points at, fetched in the redirect's place —
+    "Vela'tohr Plant" is `#REDIRECT [[Vela'tohr plant]]`, and on a
+    case-insensitive filesystem the two titles share one cache file,
+    so the redirect stub overwrote the page it named (2026-09-20). Up
+    to `hops` redirects; the text as it came otherwise."""
+    for _ in range(hops):
+        match = _REDIRECT.match(text or "")
+        if not match:
+            break
+        target = match.group(1).strip()
+        if target == title.strip():
+            break  # a page pointing at itself never spins (a case-only hop is real)
+        title, text = target, fetcher(target)
+    return text
+
+
 def read(title: str, refresh: bool = False, fetcher=None) -> str:
     """The page's raw wikitext, from the cache when it holds a fresh
-    copy, fetched (and cached) otherwise. Raises URLError/HTTPError
-    when the page cannot be fetched and no cached copy exists."""
+    copy, fetched (and cached) otherwise — a redirect page followed to
+    the page it names. Raises URLError/HTTPError when the page cannot
+    be fetched and no cached copy exists."""
     path = cache_dir() / f"{slug(title)}.txt"
     index = load_index()
     entry = index.get(title)
@@ -87,7 +110,7 @@ def read(title: str, refresh: bool = False, fetcher=None) -> str:
     if fresh and not refresh:
         return path.read_text(encoding="utf-8")
     try:
-        text = (fetcher or fetch)(title)
+        text = follow_redirect(title, (fetcher or fetch)(title), fetcher or fetch)
     except Exception:
         if path.is_file():
             return path.read_text(encoding="utf-8")  # stale beats nothing
@@ -107,7 +130,24 @@ def listing() -> list:
     )
 
 
+def utf8_console(stream) -> None:
+    """A Windows console writes cp1252, and a wiki page holds what it
+    holds: the Vela'tohr Plant page's left-to-right mark crashed the
+    print with UnicodeEncodeError (2026-09-20). The stream is switched
+    to UTF-8 with replacement where it can be; a stream that cannot be
+    reconfigured (a test's capture) is left alone."""
+    reconfigure = getattr(stream, "reconfigure", None)
+    if reconfigure is None:
+        return
+    try:
+        reconfigure(encoding="utf-8", errors="replace")
+    except (ValueError, OSError):
+        pass
+
+
 def main(argv=None) -> int:
+    utf8_console(sys.stdout)
+    utf8_console(sys.stderr)
     parser = argparse.ArgumentParser(prog="tools/wiki.py", description=__doc__)
     parser.add_argument("title", nargs="?", help="the page title, as the wiki shows it")
     parser.add_argument(

@@ -5,6 +5,7 @@ stale copy, and --grep prints the matching lines."""
 
 import importlib.util
 import pathlib
+import sys
 import time
 
 import pytest
@@ -69,6 +70,51 @@ def test_the_console_lists_and_greps(cache, capsys, monkeypatch):
     assert capsys.readouterr().out == "2: The rule of thumb is ranks\n"
     assert wiki.main(["--list"]) == 0
     assert "Cambrinth" in capsys.readouterr().out
+
+
+def test_a_page_with_a_character_the_console_cannot_write_still_prints(
+    cache, monkeypatch
+):
+    # The Vela'tohr Plant page holds a left-to-right mark (U+200E); a
+    # cp1252 console raised UnicodeEncodeError on the print (2026-09-20).
+    import io
+
+    monkeypatch.setattr(wiki, "fetch", lambda title: "nectar‎ heals\nsecond\n")
+    console = io.TextIOWrapper(io.BytesIO(), encoding="cp1252", errors="strict")
+    monkeypatch.setattr(sys, "stdout", console)
+    assert wiki.main(["Vela'tohr Plant"]) == 0
+    console.flush()
+
+    def written(stream):  # the wrapper's own newline translation aside
+        return stream.buffer.getvalue().decode("utf-8").replace("\r\n", "\n")
+
+    assert written(console) == "nectar‎ heals\nsecond\n"
+    grep = io.TextIOWrapper(io.BytesIO(), encoding="cp1252", errors="strict")
+    monkeypatch.setattr(sys, "stdout", grep)
+    assert wiki.main(["Vela'tohr Plant", "--grep", "nectar"]) == 0
+    grep.flush()
+    assert written(grep) == "1: nectar‎ heals\n"
+
+
+def test_a_redirect_is_followed_to_the_page_it_names(cache):
+    # "Vela'tohr Plant" redirects to "Vela'tohr plant"; the two titles
+    # share one cache file on Windows, and the stub overwrote the page
+    # (2026-09-20). The page's text is what both titles read.
+    pages = {
+        "Vela'tohr Plant": "#REDIRECT [[Vela'tohr plant]]\n",
+        "Vela'tohr plant": "The plant heals.\n",
+        "Loop": "#REDIRECT [[Loop]]\n",
+    }
+    fetches = []
+
+    def fetcher(title):
+        fetches.append(title)
+        return pages[title]
+
+    assert wiki.read("Vela'tohr Plant", fetcher=fetcher) == "The plant heals.\n"
+    assert fetches == ["Vela'tohr Plant", "Vela'tohr plant"]
+    assert wiki.read("Vela'tohr plant", fetcher=fetcher) == "The plant heals.\n"
+    assert wiki.read("Loop", fetcher=fetcher) == "#REDIRECT [[Loop]]\n"  # never spins
 
 
 def test_titles_become_safe_file_names_and_raw_urls():
