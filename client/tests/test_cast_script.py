@@ -7,6 +7,9 @@ import importlib.util
 import pathlib
 from types import SimpleNamespace
 
+import pytest
+
+from client.engine.scripting import ScriptStopped
 from client.game import buffs
 
 REPO = pathlib.Path(__file__).parents[2]
@@ -78,9 +81,17 @@ class Fake:
             right_hand=None,
         )
 
-    def put(self, command):
+    def put(self, command, cleanup=False):
+        if getattr(self, "stopped", False) and not cleanup:
+            raise ScriptStopped()
         self.sent.append(command)
         self.pending = []
+        # The hand state the parser would hold: the piece in hand from
+        # the GET until the stow or the WEAR.
+        if command.startswith(("get my ", "remove my ")):
+            self.state.right_hand = {"noun": command.split()[-1], "exist": "1"}
+        elif command.startswith(("stow my ", "wear my ")):
+            self.state.right_hand = None
         for prefix, queue in self.answers.items():
             if command == prefix or command.startswith(prefix + " "):
                 text = queue.pop(0) if queue else ""
@@ -165,6 +176,59 @@ def test_the_lock_ends_a_once_run_and_holds_otherwise(monkeypatch):
     script.run(held, [], PROFILE)
     assert "mind-locked — holding" in echoes(held)
     assert held.sent == []
+
+
+class StopAfterCharge(Fake):
+    """;stop cast arrives while the charge's answer is being read: the
+    piece is in hand, and every later call but a cleanup put raises."""
+
+    def get(self, timeout=None, streams=("",)):
+        if self.sent and self.sent[-1].startswith("charge my "):
+            self.stopped = True
+        if getattr(self, "stopped", False):
+            raise ScriptStopped()
+        return super().get(timeout, streams)
+
+    def sleep(self, seconds):
+        if getattr(self, "stopped", False):
+            raise ScriptStopped()
+
+
+def test_a_stop_mid_cycle_puts_the_piece_back_on_the_way_out(monkeypatch):
+    # 2026-09-20: ;stop cast between the GET and the stow left the anklet
+    # in hand. The finally: put-back goes out after the stop, WEAR for a
+    # worn piece, STOW otherwise.
+    now = [1000.0]
+    monkeypatch.setattr(script, "clock", lambda: now[0])
+    monkeypatch.setattr(buffs, "monotonic", lambda: now[0])
+    fake = StopAfterCharge(ANSWERS, learning(10))
+    with pytest.raises(ScriptStopped):
+        script.run(fake, ["nopower"], PROFILE)
+    assert fake.sent == ["get my flake", "charge my flake 1", "stow my flake"]
+    assert "cast: the flake was still in hand — put back" in echoes(fake)
+    worn = StopAfterCharge(
+        dict(ANSWERS, remove=ANSWERS["get"], wear=[""] * 9), learning(10)
+    )
+    with pytest.raises(ScriptStopped):
+        script.run(
+            worn,
+            ["nopower"],
+            {**PROFILE, "cambrinth": "anklet", "cambrinth_worn": True},
+        )
+    assert worn.sent == ["remove my anklet", "charge my anklet 1", "wear my anklet"]
+
+
+def test_held_piece_reads_either_hand_by_noun_or_name():
+    profile = {"cambrinth": "anklet"}
+    left = SimpleNamespace(left_hand={"noun": "anklet"}, right_hand=None)
+    right = SimpleNamespace(
+        left_hand=None, right_hand={"noun": "flake", "name": "cambrinth anklet"}
+    )
+    empty = SimpleNamespace(left_hand=None, right_hand={"noun": "sword"})
+    assert buffs.held_piece(left, profile) == "anklet"
+    assert buffs.held_piece(right, profile) == "anklet"
+    assert buffs.held_piece(empty, profile) is None
+    assert buffs.held_piece(left, {"cambrinth": ""}) is None
 
 
 def test_no_buff_and_no_spell_is_nothing_to_cast():

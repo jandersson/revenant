@@ -28,7 +28,9 @@ of them holds until enough drains to be worth casting again; `once`
 exits at the lock. Stops on death, on hostiles in the room, when mana
 sits under the floor for ten minutes, and when the profile names no
 buff and no spell= is given. Never a targeted spell: those want a prey
-(;hunt). A song refuses it all — "You are a bit too busy performing to
+(;hunt). Stopped between the GET and the stow, it puts the piece back
+(WEAR or STOW) on its way out, so nothing stays in hand. A song
+refuses it all — "You are a bit too busy performing to
 do that.", "You should stop playing before you do that." (captured
 2026-09-20 with ;perform on the gondola) — so it stops and says to end
 the song first. Wordings are the hunt's captures (client/game/buffs.py).
@@ -178,6 +180,15 @@ def run(s, words, profile):
             "cast: the profile names no buff and no spell= was given — nothing to cast"
         )
         return
+    try:
+        loop(s, options, shaped)
+    finally:
+        # A ;stop between the GET and the stow left the anklet in hand
+        # (2026-09-20): the put-back goes out even after the stop.
+        buffs.put_back_if_held(s, shaped, "cast")
+
+
+def loop(s, options, shaped):
     skills = skills_watched(shaped, options)
     state = buffs.BuffState()
     state.cast_at[shaped["buffs"][0]] = clock() - buffs.cast_gap(

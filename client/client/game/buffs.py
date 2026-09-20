@@ -273,6 +273,36 @@ def put_back_command(profile):
     return f"{verb} my {profile.get('cambrinth') or ''}"
 
 
+def held_piece(state, profile):
+    """The cambrinth noun when either hand holds the profile's piece
+    (the parser's `left_hand`/`right_hand`), else None."""
+    noun = (profile.get("cambrinth") or "").lower()
+    if not noun:
+        return None
+    for hand in ("left_hand", "right_hand"):
+        held = getattr(state, hand, None) or {}
+        words = f"{held.get('noun') or ''} {held.get('name') or ''}".lower().split()
+        if noun in words:
+            return noun
+    return None
+
+
+def put_back_if_held(s, profile, prefix):
+    """The piece back where it lives — WEAR or STOW — when a hand still
+    holds it, for a script's finally: clause: a ;stop between the GET
+    and the stow left the anklet in hand (2026-09-20, ;cast). Sent
+    with cleanup=True, which the handle allows after a stop. True when
+    a put-back went out; nothing for a dead character."""
+    if getattr(s, "dead", False):
+        return False
+    noun = held_piece(getattr(s, "state", None), profile)
+    if noun is None:
+        return False
+    s.put(put_back_command(profile), cleanup=True)
+    s.echo(f"{prefix}: the {noun} was still in hand — put back")
+    return True
+
+
 def charge_cambrinth(s, profile, state, ask, prefix, report):
     """Bring the profile's cambrinth piece to hand (GET, or REMOVE when
     it is worn) and CHARGE it for Arcana; True when it holds mana for

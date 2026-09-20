@@ -1005,4 +1005,15 @@ def main(s):
         download()
     db = MapDB.load()
     travel = not (s.args and s.args[0] == "here")
-    hunt(s, profile, db, travel=travel, avoid=avoided_rooms(db, setting("avoid_rooms")))
+    try:
+        hunt(
+            s,
+            profile,
+            db,
+            travel=travel,
+            avoid=avoided_rooms(db, setting("avoid_rooms")),
+        )
+    finally:
+        # The weapon stays in hand by design; the cambrinth piece does
+        # not — a ;stop mid-cycle puts it back (2026-09-20, ;cast).
+        buffs.put_back_if_held(s, profile, "hunt")

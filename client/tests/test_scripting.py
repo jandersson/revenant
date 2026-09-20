@@ -105,6 +105,26 @@ def test_stop_interrupts_sleeping_script(tmp_path):
     assert wait_for(lambda: not manager.running)
 
 
+def test_a_cleanup_put_goes_out_after_the_stop_and_a_plain_one_does_not(tmp_path):
+    # ;cast stopped between the GET and the stow left the piece in hand
+    # (2026-09-20): a finally: clause puts it back with cleanup=True.
+    (tmp_path / "hold.py").write_text(
+        "def main(s):\n"
+        "    try:\n"
+        "        s.sleep(10)\n"
+        "    finally:\n"
+        "        s.put('wear my anklet', cleanup=True)\n"
+        "        s.put('look')\n"  # a plain put after the stop raises again
+    )
+    manager, recorder = make_manager(tmp_path)
+    manager.start("hold", [])
+    assert wait_for(lambda: "hold" in manager.running)
+    manager.handle_command(";stop hold")
+    assert wait_for(lambda: any("hold stopped" in e for e in recorder.emitted))
+    assert recorder.sent == ["wear my anklet"]
+    assert not any("crashed" in e for e in recorder.emitted)
+
+
 def test_crash_is_reported_with_location(tmp_path):
     (tmp_path / "boom.py").write_text("def main(s):\n    raise ValueError('kaboom')\n")
     manager, recorder = make_manager(tmp_path)

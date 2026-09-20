@@ -117,9 +117,16 @@ class Script:
 
     # -- API for script code --------------------------------------------
 
-    def put(self, command: str):
-        """Send a command to the game, echoing it to the front ends."""
-        self._check()
+    def put(self, command: str, cleanup: bool = False):
+        """Send a command to the game, echoing it to the front ends.
+
+        After a ;stop every call raises ScriptStopped — except one with
+        `cleanup=True`, which goes out anyway: for a finally: clause that
+        puts an item back (;cast stopped between the GET and the stow
+        left the cambrinth piece in hand, 2026-09-20). Nothing is read
+        back; a cleanup put is fire-and-forget."""
+        if not cleanup:
+            self._check()
         self._manager.emit(f"[{self.name}]> {command}")
         state = self.state
         self._sent = (

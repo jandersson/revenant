@@ -79,7 +79,9 @@ for `client/client/<pkg>/x.py`.
   `RELOADABLE_MODULES` reload with them — as fresh module objects, so
   a running script keeps the functions it imported and their globals
   while the next start gets the new code (#181). Handle API:
-  put/get/waitfor/waitrt/echo/emit/sleep/command/state/args, plus
+  put/get/waitfor/waitrt/echo/emit/sleep/command/state/args (every
+  call raises ScriptStopped after a `;stop`, except `put(cmd,
+  cleanup=True)` — for a `finally:` that puts an item back), plus
   run/is_running/tell/kill/crashed for a script that drives other
   scripts (`;train`). `;help` renders docstrings.
 - `client/game/probe.py` — ask-and-classify shared by keyword scripts;
@@ -193,8 +195,10 @@ for `client/client/<pkg>/x.py`.
   experienced enough to go there") and a climb turned back twice are
   routed around, never retreated from (#209, #211), and the skill
   gates the map writes as Ruby timeto values are honored against
-  the exp window's ranks before the first step (#214). Model:
-  docs/movement.md.
+  the exp window's ranks before the first step (#214). A room the
+  map lists without exits is left by the compass, OUT first, and
+  the way that landed is written to `~/.revenant/mapdb/local.json`
+  for the next plan (#229). Model: docs/movement.md.
 - `client/game/possessions.py` — possessions by exist id: the parser's
   listing built into items, `find(items, noun)` for a script that
   wants exactly this orb (`get #<id>`), `rows()` for `;sheet inv`'s
