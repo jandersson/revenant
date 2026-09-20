@@ -33,6 +33,47 @@ def test_dictconfig_runs_once_and_preserves_existing_loggers(monkeypatch):
     assert not bystander.disabled
 
 
+def test_no_console_handler_without_a_console(monkeypatch):
+    # #242: a ;reexec child under pythonw inherited a stdout whose flush
+    # raised EINVAL on every record, and reexec-<stamp>.err filled with
+    # 900 "Logging error" tracebacks in a minute. Without a tty on
+    # stdout the console handler is left out; with one it stays.
+    import types
+
+    def configured_with(stdout):
+        applied = []
+        monkeypatch.setattr(
+            client_logger.logging.config,
+            "dictConfig",
+            lambda config: applied.append(config),
+        )
+        monkeypatch.setattr(client_logger, "_CONFIGURED", False)
+        monkeypatch.setattr(client_logger.sys, "stdout", stdout)
+
+        class Thing(client_logger.ClientLogger):
+            pass
+
+        Thing().log.debug("configure")
+        return applied[0]
+
+    headless = configured_with(None)
+    assert headless["root"]["handlers"] == ["file"]
+    assert "console" not in headless["handlers"]
+    piped = configured_with(types.SimpleNamespace(closed=False, isatty=lambda: False))
+    assert piped["root"]["handlers"] == ["file"]
+
+    class Broken:
+        closed = False
+
+        def isatty(self):
+            raise OSError(22, "Invalid argument")
+
+    assert configured_with(Broken())["root"]["handlers"] == ["file"]
+    tty = configured_with(types.SimpleNamespace(closed=False, isatty=lambda: True))
+    assert tty["root"]["handlers"] == ["console", "file"]
+    assert tty["handlers"]["console"]["stream"] == "ext://sys.stdout"
+
+
 def test_debug_log_is_per_process_and_prunes_old_ones(monkeypatch, tmp_path):
     # Rotating one shared revenant_client.log contends across processes
     # on Windows (#74): the filename carries the session stamp and pid,

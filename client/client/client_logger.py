@@ -1,6 +1,7 @@
 import logging.config
 import os
 import pathlib
+import sys
 import time
 from datetime import datetime
 
@@ -33,6 +34,19 @@ def log_dir() -> pathlib.Path:
     return pathlib.Path(
         os.environ.get("REVENANT_LOG_DIR", "~/.revenant/logs")
     ).expanduser()
+
+
+def console_usable():
+    """True when sys.stdout is a console worth a StreamHandler: present,
+    open and a tty. A pythonw process — the GUI, the session, a ;reexec
+    child — has None, or a dead handle whose flush raises EINVAL on
+    every record; a redirected stdout is a file the debug log already
+    covers (#242)."""
+    stream = sys.stdout
+    try:
+        return stream is not None and not stream.closed and stream.isatty()
+    except (AttributeError, ValueError, OSError):
+        return False
 
 
 def prune_debug_logs(directory, keep_days=DEBUG_LOG_KEEP_DAYS):
@@ -70,6 +84,16 @@ class ClientLogger:
         )
         prune_debug_logs(directory)
         config["disable_existing_loggers"] = False
+        if not console_usable():
+            # No console, no console handler: a ;reexec child under
+            # pythonw inherited a stdout whose flush failed on every
+            # record, and its stderr file held 900 "Logging error"
+            # tracebacks within a minute — burying what the file is
+            # for, the handoff's own errors (#242, #162).
+            config["root"]["handlers"] = [
+                name for name in config["root"]["handlers"] if name != "console"
+            ]
+            config["handlers"].pop("console", None)
 
         logging.config.dictConfig(config)
         _CONFIGURED = True
