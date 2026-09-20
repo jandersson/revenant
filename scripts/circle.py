@@ -1,18 +1,22 @@
 """What gates your next circle:  ;circle
 
-    ;circle          the gates, from the latest ;sheet snapshot with the exp window's ranks over it
+    ;circle          the gates: INFO's circle and guild now, the exp window's ranks over the latest ;sheet snapshot
     ;circle fresh    run ;sheet first (EXP and INFO, no roundtime), then the gates
 
 Computes the guildleader's answer locally: the latest ;sheet snapshot
 (~/.revenant/history.db) against your guild's circle-requirement table
 (client/game/circles.py, from Elanthipedia; all eleven circled guilds),
-printed per knowledge set with have/need ranks. The exp window's ranks
-are laid over the snapshot, so a skill that ranked since the sheet was
-taken counts at its current rank (Performance 2 → 3 in an hour of
-playing, 2026-09-18); a skill the window does not list is the
-snapshot's. Plain ;circle sends nothing; `fresh` runs ;sheet and waits
-for it. The snapshot's age is echoed. The model and its captured
-guildleader validation live in docs/circles.md.
+printed per knowledge set with have/need ranks. The circle and the
+guild come from INFO, asked first — read-only, no roundtime — so the
+conclusion is the character's now, not the sheet's (a snapshot
+several circles old gated circle 6 for a character past it, the
+operator, 2026-09-20); the snapshot's circle stands in when INFO
+answers nothing. The exp window's ranks are laid over the snapshot,
+so a skill that ranked since the sheet was taken counts at its
+current rank (Performance 2 → 3 in an hour of playing, 2026-09-18); a
+skill the window does not list is the snapshot's. `fresh` runs
+;sheet and waits for it. The snapshot's age is echoed. The model and
+its captured guildleader validation live in docs/circles.md.
 """
 
 import os
@@ -20,8 +24,12 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
-from client.game import circles
+from client.game import circles, probe
 from client.game.history import database_path as history_database_path
+from client.game.tdp import parse_info
+
+INFO_SECONDS = 3  # INFO's block, collected
+INFO_TAIL = 1
 
 
 def database_path() -> Path:
@@ -104,6 +112,13 @@ def snapshot_stamp(name):
     return row[1] if row else None
 
 
+def live_circle(s):
+    """INFO's (circle, guild) now — read-only, no roundtime — or (None,
+    None) when INFO answered nothing parseable."""
+    info = parse_info(probe.ask(s, "info", INFO_SECONDS, INFO_TAIL))
+    return info.get("circle"), info.get("guild")
+
+
 def main(s):
     name = (s.state.name if s.state else None) or os.environ.get("REVENANT_CHARACTER")
     if str((getattr(s, "args", None) or [""])[0]).lower() == "fresh":
@@ -117,8 +132,14 @@ def main(s):
         s.echo("circle: no sheet snapshot yet — run ;sheet once first")
         return
     character, logged_at, circle, guild, ranks = snapshot
+    now_circle, now_guild = live_circle(s)
+    if now_circle is not None:
+        circle, guild = now_circle, now_guild or guild
     if circle is None or guild is None:
-        s.echo("circle: the snapshot predates circle/guild tracking — run ;sheet once")
+        s.echo(
+            "circle: INFO gave no circle and the snapshot predates circle/guild "
+            "tracking — run ;sheet once"
+        )
         return
     live = getattr(s.state, "experience", None) if s.state else None
     ranks = circles.overlay_live(ranks, live)
@@ -129,8 +150,10 @@ def main(s):
     for line in circles.describe(unmet, circle + 1):
         s.echo(f"circle: {line}")
     s.echo(
-        f"circle: from {character}'s sheet snapshot of {snapshot_age(logged_at)}"
+        f"circle: circle {circle} {guild} "
+        + ("from INFO now" if now_circle is not None else "from the sheet")
+        + f", ranks from {character}'s sheet snapshot of {snapshot_age(logged_at)}"
         " ago"
-        + (", the exp window's ranks over it" if live else "")
+        + (" with the exp window's ranks over it" if live else "")
         + " (;circle fresh runs ;sheet first)"
     )

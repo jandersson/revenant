@@ -1,8 +1,9 @@
 """How ;circle answers — the manual.
 
-The script computes the guildleader's advice from the latest ;sheet
-snapshot in xp.db; nothing is sent to the game. The model itself is
-pinned in test_circles; here we cover the script's reading and report.
+The script computes the guildleader's advice from INFO's circle and
+guild now over the latest ;sheet snapshot's ranks in xp.db; INFO is
+the one command sent. The model itself is pinned in test_circles; here
+we cover the script's reading and report.
 """
 
 import importlib.util
@@ -28,13 +29,36 @@ circle = _circle()
 
 
 class FakeHandle:
+    """INFO answers `info` (nothing by default: the snapshot's circle
+    stands in); every other command answers silence."""
+
     state = None
 
-    def __init__(self):
+    def __init__(self, info=""):
         self.echoed = []
+        self.sent = []
+        self.pending = []
+        self.info = info
 
     def echo(self, text):
         self.echoed.append(text)
+
+    def put(self, command):
+        self.sent.append(command)
+        self.pending = (
+            [line + "\n" for line in self.info.splitlines()]
+            if command == "info"
+            else []
+        )
+
+    def get(self, timeout=None, streams=("",)):
+        return self.pending.pop(0) if self.pending else None
+
+    def sleep(self, seconds):
+        pass
+
+    def waitrt(self):
+        pass
 
 
 def seed_snapshot(path, character="Lanival", logged_at="2026-08-22T12:00:00+00:00"):
@@ -72,7 +96,26 @@ def test_circle_reports_gates_from_the_latest_snapshot(monkeypatch, tmp_path):
     assert "weapon: 1st Weapon (Small Edged) 3/6, Parry Ability 1/2" in text
     assert "1st Supernatural (Augmentation) 1/2" in text
     assert "8th Survival (First Aid) 1/2" in text
+    assert "circle 1 Thief from the sheet" in text
     assert "from Lanival's sheet snapshot" in text
+    assert handle.sent == ["info"]
+
+
+def test_infos_circle_and_guild_now_beat_the_snapshots(monkeypatch, tmp_path):
+    # The snapshot says circle 1; INFO says the character is circle 2 now
+    # (a sheet several circles old gated a circle already passed, the
+    # operator 2026-09-20). INFO is read-only, no roundtime.
+    database = tmp_path / "xp.db"
+    seed_snapshot(database)
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(database))
+    monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
+    handle = FakeHandle(
+        info="Name: Lanival  Guild: Thief  Race: Human\nGender: Male   Age: 20   Circle: 2\n"
+    )
+    circle.main(handle)
+    text = "\n".join(handle.echoed)
+    assert "gates to circle 3:" in text
+    assert "circle 2 Thief from INFO now" in text
 
 
 def test_circle_without_a_snapshot_points_at_sheet(monkeypatch, tmp_path):

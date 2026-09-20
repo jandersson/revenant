@@ -107,17 +107,22 @@ def stat_name(word):
     return matches[0] if len(matches) == 1 else None
 
 
+_CIRCLE = re.compile(r"Circle:\s*(\d+)")
+
+
 def parse_info(text):
-    """{"stats": {name: value}, "tdps": int or None, "race": str or None}
-    from INFO."""
+    """{"stats": {name: value}, "tdps": int or None, "race": str or None,
+    "guild": str or None, "circle": int or None} from INFO."""
     tdps = _TDPS_INFO.search(text)
     race = _RACE.search(text)
     guild = _GUILD.search(text)
+    circle = _CIRCLE.search(text)
     return {
         "stats": {name: int(value) for name, value in _STAT_LINE.findall(text)},
         "tdps": int(tdps.group(1)) if tdps else None,
         "race": race.group(1).strip() if race else None,
         "guild": guild.group(1).strip() if guild else None,
+        "circle": int(circle.group(1)) if circle else None,
     }
 
 

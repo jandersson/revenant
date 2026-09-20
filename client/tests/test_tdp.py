@@ -58,7 +58,15 @@ def test_tdp_and_info_give_the_points_on_hand():
         "tdps": 347,
         "race": "Dwarf",
         "guild": "Paladin",
+        "circle": None,  # the fixture has no Circle line
     }
+
+
+def test_parse_info_reads_the_circle():
+    # The identity line INFO prints, captured in test_sheet: ";circle"
+    # takes the circle from it rather than the sheet's (2026-09-20).
+    assert tdp.parse_info("Gender: Male   Age: 20   Circle: 8\n")["circle"] == 8
+    assert tdp.parse_info(INFO)["circle"] is None
 
 
 def test_stats_below_the_racial_start_are_the_points_dr3_hands_back():
