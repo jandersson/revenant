@@ -285,6 +285,33 @@ def test_the_weapons_take_turns_per_kill_and_the_fists_turn_swings_the_brawling_
     assert not any("unrecognized" in text for text in arena.echoed)
 
 
+def test_a_single_fists_turn_hunts_bare_handed_whatever_the_weapon_says(travel):
+    # 2026-09-20: Small Edged outgrew the badgers and the operator left
+    # "fists:Brawling" alone in `weapons`; the list was ignored below two
+    # entries, the profile's scimitar stayed the weapon, the draw failed
+    # ("What were you referring to?"), every swing was a bare ATTACK and
+    # every kill tried to sheathe the sword that sat in the sack.
+    arena = _run(
+        Arena(
+            {
+                "punch": [PUNCHED + "\n", (KILL, kill)],
+                "skin": [SKINNED],
+                "search": [NOTHING],
+            },
+            experience={"Brawling": {"rank": 7, "percent": 0, "mindstate": 5}},
+        ),
+        profile=ROTATING | {"weapons": ["fists:Brawling"]},
+        travel_first=False,
+    )
+    assert not any(
+        c.startswith(("get my handaxe", "put my handaxe")) for c in arena.sent
+    )
+    assert arena.sent.count("punch rat") == 2
+    assert "attack rat" not in arena.sent
+    assert any("hunt: fists for Brawling (5/34)" in t for t in arena.echoed)
+    assert not any("unrecognized" in t for t in arena.echoed)
+
+
 def test_a_locked_weapon_skill_sits_out_and_all_locked_ends_the_hunt(travel):
     # Small Edged at lock: the fists take every turn; both locked: done.
     arena = _run(

@@ -98,7 +98,10 @@ weapon whose skill sits at mind-lock is skipped until it drains; all
 of them locked ends the hunt. The knife, the skins, the casts and the
 maneuvers are the same whatever is in hand, SMITE keeps its minute
 when the profile smites, and with `weapons` empty the hunt is the
-profile's `weapon` alone, never swapped.
+profile's `weapon` alone, never swapped. A single turn listed is that
+turn — "fists:Brawling" alone hunts bare-handed whatever `weapon`
+says (2026-09-20: the list was ignored below two entries, and every
+kill tried to sheathe a scimitar that sat in the sack).
 `perception` on: when a room of the ground has emptied, and on every
 lap of an empty ground, one HUNT for tracks before moving on, at most
 once per 75 seconds while Perception sits below lock — HUNT teaches
@@ -456,6 +459,16 @@ def weapon_plan(profile):
     ]
 
 
+def has_turns(profile):
+    """True when the profile lists `weapons` turns at all — one counts
+    (a fists-only badger hunt, 2026-09-20: with a single turn the list
+    was ignored, the profile's scimitar stayed the weapon, and every
+    kill tried to sheathe a sword that sat in the sack)."""
+    return bool(weapon_plan(profile)) and bool(
+        [entry for entry in profile.get("weapons") or [] if str(entry).strip()]
+    )
+
+
 def fists_turn(profile):
     """True while the turn in hand is the fists (profile `weapon` is "",
     as `arm` sets it for that turn)."""
@@ -712,7 +725,7 @@ def clear_hands(s, profile):
 def ready(s, profile, tally=None, index=0):
     """Hands cleared, the first turn's weapon in hand and stance set
     before the first swing."""
-    if tally is not None and len(weapon_plan(profile)) > 1:
+    if tally is not None and has_turns(profile):
         arm(s, profile, tally, index)
     else:
         clear_hands(s, profile)
@@ -1240,11 +1253,7 @@ def hunt(s, profile, db, travel=True, avoid=()):
         return
     wear_bundle(s, profile, tally)
     cast_buffs(s, profile, tally)
-    first = (
-        next_turn(s, profile, tally, from_current=True)
-        if len(weapon_plan(profile)) > 1
-        else 0
-    )
+    first = next_turn(s, profile, tally, from_current=True) if has_turns(profile) else 0
     if first is None:
         s.echo("hunt: every weapon skill is mind-locked — nothing to train")
         return
