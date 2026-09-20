@@ -20,8 +20,10 @@ holds until enough has drained to be worth playing again; `once`
 exits at the lock instead. ;train runs it as a task (skills:
 ["Performance"], return_word "return") and ends it at the plan's
 target: the word lands within a second, playing or held, and the song
-is stopped first. It stops on death, on hostiles in the room, when
-the instrument is not on you, and when EXP shows no Performance.
+is stopped first. It stops on death, on hostiles in the room (or the
+game's own "You cannot use the copper zills while in combat!" when the
+parser has not seen them yet, #243), when the instrument is not on
+you, and when EXP shows no Performance.
 Captured 2026-09-18 on copper zills worn on a finger (bought from
 Riverhaven's peddler): "You fumble slightly as you begin an off-key
 ruff on your copper zills." / "You continue playing on your copper
@@ -52,6 +54,7 @@ from client.game.perform import (
     CLEANED,
     DIRTY,
     ENDED,
+    IN_COMBAT,
     MUST_HOLD,
     NO_CLOTH,
     NO_INSTRUMENT,
@@ -211,6 +214,8 @@ def start_song(s, options):
         return "no instrument", False
     if any(word in answer for word in NOT_HERE):
         return "not here", False
+    if any(word in answer for word in IN_COMBAT):
+        return "in combat", False
     return "unknown", False
 
 
@@ -331,6 +336,11 @@ def run(s, options, walker=walk_home):
                     s.echo("perform: could not walk home — stopping")
                     return
                 continue
+            if outcome == "in combat":
+                # The game refused the song for a fight the parser had
+                # not shown yet (2026-09-20, right after a ;reexec, #243).
+                s.echo("perform: in combat — stopping")
+                return
             if outcome == "unknown":
                 s.echo(
                     "perform: PLAY answered nothing known — please report it — stopping"

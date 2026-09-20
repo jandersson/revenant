@@ -261,6 +261,26 @@ def test_a_room_that_refuses_the_song_sends_it_home_once(monkeypatch, tmp_path):
     assert any("names no home — stopping" in t for t in none.echoed)
 
 
+class InCombat(Fake):
+    """Captured 2026-09-20 (#243): the game refused the song for a fight
+    the parser had not shown yet, right after a ;reexec."""
+
+    def ask(self, s, command, *_):
+        if command.startswith("play "):
+            self.sent.append(command)
+            return "You cannot use the copper zills while in combat!\n"
+        return super().ask(s, command)
+
+
+def test_the_games_own_combat_refusal_ends_the_run():
+    fake = InCombat(mindstates=[5, 5])
+    out = run(fake, ["once"])
+    assert plays(fake) == ["play scales off-key on my zills"]
+    assert "perform: in combat — stopping" in out
+    assert "nothing known" not in out
+    assert "stop play" not in fake.sent  # nothing was playing
+
+
 def test_no_instrument_anywhere_is_told_so(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_PROFILES", str(tmp_path))
     fake = Fake(mindstates=[5])

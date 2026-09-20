@@ -58,6 +58,10 @@ NO_INSTRUMENT = ("what were you referring", "could not find", "don't have")
 # game refuses a song — "You decide that now isn't the best time to be
 # playing, and stop." The song is for another room, not another try.
 NOT_HERE = ("isn't the best time to be playing",)
+# Captured 2026-09-20 in the Brambles with a badger engaged: "You cannot
+# use the copper zills while in combat!" — a fight the parser had not
+# seen yet (a re-exec'd session, #244); the song ends there (#243).
+IN_COMBAT = ("while in combat",)
 
 # Instrument care (#233; Elanthipedia: Clean command — "CLEAN
 # (stringed/percussion instrument) WITH (cloth)"), captured 2026-09-20
