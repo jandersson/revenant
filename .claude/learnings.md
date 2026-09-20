@@ -77,9 +77,11 @@ lessons the code and docs cannot carry themselves.
   sells by haggling: ORDER <item> quotes ("I can let that go for...62
   kronars"), OFFER <amount> closes it, and a second ORDER or a BUY
   answers "We're still dealing" while a slow answer ends the deal. The
-  session policy refuses an outside OFFER as a hand-over (#234) until
-  `offer` is in `~/.revenant/policy/<name>.json`'s allow list — the
-  operator added it for Cecil on 2026-09-20 after two stalled deals.
+  session policy refused an outside OFFER as a hand-over until #234
+  (2026-09-20, two stalled deals): an OFFER of an amount alone passes
+  now, an OFFER of an item still refuses. The rule is engine code, so
+  a session started before the fix keeps refusing until relaunched
+  (or `offer` sits in `~/.revenant/policy/<name>.json`'s allow list).
 - A script that writes into the parser's state (`s.state.experience`
   and the like) writes the parser's whole shape: the engine renders
   every entry on every change with every key, and a `;scholarship`

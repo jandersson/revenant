@@ -366,7 +366,8 @@ entries from a dock-layout module.
   outside senders (#161): every line tagged with an origin is decided
   before the game sees it — read-only verbs pass, the giving,
   dropping, spending and leaving verbs (and `;reexec`) are refused
-  with a reason echoed to every window in the alert style, DROP
+  with a reason echoed to every window in the alert style (an OFFER
+  of an amount alone, a catalog merchant's bid, passes, #234), DROP
   allows the junk list only, PUT only into the character's own
   container, a listed valuable is refused whatever the verb — with
   `~/.revenant/policy/<name>.json` adjusting the built-ins: "allow"

@@ -41,6 +41,24 @@ def test_the_giving_spending_and_leaving_verbs_are_refused_with_a_reason():
         assert word in verdict.reason, line
 
 
+def test_an_offer_of_an_amount_is_a_merchant_bid_and_passes():
+    # #234: a catalog merchant quotes on ORDER and the deal closes on
+    # OFFER <amount> (HELP SHOPS; the True Bard D'Or's rag, 2026-09-20 —
+    # the refused bid ended the deal). A bid hands nothing away; an
+    # OFFER of an item still does.
+    for line in (
+        "offer 62",
+        "OFFER 62 kronars",
+        "offer 5 silver",
+        "offer 1250 Kronars",
+    ):
+        verdict = policy.decide(line)
+        assert verdict.allowed and verdict.tier == "allowed", line
+    for line in ("offer my handaxe to Sable", "offer handaxe", "offer 62 rags"):
+        verdict = policy.decide(line)
+        assert not verdict.allowed and "OFFER" in verdict.reason, line
+
+
 def test_drop_allows_the_junk_list_only(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_SETTINGS", str(tmp_path / "settings.json"))
     assert policy.decide("drop my grass rope").allowed

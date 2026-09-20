@@ -84,7 +84,9 @@ and 1 when it was refused or nothing was listening.
 
 Behind that gate stands the session's own policy for outsiders
 (`client/engine/policy.py`, #161), which the sender cannot lift: a
-line that gives something away (GIVE, HAND, OFFER), spends it (SELL,
+line that gives something away (GIVE, HAND, OFFER of an item — an
+OFFER of an amount alone is a catalog merchant's bid, the line that
+closes an ORDER, and passes, #234), spends it (SELL,
 TRADE, EXCHANGE, ACCEPT, WITHDRAW, TRAIN, STUDY), throws it away
 (DISCARD; DROP of anything but the junk list), leaves or quits
 (DEPART, QUIT, EXIT), PUTs into anything but your own container, or

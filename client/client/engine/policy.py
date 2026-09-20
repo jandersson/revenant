@@ -6,10 +6,14 @@ an agent driving through it — passes `decide()` before the game sees
 it; the player's own typing never does. Three tiers. Read-only verbs
 always pass (the sendcmd allowlist). Verbs that give something away,
 drop it, spend, leave or quit — DROP and DISCARD of anything but the
-junk list, GIVE, HAND, OFFER, SELL, TRADE, EXCHANGE, ACCEPT, WITHDRAW,
-TRAIN and STUDY (TDPs), DEPART, QUIT and EXIT, PUT into anything but
-the character's own container, and `;reexec` — are refused with a
-one-line reason the session echoes to every window. Everything else
+junk list, GIVE, HAND, OFFER of an item, SELL, TRADE, EXCHANGE, ACCEPT,
+WITHDRAW, TRAIN and STUDY (TDPs), DEPART, QUIT and EXIT, PUT into
+anything but the character's own container, and `;reexec` — are
+refused with a one-line reason the session echoes to every window. An
+OFFER of an amount alone ("offer 62", "offer 62 kronars") is a catalog
+merchant's bid, the line that closes an ORDER (HELP SHOPS), not a
+hand-over, and passes (#234: the True Bard D'Or's apprentice gave up
+on a refused bid, 2026-09-20). Everything else
 passes; the client-side gate (allow_external_send / REVENANT_ALLOW_SEND)
 still stands in front of it, so a passing line was still let through
 deliberately. The policy is the session's, not the sender's: no origin
@@ -87,6 +91,13 @@ DENIED = {
     "discard": "DISCARD throws an item away",
     ";reexec": ";reexec stops every script",
 }
+# OFFER <amount>, optionally with coin words, is a merchant's bid — ORDER
+# quotes, OFFER closes (#234) — and hands nothing away; OFFER <item>
+# stays a hand-over.
+_BID = re.compile(
+    r"^offer \d+(?: (?:copper|bronze|silver|gold|platinum|kronars?|lirums?|"
+    r"dokoras?|coins?))*$"
+)
 # DROP: only the junk list (client/game/discard.py: grass, grass rope,
 # settings.json droppable) is droppable; a valuable never.
 DROP_VERBS = ("drop",)
@@ -194,7 +205,7 @@ def decide(line, policy=None) -> Verdict:
     verb = words[0]
     if verb in READ_ONLY:
         return Verdict(True, "read-only")
-    if verb in policy.denied:
+    if verb in policy.denied and not _BID.match(" ".join(words)):
         return Verdict(False, "denied", policy.denied[verb])
     if verb in DROP_VERBS:
         item = _item(words[1:])
