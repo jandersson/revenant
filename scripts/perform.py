@@ -69,6 +69,9 @@ from client.game.perform import (
 
 MIND_LOCK = 34
 RESUME_BELOW = 28  # resume once enough has drained to be worth a song
+# CLEAN passes per cleaning: one took "a very large amount of dirt and
+# grime" off and the next PLAY still called the zills dirty (2026-09-20).
+CLEAN_PASSES = 3
 POLL = 15  # seconds between looks at the story and the mindstate
 LOCK_POLL = 30
 COLLECT_SECONDS = 2
@@ -123,10 +126,23 @@ def clean_instrument(s, instrument, cloth):
     the game wants it held, WIPE it when wet, then CLEAN; worn again if
     removed, the cloth stowed. True when the game said it was cleaned."""
     removed = cleaned = False
-    for _ in range(4):
+    passes = 0
+    for _ in range(4 + CLEAN_PASSES):
         answer = ask(s, f"clean my {instrument} with my {cloth}")
         if any(word in answer for word in CLEANED):
+            # One pass took "a very large amount of dirt and grime" off
+            # and the next PLAY still called the zills dirty (2026-09-20,
+            # the operator's watch): CLEAN again while dirt comes off, up
+            # to CLEAN_PASSES, the last line echoed so the wording of a
+            # clean instrument gets captured.
             cleaned = True
+            passes += 1
+            if passes >= CLEAN_PASSES:
+                break
+            continue
+        if cleaned:
+            first = (answer.strip().splitlines() or ["(silence)"])[0]
+            s.echo(f"perform: CLEAN after {passes} pass(es) answered {first!r}")
             break
         if any(word in answer for word in MUST_HOLD):
             ask(s, f"remove my {instrument}")
@@ -140,7 +156,7 @@ def clean_instrument(s, instrument, cloth):
         ask(s, f"wear my {instrument}")
     ask(s, f"stow my {cloth}")
     if cleaned:
-        s.echo(f"perform: {instrument} cleaned with the {cloth}")
+        s.echo(f"perform: {instrument} cleaned with the {cloth} ({passes} pass(es))")
     return cleaned
 
 

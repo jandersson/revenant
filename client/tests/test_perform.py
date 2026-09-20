@@ -328,7 +328,9 @@ class DirtyZills(Fake):
     def __init__(self, *args, rag=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.rag = rag
-        self.cleans = [MUST_HOLD, WET, CLEANED]
+        # CLEAN wants the zills held, finds them wet, then takes dirt off
+        # three times (one pass left them dirty live, 2026-09-20).
+        self.cleans = [MUST_HOLD, WET, CLEANED, CLEANED, CLEANED]
         self.warned = False
 
     def ask(self, s, command, *_):
@@ -371,7 +373,7 @@ def test_a_dirty_instrument_is_cleaned_once_with_the_profiles_cloth(
     _with_cloth(monkeypatch, tmp_path, "rag")
     fake = DirtyZills(mindstates=[5, 34])
     run(fake, ["once"])
-    assert fake.sent[:11] == [
+    assert fake.sent[:13] == [
         "play scales off-key on my zills",
         "get my rag",
         "stop play",
@@ -380,11 +382,13 @@ def test_a_dirty_instrument_is_cleaned_once_with_the_profiles_cloth(
         "clean my zills with my rag",
         "wipe my zills with my rag",
         "clean my zills with my rag",
+        "clean my zills with my rag",  # dirt came off: again, three passes in all
+        "clean my zills with my rag",
         "wear my zills",
         "stow my rag",
         "play scales off-key on my zills",
     ]
-    assert any("zills cleaned with the rag" in t for t in fake.echoed)
+    assert any("zills cleaned with the rag (3 pass(es))" in t for t in fake.echoed)
     assert not any("drop" in c for c in fake.sent)
 
 
