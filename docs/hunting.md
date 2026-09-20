@@ -37,7 +37,7 @@ It holds what no script should hard-code:
 | wound_floor | a severity name; after each kill and whenever the health bar drops, the injuries panel the game pushes is read first — clean means nothing to ask — and HEALTH is asked only when it shows a wound; a wound that bad or worse anywhere (external, scar, internal, internal scar) breaks off like the health floor. Empty never asks. Model: [wounds.md](wounds.md) |
 | train_skills | the hunt ends when every one of them sits at mindstate 34 in the exp window |
 | max_kills | a fuse; 0 hunts until stopped or locked — an empty ground is waited out (a pause after every empty lap, then the next lap), never left |
-| smite | a Paladin: one swing a minute is SMITE instead of ATTACK, spent only when the game answers with its conviction line — the free smite regenerates every minute and Conviction experience comes at most once a minute ([Smite command](https://elanthipedia.play.net/Smite_command), #183) |
+| smite | a Paladin: one swing a minute is SMITE instead of ATTACK, spent only when the game answers with its conviction line — the free smite regenerates every minute and Conviction experience comes at most once a minute ([Smite command](https://elanthipedia.play.net/Smite_command), #183). SMITE CHECK goes out first and with no free blow the swing is an ATTACK: a smite past the free ones draws on the soul pool, and with the pool empty it harms the soul (#217, [soul.md](soul.md)) |
 | tactics | tactical maneuvers in rotation (`bob`, `circle`, `weave`): every third swing is the next one instead of ATTACK while Tactics sits below mind-lock; SMITE keeps its minute ahead of them; three answers outside the table turn them off for the run. Model and captures: [Tactics](#tactics) below (#190) |
 | perception | HUNT for tracks once a room of the ground has emptied, and on every lap of an empty ground, at most once per 75 seconds while Perception sits below lock — the skill's own learning timer; the tracks are not followed. Model: [Tracks](#tracks) below (#194) |
 | attune_start | not the hunt's: where `;attune` walks before building its street loop, a `;go2` target; empty loops from wherever it stands (`;attune from=<target>` overrides it for one run) |
@@ -179,7 +179,19 @@ line and a 6-second roundtime; Conviction entered the exp window at
 rank 4 after the one strike. Free smites regenerate one a minute and
 the experience is granted at most once a minute ([Smite command](https://elanthipedia.play.net/Smite_command)),
 so the loop smites one swing a minute and attacks the rest — a smite
-that drew the advance or a roundtime is not counted as spent. RUSH is
+that drew the advance or a roundtime is not counted as spent. A smite
+is fueled by Conviction's free blows first and the soul pool after,
+and a smite with the pool empty harms the soul — an evening of them
+took the Paladin to chalky grey and the glyph quest's orb refused him
+(#217, [soul.md](soul.md)). So SMITE CHECK goes out before each smite
+(captured 2026-09-20 at Conviction 49: "You contemplate the strength
+of your conviction. / Your conviction is enough to deliver three blows
+against your enemies before you must either rest or draw upon your
+spiritual strength to continue.") and with no blow counted the swing
+is an ATTACK and the minute is spent; a smite the game answers
+"Drawing upon holy wrath, you execute a divinely inspired strike!"
+(the wiki's soul-pool line) turns smiting off for the run. The wording
+of a SMITE CHECK with no free blows is still to capture. RUSH is
 not built: Cecil wears no shield and its answers are uncaptured.
 
 ## Debilitation

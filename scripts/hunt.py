@@ -36,7 +36,12 @@ ATTACK: it is what trains Conviction, a free smite regenerates every
 minute and the experience comes at most once a minute (Elanthipedia:
 Smite command), so the rest of the swings stay ATTACK. A SMITE the
 game answered with the advance from range or a roundtime is not
-spent; the next swing tries again.
+spent; the next swing tries again. SMITE CHECK goes out before each
+smite, and with no free blow left ("Your conviction is enough to
+deliver three blows ..." counts them) the swing is an ATTACK instead:
+a smite past the free ones draws on the soul pool, and one with the
+pool empty harms the soul (#217; docs/soul.md). A smite the game
+answers "Drawing upon holy wrath" turns smiting off for the run.
 `tactics` lists tactical maneuvers in rotation ("bob", "circle",
 "weave"): every third swing is the next one instead of ATTACK while
 Tactics sits below mind-lock in the exp window — a maneuver is what
@@ -156,6 +161,39 @@ ADVANCE_WAIT = 10  # seconds for "melee range" before the next ATTACK
 # command), so the loop smites once a minute at most (#183).
 _SMITE_STRUCK = ("divinely inspired strike",)
 SMITE_INTERVAL = 60  # seconds between smites
+# A smite is fueled by Conviction's free blows first and the soul pool
+# after (Elanthipedia: Smite command): a free one says "Drawing
+# strength from your conviction, ...", a soul-pool one "Drawing upon
+# holy wrath, ...", and a smite with the pool empty harms the soul —
+# an evening of it took a Paladin to chalky grey (#217). So SMITE CHECK
+# goes out first (captured 2026-09-20: "You contemplate the strength of
+# your conviction. / Your conviction is enough to deliver three blows
+# against your enemies before you must either rest or draw upon your
+# spiritual strength to continue.") and the swing smites only while it
+# counts a blow; a wrath strike, should one slip through, turns
+# smiting off for the run.
+_SMITE_WRATH = ("upon holy wrath",)
+_SMITE_CHECK_BLOWS = re.compile(r"enough to deliver (\w+) blows?", re.IGNORECASE)
+_NUMBER_WORDS = {
+    word: number
+    for number, word in enumerate(
+        (
+            "no",
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight",
+            "nine",
+            "ten",
+            "eleven",
+            "twelve",
+        )
+    )
+}
 # Tactical maneuvers (captured 2026-09-14 on a striped badger, #190):
 # BOB "You bob suddenly, lowering yourself into a smaller target.",
 # CIRCLE "You sidestep a striped badger suddenly, moving in a short
@@ -270,6 +308,8 @@ class Tally:
         self.bundle = None
         self.buffs = buffs.BuffState()  # the casts (client/game/buffs.py)
         self.last_smite = None  # clock() of the last smite that struck (#183)
+        self.smite_off = False  # a smite drew on the soul pool: no more (#217)
+        self.smite_warned = False  # "no free smites" said once per run
         self.maneuvers = 0  # tactical maneuvers the game answered (#190)
         self.since_maneuver = 0  # plain swings since the last maneuver
         self.tactic = 0  # the rotation index
@@ -761,14 +801,52 @@ def track(s, profile, tally):
         )
 
 
+def free_smites(text):
+    """The free blows SMITE CHECK counts — "three blows" is 3, "a blow"
+    or "one blow" 1 — or None when the answer says nothing known."""
+    match = _SMITE_CHECK_BLOWS.search(text or "")
+    if not match:
+        return None
+    word = match.group(1).lower()
+    if word.isdigit():
+        return int(word)
+    if word in ("a", "an"):
+        return 1
+    return _NUMBER_WORDS.get(word)
+
+
+def smite_allowed(s, tally):
+    """SMITE CHECK before a smite (#217): True while a free blow remains.
+    No free blows, or an answer the table does not know, means the next
+    SMITE would draw on the soul pool, so this minute's smite is an
+    ATTACK instead and the minute is spent; said once per run."""
+    blows = free_smites(ask(s, "smite check"))
+    if blows:
+        return True
+    tally.last_smite = clock()
+    if not tally.smite_warned:
+        tally.smite_warned = True
+        s.echo(
+            "hunt: no free smites — a SMITE now would draw on the soul pool; "
+            "attacking instead until Conviction gives one back (#217)"
+        )
+    return False
+
+
 def swing(s, profile, tally, prey):
     """One swing — ATTACK, SMITE or a maneuver (swing_verb) — and what
     its answer means: a kill disposed of, a maneuver tallied, a corpse
     or an empty room noted, an advance waited out. True while the room
     still holds a live hostile (a cast's filler asks, #203)."""
     verb = swing_verb(profile, tally, s.state)
+    if verb == "smite" and (tally.smite_off or not smite_allowed(s, tally)):
+        verb = "attack"
     text = ask(s, f"{verb} {prey}" if prey else verb)
     lowered = text.lower()
+    if verb == "smite" and any(word in lowered for word in _SMITE_WRATH):
+        # The pool paid for that one: no more smites this run (#217).
+        tally.smite_off = True
+        s.echo("hunt: that SMITE drew on the soul pool — smiting off for this run")
     if verb == "smite" and any(word in lowered for word in _SMITE_STRUCK):
         tally.last_smite = clock()  # spent only when it struck
     if verb in ("attack", "smite"):

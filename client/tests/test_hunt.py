@@ -1135,6 +1135,7 @@ def test_a_paladin_smites_one_swing_a_minute_and_attacks_the_rest(travel, monkey
     advancing = "You aren't close enough to attack.\nYou begin to advance on a rat."
     arena = Arena(
         {
+            "smite check": [SMITE_CHECK_THREE] * 9,
             "smite": [advancing, (SMITE_KILL, kill), (SMITE_KILL, kill)],
             "attack": [(KILL, kill)] * 6,
             "skin": [SKINNED] * 9,
@@ -1154,7 +1155,7 @@ def test_a_paladin_smites_one_swing_a_minute_and_attacks_the_rest(travel, monkey
 
     monkeypatch.setattr(hunt, "ask", ask)
     _run(arena, profile=PROFILE | {"smite": True, "max_kills": 4}, travel_first=False)
-    swings = [c for c in arena.sent if c.startswith(("smite", "attack"))]
+    swings = [c for c in arena.sent if c.startswith(("smite rat", "attack"))]
     # First swing: smite from range — no strike, not spent — so the next
     # swing smites again and kills; then attacks until a minute passed.
     assert swings[:3] == ["smite rat", "smite rat", "attack rat"]
@@ -1769,6 +1770,7 @@ def test_a_smite_keeps_its_minute_ahead_of_the_maneuvers(travel, monkeypatch):
     monkeypatch.setattr(hunt, "clock", lambda: 1000.0)  # one smite, never again
     arena = Arena(
         {
+            "smite check": [SMITE_CHECK_THREE] * 3,
             "smite": [(SMITE_KILL, _stands)],
             "attack": [(KILL, _stands)] * 3 + [(KILL, kill)],
             "bob": [BOBBED],
@@ -1780,7 +1782,9 @@ def test_a_smite_keeps_its_minute_ahead_of_the_maneuvers(travel, monkeypatch):
     )
     _run(arena, profile=TACTICAL | {"smite": True, "max_kills": 5}, travel_first=False)
     swings = [
-        c for c in arena.sent if c.split()[0] in ("attack", "smite", "bob", "circle")
+        c
+        for c in arena.sent
+        if c.split()[0] in ("attack", "smite", "bob", "circle") and c != "smite check"
     ]
     assert swings == [
         "smite rat",
@@ -1916,3 +1920,91 @@ def test_a_worn_cambrinth_piece_is_removed_for_the_charge_and_worn_again(travel)
         "wear my anklet",
     ]
     assert "get my anklet" not in arena.sent and "stow my anklet" not in arena.sent
+
+
+# --- the soul pool gate on SMITE (#217) -------------------------------------
+# Captured 2026-09-20 on a circle-5 Paladin with Conviction 49.
+SMITE_CHECK_THREE = (
+    "You contemplate the strength of your conviction.\n"
+    "Your conviction is enough to deliver three blows against your enemies "
+    "before you must either rest or draw upon your spiritual strength to continue.\n"
+)
+# The wording with no free blows is uncaptured: any answer the table
+# cannot count reads as none.
+SMITE_CHECK_NONE = "You contemplate the strength of your conviction.\n"
+WRATH_KILL = "Drawing upon holy wrath, you execute a divinely inspired strike!\n" + KILL
+
+
+def test_free_smites_are_counted_off_smite_check():
+    assert hunt.free_smites(SMITE_CHECK_THREE) == 3
+    assert (
+        hunt.free_smites("Your conviction is enough to deliver a blow against ...") == 1
+    )
+    assert (
+        hunt.free_smites("Your conviction is enough to deliver 12 blows against ...")
+        == 12
+    )
+    assert hunt.free_smites(SMITE_CHECK_NONE) is None
+
+
+def test_a_smite_goes_out_only_while_smite_check_counts_a_free_blow(
+    travel, monkeypatch
+):
+    now = {"t": 1000.0}
+    monkeypatch.setattr(hunt, "clock", lambda: now["t"])
+    arena = Arena(
+        {
+            "smite check": [SMITE_CHECK_THREE, SMITE_CHECK_NONE],
+            "smite": [(SMITE_KILL, kill)],
+            "attack": [(KILL, kill)] * 6,
+            "skin": [SKINNED] * 9,
+            "search": [NOTHING] * 9,
+        }
+    )
+    arena.arrivals = {6046: {"1": True}, 6047: {"1": True}}
+    original_ask = hunt.ask
+
+    def ask(s, command):
+        now["t"] += 61  # a minute per command: every swing is a smite turn
+        return original_ask(s, command)
+
+    monkeypatch.setattr(hunt, "ask", ask)
+    _run(arena, profile=PROFILE | {"smite": True, "max_kills": 2}, travel_first=False)
+    swings = [c for c in arena.sent if c.split()[0] in ("smite", "attack")]
+    # First turn: three free blows, smite. Second: none counted, attack
+    # instead, and the minute is spent so the loop does not re-check
+    # every swing.
+    assert swings[:2] == ["smite check", "smite rat"] or arena.sent.index(
+        "smite check"
+    ) < arena.sent.index("smite rat")
+    assert "smite rat" in arena.sent and arena.sent.count("smite rat") == 1
+    assert arena.sent.count("smite check") == 2
+    assert any("no free smites" in text for text in arena.echoed)
+
+
+def test_a_smite_that_drew_on_the_soul_pool_ends_smiting_for_the_run(
+    travel, monkeypatch
+):
+    now = {"t": 1000.0}
+    monkeypatch.setattr(hunt, "clock", lambda: now["t"])
+    arena = Arena(
+        {
+            "smite check": [SMITE_CHECK_THREE] * 3,
+            "smite": [(WRATH_KILL, kill)],
+            "attack": [(KILL, kill)] * 6,
+            "skin": [SKINNED] * 9,
+            "search": [NOTHING] * 9,
+        }
+    )
+    arena.arrivals = {6046: {"1": True}, 6047: {"1": True}}
+    original_ask = hunt.ask
+
+    def ask(s, command):
+        now["t"] += 61
+        return original_ask(s, command)
+
+    monkeypatch.setattr(hunt, "ask", ask)
+    _run(arena, profile=PROFILE | {"smite": True, "max_kills": 3}, travel_first=False)
+    assert arena.sent.count("smite rat") == 1
+    assert arena.sent.count("smite check") == 1  # no check once smiting is off
+    assert any("drew on the soul pool" in text for text in arena.echoed)
