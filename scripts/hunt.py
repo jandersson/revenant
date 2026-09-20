@@ -75,9 +75,11 @@ run, the rank named, and the ranks the spell wants when DISCERN says
 A cast never idles: the spell is PREPAREd (and a targeted one
 TARGETed at the prey, as DISCERN says it must be), the swing goes out
 while the pattern forms — PREPARE is answered during weapon roundtime,
-so the swing's own roundtime covers the wait — and CAST follows the
-swing; a foe that went down under that swing has the pattern RELEASEd
-rather than cast at nothing (#203, after dr-scripts' combat-trainer).
+so the swing's own roundtime covers the wait, and a long pattern (a
+non-battle spell's 26 s) gets a swing per roundtime until it is nearly
+ready, #250 — and CAST follows the last swing; a foe that went down
+under a swing has the pattern RELEASEd rather than cast at nothing
+(#203, after dr-scripts' combat-trainer).
 `weapons` lists the weapons the hunt cycles through, one turn per
 kill, each with the skill it trains — "handaxe:Small Edged:sack",
 "fists:Brawling" — so every weapon skill learns in the same evening
@@ -844,8 +846,10 @@ def cast_buffs(s, profile, tally, fight=False, filler=None):
     targeted spell is DISCERNed once per run first, so one the ranks
     cannot carry never costs a PREPARE (#202). In the fight the
     iteration's swing (`filler`) goes out while the first pattern
-    forms, and the roundtime is waited before the cast; True when it
-    did, so the loop does not swing again (#203)."""
+    forms, and the roundtime is waited before the cast — and a long
+    pattern (a non-battle spell's 26 s) is swung into again for as
+    long as a roundtime fits, every swing counted (#250); True when a
+    swing went out, so the loop does not swing again (#203)."""
     state = tally.buffs
     taken = {"alive": None}
 
@@ -853,9 +857,10 @@ def cast_buffs(s, profile, tally, fight=False, filler=None):
         unrecognized(s, tally, what, answer)
 
     def fill():
-        if taken["alive"] is None:
-            taken["alive"] = filler()
-            s.waitrt()
+        if taken["alive"] is not None:
+            tally.swings += 1  # the loop counted the first
+        taken["alive"] = filler()
+        s.waitrt()
         return taken["alive"]
 
     swing_first = fill if fight and filler is not None else None

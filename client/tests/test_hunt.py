@@ -1894,6 +1894,90 @@ def test_the_swing_goes_out_while_the_training_cast_prepares(travel):
     ]
 
 
+def _pattern(seconds):
+    """A PREPARE answered with the game's castTime tag: the pattern is
+    ready `seconds` of server time after the prepare."""
+
+    def effect(arena):
+        arena.state.casttime = arena.state.server_time + seconds
+
+    return effect
+
+
+def _clocked(arena):
+    """The Arena on the server's clock, the way buffs.cast_left reads a
+    pattern: every ATTACK is a 4 s swing roundtime gone by."""
+    arena.state.server_time = 100
+    arena.state.casttime = 0
+    original = arena.put
+
+    def put(command):
+        original(command)
+        if command.startswith("attack"):
+            arena.state.server_time += 4
+
+    arena.put = put
+    return arena
+
+
+def _casts(arena):
+    fight = arena.sent[arena.sent.index("stance set 100 80 0") + 1 :]
+    return [c for c in fight if c.split()[0] in ("prepare", "attack", "cast")]
+
+
+def test_a_long_pattern_is_swung_into_until_a_roundtime_no_longer_fits(travel):
+    # #250: Heroic Strength's pattern formed for 26 s (the castTime tag
+    # captured 2026-09-20), one 4 s swing filled it, and the hunt stood
+    # the other 22 under the badger. A 14 s pattern here: swings at 100,
+    # 104 and 108 (2 s left after the third, no room for a fourth), then
+    # the CAST — the kill under the third swing releases nothing, the
+    # buff is a self-cast.
+    arena = _clocked(
+        Arena(
+            {
+                "attack": [MISSED, MISSED, (KILL, kill)],
+                "prepare": [(PREPARED, _pattern(14))],
+                "cast": [CAST],
+                "skin": [SKINNED],
+                "search": [NOTHING],
+            },
+            experience=_exp(10),
+        )
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=TRAINING | {"max_kills": 1}, travel_first=False)
+    assert _casts(arena) == [
+        "prepare heroic strength 2",
+        "attack rat",
+        "attack rat",
+        "attack rat",
+        "cast",
+    ]
+    assert "release" not in arena.sent
+
+
+def test_a_battle_spells_pattern_gets_the_one_swing(travel):
+    # Stun Foe forms in 8 s: the first swing's roundtime leaves 4, no
+    # room for another — the one-swing cadence of #203 stands, and the
+    # kill comes on the next iteration's own swing.
+    arena = _clocked(
+        Arena(
+            {
+                "attack": [MISSED, (KILL, kill)],
+                "prepare": [(SF_PREPARED, _pattern(8))],
+                "cast": [STUNNED],
+                "skin": [SKINNED],
+                "search": [NOTHING],
+                "discern": [DISCERNED],
+            },
+            experience=DEBIL_OPEN,
+        )
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STUNNING | {"max_kills": 1}, travel_first=False)
+    assert _casts(arena)[:3] == ["prepare stun foe", "attack rat", "cast rat"]
+
+
 def test_a_foe_down_under_the_filler_swing_releases_the_targeted_pattern(travel):
     arena = Arena(
         {

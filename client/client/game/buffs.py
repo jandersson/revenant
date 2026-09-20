@@ -119,6 +119,9 @@ from client.game.probe import classify
 
 MIND_LOCK = 34
 PREPARE_SECONDS = 8  # from "begin chanting" to a castable pattern
+# A swing's roundtime: a pattern with less than this left is not swung
+# into again (the badger fights' PUNCH/KICK/ELBOW and BOB run 3-5 s).
+SWING_SECONDS = 4
 BUFF_MINUTES = 10  # the wiki's shortest duration for the intro buffs
 PREPARE_OUTCOMES = (
     (
@@ -455,14 +458,22 @@ def cast_once(
         if aim is None:
             report("target", answer)
         ready = "has completed"
-    if filler is not None and not filler() and (target or targeted):
-        ask(s, "release")
-        return "released"
+    if filler is not None:
+        # The swing goes out while the pattern forms (#249): a forming
+        # pattern holds no command but the CAST. A non-battle spell's
+        # pattern forms for twenty-odd seconds at a low Holy Magic
+        # (Heroic Strength: 26 s captured 2026-09-20) and one swing fills
+        # four of them, so the filler swings again while a swing's
+        # roundtime still fits before the ready line (#250).
+        while True:
+            if not filler() and (target or targeted):
+                ask(s, "release")
+                return "released"
+            if cast_left(s) <= SWING_SECONDS:
+                break
     # The pattern's own time, read off the state the PREPARE set, is the
-    # ceiling — twenty to thirty seconds at a low Holy Magic, far past
-    # PREPARE_SECONDS — and the ready line ends the wait early. The
-    # swing above went out while it formed (#249): a forming pattern
-    # holds no command but the CAST.
+    # ceiling — far past PREPARE_SECONDS — and the ready line ends the
+    # wait early.
     remaining = max(PREPARE_SECONDS - (monotonic() - started), cast_left(s))
     if remaining > 0:
         probe.collect(s, remaining, until=ready)

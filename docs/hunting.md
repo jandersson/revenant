@@ -301,7 +301,13 @@ loop PREPAREs (and TARGETs), sends the iteration's swing while the
 pattern forms, waits the swing's roundtime, collects what is left of
 the prepare time for the ready line, and CASTs; the cast wraps the
 swing rather than adding one, so the cadence is still one swing per
-iteration and the prepare wait costs nothing. It is dr-scripts'
+iteration and the prepare wait costs nothing. A battle spell's pattern
+(Stun Foe, Footman's Strike: 8 s) is covered by that one swing; a
+non-battle spell's is not — Heroic Strength formed for 26 s at Cecil's
+Holy Magic on 2026-09-20 and the hunt stood the other 22 under the
+badger's claws, once a minute — so while the parser's cast time says
+a swing's roundtime (4 s) still fits before the ready line, the loop
+swings again, each swing counted toward the fuses (#250). It is dr-scripts'
 combat-trainer shape (its spell process prepares, keeps attacking,
 and casts on the ready flag or the prep timer). A foe that went down
 under the filler swing has a pattern aimed at it RELEASEd rather than
