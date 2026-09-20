@@ -3,7 +3,10 @@
 Ten docks crowd the window, and hiding one through the View menu
 loses its place in the layout. A collapsed dock keeps its place and
 its title bar and gives up its space: the content widget is hidden
-and the dock's height pinned to the title bar's; expanding lifts the
+(the content squeezed to zero height, not hidden — hidden, it took
+its width limits with it and the dock column could no longer be
+resized, #201) and the dock's height pinned to the title bar's;
+expanding lifts the
 pin, shows the content and asks the main window for the height the
 dock had. Three ways to do it — the ▾ button on the title bar, a
 double-click on the title, or the View menu's Collapse/Expand Dock
@@ -33,6 +36,8 @@ from PyQt6.QtWidgets import (
 COLLAPSED = "collapsed"  # the dock's dynamic property
 EXPANDED_HEIGHT = "expanded_height"  # remembered across a collapse
 EXPANDED_MAX = "expanded_max_height"  # the dock's own ceiling, restored
+CONTENT_MAX = "content_max_height"  # the content's own ceiling and floor,
+CONTENT_MIN = "content_min_height"  # restored on expand (#201)
 QWIDGETSIZE_MAX = 16777215  # Qt's "no maximum"
 COLLAPSE_GLYPH, EXPAND_GLYPH = "▾", "▸"  # ▾ ▸
 FLOAT_GLYPH, CLOSE_GLYPH = "❐", "✕"  # ❐ ✕
@@ -111,7 +116,16 @@ def collapse(dock):
     dock.setProperty(EXPANDED_MAX, dock.maximumHeight())
     content = dock.widget()
     if content is not None:
-        content.hide()
+        # Squeezed to nothing, not hidden: a QDockWidget takes its
+        # minimum and maximum width from its layout, and with the
+        # content hidden both come from the title bar alone, which
+        # pinned the whole dock column's width until the dock was
+        # expanded again (#201). At zero height the content still
+        # lends the dock its width limits and paints nothing.
+        dock.setProperty(CONTENT_MAX, content.maximumHeight())
+        dock.setProperty(CONTENT_MIN, content.minimumHeight())
+        content.setMinimumHeight(0)
+        content.setMaximumHeight(0)
     dock.setMaximumHeight(bar.sizeHint().height() + 4)
     dock.setProperty(COLLAPSED, True)
     bar.show_collapsed(True)
@@ -127,7 +141,9 @@ def expand(dock):
     dock.setMaximumHeight(int(ceiling) if ceiling else QWIDGETSIZE_MAX)
     content = dock.widget()
     if content is not None:
-        content.show()
+        floor, ceiling = dock.property(CONTENT_MIN), dock.property(CONTENT_MAX)
+        content.setMinimumHeight(int(floor) if floor else 0)
+        content.setMaximumHeight(int(ceiling) if ceiling else QWIDGETSIZE_MAX)
     dock.setProperty(COLLAPSED, False)
     bar = dock.titleBarWidget()
     if isinstance(bar, DockTitleBar):

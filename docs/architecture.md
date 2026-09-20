@@ -321,7 +321,10 @@ entries from a dock-layout module.
   dock folds to its title bar and back (`client/gui/dock_collapse.py`:
   our own title bar with fold, float and close buttons, a double-click
   on the title, or View → Collapse/Expand Dock, Ctrl+Shift+D, on the
-  focused dock; the content hides and the dock's height pins to the
+  focused dock; the content squeezes to zero height — hidden, it
+  took the dock's width limits with it and the whole dock column
+  stopped resizing until the dock was expanded, #201 — and the dock's
+  height pins to the
   bar, keeping its place; the folded names are saved beside the
   layout keys and applied after each restore, #180); the clocks dock ticks
   Elanthian time, moons, Stockholm/Chicago, and (via a Settings toggle)

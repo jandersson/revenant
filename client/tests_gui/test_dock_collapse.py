@@ -17,16 +17,49 @@ def test_collapse_hides_the_content_and_expand_brings_it_back(window):
     content = dock.widget()
     ceiling = dock.maximumHeight()
     assert not dock_collapse.is_collapsed(dock)
+    content_ceiling = content.maximumHeight()
     assert dock_collapse.collapse(dock)
     assert dock_collapse.is_collapsed(dock)
-    assert content.isHidden()
+    assert content.maximumHeight() == 0  # squeezed to nothing, not hidden (#201)
+    assert not content.isHidden()
     assert dock.maximumHeight() < 80  # the title bar, not the content
     assert not dock_collapse.collapse(dock)  # already folded
     assert dock_collapse.expand(dock)
     assert not dock_collapse.is_collapsed(dock)
-    assert not content.isHidden()
+    assert content.maximumHeight() == content_ceiling
     assert dock.maximumHeight() == ceiling  # the dock's own ceiling is back
     assert not dock_collapse.expand(dock)
+
+
+def test_a_folded_dock_leaves_the_dock_columns_width_free(window, qapp):
+    # #201: folding a side dock pinned the whole column's width — the
+    # separator no longer dragged — because the hidden content took its
+    # width limits with it. Folded, the dock's maximum width is still
+    # Qt's own and the main window can still resize the dock.
+    # A side-column dock: a lone bottom dock spans the window and no
+    # resize narrows it, folded or not.
+    dock = dock_collapse.dock_of(window.injuries)
+    window.resize(1700, 1000)  # room beside the column, which sits at its minimum
+    window.show()
+    qapp.processEvents()
+    assert window.dockWidgetArea(dock) in (
+        Qt.DockWidgetArea.LeftDockWidgetArea,
+        Qt.DockWidgetArea.RightDockWidgetArea,
+    )
+    before_min = dock.minimumWidth()
+    assert dock_collapse.collapse(dock)
+    qapp.processEvents()
+    # Folded, the width is not pinned: the maximum stays a layout-sized
+    # "no maximum" (Qt reports its layout cap, 524287, not QWIDGETSIZE_MAX).
+    assert dock.maximumWidth() > dock.minimumWidth() + 1000
+    assert dock.minimumWidth() <= max(
+        before_min, dock.titleBarWidget().minimumSizeHint().width()
+    )
+    target = dock.width() + 120  # wider: what the pinned maximum refused
+    window.resizeDocks([dock], [target], Qt.Orientation.Horizontal)
+    qapp.processEvents()
+    assert dock.width() >= target - 4
+    dock_collapse.expand(dock)
 
 
 def test_a_floating_dock_is_left_alone(window):
