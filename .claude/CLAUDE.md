@@ -91,7 +91,10 @@ for `client/client/<pkg>/x.py`.
   `collect` glues per-segment pieces into whole lines and reads the
   story and the `combat` stream both (every swing and kill line
   arrives in `<pushStream id="combat"/>`; a story-only read sees no
-  kill, 2026-09-12).
+  kill, 2026-09-12). `ask`'s windows are ceilings: each ends once the
+  game's prompt has closed the answer and the stream has gone quiet a
+  quarter second, and a command with no roundtime gets no tail (#248:
+  the fixed windows held every command 4.5 s in the hunt).
 - `client/engine/procspawn.py` + `client/engine/frozen.py` — every sibling spawn
   (session, dashboard, reexec child) goes through `command_for`, which
   is `python -m module` from source and `<exe> --role module` in the
