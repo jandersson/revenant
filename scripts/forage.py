@@ -28,8 +28,15 @@ you were looking for.", and "You forage
 around but are unable to find anything." (6 s), which a room without
 the item answers every time and a room with it answers on a failed
 try, so three of those in a row end the run only before the first
-success (ten in a row after). An answer
-outside the table is echoed once per wording and the run goes on.
+success (ten in a row after). The wordings grow with the ranks
+(captured 2026-09-20 on the same rocks): the success is "You begin
+exploring the area, searching for a rock.  In almost no time, you
+manage to identify 2 of them but leave them where they are,
+undisturbed." (15 s), often after "You move slightly to the right,
+hoping to find a better foraging spot.", and a miss can say "You
+forage around and believe you would probably have better luck trying
+to find a dragon's egg than what you were looking for." (4 s). An
+answer outside the table is echoed once per wording and the run goes on.
 Stops at mind-lock, on death, on hostiles in the room, and on
 `return`. ;train runs it as a task (skills:
 ["Outdoorsmanship"], return_word "return").
@@ -59,7 +66,19 @@ clock = time.monotonic  # tests replace it
 # collect (the roundtime says one went out) and is reported once per
 # wording.
 _EMPTY = ("unable to find anything",)
-_COLLECTED = ("poke your fingers", "dead and lifeless", "you collect", "pile")
+# The practice success at higher ranks (captured 2026-09-20, Cecil on
+# the Crossing's rocks, 15 s roundtime): "You begin exploring the area,
+# searching for a rock.  In almost no time, you manage to identify 2 of
+# them but leave them where they are, undisturbed." — often after "You
+# move slightly to the right, hoping to find a better foraging spot."
+_COLLECTED = (
+    "poke your fingers",
+    "dead and lifeless",
+    "you collect",
+    "pile",
+    "leave them where they are",
+    "manage to identify",
+)
 # A failed try that says the item is here, in three flavors (2026-09-14):
 # "You are certain you could find what you were looking for, if you had
 # a bit more luck.", "You are sure you knew what you were looking for
@@ -69,6 +88,11 @@ _TRIED = (
     "a bit more luck",
     "knew what you were looking for",
     "remember what it was you were looking for",
+    # A miss at higher ranks (2026-09-20, 4 s roundtime, three times in
+    # a room that gave 9 successes and 25 empty answers): "You forage
+    # around and believe you would probably have better luck trying to
+    # find a dragon's egg than what you were looking for."
+    "dragon's egg",
 )
 _REFUSED = ("can't do that", "cannot do that", "not something you can", "what were you")
 

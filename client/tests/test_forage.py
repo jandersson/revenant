@@ -195,6 +195,36 @@ def test_a_near_miss_counts_as_a_try_and_keeps_the_run_going(travel):
     assert not any("unrecognized" in text for text in s.echoed)
 
 
+# The wordings at higher ranks, captured 2026-09-20 on the Crossing's
+# rocks (#253): the practice success, 15 s, and a miss, 4 s.
+IDENTIFIED = (
+    "You move slightly to the right, hoping to find a better foraging spot.\n"
+    "You begin exploring the area, searching for a rock.  In almost no time, "
+    "you manage to identify 2 of them but leave them where they are, "
+    "undisturbed.\nRoundtime: 15 sec."
+)
+EGG = (
+    "You move forward slightly, hoping to find a better foraging spot.\n"
+    "You forage around and believe you would probably have better luck trying "
+    "to find a dragon's egg than what you were looking for.\nRoundtime: 4 sec."
+)
+
+
+def test_the_higher_rank_practice_success_is_a_find(travel):
+    s = Fake([IDENTIFIED, IDENTIFIED], experience=_exp(10))
+    reason, collected = forage.run(s, forage.parse_args(["rock", "2"]), db=MAP)
+    assert (reason, collected) == ("2 collect(s) done", 2)
+    assert not any("unrecognized" in text for text in s.echoed)
+
+
+def test_the_dragons_egg_miss_is_a_try_not_an_empty_room(travel):
+    s = Fake([EMPTY, EMPTY, EGG, EMPTY, EMPTY, EMPTY], experience=_exp(10))
+    reason, collected = forage.run(s, forage.parse_args([]), db=MAP)
+    assert (len(s.sent), collected) == (6, 1)
+    assert reason.startswith("nothing to collect here (3")
+    assert not any("unrecognized" in text for text in s.echoed)
+
+
 def test_an_answer_outside_the_table_is_reported_once_and_counts(travel):
     s = Fake([ODD] * 3, experience=_exp(10))
     reason, collected = forage.run(s, forage.parse_args(["rock", "3"]), db=MAP)
