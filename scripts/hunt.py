@@ -215,7 +215,12 @@ ADVANCE_WAIT = 10  # seconds for "melee range" before the next ATTACK
 # on a badger closing from pole range): "You must be closer to use
 # tactical abilities on your opponent." — the loop ADVANCEs on the prey
 # and waits for melee range, as ATTACK's own advance would.
-_NEED_MELEE = ("must be closer",)
+# PUNCH and KICK at range fall through the same way (captured 2026-09-20
+# on a badger closing from pole range, #257): PUNCH answers "Actually,
+# using a weapon would probably be a bit more effective." and KICK its
+# emote, "You kick some dirt on a striped badger in disgust." — neither
+# with a roundtime, so the filler loop spent three commands in a second.
+_NEED_MELEE = ("must be closer", "using a weapon would probably", "kick some dirt")
 # SMITE (captured 2026-09-13 on a rat): "Drawing strength from your
 # conviction, you execute a divinely inspired strike!" then the swing
 # line as ATTACK would give it, 6 s roundtime. From range it answers

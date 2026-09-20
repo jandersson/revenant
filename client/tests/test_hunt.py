@@ -2488,6 +2488,34 @@ def test_a_maneuver_from_range_advances_on_the_prey_and_waits_for_melee(travel):
     assert not any("tactics off" in text for text in arena.echoed)
 
 
+def test_punch_and_kick_at_range_advance_on_the_prey(travel):
+    # Captured 2026-09-20 on a badger closing from pole range (#257):
+    # PUNCH quips about a weapon, KICK kicks dirt, neither with a
+    # roundtime — three commands went out in a second. Both mean ADVANCE.
+    quip = "Actually, using a weapon would probably be a bit more effective.\n"
+    dirt = "You kick some dirt on a striped badger in disgust.\n"
+    arena = _run(
+        Arena(
+            {
+                "punch": [quip, PUNCHED + "\n", (KILL, kill)],
+                "kick": [dirt, KICKED + "\n", KICKED + "\n"],
+                "elbow": [ELBOWED + "\n"] * 3,
+                "advance": ["You begin to advance on a rat.\n"] * 3,
+                "skin": [SKINNED],
+                "search": [NOTHING],
+            },
+            experience={"Brawling": {"rank": 7, "percent": 0, "mindstate": 5}},
+        ),
+        profile=ROTATING | {"weapons": ["fists:Brawling"]},
+        travel_first=False,
+    )
+    first = arena.sent.index("punch rat")
+    assert arena.sent[first + 1] == "advance rat"
+    if "kick rat" in arena.sent:
+        assert arena.sent[arena.sent.index("kick rat") + 1] == "advance rat"
+    assert not any("unrecognized" in t for t in arena.echoed)
+
+
 def test_no_maneuver_once_tactics_locks_or_with_none_listed(travel):
     locked = {"Tactics": {"rank": 3, "percent": 0, "mindstate": 34}}
     for profile, experience in ((TACTICAL, locked), (PROFILE, TACTICS_OPEN)):
