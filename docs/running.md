@@ -7,7 +7,7 @@
 ```sh
 uv run revenant                  # the saved character, or a login prompt
 uv run revenant Lanival          # a named character: attach if online, else spawn
-uv run revenant --pick           # the picker: running sessions to attach, cached characters to launch
+uv run revenant --pick           # the picker: running sessions to attach, cached characters to launch; a pick becomes the login default the next launch opens on (#222)
 ```
 
 ### The packaged build

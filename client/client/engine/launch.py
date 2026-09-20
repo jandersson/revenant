@@ -421,6 +421,11 @@ def pick_and_go(host, base_port):
         account, character, key = gather_login(
             picked["character"], account=picked["account"]
         )
+        # The pick is the new login default, as a "remember" in the
+        # dialog is: after days of picking one character, a relaunch
+        # opened on whoever last went through the dialog and one Enter
+        # logged the wrong character in (2026-09-19, #222).
+        save_login_defaults(account, character)
     port = get_free_port(host, base_port)
     start_session(host, port, character, key, account)
     return exec_gui(["--attach", f"{host}:{port}"])

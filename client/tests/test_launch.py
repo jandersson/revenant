@@ -467,6 +467,11 @@ def test_pick_and_go_launches_a_picked_character(monkeypatch, tmp_path):
     launch.pick_and_go("127.0.0.1", 4242)
     assert calls["login"] == ("Alpha", "TESTACCT")
     assert calls["gui"] == ["--attach", f"127.0.0.1:{calls['spawn']}"]
+    # The pick is the new login default (#222), merged into the file
+    # beside the roster cache the picker lives on (#58).
+    saved = json.loads(defaults.read_text())
+    assert saved["character"] == "Alpha" and saved["account"] == "TESTACCT"
+    assert saved["accounts"]["testacct"]["characters"] == ["Alpha"]
 
 
 def test_pick_and_go_cancel_means_no_gui(monkeypatch, tmp_path):
