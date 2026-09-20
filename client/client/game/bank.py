@@ -1,5 +1,7 @@
 """The purse banked: which coins to EXCHANGE into the province's own and
-the money-changer's and the teller's answers, shared by ;bank and ;skins.
+the money-changer's and the teller's answers, behind ;bank alone —
+;skins bank runs ;bank rather than a deposit of its own (the operator,
+2026-09-20).
 
 Coins weigh, and a hunt's takings and the far towns' change pile up
 (the operator, 2026-09-20: a bank loop in ;train "will reduce

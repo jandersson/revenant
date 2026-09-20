@@ -517,9 +517,11 @@ captured 2026-09-14 at the Provincial Bank after Falken paid 217
 Kronars for four badger pelts: "The clerk slides a small metal box
 across the counter into which you drop all your Kronars.  She counts
 them carefully and records the deposit in her ledger." — which is
-how a `;train` task
-(`"script": "skins", "args": ["bank"]`, no skills, once a cycle)
-turns a hunt's skins into banked coins (#196). The first bundled hunt ran the same
+`;bank`'s line now ([training.md](training.md), #235): `;skins bank`
+runs `;bank` and waits for it instead of depositing itself (the
+operator, 2026-09-20: "it should just do ;bank"), and the plan keeps
+selling and banking as two tasks, `skins` then `bank` (#196). The
+first bundled hunt ran the same
 evening and captured the rest:
 
 ```

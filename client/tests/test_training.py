@@ -121,8 +121,10 @@ def test_the_starter_plan_takes_home_and_skills_from_the_profile(monkeypatch):
         "tdp",
         "forage",
     ]
-    assert starter["tasks"][2]["args"] == ["bank"]  # sold and banked once a cycle
-    assert starter["tasks"][3]["skills"] == []  # the purse banked once a cycle (#235)
+    # Selling and banking are distinct tasks (the operator, 2026-09-20):
+    # ;skins sells, the plan's bank task banks the purse (#235).
+    assert starter["tasks"][2]["args"] == []
+    assert starter["tasks"][3]["skills"] == []
     assert starter["tasks"][4]["args"] == ["plan"]  # the TDPs, a task in the order
     assert starter["tasks"][5]["skills"] == ["Outdoorsmanship"]
     assert starter["tasks"][1]["skills"] == ["Small Edged"]

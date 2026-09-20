@@ -74,6 +74,21 @@ class Fake:
         self.dead = False
         self.args = []
         self.state = SimpleNamespace(name="Lanival", room_uid=1)
+        self.started = []  # (name, args) of the scripts this one ran
+        self.can_start = True
+        self.polls = 0  # is_running answers True this many times first
+
+    # --- the handle's other-script API: ;skins bank runs ;bank ---
+    def run(self, name, args=()):
+        if not self.can_start:
+            self.echoed.append(f"{name} is already running")
+            return False
+        self.started.append((name, list(args)))
+        return True
+
+    def is_running(self, name):
+        self.polls -= 1
+        return self.polls >= 0
 
     def put(self, command):
         self.sent.append(command)
@@ -150,40 +165,30 @@ def test_a_bundle_in_the_sack_is_fetched_when_none_is_worn():
     ]
 
 
-def test_bank_deposits_all_at_the_nearest_teller_after_the_sale():
-    # #196: the teller's wording is uncaptured, so the answer is echoed
-    # as it came; `back` then walks home from the bank.
-    fake = Fake(
-        {
-            "remove": [REMOVED],
-            "sell": [SOLD],
-            "deposit": [DEPOSITED],
-        }
-    )
-    script.run(fake, ["bank", "back"], MAP, walk_fn=walk, profile=PROFILE)
-    assert fake.walks == [{8266}, {1200}, {100}]
-    assert fake.sent == [
-        "remove my bundle",
-        "sell my bundle",
-        "put my rope in my sack",
-        "deposit all",
-    ]
-    assert "skins: deposited all your coins — the clerk recorded it" in fake.echoed
-    # An answer outside the table is echoed as it came.
-    fake = Fake({"remove": [REMOVED], "sell": [SOLD], "deposit": ["The clerk frowns."]})
-    script.run(fake, ["bank"], MAP, walk_fn=walk, profile=PROFILE)
-    assert "skins: The clerk frowns." in fake.echoed
-    # No bundle: nothing sold, so nothing walks to the bank either.
+def test_bank_runs_the_bank_script_and_waits_for_it():
+    # The operator, 2026-09-20: "it should just do ;bank" — the banking
+    # (the money-changer, DEPOSIT ALL, keep=N) lives in one script, and
+    # ;skins carried a second copy of its last step. `back` walks home
+    # once ;bank has ended; the teller is ;bank's to walk to.
+    fake = Fake({"remove": [REMOVED], "sell": [SOLD]})
+    fake.polls = 3
+    script.run(fake, ["bank", "keep=500", "back"], MAP, walk_fn=walk, profile=PROFILE)
+    assert fake.sent == ["remove my bundle", "sell my bundle", "put my rope in my sack"]
+    assert fake.started == [("bank", ["keep=500"])]
+    assert fake.polls == -1  # waited until ;bank was no longer running
+    assert fake.walks == [{8266}, {100}]
+    assert "deposit all" not in fake.sent
+    # Nothing sold still banks: a hunt's search coins are in the purse.
     fake = Fake({"remove": [MISSING], "get my bundle": [MISSING]})
     script.run(fake, ["bank"], MAP, walk_fn=walk, profile=PROFILE)
-    assert fake.walks == [{8266}]
-    assert "deposit all" not in fake.sent
-    # No teller on the map: said so, the coins stay.
+    assert fake.started == [("bank", [])]
+    # A ;bank already running is the operator's: said, left alone.
     fake = Fake({"remove": [REMOVED], "sell": [SOLD]})
-    no_bank = MapDB([MAP.rooms[100], MAP.rooms[8266]])
-    script.run(fake, ["bank"], no_bank, walk_fn=walk, profile=PROFILE)
-    assert "deposit all" not in fake.sent
-    assert any("no room tagged 'bank'" in text for text in fake.echoed)
+    fake.can_start = False
+    script.run(fake, ["bank"], MAP, walk_fn=walk, profile=PROFILE)
+    assert fake.started == []
+    assert any("could not start ;bank" in text for text in fake.echoed)
+    assert DEPOSITED  # the teller's line stays captured for ;bank's tests
 
 
 def test_no_bundle_anywhere_stops_before_selling():

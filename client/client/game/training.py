@@ -268,7 +268,9 @@ def starter_plan(character) -> dict:
                 "return_word": "return",
             }
         ),
-        normalize_task({"name": "skins", "script": "skins", "args": ["bank"]}),
+        # Selling and banking are distinct tasks (the operator, 2026-09-20):
+        # ;skins sells, ;bank banks the purse (#235).
+        normalize_task({"name": "skins", "script": "skins"}),
         normalize_task({"name": "bank", "script": "bank"}),
         normalize_task({"name": "tdps", "script": "tdp", "args": ["plan"]}),
         normalize_task(

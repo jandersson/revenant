@@ -1,7 +1,7 @@
 """Sell the bundle of skins you wear at the nearest tannery:  ;skins
 
     ;skins             walk to the nearest tannery, sell the bundle, keep the rope, stay there
-    ;skins bank        ... then walk to the nearest teller and DEPOSIT ALL
+    ;skins bank        ... then run ;bank and wait for it (the money-changer for foreign coins, DEPOSIT ALL; keep=N is passed on)
     ;skins back        ... and walk back to where you started (bank back: both)
 
 A worn lumpy bundle takes every skin ;hunt cuts (the profile's
@@ -20,19 +20,21 @@ next hunt's first skin, and stays at the tannery — where it started
 is usually the hunting ground, and the first scripted run (2026-09-12)
 walked back into the rats with the weapon stowed; `back` walks back
 anyway. No bundle to sell, or a tanner who does not pay, stops it
-with the answer echoed. `bank` goes on from the sale to the nearest
-room the map tags `bank` and DEPOSITs ALL (Elanthipedia: Deposit
-command) — the clerk "records the deposit in her ledger", captured
-2026-09-14; any other answer is echoed as it came (#196); under
-;train a task `{"script": "skins", "args": ["bank"]}` with no skills
-runs once a cycle after the hunt and ends when the script does. Stops
-on death.
+with the answer echoed. `bank` then runs ;bank through the handle and
+waits for it — the banking lives there (#235: the money-changer for
+every foreign coin, DEPOSIT ALL, `keep=N` withdrawn back) and ;skins
+used to carry a second, poorer copy of its last step (the operator,
+2026-09-20: "it should just do ;bank"); a ;bank already running is
+the operator's and is left alone, said. Selling and banking stay
+distinct ;train tasks: the starter plan runs `{"script": "skins"}` and
+then `{"script": "bank"}`, each with no skills, once a cycle after the
+hunt. Stops on death.
 Stop with:  ;stop skins
 """
 
 import re
 
-from client.game import bank, probe
+from client.game import probe
 from client.game.mapdb import MapDB
 from client.game.profile import load_profile
 from client.game.walker import locate, walk
@@ -77,17 +79,42 @@ def take_bundle(s, container):
     return not _missing(ask(s, command))
 
 
-def deposit(s, mapdb, walk_fn):
-    """Walk to the nearest teller and DEPOSIT ALL — client/game/bank.py's,
-    the teller's ledger line captured 2026-09-14 (#196), shared with
-    ;bank (#235)."""
-    return bank.deposit(s, mapdb, walk_fn, ask, "skins")
+def hand_to_bank(s, args):
+    """Run ;bank with `args` (keep=N) and wait for it to end: the purse's
+    banking lives there, not here (the operator, 2026-09-20). False,
+    said, when it could not start — one already running is the
+    operator's own."""
+    if not s.run("bank", list(args)):
+        s.echo("skins: could not start ;bank — the purse stays as it is")
+        return False
+    while s.is_running("bank"):
+        s.sleep(1)
+    return True
+
+
+def sell_bundle(s, container):
+    """The bundle sold and the rope kept; False, said, when there was
+    none to sell or the tanner did not pay."""
+    if not take_bundle(s, container):
+        where = f"in your {container}" if container else "in hand"
+        s.echo(f"skins: no bundle worn or {where} — nothing to sell")
+        return False
+    answer = ask(s, "sell my bundle")
+    paid = _PAID.search(answer)
+    if not paid:
+        last = answer.strip().splitlines()[-1] if answer.strip() else "no answer"
+        s.echo(f"skins: the tanner did not pay — {last}")
+        return False
+    s.echo(f"skins: sold the bundle for {paid.group(1)} {paid.group(2)}")
+    ask(s, f"put my rope in my {container}" if container else "stow my rope")
+    return True
 
 
 def run(s, words, mapdb, walk_fn=walk, profile=None):
     lowered = [word.lower() for word in words]
     back = bool(lowered) and lowered[-1] == "back"
     bank = "bank" in lowered
+    keep = [word for word in lowered if word.startswith("keep=")]
     if profile is None:
         profile = load_profile(getattr(s.state, "name", None) or "")
     container = profile["loot_container"]
@@ -102,23 +129,13 @@ def run(s, words, mapdb, walk_fn=walk, profile=None):
     if s.dead:
         s.echo("skins: you are dead — stopping")
         return
-    if not take_bundle(s, container):
-        where = f"in your {container}" if container else "in hand"
-        s.echo(f"skins: no bundle worn or {where} — nothing to sell")
+    sold = sell_bundle(s, container)
+    if bank and not s.dead:
+        # Nothing sold still banks: a hunt's search coins are in the
+        # purse either way, and ;bank walks nothing when it is empty.
+        hand_to_bank(s, keep)
+    if not sold and not bank:
         return
-    answer = ask(s, "sell my bundle")
-    paid = _PAID.search(answer)
-    if not paid:
-        last = answer.strip().splitlines()[-1] if answer.strip() else "no answer"
-        s.echo(f"skins: the tanner did not pay — {last}")
-        return
-    s.echo(f"skins: sold the bundle for {paid.group(1)} {paid.group(2)}")
-    ask(s, f"put my rope in my {container}" if container else "stow my rope")
-    if bank and s.dead:
-        s.echo("skins: you are dead — stopping")
-        return
-    if bank:
-        deposit(s, mapdb, walk_fn)
     if back and start is not None and locate(mapdb, s.state) != start:
         if not walk_fn(s, mapdb, {start}, describe="where you started"):
             s.echo("skins: could not walk back — you are at the tannery")

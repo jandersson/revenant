@@ -167,6 +167,8 @@ for `client/client/<pkg>/x.py`.
   EXCHANGEd at the map's `exchange` room into the province's own,
   DEPOSIT ALL at the `bank` room, `keep=N` copper withdrawn back;
   a skill-less `;train` task runs it once a cycle, coins weigh.
+  Selling and banking are distinct tasks (the operator, 2026-09-20),
+  and `;skins bank` runs `;bank` rather than a deposit of its own.
   `client/game/attune.py` is power walking: a loop of street rooms
   joined by two-way compass moves and the sixty-second timer per
   room; `scripts/attune.py` POWERs round it until mind-lock, or in

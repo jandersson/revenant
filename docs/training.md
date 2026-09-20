@@ -99,7 +99,7 @@ Lanival's files as they stand on 2026-09-20, the shapes every other character's 
  "tasks": [
   {"name": "climbs",      "skills": ["Athletics"],       "script": "athletics"},
   {"name": "hunt",        "skills": ["Brawling"],        "script": "hunt",        "return_word": "return"},
-  {"name": "skins",       "skills": [],                  "script": "skins",       "args": ["bank"]},
+  {"name": "skins",       "skills": [],                  "script": "skins"},
   {"name": "bank",        "skills": [],                  "script": "bank"},
   {"name": "tdps",        "skills": [],                  "script": "tdp",         "args": ["plan"]},
   {"name": "scholarship", "skills": ["Scholarship"],     "script": "scholarship", "args": ["books"], "return_word": "return"},
@@ -110,7 +110,7 @@ Lanival's files as they stand on 2026-09-20, the shapes every other character's 
 }
 ```
 
-What the loop does with it: the climbs until Athletics reaches 30, the hunt with the fists until Brawling reaches the target (the profile's `weapons` holds the fists turn alone since the evening of 2026-09-20 — Small Edged at 40-odd ranks stopped learning from the level-3 badgers, so the scimitar's turn was spending kills on nothing and the operator dropped it; the parry stick and the knuckles are worn, #238), the skins sold and banked, the purse banked (`;bank`: every foreign coin exchanged at the money-changer into the province's own, then DEPOSIT ALL — coins weigh, #235), four library books, the zills until Performance locks, a lap of power walking, a forage — then the rest, wherever the last task ended (no `safe_rooms`), until every trained skill drains to 10, with the badge prayer, the tithe and the Chadatru prayer whenever their timers allow and up to three stat points bought on the guild's tiers. `return_word` marks the scripts that end gracefully on a typed `return` (the hunt finishes the kill and walks home); the others are killed at the target.
+What the loop does with it: the climbs until Athletics reaches 30, the hunt with the fists until Brawling reaches the target (the profile's `weapons` holds the fists turn alone since the evening of 2026-09-20 — Small Edged at 40-odd ranks stopped learning from the level-3 badgers, so the scimitar's turn was spending kills on nothing and the operator dropped it; the parry stick and the knuckles are worn, #238), the skins sold, the purse banked (`;bank`: every foreign coin exchanged at the money-changer into the province's own, then DEPOSIT ALL — coins weigh, #235; selling and banking are distinct tasks by the operator's design, and `;skins bank` by hand runs `;bank` rather than a deposit of its own since 2026-09-20), four library books, the zills until Performance locks, a lap of power walking, a forage — then the rest, wherever the last task ended (no `safe_rooms`), until every trained skill drains to 10, with the badge prayer, the tithe and the Chadatru prayer whenever their timers allow and up to three stat points bought on the guild's tiers. `return_word` marks the scripts that end gracefully on a typed `return` (the hunt finishes the kill and walks home); the others are killed at the target.
 
 ```json
 {
