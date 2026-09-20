@@ -630,7 +630,7 @@ def _follow(s, db, route, here, closed):
         if outcome != "arrived":
             s.echo(f"stalled at step {number} ({commands[-1]!r}) — stopping here")
             return False
-        here = dest  # the planned room, or its twin: the same place
+        previous, here = here, dest  # the planned room, or its twin: the same place
         # Arrival check: the nav uid is exact when the map knows it;
         # title comparison is the fallback for unmapped-uid rooms.
         uid = getattr(s.state, "room_uid", None)
@@ -642,13 +642,18 @@ def _follow(s, db, route, here, closed):
             if not db.same_place(mapped, dest):
                 # The map's edge led somewhere else — Varlet's Run's
                 # north is Goodwhate Pike 864 in the game, 863 on the
-                # map (2026-09-20, #232): the edge is closed for this
-                # walk and the route planned again from the room the
-                # game says we are in, the way a closed way is.
-                closed.add((here, dest))
+                # map; Glaysker Lane's `go shop` is Feta's Kitchen, not
+                # the Shrine of Ushnish (2026-09-20, #232): the edge is
+                # closed for this walk, the room it does lead to is
+                # written to the local map in its place, and the route
+                # is planned again from the room the game says we are
+                # in, the way a closed way is.
+                closed.add((previous, dest))
+                db.record_edge(previous, mapped, commands[-1])
                 s.echo(
                     f"off course at step {number}: in room {mapped} "
-                    f"({s.state.room_title!r}), expected {dest} — planning "
+                    f"({s.state.room_title!r}), expected {dest} — the map now "
+                    f"says {previous} {commands[-1]} -> {mapped}; planning "
                     "again from here"
                 )
                 return "closed"

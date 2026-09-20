@@ -237,6 +237,13 @@ def test_a_recorded_edge_is_kept_in_the_overlay_and_taken_over_the_community_roo
     db.record_edge(19242, 19241, "north")
     overlay = json.loads((tmp_path / "local.json").read_text())
     assert len(overlay) == 1 and overlay[0]["wayto"] == {"19241": "north"}
+    # One command leads one way: the map's entry under the same command
+    # goes when the game showed where it really leads (#232), its
+    # timeto with it.
+    db.rooms[19241]["timeto"] = {"19242": 0.2}
+    db.record_edge(19241, 19240, "go shrine")
+    assert db.rooms[19241]["wayto"] == {"19240": "go shrine"}
+    assert db.rooms[19241]["timeto"] == {}
 
 
 # One Middens room, listed twice — captured 2026-09-04 (#137). The

@@ -166,8 +166,19 @@ sent the character north from Varlet's Run to Goodwhate Pike 863 and
 the game put him in 864, its neighbour with its own uid; the walker
 used to stop there ("off course ... — stopping here"). Now a landing
 by uid in a mapped room that is not the planned one closes that edge
-for the walk and plans again from the room the game reports, up to
-the same three reroutes; an unmapped landing still stops.
+for the walk, writes the edge as the game showed it to the personal
+overlay (`record_edge`: the room's entry under the same command goes,
+one command leads one way) and plans again from the room the game
+reports, up to the same three reroutes; an unmapped landing still
+stops. The first live run found a worse case the same night: Arthe
+Dale's Glaysker Lane has `go shop` mapped to the Shrine of Ushnish
+(19242, in the Crossing) instead of Feta's Kitchen, and once the
+shrine's OUT was on the overlay that error was a 20-step shortcut to
+the Crossing — the walk landed back in the kitchen, closed the wrong
+pair (the walker had already advanced its own position to the planned
+room) and retook the shortcut until the reroutes ran out. The pair
+closed is now the room the step left and the room it aimed at, and
+the overlay carries the corrected edge from then on.
 
 ## Gates the map itself writes
 

@@ -819,10 +819,16 @@ def test_a_room_the_map_lists_without_exits_is_left_by_the_compass(
     assert overlay[0]["wayto"] == {"19241": "out"}
 
 
-def test_an_edge_that_lands_off_course_is_closed_and_the_walk_planned_again():
+def test_an_edge_that_lands_off_course_is_closed_and_the_walk_planned_again(
+    tmp_path, monkeypatch
+):
     # Varlet's Run (888) north is Goodwhate Pike 863 on the map and 864
     # (uid 10147) in the game, 2026-09-20 (#232): a mapped landing off
-    # the plan is a closed edge, not the end of the walk.
+    # the plan is a closed edge, not the end of the walk — and the map
+    # learns where the edge really goes.
+    import json
+
+    monkeypatch.setenv("REVENANT_MAPDB_LOCAL", str(tmp_path / "local.json"))
     road = MapDB(
         [
             {
@@ -851,8 +857,77 @@ def test_an_edge_that_lands_off_course_is_closed_and_the_walk_planned_again():
     assert walker.walk(handle, road, [862], describe="the bridge") is True
     assert puts_of(handle) == ["north", "west"]
     assert any("off course at step 1" in echo for echo in handle.echoes)
-    assert any("planning again from here" in echo for echo in handle.echoes)
+    assert any("the map now says 888 north -> 864" in echo for echo in handle.echoes)
     assert not any("stopping here" in echo for echo in handle.echoes)
+    assert road.rooms[888]["wayto"] == {"864": "north"}  # 863 dropped: one way north
+    overlay = json.loads((tmp_path / "local.json").read_text())
+    assert [(room["id"], room["wayto"]) for room in overlay] == [
+        (888, {"864": "north"})
+    ]
+
+
+def test_a_wrong_edge_that_leads_back_to_the_start_is_closed_not_retaken(
+    tmp_path, monkeypatch
+):
+    # Feta's Kitchen (19240) `out` is Glaysker Lane (1081), whose `go
+    # shop` the map sends to the Shrine of Ushnish (19242, the Crossing)
+    # — the game lands back in the kitchen (2026-09-20, the first live
+    # walk of the arch reading). The walk used to close the wrong pair
+    # and retake the shortcut until the reroutes ran out.
+    monkeypatch.setenv("REVENANT_MAPDB_LOCAL", str(tmp_path / "local.json"))
+    dale = MapDB(
+        [
+            {
+                "id": 19240,
+                "uid": [150101],
+                "title": ["[Feta's Kitchen]"],
+                "wayto": {"1081": "out"},
+            },
+            {
+                "id": 1081,
+                "uid": [150021],
+                "title": ["[Arthe Dale, Glaysker Lane]"],
+                "wayto": {"19242": "go shop", "1082": "east"},
+            },
+            {
+                "id": 19242,
+                "uid": [253044],
+                "title": ["[Shrine of Ushnish]"],
+                "wayto": {"888": "out"},
+            },
+            {
+                "id": 888,
+                "uid": [10150],
+                "title": ["[The Crossing, Varlet's Run]"],
+                "wayto": {"7890": "north"},
+            },
+            {
+                "id": 1082,
+                "uid": [150022],
+                "title": ["[Arthe Dale, Road]"],
+                "wayto": {"1083": "east"},
+            },
+            {
+                "id": 1083,
+                "uid": [150023],
+                "title": ["[Arthe Dale, Road]"],
+                "wayto": {"1084": "east"},
+            },
+            {
+                "id": 1084,
+                "uid": [150024],
+                "title": ["[Arthe Dale, Road]"],
+                "wayto": {"7890": "east"},
+            },
+            {"id": 7890, "uid": [17890], "title": ["[Paladins' Guild, Chambers]"]},
+        ]
+    )
+    # out (lane), go shop (back in the kitchen), out (lane), east x3, east.
+    handle = FakeHandle(uids=[150021, 150101, 150021, 150022, 150023, 150024, 17890])
+    handle.state.room_uid = 150101
+    assert walker.walk(handle, dale, [7890], describe="the arch") is True
+    assert puts_of(handle) == ["out", "go shop", "out", "east", "east", "east", "east"]
+    assert dale.rooms[1081]["wayto"] == {"1082": "east", "19240": "go shop"}
 
 
 def test_a_dead_end_whose_exits_never_land_ends_with_the_no_path_answer(

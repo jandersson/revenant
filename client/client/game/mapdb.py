@@ -392,17 +392,29 @@ class MapDB:
         return cls(rooms)
 
     def record_edge(self, room_id, dest, command, path=None):
-        """Remember a way the game showed and the map lacks — the compass
-        exit out of a room the map lists without exits (#229) — in this
-        map at once and in the local overlay (`local_mapdb_path()`) as a
-        full copy of the room with the edge added, which a later load's
-        merge takes over the community room (the last copy of an id
-        wins). The overlay's path."""
+        """Remember a way the game showed and the map lacks or has wrong
+        — the compass exit out of a room the map lists without exits
+        (#229), the room an edge landed in when the map said another
+        (#232) — in this map at once and in the local overlay
+        (`local_mapdb_path()`) as a full copy of the room with the edge
+        added (and the map's own entry under the same command dropped),
+        which a later load's merge takes over the community room (the
+        last copy of an id wins). The overlay's path."""
         path = path or local_mapdb_path()
         room = self.rooms[room_id]
-        wayto = dict(room.get("wayto") or {})
+        # One command leads one way: an entry the community map had
+        # under the same command (Glaysker Lane's `go shop` said the
+        # Shrine of Ushnish, #232) is the one this edge corrects.
+        wayto = {
+            other: known
+            for other, known in (room.get("wayto") or {}).items()
+            if known != command
+        }
         wayto[str(dest)] = command
         room["wayto"] = wayto
+        timeto = room.get("timeto")
+        if isinstance(timeto, dict):
+            room["timeto"] = {k: v for k, v in timeto.items() if k in wayto}
         self._graph = None
         overlay = []
         if path.is_file():
