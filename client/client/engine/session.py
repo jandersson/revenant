@@ -735,11 +735,23 @@ class SessionServer(ClientLogger):
             except OSError:
                 self.drop(conn)
 
+    def recipients(self):
+        """The clients a frame goes to — read under the broadcast lock,
+        never before it: attach() replays the backlog and registers a
+        new client under that lock, so a frame is either in the replay
+        the client got or sent to it live. Read outside the lock, a
+        client that registered in between got neither (CI's "no frames
+        after reattach", one run in three through 2026-09-20)."""
+        assert self.broadcast_lock.locked(), (
+            "recipients read outside the broadcast lock"
+        )
+        with self.clients_lock:
+            return list(self.clients)
+
     def broadcast(self, text: str, stream: str, style: str = "", exclude=None):
         frame = encode_frame(text, stream, style)
-        with self.clients_lock:
-            clients = list(self.clients)
         with self.broadcast_lock:
+            clients = self.recipients()
             if stream not in self.TRANSIENT_STREAMS:
                 self.backlog.append(frame)
             for conn in clients:

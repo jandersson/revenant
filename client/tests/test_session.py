@@ -335,6 +335,35 @@ def test_new_front_end_receives_recent_backlog_on_attach():
     late_client.close()
 
 
+def test_a_frame_broadcast_during_an_attach_reaches_the_new_client():
+    # CI's flake, one run in three through 2026-09-20 ("no frames after
+    # reattach"): broadcast() read the client list before taking the
+    # broadcast lock, attach() replayed the backlog and registered the
+    # client under that lock, and a frame arriving in between reached
+    # neither the replay nor the client. Here the attach is mid-replay
+    # (the lock held) while the frame is broadcast; the client registers
+    # before the lock goes, and the frame must still reach it.
+    game = FakeGame()
+    server, port = _start_server(game)
+    theirs, ours = socket.socketpair()
+    with server.broadcast_lock:
+        sender = Thread(
+            target=server.broadcast, args=("Back online.\n", ""), daemon=True
+        )
+        sender.start()
+        sleep(0.3)  # the broadcast is waiting on the lock now
+        with server.clients_lock:
+            server.clients.append(theirs)  # attach() registering the client
+    sender.join(5)
+    ours.settimeout(5)
+    assert b"Back online." in ours.recv(4096)
+    with pytest.raises(AssertionError):
+        server.recipients()  # never read outside the lock
+    theirs.close()
+    ours.close()
+    server.shutdown()
+
+
 def test_late_attach_learns_the_character_despite_an_evicted_backlog():
     # The <app> login tag fires once; after hours of play its frame is
     # long gone from the 500-frame backlog. attach() states the name
