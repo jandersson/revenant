@@ -15,7 +15,6 @@ whenever health drops), when the trained skills mind-lock, at the kill
 fuse, or when you type
 ;hunt return  (the current kill is finished first, then the walk home).
 ;stop hunt  quits where it stands.  ;hunt here  skips the walk;  ;hunt profile  prints the profile it would use.
-;hunt brawl [here]  the same hunt with the profile's brawling attacks in rotation instead of ATTACK and the parry stick in hand instead of the weapon (Brawling, Parry Ability).
 
 Everything character-specific comes from the profile
 (~/.revenant/profiles/<name>.json — File → Character Profile… in the
@@ -79,15 +78,21 @@ while the pattern forms — PREPARE is answered during weapon roundtime,
 so the swing's own roundtime covers the wait — and CAST follows the
 swing; a foe that went down under that swing has the pattern RELEASEd
 rather than cast at nothing (#203, after dr-scripts' combat-trainer).
-`brawl` (the word on the command line) fights the same ground with
-the profile's `brawling` attacks in rotation — PUNCH, KICK, ELBOW
-(Elanthipedia: Brawling skill, Punch command, Elbow command) — in
-place of ATTACK, the `parry_stick` GOT into the weapon hand instead
-of the weapon so the parries train Parry Ability (Elanthipedia: Parry
-Ability skill — the weapon in the right hand parries), the knife, the
-skins, the casts and the maneuvers as ever; SMITE keeps its minute
-when the profile smites (#238). No brawling attacks in the profile
-is nothing to swing, said so.
+`weapons` lists the weapons the hunt cycles through, one turn per
+kill, each with the skill it trains — "handaxe:Small Edged:sack",
+"fists:Brawling" — so every weapon skill learns in the same evening
+(the operator, 2026-09-20: no argument per weapon type, #238). A
+turn's weapon is GOT from its container after the last one goes
+back; the fists turn draws nothing and swings the profile's
+`brawling` attacks in rotation — PUNCH, KICK, ELBOW (Elanthipedia:
+Brawling skill, Punch command, Elbow command) — with the hands empty,
+since PUNCH wants a free hand and a worn parry stick parries as it
+is (Elanthipedia: Parry Ability skill), brass knuckles likewise. A
+weapon whose skill sits at mind-lock is skipped until it drains; all
+of them locked ends the hunt. The knife, the skins, the casts and the
+maneuvers are the same whatever is in hand, SMITE keeps its minute
+when the profile smites, and with `weapons` empty the hunt is the
+profile's `weapon` alone, never swapped.
 `perception` on: when a room of the ground has emptied, and on every
 lap of an empty ground, one HUNT for tracks before moving on, at most
 once per 75 seconds while Perception sits below lock — HUNT teaches
@@ -340,7 +345,11 @@ class Tally:
         self.tracking_off = False  # HUNT refused this run, said once
         self.swings = 0  # swings this run, against MAX_ACTIONS
         self.check_wounds = False  # HEALTH before the next swing (a kill, a hit)
-        self.brawl = 0  # the brawling rotation index (;hunt brawl, #238)
+        self.fists_warned = False  # "no brawling attacks" said once
+        self.armed = None  # the weapon the turn in hand drew ("" for the fists)
+        self.brawl = 0  # the brawling attacks' rotation index (#238)
+        self.weapon = 0  # the weapons' rotation index: the turn in hand (#238)
+        self.rotated_at = 0  # the kill count the weapon last turned on
 
 
 def hostiles(state):
@@ -357,25 +366,117 @@ def brawling(profile):
     return [m.strip().lower() for m in profile.get("brawling") or [] if m.strip()]
 
 
-def brawling_profile(profile):
-    """The profile as `;hunt brawl` fights it (#238): the parry stick as
-    the thing in the weapon hand (GET my <stick>, from wherever it
-    lives; "" is bare-handed), the brawling attacks in rotation instead
-    of ATTACK; the knife, the skins, the casts and the maneuvers as
-    they are."""
-    shaped = dict(profile)
-    shaped["weapon"] = profile.get("parry_stick") or ""
-    shaped["weapon_container"] = ""
-    shaped["_brawl"] = True
-    return shaped
+FISTS = (
+    "",
+    "fists",
+    "hands",
+    "brawl",
+    "brawling",
+)  # a weapons entry for the fists turn
+
+
+def parse_weapon(entry):
+    """A `weapons` entry — "handaxe:Small Edged:sack", "fists:Brawling"
+    — as {"weapon", "skill", "container"}; the fists turn has weapon ""."""
+    parts = [part.strip() for part in str(entry).split(":")]
+    weapon = parts[0].lower() if parts else ""
+    return {
+        "weapon": "" if weapon in FISTS else parts[0].strip(),
+        "skill": parts[1] if len(parts) > 1 else "",
+        "container": parts[2] if len(parts) > 2 else "",
+    }
+
+
+def weapon_plan(profile):
+    """The turns the hunt cycles through: the profile's `weapons`, or
+    the single `weapon` (and its container) with no skill to lock."""
+    entries = [parse_weapon(entry) for entry in profile.get("weapons") or []]
+    entries = [entry for entry in entries if entry["weapon"] or entry["skill"]]
+    if entries:
+        return entries
+    return [
+        {
+            "weapon": profile["weapon"],
+            "skill": "",
+            "container": profile["weapon_container"],
+        }
+    ]
+
+
+def fists_turn(profile):
+    """True while the turn in hand is the fists (profile `weapon` is "",
+    as `arm` sets it for that turn)."""
+    return not profile["weapon"] and bool(brawling(profile))
 
 
 def plain_swing(profile, verb):
     """True for a swing that is not a tactical maneuver: ATTACK, SMITE,
-    or a brawling attack under `;hunt brawl`."""
+    or a brawling attack on the fists turn."""
     return verb in ("attack", "smite") or (
-        bool(profile.get("_brawl")) and verb in brawling(profile)
+        fists_turn(profile) and verb in brawling(profile)
     )
+
+
+def next_turn(s, profile, tally, from_current=False):
+    """The next weapons entry whose skill is not mind-locked, cyclic
+    from the one after the current (from the current itself at the
+    start, `from_current`); the current one when it is the only one
+    open; None when every skill is locked (a turn with no skill never
+    locks). The fists turn is skipped when the profile lists no
+    brawling attacks, said once."""
+    plan = weapon_plan(profile)
+    for step in range(0 if from_current else 1, len(plan) + 1):
+        index = (tally.weapon + step) % len(plan)
+        entry = plan[index]
+        if entry["skill"] and locked(s.state, [entry["skill"]]):
+            continue
+        if not entry["weapon"] and not brawling(profile):
+            if not tally.fists_warned:
+                tally.fists_warned = True
+                s.echo(
+                    "hunt: the profile lists no brawling attacks — fists turn skipped"
+                )
+            continue
+        return index
+    return None
+
+
+def arm(s, profile, tally, index):
+    """Take the turn at `index`: the current weapon back into its
+    container, the hands cleared, the new one GOT (nothing for the
+    fists), the profile's `weapon` and `weapon_container` set to it so
+    the knife, the skins and the put-back read the turn in hand."""
+    entry = weapon_plan(profile)[index]
+    if tally.armed and tally.armed != entry["weapon"]:
+        unready(s, profile)  # the last turn's weapon back where it lives
+    tally.weapon = index
+    tally.armed = entry["weapon"]
+    profile["weapon"] = entry["weapon"]
+    profile["weapon_container"] = entry["container"]
+    clear_hands(s, profile)
+    draw(s, profile)
+    if entry["skill"]:
+        s.echo(
+            f"hunt: {entry['weapon'] or 'fists'} for {entry['skill']}"
+            + (f" ({mindstate_of(s.state, entry['skill'])}/34)")
+        )
+
+
+def mindstate_of(state, skill):
+    experience = getattr(state, "experience", None) or {}
+    return (experience.get(skill) or {}).get("mindstate", 0)
+
+
+def rotate(s, profile, tally):
+    """After a kill: the next open turn takes the hands. False when
+    every weapon skill is locked — the hunt's end."""
+    tally.rotated_at = tally.kills
+    index = next_turn(s, profile, tally)
+    if index is None:
+        return False
+    if index != tally.weapon:
+        arm(s, profile, tally, index)
+    return True
 
 
 def swing_verb(profile, tally, state=None):
@@ -397,7 +498,7 @@ def swing_verb(profile, tally, state=None):
         verb = rotation[tally.tactic % len(rotation)]
         tally.tactic += 1
         return verb
-    if profile.get("_brawl"):
+    if fists_turn(profile):
         attacks = brawling(profile)
         verb = attacks[tally.brawl % len(attacks)]
         tally.brawl += 1
@@ -519,17 +620,36 @@ def escape(s):
 def draw(s, profile):
     """The weapon into a hand."""
     weapon = profile["weapon"]
-    if weapon:
-        container = profile["weapon_container"]
-        command = (
-            f"get my {weapon} from my {container}" if container else f"get my {weapon}"
-        )
-        ask(s, command)
+    if not weapon:
+        return
+    container = profile["weapon_container"]
+    command = (
+        f"get my {weapon} from my {container}" if container else f"get my {weapon}"
+    )
+    ask(s, command)
 
 
-def ready(s, profile):
-    """Weapon in hand and stance set before the first swing."""
-    draw(s, profile)
+def clear_hands(s, profile):
+    """STOW whatever a hand holds that is not the thing about to be
+    drawn: the hunt and the brawl take turns (the handaxe, then the
+    parry stick), and a tool left in hand from the last run would take
+    the other hand the next one needs — PUNCH wants a free hand (the
+    operator's parry stick, 2026-09-20). Never DROP."""
+    keep = (profile.get("weapon") or "").lower()
+    for side in ("left", "right"):
+        noun = hand(s, side)
+        if noun and noun.lower() != keep:
+            ask(s, f"stow my {noun}")
+
+
+def ready(s, profile, tally=None, index=0):
+    """Hands cleared, the first turn's weapon in hand and stance set
+    before the first swing."""
+    if tally is not None and len(weapon_plan(profile)) > 1:
+        arm(s, profile, tally, index)
+    else:
+        clear_hands(s, profile)
+        draw(s, profile)
     if profile["stance"]:
         ask(s, f"stance set {profile['stance']}")
 
@@ -997,6 +1117,8 @@ def loop(s, profile, db, ground, avoid, tally):
             return "trained skills mind-locked"
         if profile["max_kills"] and tally.kills >= profile["max_kills"]:
             return "kill fuse reached"
+        if tally.kills > tally.rotated_at and not rotate(s, profile, tally):
+            return "every weapon skill mind-locked"
         if tally.room_clear or not hostiles(s.state):
             track(s, profile, tally)
             if not next_room(s, db, ground, avoid, tally):
@@ -1038,7 +1160,15 @@ def hunt(s, profile, db, travel=True, avoid=()):
         return
     wear_bundle(s, profile, tally)
     cast_buffs(s, profile, tally)
-    ready(s, profile)
+    first = (
+        next_turn(s, profile, tally, from_current=True)
+        if len(weapon_plan(profile)) > 1
+        else 0
+    )
+    if first is None:
+        s.echo("hunt: every weapon skill is mind-locked — nothing to train")
+        return
+    ready(s, profile, tally, first)
     reason = loop(s, profile, db, ground, avoid, tally)
     s.echo(
         f"hunt: {reason} — {tally.kills} kill(s), {tally.skins} skin(s)"
@@ -1089,14 +1219,6 @@ def main(s):
     db = MapDB.load()
     words = [str(word).lower() for word in (s.args or [])]
     travel = "here" not in words
-    if "brawl" in words:
-        if not brawling(profile):
-            s.echo(
-                "hunt: the profile lists no brawling attacks (brawling: punch, "
-                "kick, elbow) — nothing to swing"
-            )
-            return
-        profile = brawling_profile(profile)
     try:
         hunt(
             s,

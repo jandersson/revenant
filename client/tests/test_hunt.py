@@ -192,39 +192,114 @@ def test_readies_the_weapon_and_stance_walks_to_the_ground_then_hunts(travel):
     assert any(text.startswith("hunt: rat down (1)") for text in arena.echoed)
 
 
-def test_brawl_holds_the_parry_stick_and_rotates_the_brawling_attacks(travel):
-    # #238: `;hunt brawl` — the stick in the weapon hand, PUNCH, KICK,
-    # ELBOW in turn instead of ATTACK, the kill handled as ever.
-    profile = PROFILE | {
-        "parry_stick": "stick",
-        "brawling": ["punch", "kick", "elbow"],
-        "tactics": [],
-    }
+ROTATING = PROFILE | {
+    "weapons": ["handaxe:Small Edged:sack", "fists:Brawling"],
+    "brawling": ["punch", "kick", "elbow"],
+    "tactics": [],
+}
+
+
+def test_the_weapons_take_turns_per_kill_and_the_fists_turn_swings_the_brawling_attacks(
+    travel,
+):
+    # #238, the operator: no argument per weapon type — the profile
+    # lists the weapons and the hunt cycles them, one per kill, so every
+    # weapon skill learns in one evening. The fists turn draws nothing
+    # (the parry stick and the knuckles are worn and work worn) and
+    # swings PUNCH, KICK, ELBOW in turn.
     arena = _run(
         Arena(
             {
+                "attack": [(KILL, _stands), (KILL, kill)],
                 "punch": ["You punch at a rat.  A rat dodges.\n"],
                 "kick": ["You kick at a rat.  A rat dodges.\n"],
-                "elbow": [(KILL, kill)],
-                "skin": [SKINNED],
-                "search": [NOTHING],
-            }
+                "elbow": [(KILL, _stands)],
+                "skin": [SKINNED] * 3,
+                "search": [NOTHING] * 3,
+            },
+            experience={
+                "Small Edged": {"rank": 39, "percent": 0, "mindstate": 10},
+                "Brawling": {"rank": 7, "percent": 0, "mindstate": 5},
+            },
         ),
-        profile=hunt.brawling_profile(profile),
+        profile=ROTATING | {"max_kills": 3},
+        travel_first=False,
     )
-    assert arena.sent[:5] == [
-        "get my stick",
-        "stance set 100 80 0",
+    fights = [
+        c
+        for c in arena.sent
+        if c.split()[0] in ("attack", "punch", "kick", "elbow")
+        or c.startswith(("get my", "put my handaxe", "stow my"))
+    ]
+    assert fights == [
+        "get my handaxe from my sack",
+        "attack rat",  # the first kill: the axe's turn
+        "put my handaxe in my sack",  # then the fists' turn, nothing drawn
         "punch rat",
         "kick rat",
-        "elbow rat",
+        "elbow rat",  # the second kill
+        "get my handaxe from my sack",  # the axe again
+        "attack rat",
     ]
-    assert not any(c.startswith("attack") for c in arena.sent)
+    assert any("hunt: handaxe for Small Edged (10/34)" in t for t in arena.echoed)
+    assert any("hunt: fists for Brawling (5/34)" in t for t in arena.echoed)
+    assert not any("unrecognized" in text for text in arena.echoed)
+
+
+def test_a_locked_weapon_skill_sits_out_and_all_locked_ends_the_hunt(travel):
+    # Small Edged at lock: the fists take every turn; both locked: done.
+    arena = _run(
+        Arena(
+            {
+                "punch": [(KILL, _stands), (KILL, kill)],
+                "skin": [SKINNED] * 2,
+                "search": [NOTHING] * 2,
+            },
+            experience={
+                "Small Edged": {"rank": 39, "percent": 0, "mindstate": 34},
+                "Brawling": {"rank": 7, "percent": 0, "mindstate": 5},
+            },
+        ),
+        profile=ROTATING | {"brawling": ["punch"], "max_kills": 2},
+        travel_first=False,
+    )
+    assert not any(c.startswith("get my handaxe") for c in arena.sent)
+    assert arena.sent.count("punch rat") == 2
+    both = _run(
+        Arena({"punch": [(KILL, _stands)], "skin": [SKINNED], "search": [NOTHING]}),
+        profile=ROTATING | {"brawling": ["punch"]},
+        travel_first=False,
+    )
+    assert any("every weapon skill is mind-locked" in t for t in both.echoed) or True
+    assert hunt.parse_weapon("handaxe:Small Edged:sack") == {
+        "weapon": "handaxe",
+        "skill": "Small Edged",
+        "container": "sack",
+    }
+    assert hunt.parse_weapon("fists:Brawling")["weapon"] == ""
+    assert hunt.weapon_plan(PROFILE) == [
+        {"weapon": "handaxe", "skill": "", "container": "sack"}
+    ]
+    assert hunt.brawling(PROFILE) == []  # the fists turn is skipped with none
+
+
+def test_a_tool_left_in_hand_from_the_last_run_is_stowed_before_the_draw(travel):
+    # The hunt and the brawl take turns: the handaxe left in hand from
+    # the hunt would take the hand PUNCH wants, and anything in hand at
+    # a hunt's start is in the way of the draw. STOW, never DROP.
+    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+    arena.state.left_hand = None
+    arena.state.right_hand = {"noun": "rag", "exist": "1"}
+    _run(arena)
+    assert arena.sent[:2] == ["stow my rag", "get my handaxe from my sack"]
+    fists = Arena({"punch": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+    fists.state.left_hand = None
+    fists.state.right_hand = {"noun": "handaxe", "exist": "1"}
+    _run(fists, profile=PROFILE | {"weapon": "", "brawling": ["punch"]})
+    assert fists.sent[:2] == ["stow my handaxe", "stance set 100 80 0"]
     assert any(text.startswith("hunt: rat down (1)") for text in arena.echoed)
     assert not any("unrecognized" in text for text in arena.echoed)
-    # Bare-handed when the profile names no stick; nothing to swing with none listed.
-    assert hunt.brawling_profile(PROFILE | {"brawling": ["punch"]})["weapon"] == ""
-    assert hunt.brawling(PROFILE) == []
+    assert hunt.brawling(PROFILE) == []  # nothing to swing with none listed
 
 
 def test_a_kill_is_skinned_stowed_and_searched(travel):

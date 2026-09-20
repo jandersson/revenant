@@ -126,7 +126,10 @@ for `client/client/<pkg>/x.py`.
 - `client/game/profile.py` — per-character profiles
   (`~/.revenant/profiles/<name>.json`): the quirks `;hunt` must not
   hard-code (weapon, stance, skin, pouch, bundle, buffs, the magic
-  skill to train by recasting, floors, ground, home). FIELDS is the
+  skill to train by recasting, floors, ground, home; `weapons` — the
+  turns one hunt cycles per kill, "handaxe:Small Edged:sack",
+  "fists:Brawling", a locked skill's turn sat out — and `brawling`,
+  the fists turn's PUNCH/KICK/ELBOW, #238). FIELDS is the
   schema; the GUI's Character Profile dialog builds itself from it.
   `scripts/skins.py` sells the worn bundle at the nearest tannery.
   `scripts/cast.py` (`;cast`, #225) is that cast loop on its own —

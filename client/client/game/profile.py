@@ -105,17 +105,20 @@ DEFAULTS = {
     # which is what trains Tactics (Elanthipedia: Tactics skill, #190).
     # [] is off.
     "tactics": [],
-    # `;hunt brawl`: the brawling attacks in rotation instead of ATTACK
-    # ("punch", "kick", "elbow" — Elanthipedia: Brawling skill; punch
-    # wants a free hand, elbow and kick none), which is what trains
-    # Brawling (#238). [] means ;hunt brawl has nothing to swing.
+    # The weapons the hunt cycles through, one per kill, each with the
+    # skill it trains — "noun:Skill[:container]", the container where
+    # it is kept between turns ("handaxe:Small Edged:sack"), or
+    # "fists:Brawling" for the brawling attacks with nothing in hand (a
+    # parry stick and knuckles are worn and work worn). A weapon whose
+    # skill is mind-locked sits out until it drains; all locked ends
+    # the hunt (the operator, 2026-09-20: no argument per weapon type,
+    # #238). [] hunts with `weapon` alone.
+    "weapons": [],
+    # The brawling attacks in rotation for the fists turn ("punch",
+    # "kick", "elbow" — Elanthipedia: Brawling skill; punch wants a
+    # free hand, elbow and kick none), which is what trains Brawling.
+    # [] means the fists turn has nothing to swing and is skipped.
     "brawling": [],
-    # The parry stick held in the weapon hand while brawling, its noun
-    # ("stick": Milgrym's polished steel parry stick, 1,250 Kronars):
-    # parrying with it is what trains Parry Ability without a weapon
-    # skill's damage (Elanthipedia: Parry Ability skill). "" brawls
-    # bare-handed.
-    "parry_stick": "",
     # HUNT for tracks when a room of the ground empties, at most once
     # per 75 seconds while Perception sits below lock — HUNT teaches
     # Perception on that timer (Elanthipedia: Hunt command, #194).
@@ -200,16 +203,16 @@ FIELDS = (
     ),
     ("perception", "HUNT for tracks when a room empties (Perception)", "bool", ""),
     (
-        "brawling",
-        "Brawling attacks for ;hunt brawl (Brawling)",
+        "weapons",
+        "Weapons cycled per kill (noun:Skill[:container])",
         "list",
-        "punch, kick, elbow — empty: nothing to swing",
+        "handaxe:Small Edged:sack, fists:Brawling — empty: the weapon alone",
     ),
     (
-        "parry_stick",
-        "Parry stick noun held while brawling (Parry Ability)",
-        "str",
-        "stick — empty: bare-handed",
+        "brawling",
+        "Brawling attacks for the fists turn (Brawling)",
+        "list",
+        "punch, kick, elbow — empty: the fists turn is skipped",
     ),
     ("attune_start", ";attune walks to (;go2 target)", "str", "empty: from here"),
     (
