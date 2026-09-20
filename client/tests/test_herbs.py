@@ -5,9 +5,45 @@ wounds/scars) is mapped onto wounds.py's areas and kinds; the shop
 table says where a herb is sold; Knife Clan's cookies name four herbs.
 """
 
+import importlib.util
+import pathlib
+import re
+
 from client.game import herbs
 from client.game.herbs_data import HERBS, SHOPS
 from client.game.wounds import KINDS
+
+REPO = pathlib.Path(__file__).parents[2]
+
+
+def _generator():
+    spec = importlib.util.spec_from_file_location(
+        "herb_tables", REPO / "tools" / "herb_tables.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_a_store_named_with_its_town_twice_is_named_once():
+    # #199: the page writes "Alchemy Society (Crossing) (Crossing)" where
+    # the shop's own title already carries the town, and ;heal printed
+    # it that way. The generator collapses it; the data holds none.
+    store_name = _generator().store_name
+    assert store_name("Alchemy Society (Crossing) (Crossing)") == (
+        "Alchemy Society (Crossing)"
+    )
+    assert (
+        store_name("Mauriga's Botanicals (Crossing)")
+        == "Mauriga's Botanicals (Crossing)"
+    )
+    assert store_name(" Ain Ghazal Crafting Society Outpost (Ain Ghazal) ") == (
+        "Ain Ghazal Crafting Society Outpost (Ain Ghazal)"
+    )
+    doubled = re.compile(r"(\s\([^()]+\))\1$")
+    assert not [
+        store for _, stores in SHOPS for store in stores if doubled.search(store)
+    ]
 
 
 def test_the_generated_table_has_the_wikis_shape():
@@ -93,7 +129,7 @@ def test_sources_come_from_the_shop_table():
         ("hulnik grass", ["Mauriga's Botanicals (Crossing)"])
     ]
     crossing = herbs.sources_in("jadice flower", "Crossing")
-    assert ("jadice flower", ["Alchemy Society (Crossing) (Crossing)"]) in crossing
+    assert ("jadice flower", ["Alchemy Society (Crossing)"]) in crossing  # once (#199)
     assert herbs.sources("aloe leaves") == []  # the wiki lists no shop
     assert herbs.herb("Jadice Flower")["ranks"] == 20
     assert herbs.herb("no such herb") is None

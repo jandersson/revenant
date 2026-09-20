@@ -76,6 +76,16 @@ def herb_rows(page):
     raise SystemExit("no herb table found — did the page change?")
 
 
+_DOUBLED_TOWN = re.compile(r"(\s\([^()]+\))\1$")
+
+
+def store_name(text):
+    """A store as the table names it, with a town given twice collapsed:
+    the page writes "Alchemy Society (Crossing) (Crossing)" where the
+    shop's own title already carries the town (#199)."""
+    return _DOUBLED_TOWN.sub(r"\1", text.strip())
+
+
 def shop_rows(page):
     """(product, stores) per herb product the shop table lists."""
     for table in tables_of(page):
@@ -84,7 +94,7 @@ def shop_rows(page):
                 if len(cells) < 2 or not cells[0]:
                     continue
                 stores = [
-                    store.strip()
+                    store_name(store)
                     for store in re.split(r",\s*(?=[^,]*\()", cells[1])
                     if store.strip()
                 ]
