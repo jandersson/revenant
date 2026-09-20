@@ -209,10 +209,14 @@ class Engine(ClientLogger):
                     if output_callback:
                         output_callback("", "exp", "clear")
                         for skill in sorted(self.xml_data.experience):
+                            # .get: a script may seed an entry from an EXP
+                            # answer (;perform, ;scholarship) — one without
+                            # a rate took the session down (2026-09-20,
+                            # #239); a missing field is blank, never a crash.
                             entry = self.xml_data.experience[skill]
                             output_callback(
-                                f"{skill:<18} {entry['rank']:>5} "
-                                f"{entry['percent']:>3}%  {entry['rate']}\n",
+                                f"{skill:<18} {entry.get('rank', ''):>5} "
+                                f"{entry.get('percent', ''):>3}%  {entry.get('rate', '')}\n",
                                 "exp",
                                 "",
                             )

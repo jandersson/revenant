@@ -168,6 +168,34 @@ def test_exp_change_rewrites_the_whole_exp_stream():
     assert "346" in exp_frames[1][0] and "deliberative" in exp_frames[1][0]
 
 
+def test_an_exp_entry_a_script_seeded_without_a_rate_still_renders():
+    # 2026-09-20 (#239): ;scholarship seeded {"rank", "percent",
+    # "mindstate"} into the parser's state and the rewrite raised
+    # KeyError('rate'), which took the whole session down.
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b"<component id='exp Athletics'>Athletics:  346 13% deliberative</component>\n"
+        ]
+    )
+    _read_all(engine, 1)
+    engine.xml_data.experience["Scholarship"] = {
+        "rank": 10,
+        "percent": 0,
+        "mindstate": 5,
+    }
+    engine.xml_data.exp_updated = True
+    engine.connection = FakeConnection(
+        [b"A line goes by.\n"]
+    )  # the rewrite is per line
+    out = _read_all(engine, 1)
+    lines = [frame[0] for frame in out if frame[1] == "exp" and frame[2] == ""]
+    assert any(line.startswith("Scholarship") and "10" in line for line in lines)
+    assert any(
+        line.startswith("Athletics") and "deliberative" in line for line in lines
+    )
+
+
 def test_the_rested_footer_is_the_exp_streams_last_line():
     # #176: the footer the game pushes with every pulse closes the
     # rewrite, and its own change rewrites the window too.

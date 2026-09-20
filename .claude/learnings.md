@@ -80,6 +80,13 @@ lessons the code and docs cannot carry themselves.
   session policy refuses an outside OFFER as a hand-over (#234) until
   `offer` is in `~/.revenant/policy/<name>.json`'s allow list — the
   operator added it for Cecil on 2026-09-20 after two stalled deals.
+- A script that writes into the parser's state (`s.state.experience`
+  and the like) writes the parser's whole shape: the engine renders
+  every entry on every change with every key, and a `;scholarship`
+  seed without a "rate" raised KeyError in the exp rewrite and ended
+  the session at 04:30 on 2026-09-20 with `;train` running (#239).
+  The renderer now reads with `.get` and the reader survives our own
+  errors, but the rule stands: seed complete entries or none.
 - A wet instrument (a river crossing, rain) refuses CLEAN until WIPEd
   with the cloth ("so wet that they are still dripping"); DRY is not a
   verb. CLEAN wants the instrument in hand (REMOVE a worn one).

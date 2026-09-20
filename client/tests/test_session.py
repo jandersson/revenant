@@ -820,6 +820,35 @@ def test_a_crashing_command_does_not_kill_client_reader(monkeypatch):
     client.close()
 
 
+def test_a_parser_error_in_the_game_reader_does_not_end_the_session(monkeypatch):
+    # #239: a KeyError in the exp rewrite shut the session down at 04:30
+    # with the character logged in and ;train running. The reader logs
+    # it, says so once, and reads on; only three in a row end the session.
+    game = FakeGame()
+    server, port = _start_server(game)
+    original = server.engine.read
+    calls = {"n": 0}
+
+    def read(output_callback=None):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise KeyError("rate")
+        return original(output_callback=output_callback)
+
+    monkeypatch.setattr(server.engine, "read", read)
+    client = socket.create_connection(("127.0.0.1", port), timeout=5)
+    client.settimeout(5)
+    assert _await(lambda: server.clients), "client never registered"
+    game.pending.append(b"You see a troll.\n")
+    buffer = b""
+    while b"troll" not in buffer:
+        buffer += client.recv(4096)
+    assert b"game reader hit an error" in buffer
+    assert server.listener is not None  # no shutdown
+    client.close()
+    server.shutdown()
+
+
 class _FakeChild:
     """What subprocess.Popen hands back, as far as the handoff cares."""
 

@@ -33,6 +33,7 @@ Stop with:  ;stop scholarship (the book stays in hand — STOW it), or ;scholars
 import re
 import time
 
+from client.engine.xml_data import LEARNING_RATES
 from client.game import probe
 from client.game.mapdb import MapDB
 from client.game.scholarship import (
@@ -98,11 +99,15 @@ def ensure_mindstate(s):
             match = _EXP_ANSWER.search(answer or "")
             if match:
                 value = int(match.group(2))
+                # A whole entry, the parser's shape: a seed without a
+                # rate took the session down at 04:30 on 2026-09-20,
+                # thirty-six seconds into this script (#239).
                 s.state.experience = dict(getattr(s.state, "experience", None) or {})
                 s.state.experience["Scholarship"] = {
                     "rank": int(match.group(1)),
                     "percent": 0,
                     "mindstate": value,
+                    "rate": LEARNING_RATES[min(value, 34)],
                 }
     return value
 

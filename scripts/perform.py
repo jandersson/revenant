@@ -32,6 +32,7 @@ Stop with:  ;stop perform (the song plays on — STOP PLAY yourself), or ;perfor
 import re
 import time
 
+from client.engine.xml_data import LEARNING_RATES
 from client.game import probe
 from client.game.perform import (
     ALREADY,
@@ -91,11 +92,16 @@ def ensure_mindstate(s):
             match = _EXP_ANSWER.search(answer or "")
             if match:
                 value = int(match.group(2))
+                # A whole entry, the parser's shape (rank, percent,
+                # mindstate, rate): the engine renders every entry of
+                # the state, and a seed without a rate took the session
+                # down (2026-09-20, #239).
                 s.state.experience = dict(getattr(s.state, "experience", None) or {})
                 s.state.experience["Performance"] = {
                     "rank": int(match.group(1)),
                     "percent": 0,
                     "mindstate": value,
+                    "rate": LEARNING_RATES[min(value, 34)],
                 }
     return value
 

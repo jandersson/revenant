@@ -60,6 +60,9 @@ GAME_STATE_ENV = "REVENANT_GAME_STATE"
 # How long a dropped front end keeps retrying the attach — long enough to
 # span a session ;reexec, short enough that a dead session is not a hang.
 REATTACH_TIMEOUT = 10.0
+READER_FAILURES = (
+    3  # reader errors in a row (not the link's) before the session ends (#239)
+)
 # What the session says on the script stream just before it ends on
 # purpose; a frontend that heard it treats the EOF as expected.
 SESSION_ENDING = (
@@ -632,12 +635,14 @@ class SessionServer(ClientLogger):
     def game_reader(self):
         # Engine.read does the parsing/routing; we fan the segments out to
         # attached front ends and running scripts (goodbye included on EOF).
+        failures = 0  # reader errors in a row that were not the link's
         while True:
             if self._handoff.is_set():
                 self._reader_parked.set()  # the socket belongs to the child now
                 return
             try:
                 self.engine.read(output_callback=self.fanout)
+                failures = 0
             except EOFError:
                 # Same EOF, two stories: after a quit it is the expected
                 # end of the evening; otherwise the link died under us
@@ -658,11 +663,35 @@ class SessionServer(ClientLogger):
                     )
                 self.shutdown()
                 return
-            except Exception:
-                # A reader crash must never be a silent hang for clients.
-                self.log.exception("game reader crashed; shutting down")
+            except OSError:
+                # The link itself (a reset, WinError 10054): the game is
+                # gone, and so is the session; the windows are told.
+                self.log.exception("game connection failed; shutting down")
+                self.broadcast(
+                    "session: the game connection was reset; session ending — "
+                    "File → Reconnect starts a new one\n",
+                    "script",
+                )
                 self.shutdown()
                 return
+            except Exception:
+                # Our own error — the parser, the exp rewrite — must not
+                # log the character out: a seeded exp entry without a
+                # rate took ;train's evening down at 04:30 on 2026-09-20
+                # (#239). Logged with the traceback, said once in every
+                # window, and the reader goes on; three in a row is a
+                # reader that cannot read, and then the session ends the
+                # old way rather than hang silently.
+                failures += 1
+                self.log.exception("game reader error (%d in a row)", failures)
+                if failures >= READER_FAILURES:
+                    self.log.error("game reader failing; shutting down")
+                    self.shutdown()
+                    return
+                self.broadcast(
+                    "session: the game reader hit an error (logged) — carrying on\n",
+                    "script",
+                )
             sleep(0.01)
 
     def fanout(self, text: str, stream: str, style: str = ""):
