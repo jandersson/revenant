@@ -203,7 +203,10 @@ for `client/client/<pkg>/x.py`.
   `client/game/scholarship.py`
   is the Lorethew library's grammar and the reader's page loop;
   `scripts/scholarship.py books` reads every book on the profile's
-  `library` shelves and returns each with STOW (#210). `client/game/encumbrance.py` is the
+  `library` shelves and returns each with STOW (#210); the read
+  times persist in `~/.revenant/scholarship/<name>.json`, and a run
+  with every book within its timer ends rather than idling the
+  `;train` slot (#255). `client/game/encumbrance.py` is the
   wiki's capacity rule (a burden level is a band of weights for the
   character's Strength + Stamina) and the readings' log; `scripts/enc.py`
   reads it and `;enc ballast` pins the load with coins. Model:

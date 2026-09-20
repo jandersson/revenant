@@ -439,8 +439,14 @@ percent in fifteen minutes; a book teaches per read, not per page
 (the three-page story moved it as much as the thirteen-page
 introduction), teaches nothing read again at once, and taught again
 70 minutes later. So the script reads the shelves through, returns
-each book, and after a lap that taught nothing waits `timer` minutes
-(60 by default; the timer's true length is unmeasured). At mind-lock
+each book, and skips a book read within the last `timer` minutes (60
+by default; the timer's true length is unmeasured) — the read times
+are kept per character in `~/.revenant/scholarship/<name>.json`, so a
+later run skips them too. When every book is within the timer, the
+run waits for the first one if it is within `wait` minutes (10) and
+otherwise ends and says so, so `;train` moves on and comes back
+(#255: the reader idled 58 minutes of a 30-minute slot twice on
+2026-09-20; `wait=60` holds like before). At mind-lock
 the book is closed and returned and the script holds like `;attune`
 (`once` exits). It stops on death or hostiles with the book returned,
 waits out bleeding (the sign: "Please do not read a book while

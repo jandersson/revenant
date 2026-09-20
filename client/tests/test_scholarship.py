@@ -158,6 +158,7 @@ def walk(s, db, goals, describe="", avoid=()):
 
 def run(fake, args=("books",), mapdb=None):
     script.clock = lambda: fake.now
+    script.wall = lambda: fake.now
     script.probe = SimpleNamespace(ask=fake.ask, collect=fake.collect)
     script.run(fake, script.parse_args(list(args)), mapdb=mapdb, walk_fn=walk)
     return "\n".join(fake.echoed)
@@ -189,9 +190,10 @@ def test_args():
         "until": 34,
         "once": False,
         "timer": 60,
+        "wait": 10,
     }
     options = scholarship.parse_args(
-        ["books", "library=11716", "until=30", "once", "timer=45"]
+        ["books", "library=11716", "until=30", "once", "timer=45", "wait=60"]
     )
     assert options == {
         "mode": "books",
@@ -199,6 +201,7 @@ def test_args():
         "until": 30,
         "once": True,
         "timer": 45,
+        "wait": 60,
     }
     assert scholarship.parse_args(["classes"])["mode"] == "classes"
 
@@ -242,17 +245,42 @@ def test_a_book_read_within_the_timer_is_skipped_and_the_lap_waits():
     # One lap reads both books; the next finds both within the timer
     # and waits for the first to run out; the return lands mid-wait.
     fake = Fake(mindstates=[0] * 40, stop_at=1000 + 500)
-    out = run(fake, ["books", "timer=30"])
+    out = run(fake, ["books", "timer=30", "wait=60"])
     assert fake.sent.count("get IdsPG") == 1
     assert fake.sent.count("get FtvNJ") == 1
     assert "every book read within the last 30 minutes" in out
+    assert "waiting" in out
     assert "stopping" in out
 
 
 def test_after_the_timer_the_books_are_read_again():
     fake = Fake(mindstates=[0] * 80, stop_at=1000 + 4000)
-    run(fake, ["books", "timer=30"])
+    run(fake, ["books", "timer=30", "wait=60"])
     assert fake.sent.count("get IdsPG") >= 2
+
+
+def test_a_far_off_timer_ends_the_run_so_the_plan_moves_on():
+    # #255: under ;train the reader sat out 58 minutes of a 30-minute
+    # slot waiting for the first timer. Past `wait` minutes (10) it ends.
+    fake = Fake(mindstates=[0] * 40, stop_at=1000 + 5000)
+    out = run(fake, ["books", "timer=30"])
+    assert fake.sent.count("get IdsPG") == 1
+    assert "the first timer is" in out and "ending (wait=10)" in out
+    assert fake.now < 1000 + 600, "no wait of the timer's length"
+
+
+def test_the_read_times_persist_and_a_run_within_the_timer_reads_nothing():
+    first = Fake(mindstates=[0] * 40, stop_at=1000 + 5000)
+    run(first, ["books", "timer=30"])
+    second = Fake(mindstates=[0] * 40, stop_at=1000 + 5000)
+    second.now = first.now + 60  # a minute later, the same character
+    out = run(second, ["books", "timer=30"])
+    assert not any(c.startswith("get ") for c in second.sent)
+    assert "ending" in out
+    later = Fake(mindstates=[0] * 40, stop_at=1000 + 5000)
+    later.now = first.now + 31 * 60  # the timer has run out
+    run(later, ["books", "timer=30"])
+    assert later.sent.count("get IdsPG") == 1
 
 
 def test_a_typed_return_closes_the_reader_returns_the_book_and_ends():

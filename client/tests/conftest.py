@@ -31,3 +31,6 @@ def _isolated_login_defaults(tmp_path, monkeypatch):
     # Session servers register themselves; tests must never touch the
     # real ~/.revenant/sessions.json.
     monkeypatch.setenv("REVENANT_SESSIONS", str(tmp_path / "sessions.json"))
+    # The book reader's read times per character (#255): never the
+    # operator's ~/.revenant/scholarship.
+    monkeypatch.setenv("REVENANT_SCHOLARSHIP_DIR", str(tmp_path / "scholarship"))

@@ -5,6 +5,7 @@
     ;scholarship books until=30       stop at that mindstate instead of 34
     ;scholarship books once           exit at mind-lock instead of holding for the drain
     ;scholarship books timer=45       minutes to wait after a lap of the shelves (a book teaches once per timer; 60)
+    ;scholarship books wait=60        minutes the first timer may be off before the run ends instead (10)
     ;scholarship classes              not built yet: the plan is on #210
     ;scholarship return               (typed while it runs) return the book in hand and end
 
@@ -21,8 +22,12 @@ is open, because the reader takes anything else for a page — and at
 mind-lock the book is closed and returned and the script holds until
 enough has drained to be worth reading again (`once` exits instead).
 A book teaches once per timer, so a book read within the last `timer`
-minutes is skipped, and when every book is, the script waits for the
-first timer to run out. It stops on death or hostiles
+minutes is skipped — the read times are kept per character in
+~/.revenant/scholarship/<name>.json, so the next run skips them too —
+and when every book is, the script waits for the first timer to run
+out if it is within `wait` minutes, and otherwise ends and says so,
+so `;train` moves on to the next task and comes back (#255: the
+reader idled 58 minutes of a 30-minute slot). It stops on death or hostiles
 (the book returned first), waits out bleeding (the sign's warning), and
 says so when the shelves are not a library's. ;train runs it as a task
 (skills: ["Scholarship"], return_word "return"). Measured 2026-09-18:
@@ -42,9 +47,11 @@ from client.game.scholarship import (
     OPENED,
     RETURNED,
     URGE,
+    load_reads,
     page_ended,
     parse_args,
     parse_shelves,
+    save_reads,
 )
 from client.game.walker import avoided_rooms, walk
 from client.settings import load_settings
@@ -57,6 +64,7 @@ MAX_PAGES = 200  # a book longer than this is a loop, not a book
 COLLECT_SECONDS = 2
 TAIL_SECONDS = 0.5
 clock = time.monotonic  # tests replace it
+wall = time.time  # the read times kept across runs (#255); tests replace it
 
 _EXP_ANSWER = re.compile(r"Scholarship:\s+(\d+)\s+[\d.]+%\s+.*?\((\d+)/34\)")
 
@@ -245,11 +253,16 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
         )
         return
     s.echo(f"scholarship: {len(books)} book(s) on the shelves")
-    read_at = {}  # call letters -> clock() of the last read this run
+    # Call letters -> wall time of the last read, this run's and the
+    # earlier ones' (#255: a fresh run re-read every book within its
+    # timer and taught nothing); books gone from the shelves dropped.
+    name = getattr(s.state, "name", None) or "unknown"
+    shelved = {letters for _, letters in books}
+    read_at = {k: v for k, v in load_reads(name).items() if k in shelved}
     while True:
         read_any = False
         for title, letters in books:
-            since = clock() - read_at.get(letters, -float("inf"))
+            since = wall() - read_at.get(letters, -float("inf"))
             if since < options["timer"] * 60:
                 continue  # its timer is not up: it would teach nothing
             reason = danger(s)
@@ -277,11 +290,19 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
                 s.echo("scholarship: stopping")
                 return
             if outcome in ("done", "target"):
-                read_at[letters] = clock()
+                read_at[letters] = wall()
+                save_reads(name, read_at)
                 read_any = True
         if not read_any:
-            oldest = min(read_at.values(), default=clock())
-            wait = max(60.0, options["timer"] * 60 - (clock() - oldest))
+            oldest = min(read_at.values(), default=wall())
+            wait = max(60.0, options["timer"] * 60 - (wall() - oldest))
+            if wait > options["wait"] * 60:
+                s.echo(
+                    f"scholarship: every book read within the last "
+                    f"{options['timer']} minutes — the first timer is "
+                    f"{wait / 60:.0f} minutes off, ending (wait={options['wait']})"
+                )
+                return
             s.echo(
                 f"scholarship: every book read within the last {options['timer']} "
                 f"minutes — waiting {wait / 60:.0f} minutes for the first timer"

@@ -36,9 +36,16 @@ do not read a book while bleeding, because you will NOT be able to
 tend your wounds." Model: docs/training.md.
 """
 
+import json
+import os
 import re
+from pathlib import Path
 
 TIMER_MINUTES = 60  # the wait after a lap of the shelves: a book teaches once per timer
+# How far off the first book's timer may be before a run waits for it
+# rather than ending: under ;train the reader idled 58 minutes of a
+# 30-minute slot (#255); a standalone reader passes wait=60 to hold.
+WAIT_MINUTES = 10
 _SHELF_ROW = re.compile(r"^\s*(?P<title>\S.*?\S)\s{2,}(?P<letters>[A-Za-z]{3,})\s*$")
 GOT = ("you get a copy",)
 NO_SUCH = ("could not find", "what were you referring", "referring to")
@@ -47,6 +54,32 @@ OPENED = ("you open",)
 READING = "reading:"
 NOT_A_PAGE = "is not a page in this book"
 RETURNED = ("return the book",)
+
+
+# --- the read times, kept per character across runs (#255) ------------------
+def store_dir() -> Path:
+    return Path(
+        os.environ.get("REVENANT_SCHOLARSHIP_DIR", "~/.revenant/scholarship")
+    ).expanduser()
+
+
+def store_path(character) -> Path:
+    return store_dir() / f"{str(character or 'unknown').lower()}.json"
+
+
+def load_reads(character) -> dict:
+    """{call letters: unix time of the last read}; {} for none."""
+    try:
+        data = json.loads(store_path(character).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_reads(character, reads) -> None:
+    path = store_path(character)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(reads, indent=1), encoding="utf-8")
 
 
 def parse_shelves(text):
@@ -77,20 +110,22 @@ def page_ended(answer):
 
 
 def parse_args(args):
-    """{"mode", "library", "until", "once", "timer"} from ;scholarship's
-    arguments: the first bare word is the mode ("books" by default)."""
+    """{"mode", "library", "until", "once", "timer", "wait"} from
+    ;scholarship's arguments: the first bare word is the mode ("books"
+    by default)."""
     options = {
         "mode": "books",
         "library": "",
         "until": 34,
         "once": False,
         "timer": TIMER_MINUTES,
+        "wait": WAIT_MINUTES,
     }
     for arg in args:
         key, sep, value = str(arg).lower().partition("=")
         if sep and key == "library" and value:
             options["library"] = value
-        elif sep and key in ("until", "timer") and value.isdigit():
+        elif sep and key in ("until", "timer", "wait") and value.isdigit():
             options[key] = int(value)
         elif key == "once":
             options["once"] = True
