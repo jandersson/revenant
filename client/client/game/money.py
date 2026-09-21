@@ -31,6 +31,7 @@ _AMOUNT = re.compile(
 _COPPER = re.compile(r"\((\d+) copper (Kronars|Lirums|Dokoras)\)")
 _NONE = re.compile(r"^\s*No (Kronars|Lirums|Dokoras)\.", re.MULTILINE)
 _DEBT_SECTION = re.compile(r"^Debt:", re.MULTILINE)
+_SECTION = re.compile(r"^(Wealth|Debt):", re.MULTILINE)  # in either order (#266)
 _NO_DEBT = re.compile(r"^\s*No debt\.", re.MULTILINE)
 
 
@@ -70,16 +71,25 @@ def parse_wealth(text):
     "No Kronars." is a carried 0 and "No debt." a debt of 0 in every
     currency INFO listed — a paid debt has to reach the history as a
     zero, or the newest row stays the old debt (captured 2026-09-12).
-    An INFO that never answered gives empty dicts."""
-    debt_at = _DEBT_SECTION.search(text)
-    at = debt_at.start() if debt_at else len(text)
+    An INFO that never answered gives empty dicts. The sections come
+    in either order: WEALTH printed Debt above Wealth on 2026-09-21
+    and the purse read as empty (#266), so each header opens its own
+    chunk wherever it falls, and text before the first header is the
+    purse, INFO's old shape."""
+    marks = list(_SECTION.finditer(text))
+    chunks = [("carried", text[: marks[0].start()])] if marks else [("carried", text)]
+    for index, mark in enumerate(marks):
+        end = marks[index + 1].start() if index + 1 < len(marks) else len(text)
+        section = "carried" if mark.group(1) == "Wealth" else "debt"
+        chunks.append((section, text[mark.start() : end]))
     wealth = {"carried": {}, "debt": {}}
-    for section, chunk in (("carried", text[:at]), ("debt", text[at:])):
+    for section, chunk in chunks:
         for amount, currency in _COPPER.findall(chunk):
             wealth[section][currency] = wealth[section].get(currency, 0) + int(amount)
-    for currency in _NONE.findall(text[:at]):
-        wealth["carried"].setdefault(currency, 0)
-    if _NO_DEBT.search(text[at:]):
+        if section == "carried":
+            for currency in _NONE.findall(chunk):
+                wealth["carried"].setdefault(currency, 0)
+    if any(_NO_DEBT.search(chunk) for section, chunk in chunks if section == "debt"):
         for currency in wealth["carried"]:
             wealth["debt"].setdefault(currency, 0)
     return wealth

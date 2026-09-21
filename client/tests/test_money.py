@@ -57,6 +57,22 @@ def test_info_splits_into_carried_and_owed_per_currency():
     }
 
 
+def test_wealth_with_the_debt_section_first_still_reads_the_purse():
+    # Captured 2026-09-21 (#266): WEALTH printed Debt above Wealth and
+    # ;bank called a 5391-copper purse empty.
+    text = (
+        "\nDebt:\n  You owe 9 bronze Kronars to the Principality of Zoluren. "
+        "(90 copper Kronars)\n  [You can pay off this debt in person at the "
+        "respective provincial debt office or by calling for an urchin runner "
+        "with BANK DEBT.]\n\nWealth:\n  1 gold, 33 silver, 99 bronze, and 101 "
+        "copper Kronars (5391 copper Kronars).\n  No Lirums.\n  No Dokoras.\n"
+    )
+    assert money.parse_wealth(text) == {
+        "carried": {"Kronars": 5391, "Lirums": 0, "Dokoras": 0},
+        "debt": {"Kronars": 90},
+    }
+
+
 def test_nothing_carried_and_no_debt_are_zeros_not_silence():
     # Captured 2026-09-12 once the debt was paid: the history must get a
     # zero, or the newest debt row stays the old figure.
