@@ -117,12 +117,14 @@ class Fake:
 
 
 def commands(fake):
-    """The commands sent, minus the loose-skin GETs the sack answered
-    with nothing (#261) — the sale's own shape."""
+    """The commands sent, minus the loose-skin sale's own reads — the LOOK
+    IN the container (#269) and a GET the sack answered with nothing
+    (#261) — the bundle sale's own shape."""
     return [
         c
         for c in fake.sent
-        if not (c.startswith("get my ") and c.split()[2] in script.SKIN_NOUNS)
+        if not c.startswith("look in my ")
+        and not (c.startswith("get my ") and c.split()[2] in script.SKIN_NOUNS)
     ]
 
 
@@ -240,13 +242,34 @@ PAID_CLAW = (
 )
 
 
+LOOKED = (
+    "In the canvas sack you see a round cambrinth flake, a badger pelt, a "
+    "curved claw, a badger pelt, some bundling rope and a cotton rag.\n"
+)
+
+
+def test_the_look_in_answer_names_the_nouns_present():
+    assert script.listed_nouns(LOOKED) == [
+        "flake",
+        "pelt",
+        "claw",
+        "pelt",
+        "rope",
+        "rag",
+    ]
+    assert script.listed_nouns("There is nothing in there.\n") == []
+    assert script.listed_nouns("What were you referring to?\n") is None
+
+
 def test_loose_skins_in_the_sack_are_sold_one_at_a_time_after_the_bundle():
     # #261: nine loose pelts and seven claws filled the sack while ;skins
-    # sold the bundle alone.
+    # sold the bundle alone. #269: LOOK IN the sack names what to fetch;
+    # the other sixteen nouns are never asked for.
     fake = Fake(
         {
             "remove": [REMOVED],
             "sell my bundle": [SOLD],
+            "look in my sack": [LOOKED],
             "get my pelt": [GOT_PELT, GOT_PELT, MISSING],
             "get my claw": [GOT_CLAW, MISSING],
             "sell my pelt": [PAID_PELT, PAID_PELT],
@@ -258,6 +281,8 @@ def test_loose_skins_in_the_sack_are_sold_one_at_a_time_after_the_bundle():
     assert fake.sent.count("sell my claw") == 1
     assert fake.sent.index("put my rope in my sack") < fake.sent.index("sell my pelt")
     assert "skins: sold 3 loose skin(s) for 72 Kronars" in fake.echoed
+    assert not any(c.startswith("get my hide") for c in fake.sent)
+    assert fake.sent.count("look in my sack") == 1
 
 
 def test_a_skin_left_in_hand_is_sold_first_and_an_unpaid_part_goes_back():

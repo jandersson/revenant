@@ -20,8 +20,9 @@ next hunt's first skin, and stays at the tannery — where it started
 is usually the hunting ground, and the first scripted run (2026-09-12)
 walked back into the rats with the weapon stowed; `back` walks back
 anyway. Then the loose animal parts: a skin still in a hand (a hunt
-whose sack had no room left it there, #262) and each skin noun out
-of the loot container — GET, SELL, until none of that noun is left —
+whose sack had no room left it there, #262) and each skin noun LOOK IN
+the loot container lists (one answer, no roundtime, #269) — GET, SELL,
+until none of that noun is left —
 the tanner buying them one at a time (Falken's Tannery: "sell my
 <bundle/skin/pelt/bones/animal part>"); the count and the sum are
 said (#261: nine loose pelts and seven claws filled the sack on
@@ -79,6 +80,23 @@ SKIN_NOUNS = (
     "shell",
 )
 MAX_LOOSE = 60  # parts of one noun sold in a run: the fuse
+# LOOK IN MY <container>, no roundtime (captured 2026-09-21, #269): "In
+# the canvas sack you see a round cambrinth flake, a nemoih root, ...,
+# a nuloe stem and a nuloe stem." — only the skin nouns it lists are
+# fetched, not the whole table blind.
+_LISTED = re.compile(r"you see (.+?)\.\s*$", re.IGNORECASE | re.DOTALL)
+
+
+def listed_nouns(answer):
+    """The nouns (each item's last word) a LOOK IN answer lists, repeats
+    kept; None when the answer is not a listing (the container could
+    not be read), [] for an empty one."""
+    match = _LISTED.search(answer or "")
+    if not match:
+        lowered = (answer or "").lower()
+        return [] if "nothing in" in lowered or "is empty" in lowered else None
+    items = re.split(r",\s*|\s+and\s+", match.group(1))
+    return [item.strip().split()[-1].lower() for item in items if item.strip()]
 
 
 def ask(s, command):
@@ -165,7 +183,14 @@ def sell_loose(s, container):
         noun = held.get("noun") if isinstance(held, dict) else None
         if noun in SKIN_NOUNS and not sell(noun):
             s.echo(f"skins: the tanner did not pay for the {noun} in hand — it stays")
-    for noun in SKIN_NOUNS:
+    nouns = list(SKIN_NOUNS)
+    if container:
+        present = listed_nouns(ask(s, f"look in my {container}"))
+        if present is None:
+            s.echo(f"skins: could not read the {container} — trying every skin noun")
+        else:
+            nouns = [noun for noun in SKIN_NOUNS if noun in present]
+    for noun in nouns:
         for _ in range(MAX_LOOSE):
             command = (
                 f"get my {noun} from my {container}" if container else f"get my {noun}"
