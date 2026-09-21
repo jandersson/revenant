@@ -2550,6 +2550,33 @@ def test_a_maneuver_at_a_corpse_is_the_corpse_answer_not_a_miss(travel):
     assert arena.sent.count("skin rat") == 4  # the corpse the BOB found, disposed
 
 
+def test_a_maneuver_the_foe_wins_is_still_a_maneuver(travel):
+    # Captured 2026-09-21 on the vineyard cougars (#265): seven of these
+    # in one run were reported and turned the maneuvers off.
+    lost = (
+        "You hesitate and change your mind, circle back awkwardly.  The cougar "
+        "easily out maneuvers you.\n[You're solidly balanced and opponent has "
+        "slight advantage.]\nRoundtime: 4 sec.\n"
+    )
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands)] * 6 + [(KILL, kill)],
+            "bob": [lost, lost],
+            "circle": [lost, lost],
+            "weave": [lost, lost],
+            "skin": [SKINNED] * 7,
+            "search": [NOTHING] * 7,
+        },
+        experience=TACTICS_OPEN,
+    )
+    _run(arena, profile=TACTICAL | {"max_kills": 7}, travel_first=False)
+    assert not any("unrecognized" in text for text in arena.echoed)
+    assert not any("tactics off" in text for text in arena.echoed)
+    assert any(
+        "maneuver(s)" in text and " 0 maneuver" not in text for text in arena.echoed
+    )
+
+
 def test_a_maneuver_from_range_advances_on_the_prey_and_waits_for_melee(travel):
     # Captured 2026-09-20 on a badger closing from pole range: a maneuver
     # does not advance the way ATTACK does, so the loop ADVANCEs itself.

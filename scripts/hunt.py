@@ -283,7 +283,18 @@ _NUMBER_WORDS = {
 # already quite dead." (2026-09-20, a BOB) — and the corpse branch below
 # disposes of it; that is not a miss. Anything else is reported, and
 # after TACTIC_MISSES of them the maneuvers are off.
-_MANEUVER_DONE = ("you bob", "you sidestep", "you fake", "you weave")
+# A maneuver the foe wins is an attempt all the same (the vineyard
+# cougars, 2026-09-21, #265): "You hesitate and change your mind,
+# circle back awkwardly.  The cougar easily out maneuvers you." with a
+# 4 s roundtime — seven in the first run at Tactics 23.
+_MANEUVER_DONE = (
+    "you bob",
+    "you sidestep",
+    "you fake",
+    "you weave",
+    "out maneuvers you",
+    "change your mind",
+)
 TACTICS_EVERY = 3  # every third swing is a maneuver while Tactics is unlocked
 TACTIC_MISSES = 3  # unrecognized maneuver answers before tactics go off
 # HUNT for tracks (captured 2026-09-14 in a guild office, #194): "You
