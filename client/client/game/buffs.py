@@ -420,12 +420,18 @@ def charge_cambrinth(s, profile, state, ask, prefix, report):
 def cast_left(s):
     """Seconds the pattern PREPARE opened has still to form, by the
     parser's cast time against the last prompt's server time; 0 when
-    the state cannot say (a fake) or the pattern is ready."""
+    the state cannot say (a fake) or the pattern is ready. The clock is
+    whole seconds, so a cast time equal to the last prompt's second is
+    still forming for a fraction no stamp shows: one second is added
+    while the cast time has not passed (#263: the CAST went out on that
+    second, read the ready line as its answer, and missed "Your spell
+    barely backfires.")."""
     state = getattr(s, "state", None)
     seen = getattr(state, "server_time", None) if state is not None else None
     if seen is None:
         return 0
-    return max(0, (getattr(state, "casttime", 0) or 0) - seen)
+    casttime = getattr(state, "casttime", 0) or 0
+    return casttime - seen + 1 if casttime >= seen else 0
 
 
 def cast_once(

@@ -2049,15 +2049,28 @@ def test_a_long_pattern_is_swung_into_until_a_roundtime_no_longer_fits(travel):
     assert "release" not in arena.sent
 
 
+def test_the_pattern_is_still_forming_on_the_second_its_timer_names():
+    # #263: cast time 119 with the last prompt at 119 is a fraction of a
+    # second short of ready — the CAST sent then read the ready line as
+    # its answer. One second stays; past the second, nothing.
+    state = SimpleNamespace(server_time=119, casttime=119)
+    assert buffs.cast_left(SimpleNamespace(state=state)) == 1
+    state.server_time = 120
+    assert buffs.cast_left(SimpleNamespace(state=state)) == 0
+    state.server_time = 100
+    assert buffs.cast_left(SimpleNamespace(state=state)) == 20
+
+
 def test_a_battle_spells_pattern_gets_the_one_swing(travel):
-    # Stun Foe forms in 8 s: the first swing's roundtime leaves 4, no
-    # room for another — the one-swing cadence of #203 stands, and the
-    # kill comes on the next iteration's own swing.
+    # Stun Foe forms in 7 s: the first swing's roundtime leaves 3 (and
+    # the boundary second, #263), no room for another — the one-swing
+    # cadence of #203 stands, and the kill comes on the next iteration's
+    # own swing.
     arena = _clocked(
         Arena(
             {
                 "attack": [MISSED, (KILL, kill)],
-                "prepare": [(SF_PREPARED, _pattern(8))],
+                "prepare": [(SF_PREPARED, _pattern(7))],
                 "cast": [STUNNED],
                 "skin": [SKINNED],
                 "search": [NOTHING],

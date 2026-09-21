@@ -307,7 +307,12 @@ non-battle spell's is not — Heroic Strength formed for 26 s at Cecil's
 Holy Magic on 2026-09-20 and the hunt stood the other 22 under the
 badger's claws, once a minute — so while the parser's cast time says
 a swing's roundtime (4 s) still fits before the ready line, the loop
-swings again, each swing counted toward the fuses (#250). A kill read
+swings again, each swing counted toward the fuses (#250). The wait
+for the ready line keeps one second past the cast time's second: the
+clock is whole seconds, and a pattern whose cast time equals the last
+prompt's second is still forming for a fraction no stamp shows — a
+CAST sent then read "You feel fully prepared" as its answer and missed
+"Your spell barely backfires." (#263, 2026-09-21). A kill read
 off a swing with one hostile in the parser's set clears the room in
 the tally — the dead one's status frame never comes (#244), and a
 CAST at it answered "The striped badger is already dead, so that's a
