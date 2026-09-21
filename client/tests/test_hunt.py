@@ -1000,6 +1000,53 @@ def test_a_full_bundle_is_known_and_the_skin_is_stowed_loose(travel):
     assert not any("unrecognized bundle" in text for text in arena.echoed)
 
 
+def test_a_weapon_not_in_its_container_is_drawn_from_wherever_it_is(travel):
+    # #259: the scimitar sat in the sack while the profile named the
+    # scabbard; the one GET answered "What were you referring to?" and
+    # the turn swung bare-handed.
+    arena = _run(
+        Arena(
+            {
+                "get my handaxe from my sack": [MISSING],
+                "get my handaxe": ["You get an oak-hafted handaxe."],
+                "attack": [(KILL, kill)],
+                "skin": [SKINNED],
+                "search": [NOTHING],
+            }
+        ),
+        travel_first=False,
+    )
+    assert arena.sent[:2] == ["get my handaxe from my sack", "get my handaxe"]
+    assert not any("no handaxe to draw" in t for t in arena.echoed)
+
+
+def test_a_skin_the_bundle_will_not_take_leaves_the_next_one_to_start_it(travel):
+    # #260: a curved claw as the first skin — "You don't have any
+    # bundles or they're all full or too tightly packed!" — was reported
+    # and turned bundling off for the run.
+    full = (
+        "Where did you intend to put that?  You don't have any bundles or "
+        "they're all full or too tightly packed!  Type BUNDLE HELP for more details."
+    )
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands), (KILL, kill)],
+            "tap": [NOT_FOUND] * 2,
+            "skin": [(PELT_LOOSE, skin_in_hand)] * 2,
+            "get my rope": ["You get a bundling rope from inside your canvas sack."]
+            * 2,
+            "bundle": [full, (BUNDLED, hand_empty)],
+            "search": [NOTHING] * 2,
+        }
+    )
+    _hands(arena)
+    _run(arena, profile=BUNDLING | {"max_kills": 2}, travel_first=False)
+    assert arena.sent.count("get my rope from my sack") == 2
+    assert any("would not take that skin" in t for t in arena.echoed)
+    assert any("bundle started and worn" in t for t in arena.echoed)
+    assert not any("unrecognized" in t for t in arena.echoed)
+
+
 def test_without_a_rope_the_skin_is_stowed_and_the_run_says_so_once(travel):
     arena = Arena(
         {

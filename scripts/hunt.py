@@ -85,7 +85,9 @@ kill, each with the skill it trains — "handaxe:Small Edged:sack",
 "fists:Brawling" — so every weapon skill learns in the same evening
 (the operator, 2026-09-20: no argument per weapon type, #238). A
 turn's weapon is GOT from its container after the last one goes
-back; the fists turn draws nothing and swings the profile's
+back — or from wherever it sits when the container has it not (#259:
+the scimitar in the sack, the profile naming the scabbard, and the
+turn swung bare-handed); the fists turn draws nothing and swings the profile's
 `brawling` attacks in rotation — PUNCH, KICK, ELBOW (Elanthipedia:
 Brawling skill, Punch command, Elbow command) — with the hands empty,
 since PUNCH wants a free hand and a worn parry stick parries as it
@@ -713,15 +715,24 @@ def escape(s):
 
 
 def draw(s, profile):
-    """The weapon into a hand."""
+    """The weapon into a hand: from its container, or — not there (#259:
+    the scimitar sat in the sack while the profile named the scabbard,
+    and the turn swung bare-handed) — from wherever it is. False when
+    the game finds no such weapon at all, said once per call."""
     weapon = profile["weapon"]
     if not weapon:
-        return
+        return True
     container = profile["weapon_container"]
     command = (
         f"get my {weapon} from my {container}" if container else f"get my {weapon}"
     )
-    ask(s, command)
+    answer = ask(s, command).lower()
+    if container and any(word in answer for word in _NOTHING_THERE):
+        answer = ask(s, f"get my {weapon}").lower()
+    if any(word in answer for word in _NOTHING_THERE):
+        s.echo(f"hunt: no {weapon} to draw — the game finds none on you")
+        return False
+    return True
 
 
 def clear_hands(s, profile):
@@ -833,12 +844,23 @@ def make_bundle(s, profile, tally):
         draw(s, profile)
         return False
     answer = ask(s, "bundle")
-    if classify(answer, BUNDLE_OUTCOMES) == "ok":
+    outcome = classify(answer, BUNDLE_OUTCOMES)
+    if outcome == "ok":
         ask(s, "wear my bundle")
         tally.bundle = True
         s.echo("hunt: bundle started and worn — skins go straight into it")
         draw(s, profile)
         return True
+    if outcome == "full":
+        # This skin will not start a bundle (a curved claw, captured
+        # 2026-09-21, #260): stowed loose, the bundle left untried so
+        # the next skin starts it.
+        s.echo(
+            "hunt: BUNDLE would not take that skin — stowed; the next one starts the bundle"
+        )
+        stow(s, profile, "rope")
+        draw(s, profile)
+        return False
     unrecognized(s, tally, "bundle", answer)
     tally.bundle = False
     stow(s, profile, "rope")
