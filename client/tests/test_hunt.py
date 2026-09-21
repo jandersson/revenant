@@ -1047,6 +1047,29 @@ def test_a_skin_the_bundle_will_not_take_leaves_the_next_one_to_start_it(travel)
     assert not any("unrecognized" in t for t in arena.echoed)
 
 
+def test_a_skin_no_container_will_take_stays_in_hand_and_ends_skinning(travel):
+    # #262: "There isn't any more room in the sack for that." — four
+    # times on 2026-09-21, the answer unread, a pelt in each hand.
+    no_room = "There isn't any more room in the sack for that."
+    arena = _run(
+        Arena(
+            {
+                "attack": [(KILL, _stands), (KILL, kill)],
+                "skin": [SKINNED] * 2,
+                "put my pelt in my sack": [no_room],
+                "stow my pelt": [no_room],
+                "search": [NOTHING] * 2,
+            }
+        ),
+        profile=PROFILE | {"max_kills": 2},
+        travel_first=False,
+    )
+    assert arena.sent.count("skin rat") == 1
+    assert "stow my pelt" in arena.sent
+    assert any("no room for the pelt" in t for t in arena.echoed)
+    assert not any(c.startswith("drop") for c in arena.sent)
+
+
 def test_without_a_rope_the_skin_is_stowed_and_the_run_says_so_once(travel):
     arena = Arena(
         {

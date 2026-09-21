@@ -206,6 +206,10 @@ CORPSE_SWINGS = 2
 # times in the logs); a SEARCH answered the second went unrecognized on
 # 2026-09-20, so every table that knows the first knows both.
 _NOTHING_THERE = ("what were you referring", "could not find")
+# A container with no room left (captured 2026-09-21, #262): "There
+# isn't any more room in the sack for that." — the bare STOW answered
+# the same, its default being that sack.
+_NO_ROOM = ("any more room", "no room for", "won't fit")
 # ATTACK from pole or missile range advances first (docs/combat.md;
 # captured 2026-09-12): "You aren't close enough to attack." / "You
 # begin to advance on a ship's rat." / "You are already advancing on a
@@ -940,12 +944,15 @@ def bundled(s, profile, tally):
 
 
 def stow(s, profile, item):
-    """An item in hand into the loot container, or the STOW default."""
+    """An item in hand into the loot container, else the STOW default;
+    False when neither has room (#262), the item still in hand."""
     container = profile["loot_container"]
     if container:
-        ask(s, f"put my {item} in my {container}")
-    else:
-        ask(s, f"stow my {item}")
+        answer = ask(s, f"put my {item} in my {container}").lower()
+        if not any(word in answer for word in _NO_ROOM):
+            return True
+    answer = ask(s, f"stow my {item}").lower()
+    return not any(word in answer for word in _NO_ROOM)
 
 
 def pocket(s, profile, item):
@@ -983,7 +990,15 @@ def skin(s, profile, corpse, tally):
         if bundled(s, profile, tally):
             pass  # in the worn bundle, nothing in hand to stow
         elif found := items_in(answer):
-            stow(s, profile, found[-1])
+            if not stow(s, profile, found[-1]):
+                # Nowhere to put it (#262): it stays in hand, and no more
+                # are cut this run. Never a DROP.
+                s.echo(
+                    f"hunt: no room for the {found[-1]} anywhere — it stays in "
+                    "hand and skinning is off for this run; ;skins sells the "
+                    "loose skins"
+                )
+                profile["skin"] = False
         else:
             ask(s, "stow left")  # the skin's hand, by convention (assumption)
     elif outcome == "no_knife":
