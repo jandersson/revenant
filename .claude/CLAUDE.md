@@ -170,7 +170,8 @@ for `client/client/<pkg>/x.py`.
   `;sheet`, `;wealth` and `;debt` (`scripts/debt.py`: fetch the
   shortfall from the teller, PAY ALL at the debt office); `;skins`
   (`scripts/skins.py`) sells the skin bundle `;hunt` wears at the
-  nearest tannery and keeps the rope. `client/game/bank.py` + `;bank`
+  nearest tannery, then every loose skin in a hand or the loot
+  container one at a time (#261), and keeps the rope. `client/game/bank.py` + `;bank`
   (`scripts/bank.py`, #235): the purse banked — every foreign coin
   EXCHANGEd at the map's `exchange` room into the province's own,
   DEPOSIT ALL at the `bank` room, `keep=N` copper withdrawn back;

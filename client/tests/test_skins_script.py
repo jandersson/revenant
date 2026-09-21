@@ -98,6 +98,8 @@ class Fake:
                 text = queue.pop(0) if queue else ""
                 self.pending = [line + "\n" for line in text.splitlines()]
                 return
+        if command.startswith("get my "):
+            self.pending = [MISSING]  # a loose skin the sack does not hold (#261)
 
     def get(self, timeout=None, streams=("",)):
         if timeout == 0 or not self.pending:
@@ -114,6 +116,16 @@ class Fake:
         pass
 
 
+def commands(fake):
+    """The commands sent, minus the loose-skin GETs the sack answered
+    with nothing (#261) — the sale's own shape."""
+    return [
+        c
+        for c in fake.sent
+        if not (c.startswith("get my ") and c.split()[2] in script.SKIN_NOUNS)
+    ]
+
+
 def walk(s, db, goals, describe="", avoid=()):
     s.walks.append(set(goals))
     s.state.room_uid = db.rooms[min(goals)]["uid"][0]
@@ -126,7 +138,7 @@ def test_sells_the_worn_bundle_keeps_the_rope_and_stays_at_the_tannery():
     fake = Fake({"remove": [REMOVED], "sell": [SOLD]})
     script.run(fake, [], MAP, walk_fn=walk, profile=PROFILE)
     assert fake.walks == [{8266}]
-    assert fake.sent == [
+    assert commands(fake) == [
         "remove my bundle",
         "sell my bundle",
         "put my rope in my sack",
@@ -145,7 +157,7 @@ def test_a_bundle_already_in_hand_is_sold_without_a_remove():
         "name": "oak-hafted handaxe",
     }
     script.run(fake, [], MAP, walk_fn=walk, profile=PROFILE)
-    assert fake.sent == ["sell my bundle", "put my rope in my sack"]
+    assert commands(fake) == ["sell my bundle", "put my rope in my sack"]
 
 
 def test_a_bundle_in_the_sack_is_fetched_when_none_is_worn():
@@ -158,7 +170,7 @@ def test_a_bundle_in_the_sack_is_fetched_when_none_is_worn():
     )
     script.run(fake, ["back"], MAP, walk_fn=walk, profile=PROFILE)
     assert fake.walks == [{8266}, {100}]  # back: the walk home
-    assert fake.sent[:3] == [
+    assert commands(fake)[:3] == [
         "remove my bundle",
         "get my bundle from my sack",
         "sell my bundle",
@@ -173,7 +185,11 @@ def test_bank_runs_the_bank_script_and_waits_for_it():
     fake = Fake({"remove": [REMOVED], "sell": [SOLD]})
     fake.polls = 3
     script.run(fake, ["bank", "keep=500", "back"], MAP, walk_fn=walk, profile=PROFILE)
-    assert fake.sent == ["remove my bundle", "sell my bundle", "put my rope in my sack"]
+    assert commands(fake) == [
+        "remove my bundle",
+        "sell my bundle",
+        "put my rope in my sack",
+    ]
     assert fake.started == [("bank", ["keep=500"])]
     assert fake.polls == -1  # waited until ;bank was no longer running
     assert fake.walks == [{8266}, {100}]
@@ -212,6 +228,63 @@ def test_a_tanner_who_does_not_pay_is_quoted_and_the_rope_left_alone():
     )
 
 
+# The tanner's line for a single part is taken for the bundle's shape
+# until captured (#261).
+GOT_PELT = "You get a badger pelt from inside your canvas sack.\n"
+GOT_CLAW = "You get a curved claw from inside your canvas sack.\n"
+PAID_PELT = (
+    "The tanner Falken ponders over the pelt for a while, then hands you 30 Kronars.\n"
+)
+PAID_CLAW = (
+    "The tanner Falken ponders over the claw for a while, then hands you 12 Kronars.\n"
+)
+
+
+def test_loose_skins_in_the_sack_are_sold_one_at_a_time_after_the_bundle():
+    # #261: nine loose pelts and seven claws filled the sack while ;skins
+    # sold the bundle alone.
+    fake = Fake(
+        {
+            "remove": [REMOVED],
+            "sell my bundle": [SOLD],
+            "get my pelt": [GOT_PELT, GOT_PELT, MISSING],
+            "get my claw": [GOT_CLAW, MISSING],
+            "sell my pelt": [PAID_PELT, PAID_PELT],
+            "sell my claw": [PAID_CLAW],
+        }
+    )
+    script.run(fake, [], MAP, walk_fn=walk, profile=PROFILE)
+    assert fake.sent.count("sell my pelt") == 2
+    assert fake.sent.count("sell my claw") == 1
+    assert fake.sent.index("put my rope in my sack") < fake.sent.index("sell my pelt")
+    assert "skins: sold 3 loose skin(s) for 72 Kronars" in fake.echoed
+
+
+def test_a_skin_left_in_hand_is_sold_first_and_an_unpaid_part_goes_back():
+    # #262 left a pelt in the hand; the tanner's silence on a claw puts
+    # it back and ends that noun.
+    fake = Fake(
+        {
+            "remove": [MISSING],
+            "get my bundle": [MISSING],
+            "sell my pelt": [PAID_PELT],
+            "get my claw": [GOT_CLAW],
+            "sell my claw": ["The tanner Falken shrugs.\n"],
+        }
+    )
+    fake.state.left_hand = {"noun": "pelt", "exist": "3", "name": "badger pelt"}
+    fake.state.right_hand = None
+    script.run(fake, [], MAP, walk_fn=walk, profile=PROFILE)
+    assert commands(fake)[:3] == [
+        "remove my bundle",
+        "get my bundle from my sack",
+        "sell my pelt",
+    ]
+    assert "put my claw in my sack" in fake.sent
+    assert any("did not pay for a claw" in t for t in fake.echoed)
+    assert "skins: sold 1 loose skin(s) for 30 Kronars" in fake.echoed
+
+
 def test_no_tannery_on_the_map_says_so():
     fake = Fake({})
     script.run(
@@ -221,5 +294,5 @@ def test_no_tannery_on_the_map_says_so():
         walk_fn=walk,
         profile=PROFILE,
     )
-    assert fake.sent == []
+    assert commands(fake) == []
     assert any("no room tagged 'tannery'" in text for text in fake.echoed)

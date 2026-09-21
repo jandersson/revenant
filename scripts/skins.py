@@ -1,6 +1,6 @@
 """Sell the bundle of skins you wear at the nearest tannery:  ;skins
 
-    ;skins             walk to the nearest tannery, sell the bundle, keep the rope, stay there
+    ;skins             walk to the nearest tannery, sell the bundle and every loose skin, keep the rope, stay there
     ;skins bank        ... then run ;bank and wait for it (the money-changer for foreign coins, DEPOSIT ALL; keep=N is passed on)
     ;skins back        ... and walk back to where you started (bank back: both)
 
@@ -19,8 +19,15 @@ rope into the loot container the profile names (or STOWs it) for the
 next hunt's first skin, and stays at the tannery — where it started
 is usually the hunting ground, and the first scripted run (2026-09-12)
 walked back into the rats with the weapon stowed; `back` walks back
-anyway. No bundle to sell, or a tanner who does not pay, stops it
-with the answer echoed. `bank` then runs ;bank through the handle and
+anyway. Then the loose animal parts: a skin still in a hand (a hunt
+whose sack had no room left it there, #262) and each skin noun out
+of the loot container — GET, SELL, until none of that noun is left —
+the tanner buying them one at a time (Falken's Tannery: "sell my
+<bundle/skin/pelt/bones/animal part>"); the count and the sum are
+said (#261: nine loose pelts and seven claws filled the sack on
+2026-09-21). The single part's payment line is taken for the
+bundle's shape until captured. No bundle to sell, or a tanner who
+does not pay, stops it with the answer echoed. `bank` then runs ;bank through the handle and
 waits for it — the banking lives there (#235: the money-changer for
 every foreign coin, DEPOSIT ALL, `keep=N` withdrawn back) and ;skins
 used to carry a second, poorer copy of its last step (the operator,
@@ -47,6 +54,31 @@ TAIL_SECONDS = 1.5
 _NO_BUNDLE = ("what were you referring", "aren't wearing", "not wearing", "don't have")
 # The tanner's payment line, captured 2026-09-12.
 _PAID = re.compile(r"hands you (\d+) (\w+)")
+# Animal parts the tanner buys one at a time — "sell my <bundle/skin/
+# pelt/bones/animal part>" (Elanthipedia: Falken's Tannery) — fetched
+# out of the loot container by noun until it holds none (#261: nine
+# loose badger pelts and seven claws filled Cecil's sack).
+SKIN_NOUNS = (
+    "pelt",
+    "claw",
+    "skin",
+    "hide",
+    "fur",
+    "tooth",
+    "fang",
+    "tail",
+    "paw",
+    "scale",
+    "feather",
+    "horn",
+    "tusk",
+    "bone",
+    "ear",
+    "wing",
+    "beak",
+    "shell",
+)
+MAX_LOOSE = 60  # parts of one noun sold in a run: the fuse
 
 
 def ask(s, command):
@@ -110,6 +142,50 @@ def sell_bundle(s, container):
     return True
 
 
+def sell_loose(s, container):
+    """Every loose animal part sold, one at a time: one in a hand first
+    (a hunt that found no room left it there, #262), then each noun of
+    SKIN_NOUNS out of the loot container until it holds none (#261).
+    The count and the sum are said; a part the tanner does not pay for
+    goes back and is said. True when anything sold."""
+    sold, total, unit = 0, 0, ""
+
+    def sell(noun):
+        nonlocal sold, total, unit
+        paid = _PAID.search(ask(s, f"sell my {noun}"))
+        if not paid:
+            return False
+        sold += 1
+        total += int(paid.group(1))
+        unit = paid.group(2)
+        return True
+
+    for side in ("left", "right"):
+        held = getattr(s.state, f"{side}_hand", None)
+        noun = held.get("noun") if isinstance(held, dict) else None
+        if noun in SKIN_NOUNS and not sell(noun):
+            s.echo(f"skins: the tanner did not pay for the {noun} in hand — it stays")
+    for noun in SKIN_NOUNS:
+        for _ in range(MAX_LOOSE):
+            command = (
+                f"get my {noun} from my {container}" if container else f"get my {noun}"
+            )
+            if _missing(ask(s, command)):
+                break
+            if not sell(noun):
+                s.echo(f"skins: the tanner did not pay for a {noun} — put back")
+                ask(
+                    s,
+                    f"put my {noun} in my {container}"
+                    if container
+                    else f"stow my {noun}",
+                )
+                break
+    if sold:
+        s.echo(f"skins: sold {sold} loose skin(s) for {total} {unit}")
+    return sold > 0
+
+
 def run(s, words, mapdb, walk_fn=walk, profile=None):
     lowered = [word.lower() for word in words]
     back = bool(lowered) and lowered[-1] == "back"
@@ -130,11 +206,12 @@ def run(s, words, mapdb, walk_fn=walk, profile=None):
         s.echo("skins: you are dead — stopping")
         return
     sold = sell_bundle(s, container)
+    loose = sell_loose(s, container)
     if bank and not s.dead:
         # Nothing sold still banks: a hunt's search coins are in the
         # purse either way, and ;bank walks nothing when it is empty.
         hand_to_bank(s, keep)
-    if not sold and not bank:
+    if not sold and not loose and not bank:
         return
     if back and start is not None and locate(mapdb, s.state) != start:
         if not walk_fn(s, mapdb, {start}, describe="where you started"):
