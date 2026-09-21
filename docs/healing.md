@@ -98,7 +98,23 @@ money-changer), the walk to the nearest `npchealer` room (Knife
 Clan's retired Dokt excluded), DEMEANOR FRIENDLY EMPATH — left
 friendly afterwards, the operator's choice — LIE DOWN, the touches
 until twenty quiet seconds, STAND, HEALTH, and what was taken and
-what is left said. The hospital page's own lines ("Elys approaches
+what is left said. The first scripted visit (2026-09-21, Cecil after
+six backfires): 5 gold Kronars exchanged into 3 gold, 4 silver and 3
+copper Dokoras at the First Bank of Ilithi's Coin Exchange, one
+touch — the nervous system, 120 Dokoras, "some severe twitching" gone
+from HEALTH — and then "Quentin whispers, "Just between you and me
+and the Queen, I think you don't really need healing.  Are you just
+my friend or something?"": the internal scars in the limbs and chest
+(the twitching per part) and the faint neck and abdomen scars are his
+to leave, an Empath's or a scar herb's (nuloe stem for the limbs at
+Shard's Osut'vie, 451 Dokoras, four steps away); the script ends the
+visit on that line. His threshold, from the two visits (the operator's
+reading, 2026-09-21): wounds above a minor floor — a level-4 nerve
+wound taken, "minor abrasions" left on 2026-09-19 — and never scars,
+level-4 internal ones included. The Hospital page marks only Elys and
+Arthianna "Heals all wounds", so the other healers have a floor too;
+where Quentin's lies between minor and severe is unmeasured. The
+hospital page's own lines ("Elys approaches
 you and touches you.", "Your nervous system tingles for a moment,
 then suddenly feels a bit better.") are in the table for the other
 towns' healers, uncaptured.

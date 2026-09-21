@@ -190,6 +190,8 @@ TOUCHES = (
     "[72 Dokoras are taken from you.]\nRoundtime:  2 seconds.\n"
     "Quentin glances oddly at you and then touches your chest, snickering all "
     "the while.  After a moment it feels better.\n[54 Dokoras are taken from you.]\n"
+    'Quentin whispers, "Just between you and me and the Queen, I think you '
+    "don't really need healing.  Are you just my friend or something?\"\n"
 )
 PULL_AWAY = (
     "You lie down.\nThe healer Quentin looks towards you, and you pull away.\n"
@@ -220,6 +222,8 @@ def test_npc_walks_to_the_healer_not_the_retired_one_and_pays_per_part(monkeypat
         "took 126 Dokoras for 2 part(s)" in t and "HEALTH is clean" in t
         for t in s.echoed
     )
+    # His "don't really need healing" ends the visit at once (2026-09-21).
+    assert any("the rest needs no healing" in t for t in s.echoed)
 
 
 def test_quentin_exchanges_a_kronar_purse_into_dokoras_by_him_first(monkeypatch):

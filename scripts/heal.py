@@ -125,6 +125,11 @@ WITHDRAW_REFUSALS = ("you do not have", "insufficient", "no account", "don't hav
 _TAKEN = re.compile(r"\[(\d+) (\w+) are taken from you\.\]")
 HEALER_TOUCHED = ("feels better", "touches you", "feels a bit better")
 HEALER_REFUSED = ("pull away",)
+# The healer done with what he will touch (captured 2026-09-21, the
+# internal scars of five backfires left): "Quentin whispers, "Just
+# between you and me and the Queen, I think you don't really need
+# healing.  Are you just my friend or something?""
+HEALER_DONE = ("don't really need healing",)
 DEMEANOR_SET = ("friendly demeanor",)
 HEALER_POLL = 5  # seconds per look at the stream while the healer works
 HEALER_WAIT = 90  # seconds for the first touch after LIE DOWN
@@ -438,10 +443,15 @@ def visit_healer(s, mapdb, walk_fn=walk, avoid=(), healer=""):
     refused = any(word in answer.lower() for word in HEALER_REFUSED)
     touched = absorb(answer) or touched
     waited = idle = 0
-    while not refused and not s.dead and not wants_stop(s):
+    done = any(word in answer.lower() for word in HEALER_DONE)
+    while not refused and not done and not s.dead and not wants_stop(s):
         text = probe.collect(s, HEALER_POLL)
         if any(word in text.lower() for word in HEALER_REFUSED):
             refused = True
+            break
+        if any(word in text.lower() for word in HEALER_DONE):
+            done = True
+            absorb(text)
             break
         if absorb(text):
             touched, idle = True, 0
@@ -456,6 +466,11 @@ def visit_healer(s, mapdb, walk_fn=walk, avoid=(), healer=""):
     if refused:
         s.echo(
             "heal: the healer would not touch you — the demeanor gate; please report the answer"
+        )
+    if done:
+        s.echo(
+            "heal: the healer says the rest needs no healing — scars are left to an "
+            "Empath or a herb"
         )
     health = parse_health(ask(s, "health"))
     left = ", ".join(health.wounds) if health.wounds else "nothing, HEALTH is clean"
