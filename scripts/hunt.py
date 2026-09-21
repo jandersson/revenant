@@ -963,9 +963,13 @@ def bundled(s, profile, tally):
         return True
     if tally.bundle:
         ask(s, "bundle")
-        if held_skin(s, profile) is None:
+        held = held_skin(s, profile)
+        if held is None:
             return True
-        s.echo("hunt: the bundle took no more — skins are stowed loose from here")
+        s.echo(
+            f"hunt: the bundle took no more (a {held} still in hand) — skins "
+            "are stowed loose from here"
+        )
         tally.bundle = False
         return False
     return make_bundle(s, profile, tally)
@@ -1015,7 +1019,9 @@ def skin(s, profile, corpse, tally):
         outcome = classify(answer, SKIN_OUTCOMES)
     if outcome == "ok":
         tally.skins += 1
-        if bundled(s, profile, tally):
+        if "into your bundle" in answer.lower() or bundled(s, profile, tally):
+            # The game said so ("You carefully fit a pink grendel ear
+            # into your bundle.", #272), or the hands say it landed.
             pass  # in the worn bundle, nothing in hand to stow
         elif found := items_in(answer):
             if not stow(s, profile, found[-1]):

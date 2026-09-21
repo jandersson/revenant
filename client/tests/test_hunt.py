@@ -407,6 +407,30 @@ def test_a_held_skinning_knife_is_fetched_stowed_and_never_taken_for_the_skin(tr
     assert any("1 kill(s), 1 skin(s)" in text for text in arena.echoed)
 
 
+def test_a_skin_the_game_fits_into_the_bundle_is_bundled_whatever_the_hands_say(travel):
+    # #272: the second grendel's ear went into the worn bundle from
+    # SKIN itself, yet BUNDLE went out and bundling was turned off.
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "tap my bundle": ["You tap a lumpy bundle that you are wearing."],
+            "skin": [
+                "Working deftly, you skillfully remove a grendel ear from the "
+                "remains of a small grendel.  The task is difficult, but the "
+                "rewards are worth it.\nYou carefully fit a pink grendel ear into "
+                "your bundle."
+            ],
+            "search": [NOTHING],
+        }
+    )
+    arena.state.left_hand = {"noun": "ear", "exist": "1", "name": "grendel ear"}
+    arena.state.right_hand = None
+    _run(arena, profile=PROFILE | {"bundle": True}, travel_first=False)
+    assert "bundle" not in arena.sent
+    assert not any(c.startswith("put my ear") for c in arena.sent)
+    assert not any("took no more" in text for text in arena.echoed)
+
+
 def test_skinning_off_in_the_profile_skips_the_knife(travel):
     arena = _run(
         Arena({"attack": [(KILL, kill)], "search": [NOTHING]}),
