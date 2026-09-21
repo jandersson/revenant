@@ -129,7 +129,10 @@ HEALER_REFUSED = ("pull away",)
 # internal scars of five backfires left): "Quentin whispers, "Just
 # between you and me and the Queen, I think you don't really need
 # healing.  Are you just my friend or something?""
-HEALER_DONE = ("don't really need healing",)
+# Arthianna's for a patient with scars alone (captured 2026-09-21):
+# "Arthianna nudges you.  "What are you doing lying there with the
+# wounded?" she grins." — "heals all wounds" stops at scars too.
+HEALER_DONE = ("don't really need healing", "lying there with the wounded")
 DEMEANOR_SET = ("friendly demeanor",)
 HEALER_POLL = 5  # seconds per look at the stream while the healer works
 HEALER_WAIT = 90  # seconds for the first touch after LIE DOWN

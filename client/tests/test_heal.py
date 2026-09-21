@@ -254,6 +254,40 @@ def test_quentin_exchanges_a_kronar_purse_into_dokoras_by_him_first(monkeypatch)
     )
 
 
+def test_a_healer_who_finds_no_wound_ends_the_visit_at_once(monkeypatch):
+    # Arthianna, 2026-09-21, to a patient with scars alone.
+    monkeypatch.setattr(heal, "HEALER_POLL", 0.01)
+    monkeypatch.setattr(heal, "HEALER_WAIT", 5.0)  # never waited out
+    s = Fake(
+        {
+            "info": [INFO_KRONARS],
+            "demeanor": [FRIENDLY],
+            "lie down": [
+                'You lie down.\nArthianna nudges you.  "What are you doing lying '
+                'there with the wounded?" she grins.\n'
+            ],
+            "health": [CLEAN],
+        }
+    )
+    hospitals = MapDB(
+        [
+            {
+                "id": 9691,
+                "uid": [9691],
+                "title": ["[Arthianna's Clinic, Healing Tent]"],
+                "tags": ["npchealer"],
+                "wayto": {},
+            }
+        ]
+    )
+    reason, _ = heal.run(
+        s, heal.parse_args(["arthianna"]), mapdb=hospitals, walk_fn=walk
+    )
+    assert reason == "not healed"
+    assert s.sent == ["info", "demeanor friendly empath", "lie down", "stand", "health"]
+    assert any("the rest needs no healing" in t for t in s.echoed)
+
+
 def test_npc_stops_on_an_empty_purse_and_reports_a_refusal(monkeypatch):
     monkeypatch.setattr(heal, "HEALER_POLL", 0.01)
     monkeypatch.setattr(heal, "HEALER_WAIT", 0.02)

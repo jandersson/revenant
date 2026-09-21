@@ -115,6 +115,13 @@ level-4 internal ones included. The Hospital page marks only Elys and
 Arthianna "Heals all wounds", so the other healers have a floor too;
 where Quentin's lies between minor and severe is unmeasured.
 
+Arthianna the same evening, with the scars alone left: "Arthianna
+nudges you.  "What are you doing lying there with the wounded?" she
+grins." — "Heals all wounds" stops at scars too, and the script ends
+the visit on that line as well. A player Empath in her tent, a Master
+Healer, then healed the scars by touch ("Your all set now." — HEALTH:
+"no significant injuries"): the scars' answer is a player Empath.
+
 Shard's Osut'vie (the stillroom, map room 13997, herbalist Idizieq)
 sells its remedies off a long counter, not the alchemy catalog, and
 ORDER there is a sale, not a quote (captured 2026-09-21): ORDER NULOE
