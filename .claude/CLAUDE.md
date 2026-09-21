@@ -130,7 +130,10 @@ for `client/client/<pkg>/x.py`.
   that stock them (`herbs_data.py`, generated from the wiki by
   `tools/herb_tables.py`); Knife Clan's remedy cookies and the retired
   NPC healer are captured there. `scripts/heal.py` eats them and
-  buys the missing ones at the herbalist (#198). Model: docs/healing.md.
+  buys the missing ones at the herbalist (#198); `;heal npc` walks
+  to the nearest NPC healer instead (Shard's Quentin: DEMEANOR
+  FRIENDLY EMPATH, LIE DOWN, Dokoras per part, #218) — what heals
+  nerve damage and internal scars no herb touches. Model: docs/healing.md.
 - `client/game/profile.py` — per-character profiles
   (`~/.revenant/profiles/<name>.json`): the quirks `;hunt` must not
   hard-code (weapon, stance, skin, pouch, bundle, buffs, the magic

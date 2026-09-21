@@ -65,6 +65,44 @@ had no coins to try further). The lesson for the walker's sitting,
 scratched Paladin: minor abrasions close on their own, and a cookie
 run is a Kronar problem before it is a healing one.
 
+## The hospital: Shard's NPC healer Quentin, and `;heal npc`
+
+Every province has a hospital with an NPC Empath who heals for the
+province's coins, part by part ([Elanthipedia:
+Hospital](https://elanthipedia.play.net/Hospital)): Shard's is
+[Quentin](https://elanthipedia.play.net/Quentin) in Quentin's
+Healerium off Yavash Circle (map room 8908, tagged `npchealer`),
+Riverhaven's Fraethis (the Riverhaven Hospital's tending chamber,
+8720; "won't heal eye wounds"), Leth Deriel's Arthianna for Zoluren;
+the Crossing has none. It is what heals nerve damage and internal
+scars — the "twitching" of five backfires, which no herb a shop sells
+touches (2026-09-21) — and the wiki warns that a herb eaten first
+makes the Empath ignore that part's remaining wounds.
+
+Captured 2026-09-19 (#218), a circle-5 Paladin driven by hand:
+
+```
+The healer Quentin looks towards you, and you pull away.
+[Change your overall DEMEANOR or your DEMEANOR towards EMPATHS if you wish the healer Quentin to heal you.]
+You now regard empaths with a friendly demeanor.
+Quentin glances oddly at you and then touches your nervous system, snickering all the while.  After a moment it feels better.
+[72 Dokoras are taken from you.]
+Roundtime:  2 seconds.
+```
+
+The price is per part and by the wound (chest 54, neck 30, a leg 24,
+the nerves 72 that day); minor abrasions and scars were left. `;heal
+npc` is that visit: INFO first (an empty purse stops it before the
+walk — `;bank` exchanges foreign coins into the province's at the
+money-changer), the walk to the nearest `npchealer` room (Knife
+Clan's retired Dokt excluded), DEMEANOR FRIENDLY EMPATH — left
+friendly afterwards, the operator's choice — LIE DOWN, the touches
+until twenty quiet seconds, STAND, HEALTH, and what was taken and
+what is left said. The hospital page's own lines ("Elys approaches
+you and touches you.", "Your nervous system tingles for a moment,
+then suddenly feels a bit better.") are in the table for the other
+towns' healers, uncaptured.
+
 ## Empaths
 
 Player Empaths heal by touch and take the wounds onto themselves; the

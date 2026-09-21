@@ -4,6 +4,7 @@
     ;heal list           the wounds, the herbs that treat them and the town's shop; nothing eaten
     ;heal buy            ... coins from the teller, the missing herbs ORDERed at the herbalist, eaten
     ;heal floor=minor    treat wounds this bad or worse (default insignificant)
+    ;heal npc            walk to the nearest NPC healer (Shard's Quentin), DEMEANOR FRIENDLY EMPATH, LIE DOWN, paid per part
     ;heal return         (typed while it runs) end after the herb in hand
 
 Wounds are read from HEALTH by client/game/wounds.py (area, kind,
@@ -39,6 +40,20 @@ don't have that reagent in stock.", and EAT's "You eat a portion of
 a nemoih root." — a root has portions, and the rest goes in the sack.
 A herb the shop quotes above the purse is skipped, said so. Nothing
 walks back afterwards.
+`npc` is the hospital instead of herbs — what heals nerve damage and
+internal scars no shop's herb touches (#218): the nearest room the map
+tags `npchealer` (Knife Clan's retired Dokt excluded; Shard's Quentin,
+Riverhaven's Fraethis, Elanthipedia: Hospital), DEMEANOR FRIENDLY
+EMPATH (Quentin's gate: "The healer Quentin looks towards you, and you
+pull away." with a neutral one; the demeanor stays friendly after —
+the operator, 2026-09-21), LIE DOWN, and he works part by part —
+"Quentin glances oddly at you and then touches your nervous system,
+snickering all the while.  After a moment it feels better." /
+"[72 Dokoras are taken from you.]", captured 2026-09-19 — until twenty
+quiet seconds; then STAND, HEALTH, and what he took and what is left
+are said. An empty purse stops it before the walk: he takes the
+province's coins (Dokoras in Shard; ;bank exchanges foreign coins at
+the money-changer). Nothing walks back afterwards.
 Stops on death and on `return`.
 Stop with:  ;stop heal (at once), or ;heal return for a clean finish.
 """
@@ -98,6 +113,17 @@ SALE_OUTCOMES = (
     ("ok", ("hands you your purchase", "take your", "hands you", "here you go")),
 )
 WITHDRAW_REFUSALS = ("you do not have", "insufficient", "no account", "don't have that")
+# The NPC healer (#218; Elanthipedia: Hospital): LIE DOWN starts the
+# touches, each "[72 Dokoras are taken from you.]"; Quentin refuses a
+# neutral demeanor with "The healer Quentin looks towards you, and you
+# pull away." (captured 2026-09-19).
+_TAKEN = re.compile(r"\[(\d+) (\w+) are taken from you\.\]")
+HEALER_TOUCHED = ("feels better", "touches you", "feels a bit better")
+HEALER_REFUSED = ("pull away",)
+DEMEANOR_SET = ("friendly demeanor",)
+HEALER_POLL = 5  # seconds per look at the stream while the healer works
+HEALER_WAIT = 90  # seconds for the first touch after LIE DOWN
+HEALER_QUIET = 20  # seconds without a touch that end the visit
 
 
 def ask(s, command):
@@ -108,8 +134,10 @@ def parse_args(args):
     options = {"mode": "eat", "floor": DEFAULT_FLOOR}
     for arg in args:
         low = arg.strip().lower()
-        if low in ("list", "buy"):
+        if low in ("list", "buy", "npc"):
             options["mode"] = low
+        elif low == "quentin":
+            options["mode"] = "npc"
         elif low.startswith("floor="):
             options["floor"] = low.split("=", 1)[1]
     return options
@@ -305,8 +333,86 @@ def buy(s, wanted, mapdb, walk_fn, avoid=(), town=TOWN):
     return eaten
 
 
+def visit_healer(s, mapdb, walk_fn=walk, avoid=()):
+    """The hospital: walk to the nearest NPC healer, DEMEANOR FRIENDLY
+    EMPATH, LIE DOWN, let the touches run until twenty quiet seconds,
+    STAND, HEALTH. What was taken and what is left are said. Returns
+    (reason, []) in run()'s shape."""
+    if mapdb is None:
+        s.echo("heal: the walk to the healer needs the map — none loaded")
+        return "no map", []
+    rooms = {
+        room
+        for room in mapdb.rooms_tagged("npchealer")
+        if "dokt" not in (mapdb.rooms[room].get("tags") or [])
+    }
+    if not rooms:
+        s.echo("heal: the map has no room tagged 'npchealer' but Knife Clan's kitchen")
+        return "no healer", []
+    purse = parse_wealth(ask(s, "info"))["carried"]
+    if not any(purse.values()):
+        s.echo(
+            "heal: the purse is empty — the healer takes the province's coins per "
+            "part (Dokoras in Shard); ;bank exchanges foreign coins at the "
+            "money-changer"
+        )
+        return "no coins", []
+    if not walk_fn(s, mapdb, rooms, describe="the NPC healer", avoid=avoid):
+        s.echo("heal: could not reach the healer — stopping")
+        return "unreachable", []
+    taken, parts, currency = 0, 0, ""
+
+    def absorb(text):
+        nonlocal taken, parts, currency
+        touched = False
+        for match in _TAKEN.finditer(text):
+            taken += int(match.group(1))
+            currency = match.group(2)
+            parts += 1
+            touched = True
+        return touched or any(word in text.lower() for word in HEALER_TOUCHED)
+
+    answer = ask(s, "demeanor friendly empath")
+    if not any(word in answer.lower() for word in DEMEANOR_SET):
+        first = (answer.strip().splitlines() or ["(silence)"])[0]
+        s.echo(f"heal: unrecognized demeanor answer {first!r} — please report it")
+    touched = absorb(answer)
+    answer = ask(s, "lie down")
+    refused = any(word in answer.lower() for word in HEALER_REFUSED)
+    touched = absorb(answer) or touched
+    waited = idle = 0
+    while not refused and not s.dead and not wants_stop(s):
+        text = probe.collect(s, HEALER_POLL)
+        if any(word in text.lower() for word in HEALER_REFUSED):
+            refused = True
+            break
+        if absorb(text):
+            touched, idle = True, 0
+            continue
+        idle += HEALER_POLL
+        waited += HEALER_POLL
+        if touched and idle >= HEALER_QUIET:
+            break
+        if not touched and waited >= HEALER_WAIT:
+            break
+    ask(s, "stand")
+    if refused:
+        s.echo(
+            "heal: the healer would not touch you — the demeanor gate; please report the answer"
+        )
+    health = parse_health(ask(s, "health"))
+    left = ", ".join(health.wounds) if health.wounds else "nothing, HEALTH is clean"
+    s.echo(
+        f"heal: the healer took {taken} {currency or 'coins'} for {parts} part(s)"
+        f" — left: {left}"
+    )
+    return ("healed" if parts else "not healed"), []
+
+
 def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
     """Returns (reason, eaten)."""
+    if options["mode"] == "npc":
+        return visit_healer(s, mapdb, walk_fn, avoid)
     health = parse_health(ask(s, "health"))
     if not health.wounds and not health.bleeding:
         return "no wounds", []
@@ -346,7 +452,7 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
 
 def main(s):
     options = parse_args(s.args or [])
-    db = MapDB.load() if options["mode"] == "buy" else None
+    db = MapDB.load() if options["mode"] in ("buy", "npc") else None
     avoid = avoided_rooms(db, load_settings().get("avoid_rooms")) if db else ()
     reason, eaten = run(s, options, mapdb=db, avoid=avoid)
     s.echo(f"heal: {reason} — {len(eaten)} herb(s) eaten")

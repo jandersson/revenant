@@ -124,6 +124,90 @@ def walk(s, db, goals, describe="", avoid=()):
 def test_the_arguments_are_a_mode_and_a_floor():
     assert heal.parse_args([]) == {"mode": "eat", "floor": "insignificant"}
     assert heal.parse_args(["buy", "floor=minor"]) == {"mode": "buy", "floor": "minor"}
+    assert heal.parse_args(["quentin"])["mode"] == "npc"
+
+
+# The NPC healer (#218): Shard's Quentin's Healerium and Knife Clan's
+# retired Dokt, both tagged npchealer on the map; the touches and the
+# demeanor gate captured 2026-09-19, the hospital lines the wiki's.
+HOSPITALS = MapDB(
+    [
+        {"id": 100, "uid": [1], "title": ["[Town, Square]"], "wayto": {}},
+        {
+            "id": 8908,
+            "uid": [8908],
+            "title": ["[Quentin's Healerium]"],
+            "tags": ["npchealer"],
+            "wayto": {},
+        },
+        {
+            "id": 6218,
+            "uid": [6218],
+            "title": ["[Knife Clan, Healer's Kitchen]"],
+            "tags": ["dokt", "npchealer"],
+            "wayto": {},
+        },
+    ]
+)
+INFO_DOKORAS = "Wealth:\n  No Kronars.\n  No Lirums.\n  8 silver, 2 bronze Dokoras (802 copper Dokoras).\n"
+FRIENDLY = "You now regard empaths with a friendly demeanor.\n"
+TOUCHES = (
+    "You lie down.\n"
+    "Quentin glances oddly at you and then touches your nervous system, "
+    "snickering all the while.  After a moment it feels better.\n"
+    "[72 Dokoras are taken from you.]\nRoundtime:  2 seconds.\n"
+    "Quentin glances oddly at you and then touches your chest, snickering all "
+    "the while.  After a moment it feels better.\n[54 Dokoras are taken from you.]\n"
+)
+PULL_AWAY = (
+    "You lie down.\nThe healer Quentin looks towards you, and you pull away.\n"
+    "[Change your overall DEMEANOR or your DEMEANOR towards EMPATHS if you wish "
+    "the healer Quentin to heal you.]\n"
+)
+
+
+def test_npc_walks_to_the_healer_not_the_retired_one_and_pays_per_part(monkeypatch):
+    monkeypatch.setattr(heal, "HEALER_POLL", 0.01)
+    monkeypatch.setattr(heal, "HEALER_QUIET", 0.02)
+    s = Fake(
+        {
+            "info": [INFO_DOKORAS],
+            "demeanor": [FRIENDLY],
+            "lie down": [TOUCHES],
+            "stand": ["You stand back up.\n"],
+            "health": [CLEAN],
+        }
+    )
+    reason, eaten = heal.run(s, heal.parse_args(["npc"]), mapdb=HOSPITALS, walk_fn=walk)
+    assert (reason, eaten) == ("healed", [])
+    assert s.walks == [{8908}]
+    assert s.sent == ["info", "demeanor friendly empath", "lie down", "stand", "health"]
+    assert any(
+        "took 126 Dokoras for 2 part(s)" in t and "HEALTH is clean" in t
+        for t in s.echoed
+    )
+
+
+def test_npc_stops_on_an_empty_purse_and_reports_a_refusal(monkeypatch):
+    monkeypatch.setattr(heal, "HEALER_POLL", 0.01)
+    monkeypatch.setattr(heal, "HEALER_WAIT", 0.02)
+    s = Fake({"info": [INFO_BROKE]})
+    reason, _ = heal.run(s, heal.parse_args(["npc"]), mapdb=HOSPITALS, walk_fn=walk)
+    assert reason == "no coins" and s.walks == []
+    assert any("purse is empty" in t for t in s.echoed)
+    s = Fake(
+        {
+            "info": [INFO_DOKORAS],
+            "demeanor": ["Demeanor what?\n"],
+            "lie down": [PULL_AWAY],
+            "health": [HEALTH],
+        }
+    )
+    reason, _ = heal.run(s, heal.parse_args(["npc"]), mapdb=HOSPITALS, walk_fn=walk)
+    assert reason == "not healed"
+    assert "stand" in s.sent
+    assert any("would not touch you" in t for t in s.echoed)
+    assert any("unrecognized demeanor answer" in t for t in s.echoed)
 
 
 def test_list_names_a_herb_and_its_shop_for_every_wound_and_eats_nothing():
