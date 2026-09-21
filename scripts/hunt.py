@@ -621,9 +621,26 @@ def locked(state, skills):
     )
 
 
+# Words that end the creature's noun phrase in a kill line: "A small
+# grendel grunts and collapses." read as a kill of "and" until
+# 2026-09-21 (#270) — the word before the verb is not always the noun.
+_NOUN_STOPS = {
+    "and", "then", "slowly", "suddenly", "grunts", "gives", "lets", "screams",
+    "shrieks", "howls", "gasps", "shudders", "staggers", "twitches", "sighs",
+    "moans", "groans", "wails", "hisses", "roars", "snarls", "whimpers",
+}  # fmt: skip
+
+
 def kill_noun(text):
     match = _KILL_NOUN.search(text)
-    return match.group(2).lower() if match else None
+    if not match:
+        return None
+    phrase = (match.group(1) + match.group(2)).split()
+    for index, word in enumerate(phrase):
+        if word.lower() in _NOUN_STOPS:
+            phrase = phrase[:index]
+            break
+    return phrase[-1].lower() if phrase else match.group(2).lower()
 
 
 def items_in(text):

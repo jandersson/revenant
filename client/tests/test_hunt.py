@@ -2192,6 +2192,41 @@ def test_a_target_refused_as_untargetable_releases_the_held_pattern(travel):
     )
 
 
+GRENDEL_KILL = "A small grendel grunts and collapses."
+
+
+def test_a_kill_line_with_a_verb_before_the_fall_names_the_creature():
+    # #270: the first grendel of the vineyard hunt, 2026-09-21 — "and"
+    # was skinned and searched.
+    assert hunt.kill_noun(GRENDEL_KILL) == "grendel"
+    assert hunt.kill_noun(KILL) == "rat"
+    assert hunt.kill_noun(LIFELESS) == "cougar"
+
+
+def test_with_prey_empty_the_grendel_is_skinned_and_the_stun_pattern_released(travel):
+    # prey "" swings at whatever engages (grendels at night on the
+    # cougars' ground): the kill noun comes off the kill line, and a
+    # Stun Foe whose foe fell under the filler is released, never cast
+    # at nothing afterwards (#271).
+    arena = Arena(
+        {
+            "attack": [(GRENDEL_KILL, kill)],
+            "prepare": [SF_PREPARED],
+            "cast": [STUNNED],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+            "discern": [DISCERNED],
+        },
+        experience=DEBIL_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STUNNING | {"prey": "", "max_kills": 1}, travel_first=False)
+    assert "skin grendel" in arena.sent and "search grendel" in arena.sent
+    assert "release" in arena.sent
+    assert "cast" not in arena.sent
+    assert any("stun foe released" in text for text in arena.echoed)
+
+
 def test_a_foe_down_under_the_filler_swing_releases_the_targeted_pattern(travel):
     arena = Arena(
         {

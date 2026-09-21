@@ -17,7 +17,7 @@ It holds what no script should hard-code:
 | setting | what the loop does with it |
 | --- | --- |
 | hunting_ground | a `;go2` target; every room it resolves to is the ground, walked to at the start and cycled when a room runs empty |
-| prey | the noun ATTACK gets; empty swings at whatever engages you |
+| prey | the noun ATTACK gets; empty swings at whatever engages you (the vineyard's cougars and, at night, grendels — 2026-09-21). The kill's noun then comes off the kill line, the creature's phrase cut before its verb chain ("A small grendel grunts and collapses." skinned "and" until #270), and a pattern aimed at the foe is released when the foe falls under the filler, prey noun or none (#271) |
 | home | a `;go2` target walked to when the hunt ends |
 | weapon, weapon_container | `GET my <weapon> [FROM my <container>]` before the first swing (not there, `GET my <weapon>` from wherever it sits, and none at all is said — #259: the scimitar in the sack while the profile named the scabbard); it stays in hand when the hunt ends (stowed, it parries nothing — 2026-09-12), the container is only where it is fetched from, and where it goes for the moment the first skin of a run is bundled |
 | stance | `STANCE SET <args>` once, before the first swing |

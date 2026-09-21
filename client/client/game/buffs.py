@@ -446,6 +446,7 @@ def cast_once(
     filler=None,
     targeted=False,
     put_back=None,
+    aimed=False,
 ):
     """PREPARE (with a mana amount when given), TARGET the prey when the
     spell is targeted magic (`targeted`), run the caller's `filler` (a
@@ -498,7 +499,10 @@ def cast_once(
         # the foe is released, a self-cast waits for its ready line.
         while True:
             if not filler():
-                if target or targeted:
+                # A pattern meant for the foe (`aimed`: the prey slots,
+                # whatever the prey noun — with none, a Stun Foe outlived
+                # the foe and was cast at nothing, #271) is let go.
+                if aimed or target or targeted:
                     ask(s, "release")
                     return "released"
                 break
@@ -685,6 +689,7 @@ def cast_targeted(s, profile, state, ask, prefix, report, slot, target="", fille
         target=target,
         filler=filler,
         targeted=slot == "targeted",
+        aimed=True,
     )
     state.last_training = slot
     if result == "released":
