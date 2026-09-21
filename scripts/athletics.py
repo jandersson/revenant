@@ -622,8 +622,16 @@ def wait_filler(s):
         return None
     state = buffs.BuffState()
 
+    def report(what, answer):
+        first = (answer.strip().splitlines() or ["(silence)"])[0]
+        s.echo(f"ATHLETICS: unrecognized {what} answer {first!r} — please report it")
+
     def fill(s):
-        buffs.cast_buffs(s, profile, state, ask, "ATHLETICS")
+        # DISCERN once before the first cast, as the hunt does: the
+        # ramp's ceiling is the game's own estimate (#264: heroic
+        # strength at 18 mana here, the hunt's cap 16, a backfire).
+        buffs.discern_slots(s, profile, state, ask, "ATHLETICS", report)
+        buffs.cast_buffs(s, profile, state, ask, "ATHLETICS", report)
 
     return fill
 

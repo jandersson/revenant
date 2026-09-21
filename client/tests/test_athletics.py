@@ -712,7 +712,10 @@ def test_the_award_timer_wait_casts_the_profiles_buffs(monkeypatch):
     monkeypatch.setattr(athletics, "COLLECT_SECONDS", 0.01)
     monkeypatch.setattr(athletics, "TAIL_SECONDS", 0.01)
     monkeypatch.setattr(buffs, "PREPARE_SECONDS", 0.01)
-    profile = dict(PROFILE_DEFAULTS) | {"buffs": ["heroic strength"]}
+    profile = dict(PROFILE_DEFAULTS) | {
+        "buffs": ["heroic strength"],
+        "train_casting": "Augmentation",
+    }
     monkeypatch.setattr("client.game.profile.load_profile", lambda name: profile)
 
     handle = FakeHandle((), mindstates=(5,), sleeps=30)
@@ -728,6 +731,10 @@ def test_the_award_timer_wait_casts_the_profiles_buffs(monkeypatch):
     puts = [call[1] for call in handle.calls if call[0] == "put"]
     assert "prepare heroic strength" in puts
     assert "cast" in puts
+    # DISCERN first, once (#264): the ramp's ceiling is the game's own
+    # estimate here as in the hunt — 18 mana went out uncapped before.
+    assert puts.index("discern heroic strength") < puts.index("prepare heroic strength")
+    assert puts.count("discern heroic strength") == 1
     # Cast once and remembered: the next wait does not cast it again
     # while the buff is younger than BUFF_MINUTES.
     assert puts.count("prepare heroic strength") == 1
