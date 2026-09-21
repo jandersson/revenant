@@ -15,7 +15,8 @@ SHELVES prints a table —
 
 — GET <letters> answers "You get a copy of an ivory white book with
 gold leaf titled ...", READ MY BOOK "You get an urge to open it up and
-read the contents.", OPEN MY BOOK "You open your book.", READ MY BOOK
+read the contents." (or "You will need to open that up before you can
+read it.", #258), OPEN MY BOOK "You open your book.", READ MY BOOK
 again the table of contents and the page reader, in which a bare
 number turns to that page ("Reading:  INTRODUCTION: ..."), a number
 past the end answers "'17' is not a page in this book!" (a blank
@@ -49,7 +50,11 @@ WAIT_MINUTES = 10
 _SHELF_ROW = re.compile(r"^\s*(?P<title>\S.*?\S)\s{2,}(?P<letters>[A-Za-z]{3,})\s*$")
 GOT = ("you get a copy",)
 NO_SUCH = ("could not find", "what were you referring", "referring to")
-URGE = ("urge to open",)
+# READ on a closed book, two wordings: "You get an urge to open it up and
+# read the contents." and "You will need to open that up before you can
+# read it." (the Asemath Academy's "Tale of Two Clans", 2026-09-21, #258:
+# unknown, it was paged outside the reader, 481 "Please rephrase").
+URGE = ("urge to open", "need to open")
 OPENED = ("you open",)
 READING = "reading:"
 NOT_A_PAGE = "is not a page in this book"

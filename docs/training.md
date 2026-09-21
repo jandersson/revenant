@@ -426,7 +426,12 @@ on 2026-09-20, #256). A Lorethew library lends by call letters
 the shelves for a complete listing ... You are granted use of our
 books (READ) ... Please return all books"): LOOK SHELVES prints the
 table of titles and letters; GET <letters>; READ MY BOOK ("You get an
-urge to open it up and read the contents."); OPEN MY BOOK; READ MY
+urge to open it up and read the contents.", or "You will need to open
+that up before you can read it." — unknown, that second wording had
+the script paging outside the reader, 481 "Please rephrase that
+command." on 2026-09-21, #258; a page answer without "Reading:" now
+means the reader is closed: one OPEN and READ more, then the book is
+returned and reported); OPEN MY BOOK; READ MY
 BOOK again into the page reader, where a bare number turns to that
 page ("Reading:  INTRODUCTION: ..."), "?" prints the help, a number
 past the end answers "'17' is not a page in this book!" and Q closes

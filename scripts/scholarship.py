@@ -46,6 +46,7 @@ from client.game.scholarship import (
     GOT,
     NO_SUCH,
     OPENED,
+    READING,
     RETURNED,
     URGE,
     load_reads,
@@ -203,11 +204,30 @@ def read_book(s, title, letters, options):
         ask(s, "read my book")  # the table of contents: the reader is open now
     reading = True
     pages = 0
+    reopened = False
     for number in range(2, MAX_PAGES + 2):
         if danger(s) or wants_stop(s):
             close_and_return(s, reading)
             return "stop"
         answer = ask(s, str(number))
+        if not page_ended(answer) and READING not in answer.lower():
+            # Not in the reader: a bare number is a command to the game
+            # ("Please rephrase that command." 481 times on 2026-09-21,
+            # #258). OPEN and READ once more; a book still not in the
+            # reader is returned and reported, never paged blind.
+            if not reopened:
+                reopened = True
+                ask(s, "open my book")
+                ask(s, "read my book")
+                answer = ask(s, str(number))
+            if not page_ended(answer) and READING not in answer.lower():
+                close_and_return(s, reading=False)
+                s.echo(
+                    f"scholarship: {title!r} is not in the reader "
+                    f"({(answer.strip().splitlines() or [''])[0]!r}) — "
+                    "returned, please report it"
+                )
+                return "unknown"
         if page_ended(answer):
             break
         pages += 1

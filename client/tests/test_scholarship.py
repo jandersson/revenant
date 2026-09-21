@@ -48,6 +48,13 @@ PAGE = "Reading:  INTRODUCTION:\n      Though I offer in this tome my own wisdom
 NOT_A_PAGE = "Reading: \n'17' is not a page in this book!\nType '?' to find out how to read a book.\n"
 RETURNED = "You return the book to where it belongs.\n"
 NO_SUCH = "I could not find what you were referring to.\n"
+# The Asemath Academy's "Tale of Two Clans", 2026-09-21 (#258): READ's
+# second closed-book wording, and what a bare number gets outside the reader.
+NEED_TO_OPEN = (
+    "Glancing over the book's cover, you read:  A Tale of Two Clans\n"
+    "You will need to open that up before you can read it.\n"
+)
+REPHRASE = "Please rephrase that command.\n"
 
 
 class Fake:
@@ -104,13 +111,17 @@ class Fake:
                 and self.book
                 and not getattr(self, "opened", False)
             ):
-                return COVER
+                return getattr(self, "cover", COVER)
+            if getattr(self, "never_opens", False):
+                return "You will need to open that up before you can read it.\n"
             self.reader = True
             return CONTENTS
         if command == "open my book":
             self.opened = True
             return OPENED
         if command.isdigit():
+            if not self.reader and getattr(self, "never_opens", False):
+                return REPHRASE
             assert self.reader, f"page {command} sent outside the reader"
             if int(command) <= self.pages[self.book] + 1:  # page 1 is the contents
                 self._tick()
@@ -260,6 +271,30 @@ def test_after_the_timer_the_books_are_read_again():
     fake = Fake(mindstates=[0] * 80, stop_at=1000 + 4000)
     run(fake, ["books", "timer=30", "wait=60"])
     assert fake.sent.count("get IdsPG") >= 2
+
+
+def test_a_book_that_needs_opening_is_opened_and_read():
+    # #258: "You will need to open that up before you can read it." is the
+    # closed book's other wording; it was taken for an open reader.
+    fake = Fake(mindstates=[0] * 40, stop_at=1000 + 5000)
+    fake.cover = NEED_TO_OPEN
+    out = run(fake, ["books", "once", "until=1"])
+    at = fake.sent.index("read my book")
+    assert fake.sent[at : at + 3] == ["read my book", "open my book", "read my book"]
+    assert REPHRASE.strip() not in out
+    assert not any("please report" in text for text in fake.echoed)
+
+
+def test_a_book_never_in_the_reader_is_returned_after_one_reopen_not_paged_blind():
+    # 481 "Please rephrase that command." on 2026-09-21: page numbers sent
+    # to the game with no reader open, up to the fuse, book after book.
+    fake = Fake(mindstates=[0] * 40, stop_at=1000 + 5000)
+    fake.never_opens = True
+    out = run(fake, ["books"])
+    assert len(pages_sent(fake)) <= 4  # two tries per book, never the fuse
+    assert fake.sent.count("open my book") >= 1
+    assert "stow my book" in fake.sent
+    assert "is not in the reader" in out and "please report" in out
 
 
 def test_the_bookcase_is_read_beside_the_shelves():
