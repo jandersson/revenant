@@ -6,7 +6,18 @@ from client.game.rested import parse_rested
 
 # Streams that duplicate text already present in the main window (or that
 # nothing renders yet), matching what the old strip() deleted outright.
-DISCARD_STREAMS = {"spellfront", "inv", "bounty", "society", "speech", "talk"}
+DISCARD_STREAMS = {
+    "spellfront",
+    "inv",
+    "bounty",
+    "society",
+    "speech",
+    "talk",
+    "whispers",
+}
+# `talk` and `whispers` carry a second copy of every "says" and whisper
+# for the game's own Conversation window; the main stream has the line
+# too, so a whisper showed twice until 2026-09-21 (#267).
 
 # <pushStream id="thoughts"/> opens a routed block, <popStream/> returns
 # to the main stream. The capture group carries the stream id; popStream

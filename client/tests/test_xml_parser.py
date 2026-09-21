@@ -319,6 +319,15 @@ def test_route_discards_duplicate_streams(xml_data):
     assert xml_data.route(line) == []
 
 
+def test_a_whisper_shows_once(xml_data):
+    # Captured 2026-09-21 (#267): the game sends a whisper inside the
+    # whispers stream and again in the main stream; the first copy is
+    # the Conversation window's and is dropped, as talk's is.
+    whisper = 'Yeandra whispers, "good to go thought"'
+    assert xml_data.route(f'<pushStream id="whispers"/>{whisper}') == []
+    assert xml_data.route("<popStream/>" + whisper) == [("", whisper, "")]
+
+
 def test_route_unescapes_entities(xml_data):
     line = "A troll&apos;s club whooshes."
     assert xml_data.route(line) == [("", "A troll's club whooshes.", "")]
