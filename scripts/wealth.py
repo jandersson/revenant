@@ -10,7 +10,9 @@ Council and comes back with a slip listing every branch (captured
 2026-09-12, "You flag down a local you know works with the Estate
 Holders' Council ..."); the option is free on a Premium account and an
 urchin-runner (SimuCoins) service otherwise, so a silent answer is
-reported as such and not retried until the next interval. Each branch
+reported as such and not retried until the next interval — except a
+BANK ACCOUNT the game refused for roundtime ("...wait 1 seconds."),
+asked again once the seconds have passed (#268). Each branch
 line becomes a `bank` wealth row in ~/.revenant/history.db (the branch
 in the `bank` column, the report's own copper total as the amount; its
 Totals block is skipped, the branches add up to it); INFO follows,
@@ -60,6 +62,10 @@ _DEPOSIT = re.compile(
     r"\b(?P<currency>Kronars|Lirums|Dokoras)\s*$"
 )
 _REPORT_END = re.compile(r"You have \d+ open bank accounts?")
+# BANK ACCOUNT sent inside a roundtime did not run (#268, 2026-09-21):
+# "...wait 1 seconds." — asked again once the seconds have passed.
+_WAIT = re.compile(r"^\.\.\.wait (\d+) seconds?\.")
+WAIT_PAD = 0.5
 
 
 def parse_balance(line):
@@ -243,6 +249,13 @@ def main(s):
                     asked_at = None
                     if once:
                         return
+                continue
+            held_back = _WAIT.match(line.strip())
+            if held_back and asked_at is not None and not report:
+                # BANK ACCOUNT went out inside a roundtime and did not
+                # run (#268, 2026-09-21): ask again once it has passed.
+                next_ask = clock() + int(held_back.group(1)) + WAIT_PAD
+                asked_at = None
                 continue
             balance = parse_balance(line)
             if balance is not None:

@@ -258,6 +258,17 @@ def test_the_tracker_asks_on_start_logs_every_branch_and_summarizes(
     assert "Lirums: on deposit 35 platinum" in text  # deposited, nothing carried
 
 
+def test_a_bank_account_refused_for_roundtime_is_asked_again(tmp_path, monkeypatch):
+    # #268 (2026-09-21): "[wealth]> bank account" / "...wait 1 seconds."
+    # was a missed report until the next three-hourly interval.
+    fake = Fake(answers=[["...wait 1 seconds."], REPORT_LINES])
+    run_tracker(fake, monkeypatch=monkeypatch, tmp_path=tmp_path)
+    assert fake.sent == ["bank account", "bank account", "info"]
+    text = "\n".join(fake.echoed)
+    assert "gave no report" not in text
+    assert "Kronars: on deposit" in text
+
+
 def test_a_paid_debt_reaches_the_history_as_a_zero(tmp_path, monkeypatch):
     fake = Fake(info=["Wealth:", "  No Kronars.", "Debt:", "  No debt."])
     run_tracker(fake, monkeypatch=monkeypatch, tmp_path=tmp_path)
