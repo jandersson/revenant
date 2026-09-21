@@ -5,7 +5,7 @@
     ;heal buy            ... coins from the teller, the missing herbs ORDERed at the herbalist, eaten
     ;heal floor=minor    treat wounds this bad or worse (default insignificant)
     ;heal npc            walk to the nearest NPC healer, DEMEANOR FRIENDLY EMPATH, LIE DOWN, paid per part in the province's coin
-    ;heal quentin        ... Shard's Quentin by name; foreign coins EXCHANGEd at the money-changer by him first
+    ;heal quentin        ... Shard's Quentin by name (arthianna, fraethis, healer=<word in the room's title> likewise); foreign coins EXCHANGEd at the money-changer by the healer first
     ;heal return         (typed while it runs) end after the herb in hand
 
 Wounds are read from HEALTH by client/game/wounds.py (area, kind,
@@ -146,7 +146,9 @@ def parse_args(args):
         low = arg.strip().lower()
         if low in ("list", "buy", "npc"):
             options["mode"] = low
-        elif low == "quentin":
+        elif low.startswith("healer="):
+            options["mode"], options["healer"] = "npc", low.split("=", 1)[1]
+        elif low in ("quentin", "arthianna", "fraethis"):
             options["mode"], options["healer"] = "npc", low
         elif low.startswith("floor="):
             options["floor"] = low.split("=", 1)[1]

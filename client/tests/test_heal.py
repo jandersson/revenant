@@ -137,6 +137,8 @@ def test_the_arguments_are_a_mode_and_a_floor():
         "floor": "insignificant",
         "healer": "quentin",
     }
+    assert heal.parse_args(["arthianna"])["healer"] == "arthianna"
+    assert heal.parse_args(["healer=tending"])["healer"] == "tending"
 
 
 # The NPC healer (#218): Shard's Quentin's Healerium and Knife Clan's

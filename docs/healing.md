@@ -113,7 +113,16 @@ reading, 2026-09-21): wounds above a minor floor — a level-4 nerve
 wound taken, "minor abrasions" left on 2026-09-19 — and never scars,
 level-4 internal ones included. The Hospital page marks only Elys and
 Arthianna "Heals all wounds", so the other healers have a floor too;
-where Quentin's lies between minor and severe is unmeasured. The
+where Quentin's lies between minor and severe is unmeasured.
+
+Shard's Osut'vie (the stillroom, map room 13997, herbalist Idizieq)
+sells its remedies off a long counter, not the alchemy catalog, and
+ORDER there is a sale, not a quote (captured 2026-09-21): ORDER NULOE
+STEM — "You decide to purchase the stem, and pay the sales clerk 451
+Dokoras." / "The sales clerk hands you your nuloe stem." — while ORDER
+NULOE alone answers "Order what?" and ORDER STEM takes the first stem
+on the counter (a junliar stem, 676 Dokoras, for the back's internal
+wounds — bought by mistake that day). Name the whole item. The
 hospital page's own lines ("Elys approaches
 you and touches you.", "Your nervous system tingles for a moment,
 then suddenly feels a bit better.") are in the table for the other
