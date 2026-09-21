@@ -4,7 +4,8 @@
     ;heal list           the wounds, the herbs that treat them and the town's shop; nothing eaten
     ;heal buy            ... coins from the teller, the missing herbs ORDERed at the herbalist, eaten
     ;heal floor=minor    treat wounds this bad or worse (default insignificant)
-    ;heal npc            walk to the nearest NPC healer (Shard's Quentin), DEMEANOR FRIENDLY EMPATH, LIE DOWN, paid per part
+    ;heal npc            walk to the nearest NPC healer, DEMEANOR FRIENDLY EMPATH, LIE DOWN, paid per part in the province's coin
+    ;heal quentin        ... Shard's Quentin by name; foreign coins EXCHANGEd at the money-changer by him first
     ;heal return         (typed while it runs) end after the herb in hand
 
 Wounds are read from HEALTH by client/game/wounds.py (area, kind,
@@ -52,8 +53,10 @@ snickering all the while.  After a moment it feels better." /
 "[72 Dokoras are taken from you.]", captured 2026-09-19 — until twenty
 quiet seconds; then STAND, HEALTH, and what he took and what is left
 are said. An empty purse stops it before the walk: he takes the
-province's coins (Dokoras in Shard; ;bank exchanges foreign coins at
-the money-changer). Nothing walks back afterwards.
+province's coins (Dokoras in Shard — the province read off the map's
+town for his room), and a purse of foreign coins only is EXCHANGEd
+first at the money-changer nearest him (First Bank of Ilithi's Coin
+Exchange), the way ;bank does it. Nothing walks back afterwards.
 Stops on death and on `return`.
 Stop with:  ;stop heal (at once), or ;heal return for a clean finish.
 """
@@ -61,8 +64,10 @@ Stop with:  ;stop heal (at once), or ;heal return for a clean finish.
 import re
 
 from client.game import herbs, probe
+from client.game.bank import exchange_command, foreign, handed
 from client.game.mapdb import MapDB
 from client.game.money import parse_wealth, phrase, split
+from client.game.soul import currency_for
 from client.game.walker import avoided_rooms, walk
 from client.game.wounds import SEVERITIES, level, parse_health
 from client.settings import load_settings
@@ -131,13 +136,13 @@ def ask(s, command):
 
 
 def parse_args(args):
-    options = {"mode": "eat", "floor": DEFAULT_FLOOR}
+    options = {"mode": "eat", "floor": DEFAULT_FLOOR, "healer": ""}
     for arg in args:
         low = arg.strip().lower()
         if low in ("list", "buy", "npc"):
             options["mode"] = low
         elif low == "quentin":
-            options["mode"] = "npc"
+            options["mode"], options["healer"] = "npc", low
         elif low.startswith("floor="):
             options["floor"] = low.split("=", 1)[1]
     return options
@@ -333,11 +338,48 @@ def buy(s, wanted, mapdb, walk_fn, avoid=(), town=TOWN):
     return eaten
 
 
-def visit_healer(s, mapdb, walk_fn=walk, avoid=()):
-    """The hospital: walk to the nearest NPC healer, DEMEANOR FRIENDLY
-    EMPATH, LIE DOWN, let the touches run until twenty quiet seconds,
-    STAND, HEALTH. What was taken and what is left are said. Returns
-    (reason, []) in run()'s shape."""
+def home_of(mapdb, room):
+    """The province's coin at a map room: from its title, else from the
+    map's own name for the room's town (Quentin's Healerium names no
+    town, its map image "Ilithi, Shard" does)."""
+    data = mapdb.rooms[room]
+    title = " ".join(data.get("title") or [])
+    home = currency_for(title)
+    if home == "kronars":
+        home = currency_for(str(data.get("image") or ""))
+    return home
+
+
+def change_coins(s, mapdb, walk_fn, healer_room, purse, home, avoid=()):
+    """The purse's foreign coins into the healer's province's, at the
+    money-changer nearest the healer (the walker's nearest would be the
+    one behind, in the town the walk started from). False, said, when
+    none is on the map or reachable."""
+    changers = mapdb.rooms_tagged("exchange")
+    if not changers:
+        s.echo("heal: the map has no room tagged 'exchange' — carry the coins yourself")
+        return False
+    route = mapdb.path(healer_room, changers, avoid=avoid)
+    goals = {route[-1][0]} if route else set(changers)
+    if not walk_fn(s, mapdb, goals, describe="the money-changer", avoid=avoid):
+        s.echo("heal: could not reach a money-changer — stopping")
+        return False
+    for currency in foreign({"carried": purse}, home):
+        answer = ask(s, exchange_command(currency, home))
+        got = handed(answer)
+        if got:
+            s.echo(f"heal: exchanged your {currency} for {got}")
+        else:
+            first = (answer.strip().splitlines() or ["(silence)"])[0]
+            s.echo(f"heal: the money-changer answered {first!r} to the {currency}")
+    return True
+
+
+def visit_healer(s, mapdb, walk_fn=walk, avoid=(), healer=""):
+    """The hospital: walk to the nearest NPC healer (or the one named,
+    "quentin"), DEMEANOR FRIENDLY EMPATH, LIE DOWN, let the touches run
+    until twenty quiet seconds, STAND, HEALTH. What was taken and what
+    is left are said. Returns (reason, []) in run()'s shape."""
     if mapdb is None:
         s.echo("heal: the walk to the healer needs the map — none loaded")
         return "no map", []
@@ -345,9 +387,18 @@ def visit_healer(s, mapdb, walk_fn=walk, avoid=()):
         room
         for room in mapdb.rooms_tagged("npchealer")
         if "dokt" not in (mapdb.rooms[room].get("tags") or [])
+        and (
+            not healer
+            or healer in " ".join(mapdb.rooms[room].get("title") or []).lower()
+        )
     }
     if not rooms:
-        s.echo("heal: the map has no room tagged 'npchealer' but Knife Clan's kitchen")
+        who = (
+            f"a healer named {healer!r}"
+            if healer
+            else "'npchealer' but Knife Clan's kitchen"
+        )
+        s.echo(f"heal: the map has no room tagged {who}")
         return "no healer", []
     purse = parse_wealth(ask(s, "info"))["carried"]
     if not any(purse.values()):
@@ -357,6 +408,12 @@ def visit_healer(s, mapdb, walk_fn=walk, avoid=()):
             "money-changer"
         )
         return "no coins", []
+    healer_room = min(rooms)
+    home = home_of(mapdb, healer_room)
+    if not purse.get(home.capitalize(), 0):
+        # Only foreign coins: the money-changer by the healer first.
+        if not change_coins(s, mapdb, walk_fn, healer_room, purse, home, avoid):
+            return "no coins", []
     if not walk_fn(s, mapdb, rooms, describe="the NPC healer", avoid=avoid):
         s.echo("heal: could not reach the healer — stopping")
         return "unreachable", []
@@ -412,7 +469,7 @@ def visit_healer(s, mapdb, walk_fn=walk, avoid=()):
 def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
     """Returns (reason, eaten)."""
     if options["mode"] == "npc":
-        return visit_healer(s, mapdb, walk_fn, avoid)
+        return visit_healer(s, mapdb, walk_fn, avoid, healer=options["healer"])
     health = parse_health(ask(s, "health"))
     if not health.wounds and not health.bleeding:
         return "no wounds", []

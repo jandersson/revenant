@@ -122,9 +122,21 @@ def walk(s, db, goals, describe="", avoid=()):
 
 
 def test_the_arguments_are_a_mode_and_a_floor():
-    assert heal.parse_args([]) == {"mode": "eat", "floor": "insignificant"}
-    assert heal.parse_args(["buy", "floor=minor"]) == {"mode": "buy", "floor": "minor"}
-    assert heal.parse_args(["quentin"])["mode"] == "npc"
+    assert heal.parse_args([]) == {
+        "mode": "eat",
+        "floor": "insignificant",
+        "healer": "",
+    }
+    assert heal.parse_args(["buy", "floor=minor"]) == {
+        "mode": "buy",
+        "floor": "minor",
+        "healer": "",
+    }
+    assert heal.parse_args(["quentin"]) == {
+        "mode": "npc",
+        "floor": "insignificant",
+        "healer": "quentin",
+    }
 
 
 # The NPC healer (#218): Shard's Quentin's Healerium and Knife Clan's
@@ -137,6 +149,7 @@ HOSPITALS = MapDB(
             "id": 8908,
             "uid": [8908],
             "title": ["[Quentin's Healerium]"],
+            "image": "Ilithi, Shard.jpg",
             "tags": ["npchealer"],
             "wayto": {},
         },
@@ -147,7 +160,26 @@ HOSPITALS = MapDB(
             "tags": ["dokt", "npchealer"],
             "wayto": {},
         },
+        {
+            "id": 8720,
+            "uid": [8720],
+            "title": ["[Riverhaven Hospital, Tending Chamber]"],
+            "tags": ["npchealer"],
+            "wayto": {},
+        },
+        {
+            "id": 19280,
+            "uid": [19280],
+            "title": ["[First Bank of Ilithi, Coin Exchange]"],
+            "tags": ["exchange"],
+            "wayto": {},
+        },
     ]
+)
+INFO_KRONARS = "Wealth:\n  2 gold, 5 silver Kronars (2500 copper Kronars).\n  No Lirums.\n  No Dokoras.\n"
+CHANGED = (
+    "You hand your money to the money-changer, who counts it and hands you "
+    "1 gold, 7 silver, and 5 bronze Dokoras.\n"
 )
 INFO_DOKORAS = "Wealth:\n  No Kronars.\n  No Lirums.\n  8 silver, 2 bronze Dokoras (802 copper Dokoras).\n"
 FRIENDLY = "You now regard empaths with a friendly demeanor.\n"
@@ -178,12 +210,40 @@ def test_npc_walks_to_the_healer_not_the_retired_one_and_pays_per_part(monkeypat
             "health": [CLEAN],
         }
     )
-    reason, eaten = heal.run(s, heal.parse_args(["npc"]), mapdb=HOSPITALS, walk_fn=walk)
+    reason, eaten = heal.run(
+        s, heal.parse_args(["quentin"]), mapdb=HOSPITALS, walk_fn=walk
+    )
     assert (reason, eaten) == ("healed", [])
-    assert s.walks == [{8908}]
+    assert s.walks == [{8908}]  # by name: not Dokt's kitchen, not Riverhaven
     assert s.sent == ["info", "demeanor friendly empath", "lie down", "stand", "health"]
     assert any(
         "took 126 Dokoras for 2 part(s)" in t and "HEALTH is clean" in t
+        for t in s.echoed
+    )
+
+
+def test_quentin_exchanges_a_kronar_purse_into_dokoras_by_him_first(monkeypatch):
+    # Cecil banks in Kronars; Quentin takes Dokoras. The province is the
+    # map's town for his room ("Ilithi, Shard"), and the money-changer
+    # is the one nearest him, not the one behind in the Crossing.
+    monkeypatch.setattr(heal, "HEALER_POLL", 0.01)
+    monkeypatch.setattr(heal, "HEALER_QUIET", 0.02)
+    s = Fake(
+        {
+            "info": [INFO_KRONARS],
+            "exchange": [CHANGED],
+            "demeanor": [FRIENDLY],
+            "lie down": [TOUCHES],
+            "stand": ["You stand back up.\n"],
+            "health": [CLEAN],
+        }
+    )
+    reason, _ = heal.run(s, heal.parse_args(["quentin"]), mapdb=HOSPITALS, walk_fn=walk)
+    assert reason == "healed"
+    assert s.walks == [{19280}, {8908}]
+    assert s.sent[:2] == ["info", "exchange all kronars to dokoras"]
+    assert any(
+        "exchanged your kronars for 1 gold, 7 silver, and 5 bronze Dokoras" in t
         for t in s.echoed
     )
 
