@@ -11,7 +11,7 @@ from time import sleep
 
 import pytest
 
-from client.engine import session
+from client.engine import registry, session, wire
 from client.engine.netsock import SocketClient
 
 
@@ -118,18 +118,6 @@ def _await(condition, timeout=2.0):
     return False
 
 
-def test_frame_roundtrip():
-    buffer = session.encode_frame("You see a troll.", "") + session.encode_frame(
-        "Clear Vision", "percWindow"
-    )
-    frames, rest = session.decode_frames(buffer + b'{"partial')
-    assert frames == [
-        ("You see a troll.", "", ""),
-        ("Clear Vision", "percWindow", ""),
-    ]
-    assert rest == b'{"partial'
-
-
 def test_session_relays_text_commands_and_shutdown():
     game = FakeGame()
     server, port = _start_server(game)
@@ -143,7 +131,7 @@ def test_session_relays_text_commands_and_shutdown():
     buffer = b""
     while b"psst" not in buffer:
         buffer += client.recv(4096)
-    frames, _ = session.decode_frames(buffer)
+    frames, _ = wire.decode_frames(buffer)
     assert ("Hello there.\n", "", "") in frames
     assert ("psst\n", "thoughts", "") in frames
 
@@ -169,7 +157,7 @@ def test_session_relays_text_commands_and_shutdown():
             f"server.running={server.running} buffer={buffer!r} "
             f"threads={sorted(t.name for t in threading.enumerate())}"
         )
-    frames, _ = session.decode_frames(buffer)
+    frames, _ = wire.decode_frames(buffer)
     # One line for the event, the session's (#152): no quit was sent and
     # no idle warning came, so it is an unexpected loss.
     assert any("lost unexpectedly" in text for text, _, _ in frames)
@@ -205,7 +193,7 @@ def test_sessions_register_for_the_launcher_and_prune_stale_rows(monkeypatch):
     # _start_server returns, into whatever file the env names by then.
     def mine():
         return next(
-            (e for e in session.running_sessions() if e.get("port") == port), None
+            (e for e in registry.running_sessions() if e.get("port") == port), None
         )
 
     assert _await(lambda: mine() is not None), "session never registered"
@@ -236,108 +224,13 @@ def test_sessions_register_for_the_launcher_and_prune_stale_rows(monkeypatch):
     if sys.platform == "darwin":
         holder.listen()
         holder.close()
-    session.register_session(ghost_port, "Ghost")
-    names = [e["character"] for e in session.running_sessions()]
+    registry.register_session(ghost_port, "Ghost")
+    names = [e["character"] for e in registry.running_sessions()]
     assert "Lanival" in names and "Ghost" not in names
     holder.close()
 
     game.closed = True  # the game EOF shuts the session down
     assert _await(lambda: mine() is None), "never deregistered"
-
-
-# --- the registry must not lose a live row (#160) --------------------------
-
-
-def _registry(monkeypatch, tmp_path, rows):
-    path = tmp_path / "sessions.json"
-    monkeypatch.setenv("REVENANT_SESSIONS", str(path))
-    path.write_text(json.dumps(rows))
-    return path
-
-
-ROWS = [
-    {"port": 4242, "character": "Lanival", "pid": 1, "attached": 0},
-    {"port": 4243, "character": "Sable", "pid": 2, "attached": 1},
-]
-
-
-def test_a_torn_registry_reads_as_failure_not_as_empty(monkeypatch, tmp_path):
-    path = _registry(monkeypatch, tmp_path, ROWS)
-    path.write_text('[{"port": 42')  # a rewrite caught halfway
-    monkeypatch.setattr(session, "_LOAD_RETRY_SECONDS", 0.001)
-    assert session._load_sessions() is None
-    # ... and no writer turns that into an empty file
-    assert session.update_attached(4242, 1) is False
-    assert session.deregister_session(4242) is False
-    assert session.register_session(4244, "Uthmor") is False
-    assert path.read_text() == '[{"port": 42'
-    assert session.character_for_port(4242) is None
-    path.unlink()
-    assert session._load_sessions() == []  # no file is genuinely empty
-
-
-def test_writes_are_atomic_and_leave_no_temp_file(monkeypatch, tmp_path):
-    path = _registry(monkeypatch, tmp_path, [])
-    session.register_session(4242, "Lanival", pid=7)
-    assert json.loads(path.read_text()) == [
-        {"port": 4242, "character": "Lanival", "pid": 7, "attached": 0}
-    ]
-    assert list(tmp_path.iterdir()) == [path]
-
-
-def test_update_attached_heals_a_missing_row_only_when_told_who(monkeypatch, tmp_path):
-    path = _registry(monkeypatch, tmp_path, ROWS[1:])
-    assert session.update_attached(4242, 1) is True  # no character: stays gone
-    assert [r["port"] for r in json.loads(path.read_text())] == [4243]
-    assert session.update_attached(4242, 1, character="Lanival", pid=9) is True
-    rows = json.loads(path.read_text())
-    assert rows[-1] == {"port": 4242, "character": "Lanival", "pid": 9, "attached": 1}
-    # an unchanged count writes nothing (fewer torn-read windows)
-    before = path.stat().st_mtime_ns
-    session.update_attached(4243, 1)
-    assert path.stat().st_mtime_ns == before
-
-
-def test_a_busy_session_keeps_its_row_and_a_refusing_one_loses_it(
-    monkeypatch, tmp_path
-):
-    path = _registry(monkeypatch, tmp_path, ROWS)
-    verdicts = {4242: TimeoutError(), 4243: ConnectionRefusedError()}
-    probes = []
-
-    def connect(address, timeout=None):
-        probes.append(address[1])
-        raise verdicts[address[1]]
-
-    monkeypatch.setattr(session.socket, "create_connection", connect)
-    monkeypatch.setattr(session, "PROBE_RETRY_SECONDS", 0.001)
-    live = session.running_sessions()
-    assert [r["port"] for r in live] == [4242]  # busy stays, refused goes
-    assert probes.count(4243) == 2  # pruned only on the second refusal
-    assert [r["port"] for r in json.loads(path.read_text())] == [4242]
-
-
-def test_a_single_refusal_does_not_prune(monkeypatch, tmp_path):
-    path = _registry(monkeypatch, tmp_path, ROWS[:1])
-    answers = [ConnectionRefusedError(), None]  # refused once, then answering
-
-    class Conn:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            return False
-
-    def connect(address, timeout=None):
-        answer = answers.pop(0)
-        if answer is not None:
-            raise answer
-        return Conn()
-
-    monkeypatch.setattr(session.socket, "create_connection", connect)
-    monkeypatch.setattr(session, "PROBE_RETRY_SECONDS", 0.001)
-    assert [r["port"] for r in session.running_sessions()] == [4242]
-    assert [r["port"] for r in json.loads(path.read_text())] == [4242]
 
 
 def test_the_session_puts_its_row_back_by_heartbeat(monkeypatch, tmp_path):
@@ -350,7 +243,7 @@ def test_the_session_puts_its_row_back_by_heartbeat(monkeypatch, tmp_path):
 
     def mine():
         return next(
-            (e for e in (session._load_sessions() or []) if e.get("port") == port),
+            (e for e in (registry._load_sessions() or []) if e.get("port") == port),
             None,
         )
 
@@ -380,7 +273,7 @@ def test_new_front_end_receives_recent_backlog_on_attach():
     buffer = b""
     while b"compass" not in buffer:
         buffer += late_client.recv(4096)
-    frames, _ = session.decode_frames(buffer)
+    frames, _ = wire.decode_frames(buffer)
     assert ("An eerie howl rises in the distance.\n", "", "") in frames
     assert ("n e", "compass", "") in frames  # compass replayed for the dock
     late_client.close()
@@ -434,7 +327,7 @@ def test_late_attach_learns_the_character_despite_an_evicted_backlog():
     buffer = b""
     while b"character" not in buffer:
         buffer += late.recv(4096)
-    frames, _ = session.decode_frames(buffer)
+    frames, _ = wire.decode_frames(buffer)
     assert ("Lanival", "character", "") in frames
     late.close()
 
@@ -456,7 +349,7 @@ def test_late_attach_learns_the_vitals_despite_an_evicted_backlog():
     buffer = b""
     while b"vitals" not in buffer:
         buffer += late.recv(4096)
-    frames, _ = session.decode_frames(buffer)
+    frames, _ = wire.decode_frames(buffer)
     assert ("health 100", "vitals", "") in frames
     late.close()
 
@@ -481,7 +374,7 @@ def test_late_attach_learns_the_room():
     buffer = b""
     while b'"room"' not in buffer:
         buffer += late.recv(4096)
-    frames, _ = session.decode_frames(buffer)
+    frames, _ = wire.decode_frames(buffer)
     assert ("10081\t[Northwall Trail, Grassland]", "room", "") in frames
     late.close()
 
@@ -504,7 +397,7 @@ def test_transient_streams_broadcast_live_but_never_replay():
     buffer = b""
     while b"roundtime" not in buffer:
         buffer += live.recv(4096)
-    frames, _ = session.decode_frames(buffer)
+    frames, _ = wire.decode_frames(buffer)
     assert ("1787402555\t1787402545", "roundtime", "") in frames
     # The game text made the backlog; the roundtime frame never does.
     assert any(b"heavens" in frame for frame in server.backlog)
@@ -524,7 +417,7 @@ def test_script_emit_stream_reaches_attached_clients():
     buffer = b""
     while b"Someone" not in buffer:
         buffer += client.recv(4096)
-    frames, _ = session.decode_frames(buffer)
+    frames, _ = wire.decode_frames(buffer)
     assert ("[LNet General] Someone: hi\n", "thoughts", "") in frames
     client.close()
 
@@ -786,9 +679,9 @@ def test_reattach_connects_when_a_session_is_listening():
     engine = session.AttachedEngine("127.0.0.1", port)
     assert engine.reattach() is True
     conn, _ = server.accept()  # a fresh connection actually arrived
-    session.close_socket(conn)
+    wire.close_socket(conn)
     server.close()
-    session.close_socket(engine.connection.get_socket())
+    wire.close_socket(engine.connection.get_socket())
 
 
 def test_reattach_returns_false_without_a_session():
@@ -1095,7 +988,7 @@ def test_eof_without_quit_reads_as_an_unexpected_drop():
         if not chunk:
             break
         buffer += chunk
-    frames, _ = session.decode_frames(buffer)
+    frames, _ = wire.decode_frames(buffer)
     assert any("lost unexpectedly" in text for text, _, _ in frames)
     assert not any("logged off" in text for text, _, _ in frames)
 
@@ -1116,7 +1009,7 @@ def test_eof_after_quit_reads_as_a_clean_logoff():
         if not chunk:
             break
         buffer += chunk
-    frames, _ = session.decode_frames(buffer)
+    frames, _ = wire.decode_frames(buffer)
     assert any("logged off" in text for text, _, _ in frames)
     assert not any("lost unexpectedly" in text for text, _, _ in frames)
 
@@ -1185,7 +1078,7 @@ def test_late_attach_learns_the_indicators(monkeypatch):
     buffer = b""
     while b"indicators" not in buffer:
         buffer += late.recv(4096)
-    frames, _ = session.decode_frames(buffer)
+    frames, _ = wire.decode_frames(buffer)
     assert ("IconBLEEDING IconSTANDING", "indicators", "") in frames
     late.close()
 
@@ -1214,7 +1107,7 @@ def test_late_attach_learns_the_wounds_healed():
     buffer = b""
     while b"spells" not in buffer:
         buffer += late.recv(4096)
-    frames, _ = session.decode_frames(buffer)
+    frames, _ = wire.decode_frames(buffer)
     assert ("", "injuries", "") in frames
     assert ("", "spells", "") in frames
     late.close()
@@ -1231,13 +1124,13 @@ def test_a_state_request_is_answered_to_the_asker_alone():
     watcher = socket.create_connection(("127.0.0.1", port), timeout=5)
     assert _await(lambda: len(server.clients) == 1), "watcher never registered"
 
-    state = session.request_state(
+    state = wire.request_state(
         "127.0.0.1", port, ["status", "room", "moon"], origin="claude"
     )
     assert state["status"]["posture"] == "standing"
     assert state["unknown"] == ["moon"]
     assert "vitals" not in state
-    assert session.request_state("127.0.0.1", port)["room"] == {
+    assert wire.request_state("127.0.0.1", port)["room"] == {
         "title": None,
         "uid": None,
         "compass": [],
@@ -1250,7 +1143,7 @@ def test_a_state_request_is_answered_to_the_asker_alone():
             buffer += chunk
     except TimeoutError:
         pass
-    frames, _ = session.decode_frames(buffer)
+    frames, _ = wire.decode_frames(buffer)
     assert not any(stream == "state" for _, stream, _ in frames)
     assert not any(style == "sent" for _, _, style in frames)
     assert not game.sent
@@ -1273,7 +1166,7 @@ def test_sent_commands_reach_the_other_frontends():
     buffer = b""
     while b"sent" not in buffer:
         buffer += watcher.recv(4096)
-    frames, _ = session.decode_frames(buffer)
+    frames, _ = wire.decode_frames(buffer)
     assert ("> look\n", "", "sent") in frames
     # The origin connection gets no echo back (it echoes locally).
     try:
@@ -1298,7 +1191,7 @@ def test_attach_states_the_server_clock_delta_fresh():
     buffer = b""
     while b"timesync" not in buffer:
         buffer += client.recv(4096)
-    frames, _ = session.decode_frames(buffer)
+    frames, _ = wire.decode_frames(buffer)
     assert ("42.0", "timesync", "") in frames
     client.close()
 
@@ -1322,7 +1215,7 @@ def test_send_line_delivers_one_terminated_line():
 
     thread = Thread(target=serve, daemon=True)
     thread.start()
-    assert session.send_line("127.0.0.1", port, "quit") is True
+    assert wire.send_line("127.0.0.1", port, "quit") is True
     thread.join(timeout=5)
     listener.close()
     assert received == [b"quit\n"]
@@ -1342,7 +1235,7 @@ def test_send_line_does_not_double_the_newline():
 
     thread = Thread(target=serve, daemon=True)
     thread.start()
-    assert session.send_line("127.0.0.1", port, "quit\n") is True
+    assert wire.send_line("127.0.0.1", port, "quit\n") is True
     thread.join(timeout=5)
     listener.close()
     assert received == [b"quit\n"]
@@ -1354,7 +1247,7 @@ def test_send_line_reports_failure_when_nothing_listens():
     held = socket.socket()  # bound, never listening: the port stays shut
     held.bind(("127.0.0.1", 0))
     port = held.getsockname()[1]
-    assert session.send_line("127.0.0.1", port, "quit", timeout=1) is False
+    assert wire.send_line("127.0.0.1", port, "quit", timeout=1) is False
     held.close()
 
 
@@ -1365,34 +1258,10 @@ def test_a_bell_is_never_replayed_to_a_late_attacher():
     server, port = _start_server(game)
     game.pending.append(b"\x07YOU HAVE BEEN IDLE TOO LONG. PLEASE RESPOND.\x07\n")
     assert _await(lambda: server.backlog), "backlog never filled"
-    frames, _ = session.decode_frames(b"".join(server.backlog))
+    frames, _ = wire.decode_frames(b"".join(server.backlog))
     streams = [stream for _, stream, _ in frames]
     assert "" in streams  # the warning text itself is scrollback
     assert "bell" not in streams
-
-
-def test_character_for_port_reads_the_registry(monkeypatch, tmp_path):
-    # The GUI asks before building its window, so the character's own
-    # layout restores before the first show (#140).
-    registry = tmp_path / "sessions.json"
-    registry.write_text(
-        json.dumps(
-            [
-                {"port": 4242, "character": "Lanival", "pid": 1},
-                {"port": "4243", "character": "Other", "pid": 2},
-                {"port": "bogus", "character": "Nobody"},
-            ]
-        )
-    )
-    monkeypatch.setenv("REVENANT_SESSIONS", str(registry))
-    assert session.character_for_port(4242) == "Lanival"
-    assert session.character_for_port("4243") == "Other"
-    assert session.character_for_port(5000) is None
-
-
-def test_character_for_port_is_none_without_a_registry(monkeypatch, tmp_path):
-    monkeypatch.setenv("REVENANT_SESSIONS", str(tmp_path / "missing.json"))
-    assert session.character_for_port(4242) is None
 
 
 # --- what a frontend says when the session ends ---
@@ -1403,7 +1272,7 @@ class _FramesThenEOF:
 
     def __init__(self, frames):
         self.chunks = [
-            session.encode_frame(text, stream, style) for text, stream, style in frames
+            wire.encode_frame(text, stream, style) for text, stream, style in frames
         ]
 
     def read_very_eager(self):
@@ -1476,7 +1345,7 @@ def test_an_external_send_reaches_the_game_and_is_echoed_with_its_origin():
     window.settimeout(5)
     assert _await(lambda: server.clients), "window never registered"
 
-    assert session.send_line("127.0.0.1", port, "\x1ebot\texp all")
+    assert wire.send_line("127.0.0.1", port, "\x1ebot\texp all")
     assert _await(lambda: game.sent), "the command never reached the game"
     assert game.sent[-1] == b"exp all\n"  # the tag is stripped
     buffer = b""
@@ -1484,7 +1353,7 @@ def test_an_external_send_reaches_the_game_and_is_echoed_with_its_origin():
     while b"[bot]" not in buffer and deadline:
         buffer += window.recv(4096)
         deadline -= 1
-    frames, _ = session.decode_frames(buffer)
+    frames, _ = wire.decode_frames(buffer)
     echo = next((text, style) for text, _, style in frames if "[bot]" in text)
     assert echo == (">> [bot] exp all\n", "sent")
     # No second, player-style echo for the same line.
@@ -1502,8 +1371,8 @@ def test_an_external_send_the_policy_refuses_never_reaches_the_game():
     window.settimeout(5)
     assert _await(lambda: server.clients), "window never registered"
 
-    assert session.send_line("127.0.0.1", port, "\x1ebot\tdrop my handaxe")
-    assert session.send_line("127.0.0.1", port, "\x1ebot\texp all")
+    assert wire.send_line("127.0.0.1", port, "\x1ebot\tdrop my handaxe")
+    assert wire.send_line("127.0.0.1", port, "\x1ebot\texp all")
     assert _await(lambda: game.sent), "the read-only line never reached the game"
     assert game.sent == [b"exp all\n"]
     buffer = b""
@@ -1511,7 +1380,7 @@ def test_an_external_send_the_policy_refuses_never_reaches_the_game():
     while b"refused" not in buffer and deadline:
         buffer += window.recv(4096)
         deadline -= 1
-    frames, _ = session.decode_frames(buffer)
+    frames, _ = wire.decode_frames(buffer)
     refusal = next((text, style) for text, _, style in frames if "refused" in text)
     assert refusal[1] == "alert"
     assert refusal[0].startswith(
@@ -1538,7 +1407,7 @@ def test_eof_after_the_idle_warning_reads_as_an_idle_drop():
         if not chunk:
             break
         buffer += chunk
-    frames, _ = session.decode_frames(buffer)
+    frames, _ = wire.decode_frames(buffer)
     assert any("dropped the connection for idling" in text for text, _, _ in frames)
     assert not any("lost unexpectedly" in text for text, _, _ in frames)
     assert not any("connection closed by the game" in text for text, _, _ in frames)
@@ -1583,7 +1452,7 @@ def test_the_idle_warning_is_answered_with_one_time(monkeypatch):
     # Captured 2026-09-05: unanswered, the warning ends in a drop (#153).
     sent, buffer = _idle_warning_reaches(monkeypatch)
     assert sent == [b"time\n"]
-    frames, _ = session.decode_frames(buffer)
+    frames, _ = wire.decode_frames(buffer)
     assert any("answered the idle warning with TIME" in text for text, _, _ in frames)
 
 
@@ -1623,7 +1492,7 @@ def test_send_line_survives_a_large_replay_from_the_session():
 
     thread = Thread(target=session_like, daemon=True)
     thread.start()
-    assert session.send_line("127.0.0.1", port, "look", timeout=10) is True
+    assert wire.send_line("127.0.0.1", port, "look", timeout=10) is True
     thread.join(10)
     assert received == [b"look\n"]
     server.close()

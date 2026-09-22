@@ -28,7 +28,8 @@ from client.client_logger import ClientLogger
 from client.ui.command_history import CommandHistory
 from client.ui.highlights import load_rules
 from client.engine.sendcmd import resolve_port
-from client.engine.session import DEFAULT_HOST, AttachedEngine
+from client.engine.session import AttachedEngine
+from client.engine.wire import DEFAULT_HOST
 from client.ui.streamroute import clears_window, window_title
 from client.ui.textstyle import Status, render
 

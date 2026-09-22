@@ -76,7 +76,12 @@ for `client/client/<pkg>/x.py`.
   `;reexec` (exec on POSIX; on Windows a
   spawned child adopts the game socket via socket.share over stdin, #129;
   the child's stderr goes to `logs/reexec-<stamp>.err`, and a handoff
-  that fails keeps the old process serving, #162).
+  that fails keeps the old process serving, #162). Beside it,
+  `client/engine/registry.py` is the session registry
+  (~/.revenant/sessions.json: register, heartbeat, prune on two
+  refused probes, `character_for_port`) and `client/engine/wire.py`
+  the outside tool's wire (the JSON frame codec, the EXTERNAL and
+  STATE marks, `send_line` / `send_and_read` / `request_state`).
 - `client/engine/scripting.py` — scripts are `main(s)` files in `scripts/`,
   loaded fresh from disk on every start; the pure-logic helpers in
   `RELOADABLE_MODULES` reload with them — as fresh module objects, so

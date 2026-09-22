@@ -34,7 +34,8 @@ from client.engine.login import (
     save_login_defaults,
 )
 from client.engine.procspawn import command_for
-from client.engine.session import DEFAULT_HOST, DEFAULT_PORT, running_sessions
+from client.engine.registry import running_sessions
+from client.engine.wire import DEFAULT_HOST, DEFAULT_PORT
 
 
 def session_running(host, port):

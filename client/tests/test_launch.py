@@ -371,10 +371,10 @@ def test_get_free_port_skips_occupied_ports():
 
 
 def test_main_with_character_attaches_to_its_own_session(monkeypatch):
-    from client.engine import session as session_module
+    from client.engine import registry
 
     server, port = _listener()
-    session_module.register_session(port, "Beta")
+    registry.register_session(port, "Beta")
     calls = []
     monkeypatch.setattr(launch, "exec_gui", lambda args: calls.append(args))
     launch.main(["Beta", "--port", str(port)])
@@ -386,10 +386,10 @@ def test_main_with_character_spawns_beside_a_running_session(monkeypatch):
     # The pre-#58 behavior attached to whatever ran on the port with
     # "character argument ignored" — now the other character gets a
     # session of their own on a free port.
-    from client.engine import session as session_module
+    from client.engine import registry
 
     server, port = _listener()
-    session_module.register_session(port, "Beta")
+    registry.register_session(port, "Beta")
     calls = {}
     monkeypatch.setattr(
         launch,
@@ -430,10 +430,10 @@ def _stub_picker(monkeypatch, answer):
 
 
 def test_pick_and_go_attaches_to_a_picked_session(monkeypatch):
-    from client.engine import session as session_module
+    from client.engine import registry
 
     server, port = _listener()
-    session_module.register_session(port, "Beta")
+    registry.register_session(port, "Beta")
     calls = []
     monkeypatch.setattr(launch, "exec_gui", lambda args: calls.append(args))
     _stub_picker(monkeypatch, lambda labels, default: labels[0])

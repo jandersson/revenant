@@ -19,7 +19,6 @@ import base64
 import json
 import logging
 import os
-import pathlib
 import socket
 import subprocess
 import sys
@@ -43,8 +42,21 @@ from client.engine.netsock import SocketClient
 from client.engine.procspawn import command_for
 from client.engine.scripting import ScriptManager
 
-DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = int(os.environ.get("REVENANT_SESSION_PORT", "4242"))
+from client.engine.registry import (
+    HEARTBEAT_SECONDS,
+    deregister_session,
+    register_session,
+    update_attached,
+)
+from client.engine.wire import (
+    DEFAULT_HOST,
+    DEFAULT_PORT,
+    EXTERNAL_MARK,
+    STATE_MARK,
+    close_socket,
+    decode_frames,
+    encode_frame,
+)
 
 # Unparsed game bytes ride across a ;reexec in this env var (base64).
 GAME_BUFFER_ENV = "REVENANT_GAME_BUFFER"
@@ -63,6 +75,9 @@ REATTACH_TIMEOUT = 10.0
 READER_FAILURES = (
     3  # reader errors in a row (not the link's) before the session ends (#239)
 )
+# Ten minutes with no byte from the game and the heartbeat writes one
+# TIME (#221): a link dead without a FIN went 52 minutes unnoticed.
+SILENCE_PROBE_SECONDS = 600
 # What the session says on the script stream just before it ends on
 # purpose; a frontend that heard it treats the EOF as expected.
 SESSION_ENDING = (
@@ -70,417 +85,6 @@ SESSION_ENDING = (
     "session: game connection lost",
     "session: the game dropped the connection",
 )
-
-
-# The session registry: every session records {port, character, pid}
-# here so the launcher's picker can offer running characters as attach
-# targets beside the roster (#58). Liveness is connectability — a
-# crashed session leaves a stale row that running_sessions() prunes
-# (pids can't be probed safely on Windows).
-SESSIONS_PATH = "~/.revenant/sessions.json"
-
-
-def sessions_path():
-    return pathlib.Path(os.environ.get("REVENANT_SESSIONS", SESSIONS_PATH)).expanduser()
-
-
-def _load_sessions():
-    """The registry's rows: [] when there is no file, None when the file
-    could not be read — torn or locked by another process's write, even
-    after the retries. None is never "no sessions": a writer that gets
-    it skips its write rather than saving what it did not read (#160)."""
-    path = sessions_path()
-    for attempt in range(_LOAD_TRIES):
-        try:
-            with open(path) as stream:
-                data = json.load(stream)
-        except FileNotFoundError:
-            return []
-        except (OSError, ValueError):  # mid-rewrite: torn, or locked on Windows
-            if attempt + 1 < _LOAD_TRIES:
-                sleep(_LOAD_RETRY_SECONDS)
-                continue
-            return None
-        return data if isinstance(data, list) else []
-    return None
-
-
-def _write_sessions(entries):
-    """Write the rows atomically: a temp file renamed into place, so a
-    reader sees the old file or the new one and never a torn one. On
-    Windows the rename fails while another process holds the file open;
-    it is retried briefly, and the plain write is the last resort."""
-    path = sessions_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    text = json.dumps(entries)
-    temp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-    try:
-        temp.write_text(text)
-        for attempt in range(_REPLACE_TRIES):
-            try:
-                os.replace(temp, path)
-                return
-            except OSError:
-                if attempt + 1 < _REPLACE_TRIES:
-                    sleep(_LOAD_RETRY_SECONDS)
-        path.write_text(text)
-    finally:
-        try:
-            temp.unlink()
-        except OSError:
-            pass
-
-
-# Registry reads and writes within one process happen from the accept
-# loop, every client thread's drop, the heartbeat and the launcher's
-# poll, so they take turns (#158). Another process reading mid-write
-# (the picker while a session rewrites its attached count) sees a torn
-# or locked file: _load_sessions retries, then reports failure (None),
-# and no writer turns a failed read into an empty registry (#160).
-_REGISTRY_LOCK = Lock()
-_LOAD_TRIES = 5
-_LOAD_RETRY_SECONDS = 0.04
-_REPLACE_TRIES = 5
-HEARTBEAT_SECONDS = 30  # a session re-asserts its row this often
-# Ten minutes with no byte from the game and the heartbeat writes one
-# TIME (#221): a link dead without a FIN went 52 minutes unnoticed.
-SILENCE_PROBE_SECONDS = 600
-# A liveness probe's patience. A live session answers at once (the
-# kernel completes the handshake before the accept loop turns), but
-# Windows refuses a dead localhost port only after ~2 s of retries
-# (measured 2026-09-12: 2.04 s to WinError 10061); with less than that
-# a dead row reads as a timeout and is never pruned.
-PROBE_TIMEOUT = 3.0
-PROBE_RETRY_SECONDS = 0.5  # between the two refused probes that prune a row
-
-
-def register_session(port, character, pid=None, attached=0):
-    """Announce a session: {port, character, pid, attached} — attached
-    is the count of front ends on it, kept current by update_attached
-    so the launcher's picker can tell a detached session (no window)
-    from one already on screen (#158). True when the row was written;
-    False when the registry could not be read, in which case nothing is
-    written and the session's heartbeat tries again (#160)."""
-    with _REGISTRY_LOCK:
-        entries = _load_sessions()
-        if entries is None:
-            return False
-        entries = [e for e in entries if e.get("port") != port]
-        entries.append(
-            {
-                "port": port,
-                "character": character,
-                "pid": pid or os.getpid(),
-                "attached": attached,
-            }
-        )
-        _write_sessions(entries)
-        return True
-
-
-def update_attached(port, count, character=None, pid=None):
-    """The registry row's attached-window count. With `character` the
-    call also heals: a row that is missing — pruned by a busy probe, or
-    lost to a bad rewrite — is put back (#160). Without it a missing
-    row stays missing (a deregistered session must not return). False
-    when the registry could not be read; nothing is written then."""
-    with _REGISTRY_LOCK:
-        entries = _load_sessions()
-        if entries is None:
-            return False
-        for entry in entries:
-            if entry.get("port") == port:
-                if entry.get("attached") == count:
-                    return True  # nothing to say: no write, no torn window
-                entry["attached"] = count
-                _write_sessions(entries)
-                return True
-        if character is None:
-            return True
-        entries.append(
-            {
-                "port": port,
-                "character": character,
-                "pid": pid or os.getpid(),
-                "attached": count,
-            }
-        )
-        _write_sessions(entries)
-        return True
-
-
-def deregister_session(port):
-    """Drop the row; when the registry cannot be read, drop nothing — a
-    stale row is pruned later by a refused probe."""
-    with _REGISTRY_LOCK:
-        entries = _load_sessions()
-        if entries is None:
-            return False
-        remaining = [e for e in entries if e.get("port") != port]
-        if remaining != entries:
-            _write_sessions(remaining)
-        return True
-
-
-def character_for_port(port):
-    """The character a registered session on `port` plays, or None.
-
-    The GUI asks before it builds its window, so the character's own
-    layout can be restored before the first show — the one order Qt
-    restores every saved dock state safely (#140)."""
-    for entry in _load_sessions() or []:
-        try:
-            if int(entry.get("port")) == int(port):
-                name = entry.get("character")
-                return str(name) if name else None
-        except (TypeError, ValueError):
-            continue
-    return None
-
-
-def _probe(host, port):
-    """ "live", "refused" or "unsure" for a registered port. Only a
-    refused connection says nothing listens; a timeout says the session
-    was busy (replaying a backlog, parsing INFO) and is no reason to
-    lose its row (#160)."""
-    try:
-        with socket.create_connection((host, int(port)), timeout=PROBE_TIMEOUT):
-            return "live"
-    except ConnectionRefusedError:
-        return "refused"
-    except (OSError, ValueError, TypeError):
-        return "unsure"
-
-
-def running_sessions(host=DEFAULT_HOST):
-    """Registered sessions that actually answer. A row is pruned only
-    when its port refuses twice, PROBE_RETRY_SECONDS apart — a crashed
-    session leaves a refusing port; a busy one times out and stays."""
-    with _REGISTRY_LOCK:
-        entries = _load_sessions()
-        if not entries:
-            return []
-        live, doubtful = [], []
-        for entry in entries:
-            verdict = _probe(host, entry.get("port"))
-            if verdict == "refused":
-                doubtful.append(entry)
-            else:
-                live.append(entry)
-        if doubtful:
-            sleep(PROBE_RETRY_SECONDS)
-            for entry in doubtful:
-                if _probe(host, entry.get("port")) != "refused":
-                    live.append(entry)
-            live = [e for e in entries if e in live]  # the file's order
-        if live != entries:
-            _write_sessions(live)
-    return live  # an unsure (busy) session is a running session
-
-
-# A frontend line that starts with this byte was sent from outside the
-# frontends — revenant-send (client/engine/sendcmd.py, #135): "\x1e<origin>\t
-# <command>". The session strips the tag, echoes the command to EVERY
-# attached window as ">> [<origin>] <command>" and logs it, so a line
-# the player did not type never acts invisibly.
-EXTERNAL_MARK = b"\x1e"
-# A frontend line that starts with this byte asks for the parser's
-# state (#216): "\x1d<origin>\t<field,field>" (no fields: all). The
-# session answers that connection alone with one "state" frame of
-# JSON (client/engine/snapshot.py) — nothing goes to the game, nothing
-# is echoed or logged to a window, so an outside reader learns the
-# room, the vitals, the exp window or the hands without typing LOOK,
-# EXP or INV at the character.
-STATE_MARK = b"\x1d"
-
-
-def request_state(host, port, fields=(), origin="external", timeout=5):
-    """The parser's state of a running session as a dict (#216), or
-    None when nothing was listening or no answer came in `timeout`
-    seconds. `fields` narrows it (see snapshot.FIELDS); the replay a
-    new connection gets first is read past."""
-    try:
-        conn = socket.create_connection((host, int(port)), timeout=timeout)
-    except OSError:
-        return None
-    origin = "".join(ch for ch in origin if ch not in "\t\n\x1d\x1e") or "external"
-    line = STATE_MARK + f"{origin}\t{','.join(fields)}\n".encode("UTF-8")
-    buffer = b""
-    answer = None
-    with conn:
-        try:
-            conn.sendall(line)
-        except OSError:
-            return None
-        deadline = monotonic() + timeout
-        while answer is None and (left := deadline - monotonic()) > 0:
-            conn.settimeout(min(left, 0.5))
-            try:
-                chunk = conn.recv(65536)
-            except TimeoutError:
-                continue
-            except OSError:
-                break
-            if not chunk:
-                break
-            buffer += chunk
-            decoded, buffer = decode_frames(buffer)
-            for text, stream, _ in decoded:
-                if stream == "state":
-                    try:
-                        answer = json.loads(text)
-                    except ValueError:
-                        answer = None
-                    break
-        try:
-            conn.shutdown(socket.SHUT_RDWR)
-        except OSError:
-            pass
-    return answer
-
-
-def send_and_read(host, port, text, seconds, timeout=5, settle=0.3, until=None):
-    """Send one command line and return what the session broadcast in
-    the `seconds` after it: [(text, stream, style)] frames, the story
-    and the docks alike, from the line's own ">> [origin] ..." echo on.
-    None when nothing was listening. This is how a tool reads the
-    game's answer without tailing a log: the connection is a frontend
-    for those seconds. With `text` None nothing is sent and the
-    frames are simply what arrived in the window; with `until` the
-    read ends as soon as a story line holds that text (#216: the
-    story window a driver used to poll the raw log for).
-
-    The backlog replay comes first, and it can hold an identical echo
-    of an earlier send of the same line — so the replay is drained
-    (read until `settle` seconds pass with no bytes, two seconds at
-    most) before the line goes out, and the first matching echo after
-    that is this line's own."""
-    try:
-        conn = socket.create_connection((host, int(port)), timeout=timeout)
-    except OSError:
-        return None
-    if text is None:
-        echo, seen_echo = None, True
-    else:
-        origin, _, command = text.lstrip("\x1e").partition("\t")
-        echo = f">> [{origin}] {' '.join(command.split())}"
-        seen_echo = False
-    frames, buffer, done = [], b"", False
-    with conn:
-        # Nothing to drain when nothing is sent: every line counts.
-        drain_until = monotonic() + (2.0 if text is not None else 0.0)
-        while monotonic() < drain_until:
-            conn.settimeout(settle)
-            try:
-                chunk = conn.recv(65536)
-            except TimeoutError:
-                break  # quiet: the replay is over
-            except OSError:
-                break
-            if not chunk:
-                break
-        if text is not None:
-            conn.sendall(text.encode("UTF-8").rstrip(b"\n") + b"\n")
-        deadline = monotonic() + seconds
-        while not done and (left := deadline - monotonic()) > 0:
-            conn.settimeout(min(left, 0.5))
-            try:
-                chunk = conn.recv(65536)
-            except TimeoutError:
-                continue
-            except OSError:
-                break
-            if not chunk:
-                break
-            buffer += chunk
-            decoded, buffer = decode_frames(buffer)
-            for frame in decoded:
-                if not seen_echo:
-                    if frame[2] == "sent" and frame[0].strip() == echo:
-                        seen_echo = True
-                    continue
-                frames.append(frame)
-                if until and frame[1] == "" and until in frame[0]:
-                    done = True
-                    break
-        try:
-            conn.shutdown(socket.SHUT_RDWR)
-        except OSError:
-            pass
-    return frames
-
-
-def send_line(host, port, text, timeout=5):
-    """Send one command line to a running session, as a frontend would.
-
-    True when it went out, False when nothing was listening. The
-    session forwards any line not starting with ";" straight to the
-    game, so this is how a tool logs a character out: closing the
-    client only drops the connection, and the game says so at every
-    login ("Closing your front end does NOT necessarily drop your
-    character from the game! Type QUIT or EXIT!"), leaving the
-    character linkdead instead of gone (#114).
-
-    The line goes out, then the socket is half-closed and read until
-    the session lets go: attach() replays the backlog to every new
-    connection before it reads a byte, and a sender that closed the
-    moment it had written made that replay fail against a dead peer —
-    the session dropped the connection and never read the command
-    (captured 2026-09-11: two sends logged as attached-and-detached
-    in the same second, nothing sent to the game, once the backlog
-    had grown past a few frames). Half-closing sends the FIN after
-    the line, so the session reads the command, then EOF, and drops
-    us — which is the EOF this waits for, under the same timeout.
-    """
-    try:
-        with socket.create_connection((host, int(port)), timeout=timeout) as conn:
-            conn.sendall(text.encode("UTF-8").rstrip(b"\n") + b"\n")
-            conn.shutdown(socket.SHUT_WR)
-            deadline = monotonic() + timeout
-            while monotonic() < deadline:
-                try:
-                    if not conn.recv(65536):
-                        break  # the session read our line and let go
-                except TimeoutError:
-                    break
-        return True
-    except OSError:
-        return False
-
-
-def close_socket(conn):
-    """shutdown() then close(): on Linux, close() alone neither wakes a
-    thread blocked in recv()/accept() on the socket nor sends the peer a
-    FIN while one is blocked — shutdown(SHUT_RDWR) does both, portably."""
-    try:
-        conn.shutdown(socket.SHUT_RDWR)
-    except OSError:
-        pass
-    try:
-        conn.close()
-    except OSError:
-        pass
-
-
-def encode_frame(text: str, stream: str, style: str = "") -> bytes:
-    return (json.dumps({"stream": stream, "text": text, "style": style}) + "\n").encode(
-        "UTF-8"
-    )
-
-
-def decode_frames(buffer: bytes):
-    """Split a byte buffer into decoded (text, stream, style) frames and
-    the unconsumed tail (a partial line, if any). Frames from older
-    sessions carry no style; it decodes as ""."""
-    frames = []
-    while b"\n" in buffer:
-        raw, buffer = buffer.split(b"\n", 1)
-        if raw.strip():
-            payload = json.loads(raw.decode("UTF-8"))
-            frames.append(
-                (payload["text"], payload["stream"], payload.get("style", ""))
-            )
-    return frames, buffer
 
 
 class SessionServer(ClientLogger):

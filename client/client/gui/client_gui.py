@@ -48,12 +48,9 @@ from client.gui.text_views import GameTextView, font_for, style_experience_view
 from client.ui.highlights import highlights_path, load_rules, spans
 from client.ui.inputfocus import click_focuses_input, forwardable
 from client.ui.roomids import RoomIdTracker, room_id_suffix
-from client.engine.session import (
-    AttachedEngine,
-    DEFAULT_HOST,
-    DEFAULT_PORT,
-    character_for_port,
-)
+from client.engine.registry import character_for_port
+from client.engine.session import AttachedEngine
+from client.engine.wire import DEFAULT_HOST, DEFAULT_PORT
 from client.settings import load_settings, save_settings, setting, settings_path
 from client.ui.streamroute import STREAM_WINDOWS as STREAM_WINDOW_TITLES, clears_window
 

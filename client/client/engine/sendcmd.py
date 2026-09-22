@@ -48,13 +48,8 @@ import os
 import sys
 from dataclasses import dataclass
 
-from client.engine.session import (
-    DEFAULT_HOST,
-    request_state,
-    running_sessions,
-    send_and_read,
-    send_line,
-)
+from client.engine.registry import running_sessions
+from client.engine.wire import DEFAULT_HOST, request_state, send_and_read, send_line
 from client.settings import load_settings
 
 # A line the session reads as "sent from outside": \x1e<origin>\t<command>.

@@ -34,7 +34,7 @@ sys.path[:0] = [str(REPO / "client")]
 from client.engine.launch import get_free_port, spawn_session, wait_for_session  # noqa: E402
 from client.engine.login import account_for_character, load_login_defaults  # noqa: E402
 from client.engine.roster import pending_characters, snapshot_summary  # noqa: E402
-from client.engine.session import DEFAULT_HOST, DEFAULT_PORT, send_line  # noqa: E402
+from client.engine.wire import DEFAULT_HOST, DEFAULT_PORT, send_line  # noqa: E402
 
 SNAPSHOT_TIMEOUT = 180  # ;sheet asks INFO and EXP ALL, re-asking what login noise ate
 POLL_SECONDS = 2

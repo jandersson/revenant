@@ -90,6 +90,19 @@ entries from a dock-layout module.
   whether or not anything is hurt or running — a state that is only
   stated when non-empty leaves a late attacher's dock showing what
   healed or expired while it was away (#213).
+- `client/client/engine/registry.py` — the session registry,
+  ~/.revenant/sessions.json: a row per running session ({port,
+  character, pid, attached}) written atomically, a failed read never
+  rewritten as empty, a row pruned only when its port refuses twice,
+  the session re-asserting its own row every thirty seconds (#58,
+  #158, #160). The launcher's picker and the GUI's
+  `character_for_port` read it.
+- `client/client/engine/wire.py` — the wire an outside tool speaks to a
+  session: the JSON frame codec, the EXTERNAL and STATE marks a
+  tagged line leads with, and `send_line`, `send_and_read`,
+  `request_state` — the client side `revenant-send` and the roster
+  sweep use (#135, #216). The GUI and the TUI attach through
+  `session.AttachedEngine` instead.
 - `client/client/engine/session.py` — the detachable session daemon
   (`python -m client.engine.session`): logs in, owns the game socket, serves
   `(stream, text)` frames as JSON lines on 127.0.0.1:4242 to any number of
@@ -351,7 +364,7 @@ entries from a dock-layout module.
   dock layout (`client/ui/window_layout.py`, Qt-free; the unscoped legacy
   pair seeds characters without one, #74). The GUI learns its
   character before building the window — from the session registry
-  (`session.character_for_port`) on attach, `REVENANT_CHARACTER` in
+  (`registry.character_for_port`) on attach, `REVENANT_CHARACTER` in
   direct mode — and restores that layout before the first show:
   restoring saved dock state onto a shown window aborted the process
   inside Qt (#124), and for one saved state even hidden-restore-show
@@ -390,7 +403,7 @@ entries from a dock-layout module.
 - `client/client/engine/launch.py` — the `revenant` console script: attaches
   the GUI to the right session, spawning one when needed. Characters
   run side by side, one session/window each on its own port: sessions
-  register in ~/.revenant/sessions.json (client/engine/session.py: rows
+  register in ~/.revenant/sessions.json (client/engine/registry.py: rows
   written atomically, a failed read never rewritten, a row pruned only
   when its port refuses twice, and the session re-asserting its own
   row every thirty seconds, #160), `revenant <name>` attaches to that character's
