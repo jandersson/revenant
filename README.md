@@ -43,7 +43,7 @@ The window shows the game's own styling (amber room names, blue speech, bold ale
 - **Map** — the community map drawn around you as you move; click a room to walk there with `;go2`.
 - **Injuries** — the game's own injuries panel as a body of badges: each part lights amber for a wound or purple for a scar, with the level, the moment it changes, no HEALTH needed.
 - **Spells** — the spells running with their time left counting down by the second, and the one you have prepared.
-- **Compass, Clocks, Thoughts, Arrivals, Deaths** — exits you can click, Elanthian date and moons beside Stockholm and Chicago, and the game's side streams each in a window of their own.
+- **Compass, Clocks, Thoughts, Arrivals, Deaths, Group** — exits you can click, Elanthian date and moons beside Stockholm and Chicago, and the game's side streams each in a window of their own.
 - **Around the input line** — a dark command line with an amber `>` prompt and a border that lights when it has the focus, roundtime and casttime counting down from the game's own timestamps, vitals bars, a status strip with posture, stunned, bleeding, hidden and a red DEAD, and shell-style command history.
 
 Any dock folds to its title bar and back — the ▾ button on the title, a double-click on it, or Ctrl+Shift+D on the dock holding the focus — keeping its place in the layout, and the fold is remembered with the layout per character.

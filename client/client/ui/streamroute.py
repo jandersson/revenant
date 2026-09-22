@@ -18,6 +18,10 @@ PyQt6 (headless CI) — the GUI reads it from this module.
 # and chatter both land in Thoughts). The GUI draws "Spells" as a
 # widget dock from the parser's spell state and drops the raw
 # percWindow text (#175); the TUI still prints it under that title.
+# GROUP's listing arrives as the `group` stream, cleared before every
+# rewrite ("Members of your group:" ... "There are 2 members in your
+# group.", captured 2026-09-22), and fell into the story until it had
+# a dock.
 STREAM_WINDOWS = {
     "thoughts": "Thoughts",
     "chatter": "Thoughts",
@@ -25,6 +29,7 @@ STREAM_WINDOWS = {
     "logons": "Arrivals",
     "death": "Deaths",
     "exp": "Experience",
+    "group": "Group",
 }
 
 

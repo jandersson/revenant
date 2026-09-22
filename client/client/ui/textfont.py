@@ -23,7 +23,16 @@ MIN_SIZE = 6
 MAX_SIZE = 72
 # The text views a font can be set for: the story window, the input
 # line, and the stream docks by title (client/ui/streamroute.py).
-TEXT_VIEWS = ("Main", "Input", "Thoughts", "Spells", "Arrivals", "Deaths", "Experience")
+TEXT_VIEWS = (
+    "Main",
+    "Input",
+    "Thoughts",
+    "Spells",
+    "Arrivals",
+    "Deaths",
+    "Experience",
+    "Group",  # GROUP's listing, a text dock since 2026-09-22
+)
 # The docks that hold status text rather than story: the story's
 # family and size never reach them, only their own dock_fonts row —
 # Experience (a column-aligned dashboard, fixed-pitch, #173) and

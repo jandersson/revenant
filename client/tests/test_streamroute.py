@@ -23,6 +23,7 @@ class TestWindowTitle:
             ("logons", "Arrivals"),
             ("death", "Deaths"),
             ("exp", "Experience"),
+            ("group", "Group"),  # GROUP's listing, rewritten on every change
         ],
     )
     def test_docked_streams_name_their_dock(self, stream, title):
