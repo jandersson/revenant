@@ -99,3 +99,31 @@ def test_go2_direct_skips_the_avoid_list_for_one_trip(monkeypatch, tmp_path):
     go2.main(handle)
     assert any("you are in room 5" in echo for echo in handle.echoes)
     assert any("usage:" in echo for echo in handle.echoes)
+
+
+def test_home_and_safe_name_the_profiles_and_the_plans_rooms(monkeypatch, tmp_path):
+    # `;go2 home` is the profile's home, `;go2 safe` the plan's first
+    # safe room (2026-09-22); a file naming none is said.
+    import json
+
+    monkeypatch.setenv("REVENANT_PROFILES", str(tmp_path / "profiles"))
+    monkeypatch.setenv("REVENANT_TRAINING", str(tmp_path / "training"))
+    from client.game.profile import DEFAULTS, save_profile
+    from client.game.training import plan_path
+
+    echoed = []
+    handle = types.SimpleNamespace(
+        state=_state(name="Lanival"), echo=echoed.append, args=["home"]
+    )
+    assert go2.named_room(handle, "home") is None
+    assert "profile names no home" in echoed[-1]
+    save_profile("Lanival", DEFAULTS | {"home": "11716"})
+    assert go2.named_room(handle, "home") == "11716"
+    assert go2.named_room(handle, "safe") is None
+    assert "lists no safe rooms" in echoed[-1]
+    path = plan_path("Lanival")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"safe_rooms": ["11716", "983"], "tasks": []}))
+    assert go2.named_room(handle, "safe") == "11716"
+    assert go2.named_room(handle, "bank") is None  # a tag, not a name
+    assert go2.named_room(handle, "1901") is None

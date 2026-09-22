@@ -1,7 +1,9 @@
 """Pathfind and walk anywhere the community map knows:  ;go2 <target>
 
-Targets: a room id (;go2 1234), a tag (;go2 bank), or a title substring
-(;go2 herald street). Routes take the fastest way the map knows (its
+Targets: a room id (;go2 1234), a tag (;go2 bank), a title substring
+(;go2 herald street), `home` (the profile's `home` room) or `safe`
+(the training plan's first safe room, 2026-09-22). Routes take the
+fastest way the map knows (its
 timeto travel times) and detour around the rooms your avoid list names
 (settings "avoid_rooms" — cougar grounds by default) whenever a clean
 way around exists; ;go2 direct <target> skips the detour for one trip.
@@ -15,6 +17,33 @@ other traveling scripts.
 """
 
 from client.game.walker import DIRECTIONS, avoided_rooms, locate, walk  # noqa: F401
+
+
+NAMED = ("home", "safe")
+
+
+def named_room(s, query):
+    """The room `home` or `safe` stands for — the profile's `home`, the
+    plan's first safe room — as a map query; None (said) when the file
+    names none, and None, silently, for any other query."""
+    word = query.strip().lower()
+    if word not in NAMED:
+        return None
+    name = getattr(s.state, "name", None) or ""
+    if word == "home":
+        from client.game.profile import load_profile
+
+        room = str(load_profile(name).get("home") or "").strip()
+        if not room:
+            s.echo("go2: the profile names no home (Character Profile, `home`)")
+        return room or None
+    from client.game.training import load_plan
+
+    rooms = [str(room).strip() for room in (load_plan(name).get("safe_rooms") or [])]
+    rooms = [room for room in rooms if room]
+    if not rooms:
+        s.echo("go2: the training plan lists no safe rooms (File -> Training Plan...)")
+    return rooms[0] if rooms else None
 
 
 def main(s):
@@ -51,6 +80,12 @@ def main(s):
         return
 
     query = " ".join(s.args)
+    named = named_room(s, query)
+    if named is None and query.lower() in NAMED:
+        return
+    if named:
+        s.echo(f"{query}: room {named}")
+        query = named
     goals = db.resolve(query)
     if not goals:
         s.echo(f"nothing in the map matches {query!r}")

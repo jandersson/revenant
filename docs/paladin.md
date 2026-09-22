@@ -67,7 +67,7 @@ Verika lists what the circle allows on ASK ... ABOUT MAGIC ("I see you are worth
 | Room | Id | Used for |
 |---|---|---|
 | The Crossing, Paladins' Guild, Library | 11716 | the profile's `home` and `library`; `;scholarship books` |
-| The Crossing, Paladins' Guild, Chambers → Hallway | 7890 → 11712 | `go arch`: the soulstone arch that reads the state (#231) |
+| The Crossing, Paladins' Guild, Chambers → Hallway | 7890 → 11712 | `go arch`: the soulstone arch that reads the state (#231); a non-Paladin cannot pass it — a grouped Thief following the leader stopped in the Chambers as "it glows with a pristine luminescence" for the Paladin alone (2026-09-22), so the Library (11716) is a Paladin's safe room only and the Chambers the room to meet in |
 | The Crossing, Paladins' Guild, Guild Leader's Office | off the Meeting Hall with the guild register | Verika: circles, spells, the quest |
 | The Crossing, Herald Street | 815 | "a steel tithe box" outside the guild (PUT ... KRONARS IN BOX) |
 | The Crossing, Immortals' Approach | 741 | "the locked almsbox" outside the temple gate |
