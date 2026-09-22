@@ -97,7 +97,7 @@ def test_a_missing_session_is_spawned_off_the_keychain_and_logged_out_after():
     io = IO(
         accounts={"Fallanor": "TESTACCT"},
         passwords={"TESTACCT"},
-        rooms=["1901", "1901", "7890"],
+        rooms=[None, "1901", "1901", "7890"],  # the login's room unknown at first
     )
     active = helper.ensure(io, "Fallanor", said.append)
     assert (active.port, active.spawned) == (4250, True)
@@ -105,6 +105,10 @@ def test_a_missing_session_is_spawned_off_the_keychain_and_logged_out_after():
     assert "logging Fallanor in" in said[-1]
     assert helper.bring(io, active, "7890", said.append)
     assert io.sent[0] == (4250, "\x1etrain\t;go2 7890")
+    # Already in the room: no walk sent at all.
+    there = IO(rooms=["7890"])
+    assert helper.bring(there, active, "7890", said.append)
+    assert there.sent == []
     helper.start(io, active, "teach", ["parry ability", "to", "cecil"])
     assert io.sent[-1] == (4250, "\x1etrain\t;teach parry ability to cecil")
     assert helper.finish(io, active, "teach", keep=True, echo=said.append) is False

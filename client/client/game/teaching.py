@@ -17,9 +17,15 @@ again mid-class: TEACH — "Cecil is already listening to you.  He
 needs to STOP LISTENING before you can teach him." (the class is
 up); LISTEN — "You are already listening to someone.  You may wish
 to STOP LISTENING." (in it; the skill is then the argument's or
-Scholarship). Uncaptured, read by shape: a LISTEN with no class
-offered, a skill the teacher cannot give, the student's line when
-the teacher stops, and STOP TEACHING's and STOP LISTENING's answers.
+Scholarship). STOP LISTENING (captured 2026-09-22): the student sees
+"You stop listening to Fallanor.", the teacher "Cecil stops listening
+to you." and "Because you have no more students, your class ends.";
+the teacher logging out and back in keeps the student's listening
+state (TEACH then answers "already listening to you" and the lesson
+goes on). Uncaptured, read by shape: a LISTEN with no class offered
+beyond "isn't teaching a class", a skill the teacher cannot give,
+the student's line when the teacher STOPs TEACHING, and STOP
+TEACHING's own answer.
 """
 
 import re
@@ -34,7 +40,16 @@ CANNOT_TEACH = (
     "unable to teach",
 )
 NO_STUDENT = ("what were you referring", "could not find", "who are you")
-STUDENTS_LEFT = ("all of your students have left",)
+# The student walking off: "All of your students have left, so you stop
+# teaching."; the student's STOP LISTENING (captured 2026-09-22): "Cecil
+# stops listening to you." then "Because you have no more students,
+# your class ends." Either way the class is over and is offered again.
+STUDENTS_LEFT = (
+    "all of your students have left",
+    "no more students",
+    "your class ends",
+    "stops listening to you",
+)
 # An offer not taken up expires (a few minutes, 2026-09-22): "You stop
 # trying to teach Parry Ability to Cecil." — the teacher offers again.
 # The student joining: "Cecil begins to listen to you teach the Parry

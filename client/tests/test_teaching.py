@@ -47,6 +47,15 @@ def test_the_captured_lines_read_as_the_model_says():
         == "no class"
     )
     assert any(word in STUDENTS_LEFT.lower() for word in teaching.STUDENTS_LEFT)
+    # The student's STOP LISTENING, on the teacher's side (2026-09-22).
+    for line in (
+        "Cecil stops listening to you.",
+        "Because you have no more students, your class ends.",
+    ):
+        assert any(word in line.lower() for word in teaching.STUDENTS_LEFT), line
+    assert any(
+        word in "you stop listening to fallanor." for word in teaching.CLASS_ENDED
+    )
     # Asked again mid-class (captured 2026-09-22): the class is up.
     mid = "Cecil is already listening to you.  He needs to STOP LISTENING before you can teach him.\n"
     assert classify(mid.lower(), teaching.TEACH_OUTCOMES) == "already"

@@ -622,7 +622,7 @@ Cecil.") and `;teach` offers again at once, and a student joining
 ("Cecil begins to listen to you teach the Parry Ability skill.").
 `;train` runs the student's side as a task,
 `{"name": "class", "skills": ["Parry Ability", "Scholarship"],
-"script": "listen", "args": ["fallanor"], "return_word": "return",
+"script": "listen", "args": ["fallanor", "parry ability"], "return_word": "return",
 "helper": "Fallanor", "helper_args": ["parry ability", "to",
 "cecil"], "helper_room": "7890"}`: the loop logs the teacher in
 for the task and out after it (the `helper` keys above), and one

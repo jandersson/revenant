@@ -26,6 +26,7 @@ from client.engine.wire import EXTERNAL_MARK
 ORIGIN = "train"
 DEFAULT_SCRIPT = "teach"
 ARRIVAL_SECONDS = 180  # the helper's walk to the room
+KNOWN_SECONDS = 30  # a fresh login's parser learning its room before ;go2
 SETTLE_SECONDS = 3  # after a script start or return, before the next line
 
 
@@ -102,9 +103,18 @@ def ensure(io, name, echo, spawned_before=()):
 
 
 def bring(io, helper, target, echo, seconds=ARRIVAL_SECONDS):
-    """`;go2 <target>` sent to the helper, the arrival waited for (the
-    helper's room read off its state until it is the target's map
-    id). True there; False, said, when the walk did not end there."""
+    """The helper brought to `target`: its room waited for first (a
+    session just logged in answers `;go2` with "current room unknown
+    yet", 2026-09-22), `;go2 <target>` sent unless it stands there
+    already, the arrival read off its state until it is the target's
+    map id. True there; False, said, when the walk did not end there."""
+    known = io.now() + KNOWN_SECONDS
+    room = io.room_of(helper.port)
+    while room is None and io.now() < known:
+        io.sleep(2)
+        room = io.room_of(helper.port)
+    if room == str(target):
+        return True
     io.send(helper.port, tagged(f";go2 {target}"))
     deadline = io.now() + seconds
     while io.now() < deadline:
