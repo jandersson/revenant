@@ -43,6 +43,16 @@ from chat.commands import remember_sender, reply_hint  # noqa: E402
 RECV_TIMEOUT = 0.25  # also the user-command poll cadence
 
 
+def say(s, text):
+    """A status line — no password stored, logging in, connected, the
+    login rejected — in the main window and, as the chat window
+    would print it, in Thoughts, where the chat lands and the eye is
+    (the operator, 2026-09-22: an autostarted ;lnet's rejection went
+    unseen in the story)."""
+    s.echo(text)
+    s.emit(f"* {text}", "thoughts")
+
+
 def main(s):
     from chat.chat import LoginRejected, Server, default_log_dir, get_password
     from client.engine.lnet_login import lnet_password
@@ -61,9 +71,10 @@ def main(s):
         # A protected name answers "password required" to this; an
         # unprotected one logs in. Said up front so the fix is known
         # before the rejection (#290).
-        s.echo(
+        say(
+            s,
             f"no LNet password stored for {name} — File → LNet Password… in the "
-            "window stores one; trying without"
+            "window stores one; trying without",
         )
     lnet.set_login_info(name, password=password)
     last_priv = None
@@ -74,7 +85,7 @@ def main(s):
         lnet.login()
         # A timeout keeps the loop polling for user commands and ;stop.
         lnet.connection.settimeout(RECV_TIMEOUT)
-        s.echo(f"logging in as {name} ...")
+        say(s, f"logging in to LNet as {name} ...")
         while True:
             while (line := s.command(timeout=0)) is not None:
                 last_priv = obey(s, lnet, line, last_priv, known)
@@ -88,7 +99,7 @@ def main(s):
                     continue  # unrecognized protocol element
                 if message.message_type == "greeting":
                     # The server's welcome doubles as login confirmation.
-                    s.echo(f"connected as {name} — chat appears in Thoughts")
+                    say(s, f"connected to LNet as {name}")
                     continue
                 if message.sender and message.message_type in ("private", "channel"):
                     remember_sender(known, message.sender)
@@ -100,14 +111,15 @@ def main(s):
                         s.emit(reply_hint(message.sender), "thoughts")
     except LoginRejected as rejection:
         # Rejections arrive asynchronously, after login() has returned.
-        s.echo(f"LNet login rejected: {rejection}")
-        s.echo(
-            "store this name's LNet password in the keychain (revenant-chat "
-            "asks and remembers it, or: keyring set revenant-lnet <Name>); "
-            "reset it at https://lnet.lichproject.org"
+        say(s, f"LNet login rejected for {name}: {rejection}")
+        say(
+            s,
+            "store the password with File → LNet Password… in the window (or "
+            "revenant-chat, or keyring set revenant-lnet <Name>); reset it at "
+            "https://lnet.lichproject.org",
         )
     except (ConnectionError, OSError) as error:
-        s.echo(f"LNet connection lost: {error}")
+        say(s, f"LNet connection lost: {error}")
     finally:
         lnet.connection.close()
 

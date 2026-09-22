@@ -9,6 +9,7 @@ The grammar is a 1:1 port of lich's lnet.lic.
 import importlib.util
 import pathlib
 import sys
+from types import SimpleNamespace
 
 REPO = pathlib.Path(__file__).parents[2]
 sys.path.insert(0, str(REPO))  # chat/ lives at the repo root, not in client/
@@ -29,6 +30,21 @@ lnet = _lnet_script()
 
 
 # --- the grammar: what each typed command means -------------------------
+
+
+def test_status_lines_reach_thoughts_as_well_as_the_main_window():
+    # An autostarted ;lnet's rejection went unseen in the story
+    # (2026-09-22): every status line also lands in Thoughts, starred
+    # the way the chat window prints its own.
+    echoed, emitted = [], []
+    handle = SimpleNamespace(
+        echo=echoed.append, emit=lambda text, stream: emitted.append((text, stream))
+    )
+    lnet.say(handle, "LNet login rejected for Lanival: password required")
+    assert echoed == ["LNet login rejected for Lanival: password required"]
+    assert emitted == [
+        ("* LNet login rejected for Lanival: password required", "thoughts")
+    ]
 
 
 def test_chat_alone_sends_to_your_default_channel():
