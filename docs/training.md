@@ -485,6 +485,18 @@ dr-scripts' appraisal.lic's; the success wordings grade with the ranks
 Kronars.", the wiki's "You are certain that ..."), so the script reads
 only refusals and echoes a run's first answer for the fixtures (#275).
 
+## The maintenance shutdown
+
+The game announces its maintenance ("DragonRealms will be shutting
+down in 15 minutes for routine maintenance", then 10, 5, 1) and the
+parser keeps the target time (`shutdown_at`, docs/protocol.md). Once
+it is within the plan's `shutdown_minutes` (3 by default), `;train`
+gives the running task its return word — the hunt finishes the kill
+and walks home — ends a rest, and stops with a word to start it again
+after; an unattended run is no longer cut mid-fight when the link
+drops. The window's strip counts the minutes down in red. After
+lich-5's `DRParser.shutting_down?`, which dr-scripts poll (#277).
+
 ## Out of scope in the first cut
 
 A dialog for the plan (the file is the interface), a trainer per

@@ -64,6 +64,14 @@ for `client/client/<pkg>/x.py`.
   ([{exist, name, noun, container_exist, worn, depth}]) from the
   command links INV LIST wraps each item in (`remove #id`, `get #id in
   #container`), built at the listing's footer whoever asked (#184).
+  After lich-5's DRInfomon (2026-09-22): `shutdown_at` (server
+  seconds) from the maintenance announcement, emitted as a
+  "shutdown" frame the strip counts down and `;train` winds down
+  before (#277); `balance` from the combat lines' twelve words
+  (#280); `exp_mods` ({skill: +-n}) from the exp window's modifiers
+  component, on the window's last line (#281); `room_creatures_dead`
+  beside `room_creatures`, the listing's "which appears dead" marks
+  (#278). `s.status` exposes each.
 - `client/engine/core.py` — `Engine`: feeds lines, emits synthetic streams
   (compass = room-arrival signal, room, vitals, indicators, character,
   timesync, roundtime/casttime, bell). It appends "\n" only to the last
@@ -91,7 +99,9 @@ for `client/client/<pkg>/x.py`.
   call raises ScriptStopped after a `;stop`, except `put(cmd,
   cleanup=True)` — for a `finally:` that puts an item back), plus
   run/is_running/tell/kill/crashed for a script that drives other
-  scripts (`;train`). `;help` renders docstrings.
+  scripts (`;train`), and flag/flagged/unflag — a regex watched on
+  every story line while the script does other things, the match
+  kept until read (#279, lich-5's Flags). `;help` renders docstrings.
 - `client/game/probe.py` — ask-and-classify shared by keyword scripts;
   `collect` glues per-segment pieces into whole lines and reads the
   story and the `combat` stream both (every swing and kill line
@@ -105,7 +115,10 @@ for `client/client/<pkg>/x.py`.
   the loop idioms the trainer scripts share — `wants_stop` (the
   typed return), `danger` (dead, or hostiles in the room), `pause`
   (one-second slices that notice both) — one home instead of a copy
-  per script (2026-09-22).
+  per script (2026-09-22). `client/game/creatures.py` counts the
+  room's creatures the way the game names them ("second cougar")
+  and `aim(noun, names, dead)` gives the phrase that reaches the
+  first live one past a corpse; `;hunt` swings at it (#278).
 - `client/engine/procspawn.py` + `client/engine/frozen.py` — every sibling spawn
   (session, dashboard, reexec child) goes through `command_for`, which
   is `python -m module` from source and `<exe> --role module` in the

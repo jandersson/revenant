@@ -705,6 +705,9 @@ class ClientGUI(QMainWindow, ClientLogger):
         if stream in ("roundtime", "casttime"):
             self.input_strip.update_timer(stream, text)
             return
+        if stream == "shutdown":
+            self.input_strip.update_shutdown(text)
+            return
         if stream == "character":
             name = text.strip()
             self.setWindowTitle(f"Revenant — {name}" if name else "Revenant")

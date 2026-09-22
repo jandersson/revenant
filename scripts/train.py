@@ -35,6 +35,12 @@ rather than resting. The loop is
 scaffolding for training scripts still to be written: a task is one
 line of JSON, and the plan is the only place a character's routine
 lives.
+The game's maintenance announcement ("DragonRealms will be shutting
+down in N minutes", the parser's `shutdown_at`) ends the run before
+the link drops (#277, after lich-5's DRParser.shutting_down?): once
+it is within the plan's `shutdown_minutes` (3), the task in hand gets
+its return word — the hunt finishes the kill and walks home — a rest
+ends, and ;train stops with a word to start it again after.
 """
 
 import time
@@ -143,12 +149,27 @@ def stop_script(s, task):
         s.sleep(0.25)
 
 
+def shutdown_soon(s, plan):
+    """True once the game's announced maintenance shutdown (the parser's
+    `shutdown_at`, #277) is within the plan's `shutdown_minutes`: the
+    task in hand gets its return word and the run ends, so the character
+    is not cut mid-hunt when the link drops."""
+    at = getattr(s.state, "shutdown_at", None)
+    now = getattr(s.state, "server_time", None)
+    if not at or not now:
+        return False
+    return (int(at) - int(now)) / 60 <= plan.get("shutdown_minutes", 3)
+
+
 def watch(s, plan, task, deadline, running=None):
     """The shared loop of both task kinds: why the task ends ("dead",
-    "target", "timeout", "skip", "rest", "ended"), or None to carry
-    on. running() says whether a script task's script is still up."""
+    "shutdown", "target", "timeout", "skip", "rest", "ended"), or None
+    to carry on. running() says whether a script task's script is
+    still up."""
     if s.dead:
         return "dead"
+    if shutdown_soon(s, plan):
+        return "shutdown"
     if running is not None and not running():
         return "ended"
     if satisfied(plan, task, experience(s)):
@@ -212,6 +233,7 @@ ENDINGS = {
     "skipped": "could not start",
     "failed": "failed to start",
     "crashed": "its script crashed",
+    "shutdown": "wound down for the game's shutdown",
 }
 UNTRAINED = ("skipped", "failed", "crashed")  # a task that never trained
 
@@ -249,8 +271,8 @@ def train_cycle(s, plan):
         if task is None:
             break
         reason = run_task(s, plan, task)
-        if reason == "dead":
-            return "dead"
+        if reason in ("dead", "shutdown"):
+            return reason
         spent.add(task["name"])
         outcomes.append(reason)
         if reason == "rest":
@@ -394,6 +416,8 @@ def rest(s, plan, db, walk, index):
         if rested(plan, experience(s)):
             s.echo("train: rested — the pool has drained")
             return index
+        if shutdown_soon(s, plan):
+            return index  # run() ends the run
         if cap and clock() - started >= cap * 60:
             s.echo(f"train: {cap} minutes of rest — moving on")
             return index
@@ -446,9 +470,21 @@ def run(s, plan, cycles, db=None, walk=None):
                 "check the scripts' own echoes and the plan"
             )
             return
+        if outcome == "shutdown" or shutdown_soon(s, plan):
+            s.echo(
+                "train: the game is shutting down for maintenance — stopping; "
+                "start me again after it"
+            )
+            return
         index = rest(s, plan, db, walk, index)
         if index is None:
             s.echo("train: you are dead — stopping; deathwatch has it")
+            return
+        if shutdown_soon(s, plan):
+            s.echo(
+                "train: the game is shutting down for maintenance — stopping; "
+                "start me again after it"
+            )
             return
     s.echo(f"train: {cycle} cycle(s) done")
 

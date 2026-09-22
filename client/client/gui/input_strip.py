@@ -156,10 +156,16 @@ class InputStrip(QWidget):
         # the scrolling text buries (#75).
         self.status_strip = QLabel("")
         self.status_strip.setMinimumWidth(70)
+        # The maintenance countdown (#277): "shutdown in N min" in the
+        # alert red, ticking with the roundtime timer.
+        self.shutdown_label = QLabel("")
+        self.shutdown_label.setStyleSheet("color: #e05252; font-weight: bold;")
+        self._shutdown_end = 0.0  # local clock
         row = QWidget()
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(4, 0, 4, 0)
         row_layout.addWidget(self.status_strip)
+        row_layout.addWidget(self.shutdown_label)
         row_layout.addWidget(self.rt_label)
         row_layout.addWidget(self.ct_label)
         row_layout.addWidget(self.prompt)
@@ -194,6 +200,28 @@ class InputStrip(QWidget):
         # must not wake it.
         if max(self._timer_ends.values()) > time() and not self.rt_timer.isActive():
             self.rt_timer.start()
+
+    def update_shutdown(self, text: str):
+        """A "shutdown" frame (#277): "end<TAB>server now" in server epoch
+        seconds, like a roundtime frame; the label counts the minutes
+        down until the game goes."""
+        try:
+            end, server_now = (int(part) for part in text.split("\t"))
+        except ValueError:
+            return
+        self._shutdown_end = time() + max(0, end - server_now)
+        self._tick_timers()
+        if not self.rt_timer.isActive():
+            self.rt_timer.start()
+
+    def shutdown_text(self, now=None):
+        """The countdown's wording, "" when none is announced."""
+        if not self._shutdown_end:
+            return ""
+        left = self._shutdown_end - (time() if now is None else now)
+        if left <= 0:
+            return "shutdown now"
+        return f"shutdown in {ceil(left / 60)} min"
 
     def update_indicators(self, text: str):
         """An "indicators" frame: the active indicator ids, space
@@ -251,5 +279,6 @@ class InputStrip(QWidget):
             self.ct_label.setText(f"CT {remaining_ct}")
         else:
             self.ct_label.setText("")
-        if remaining_rt <= 0 and remaining_ct <= 0:
+        self.shutdown_label.setText(self.shutdown_text(now))
+        if remaining_rt <= 0 and remaining_ct <= 0 and self._shutdown_end <= now:
             self.rt_timer.stop()

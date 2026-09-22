@@ -104,3 +104,31 @@ def test_the_rooms_players_and_creatures_are_in_the_view_and_the_line():
         "| with: Bankismo, Vintz | creatures: a musk hog x2, a town guard | RT 5"
     )
     assert counted([]) == ""
+
+
+def test_the_shutdown_minutes_count_down_rounded_up_and_never_below_zero():
+    # #277: 150 seconds left reads as 3 minutes; none announced is None.
+    assert status(state(shutdown_at=1789228595 + 150)).shutdown_minutes == 3
+    assert status(state(shutdown_at=1789228595 - 10)).shutdown_minutes == 0
+    assert status(state()).shutdown_minutes is None
+    assert "SHUTDOWN in 3 min" in status(state(shutdown_at=1789228595 + 150)).summary()
+
+
+def test_the_balance_word_and_its_level_and_the_exp_mods():
+    view = status(state(balance="badly balanced", exp_mods={"Evasion": 5}))
+    assert view.balance == "badly balanced" and view.balance_level == 4
+    assert view.exp_mods == {"Evasion": 5}
+    assert "badly balanced" in view.summary()
+    base = status(state(balance="solidly balanced"))
+    assert base.balance_level == 8 and "balanced" not in base.summary()
+    assert status(state()).balance is None and status(state()).balance_level is None
+
+
+def test_the_corpse_marks_ride_beside_the_creatures():
+    view = status(
+        state(
+            room_creatures=["a cougar", "a cougar"], room_creatures_dead=[True, False]
+        )
+    )
+    assert view.creatures_dead == [True, False]
+    assert status(state()).creatures_dead == []

@@ -28,10 +28,12 @@ FIELDS = (
     "spells",
     "room_players",
     "room_creatures",
+    "room_creatures_dead",
     "room_objs",
     "hostiles",
     "rested",
     "possessions",
+    "exp_mods",
 )
 
 
@@ -57,6 +59,9 @@ def _status(status):
         "roundtime": status.roundtime,
         "casttime": status.casttime,
         "hands_empty": status.hands_empty,
+        "balance": status.balance,
+        "balance_level": status.balance_level,
+        "shutdown_minutes": status.shutdown_minutes,
         "summary": status.summary(),
     }
 
@@ -102,6 +107,10 @@ def snapshot(xml_data, fields=None) -> dict:
         "spells": lambda: _spells(xml_data),
         "room_players": lambda: list(getattr(xml_data, "room_players", None) or []),
         "room_creatures": lambda: list(getattr(xml_data, "room_creatures", None) or []),
+        "room_creatures_dead": lambda: list(
+            getattr(xml_data, "room_creatures_dead", None) or []
+        ),
+        "exp_mods": lambda: dict(getattr(xml_data, "exp_mods", None) or {}),
         "room_objs": lambda: getattr(xml_data, "room_objs", "") or "",
         "hostiles": lambda: {
             str(exist): engaged

@@ -44,7 +44,10 @@ entries from a dock-layout module.
   frames come only with the creatures' next attacks, #244; the
   prepared spell from `<spell>` and
   the running spells with minutes left from the Spells window's
-  `percWindow` pulses, 2026-09-12) — docs/protocol.md is the wire-protocol reference it
+  `percWindow` pulses, 2026-09-12; after lich-5's DRInfomon, the
+  maintenance shutdown's target time from its announcement, the
+  balance word from the combat lines, the exp window's modifiers and
+  the corpse marks beside the room's creatures, #277-#281) — docs/protocol.md is the wire-protocol reference it
   implements against (tag grammar cited to the GemStone wiki's Wrayth
   protocol page, DR's own stream/component/indicator ids derived from
   captured traffic) — plus `route(line)` which splits each line

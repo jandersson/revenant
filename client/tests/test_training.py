@@ -264,3 +264,11 @@ def test_a_plan_saved_with_the_old_stop_keys_still_loads():
     assert "stop_word" not in task and "stop_grace" not in task
     # A word that was never "stop" is carried as it was.
     assert training.normalize_task({"stop_word": "home"})["return_word"] == "home"
+
+
+def test_the_shutdown_minutes_are_a_plan_setting():
+    from client.game.training import DEFAULTS, PLAN_FIELDS, normalize
+
+    assert DEFAULTS["shutdown_minutes"] == 3
+    assert any(key == "shutdown_minutes" for key, *_ in PLAN_FIELDS)
+    assert normalize({"shutdown_minutes": "5"})["shutdown_minutes"] == 5

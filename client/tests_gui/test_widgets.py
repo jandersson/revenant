@@ -144,3 +144,18 @@ def test_the_spells_dock_keeps_the_platform_size_whatever_the_story_uses(qapp):
         default,
     )
     assert own.pointSize() == 9
+
+
+def test_the_strip_counts_the_announced_shutdown_down(qapp):
+    # #277: "end<TAB>server now" like a roundtime frame; minutes, rounded up.
+    from client.gui.input_strip import InputStrip
+
+    strip = InputStrip()
+    assert strip.shutdown_label.text() == ""
+    strip.update_shutdown("1900\t1000")  # fifteen minutes
+    assert strip.shutdown_label.text() == "shutdown in 15 min"
+    assert strip.shutdown_text(strip._shutdown_end + 1) == "shutdown now"
+    strip.update_shutdown("bogus")  # a malformed frame changes nothing
+    assert strip.shutdown_label.text() == "shutdown in 15 min"
+    strip.rt_timer.stop()
+    strip.deleteLater()

@@ -504,3 +504,34 @@ def test_engine_emits_the_injuries_panel_as_a_frame_on_change():
     assert injuries_frame({"back": ("scar", 2), "head": ("wound", 1)}) == (
         "back scar 2 head wound 1"
     )
+
+
+def test_engine_emits_the_shutdown_countdown_once_per_announcement():
+    # #277: "end<TAB>server now", like the roundtime frames.
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b'<prompt time="1000">&gt;</prompt>\n',
+            b"Announcement: DragonRealms will be shutting down in 15 minutes for "
+            b"routine maintenance.\n",
+            b"nothing changes here\n",
+        ]
+    )
+    out = _read_all(engine, 3)
+    frames = [frame for frame in out if frame[1] == "shutdown"]
+    assert frames == [("1900\t1000", "shutdown", "")]
+
+
+def test_the_exp_window_rewrite_ends_with_the_modifiers_line():
+    # #281: the mods component rewrites the window like a skill change.
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b"<component id='exp Evasion'>Evasion:  30 12% learning</component>\n",
+            b"<component id='exp mods'>The following skills are currently under "
+            b"the influence of a modifier  +5 Evasion  --3 Perception</component>\n",
+        ]
+    )
+    out = _read_all(engine, 2)
+    exp_lines = [text for text, stream, _ in out if stream == "exp"]
+    assert exp_lines[-1] == "mods: Evasion +5, Perception -3\n"

@@ -143,8 +143,68 @@ _EXP_TEXT = re.compile(
     r":\s*(\d+)\s+(\d+)%\s+(?:\[\s*(\d+)/34\]|([a-zA-Z][a-zA-Z ]*?))\s*$"
 )
 
-# The exp window's non-skill components (TDPs, favors, rested exp).
+# The exp window's non-skill components (TDPs, favors, rested exp, the
+# modifiers — the last parsed on its own below).
 _EXP_NOT_SKILLS = {"exp tdp", "exp favor", "exp rexp", "exp mods"}
+# The exp window's modifiers component (#281): a header, then "+5 Evasion"
+# / "--3 Perception" entries — lich-5 drparser.rb's ExpModLine, one per
+# line there; read as entries wherever they sit (the wire's layout of the
+# component is uncaptured; the other exp components come one per line).
+_EXP_MOD = re.compile(
+    r"(\+|--?)\s*(\d+)\s+([A-Za-z][A-Za-z' ]*?)(?=\s*(?:\+|--?)\s*\d|\s*$)",
+    re.MULTILINE,
+)
+# The maintenance announcement (#277): "Announcement: DragonRealms will be
+# shutting down in 15 minutes for routine maintenance." — lich-5
+# drparser.rb's GameShutdown, anchored so quoted text cannot trigger it.
+_SHUTDOWN = re.compile(
+    r"^(?:Announcement:\s+)?DragonRealms will be shutting down in (\d+) minutes?\b"
+)
+# The balance word (#280): Elanthipedia's Combat page lists twelve levels,
+# low to high; the game states it as "You are solidly balanced", the
+# combat status line "[You're solidly balanced and in good position.]"
+# or the ASSESS line "You (solidly balanced) are facing ...".
+BALANCE_LEVELS = (
+    "completely imbalanced",
+    "hopelessly unbalanced",
+    "extremely imbalanced",
+    "very badly balanced",
+    "badly balanced",
+    "somewhat off balance",
+    "off balance",
+    "slightly off balance",
+    "solidly balanced",
+    "nimbly balanced",
+    "adeptly balanced",
+    "incredibly balanced",
+)
+_BALANCE = re.compile(
+    r"^(?:You are (?:[^,]*, )?|\[You're |You \()("
+    + "|".join(re.escape(level) for level in BALANCE_LEVELS)
+    + r")\b"
+)
+# A corpse in the room's listing: "a cougar which appears dead" (captured
+# 2026-09-22), or "(dead)" with the short post strings (lich-5 drdefs.rb).
+_DEAD_MARKS = ("which appears dead", "(dead)")
+
+
+def parse_exp_mods(text):
+    """{skill: signed modifier} from the exp mods component's text (#281):
+    "+5 Evasion" is 5, "--3 Perception" is -3; {} for none."""
+    mods = {}
+    for match in _EXP_MOD.finditer(text or ""):
+        value = int(match.group(2))
+        mods[match.group(3).strip()] = value if match.group(1) == "+" else -value
+    return mods
+
+
+def describe_exp_mods(mods):
+    """One line for the exp window: "mods: Evasion +5, Perception -3"."""
+    return "mods: " + ", ".join(
+        f"{skill} {value:+d}" for skill, value in sorted((mods or {}).items())
+    )
+
+
 # The injuries panel's hurt states: "Injury1" (captured), "Scar2" (the
 # pattern's assumption for scars, #163).
 _INJURY = re.compile(r"(Injury|Scar)(\d+)$", re.IGNORECASE)
@@ -221,6 +281,11 @@ class XMLData:
         # hostiles, until the fresh listing arrives.
         self.room_creatures = []
         self.creatures_updated = False
+        # Parallel to room_creatures: True for one the listing marks dead
+        # ("which appears dead"), so a script can aim past it (#278).
+        self.room_creatures_dead = []
+        self._objs_dead = None
+        self._objs_after_bold = False
         self._objs_names = None  # the names read so far, inside room objs
         self._objs_bold = None  # the bold run being read, inside room objs
         # The listing's whole text, "You also see a news stand ..., a
@@ -285,6 +350,18 @@ class XMLData:
         # component removes the skill (it left the learning queue).
         self.experience = {}
         self.exp_updated = False
+        # The exp window's modifiers, {skill: +-n}, a change rewriting
+        # the window (#281).
+        self.exp_mods = {}
+        self._mods_text = None
+        # The announced maintenance shutdown as server epoch seconds, or
+        # None (#277); the engine emits a "shutdown" frame on a change.
+        self.shutdown_at = None
+        self.shutdown_updated = False
+        # The balance word as the game last stated it (#280), one of
+        # BALANCE_LEVELS, or None before the first combat line.
+        self.balance = None
+        self.balance_updated = False
         self._exp_skill = None
         self._exp_text = ""
         # What each hand holds, from <left exist='...' noun='...'>oak-
@@ -332,14 +409,36 @@ class XMLData:
                 self._perc_text += "\n"
         if self._players_text is not None:
             self._players_text += text_string
+        if self._objs_after_bold:
+            # The text right after a bolded creature says whether it is
+            # a corpse: " which appears dead, ..." (#278).
+            self._objs_after_bold = False
+            if self._objs_dead and text_string.lstrip().startswith(_DEAD_MARKS):
+                self._objs_dead[-1] = True
         if self._objs_bold is not None:
             self._objs_bold.append(text_string)
         if self._objs_text is not None:
             self._objs_text.append(text_string)
+        if self._mods_text is not None:
+            self._mods_text += text_string
         if self._rested_text is not None:
             self._rested_text += text_string
         if self._hand is not None:
             self._hand[2].append(text_string)
+        stripped = text_string.strip()
+        if stripped:
+            if match := _SHUTDOWN.match(stripped):
+                # The count drops with every announcement; the target
+                # time is recomputed each time (#277).
+                if self.server_time:
+                    at = int(self.server_time) + int(match.group(1)) * 60
+                    if at != self.shutdown_at:
+                        self.shutdown_at = at
+                        self.shutdown_updated = True
+            elif match := _BALANCE.match(stripped):
+                if match.group(1) != self.balance:
+                    self.balance = match.group(1)
+                    self.balance_updated = True
 
     def start(self, name: str, attributes: dict):
         self.active_tags.append(name)
@@ -383,6 +482,7 @@ class XMLData:
             self.hostiles = {}
             self._staged_hostiles = None
             self.room_creatures = []
+            self.room_creatures_dead = []
             self.room_objs = ""
         elif name == "roundTime":
             self.roundtime = int(attributes["value"])
@@ -425,8 +525,11 @@ class XMLData:
             elif ident == "room objs":
                 self._objs_names, self._objs_bold = [], None
                 self._objs_text = []
+                self._objs_dead, self._objs_after_bold = [], False
             elif ident == "exp rexp":
                 self._rested_text = ""
+            elif ident == "exp mods":
+                self._mods_text = ""
         elif name == "d" and self._inv_links is not None:
             self._link = (attributes.get("cmd", ""), [])
         elif name == "pushBold" and self._objs_names is not None:
@@ -436,6 +539,9 @@ class XMLData:
             self._objs_bold = None
             if creature:
                 self._objs_names.append(creature)
+                if self._objs_dead is not None:
+                    self._objs_dead.append(False)
+                    self._objs_after_bold = True
         elif name == "crtrStatus":
             # The first tag since the last swap opens a fresh staged
             # set — the burst is the enumeration (#85), nothing else
@@ -500,10 +606,20 @@ class XMLData:
                 self.rested_updated = True
         if name == "component" and self._objs_text is not None:
             self.room_objs, self._objs_text = "".join(self._objs_text).strip(), None
+        if name == "component" and self._mods_text is not None:
+            text, self._mods_text = self._mods_text, None
+            mods = parse_exp_mods(text)
+            if mods != self.exp_mods:
+                self.exp_mods = mods
+                self.exp_updated = True
         if name == "component" and self._objs_names is not None:
             creatures, self._objs_names, self._objs_bold = self._objs_names, None, None
-            if creatures != self.room_creatures:
+            dead, self._objs_dead = list(self._objs_dead or []), None
+            self._objs_after_bold = False
+            dead += [False] * (len(creatures) - len(dead))
+            if creatures != self.room_creatures or dead != self.room_creatures_dead:
                 self.room_creatures = creatures
+                self.room_creatures_dead = dead
                 self.creatures_updated = True
         if name == "spell" and self._spell_text is not None:
             text, self._spell_text = self._spell_text.strip(), None

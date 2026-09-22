@@ -229,6 +229,14 @@ class SessionServer(ClientLogger):
             # (#56) — same story as the compass above.
             if room := room_frame(self.engine.xml_data):
                 replay += encode_frame(room, "room")
+            # The maintenance countdown (#277), restated against the
+            # current server clock so the late window counts from now
+            # (a backlogged frame would start a stale countdown).
+            data = self.engine.xml_data
+            if getattr(data, "shutdown_at", None) and data.server_time:
+                replay += encode_frame(
+                    f"{data.shutdown_at}\t{data.server_time}", "shutdown"
+                )
             try:
                 if replay:
                     conn.sendall(replay)
@@ -329,7 +337,7 @@ class SessionServer(ClientLogger):
     # Moment-bound streams: meaningful only at the instant they fire.
     # Replaying one to a freshly attached frontend would start a stale
     # countdown, so they are never kept in the backlog.
-    TRANSIENT_STREAMS = ("roundtime", "casttime", "bell")
+    TRANSIENT_STREAMS = ("roundtime", "casttime", "bell", "shutdown")
 
     def reply(self, conn, text: str, stream: str):
         """One frame to one connection — never the backlog, never the

@@ -273,3 +273,41 @@ the bold names, in order, as `room_creatures` (dr-scripts' `DRRoom.npcs`),
 cleared on `<nav>` until the new room's listing lands. The hostile
 status tags (`<crtrStatus>`, above) are the fight's view; this is the
 head count on arrival, before anything engages (#178).
+
+## Corpses in the listing, the balance word, the shutdown, the exp mods (2026-09-22)
+
+Four things lich-5's DRInfomon (`lib/dragonrealms/drinfomon/`) reads
+that the parser now keeps too:
+
+- **Corpses in the room's listing** (#278). The text right after a bold
+  creature says whether it is one: `<pushBold/>a cougar<popBold/> which
+  appears dead, a rise in the cliff, <pushBold/>a cougar<popBold/> and
+  <pushBold/>a cougar<popBold/>` (captured 2026-09-22 in the Northeast
+  Vineyards); with the game's short post strings it reads `(dead)`
+  (lich-5 drdefs.rb). `room_creatures_dead` is the parallel list of
+  booleans, and `client/game/creatures.py` turns the pair into the
+  game's own ordinals — the corpse is "cougar", the live ones "second
+  cougar" and "third cougar" — so `;hunt` aims past the corpse.
+- **The balance word** (#280). Elanthipedia's Combat page lists twelve
+  levels, "completely imbalanced" to "incredibly balanced", "solidly
+  balanced" the base; the game states it as "You are solidly
+  balanced", in the status line "[You're badly balanced and in good
+  position.]" or the ASSESS line "You (off balance) are facing a ship
+  rat (1) at melee range." `balance` holds the last word stated (no
+  capture in the logs yet; the forms are the wiki's and lich-5's
+  `BalanceValue`). Position, the other half of that line, is not read.
+- **The maintenance announcement** (#277). "Announcement: DragonRealms
+  will be shutting down in 15 minutes for routine maintenance." — the
+  count drops with every notice down to "1 minute", the trailing text
+  varies, so the stem is matched anchored at the line's start (quoted
+  text cannot trigger it) and `shutdown_at` is the server clock plus
+  the minutes, recomputed each time. The engine emits a `shutdown`
+  frame ("end<TAB>server now", the roundtime frames' shape, transient
+  like them and restated to a late attacher against the current clock);
+  the strip counts it down and `;train` winds down. No capture yet:
+  lich-5 drparser.rb's `GameShutdown` is the pattern.
+- **The exp window's modifiers** (#281). `<component id='exp mods'>`
+  carries a header and one `+5 Evasion` / `--3 Perception` per line
+  (lich-5's `ExpModLine`; uncaptured here — no rank-modifying buff has
+  been up while logging). `exp_mods` is `{skill: +-n}` and a change
+  rewrites the exp stream, whose last line reads "mods: Evasion +5".

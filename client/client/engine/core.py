@@ -7,7 +7,7 @@ from xml.etree.ElementTree import ParseError, XMLParser
 from client.engine.login import simu_login
 from client.game.rested import describe as describe_rested
 from client.client_logger import ClientLogger
-from client.engine.xml_data import XMLData
+from client.engine.xml_data import XMLData, describe_exp_mods
 
 
 def indicators_frame(indicator: dict) -> str:
@@ -220,6 +220,12 @@ class Engine(ClientLogger):
                                 "exp",
                                 "",
                             )
+                        if self.xml_data.exp_mods:
+                            output_callback(
+                                describe_exp_mods(self.xml_data.exp_mods) + "\n",
+                                "exp",
+                                "",
+                            )
                         if self.xml_data.rested:
                             output_callback(
                                 describe_rested(self.xml_data.rested) + "\n", "exp", ""
@@ -247,6 +253,22 @@ class Engine(ClientLogger):
             self._last_character = self.xml_data.name
             if output_callback:
                 output_callback(self.xml_data.name, "character", "")
+
+        # The maintenance countdown (#277): "end<TAB>server now" like the
+        # roundtime frames, once per announcement; the GUI's strip counts
+        # it down and ;train winds down before it.
+        if self.xml_data.shutdown_updated:
+            self.xml_data.shutdown_updated = False
+            if (
+                output_callback
+                and self.xml_data.shutdown_at
+                and self.xml_data.server_time
+            ):
+                output_callback(
+                    f"{self.xml_data.shutdown_at}\t{self.xml_data.server_time}",
+                    "shutdown",
+                    "",
+                )
 
         # Vitals ("health 100 stamina 95 ..."): the game updates its
         # minivitals bars piecemeal; every change emits the full

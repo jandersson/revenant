@@ -814,3 +814,92 @@ def test_room_objs_is_the_listings_whole_text_cleared_on_a_room_change(xml_data)
     assert xml_data.room_creatures == ["a uniformed representative"]
     _feed_one(xml_data, "<nav rm='1234'/>")
     assert xml_data.room_objs == ""
+
+
+# -- the maintenance shutdown (#277), the balance word (#280), the exp
+# -- mods (#281) and the corpses in the listing (#278), 2026-09-22
+
+
+def test_the_shutdown_announcement_sets_the_target_time_and_moves_with_the_count(
+    xml_data,
+):
+    # lich-5's GameShutdown pattern; the count drops with every notice.
+    _feed_one(xml_data, '<prompt time="1000">&gt;</prompt>')
+    _feed_one(
+        xml_data,
+        "Announcement: DragonRealms will be shutting down in 15 minutes for "
+        "routine maintenance.",
+    )
+    assert xml_data.shutdown_at == 1000 + 15 * 60
+    assert xml_data.shutdown_updated
+    xml_data.shutdown_updated = False
+    _feed_one(xml_data, '<prompt time="1900">&gt;</prompt>')
+    _feed_one(xml_data, "DragonRealms will be shutting down in 1 minute.")
+    assert xml_data.shutdown_at == 1900 + 60
+    assert xml_data.shutdown_updated
+    # quoted text never triggers it
+    xml_data.shutdown_updated = False
+    _feed_one(
+        xml_data, 'Lanival says, "DragonRealms will be shutting down in 5 minutes"'
+    )
+    assert xml_data.shutdown_at == 1900 + 60 and not xml_data.shutdown_updated
+
+
+def test_the_balance_word_is_read_off_the_three_combat_lines(xml_data):
+    # Elanthipedia's Combat page: the twelve levels and the three forms.
+    _feed_one(xml_data, "You are solidly balanced.")
+    assert xml_data.balance == "solidly balanced" and xml_data.balance_updated
+    xml_data.balance_updated = False
+    _feed_one(xml_data, "[You're badly balanced and in good position.]")
+    assert xml_data.balance == "badly balanced" and xml_data.balance_updated
+    xml_data.balance_updated = False
+    _feed_one(
+        xml_data,
+        "You (somewhat off balance) are facing a ship rat (1) at melee range.",
+    )
+    assert xml_data.balance == "somewhat off balance"
+    _feed_one(xml_data, "You (off balance) are facing a ship rat (1) at melee range.")
+    assert xml_data.balance == "off balance"
+    xml_data.balance_updated = False
+    _feed_one(xml_data, "You are hungry.")
+    assert xml_data.balance == "off balance" and not xml_data.balance_updated
+
+
+def test_the_exp_mods_component_becomes_signed_modifiers_by_skill(xml_data):
+    # lich-5's ExpModLine: "+5 Evasion", "--3 Perception"; uncaptured here.
+    _feed_one(
+        xml_data,
+        "<component id='exp mods'>The following skills are currently under "
+        "the influence of a modifier\n+5 Evasion\n--3 Perception\n</component>",
+    )
+    assert xml_data.exp_mods == {"Evasion": 5, "Perception": -3}
+    assert xml_data.exp_updated
+    xml_data.exp_updated = False
+    _feed_one(xml_data, "<component id='exp mods'></component>")
+    assert xml_data.exp_mods == {} and xml_data.exp_updated
+    # never mistaken for a skill's line
+    assert "mods" not in xml_data.experience
+
+
+def test_a_corpse_in_the_listing_is_marked_beside_its_name(xml_data):
+    # Captured 2026-09-22 in the Northeast Vineyards.
+    _feed_one(
+        xml_data,
+        "<component id='room objs'>You also see <pushBold/>a cougar<popBold/> "
+        "which appears dead, a rise in the cliff, <pushBold/>a cougar<popBold/> "
+        "and <pushBold/>a cougar<popBold/>.</component>",
+    )
+    assert xml_data.room_creatures == ["a cougar", "a cougar", "a cougar"]
+    assert xml_data.room_creatures_dead == [True, False, False]
+    xml_data.creatures_updated = False
+    # the same heads, one more of them dead: a change
+    _feed_one(
+        xml_data,
+        "<component id='room objs'>You also see <pushBold/>a cougar<popBold/> "
+        "which appears dead, <pushBold/>a cougar<popBold/> (dead) and "
+        "<pushBold/>a cougar<popBold/>.</component>",
+    )
+    assert xml_data.room_creatures_dead == [True, True, False]
+    assert xml_data.creatures_updated
+    _feed_one(xml_data, "<nav rm='1234'/>")
+    assert xml_data.room_creatures_dead == []

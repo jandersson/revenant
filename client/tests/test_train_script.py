@@ -607,3 +607,33 @@ def test_no_tdp_plan_asks_no_info(clock):
     fake = _tdp_fake()
     run(clock, fake, plan())
     assert "info" not in fake.sent
+
+
+def test_an_announced_shutdown_winds_the_task_down_and_ends_the_run(clock):
+    # #277: the parser's shutdown_at within the plan's shutdown_minutes
+    # gets the hunt its return word, and ;train stops instead of resting.
+    def announce(fake):
+        fake.state.experience = {
+            "Athletics": {"rank": 1, "percent": 0, "mindstate": 30},
+            "Small Edged": {"rank": 1, "percent": 0, "mindstate": 12},
+        }
+        fake.state.server_time = 1000
+        fake.state.shutdown_at = 1000 + 120  # two minutes: under the three
+
+    fake = run(
+        clock,
+        Fake(
+            [
+                {"Athletics": 30},
+                {"Athletics": 30, "Small Edged": 5},
+                announce,
+                {"Athletics": 30, "Small Edged": 12},
+            ]
+        ),
+        plan(),
+    )
+    assert fake.started == [("hunt", [])]
+    assert fake.told == [("hunt", "return")]
+    assert any("wound down for the game's shutdown" in text for text in fake.echoed)
+    assert fake.echoed[-1].startswith("train: the game is shutting down")
+    assert not any("resting until" in text for text in fake.echoed)

@@ -24,6 +24,7 @@ A plan, with every key the loop reads:
      "order": "listed",             or "lowest": the least-trained task first
      "poll": 30,                    seconds between mindstate checks
      "cycles": 0,                   train-rest cycles; 0 = until stopped
+     "shutdown_minutes": 3,         end the run this close to an announced shutdown
      "tasks": [
       {"name": "climbs", "script": "athletics", "skills": ["Athletics"]},
       {"name": "rats", "script": "hunt", "skills": ["Small Edged", "Evasion"],
@@ -65,6 +66,9 @@ DEFAULTS = {
     "soul": "off",
     "tdp": [],
     "tdp_reserve": 0,
+    # The run ends, the task in hand wound down first, once the game's
+    # announced shutdown is this close (#277).
+    "shutdown_minutes": 3,
     "tasks": [],
 }
 SOUL = ("off", "on")
@@ -113,6 +117,7 @@ PLAN_FIELDS = (
         "stamina 30, strength 30 — or auto",
     ),
     ("tdp_reserve", "TDPs kept unspent", "int", "0"),
+    ("shutdown_minutes", "Wind down when the shutdown is within, minutes", "int", "3"),
 )
 TASK_FIELDS = (
     ("name", "Name", "str", "how the task is reported"),
@@ -137,6 +142,7 @@ _INTS = (
     "poll",
     "cycles",
     "tdp_reserve",
+    "shutdown_minutes",
 )
 _TASK_INTS = ("return_grace", "pace")
 _TASK_OPTIONAL_INTS = ("target", "minutes")

@@ -30,6 +30,8 @@ BADGES = (
     ("IconJOINED", "joined"),
 )
 VITALS = ("health", "mana", "stamina", "spirit", "concentration")
+# The balance words low to high (client/engine/xml_data.py, #280).
+from client.engine.xml_data import BALANCE_LEVELS  # noqa: E402
 
 
 def counted(names):
@@ -185,6 +187,43 @@ class Status:
         return max(0, int(until) - int(now))
 
     @property
+    def shutdown_minutes(self):
+        """Minutes until the announced maintenance shutdown (#277), rounded
+        up and never negative; None when none is announced."""
+        at = getattr(self._state, "shutdown_at", None)
+        now = getattr(self._state, "server_time", None)
+        if not at or not now:
+            return None
+        return max(0, -(-(int(at) - int(now)) // 60))
+
+    # -- combat -------------------------------------------------------------
+
+    @property
+    def balance(self):
+        """The balance word as the game last stated it ("solidly
+        balanced", #280), or None before any combat line."""
+        return getattr(self._state, "balance", None)
+
+    @property
+    def balance_level(self):
+        """The balance as 0 (completely imbalanced) to 11 (incredibly
+        balanced), 8 being the solid base; None when unknown."""
+        word = self.balance
+        return BALANCE_LEVELS.index(word) if word in BALANCE_LEVELS else None
+
+    @property
+    def exp_mods(self):
+        """{skill: signed rank modifier} from the exp window's modifiers
+        component (#281); {} when none is up."""
+        return dict(getattr(self._state, "exp_mods", None) or {})
+
+    @property
+    def creatures_dead(self):
+        """Parallel to `creatures`: True for one the listing marks as a
+        corpse (#278)."""
+        return list(getattr(self._state, "room_creatures_dead", None) or [])
+
+    @property
     def mindstates(self):
         """{skill: mindstate 0-34} for every skill the exp window shows."""
         experience = getattr(self._state, "experience", None) or {}
@@ -229,6 +268,10 @@ class Status:
             parts.append(f"RT {self.roundtime}")
         if self.casttime:
             parts.append(f"CT {self.casttime}")
+        if self.balance and self.balance != "solidly balanced":
+            parts.append(self.balance)
+        if (minutes := self.shutdown_minutes) is not None:
+            parts.append(f"SHUTDOWN in {minutes} min")
         return " | ".join(parts) if parts else "(no state yet)"
 
 
