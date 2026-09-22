@@ -21,7 +21,7 @@ The login window asks for your account, password, and character (the roster is f
 
 Run the commands from the repository root; that is where `uv` finds the workspace and the session finds its scripts.
 
-**Windows:** a Start Menu shortcut that opens the character picker, pinnable to the taskbar:
+**Windows:** a Start Menu shortcut that opens the character picker, pinnable to the taskbar (the button's right-click menu then launches another character):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/install_shortcut.ps1

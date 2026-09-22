@@ -42,7 +42,9 @@ from client.gui import dock_collapse
 from client.gui.compass_dock import CompassRose
 from client.gui.injuries_dock import InjuriesPanel
 from client.gui.spells_dock import SpellsPanel
+from client.gui import jumplist
 from client.gui.input_strip import InputStrip
+from client.gui.jumplist import APP_USER_MODEL_ID
 from client.gui.map_dock import MapView
 from client.gui.text_views import GameTextView, font_for, style_experience_view
 from client.ui.highlights import highlights_path, load_rules, spans
@@ -72,12 +74,8 @@ def layout_settings():
 
 ICON_PATH = str(Path(__file__).with_name("revenant.svg"))
 
-# Windows groups taskbar buttons by AppUserModelID, defaulting to the exe
-# path — which for us is pythonw.exe, shared with every other Python GUI.
-# Claiming our own ID (matching the one tools/install_shortcut.ps1 stamps
-# on the Start Menu shortcut) merges the running window with the pinned
-# icon instead of splitting into two buttons.
-APP_USER_MODEL_ID = "revenant.client"
+# Windows groups taskbar buttons by AppUserModelID (jumplist.py has the
+# story); claiming ours merges the running window with the pinned icon.
 
 DASHBOARD_URL = "http://127.0.0.1:8050"
 
@@ -992,6 +990,7 @@ def main(argv=None):
     args = argparser.parse_args(argv)
     claim_taskbar_identity()  # before any window exists
     app = QApplication(sys.argv[:1])
+    jumplist.install()  # the button's "launch another character" tasks (#226)
     # On macOS this also sets the Dock icon for the running app.
     app.setWindowIcon(QIcon(ICON_PATH))
     if args.attach:

@@ -6,7 +6,9 @@ behind the GUI. The shortcut (tools/install_shortcut.ps1) instead runs
 the base interpreter's real pythonw.exe on this file, which adds the
 venv's site-packages itself — also via PYTHONPATH, so the session
 process the launcher spawns inherits it — and starts the launcher in
-character-picker mode.
+character-picker mode, or with whatever arguments it was given (the
+taskbar jump list's tasks run it with `--pick` or a character's name,
+#226).
 """
 
 import os
@@ -55,7 +57,7 @@ def _report_startup_failure(error):
 try:
     from client.engine.launch import main
 
-    main(["--pick"])
+    main(sys.argv[1:] or ["--pick"])
 except Exception as error:
     _report_startup_failure(error)
     raise

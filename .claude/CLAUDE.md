@@ -275,7 +275,11 @@ for `client/client/<pkg>/x.py`.
   standalone LNet window; `settings_dialog.py`, `profile_dialog.py`,
   `plan_dialog.py` (the ;train plan: plan form, ordered task list,
   task form, built from training.PLAN_FIELDS / TASK_FIELDS),
-  `login_dialog.py`, `highlights_dialog.py`.
+  `login_dialog.py`, `highlights_dialog.py`. `jumplist.py` is the
+  taskbar button's right-click menu on Windows — "Pick a
+  character..." and every played character as launcher tasks,
+  registered at GUI start by a ctypes COM shim, failures logged and
+  ignored (#226).
 - `client/engine/launch.py` — the `revenant` console script and the picker; one
   session per character on its own port, registry in
   ~/.revenant/sessions.json (each row carries `attached`, the window

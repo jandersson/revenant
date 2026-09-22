@@ -298,6 +298,17 @@ entries from a dock-layout module.
   model and its captured evidence). `scripts/clock.py` (`;clock`) is the
   ntpdate: TIME + OBSERVE MOONS, calibration stored in settings
   (`eltime_offset_seconds`, `eltime_moons`).
+- `client/client/gui/jumplist.py` — the taskbar button's jump list on
+  Windows (#226): a right-click on the pinned or running Revenant
+  button offers "Pick a character..." and every character with a
+  history.db snapshot (the roster when none has one), each a task
+  running the launcher (`--pick`, or the name) — from source the
+  shortcut's windowless pythonw on tools/desktop.py, in the packaged
+  build the executable itself. Registered once at GUI start through
+  the shell's ICustomDestinationList under the window's
+  AppUserModelID by a ctypes COM shim (PyQt6 has no jump-list API);
+  a failure is logged and ignored. `tasks()` is the pure half the
+  tests cover.
 - `client/client/gui/client_gui.py` — PyQt6 frontend: the window,
   its menus, layout restore, the dispatch of each stream to the
   widget it belongs to, styled text, and the connection. The docks'

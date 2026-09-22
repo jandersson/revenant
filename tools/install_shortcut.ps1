@@ -9,7 +9,7 @@
 # conjures a terminal behind the GUI - never target it. A real exe
 # target is also what makes the shortcut pinnable. The AppUserModelID
 # stamped here must match the one the GUI sets at startup
-# (client_gui.APP_USER_MODEL_ID), or the pinned icon and the running
+# (jumplist.APP_USER_MODEL_ID), or the pinned icon and the running
 # window show up as two separate taskbar buttons.
 $ErrorActionPreference = "Stop"
 
