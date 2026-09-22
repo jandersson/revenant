@@ -40,6 +40,7 @@ Stop with:  ;stop cast, or ;cast return.
 import time
 
 from client.game import buffs, probe
+from client.game.loop import danger, pause, wants_stop
 
 MIND_LOCK = 34
 RESUME_BELOW = 28  # resume once enough has drained to be worth a cast
@@ -82,21 +83,6 @@ def parse_args(args):
 
 def ask(s, command):
     return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
-
-
-def danger(s):
-    if s.dead:
-        return "you are dead"
-    if getattr(s.state, "hostiles", None):
-        return "hostiles in the room"
-    return None
-
-
-def wants_stop(s):
-    while (line := s.command(timeout=0)) is not None:
-        if "return" in line.lower():
-            return True
-    return False
 
 
 def skills_watched(profile, options):
@@ -148,17 +134,6 @@ def cast_profile(profile, options):
 def performing(answer):
     """True when the game refused because a song is playing."""
     return any(phrase in (answer or "").lower() for phrase in PERFORMING)
-
-
-def pause(s, seconds):
-    """Sleep in one-second slices so a typed stop or danger is noticed
-    at once; False when either arrived."""
-    end = clock() + seconds
-    while (left := end - clock()) > 0:
-        s.sleep(min(1, left))
-        if wants_stop(s) or danger(s):
-            return False
-    return True
 
 
 def hold_at_lock(s, skills, until):

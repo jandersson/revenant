@@ -101,7 +101,11 @@ for `client/client/<pkg>/x.py`.
   quarter second, and a command with no roundtime gets no tail (#248:
   the fixed windows held every command 4.5 s in the hunt). A command
   answered "...wait N seconds." did not run and is sent again after
-  those seconds, up to three times (#251).
+  those seconds, up to three times (#251). `client/game/loop.py` is
+  the loop idioms the trainer scripts share — `wants_stop` (the
+  typed return), `danger` (dead, or hostiles in the room), `pause`
+  (one-second slices that notice both) — one home instead of a copy
+  per script (2026-09-22).
 - `client/engine/procspawn.py` + `client/engine/frozen.py` — every sibling spawn
   (session, dashboard, reexec child) goes through `command_for`, which
   is `python -m module` from source and `<exe> --role module` in the

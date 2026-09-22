@@ -35,6 +35,7 @@ import re
 import time
 
 from client.game import probe
+from client.game.loop import danger, pause, wants_stop
 from client.game.attune import PERCEIVED, chain, circuit, wait_for
 from client.game.mapdb import MapDB
 from client.game.walker import avoided_rooms, locate, walk
@@ -109,40 +110,11 @@ def ensure_mindstate(s):
     return value
 
 
-def danger(s):
-    if s.dead:
-        return "you are dead"
-    if getattr(s.state, "hostiles", None):
-        return "hostiles in the room"
-    return None
-
-
-def wants_stop(s):
-    """True once "return" was typed at the script: finish the perceive
-    in hand and end. (;stop <name> is the abrupt end for every script;
-    a typed word is the graceful one, the operator's rule 2026-09-12.)"""
-    while (line := s.command(timeout=0)) is not None:
-        if "return" in line.lower():
-            return True
-    return False
-
-
 def perceive(s):
     """POWER, its roundtime waited out; True when the game answered
     with a perceive line."""
     answer = probe.ask(s, "power", COLLECT_SECONDS, TAIL_SECONDS)
     return PERCEIVED in answer
-
-
-def pause(s, seconds):
-    """Sleep in one-second slices so a typed stop or danger is noticed
-    at once; False when either arrived."""
-    end = clock() + seconds
-    while (left := end - clock()) > 0:
-        s.sleep(min(1, left))
-        if wants_stop(s) or danger(s):
-            return False
-    return True
 
 
 def hold_at_lock(s, until):

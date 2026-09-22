@@ -64,6 +64,7 @@ Stop with:  ;stop heal (at once), or ;heal return for a clean finish.
 import re
 
 from client.game import herbs, probe
+from client.game.loop import wants_stop
 from client.game.bank import exchange_command, foreign, handed
 from client.game.mapdb import MapDB
 from client.game.money import parse_wealth, phrase, split
@@ -211,13 +212,6 @@ def store_tag(herb, town=TOWN):
         if store in STORE_TAGS:
             return STORE_TAGS[store]
     return None
-
-
-def wants_stop(s):
-    while (line := s.command(timeout=0)) is not None:
-        if "return" in line.lower():
-            return True
-    return False
 
 
 def describe_plan(s, plan, town=TOWN):

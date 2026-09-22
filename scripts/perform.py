@@ -49,6 +49,7 @@ import time
 
 from client.engine.xml_data import LEARNING_RATES
 from client.game import probe
+from client.game.loop import danger, wants_stop
 from client.game.perform import (
     ALREADY,
     CLEANED,
@@ -198,21 +199,6 @@ def ensure_mindstate(s):
                     "rate": LEARNING_RATES[min(value, 34)],
                 }
     return value
-
-
-def danger(s):
-    if s.dead:
-        return "you are dead"
-    if getattr(s.state, "hostiles", None):
-        return "hostiles in the room"
-    return None
-
-
-def wants_stop(s):
-    while (line := s.command(timeout=0)) is not None:
-        if "return" in line.lower():
-            return True
-    return False
 
 
 def start_song(s, options):

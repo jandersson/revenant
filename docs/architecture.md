@@ -200,6 +200,12 @@ entries from a dock-layout module.
   `<pushStream id="combat"/>`, which the main window shows but a
   handle's default `get()` does not deliver — two hunts ended "ground
   empty" among live rats before that was seen (2026-09-12).
+  `client/client/game/loop.py` holds the loop idioms the trainer
+  scripts (attune, cast, forage, heal, perform, scholarship, seek,
+  soul) used to copy: `wants_stop` — True once "return" was typed at
+  the script, the graceful end beside `;stop` — `danger` (dead, or
+  hostiles in the room) and `pause`, a sleep in one-second slices
+  that ends early on either. Reloadable like probe.
   `scripts/hunt.py` is the hunting loop over the per-character profile
   (`client/game/profile.py`, docs/hunting.md): weapon and stance,
   attack until the room empties, skin each kill onto a worn bundle

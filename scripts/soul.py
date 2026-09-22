@@ -50,6 +50,7 @@ Stop with:  ;stop soul, or ;soul return.
 import time
 
 from client.game import probe
+from client.game.loop import danger, wants_stop
 from client.game.mapdb import MapDB
 from client.game.money import parse_wealth
 from client.game.soul import (
@@ -122,21 +123,6 @@ def echo_lines(s, text):
     for line in (text or "").splitlines():
         if line.strip():
             s.echo(f"  {line.strip()}")
-
-
-def danger(s):
-    if s.dead:
-        return "you are dead"
-    if getattr(s.state, "hostiles", None):
-        return "hostiles in the room"
-    return None
-
-
-def wants_stop(s):
-    while (line := s.command(timeout=0)) is not None:
-        if "return" in line.lower():
-            return True
-    return False
 
 
 def character(s):

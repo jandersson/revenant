@@ -29,6 +29,7 @@ Stop with:  ;stop seek (at once), or ;seek return to walk back to the start firs
 """
 
 from client.game import probe
+from client.game.loop import wants_stop
 from client.game.mapdb import MapDB
 from client.game.seek import loop, parse_args, present
 from client.game.walker import avoided_rooms, locate, walk
@@ -36,14 +37,6 @@ from client.settings import load_settings
 
 COLLECT_SECONDS = 2  # LOOK's listing, for a parser without room_objs
 TAIL_SECONDS = 0.5
-
-
-def wants_stop(s):
-    """True once "return" was typed at the script."""
-    while (line := s.command(timeout=0)) is not None:
-        if "return" in line.lower():
-            return True
-    return False
 
 
 def listing(s):

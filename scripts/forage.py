@@ -43,9 +43,8 @@ Stops at mind-lock, on death, on hostiles in the room, and on
 Stop with:  ;stop forage (at once), or ;forage return for a clean finish.
 """
 
-import time
-
 from client.game import probe
+from client.game.loop import danger, wants_stop
 from client.game.buffs import locked
 from client.game.mapdb import MapDB
 from client.game.walker import avoided_rooms, locate, walk
@@ -58,7 +57,6 @@ EMPTY_STREAK = 10  # ... once something was: a failed try answers the same
 MAX_COLLECTS = 2000  # the fuse
 COLLECT_SECONDS = 3  # the answer lands before the roundtime
 TAIL_SECONDS = 0.5
-clock = time.monotonic  # tests replace it
 
 # Captured 2026-09-14 (#193): the same empty answer in a room with
 # nothing to collect and on a failed try where there is; the practice
@@ -130,24 +128,6 @@ def classify(answer):
 
 def first_line(answer):
     return (answer.strip().splitlines() or ["(silence)"])[0]
-
-
-def danger(s):
-    if s.dead:
-        return "you are dead"
-    if getattr(s.state, "hostiles", None):
-        return "hostiles in the room"
-    return None
-
-
-def wants_stop(s):
-    """True once "return" was typed at the script: finish the collect
-    in hand and end (;stop <name> is the abrupt end for every script;
-    a typed word is the graceful one)."""
-    while (line := s.command(timeout=0)) is not None:
-        if "return" in line.lower():
-            return True
-    return False
 
 
 def find_item(s, db, item, avoid=()):

@@ -41,6 +41,7 @@ import time
 
 from client.engine.xml_data import LEARNING_RATES
 from client.game import probe
+from client.game.loop import danger, pause, wants_stop
 from client.game.mapdb import MapDB
 from client.game.scholarship import (
     GOT,
@@ -65,7 +66,6 @@ BLEED_POLL = 30
 MAX_PAGES = 200  # a book longer than this is a loop, not a book
 COLLECT_SECONDS = 2
 TAIL_SECONDS = 0.5
-clock = time.monotonic  # tests replace it
 wall = time.time  # the read times kept across runs (#255); tests replace it
 
 _EXP_ANSWER = re.compile(r"Scholarship:\s+(\d+)\s+[\d.]+%\s+.*?\((\d+)/34\)")
@@ -122,39 +122,13 @@ def ensure_mindstate(s):
     return value
 
 
-def danger(s):
-    if s.dead:
-        return "you are dead"
-    if getattr(s.state, "hostiles", None):
-        return "hostiles in the room"
-    return None
-
-
 def bleeding(s):
     status = getattr(s, "status", None)
     return bool(getattr(status, "bleeding", False))
 
 
-def wants_stop(s):
-    while (line := s.command(timeout=0)) is not None:
-        if "return" in line.lower():
-            return True
-    return False
-
-
 def ask(s, command):
     return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
-
-
-def pause(s, seconds):
-    """Sleep in one-second slices; False when a typed return or danger
-    arrived."""
-    end = clock() + seconds
-    while (left := end - clock()) > 0:
-        s.sleep(min(1, left))
-        if wants_stop(s) or danger(s):
-            return False
-    return True
 
 
 def hold_at_lock(s, until):
