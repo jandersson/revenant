@@ -19,10 +19,20 @@ operator, 2026-09-22), read as seconds a crush.
 `;remedies ledger` prints the totals, the per-item averages and the
 last orders. Rows are data for a human decision (which tier, which
 item), never a trigger.
+
+An order in progress lives in `~/.revenant/workorders/<name>.json`
+(REVENANT_WORKORDERS moves the directory) from the master's word to
+the pay — the item, the full count, the coin spent, the crushes and
+their roundtime, the rejections, the rank and the clock at the
+start — so a run that ends mid-order and the run that resumes the
+logbook's order add up to one row (#288: a run's 1,496 Kronars of
+purchases fell outside the row the next run wrote).
 """
 
 import json
+import os
 import sqlite3
+from pathlib import Path
 from datetime import datetime, timezone
 
 from client.game.remedies import CATALOG, CATALYST_CATALOG
@@ -74,6 +84,39 @@ ADDED = (("crush_seconds", "INTEGER"),)
 STACK = 25  # pieces in a dried stack, one remedy
 SPLASHES = 10  # splashes of water in a purchase
 SHOWN = 5  # the last orders ;remedies ledger lists
+
+
+OPEN_ENV = "REVENANT_WORKORDERS"
+OPEN_DIR = "~/.revenant/workorders"
+
+
+def open_path(character):
+    """The file an order in progress is kept in."""
+    directory = Path(os.environ.get(OPEN_ENV, OPEN_DIR)).expanduser()
+    return directory / f"{str(character or 'unknown').lower()}.json"
+
+
+def load_open(character):
+    """The order in progress, or None."""
+    try:
+        with open(open_path(character), encoding="utf-8") as stream:
+            data = json.load(stream)
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def save_open(character, state):
+    path = open_path(character)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(state, sort_keys=True, indent=1), encoding="utf-8")
+
+
+def clear_open(character):
+    try:
+        open_path(character).unlink()
+    except OSError:
+        pass
 
 
 def open_ledger(path):

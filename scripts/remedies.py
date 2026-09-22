@@ -65,7 +65,10 @@ order handed in is a row in history.db's `work_orders` table
 (client/game/workorders.py: the pay, the materials at catalog prices,
 the coin spent while it was open, the crushes and the roundtime they
 cost — seconds a crush is what better tools lower — the minutes end
-to end, the rank before and after), and `;remedies ledger` prints the totals, the profit an
+to end, the rank before and after; the order in progress lives in
+`~/.revenant/workorders/<name>.json` from the master's word to the
+pay, so a run that ends mid-order and the run that resumes it add up
+to one row, #288), and `;remedies ledger` prints the totals, the profit an
 order of each item brings, and the last few. GIVE is the script's
 own: the session refuses it from outside (#161).
 
@@ -116,11 +119,14 @@ from client.game.remedies import (
     shortage,
 )
 from client.game.workorders import (
+    clear_open,
     ledger_lines,
+    load_open,
     material_cost,
     open_ledger,
     record,
     rows,
+    save_open,
 )
 
 SKILL = "Alchemy"
@@ -428,6 +434,7 @@ def order(s, master, level):
             "count": remaining,
             "quality": "",
             "due": due,
+            "resumed": True,
         }
     answer = ask(s, f"ask {master} for {level} remedies work")
     if any(word in answer for word in NO_MASTER):
@@ -556,7 +563,10 @@ def restock(s, spec, catalyst, why, remaining, tally):
     if short is None:
         return None
     noun, per_stack, shop, catalog = short
-    return buy(s, noun, max(1, per_stack * remaining), shop, catalog, tally)
+    count = max(1, per_stack * remaining)
+    if catalyst and noun == catalyst:
+        count += 1  # a spare nugget: a rejected stack cost a 44-room walk (#288)
+    return buy(s, noun, count, shop, catalog, tally)
 
 
 def next_order(s, master, options):
@@ -590,13 +600,62 @@ def rank_of(s):
     return (experience.get(SKILL) or {}).get("rank")
 
 
-def record_order(s, parsed, spec, level, catalyst, paid, tally, snapshot):
+COUNTERS = ("spent", "crushes", "crush_seconds", "rejected")
+
+
+def open_order(s, parsed, level):
+    """The order in progress as a persisted state (client/game/
+    workorders.py): an order resumed from the logbook takes up the
+    file a run before left — its full count, its coin and crushes —
+    and a new order starts one."""
+    name = getattr(s.state, "name", None) or "unknown"
+    kept = load_open(name)
+    if (
+        parsed.get("resumed")
+        and kept
+        and str(kept.get("item", "")).lower() == parsed["item"]
+    ):
+        state = kept
+        s.echo(
+            f"remedies: the order's {state.get('spent', 0)} Kronars and "
+            f"{state.get('crushes', 0)} crushes so far carried over"
+        )
+    else:
+        state = {
+            "item": parsed["item"],
+            "count": parsed["count"],
+            "quality": parsed.get("quality") or "",
+            "level": level,
+            "due": parsed.get("due"),
+            "spent": 0,
+            "crushes": 0,
+            "crush_seconds": 0,
+            "rejected": 0,
+            "rank_before": rank_of(s),
+            "started": time.time(),
+        }
+    state["loaded"] = {key: state.get(key, 0) for key in COUNTERS}
+    save_open(name, {k: v for k, v in state.items() if k != "loaded"})
+    return state
+
+
+def sync_order(s, state, tally, snapshot):
+    """The state's counters brought up to date — what earlier runs
+    left plus this run's since the order was taken up — and saved."""
+    for key in COUNTERS:
+        state[key] = state["loaded"][key] + (tally.get(key, 0) - snapshot[key])
+    name = getattr(s.state, "name", None) or "unknown"
+    save_open(name, {k: v for k, v in state.items() if k != "loaded"})
+
+
+def record_order(s, state, spec, catalyst, paid):
     """The order handed in, one row in history.db's work_orders
-    (client/game/workorders.py): the pay, the stacks this run crafted
-    at catalog prices — the rejected ones too, they cost the same —
-    the coin spent and the crushes since the order was taken up, the
-    rank before and after. A failure is logged, never ends the run."""
-    rejected = tally.get("rejected", 0) - snapshot["rejected"]
+    (client/game/workorders.py) from the persisted state: the pay,
+    the order's stacks at catalog prices — the rejected ones too,
+    they cost the same — the coin spent and the crushes since the
+    order was taken up, across every run it took, the rank before
+    and after. A failure is logged, never ends the run."""
+    rejected = state.get("rejected", 0)
     try:
         from client.game.history import database_path
 
@@ -606,26 +665,27 @@ def record_order(s, parsed, spec, level, catalyst, paid, tally, snapshot):
                 connection,
                 character_name=getattr(s.state, "name", None) or "unknown",
                 discipline="remedies",
-                level=level,
-                item=parsed["item"],
-                stacks=parsed["count"],
-                quality=parsed.get("quality") or "",
+                level=state.get("level") or "easy",
+                item=state["item"],
+                stacks=state["count"],
+                quality=state.get("quality") or "",
                 earned=paid,
-                cost=material_cost(spec, catalyst) * (parsed["count"] + rejected)
+                cost=material_cost(spec, catalyst) * (state["count"] + rejected)
                 if spec
                 else 0,
                 rejected=rejected,
-                spent=tally["spent"] - snapshot["spent"],
-                crushes=tally["crushes"] - snapshot["crushes"],
-                rank_before=snapshot["rank"],
+                spent=state.get("spent", 0),
+                crushes=state.get("crushes", 0),
+                rank_before=state.get("rank_before"),
                 rank_after=rank_of(s),
-                minutes=round((time.time() - snapshot["started"]) / 60),
-                crush_seconds=tally.get("crush_seconds", 0) - snapshot["crush_seconds"],
+                minutes=round((time.time() - state.get("started", time.time())) / 60),
+                crush_seconds=state.get("crush_seconds", 0),
             )
         finally:
             connection.close()
     except Exception:
         logging.getLogger(__name__).exception("remedies: the order was not ledgered")
+    clear_open(getattr(s.state, "name", None) or "unknown")
 
 
 def ledger(s):
@@ -665,14 +725,8 @@ def work(s, options, profile):
         parsed, spec = next_order(s, master, options)
         if parsed is None:
             break
-        snapshot = {
-            "crushes": tally["crushes"],
-            "spent": tally["spent"],
-            "crush_seconds": tally.get("crush_seconds", 0),
-            "rejected": tally.get("rejected", 0),
-            "rank": rank_of(s),
-            "started": time.time(),
-        }
+        snapshot = {key: tally.get(key, 0) for key in COUNTERS}
+        state = open_order(s, parsed, options["level"])
         remaining = parsed["count"]
         why = None
         started = False
@@ -682,6 +736,7 @@ def work(s, options, profile):
         while remaining > 0:
             why = craft(s, spec, parsed["item"], catalyst, options, tally, started)
             started = False
+            sync_order(s, state, tally, snapshot)
             if why is None:
                 take_out(s, spec[4])
                 outcome, remaining, due = bundle(s, spec[4], remaining)
@@ -725,6 +780,7 @@ def work(s, options, profile):
             why = None
         ask(s, "stow my pestle")
         ask(s, "stow my mortar")
+        sync_order(s, state, tally, snapshot)
         if why is not None:
             s.echo(f"remedies: {why} — the order waits in the logbook")
             break
@@ -742,7 +798,8 @@ def work(s, options, profile):
         orders += 1
         earned += paid
         ask(s, "stow my logbook")
-        record_order(s, parsed, spec, options["level"], catalyst, paid, tally, snapshot)
+        sync_order(s, state, tally, snapshot)
+        record_order(s, state, spec, catalyst, paid)
         s.echo(
             f"remedies: order {orders} paid {paid} Kronars "
             f"({earned - tally['spent']} clear of {tally['spent']} spent so far)"

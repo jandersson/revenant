@@ -6,6 +6,17 @@ coin spent while it was open; the totals and the per-item profit
 from client.game import remedies, workorders
 
 
+def test_an_order_in_progress_round_trips_through_its_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("REVENANT_WORKORDERS", str(tmp_path / "wo"))
+    assert workorders.load_open("Lanival") is None
+    state = {"item": "blister cream", "count": 4, "spent": 1496, "crushes": 12}
+    workorders.save_open("Lanival", state)
+    assert workorders.load_open("lanival") == state  # the name's case is not a key
+    workorders.clear_open("Lanival")
+    assert workorders.load_open("Lanival") is None
+    workorders.clear_open("Lanival")  # twice is fine
+
+
 def test_a_remedy_costs_its_materials_at_the_catalog():
     # Blister cream: a stack of red flowers (343), a piece of nemoih
     # (250/25), a splash of water (62/10) and a coal nugget (31).

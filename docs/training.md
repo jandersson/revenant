@@ -581,7 +581,13 @@ crushes and the roundtime they cost (seconds a crush is what better
 tools lower — the society's iron set is the floor to measure from),
 the minutes end to end, and the rank before and after; `;remedies
 ledger` prints the totals, the profit and the seconds a crush of each
-item, and the last few orders.
+item, and the last few orders. The order in progress is kept in
+`~/.revenant/workorders/<name>.json` from the master's word to the
+pay, so a run that ends mid-order and the run that resumes the
+logbook's order write one row between them (#288: the first run's
+1,496 Kronars of purchases had fallen outside the row); a catalyst
+run buys one nugget more than the stacks owed, a spare for a rejected
+stack.
 The first order on record (2026-09-22): 1,144 paid, 780 in
 materials, 748 spent — 364 profit, 396 kept, Alchemy 9 to 10. The
 purchase wordings are captured; a refusal for want of coin is not, so

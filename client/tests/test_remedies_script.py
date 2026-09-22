@@ -141,6 +141,7 @@ class Fake:
 @pytest.fixture(autouse=True)
 def profile(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_PROFILES", str(tmp_path / "profiles"))
+    monkeypatch.setenv("REVENANT_WORKORDERS", str(tmp_path / "workorders"))
     from client.game.profile import DEFAULTS, save_profile
 
     save_profile(
@@ -425,6 +426,8 @@ def test_the_herbs_water_and_coal_are_bought_as_they_run_out():
                     BOUGHT_NUGGET,
                     QUOTE_NUGGET,
                     BOUGHT_NUGGET,
+                    QUOTE_NUGGET,
+                    BOUGHT_NUGGET,
                 ],
             },
         ),
@@ -433,20 +436,21 @@ def test_the_herbs_water_and_coal_are_bought_as_they_run_out():
     out = run(fake, ["work", "count=1"])
     assert fake.walked == ["8862", "8862", "8775"]
     assert fake.withdrawn == [586]  # 686 for the flowers, 100 in the purse
-    assert fake.sent.count("order 13") == 4 and fake.sent.count("order 1") == 6
+    assert fake.sent.count("order 13") == 4 and fake.sent.count("order 1") == 8
     assert fake.sent.count("stow my flowers") == 2
-    # Two nuggets stowed as bought, one more after the second stack's put.
-    assert fake.sent.count("stow my nugget") == 3 and "stow my water" in fake.sent
+    # Three nuggets stowed as bought (one a spare), one more after the
+    # second stack's put.
+    assert fake.sent.count("stow my nugget") == 4 and "stow my water" in fake.sent
     assert fake.sent.index("stow my mortar") < fake.sent.index("order 13")
     assert "bought 2 x flowers" in out and "bought 1 x water" in out
-    assert "bought 2 x nugget" in out
+    assert "bought 3 x nugget" in out
     # The stack begun goes on after a restock: the flowers go in once
     # per stack, and the page is studied again before the crushes resume.
     assert crushes(fake).count("crush my flowers in my mortar with my pestle") == 2
     assert fake.sent.count("study my book") == 5  # three restocks, two stacks
-    assert "order 1 paid 1146 Kronars (336 clear of 810 spent so far)" in out
-    assert "1 order(s), 1146 Kronars earned, 810 spent" in out
-    assert ledger_rows()[-1]["spent"] == 810
+    assert "order 1 paid 1146 Kronars (305 clear of 841 spent so far)" in out
+    assert "1 order(s), 1146 Kronars earned, 841 spent" in out
+    assert ledger_rows()[-1]["spent"] == 841
 
 
 def test_a_bystanders_line_in_a_crush_window_is_not_a_miss():
@@ -549,6 +553,42 @@ def test_a_remedy_below_the_orders_quality_is_disposed_of_and_another_made(
     assert "drop refused: 'cream'" in out and "drop my cream" not in poor.sent
     assert poor.sent.count("stow my cream") == 3  # the list refused: stowed
     assert "give my logbook to lanshado" not in poor.sent
+
+
+def test_an_order_left_half_done_keeps_its_spend_for_the_run_that_finishes_it():
+    # Run 1: the first stack needs coal (three nuggets bought, one a
+    # spare), the second stack's flowers are gone and the shop quotes
+    # something else — the order waits. Run 2 resumes the logbook's
+    # order and hands it in: one row, two stacks, the coal counted.
+    from client.game.workorders import load_open
+
+    first = Fake(
+        work_answers(
+            info=[INFO_POOR],
+            **{
+                "get my nugget": [MISSING, "You get a tiny coal nugget."],
+                "order 1": [QUOTE_NUGGET, BOUGHT_NUGGET] * 3,
+                "get my flowers": ["You get some dried red flowers.", MISSING],
+                "order 13": [QUOTE_WATER],
+            },
+        ),
+        mindstates=[3] + [5] * 30,
+    )
+    out = run(first, ["work"])
+    assert "bought 3 x nugget" in out  # two owed, one spare
+    assert "the order waits in the logbook" in out
+    kept = load_open("Lanival")
+    assert kept["item"] == "blister cream" and kept["count"] == 2
+    assert kept["spent"] == 93 and kept["crushes"] == 4
+    second = Fake(
+        work_answers(**{"read my logbook": [LOGBOOK_OPEN, LOGBOOK_DONE]}),
+        mindstates=[5] * 30,
+    )
+    out = run(second, ["work", "count=1"])
+    assert "93 Kronars and 4 crushes so far carried over" in out
+    row = ledger_rows()[-1]
+    assert (row["stacks"], row["spent"], row["crushes"]) == (2, 93, 8)
+    assert load_open("Lanival") is None
 
 
 def test_a_shop_that_quotes_something_else_ends_the_purchase():
