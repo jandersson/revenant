@@ -80,6 +80,38 @@ def test_the_captured_lines_read_as_the_model_says():
     assert teaching.teacher_present(SimpleNamespace(room_players=[]), "masah")
 
 
+ASSESS = (
+    "You assess the teaching environment...\n"
+    "Fallanor is teaching a class on extremely advanced (compared to what you "
+    "already know) Parry Ability which is still open to new students.  You are in "
+    "this class!\n"
+    "Roundtime:  5 seconds.\n"
+)
+
+
+def test_assess_teach_lists_the_classes_and_the_stops_read_on_both_sides():
+    assert teaching.parse_assess(ASSESS) == [
+        {"teacher": "Fallanor", "skill": "Parry Ability", "open": True, "mine": True}
+    ]
+    assert (
+        teaching.parse_assess(
+            "You assess the teaching environment...\nNo one seems to be teaching.\n"
+        )
+        == []
+    )
+    two = (
+        "Masah is teaching a class on somewhat advanced Scholarship which is closed to new students.\n"
+        "Fallanor is teaching a class on extremely advanced (compared to what you already know) "
+        "Parry Ability which is still open to new students.\n"
+    )
+    assert [c["teacher"] for c in teaching.parse_assess(two)] == ["Masah", "Fallanor"]
+    assert [c["open"] for c in teaching.parse_assess(two)] == [False, True]
+    assert all(not c["mine"] for c in teaching.parse_assess(two))
+    # STOP TEACHING: the teacher's own answer re-offers, the student's line ends the hold.
+    assert any(w in "you stop teaching." for w in teaching.STUDENTS_LEFT)
+    assert any(w in "fallanor stops teaching." for w in teaching.CLASS_ENDED)
+
+
 def test_the_commands_and_the_arguments():
     assert (
         teaching.teach_command("scholarship", "cecil") == "teach scholarship to cecil"
@@ -249,3 +281,23 @@ def test_listen_reads_the_skill_holds_on_its_mindstate_and_rejoins():
     nobody = Fake({"listen": ["Masah is not teaching anything.\n"]})
     out = run(listen, nobody, ["masah"])
     assert "no class — stopping" in out and "stop listening" not in nobody.sent
+    # The refusal is said by its own line, not a bystander's before it.
+    noisy = Fake(
+        {
+            "listen": [
+                "Court Advisor Aaiyaah just arrived.\nMasah isn't teaching a class.\n"
+            ]
+        }
+    )
+    out = run(listen, noisy, ["masah"])
+    assert "listen: Masah isn't teaching a class." in out
+    # No teacher named: ASSESS TEACH finds the class.
+    found = Fake(
+        {"assess teach": [ASSESS], "listen": [LISTENING]},
+        mindstates=[5, 34, 34],
+        stop_at=None,
+    )
+    found.waitrt = lambda: None
+    out = run(listen, found, ["once"])
+    assert found.sent[0] == "assess teach" and "listen to fallanor" in found.sent
+    assert "Fallanor teaches Parry Ability here" in out

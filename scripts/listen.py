@@ -1,6 +1,7 @@
 """Listen to another character's class until the skill mind-locks:  ;listen
 
     ;listen masah                  LISTEN TO that teacher; the skill is read off the class
+    ;listen                        ASSESS TEACH (5 s of roundtime) and join the first class it lists
     ;listen masah scholarship      hold on that skill's mindstate instead of the class's
     ;listen masah until=30         end at that mindstate instead of 34
     ;listen masah once             exit at mind-lock instead of holding for the drain
@@ -29,10 +30,13 @@ from client.game import flight, probe
 from client.game.loop import danger, ensure_mindstate, mindstate, pause
 from client.game.probe import classify
 from client.game.teaching import (
+    ASSESS_COMMAND,
     CLASS_ENDED,
     LISTEN_OUTCOMES,
+    NO_CLASS,
     left_pattern,
     listen_command,
+    parse_assess,
     parse_listen_args,
     taught_skill,
     teacher_present,
@@ -58,11 +62,17 @@ def join(s, options):
     outcome = classify(answer.lower(), LISTEN_OUTCOMES)
     if outcome in ("listening", "already"):
         return "listening", taught_skill(answer)
-    first = (answer.strip().splitlines() or ["(silence)"])[0]
+    lines = answer.strip().splitlines() or ["(silence)"]
     if outcome is None:
-        s.echo(f"listen: LISTEN answered {first!r} — please report it")
+        s.echo(f"listen: LISTEN answered {lines[0]!r} — please report it")
         return "unknown", None
-    s.echo(f"listen: {first}")
+    # The refusing line, not a bystander's that landed first in the
+    # window ("Court Advisor Aaiyaah just arrived.", 2026-09-23).
+    said = next(
+        (line for line in lines if any(w in line.lower() for w in NO_CLASS)),
+        lines[0],
+    )
+    s.echo(f"listen: {said.strip()}")
     return outcome, None
 
 
@@ -83,10 +93,26 @@ def leave(s, why):
     s.echo(f"listen: {why}")
 
 
+def find_class(s):
+    """ASSESS TEACH: the first class in the room, as (teacher, skill),
+    or (None, None) said."""
+    classes = parse_assess(ask(s, ASSESS_COMMAND))
+    s.waitrt()
+    if not classes:
+        s.echo("listen: no one is teaching here")
+        return None, None
+    first = classes[0]
+    s.echo(f"listen: {first['teacher']} teaches {first['skill']} here")
+    return first["teacher"], first["skill"]
+
+
 def run(s, options):
     if not options["teacher"]:
-        s.echo("listen: whose class? ;listen <teacher> [skill]")
-        return
+        teacher, skill = find_class(s)
+        if not teacher:
+            return
+        options["teacher"] = teacher.lower()
+        options["skill"] = options["skill"] or skill
     outcome, skill = join(s, options)
     if outcome != "listening":
         s.echo("listen: no class — stopping")

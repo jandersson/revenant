@@ -49,6 +49,7 @@ STUDENTS_LEFT = (
     "no more students",
     "your class ends",
     "stops listening to you",
+    "you stop teaching",  # STOP TEACHING typed by hand; the script offers again
 )
 # An offer not taken up expires (a few minutes, 2026-09-22): "You stop
 # trying to teach Parry Ability to Cecil." — the teacher offers again.
@@ -91,6 +92,21 @@ CLASS_ENDED = (
     "class has ended",
     "no longer teaching",
     "stopped teaching",
+)
+# ASSESS TEACH (captured 2026-09-23, 5 s of roundtime): "You assess the
+# teaching environment..." then one line per class — "Fallanor is
+# teaching a class on extremely advanced (compared to what you already
+# know) Parry Ability which is still open to new students.  You are in
+# this class!" — or "No one seems to be teaching." The student's line
+# for the teacher's STOP TEACHING is "Fallanor stops teaching.", the
+# teacher's own answer "You stop teaching."
+ASSESS_COMMAND = "assess teach"
+ASSESS_NONE = ("no one seems to be teaching",)
+ASSESS_CLASS = re.compile(
+    r"^(?P<teacher>[\w\']+) is teaching a class on (?P<level>.+?) (?P<skill>[A-Z][\w\' ]*?)"
+    r" which is (?P<state>still open to new students|closed to new students)"
+    r"(?P<mine>\.\s+You are in this class!)?",
+    re.MULTILINE,
 )
 LISTEN_OUTCOMES = (
     ("no class", NO_CLASS),
@@ -136,6 +152,22 @@ def parse_teach_args(args):
     elif lowered and lowered[-1] == "open":
         words = words[:-1]
     return {"skill": " ".join(words), "student": student}
+
+
+def parse_assess(text):
+    """The classes ASSESS TEACH lists: [{"teacher", "skill", "open",
+    "mine"}] in the room, [] when no one teaches."""
+    classes = []
+    for match in ASSESS_CLASS.finditer(text or ""):
+        classes.append(
+            {
+                "teacher": match.group("teacher"),
+                "skill": match.group("skill").strip(),
+                "open": match.group("state").startswith("still open"),
+                "mine": bool(match.group("mine")),
+            }
+        )
+    return classes
 
 
 def left_pattern(teacher):

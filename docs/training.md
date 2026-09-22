@@ -620,6 +620,16 @@ and the leaving line; the teacher's side sees an untaken offer
 expire within minutes ("You stop trying to teach Parry Ability to
 Cecil.") and `;teach` offers again at once, and a student joining
 ("Cecil begins to listen to you teach the Parry Ability skill.").
+STOP LISTENING and STOP TEACHING end a class from either side —
+"You stop listening to Fallanor." / "Cecil stops listening to you."
+and "Because you have no more students, your class ends."; "You stop
+teaching." / "Fallanor stops teaching." — and `;teach` offers again
+after any of them while it runs (`;teach return` is the way to end
+it). ASSESS TEACH lists the room's classes ("Fallanor is teaching a
+class on extremely advanced (compared to what you already know)
+Parry Ability which is still open to new students.  You are in this
+class!" / "No one seems to be teaching.", five seconds of roundtime),
+and `;listen` with no teacher named joins the first class it lists.
 `;train` runs the student's side as a task,
 `{"name": "class", "skills": ["Parry Ability", "Scholarship"],
 "script": "listen", "args": ["fallanor", "parry ability"], "return_word": "return",
