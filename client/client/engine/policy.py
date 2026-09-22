@@ -7,7 +7,8 @@ it; the player's own typing never does. Three tiers. Read-only verbs
 always pass (the sendcmd allowlist). Verbs that give something away,
 drop it, spend, leave or quit — DROP and DISCARD of anything but the
 junk list, GIVE, HAND, OFFER of an item, SELL, TRADE, EXCHANGE, ACCEPT,
-WITHDRAW, TRAIN and STUDY (TDPs), DEPART, QUIT and EXIT, PUT into
+WITHDRAW, TRAIN and STUDY of a stat (TDPs; STUDY MY BOOK reads crafting
+instructions and passes, 2026-09-22), DEPART, QUIT and EXIT, PUT into
 anything but the character's own container, and `;reexec` — are
 refused with a one-line reason the session echoes to every window. An
 OFFER of an amount alone ("offer 62", "offer 62 kronars") is a catalog
@@ -84,13 +85,32 @@ DENIED = {
     "accept": "ACCEPT takes someone's offer",
     "withdraw": "WITHDRAW spends banked coins",
     "train": "TRAIN spends TDPs",
-    "study": "STUDY spends TDPs",
+    "study": "STUDY of a stat spends TDPs",
     "depart": "DEPART is the character's own call",
     "quit": "QUIT is the character's own call",
     "exit": "EXIT is the character's own call",
     "discard": "DISCARD throws an item away",
     ";reexec": ";reexec stops every script",
 }
+# STUDY <stat> spends TDPs; STUDY MY BOOK (a crafting book's page, the
+# alchemy kit's first evening, 2026-09-22) reads instructions and passes.
+STATS = (
+    "strength",
+    "reflex",
+    "agility",
+    "charisma",
+    "discipline",
+    "wisdom",
+    "intelligence",
+    "stamina",
+)
+
+
+def _studies_a_stat(words):
+    """True for STUDY alone or STUDY <stat ...>: the TDP spend."""
+    return len(words) < 2 or words[1] in STATS
+
+
 # OFFER <amount>, optionally with coin words, is a merchant's bid — ORDER
 # quotes, OFFER closes (#234) — and hands nothing away; OFFER <item>
 # stays a hand-over.
@@ -205,7 +225,11 @@ def decide(line, policy=None) -> Verdict:
     verb = words[0]
     if verb in READ_ONLY:
         return Verdict(True, "read-only")
-    if verb in policy.denied and not _BID.match(" ".join(words)):
+    if (
+        verb in policy.denied
+        and not _BID.match(" ".join(words))
+        and not (verb == "study" and not _studies_a_stat(words))
+    ):
         return Verdict(False, "denied", policy.denied[verb])
     if verb in DROP_VERBS:
         item = _item(words[1:])

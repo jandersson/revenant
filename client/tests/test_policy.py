@@ -41,6 +41,16 @@ def test_the_giving_spending_and_leaving_verbs_are_refused_with_a_reason():
         assert word in verdict.reason, line
 
 
+def test_study_of_a_book_passes_and_study_of_a_stat_does_not():
+    # 2026-09-22: "study my book" (a crafting page) was refused as a TDP
+    # spend while the operator's alchemy kit sat in hand.
+    assert policy.decide("study my book").allowed
+    assert policy.decide("study my remedies book").allowed
+    for line in ("study", "study strength", "study stamina 2"):
+        verdict = policy.decide(line)
+        assert not verdict.allowed and "STUDY" in verdict.reason, line
+
+
 def test_an_offer_of_an_amount_is_a_merchant_bid_and_passes():
     # #234: a catalog merchant quotes on ORDER and the deal closes on
     # OFFER <amount> (HELP SHOPS; the True Bard D'Or's rag, 2026-09-20 —
