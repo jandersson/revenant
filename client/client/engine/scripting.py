@@ -431,6 +431,7 @@ RELOADABLE_MODULES = (
     "client.game.justice",
     "client.game.teaching",
     "client.game.helper",
+    "client.game.loot",  # binds noun_of from creatures: after it
     "client.game.scholarship",
     "client.game.soul",
     "client.game.encumbrance",

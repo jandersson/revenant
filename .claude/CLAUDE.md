@@ -121,6 +121,9 @@ for `client/client/<pkg>/x.py`.
   room's creatures the way the game names them ("second cougar")
   and `aim(noun, names, dead)` gives the phrase that reaches the
   first live one past a corpse; `;hunt` swings at it (#278).
+  `client/game/loot.py` reads what a SEARCH left on the ground off
+  the room listing's difference (coins, a box, an item), so `;hunt`
+  grabs its loot whatever the game called it (2026-09-23).
   `client/game/flight.py` is the escape every trainer runs on
   hostiles — STAND, RETREAT twice and a move through the type-ahead,
   the caller's step then the compass exits, judged by the room

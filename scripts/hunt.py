@@ -143,7 +143,7 @@ reported at the end — a reading, no rule yet (#280).
 import re
 import time
 
-from client.game import buffs, probe
+from client.game import buffs, loot, probe
 from client.game.creatures import aim
 from client.game.probe import classify
 from client.game.profile import describe, load_profile
@@ -428,6 +428,8 @@ class Tally:
     def __init__(self):
         self.kills = 0
         self.skins = 0
+        self.coins = 0  # GET COINS after a search that left some
+        self.boxes = 0  # boxes into the loot container
         self.unrecognized = 0
         self.empty_moves = 0
         self.room_clear = False
@@ -1070,16 +1072,53 @@ def skin(s, profile, corpse, tally):
         stow(s, profile, knife)
 
 
+def listing(s):
+    return str(getattr(s.state, "room_objs", "") or "")
+
+
+def grab(s, profile, before, tally):
+    """What the search left on the ground, read off the room listing
+    (client/game/loot.py) whatever the game called it: coins GOT,
+    a box into the loot container, anything else pocketed — the
+    pouch, else stowed. The nouns taken, for the wording path to skip."""
+    s.sleep(0.5)  # the listing's rewrite lands a beat after the answer
+    taken = []
+    creatures = getattr(s.state, "room_creatures", None) or ()
+    for entry in loot.new_items(before, listing(s), creatures):
+        what = loot.kind(entry)
+        if what == "coins":
+            ask(s, "get coins")
+            tally.coins += 1
+        else:
+            noun = loot.noun_of(entry)
+            if what == "box":
+                ask(s, f"get {noun}")
+                if not stow(s, profile, noun):
+                    s.echo(f"hunt: no room for the {noun} — it stays on the ground")
+                    continue
+                tally.boxes += 1
+            else:
+                pocket(s, profile, noun)
+            taken.append(noun)
+    return taken
+
+
 def dispose(s, profile, corpse, tally):
     """A kill: skin it when profiled, then SEARCH it away — the corpse
-    keeps its noun and soaks swings until searched (docs/combat.md)."""
+    keeps its noun and soaks swings until searched (docs/combat.md) —
+    and what the search left on the ground grabbed off the room's
+    listing, the answer's own wording second (the operator,
+    2026-09-23: a hunt grabs its loot whatever the game called it)."""
     if profile["skin"]:
         skin(s, profile, corpse, tally)
+    before = listing(s)
     answer = ask(s, f"search {corpse}")
     outcome = classify(answer, SEARCH_OUTCOMES)
+    taken = grab(s, profile, before, tally) if outcome is not None else []
     if outcome == "found":
         for item in items_in(answer):
-            pocket(s, profile, item)
+            if item not in taken:
+                pocket(s, profile, item)
     elif outcome is None:
         unrecognized(s, tally, "search", answer)
 
@@ -1265,6 +1304,10 @@ def swing(s, profile, tally, prey):
         tally.swings_at_kill = tally.swings
         corpse = kill_noun(text) or prey or "corpse"
         s.echo(f"hunt: {corpse} down ({tally.kills})")
+        if tally.coins or tally.boxes:
+            s.echo(
+                f"hunt: loot so far — {tally.coins} coin pile(s), {tally.boxes} box(es)"
+            )
         dispose(s, profile, corpse, tally)
         tally.check_wounds = True
         if len(hostiles(s.state)) <= 1:
