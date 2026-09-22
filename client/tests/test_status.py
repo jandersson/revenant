@@ -132,3 +132,9 @@ def test_the_corpse_marks_ride_beside_the_creatures():
     )
     assert view.creatures_dead == [True, False]
     assert status(state()).creatures_dead == []
+
+
+def test_the_tdp_and_favor_counts_read_off_the_window():
+    view = status(state(tdps=27, favors=5))
+    assert view.tdps == 27 and view.favors == 5
+    assert status(state()).tdps is None and status(state()).favors is None

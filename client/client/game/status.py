@@ -212,6 +212,17 @@ class Status:
         return BALANCE_LEVELS.index(word) if word in BALANCE_LEVELS else None
 
     @property
+    def tdps(self):
+        """The TDP count from the exp window's footer (#282), or None
+        before the first pulse."""
+        return getattr(self._state, "tdps", None)
+
+    @property
+    def favors(self):
+        """The favor count from the exp window's footer, or None."""
+        return getattr(self._state, "favors", None)
+
+    @property
     def exp_mods(self):
         """{skill: signed rank modifier} from the exp window's modifiers
         component (#281); {} when none is up."""

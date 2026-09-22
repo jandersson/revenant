@@ -903,3 +903,18 @@ def test_a_corpse_in_the_listing_is_marked_beside_its_name(xml_data):
     assert xml_data.creatures_updated
     _feed_one(xml_data, "<nav rm='1234'/>")
     assert xml_data.room_creatures_dead == []
+
+
+def test_the_exp_windows_tdp_and_favor_counts_are_kept(xml_data):
+    # Captured 2026-09-22 (pid 10444's game log): the footer components
+    # come with every pulse, so a script needs no INFO for them (#282).
+    _feed_one(xml_data, "<component id='exp tdp'>            TDPs:  27</component>")
+    _feed_one(xml_data, "<component id='exp favor'>          Favors:  5</component>")
+    assert xml_data.tdps == 27 and xml_data.favors == 5
+    assert xml_data.exp_updated
+    xml_data.exp_updated = False
+    _feed_one(xml_data, "<component id='exp tdp'>            TDPs:  27</component>")
+    assert not xml_data.exp_updated  # unchanged: no rewrite
+    _feed_one(xml_data, "<component id='exp tdp'>            TDPs:  30</component>")
+    assert xml_data.tdps == 30 and xml_data.exp_updated
+    assert "tdp" not in xml_data.experience and "favor" not in xml_data.experience

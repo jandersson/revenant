@@ -346,19 +346,32 @@ def soul_step(s, plan, db, walk, room):
     return True
 
 
-def tdp_step(s, plan):
+def tdp_step(s, plan, quote):
     """One stat point bought in a rest when the plan says where the
     TDPs go (#230): INFO for the stats and the points, the plan's goals
     or the guild's tiers for the stat (client/game/tdp.py), the wiki's
     cost against the points past the reserve, then `;tdp train <stat>
     +1` — which walks to the trainer, buys the one point the game
-    quotes and walks back — waited for. True when a point was bought."""
+    quotes and walks back — waited for. True when a point was bought.
+
+    `quote` is the rest's memory (#282): the first poll's INFO prices
+    the next point and keeps it there, and the polls after read the
+    TDP count off the exp window (`s.state.tdps`, pushed every pulse)
+    instead of asking INFO again — 247 INFOs went out on 2026-09-22 for
+    5 points against a 45-point cost. A purchase clears the quote (the
+    stats moved); a rest that cannot afford the point says so once."""
     entries = plan.get("tdp") or []
-    if not entries or s.is_running("tdp"):
+    if not entries or s.is_running("tdp") or quote.get("done"):
         return False
     from client.game import probe
     from client.game import tdp as tdp_model
 
+    reserve = plan.get("tdp_reserve", 0)
+    if "cost" in quote:
+        known = getattr(s.state, "tdps", None)
+        tdps = known if known is not None else quote["tdps"]
+        if tdps - reserve < quote["cost"]:
+            return False  # still short: no INFO until the window says otherwise
     info = tdp_model.parse_info(probe.ask(s, "info", INFO_SECONDS, INFO_TAIL))
     if info["tdps"] is None or not info["stats"]:
         s.echo("train: INFO gave no TDPs — no stat bought this rest")
@@ -370,11 +383,20 @@ def tdp_step(s, plan):
         return False
     choice = tdp_model.next_stat(info["stats"], goals, info.get("guild"))
     if choice is None:
-        return False  # every goal reached
+        quote["done"] = True  # every goal reached: nothing more this rest
+        return False
     stat, value = choice
     cost = tdp_model.point_cost(value)
-    if info["tdps"] - plan.get("tdp_reserve", 0) < cost:
+    quote.update(tdps=info["tdps"], cost=cost)
+    if info["tdps"] - reserve < cost:
+        if not quote.get("said"):
+            quote["said"] = True
+            s.echo(
+                f"train: {info['tdps']} TDPs, the next point ({stat} {value} → "
+                f"{value + 1}) costs {cost} — no stat this rest"
+            )
         return False
+    quote.clear()  # a purchase moves the stats: the next poll prices anew
     if not s.run("tdp", ["train", stat.lower(), "+1"]):
         return False
     s.echo(
@@ -404,13 +426,14 @@ def rest(s, plan, db, walk, index):
     started = clock()
     moves = 0
     bought = 0
+    quote = {}  # the rest's TDP pricing (#282)
     while True:
         if s.dead:
             return None
         soul_step(s, plan, db, walk, room)
         if s.dead:
             return None
-        if bought < TDP_POINTS_PER_REST and tdp_step(s, plan):
+        if bought < TDP_POINTS_PER_REST and tdp_step(s, plan, quote):
             bought += 1
             continue
         if rested(plan, experience(s)):

@@ -226,6 +226,19 @@ class Engine(ClientLogger):
                                 "exp",
                                 "",
                             )
+                        if self.xml_data.tdps is not None:
+                            # The window's own footer lines (#282).
+                            favors = self.xml_data.favors
+                            output_callback(
+                                f"TDPs {self.xml_data.tdps}"
+                                + (
+                                    f"   Favors {favors}\n"
+                                    if favors is not None
+                                    else "\n"
+                                ),
+                                "exp",
+                                "",
+                            )
                         if self.xml_data.rested:
                             output_callback(
                                 describe_rested(self.xml_data.rested) + "\n", "exp", ""

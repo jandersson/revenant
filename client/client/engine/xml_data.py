@@ -354,6 +354,11 @@ class XMLData:
         # the window (#281).
         self.exp_mods = {}
         self._mods_text = None
+        # The window's TDP and favor counts ("TDPs:  27", "Favors:  5"),
+        # pushed on every pulse, so a script needs no INFO for them (#282).
+        self.tdps = None
+        self.favors = None
+        self._counter = None  # ("tdps" | "favors", text) while one streams
         # The announced maintenance shutdown as server epoch seconds, or
         # None (#277); the engine emits a "shutdown" frame on a change.
         self.shutdown_at = None
@@ -421,6 +426,8 @@ class XMLData:
             self._objs_text.append(text_string)
         if self._mods_text is not None:
             self._mods_text += text_string
+        if self._counter is not None:
+            self._counter = (self._counter[0], self._counter[1] + text_string)
         if self._rested_text is not None:
             self._rested_text += text_string
         if self._hand is not None:
@@ -530,6 +537,10 @@ class XMLData:
                 self._rested_text = ""
             elif ident == "exp mods":
                 self._mods_text = ""
+            elif ident == "exp tdp":
+                self._counter = ("tdps", "")
+            elif ident == "exp favor":
+                self._counter = ("favors", "")
         elif name == "d" and self._inv_links is not None:
             self._link = (attributes.get("cmd", ""), [])
         elif name == "pushBold" and self._objs_names is not None:
@@ -606,6 +617,13 @@ class XMLData:
                 self.rested_updated = True
         if name == "component" and self._objs_text is not None:
             self.room_objs, self._objs_text = "".join(self._objs_text).strip(), None
+        if name == "component" and self._counter is not None:
+            (field, text), self._counter = self._counter, None
+            digits = re.search(r"\d+", text)
+            value = int(digits.group()) if digits else None
+            if value is not None and value != getattr(self, field):
+                setattr(self, field, value)
+                self.exp_updated = True
         if name == "component" and self._mods_text is not None:
             text, self._mods_text = self._mods_text, None
             mods = parse_exp_mods(text)

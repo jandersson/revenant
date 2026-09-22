@@ -71,7 +71,9 @@ for `client/client/<pkg>/x.py`.
   (#280); `exp_mods` ({skill: +-n}) from the exp window's modifiers
   component, on the window's last line (#281); `room_creatures_dead`
   beside `room_creatures`, the listing's "which appears dead" marks
-  (#278). `s.status` exposes each.
+  (#278); `tdps` and `favors` from the window's footer components,
+  so `;train`'s rest asks INFO once, not every poll (#282). `s.status`
+  exposes each.
 - `client/engine/core.py` — `Engine`: feeds lines, emits synthetic streams
   (compass = room-arrival signal, room, vitals, indicators, character,
   timesync, roundtime/casttime, bell). It appends "\n" only to the last

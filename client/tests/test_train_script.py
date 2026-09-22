@@ -637,3 +637,55 @@ def test_an_announced_shutdown_winds_the_task_down_and_ends_the_run(clock):
     assert any("wound down for the game's shutdown" in text for text in fake.echoed)
     assert fake.echoed[-1].startswith("train: the game is shutting down")
     assert not any("resting until" in text for text in fake.echoed)
+
+
+def test_a_rest_short_of_a_point_asks_info_once_and_says_so_once(clock, monkeypatch):
+    # #282: 247 INFOs in an afternoon for 5 points against a 45-point
+    # cost. One INFO prices the point; the polls after read the exp
+    # window's count and stay quiet.
+    monkeypatch.setattr(train, "INFO_SECONDS", 0.01)
+    monkeypatch.setattr(train, "INFO_TAIL", 0.01)
+    fake = Fake(
+        [{"Athletics": 30, "Small Edged": 30}]
+        + [{"Athletics": 20}] * 8
+        + [{"Athletics": 10}],
+        exits={"tdp": 15},
+    )
+    fake.answers = {"info": [INFO_TEXT.replace("347", "5")] * 12}
+    fake.state.tdps = 5
+    run(clock, fake, plan(tdp=["auto"]))
+    assert fake.sent.count("info") == 1
+    assert fake.started == []
+    said = [text for text in fake.echoed if "no stat this rest" in text]
+    assert said == [
+        "train: 5 TDPs, the next point (Strength 10 → 11) costs 30 — no stat this rest"
+    ]
+
+
+def test_the_windows_count_rising_past_the_cost_prices_again_and_buys(
+    clock, monkeypatch
+):
+    monkeypatch.setattr(train, "INFO_SECONDS", 0.01)
+    monkeypatch.setattr(train, "INFO_TAIL", 0.01)
+
+    def richer(fake):
+        fake.state.experience = {
+            "Athletics": {"rank": 1, "percent": 0, "mindstate": 20}
+        }
+        fake.state.tdps = 40  # the window says a point is affordable now
+
+    fake = Fake(
+        [{"Athletics": 30, "Small Edged": 30}, {"Athletics": 20}, {"Athletics": 20}]
+        + [richer]
+        + [{"Athletics": 20}] * 3
+        + [{"Athletics": 10}],
+        exits={"tdp": 15},
+    )
+    fake.answers = {
+        "info": [INFO_TEXT.replace("347", "5")] * 2
+        + [INFO_TEXT.replace("347", "40")] * 4
+    }
+    fake.state.tdps = 5
+    run(clock, fake, plan(tdp=["auto"]))
+    assert fake.started[:1] == [("tdp", ["train", "strength", "+1"])]
+    assert fake.sent.count("info") >= 2
