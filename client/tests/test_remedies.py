@@ -203,3 +203,21 @@ def test_the_arguments():
     }
     assert remedies.parse_args(["ledger"])["ledger"] is True
     assert remedies.parse_args(["salve=bogus"])["salve"] == "head"
+
+
+def test_the_buildings_rooms_share_the_title_before_the_comma():
+    from client.game.remedies import building_rooms
+
+    rooms = {
+        "8859": {"title": ["[[Crossing Alchemy Society, Entrance]]"]},
+        "8860": {"title": ["[[Crossing Alchemy Society, Tool Shop]]"]},
+        "8863": {"title": ["[[Crossing Alchemy Society, Office]]"]},
+        "909": {"title": ["[[Crossing, Alchemy Street]]"]},
+        "9140": {"title": ["[[Fang Cove Alchemy Society, Tool Store]]"]},
+        "1": {"title": []},
+    }
+    assert building_rooms(rooms, "8860") == ["8859", "8860", "8863"]
+    assert building_rooms(rooms, 8860) == ["8859", "8860", "8863"]
+    assert building_rooms(rooms, "9140") == ["9140"]
+    assert building_rooms(rooms, "1") == []
+    assert building_rooms(rooms, "none") == []

@@ -36,7 +36,10 @@ living: the logbook in hand and READ first — an order it still tracks
 is resumed, a complete one handed in — else ASK <master> FOR EASY
 REMEDIES WORK where the master stands (Lanshado in the Crossing
 society's Tool Shop, map 8860 — the profile's `crafting_master` and
-`crafting_hall`), the order read back ("an order for some blister
+`crafting_hall`; he wanders the building — "Lanshado steadies himself
+and shuffles away", "softly shuffles into the area" — so a hall
+without him is followed by the building's other rooms, two laps,
+until a listing names him, 2026-09-23), the order read back ("an order for some blister
 cream. I need 2 stacks (5 uses each) finely-crafted ... due in 65
 roisaen"); an order the book has no page for, or whose herb the
 Supplies does not sell (hulnik, sufil), is asked again, up to three
@@ -93,9 +96,11 @@ from client.game import discard, flight, probe
 from client.game.loop import danger, ensure_mindstate, mindstate, pause, wants_stop
 from client.game.probe import classify
 from client.game.money import parse_wealth, phrase
+from client.game.seek import present
 from client.game.remedies import (
     BOUGHT,
     BUNDLED,
+    building_rooms,
     CATALOG,
     CRUSH_OUTCOMES,
     NO_MASTER,
@@ -139,6 +144,7 @@ MISSES = 3  # unrecognized CRUSH answers before the run ends
 STUDIES = 2  # STUDYs per remedy before the recipe is called wrong
 DEFAULT_MASTER = "lanshado"
 DEFAULT_HALL = "8860"  # the Crossing Alchemy Society's Tool Shop
+MASTER_LAPS = 2  # laps of the building's rooms looking for the master
 
 
 def ask(s, command):
@@ -410,10 +416,65 @@ def to_master(s, profile):
     return walk(s, mapdb, set(goals), describe="the crafting hall")
 
 
-def order(s, master, level):
+def master_here(s, master):
+    """True when the room's listing or its players name the master."""
+    return (
+        present(
+            master,
+            getattr(s.state, "room_objs", "") or "",
+            getattr(s.state, "room_players", None) or (),
+        )
+        is not None
+    )
+
+
+def find_master(s, profile, master, mapdb=None, here=None):
+    """The master where he stands: the crafting hall first, then the
+    building's other rooms, MASTER_LAPS laps, until a listing names
+    him. Lanshado wanders the society ("steadies himself and shuffles
+    away", "softly shuffles into the area", captured 2026-09-22; the
+    operator, 2026-09-23: "he's in the society building somewhere, the
+    script just needs to look for him"). False when the hall is out of
+    reach, the map shows no building, or he is nowhere in it."""
+    if not to_master(s, profile):
+        return False
+    if master_here(s, master):
+        return True
+    if mapdb is None:
+        from client.game.mapdb import MapDB
+        from client.game.walker import locate
+
+        mapdb = MapDB.load()
+        here = locate(mapdb, s.state)
+    rooms = [room for room in building_rooms(mapdb.rooms, here) if room != str(here)]
+    if not rooms:
+        s.echo(
+            f"remedies: {master} is not here, and the map shows no other room of the building"
+        )
+        return False
+    s.echo(
+        f"remedies: {master} is not here — looking through the building's "
+        f"{len(rooms)} other room(s)"
+    )
+    for _lap in range(MASTER_LAPS):
+        for room in rooms:
+            if wants_stop(s) or danger(s):
+                return False
+            if not walk_to(s, room, f"the building's room {room}"):
+                continue
+            s.sleep(1)  # the listing lands a beat after the arrival
+            if master_here(s, master):
+                s.echo(f"remedies: found {master} in room {room}")
+                return True
+    s.echo(f"remedies: {master} is nowhere in the building after {MASTER_LAPS} lap(s)")
+    return False
+
+
+def order(s, master, level, seek=None):
     """The logbook in hand and read — an order it still tracks is
     resumed, a complete one goes straight to the master — else the
-    order asked and read back; the parsed order or None (said)."""
+    order asked and read back; the parsed order or None (said). `seek`
+    finds the master again when the ask says he is gone."""
     if missing(ask(s, "get my logbook")):
         s.echo("remedies: no work order logbook on you — stopping")
         return None
@@ -437,6 +498,8 @@ def order(s, master, level):
             "resumed": True,
         }
     answer = ask(s, f"ask {master} for {level} remedies work")
+    if any(word in answer for word in NO_MASTER) and seek is not None and seek():
+        answer = ask(s, f"ask {master} for {level} remedies work")
     if any(word in answer for word in NO_MASTER):
         s.echo(f"remedies: {master} is not here — stopping")
         ask(s, "stow my logbook")
@@ -569,13 +632,13 @@ def restock(s, spec, catalyst, why, remaining, tally):
     return buy(s, noun, count, shop, catalog, tally)
 
 
-def next_order(s, master, options):
+def next_order(s, master, options, seek=None):
     """An order the book has a page for and the shop the herbs of —
     the master asked again, up to ORDER_TRIES, for one it lacks (a new
     order replaces the old without penalty; Elanthipedia: Work
     orders). (order, spec), or (None, None) said."""
     for attempt in range(1, ORDER_TRIES + 1):
-        parsed = order(s, master, options["level"])
+        parsed = order(s, master, options["level"], seek=seek)
         if parsed is None:
             return None, None
         if parsed["count"] == 0:
@@ -719,10 +782,12 @@ def work(s, options, profile):
     while True:
         if tally.get("ending"):
             break
-        if not to_master(s, profile):
-            s.echo("remedies: could not reach the crafting hall — stopping")
+        if not find_master(s, profile, master):
+            s.echo("remedies: no master to ask — stopping")
             break
-        parsed, spec = next_order(s, master, options)
+        parsed, spec = next_order(
+            s, master, options, seek=lambda: find_master(s, profile, master)
+        )
         if parsed is None:
             break
         snapshot = {key: tally.get(key, 0) for key in COUNTERS}
@@ -784,7 +849,7 @@ def work(s, options, profile):
         if why is not None:
             s.echo(f"remedies: {why} — the order waits in the logbook")
             break
-        if not to_master(s, profile):
+        if not find_master(s, profile, master):
             s.echo("remedies: could not reach the master with the logbook — stopping")
             break
         ask(s, "get my logbook")

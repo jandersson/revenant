@@ -42,6 +42,7 @@ def _script():
 
 
 script = _script()
+find_master = script.find_master  # the real search; run() fakes the module's
 
 STUDIED = (
     "You scan the blister cream instructions with a glance and confidently discern "
@@ -154,6 +155,7 @@ def profile(monkeypatch, tmp_path):
 def run(fake, args=()):
     script.probe = SimpleNamespace(ask=fake.ask)
     script.to_master = lambda s, profile: True  # the walks are the walker's
+    script.find_master = lambda s, profile, master, **_: True
     script.walk_to = lambda s, target, describe: fake.walked.append(str(target)) or True
     script.withdraw_coins = lambda s, copper: fake.withdrawn.append(copper) or True
     script.run(fake, script.parse_args(list(args)))
@@ -672,3 +674,77 @@ def test_an_order_the_book_lacks_a_missing_master_and_no_herbs_are_said():
     gone = Fake({"ask lanshado for easy remedies work": [NOT_HERE]})
     out = run(gone, ["work"])
     assert "lanshado is not here" in out
+
+
+SOCIETY = {
+    "8859": {"title": ["[[Crossing Alchemy Society, Entrance]]"]},
+    "8860": {"title": ["[[Crossing Alchemy Society, Tool Shop]]"]},
+    "8861": {"title": ["[[Crossing Alchemy Society, Bookstore]]"]},
+    "8862": {"title": ["[[Crossing Alchemy Society, Supplies]]"]},
+    "8863": {"title": ["[[Crossing Alchemy Society, Office]]"]},
+    "909": {"title": ["[[Crossing, Alchemy Street]]"]},
+}
+MASTER_LISTING = (
+    "You also see Alchemy Society Master Lanshado, a clerk, a plant grinder "
+    "and a dry press."
+)
+
+
+def test_the_master_is_looked_for_through_the_building_when_the_hall_lacks_him():
+    # 01:26 on 2026-09-23: the Tool Shop listed a clerk and no master
+    # ("Lanshado steadies himself and shuffles away"); he wanders the
+    # society's rooms, so the script walks them until one names him.
+    fake = Fake({})
+    fake.state.room_objs = "You also see a clerk, a plant grinder and a dry press."
+    script.to_master = lambda s, profile: True
+
+    def walk_to(s, target, describe):
+        fake.walked.append(str(target))
+        if str(target) == "8863":
+            fake.state.room_objs = MASTER_LISTING
+        return True
+
+    script.walk_to = walk_to
+    mapdb = SimpleNamespace(rooms=SOCIETY)
+    assert find_master(fake, {}, "lanshado", mapdb=mapdb, here="8860")
+    assert fake.walked == [
+        "8859",
+        "8861",
+        "8862",
+        "8863",
+    ]  # the street is not the building
+    assert "looking through the building's 4 other room(s)" in "\n".join(fake.echoed)
+    assert "found lanshado in room 8863" in "\n".join(fake.echoed)
+
+    fake.state.room_objs = MASTER_LISTING
+    fake.walked.clear()
+    assert find_master(fake, {}, "lanshado", mapdb=mapdb, here="8860")
+    assert fake.walked == []  # already in his room: no walk
+
+
+def test_a_master_nowhere_in_the_building_ends_the_search_after_two_laps():
+    fake = Fake({})
+    fake.state.room_objs = "You also see a clerk."
+    script.to_master = lambda s, profile: True
+    script.walk_to = lambda s, target, describe: fake.walked.append(str(target)) or True
+    mapdb = SimpleNamespace(rooms=SOCIETY)
+    assert not find_master(fake, {}, "lanshado", mapdb=mapdb, here="8860")
+    assert len(fake.walked) == 8  # two laps of four rooms
+    assert "nowhere in the building after 2 lap(s)" in "\n".join(fake.echoed)
+    street = SimpleNamespace(rooms={"909": SOCIETY["909"]})
+    assert not find_master(fake, {}, "lanshado", mapdb=street, here="909")
+    assert "no other room of the building" in "\n".join(fake.echoed)
+
+
+def test_an_ask_that_finds_him_gone_looks_again_once():
+    # He shuffled away between the arrival and the ASK: one more search
+    # and one more ASK, then the order.
+    fake = Fake({"ask lanshado for easy remedies work": [NOT_HERE, ORDER]})
+    script.probe = SimpleNamespace(ask=fake.ask)
+    sought = []
+    parsed = script.order(
+        fake, "lanshado", "easy", seek=lambda: sought.append(1) or True
+    )
+    assert sought == [1]
+    assert parsed and parsed["item"] == "blister cream"
+    assert fake.sent.count("ask lanshado for easy remedies work") == 2

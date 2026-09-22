@@ -245,7 +245,8 @@ for `client/client/<pkg>/x.py`.
   putting in the water, the page's second herb and the profile's
   `catalyst` (a coal nugget) as the game asks, re-studying a spent
   page; `;remedies work` runs the society's orders as a living —
-  the logbook's open order resumed or the master asked (again, for
+  the logbook's open order resumed or the master asked wherever he
+  wandered to in the building (`building_rooms`, 2026-09-23; again, for
   an item the book or the Supplies lacks), each stack crafted and
   bundled, the herbs, water and coal bought as they run out with
   the coins fetched from the teller, the logbook handed in for the

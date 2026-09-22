@@ -585,7 +585,12 @@ crush of the wrong herb, then the right one, both answered "You cannot
 figure out how to do that" until the page was studied again.
 `;remedies work` is the society's order (Elanthipedia: Work orders),
 completed live the same evening: ASK LANSHADO FOR EASY REMEDIES WORK
-in the Tool Shop ("an order for some blister cream. I need 2 stacks (5
+in the Tool Shop — or wherever he stands: he wanders the society's five
+rooms ("Lanshado steadies himself and shuffles away", "softly shuffles
+into the area"), and a Tool Shop without him (01:26 on 2026-09-23, the
+first `;train` cycle) is followed by the building's other rooms, two
+laps, until a listing names him (`building_rooms`, the map's rooms
+sharing the title before the comma) — ("an order for some blister cream. I need 2 stacks (5
 uses each) finely-crafted, made from any material and due in 65
 roisaen"), each 25-piece stack crafted into a 5-use remedy, BUNDLE MY
 CREAM WITH MY LOGBOOK ("You notate the cream in the logbook then
