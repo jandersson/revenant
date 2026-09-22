@@ -42,6 +42,7 @@ import re
 import time
 
 from client.game import buffs, climbs, probe
+from client.game import flight
 from client.game.status import counted
 
 MIND_LOCK = 34  # mindstate 34/34: nothing more fits
@@ -330,27 +331,19 @@ def danger(state):
 
 
 def escape(s, commands):
-    """The burst-escape (docs/combat.md, field-proven): two retreats
-    step melee -> pole -> missile range, and climbing is legal again
-    from missile range even while the creature stays in the room — so
-    burst retreat/retreat/move through the type-ahead and judge
-    success by whether the ROOM changed, not by whether it emptied
-    (a bear that won't leave must not pin the trainer, captured
-    2026-08-22). Spaced commands lose the race to re-advances
-    (captured twice: the #72 death, four failed single-retreat
-    exits)."""
-    for attempt in range(ESCAPE_ATTEMPTS):
-        before = getattr(s.state, "room_uid", None)
-        s.put("retreat")
-        s.put("retreat")
-        s.put(step_command(commands[attempt % len(commands)]))
-        s.waitrt()
-        s.sleep(1)
-        if getattr(s.state, "room_uid", None) != before:
-            return True
-        if not hostiles_present(s.state):
-            return True
-    return False
+    """The burst-escape (docs/combat.md, field-proven), shared with every
+    trainer since #285 (client/game/flight.py): STAND when seated, then
+    retreat/retreat/move back to back through the type-ahead, judged by
+    the ROOM changing, not by the answer. The climb along the training
+    edge is tried first — two retreats reach missile range, where
+    climbing is legal with the creature still present, and the
+    cave-bear stalemate (#86) is escaped that way — and a compass exit
+    next: a climb that fails for footing never changes the room, and
+    the goblin outside the western gate re-advanced through eight of
+    them while the trainer sat (#286, 2026-09-22)."""
+    return flight.flee(
+        s, preferred=[step_command(step) for step in commands], attempts=ESCAPE_ATTEMPTS
+    )
 
 
 def handle_danger(s, reason, commands):

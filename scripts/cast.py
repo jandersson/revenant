@@ -40,6 +40,7 @@ Stop with:  ;stop cast, or ;cast return.
 import time
 
 from client.game import buffs, probe
+from client.game import flight
 from client.game.loop import danger, pause, wants_stop
 
 MIND_LOCK = 34
@@ -191,6 +192,8 @@ def loop(s, options, shaped):
         reason = danger(s)
         if reason:
             s.echo(f"cast: {reason} — stopping")
+            if "hostiles" in reason:
+                flight.react(s, "cast")
             return
         if wants_stop(s):
             s.echo("cast: stopping as asked")

@@ -531,6 +531,20 @@ IN MY MORTAR took the whole 25-piece stack (MARK and BREAK the stack
 to five first — uncaptured), and the mortar and pestle fill both hands,
 so every fetch stows the pestle first.
 
+## Hostiles mid-training
+
+A trainer that meets hostiles — a song, a book, a climb, a mortar — no
+longer stops and stands among them: it runs the shared escape
+(`client/game/flight.py`, docs/combat.md): STAND, RETREAT twice and a
+move through the type-ahead, the climb or the compass exits in turn,
+until the room changes. `;train` reads a task's script ending with
+hostiles in the room as "ended among hostiles", gets away before the
+next task, and its rest's flee is the same burst. `;stop all` keeps
+`;deathwatch` up. The Crossing's auto invasion (goblins or trollkin at
+the gates, once a day; ASK HENGWILD ABOUT INVASION) is what taught it
+(#285, 2026-09-22); its announcement wording is uncaptured, so nothing
+yet pulls a character back before a hostile is in the room.
+
 ## Out of scope in the first cut
 
 A dialog for the plan (the file is the interface), a trainer per

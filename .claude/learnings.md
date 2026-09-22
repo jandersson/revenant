@@ -95,6 +95,12 @@ lessons the code and docs cannot carry themselves.
   the session at 04:30 on 2026-09-20 with `;train` running (#239).
   The renderer now reads with `.get` and the reader survives our own
   errors, but the rule stands: seed complete entries or none.
+- `;stop all` used to stop `;deathwatch` too: the emergency stop in
+  the invasion of 2026-09-22 left the character unwatched until it
+  was restarted by hand. It keeps the background monitors now —
+  deathwatch, xp, wealth, sheet, beholder, lnet (`KEEP_ON_STOP_ALL`,
+  the operator's rule); a session started before that still stops
+  everything, so restart deathwatch after a ;stop all there.
 - A reloadable module must not import a name the running engine may
   not have: status.py (reloads with the scripts) importing a new
   constant from xml_data.py (reloads only with the session) failed

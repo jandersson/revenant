@@ -413,3 +413,13 @@ def test_a_dirty_instrument_plays_on_without_a_cloth(monkeypatch, tmp_path):
     ]
     assert plays(gone) == ["play scales off-key on my zills"]
     assert any("no rag on you — the zills plays dirty" in t for t in gone.echoed)
+
+
+def test_hostiles_have_it_get_away_not_just_stop():
+    # #285: the song stops and the character leaves the room.
+    fake = Fake(mindstates=[5] * 50, hostiles={"1": True})
+    fake.state.compass = ["nw"]
+    out = run(fake)
+    assert "hostiles in the room" in out
+    assert "perform: hostiles here — getting away" in out
+    assert fake.sent[-3:] == ["retreat", "retreat", "nw"] or "retreat" in fake.sent

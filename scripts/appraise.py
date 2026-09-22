@@ -31,6 +31,7 @@ Stop with:  ;stop appraise, or ;appraise return.
 """
 
 from client.game import probe
+from client.game import flight
 from client.game.appraisal import (
     NOT_FOUND,
     REFUSED,
@@ -115,6 +116,8 @@ def run(s, options):
             reason = danger(s)
             if reason:
                 s.echo(f"appraise: {reason} — stopping")
+                if "hostiles" in reason:
+                    flight.react(s, "appraise")
                 return
             if wants_stop(s):
                 s.echo("appraise: stopping as asked")

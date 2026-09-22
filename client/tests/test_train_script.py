@@ -357,7 +357,11 @@ def test_a_rest_hostiles_keep_finding_is_given_up_for_the_cycle(clock):
     trained = {"Athletics": 30, "Small Edged": 30}
     fake = Fake([trained, ambush] + [ambush] * 20)
     run(clock, fake, plan(safe_rooms=[]))
-    assert fake.sent.count("retreat") == 2 * train.LEAVE_ATTEMPTS
+    # each leave is the shared escape's full burst loop now (#285):
+    # two retreats per burst, flight.ATTEMPTS bursts per attempt
+    from client.game import flight
+
+    assert fake.sent.count("retreat") == 2 * flight.ATTEMPTS * train.LEAVE_ATTEMPTS
     assert any("giving it up for this cycle" in text for text in fake.echoed)
 
 
@@ -689,3 +693,31 @@ def test_the_windows_count_rising_past_the_cost_prices_again_and_buys(
     run(clock, fake, plan(tdp=["auto"]))
     assert fake.started[:1] == [("tdp", ["train", "strength", "+1"])]
     assert fake.sent.count("info") >= 2
+
+
+def test_a_task_whose_script_ended_among_hostiles_gets_away_first(clock):
+    # #285: the invasion of 2026-09-22 — the trainer stopped on hostiles
+    # and left the character among them; ;train flees before the next task.
+    def ambushed(fake):
+        fake.state.experience = {
+            "Small Edged": {"rank": 1, "percent": 0, "mindstate": 3}
+        }
+        fake.state.hostiles = {"92557788": True}
+        fake.state.compass = ["nw"]
+
+    fake = Fake(
+        [{"Small Edged": 3}, ambushed, {"Small Edged": 3}, {"Small Edged": 3}],
+        exits={"hunt": 20},
+    )
+    original_put = fake.put
+
+    def put(command):
+        original_put(command)
+        if command == "nw":
+            fake.state.hostiles = {}
+
+    fake.put = put
+    run(clock, fake, plan(tasks=[plan()["tasks"][1]], poll=10))
+    assert any("ended among hostiles — getting away" in text for text in fake.echoed)
+    assert fake.sent[:3] == ["retreat", "retreat", "nw"]
+    assert any("ended among hostiles — got away" in text for text in fake.echoed)

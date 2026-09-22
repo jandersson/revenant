@@ -431,6 +431,7 @@ RELOADABLE_MODULES = (
     "client.game.soul",
     "client.game.encumbrance",
     "client.game.status",
+    "client.game.flight",  # binds status: after it
     "client.game.mapdb",
     "client.game.walker",
 )
@@ -767,10 +768,28 @@ class ScriptManager(ClientLogger):
                 if self.running.get(script.name) is script:
                     del self.running[script.name]
 
+    # ;stop all leaves the background monitors running — the scripts
+    # the session autostarts (the death watch, the exp and wealth
+    # logs, the sheet, the dashboard, the chat): an emergency stop
+    # during the invasion of 2026-09-22 took ;deathwatch down with the
+    # trainers and it had to be restarted by hand (#285; the operator:
+    # "shouldn't stop background monitoring scripts like ;xp or
+    # ;deathwatch"). ;stop <name> stops one of them on its own.
+    KEEP_ON_STOP_ALL = ("deathwatch", "xp", "wealth", "sheet", "beholder", "lnet")
+
     def stop(self, name: str):
         with self.lock:
             if name == "all":
-                targets = list(self.running.values())
+                targets = [
+                    script
+                    for script in self.running.values()
+                    if script.name not in self.KEEP_ON_STOP_ALL
+                ]
+                kept = [
+                    script.name
+                    for script in self.running.values()
+                    if script.name in self.KEEP_ON_STOP_ALL
+                ]
             elif name in self.running:
                 targets = [self.running[name]]
             else:
@@ -784,6 +803,11 @@ class ScriptManager(ClientLogger):
             names = ", ".join(sorted(script.name for script in targets))
             self.emit(f"{name!r} matches several running scripts: {names}")
             return
+        if name == "all" and kept:
+            self.emit(
+                f"kept running: {', '.join(sorted(kept))} — the background "
+                f"monitors; ;stop {sorted(kept)[0]} stops one"
+            )
         if not targets:
             self.emit(f"nothing to stop ({name})")
             return

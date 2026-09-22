@@ -40,6 +40,7 @@ import re
 import time
 
 from client.engine.xml_data import LEARNING_RATES
+from client.game import flight
 from client.game import probe
 from client.game.loop import danger, pause, wants_stop
 from client.game.mapdb import MapDB
@@ -268,6 +269,8 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
             reason = danger(s)
             if reason:
                 s.echo(f"scholarship: {reason} — stopping")
+                if "hostiles" in reason:
+                    flight.react(s, "scholarship")
                 return
             if wants_stop(s):
                 s.echo("scholarship: stopping as asked")

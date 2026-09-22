@@ -43,7 +43,7 @@ Stops at mind-lock, on death, on hostiles in the room, and on
 Stop with:  ;stop forage (at once), or ;forage return for a clean finish.
 """
 
-from client.game import probe
+from client.game import flight, probe
 from client.game.loop import danger, wants_stop
 from client.game.buffs import locked
 from client.game.mapdb import MapDB
@@ -193,3 +193,5 @@ def main(s):
     avoid = avoided_rooms(db, load_settings().get("avoid_rooms")) if db else ()
     reason, collected = run(s, options, db=db, avoid=avoid)
     s.echo(f"forage: {reason} — {collected} collect(s) of {options['item']}")
+    if "hostiles" in reason:
+        flight.react(s, "forage")

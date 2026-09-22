@@ -35,6 +35,7 @@ import re
 import time
 
 from client.game import probe
+from client.game import flight
 from client.game.loop import danger, pause, wants_stop
 from client.game.attune import PERCEIVED, chain, circuit, wait_for
 from client.game.mapdb import MapDB
@@ -180,6 +181,8 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
         reason = danger(s)
         if reason:
             s.echo(f"attune: {reason} — stopping")
+            if "hostiles" in reason:
+                flight.react(s, "attune")
             return
         value = mindstate(s)
         if value is not None and value >= options["until"]:

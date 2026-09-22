@@ -803,3 +803,26 @@ def test_a_crowded_rotation_stop_is_skipped():
     assert "climb embrasure" not in puts
     assert puts[0] == "climb wall"
     assert any("a crowd, not ours, skipping it" in echo for echo in handle.echoes)
+
+
+def test_escape_stands_first_and_falls_back_to_an_exit_when_the_climb_fails():
+    # #286: seated outside the western gate, the climb failing for
+    # footing, the goblin re-advancing — STAND, then the exit.
+    class PinnedHandle(DangerHandle):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.state.room_uid = 500
+            self.state.compass = ["nw"]
+            self.state.indicator = {"IconSITTING": "y"}
+
+        def put(self, command):
+            super().put(command)
+            if command == "nw":
+                self.state.room_uid = 501
+                self.state.hostiles = {}
+
+    handle = PinnedHandle((), mindstates=(5,), sleeps=10, hostile_sleeps=99)
+    assert athletics.escape(handle, ["climb wall"]) is True
+    puts = [call[1] for call in handle.calls if call[0] == "put"]
+    assert puts[:4] == ["stand", "retreat", "retreat", "climb wall"]
+    assert puts[-1] == "nw"

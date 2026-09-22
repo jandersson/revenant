@@ -48,6 +48,7 @@ import re
 import time
 
 from client.engine.xml_data import LEARNING_RATES
+from client.game import flight
 from client.game import probe
 from client.game.loop import danger, wants_stop
 from client.game.perform import (
@@ -299,6 +300,8 @@ def run(s, options, walker=walk_home):
             if playing:
                 stop_song(s)
             s.echo(f"perform: {reason} — stopping")
+            if "hostiles" in reason:
+                flight.react(s, "perform")
             return
         value = mindstate(s)
         if value is not None and value >= options["until"]:

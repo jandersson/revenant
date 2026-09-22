@@ -50,6 +50,7 @@ Stop with:  ;stop soul, or ;soul return.
 import time
 
 from client.game import probe
+from client.game import flight
 from client.game.loop import danger, wants_stop
 from client.game.mapdb import MapDB
 from client.game.money import parse_wealth
@@ -436,6 +437,8 @@ def keep(s, mapdb, timers, options, walk_fn=walk):
         reason = danger(s)
         if reason:
             s.echo(f"soul: {reason} — stopping")
+            if "hostiles" in reason:
+                flight.react(s, "soul")
             return
         if wants_stop(s):
             s.echo("soul: stopping as asked")

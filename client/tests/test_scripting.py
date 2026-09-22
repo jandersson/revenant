@@ -819,3 +819,22 @@ def test_a_flag_catches_a_line_while_the_script_does_something_else(tmp_path):
         lambda: "[watcher] saw You stop playing your song." in recorder.emitted
     )
     assert wait_for(lambda: any("exited" in e for e in recorder.emitted))
+
+
+def test_stop_all_keeps_deathwatch_running(tmp_path):
+    # #285: an emergency ;stop all took the death watch down with the
+    # trainers; it stays up now, and ;stop deathwatch stops it alone.
+    for name in ("deathwatch", "perform"):
+        (tmp_path / f"{name}.py").write_text(
+            "def main(s):\n    while True:\n        s.sleep(0.05)\n"
+        )
+    manager, recorder = make_manager(tmp_path)
+    manager.start("deathwatch", [])
+    manager.start("perform", [])
+    assert wait_for(lambda: manager.alive("deathwatch") and manager.alive("perform"))
+    manager.stop("all")
+    assert wait_for(lambda: not manager.alive("perform"))
+    assert manager.alive("deathwatch")
+    assert any("kept running: deathwatch" in e for e in recorder.emitted)
+    manager.stop("deathwatch")
+    assert wait_for(lambda: not manager.alive("deathwatch"))

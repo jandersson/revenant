@@ -45,6 +45,8 @@ ends, and ;train stops with a word to start it again after.
 
 import time
 
+from client.game import flight
+
 from client.game.training import (
     describe,
     load_plan,
@@ -113,13 +115,10 @@ def send_each(s, commands):
 
 
 def flee(s):
-    """The burst out of a room hostiles hold: retreat twice, then the
-    first exit (or out)."""
-    exits = list(getattr(s.state, "compass", None) or [])
-    s.put("retreat")
-    s.put("retreat")
-    s.put(exits[0] if exits else "out")
-    s.waitrt()
+    """The burst out of a room hostiles hold — client/game/flight.py's,
+    shared with every trainer since #285: STAND, retreat twice, a
+    compass exit, judged by the room changing, up to eight tries."""
+    return flight.react(s, "train")
 
 
 def progress(plan, task, experience_now):
@@ -188,6 +187,13 @@ def run_script_task(s, plan, task, deadline):
     try:
         while True:
             reason = watch(s, plan, task, deadline, running=lambda: s.is_running(name))
+            if reason == "ended" and hostiles_present(s.state):
+                # The script stopped on hostiles and left the character
+                # among them (the invasion of 2026-09-22, #285): out of
+                # the room first, then the next task from safety.
+                s.echo(f"train: ;{name} ended among hostiles — getting away")
+                flee(s)
+                return "hostiles"
             if reason == "ended" and (error := crash_of(s, name)):
                 # Died with a traceback (#181): the session log has it.
                 s.echo(f"train: ;{name} crashed — {error}; a failed {task['name']}")
@@ -234,6 +240,7 @@ ENDINGS = {
     "failed": "failed to start",
     "crashed": "its script crashed",
     "shutdown": "wound down for the game's shutdown",
+    "hostiles": "ended among hostiles — got away",
 }
 UNTRAINED = ("skipped", "failed", "crashed")  # a task that never trained
 

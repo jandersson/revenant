@@ -39,7 +39,7 @@ the catalyst too.
 Stop with:  ;stop remedies, or ;remedies return.
 """
 
-from client.game import probe
+from client.game import flight, probe
 from client.game.loop import danger, ensure_mindstate, mindstate, pause, wants_stop
 from client.game.probe import classify
 from client.game.remedies import (
@@ -257,6 +257,8 @@ def run(s, options):
     ask(s, "stow my pestle")
     ask(s, "stow my mortar")
     redraw(s, profile)
+    if "hostiles" in reason:
+        flight.react(s, "remedies")
 
 
 def main(s):

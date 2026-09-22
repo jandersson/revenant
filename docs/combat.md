@@ -103,6 +103,26 @@ not yet encoded anywhere.
 - A proper hunting script would add stance, facing, loot/skinning,
   and multi-opponent policy — none of that exists yet.
 
+## Getting away: the shared escape
+
+Every trainer that stops on hostiles gets away the same way since #285
+(`client/game/flight.py`, after the Crossing's auto invasion of
+2026-09-22 found a character sitting between climbs outside the western
+gate): STAND when the indicator says seated or prone (RETREAT from a
+seat does nothing), then the burst above — RETREAT, RETREAT, a move —
+judged by the room changing or the hostile set emptying, never by the
+answer. The move is the caller's own step first (`;athletics` climbs
+along its edge: the cave-bear stalemate, #86, is escaped by climbing),
+then each compass exit, then OUT, one per burst up to eight: a climb
+that fails for footing never changes the room, and the goblin outside
+the gate re-advanced through eight of them (#286). `flight.react` is
+the ladder with the echoes and the bell; `;train` runs it when a task's
+script ended among hostiles before starting the next, and its rest's
+flee is the same burst. `;stop all` leaves the background monitors (deathwatch, xp, wealth, sheet, beholder, lnet) running.
+lich-5's `DRC.retreat` loops RETREAT with `fix_standing`; dr-scripts'
+`gosafe` and `safe-room` walk to a configured safe room
+(docs/bibliography.md).
+
 ## Where the lines arrive
 
 Every swing, hit and kill line — yours and the creature's — comes
