@@ -389,6 +389,15 @@ def test_train_skip_ends_the_current_task_and_rest_rests_now(clock):
     assert any("resting on request" in text for text in fake.echoed)
 
 
+def test_train_task_names_one_task_of_the_plan():
+    # ;train task <name> runs that task once, no rest (2026-09-22).
+    p = plan()
+    assert train.task_named(p, "Climbs")["name"] == "climbs"
+    assert train.task_named(p, "nosuch") is None
+    assert train.following_task(p, train.task_named(p, "climbs"))["name"] == "rats"
+    assert train.following_task(p, p["tasks"][-1]) is None
+
+
 def test_train_status_answers_while_running(clock):
     fake = Fake([{"Athletics": 5}, {"Athletics": 30}, {}])
     fake.commands = ["status", "dance"]

@@ -18,6 +18,7 @@ up for the cycle (a rest among things biting you never drains, #182).
 
     ;train           run the plan until stopped (or its cycles run out)
     ;train once      one train-rest cycle
+    ;train task <name>   that one task, once, no rest — a helper's login and logout included
     ;train plan      print the plan it would run
     ;train status    the tracked skills' mindstates (also while running)
     ;train init      write the starter plan (init force overwrites)
@@ -356,6 +357,12 @@ def end_helper(s, task, active, following, db):
         SPAWNED.discard(active.name.lower())
 
 
+def task_named(plan, wanted):
+    """The plan's task called `wanted` (case ignored), or None."""
+    wanted = str(wanted or "").strip().lower()
+    return next((t for t in plan.get("tasks", []) if t["name"].lower() == wanted), None)
+
+
 def following_task(plan, task):
     """The task after this one in the plan's order, or None."""
     names = [t.get("name") for t in plan.get("tasks", [])]
@@ -692,6 +699,19 @@ def main(s):
     if not plan["tasks"]:
         s.echo(f"train: no tasks in {plan_path(name)} — ;train init writes a starter")
         return
-    cycles = 1 if word == "once" else plan["cycles"]
     db, walk = travel_engine(s, plan)
+    if word == "task":
+        # One task by name, once, no rest: the way to try a task — a
+        # helper class with its login and logout — without the whole
+        # cycle in front of it (the operator, 2026-09-22).
+        wanted = " ".join(s.args[1:])
+        task = task_named(plan, wanted)
+        if task is None:
+            names = ", ".join(t["name"] for t in plan["tasks"])
+            s.echo(f"train: no task named {wanted!r} — the plan has: {names}")
+            return
+        reason = run_task(s, plan, task, db, walk)
+        s.echo(f"train: task {task['name']} {ENDINGS.get(reason, reason)} — done")
+        return
+    cycles = 1 if word == "once" else plan["cycles"]
     run(s, plan, cycles, db=db, walk=walk)
