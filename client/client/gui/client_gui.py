@@ -724,6 +724,8 @@ class ClientGUI(QMainWindow, ClientLogger):
     # -- game text in, commands out ------------------------------------------
 
     def dispatch_game_text(self, text: str, stream: str, style: str = ""):
+        if stream == "attached":
+            return  # the end of the replay, for outside readers (#287)
         if stream == "percWindow":
             # The raw Spells window: the parser reads it and the Spells
             # dock draws the result from the "spells" stream (#175), so

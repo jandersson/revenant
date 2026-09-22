@@ -34,6 +34,9 @@ EXTERNAL_MARK = b"\x1e"
 # room, the vitals, the exp window or the hands without typing LOOK,
 # EXP or INV at the character.
 STATE_MARK = b"\x1d"
+# The frame that ends a session's backlog replay on attach (#287): an
+# empty text on this stream; everything after it is live.
+ATTACHED = "attached"
 
 
 def request_state(host, port, fields=(), origin="external", timeout=5):
@@ -93,10 +96,13 @@ def send_and_read(host, port, text, seconds, timeout=5, settle=0.3, until=None):
     story window a driver used to poll the raw log for).
 
     The backlog replay comes first, and it can hold an identical echo
-    of an earlier send of the same line — so the replay is drained
-    (read until `settle` seconds pass with no bytes, two seconds at
-    most) before the line goes out, and the first matching echo after
-    that is this line's own."""
+    of an earlier send of the same line, or the very line a wait is
+    for (#287: a wait answered by the previous order's pay line) — so
+    the replay is skipped up to the session's "attached" mark that
+    ends it; a session started before the mark existed is drained
+    instead (read until `settle` seconds pass with no bytes, two
+    seconds at most). Only what comes after counts, and the first
+    matching echo after that is this line's own."""
     try:
         conn = socket.create_connection((host, int(port)), timeout=timeout)
     except OSError:
@@ -109,8 +115,10 @@ def send_and_read(host, port, text, seconds, timeout=5, settle=0.3, until=None):
         seen_echo = False
     frames, buffer, done = [], b"", False
     with conn:
-        # Nothing to drain when nothing is sent: every line counts.
-        drain_until = monotonic() + (2.0 if text is not None else 0.0)
+        # The replay: everything up to the "attached" mark, or until
+        # the session goes quiet for `settle` seconds (two at most).
+        drain_until = monotonic() + 2.0
+        early = []  # frames after the mark, in the same chunk
         while monotonic() < drain_until:
             conn.settimeout(settle)
             try:
@@ -121,8 +129,20 @@ def send_and_read(host, port, text, seconds, timeout=5, settle=0.3, until=None):
                 break
             if not chunk:
                 break
+            buffer += chunk
+            decoded, buffer = decode_frames(buffer)
+            marks = [i for i, frame in enumerate(decoded) if frame[1] == ATTACHED]
+            if marks:
+                early = decoded[marks[-1] + 1 :]
+                break
         if text is not None:
             conn.sendall(text.encode("UTF-8").rstrip(b"\n") + b"\n")
+        for frame in early:
+            if seen_echo:
+                frames.append(frame)
+                if until and frame[1] == "" and until in frame[0]:
+                    done = True
+                    break
         deadline = monotonic() + seconds
         while not done and (left := deadline - monotonic()) > 0:
             conn.settimeout(min(left, 0.5))

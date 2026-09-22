@@ -303,8 +303,9 @@ def stateful():
 
 @pytest.fixture
 def talker():
-    """A fake session that says two story lines on its own, a second
-    apart, without waiting for any line from the client."""
+    """A fake session whose replay already holds the line a wait is
+    for, then the "attached" mark, then two live story lines a second
+    apart — without waiting for any line from the client."""
     import json
     from time import sleep
 
@@ -326,7 +327,13 @@ def talker():
         with conn:
             conn.settimeout(5)
             try:
-                conn.sendall(frame("The girl runs past.\n"))
+                # The replay (#287: it held the previous order's pay
+                # line, and the wait ended on it), then the mark.
+                conn.sendall(
+                    frame("Earlier, her breath came in ragged pants.\n")
+                    + frame("", "attached")
+                    + frame("The girl runs past.\n")
+                )
                 sleep(1.0)
                 conn.sendall(frame("The girl's breath comes in ragged pants.\n"))
                 while conn.recv(4096):
@@ -412,8 +419,10 @@ def test_wait_for_alone_sends_nothing_and_returns_on_the_line(talker):
     result = sendcmd.wait("ragged pants", port=port, timeout=5)
     thread.join(5)
     assert result.found is True
-    assert result.answer.endswith("ragged pants.\n")
+    assert result.answer.endswith("The girl's breath comes in ragged pants.\n")
     assert "The girl runs past." in result.answer
+    # The replayed line held the text too and did not end the wait.
+    assert "Earlier" not in result.answer
 
 
 def test_the_console_script_needs_a_command_or_a_read_only_form(capsys):

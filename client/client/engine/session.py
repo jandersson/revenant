@@ -237,9 +237,13 @@ class SessionServer(ClientLogger):
                 replay += encode_frame(
                     f"{data.shutdown_at}\t{data.server_time}", "shutdown"
                 )
+            # The end of the replay, marked: an outside reader
+            # (revenant-send --wait-for) counts only the lines after it,
+            # the backlog never answers a wait (#287). Frontends drop
+            # the frame.
+            replay += encode_frame("", "attached")
             try:
-                if replay:
-                    conn.sendall(replay)
+                conn.sendall(replay)
             except OSError:
                 close_socket(conn)
                 return False

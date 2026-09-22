@@ -80,7 +80,8 @@ for `client/client/<pkg>/x.py`.
   piece of a line per stream; frontends never add line breaks.
 - `client/engine/session.py` — the detachable daemon: JSON frames on
   127.0.0.1:4242, backlog replay for late attachers (transient streams
-  excluded), the script engine, a TCP keepalive on the game socket
+  excluded, ended by an empty `attached` frame the frontends drop and
+  `--wait-for` counts from, #287), the script engine, a TCP keepalive on the game socket
   and one TIME after ten silent minutes so a link dead without a FIN
   ends the session within minutes, not on the next command (#221),
   `;reexec` (exec on POSIX; on Windows a

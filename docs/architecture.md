@@ -74,7 +74,9 @@ entries from a dock-layout module.
   surveyor follow,
   `"roundtime"`/`"casttime"` frames (`"end<TAB>server now"`, both server
   epoch) when a timer starts — moment-bound, so the session excludes
-  them from the reattach backlog (`TRANSIENT_STREAMS`) — a
+  them from the reattach backlog (`TRANSIENT_STREAMS`; the replay ends
+  with an empty `"attached"` frame the frontends drop and an outside
+  `--wait-for` counts from, #287) — a
   `"character"` frame when the login `<app char=.../>` tag names who's
   playing, a full-state `"vitals"` frame (`"health 100 stamina
   95 ..."`) whenever the game's minivitals dialog changes (partial

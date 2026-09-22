@@ -132,7 +132,7 @@ class RevenantTUI(ClientLogger):
                 if stream == "bell":
                     self.bell()
                     return
-                if stream in ("compass", "timesync"):
+                if stream in ("compass", "timesync", "attached"):
                     return
                 title = window_title(stream)
                 prefix = f"[{title.lower()}] " if title else ""

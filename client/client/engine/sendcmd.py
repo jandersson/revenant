@@ -38,8 +38,10 @@ already show, so a driver reads it here instead of sending LOOK, EXP
 or HEALTH at the character. --wait-for TEXT stays attached until a
 story line holds TEXT or --timeout seconds pass (30 by default),
 printing the story meanwhile, and exits 0 when the line came, 1 when
-it did not; with a command it sends that first and then waits. Both
-are allowlisted whatever the gate says.
+it did not; with a command it sends that first and then waits. The
+wait starts after the session's backlog replay (its "attached" mark
+ends it), so an old line never answers it (#287). Both are
+allowlisted whatever the gate says.
 """
 
 import argparse

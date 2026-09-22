@@ -271,11 +271,14 @@ def test_new_front_end_receives_recent_backlog_on_attach():
     late_client = socket.create_connection(("127.0.0.1", port), timeout=5)
     late_client.settimeout(5)
     buffer = b""
-    while b"compass" not in buffer:
+    while b"attached" not in buffer:
         buffer += late_client.recv(4096)
     frames, _ = wire.decode_frames(buffer)
     assert ("An eerie howl rises in the distance.\n", "", "") in frames
     assert ("n e", "compass", "") in frames  # compass replayed for the dock
+    # The replay ends with the "attached" mark, so an outside reader
+    # knows where the live lines begin (#287).
+    assert frames[-1] == ("", wire.ATTACHED, "")
     late_client.close()
 
 
