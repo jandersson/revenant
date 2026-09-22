@@ -200,6 +200,11 @@ for `client/client/<pkg>/x.py`.
   PLAY's wordings; `scripts/perform.py` plays the profile's
   `instrument` until mind-lock (#208), cleaning it once with the
   profile's `instrument_cloth` when PLAY calls it dirty (#233).
+  `client/game/appraisal.py` is the APPRAISE rotation — the
+  profile's `appraisal_items`, else everything worn or held per the
+  parser's `possessions`, a pouch and a bundle first — and
+  `scripts/appraise.py` APPRAISEs them QUICK until Appraisal
+  mind-locks, dropping what the game cannot find (#275).
   `client/game/soul.py` is a
   Paladin's soul: the seven states and eleven pool levels parsed off
   RUB, EXHALE and the arch, the deeds that raise it (the 5-silver

@@ -53,3 +53,33 @@ def test_a_pause_ends_at_once_on_a_typed_return_or_a_danger():
     ambushed = Ambushed()
     assert loop.pause(ambushed, 30) is False
     assert ambushed.slept == [1, 1]
+
+
+def test_the_mindstate_is_the_exp_windows_or_none():
+    handle = Handle()
+    handle.state.experience = {"Appraisal": {"rank": 8, "percent": 0, "mindstate": 3}}
+    assert loop.mindstate(handle, "Appraisal") == 3
+    assert loop.mindstate(handle, "Scholarship") is None
+    assert loop.mindstate(Handle(), "Appraisal") is None
+
+
+def test_a_skill_the_window_lacks_is_asked_of_exp_and_seeded_whole():
+    handle = Handle()
+    handle.state.experience = {}
+    asked = []
+
+    def ask(s, command):
+        asked.append(command)
+        return "appraisal:   8 11% dabbling  (1/34)\n"  # lower-cased by an ask()
+
+    assert loop.ensure_mindstate(handle, "Appraisal", ask) == 1
+    assert asked == ["exp appraisal"]
+    # a whole entry, the parser's shape — a seed without a rate took the
+    # session down (#239)
+    assert handle.state.experience["Appraisal"] == {
+        "rank": 8,
+        "percent": 0,
+        "mindstate": 1,
+        "rate": "dabbling",
+    }
+    assert loop.ensure_mindstate(handle, "Scholarship", lambda s, c: "") is None

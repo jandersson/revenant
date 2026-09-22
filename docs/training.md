@@ -464,6 +464,27 @@ overrides). Under `;train`: `"script": "scholarship", "args":
 `;scholarship classes` — listening to classes at the town's nexus
 rooms — is planned on #210 and not built.
 
+## Appraising: ;appraise
+
+Appraisal trains by APPRAISE <item>: every look at an item on you
+teaches it at any rank, a valuable or many-part item — a full gem
+pouch, a bundle, a weapon, armor — most, else "appraise all of your
+inventory" ([Appraisal skill](https://elanthipedia.play.net/Appraisal_skill),
+[Appraise command](https://elanthipedia.play.net/Appraise_command)).
+QUICK shortens the roundtime (2 s with ranks against 4 s plain;
+8 s at rank 2, captured 2026-09-11). Creatures teach nothing below 76
+ranks and other players are never appraised. `;appraise` cycles the
+profile's `appraisal_items`, else everything worn or held as the last
+INV LIST saw it (a pouch and a bundle first), APPRAISE MY <noun> QUICK
+each, waits the roundtime out, drops an item the game cannot find, and
+at mind-lock holds until Appraisal drains below 28 (`once` exits).
+Under `;train` (`"script": "appraise", "skills": ["Appraisal"],
+"return_word": "return"`) the loop ends it at the target. The method is
+dr-scripts' appraisal.lic's; the success wordings grade with the ranks
+("You guess that ...", "You are confident that ... worth about 193
+Kronars.", the wiki's "You are certain that ..."), so the script reads
+only refusals and echoes a run's first answer for the fixtures (#275).
+
 ## Out of scope in the first cut
 
 A dialog for the plan (the file is the interface), a trainer per

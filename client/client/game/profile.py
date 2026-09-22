@@ -136,6 +136,9 @@ DEFAULTS = {
     # The library ;scholarship books reads in — a ;go2 target (the
     # Paladins' Guild library is 11716); "" reads where it stands (#210).
     "library": "",
+    # The items ;appraise APPRAISEs in rotation for Appraisal ("pouch",
+    # "shield"); [] means everything worn or held (#275).
+    "appraisal_items": [],
 }
 
 # (key, label, kind, help) — kind is "bool", "int", "str" or "list".
@@ -236,6 +239,12 @@ FIELDS = (
         "Library ;scholarship reads in (;go2 target)",
         "str",
         "11716 — empty: here",
+    ),
+    (
+        "appraisal_items",
+        "Items ;appraise looks at (Appraisal)",
+        "list",
+        "pouch, shield — empty: everything worn or held",
     ),
 )
 
