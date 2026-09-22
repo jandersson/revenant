@@ -10,7 +10,8 @@
     ;remedies work count=3    that many orders, then end; `challenging` or `hard` for the harder tiers
     ;remedies work once       end at mind-lock instead of working on for the pay
     ;remedies ledger          the orders on record: pay, materials, profit, the last few
-    ;remedies return          (typed while it runs) finish the crush in hand and end
+    ;remedies return          (typed while it runs) finish the crush in hand and end — under `work`, finish the
+                              order in hand (every stack and the hand-in) and end; ;stop remedies is the abrupt end
 
 Alchemy trains by making remedies: every CRUSH of one in progress
 teaches (Alchemy 0/34 to rank 7 in an evening of three, captured
@@ -76,7 +77,9 @@ exits), on `return`, on death or hostiles (the shared escape), when
 the herb, the water, the catalyst or the book is not on you, and when
 a CRUSH answers nothing the table knows three times. ;train runs it as
 a task (skills: ["Alchemy"], return_word "return"; `"args": ["work"]`
-for the orders).
+for the orders, with `return_grace` long enough for the order in hand
+— an easy order of four stacks runs half an hour — and `minutes` to
+match, since the return word finishes the order before it ends).
 Stop with:  ;stop remedies, or ;remedies return.
 """
 
@@ -255,7 +258,14 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
         if why := danger(s):
             return why
         if wants_stop(s):
-            return "stopped"
+            if not options["work"]:
+                return "stopped"
+            # An order is finished, never left half-done in the logbook
+            # for a typed return — ;train's return word at the target or
+            # the time budget (the operator, 2026-09-23). ;stop is abrupt.
+            if not tally.get("ending"):
+                tally["ending"] = True
+                s.echo("remedies: return — finishing the order in hand first")
         value = mindstate(s, SKILL)
         if value is not None and value >= options["until"]:
             if options["once"]:
@@ -647,6 +657,8 @@ def work(s, options, profile):
     orders = 0
     earned = 0
     while True:
+        if tally.get("ending"):
+            break
         if not to_master(s, profile):
             s.echo("remedies: could not reach the crafting hall — stopping")
             break
@@ -737,8 +749,8 @@ def work(s, options, profile):
         )
         if options["count"] and orders >= options["count"]:
             break
-        if wants_stop(s):
-            s.echo("remedies: stopping as asked")
+        if tally.get("ending") or wants_stop(s):
+            s.echo("remedies: stopping as asked — the order is handed in")
             break
     s.echo(
         f"remedies: {orders} order(s), {earned} Kronars earned, {tally['spent']} spent, "

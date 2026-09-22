@@ -581,6 +581,18 @@ def test_the_logbooks_open_order_is_resumed_and_a_complete_one_handed_in():
     assert not crushes(done)
 
 
+def test_a_return_mid_order_finishes_the_order_before_ending():
+    # ;train's return word lands during the first stack: the order is
+    # crafted to the end and handed in, and no second order is asked.
+    fake = Fake(work_answers(), mindstates=[3] + [5] * 30, stop_after=2)
+    out = run(fake, ["work"])
+    assert "return — finishing the order in hand first" in out
+    assert fake.sent.count("bundle my cream with my logbook") == 2
+    assert "order 1 paid 1146 Kronars" in out
+    assert fake.sent.count("ask lanshado for easy remedies work") == 1
+    assert "stopping as asked — the order is handed in" in out
+
+
 def test_orders_follow_one_another_until_return_and_the_lock_only_says_so():
     # Eight crushes fill the first order; the typed return after the pay
     # ends the run before a second is asked. Mind-locked from the

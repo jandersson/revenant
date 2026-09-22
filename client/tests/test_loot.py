@@ -77,7 +77,34 @@ def test_the_hunt_grabs_what_the_search_left_by_the_listing():
     assert sent.count("get stones") == 1  # by the listing; the wording path skipped it
     assert "put my stones in my pouch" in sent
     assert not any("grendel" in c and c.startswith("get") for c in sent)
+    assert not any("club" in c for c in sent)  # not lootable: left where it fell
     assert not any(c.startswith("drop") for c in sent)
+    # Another hunter's loot is left; a noun the game has no room for is
+    # not tried again that run.
+    sent.clear()
+    state.room_objs = BEFORE
+
+    def refusing(s, command, *_):
+        sent.append(command)
+        if command.startswith("search"):
+            state.room_objs = AFTER
+            return "You search the small grendel.\n"
+        if command == "get box":
+            return "You stop as you realize the box is not yours.\n"
+        if command == "get coins":
+            return "You pick up the coins.\n"
+        if command.startswith("put my stones"):
+            return "There isn't any more room in the pouch.\n"
+        return "You get it."
+
+    hunt.probe = SimpleNamespace(ask=refusing)
+    said = []
+    handle.echo = said.append
+    tally = hunt.Tally()
+    hunt.dispose(handle, profile, "grendel", tally)
+    assert any("box is someone else's" in t for t in said)
+    assert "put my box in my sack" not in sent and tally.boxes == 0
+    assert tally.coins == 2
 
 
 def test_each_entry_is_coins_a_box_or_an_item():
@@ -85,6 +112,14 @@ def test_each_entry_is_coins_a_box_or_an_item():
     assert loot.kind("a bronze coin") == "coins"
     assert loot.kind("a dented iron box") == "box"
     assert loot.kind("a mud-stained iron chest") == "box"
-    assert loot.kind("some waermodi stones") == "item"
+    assert loot.kind("some waermodi stones") == "gem"
+    assert loot.kind("a tiny blue moonstone") == "gem"
     assert loot.kind("an ilmenite runestone") == "item"
     assert loot.kind("a war club") == "item"
+    # What a hunt takes: coins, gems, boxes, the profile's additions,
+    # less its subtractions — a grendel's war club stays where it fell.
+    assert loot.lootable("some bronze coins") and loot.lootable("a dented iron box")
+    assert loot.lootable("some waermodi stones")
+    assert not loot.lootable("a war club")
+    assert loot.lootable("a war club", additions=["club"])
+    assert not loot.lootable("some waermodi stones", subtractions=["stones"])

@@ -428,8 +428,9 @@ class Tally:
     def __init__(self):
         self.kills = 0
         self.skins = 0
-        self.coins = 0  # GET COINS after a search that left some
+        self.coins = 0  # coin piles STOWed after a search that left some
         self.boxes = 0  # boxes into the loot container
+        self.unlootable = set()  # nouns the game found no room for this run
         self.unrecognized = 0
         self.empty_moves = 0
         self.room_clear = False
@@ -1078,28 +1079,60 @@ def listing(s):
 
 def grab(s, profile, before, tally):
     """What the search left on the ground, read off the room listing
-    (client/game/loot.py) whatever the game called it: coins GOT,
-    a box into the loot container, anything else pocketed — the
-    pouch, else stowed. The nouns taken, for the wording path to skip."""
+    (client/game/loot.py, after combat-trainer's LootProcess): each
+    lootable entry — coins, a gem, a box, the profile's additions —
+    taken with one STOW and its answer read; a gem goes to the pouch
+    the profile names instead; another hunter's loot is left; a noun
+    the game finds no room for is unlootable for the rest of the run.
+    The nouns taken, for the wording path to skip."""
     s.sleep(0.5)  # the listing's rewrite lands a beat after the answer
     taken = []
     creatures = getattr(s.state, "room_creatures", None) or ()
+    additions = profile.get("loot_additions") or ()
+    subtractions = profile.get("loot_subtractions") or ()
+    limit = int(profile.get("box_limit") or 0)
     for entry in loot.new_items(before, listing(s), creatures):
+        if not loot.lootable(entry, additions, subtractions):
+            continue
         what = loot.kind(entry)
-        if what == "coins":
-            ask(s, "get coins")
-            tally.coins += 1
-        else:
-            noun = loot.noun_of(entry)
-            if what == "box":
-                ask(s, f"get {noun}")
-                if not stow(s, profile, noun):
-                    s.echo(f"hunt: no room for the {noun} — it stays on the ground")
-                    continue
-                tally.boxes += 1
-            else:
-                pocket(s, profile, noun)
+        noun = "coins" if what == "coins" else loot.noun_of(entry)
+        if noun in tally.unlootable:
+            continue
+        if what == "box" and limit and tally.boxes >= limit:
+            s.echo(f"hunt: {limit} box(es) carried — the {noun} stays")
+            continue
+        if what == "gem" and profile.get("gem_pouch"):
+            pocket(s, profile, noun)
             taken.append(noun)
+            continue
+        answer = ask(s, f"get {noun}").lower()
+        outcome = classify(answer, loot.STOW_OUTCOMES)
+        if outcome == "free hand":
+            free_hand(s, profile)
+            answer = ask(s, f"get {noun}").lower()
+            outcome = classify(answer, loot.STOW_OUTCOMES)
+        if outcome == "not yours":
+            s.echo(f"hunt: the {noun} is someone else's — left")
+            continue
+        if outcome == "no room":
+            tally.unlootable.add(noun)
+            s.echo(f"hunt: no room for the {noun} — it stays on the ground")
+            continue
+        if outcome in ("gone", "held"):
+            continue
+        if outcome is None:
+            unrecognized(s, tally, "get", answer)
+            continue
+        if what == "coins":
+            tally.coins += 1  # coins go to the purse on GET
+            continue
+        if not stow(s, profile, noun):
+            tally.unlootable.add(noun)
+            s.echo(f"hunt: no room for the {noun} anywhere — it stays in hand")
+            continue
+        if what == "box":
+            tally.boxes += 1
+        taken.append(noun)
     return taken
 
 

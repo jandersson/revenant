@@ -43,6 +43,13 @@ DEFAULTS = {
     "loot_container": "",  # "" stows with the game's STOW default
     # Gems found on a corpse go into this pouch; "" leaves them stowed.
     "gem_pouch": "",
+    # What a hunt picks up after a search, beyond coins, gems and
+    # boxes (client/game/loot.py, combat-trainer's loot_additions /
+    # loot_subtractions / box_loot_limit): nouns added, nouns left,
+    # and how many boxes to carry (0: no limit).
+    "loot_additions": [],
+    "loot_subtractions": [],
+    "box_limit": 0,
     # Skins go on a bundling rope: a worn lumpy bundle takes each skin
     # straight from SKIN (BUNDLE help's auto-bundling), the rope is free
     # at any tannery (ASK <tanner> FOR ROPE) and lives in the loot
@@ -166,6 +173,9 @@ FIELDS = (
     ("skin_knife", "Skinning knife noun", "str", "empty: the wielded weapon"),
     ("loot_container", "Stow loot and skins in", "str", "empty: the STOW default"),
     ("gem_pouch", "Gem pouch noun", "str", "empty: gems are stowed like loot"),
+    ("loot_additions", "Also pick up after a search", "list", "club, dagger"),
+    ("loot_subtractions", "Never pick up", "list", "runestone"),
+    ("box_limit", "Boxes to carry at most", "int", "0: no limit"),
     (
         "bundle",
         "Bundle skins on a bundling rope",

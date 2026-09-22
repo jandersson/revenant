@@ -529,7 +529,13 @@ alongside the mortar to scrape some shavings into the mixture." — the
 nugget stays in hand), and seven crushes later "Applying the final
 touches, you complete working on some dirty nemoih salve." — rank 2 to
 rank 5 on the one salve, "dirty" the quality the mishaps bought.
-`;remedies` runs the loop, holds at mind-lock, adds the profile's
+`;remedies work` never leaves an order half-done for `;train`'s return
+word: at the target or the time budget the word makes it finish the
+order in hand — every stack and the hand-in — and end, so the task is
+`{"name": "workorders", "skills": ["Alchemy"], "script":
+"remedies", "args": ["work"], "return_word": "return",
+"return_grace": 2700, "minutes": 45}` — the grace covering an easy
+order of four stacks (the operator, 2026-09-23). `;remedies` runs the loop, holds at mind-lock, adds the profile's
 `catalyst` when asked and stows the finished salve; with no catalyst
 named it stops at the request, the salve left unfinished for the next
 run. The recipe is the book page's, not the wiki's — blister cream is
