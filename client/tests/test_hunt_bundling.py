@@ -281,3 +281,23 @@ def test_kill_and_item_nouns_are_read_from_the_game_lines():
         "ruby",
         "coins",
     ]
+    # The corpse's pockets, captured on the vineyard grendels (#292): the
+    # gem is the item, the coins after it are not (GET COINS is #291).
+    for line, item in (
+        (
+            "The grendel was carrying some waermodi stones, 7 copper coins "
+            "(Kronars), and 1 bronze coin (Dokora)!",
+            "stones",
+        ),
+        (
+            "The grendel was carrying an ilmenite runestone, 9 copper coins "
+            "(Kronars), and 1 bronze coin (Dokora)!",
+            "runestone",
+        ),
+        (
+            "The grendel was carrying a shining calavarite runestone, 4 copper "
+            "coins (Lirums), and 2 bronze coins (Dokoras)!",
+            "runestone",
+        ),
+    ):
+        assert hunt.items_in("You search the small grendel.\n" + line) == [item], line

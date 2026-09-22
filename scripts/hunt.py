@@ -389,8 +389,13 @@ SEARCH_OUTCOMES = (
 # "remove a rat tail from the remains of a ship's rat" (the last two
 # captured 2026-09-12). The noun is the last word before the period
 # or the "from".
+# A search's yield: "You find a small ruby.", and the corpse's pockets —
+# "The grendel was carrying some waermodi stones, 7 copper coins
+# (Kronars), and 1 bronze coin (Dokora)!" (captured 2026-09-21; three
+# gems went unpicked before the wording was known, #292). The coins
+# carry no article and are not an item here (GET COINS is #291).
 _ITEM = re.compile(
-    r"(?:obtain(?:ing)?|yielding|you find|you get|you pick up|and get) "
+    r"(?:obtain(?:ing)?|yielding|you find|you get|you pick up|and get|was carrying) "
     r"(?:a|an|some|the) ((?:[\w'-]+ )*?)([\w'-]+)[.,!]"
     r"|(?:work loose|remove) (?:a|an|some|the) "
     r"(?:[\w'-]+ example of (?:a|an|some|the) )?((?:[\w'-]+ )*?)([\w'-]+) from",
