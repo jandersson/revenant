@@ -570,8 +570,11 @@ handed in is a row in history.db's `work_orders` table
 the materials at catalog prices (390 Kronars a blister cream — the
 stack of flowers, a piece of nemoih, a splash of water, a coal
 nugget), the coin that left the purse while the order was open, the
-crushes and the rank before and after; `;remedies ledger` prints the
-totals, the profit an order of each item brings and the last few.
+crushes and the roundtime they cost (seconds a crush is what better
+tools lower — the society's iron set is the floor to measure from),
+the minutes end to end, and the rank before and after; `;remedies
+ledger` prints the totals, the profit and the seconds a crush of each
+item, and the last few orders.
 The first order on record (2026-09-22): 1,144 paid, 780 in
 materials, 748 spent — 364 profit, 396 kept, Alchemy 9 to 10. The
 purchase wordings are captured; a refusal for want of coin is not, so

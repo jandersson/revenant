@@ -187,6 +187,7 @@ QUOTE = re.compile(
     r"you can purchase (?P<item>.+?) for (?P<price>[\d,]+) kronars", re.IGNORECASE
 )
 BOUGHT = ("takes some coins from you and hands you",)
+ROUNDTIME = re.compile(r"roundtime:\s*(\d+)\s*sec", re.IGNORECASE)
 
 
 def parse_args(args):
@@ -281,6 +282,13 @@ def payment(text):
     """The Kronars a GIVE of the logbook earned, or None."""
     match = PAID.search(text or "")
     return int(match.group(1)) if match else None
+
+
+def roundtime_of(text):
+    """The seconds a CRUSH's answer says it cost ("Roundtime: 19 sec."),
+    0 when it says none — the ledger's crush_seconds add these up."""
+    match = ROUNDTIME.search(text or "")
+    return int(match.group(1)) if match else 0
 
 
 def is_noise(text):

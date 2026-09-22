@@ -55,8 +55,9 @@ mind-lock the orders go on for the pay (`once` ends there); the
 tally at the end is what was earned against what was spent. Every
 order handed in is a row in history.db's `work_orders` table
 (client/game/workorders.py: the pay, the materials at catalog prices,
-the coin spent while it was open, the crushes, the rank before and
-after), and `;remedies ledger` prints the totals, the profit an
+the coin spent while it was open, the crushes and the roundtime they
+cost — seconds a crush is what better tools lower — the minutes end
+to end, the rank before and after), and `;remedies ledger` prints the totals, the profit an
 order of each item brings, and the last few. GIVE is the script's
 own: the session refuses it from outside (#161).
 
@@ -98,6 +99,7 @@ from client.game.remedies import (
     payment,
     quote,
     recipe,
+    roundtime_of,
     sellable,
     shortage,
 )
@@ -262,6 +264,7 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
         answer = ask(s, crush_command(herb, started, noun))
         s.waitrt()
         tally["crushes"] += 1
+        tally["crush_seconds"] = tally.get("crush_seconds", 0) + roundtime_of(answer)
         outcome = classify(answer, CRUSH_OUTCOMES)
         if outcome == "crushed":
             started = True
@@ -574,6 +577,7 @@ def record_order(s, parsed, spec, level, catalyst, paid, tally, snapshot):
                 rank_before=snapshot["rank"],
                 rank_after=rank_of(s),
                 minutes=round((time.time() - snapshot["started"]) / 60),
+                crush_seconds=tally.get("crush_seconds", 0) - snapshot["crush_seconds"],
             )
         finally:
             connection.close()
@@ -619,6 +623,7 @@ def work(s, options, profile):
         snapshot = {
             "crushes": tally["crushes"],
             "spent": tally["spent"],
+            "crush_seconds": tally.get("crush_seconds", 0),
             "rank": rank_of(s),
             "started": time.time(),
         }

@@ -127,6 +127,12 @@ BOUGHT = (
 )
 
 
+def test_a_crushs_roundtime_is_read_off_its_answer():
+    assert remedies.roundtime_of(CRUSHED) == 19
+    assert remedies.roundtime_of(NEED_HERB) == 16
+    assert remedies.roundtime_of("Swoth runs south.\n") == 0
+
+
 def test_a_rank_line_is_a_crush_and_a_bystanders_line_is_noise():
     # Captured 2026-09-22 in the Tool Shop, each alone in a crush's
     # answer window: the rank line is a crush that taught; a player

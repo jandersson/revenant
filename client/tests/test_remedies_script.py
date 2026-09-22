@@ -368,6 +368,7 @@ def test_a_work_order_is_asked_crafted_bundled_and_handed_in():
     assert row["level"] == "easy" and row["quality"] == "finely-crafted"
     assert (row["earned"], row["cost"], row["spent"]) == (1146, 780, 0)
     assert row["crushes"] == 9 and row["rank_before"] == 2 and row["rank_after"] == 2
+    assert row["crush_seconds"] == 159  # the fixtures' "Roundtime: N sec." summed
     out = run(Fake({}), ["ledger"])
     assert "order(s): " in out and "blister cream (easy)" in out
     assert "wield my scimitar" not in fake.sent  # it ends sheathed
