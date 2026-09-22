@@ -154,6 +154,25 @@ def test_the_play_line_and_the_args():
     assert perform.parse_args(["mood="])["mood"] == ""
 
 
+def test_every_captured_start_counts_as_playing():
+    # Four starts across the ranks (2026-09-18 to 2026-09-22): the
+    # fumble at rank 2, "with only the slightest hint of difficulty",
+    # "your skill in your craft showcased in every note", and the
+    # rank-49 "You effortlessly begin ... your heart swelling in pride"
+    # that ended ;train's performance task twice before it was known.
+    starts = (
+        STARTED,
+        "You begin an off-key ruff on your copper zills with only the slightest "
+        "hint of difficulty.\n",
+        "You begin some off-key rudiments on your copper zills, your skill in your "
+        "craft showcased in every note.\n",
+        "You effortlessly begin some off-key rudiments on your copper zills, your "
+        "heart swelling in pride at your hard-earned skill.\n",
+    )
+    for line in starts:
+        assert any(word in line.lower() for word in perform.STARTED), line
+
+
 def test_a_retreat_ends_the_song_for_the_watch():
     assert any(word in RETREATED.lower() for word in perform.STOPPED)
     assert any(word in STOPPED.lower() for word in perform.STOPPED)

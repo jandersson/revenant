@@ -46,7 +46,10 @@ SONGS = (
     (550, "concerto"),
 )
 MOOD = "off-key"  # the easiest style, for the band's song at its floor
-STARTED = ("as you begin", "you begin")
+# A fourth start at rank 49 (2026-09-22): "You effortlessly begin some
+# off-key rudiments on your copper zills, your heart swelling in pride
+# at your hard-earned skill." — an adverb between "you" and "begin".
+STARTED = ("as you begin", "you begin", "effortlessly begin")
 CONTINUES = ("you continue",)
 ALREADY = ("already playing a song",)
 STOPPED = ("you stop playing", "you stop your performance")
