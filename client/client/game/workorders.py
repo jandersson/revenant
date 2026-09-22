@@ -205,6 +205,11 @@ def summarize(entry):
     if entry.get("rank_before") is not None and entry.get("rank_after") is not None:
         ranks = f", rank {entry['rank_before']}->{entry['rank_after']}"
     minutes = f", {entry['minutes']} min" if entry.get("minutes") is not None else ""
+    try:
+        rejected = json.loads(entry.get("extra") or "{}").get("rejected") or 0
+    except ValueError:
+        rejected = 0
+    stacks = f"x{entry['stacks']}" + (f"+{rejected} rejected" if rejected else "")
     crushing = ""
     if entry.get("crush_seconds"):
         crushing = (
@@ -212,7 +217,7 @@ def summarize(entry):
             f"{per_crush(entry['crush_seconds'], entry['crushes'])} each)"
         )
     return (
-        f"{stamp} {entry['item']} x{entry['stacks']} ({entry['level']}): "
+        f"{stamp} {entry['item']} {stacks} ({entry['level']}): "
         f"paid {entry['earned']:,}, cost {entry['cost']:,}, spent {entry['spent']:,}, "
         f"{entry['crushes'] or 0} crush(es){crushing}{ranks}{minutes}"
     )

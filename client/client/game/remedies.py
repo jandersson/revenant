@@ -152,6 +152,13 @@ LOGBOOK_MORE = re.compile(
 LOGBOOK_DONE = ("appears to be complete",)
 LOGBOOK_NONE = ("not currently tracking",)
 BUNDLED = ("bundle it up for delivery",)
+# The order's quality is enforced (captured 2026-09-22 on the third
+# stack of an easy order at rank 10, after four creams had passed):
+# "The work order requires items of a higher quality, so you decide
+# against bundling that." The remedy stays in hand, a usable remedy;
+# the order still wants its stack.
+REJECTED = ("requires items of a higher quality",)
+REJECTIONS = 3  # rejected remedies in one order before it is given up
 PAID = re.compile(r"are given (\d+) kronars", re.IGNORECASE)
 NO_MASTER = ("to whom are you speaking",)
 LEVELS = ("easy", "challenging", "hard")

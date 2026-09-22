@@ -409,7 +409,9 @@ Traps that cost time before:
 - **Never DROP.** A dropped item is a lost item. A script drops only
   through `client/game/discard.py`'s `drop()`, which allows the
   built-in foraged junk (grass, grass rope) plus settings.json's
-  `droppable` list and refuses everything else with an echo; a hand
+  `droppable` list and refuses everything else with an echo — and
+  puts a listed item in the room's trash (a bucket, a waste bin, a
+  chute, off the parser's `room_objs`) before it ever DROPs; a hand
   is freed with STOW from the parser's hand state, a load lightened
   by stowing or banking coins. No echo suggests dropping.
 - **Claude drives a session only through `revenant-send --origin claude`**,

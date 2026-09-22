@@ -1,17 +1,20 @@
 """The drop allowlist — these tests are the rule. Only the foraged
 junk a training loop discards on purpose may be dropped, plus what
 settings.json's `droppable` adds; anything else is refused with an
-echo and nothing is sent."""
+echo and nothing is sent. A listed item goes into the room's trash
+receptacle when the listing shows one, else DROP (2026-09-22)."""
 
 import json
+from types import SimpleNamespace
 
 from client.game import discard
 
 
 class Handle:
-    def __init__(self):
+    def __init__(self, room_objs=""):
         self.sent = []
         self.echoed = []
+        self.state = SimpleNamespace(room_objs=room_objs)
 
     def echo(self, text):
         self.echoed.append(text)
@@ -37,6 +40,44 @@ def test_drop_sends_only_for_listed_items_and_refuses_the_rest():
     assert discard.drop(handle, "rope", ask) is None
     assert handle.sent == ["drop my grass rope"]  # nothing more went out
     assert any("drop refused: 'rope'" in text for text in handle.echoed)
+
+
+def test_the_rooms_receptacle_is_read_off_the_listing():
+    # Every shape the game logs of 2026-09 showed in the Crossing.
+    for listing, noun in (
+        ("a wrought-iron bench and a bucket", "bucket"),
+        ("a waste bin", "bin"),
+        ("a large waste bucket", "bucket"),
+        ("a round metal bucket and a sign", "bucket"),
+        ("a wooden bin", "bin"),
+        ("a waste basket", "basket"),
+        ("an iron door and a garbage chute", "chute"),
+    ):
+        assert discard.receptacle(listing) == noun, listing
+    assert discard.receptacle("a cozy hickory log cabin") is None  # no bin in a cabin
+    assert discard.receptacle("a clerk, a plant grinder and a dry press") is None
+    assert discard.receptacle("") is None and discard.receptacle(None) is None
+
+
+def test_a_listed_item_goes_into_the_receptacle_else_dropped():
+    handle = Handle("a wrought-iron bench and a bucket")
+    assert discard.drop(handle, "grass rope", ask) == "You drop it."
+    assert handle.sent == ["put my grass rope in bucket"]
+    # A refusal from the receptacle falls back to the DROP.
+    refused = Handle("a waste bin")
+
+    def refusing(h, command):
+        h.sent.append(command)
+        return (
+            "What were you referring to?"
+            if command.startswith("put")
+            else "You drop it."
+        )
+
+    assert discard.drop(refused, "grass", refusing) == "You drop it."
+    assert refused.sent == ["put my grass in bin", "drop my grass"]
+    # The allowlist gates the receptacle too.
+    assert discard.drop(Handle("a bucket"), "rope", ask) is None
 
 
 def test_settings_extend_the_list(tmp_path, monkeypatch):

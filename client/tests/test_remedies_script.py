@@ -470,6 +470,87 @@ def test_a_bystanders_line_in_a_crush_window_is_not_a_miss():
     assert "order 1 paid 1146 Kronars" in out
 
 
+REJECTED = (
+    "The work order requires items of a higher quality, so you decide against "
+    "bundling that.\n"
+)
+
+
+def test_a_remedy_below_the_orders_quality_is_disposed_of_and_another_made(
+    monkeypatch,
+):
+    # Captured 2026-09-22: the third cream of an order refused at the
+    # logbook. It is stowed, a fourth stack is crafted, the order is
+    # paid, and the ledger's cost counts three stacks for two owed.
+    fake = Fake(
+        work_answers(
+            **{
+                "bundle my cream with my logbook": [BUNDLED, REJECTED, BUNDLED],
+                "read my logbook": [
+                    LOGBOOK_NONE,
+                    LOGBOOK_OPEN,
+                    LOGBOOK_OPEN,
+                    LOGBOOK_DONE,
+                ],
+                "crush my cream in my mortar with my pestle": [
+                    NEED_HERB,
+                    NEED_CATALYST,
+                    FINISHED,
+                    NEED_HERB,
+                    NEED_CATALYST,
+                    FINISHED,
+                    NEED_HERB,
+                    NEED_CATALYST,
+                    FINISHED,
+                ],
+            }
+        ),
+        mindstates=[3] + [5] * 40,
+    )
+    from client.game import discard
+
+    monkeypatch.setattr(discard, "droppable_items", lambda: frozenset({"cream"}))
+    out = run(fake, ["work", "count=1"])
+    assert (
+        "below the order's quality — disposed of, another stack for the 1 still "
+        "owed (1/3)" in out
+    )
+    assert fake.sent.count("bundle my cream with my logbook") == 3
+    assert fake.sent.count("drop my cream") == 1  # settings.json's droppable
+    assert "stow my cream" not in fake.sent
+    assert "order 1 paid 1146 Kronars" in out
+    row = ledger_rows()[-1]
+    assert row["stacks"] == 2 and row["cost"] == 3 * 390
+    assert '"rejected": 1' in row["extra"]
+    assert "x2+1 rejected" in run(Fake({}), ["ledger"])
+    # Three rejections in one order give it up; the order waits.
+    poor = Fake(
+        work_answers(
+            **{
+                "bundle my cream with my logbook": [REJECTED],
+                "read my logbook": [
+                    LOGBOOK_NONE,
+                    LOGBOOK_OPEN.replace("1 more", "2 more"),  # the count never moves
+                ],
+                "crush my cream in my mortar with my pestle": [
+                    NEED_HERB,
+                    NEED_CATALYST,
+                    FINISHED,
+                ],
+            }
+        ),
+        mindstates=[3] + [5] * 60,
+    )
+    monkeypatch.setattr(discard, "droppable_items", lambda: frozenset())
+    out = run(poor, ["work", "count=1"])
+    assert (
+        "3 remedies below the order's quality — the order waits in the logbook" in out
+    )
+    assert "drop refused: 'cream'" in out and "drop my cream" not in poor.sent
+    assert poor.sent.count("stow my cream") == 3  # the list refused: stowed
+    assert "give my logbook to lanshado" not in poor.sent
+
+
 def test_a_shop_that_quotes_something_else_ends_the_purchase():
     fake = Fake(
         work_answers(

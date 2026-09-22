@@ -43,7 +43,14 @@ times — a new order replaces the old without penalty. Each stack is
 crafted, BUNDLE <remedy> WITH MY LOGBOOK, and GIVE MY LOGBOOK TO
 <master> for the pay ("are given 1146 Kronars in return" for two
 stacks of blister cream at rank 6, 748 Kronars of herbs and coal
-in), then the next order, until `return` or `count` orders. What runs
+in), then the next order, until `return` or `count` orders. The
+order's quality is enforced: a remedy the master's notes call too
+poor ("The work order requires items of a higher quality, so you
+decide against bundling that." — one of five at rank 10) is disposed
+of — DROPped through client/game/discard.py, so settings.json's
+`droppable` must name the remedy noun (cream, salve, ointment), else
+it is stowed — and another stack is crafted for the order; three
+such in one order end it, the order waiting in the logbook. What runs
 out is bought on the spot — the tools stowed, the coins fetched from
 the bank's teller when the purse is short, the society's Supplies
 (map 8862; the controlling herb a stack per remedy still owed, the
@@ -76,7 +83,7 @@ Stop with:  ;stop remedies, or ;remedies return.
 import logging
 import time
 
-from client.game import flight, probe
+from client.game import discard, flight, probe
 from client.game.loop import danger, ensure_mindstate, mindstate, pause, wants_stop
 from client.game.probe import classify
 from client.game.money import parse_wealth, phrase
@@ -88,6 +95,8 @@ from client.game.remedies import (
     NO_MASTER,
     ORDER_TRIES,
     POURED,
+    REJECTED,
+    REJECTIONS,
     STUDIED,
     TOO_HARD,
     crush_command,
@@ -429,19 +438,39 @@ def order(s, master, level):
     return parsed
 
 
-def bundle(s, noun):
+def bundle(s, noun, expected):
     """The remedy in one hand, the logbook in the other, BUNDLEd; the
-    logbook's count read back. (remaining, roisaen) or None."""
+    logbook's count read back. ("bundled" | "rejected" | "unknown",
+    remaining, roisaen): rejected is the order's quality unmet — the
+    remedy disposed of through discard.drop (stowed when the list
+    refuses it), the order still owed its stack;
+    unknown is an answer the table lacks whose logbook count did not
+    move from `expected`, the remedy stowed likewise."""
     ask(s, "get my logbook")
     answer = ask(s, f"bundle my {noun} with my logbook")
-    if not any(word in answer for word in BUNDLED):
+    outcome = "bundled"
+    if any(word in answer for word in REJECTED):
+        outcome = "rejected"
+    elif not any(word in answer for word in BUNDLED):
+        outcome = "unknown"
         first = (answer.strip().splitlines() or ["(silence)"])[0]
-        s.echo(f"remedies: BUNDLE answered {first!r}")
+        s.echo(f"remedies: BUNDLE answered {first!r} — please report it")
     state, remaining, due = parse_logbook(ask(s, "read my logbook"))
     ask(s, "stow my logbook")
     if state == "done":
-        return 0, due
-    return remaining, due
+        remaining = 0
+    if outcome == "unknown" and remaining < expected:
+        outcome = "bundled"  # the count moved: the wording was new, the bundle real
+    if outcome == "rejected":
+        # Disposed of, not kept (the operator, 2026-09-22): through
+        # discard.py — the room's bucket when it has one, else DROP,
+        # settings.json's `droppable` naming the remedy noun — and
+        # stowed when the list refuses it.
+        if discard.drop(s, noun, ask) is None:
+            ask(s, f"stow my {noun}")
+    elif outcome != "bundled":
+        ask(s, f"stow my {noun}")
+    return outcome, remaining, due
 
 
 def walk_to(s, target, describe):
@@ -554,9 +583,10 @@ def rank_of(s):
 def record_order(s, parsed, spec, level, catalyst, paid, tally, snapshot):
     """The order handed in, one row in history.db's work_orders
     (client/game/workorders.py): the pay, the stacks this run crafted
-    at catalog prices, the coin spent and the crushes since the order
-    was taken up, the rank before and after. A failure is logged,
-    never ends the run."""
+    at catalog prices — the rejected ones too, they cost the same —
+    the coin spent and the crushes since the order was taken up, the
+    rank before and after. A failure is logged, never ends the run."""
+    rejected = tally.get("rejected", 0) - snapshot["rejected"]
     try:
         from client.game.history import database_path
 
@@ -571,7 +601,10 @@ def record_order(s, parsed, spec, level, catalyst, paid, tally, snapshot):
                 stacks=parsed["count"],
                 quality=parsed.get("quality") or "",
                 earned=paid,
-                cost=material_cost(spec, catalyst) * parsed["count"] if spec else 0,
+                cost=material_cost(spec, catalyst) * (parsed["count"] + rejected)
+                if spec
+                else 0,
+                rejected=rejected,
                 spent=tally["spent"] - snapshot["spent"],
                 crushes=tally["crushes"] - snapshot["crushes"],
                 rank_before=snapshot["rank"],
@@ -624,12 +657,14 @@ def work(s, options, profile):
             "crushes": tally["crushes"],
             "spent": tally["spent"],
             "crush_seconds": tally.get("crush_seconds", 0),
+            "rejected": tally.get("rejected", 0),
             "rank": rank_of(s),
             "started": time.time(),
         }
         remaining = parsed["count"]
         why = None
         started = False
+        rejected = 0
         if remaining and not tools_in_hand(s):
             break
         while remaining > 0:
@@ -637,8 +672,24 @@ def work(s, options, profile):
             started = False
             if why is None:
                 take_out(s, spec[4])
-                remaining, due = bundle(s, spec[4])
-                s.echo(f"remedies: {spec[4]} bundled — {remaining} more, {due} roisaen")
+                outcome, remaining, due = bundle(s, spec[4], remaining)
+                if outcome == "rejected":
+                    rejected += 1
+                    tally["rejected"] = tally.get("rejected", 0) + 1
+                    s.echo(
+                        f"remedies: the {spec[4]} is below the order's quality — disposed of, "
+                        f"another stack for the {remaining} still owed ({rejected}/{REJECTIONS})"
+                    )
+                    if rejected >= REJECTIONS:
+                        why = f"{rejected} remedies below the order's quality"
+                        break
+                elif outcome == "unknown":
+                    why = "the bundle answered nothing known"
+                    break
+                else:
+                    s.echo(
+                        f"remedies: {spec[4]} bundled — {remaining} more, {due} roisaen"
+                    )
                 if remaining and not tools_in_hand(s):
                     why = "tools"
                     break

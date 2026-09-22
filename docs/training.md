@@ -579,7 +579,18 @@ The first order on record (2026-09-22): 1,144 paid, 780 in
 materials, 748 spent — 364 profit, 396 kept, Alchemy 9 to 10. The
 purchase wordings are captured; a refusal for want of coin is not, so
 any answer that is not the hand-over ends the purchase and the order
-waits in the logbook. Two things bit: PUT MY NEMOIH
+waits in the logbook. The order's quality is enforced after all: the
+third stack of the second scripted order (rank 10, Alchemy locked)
+answered BUNDLE with "The work order requires items of a higher
+quality, so you decide against bundling that." after four creams had
+passed — a rejected remedy is disposed of (the operator's call; the
+disposal goes through `client/game/discard.py` — into the room's
+bucket or bin when the listing shows one, DROP otherwise — so
+settings.json's `droppable` names the remedy nouns, and a refusal
+stows it instead),
+another stack is crafted for the order, three rejections
+in one order end it, and the ledger counts the rejected stacks in the
+order's cost. Two things bit: PUT MY NEMOIH
 IN MY MORTAR took the whole 25-piece stack (MARK and BREAK the stack
 to five first — uncaptured), and the mortar and pestle fill both hands,
 so every fetch stows the pestle first.
