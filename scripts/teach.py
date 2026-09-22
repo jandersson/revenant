@@ -9,9 +9,13 @@ begin to lecture Cecil on the proper use of the Scholarship skill." —
 and LISTEN TO <teacher> on the student's (`;listen`); both learn until
 one of them moves, and the teacher then sees "All of your students
 have left, so you stop teaching." (captured 2026-09-22 in the
-Paladins' Guild Chambers). This script offers the class and stands
-there: when the students leave it waits a moment and offers again, so
-a student whose `;train` rest walked away rejoins on return, and it
+Paladins' Guild Chambers). An offer no one takes up expires within
+minutes — "You stop trying to teach Parry Ability to Cecil." — and a
+student joining reads "Cecil begins to listen to you teach the Parry
+Ability skill." This script offers the class and stands there: an
+expired offer is made again at once, and when the students leave it
+waits a moment and offers again, so a student whose `;train` rest
+walked away rejoins on return, and it
 ends on `return` (STOP TEACHING), on death or hostiles (the shared
 escape), or when TEACH says the skill cannot be taught. The teacher's
 Teaching skill trains by it; a `;train` task for the teacher is
@@ -25,6 +29,8 @@ from client.game import flight, probe
 from client.game.loop import danger, pause, wants_stop
 from client.game.probe import classify
 from client.game.teaching import (
+    OFFER_EXPIRED,
+    STUDENT_JOINED,
     STUDENTS_LEFT,
     TEACH_OUTCOMES,
     parse_teach_args,
@@ -69,6 +75,8 @@ def run(s, options):
     who = options["student"] or "anyone"
     s.echo(f"teach: teaching {options['skill']} to {who}")
     s.flag("students left", *STUDENTS_LEFT)
+    s.flag("offer expired", *OFFER_EXPIRED)
+    s.flag("student joined", *STUDENT_JOINED)
     offers = 1
     try:
         while True:
@@ -83,11 +91,16 @@ def run(s, options):
                 if wants_stop(s):
                     break
                 break
-            if s.flagged("students left"):
+            if s.flagged("student joined"):
+                s.echo("teach: a student joined the class")
+            expired = s.flagged("offer expired")
+            if s.flagged("students left") or expired:
+                why = "the offer expired untaken" if expired else "the students left"
+                wait = 0 if expired else REOFFER_AFTER
                 s.echo(
-                    f"teach: the students left — offering again in {REOFFER_AFTER} s"
+                    f"teach: {why} — offering again" + (f" in {wait} s" if wait else "")
                 )
-                if not pause(s, REOFFER_AFTER):
+                if wait and not pause(s, wait):
                     break
                 if offer(s, options) != "teaching":
                     s.echo("teach: the class could not be offered again — stopping")
@@ -98,6 +111,8 @@ def run(s, options):
                     return
     finally:
         s.unflag("students left")
+        s.unflag("offer expired")
+        s.unflag("student joined")
     ask(s, "stop teaching")
     s.echo(f"teach: stopping as asked ({offers} offer(s))")
 

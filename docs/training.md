@@ -612,7 +612,14 @@ seconds, whenever the students leave — until `return`; `;listen
 masah` joins it on the student's, reads the skill off the answer,
 holds on that skill's mindstate (the lock held until it drains,
 `once` exits) and LISTENs again when the class ended, giving up after
-three refusals. `;train` runs the student's side as a task,
+three refusals. The student's side has no class-ended line at all —
+the teacher walking off shows only as the room's "Masah just left."
+— so `;listen` watches the teacher in the room's players every poll
+and the leaving line; the teacher's side sees an untaken offer
+expire within minutes ("You stop trying to teach Parry Ability to
+Cecil.") and `;teach` offers again at once, and a student joining
+("Cecil begins to listen to you teach the Parry Ability skill.").
+`;train` runs the student's side as a task,
 `{"name": "class", "skills": ["Scholarship"], "script":
 "listen", "args": ["masah"], "return_word": "return"}`: its rest
 walks away and ends the class, and the teacher's `;teach` offers it

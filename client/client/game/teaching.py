@@ -35,6 +35,18 @@ CANNOT_TEACH = (
 )
 NO_STUDENT = ("what were you referring", "could not find", "who are you")
 STUDENTS_LEFT = ("all of your students have left",)
+# An offer not taken up expires (a few minutes, 2026-09-22): "You stop
+# trying to teach Parry Ability to Cecil." — the teacher offers again.
+# The student joining: "Cecil begins to listen to you teach the Parry
+# Ability skill."
+OFFER_EXPIRED = ("you stop trying to teach",)
+STUDENT_JOINED = ("begins to listen to you",)
+# An offer not taken up expires (a few minutes, 2026-09-22): "You stop
+# trying to teach Parry Ability to Cecil." — the teacher offers again.
+# The student joining: "Cecil begins to listen to you teach the Parry
+# Ability skill."
+OFFER_EXPIRED = ("you stop trying to teach",)
+STUDENT_JOINED = ("begins to listen to you",)
 TEACH_OUTCOMES = (
     ("no student", NO_STUDENT),
     ("cannot", CANNOT_TEACH),
@@ -54,6 +66,10 @@ NO_CLASS = (
     "what were you referring",
     "could not find",
 )
+# The student sees no class-ended line at all when the teacher walks
+# off — only the room's "Masah just left." (captured 2026-09-22, the
+# hold went blind for twenty minutes) — so ;listen watches the
+# teacher in the room's players and the leaving line both.
 CLASS_ENDED = (
     "stops teaching",
     "you stop listening",
@@ -105,6 +121,22 @@ def parse_teach_args(args):
     elif lowered and lowered[-1] == "open":
         words = words[:-1]
     return {"skill": " ".join(words), "student": student}
+
+
+def left_pattern(teacher):
+    """The regex for the teacher leaving the room: "Masah just left.",
+    "Masah went through a door", "Masah goes north"."""
+    return rf"^{re.escape(teacher)} (just left|went|goes|climbs|runs|leaves)\b"
+
+
+def teacher_present(state, teacher):
+    """True while the teacher is among the room's players (the parser's
+    `room_players`); True too when the state lists no players yet, so
+    a cold parser never ends a class."""
+    players = getattr(state, "room_players", None)
+    if not players:
+        return True
+    return teacher.lower() in {str(name).lower() for name in players}
 
 
 def parse_listen_args(args):

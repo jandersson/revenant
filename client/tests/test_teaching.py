@@ -56,6 +56,19 @@ def test_the_captured_lines_read_as_the_model_says():
     assert teaching.taught_skill(OFFERED) == "Scholarship"
     assert teaching.taught_skill(TEACHING) == "Scholarship"
     assert teaching.taught_skill("Recall what?") is None
+    # The teacher walking off is the room's line, not a class line.
+    import re
+
+    left = re.compile(teaching.left_pattern("masah"), re.IGNORECASE)
+    assert left.search("Masah just left.")
+    assert left.search("Masah went through a marble arch.")
+    assert not left.search("Masah just arrived.")
+    room = SimpleNamespace(room_players=["Cecil", "Masah"])
+    assert teaching.teacher_present(room, "masah")
+    assert not teaching.teacher_present(
+        SimpleNamespace(room_players=["Cecil"]), "masah"
+    )
+    assert teaching.teacher_present(SimpleNamespace(room_players=[]), "masah")
 
 
 def test_the_commands_and_the_arguments():
@@ -119,6 +132,7 @@ class Fake:
                 }
             },
             hostiles={},
+            room_players=["Masah"],
         )
 
     def ask(self, s, command, *_):
@@ -143,9 +157,18 @@ class Fake:
         self.flags[name] = patterns
 
     def flagged(self, name, clear=True):
-        if self.ends_at is not None and not self.fired and self.now >= self.ends_at:
+        # Fires the named flag once the clock passes `ends_at`; a fake
+        # built with `fires` names which flag fires (the students
+        # leaving by default).
+        wanted = getattr(self, "fires", ("students left", "class ended"))
+        if (
+            name in wanted
+            and self.ends_at is not None
+            and not self.fired
+            and self.now >= self.ends_at
+        ):
             self.fired = True
-            return "the class ended"
+            return f"the {name} line"
         return None
 
     def unflag(self, name):
@@ -175,6 +198,12 @@ def test_teach_offers_again_when_the_students_leave_and_stops_on_return():
     assert "offering again in 20 s" in out
     assert fake.sent[-1] == "stop teaching" and "stopping as asked (2 offer(s))" in out
     assert not fake.flags  # unflagged at the end
+    # An offer that expired untaken is made again at once, no wait.
+    expired = Fake({"teach": [TEACHING]}, stop_at=30, ends_at=10)
+    expired.fires = ("offer expired",)
+    out = run(teach, expired, ["scholarship", "to", "cecil"])
+    assert "the offer expired untaken — offering again" in out
+    assert expired.sent.count("teach scholarship to cecil") == 2
     refused = Fake({"teach": ["You are not skilled enough to teach that.\n"]})
     out = run(teach, refused, ["scholarship", "to", "cecil"])
     assert "not skilled enough" in out and "no class — stopping" in out
@@ -198,6 +227,15 @@ def test_listen_reads_the_skill_holds_on_its_mindstate_and_rejoins():
     assert "the class ended — listening again in 15 s" in out
     assert again.sent.count("listen to masah") == 4  # the join, three refusals
     assert "not teaching anything" in out
+    assert "no class offered 3 times — stopping" in out
+    # The teacher gone from the room's players ends the class too.
+    walked = Fake(
+        {"listen": [LISTENING, "Masah is not teaching anything.\n"]},
+        mindstates=[5] * 200,
+    )
+    walked.state.room_players = ["Cecil"]
+    out = run(listen, walked, ["masah"])
+    assert "the teacher left the room — listening again in 15 s" in out
     assert "no class offered 3 times — stopping" in out
     nobody = Fake({"listen": ["Masah is not teaching anything.\n"]})
     out = run(listen, nobody, ["masah"])

@@ -31,9 +31,11 @@ from client.game.probe import classify
 from client.game.teaching import (
     CLASS_ENDED,
     LISTEN_OUTCOMES,
+    left_pattern,
     listen_command,
     parse_listen_args,
     taught_skill,
+    teacher_present,
 )
 
 COLLECT_SECONDS = 2
@@ -96,7 +98,7 @@ def run(s, options):
         ask(s, "stop listening")
         return
     s.echo(f"listen: in {options['teacher']}'s class — {skill} {value}/34")
-    s.flag("class ended", *CLASS_ENDED)
+    s.flag("class ended", *CLASS_ENDED, left_pattern(options["teacher"]))
     refusals = 0
     retry = False  # a rejoin refused: try again next poll, no new line needed
     try:
@@ -118,11 +120,11 @@ def run(s, options):
                 if not hold_at_lock(s, skill, options["until"]):
                     leave(s, "stopping as asked")
                     return
-            if s.flagged("class ended") or retry:
+            gone = not teacher_present(s.state, options["teacher"])
+            if s.flagged("class ended") or gone or retry:
                 if not retry:
-                    s.echo(
-                        f"listen: the class ended — listening again in {REJOIN_AFTER} s"
-                    )
+                    why = "the teacher left the room" if gone else "the class ended"
+                    s.echo(f"listen: {why} — listening again in {REJOIN_AFTER} s")
                 if not pause(s, REJOIN_AFTER):
                     leave(s, "stopping as asked")
                     return
