@@ -4,7 +4,7 @@
 there, ready weapon and stance, attack until the room empties, skin and
 search each kill, move along the ground, come home on a limit. This
 file records what the script believes about the game and which of it
-is captured versus assumed — the fixtures in `client/tests/test_hunt.py`
+is captured versus assumed — the fixtures in `client/tests/hunt_arena.py` and the `test_hunt*.py` files
 pin the same wordings. The fight itself follows [combat.md](combat.md).
 
 ## The profile

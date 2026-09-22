@@ -34,3 +34,22 @@ def _isolated_login_defaults(tmp_path, monkeypatch):
     # The book reader's read times per character (#255): never the
     # operator's ~/.revenant/scholarship.
     monkeypatch.setenv("REVENANT_SCHOLARSHIP_DIR", str(tmp_path / "scholarship"))
+
+
+@pytest.fixture
+def travel(monkeypatch):
+    """;hunt's walk() and locate() over a hunt Arena's own idea of where
+    it is (hunt_arena.py, the test_hunt*.py files): a walk lands in the
+    first room of the goals and meets whatever the arena put there."""
+    import hunt_arena
+
+    def walk(s, db, goals, describe="", avoid=()):
+        s.walks.append(set(goals))
+        s.room = s.state.room = min(goals)
+        if s.room in s.arrivals:
+            s.state.hostiles = dict(s.arrivals[s.room])
+        return True
+
+    monkeypatch.setattr(hunt_arena.hunt, "walk", walk)
+    monkeypatch.setattr(hunt_arena.hunt, "locate", lambda db, state: state.room)
+    return walk

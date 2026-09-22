@@ -59,6 +59,12 @@ lessons the code and docs cannot carry themselves.
   (;athletics climbed one second into a two-second roundtime,
   2026-09-12). `Handle.waitrt` now waits for the command's own prompt
   (`XMLData.prompt_count`) before it trusts the roundtime.
+- A helper module shared by several test files (`client/tests/
+  hunt_arena.py`) imports plainly from a test — pytest puts the tests
+  directory on the path — but a fixture defined there and imported
+  beside its use as a parameter is ruff's F811; fixtures shared
+  across files go in `conftest.py` (the hunt tests' `travel`,
+  2026-09-22).
 - Generated data modules get `# fmt: off` / `# fmt: on` around the
   literal so `ruff format --check` and the generator agree.
 - Windows: a running session never sees edits to `client/` modules
