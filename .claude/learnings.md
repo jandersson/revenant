@@ -95,6 +95,13 @@ lessons the code and docs cannot carry themselves.
   the session at 04:30 on 2026-09-20 with `;train` running (#239).
   The renderer now reads with `.get` and the reader survives our own
   errors, but the rule stands: seed complete entries or none.
+- A reloadable module must not import a name the running engine may
+  not have: status.py (reloads with the scripts) importing a new
+  constant from xml_data.py (reloads only with the session) failed
+  to reload in the live session — "cannot import name
+  'BALANCE_LEVELS'" — and kept the old code until relaunch
+  (2026-09-22). A shared constant goes in a game module of its own
+  (client/game/balance.py) that both import.
 - A society shop (the Crossing Alchemy Society, 2026-09-22) sells by
   ORDER # twice: the first quotes ("Just order it again and we'll see
   it done!"), the second buys and hands the item over — into a hand,

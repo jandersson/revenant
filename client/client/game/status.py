@@ -30,8 +30,7 @@ BADGES = (
     ("IconJOINED", "joined"),
 )
 VITALS = ("health", "mana", "stamina", "spirit", "concentration")
-# The balance words low to high (client/engine/xml_data.py, #280).
-from client.engine.xml_data import BALANCE_LEVELS  # noqa: E402
+from client.game.balance import BALANCE_LEVELS  # noqa: E402
 
 
 def counted(names):

@@ -1,6 +1,8 @@
 import html
 import re
 
+from client.game.balance import BALANCE_LEVELS
+
 from client.game.possessions import build as build_possessions
 from client.game.rested import parse_rested
 
@@ -164,20 +166,6 @@ _SHUTDOWN = re.compile(
 # low to high; the game states it as "You are solidly balanced", the
 # combat status line "[You're solidly balanced and in good position.]"
 # or the ASSESS line "You (solidly balanced) are facing ...".
-BALANCE_LEVELS = (
-    "completely imbalanced",
-    "hopelessly unbalanced",
-    "extremely imbalanced",
-    "very badly balanced",
-    "badly balanced",
-    "somewhat off balance",
-    "off balance",
-    "slightly off balance",
-    "solidly balanced",
-    "nimbly balanced",
-    "adeptly balanced",
-    "incredibly balanced",
-)
 _BALANCE = re.compile(
     r"^(?:You are (?:[^,]*, )?|\[You're |You \()("
     + "|".join(re.escape(level) for level in BALANCE_LEVELS)
