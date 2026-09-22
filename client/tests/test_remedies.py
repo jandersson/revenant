@@ -127,6 +127,21 @@ BOUGHT = (
 )
 
 
+def test_a_rank_line_is_a_crush_and_a_bystanders_line_is_noise():
+    # Captured 2026-09-22 in the Tool Shop, each alone in a crush's
+    # answer window: the rank line is a crush that taught; a player
+    # passing through is nothing said to the character.
+    rank = "You've gained a new rank in your practice as an alchemist.\n"
+    assert classify(rank.lower(), remedies.CRUSH_OUTCOMES) == "crushed"
+    assert not remedies.is_noise(rank)
+    assert remedies.is_noise("Swoth runs south.\n")
+    assert remedies.is_noise("Khaelyn gets some blue flowers from her carryall.\n")
+    assert not remedies.is_noise("")
+    assert not remedies.is_noise(
+        "Swoth runs south.\nYou need another splash of water.\n"
+    )
+
+
 def test_the_shops_quote_and_the_shortages_are_read():
     assert remedies.quote(QUOTE) == ("(25 pieces) dried red flowers", 343)
     assert remedies.quote(BOUGHT) is None
@@ -160,6 +175,7 @@ def test_the_arguments():
         "count": 0,
         "work": False,
         "level": "easy",
+        "ledger": False,
     }
     assert remedies.parse_args(["chest", "count=2", "until=30", "once"]) == {
         "salve": "chest",
@@ -168,6 +184,7 @@ def test_the_arguments():
         "count": 2,
         "work": False,
         "level": "easy",
+        "ledger": False,
     }
     assert remedies.parse_args(["work", "hard", "count=3"]) == {
         "salve": "head",
@@ -176,5 +193,7 @@ def test_the_arguments():
         "count": 3,
         "work": True,
         "level": "hard",
+        "ledger": False,
     }
+    assert remedies.parse_args(["ledger"])["ledger"] is True
     assert remedies.parse_args(["salve=bogus"])["salve"] == "head"

@@ -427,6 +427,7 @@ RELOADABLE_MODULES = (
     "client.game.perform",
     "client.game.appraisal",
     "client.game.remedies",
+    "client.game.workorders",  # binds the catalogs from remedies: after it
     "client.game.scholarship",
     "client.game.soul",
     "client.game.encumbrance",

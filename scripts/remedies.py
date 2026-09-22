@@ -9,6 +9,7 @@
                               stack, bundle it, hand the logbook in — the herbs, water and coal bought as they run out
     ;remedies work count=3    that many orders, then end; `challenging` or `hard` for the harder tiers
     ;remedies work once       end at mind-lock instead of working on for the pay
+    ;remedies ledger          the orders on record: pay, materials, profit, the last few
     ;remedies return          (typed while it runs) finish the crush in hand and end
 
 Alchemy trains by making remedies: every CRUSH of one in progress
@@ -51,8 +52,13 @@ Supplies (8775, a coal nugget per remedy) walked to, ORDER # twice
 per item (the quote checked against the noun before the buy), each
 STOWed — and the walk back resumes the remedy left in the mortar. At
 mind-lock the orders go on for the pay (`once` ends there); the
-tally at the end is what was earned against what was spent. GIVE is
-the script's own: the session refuses it from outside (#161).
+tally at the end is what was earned against what was spent. Every
+order handed in is a row in history.db's `work_orders` table
+(client/game/workorders.py: the pay, the materials at catalog prices,
+the coin spent while it was open, the crushes, the rank before and
+after), and `;remedies ledger` prints the totals, the profit an
+order of each item brings, and the last few. GIVE is the script's
+own: the session refuses it from outside (#161).
 
 The mortar and the pestle fill both hands: the weapon is SHEATHEd
 first, the pestle is stowed for every fetch and taken back for the
@@ -65,6 +71,9 @@ a task (skills: ["Alchemy"], return_word "return"; `"args": ["work"]`
 for the orders).
 Stop with:  ;stop remedies, or ;remedies return.
 """
+
+import logging
+import time
 
 from client.game import flight, probe
 from client.game.loop import danger, ensure_mindstate, mindstate, pause, wants_stop
@@ -81,6 +90,7 @@ from client.game.remedies import (
     STUDIED,
     TOO_HARD,
     crush_command,
+    is_noise,
     logbook_item,
     parse_args,
     parse_logbook,
@@ -90,6 +100,13 @@ from client.game.remedies import (
     recipe,
     sellable,
     shortage,
+)
+from client.game.workorders import (
+    ledger_lines,
+    material_cost,
+    open_ledger,
+    record,
+    rows,
 )
 
 SKILL = "Alchemy"
@@ -138,13 +155,6 @@ def clear_hands(s, profile):
             ask(s, f"stow my {noun}")
 
 
-def redraw(s, profile):
-    """WIELD the weapon back: the game finds it where SHEATHE put it."""
-    weapon = profile.get("weapon") or ""
-    if weapon:
-        ask(s, f"wield my {weapon}")
-
-
 def missing(answer):
     return "referring" in answer or "could not find" in answer
 
@@ -153,15 +163,20 @@ def study(s, chapter, page, what):
     """The page STUDied: the book out (a hand freed of the pestle if
     need be), turned to the chapter and page, studied, stowed. False
     when the book is not on you or the game did not say it is ready."""
+    # The mortar and pestle fill both hands ("You need a free hand to
+    # pick that up.", 2026-09-22): the pestle down for the book, up after.
+    ask(s, "stow my pestle")
     answer = ask(s, "get my book")
     if missing(answer):
         s.echo("remedies: no remedies book on you — stopping")
+        ask(s, "get my pestle")
         return False
     ask(s, f"turn my book to chapter {chapter}")
     ask(s, f"turn my book to page {page}")
     answer = ask(s, "study my book")
     s.waitrt()
     ask(s, "stow my book")
+    ask(s, "get my pestle")
     if any(word in answer for word in TOO_HARD):
         s.echo(
             f"remedies: {what} is beyond the ranks — mishaps ahead, the crushes still teach"
@@ -180,7 +195,7 @@ def fetch_into_mortar(s, noun, what):
     ask(s, "stow my pestle")
     answer = ask(s, f"get my {noun}")
     if missing(answer):
-        s.echo(f"remedies: no {noun} on you — the {what} is missing, stopping")
+        s.echo(f"remedies: no {noun} on you — the {what} is missing")
         ask(s, "get my pestle")
         return False
     verb = "pour" if what == "water" else "put"
@@ -283,17 +298,16 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
                 )
                 return "beyond"
             studies += 1
-            ask(s, "stow my pestle")
             if not study(s, chapter, page, what):
-                ask(s, "get my pestle")
                 return "book"
-            ask(s, "get my pestle")
         elif outcome == "free hand":
             ask(s, "stow my pestle")
             ask(s, "get my pestle")
         elif outcome == "missing" and not started:
             if not fetch_into_mortar(s, herb, "herb"):
                 return f"dried {herb}"
+        elif outcome is None and is_noise(answer):
+            tally["noise"] = tally.get("noise", 0) + 1  # a bystander's line
         else:
             misses += 1
             tally["unrecognized"] += 1
@@ -529,6 +543,61 @@ def next_order(s, master, options):
     return None, None
 
 
+def rank_of(s):
+    experience = getattr(s.state, "experience", None) or {}
+    return (experience.get(SKILL) or {}).get("rank")
+
+
+def record_order(s, parsed, spec, level, catalyst, paid, tally, snapshot):
+    """The order handed in, one row in history.db's work_orders
+    (client/game/workorders.py): the pay, the stacks this run crafted
+    at catalog prices, the coin spent and the crushes since the order
+    was taken up, the rank before and after. A failure is logged,
+    never ends the run."""
+    try:
+        from client.game.history import database_path
+
+        connection = open_ledger(database_path())
+        try:
+            record(
+                connection,
+                character_name=getattr(s.state, "name", None) or "unknown",
+                discipline="remedies",
+                level=level,
+                item=parsed["item"],
+                stacks=parsed["count"],
+                quality=parsed.get("quality") or "",
+                earned=paid,
+                cost=material_cost(spec, catalyst) * parsed["count"] if spec else 0,
+                spent=tally["spent"] - snapshot["spent"],
+                crushes=tally["crushes"] - snapshot["crushes"],
+                rank_before=snapshot["rank"],
+                rank_after=rank_of(s),
+                minutes=round((time.time() - snapshot["started"]) / 60),
+            )
+        finally:
+            connection.close()
+    except Exception:
+        logging.getLogger(__name__).exception("remedies: the order was not ledgered")
+
+
+def ledger(s):
+    """`;remedies ledger`: the character's orders on record."""
+    from client.game.history import database_path
+
+    connection = open_ledger(database_path())
+    try:
+        entries = rows(
+            connection,
+            character=getattr(s.state, "name", None) or None,
+            discipline="remedies",
+        )
+    finally:
+        connection.close()
+    for line in ledger_lines(entries):
+        s.echo(f"remedies: {line}")
+
+
 def work(s, options, profile):
     """The work orders: an order asked (or the logbook's resumed), its
     stacks crafted and bundled — the herbs, water and coal bought as
@@ -547,6 +616,12 @@ def work(s, options, profile):
         parsed, spec = next_order(s, master, options)
         if parsed is None:
             break
+        snapshot = {
+            "crushes": tally["crushes"],
+            "spent": tally["spent"],
+            "rank": rank_of(s),
+            "started": time.time(),
+        }
         remaining = parsed["count"]
         why = None
         started = False
@@ -598,6 +673,8 @@ def work(s, options, profile):
             break
         orders += 1
         earned += paid
+        ask(s, "stow my logbook")
+        record_order(s, parsed, spec, options["level"], catalyst, paid, tally, snapshot)
         s.echo(
             f"remedies: order {orders} paid {paid} Kronars "
             f"({earned - tally['spent']} clear of {tally['spent']} spent so far)"
@@ -614,6 +691,9 @@ def work(s, options, profile):
 
 
 def run(s, options):
+    if options["ledger"]:
+        ledger(s)
+        return
     profile = profile_of(s)
     value = ensure_mindstate(s, SKILL, ask)
     if value is None:
@@ -626,7 +706,8 @@ def run(s, options):
         else:
             train(s, options, profile)
     finally:
-        redraw(s, profile)
+        # The weapon stays sheathed: a hunt WIELDs its own (the operator,
+        # 2026-09-22 — no reason for a crafter to end armed).
         if danger(s) and "hostiles" in (danger(s) or ""):
             flight.react(s, "remedies")
 

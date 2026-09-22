@@ -564,7 +564,16 @@ purchase STOWed — and the walk back takes up the remedy left in the
 mortar (the page studied again, no herb put in; only the controlling
 herb, which goes in first, starts the stack over). At mind-lock the
 crushes go on for the pay, said once (`once` ends there), and the
-closing tally is what was earned against what was spent. The
+closing tally is what was earned against what was spent. Every order
+handed in is a row in history.db's `work_orders` table
+(`client/game/workorders.py`, beside `;xp`'s mindstates): the pay,
+the materials at catalog prices (390 Kronars a blister cream — the
+stack of flowers, a piece of nemoih, a splash of water, a coal
+nugget), the coin that left the purse while the order was open, the
+crushes and the rank before and after; `;remedies ledger` prints the
+totals, the profit an order of each item brings and the last few.
+The first order on record (2026-09-22): 1,144 paid, 780 in
+materials, 748 spent — 364 profit, 396 kept, Alchemy 9 to 10. The
 purchase wordings are captured; a refusal for want of coin is not, so
 any answer that is not the hand-over ends the purchase and the order
 waits in the logbook. Two things bit: PUT MY NEMOIH

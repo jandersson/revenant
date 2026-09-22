@@ -112,7 +112,14 @@ NEED_CATALYST = ("need another catalyst", "catalyst material to continue")
 ADDED = ("scrape some shavings",)
 FINISHED = ("you complete working on",)
 DONE_ALREADY = ("interesting thought really",)
-CRUSHED = ("you crush some unfinished", "crush the", "crush some")
+# The rank line can close a crush's window on its own (2026-09-22): a
+# rank gained is a crush that taught.
+CRUSHED = (
+    "you crush some unfinished",
+    "crush the",
+    "crush some",
+    "gained a new rank",
+)
 AS_CRUSHED = ("as crushed as it is going to get",)
 MISSING = ("what were you referring", "could not find", "crush what")
 FREE_HAND = ("need a free hand",)
@@ -183,12 +190,12 @@ BOUGHT = ("takes some coins from you and hands you",)
 
 
 def parse_args(args):
-    """{"salve", "until", "once", "count", "work", "level"} from
+    """{"salve", "until", "once", "count", "work", "level", "ledger"} from
     ;remedies' arguments: the salve to train on ("head" by default),
     until= the Alchemy mindstate to stop at (34), `once` to exit at the
     lock, count= remedies (or orders, with work) before ending,
     `work [easy|challenging|hard]` for the society's orders instead of
-    the training loop."""
+    the training loop, `ledger` to print the orders' takings."""
     options = {
         "salve": "head",
         "until": 34,
@@ -196,6 +203,7 @@ def parse_args(args):
         "count": 0,
         "work": False,
         "level": "easy",
+        "ledger": False,
     }
     for arg in args:
         key, sep, value = str(arg).lower().partition("=")
@@ -211,6 +219,8 @@ def parse_args(args):
             options["once"] = True
         elif key == "work":
             options["work"] = True
+        elif key == "ledger":
+            options["ledger"] = True
         elif key in LEVELS:
             options["level"] = key
     return options
@@ -271,6 +281,17 @@ def payment(text):
     """The Kronars a GIVE of the logbook earned, or None."""
     match = PAID.search(text or "")
     return int(match.group(1)) if match else None
+
+
+def is_noise(text):
+    """True when a CRUSH's answer window holds nothing said to the
+    character: another player's line ("Swoth runs south.", 2026-09-22)
+    closed the window before the crush's own answer arrived. Not an
+    unrecognized answer — the next crush finds the mortar as it is."""
+    lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
+    return bool(lines) and not any(
+        re.search(r"\byou\b|\byour\b", line, re.IGNORECASE) for line in lines
+    )
 
 
 def logbook_item(text):

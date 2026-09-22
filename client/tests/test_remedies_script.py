@@ -163,6 +163,17 @@ def crushes(fake):
     return [c for c in fake.sent if c.startswith("crush ")]
 
 
+def ledger_rows():
+    from client.game.history import database_path
+    from client.game.workorders import open_ledger, rows
+
+    connection = open_ledger(database_path())
+    try:
+        return rows(connection, character="Lanival", discipline="remedies")
+    finally:
+        connection.close()
+
+
 def test_the_head_salve_is_studied_crushed_watered_catalysed_and_stowed():
     fake = Fake(
         {
@@ -206,7 +217,7 @@ def test_the_head_salve_is_studied_crushed_watered_catalysed_and_stowed():
     )
     assert "remedies: head salve finished (1)" in out
     assert "stow my salve" in fake.sent
-    assert fake.sent[-1] == "wield my scimitar"
+    assert "wield my scimitar" not in fake.sent  # it ends sheathed
     assert not any(c.startswith("drop") for c in fake.sent)
 
 
@@ -226,7 +237,7 @@ def test_without_a_catalyst_the_salve_waits_in_the_mortar():
     )
     out = run(fake)
     assert "wants a catalyst and the profile names none" in out
-    assert fake.sent[-3:] == ["stow my pestle", "stow my mortar", "wield my scimitar"]
+    assert fake.sent[-2:] == ["stow my pestle", "stow my mortar"]
 
 
 def test_a_spent_study_is_studied_again_and_a_second_refusal_ends_it():
@@ -347,7 +358,19 @@ def test_a_work_order_is_asked_crafted_bundled_and_handed_in():
     assert "give my logbook to lanshado" in fake.sent
     assert "order 1 paid 1146 Kronars (1146 clear of 0 spent so far)" in out
     assert "1 order(s), 1146 Kronars earned, 0 spent" in out
-    assert fake.sent[-1] == "wield my scimitar"
+    assert fake.sent.index(
+        "stow my logbook", fake.sent.index("give my logbook to lanshado")
+    )
+    # The order is ledgered: the pay, the two stacks at catalog prices,
+    # nothing spent, eight crushes, the rank before and after.
+    row = ledger_rows()[-1]
+    assert row["item"] == "blister cream" and row["stacks"] == 2
+    assert row["level"] == "easy" and row["quality"] == "finely-crafted"
+    assert (row["earned"], row["cost"], row["spent"]) == (1146, 780, 0)
+    assert row["crushes"] == 9 and row["rank_before"] == 2 and row["rank_after"] == 2
+    out = run(Fake({}), ["ledger"])
+    assert "order(s): " in out and "blister cream (easy)" in out
+    assert "wield my scimitar" not in fake.sent  # it ends sheathed
     assert not fake.walked  # nothing ran out
 
 
@@ -422,6 +445,28 @@ def test_the_herbs_water_and_coal_are_bought_as_they_run_out():
     assert fake.sent.count("study my book") == 5  # three restocks, two stacks
     assert "order 1 paid 1146 Kronars (336 clear of 810 spent so far)" in out
     assert "1 order(s), 1146 Kronars earned, 810 spent" in out
+    assert ledger_rows()[-1]["spent"] == 810
+
+
+def test_a_bystanders_line_in_a_crush_window_is_not_a_miss():
+    # Three passers-by in a row used to end the run as three
+    # unrecognized answers (2026-09-22); the crush is sent again.
+    fake = Fake(
+        work_answers(
+            **{
+                "crush my flowers in my mortar with my pestle": [
+                    "Swoth runs south.\n",
+                    "Swoth just arrived.\n",
+                    "Swoth runs south.\n",
+                    NEED_WATER,
+                ]
+            }
+        ),
+        mindstates=[3] + [5] * 30,
+    )
+    out = run(fake, ["work", "count=1"])
+    assert "unrecognized" not in out
+    assert "order 1 paid 1146 Kronars" in out
 
 
 def test_a_shop_that_quotes_something_else_ends_the_purchase():

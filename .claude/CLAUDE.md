@@ -236,7 +236,10 @@ for `client/client/<pkg>/x.py`.
   bundled, the herbs, water and coal bought as they run out with
   the coins fetched from the teller, the logbook handed in for the
   pay, the next order asked, the crushes going on at mind-lock
-  (#284).
+  (#284). `client/game/workorders.py` ledgers every order handed
+  in — history.db's `work_orders`: pay, materials at catalog
+  prices, coin spent, crushes, ranks — and `;remedies ledger`
+  prints the totals and the profit per item.
   `client/game/soul.py` is a
   Paladin's soul: the seven states and eleven pool levels parsed off
   RUB, EXHALE and the arch, the deeds that raise it (the 5-silver
