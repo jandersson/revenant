@@ -94,7 +94,7 @@ def test_the_targeted_spell_is_cast_at_the_prey_before_the_swing(travel):
     # pattern forms, CAST at the pattern (#203).
     assert arena.sent[:6] == [
         "discern footman's strike",
-        "get my handaxe from my sack",
+        "wield my handaxe",
         "stance set 100 80 0",
         "prepare footman's strike",
         "target rat",

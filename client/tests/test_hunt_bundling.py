@@ -67,7 +67,7 @@ def test_a_bundle_kept_in_the_sack_is_worn_before_the_weapon_is_drawn(travel):
         "tap my bundle",
         "get my bundle from my sack",
         "wear my bundle",
-        "get my handaxe from my sack",
+        "wield my handaxe",
     ]
     after_skin = arena.sent[arena.sent.index("skin rat") + 1 :]
     assert after_skin[0] == "search rat"  # nothing stowed, nothing bundled by hand
@@ -90,11 +90,11 @@ def test_the_first_skin_starts_the_bundle_and_wears_it(travel):
     first = arena.sent.index("skin rat")
     assert arena.sent[first : first + 7] == [
         "skin rat",
-        "put my handaxe in my sack",
+        "sheathe my handaxe in my sack",
         "get my rope from my sack",
         "bundle",
         "wear my bundle",
-        "get my handaxe from my sack",
+        "wield my handaxe",
         "search rat",
     ]
     assert any("bundle started and worn" in text for text in arena.echoed)
@@ -125,13 +125,15 @@ def test_a_full_bundle_is_known_and_the_skin_is_stowed_loose(travel):
 
 def test_a_weapon_not_in_its_container_is_drawn_from_wherever_it_is(travel):
     # #259: the scimitar sat in the sack while the profile named the
-    # scabbard; the one GET answered "What were you referring to?" and
-    # the turn swung bare-handed.
+    # scabbard, and a GET at the scabbard swung the turn bare-handed.
+    # WIELD searches the inventory itself (captured 2026-09-22).
     arena = _run(
         Arena(
             {
-                "get my handaxe from my sack": [MISSING],
-                "get my handaxe": ["You get an oak-hafted handaxe."],
+                "wield my handaxe": [
+                    "You draw out your oak-hafted handaxe from the canvas sack, "
+                    "gripping it firmly in your right hand."
+                ],
                 "attack": [(KILL, kill)],
                 "skin": [SKINNED],
                 "search": [NOTHING],
@@ -139,8 +141,13 @@ def test_a_weapon_not_in_its_container_is_drawn_from_wherever_it_is(travel):
         ),
         travel_first=False,
     )
-    assert arena.sent[:2] == ["get my handaxe from my sack", "get my handaxe"]
+    assert arena.sent[0] == "wield my handaxe"
     assert not any("no handaxe to draw" in t for t in arena.echoed)
+    gone = _run(
+        Arena({"wield my handaxe": [MISSING], "attack": [(KILL, kill)]}),
+        travel_first=False,
+    )
+    assert any("no handaxe to draw" in t for t in gone.echoed)
 
 
 def test_a_skin_the_bundle_will_not_take_leaves_the_next_one_to_start_it(travel):

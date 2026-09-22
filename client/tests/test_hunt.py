@@ -48,7 +48,7 @@ def test_readies_the_weapon_and_stance_walks_to_the_ground_then_hunts(travel):
     )
     assert arena.walks[0] == {6046, 6047}
     assert arena.sent[:3] == [
-        "get my handaxe from my sack",
+        "wield my handaxe",
         "stance set 100 80 0",
         "attack rat",
     ]
@@ -87,16 +87,16 @@ def test_the_weapons_take_turns_per_kill_and_the_fists_turn_swings_the_brawling_
         c
         for c in arena.sent
         if c.split()[0] in ("attack", "punch", "kick", "elbow")
-        or c.startswith(("get my", "put my handaxe", "stow my"))
+        or c.startswith(("wield my", "sheathe my handaxe", "get my", "stow my"))
     ]
     assert fights == [
-        "get my handaxe from my sack",
+        "wield my handaxe",
         "attack rat",  # the first kill: the axe's turn
-        "put my handaxe in my sack",  # then the fists' turn, nothing drawn
+        "sheathe my handaxe in my sack",  # then the fists' turn, nothing drawn
         "punch rat",
         "kick rat",
         "elbow rat",  # the second kill
-        "get my handaxe from my sack",  # the axe again
+        "wield my handaxe",  # the axe again
         "attack rat",
     ]
     assert any("hunt: handaxe for Small Edged (10/34)" in t for t in arena.echoed)
@@ -176,7 +176,7 @@ def test_a_tool_left_in_hand_from_the_last_run_is_stowed_before_the_draw(travel)
     arena.state.left_hand = None
     arena.state.right_hand = {"noun": "rag", "exist": "1"}
     _run(arena)
-    assert arena.sent[:2] == ["stow my rag", "get my handaxe from my sack"]
+    assert arena.sent[:2] == ["stow my rag", "wield my handaxe"]
     fists = Arena({"punch": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
     fists.state.left_hand = None
     fists.state.right_hand = {"noun": "handaxe", "exist": "1"}
@@ -406,7 +406,7 @@ def test_a_wound_at_the_floor_breaks_the_hunt_off_after_a_kill(travel):
     assert any(
         "neck external harmful — at the wound floor" in text for text in arena.echoed
     )
-    assert "put my handaxe in my sack" not in arena.sent  # walked home, still armed
+    assert "sheathe my handaxe in my sack" not in arena.sent  # walked home, still armed
 
 
 def test_a_wound_below_the_floor_keeps_hunting(travel):

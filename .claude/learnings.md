@@ -108,6 +108,11 @@ lessons the code and docs cannot carry themselves.
   'BALANCE_LEVELS'" — and kept the old code until relaunch
   (2026-09-22). A shared constant goes in a game module of its own
   (client/game/balance.py) that both import.
+- A weapon is drawn with WIELD (the game searches the inventory and
+  remembers the container) and put back with SHEATHE (bare after a
+  WIELD, else `SHEATHE <weapon> IN <container>`); DRAW is an attack
+  maneuver — "It's best you not do that" (2026-09-22). A GET at the
+  profile's container missed a weapon stowed elsewhere (#259).
 - A society shop (the Crossing Alchemy Society, 2026-09-22) sells by
   ORDER # twice: the first quotes ("Just order it again and we'll see
   it done!"), the second buys and hands the item over — into a hand,

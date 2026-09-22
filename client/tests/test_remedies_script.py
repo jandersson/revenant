@@ -90,7 +90,7 @@ class Fake:
             self.crushes += 1
             if self.mindstates:
                 self.state.experience["Alchemy"]["mindstate"] = self.mindstates.pop(0)
-        if command.startswith("put my scimitar"):
+        if command.startswith("sheathe my scimitar"):
             self.state.right_hand = None
         for prefix, queue in self.answers.items():
             if command == prefix or command.startswith(prefix + " "):
@@ -157,9 +157,9 @@ def test_the_study_the_herb_the_water_and_the_stop_at_the_catalyst():
     )
     out = run(fake)
     # the weapon sheathed, the page studied and the book put away
-    assert fake.sent[:2] == ["exp alchemy", "put my scimitar in my scabbard"][0:2] or (
-        "put my scimitar in my scabbard" in fake.sent
-    )
+    assert fake.sent[:2] == ["exp alchemy", "sheathe my scimitar in my scabbard"][
+        0:2
+    ] or ("sheathe my scimitar in my scabbard" in fake.sent)
     assert "turn my book to chapter 3" in fake.sent
     assert "turn my book to page 4" in fake.sent
     assert fake.sent.index("study my book") < fake.sent.index("stow my book")
@@ -188,7 +188,7 @@ def test_the_study_the_herb_the_water_and_the_stop_at_the_catalyst():
     assert fake.sent[-3:] == [
         "stow my pestle",
         "stow my mortar",
-        "get my scimitar from my scabbard",
+        "wield my scimitar",
     ]
     assert not any(c.startswith("drop") for c in fake.sent)
 

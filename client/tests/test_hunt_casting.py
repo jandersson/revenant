@@ -63,7 +63,7 @@ def test_with_a_walk_the_buffs_are_cast_before_it_not_among_the_prey(monkeypatch
         "prepare heroic strength",
         "cast",
         "<walk>",
-        "get my handaxe from my sack",
+        "wield my handaxe",
     ]
     assert arena.sent.count("cast") == 1
 
@@ -82,7 +82,7 @@ def test_buffs_are_cast_before_the_weapon_is_drawn(travel):
     assert arena.sent[:4] == [
         "prepare heroic strength",
         "cast",
-        "get my handaxe from my sack",
+        "wield my handaxe",
         "stance set 100 80 0",
     ]
     assert arena.sent.count("cast") == 1  # no Spells window: the timer holds it
@@ -407,7 +407,7 @@ def test_a_bundle_worn_from_the_last_run_is_left_where_it_is(travel):
     )
     _hands(arena)
     _run(arena, profile=BUNDLING, travel_first=False)
-    assert arena.sent[:2] == ["tap my bundle", "get my handaxe from my sack"]
+    assert arena.sent[:2] == ["tap my bundle", "wield my handaxe"]
     assert "wear my bundle" not in arena.sent
     after_skin = arena.sent[arena.sent.index("skin rat") + 1 :]
     assert after_skin[0] == "search rat"
@@ -436,7 +436,7 @@ def test_the_debilitation_spell_is_cast_at_the_prey_before_the_swing(travel):
     # searched, the pattern holding), CAST (#203).
     assert arena.sent[:5] == [
         "discern stun foe",
-        "get my handaxe from my sack",
+        "wield my handaxe",
         "stance set 100 80 0",
         "prepare stun foe",
         "attack rat",

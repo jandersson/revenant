@@ -84,10 +84,12 @@ under a swing has the pattern RELEASEd rather than cast at nothing
 kill, each with the skill it trains — "handaxe:Small Edged:sack",
 "fists:Brawling" — so every weapon skill learns in the same evening
 (the operator, 2026-09-20: no argument per weapon type, #238). A
-turn's weapon is GOT from its container after the last one goes
-back — or from wherever it sits when the container has it not (#259:
-the scimitar in the sack, the profile naming the scabbard, and the
-turn swung bare-handed); the fists turn draws nothing and swings the profile's
+turn's weapon is WIELDed after the last one is SHEATHEd into its
+container — WIELD finds it wherever it sits and remembers the place
+(#259: the scimitar in the sack, the profile naming the scabbard, and
+the turn swung bare-handed, before WIELD did the searching;
+Elanthipedia: Wield command, Sheathe command — DRAW is an attack
+maneuver, never the draw); the fists turn draws nothing and swings the profile's
 `brawling` attacks in rotation — PUNCH, KICK, ELBOW (Elanthipedia:
 Brawling skill, Punch command, Elbow command) — with the hands empty,
 since PUNCH wants a free hand and a worn parry stick parries as it
@@ -412,6 +414,9 @@ BUNDLE_OUTCOMES = (
     ("ok", ("you bundle up", "into your bundle")),
 )
 _MISSING = ("what were you referring", "could not find")
+# SHEATHE with no container named and nothing remembered from a WIELD
+# (captured 2026-09-22): "Sheathe your steel scimitar where?"
+_SHEATHE_WHERE = ("where?",)
 
 
 class Tally:
@@ -757,20 +762,18 @@ def escape(s):
 
 
 def draw(s, profile):
-    """The weapon into a hand: from its container, or — not there (#259:
-    the scimitar sat in the sack while the profile named the scabbard,
-    and the turn swung bare-handed) — from wherever it is. False when
-    the game finds no such weapon at all, said once per call."""
+    """The weapon into a hand: WIELD searches the inventory for it and
+    remembers where it came from, so SHEATHE puts it back there
+    (Elanthipedia: Wield command, Sheathe command; captured 2026-09-22:
+    "You draw out your steel scimitar from the leather scabbard,
+    gripping it firmly in your right hand.", "You're already holding a
+    watered steel scimitar!"). The scimitar that sat in the sack while
+    the profile named the scabbard (#259) is found by the game itself
+    now. False when the game finds no such weapon at all, said once."""
     weapon = profile["weapon"]
     if not weapon:
         return True
-    container = profile["weapon_container"]
-    command = (
-        f"get my {weapon} from my {container}" if container else f"get my {weapon}"
-    )
-    answer = ask(s, command).lower()
-    if container and any(word in answer for word in _NOTHING_THERE):
-        answer = ask(s, f"get my {weapon}").lower()
+    answer = ask(s, f"wield my {weapon}").lower()
     if any(word in answer for word in _NOTHING_THERE):
         s.echo(f"hunt: no {weapon} to draw — the game finds none on you")
         return False
@@ -803,18 +806,26 @@ def ready(s, profile, tally=None, index=0):
 
 
 def unready(s, profile):
-    """The weapon back where it lives, when the profile says where."""
-    if profile["weapon"] and profile["weapon_container"]:
-        ask(s, f"put my {profile['weapon']} in my {profile['weapon_container']}")
+    """The weapon back where it lives: SHEATHE into the profile's
+    container, or — no container named — where WIELD drew it from; a
+    "Sheathe your ... where?" (nothing remembered) falls back to STOW."""
+    weapon = profile["weapon"]
+    if not weapon:
+        return
+    container = profile["weapon_container"]
+    command = (
+        f"sheathe my {weapon} in my {container}"
+        if container
+        else f"sheathe my {weapon}"
+    )
+    answer = ask(s, command).lower()
+    if any(word in answer for word in _SHEATHE_WHERE):
+        ask(s, f"stow my {weapon}")
 
 
 def free_hand(s, profile):
-    """The weapon out of the hand for a moment: its container, or STOW."""
-    weapon = profile["weapon"]
-    if weapon and profile["weapon_container"]:
-        unready(s, profile)
-    elif weapon:
-        ask(s, f"stow my {weapon}")
+    """The weapon out of the hand for a moment: sheathed, or stowed."""
+    unready(s, profile)
 
 
 def hand(s, side):

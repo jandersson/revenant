@@ -94,16 +94,16 @@ def clear_hands(s, profile):
     container = profile.get("weapon_container") or ""
     for noun in hand_nouns(s):
         if noun == weapon and container:
-            ask(s, f"put my {noun} in my {container}")
+            ask(s, f"sheathe my {noun} in my {container}")
         else:
             ask(s, f"stow my {noun}")
 
 
 def redraw(s, profile):
+    """WIELD the weapon back: the game finds it where SHEATHE put it."""
     weapon = profile.get("weapon") or ""
-    container = profile.get("weapon_container") or ""
-    if weapon and container:
-        ask(s, f"get my {weapon} from my {container}")
+    if weapon:
+        ask(s, f"wield my {weapon}")
 
 
 def study(s, salve):
