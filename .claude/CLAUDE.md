@@ -277,6 +277,12 @@ for `client/client/<pkg>/x.py`.
   leave) and `scripts/listen.py` joins one and holds on the taught
   skill's mindstate, rejoining when it ends; `;train` runs `listen`
   as a task, `;teach` runs on the teacher's side (2026-09-22).
+  `client/game/helper.py` is the task's helper character: the
+  teacher's session found in the registry or spawned off the
+  keychain without a window, walked to the room, started on its
+  script through the wire tagged `train`, returned and logged out
+  (`scripts/logout.py`, QUIT from inside) when the loop moves on;
+  the task's `helper*` keys name it (2026-09-22).
 - `client/game/walker.py` + `client/game/mapdb.py` — travel on the community map
   (downloaded, never vendored). Twins: the map lists some rooms twice,
   one uid-less; `same_place` handles it. A climb turned back for

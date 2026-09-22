@@ -86,6 +86,12 @@ TASK_DEFAULTS = {
     "pace": 5,
     "setup": [],
     "teardown": [],
+    # A helper character logged in for the task (client/game/helper.py):
+    # the teacher of a class. Empty: none.
+    "helper": "",
+    "helper_script": "",
+    "helper_args": [],
+    "helper_room": "",
     # None: the plan's value applies.
     "target": None,
     "minutes": None,
@@ -130,6 +136,10 @@ TASK_FIELDS = (
     ("pace", "Seconds between commands", "int", ""),
     ("setup", "Before the task", "list", "get my flute"),
     ("teardown", "After the task", "list", "stow my flute"),
+    ("helper", "Helper character", "str", "Fallanor — logged in for the task"),
+    ("helper_script", "Helper's script", "str", "teach (the default)"),
+    ("helper_args", "Helper's arguments", "list", "parry ability, to, cecil"),
+    ("helper_room", "Room for both", "str", "7890 — blank: where you stand"),
     ("target", "Own target mindstate", "optint", "blank: the plan's"),
     ("minutes", "Own time budget, minutes", "optint", "blank: the plan's"),
 )
@@ -147,7 +157,7 @@ _INTS = (
 _TASK_INTS = ("return_grace", "pace")
 _TASK_OPTIONAL_INTS = ("target", "minutes")
 _LISTS = ("safe_rooms", "rest_commands", "tdp")
-_TASK_LISTS = ("skills", "args", "commands", "setup", "teardown")
+_TASK_LISTS = ("skills", "args", "commands", "setup", "teardown", "helper_args")
 
 
 def training_dir() -> Path:

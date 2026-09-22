@@ -45,7 +45,7 @@ ends, and ;train stops with a word to start it again after.
 
 import time
 
-from client.game import flight
+from client.game import flight, helper
 
 from client.game.training import (
     describe,
@@ -245,17 +245,143 @@ ENDINGS = {
 UNTRAINED = ("skipped", "failed", "crashed")  # a task that never trained
 
 
-def run_task(s, plan, task):
-    """One task, setup to teardown; why it ended (watch's reasons)."""
+class HelperIO:
+    """What client/game/helper.py needs of the world: the registry, the
+    login cache and keychain, the launcher's spawn, the wire, the
+    map, and this script's stop-aware sleep."""
+
+    def __init__(self, s, db=None):
+        self.s = s
+        self.db = db
+
+    def sessions(self):
+        from client.engine.registry import running_sessions
+
+        return running_sessions()
+
+    def account_for(self, name):
+        from client.engine.login import account_for_character, load_login_defaults
+
+        return account_for_character(load_login_defaults(), name)
+
+    def has_password(self, account):
+        from client.engine.login import keychain_password
+
+        return keychain_password(account) is not None
+
+    def spawn(self, name, account):
+        from client.engine.launch import (
+            DEFAULT_HOST,
+            get_free_port,
+            spawn_session,
+            wait_for_session,
+        )
+
+        port = get_free_port(DEFAULT_HOST)
+        process = spawn_session(DEFAULT_HOST, port, name, key=None, account=account)
+        try:
+            wait_for_session(process, DEFAULT_HOST, port, timeout=90)
+        except SystemExit:
+            return None
+        return port
+
+    def send(self, port, line):
+        from client.engine.launch import DEFAULT_HOST
+        from client.engine.wire import send_line
+
+        return send_line(DEFAULT_HOST, port, line)
+
+    def room_of(self, port):
+        from client.engine.launch import DEFAULT_HOST
+        from client.engine.wire import request_state
+
+        try:
+            state = request_state(DEFAULT_HOST, port, ["room"], helper.ORIGIN)
+        except OSError:
+            return None
+        uid = (state.get("room") or {}).get("uid") if isinstance(state, dict) else None
+        if not uid or self.db is None:
+            return None
+        room = self.db.room_by_uid(uid)
+        return str(room) if room is not None else None
+
+    def now(self):
+        return clock()
+
+    def sleep(self, seconds):
+        self.s.sleep(seconds)
+
+
+SPAWNED = set()  # helper names this loop logged in (logged out at their last task)
+
+
+def start_helper(s, task, db, walk):
+    """The task's helper logged in, brought to the room and started on
+    its script — the student walked there first. The Helper, or None
+    when the task has none or it could not be had (said)."""
+    spec = helper.spec_of(task)
+    if not spec:
+        return None
+    io = HelperIO(s, db)
+    active = helper.ensure(io, spec["name"], s.echo, SPAWNED)
+    if active is None:
+        return None
+    if active.spawned:
+        SPAWNED.add(spec["name"].lower())
+    target = spec["room"]
+    if db is not None and walk is not None:
+        if target:
+            if not go_to(s, db, walk, target):
+                s.echo(f"train: could not reach room {target} for the class")
+        else:
+            from client.game.walker import locate
+
+            here = locate(db, s.state)
+            target = str(here) if here is not None else ""
+    if target and not helper.bring(io, active, target, s.echo):
+        return active  # the task runs anyway; the teacher may still arrive
+    helper.start(io, active, spec["script"], spec["args"])
+    s.echo(f"train: {spec['name']} started ;{spec['script']} {' '.join(spec['args'])}")
+    return active
+
+
+def end_helper(s, task, active, following, db):
+    """The helper's script returned; its session logged out unless the
+    next task keeps it."""
+    if active is None:
+        return
+    spec = helper.spec_of(task)
+    keep = helper.keeps(following, active.name)
+    if helper.finish(HelperIO(s, db), active, spec["script"], keep, s.echo):
+        SPAWNED.discard(active.name.lower())
+
+
+def following_task(plan, task):
+    """The task after this one in the plan's order, or None."""
+    names = [t.get("name") for t in plan.get("tasks", [])]
+    if task.get("name") in names:
+        index = names.index(task.get("name")) + 1
+        if index < len(names):
+            return plan["tasks"][index]
+    return None
+
+
+def run_task(s, plan, task, db=None, walk=None):
+    """One task, setup to teardown; why it ended (watch's reasons). A
+    task with a helper has the helper logged in, brought and started
+    before the setup, and returned and logged out after the teardown
+    (client/game/helper.py)."""
     budget = task_minutes(plan, task)
     deadline = clock() + budget * 60 if budget else None
     limit = f"up to {budget} min" if budget else "no time limit"
     s.echo(f"train: {task['name']} — {progress(plan, task, experience(s))} ({limit})")
+    active = start_helper(s, task, db, walk)
     send_each(s, task["setup"])
     if task["script"]:
         reason = run_script_task(s, plan, task, deadline)
     else:
         reason = run_command_task(s, plan, task, deadline)
+    end_helper(s, task, active, following_task(plan, task), db)
     if reason != "dead":
         send_each(s, task["teardown"])
         s.echo(
@@ -265,7 +391,7 @@ def run_task(s, plan, task):
     return reason
 
 
-def train_cycle(s, plan):
+def train_cycle(s, plan, db=None, walk=None):
     """Every task once, in the plan's order, skipping the ones already
     at target: "trained" when the cycle is complete, "dead" on death,
     "nothing" when every task that ran failed to start (#182)."""
@@ -277,7 +403,7 @@ def train_cycle(s, plan):
         task = next_task(plan, experience(s), spent)
         if task is None:
             break
-        reason = run_task(s, plan, task)
+        reason = run_task(s, plan, task, db, walk)
         if reason in ("dead", "shutdown"):
             return reason
         spent.add(task["name"])
@@ -490,7 +616,7 @@ def run(s, plan, cycles, db=None, walk=None):
     while not cycles or cycle < cycles:
         cycle += 1
         s.echo(f"train: cycle {cycle} — training")
-        outcome = train_cycle(s, plan)
+        outcome = train_cycle(s, plan, db, walk)
         if outcome == "dead":
             s.echo("train: you are dead — stopping; deathwatch has it")
             return

@@ -53,6 +53,7 @@ A task:
 | commands, pace | instead of a script: the commands cycled in the loop's own thread, roundtime waited out, `pace` seconds apart |
 | setup, teardown | commands sent before the task and after it (`get my flute` / `stow my flute`) |
 | target, minutes | this task's own target and time budget, overriding the plan's |
+| helper, helper_script, helper_args, helper_room | a second character of yours logged in for the task — the teacher of a class: `helper` names them (their account password in the keychain), `helper_script` what to start on their side (`teach` by default) with `helper_args` (`parry ability, to, cecil`), `helper_room` where both meet (a map id; blank: where you stand). Their session is found in the registry or spawned without a window, walked there by `;go2`, started, given the return word when the task ends, and logged out (`;logout`, QUIT from inside) unless the next task names them too (2026-09-22, `client/game/helper.py`) |
 
 Unknown keys survive a save, so a task can grow a field before the
 loop learns it.
@@ -620,10 +621,16 @@ expire within minutes ("You stop trying to teach Parry Ability to
 Cecil.") and `;teach` offers again at once, and a student joining
 ("Cecil begins to listen to you teach the Parry Ability skill.").
 `;train` runs the student's side as a task,
-`{"name": "class", "skills": ["Scholarship"], "script":
-"listen", "args": ["masah"], "return_word": "return"}`: its rest
-walks away and ends the class, and the teacher's `;teach` offers it
-again when the student is back and listening. The student's lines
+`{"name": "class", "skills": ["Parry Ability", "Scholarship"],
+"script": "listen", "args": ["fallanor"], "return_word": "return",
+"helper": "Fallanor", "helper_args": ["parry ability", "to",
+"cecil"], "helper_room": "7890"}`: the loop logs the teacher in
+for the task and out after it (the `helper` keys above), and one
+class trains two skills — the student learns Scholarship for
+listening whatever is taught, so a class replaces the books (the
+operator, 2026-09-22). Its rest walks away and ends the class, and
+the teacher's `;teach` offers it again when the student is back and
+listening. The student's lines
 for a class ending, a LISTEN with nothing offered and a skill the
 teacher cannot give are uncaptured and read by shape.
 
