@@ -3,6 +3,7 @@
     ;bank              WEALTH, then the money-changer for every foreign currency (EXCHANGE ALL ... TO the province's coin), then the teller (DEPOSIT ALL); stays at the bank
     ;bank back         ... and walk back to where you started
     ;bank keep=500     leave that many copper of the province's coin in the purse (for a tithe, a fee); 0 by default
+                       an empty purse with a keep walks to the teller and withdraws it (a kit to buy, 2026-09-22)
 
 Coins weigh, and a hunt's takings and the far towns' change pile up
 (the operator, 2026-09-20: a bank loop in ;train "will reduce
@@ -92,7 +93,26 @@ def run(s, words, mapdb, walk_fn=walk):
     wealth = parse_wealth(ask(s, "wealth"))
     carried = wealth["carried"]
     if not any(carried.values()):
-        s.echo("bank: the purse is empty — nothing to bank")
+        if options["keep"] <= 0:
+            s.echo("bank: the purse is empty — nothing to bank")
+            return
+        # Nothing to deposit, something to fetch: the keep is what the
+        # purse should hold, so the teller hands it over (2026-09-22, the
+        # alchemy kit; an outside WITHDRAW the session refuses, #161 —
+        # the script's own is the sanctioned one).
+        s.echo(
+            f"bank: the purse is empty — withdrawing the {options['keep']} copper keep"
+        )
+        tellers = mapdb.rooms_tagged("bank")
+        if not tellers or not walk_fn(
+            s, mapdb, set(tellers), describe="the bank teller"
+        ):
+            s.echo("bank: could not reach a teller — nothing withdrawn")
+            return
+        withdraw_back(s, options["keep"], home)
+        if options["back"] and start is not None and locate(mapdb, s.state) != start:
+            if not walk_fn(s, mapdb, {start}, describe="where you started"):
+                s.echo("bank: could not walk back — you are at the bank")
         return
     currencies = foreign(wealth, home)
     if currencies:

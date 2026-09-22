@@ -181,6 +181,17 @@ def test_keep_withdraws_the_amount_back_and_back_walks_home():
     assert "bank: kept 512 copper kronars in the purse" in echoes(fake)
 
 
+def test_an_empty_purse_with_a_keep_fetches_it_from_the_teller():
+    # 2026-09-22: the alchemy kit to buy with nothing in the purse; the
+    # session refuses an outside WITHDRAW, so the script's own is the way.
+    fake = Fake({"wealth": [WEALTH_EMPTY], "withdraw": [""] * 2})
+    script.run(fake, ["keep=2500", "back"], MAP, walk_fn=walk)
+    assert fake.sent == ["wealth", "withdraw 2 gold", "withdraw 5 silver"]
+    assert fake.walks == [{1900}, {1}]
+    assert "withdrawing the 2500 copper keep" in echoes(fake)
+    assert "bank: kept 2500 copper kronars in the purse" in echoes(fake)
+
+
 def test_parse_args():
     assert script.parse_args(["back", "keep=500"]) == {"back": True, "keep": 500}
     assert script.parse_args([]) == {"back": False, "keep": 0}
