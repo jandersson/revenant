@@ -220,6 +220,11 @@ for `client/client/<pkg>/x.py`.
   parser's `possessions`, a pouch and a bundle first — and
   `scripts/appraise.py` APPRAISEs them QUICK until Appraisal
   mind-locks, dropping what the game cannot find (#275).
+  `client/game/remedies.py` is the Remedies craft — the chapter-3
+  salves and their herbs, CRUSH's captured answers — and
+  `scripts/remedies.py` crushes a salve step by step for Alchemy,
+  pouring water when asked and leaving the salve unfinished when the
+  catalyst is wanted and the profile's `catalyst` is empty (#284).
   `client/game/soul.py` is a
   Paladin's soul: the seven states and eleven pool levels parsed off
   RUB, EXHALE and the arch, the deeds that raise it (the 5-silver

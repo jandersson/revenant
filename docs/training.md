@@ -497,6 +497,40 @@ after; an unattended run is no longer cut mid-fight when the link
 drops. The window's strip counts the minutes down in red. After
 lich-5's `DRParser.shutting_down?`, which dr-scripts poll (#277).
 
+## Alchemy: ;remedies
+
+Alchemy trains by making remedies, and every step teaches: on
+2026-09-22 a rank-2 Paladin went from 0/34 clear to rank 3, 60%
+dabbling in four CRUSHes of one head salve at the Crossing Alchemy
+Society. Crushing a raw foraged flower into powder taught nothing —
+Pfanston's 2014 shortcut is gone — so a salve it is: the apprentice
+remedies book's page STUDied ("You now feel ready to begin the
+crafting process."; the same answer warned the design was "far beyond
+your abilities" at rank 2, and the crushes taught anyway), five pieces
+of the dried herb in the mortar, CRUSH MY <herb> IN MY MORTAR WITH MY
+PESTLE ("With short strokes you crush some unfinished nemoih salve
+with your pestle." plus a mishap line, 17-20 s), a splash of water
+when the game asks ("You need another splash of water to continue
+crafting ..."; POUR MY WATER IN MY MORTAR: "You toss the water into
+the mortar and mix it in thoroughly."), and a catalyst last. The
+society sells the tools (mortar 125, pestle 125, bowl 125, mixing
+stick 93, sieve 218; ORDER # twice — the first quotes, the second
+buys), the books (apprentice 625, the work order logbook 625, RUBbed
+once to bond) and the dried herbs (25 nemoih 250, 25 red flowers 343)
+and water (10 splashes 62), and its Tool Shop has a dry press and a
+plant grinder for foraged herbs. It sells no catalyst: seolarn weed
+is foraged at rank 70 (Midton Circle, Northgate, Willow Walk), coal
+comes from mines — the open question of #284. `;remedies` runs the
+loop, holds at mind-lock, and with no `catalyst` in the profile stops
+when the game asks for one, the salve left unfinished in the mortar for
+the next run. A work order (ASK LANSHADO FOR EASY REMEDIES WORK in the
+Tool Shop, where he stands: "an order for some blister cream. I need 2
+stacks (5 uses each) finely-crafted, made from any material and due in
+65 roisaen") waits on the catalyst too. Two things bit: PUT MY NEMOIH
+IN MY MORTAR took the whole 25-piece stack (MARK and BREAK the stack
+to five first — uncaptured), and the mortar and pestle fill both hands,
+so every fetch stows the pestle first.
+
 ## Out of scope in the first cut
 
 A dialog for the plan (the file is the interface), a trainer per

@@ -95,6 +95,13 @@ lessons the code and docs cannot carry themselves.
   the session at 04:30 on 2026-09-20 with `;train` running (#239).
   The renderer now reads with `.get` and the reader survives our own
   errors, but the rule stands: seed complete entries or none.
+- A society shop (the Crossing Alchemy Society, 2026-09-22) sells by
+  ORDER # twice: the first quotes ("Just order it again and we'll see
+  it done!"), the second buys and hands the item over — into a hand,
+  so STOW between purchases. PUT MY <herb> IN MY MORTAR takes the
+  whole stack; the mortar and pestle fill both hands, so a fetch
+  means STOW the pestle first ("You need a free hand to pick that
+  up.").
 - A wet instrument (a river crossing, rain) refuses CLEAN until WIPEd
   with the cloth ("so wet that they are still dripping"); DRY is not a
   verb. CLEAN wants the instrument in hand (REMOVE a worn one).

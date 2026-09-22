@@ -139,6 +139,9 @@ DEFAULTS = {
     # The items ;appraise APPRAISEs in rotation for Appraisal ("pouch",
     # "shield"); [] means everything worn or held (#275).
     "appraisal_items": [],
+    # The catalyst ;remedies adds to a salve ("coal", "weed"); "" leaves
+    # the salve unfinished in the mortar when the game asks (#284).
+    "catalyst": "",
 }
 
 # (key, label, kind, help) — kind is "bool", "int", "str" or "list".
@@ -245,6 +248,12 @@ FIELDS = (
         "Items ;appraise looks at (Appraisal)",
         "list",
         "pouch, shield — empty: everything worn or held",
+    ),
+    (
+        "catalyst",
+        "Catalyst ;remedies adds to a salve (Alchemy)",
+        "str",
+        "coal, weed — empty: the salve waits unfinished",
     ),
 )
 
