@@ -792,3 +792,30 @@ def test_a_helper_whose_file_moved_says_restart_the_session_once(tmp_path, monke
     assert "[probe_it] 1" in second  # the old code kept running
     third = _run_and_wait(manager, recorder)
     assert not any("restart the session" in e for e in third)
+
+
+def test_a_flag_catches_a_line_while_the_script_does_something_else(tmp_path):
+    # #279, after lich-5's Flags: set once, checked on every fed line,
+    # read when convenient; a stream not watched never trips it.
+    (tmp_path / "watcher.py").write_text(
+        "def main(s):\n"
+        "    s.flag('ended', r'stop playing', r'finish your song')\n"
+        "    s.echo('watching')\n"
+        "    while (line := s.flagged('ended')) is None:\n"
+        "        s.sleep(0.02)\n"
+        "    s.echo('saw ' + line.strip())\n"
+        "    assert s.flagged('ended') is None\n"
+        "    s.unflag('ended')\n"
+    )
+    manager, recorder = make_manager(tmp_path)
+    manager.start("watcher", [])
+    assert wait_for(lambda: "[watcher] watching" in recorder.emitted)
+    manager.feed("You stop playing your song.\n", "thoughts")  # not watched
+    manager.feed("You continue playing.\n", "")
+    time.sleep(0.1)
+    assert not any("saw" in e for e in recorder.emitted)
+    manager.feed("You stop playing your song.\n", "")
+    assert wait_for(
+        lambda: "[watcher] saw You stop playing your song." in recorder.emitted
+    )
+    assert wait_for(lambda: any("exited" in e for e in recorder.emitted))

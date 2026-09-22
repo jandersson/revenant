@@ -17,6 +17,8 @@ in its own thread with `s` as its handle on the game:
     s.is_running("athletics")          # is that script's thread alive?
     s.tell("hunt", "stop")             # hand it a line, as ;hunt stop would
     s.kill("athletics")                # stop it (;train orchestrates this way)
+    s.flag("ended", r"You stop playing")  # watch every line for a pattern (#279)
+    line = s.flagged("ended")          # the line once one matched (and cleared), else None
 
 Scripts are controlled from any attached front end with ;-commands:
 ;list, ;help [name], ;run <name> [args], ;stop <name|all> (;k and
@@ -112,6 +114,10 @@ class Script:
         self._queue = queue.Queue(maxsize=1000)
         self._commands = queue.Queue(maxsize=100)
         self._stop = Event()
+        # name -> {"patterns", "streams", "match"}: lines watched for while
+        # the script does other things (#279, lich-5's Flags).
+        self._flags = {}
+        self._flags_lock = Lock()
         self.thread = None
         self.started_at = None  # wall clock, for the reload log line (#181)
 
@@ -173,6 +179,40 @@ class Script:
         timeout; timeout=0 polls without blocking."""
         deadline = None if timeout is None else self._manager.clock() + timeout
         return self._take(self._commands, deadline)
+
+    def flag(self, name, *patterns, streams=("", "combat")):
+        """Watch for a line matching any of the regex `patterns` on the
+        story (and combat) stream while the script does other things
+        (#279, after lich-5's Flags): the first matching line is kept
+        under `name` until flagged() reads it. Re-flagging a name
+        replaces its patterns and clears any match."""
+        self._check()
+        compiled = [re.compile(pattern, re.IGNORECASE) for pattern in patterns]
+        with self._flags_lock:
+            self._flags[name] = {
+                "patterns": compiled,
+                "streams": tuple(streams),
+                "match": None,
+            }
+
+    def flagged(self, name, clear=True):
+        """The line that matched flag `name` since it was set or last
+        read, or None; `clear` (the default) forgets it so the next
+        match is seen anew."""
+        self._check()
+        with self._flags_lock:
+            entry = self._flags.get(name)
+            if entry is None:
+                return None
+            line = entry["match"]
+            if clear:
+                entry["match"] = None
+            return line
+
+    def unflag(self, name):
+        """Stop watching `name`."""
+        with self._flags_lock:
+            self._flags.pop(name, None)
 
     def _take(self, source, deadline):
         """The next item off a queue, or None once the deadline (manager
@@ -326,6 +366,15 @@ class Script:
             raise ScriptStopped()
 
     def feed(self, text: str, stream: str):
+        if self._flags:
+            with self._flags_lock:
+                for entry in self._flags.values():
+                    if (
+                        entry["match"] is None
+                        and stream in entry["streams"]
+                        and any(pattern.search(text) for pattern in entry["patterns"])
+                    ):
+                        entry["match"] = text
         try:
             self._queue.put_nowait((stream, text))
         except queue.Full:
@@ -365,6 +414,7 @@ RELOADABLE_MODULES = (
     "client.game.possessions",  # binds _depth from inventory: after it
     "client.game.probe",
     "client.game.loop",
+    "client.game.creatures",
     "client.game.discard",
     "client.game.buffs",
     "client.game.profile",
