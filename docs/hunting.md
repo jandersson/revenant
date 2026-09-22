@@ -660,3 +660,8 @@ gems, and buying arrows or ammunition. Each is a profile setting and a
 branch away, once captures show the wordings. Buffs and skin bundles
 were the first two to land (2026-09-12); offensive magic followed as
 the profile's targeted spell, one cast per swing (#200).
+
+Gems are kept, not sold: a filled gem pouch is `;appraise`'s best
+item (Elanthipedia: Appraisal skill), so `;hunt` pouches every gem it
+finds and no script sells one — the operator's rule, 2026-09-22
+(#283 is the second pouch once the first holds its seventy).
