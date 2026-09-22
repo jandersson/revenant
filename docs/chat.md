@@ -40,7 +40,7 @@ Replies to `;who`, `;stats` and `;channels` arrive as Ruby Marshal, the serialis
 
 LNet names can be password-protected on the server. If a name is protected, login must carry the password or the server answers `password required` and disconnects.
 
-- The durable place is the OS keychain, service `revenant-lnet`, one entry per name. The window fills it in when a login is rejected: it asks once, with a "remember" checkbox. From a terminal: `keyring set revenant-lnet <Name>`.
+- The durable place is the OS keychain, service `revenant-lnet`, one entry per name. The game window's File → LNet Password… stores it for the character the window plays (a masked field, the keychain and nowhere else, #290); the chat window fills it in when a login is rejected, asking once with a "remember" checkbox; from a terminal: `keyring set revenant-lnet <Name>`. `;lnet` with nothing stored says so before it tries.
 - `LNET_PASSWORD` overrides for one run.
 - The git-ignored `chat/lnet_password.txt` is a legacy fallback from before the keychain. Never commit a password.
 

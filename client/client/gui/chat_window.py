@@ -70,13 +70,17 @@ RECV_TIMEOUT = 0.25  # seconds between command-queue checks
 
 class PasswordDialog(QDialog):
     """Asked once after LNet rejects a login: the name's password and
-    whether to keep it in the keychain."""
+    whether to keep it in the keychain. With `intro` the label is that
+    text instead of the rejection — the game window's File → LNet
+    Password… asks before any login (#290)."""
 
-    def __init__(self, name, reason, parent=None):
+    def __init__(self, name, reason, parent=None, intro=None):
         super().__init__(parent)
         self.setWindowTitle(f"LNet password for {name}")
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(f"LNet rejected the login for {name}:\n{reason}"))
+        layout.addWidget(
+            QLabel(intro or f"LNet rejected the login for {name}:\n{reason}")
+        )
         self.password = QLineEdit()
         self.password.setEchoMode(QLineEdit.EchoMode.Password)
         self.password.setPlaceholderText("password")

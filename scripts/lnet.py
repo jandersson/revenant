@@ -16,8 +16,9 @@ Start with ;lnet (or just use a command — it starts on demand), then:
 Incoming chat renders in Thoughts the way lich did: [Channel]-Name: "msg",
 [Private]-Name for tells, your own reflected sends as [PrivateTo]-Name.
 Identity is your character (override LNET_NAME); the password comes from
-the OS keychain (service "revenant-lnet", set by the standalone chat
-window's remember checkbox, or `keyring set revenant-lnet <Name>`),
+the OS keychain (service "revenant-lnet", set by File → LNet
+Password… in the game window, the standalone chat window's remember
+checkbox, or `keyring set revenant-lnet <Name>`),
 LNET_PASSWORD for one run, or the legacy git-ignored
 chat/lnet_password.txt. Stop: ;stop lnet
 
@@ -55,7 +56,16 @@ def main(s):
         s.echo("can't tell who you are — set LNET_NAME or REVENANT_CHARACTER")
         return
     lnet = Server(log_dir=default_log_dir())
-    lnet.set_login_info(name, password=lnet_password(name, legacy_file=get_password))
+    password = lnet_password(name, legacy_file=get_password)
+    if password is None:
+        # A protected name answers "password required" to this; an
+        # unprotected one logs in. Said up front so the fix is known
+        # before the rejection (#290).
+        s.echo(
+            f"no LNet password stored for {name} — File → LNet Password… in the "
+            "window stores one; trying without"
+        )
+    lnet.set_login_info(name, password=password)
     last_priv = None
     known = {}  # senders heard this session, for ;chat to <name> (#147)
     hinted = set()  # senders whose first private carried the reply hint

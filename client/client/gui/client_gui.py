@@ -354,6 +354,12 @@ class ClientGUI(QMainWindow, ClientLogger):
         )
         profile_action.triggered.connect(self.edit_profile)
 
+        lnet_action = QAction("LNet Pass&word…", self)
+        lnet_action.setStatusTip(
+            "Store this character's LNet password in the OS keychain, for ;lnet"
+        )
+        lnet_action.triggered.connect(self.store_lnet_password)
+
         plan_action = QAction("Training Pla&n…", self)
         plan_action.setStatusTip(
             "What ;train runs for this character (~/.revenant/training/<name>.json)"
@@ -409,6 +415,7 @@ class ClientGUI(QMainWindow, ClientLogger):
         file_menu.addAction(settings_action)
         file_menu.addAction(profile_action)
         file_menu.addAction(plan_action)
+        file_menu.addAction(lnet_action)
         file_menu.addAction(detach_action)
         file_menu.addAction(exit_action)
         # Fold the dock holding the keyboard focus to its title bar, or
@@ -567,6 +574,45 @@ class ClientGUI(QMainWindow, ClientLogger):
         self.clocks.reload_settings()
         self._show_room_ids = bool(setting("show_room_ids"))
         self.status_bar.showMessage(f"Settings saved to {settings_path()}")
+
+    def store_lnet_password(self):
+        """File → LNet Password…: the password ;lnet logs this window's
+        character in with, asked in a masked field and kept in the OS
+        keychain (service revenant-lnet, one entry per name) — the
+        game-window way in, beside revenant-chat's ask-and-remember
+        (the operator, 2026-09-22, #290). Never a file, never echoed."""
+        from client.engine import lnet_login
+        from client.gui.chat_window import PasswordDialog
+
+        character = self._character or ""
+        if not character:
+            self.status_bar.showMessage("No character in this window yet")
+            return
+        dialog = PasswordDialog(
+            character,
+            "",
+            self,
+            intro=(
+                f"The LNet password for {character}, used by ;lnet.\n"
+                "It goes into the OS keychain and nowhere else."
+            ),
+        )
+        dialog.remember.setChecked(True)
+        dialog.remember.hide()  # storing it is the point here
+        if dialog.exec() != dialog.DialogCode.Accepted:
+            return
+        password = dialog.password.text()
+        if not password:
+            self.status_bar.showMessage("No password entered — nothing stored")
+            return
+        if lnet_login.remember(character, password):
+            self.status_bar.showMessage(
+                f"LNet password stored for {character} — ;lnet to log in"
+            )
+        else:
+            self.status_bar.showMessage(
+                "No usable OS keychain — the password was not stored"
+            )
 
     def edit_profile(self):
         """File → Character Profile…: the ;hunt settings for the
