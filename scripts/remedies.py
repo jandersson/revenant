@@ -16,13 +16,15 @@ apprentice remedies book's page STUDied once ("You now feel ready to
 begin the crafting process."), five pieces of the dried herb in the
 mortar, a splash of water when the game asks for one ("You need
 another splash of water to continue crafting ...") and, last, a
-catalyst (Elanthipedia: Remedies discipline: seolarn weed, coal, a
-pure ingot). The society sells none: a Crossing Paladin's catalyst is
-an open question (#284), so a run with no `catalyst` in the profile
-crushes until the game asks for one, says so, and leaves the salve
-unfinished in the mortar — the next run continues it, and every crush
-up to that point has taught. With a catalyst on you the salve is
-finished and stowed, and the next one starts from the herb.
+catalyst — a tiny coal nugget from the Crossing Forging Society's
+Supplies (31 Kronars, ORDER 1 twice; the profile's `catalyst` noun,
+"nugget"), which stays in hand after it scrapes its shavings in and is
+stowed. Seven crushes after the catalyst the game says "Applying the
+final touches, you complete working on some dirty nemoih salve." and
+the salve is stowed; the next one starts from the herb. With no
+`catalyst` in the profile the run crushes until the game asks for one,
+says so, and leaves the salve unfinished in the mortar for the next
+run — every crush up to then has taught.
 
 The mortar and the pestle fill both hands: the weapon goes back in its
 container first, the pestle is stowed for every fetch (the herb, the
@@ -142,8 +144,8 @@ def fetch_into_mortar(s, noun, what):
     if what == "water" and not any(word in answer for word in POURED):
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         s.echo(f"remedies: the pour answered {first!r}")
-    if what == "water":
-        ask(s, f"stow my {noun}")
+    if what in ("water", "catalyst"):
+        ask(s, f"stow my {noun}")  # the water flask and the nugget stay in hand
     ask(s, "get my pestle")
     return True
 
@@ -237,6 +239,21 @@ def run(s, options):
                 break
         elif outcome == "missing" and not started:
             # Nothing in the mortar yet: the herb goes in first.
+            if not fetch_into_mortar(s, herb, "herb"):
+                reason = f"out of dried {herb}"
+                break
+        elif outcome == "done already":
+            # A finished salve the finish line was missed for: stowed,
+            # the next one starts from the herb.
+            salves += 1
+            started = False
+            ask(s, "stow my pestle")
+            ask(s, "get my salve")
+            ask(s, "stow my salve")
+            ask(s, "get my pestle")
+            if options["count"] and salves >= options["count"]:
+                reason = f"{salves} salve(s) made"
+                break
             if not fetch_into_mortar(s, herb, "herb"):
                 reason = f"out of dried {herb}"
                 break

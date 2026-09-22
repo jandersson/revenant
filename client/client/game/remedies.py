@@ -33,9 +33,25 @@ splashes of water (the first live remedy; docs/training.md):
   the water into the mortar and mix it in thoroughly." — and the
   second "As you finish, the mixture begins to transition colors."
   Alchemy went 0/34 clear to rank 3 60% dabbling in four crushes.
-- The catalyst request and the finished salve are uncaptured (no
-  catalyst on hand: seolarn weed wants foraging rank 70, coal comes
-  from mines); the needles below are the pattern of the water line.
+- The catalyst, later the same evening with a tiny coal nugget from
+  the Crossing Forging Society's Supplies (31 Kronars; map 8775 — the
+  wiki's "coal comes from mines" was half the story): "You need another
+  catalyst material to continue crafting some unfinished nemoih salve.
+  You believe you can just pour or put it inside the mortar and
+  continue crushing the unfinished remedy inside."; PUT MY NUGGET IN MY
+  MORTAR: "You vigorously rub the nugget alongside the mortar to scrape
+  some shavings into the mixture." — the nugget stays in hand and is
+  stowed. Then "Upon completion you see some particulate clouding up
+  the mixture." on two crushes (the sieve is not the answer: "The
+  sieve doesn't appear suitable for working on some unfinished nemoih
+  salve."), and the seventh crush after the catalyst: "Applying the
+  final touches, you complete working on some dirty nemoih salve." A
+  CRUSH at a finished salve: "Interesting thought really... but no."
+  Alchemy reached rank 5 on the one salve; "dirty" is the quality the
+  rank-2 mishaps bought.
+- PUT MY NEMOIH IN MY MORTAR took the whole 25-piece stack for the one
+  salve; MARK and BREAK to five pieces first (Elanthipedia: Remedies
+  discipline, Item Counts) is uncaptured.
 - Both hands are the tools': PUT and GET want a free hand ("You need a
   free hand to pick that up."), so the pestle is stowed for every
   fetch and taken back for the crush.
@@ -62,11 +78,11 @@ HERB_SALVE = {herb: salve for salve, (_, herb) in SALVES.items()}
 # failures before successes as probe.classify wants.
 NO_INSTRUCTIONS = ("cannot figure out how to do that",)
 NEED_WATER = ("need another splash of water", "splash of water to continue")
-# Uncaptured: the catalyst's turn, by the water line's pattern.
-NEED_CATALYST = ("catalyst",)
-# Uncaptured: the salve done; the wiki's crafting pages say "you finish
-# crafting" / "is complete" for other crafts.
-FINISHED = ("finish crafting", "is complete", "you complete", "finished crafting")
+NEED_CATALYST = ("need another catalyst", "catalyst material to continue")
+CATALYST_ADDED = ("scrape some shavings",)
+FINISHED = ("you complete working on",)
+# A CRUSH at a salve already finished (2026-09-22).
+DONE_ALREADY = ("interesting thought really",)
 CRUSHED = ("you crush some unfinished", "crush the", "crush some")
 AS_CRUSHED = ("as crushed as it is going to get",)
 MISSING = ("what were you referring", "could not find", "crush what")
@@ -80,6 +96,7 @@ CRUSH_OUTCOMES = (
     ("missing", MISSING),
     ("free hand", FREE_HAND),
     ("as crushed", AS_CRUSHED),
+    ("done already", DONE_ALREADY),
     ("need water", NEED_WATER),
     ("need catalyst", NEED_CATALYST),
     ("finished", FINISHED),

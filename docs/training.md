@@ -518,12 +518,20 @@ stick 93, sieve 218; ORDER # twice — the first quotes, the second
 buys), the books (apprentice 625, the work order logbook 625, RUBbed
 once to bond) and the dried herbs (25 nemoih 250, 25 red flowers 343)
 and water (10 splashes 62), and its Tool Shop has a dry press and a
-plant grinder for foraged herbs. It sells no catalyst: seolarn weed
-is foraged at rank 70 (Midton Circle, Northgate, Willow Walk), coal
-comes from mines — the open question of #284. `;remedies` runs the
-loop, holds at mind-lock, and with no `catalyst` in the profile stops
-when the game asks for one, the salve left unfinished in the mortar for
-the next run. A work order (ASK LANSHADO FOR EASY REMEDIES WORK in the
+plant grinder for foraged herbs. It sells no catalyst, but the
+Crossing Forging Society's Supplies (map 8775) sells coal nuggets —
+tiny 31, massive 212 Kronars — and coal is a mid-grade catalyst
+(potency 50, toxicity 40); seolarn weed is the foraged one at rank 70.
+The catalyst goes in when the game asks ("You need another catalyst
+material to continue crafting ..."; "You vigorously rub the nugget
+alongside the mortar to scrape some shavings into the mixture." — the
+nugget stays in hand), and seven crushes later "Applying the final
+touches, you complete working on some dirty nemoih salve." — rank 2 to
+rank 5 on the one salve, "dirty" the quality the mishaps bought.
+`;remedies` runs the loop, holds at mind-lock, adds the profile's
+`catalyst` when asked and stows the finished salve; with no catalyst
+named it stops at the request, the salve left unfinished for the next
+run. A work order (ASK LANSHADO FOR EASY REMEDIES WORK in the
 Tool Shop, where he stands: "an order for some blister cream. I need 2
 stacks (5 uses each) finely-crafted, made from any material and due in
 65 roisaen") waits on the catalyst too. Two things bit: PUT MY NEMOIH
