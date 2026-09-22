@@ -880,3 +880,43 @@ def test_a_smite_that_drew_on_the_soul_pool_ends_smiting_for_the_run(
     assert arena.sent.count("smite rat") == 1
     assert arena.sent.count("smite check") == 1  # no check once smiting is off
     assert any("drew on the soul pool" in text for text in arena.echoed)
+
+
+# --- aiming past a corpse (#278) --------------------------------------------
+
+
+def test_a_corpse_first_in_the_listing_has_the_swing_aimed_by_ordinal(travel):
+    # Captured 2026-09-22: "a cougar which appears dead, ..., a cougar" —
+    # the plain noun reaches the corpse; "second cougar" the live one.
+    arena = Arena(
+        {"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]},
+        hostiles=("2",),
+    )
+    arena.state.room_creatures = ["a rat", "a rat"]
+    arena.state.room_creatures_dead = [True, False]
+    _run(arena, travel_first=False)
+    assert "attack second rat" in arena.sent
+    assert "attack rat" not in arena.sent
+
+
+def test_the_plain_noun_is_aimed_when_the_first_of_it_lives_or_none_is_listed(travel):
+    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+    arena.state.room_creatures = ["a rat", "a rat"]
+    arena.state.room_creatures_dead = [False, True]
+    _run(arena, travel_first=False)
+    assert "attack rat" in arena.sent
+    assert hunt.aim_at(arena, "rat") == "rat"
+    assert hunt.aim_at(arena, "") == ""
+
+
+def test_the_balance_word_is_tallied_per_swing_and_reported():
+    from types import SimpleNamespace
+
+    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+    arena.state.balance = "badly balanced"
+    arena.state.room = 6046
+    hunt.walk = lambda *a, **k: True
+    hunt.locate = lambda db, state: state.room
+    _run(arena, travel_first=False)
+    assert any("balance badly balanced x1" in text for text in arena.echoed)
+    assert isinstance(SimpleNamespace(), object)

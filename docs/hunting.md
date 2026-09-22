@@ -632,6 +632,27 @@ the apprenticeship barrier, stacks with Aspirant's Aegis, the circle-1
 ward the free spell slot could take. The failure wordings (a spell
 not known, a collapsed pattern) are assumptions until captured.
 
+## Aiming past a corpse
+
+The room's listing names its creatures in order, corpses marked ("a
+cougar which appears dead, a rise in the cliff, a cougar and a cougar",
+captured 2026-09-22), and the game counts them by ordinal: the corpse
+is "cougar", the live ones "second cougar" and "third cougar". ATTACK
+COUGAR reaches the corpse — "already quite dead", the swing spent
+(CORPSE_SWINGS then decides the room is clear). `;hunt` now aims each
+swing with `client/game/creatures.py`'s `aim`: the plain noun when the
+first of it lives, the ordinal phrase when corpses come first, the
+plain noun when every one is dead (the game then says so and the
+corpse is disposed of). lich-5's `add_ordinals_to_duplicates` does the
+same for dr-scripts (#278). The listing lags a kill by one push, so
+the first swing after a kill may still meet the corpse; the second is
+aimed past it.
+
+The balance word the game states ("solidly balanced", the base of
+twelve; docs/protocol.md) is tallied per swing and reported at the
+end of the run — a reading for the experiment, no rule yet (#280):
+dr-scripts' combat-trainer holds attacks while badly off balance.
+
 ## Out of scope in the first cut
 
 Ranged attacks, a policy for several opponents at once, selling

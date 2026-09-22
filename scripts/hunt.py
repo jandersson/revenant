@@ -128,12 +128,21 @@ kill or three stuns in one fight break the hunt off ("the ground is
 beyond you", the burst escape, then home), and an unset `wound_floor`
 means harmful, where bleeding starts — said once at the start; `off`
 never asks HEALTH.
+A swing is aimed by ordinal when a corpse of the prey's noun stands
+first in the room's listing — "attack second cougar" — so it reaches
+the live one instead of the corpse ("already quite dead", a spent
+swing); the parser marks the corpses in `room_creatures_dead` and
+client/game/creatures.py counts them the way the game does, after
+lich-5's drdefs.rb (#278). The balance word the game states ("solidly
+balanced", lich-5's DRStats.balance) is tallied per swing and
+reported at the end — a reading, no rule yet (#280).
 """
 
 import re
 import time
 
 from client.game import buffs, probe
+from client.game.creatures import aim
 from client.game.probe import classify
 from client.game.profile import describe, load_profile
 from client.game.walker import locate, walk
@@ -438,6 +447,7 @@ class Tally:
         self.brawl = 0  # the brawling attacks' rotation index (#238)
         self.weapon = 0  # the weapons' rotation index: the turn in hand (#238)
         self.rotated_at = 0  # the kill count the weapon last turned on
+        self.balances = {}  # balance word -> swings taken at it (#280)
 
 
 def hostiles(state):
@@ -1204,6 +1214,8 @@ def swing(s, profile, tally, prey):
         verb = "attack"
     text = ask(s, f"{verb} {prey}" if prey else verb)
     lowered = text.lower()
+    if word := getattr(s.state, "balance", None):
+        tally.balances[word] = tally.balances.get(word, 0) + 1
     tally.stuns += sum(lowered.count(word) for word in _STUNNED)
     if verb == "smite" and any(word in lowered for word in _SMITE_WRATH):
         # The pool paid for that one: no more smites this run (#217).
@@ -1267,6 +1279,21 @@ def swing(s, profile, tally, prey):
     return not tally.room_clear and bool(hostiles(s.state))
 
 
+def aim_at(s, prey):
+    """The prey phrase for the next swing: the first live one of the
+    noun by ordinal when a corpse of it stands first in the room's
+    listing — "second cougar" (#278; a swing at the plain noun landed
+    on the corpse, "already quite dead", and was spent) — the plain
+    noun otherwise, and "" when the profile names no prey."""
+    if not prey:
+        return prey
+    return aim(
+        prey,
+        getattr(s.state, "room_creatures", None) or [],
+        getattr(s.state, "room_creatures_dead", None) or [],
+    )
+
+
 def loop(s, profile, db, ground, avoid, tally):
     """Fight until something ends the hunt; returns why."""
     prey = profile["prey"]
@@ -1318,10 +1345,15 @@ def loop(s, profile, db, ground, avoid, tally):
         tally.swings += 1
         # A cast due before this swing wraps it: PREPARE, the swing while
         # the pattern forms, CAST (#203). Otherwise the swing alone.
+        target = aim_at(s, prey)
         if not cast_buffs(
-            s, profile, tally, fight=True, filler=lambda: swing(s, profile, tally, prey)
+            s,
+            profile,
+            tally,
+            fight=True,
+            filler=lambda: swing(s, profile, tally, target),
         ):
-            swing(s, profile, tally, prey)
+            swing(s, profile, tally, target)
     return "action budget spent"
 
 
@@ -1367,6 +1399,12 @@ def hunt(s, profile, db, travel=True, avoid=()):
         + (
             f", {tally.unrecognized} unrecognized answer(s)"
             if tally.unrecognized
+            else ""
+        )
+        + (
+            "; balance "
+            + ", ".join(f"{word} x{n}" for word, n in tally.balances.items())
+            if tally.balances
             else ""
         )
     )
