@@ -59,10 +59,20 @@ def test_the_rooms_receptacle_is_read_off_the_listing():
     assert discard.receptacle("") is None and discard.receptacle(None) is None
 
 
+GLOOP = "You drop some blister cream in a bucket of viscous gloop.\n"  # 2026-09-22
+
+
 def test_a_listed_item_goes_into_the_receptacle_else_dropped():
     handle = Handle("a wrought-iron bench and a bucket")
     assert discard.drop(handle, "grass rope", ask) == "You drop it."
     assert handle.sent == ["put my grass rope in bucket"]
+    # The bank lobby's bucket, as captured: the listing's noun is the
+    # first word of the phrase, and the answer is no refusal.
+    lobby = Handle("a bucket of viscous gloop and the tellers' windows")
+    assert discard.receptacle(lobby.state.room_objs) == "bucket"
+    assert discard.drop(lobby, "grass", lambda h, c: h.sent.append(c) or GLOOP) == GLOOP
+    assert lobby.sent == ["put my grass in bucket"]
+    assert any(word in GLOOP.lower() for word in discard.DISPOSED)
     # A refusal from the receptacle falls back to the DROP.
     refused = Handle("a waste bin")
 

@@ -18,9 +18,11 @@ noun read off the parser's `room_objs` — the Crossing's streets keep
 "a bucket", "a waste bin", "a large waste bucket", "a round metal
 bucket", "a wooden bin", "a waste basket", "a garbage chute" (every
 one seen in the game logs of 2026-09) — and DROP MY <item> only where
-none stands. The receptacle's answer is uncaptured: one that reads as
-a refusal ("What were you referring to?", "can't") falls back to the
-DROP.
+none stands. Captured 2026-09-22 in the First Provincial Bank's lobby
+("a bucket of viscous gloop"): PUT MY CREAM IN BUCKET — "You drop
+some blister cream in a bucket of viscous gloop." An answer that
+reads as a refusal ("What were you referring to?", "can't") falls
+back to the DROP.
 
 Names are matched whole, so "grass rope" is droppable and "rope" is
 not — the bundling rope ;hunt's skins ride on is "bundling rope".
@@ -40,6 +42,7 @@ RECEPTACLE = re.compile(
     re.IGNORECASE,
 )
 PUT_REFUSALS = ("referring", "can't", "cannot", "won't fit", "no room")
+DISPOSED = ("you drop",)  # the bucket's answer, captured 2026-09-22
 
 
 def droppable_items() -> frozenset:
