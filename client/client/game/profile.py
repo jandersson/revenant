@@ -142,6 +142,11 @@ DEFAULTS = {
     # The catalyst ;remedies adds to a salve ("coal", "weed"); "" leaves
     # the salve unfinished in the mortar when the game asks (#284).
     "catalyst": "",
+    # The crafting master ;remedies work asks for orders, and the room
+    # (a ;go2 target) they stand in: the Crossing Alchemy Society's
+    # Lanshado in its Tool Shop by default (#284).
+    "crafting_master": "",
+    "crafting_hall": "",
 }
 
 # (key, label, kind, help) — kind is "bool", "int", "str" or "list".
@@ -254,6 +259,18 @@ FIELDS = (
         "Catalyst ;remedies adds to a salve (Alchemy)",
         "str",
         "coal, weed — empty: the salve waits unfinished",
+    ),
+    (
+        "crafting_master",
+        "Crafting master ;remedies work asks",
+        "str",
+        "lanshado — empty: Lanshado",
+    ),
+    (
+        "crafting_hall",
+        "Where the master stands (;go2 target)",
+        "str",
+        "8860 — empty: the Crossing Alchemy Society's Tool Shop",
     ),
 )
 

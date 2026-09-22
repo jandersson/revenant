@@ -531,7 +531,25 @@ rank 5 on the one salve, "dirty" the quality the mishaps bought.
 `;remedies` runs the loop, holds at mind-lock, adds the profile's
 `catalyst` when asked and stows the finished salve; with no catalyst
 named it stops at the request, the salve left unfinished for the next
-run. A work order (ASK LANSHADO FOR EASY REMEDIES WORK in the
+run. The recipe is the book page's, not the wiki's — blister cream is
+five red flowers per use, water, one piece of nemoih and a catalyst —
+and the STUDY is spent by the next attempt, a failed one included: a
+crush of the wrong herb, then the right one, both answered "You cannot
+figure out how to do that" until the page was studied again.
+`;remedies work` is the society's order (Elanthipedia: Work orders),
+completed live the same evening: ASK LANSHADO FOR EASY REMEDIES WORK
+in the Tool Shop ("an order for some blister cream. I need 2 stacks (5
+uses each) finely-crafted, made from any material and due in 65
+roisaen"), each 25-piece stack crafted into a 5-use remedy, BUNDLE MY
+CREAM WITH MY LOGBOOK ("You notate the cream in the logbook then
+bundle it up for delivery."), READ MY LOGBOOK counting down ("deliver
+1 more within the next 33 roisaen", "This work order appears to be
+complete"), and GIVE MY LOGBOOK TO LANSHADO: "You hand Lanshado your
+logbook and bundled items, and are given 1146 Kronars in return." —
+748 Kronars of flowers and coal in, so an easy order at rank 6 pays
+about 400 over its materials and the training is free. The script buys
+nothing: out of a herb, it says what the society's Supplies sells and
+leaves the order in the logbook. A work order (ASK LANSHADO FOR EASY REMEDIES WORK in the
 Tool Shop, where he stands: "an order for some blister cream. I need 2
 stacks (5 uses each) finely-crafted, made from any material and due in
 65 roisaen") waits on the catalyst too. Two things bit: PUT MY NEMOIH
