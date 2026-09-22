@@ -23,6 +23,14 @@ lessons the code and docs cannot carry themselves.
   count (a stop-word grace sleeps once a second): hold the last state
   once the timeline is dry and end the run on a sleep budget instead
   (`test_train_script.py`'s Fake). Two ;train tests failed that way.
+- A script test that patches a function on a module the script
+  imported by name (`script.discard.droppable = ...`) patches the
+  shared `client.game.discard` for every test after it in the
+  process: six discard, mechlore and remedies tests failed in the
+  full run and passed alone (2026-09-23, test_boxes_script). Replace
+  the script's attribute with a SimpleNamespace of fakes
+  (`script.discard = SimpleNamespace(droppable=..., drop=...)`), or
+  use pytest's monkeypatch, never assign into the shared module.
 - `QSettings("revenant", "revenant")` on Windows is the registry no
   matter what `QSettings.setDefaultFormat` / `setPath` say: the
   two-argument constructor ignores them, so the GUI suite's

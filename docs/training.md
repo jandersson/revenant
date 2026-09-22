@@ -486,6 +486,46 @@ dr-scripts' appraisal.lic's; the success wordings grade with the ranks
 Kronars.", the wiki's "You are certain that ..."), so the script reads
 only refusals and echoes a run's first answer for the fixtures (#275).
 
+## Picking boxes: ;boxes
+
+Locksmithing trains on the boxes the hunt brings home in the loot
+container (`box_limit` caps how many): every DISARM and PICK teaches
+it ([Locksmithing skill](https://elanthipedia.play.net/Locksmithing_skill),
+[Disarm command](https://elanthipedia.play.net/Disarm_command),
+[Pick command](https://elanthipedia.play.net/Pick_command)). `;boxes`
+takes a box at a time out of the container, DISARM MY <box> IDENTIFY
+reads the trap's difficulty as one of the wiki's seventeen phrases
+(`client/game/boxes.py`), and a reading of "longshot" (11/17) or
+worse puts the box back for a better locksmith; else DISARM MY <box>
+<caution> — QUICK through 2/17, plain through 5/17, CAREFUL through
+10/17, dr-scripts' pick.lic's thresholds rounded — until the trap is
+down, then PICK MY <box> IDENTIFY and PICK MY <box> <caution> the same
+way (QUICK through 4/17, plain through 7/17), with the profile's
+`lockpick` in the free hand (GOT from wherever it is kept, STOWed
+before the loot comes out) or the worn `lockpick_ring`, whose top pick
+the game takes by itself. OPEN, LOOK IN, and every item out: coins to
+the purse, a gem into the `gem_pouch`, the rest into the loot
+container; the empty box into the room's bucket through
+`client/game/discard.py`, which takes only a noun settings.json's
+`droppable` lists (add `box`, `coffer`, `chest`, `strongbox`, `crate`,
+`caddy`, `trunk`, `casket`, `skippet`) — a box not on the list goes
+back into the container and is said, nothing is DROPped. The script
+sits first (the wiki: kneeling or sitting helps) and stands at the
+end; `stand` keeps it standing, `careful` makes every step careful
+whatever the reading, `source=<container>` names another container,
+`limit=N` stops after N boxes. A sprung trap is said with its line, the
+stun waited out, and a health below `health_floor` or a wound at
+`wound_floor` (HEALTH, the hunt's floor) ends the run for `;heal`; so
+does "You're in no shape to be disarming anything". At mind-lock it
+holds until Locksmithing drains below 28 (`once` exits). Under
+`;train` (`"script": "boxes", "skills": ["Locksmithing"],
+"return_word": "return"`) after the hunt and the skins the loop ends
+it at the target. Every wording is pick.lic's and the wiki's until
+captured: the run echoes its first answer of each kind ("boxes: disarm
+identify answered ...") for the fixtures (#293). Cecil owns no lockpick
+yet (2026-09-23): Ragge's Locksmithing in the Crossing (map 15003)
+sells an ordinary pick for 125 Kronars and a ring for 3,000.
+
 ## The maintenance shutdown
 
 The game announces its maintenance ("DragonRealms will be shutting

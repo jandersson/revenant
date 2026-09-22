@@ -154,6 +154,12 @@ DEFAULTS = {
     # Lanshado in its Tool Shop by default (#284).
     "crafting_master": "",
     "crafting_hall": "",
+    # The lockpick ;boxes picks with, GOT from wherever it is kept and
+    # STOWed after ("lockpick"), and the worn ring that stacks them —
+    # with a ring PICK takes the top pick by itself and nothing is
+    # held (#293). Ragge's Locksmithing in the Crossing sells both.
+    "lockpick": "lockpick",
+    "lockpick_ring": "",
 }
 
 # (key, label, kind, help) — kind is "bool", "int", "str" or "list".
@@ -281,6 +287,18 @@ FIELDS = (
         "Where the master stands (;go2 target)",
         "str",
         "8860 — empty: the Crossing Alchemy Society's Tool Shop",
+    ),
+    (
+        "lockpick",
+        "Lockpick ;boxes picks with (Locksmithing)",
+        "str",
+        "lockpick — GOT when no ring is worn",
+    ),
+    (
+        "lockpick_ring",
+        "Worn lockpick ring (its top pick is used)",
+        "str",
+        "ring — empty: the lockpick is held",
     ),
 )
 
