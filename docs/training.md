@@ -595,6 +595,31 @@ IN MY MORTAR took the whole 25-piece stack (MARK and BREAK the stack
 to five first — uncaptured), and the mortar and pestle fill both hands,
 so every fetch stows the pestle first.
 
+## Classes: ;teach and ;listen
+
+Two characters in one room train each other: the teacher's TEACH
+<skill> TO <student> ("You begin to lecture Cecil on the proper use
+of the Scholarship skill.") and the student's LISTEN TO <teacher>
+("You begin to listen to Masah teach the Scholarship skill.") —
+captured 2026-09-22 in the Paladins' Guild Chambers, a Thief
+teaching a Paladin. The student learns the skill taught and
+Scholarship (LISTEN ... OBSERVE weights it toward Scholarship), the
+teacher Teaching, until either moves: the teacher then sees "All of
+your students have left, so you stop teaching." (Elanthipedia:
+Teach command, Listen command). `;teach scholarship to cecil` keeps
+the class offered on the teacher's side — again, after twenty
+seconds, whenever the students leave — until `return`; `;listen
+masah` joins it on the student's, reads the skill off the answer,
+holds on that skill's mindstate (the lock held until it drains,
+`once` exits) and LISTENs again when the class ended, giving up after
+three refusals. `;train` runs the student's side as a task,
+`{"name": "class", "skills": ["Scholarship"], "script":
+"listen", "args": ["masah"], "return_word": "return"}`: its rest
+walks away and ends the class, and the teacher's `;teach` offers it
+again when the student is back and listening. The student's lines
+for a class ending, a LISTEN with nothing offered and a skill the
+teacher cannot give are uncaptured and read by shape.
+
 ## Hostiles mid-training
 
 A trainer that meets hostiles — a song, a book, a climb, a mortar — no

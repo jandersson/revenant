@@ -271,6 +271,12 @@ for `client/client/<pkg>/x.py`.
   `client/game/justice.py` reads RECALL WARRANT (clean captured, wanted
   by shape) and `;warrant` prints it — the free check before a walk
   into a town (2026-09-22).
+  `client/game/teaching.py` is a class between two characters —
+  TEACH's and LISTEN's captured lines, the commands, the args —
+  `scripts/teach.py` keeps a class offered (again when the students
+  leave) and `scripts/listen.py` joins one and holds on the taught
+  skill's mindstate, rejoining when it ends; `;train` runs `listen`
+  as a task, `;teach` runs on the teacher's side (2026-09-22).
 - `client/game/walker.py` + `client/game/mapdb.py` — travel on the community map
   (downloaded, never vendored). Twins: the map lists some rooms twice,
   one uid-less; `same_place` handles it. A climb turned back for
