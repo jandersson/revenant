@@ -112,6 +112,44 @@ def test_the_masters_order_and_the_logbook_are_read():
     assert remedies.parse_logbook(LOGBOOK_NONE) == ("none", 0, None)
     assert remedies.payment(PAID) == 1146
     assert remedies.payment("Lanshado shrugs.") is None
+    assert remedies.logbook_item(LOGBOOK_OPEN) == "blister cream"
+    assert remedies.logbook_item(LOGBOOK_NONE) is None
+
+
+# The Supplies' answers to ORDER 13, captured 2026-09-22.
+QUOTE = (
+    'The attendant says, "You can purchase (25 pieces) dried red flowers for 343 '
+    "Kronars.  Just order it again and we'll see it done!\"\n"
+)
+BOUGHT = (
+    "The attendant takes some coins from you and hands you (25 pieces) dried red "
+    "flowers.\n"
+)
+
+
+def test_the_shops_quote_and_the_shortages_are_read():
+    assert remedies.quote(QUOTE) == ("(25 pieces) dried red flowers", 343)
+    assert remedies.quote(BOUGHT) is None
+    assert any(word in BOUGHT for word in remedies.BOUGHT)
+    cream = remedies.recipe("blister cream")
+    assert remedies.sellable(cream)
+    assert not remedies.sellable(remedies.recipe("back salve"))  # hulnik: no shelf
+    assert remedies.shortage("dried flowers", cream, "nugget") == (
+        "flowers",
+        1,
+        remedies.SUPPLIES,
+        remedies.CATALOG,
+    )
+    assert remedies.shortage("dried nemoih", cream, "nugget")[:2] == ("nemoih", 0)
+    assert remedies.shortage("water", cream, "nugget")[:2] == ("water", 0)
+    assert remedies.shortage("nugget", cream, "nugget") == (
+        "nugget",
+        1,
+        remedies.CATALYST_SHOP,
+        remedies.CATALYST_CATALOG,
+    )
+    assert remedies.shortage("stopped", cream, "nugget") is None
+    assert remedies.shortage("nugget", cream, "") is None  # no catalyst named
 
 
 def test_the_arguments():

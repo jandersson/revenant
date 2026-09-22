@@ -547,12 +547,27 @@ bundle it up for delivery."), READ MY LOGBOOK counting down ("deliver
 complete"), and GIVE MY LOGBOOK TO LANSHADO: "You hand Lanshado your
 logbook and bundled items, and are given 1146 Kronars in return." —
 748 Kronars of flowers and coal in, so an easy order at rank 6 pays
-about 400 over its materials and the training is free. The script buys
-nothing: out of a herb, it says what the society's Supplies sells and
-leaves the order in the logbook. A work order (ASK LANSHADO FOR EASY REMEDIES WORK in the
-Tool Shop, where he stands: "an order for some blister cream. I need 2
-stacks (5 uses each) finely-crafted, made from any material and due in
-65 roisaen") waits on the catalyst too. Two things bit: PUT MY NEMOIH
+about 400 over its materials and the training is free. So `;remedies
+work` runs the orders as a living, one after the next until `return`
+(or `count` orders): the logbook is READ first and an order it still
+tracks resumed (a complete one handed straight in); an order for an
+item the book has no page for, or whose herb the Supplies does not
+stock (hulnik, sufil), is asked again up to three times — a new order
+replaces the old without penalty; and what runs out mid-craft is
+bought on the spot — the tools stowed, INFO's purse checked and the
+shortfall WITHDRAWn from the teller, the society's Supplies (map 8862:
+the controlling herb a 25-piece stack per remedy still owed, the
+second herb one stack, water ten splashes at 62) or the Forging
+Society's Supplies (8775: a coal nugget per remedy, 31) walked to,
+ORDER # twice per item with the quote checked against the noun, each
+purchase STOWed — and the walk back takes up the remedy left in the
+mortar (the page studied again, no herb put in; only the controlling
+herb, which goes in first, starts the stack over). At mind-lock the
+crushes go on for the pay, said once (`once` ends there), and the
+closing tally is what was earned against what was spent. The
+purchase wordings are captured; a refusal for want of coin is not, so
+any answer that is not the hand-over ends the purchase and the order
+waits in the logbook. Two things bit: PUT MY NEMOIH
 IN MY MORTAR took the whole 25-piece stack (MARK and BREAK the stack
 to five first — uncaptured), and the mortar and pestle fill both hands,
 so every fetch stows the pestle first.

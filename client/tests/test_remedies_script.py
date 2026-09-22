@@ -2,8 +2,10 @@
 manual. The weapon sheathed, the page studied, the herb in the mortar,
 CRUSH after CRUSH with the water, the second herb and the catalyst put
 in as asked, the remedy stowed or bundled with the logbook, the logbook
-handed in for the pay; a run ending on the lock, a return, a missing
-herb or a recipe the game refuses (#284)."""
+handed in for the pay and the next order asked — the herbs, water and
+coal bought as they run out, the logbook's own order resumed; a run
+ending on the lock, a return, a shop that quotes something else or a
+recipe the game refuses (#284)."""
 
 import importlib.util
 import pathlib
@@ -12,9 +14,11 @@ from types import SimpleNamespace
 import pytest
 
 from test_remedies import (
+    BOUGHT,
     CRUSHED,
     FINISHED,
     LOGBOOK_DONE,
+    LOGBOOK_NONE,
     LOGBOOK_OPEN,
     NEED_CATALYST,
     NEED_HERB,
@@ -22,6 +26,7 @@ from test_remedies import (
     NO_INSTRUCTIONS,
     ORDER,
     PAID,
+    QUOTE,
 )
 
 REPO = pathlib.Path(__file__).parents[2]
@@ -56,6 +61,15 @@ POURED = "You toss the water into the mortar and mix it in thoroughly.\n"
 BUNDLED = "You notate the cream in the logbook then bundle it up for delivery.\n"
 MISSING = "What were you referring to?\n"
 NOT_HERE = "To whom are you speaking?\n"
+QUOTE_WATER = QUOTE.replace(
+    "(25 pieces) dried red flowers", "10 splashes of water"
+).replace("343", "62")
+BOUGHT_WATER = BOUGHT.replace("(25 pieces) dried red flowers", "10 splashes of water")
+QUOTE_NUGGET = QUOTE.replace(
+    "(25 pieces) dried red flowers", "a tiny coal nugget"
+).replace("343", "31")
+BOUGHT_NUGGET = BOUGHT.replace("(25 pieces) dried red flowers", "a tiny coal nugget")
+INFO_POOR = "Wealth:\n  1 silver Kronars (100 copper Kronars).\n  No Lirums.\nDebt:\n  No debt.\n"
 
 
 class Fake:
@@ -69,6 +83,7 @@ class Fake:
         self.stop_after = stop_after
         self.crushes = 0
         self.sent, self.echoed = [], []
+        self.walked, self.withdrawn = [], []
         self.dead = False
         self.args = []
         self.state = SimpleNamespace(
@@ -137,7 +152,9 @@ def profile(monkeypatch, tmp_path):
 
 def run(fake, args=()):
     script.probe = SimpleNamespace(ask=fake.ask)
-    script.to_master = lambda s, profile: True  # the walk is the walker's
+    script.to_master = lambda s, profile: True  # the walks are the walker's
+    script.walk_to = lambda s, target, describe: fake.walked.append(str(target)) or True
+    script.withdraw_coins = lambda s, copper: fake.withdrawn.append(copper) or True
     script.run(fake, script.parse_args(list(args)))
     return "\n".join(fake.echoed)
 
@@ -303,12 +320,15 @@ def test_a_work_order_is_asked_crafted_bundled_and_handed_in():
                 FINISHED,
             ],
             "bundle my cream with my logbook": [BUNDLED],
-            "read my logbook": [LOGBOOK_OPEN, LOGBOOK_DONE],
+            "read my logbook": [LOGBOOK_NONE, LOGBOOK_OPEN, LOGBOOK_DONE],
             "give my logbook to lanshado": [PAID],
         },
         mindstates=[3] + [5] * 20,
     )
-    out = run(fake, ["work"])
+    out = run(fake, ["work", "count=1"])
+    assert fake.sent.index("read my logbook") < fake.sent.index(
+        "ask lanshado for easy remedies work"
+    )  # an order left in the logbook would be resumed instead
     assert (
         "order — 2 stack(s) of blister cream, finely-crafted, due in 65 roisaen" in out
     )
@@ -325,9 +345,128 @@ def test_a_work_order_is_asked_crafted_bundled_and_handed_in():
     assert "cream bundled — 1 more, 33 roisaen" in out
     assert "cream bundled — 0 more, 22 roisaen" in out
     assert "give my logbook to lanshado" in fake.sent
-    assert "order 1 paid 1146 Kronars" in out
-    assert "1 order(s), 1146 Kronars" in out
+    assert "order 1 paid 1146 Kronars (1146 clear of 0 spent so far)" in out
+    assert "1 order(s), 1146 Kronars earned, 0 spent" in out
     assert fake.sent[-1] == "wield my scimitar"
+    assert not fake.walked  # nothing ran out
+
+
+def work_answers(**extra):
+    """The answers of a two-stack blister cream order with everything
+    on you, `extra` laid over them."""
+    return {
+        "ask lanshado for easy remedies work": [ORDER],
+        "read my logbook": [LOGBOOK_NONE, LOGBOOK_OPEN, LOGBOOK_DONE],
+        "study my book": [STUDIED],
+        "get my flowers": ["You get some dried red flowers."],
+        "put my flowers in my mortar": ["You put your flowers in your iron mortar."],
+        "get my water": ["You get some water."],
+        "pour my water in my mortar": [POURED],
+        "get my nemoih": ["You get some dried nemoih."],
+        "put my nemoih in my mortar": [SHAVINGS.replace("nugget", "nemoih")],
+        "get my nugget": ["You get a tiny coal nugget."],
+        "put my nugget in my mortar": [SHAVINGS],
+        "crush my flowers in my mortar with my pestle": [NEED_WATER],
+        "crush my cream in my mortar with my pestle": [
+            NEED_HERB,
+            NEED_CATALYST,
+            FINISHED,
+            NEED_HERB,
+            NEED_CATALYST,
+            FINISHED,
+        ],
+        "bundle my cream with my logbook": [BUNDLED],
+        "give my logbook to lanshado": [PAID],
+    } | extra
+
+
+def test_the_herbs_water_and_coal_are_bought_as_they_run_out():
+    # No red flowers on you, the water gone after the first crush, no
+    # nugget: the tools stowed, the coins fetched, the Supplies walked
+    # to for two stacks of flowers (one per remedy owed) and the water,
+    # the Forging Society's for two nuggets, each quoted then bought and
+    # stowed, and the remedy left in the mortar taken up again.
+    fake = Fake(
+        work_answers(
+            info=[INFO_POOR],
+            **{
+                "get my flowers": [MISSING, "You get some dried red flowers."],
+                "get my water": [MISSING, "You get some water."],
+                "get my nugget": [MISSING, "You get a tiny coal nugget."],
+                "order 13": [QUOTE, BOUGHT, QUOTE, BOUGHT],
+                "order 1": [
+                    QUOTE_WATER,
+                    BOUGHT_WATER,
+                    QUOTE_NUGGET,
+                    BOUGHT_NUGGET,
+                    QUOTE_NUGGET,
+                    BOUGHT_NUGGET,
+                ],
+            },
+        ),
+        mindstates=[3] + [5] * 30,
+    )
+    out = run(fake, ["work", "count=1"])
+    assert fake.walked == ["8862", "8862", "8775"]
+    assert fake.withdrawn == [586]  # 686 for the flowers, 100 in the purse
+    assert fake.sent.count("order 13") == 4 and fake.sent.count("order 1") == 6
+    assert fake.sent.count("stow my flowers") == 2
+    # Two nuggets stowed as bought, one more after the second stack's put.
+    assert fake.sent.count("stow my nugget") == 3 and "stow my water" in fake.sent
+    assert fake.sent.index("stow my mortar") < fake.sent.index("order 13")
+    assert "bought 2 x flowers" in out and "bought 1 x water" in out
+    assert "bought 2 x nugget" in out
+    # The stack begun goes on after a restock: the flowers go in once
+    # per stack, and the page is studied again before the crushes resume.
+    assert crushes(fake).count("crush my flowers in my mortar with my pestle") == 2
+    assert fake.sent.count("study my book") == 5  # three restocks, two stacks
+    assert "order 1 paid 1146 Kronars (336 clear of 810 spent so far)" in out
+    assert "1 order(s), 1146 Kronars earned, 810 spent" in out
+
+
+def test_a_shop_that_quotes_something_else_ends_the_purchase():
+    fake = Fake(
+        work_answers(
+            info=[INFO_POOR],
+            **{"get my flowers": [MISSING], "order 13": [QUOTE_WATER]},
+        )
+    )
+    out = run(fake, ["work"])
+    assert "ORDER 13 answered" in out and "not flowers" in out
+    assert "out of dried flowers — the order waits in the logbook" in out
+    assert fake.sent.count("order 13") == 1
+    assert "0 order(s), 0 Kronars earned, 0 spent" in out
+
+
+def test_the_logbooks_open_order_is_resumed_and_a_complete_one_handed_in():
+    fake = Fake(
+        work_answers(**{"read my logbook": [LOGBOOK_OPEN, LOGBOOK_DONE]}),
+        mindstates=[3] + [5] * 20,
+    )
+    out = run(fake, ["work", "count=1"])
+    assert "resuming the logbook's order — 1 more blister cream, 33 roisaen" in out
+    assert "ask lanshado for easy remedies work" not in fake.sent
+    assert fake.sent.count("bundle my cream with my logbook") == 1
+    assert "order 1 paid 1146 Kronars" in out
+    done = Fake(work_answers(**{"read my logbook": [LOGBOOK_DONE]}))
+    out = run(done, ["work", "count=1"])
+    assert "holds a complete order" in out and "order 1 paid 1146 Kronars" in out
+    assert not crushes(done)
+
+
+def test_orders_follow_one_another_until_return_and_the_lock_only_says_so():
+    # Eight crushes fill the first order; the typed return after the pay
+    # ends the run before a second is asked. Mind-locked from the
+    # start, the crushes go on for the pay — said once — unless `once`.
+    fake = Fake(work_answers(), mindstates=[34] * 30, stop_after=8)
+    out = run(fake, ["work"])
+    assert fake.sent.count("ask lanshado for easy remedies work") == 1
+    assert "stopping as asked" in out and "1 order(s), 1146 Kronars earned" in out
+    assert out.count("mind-locked (34/34) — the order goes on for the pay") == 1
+    once = Fake(work_answers(), mindstates=[34] * 30)
+    out = run(once, ["work", "once"])
+    assert "locked — the order waits in the logbook" in out
+    assert not crushes(once)
 
 
 def test_an_order_the_book_lacks_a_missing_master_and_no_herbs_are_said():
@@ -339,16 +478,18 @@ def test_an_order_the_book_lacks_a_missing_master_and_no_herbs_are_said():
         }
     )
     out = run(fake, ["work"])
-    assert "no page for stomach tonic" in out
+    assert "no page for stomach tonic — asking for another order" in out
+    assert "no page for stomach tonic — 3 orders asked, stopping" in out
+    assert fake.sent.count("ask lanshado for easy remedies work") == 3
+    unsold = Fake(
+        {
+            "ask lanshado for easy remedies work": [
+                ORDER.replace("blister cream", "back salve")
+            ]
+        }
+    )
+    out = run(unsold, ["work"])
+    assert "the Supplies sells no dried hulnik — asking for another order" in out
     gone = Fake({"ask lanshado for easy remedies work": [NOT_HERE]})
     out = run(gone, ["work"])
     assert "lanshado is not here" in out
-    bare = Fake(
-        {
-            "ask lanshado for easy remedies work": [ORDER],
-            "study my book": [STUDIED],
-            "get my flowers": [MISSING],
-        }
-    )
-    out = run(bare, ["work"])
-    assert "out of dried flowers" in out and "Supplies sells the herbs" in out

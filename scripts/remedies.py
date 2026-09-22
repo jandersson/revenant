@@ -5,8 +5,10 @@
     ;remedies count=2         finish that many remedies, then end
     ;remedies until=30        stop at that mindstate instead of 34
     ;remedies once            exit at mind-lock instead of holding for the drain
-    ;remedies work            an easy work order: ask the master, craft each stack, bundle it, hand the logbook in, once
-    ;remedies work count=3    that many orders; `challenging` or `hard` for the harder tiers
+    ;remedies work            easy work orders, one after another: ask the master (or resume the logbook's), craft each
+                              stack, bundle it, hand the logbook in — the herbs, water and coal bought as they run out
+    ;remedies work count=3    that many orders, then end; `challenging` or `hard` for the harder tiers
+    ;remedies work once       end at mind-lock instead of working on for the pay
     ;remedies return          (typed while it runs) finish the crush in hand and end
 
 Alchemy trains by making remedies: every CRUSH of one in progress
@@ -27,17 +29,29 @@ profile's `catalyst` noun), one use each. "Applying the final touches,
 you complete working on some blister cream." ends it and the remedy is
 stowed, or bundled with the logbook under `work`.
 
-`work` is the society's order (Elanthipedia: Work orders): the logbook
-in hand, ASK <master> FOR EASY REMEDIES WORK where the master stands
-(Lanshado in the Crossing society's Tool Shop, map 8860 — the profile's
-`crafting_master` and `crafting_hall`), the order read back ("an order
-for some blister cream. I need 2 stacks (5 uses each) finely-crafted
-... due in 65 roisaen"), each stack crafted from the herbs on you
-(none left is said, with what to buy at the society's Supplies — the
-script buys nothing), BUNDLE <remedy> WITH MY LOGBOOK, and GIVE MY
-LOGBOOK TO <master> for the pay ("are given 1146 Kronars in return"
-for two stacks of blister cream at rank 6, 748 Kronars of herbs and
-coal in). An order the book has no page for is said and left. GIVE is
+`work` is the society's orders (Elanthipedia: Work orders), run as a
+living: the logbook in hand and READ first — an order it still tracks
+is resumed, a complete one handed in — else ASK <master> FOR EASY
+REMEDIES WORK where the master stands (Lanshado in the Crossing
+society's Tool Shop, map 8860 — the profile's `crafting_master` and
+`crafting_hall`), the order read back ("an order for some blister
+cream. I need 2 stacks (5 uses each) finely-crafted ... due in 65
+roisaen"); an order the book has no page for, or whose herb the
+Supplies does not sell (hulnik, sufil), is asked again, up to three
+times — a new order replaces the old without penalty. Each stack is
+crafted, BUNDLE <remedy> WITH MY LOGBOOK, and GIVE MY LOGBOOK TO
+<master> for the pay ("are given 1146 Kronars in return" for two
+stacks of blister cream at rank 6, 748 Kronars of herbs and coal
+in), then the next order, until `return` or `count` orders. What runs
+out is bought on the spot — the tools stowed, the coins fetched from
+the bank's teller when the purse is short, the society's Supplies
+(map 8862; the controlling herb a stack per remedy still owed, the
+second herb one stack, water ten splashes) or the Forging Society's
+Supplies (8775, a coal nugget per remedy) walked to, ORDER # twice
+per item (the quote checked against the noun before the buy), each
+STOWed — and the walk back resumes the remedy left in the mortar. At
+mind-lock the orders go on for the pay (`once` ends there); the
+tally at the end is what was earned against what was spent. GIVE is
 the script's own: the session refuses it from outside (#161).
 
 The mortar and the pestle fill both hands: the weapon is SHEATHEd
@@ -55,19 +69,27 @@ Stop with:  ;stop remedies, or ;remedies return.
 from client.game import flight, probe
 from client.game.loop import danger, ensure_mindstate, mindstate, pause, wants_stop
 from client.game.probe import classify
+from client.game.money import parse_wealth, phrase
 from client.game.remedies import (
+    BOUGHT,
     BUNDLED,
+    CATALOG,
     CRUSH_OUTCOMES,
     NO_MASTER,
+    ORDER_TRIES,
     POURED,
     STUDIED,
     TOO_HARD,
     crush_command,
+    logbook_item,
     parse_args,
     parse_logbook,
     parse_order,
     payment,
+    quote,
     recipe,
+    sellable,
+    shortage,
 )
 
 SKILL = "Alchemy"
@@ -184,22 +206,24 @@ def hold_at_lock(s, until):
             return True
 
 
-def craft(s, spec, what, catalyst, options, tally):
+def craft(s, spec, what, catalyst, options, tally, started=False):
     """One remedy from `spec` (chapter, page, herb, extra, noun): the
     page studied, the herb in, CRUSH until finished with the water, the
     second herb and the catalyst put in as asked. The finished remedy
     is left in the mortar. Returns None when done, else why it could
     not be: "stopped", "locked", the missing thing, "beyond".
 
-    `tally` counts crushes and unrecognized answers across the run;
-    the mortar and pestle are in hand on entry and on exit."""
+    `started` resumes the unfinished remedy already in the mortar (a
+    restock walked away from it): the page studied again, no herb put
+    in, the crushes go on. `tally` counts crushes and unrecognized
+    answers across the run; the mortar and pestle are in hand on
+    entry and on exit."""
     chapter, page, herb, extra, noun = spec
     if not study(s, chapter, page, what):
         return "book"
-    started = False
     misses = 0
     studies = 1
-    if not fetch_into_mortar(s, herb, "herb"):
+    if not started and not fetch_into_mortar(s, herb, "herb"):
         return f"dried {herb}"
     for _ in range(MAX_CRUSHES):
         if why := danger(s):
@@ -210,7 +234,15 @@ def craft(s, spec, what, catalyst, options, tally):
         if value is not None and value >= options["until"]:
             if options["once"]:
                 return "locked"
-            if not hold_at_lock(s, options["until"]):
+            if options["work"]:
+                # An order pays whatever the mindstate: the crushes go
+                # on, said once, and the lock drains on its own.
+                if not tally.get("locked"):
+                    tally["locked"] = True
+                    s.echo(
+                        f"remedies: {SKILL} mind-locked ({value}/34) — the order goes on for the pay"
+                    )
+            elif not hold_at_lock(s, options["until"]):
                 return "stopped"
         answer = ask(s, crush_command(herb, started, noun))
         s.waitrt()
@@ -337,11 +369,30 @@ def to_master(s, profile):
 
 
 def order(s, master, level):
-    """The logbook in hand, the order asked and read back; the parsed
-    order or None (said)."""
+    """The logbook in hand and read — an order it still tracks is
+    resumed, a complete one goes straight to the master — else the
+    order asked and read back; the parsed order or None (said)."""
     if missing(ask(s, "get my logbook")):
         s.echo("remedies: no work order logbook on you — stopping")
         return None
+    text = ask(s, "read my logbook")
+    state, remaining, due = parse_logbook(text)
+    if state == "done":
+        ask(s, "stow my logbook")
+        s.echo("remedies: the logbook holds a complete order — handing it in")
+        return {"item": "", "count": 0, "quality": "", "due": due}
+    if state == "open" and logbook_item(text):
+        ask(s, "stow my logbook")
+        s.echo(
+            f"remedies: resuming the logbook's order — {remaining} more "
+            f"{logbook_item(text)}, {due} roisaen"
+        )
+        return {
+            "item": logbook_item(text),
+            "count": remaining,
+            "quality": "",
+            "due": due,
+        }
     answer = ask(s, f"ask {master} for {level} remedies work")
     if any(word in answer for word in NO_MASTER):
         s.echo(f"remedies: {master} is not here — stopping")
@@ -376,53 +427,163 @@ def bundle(s, noun):
     return remaining, due
 
 
+def walk_to(s, target, describe):
+    """Walk to a map id or tag; True when there (or already there)."""
+    from client.game.mapdb import MapDB
+    from client.game.walker import locate, walk
+
+    mapdb = MapDB.load()
+    goals = mapdb.resolve(str(target))
+    if not goals:
+        s.echo(f"remedies: nothing in the map matches {target!r}")
+        return False
+    if locate(mapdb, s.state) in goals:
+        return True
+    return walk(s, mapdb, set(goals), describe=describe)
+
+
+def carried(s):
+    """INFO's carried Kronars in copper (the answer read as the game
+    cases it: parse_wealth wants "Wealth:" and "Kronars")."""
+    answer = probe.ask(s, "info", COLLECT_SECONDS, TAIL_SECONDS)
+    return parse_wealth(answer)["carried"].get("Kronars", 0)
+
+
+def withdraw_coins(s, copper):
+    """The shortfall from the nearest teller (client/game/bank.py's
+    WITHDRAW, as ;debt and ;tdp take theirs); False when refused."""
+    from client.game.bank import withdraw
+    from client.game.mapdb import MapDB
+    from client.game.walker import walk
+
+    return withdraw(s, MapDB.load(), walk, ask, "remedies", copper, "Kronars")
+
+
+def buy(s, noun, count, shop, catalog, tally):
+    """`count` of `noun` ORDERed at `shop` — the coins fetched from the
+    bank first when the purse is short — each quote checked against
+    the noun before the second ORDER buys it, each purchase STOWed.
+    False, said, when the quote names something else, the shop keeps
+    the item, or the walk fails."""
+    number, price = catalog[noun]
+    need = price * count
+    purse = carried(s)
+    if purse < need and not withdraw_coins(s, need - purse):
+        return False
+    if not walk_to(s, shop, "the Supplies"):
+        s.echo("remedies: could not reach the Supplies — stopping")
+        return False
+    for _ in range(count):
+        answer = ask(s, f"order {number}")
+        quoted = quote(answer)
+        first = (answer.strip().splitlines() or ["(silence)"])[0]
+        if quoted is None or noun not in quoted[0]:
+            s.echo(
+                f"remedies: ORDER {number} answered {first!r}, not {noun} — stopping"
+            )
+            return False
+        answer = ask(s, f"order {number}")
+        if not any(word in answer for word in BOUGHT):
+            first = (answer.strip().splitlines() or ["(silence)"])[0]
+            s.echo(f"remedies: the purchase of {noun} answered {first!r} — stopping")
+            return False
+        tally["spent"] += quoted[1]
+        ask(s, f"stow my {noun}")
+    s.echo(f"remedies: bought {count} x {noun} for {phrase(need, 'Kronars')}")
+    return True
+
+
+def restock(s, spec, catalyst, why, remaining, tally):
+    """What the craft ran out of, bought for the stacks still to make;
+    None when `why` is no shortage, else whether it was bought."""
+    short = shortage(why, spec, catalyst)
+    if short is None:
+        return None
+    noun, per_stack, shop, catalog = short
+    return buy(s, noun, max(1, per_stack * remaining), shop, catalog, tally)
+
+
+def next_order(s, master, options):
+    """An order the book has a page for and the shop the herbs of —
+    the master asked again, up to ORDER_TRIES, for one it lacks (a new
+    order replaces the old without penalty; Elanthipedia: Work
+    orders). (order, spec), or (None, None) said."""
+    for attempt in range(1, ORDER_TRIES + 1):
+        parsed = order(s, master, options["level"])
+        if parsed is None:
+            return None, None
+        if parsed["count"] == 0:
+            return parsed, None  # complete in the logbook: nothing to craft
+        spec = recipe(parsed["item"])
+        if spec is not None and sellable(spec):
+            return parsed, spec
+        if spec is None:
+            lack = f"the book has no page for {parsed['item']}"
+        else:
+            unsold = [herb for herb in spec[2:4] if herb and herb not in CATALOG][0]
+            lack = f"the Supplies sells no dried {unsold}"
+        if attempt < ORDER_TRIES:
+            s.echo(f"remedies: {lack} — asking for another order")
+        else:
+            s.echo(f"remedies: {lack} — {ORDER_TRIES} orders asked, stopping")
+    return None, None
+
+
 def work(s, options, profile):
-    """The work orders: one order asked, its stacks crafted and bundled,
-    the logbook handed in — `count` times (once by default) or until
+    """The work orders: an order asked (or the logbook's resumed), its
+    stacks crafted and bundled — the herbs, water and coal bought as
+    they run out, the coins fetched from the bank — and the logbook
+    handed in, order after order until `return`, `count` orders, or
     something ends it."""
     master = str(profile.get("crafting_master") or DEFAULT_MASTER).lower()
     catalyst = str(profile.get("catalyst") or "").strip()
-    tally = {"crushes": 0, "unrecognized": 0}
+    tally = {"crushes": 0, "unrecognized": 0, "spent": 0}
     orders = 0
     earned = 0
     while True:
         if not to_master(s, profile):
             s.echo("remedies: could not reach the crafting hall — stopping")
             break
-        parsed = order(s, master, options["level"])
+        parsed, spec = next_order(s, master, options)
         if parsed is None:
-            break
-        spec = recipe(parsed["item"])
-        if spec is None:
-            s.echo(
-                f"remedies: the book has no page for {parsed['item']} — ask again later"
-            )
-            break
-        if not tools_in_hand(s):
             break
         remaining = parsed["count"]
         why = None
+        started = False
+        if remaining and not tools_in_hand(s):
+            break
         while remaining > 0:
-            why = craft(s, spec, parsed["item"], catalyst, options, tally)
-            if why is not None:
+            why = craft(s, spec, parsed["item"], catalyst, options, tally, started)
+            started = False
+            if why is None:
+                take_out(s, spec[4])
+                remaining, due = bundle(s, spec[4])
+                s.echo(f"remedies: {spec[4]} bundled — {remaining} more, {due} roisaen")
+                if remaining and not tools_in_hand(s):
+                    why = "tools"
+                    break
+                continue
+            ask(s, "stow my pestle")
+            ask(s, "stow my mortar")
+            bought = restock(s, spec, catalyst, why, remaining, tally)
+            if not bought:
+                if bought is False:
+                    why = f"out of {why}"
                 break
-            take_out(s, spec[4])
-            remaining, due = bundle(s, spec[4])
-            s.echo(f"remedies: {spec[4]} bundled — {remaining} more, {due} roisaen")
-            if remaining and not tools_in_hand(s):
+            if not to_master(s, profile):
+                why = "could not walk back to the crafting hall"
+                break
+            if not tools_in_hand(s):
                 why = "tools"
                 break
+            # The remedy begun stays in the mortar and goes on; only the
+            # controlling herb, put in first, starts the stack over.
+            started = why != f"dried {spec[2]}"
+            why = None
         ask(s, "stow my pestle")
         ask(s, "stow my mortar")
         if why is not None:
-            if why.startswith("dried") or why in ("water", catalyst):
-                s.echo(
-                    f"remedies: out of {why} — the society's Supplies sells the herbs and "
-                    "water, the Forging Society's Supplies the coal; the order waits in "
-                    "the logbook"
-                )
-            else:
-                s.echo(f"remedies: {why} — the order waits in the logbook")
+            s.echo(f"remedies: {why} — the order waits in the logbook")
             break
         if not to_master(s, profile):
             s.echo("remedies: could not reach the master with the logbook — stopping")
@@ -437,14 +598,18 @@ def work(s, options, profile):
             break
         orders += 1
         earned += paid
-        s.echo(f"remedies: order {orders} paid {paid} Kronars")
+        s.echo(
+            f"remedies: order {orders} paid {paid} Kronars "
+            f"({earned - tally['spent']} clear of {tally['spent']} spent so far)"
+        )
         if options["count"] and orders >= options["count"]:
             break
-        if options["count"] == 0:
-            break  # one order by default: the herbs run out, the time is short
+        if wants_stop(s):
+            s.echo("remedies: stopping as asked")
+            break
     s.echo(
-        f"remedies: {orders} order(s), {earned} Kronars, {tally['crushes']} crush(es) — "
-        f"{SKILL} {mindstate(s, SKILL)}/34"
+        f"remedies: {orders} order(s), {earned} Kronars earned, {tally['spent']} spent, "
+        f"{tally['crushes']} crush(es) — {SKILL} {mindstate(s, SKILL)}/34"
     )
 
 

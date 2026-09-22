@@ -148,6 +148,38 @@ BUNDLED = ("bundle it up for delivery",)
 PAID = re.compile(r"are given (\d+) kronars", re.IGNORECASE)
 NO_MASTER = ("to whom are you speaking",)
 LEVELS = ("easy", "challenging", "hard")
+LOGBOOK_ITEM = re.compile(
+    r"craft (?:some |a |an )?(?P<item>[\w' -]+?) from any material", re.IGNORECASE
+)
+ORDER_TRIES = 3  # orders asked for before a run gives up on the master's picks
+
+# The shops that keep an order going (captured 2026-09-22): the Crossing
+# Alchemy Society's Supplies (map 8862) sells the dried herbs by the
+# 25-piece stack and water by ten splashes, and the Crossing Forging
+# Society's Supplies (8775) the coal nugget that is the catalyst — ORDER
+# # twice at either, the first quotes ("You can purchase (25 pieces)
+# dried red flowers for 343 Kronars.  Just order it again and we'll see
+# it done!"), the second buys ("The attendant takes some coins from you
+# and hands you (25 pieces) dried red flowers."), into a hand. Hulnik
+# and sufil are on no shelf there, so a back or eye salve order is
+# asked again. A refusal for want of coin is uncaptured: any answer
+# that is not the hand-over ends the purchase, said.
+SUPPLIES = "8862"
+CATALYST_SHOP = "8775"
+CATALOG = {  # noun: (catalog number, Kronars)
+    "water": (1, 62),
+    "nemoih": (3, 250),
+    "plovik": (4, 312),
+    "jadice": (5, 375),
+    "nilos": (6, 437),
+    "georin": (7, 437),
+    "flowers": (13, 343),
+}
+CATALYST_CATALOG = {"nugget": (1, 31)}
+QUOTE = re.compile(
+    r"you can purchase (?P<item>.+?) for (?P<price>[\d,]+) kronars", re.IGNORECASE
+)
+BOUGHT = ("takes some coins from you and hands you",)
 
 
 def parse_args(args):
@@ -239,3 +271,46 @@ def payment(text):
     """The Kronars a GIVE of the logbook earned, or None."""
     match = PAID.search(text or "")
     return int(match.group(1)) if match else None
+
+
+def logbook_item(text):
+    """The item an open order in READ MY LOGBOOK tracks ("blister
+    cream"), or None — a run resumes the order it left in the logbook
+    rather than asking for a new one."""
+    match = LOGBOOK_ITEM.search(text or "")
+    return match.group("item").strip().lower() if match else None
+
+
+def sellable(spec):
+    """True when every herb the recipe wants is on the society's
+    Supplies shelves — an order for one that is not is asked again."""
+    chapter, page, herb, extra, noun = spec
+    return herb in CATALOG and (extra is None or extra in CATALOG)
+
+
+def quote(text):
+    """(item, Kronars) from the shop's ORDER quote, or None."""
+    match = QUOTE.search(text or "")
+    if not match:
+        return None
+    return match.group("item").strip().lower(), int(
+        match.group("price").replace(",", "")
+    )
+
+
+def shortage(why, spec, catalyst):
+    """What a craft that ended on `why` ran out of, as (noun, per
+    stack, shop, catalog) — the controlling herb a stack per remedy,
+    the second herb one stack for many, water ten splashes at a time,
+    the catalyst one per remedy — or None when `why` is not a
+    shortage."""
+    chapter, page, herb, extra, noun = spec
+    if why == f"dried {herb}":
+        return herb, 1, SUPPLIES, CATALOG
+    if extra and why == f"dried {extra}":
+        return extra, 0, SUPPLIES, CATALOG
+    if why == "water":
+        return "water", 0, SUPPLIES, CATALOG
+    if catalyst and why == catalyst:
+        return catalyst, 1, CATALYST_SHOP, CATALYST_CATALOG
+    return None

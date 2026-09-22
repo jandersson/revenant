@@ -230,9 +230,13 @@ for `client/client/<pkg>/x.py`.
   `scripts/remedies.py` crushes a salve step by step for Alchemy,
   putting in the water, the page's second herb and the profile's
   `catalyst` (a coal nugget) as the game asks, re-studying a spent
-  page; `;remedies work` asks the society's master for an order,
-  crafts and bundles each stack and hands the logbook in for the
-  pay (#284).
+  page; `;remedies work` runs the society's orders as a living —
+  the logbook's open order resumed or the master asked (again, for
+  an item the book or the Supplies lacks), each stack crafted and
+  bundled, the herbs, water and coal bought as they run out with
+  the coins fetched from the teller, the logbook handed in for the
+  pay, the next order asked, the crushes going on at mind-lock
+  (#284).
   `client/game/soul.py` is a
   Paladin's soul: the seven states and eleven pool levels parsed off
   RUB, EXHALE and the arch, the deeds that raise it (the 5-silver

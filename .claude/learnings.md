@@ -123,6 +123,11 @@ lessons the code and docs cannot carry themselves.
 - A wet instrument (a river crossing, rain) refuses CLEAN until WIPEd
   with the cloth ("so wet that they are still dripping"); DRY is not a
   verb. CLEAN wants the instrument in hand (REMOVE a worn one).
+- A script's `ask` that lowercases the answer (remedies, perform)
+  starves `money.parse_wealth`, which matches the game's own case
+  ("Wealth:", "Kronars"): the purse read 0 and every purchase went to
+  the teller first (2026-09-22, ;remedies work). Read INFO through
+  `probe.ask` raw when the parser cares about case.
 
 ## Evidence first
 
