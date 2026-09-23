@@ -670,7 +670,12 @@ def auto_train(s, db=None, walk=None):
             )
             return
         s.sleep(1)  # the room's players arrive with the room
-        if why := taken_by(s, "training here"):
+        # A rotation's stops are skipped one by one inside the lap (a
+        # taken stop, "at this stop — theirs, skipping it"); a taken first
+        # stop is not the rung taken. It was, on 2026-09-23 15:05: Lazaro
+        # at the first embrasure sent Cecil to the rank-30 mine ladder
+        # for the whole task, 4/34 in 12 laps at rank 70.
+        if rung.get("kind") != "rotation" and (why := taken_by(s, "training here")):
             # Their spot, or a crowd (#178): the next-best rung, no laps here.
             s.echo(f"ATHLETICS: {why} spot")
             contested.add(rung["label"])

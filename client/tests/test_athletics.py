@@ -826,3 +826,27 @@ def test_escape_stands_first_and_falls_back_to_an_exit_when_the_climb_fails():
     puts = [call[1] for call in handle.calls if call[0] == "put"]
     assert puts[:4] == ["stand", "retreat", "retreat", "climb wall"]
     assert puts[-1] == "nw"
+
+
+def test_a_taken_first_stop_does_not_cost_the_whole_rotation():
+    # 2026-09-23 15:05: Lazaro at the first embrasure on arrival sent
+    # Cecil (rank 70) to the rank-30 mine ladder for the whole task —
+    # 4/34 in twelve laps. A rotation skips the taken stop inside its
+    # lap and climbs the rest; only a single spot falls back.
+    handle = FakeHandle(args=[], mindstates=[5], sleeps=60)
+    handle.state.experience["Athletics"]["rank"] = 70
+    walks = []
+
+    def fake_walk(s, db, goals, describe=""):
+        walks.append(list(goals))
+        s.state.room_players = ["Lazaro"] if goals == [835] else []
+        return True
+
+    with pytest.raises(LoopDone):
+        athletics.auto_train(handle, db=LADDER_MAP, walk=fake_walk)
+    puts = [c[1] for c in handle.calls if c[0] == "put"]
+    assert walks[0] == [835]  # the rotation's first stop, taken
+    assert not any("abandoning" in echo for echo in handle.echoes)
+    assert any("at this stop — theirs, skipping it" in echo for echo in handle.echoes)
+    assert any(p.startswith("climb ") for p in puts)  # the lap went on
+    assert not any("mine ladder" in echo for echo in handle.echoes)
