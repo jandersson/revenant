@@ -60,8 +60,11 @@ BOILERPLATE = tuple(
         r"^\[",
         r"^>",
         r"^\*",
+        r"^-",  # an inventory item line (INV LIST, the sheet's login listing)
     )
 )
+_WORDS = re.compile(r"[A-Za-z]{2,}")
+SPAM_REPEAT = 3600.0  # the same spam line rings at most once an hour
 
 # The streams whose lines are addressed at the character when a bare
 # name speaks: the story, the game's whisper and talk windows, the
@@ -134,8 +137,13 @@ def scrub(line):
 
 
 def boilerplate(line):
+    """Never news: an empty line, the BOILERPLATE shapes, and a line
+    the scrub leaves with fewer than two words — the exp table's
+    husks (", , and ( ).", "favors :") once its numbers are gone."""
     text = (line or "").strip()
-    return not text or any(pattern.search(text) for pattern in BOILERPLATE)
+    if not text or any(pattern.search(text) for pattern in BOILERPLATE):
+        return True
+    return len(_WORDS.findall(scrub(text))) < 2
 
 
 def address(line, stream="", ignore=()):
@@ -276,6 +284,7 @@ class Novelty:
         self.fresh = {}  # scrubbed line -> when first seen, not settled yet
         self.recent = deque(maxlen=WINDOW)
         self.stamps = []  # when the near-duplicate lines came
+        self.spam_said = {}  # scrubbed line -> when it last rang
         self.dirty = False
 
     def settle(self, now):
@@ -290,10 +299,15 @@ class Novelty:
         self.recent.clear()
         self.stamps = []
 
-    def observe(self, line, now, names=()):
+    def observe(self, line, now, names=(), answer=False):
         """One story line: None when it is nothing, ("new", line) the
         first time a line is met, ("spam", why) when the recent lines
-        repeat or rhyme past the thresholds."""
+        repeat or rhyme past the thresholds. `answer` marks a line
+        that followed the character's own command (the sentinel's
+        two-second window after the `sent` stream): news once like any
+        other, never spam material — the first evening's bells were
+        "Crush what?" and a box's identify, repeated by the scripts
+        that sent them."""
         if boilerplate(line):
             return None
         text = line.strip()
@@ -306,13 +320,13 @@ class Novelty:
         self.settle(now)
         if key in self.seen:
             return None
-        if spam_material(text):
+        if spam_material(text) and not answer:
             self.recent.append(key)
         counts = Counter(self.recent)
         if counts[key] > UNIQUE:
-            self._reset()
-            return (
-                "spam",
+            return self._spam(
+                key,
+                now,
                 f"the same line {counts[key]} times in the last {WINDOW}: {text}",
             )
         if counts[key] == 1 and any(near(key, other) for other in self.recent):
@@ -320,9 +334,9 @@ class Novelty:
                 self.stamps = [stamp for stamp in self.stamps if now - stamp <= SPAN]
                 self.stamps.append(now)
                 if len(self.stamps) >= FREQUENCY:
-                    self._reset()
-                    return (
-                        "spam",
+                    return self._spam(
+                        key,
+                        now,
                         f"{FREQUENCY} near-duplicate lines within {int(SPAN)} s: {text}",
                     )
         if key in self.fresh:
@@ -330,6 +344,17 @@ class Novelty:
         self.fresh[key] = now
         self.dirty = True
         return ("new", text)
+
+    def _spam(self, key, now, why):
+        """The windows reset; the verdict, unless this line rang within
+        SPAM_REPEAT already — then None (fifteen bells on "Crush what?"
+        in four minutes, 2026-09-23)."""
+        self._reset()
+        said = self.spam_said.get(key)
+        if said is not None and now - said < SPAM_REPEAT:
+            return None
+        self.spam_said[key] = now
+        return ("spam", why)
 
     def to_json(self):
         return {"seen": sorted(self.seen | set(self.fresh))}

@@ -213,6 +213,54 @@ def test_your_own_doings_and_paragraphs_are_news_once_but_never_spam():
     assert all(verdict is None or verdict[0] == "new" for verdict in walk)
 
 
+def test_inventory_lines_and_the_exp_tables_husks_are_boilerplate():
+    # The first evening's dock: the sheet's INV LIST items with their
+    # leading dash, and the exp table once its numbers are scrubbed.
+    for line in (
+        "-some dried nemoih",
+        "-an ordinary lockpick",
+        ", , and ( ).",
+        "favors :",
+    ):
+        assert boilerplate(line), line
+    assert not boilerplate("Heavy Thrown: 3 12% clear (0/34)")  # words remain
+    assert not boilerplate("A stranger arrives.")
+
+
+def test_an_answer_to_the_characters_own_command_is_news_once_but_never_spam():
+    # "Crush what?" fifteen times in four minutes, "Somebody has already
+    # located and identified the current trap" twelve: the scripts'
+    # own repeated commands, answered.
+    store = Novelty()
+    verdicts = [
+        store.observe("Crush what?", float(i), answer=True) for i in range(UNIQUE * 3)
+    ]
+    assert verdicts[0] == ("new", "Crush what?")
+    assert all(verdict is None for verdict in verdicts[1:])
+
+
+def test_the_same_spam_line_rings_at_most_once_an_hour():
+    from client.game.novelty import SPAM_REPEAT
+
+    store = Novelty()
+    first = [
+        store.observe("A stranger pokes you.", float(i)) for i in range(UNIQUE + 1)
+    ]
+    assert first[-1][0] == "spam"
+    again = [
+        store.observe("A stranger pokes you.", 100.0 + i) for i in range(UNIQUE + 1)
+    ]
+    assert all(verdict is None for verdict in again)
+    # An hour on the line has long settled into the seen-store, which
+    # never judges a line again: silent for good, not once an hour.
+    later = [
+        store.observe("A stranger pokes you.", SPAM_REPEAT + 200.0 + i)
+        for i in range(UNIQUE + 1)
+    ]
+    assert all(verdict is None for verdict in later)
+    assert "a stranger pokes you." in store.seen
+
+
 def test_near_duplicates_spread_past_the_span_are_not_spam():
     store = Novelty()
     verdicts = []

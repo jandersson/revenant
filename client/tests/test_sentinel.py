@@ -235,6 +235,41 @@ def test_the_rooms_description_on_either_side_of_its_room_frame_is_not_news():
     assert s.attention == ["A wide green sweeps toward the river.\n"]
 
 
+def test_a_compass_frame_marks_an_arrival_and_a_passer_by_is_judged_as_present():
+    # The first evening: a walk pacing the same rooms leaked their
+    # descriptions (only a changed room sends a room frame; the compass
+    # comes every move), and a passer-by's line was judged after they
+    # had left the room.
+    s = Handle()
+    watch = _watch(s)
+    watch.handle("compass", "n s\n", 10.0)
+    watch.handle("", "A wide green sweeps toward the river.", 10.4)
+    watch.judge(13.0)
+    assert s.attention == []
+    s.state.room_players = ["Uthmor"]
+    watch.handle("", "Uthmor stomps north.", 20.0)
+    s.state.room_players = []  # gone before the judgement
+    watch.judge(25.0)
+    assert s.attention == []
+
+
+def test_a_creatures_line_and_an_answer_to_our_own_command_are_never_spam():
+    s = Handle()
+    s.state.room_creatures = ["cougar", "second cougar"]
+    watch = _watch(s)
+    for i in range(6):
+        watch.handle("", "A cougar's rear legs dig at the ground.", float(i))
+    watch.judge(10.0)
+    assert s.bells == 0 and s.attention == []  # the room's creature: its business
+    s.state.room_creatures = []
+    for i in range(6):
+        watch.handle("sent", "disarm my crate identify\n", 20.0 + i)
+        watch.handle("", "Crush what?", 20.5 + i)
+    watch.judge(40.0)
+    assert s.bells == 0
+    assert s.attention == ["Crush what?\n"]  # news once, never spam
+
+
 def test_pieces_are_glued_into_lines_per_stream():
     s = Handle()
     watch = _watch(s)

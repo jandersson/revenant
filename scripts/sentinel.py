@@ -17,16 +17,20 @@ thinking or gesturing to you; a word spelled to slip past a script
 ("J_u_M_p", "jUmP"). What rings three times without a grace — too weak
 a sign to end a session on: the same line more than four times in the
 last twenty, or six near-duplicates within ninety seconds
-(status-monitor's thresholds), the character's own "You ..." lines and
-paragraphs left out (the first evening rang on "You continue playing
-on your copper zills." and a walk's room descriptions). What rings
-once: a staff notice for this instance on the `ooc` stream ("TWEET: ...
-#drprime", a calendar notice aside) and a player arriving in the room.
-Every other story line never seen before lands in the Attention dock
-once and is remembered (`~/.revenant/sentinel/<name>.json`, numerals
-and currency words scrubbed, lines naming a player present skipped,
-the room's exits and company never news, a line within a second and a
-half of a room frame — its description, either side — never judged).
+(status-monitor's thresholds), the character's own "You ..." lines,
+paragraphs and the answers to its own commands (a story line within
+two seconds of a `sent` line) left out, and the same line ringing at
+most once an hour (the first evening rang on "You continue playing on
+your copper zills.", a walk's room descriptions, "Crush what?" fifteen
+times and a box's identify twelve). What rings once: a staff notice
+for this instance on the `ooc` stream ("TWEET: ... #drprime", a
+calendar notice aside) and a player arriving in the room. Every other
+story line never seen before lands in the Attention dock once and is
+remembered (`~/.revenant/sentinel/<name>.json`, numerals and currency
+words scrubbed; lines naming a player or a creature present when the
+line came skipped; the room's exits, company and inventory listings
+never news; a line within a second and a half of a room or compass
+frame — its description, either side — never judged).
 
 The alert also runs settings.json's `alert_command` with the alert as
 its last argument — a toast, a mail, a bot; empty runs nothing — and
@@ -57,6 +61,7 @@ from client.game.novelty import (
 POLL = 1.0
 SAVE_EVERY = 300.0
 ARRIVAL_WINDOW = 1.5  # story lines this soon after a room frame are its description
+ANSWER_WINDOW = 2.0  # story lines this soon after a sent line answer it: never spam
 BELLS = 3
 BELL_GAP = 0.25
 TRAIN_RETURN_WAIT = 300.0
@@ -124,8 +129,9 @@ class Watch:
         self.store = store
         self.own = own
         self.buffers = {}  # stream -> the piece of a line still coming
-        self.pending = []  # (when, story line) awaiting judgement
-        self.arrivals = []  # when the room frames came, the recent ones
+        self.pending = []  # (when, story line, names present) awaiting judgement
+        self.arrivals = []  # when the room and compass frames came, the recent ones
+        self.sent_at = []  # when the character's own commands went out, the recent ones
         self.players = list(getattr(s.state, "room_players", None) or [])
         self.quiet_until = 0.0
         self.grace_until = None
@@ -204,9 +210,29 @@ class Watch:
         self.buffers[stream] = lines.pop()
         return [line.rstrip("\r") for line in lines]
 
+    def present(self):
+        """Who and what the room holds now: the players by name, the
+        creatures by their listing and their noun — a line naming one
+        is their business, never news (the cougar's pounce line rang
+        as spam on the first evening)."""
+        state = self.s.state
+        names = [str(n) for n in getattr(state, "room_players", None) or [] if n]
+        for creature in getattr(state, "room_creatures", None) or []:
+            text = str(creature).strip()
+            if text:
+                names.append(text)
+                names.append(text.split()[-1])
+        return names
+
     def handle(self, stream, line, now):
-        if stream == "room":
+        if stream in ("room", "compass"):
+            # The compass frame comes on every arrival, the room frame
+            # only when the room changes: a walk that paces the same
+            # rooms leaked its descriptions on the first evening.
             self.arrivals.append(now)
+            return
+        if stream == "sent":
+            self.sent_at.append(now)
             return
         if stream in NOISE_STREAMS:
             return
@@ -228,18 +254,25 @@ class Watch:
             return
         # Judged once ARRIVAL_WINDOW has passed: a room's description
         # lands on either side of its room frame (client/ui/roomids.py).
-        self.pending.append((now, line))
+        # The names present now go with it — a passer-by's line was
+        # judged after they had left the room on the first evening.
+        self.pending.append((now, line, self.present()))
 
     def judge(self, now):
         """The story lines older than ARRIVAL_WINDOW through the store:
         one within the window of a room frame, before or after, is the
-        room's own text and never news; the rest are news once or, past
-        the thresholds, spam — bells without a grace."""
+        room's own text and never news; one within ANSWER_WINDOW of a
+        line the character sent is an answer, news once but never
+        spam; the rest are news once or, past the thresholds, spam —
+        bells without a grace."""
         while self.pending and now - self.pending[0][0] >= ARRIVAL_WINDOW:
-            when, line = self.pending.pop(0)
+            when, line, names = self.pending.pop(0)
             if any(abs(when - arrived) < ARRIVAL_WINDOW for arrived in self.arrivals):
                 continue
-            verdict = self.store.observe(line, when, names=self.players)
+            answer = any(0 <= when - sent < ANSWER_WINDOW for sent in self.sent_at)
+            verdict = self.store.observe(
+                line, when, names=list(names) + self.present(), answer=answer
+            )
             if verdict is None:
                 continue
             what, detail = verdict
@@ -248,6 +281,9 @@ class Watch:
             else:
                 self.alert("spam", detail, now, grace=False)
         self.arrivals = [t for t in self.arrivals if now - t < 2 * ARRIVAL_WINDOW]
+        self.sent_at = [
+            t for t in self.sent_at if now - t < 2 * ANSWER_WINDOW + ARRIVAL_WINDOW
+        ]
 
     def watch_players(self, now):
         current = list(getattr(self.s.state, "room_players", None) or [])
