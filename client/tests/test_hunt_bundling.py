@@ -58,7 +58,7 @@ def test_a_bundle_kept_in_the_sack_is_worn_before_the_weapon_is_drawn(travel):
             "skin": [
                 PELT_LOOSE
             ],  # the skin goes into the worn bundle: hand stays empty
-            "search": [NOTHING],
+            "loot": [NOTHING],
         }
     )
     _hands(arena)
@@ -70,7 +70,7 @@ def test_a_bundle_kept_in_the_sack_is_worn_before_the_weapon_is_drawn(travel):
         "wield my handaxe",
     ]
     after_skin = arena.sent[arena.sent.index("skin rat") + 1 :]
-    assert after_skin[0] == "search rat"  # nothing stowed, nothing bundled by hand
+    assert after_skin[0] == "loot"  # nothing stowed, nothing bundled by hand
     assert any("1 kill(s), 1 skin(s)" in text for text in arena.echoed)
 
 
@@ -82,7 +82,7 @@ def test_the_first_skin_starts_the_bundle_and_wears_it(travel):
             "skin": [(PELT_LOOSE, skin_in_hand)],
             "get my rope": ["You get a bundling rope from inside your canvas sack."],
             "bundle": [(BUNDLED, hand_empty)],
-            "search": [NOTHING],
+            "loot": [NOTHING],
         }
     )
     _hands(arena)
@@ -95,7 +95,7 @@ def test_the_first_skin_starts_the_bundle_and_wears_it(travel):
         "bundle",
         "wear my bundle",
         "wield my handaxe",
-        "search rat",
+        "loot",
     ]
     assert any("bundle started and worn" in text for text in arena.echoed)
 
@@ -113,7 +113,7 @@ def test_a_full_bundle_is_known_and_the_skin_is_stowed_loose(travel):
                 "they're all full or too tightly packed!  Type BUNDLE HELP for "
                 "more details."
             ],
-            "search": [NOTHING],
+            "loot": [NOTHING],
         }
     )
     _hands(arena)
@@ -136,7 +136,7 @@ def test_a_weapon_not_in_its_container_is_drawn_from_wherever_it_is(travel):
                 ],
                 "attack": [(KILL, kill)],
                 "skin": [SKINNED],
-                "search": [NOTHING],
+                "loot": [NOTHING],
             }
         ),
         travel_first=False,
@@ -166,7 +166,7 @@ def test_a_skin_the_bundle_will_not_take_leaves_the_next_one_to_start_it(travel)
             "get my rope": ["You get a bundling rope from inside your canvas sack."]
             * 2,
             "bundle": [full, (BUNDLED, hand_empty)],
-            "search": [NOTHING] * 2,
+            "loot": [NOTHING] * 2,
         }
     )
     _hands(arena)
@@ -188,7 +188,7 @@ def test_a_skin_no_container_will_take_stays_in_hand_and_ends_skinning(travel):
                 "skin": [SKINNED] * 2,
                 "put my pelt in my sack": [no_room],
                 "stow my pelt": [no_room],
-                "search": [NOTHING] * 2,
+                "loot": [NOTHING] * 2,
             }
         ),
         profile=PROFILE | {"max_kills": 2},
@@ -207,7 +207,7 @@ def test_without_a_rope_the_skin_is_stowed_and_the_run_says_so_once(travel):
             "tap": [NOT_FOUND],
             "skin": [(PELT_LOOSE, skin_in_hand), (PELT_LOOSE, skin_in_hand)],
             "get my rope": [MISSING],
-            "search": [NOTHING, NOTHING],
+            "loot": [NOTHING, NOTHING],
         }
     )
     _hands(arena)
@@ -228,7 +228,7 @@ def test_an_attack_from_range_waits_for_melee_before_the_next(travel):
         {
             "attack": [advancing, (KILL, kill)],
             "skin": [SKINNED],
-            "search": [NOTHING],
+            "loot": [NOTHING],
         }
     )
     _run(arena, profile=PROFILE | {"max_kills": 1}, travel_first=False)
@@ -246,7 +246,7 @@ def test_the_weapon_stays_in_hand_at_every_end(travel):
     ):
         effect = (lambda arena: None) if hostiles_left else kill
         arena = Arena(
-            {"attack": [(KILL, effect)], "skin": [SKINNED], "search": [NOTHING]}
+            {"attack": [(KILL, effect)], "skin": [SKINNED], "loot": [NOTHING]}
         )
         _run(arena, profile=profile, travel_first=False)
         assert not any(command.startswith("put my handaxe") for command in arena.sent)
@@ -258,9 +258,9 @@ def test_a_corpse_that_keeps_answering_ends_the_room_not_the_evening(travel):
     # The hostile state never empties here, so each room is declared
     # clear after CORPSE_SWINGS + 1 swings and the ground is lapped
     # until the pause, where the operator's word ends it.
-    arena = Patient({"attack": [RAT_CORPSE] * 100, "search": [NOTHING] * 100})
+    arena = Patient({"attack": [RAT_CORPSE] * 100, "loot": [NOTHING] * 100})
     _run(arena, profile=PROFILE | {"skin": False}, travel_first=False)
-    assert "search rat" in arena.sent
+    assert "loot" in arena.sent
     rooms_visited = hunt.EMPTY_LAPS * len(GROUND.rooms_tagged("rats")) + 1
     assert arena.sent.count("attack rat") <= (hunt.CORPSE_SWINGS + 1) * rooms_visited
     assert any("only a corpse answers" in text for text in arena.echoed)

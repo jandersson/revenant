@@ -64,7 +64,7 @@ def test_a_hunt_for_tracks_when_the_room_empties_once_per_timer(travel, monkeypa
                 "attack": [(KILL, kill)] * 3,
                 "hunt": [TRACKED] * 3,
                 "skin": [SKINNED] * 3,
-                "search": [NOTHING] * 3,
+                "loot": [NOTHING] * 3,
             },
             experience=PERCEPTION_OPEN,
         )
@@ -72,9 +72,7 @@ def test_a_hunt_for_tracks_when_the_room_empties_once_per_timer(travel, monkeypa
         _run(arena, profile=TRACKING | {"max_kills": 3}, travel_first=False)
         assert arena.sent.count("hunt") == hunts, seconds
         first = arena.sent.index("hunt")
-        assert (
-            arena.sent[first - 1] == "search rat"
-        )  # after the corpse, before the move
+        assert arena.sent[first - 1] == "loot"  # after the corpse, before the move
         assert any(f"{hunts} HUNT(s)" in text for text in arena.echoed)
 
 
@@ -86,7 +84,7 @@ def test_no_hunt_for_tracks_at_lock_or_with_the_flag_off(travel):
                 "attack": [(KILL, kill)] * 2,
                 "hunt": [TRACKED] * 2,
                 "skin": [SKINNED] * 2,
-                "search": [NOTHING] * 2,
+                "loot": [NOTHING] * 2,
             },
             experience=experience,
         )
@@ -102,7 +100,7 @@ def test_three_unknown_hunt_answers_turn_tracking_off(travel, monkeypatch):
             "attack": [(KILL, kill)] * 5,
             "hunt": ["You can't hunt here."] * 5,
             "skin": [SKINNED] * 5,
-            "search": [NOTHING] * 5,
+            "loot": [NOTHING] * 5,
         },
         experience=PERCEPTION_OPEN,
     )
@@ -157,7 +155,7 @@ def test_every_third_swing_is_the_next_maneuver_while_tactics_is_unlocked(travel
             "bob": [BOBBED] * 3,
             "circle": [CIRCLED] * 3,
             "skin": [SKINNED] * 9,
-            "search": [NOTHING] * 9,
+            "loot": [NOTHING] * 9,
         },
         experience=TACTICS_OPEN,
     )
@@ -185,7 +183,7 @@ def test_circles_second_wording_is_a_maneuver_done(travel):
             "bob": [BOBBED] * 3,
             "circle": [FAKED] * 3,
             "skin": [SKINNED] * 9,
-            "search": [NOTHING] * 9,
+            "loot": [NOTHING] * 9,
         },
         experience=TACTICS_OPEN,
     )
@@ -204,7 +202,7 @@ def test_a_maneuver_at_a_corpse_is_the_corpse_answer_not_a_miss(travel):
             "attack": [(KILL, _stands)] * 2 + [(KILL, kill)],
             "bob": [RAT_CORPSE],
             "skin": [SKINNED] * 4,
-            "search": [NOTHING] * 4,
+            "loot": [NOTHING] * 4,
         },
         experience=TACTICS_OPEN,
     )
@@ -230,7 +228,7 @@ def test_a_maneuver_the_foe_wins_is_still_a_maneuver(travel):
             "circle": [lost, lost],
             "weave": [lost, lost],
             "skin": [SKINNED] * 7,
-            "search": [NOTHING] * 7,
+            "loot": [NOTHING] * 7,
         },
         experience=TACTICS_OPEN,
     )
@@ -252,7 +250,7 @@ def test_a_maneuver_from_range_advances_on_the_prey_and_waits_for_melee(travel):
             "bob": [too_far, BOBBED],
             "advance": ["You begin to advance on a rat.\n"],
             "skin": [SKINNED] * 3,
-            "search": [NOTHING] * 3,
+            "loot": [NOTHING] * 3,
         },
         experience=TACTICS_OPEN,
     )
@@ -277,7 +275,7 @@ def test_punch_and_kick_at_range_advance_on_the_prey(travel):
                 "elbow": [ELBOWED + "\n"] * 3,
                 "advance": ["You begin to advance on a rat.\n"] * 3,
                 "skin": [SKINNED],
-                "search": [NOTHING],
+                "loot": [NOTHING],
             },
             experience={"Brawling": {"rank": 7, "percent": 0, "mindstate": 5}},
         ),
@@ -300,7 +298,7 @@ def test_no_maneuver_once_tactics_locks_or_with_none_listed(travel):
                 "bob": [BOBBED] * 3,
                 "circle": [CIRCLED] * 3,
                 "skin": [SKINNED] * 6,
-                "search": [NOTHING] * 6,
+                "loot": [NOTHING] * 6,
             },
             experience=experience,
         )
@@ -319,7 +317,7 @@ def test_a_smite_keeps_its_minute_ahead_of_the_maneuvers(travel, monkeypatch):
             "bob": [BOBBED],
             "circle": [CIRCLED],
             "skin": [SKINNED] * 6,
-            "search": [NOTHING] * 6,
+            "loot": [NOTHING] * 6,
         },
         experience=TACTICS_OPEN,
     )
@@ -347,7 +345,7 @@ def test_a_maneuver_from_range_advances_like_an_attack(travel):
             "attack": [(KILL, _stands), (KILL, _stands), (KILL, kill)],
             "weave": [advancing],
             "skin": [SKINNED] * 3,
-            "search": [NOTHING] * 3,
+            "loot": [NOTHING] * 3,
         },
         experience=TACTICS_OPEN,
     )
@@ -366,7 +364,7 @@ def test_a_maneuver_answered_with_nothing_known_three_times_turns_tactics_off(tr
             "attack": [(KILL, _stands)] * 11 + [(KILL, kill)],
             "bob": ["You can't do that right now."] * 5,
             "skin": [SKINNED] * 12,
-            "search": [NOTHING] * 12,
+            "loot": [NOTHING] * 12,
         },
         experience=TACTICS_OPEN,
     )
@@ -382,7 +380,7 @@ def test_a_maneuver_answered_with_nothing_known_three_times_turns_tactics_off(tr
 
 def test_without_smite_every_swing_is_attack(travel):
     arena = _run(
-        Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+        Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
     )
     assert not any(c.startswith("smite") for c in arena.sent)
 
@@ -396,3 +394,26 @@ def test_a_room_full_of_creatures_is_hunted_not_left(travel):
     assert arena.walks[0] == {6046, 6047}
     assert any(c.startswith("attack") for c in arena.sent)
     assert not any("crowd" in text for text in arena.echoed)
+
+
+def test_a_maneuver_with_no_foe_left_is_the_room_clearing_not_a_miss(travel):
+    # 2026-09-23 at the bobcats: a BOB went out as the last foe fell and
+    # the game answered "There is nothing else to face!" — the room is
+    # clear, the same as a bare ATTACK's answer, not an unknown answer.
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands)] * 11 + [(KILL, kill)],
+            "bob": ["There is nothing else to face!"] * 5,
+            "skin": [SKINNED] * 12,
+            "loot": [NOTHING] * 12,
+        },
+        experience=TACTICS_OPEN,
+    )
+    _run(
+        arena,
+        profile=PROFILE | {"tactics": ["bob"], "max_kills": 12},
+        travel_first=False,
+    )
+    assert "bob rat" in arena.sent
+    assert not any("unrecognized bob" in text for text in arena.echoed)
+    assert not any("tactics off for this run" in text for text in arena.echoed)

@@ -62,7 +62,7 @@ def test_the_hunt_grabs_what_the_search_left_by_the_listing():
 
     def ask(s, command, *_):
         sent.append(command)
-        if command.startswith("search"):
+        if command == "loot":  # a bare LOOT, the last creature fought
             state.room_objs = AFTER
             return "You search the small grendel.\nThe grendel was carrying some waermodi stones, 7 copper coins (Kronars), and 1 bronze coin (Dokora)!\n"
         return "You get it."
@@ -86,7 +86,7 @@ def test_the_hunt_grabs_what_the_search_left_by_the_listing():
 
     def refusing(s, command, *_):
         sent.append(command)
-        if command.startswith("search"):
+        if command == "loot":
             state.room_objs = AFTER
             return "You search the small grendel.\n"
         if command == "get box":

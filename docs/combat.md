@@ -72,7 +72,9 @@ to the body — "The cougar is already quite dead." — while a second,
 living cougar closes unmolested (captured: ten wasted swings).
 The corpse's `<crtrStatus>` keeps `hostile="1"` and adds `dead="1"`
 (captured 2026-09-05); the parser leaves it out of `state.hostiles`.
-**`SEARCH <corpse>` disposes of it** (confirmed 2026-08-22),
+**`SEARCH <corpse>` disposes of it** (confirmed 2026-08-22; a bare
+LOOT does the same to the last creature fought, and needs no noun —
+the hunt's choice since 2026-09-23),
 clearing the noun so the next ATTACK finds the living one — the
 retarget move for automation. `FACE NEXT` remains an unverified
 alternative. "What were you referring to?" means nothing by that

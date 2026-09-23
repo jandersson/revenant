@@ -83,7 +83,16 @@ Barana's Shipyard):
   the first run swing at the body five times;
 - "There is nothing else to face!  What are you trying to attack?" —
   the room is clear even while the hostile state lags;
-- SEARCH <corpse> removes it and clears the noun.
+- A bare LOOT removes it and clears the noun: LOOT with no target
+  loots the last creature fought with the goods option, the same
+  effect as SEARCH <corpse> ([Loot command](https://elanthipedia.play.net/Loot_command)),
+  and needs no corpse noun — the kill line's noun is only SKIN's
+  concern since 2026-09-23, when a swing's "hit that collapses the
+  ribcage" made the noun "that" and SEARCH THAT searched the room.
+  AUTOLOOT would take the pickup step too, but wants an autoloot
+  container: festival wares at 1.4-3.1 million Kronars or a crafted
+  lootsack from a rare Tailoring instruction ("You will need to
+  acquire a loot sack before you can make further use of this verb.").
 
 Captured on the second live hunt (2026-09-12, the same character and
 ground, seven kills):

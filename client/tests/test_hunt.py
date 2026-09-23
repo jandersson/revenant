@@ -45,7 +45,7 @@ from hunt_arena import (
 
 def test_readies_the_weapon_and_stance_walks_to_the_ground_then_hunts(travel):
     arena = _run(
-        Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+        Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
     )
     assert arena.walks[0] == {6046, 6047}
     assert arena.sent[:3] == [
@@ -74,7 +74,7 @@ def test_the_weapons_take_turns_per_kill_and_the_fists_turn_swings_the_brawling_
                 "kick": [KICKED + "\n"],
                 "elbow": [(ELBOWED + "\n" + KILL, _stands)],
                 "skin": [SKINNED] * 3,
-                "search": [NOTHING] * 3,
+                "loot": [NOTHING] * 3,
             },
             experience={
                 "Small Edged": {"rank": 39, "percent": 0, "mindstate": 10},
@@ -116,7 +116,7 @@ def test_a_single_fists_turn_hunts_bare_handed_whatever_the_weapon_says(travel):
             {
                 "punch": [PUNCHED + "\n", (KILL, kill)],
                 "skin": [SKINNED],
-                "search": [NOTHING],
+                "loot": [NOTHING],
             },
             experience={"Brawling": {"rank": 7, "percent": 0, "mindstate": 5}},
         ),
@@ -139,7 +139,7 @@ def test_a_locked_weapon_skill_sits_out_and_all_locked_ends_the_hunt(travel):
             {
                 "punch": [(KILL, _stands), (KILL, kill)],
                 "skin": [SKINNED] * 2,
-                "search": [NOTHING] * 2,
+                "loot": [NOTHING] * 2,
             },
             experience={
                 "Small Edged": {"rank": 39, "percent": 0, "mindstate": 34},
@@ -152,7 +152,7 @@ def test_a_locked_weapon_skill_sits_out_and_all_locked_ends_the_hunt(travel):
     assert not any(c.startswith("get my handaxe") for c in arena.sent)
     assert arena.sent.count("punch rat") == 2
     both = _run(
-        Arena({"punch": [(KILL, _stands)], "skin": [SKINNED], "search": [NOTHING]}),
+        Arena({"punch": [(KILL, _stands)], "skin": [SKINNED], "loot": [NOTHING]}),
         profile=ROTATING | {"brawling": ["punch"]},
         travel_first=False,
     )
@@ -173,12 +173,12 @@ def test_a_tool_left_in_hand_from_the_last_run_is_stowed_before_the_draw(travel)
     # The hunt and the brawl take turns: the handaxe left in hand from
     # the hunt would take the hand PUNCH wants, and anything in hand at
     # a hunt's start is in the way of the draw. STOW, never DROP.
-    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
     arena.state.left_hand = None
     arena.state.right_hand = {"noun": "rag", "exist": "1"}
     _run(arena)
     assert arena.sent[:2] == ["stow my rag", "wield my handaxe"]
-    fists = Arena({"punch": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+    fists = Arena({"punch": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
     fists.state.left_hand = None
     fists.state.right_hand = {"noun": "handaxe", "exist": "1"}
     _run(fists, profile=PROFILE | {"weapon": "", "brawling": ["punch"]})
@@ -190,10 +190,10 @@ def test_a_tool_left_in_hand_from_the_last_run_is_stowed_before_the_draw(travel)
 
 def test_a_kill_is_skinned_stowed_and_searched(travel):
     arena = _run(
-        Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+        Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
     )
     after_kill = arena.sent[arena.sent.index("attack rat") + 1 :]
-    assert after_kill[:3] == ["skin rat", "put my pelt in my sack", "search rat"]
+    assert after_kill[:3] == ["skin rat", "put my pelt in my sack", "loot"]
     assert any("1 kill(s), 1 skin(s)" in text for text in arena.echoed)
 
 
@@ -210,7 +210,7 @@ def test_a_held_skinning_knife_is_fetched_stowed_and_never_taken_for_the_skin(tr
                 "Working deftly, you skillfully remove a curved claw from the "
                 "remains of a rat.\nYou carefully fit a curved claw into your bundle."
             ],
-            "search": [NOTHING],
+            "loot": [NOTHING],
         }
     )
     arena.state.left_hand = {"noun": "knife", "exist": "1", "name": "skinning knife"}
@@ -240,7 +240,7 @@ def test_a_skin_the_game_fits_into_the_bundle_is_bundled_whatever_the_hands_say(
                 "rewards are worth it.\nYou carefully fit a pink grendel ear into "
                 "your bundle."
             ],
-            "search": [NOTHING],
+            "loot": [NOTHING],
         }
     )
     arena.state.left_hand = {"noun": "ear", "exist": "1", "name": "grendel ear"}
@@ -253,17 +253,17 @@ def test_a_skin_the_game_fits_into_the_bundle_is_bundled_whatever_the_hands_say(
 
 def test_skinning_off_in_the_profile_skips_the_knife(travel):
     arena = _run(
-        Arena({"attack": [(KILL, kill)], "search": [NOTHING]}),
+        Arena({"attack": [(KILL, kill)], "loot": [NOTHING]}),
         profile=PROFILE | {"skin": False},
     )
     assert not any(command.startswith("skin") for command in arena.sent)
-    assert "search rat" in arena.sent
+    assert "loot" in arena.sent
 
 
 def test_a_gem_found_on_the_corpse_goes_in_the_pouch(travel):
     found = "You search the rat.\nYou find a small ruby."
     arena = _run(
-        Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [found]}),
+        Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [found]}),
         profile=PROFILE | {"gem_pouch": "pouch"},
     )
     assert "get ruby" in arena.sent
@@ -277,7 +277,7 @@ def test_what_the_pouch_refuses_is_stowed_like_loot(travel):
             {
                 "attack": [(KILL, kill)],
                 "skin": [SKINNED],
-                "search": [found],
+                "loot": [found],
                 "put my nail": ["You can't put that in there."],
             }
         ),
@@ -291,7 +291,7 @@ def test_an_empty_ground_is_waited_out_not_left(travel):
     # 2026-09-13, the operator: an empty ground is not a reason to go
     # home — pause after every empty lap and lap again until told.
     arena = Patient(
-        {"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]}, pauses=3
+        {"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]}, pauses=3
     )
     _run(arena)
     waits = [text for text in arena.echoed if "ground empty" in text]
@@ -333,7 +333,7 @@ def test_prey_arriving_during_the_pause_is_fought_not_walked_away_from(
         {
             "attack": [(KILL, kill), (KILL, kill_and_return)],
             "skin": [SKINNED] * 2,
-            "search": [NOTHING] * 2,
+            "loot": [NOTHING] * 2,
         }
     )
     _run(arena)
@@ -351,7 +351,7 @@ def test_prey_arriving_during_the_pause_is_fought_not_walked_away_from(
 
 def test_an_empty_room_moves_to_the_next_room_of_the_ground(travel):
     arena = Arena(
-        {"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]}, hostiles=()
+        {"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]}, hostiles=()
     )
     arena.arrivals = {6047: {"2": True}}
     _run(arena, travel_first=False)
@@ -398,7 +398,7 @@ def test_a_wound_at_the_floor_breaks_the_hunt_off_after_a_kill(travel):
         {
             "attack": [(KILL, kill)],
             "skin": [SKINNED],
-            "search": [NOTHING],
+            "loot": [NOTHING],
             "health": [HURT],
         }
     )
@@ -415,7 +415,7 @@ def test_a_wound_below_the_floor_keeps_hunting(travel):
         {
             "attack": [(KILL, kill)],
             "skin": [SKINNED],
-            "search": [NOTHING],
+            "loot": [NOTHING],
             "health": [HURT],
         }
     )
@@ -432,7 +432,7 @@ def test_health_is_also_asked_when_the_bar_drops_mid_fight(travel):
         {
             "attack": [("You miss.", hurt), (KILL, kill)],
             "skin": [SKINNED],
-            "search": [NOTHING],
+            "loot": [NOTHING],
             "health": [CLEAN_HEALTH, CLEAN_HEALTH],
         }
     )
@@ -448,7 +448,7 @@ def test_an_empty_wound_floor_is_harmful_and_off_never_asks(travel):
         {
             "attack": [(KILL, kill)],
             "skin": [SKINNED],
-            "search": [NOTHING],
+            "loot": [NOTHING],
             "health": [HURT],
         }
     )
@@ -456,7 +456,7 @@ def test_an_empty_wound_floor_is_harmful_and_off_never_asks(travel):
     assert "health" in arena.sent
     assert any("wound floor unset — harmful by default" in t for t in arena.echoed)
     assert any("neck external harmful — at the wound floor" in t for t in arena.echoed)
-    off = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+    off = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
     _run(off, profile=PROFILE | {"wound_floor": "off"}, travel_first=False)
     assert "health" not in off.sent
     assert not any("wound floor" in t for t in off.echoed)
@@ -504,7 +504,7 @@ def test_three_stuns_in_one_fight_break_the_hunt_off_and_a_kill_resets_them(trav
                 (KILL, kill),
             ],
             "skin": [SKINNED] * 2,
-            "search": [NOTHING] * 2,
+            "loot": [NOTHING] * 2,
         }
     )
     _run(reset, profile=PROFILE | {"wound_floor": "off"}, travel_first=False)
@@ -539,7 +539,7 @@ def test_a_skill_not_yet_in_the_exp_window_counts_as_unlocked():
 
 def test_the_kill_fuse_ends_the_hunt(travel):
     arena = Arena(
-        {"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]},
+        {"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]},
     )
     _run(arena, profile=PROFILE | {"max_kills": 1}, travel_first=False)
     assert any("kill fuse reached" in text for text in arena.echoed)
@@ -551,11 +551,11 @@ def test_a_corpse_soaking_swings_is_searched_away(travel):
         {
             "attack": [("The rat is already quite dead.", kill)],
             "skin": [SKINNED],
-            "search": [NOTHING],
+            "loot": [NOTHING],
         }
     )
     _run(arena, travel_first=False)
-    assert "search rat" in arena.sent
+    assert "loot" in arena.sent
 
 
 def test_nothing_to_skin_with_turns_skinning_off_for_the_run(travel):
@@ -563,7 +563,7 @@ def test_nothing_to_skin_with_turns_skinning_off_for_the_run(travel):
         {
             "attack": [(KILL, lambda a: None), (KILL, kill)],
             "skin": ["You have nothing to skin with!"],
-            "search": [NOTHING, NOTHING],
+            "loot": [NOTHING, NOTHING],
         }
     )
     _run(arena, travel_first=False)
@@ -573,7 +573,7 @@ def test_nothing_to_skin_with_turns_skinning_off_for_the_run(travel):
 
 def test_an_unrecognized_skin_answer_is_reported_not_guessed(travel):
     arena = Arena(
-        {"attack": [(KILL, kill)], "skin": ["The rat twitches."], "search": [NOTHING]}
+        {"attack": [(KILL, kill)], "skin": ["The rat twitches."], "loot": [NOTHING]}
     )
     _run(arena, travel_first=False)
     assert any(
@@ -584,9 +584,7 @@ def test_an_unrecognized_skin_answer_is_reported_not_guessed(travel):
 
 
 def test_the_captured_rat_kill_is_recognized_and_skinned(travel):
-    arena = Arena(
-        {"attack": [(RAT_KILL, kill)], "skin": [SKINNED], "search": [NOTHING]}
-    )
+    arena = Arena({"attack": [(RAT_KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
     _run(arena, travel_first=False)
     assert "skin rat" in arena.sent
     assert any(text.startswith("hunt: rat down (1)") for text in arena.echoed)
@@ -603,7 +601,7 @@ NOT_DEAD_YET = "You should probably wait until a ship's rat is dead first."
 
 def test_the_captured_skin_wordings_are_recognized_and_the_skin_stowed(travel):
     for line, item in ((PELT_LOOSE, "pelt"), (TAIL_REMOVED, "tail")):
-        arena = Arena({"attack": [(KILL, kill)], "skin": [line], "search": [NOTHING]})
+        arena = Arena({"attack": [(KILL, kill)], "skin": [line], "loot": [NOTHING]})
         _run(arena, travel_first=False)
         assert f"put my {item} in my sack" in arena.sent
         assert not any("unrecognized" in text for text in arena.echoed)
@@ -614,7 +612,7 @@ def test_a_full_hand_is_stowed_and_the_skin_tried_once_more(travel):
         {
             "attack": [(KILL, kill)],
             "skin": [HANDS_FULL, TAIL_REMOVED],
-            "search": [NOTHING],
+            "loot": [NOTHING],
         }
     )
     arena.state.left_hand = {"noun": "tail", "exist": "1", "name": "rat tail"}
@@ -633,7 +631,7 @@ def test_a_full_hand_the_parser_cannot_name_is_stowed_by_side(travel):
         {
             "attack": [(KILL, kill)],
             "skin": [HANDS_FULL, PELT_LOOSE],
-            "search": [NOTHING],
+            "loot": [NOTHING],
         }
     )
     _run(arena, travel_first=False)
@@ -650,12 +648,12 @@ def test_a_knockdown_is_not_a_kill(travel):
         {
             "attack": [(KNOCKED_DOWN, _stands), (KILL, kill)],
             "skin": [SKINNED],
-            "search": [NOTHING],
+            "loot": [NOTHING],
         }
     )
     _run(arena)
     assert arena.sent.count("skin rat") == 1
-    assert arena.sent.count("search rat") == 1
+    assert arena.sent.count("loot") == 1
     assert any("1 kill(s), 1 skin(s)" in text for text in arena.echoed)
     assert not any("rat down (2)" in text for text in arena.echoed)
 
@@ -670,7 +668,7 @@ def test_a_fall_grasping_a_mangled_leg_is_a_knockdown_and_lifeless_is_a_kill(tra
         {
             "attack": [(MANGLED, _stands), (KILL, kill)],
             "skin": [SKINNED],
-            "search": [NOTHING],
+            "loot": [NOTHING],
         }
     )
     _run(arena)
@@ -686,7 +684,7 @@ def test_a_fall_grasping_a_mangled_leg_is_a_knockdown_and_lifeless_is_a_kill(tra
         {
             "attack": [(KILL, _stands), (KILL, kill)],
             "skin": [STOOD_UP, SKINNED],
-            "search": [NOTHING] * 2,
+            "loot": [NOTHING] * 2,
         }
     )
     _run(stood)
@@ -701,7 +699,7 @@ def test_a_skin_that_found_the_live_one_is_a_gone_corpse_too(travel):
         {
             "attack": [(KILL, kill)],
             "skin": ["You can't skin something that's not dead!"],
-            "search": [NOTHING],
+            "loot": [NOTHING],
         }
     )
     _run(arena)
@@ -713,7 +711,7 @@ def test_a_gone_corpse_is_not_reported_as_unrecognized(travel):
         {
             "attack": [(KILL, kill)],
             "skin": [NOT_DEAD_YET],
-            "search": [SEARCHED_ALREADY],
+            "loot": [SEARCHED_ALREADY],
         }
     )
     _run(arena, travel_first=False)
@@ -729,7 +727,7 @@ def test_an_occupied_room_of_the_ground_is_theirs_so_the_hunt_moves_on(travel):
     # were hunting. A player already in the room on arrival makes it
     # theirs: move on without a swing, settle only in an empty one.
     arena = Arena(
-        {"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]},
+        {"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]},
         hostiles=(),
     )
     arena.state.room_players = ["Bankismo"]
@@ -771,7 +769,7 @@ def test_a_paladin_smites_one_swing_a_minute_and_attacks_the_rest(travel, monkey
             "smite": [advancing, (SMITE_KILL, kill), (SMITE_KILL, kill)],
             "attack": [(KILL, kill)] * 6,
             "skin": [SKINNED] * 9,
-            "search": [NOTHING] * 9,
+            "loot": [NOTHING] * 9,
         }
     )
     arena.arrivals = {6046: {"1": True}, 6047: {"1": True}}
@@ -831,7 +829,7 @@ def test_a_smite_goes_out_only_while_smite_check_counts_a_free_blow(
             "smite": [(SMITE_KILL, kill)],
             "attack": [(KILL, kill)] * 6,
             "skin": [SKINNED] * 9,
-            "search": [NOTHING] * 9,
+            "loot": [NOTHING] * 9,
         }
     )
     arena.arrivals = {6046: {"1": True}, 6047: {"1": True}}
@@ -866,7 +864,7 @@ def test_a_smite_that_drew_on_the_soul_pool_ends_smiting_for_the_run(
             "smite": [(WRATH_KILL, kill)],
             "attack": [(KILL, kill)] * 6,
             "skin": [SKINNED] * 9,
-            "search": [NOTHING] * 9,
+            "loot": [NOTHING] * 9,
         }
     )
     arena.arrivals = {6046: {"1": True}, 6047: {"1": True}}
@@ -890,7 +888,7 @@ def test_a_corpse_first_in_the_listing_has_the_swing_aimed_by_ordinal(travel):
     # Captured 2026-09-22: "a cougar which appears dead, ..., a cougar" —
     # the plain noun reaches the corpse; "second cougar" the live one.
     arena = Arena(
-        {"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]},
+        {"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]},
         hostiles=("2",),
     )
     arena.state.room_creatures = ["a rat", "a rat"]
@@ -901,7 +899,7 @@ def test_a_corpse_first_in_the_listing_has_the_swing_aimed_by_ordinal(travel):
 
 
 def test_the_plain_noun_is_aimed_when_the_first_of_it_lives_or_none_is_listed(travel):
-    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
     arena.state.room_creatures = ["a rat", "a rat"]
     arena.state.room_creatures_dead = [False, True]
     _run(arena, travel_first=False)
@@ -913,7 +911,7 @@ def test_the_plain_noun_is_aimed_when_the_first_of_it_lives_or_none_is_listed(tr
 def test_the_balance_word_is_tallied_per_swing_and_reported():
     from types import SimpleNamespace
 
-    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
     arena.state.balance = "badly balanced"
     arena.state.room = 6046
     hunt.walk = lambda *a, **k: True
@@ -954,7 +952,7 @@ def test_the_worn_cambrinth_piece_in_hand_is_worn_back_not_stowed_as_a_skin(trav
         {
             "attack": [(KILL, kill)],
             "skin": [HANDS_FULL, TAIL_REMOVED],
-            "search": [NOTHING],
+            "loot": [NOTHING],
         }
     )
     arena.state.left_hand = {

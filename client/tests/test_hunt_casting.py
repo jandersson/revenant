@@ -54,7 +54,7 @@ def test_with_a_walk_the_buffs_are_cast_before_it_not_among_the_prey(monkeypatch
             "prepare": [PREPARED],
             "cast": [CAST],
             "skin": [SKINNED],
-            "search": [NOTHING],
+            "loot": [NOTHING],
         }
     )
     arena.state.active_spells = {}
@@ -75,7 +75,7 @@ def test_buffs_are_cast_before_the_weapon_is_drawn(travel):
             "prepare": [PREPARED],
             "cast": [CAST],
             "skin": [SKINNED],
-            "search": [NOTHING],
+            "loot": [NOTHING],
         }
     )
     _run(arena, profile=BUFFED | {"max_kills": 1}, travel_first=False)
@@ -99,7 +99,7 @@ def test_a_buff_the_spells_window_lists_is_not_recast_until_it_runs_out(travel):
             "prepare": [PREPARED, PREPARED],
             "cast": [(CAST, running), (CAST, running)],
             "skin": [SKINNED, SKINNED],
-            "search": [NOTHING, NOTHING],
+            "loot": [NOTHING, NOTHING],
         }
     )
     arena.state.active_spells = {}
@@ -112,7 +112,7 @@ def test_a_buff_the_spells_window_lists_is_not_recast_until_it_runs_out(travel):
             "prepare": [PREPARED, PREPARED],
             "cast": [CAST, CAST],
             "skin": [SKINNED, SKINNED],
-            "search": [NOTHING, NOTHING],
+            "loot": [NOTHING, NOTHING],
         }
     )
     arena.state.active_spells = {}  # never lists it: at the start, then before each swing
@@ -126,7 +126,7 @@ def test_a_buff_that_will_not_prepare_is_dropped_for_the_run(travel):
             "attack": [(KILL, kill)],
             "prepare": ["You don't know that spell."],
             "skin": [SKINNED],
-            "search": [NOTHING],
+            "loot": [NOTHING],
         }
     )
     _run(arena, profile=BUFFED | {"max_kills": 1}, travel_first=False)
@@ -151,7 +151,7 @@ def test_training_casts_ramp_the_mana_between_swings(travel):
             "prepare": [PREPARED] * 5,
             "cast": [CAST] * 5,
             "skin": [SKINNED] * 3,
-            "search": [NOTHING] * 3,
+            "loot": [NOTHING] * 3,
         },
         experience=_exp(10),
     )
@@ -175,7 +175,7 @@ def test_the_strain_warning_caps_the_mana_one_step_under(travel):
             "prepare": [PREPARED, STRAINED, PREPARED, PREPARED],
             "cast": [CAST] * 4,
             "skin": [SKINNED] * 3,
-            "search": [NOTHING] * 3,
+            "loot": [NOTHING] * 3,
         },
         experience=_exp(10),
     )
@@ -201,7 +201,7 @@ def test_a_backfire_at_minimum_mana_ends_the_training_casts(travel):
             "prepare": [PREPARED] * 3,
             "cast": [backfire] * 3,
             "skin": [SKINNED] * 2,
-            "search": [NOTHING] * 2,
+            "loot": [NOTHING] * 2,
         },
         experience=_exp(10),
     )
@@ -263,7 +263,7 @@ def test_a_cambrinth_piece_is_charged_and_invoked_into_the_training_cast(travel)
             "cast": [CAST, SNAP_CAST, SNAP_CAST, SNAP_CAST],
             "stow my flake": ["You put your flake in your canvas sack."] * 3,
             "skin": [SKINNED] * 2,
-            "search": [NOTHING] * 2,
+            "loot": [NOTHING] * 2,
         },
         experience=_exp(10) | {"Arcana": {"rank": 1, "percent": 36, "mindstate": 3}},
     )
@@ -298,7 +298,7 @@ def test_a_piece_that_outranks_arcana_is_off_for_the_run(travel):
             "cast": [CAST] * 4,
             "stow my armband": ["You put your armband in your canvas sack."],
             "skin": [SKINNED] * 2,
-            "search": [NOTHING] * 2,
+            "loot": [NOTHING] * 2,
         },
         experience=_exp(10),
     )
@@ -329,7 +329,7 @@ def test_cambrinth_alone_drives_the_training_cadence_until_arcana_locks(travel):
                 "cast": [SNAP_CAST] * 3,
                 "stow my flake": ["You put your flake in your canvas sack."] * 2,
                 "skin": [SKINNED],
-                "search": [NOTHING],
+                "loot": [NOTHING],
             },
             experience={"Arcana": {"rank": 1, "percent": 0, "mindstate": arcana}},
         )
@@ -360,7 +360,7 @@ def test_the_profile_cast_gap_paces_the_training_casts(travel, monkeypatch):
                 "prepare": [PREPARED] * 9,
                 "cast": [CAST] * 9,
                 "skin": [SKINNED] * 6,
-                "search": [NOTHING] * 6,
+                "loot": [NOTHING] * 6,
             },
             experience=_exp(10),
         )
@@ -383,7 +383,7 @@ def test_no_training_cast_at_lock_or_under_the_mana_floor(travel):
                 "prepare": [PREPARED] * 3,
                 "cast": [CAST] * 3,
                 "skin": [SKINNED] * 2,
-                "search": [NOTHING] * 2,
+                "loot": [NOTHING] * 2,
             },
             experience=experience,
         )
@@ -402,7 +402,7 @@ def test_a_bundle_worn_from_the_last_run_is_left_where_it_is(travel):
             "attack": [(KILL, kill)],
             "tap": ["You tap a lumpy bundle that you are wearing."],
             "skin": [PELT_LOOSE],
-            "search": [NOTHING],
+            "loot": [NOTHING],
         }
     )
     _hands(arena)
@@ -410,7 +410,7 @@ def test_a_bundle_worn_from_the_last_run_is_left_where_it_is(travel):
     assert arena.sent[:2] == ["tap my bundle", "wield my handaxe"]
     assert "wear my bundle" not in arena.sent
     after_skin = arena.sent[arena.sent.index("skin rat") + 1 :]
-    assert after_skin[0] == "search rat"
+    assert after_skin[0] == "loot"
     assert "hunt: bundle worn — skins go straight into it" in arena.echoed
 
 
@@ -424,7 +424,7 @@ def test_the_debilitation_spell_is_cast_at_the_prey_before_the_swing(travel):
             "prepare": [SF_PREPARED] * 3,
             "cast": [STUNNED] * 3,
             "skin": [SKINNED] * 3,
-            "search": [NOTHING] * 3,
+            "loot": [NOTHING] * 3,
             "discern": [DISCERNED],
         },
         experience=DEBIL_OPEN,
@@ -464,7 +464,7 @@ def test_no_debilitation_cast_at_lock_under_the_mana_floor_or_with_no_spell(trav
                 "prepare": [SF_PREPARED],
                 "cast": [STUNNED],
                 "skin": [SKINNED],
-                "search": [NOTHING],
+                "loot": [NOTHING],
             },
             experience=experience,
         )
@@ -480,7 +480,7 @@ def test_a_collapse_at_minimum_mana_turns_the_debilitation_spell_off(travel):
             "prepare": [SF_PREPARED] * 2,
             "cast": ["You gesture.\nYour spell barely backfires."] * 2,
             "skin": [SKINNED] * 2,
-            "search": [NOTHING] * 2,
+            "loot": [NOTHING] * 2,
         },
         experience=DEBIL_OPEN,
     )
@@ -500,7 +500,7 @@ def test_the_debilitation_and_training_casts_take_turns(travel):
             "prepare": [PREPARED, SF_PREPARED, PREPARED, SF_PREPARED],
             "cast": [CAST, STUNNED, CAST, STUNNED],
             "skin": [SKINNED] * 3,
-            "search": [NOTHING] * 3,
+            "loot": [NOTHING] * 3,
         },
         experience=_exp(10) | DEBIL_OPEN,
     )
@@ -524,7 +524,7 @@ def test_the_debilitation_and_training_casts_take_turns(travel):
 def test_a_clean_injuries_panel_skips_health_and_a_lit_one_asks(travel):
     # The game pushes the panel on every change, so an empty one means
     # nothing is hurt and HEALTH need not be asked after the kill.
-    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "search": [NOTHING]})
+    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
     arena.state.injuries = {}
     _run(arena, profile=PROFILE | {"wound_floor": "harmful"}, travel_first=False)
     assert "health" not in arena.sent
@@ -533,7 +533,7 @@ def test_a_clean_injuries_panel_skips_health_and_a_lit_one_asks(travel):
         {
             "attack": [(KILL, kill)],
             "skin": [SKINNED],
-            "search": [NOTHING],
+            "loot": [NOTHING],
             "health": [
                 "Your body feels at full strength.\nYou have no significant injuries."
             ],
@@ -562,7 +562,7 @@ def test_a_worn_cambrinth_piece_is_removed_for_the_charge_and_worn_again(travel)
             "wear my anklet": ["You attach a simple cambrinth anklet to your ankle.\n"]
             * 3,
             "skin": [SKINNED] * 2,
-            "search": [NOTHING] * 2,
+            "loot": [NOTHING] * 2,
         },
         experience=_exp(10) | {"Arcana": {"rank": 17, "percent": 0, "mindstate": 3}},
     )
@@ -617,7 +617,7 @@ def test_a_worn_piece_found_in_the_sack_is_got_instead_and_worn_back(travel):
             "wear my anklet": ["You attach a simple cambrinth anklet to your ankle.\n"]
             * 6,
             "skin": [SKINNED] * 2,
-            "search": [NOTHING] * 2,
+            "loot": [NOTHING] * 2,
         },
         experience=_exp(10) | {"Arcana": {"rank": 17, "percent": 0, "mindstate": 3}},
     )

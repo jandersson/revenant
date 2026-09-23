@@ -2,8 +2,9 @@
 
 Walks to your profile's hunting ground (;go2's map), readies the weapon
 and stance, and fights whatever engages you until you say stop: attack,
-retarget past corpses, skin the kill if the profile says so, search the
-corpse, pouch any gems, and move on to the next room of the ground when
+retarget past corpses, skin the kill if the profile says so, LOOT it (a
+bare LOOT, the last creature fought — no corpse noun needed), pouch
+any gems, and move on to the next room of the ground when
 this one runs empty — and when the whole ground is empty, wait a
 while and lap it again, as long as it takes (the operator, 2026-09-13:
 an empty ground is not a reason to go home). Breaks off and walks home below the health floor
@@ -392,8 +393,12 @@ SEARCH_OUTCOMES = (
         "nothing",
         ("find nothing", "nothing of value", "nothing of interest", "nothing else"),
     ),
-    ("found", ("you find", "you search", "you get", "you pick up")),
+    ("found", ("you find", "you search", "you loot", "you get", "you pick up")),
 )
+# LOOT with no target loots the last creature fought with the goods
+# option, "the same effect as the SEARCH command" (Elanthipedia: Loot
+# command) — so the corpse noun the kill line yields is only SKIN's
+# concern. Its answers are read with SEARCH's table until captured.
 # The item a skin or a search produced: "... obtaining a rat pelt.",
 # "work loose a sterling example of a rat pelt from the rat carcass",
 # "remove a rat tail from the remains of a ship's rat" (the last two
@@ -457,6 +462,7 @@ class Tally:
         self.tactic = 0  # the rotation index
         self.tactic_misses = 0  # unrecognized maneuver answers in a row
         self.tactics_off = False  # the maneuvers refused this run, said once
+        self.loot_reported = False  # LOOT's first answer echoed for the fixtures
         self.last_track = None  # clock() of the last HUNT that read tracks (#194)
         self.tracks = 0  # HUNTs the game answered
         self.track_misses = 0  # unrecognized HUNT answers in a row
@@ -1156,15 +1162,24 @@ def grab(s, profile, before, tally):
 
 
 def dispose(s, profile, corpse, tally):
-    """A kill: skin it when profiled, then SEARCH it away — the corpse
-    keeps its noun and soaks swings until searched (docs/combat.md) —
-    and what the search left on the ground grabbed off the room's
-    listing, the answer's own wording second (the operator,
-    2026-09-23: a hunt grabs its loot whatever the game called it)."""
+    """A kill: skin it when profiled, then a bare LOOT — the last
+    creature fought, the goods option, the same effect as SEARCH
+    <corpse> (Elanthipedia: Loot command; the operator, 2026-09-23,
+    after a swing's wording gave the corpse a pronoun for a noun and
+    SEARCH THAT searched the room) — which disposes of the corpse that
+    keeps its noun and soaks swings (docs/combat.md); what it left on
+    the ground is grabbed off the room's listing, the answer's own
+    wording second (the operator, 2026-09-23: a hunt grabs its loot
+    whatever the game called it). LOOT's own lines are uncaptured: the
+    run's first answer is echoed for the fixtures."""
     if profile["skin"]:
         skin(s, profile, corpse, tally)
     before = listing(s)
-    answer = ask(s, f"search {corpse}")
+    answer = ask(s, "loot")
+    if not tally.loot_reported:
+        tally.loot_reported = True
+        first = (answer.strip().splitlines() or ["(silence)"])[0]
+        s.echo(f"hunt: loot answered {first!r}")
     outcome = classify(answer, SEARCH_OUTCOMES)
     taken = grab(s, profile, before, tally) if outcome is not None else []
     if outcome == "found":
@@ -1172,7 +1187,7 @@ def dispose(s, profile, corpse, tally):
             if item not in taken:
                 pocket(s, profile, item)
     elif outcome is None:
-        unrecognized(s, tally, "search", answer)
+        unrecognized(s, tally, "loot", answer)
 
 
 def occupants(s):
@@ -1338,8 +1353,12 @@ def swing(s, profile, tally, prey):
             tally.maneuvers += 1
             tally.tactic_misses = 0
         elif not any(
-            word in lowered for word in _ADVANCING + _NOTHING_THERE + _NEED_MELEE
+            word in lowered
+            for word in _ADVANCING + _NOTHING_THERE + _NEED_MELEE + _ALL_DEAD
         ) and not _DEAD_NOUN.search(text):
+            # A maneuver with no foe left ("There is nothing else to
+            # face!", a BOB at the bobcats 2026-09-23) is the room
+            # clearing, not a miss.
             tally.tactic_misses += 1
             unrecognized(s, tally, verb, text)
             if tally.tactic_misses >= TACTIC_MISSES:

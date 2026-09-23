@@ -52,9 +52,9 @@ Stop with:  ;stop boxes, or ;boxes return.
 """
 
 from client.game import discard, flight, probe
+from client.game import boxes as boxes_model
 from client.game.boxes import (
     DISARM_OUTCOMES,
-    HINDERED,
     LOCK_CAUTION,
     LOCK_READINGS,
     OPEN_OUTCOMES,
@@ -75,6 +75,12 @@ from client.game.loop import danger, ensure_mindstate, mindstate, pause, wants_s
 from client.game.loot import GEM_NOUNS
 from client.game.probe import classify
 from client.game.wounds import level, parse_health
+
+# A session started before client/game/boxes.py joined RELOADABLE_MODULES
+# keeps the copy it first imported (2026-09-23: the loop's first boxes
+# task failed on "cannot import name 'HINDERED'" until the relaunch);
+# the constant added since is read with a fallback.
+HINDERED = getattr(boxes_model, "HINDERED", ("hinders your attempt",))
 
 MIND_LOCK = 34
 RESUME_BELOW = 28
