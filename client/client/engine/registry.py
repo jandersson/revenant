@@ -99,36 +99,45 @@ PROBE_TIMEOUT = 3.0
 PROBE_RETRY_SECONDS = 0.5  # between the two refused probes that prune a row
 
 
-def register_session(port, character, pid=None, attached=0):
+def register_session(port, character, pid=None, attached=0, extra=None):
     """Announce a session: {port, character, pid, attached} — attached
     is the count of front ends on it, kept current by update_attached
     so the launcher's picker can tell a detached session (no window)
-    from one already on screen (#158). True when the row was written;
-    False when the registry could not be read, in which case nothing is
-    written and the session's heartbeat tries again (#160)."""
+    from one already on screen (#158) — plus `extra` keys the session
+    wants read back (`spawned_by`, `parent_port`: a helper `;train`
+    logged in, #296). True when the row was written; False when the
+    registry could not be read, in which case nothing is written and
+    the session's heartbeat tries again (#160)."""
     with _REGISTRY_LOCK:
         entries = _load_sessions()
         if entries is None:
             return False
         entries = [e for e in entries if e.get("port") != port]
-        entries.append(
-            {
-                "port": port,
-                "character": character,
-                "pid": pid or os.getpid(),
-                "attached": attached,
-            }
-        )
+        entries.append(_row(port, character, pid, attached, extra))
         _write_sessions(entries)
         return True
 
 
-def update_attached(port, count, character=None, pid=None):
+def _row(port, character, pid, attached, extra):
+    row = {
+        "port": port,
+        "character": character,
+        "pid": pid or os.getpid(),
+        "attached": attached,
+    }
+    for key, value in (extra or {}).items():
+        if value is not None and key not in row:
+            row[key] = value
+    return row
+
+
+def update_attached(port, count, character=None, pid=None, extra=None):
     """The registry row's attached-window count. With `character` the
     call also heals: a row that is missing — pruned by a busy probe, or
-    lost to a bad rewrite — is put back (#160). Without it a missing
-    row stays missing (a deregistered session must not return). False
-    when the registry could not be read; nothing is written then."""
+    lost to a bad rewrite — is put back (#160), with the same `extra`
+    keys it was registered with. Without it a missing row stays missing
+    (a deregistered session must not return). False when the registry
+    could not be read; nothing is written then."""
     with _REGISTRY_LOCK:
         entries = _load_sessions()
         if entries is None:
@@ -142,14 +151,7 @@ def update_attached(port, count, character=None, pid=None):
                 return True
         if character is None:
             return True
-        entries.append(
-            {
-                "port": port,
-                "character": character,
-                "pid": pid or os.getpid(),
-                "attached": count,
-            }
-        )
+        entries.append(_row(port, character, pid, count, extra))
         _write_sessions(entries)
         return True
 

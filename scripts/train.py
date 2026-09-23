@@ -270,7 +270,13 @@ class HelperIO:
 
         return keychain_password(account) is not None
 
-    def spawn(self, name, account):
+    def own_port(self):
+        """This loop's session port, off the registry by the character's
+        name — the parent a spawned helper watches (#296)."""
+        name = getattr(self.s.state, "name", None)
+        return helper.find_session(self.sessions(), name) if name else None
+
+    def spawn(self, name, account, parent_port=None):
         from client.engine.launch import (
             DEFAULT_HOST,
             get_free_port,
@@ -279,7 +285,15 @@ class HelperIO:
         )
 
         port = get_free_port(DEFAULT_HOST)
-        process = spawn_session(DEFAULT_HOST, port, name, key=None, account=account)
+        process = spawn_session(
+            DEFAULT_HOST,
+            port,
+            name,
+            key=None,
+            account=account,
+            spawned_by=helper.ORIGIN,
+            parent_port=parent_port,
+        )
         try:
             wait_for_session(process, DEFAULT_HOST, port, timeout=90)
         except SystemExit:
@@ -324,7 +338,7 @@ def start_helper(s, task, db, walk):
     if not spec:
         return None
     io = HelperIO(s, db)
-    active = helper.ensure(io, spec["name"], s.echo, SPAWNED)
+    active = helper.ensure(io, spec["name"], s.echo, SPAWNED, own_port=io.own_port())
     if active is None:
         return None
     if active.spawned:

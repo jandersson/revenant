@@ -33,8 +33,9 @@ class IO:
     def has_password(self, account):
         return account in self.passwords
 
-    def spawn(self, name, account):
+    def spawn(self, name, account, parent_port=None):
         self.spawned.append((name, account))
+        self.parent_ports = getattr(self, "parent_ports", []) + [parent_port]
         return self.spawn_port
 
     def send(self, port, line):
@@ -119,6 +120,42 @@ def test_a_missing_session_is_spawned_off_the_keychain_and_logged_out_after():
     found = IO(sessions=[{"port": 4250, "character": "Fallanor"}])
     again = helper.ensure(found, "Fallanor", said.append, spawned_before={"fallanor"})
     assert again.spawned is True
+
+
+def test_a_helper_an_earlier_loop_left_behind_is_adopted_and_logged_out():
+    # #296: the student's session relaunched mid-class on 2026-09-23 and
+    # the teacher stayed logged in, offering to nobody; the next loop
+    # found the session and, not having spawned it, never logged it
+    # out. The row's spawned_by mark makes it the next loop's own.
+    said = []
+    left = IO(
+        sessions=[
+            {
+                "port": 4250,
+                "character": "Sable",
+                "spawned_by": "train",
+                "parent_port": 4242,
+            }
+        ]
+    )
+    active = helper.ensure(left, "Sable", said.append)
+    assert (active.port, active.spawned) == (4250, True)
+    assert helper.finish(left, active, "teach", keep=False, echo=said.append) is True
+    assert left.sent[-1] == (4250, "\x1etrain\t;logout")
+    # A session of the operator's own (no mark) is still never logged out.
+    own = IO(sessions=[{"port": 4250, "character": "Sable"}])
+    assert helper.ensure(own, "Sable", said.append).spawned is False
+    assert (
+        helper.spawned_by_loop([{"character": "Sable", "spawned_by": "gui"}], "Sable")
+        is False
+    )
+
+
+def test_the_spawn_is_told_the_loops_own_port():
+    io = IO(accounts={"Sable": "TESTACCT"}, passwords={"TESTACCT"})
+    active = helper.ensure(io, "Sable", print, own_port=4242)
+    assert active.spawned is True
+    assert io.parent_ports == [4242]
 
 
 def test_what_cannot_be_had_is_said_and_the_task_goes_on_alone():

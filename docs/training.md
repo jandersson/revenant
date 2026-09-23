@@ -717,7 +717,14 @@ and `;listen` with no teacher named joins the first class it lists.
 "script": "listen", "args": ["fallanor", "parry ability"], "return_word": "return",
 "helper": "Fallanor", "helper_args": ["parry ability", "to",
 "cecil"], "helper_room": "7890"}`: the loop logs the teacher in
-for the task and out after it (the `helper` keys above), and one
+for the task and out after it (the `helper` keys above) — and a
+teacher an earlier loop left behind is logged out too: the spawn
+marks the session's registry row (`spawned_by: train`, the student's
+`parent_port`), the next loop treats a marked session as its own, and
+the session itself logs out once the student's port has refused two
+heartbeats in a row (a minute or so; a relaunch within one beat keeps
+it), after Fallanor stood offering a class to nobody when Cecil's
+session was relaunched mid-class (#296, 2026-09-23) — and one
 class trains two skills — the student learns Scholarship for
 listening whatever is taught, so a class replaces the books (the
 operator, 2026-09-22). Its rest walks away and ends the class, and

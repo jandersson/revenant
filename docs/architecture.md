@@ -436,7 +436,9 @@ entries from a dock-layout module.
   register in ~/.revenant/sessions.json (client/engine/registry.py: rows
   written atomically, a failed read never rewritten, a row pruned only
   when its port refuses twice, and the session re-asserting its own
-  row every thirty seconds, #160), `revenant <name>` attaches to that character's
+  row every thirty seconds, #160; a session `;train` spawned for a
+  task carries `spawned_by` and `parent_port` and logs itself out
+  once the parent's port has refused two heartbeats, #296), `revenant <name>` attaches to that character's
   session or spawns on a free port, and `--pick` (the Start Menu
   shortcut) offers running sessions to attach plus every cached
   character on every account to launch (#58). The session keeps an

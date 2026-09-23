@@ -44,6 +44,7 @@ from client.engine.scripting import ScriptManager
 
 from client.engine.registry import (
     HEARTBEAT_SECONDS,
+    _probe,
     deregister_session,
     register_session,
     update_attached,
@@ -78,6 +79,10 @@ READER_FAILURES = (
 # Ten minutes with no byte from the game and the heartbeat writes one
 # TIME (#221): a link dead without a FIN went 52 minutes unnoticed.
 SILENCE_PROBE_SECONDS = 600
+# A spawned helper session logs itself out after this many heartbeats
+# in a row find the spawning session's port refusing (#296): one beat
+# is a relaunch in progress, two is a session that is gone.
+PARENT_REFUSALS = 2
 # What the session says on the script stream just before it ends on
 # purpose; a frontend that heard it treats the EOF as expected.
 SESSION_ENDING = (
@@ -118,6 +123,14 @@ class SessionServer(ClientLogger):
         # (#152). The parser styles the line "alert" (#42).
         self.idle_warned = False
         self._silence_probed = False  # one TIME per stretch of silence (#221)
+        # A session a loop logged in for a task (#296): the row says who
+        # spawned it, and the heartbeat watches the spawning session's
+        # port — gone for two beats, this session logs itself out.
+        self.spawned_by = os.environ.get("REVENANT_SPAWNED_BY") or None
+        self.parent_port = None
+        if self.spawned_by and os.environ.get("REVENANT_PARENT_PORT", "").isdigit():
+            self.parent_port = int(os.environ["REVENANT_PARENT_PORT"])
+        self.parent_refusals = 0
         self.engine = Engine()
         self.engine.connection = game_connection
 
@@ -142,7 +155,9 @@ class SessionServer(ClientLogger):
         # character name comes from the spawn env (frontends learn it
         # from the "character" stream instead).
         self.character = os.environ.get("REVENANT_CHARACTER") or "unknown"
-        if not register_session(self.bound_port, self.character):
+        if not register_session(
+            self.bound_port, self.character, extra=self._registry_extra()
+        ):
             self.log.warning("session registry unreadable at start; heartbeat retries")
         self.log.info(f"Session listening on {self.host}:{self.bound_port}")
         Thread(target=self.game_reader, daemon=True).start()
@@ -690,10 +705,50 @@ class SessionServer(ClientLogger):
             count = len(self.clients)
         try:
             update_attached(
-                port, count, character=getattr(self, "character", None) or "unknown"
+                port,
+                count,
+                character=getattr(self, "character", None) or "unknown",
+                extra=self._registry_extra(),
             )
         except OSError:
             self.log.exception("could not update the session registry")
+
+    def _registry_extra(self):
+        """The row keys beyond the four every session has: who spawned
+        this one and on which port, for a helper `;train` logged in
+        (#296); {} for a session of the operator's own."""
+        spawned_by = getattr(self, "spawned_by", None)
+        if not spawned_by:
+            return {}
+        return {
+            "spawned_by": spawned_by,
+            "parent_port": getattr(self, "parent_port", None),
+        }
+
+    def _check_parent(self):
+        """A spawned session whose spawning session is gone logs itself
+        out (#296): the parent's port probed once a heartbeat, and after
+        PARENT_REFUSALS refusals in a row — a relaunch within a beat or
+        two keeps it, the way the registry keeps a busy row — the
+        logout script QUITs from inside. A timeout is not a refusal."""
+        parent = getattr(self, "parent_port", None)
+        if not parent or not self.running or self._handoff.is_set():
+            return
+        if _probe(self.host, parent) == "refused":
+            self.parent_refusals += 1
+        else:
+            self.parent_refusals = 0
+            return
+        if self.parent_refusals < PARENT_REFUSALS:
+            return
+        self.parent_port = None  # once
+        why = (
+            f"session: spawned by {self.spawned_by} and its session "
+            f"(port {parent}) is gone — logging out"
+        )
+        self.log.warning(why)
+        self.broadcast(f"{why}\n", "", "alert")
+        self.scripts.start("logout", [])
 
     def _registry_heartbeat(self):
         """Re-assert this session's registry row every HEARTBEAT_SECONDS,
@@ -706,6 +761,7 @@ class SessionServer(ClientLogger):
             if self.running:
                 self._note_attached()
                 self._probe_silence()
+                self._check_parent()
 
     def _probe_silence(self):
         """One TIME after SILENCE_PROBE_SECONDS with no byte from the game

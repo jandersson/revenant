@@ -125,3 +125,29 @@ def test_character_for_port_reads_the_registry(monkeypatch, tmp_path):
 def test_character_for_port_is_none_without_a_registry(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_SESSIONS", str(tmp_path / "missing.json"))
     assert registry.character_for_port(4242) is None
+
+
+def test_a_spawned_sessions_row_keeps_its_mark_through_a_heal(monkeypatch, tmp_path):
+    # #296: a helper `;train` logged in says who spawned it and on
+    # which port; the mark survives the heartbeat putting a lost row
+    # back, and a session of the operator's own carries no such keys.
+    path = _registry(monkeypatch, tmp_path, [])
+    extra = {"spawned_by": "train", "parent_port": 4242, "nothing": None}
+    assert registry.register_session(4250, "Sable", pid=7, extra=extra)
+    (row,) = json.loads(path.read_text())
+    assert row == {
+        "port": 4250,
+        "character": "Sable",
+        "pid": 7,
+        "attached": 0,
+        "spawned_by": "train",
+        "parent_port": 4242,
+    }
+    path.write_text("[]")  # the row lost to a bad rewrite
+    assert registry.update_attached(4250, 1, character="Sable", pid=7, extra=extra)
+    (healed,) = json.loads(path.read_text())
+    assert healed["spawned_by"] == "train" and healed["parent_port"] == 4242
+    assert healed["attached"] == 1
+    assert registry.register_session(4242, "Lanival", pid=1)
+    plain = next(r for r in json.loads(path.read_text()) if r["port"] == 4242)
+    assert "spawned_by" not in plain

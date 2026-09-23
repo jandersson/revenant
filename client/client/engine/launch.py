@@ -211,12 +211,23 @@ def gather_login(character, fresh_account=False, account=None):
         return account, character, key
 
 
-def spawn_session(host, port, character, key=None, account=None):
+def spawn_session(
+    host, port, character, key=None, account=None, spawned_by=None, parent_port=None
+):
     env = dict(os.environ, REVENANT_CHARACTER=character)
     if account:
         # The session's own login (the keychain-silent path) must use
         # the launcher's chosen account, not the saved default.
         env["REVENANT_ACCOUNT"] = account
+    # A session a loop logged in for a task (#296): it marks its registry
+    # row with who spawned it and logs itself out once the spawning
+    # session's port refuses twice (session.PARENT_REFUSALS).
+    env.pop("REVENANT_SPAWNED_BY", None)
+    env.pop("REVENANT_PARENT_PORT", None)
+    if spawned_by:
+        env["REVENANT_SPAWNED_BY"] = str(spawned_by)
+        if parent_port:
+            env["REVENANT_PARENT_PORT"] = str(parent_port)
     # From source: python -m client.engine.session; in a packaged build the
     # one executable plays the session role (client/engine/procspawn.py, #60).
     command = command_for("client.engine.session", "--host", host, "--port", str(port))

@@ -83,6 +83,45 @@ def test_a_long_silence_gets_one_time_probe_and_a_dead_link_ends_the_session():
     server.game.closed = True
 
 
+def test_a_spawned_session_logs_out_once_its_parent_refuses_twice(monkeypatch):
+    # #296: the teacher `;train` logged in outlived the student's
+    # relaunched session on 2026-09-23. A session spawned with a parent
+    # port probes it every heartbeat: one refusal is a relaunch in
+    # progress, the second starts ;logout; a live parent resets the count.
+    parent = socket.create_server(("127.0.0.1", 0))
+    parent_port = parent.getsockname()[1]
+    monkeypatch.setenv("REVENANT_SPAWNED_BY", "train")
+    monkeypatch.setenv("REVENANT_PARENT_PORT", str(parent_port))
+    game = FakeGame()
+    server = session.SessionServer(game, port=0)  # serve() never called
+    server.running = True
+    server.spawned_by = "train"
+    server.parent_port = parent_port
+    started = []
+    monkeypatch.setattr(
+        server.scripts, "start", lambda name, args: started.append(name)
+    )
+    monkeypatch.setattr(server, "broadcast", lambda *args, **kwargs: None)
+    server._check_parent()
+    assert started == [] and server.parent_refusals == 0  # alive
+    parent.close()  # the parent gone: refused from now on
+    server._check_parent()
+    assert started == [] and server.parent_refusals == 1
+    server._check_parent()
+    assert started == ["logout"]
+    server._check_parent()
+    assert started == ["logout"]  # once
+    # A session of the operator's own never probes anything.
+    plain = session.SessionServer(FakeGame(), port=0)
+    plain.running = True
+    plain.spawned_by = None
+    plain.parent_port = None
+    plain._check_parent()
+    assert plain.parent_refusals == 0
+    assert server._registry_extra() == {"spawned_by": "train", "parent_port": None}
+    assert plain._registry_extra() == {}
+
+
 _STARTED = []  # every server a test started, shut down after it (#246)
 
 

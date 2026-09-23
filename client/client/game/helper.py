@@ -11,6 +11,13 @@ to cecil` — and, when the task ends, given the script's return word;
 a session this loop spawned is logged out through `;logout` (QUIT
 from inside, the policy refuses one from outside) unless the next
 task names the same helper, so two classes in a row share one login.
+The spawn tells the session who spawned it and on which port
+(`REVENANT_SPAWNED_BY`, `REVENANT_PARENT_PORT`, #296): its registry
+row carries the mark, so a later loop treats the helper an earlier
+loop left behind as its own to log out, and the session itself logs
+out once the spawning session's port has refused two heartbeats in a
+row — a teacher offering a class to nobody after the student's
+session was relaunched (2026-09-23) is gone within a minute or two.
 Every line to the helper goes through the wire tagged "train", so its
 window reads `>> [train] ...`. A helper that cannot be had — no
 account cached for the name, no password in the keychain, a session
@@ -75,15 +82,30 @@ def keeps(next_task, name):
     return bool(spec) and spec["name"].lower() == name.lower()
 
 
-def ensure(io, name, echo, spawned_before=()):
+def spawned_by_loop(sessions, name):
+    """True when the registered session playing `name` was spawned by
+    a training loop (its row's `spawned_by`, #296) — an earlier loop's
+    helper, this loop's to log out."""
+    for entry in sessions or []:
+        if str(entry.get("character") or "").lower() == name.lower():
+            return str(entry.get("spawned_by") or "") == ORIGIN
+    return False
+
+
+def ensure(io, name, echo, spawned_before=(), own_port=None):
     """The helper's session — found, or spawned off the keychain — as a
     Helper; None, said, when it cannot be had. A session found that
-    this loop spawned for an earlier task (`spawned_before`) stays
-    the loop's to log out."""
-    port = find_session(io.sessions(), name)
+    this loop spawned for an earlier task (`spawned_before`), or that
+    any loop spawned (its registry row's `spawned_by`, #296: the
+    teacher an earlier loop left behind when its session was
+    relaunched), stays the loop's to log out. `own_port` is this loop's
+    session, given to the spawn so the helper can tell when it is
+    gone."""
+    sessions = io.sessions()
+    port = find_session(sessions, name)
     if port:
         mine = name.lower() in {str(n).lower() for n in spawned_before}
-        return Helper(name, port, spawned=mine)
+        return Helper(name, port, spawned=mine or spawned_by_loop(sessions, name))
     account = io.account_for(name)
     if not account:
         echo(f"train: no account cached for {name} — log {name} in once by hand")
@@ -95,7 +117,7 @@ def ensure(io, name, echo, spawned_before=()):
         )
         return None
     echo(f"train: logging {name} in")
-    port = io.spawn(name, account)
+    port = io.spawn(name, account, own_port)
     if port is None:
         echo(f"train: {name}'s session did not come up")
         return None

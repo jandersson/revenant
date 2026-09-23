@@ -553,3 +553,26 @@ def test_rebrand_is_a_noop_when_already_branded(monkeypatch, tmp_path):
 
     monkeypatch.setattr(launch.os, "execv", boom)
     launch.rebrand_for_dock()
+
+
+def test_a_spawned_helper_session_learns_who_spawned_it(monkeypatch):
+    # #296: the loop's spawn marks the session; a plain spawn carries no
+    # mark, and never inherits one from the spawning process's own env.
+    spawned = []
+
+    class Popen:
+        def __init__(self, command, env=None, **kwargs):
+            spawned.append(env)
+
+    monkeypatch.setattr(launch.subprocess, "Popen", Popen)
+    monkeypatch.setenv("REVENANT_SPAWNED_BY", "stale")
+    monkeypatch.setenv("REVENANT_PARENT_PORT", "1")
+    launch.spawn_session(
+        "127.0.0.1", 4250, "Sable", spawned_by="train", parent_port=4242
+    )
+    launch.spawn_session("127.0.0.1", 4251, "Sable")
+    marked, plain = spawned
+    assert marked["REVENANT_CHARACTER"] == "Sable"
+    assert marked["REVENANT_SPAWNED_BY"] == "train"
+    assert marked["REVENANT_PARENT_PORT"] == "4242"
+    assert "REVENANT_SPAWNED_BY" not in plain and "REVENANT_PARENT_PORT" not in plain
