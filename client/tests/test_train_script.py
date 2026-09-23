@@ -298,6 +298,61 @@ def test_after_training_the_loop_walks_to_the_safe_room_and_rests(clock):
     ]
 
 
+def test_a_rest_opens_with_the_drain_models_guess(clock, monkeypatch):
+    # Athletics at 30 and 20 buckets above the floor of 10, tertiary for
+    # a Paladin at rank 72: 20 / 0.65 pulses of 200 s, about 103 min (#300).
+    def trained(fake):
+        fake.state.experience = {
+            "Athletics": {"rank": 72, "percent": 0, "mindstate": 30},
+            "Small Edged": {"rank": 41, "percent": 0, "mindstate": 30},
+        }
+
+    monkeypatch.setattr(train, "drain_inputs", lambda name: ("Paladin", 15))
+    fake = run(clock, Fake([trained, {"Athletics": 10}]), plan(safe_rooms=["home"]))
+    assert (
+        "train: the drain model expects about 103 min — Athletics drains last"
+        in fake.echoed
+    )
+
+
+def test_a_rest_without_a_known_guild_says_no_guess(clock, monkeypatch):
+    monkeypatch.setattr(train, "drain_inputs", lambda name: (None, None))
+    fake = run(
+        clock, Fake([{"Athletics": 30, "Small Edged": 30}, {"Athletics": 10}]), plan()
+    )
+    assert not any("drain model" in text for text in fake.echoed)
+
+
+def test_guild_and_wisdom_come_from_the_latest_sheet_snapshot(monkeypatch, tmp_path):
+    import sqlite3
+
+    path = tmp_path / "history.db"
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(path))
+    assert train.drain_inputs("Lanival") == (None, None)  # no tables yet
+    connection = sqlite3.connect(path)
+    connection.execute("CREATE TABLE character (character_name, logged_at, guild)")
+    connection.execute("CREATE TABLE stats (character_name, logged_at, stat, value)")
+    connection.executemany(
+        "INSERT INTO character VALUES (?, ?, ?)",
+        [
+            ("Lanival", "2026-09-01T00:00:00", "Commoner"),
+            ("Lanival", "2026-09-20T00:00:00", "Paladin"),
+            ("Sable", "2026-09-21T00:00:00", "Moon Mage"),
+        ],
+    )
+    connection.executemany(
+        "INSERT INTO stats VALUES (?, ?, ?, ?)",
+        [
+            ("Lanival", "2026-09-01T00:00:00", "Wisdom", 10),
+            ("Lanival", "2026-09-20T00:00:00", "Wisdom", 15),
+            ("Lanival", "2026-09-20T00:00:00", "Strength", 20),
+        ],
+    )
+    connection.commit()
+    connection.close()
+    assert train.drain_inputs("Lanival") == ("Paladin", 15)
+
+
 def test_safe_rooms_rotate_cycle_by_cycle(clock):
     trained = {"Athletics": 30, "Small Edged": 30}
     drained = {"Athletics": 0, "Small Edged": 0}

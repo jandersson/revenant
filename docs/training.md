@@ -70,7 +70,8 @@ loop learns it.
 2. **Rest.** With every task trained, walk to the next safe room, send
    the rest commands, and hold, polling the exp window, until every
    skill the plan trains has drained to `rest_until` or below (or the
-   cap). `;train skip` ends the rest early; `;train rest` while
+   cap). The rest's first line after "resting until" is the drain
+   model's guess at its length (`client/game/drain.py`, #300). `;train skip` ends the rest early; `;train rest` while
    training starts it early.
 3. **Again**, until the cycles run out or `;stop train` — which stops
    the running task's script too.
@@ -154,7 +155,13 @@ The `tdps` task is the same spending as a task: `;tdp plan` reads the plan's `td
 - **Draining is one floor for every skill.** Skills drain at different
   rates; `rest_until` is checked against every tracked skill, so the
   slowest one sets the rest's length. `rest_minutes` caps it, and a
-  higher floor shortens every rest.
+  higher floor shortens every rest. The rates are measured: a
+  Paladin's tertiary skill drains 0.65 buckets a 200-second pulse, a
+  secondary 0.91, a primary 1.14 (experience.md, "How fast a pool
+  drains", #300), and the rest opens with the drain model's guess —
+  "the drain model expects about 103 min — Athletics drains last" —
+  from the guild and Wisdom in the latest `;sheet` snapshot. A tertiary skill at
+  34 takes about 1 h 50 min to reach 10.
 - **A stopped script leaves the character wherever it was.** A task
   without a return word is killed mid-action; the next task's script
   starts from there (the bundled trainers walk to their own spots).

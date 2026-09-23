@@ -195,7 +195,11 @@ for `client/client/<pkg>/x.py`.
   writes a starter): tasks tying skills to the script or command loop
   that trains them, the target mindstate, the safe rooms, the rest
   floor. The pure decisions (next task, satisfied, rested, safe-room
-  rotation) live here; `scripts/train.py` is the loop, orchestrating
+  rotation) live here; `client/game/drain.py` is how fast a pool
+  drains — linear, 1.14 / 0.91 / 0.65 buckets a 200 s pulse for a
+  primary / secondary / tertiary skill, fitted from ;xp's rows, the
+  guilds' skillset table beside it — and a rest opens with its guess
+  at the rest's length (#300); `scripts/train.py` is the loop, orchestrating
   other scripts through the handle's `run`/`is_running`/`tell`/`kill`,
   and with the plan's `soul: on` runs the soul deeds (`;soul badge`,
   `tithe`, `pray`) in its rests, taking a hand-started `;soul keep`

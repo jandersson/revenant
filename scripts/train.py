@@ -10,7 +10,10 @@ the target or its time budget runs out. When every task is trained it
 walks to a safe room (several rotate, rest by rest), sends the rest
 commands (sit), and holds until every trained skill has drained to
 the rest floor — that is when the pool converts to ranks — then
-starts the next cycle. Death ends the loop (deathwatch has it); a
+starts the next cycle. A rest opens with the drain model's guess
+at its length (client/game/drain.py, #300: the guild's skillset tiers
+and the rates fitted from ;xp's rows); the exp window still ends it.
+Death ends the loop (deathwatch has it); a
 task's own script handles its own danger, and hostiles at the rest
 send it to the next safe room — or, with one or none, out of the
 room to rest next door, and after a few such moves the rest is given
@@ -44,9 +47,11 @@ its return word — the hunt finishes the kill and walks home — a rest
 ends, and ;train stops with a word to start it again after.
 """
 
+import sqlite3
 import time
 
-from client.game import flight, helper
+from client.game import drain, flight, helper
+from client.game.history import database_path
 
 from client.game.training import (
     describe,
@@ -62,6 +67,7 @@ from client.game.training import (
     task_minutes,
     task_mindstates,
     task_target,
+    tracked_skills,
     validate,
 )
 
@@ -565,6 +571,46 @@ def tdp_step(s, plan, quote):
     return True
 
 
+def drain_inputs(name):
+    """(guild, Wisdom) from the latest ;sheet snapshot in history.db,
+    each None without one."""
+    queries = (
+        "SELECT guild FROM character WHERE character_name = ?"
+        " AND guild IS NOT NULL ORDER BY logged_at DESC LIMIT 1",
+        "SELECT value FROM stats WHERE character_name = ?"
+        " AND stat = 'Wisdom' ORDER BY logged_at DESC LIMIT 1",
+    )
+    answers = []
+    try:
+        connection = sqlite3.connect(database_path())
+    except sqlite3.Error:
+        return None, None
+    try:
+        for query in queries:
+            try:
+                row = connection.execute(query, (name,)).fetchone()
+            except sqlite3.Error:
+                row = None  # no table yet: ;sheet has never run here
+            answers.append(row[0] if row else None)
+    finally:
+        connection.close()
+    return tuple(answers)
+
+
+def drain_note(s, plan):
+    """The drain model's guess at the rest's length (#300), or None for
+    a guild or skill the model does not place, or nothing to drain. A
+    guess only: the rest still ends on the exp window."""
+    guild, wisdom = drain_inputs(getattr(s.state, "name", None) or "")
+    estimate = drain.rest_estimate(
+        experience(s), tracked_skills(plan), plan["rest_until"], guild, wisdom
+    )
+    if not estimate or estimate[1] is None:
+        return None
+    minutes, skill = estimate
+    return f"train: the drain model expects about {round(minutes)} min — {skill} drains last"
+
+
 def rest(s, plan, db, walk, index):
     """The rest: to the index-th safe room, the rest commands, then hold
     until every trained skill has drained (or the cap). Returns the
@@ -577,6 +623,9 @@ def rest(s, plan, db, walk, index):
     cap = plan["rest_minutes"]
     until = f"every trained skill is at {plan['rest_until']}/34 or below"
     s.echo(f"train: resting until {until}" + (f" (at most {cap} min)" if cap else ""))
+    estimate = drain_note(s, plan)
+    if estimate:
+        s.echo(estimate)
     started = clock()
     moves = 0
     bought = 0

@@ -424,6 +424,7 @@ RELOADABLE_MODULES = (
     "client.game.buffs",
     "client.game.profile",
     "client.game.training",  # binds names from profile: after it
+    "client.game.drain",
     "client.game.tdp",
     "client.game.money",
     "client.game.bank",  # binds names from money and soul: after them

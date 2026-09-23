@@ -166,7 +166,9 @@ entries from a dock-layout module.
   (~/.revenant/training/<name>.json) that starts each task's script
   (;athletics, ;hunt) or cycles its commands until the task's skills
   reach the target mindstate, then rests in a safe room until they
-  drain (docs/training.md). `scripts/cast.py` (`;cast`, #225) runs
+  drain (docs/training.md) — a rest opening with
+  `client/game/drain.py`'s guess at its length, the pulse rates
+  fitted from ;xp's mindstate rows (docs/experience.md, #300). `scripts/cast.py` (`;cast`, #225) runs
   the hunt's cast loop standing still — the first buff on the mana
   ramp with the cambrinth, a POWER a minute — for the idle stretches
   (docs/training.md). `scripts/soul.py` (`;soul`) keeps a
