@@ -238,7 +238,8 @@ for `client/client/<pkg>/x.py`.
   `lockpick_ring`), open, loot out, the empty box binned through
   discard.py (so `droppable` must list the box nouns), a longshot
   reading put back, a sprung trap judged by the health and wound
-  floors.
+  floors, the profile's `hindering_gear` (knuckles, gauntlets) off
+  before the first box and worn back after, even after a `;stop`.
   `client/game/remedies.py` is the Remedies craft — the chapter-3
   salves and their herbs, CRUSH's captured answers — and
   `scripts/remedies.py` crushes a salve step by step for Alchemy,

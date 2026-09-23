@@ -539,7 +539,17 @@ the kept boxes are gone round again while the skill climbs, and
 `boxes` task sits in Cecil's plan after the skins (2026-09-23,
 `{"skills": ["Locksmithing"], "script": "boxes", "return_word":
 "return"}`). Worn plate and brass knuckles hinder every attempt ("Your
-armor hinders your attempt."), said once a run.
+armor hinders your attempt." / "Your brass knuckles hinders your
+attempt."; the wiki: Locksmithing is especially hindered by armor and
+brawling gear on the hands), so the profile's `hindering_gear`
+(`["knuckles", "gauntlets"]` for Cecil) comes off before the first box —
+REMOVE, judged by the piece landing in a hand since REMOVE's wordings
+are uncaptured, then STOW — and goes back on when the run ends, however
+it ends (GET, WEAR: "You slide some brass knuckles onto your hands and
+clench your fists to secure the fit.", "You slip some plate gauntlets
+onto your hands."; after `;stop boxes` the puts go out blind as
+cleanup). A piece that will not come off or go back on is said;
+whatever still hinders after that is said once a run.
 
 ## The maintenance shutdown
 

@@ -233,3 +233,32 @@ def test_the_first_live_runs_answers_read_as_the_tables_say():
     assert classify(CAPTURED_PRAYER, DISARM_OUTCOMES) is None  # a reading, no outcome
     assert any(word in CAPTURED_PRAYER.lower() for word in HINDERED)
     assert not any(word in CAPTURED_MINIMAL.lower() for word in HINDERED)
+
+
+# WEAR's answers for the gear that hinders, captured 2026-09-23 (the
+# knuckles and gauntlets Cecil wears, off for the boxes and back after).
+CAPTURED_KNUCKLES_ON = (
+    "You slide some brass knuckles onto your hands and clench your fists to "
+    "secure the fit.\n"
+)
+CAPTURED_GAUNTLETS_ON = "You slip some plate gauntlets onto your hands.\n"
+
+
+def test_the_hindering_gear_is_the_profiles_list_cleaned_in_order():
+    from client.game.boxes import hindering_gear
+
+    assert hindering_gear({}) == []
+    assert hindering_gear({"hindering_gear": []}) == []
+    assert hindering_gear({"hindering_gear": [" Knuckles", "gauntlets", ""]}) == [
+        "knuckles",
+        "gauntlets",
+    ]
+    assert hindering_gear({"hindering_gear": ["knuckles", "knuckles"]}) == ["knuckles"]
+
+
+def test_the_wear_back_lines_read_as_worn():
+    from client.game.boxes import WORN
+
+    assert any(word in CAPTURED_KNUCKLES_ON.lower() for word in WORN)
+    assert any(word in CAPTURED_GAUNTLETS_ON.lower() for word in WORN)
+    assert not any(word in "What were you referring to?\n".lower() for word in WORN)

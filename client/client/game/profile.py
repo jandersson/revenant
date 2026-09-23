@@ -160,6 +160,10 @@ DEFAULTS = {
     # held (#293). Ragge's Locksmithing in the Crossing sells both.
     "lockpick": "lockpick",
     "lockpick_ring": "",
+    # The worn gear that hinders every DISARM and PICK ("Your brass
+    # knuckles hinders your attempt."): ;boxes REMOVEs and stows each
+    # noun before the first box and WEARs it back after (#293).
+    "hindering_gear": [],
 }
 
 # (key, label, kind, help) — kind is "bool", "int", "str" or "list".
@@ -299,6 +303,12 @@ FIELDS = (
         "Worn lockpick ring (its top pick is used)",
         "str",
         "ring — empty: the lockpick is held",
+    ),
+    (
+        "hindering_gear",
+        "Taken off for ;boxes (hinders picking)",
+        "list",
+        "knuckles, gauntlets — worn back after",
     ),
 )
 

@@ -33,6 +33,13 @@ box into the room's bucket through client/game/discard.py, which only
 takes a noun settings.json's `droppable` lists (box, coffer, chest...);
 a box not on the list goes back into the container and is said. It sits
 first (the wiki: kneeling or sitting helps) and stands at the end.
+Armor and brawling gear on the hands hinder every attempt ("Your brass
+knuckles hinders your attempt.", captured 2026-09-23): each noun in the
+profile's `hindering_gear` (knuckles, gauntlets) is REMOVEd and stowed
+before the first box — judged by the piece landing in a hand, whatever
+the game says — and GOT and worn back when the run ends, however it
+ends; a piece that would not come off or go back on is said. Whatever
+still hinders after that is said once.
 
 A sprung trap is said with its line; the stun is waited out, and a
 health below the profile's `health_floor` or a wound at its
@@ -51,6 +58,7 @@ the first answer of each kind in a run is echoed as
 Stop with:  ;stop boxes, or ;boxes return.
 """
 
+from client.engine.scripting import ScriptStopped
 from client.game import discard, flight, probe
 from client.game import boxes as boxes_model
 from client.game.boxes import (
@@ -79,8 +87,17 @@ from client.game.wounds import level, parse_health
 # A session started before client/game/boxes.py joined RELOADABLE_MODULES
 # keeps the copy it first imported (2026-09-23: the loop's first boxes
 # task failed on "cannot import name 'HINDERED'" until the relaunch);
-# the constant added since is read with a fallback.
+# the constants added since are read with a fallback.
 HINDERED = getattr(boxes_model, "HINDERED", ("hinders your attempt",))
+WORN = getattr(boxes_model, "WORN", ("onto your hands", "you slip", "you slide"))
+
+
+def hindering_gear(profile):
+    reader = getattr(boxes_model, "hindering_gear", None)
+    if reader is not None:
+        return reader(profile)
+    return [str(item).strip().lower() for item in profile.get("hindering_gear") or []]
+
 
 MIND_LOCK = 34
 RESUME_BELOW = 28
@@ -115,6 +132,7 @@ class Run:
         self.opened = 0
         self.practised = 0  # identifies on boxes past the reading
         self.pick_in_hand = False
+        self.doffed = []  # the hindering gear taken off, in order
 
     def say(self, text):
         self.s.echo(f"boxes: {text}")
@@ -142,6 +160,74 @@ def hindrance(run, answer):
     if lines:
         run.reported.add("hindered")
         run.say(f"{' '.join(lines)} — remove it for better odds")
+
+
+def in_hand(s, noun):
+    """Whether the parser's hand state shows the noun in either hand."""
+    return any(
+        (getattr(s.state, side, None) or {}).get("noun") == noun
+        for side in ("left_hand", "right_hand")
+    )
+
+
+def doff(run):
+    """The profile's hindering gear off and stowed before the first box:
+    REMOVE MY <noun>, judged by the piece landing in a hand (REMOVE's
+    wordings are uncaptured, 2026-09-23), then STOW; a piece that stays
+    on is said with the game's line and left."""
+    s = run.s
+    for noun in hindering_gear(run.profile):
+        free_other_hand(run, "")
+        answer = ask(s, f"remove my {noun}")
+        s.waitrt()
+        if not in_hand(s, noun):
+            first = (answer.strip().splitlines() or ["(silence)"])[0]
+            run.say(f"the {noun} did not come off — {first!r}")
+            continue
+        ask(s, f"stow my {noun}")
+        run.doffed.append(noun)
+    if run.doffed:
+        run.say(f"off and stowed: {', '.join(run.doffed)} — worn back at the end")
+
+
+def don(run):
+    """The gear taken off worn back, last off first: GET MY <noun>, WEAR
+    MY <noun>; a piece that will not go on is stowed and said. After a
+    `;stop boxes` every read raises, so the rest goes out blind as
+    cleanup puts — the gear is never left in the sack."""
+    s = run.s
+    try:
+        don_reading(run)
+    except ScriptStopped:
+        for noun in reversed(run.doffed):
+            s.put(f"get my {noun}", cleanup=True)
+            s.put(f"wear my {noun}", cleanup=True)
+        run.doffed = []
+        raise
+
+
+def don_reading(run):
+    s = run.s
+    worn = []
+    while run.doffed:
+        noun = run.doffed.pop()
+        free_other_hand(run, "")
+        ask(s, f"get my {noun}")
+        if not in_hand(s, noun):
+            run.say(f"the {noun} is nowhere to be worn back — please look for it")
+            continue
+        answer = ask(s, f"wear my {noun}")
+        s.waitrt()
+        if in_hand(s, noun):
+            first = (answer.strip().splitlines() or ["(silence)"])[0]
+            run.say(f"the {noun} would not go back on — {first!r} — stowed instead")
+            ask(s, f"stow my {noun}")
+            continue
+        if not any(word in answer.lower() for word in WORN):
+            run.report("wear", f"wear my {noun}", answer)  # a new wording
+        worn.append(noun)
+    if worn:
+        run.say(f"worn back: {', '.join(worn)}")
 
 
 def wound_floor(profile):
@@ -596,8 +682,9 @@ def run_loop(s, profile, options):
         run.say(f"no boxes in the {run.container} — nothing to pick")
         return
     run.say(f"{len(nouns)} box(es) in the {run.container} — {SKILL} {value}/34")
-    sit(run)
     try:
+        doff(run)
+        sit(run)
         # Laps through the boxes: the kept ones are practised on again
         # while the skill still climbs, so a task under ;train fills its
         # budget instead of ending on two too-hard boxes.
@@ -651,6 +738,7 @@ def run_loop(s, profile, options):
         )
     finally:
         put_pick_away(run)
+        don(run)
         stand(run)
 
 

@@ -14,7 +14,10 @@ experience: CAREFUL is slowest and safest, plain is the middle, QUICK
 is faster and riskier, BLIND riskier still — a sprung trap hurts, and a
 reading of "longshot" or worse is a box for a better locksmith.
 Kneeling or sitting helps (the wiki's advice; dr-scripts' pick.lic
-sits by default), and armor on the hands hinders.
+sits by default), and armor and brawling gear on the hands hinder
+("Your brass knuckles hinders your attempt."): the profile's
+`hindering_gear` (knuckles, gauntlets) comes off before the first box
+and goes back on after (`hindering_gear`, WORN).
 
 The seventeen readings are the wiki's Locksmithing table, cut to the
 fragment that tells them apart (TRAP_READINGS, LOCK_READINGS); the
@@ -156,8 +159,29 @@ INJURED = ("no shape to be disarming",)
 # Worn armor and brawling gear on the hands hinder every DISARM and PICK
 # (the wiki's warning; captured 2026-09-23 in the Chambers: "Your armor
 # hinders your attempt." / "Your brass knuckles hinders your attempt."),
-# said once a run so the operator can take them off.
+# said once a run when something still hinders after the profile's
+# `hindering_gear` is off.
 HINDERED = ("hinders your attempt",)
+# WEAR's answer when a piece of that gear goes back on (captured
+# 2026-09-23: "You slide some brass knuckles onto your hands and clench
+# your fists to secure the fit." / "You slip some plate gauntlets onto
+# your hands."); anything else leaves it in hand, and the script stows
+# it and says so.
+WORN = ("onto your hands", "you slip", "you slide", "you put on", "you wear")
+
+
+def hindering_gear(profile):
+    """The profile's `hindering_gear` as clean nouns, in order, no
+    repeats: what ;boxes REMOVEs before the first box and WEARs back
+    after (knuckles, gauntlets)."""
+    seen = []
+    for item in profile.get("hindering_gear") or []:
+        noun = str(item).strip().lower()
+        if noun and noun not in seen:
+            seen.append(noun)
+    return seen
+
+
 LOST = ("need to have the item in your hands", "disarm what", "what were you referring")
 IDENTIFY_FAILED = ("fails to reveal to you what type of trap", "something to shift")
 # A box whose last trap is down answers IDENTIFY with the disarmed
