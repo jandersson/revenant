@@ -530,15 +530,20 @@ pick ON the ring, WEAR the ring (bought for Cecil 2026-09-23). The
 first live run that day: two grendel boxes at Locksmithing 1 read as
 12/17 and 13/17 (a lumpy green rune, the frog trap) and went back
 into the sack, yet the five IDENTIFYs and one careful DISARM took the
-skill from 0/34 to 2/34 — a box past the reading still trains. So a
-box past the reading is practised on before it goes back: DISARM
-IDENTIFY over and over (no attempt springs the trap; a careless one
-shifts it), up to forty rounds, until the skill reaches the target;
-the kept boxes are gone round again while the skill climbs, and
-`nopractice` skips it. That is the low-rank way in, and the reason a
-`boxes` task sits in Cecil's plan after the skins (2026-09-23,
-`{"skills": ["Locksmithing"], "script": "boxes", "return_word":
-"return"}`). Worn plate and brass knuckles hinder every attempt ("Your
+skill from 0/34 to 2/34 — which the evening's run showed was the one
+careful DISARM, not the identifies: a practice mode that re-ran
+DISARM IDENTIFY on a box past the reading sent eighty of them in
+forty seconds (the game answers an identify of a trap already read
+at once, with no roundtime — the wiki: only the last trap already
+disarmed costs a small one) and left Locksmithing at 0/34, so the
+mode is gone. A box past the reading goes straight back into the
+container, and the run ends when every box has been tried; the
+low-rank way in is boxes a low rank can read as its own, off lower
+creatures than the grendels and cougars (their boxes read 12-13/17
+at rank 1). The `boxes` task stays in Cecil's plan after the skins
+(`{"skills": ["Locksmithing"], "script": "boxes", "return_word":
+"return"}`) and ends on its own when the sack holds nothing it can
+open. Worn plate and brass knuckles hinder every attempt ("Your
 armor hinders your attempt." / "Your brass knuckles hinders your
 attempt."; the wiki: Locksmithing is especially hindered by armor and
 brawling gear on the hands), so the profile's `hindering_gear`

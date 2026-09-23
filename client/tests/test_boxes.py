@@ -174,7 +174,6 @@ def test_the_arguments():
         "careful": False,
         "stand": False,
         "limit": 0,
-        "practice": True,
     }
     options = parse_args(
         ["source=backpack", "until=30", "once", "careful", "stand", "limit=3"]
@@ -186,9 +185,10 @@ def test_the_arguments():
         "careful": True,
         "stand": True,
         "limit": 3,
-        "practice": True,
     }
-    assert parse_args(["nopractice"])["practice"] is False
+    # The practice mode is gone (2026-09-23): an identify of a trap
+    # already read is free of roundtime and teaches nothing.
+    assert "practice" not in parse_args(["nopractice"])
     assert parse_args(["until=99"])["until"] == 34
     assert parse_args(["until=x", "limit=y"])["limit"] == 0
 

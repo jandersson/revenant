@@ -5,7 +5,6 @@
     ;boxes careful              every DISARM and PICK careful, whatever the reading says
     ;boxes stand                stay standing (the script sits, which helps)
     ;boxes limit=3              stop after that many boxes opened
-    ;boxes nopractice           a box past the reading goes straight back (no identify practice)
     ;boxes until=30             stop at that mindstate instead of 34
     ;boxes once                 exit at mind-lock instead of holding for the drain
     ;boxes return               (typed while it runs) finish the box in hand and end
@@ -16,12 +15,12 @@ after dr-scripts' pick.lic, which pops boxes the same way). A box at a
 time out of the container (GET <box> FROM MY <container>, the next of
 its noun by ordinal when one was put back): DISARM MY <box> IDENTIFY
 reads the trap's difficulty, and a reading of "longshot" or worse is a
-box for a better locksmith — practised on first: DISARM IDENTIFY over
-and over, each one teaching (0/34 to 2/34 in four on 2026-09-23, none
-springing the trap), until the skill reaches the target or forty
-rounds, then back into the container, and the kept boxes are gone
-round again while the skill climbs (`nopractice` skips it); else
-DISARM MY <box> <caution> —
+box for a better locksmith, back into the container at once — an
+identify of a trap already read comes back with no roundtime and
+teaches nothing (2026-09-23: eighty of them in forty seconds left
+Locksmithing at 0/34; the 0/34 to 2/34 of the first run was the one
+careful DISARM), so the boxes a low rank trains on are boxes it can
+read as its own, from lower creatures; else DISARM MY <box> <caution> —
 quick, plain or careful by the reading, pick.lic's thresholds — until
 the trap is down, up to five tries; then PICK MY <box> IDENTIFY and
 PICK MY <box> <caution> the same way, with the profile's `lockpick` in
@@ -107,8 +106,6 @@ TAIL_SECONDS = 0.5
 IDENTIFY_TRIES = 3
 WORK_TRIES = 5
 MAX_BOXES = 200  # the fuse under the loop
-MAX_LAPS = 50  # laps through the kept boxes while the skill climbs
-PRACTICE_ROUNDS = 40  # identifies per box per lap (6-10 s of roundtime each)
 DEFAULT_WOUND_FLOOR = "harmful"
 
 
@@ -127,10 +124,9 @@ class Run:
         self.profile = profile
         self.options = options
         self.container = options["source"] or profile.get("loot_container") or ""
-        self.kept = {}  # noun -> boxes put back into the container this lap
+        self.kept = {}  # noun -> boxes put back into the container
         self.reported = set()
         self.opened = 0
-        self.practised = 0  # identifies on boxes past the reading
         self.pick_in_hand = False
         self.doffed = []  # the hindering gear taken off, in order
 
@@ -196,10 +192,14 @@ def don(run):
     `;stop boxes` every read raises, so the rest goes out blind as
     cleanup puts — the gear is never left in the sack."""
     s = run.s
+    run.donning = None
     try:
         don_reading(run)
     except ScriptStopped:
-        for noun in reversed(run.doffed):
+        # The piece in flight too (2026-09-23: the gauntlets stayed in
+        # the backpack after a `;stop` caught the read on their GET).
+        pending = ([run.donning] if run.donning else []) + list(reversed(run.doffed))
+        for noun in pending:
             s.put(f"get my {noun}", cleanup=True)
             s.put(f"wear my {noun}", cleanup=True)
         run.doffed = []
@@ -211,6 +211,7 @@ def don_reading(run):
     worn = []
     while run.doffed:
         noun = run.doffed.pop()
+        run.donning = noun
         free_other_hand(run, "")
         ask(s, f"get my {noun}")
         if not in_hand(s, noun):
@@ -226,6 +227,7 @@ def don_reading(run):
         if not any(word in answer.lower() for word in WORN):
             run.report("wear", f"wear my {noun}", answer)  # a new wording
         worn.append(noun)
+    run.donning = None
     if worn:
         run.say(f"worn back: {', '.join(worn)}")
 
@@ -581,52 +583,12 @@ def hold_at_lock(run, until):
             return True
 
 
-def practice(run, noun):
-    """A box past the reading, worked for the experience alone: DISARM
-    MY <noun> IDENTIFY over and over — every one teaches (0/34 to 2/34
-    in four, 2026-09-23) and none springs the trap, though a careless
-    one shifts it — until Locksmithing reaches the target, a typed
-    return, a danger or PRACTICE_ROUNDS. "practised", "lost" or
-    "stop:<why>"."""
-    s = run.s
-    run.say(f"the {noun} is past the reading — practising on it (identify)")
-    for _ in range(PRACTICE_ROUNDS):
-        reason = danger(s)
-        if reason:
-            return f"stop:{reason}"
-        if wants_stop(s):
-            return "stop:stopping as asked"
-        value = mindstate(s, SKILL)
-        if value is not None and value >= run.options["until"]:
-            return "practised"
-        answer = ask(s, f"disarm my {noun} identify")
-        s.waitrt()
-        hindrance(run, answer)
-        run.practised += 1
-        outcome = classify(answer, DISARM_OUTCOMES)
-        if outcome == "sprung":
-            why = sprung(run, answer)
-            if why:
-                return f"stop:{why}"
-        elif outcome == "injured":
-            return "stop:too hurt to disarm anything"
-        elif outcome == "lost":
-            return "lost"
-    return "practised"
-
-
-def kept_after_practice(run, noun, outcome):
-    """A box past the reading: practised on when the run allows, then
-    back into the container; "kept", "lost" or "stop:<why>"."""
-    if run.options["practice"]:
-        outcome = practice(run, noun)
-        if outcome.startswith("stop:"):
-            put_back(run, noun, "the run ends")
-            return outcome
-        if outcome == "lost":
-            return "lost"
-        put_back(run, noun, "practised on, for a better locksmith")
-        return "kept"
+def kept(run, noun):
+    """A box past the reading, back into the container: "kept". No
+    practising on it — an identify of a trap already read is free of
+    roundtime and of experience (2026-09-23: eighty in forty seconds,
+    Locksmithing unmoved), and a DISARM past the reading is the trap
+    sprung, not the skill trained."""
     put_back(run, noun, "for a better locksmith")
     return "kept"
 
@@ -643,7 +605,7 @@ def one_box(run, noun):
     if outcome == "lost":
         return "lost"
     if outcome == "too hard":
-        return kept_after_practice(run, noun, outcome)
+        return kept(run, noun)
     outcome = pick(run, noun)
     if outcome.startswith("stop:"):
         put_back(run, noun, "the run ends")
@@ -651,7 +613,7 @@ def one_box(run, noun):
     if outcome == "lost":
         return "lost"
     if outcome == "too hard":
-        return kept_after_practice(run, noun, outcome)
+        return kept(run, noun)
     put_pick_away(run)
     taken = empty(run, noun)
     if taken is None:
@@ -685,56 +647,41 @@ def run_loop(s, profile, options):
     try:
         doff(run)
         sit(run)
-        # Laps through the boxes: the kept ones are practised on again
-        # while the skill still climbs, so a task under ;train fills its
-        # budget instead of ending on two too-hard boxes.
-        for lap in range(MAX_LAPS):
-            practised_before = run.practised
-            run.kept = {}
-            for noun in nouns[:MAX_BOXES]:
-                reason = danger(s)
-                if reason:
-                    run.say(f"{reason} — stopping")
-                    if "hostiles" in reason:
-                        stand(run)
-                        flight.react(s, "boxes")
+        for noun in nouns[:MAX_BOXES]:
+            reason = danger(s)
+            if reason:
+                run.say(f"{reason} — stopping")
+                if "hostiles" in reason:
+                    stand(run)
+                    flight.react(s, "boxes")
+                return
+            if wants_stop(s):
+                run.say("stopping as asked")
+                return
+            value = mindstate(s, SKILL)
+            if value is not None and value >= options["until"]:
+                if options["once"]:
+                    run.say(f"{SKILL} at {value}/34 — done")
                     return
-                if wants_stop(s):
-                    run.say("stopping as asked")
+                if not hold_at_lock(run, options["until"]):
+                    run.say("stopping")
                     return
-                value = mindstate(s, SKILL)
-                if value is not None and value >= options["until"]:
-                    if options["once"]:
-                        run.say(f"{SKILL} at {value}/34 — done")
-                        return
-                    if not hold_at_lock(run, options["until"]):
-                        run.say("stopping")
-                        return
-                outcome = one_box(run, noun)
-                if outcome.startswith("stop:"):
-                    why = outcome[5:]
-                    run.say(f"{why} — stopping")
-                    if "hostiles" in why:
-                        stand(run)
-                        flight.react(s, "boxes")
-                    return
-                if outcome == "lost":
-                    run.say(f"the {noun} is nowhere — on to the next")
-                if options["limit"] and run.opened >= options["limit"]:
-                    run.say(f"{run.opened} box(es) opened — the limit")
-                    return
-            kept = sum(run.kept.values())
-            run.say(
-                f"lap {lap + 1}: {run.opened} opened, {kept} kept, "
-                f"{run.practised} identify(ies) practised"
-            )
-            if not kept or run.practised == practised_before:
-                break  # nothing left to open, or nothing to practise on
-            nouns = list(run.kept)  # the kept ones again, by noun
-            nouns = [n for n in nouns for _ in range(run.kept[n])]
+            outcome = one_box(run, noun)
+            if outcome.startswith("stop:"):
+                why = outcome[5:]
+                run.say(f"{why} — stopping")
+                if "hostiles" in why:
+                    stand(run)
+                    flight.react(s, "boxes")
+                return
+            if outcome == "lost":
+                run.say(f"the {noun} is nowhere — on to the next")
+            if options["limit"] and run.opened >= options["limit"]:
+                run.say(f"{run.opened} box(es) opened — the limit")
+                return
         run.say(
-            f"every box tried — {run.opened} opened, {sum(run.kept.values())} kept, "
-            f"{run.practised} identify(ies) practised"
+            f"every box tried — {run.opened} opened, "
+            f"{sum(run.kept.values())} kept for a better locksmith"
         )
     finally:
         put_pick_away(run)
