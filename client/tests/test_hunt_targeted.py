@@ -729,3 +729,34 @@ def test_a_buff_the_ranks_cannot_carry_is_off_for_the_run(travel):
         "heroic strength fails for lack of ranks — off for this run" in text
         for text in arena.echoed
     )
+
+
+# Captured 2026-09-23 at 09:57 at the vineyard: the grendel died between
+# the TARGET and the CAST; the pattern went, the spell stayed held.
+DISSIPATED = (
+    "Your target pattern dissipates because the small grendel is dead, but "
+    "the main spell remains intact."
+)
+
+
+def test_a_cast_whose_target_pattern_dissipated_releases_the_held_spell(travel):
+    arena = Arena(
+        {
+            "attack": [MISSED, (KILL, kill)],
+            "prepare": [SF_PREPARED, SF_PREPARED],
+            "cast": [DISSIPATED],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+            "discern": [DISCERNED],
+        },
+        experience=DEBIL_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STUNNING | {"max_kills": 1}, travel_first=False)
+    assert _casting(arena)[:4] == [
+        "prepare stun foe",
+        "attack rat",
+        "cast rat",
+        "release",
+    ]
+    assert not any("unrecognized cast answer" in text for text in arena.echoed)
