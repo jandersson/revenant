@@ -120,3 +120,17 @@ def test_a_skill_is_found_and_seeded_under_the_windows_spelling():
     }
     assert loop.mindstate(stale, "parry ability") == 25
     assert loop.mindstate(stale, "Parry Ability") == 25
+
+
+def test_a_lowercase_seed_alone_is_no_entry():
+    # 10:29 on 2026-09-23: the window had dropped "Parry Ability" and the
+    # pre-#295 seed was all that was left; it counts for nothing, so a
+    # script asks EXP and seeds afresh under the window's spelling.
+    stale = Handle()
+    stale.state.experience = {"parry ability": {"rank": 45, "mindstate": 11}}
+    assert loop.mindstate(stale, "parry ability") is None
+    loop.ensure_mindstate(
+        stale, "parry ability", lambda s, c: "Parry Ability:   47 10% clear  (0/34)\n"
+    )
+    assert stale.state.experience["Parry Ability"]["mindstate"] == 0
+    assert loop.mindstate(stale, "Parry Ability") == 0

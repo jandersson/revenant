@@ -361,13 +361,15 @@ def mindstate(experience, skill) -> int:
         for name, entry in (experience or {}).items()
         if str(name).strip().lower() == wanted and isinstance(entry, dict)
     ]
-    # The window's own spelling wins over a lowercase seed from before
-    # #295: the seed never moves, and a rest waiting on it never ends
-    # (Cecil's, 02:09 to 09:00 on 2026-09-23).
+    # Only the window's own spelling counts: a key in lowercase is a
+    # script's seed from before #295 — the window never spells a skill
+    # that way, the seed never moves, and a rest waiting on it never
+    # ends (Cecil's, 02:09 to 09:00 on 2026-09-23; once the window had
+    # dropped its own key the seed was all that answered).
     for name, entry in found:
-        if name != name.lower():
+        if str(name) != str(name).lower():
             return int(entry.get("mindstate", 0))
-    return int(found[0][1].get("mindstate", 0)) if found else 0
+    return 0
 
 
 def task_mindstates(task, experience) -> dict:

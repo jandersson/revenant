@@ -676,14 +676,27 @@ def test_an_order_the_book_lacks_a_missing_master_and_no_herbs_are_said():
     assert "lanshado is not here" in out
 
 
+# The map keys its rooms by int (the search looked them up by str once
+# and found no building at the hand-in, 10:28 on 2026-09-23).
 SOCIETY = {
-    "8859": {"title": ["[[Crossing Alchemy Society, Entrance]]"]},
-    "8860": {"title": ["[[Crossing Alchemy Society, Tool Shop]]"]},
-    "8861": {"title": ["[[Crossing Alchemy Society, Bookstore]]"]},
-    "8862": {"title": ["[[Crossing Alchemy Society, Supplies]]"]},
-    "8863": {"title": ["[[Crossing Alchemy Society, Office]]"]},
-    "909": {"title": ["[[Crossing, Alchemy Street]]"]},
+    8859: {"title": ["[[Crossing Alchemy Society, Entrance]]"]},
+    8860: {"title": ["[[Crossing Alchemy Society, Tool Shop]]"]},
+    8861: {"title": ["[[Crossing Alchemy Society, Bookstore]]"]},
+    8862: {"title": ["[[Crossing Alchemy Society, Supplies]]"]},
+    8863: {"title": ["[[Crossing Alchemy Society, Office]]"]},
+    909: {"title": ["[[Crossing, Alchemy Street]]"]},
 }
+
+
+class Society:
+    """A map with the society's rooms, resolving the hall's id."""
+
+    rooms = SOCIETY
+
+    def resolve(self, query):
+        return [int(query)] if query.isdigit() and int(query) in SOCIETY else []
+
+
 MASTER_LISTING = (
     "You also see Alchemy Society Master Lanshado, a clerk, a plant grinder "
     "and a dry press."
@@ -705,8 +718,8 @@ def test_the_master_is_looked_for_through_the_building_when_the_hall_lacks_him()
         return True
 
     script.walk_to = walk_to
-    mapdb = SimpleNamespace(rooms=SOCIETY)
-    assert find_master(fake, {}, "lanshado", mapdb=mapdb, here="8860")
+    mapdb = Society()
+    assert find_master(fake, {}, "lanshado", mapdb=mapdb, here=8860)
     assert fake.walked == [
         "8859",
         "8861",
@@ -718,8 +731,24 @@ def test_the_master_is_looked_for_through_the_building_when_the_hall_lacks_him()
 
     fake.state.room_objs = MASTER_LISTING
     fake.walked.clear()
-    assert find_master(fake, {}, "lanshado", mapdb=mapdb, here="8860")
+    assert find_master(fake, {}, "lanshado", mapdb=mapdb, here=8860)
     assert fake.walked == []  # already in his room: no walk
+
+    # The walker cannot name the room (here=None): the hall anchors it.
+    fake.state.room_objs = "You also see a clerk."
+    fake.walked.clear()
+    lost = Fake({})
+    lost.state.room_objs = "You also see a clerk."
+
+    def walk_lost(s, target, describe):
+        lost.walked.append(str(target))
+        if str(target) == "8863":
+            lost.state.room_objs = MASTER_LISTING
+        return True
+
+    script.walk_to = walk_lost
+    assert find_master(lost, {}, "lanshado", mapdb=mapdb, here=None)
+    assert lost.walked == ["8859", "8860", "8861", "8862", "8863"]
 
 
 def test_a_master_nowhere_in_the_building_ends_the_search_after_two_laps():
@@ -727,12 +756,12 @@ def test_a_master_nowhere_in_the_building_ends_the_search_after_two_laps():
     fake.state.room_objs = "You also see a clerk."
     script.to_master = lambda s, profile: True
     script.walk_to = lambda s, target, describe: fake.walked.append(str(target)) or True
-    mapdb = SimpleNamespace(rooms=SOCIETY)
-    assert not find_master(fake, {}, "lanshado", mapdb=mapdb, here="8860")
+    mapdb = Society()
+    assert not find_master(fake, {}, "lanshado", mapdb=mapdb, here=8860)
     assert len(fake.walked) == 8  # two laps of four rooms
     assert "nowhere in the building after 2 lap(s)" in "\n".join(fake.echoed)
-    street = SimpleNamespace(rooms={"909": SOCIETY["909"]})
-    assert not find_master(fake, {}, "lanshado", mapdb=street, here="909")
+    street = SimpleNamespace(rooms={909: SOCIETY[909]}, resolve=lambda q: [])
+    assert not find_master(fake, {}, "lanshado", mapdb=street, here=909)
     assert "no other room of the building" in "\n".join(fake.echoed)
 
 

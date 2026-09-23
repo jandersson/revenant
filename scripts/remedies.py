@@ -446,7 +446,11 @@ def find_master(s, profile, master, mapdb=None, here=None):
 
         mapdb = MapDB.load()
         here = locate(mapdb, s.state)
-    rooms = [room for room in building_rooms(mapdb.rooms, here) if room != str(here)]
+    # The building is the hall's, whether or not the walker can name
+    # the room we stand in.
+    hall = mapdb.resolve(str(profile.get("crafting_hall") or DEFAULT_HALL))
+    anchor = sorted(hall)[0] if hall else here
+    rooms = [room for room in building_rooms(mapdb.rooms, anchor) if room != str(here)]
     if not rooms:
         s.echo(
             f"remedies: {master} is not here, and the map shows no other room of the building"

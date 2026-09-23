@@ -287,5 +287,15 @@ def test_the_windows_spelling_wins_over_a_lowercase_seed():
     }
     assert mindstate(both, "Parry Ability") == 8
     assert mindstate(both, "parry ability") == 8
-    assert mindstate({"parry ability": {"mindstate": 11}}, "Parry Ability") == 11
+    assert mindstate({"parry ability": {"mindstate": 11}}, "Parry Ability") == 0
     assert mindstate({}, "Parry Ability") == 0
+
+
+def test_a_lowercase_seed_alone_counts_for_nothing():
+    # 10:29 on 2026-09-23: the window had dropped "Parry Ability" (the
+    # skill cleared) and the pre-#295 seed "parry ability" at 11 was all
+    # that answered — a rest waiting for 10 would never end.
+    from client.game.training import mindstate
+
+    assert mindstate({"parry ability": {"mindstate": 11}}, "Parry Ability") == 0
+    assert mindstate({"Parry Ability": {"mindstate": 3}}, "parry ability") == 3

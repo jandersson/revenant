@@ -323,7 +323,11 @@ def building_rooms(rooms, room_id):
     Alchemy Society" of "[Crossing Alchemy Society, Tool Shop]"), the
     room itself included. The society's master wanders them (the
     operator, 2026-09-23), so an order is asked wherever he stands."""
-    room = (rooms or {}).get(str(room_id)) or {}
+    # The map keys its rooms by int; a caller may hold the id as text.
+    rooms = rooms or {}
+    room = rooms.get(room_id) or rooms.get(str(room_id)) or {}
+    if not room and str(room_id).isdigit():
+        room = rooms.get(int(room_id)) or {}
     titles = room.get("title") or []
     title = str(titles[0] if isinstance(titles, list) and titles else titles or "")
     building = title.strip("[] ").split(",")[0].strip()

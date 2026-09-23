@@ -107,9 +107,14 @@ lessons the code and docs cannot carry themselves.
   seeded a lowercase "parry ability" beside the window's "Parry
   Ability", the window kept updating its own key, and the seed sat at
   11/34 through a class that taught to 25 (#295, 2026-09-23).
-  `loop.mindstate` matches ignoring case now and prefers the window's
-  key; a session from before the fix keeps the stale seed until
-  relaunched.
+  `loop.mindstate` and `training.mindstate` pass a lowercase key over
+  entirely now (the window never spells one that way), since the
+  window drops a cleared skill and the seed was all that was left.
+- `MapDB.rooms` is keyed by int and `resolve()` returns ints; a lookup
+  by the id as text finds nothing and says so quietly (the remedies
+  master search "found no other room of the building" live, 10:28 on
+  2026-09-23, after passing its str-keyed test). A test's fake map
+  uses int keys, like the real one.
 - `;stop all` used to stop `;deathwatch` too: the emergency stop in
   the invasion of 2026-09-22 left the character unwatched until it
   was restarted by hand. It keeps the background monitors now —

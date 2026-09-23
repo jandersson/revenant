@@ -59,22 +59,18 @@ def pause(s, seconds):
 
 def _entry(s, skill):
     """The exp window's entry for `skill`, the name matched ignoring
-    case (a plan or a script says "parry ability"); when a lowercase
-    seed from before #295 sits beside the window's own spelling, the
-    window's wins."""
+    case (a plan or a script says "parry ability"). Only a key in the
+    window's own spelling counts: one in lowercase is a script's seed
+    from before #295 — the window never spells a skill that way, and
+    the seed never moves (it sat at 11/34 alone once the window had
+    dropped the skill, 2026-09-23) — so it is passed over."""
     experience = getattr(s.state, "experience", None) or {}
     wanted = skill.strip().lower()
-    found = [
-        (name, entry)
-        for name, entry in experience.items()
-        if str(name).strip().lower() == wanted and entry
-    ]
-    if not found:
-        return None
-    for name, entry in found:
-        if name != name.lower():
-            return entry
-    return found[0][1]
+    for name, entry in experience.items():
+        if str(name).strip().lower() == wanted and entry:
+            if str(name) != str(name).lower():
+                return entry
+    return None
 
 
 def mindstate(s, skill):
