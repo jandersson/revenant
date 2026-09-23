@@ -378,6 +378,11 @@ Traps that cost time before:
 - Restoring a saved dock layout onto a shown window can abort inside Qt;
   the GUI learns its character before building the window and restores
   first (#124, #140).
+- The exp window pushes only the skills that are learning, and the
+  parser keeps a cleared one at 0/34 with its rank rather than
+  dropping it; the autostarted `;sheet` seeds the table with every
+  skill from EXP ALL at login and every three hours, so a script never
+  asks EXP for a skill and seeds its own spelling (#295, 2026-09-23).
 - INV LIST costs roundtime: the autostarted `;sheet` takes it once at
   login (the character is safe then) and never on the schedule after;
   `;sheet inv` on demand otherwise. SPELL

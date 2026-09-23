@@ -1,5 +1,7 @@
 """Snapshot your character sheet into the history database:  ;sheet
 
+Seeds the parser's exp table with every skill from EXP ALL (the window
+pushes only the learning ones; a cleared skill stays at 0/34, #295).
 Records INFO, EXP ALL and SPELL — stats, circle, TDPs, favors, the full
 skill roster with ranks, the rested-experience line (stored, usable,
 refresh, in minutes), and the spells: learned spells by chapter,
@@ -38,6 +40,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from client.engine.xml_data import LEARNING_RATES
 from client.game.inventory import FOOTER as INV_END
 from client.game.money import parse_wealth  # noqa: F401 — the sheet's wealth parser
 from client.game.inventory import parse_inventory
@@ -104,6 +107,11 @@ _BORN = re.compile(
 # Two-column EXP ALL rows: "     Light Armor:      3 10% clear (0/34)".
 # The % requirement keeps headers and totals out.
 _SKILL = re.compile(r"([A-Za-z][A-Za-z' ]+):\s+(\d+)\s+(\d+)%")
+# The whole row, for the parser's table: the rate word and the
+# mindstate fraction after the percent.
+_ROSTER = re.compile(
+    r"([A-Za-z][A-Za-z' ]+):\s+(\d+)\s+(\d+)%\s+([a-z][a-z ]*?)\s*\((\d+)/34\)"
+)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS stats (
@@ -321,10 +329,57 @@ def parse_exp_all(text):
     }
 
 
+def parse_roster(text):
+    """Every EXP ALL row as the parser's exp-window entry: {skill:
+    {"rank", "percent", "mindstate", "rate"}}, the skill spelled as the
+    game prints it ("Parry Ability"). The exp window only pushes the
+    skills that are learning, so this is the one listing that names
+    them all (the operator's design, 2026-09-23)."""
+    roster = {}
+    for skill, rank, percent, rate, mindstate in _ROSTER.findall(text):
+        name = skill.strip()
+        if name == "SKILL":
+            continue
+        value = int(mindstate)
+        roster[name] = {
+            "rank": int(rank),
+            "percent": int(percent),
+            "mindstate": value,
+            "rate": rate.strip() or LEARNING_RATES[min(value, 34)],
+        }
+    return roster
+
+
+def seed_experience(state, roster):
+    """The parser's exp table filled from the roster: a skill the window
+    has not pushed gets the roster's entry, one it has keeps the
+    window's (live, and newer than the answer). The names seeded, for
+    the echo. A script that starts on a cleared skill then reads 0/34
+    and the rank instead of asking EXP and seeding its own spelling
+    (#295)."""
+    if state is None or not roster:
+        return []
+    table = dict(getattr(state, "experience", None) or {})
+    seeded = []
+    for skill, entry in roster.items():
+        if skill in table:
+            continue
+        table[skill] = dict(entry)
+        seeded.append(skill)
+    if seeded:
+        state.experience = table
+        state.exp_updated = True
+    return seeded
+
+
 def parse_exp_answer(text):
     """Everything the snapshot takes from EXP ALL: the roster and the
     rested-experience line."""
-    return {"skills": parse_exp_all(text), "rested": parse_rested(text)}
+    return {
+        "skills": parse_exp_all(text),
+        "roster": parse_roster(text),
+        "rested": parse_rested(text),
+    }
 
 
 def insert_snapshot(
@@ -479,6 +534,13 @@ def snapshot(s, inventory=False):
         s, "exp all", parse_exp_answer, EXP_ALL_END, lambda r: bool(r["skills"])
     )
     skills, rested = exp["skills"], exp["rested"]
+    # The parser's exp table learns every skill the window does not
+    # push, under the game's spelling, so scripts never seed their own.
+    seeded = seed_experience(getattr(s, "state", None), exp.get("roster") or {})
+    if seeded:
+        s.echo(
+            f"sheet: {len(seeded)} skill(s) the exp window does not show seeded from EXP ALL"
+        )
     # SPELL costs no roundtime, so it joins the schedule (#136); the
     # renaming room refuses it like everything else.
     spells = {"spells": [], "slots": None}

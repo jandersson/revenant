@@ -1043,3 +1043,58 @@ def test_the_autostart_takes_the_inventory_once_at_login_and_plain_after(
     assert handle.sent.count("info") == 2
     assert handle.sent.count("inv list") == 1
     assert handle.sent.index("inv list") < handle.sent.index("info", 1)
+
+
+def test_the_roster_carries_every_skill_as_the_parsers_entry():
+    # The operator's design (2026-09-23): EXP ALL names every skill, the
+    # exp window only the learning ones — the sheet seeds the parser's
+    # table once and the window tracks from there.
+    roster = sheet.parse_roster(EXP_ALL_TEXT)
+    assert roster["Athletics"] == {
+        "rank": 22,
+        "percent": 17,
+        "mindstate": 0,
+        "rate": "clear",
+    }
+    assert roster["Mechanical Lore"]["rank"] == 3
+    assert len(roster) == 6 and "SKILL" not in roster
+    learning = EXP_ALL_TEXT.replace(
+        "Athletics:     22 17% clear          (0/34)",
+        "Athletics:     22 17% deliberative   (11/34)",
+    )
+    assert sheet.parse_roster(learning)["Athletics"]["mindstate"] == 11
+    assert sheet.parse_roster(learning)["Athletics"]["rate"] == "deliberative"
+
+
+def test_the_roster_seeds_the_parsers_table_without_touching_the_windows_entries():
+    from types import SimpleNamespace
+
+    state = SimpleNamespace(
+        experience={
+            "Athletics": {
+                "rank": 22,
+                "percent": 40,
+                "mindstate": 9,
+                "rate": "pondering",
+            }
+        },
+        exp_updated=False,
+    )
+    seeded = sheet.seed_experience(state, sheet.parse_roster(EXP_ALL_TEXT))
+    assert sorted(seeded) == [
+        "Defending",
+        "Evasion",
+        "Light Armor",
+        "Mechanical Lore",
+        "Tactics",
+    ]
+    assert state.experience["Athletics"]["mindstate"] == 9  # the window's, kept
+    assert state.experience["Tactics"] == {
+        "rank": 1,
+        "percent": 28,
+        "mindstate": 0,
+        "rate": "clear",
+    }
+    assert state.exp_updated
+    assert sheet.seed_experience(state, sheet.parse_roster(EXP_ALL_TEXT)) == []
+    assert sheet.seed_experience(None, {}) == []

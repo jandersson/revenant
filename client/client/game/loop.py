@@ -103,7 +103,10 @@ def _window_name(skill, printed):
 def ensure_mindstate(s, skill, ask):
     """The mindstate: the exp window's, or EXP <skill>'s own answer when
     the window does not list the skill — `ask(s, command)` returns the
-    game's text. The answer seeds a whole entry in the parser's shape
+    game's text. Since 2026-09-23 the table holds every skill: the
+    autostarted ;sheet seeds it from EXP ALL and the parser keeps a
+    cleared skill at 0/34, so the ask below is the fallback for a
+    session the sheet has not reached yet. The answer seeds a whole entry in the parser's shape
     (rank, percent, mindstate, rate): the engine renders every entry of
     the state, and a seed without a rate took the session down (#239).
     None when the game shows no such skill."""

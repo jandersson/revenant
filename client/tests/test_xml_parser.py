@@ -104,16 +104,36 @@ def test_exp_component_brief_mode_carries_the_mindstate_number(xml_data):
     assert xml_data.experience["Attunement"]["rate"] == "scrutinizing"
 
 
-def test_empty_exp_component_clears_the_skill(xml_data):
+def test_empty_exp_component_clears_the_skill_but_keeps_its_rank(xml_data):
     # Captured live: the game sends an empty component when a skill
-    # leaves the learning queue.
+    # leaves the learning queue. The entry stays at 0/34 with its rank
+    # (the operator's design, 2026-09-23): a script starting on the
+    # skill reads the table instead of asking EXP and seeding a stale
+    # twin (#295).
     XMLParser(target=xml_data).feed(
-        "<r><component id='exp Shield Usage'>Shield Usage: 100 5% clear</component></r>"
+        "<r><component id='exp Shield Usage'>Shield Usage: 100 5% perusing</component></r>"
     )
+    assert xml_data.experience["Shield Usage"]["mindstate"] == 2
+    xml_data.exp_updated = False
     XMLParser(target=xml_data).feed(
         "<r><component id='exp Shield Usage'></component></r>"
     )
-    assert "Shield Usage" not in xml_data.experience
+    assert xml_data.experience["Shield Usage"] == {
+        "rank": 100,
+        "percent": 5,
+        "mindstate": 0,
+        "rate": "clear",
+    }
+    assert xml_data.exp_updated
+    # Cleared again: nothing changes, no rewrite.
+    xml_data.exp_updated = False
+    XMLParser(target=xml_data).feed(
+        "<r><component id='exp Shield Usage'></component></r>"
+    )
+    assert not xml_data.exp_updated
+    # A skill the table never held stays unknown.
+    XMLParser(target=xml_data).feed("<r><component id='exp Tactics'></component></r>")
+    assert "Tactics" not in xml_data.experience
 
 
 def test_exp_window_extras_are_not_skills(xml_data):

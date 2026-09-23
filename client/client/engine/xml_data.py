@@ -658,7 +658,19 @@ class XMLData:
             skill, self._exp_skill = self._exp_skill, None
             text = self._exp_text.strip()
             if not text:
-                if self.experience.pop(skill, None) is not None:
+                # The skill left the learning queue: the entry stays, at
+                # clear, with its rank — a script reading the table sees
+                # 0/34, never a hole it has to ask EXP to fill (the seeds
+                # that filled holes went stale, #295; the operator's
+                # design 2026-09-23: seed once from EXP ALL, track from
+                # there).
+                entry = self.experience.get(skill)
+                if entry is not None and (
+                    entry.get("mindstate") or entry.get("rate") != "clear"
+                ):
+                    self.experience[skill] = dict(
+                        entry, mindstate=0, rate=LEARNING_RATES[0]
+                    )
                     self.exp_updated = True
             elif match := _EXP_TEXT.search(text):
                 rank, percent = int(match.group(1)), int(match.group(2))
