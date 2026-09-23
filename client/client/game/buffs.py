@@ -143,7 +143,13 @@ CAST_OUTCOMES = (
     # target pattern dissipates because the small grendel is dead, but
     # the main spell remains intact.", captured 2026-09-23 at the
     # vineyard): the spell stays held, so it is RELEASEd.
-    ("corpse", ("already dead", "target pattern dissipates")),
+    # "You can't cast that at yourself!" (captured 2026-09-23 15:46): the
+    # targeted spell's pattern was gone with the grendel and the CAST
+    # went at the caster — the spell stays held, so it is RELEASEd too.
+    (
+        "corpse",
+        ("already dead", "target pattern dissipates", "can't cast that at yourself"),
+    ),
     # The spell's own skill is short of the spell (captured 2026-09-18,
     # Footman's Strike at Targeted Magic 1, #202): no mana will help.
     ("lacking", ("lacking the skill to complete the pattern",)),

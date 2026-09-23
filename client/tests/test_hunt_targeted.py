@@ -760,3 +760,31 @@ def test_a_cast_whose_target_pattern_dissipated_releases_the_held_spell(travel):
         "release",
     ]
     assert not any("unrecognized cast answer" in text for text in arena.echoed)
+
+
+# Captured 2026-09-23 at 15:46: the grendel was dead and searched before
+# the CAST, and the targeted spell, its pattern gone, went at the caster.
+AT_YOURSELF = "You can't cast that at yourself!"
+
+
+def test_a_cast_refused_at_yourself_releases_the_held_spell(travel):
+    arena = Arena(
+        {
+            "attack": [MISSED, (KILL, kill)],
+            "prepare": [SF_PREPARED, SF_PREPARED],
+            "cast": [AT_YOURSELF],
+            "skin": [SKINNED],
+            "search": [NOTHING],
+            "discern": [DISCERNED],
+        },
+        experience=DEBIL_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STUNNING | {"max_kills": 1}, travel_first=False)
+    assert _casting(arena)[:4] == [
+        "prepare stun foe",
+        "attack rat",
+        "cast rat",
+        "release",
+    ]
+    assert not any("unrecognized cast answer" in text for text in arena.echoed)
