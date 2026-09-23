@@ -24,7 +24,8 @@ most once an hour (the first evening rang on "You continue playing on
 your copper zills.", a walk's room descriptions, "Crush what?" fifteen
 times and a box's identify twelve). What rings once: a staff notice
 for this instance on the `ooc` stream ("TWEET: ... #drprime", a
-calendar notice aside) and a player arriving in the room. Every other
+calendar notice aside) and, while ;hunt runs, a player arriving in the
+room (idle in a shop the arrivals are a ticker: the dock alone). Every other
 story line never seen before lands in the Attention dock once and is
 remembered (`~/.revenant/sentinel/<name>.json`, numerals and currency
 words scrubbed; lines naming a player or a creature present when the
@@ -293,7 +294,11 @@ class Watch:
         self.players = current
         if arrived and now >= self.quiet_until:
             self.note(f"arrived: {', '.join(arrived)}")
-            self.ring(1)
+            # The bell only while ;hunt runs: someone walking into the
+            # hunting room matters, a shop's passers-by are a ticker
+            # (the operator, 2026-09-23, idling at the Alchemy Society).
+            if self.s.is_running("hunt"):
+                self.ring(1)
 
     # -- the grace and its end ------------------------------------------
 

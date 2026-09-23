@@ -212,9 +212,17 @@ def test_a_staff_broadcast_and_an_arrival_ring_once_without_a_grace():
     assert s.attention[-1].startswith("broadcast: TWEET")
     s.state.room_players = ["Uthmor", "Sable"]
     watch.watch_players(2.0)
-    assert s.bells == 2
+    assert s.bells == 1  # idle: the dock note alone, no bell (the operator)
     assert s.attention[-1] == "arrived: Uthmor\n"  # Sable is the operator's own
     assert watch.grace_until is None
+    # Hunting, someone walking in matters: one bell.
+    s.state.room_players = []
+    watch.watch_players(3.0)
+    s.running.add("hunt")
+    s.state.room_players = ["Uthmor"]
+    watch.watch_players(4.0)
+    assert s.bells == 2
+    assert s.attention[-1] == "arrived: Uthmor\n"
 
 
 def test_the_rooms_description_on_either_side_of_its_room_frame_is_not_news():
