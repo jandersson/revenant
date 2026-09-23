@@ -65,9 +65,11 @@ STOWed — and the walk back resumes the remedy left in the mortar. A
 remedy another run left unfinished in the mortar ("You realize the
 red flowers is not required to continue crafting the nemoih salve, so
 you stop.", 2026-09-23: a run that ended on a missing catalyst) is
-finished first, taken out and stowed, then the order's own; a CRUSH
-refused twice running ("Crush what?") ends the run rather than
-spinning. At
+finished first, taken out and stowed, then the order's own — every
+craft begins with LOOK IN MY MORTAR (no roundtime), so a leftover is
+found before the STUDY and before a restock's resume, whichever run
+left it; a CRUSH refused twice running ("Crush what?") ends the run
+rather than spinning. At
 mind-lock the orders go on for the pay (`once` ends there); the
 tally at the end is what was earned against what was spent. Every
 order handed in is a row in history.db's `work_orders` table
@@ -114,6 +116,7 @@ from client.game.remedies import (
     ORDER_TRIES,
     POURED,
     remedy_in_mortar,
+    unfinished_in_mortar,
     REJECTED,
     REJECTIONS,
     STUDIED,
@@ -278,6 +281,20 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
     answers across the run; the mortar and pestle are in hand on
     entry and on exit."""
     chapter, page, herb, extra, noun = spec
+    # What the mortar holds decides where this craft starts (no
+    # roundtime): another remedy in progress is finished first (a run
+    # that ran out of nuggets left a nemoih salve, and a restock's
+    # resume crushed "my cream" over it, 2026-09-23); this one in
+    # progress resumes; an empty mortar starts from the herb. Before
+    # the STUDY, whose readiness the other remedy's crush would spend.
+    held = mortar_holds(s)
+    if held is not None and held[1] != spec:
+        why = finish_in_mortar(s, held[0], catalyst, options, tally)
+        if why is not None:
+            return why
+        started = False
+    elif held is not None:
+        started = True  # this recipe, in progress: resumed
     if not study(s, chapter, page, what):
         return "book"
     misses = 0
@@ -397,6 +414,20 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
             if misses >= MISSES:
                 return "unrecognized"
     return "fuse"
+
+
+def mortar_holds(s):
+    """LOOK IN MY MORTAR (no roundtime): the remedy in progress there as
+    (name, recipe), or None for an empty mortar or a remedy the book
+    has no page for — said, once, so it can be looked at by hand."""
+    answer = ask(s, "look in my mortar")
+    held = unfinished_in_mortar(answer)
+    if held is None and "unfinished" in answer:
+        first = (answer.strip().splitlines() or ["(silence)"])[0]
+        s.echo(
+            f"remedies: the mortar holds something the book has no page for: {first!r}"
+        )
+    return held
 
 
 def finish_in_mortar(s, name, catalyst, options, tally):

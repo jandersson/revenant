@@ -225,6 +225,20 @@ def test_the_remedy_the_mortar_already_holds_is_read_off_the_refusal():
     assert (
         remedy_in_mortar("... continue crafting the mystery goo, so you stop.") is None
     )
+    # LOOK IN MY MORTAR, what every craft reads first (captured 2026-09-23).
+    from client.game.remedies import unfinished_in_mortar
+
+    look = "In the iron mortar you see some unfinished nemoih salve.\n"
+    assert unfinished_in_mortar(look) == ("head salve", (3, 4, "nemoih", None, "salve"))
+    cream = "In the iron mortar you see some unfinished blister cream."
+    assert unfinished_in_mortar(cream) == (
+        "blister cream",
+        (2, 1, "flowers", "nemoih", "cream"),
+    )
+    assert unfinished_in_mortar("There is nothing in there.") is None
+    assert (
+        unfinished_in_mortar("In the iron mortar you see some unfinished goo.") is None
+    )
 
 
 def test_the_buildings_rooms_share_the_title_before_the_comma():

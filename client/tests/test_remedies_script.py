@@ -289,6 +289,44 @@ def test_a_remedy_left_in_the_mortar_is_finished_first_and_the_mortar_freed():
     ]
 
 
+def test_the_mortar_is_looked_in_first_and_a_leftover_finished_before_the_study():
+    # 2026-09-23, the second spin: after a restock the order loop
+    # resumed "the remedy in the mortar" as its own and crushed "my
+    # cream" over a nemoih salve — three "Crush what?" and the run
+    # ended. Every craft now LOOKs first, and the leftover is done
+    # before this recipe's page is studied.
+    fake = Fake(
+        {
+            "look in my mortar": [
+                "In the iron mortar you see some unfinished georin salve.\n",
+                "There is nothing in there.\n",
+            ],
+            "study my book": [TOO_HARD],
+            "get my nemoih": ["You get some dried nemoih."],
+            "put my nemoih in my mortar": ["You put your nemoih in your iron mortar."],
+            "crush my nemoih in my mortar with my pestle": [CRUSHED],
+            "crush my salve in my mortar with my pestle": [FINISHED, FINISHED],
+        },
+        mindstates=[0, 1, 2, 3, 4, 5],
+    )
+    out = run(fake, ["count=1"])
+    assert "the mortar holds an unfinished neck salve — finishing it first" in out
+    assert "remedies: head salve finished (1)" in out
+    # The neck salve's page studied and crushed before the head salve's
+    # page; the nemoih went in only once the mortar was free.
+    assert fake.sent.index("turn my book to page 1") < fake.sent.index(
+        "turn my book to page 4"
+    )
+    assert fake.sent.index("get my salve from my mortar") < fake.sent.index(
+        "put my nemoih in my mortar"
+    )
+    assert crushes(fake) == [
+        "crush my salve in my mortar with my pestle",
+        "crush my nemoih in my mortar with my pestle",
+        "crush my salve in my mortar with my pestle",
+    ]
+
+
 def test_a_crush_refused_again_and_again_ends_the_run_instead_of_spinning():
     fake = Fake(
         {

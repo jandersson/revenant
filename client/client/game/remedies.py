@@ -157,6 +157,29 @@ def remedy_in_mortar(text):
     return f"{salve} salve", SALVES[salve]
 
 
+# LOOK IN MY MORTAR, no roundtime: "In the iron mortar you see some
+# unfinished nemoih salve." (2026-09-23) — what a craft finds before it
+# starts, whichever run left it.
+_UNFINISHED = re.compile(r"unfinished (?P<name>[\w' -]+?)[,.]", re.IGNORECASE)
+
+
+def unfinished_in_mortar(text):
+    """The remedy LOOK IN MY MORTAR shows in progress: (name as the
+    book knows it, its recipe), or None for an empty mortar or a
+    remedy the book has no page for."""
+    match = _UNFINISHED.search(text or "")
+    if not match:
+        return None
+    name = match.group("name").strip().lower()
+    spec = recipe(name)
+    if spec is not None:
+        return name, spec
+    salve = HERB_SALVE.get(name.split()[0])
+    if salve is None:
+        return None
+    return f"{salve} salve", SALVES[salve]
+
+
 CRUSH_OUTCOMES = (
     ("no instructions", NO_INSTRUCTIONS),
     ("missing", MISSING),
