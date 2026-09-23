@@ -174,6 +174,7 @@ def test_the_arguments():
         "careful": False,
         "stand": False,
         "limit": 0,
+        "practice": True,
     }
     options = parse_args(
         ["source=backpack", "until=30", "once", "careful", "stand", "limit=3"]
@@ -185,7 +186,9 @@ def test_the_arguments():
         "careful": True,
         "stand": True,
         "limit": 3,
+        "practice": True,
     }
+    assert parse_args(["nopractice"])["practice"] is False
     assert parse_args(["until=99"])["until"] == 34
     assert parse_args(["until=x", "limit=y"])["limit"] == 0
 

@@ -320,7 +320,8 @@ def boxes_in(answer):
 def parse_args(args):
     """;boxes' words: source=<container>, until=<mindstate>, once,
     careful (every step careful whatever the reading), stand (never
-    sit), limit=<boxes>."""
+    sit), limit=<boxes>, nopractice (a box past the reading goes
+    straight back instead of being identified for the experience)."""
     options = {
         "source": "",
         "until": 34,
@@ -328,6 +329,7 @@ def parse_args(args):
         "careful": False,
         "stand": False,
         "limit": 0,
+        "practice": True,
     }
     for word in args or []:
         text = str(word).strip()
@@ -350,4 +352,6 @@ def parse_args(args):
             options["careful"] = True
         elif lowered == "stand":
             options["stand"] = True
+        elif lowered == "nopractice":
+            options["practice"] = False
     return options

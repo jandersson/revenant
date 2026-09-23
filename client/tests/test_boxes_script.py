@@ -198,7 +198,7 @@ def test_a_box_is_taken_disarmed_picked_opened_emptied_and_binned():
 
 def test_a_longshot_reading_puts_the_box_back_for_a_better_locksmith():
     fake = Fake(one_easy_box(), mindstates=[1, 3, 5, 7])
-    out = run(fake)
+    out = run(fake, ["nopractice"])
     assert "get crate from my sack" in fake.sent
     assert "disarm my crate identify" in fake.sent
     assert "disarm my crate careful" not in fake.sent
@@ -221,7 +221,7 @@ def test_a_second_box_of_a_kept_noun_is_taken_by_ordinal():
         )
     )
     fake = Fake(answers, mindstates=[1])
-    run(fake)
+    run(fake, ["nopractice"])  # the ordinal is the point, not the practice
     gets = [c for c in fake.sent if c.startswith("get") and "crate" in c]
     assert gets == ["get crate from my sack", "get second crate from my sack"]
 
@@ -369,3 +369,58 @@ def test_hindering_gear_is_said_once_a_run():
     )
     assert out.count(line) == 1
     assert "the box opened" in out
+
+
+class Practising(Fake):
+    """A handle whose Locksmithing mindstate also steps on every DISARM
+    IDENTIFY — the practice on a too-hard box teaches (2026-09-23)."""
+
+    def ask(self, s, command, *_):
+        answer = super().ask(s, command)
+        if command.endswith("identify") and self.mindstates:
+            self.state.experience["Locksmithing"]["mindstate"] = self.mindstates.pop(0)
+        return answer
+
+
+def test_a_box_past_the_reading_is_practised_on_until_the_target():
+    # The first live run (2026-09-23): both boxes read 12/17 and 13/17
+    # and went straight back, yet the identifies had taught 0 -> 2/34.
+    # Practice keeps identifying the box until Locksmithing reaches the
+    # target, then puts it back.
+    answers = [
+        ("look in my sack", "In the canvas sack you see a mildewy deobar crate.\n"),
+        (
+            "get crate from my sack",
+            "You get a mildewy deobar crate from inside your canvas sack.\n",
+        ),
+        ("disarm my crate identify", LONGSHOT),
+        ("put my crate in my sack", "You put your crate in your canvas sack.\n"),
+    ]
+    fake = Practising(answers, mindstates=[1, 11, 20, 30, 34, 34, 34])
+    out = run(fake, ["once"])
+    identifies = fake.sent.count("disarm my crate identify")
+    assert identifies >= 4  # the reading, then the practice rounds
+    assert "disarm my crate careful" not in fake.sent
+    assert "the crate is past the reading — practising on it (identify)" in out
+    assert (
+        "the crate goes back into the sack — practised on, for a better locksmith"
+        in out
+    )
+    assert "Locksmithing at 34/34 — done" in out
+
+
+def test_nopractice_puts_a_box_past_the_reading_straight_back():
+    answers = [
+        ("look in my sack", "In the canvas sack you see a mildewy deobar crate.\n"),
+        (
+            "get crate from my sack",
+            "You get a mildewy deobar crate from inside your canvas sack.\n",
+        ),
+        ("disarm my crate identify", LONGSHOT),
+        ("put my crate in my sack", "You put your crate in your canvas sack.\n"),
+    ]
+    fake = Practising(answers, mindstates=[1, 11, 20])
+    out = run(fake, ["nopractice"])
+    assert fake.sent.count("disarm my crate identify") == 1
+    assert "practising" not in out
+    assert "every box tried — 0 opened, 1 kept, 0 identify(ies) practised" in out

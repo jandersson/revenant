@@ -530,10 +530,16 @@ pick ON the ring, WEAR the ring (bought for Cecil 2026-09-23). The
 first live run that day: two grendel boxes at Locksmithing 1 read as
 12/17 and 13/17 (a lumpy green rune, the frog trap) and went back
 into the sack, yet the five IDENTIFYs and one careful DISARM took the
-skill from 0/34 to 2/34 — a box past the reading still trains, so a
-practice mode that cycles IDENTIFY on it is the low-rank way in. Worn
-plate and brass knuckles hinder every attempt ("Your armor hinders
-your attempt."), said once a run.
+skill from 0/34 to 2/34 — a box past the reading still trains. So a
+box past the reading is practised on before it goes back: DISARM
+IDENTIFY over and over (no attempt springs the trap; a careless one
+shifts it), up to forty rounds, until the skill reaches the target;
+the kept boxes are gone round again while the skill climbs, and
+`nopractice` skips it. That is the low-rank way in, and the reason a
+`boxes` task sits in Cecil's plan after the skins (2026-09-23,
+`{"skills": ["Locksmithing"], "script": "boxes", "return_word":
+"return"}`). Worn plate and brass knuckles hinder every attempt ("Your
+armor hinders your attempt."), said once a run.
 
 ## The maintenance shutdown
 
