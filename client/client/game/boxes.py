@@ -27,9 +27,19 @@ trap-sprung lines, the disarm successes per trap type, the retry and
 failed-identify lines, "you remove your lockpick and open and remove
 the lock", "It's not even locked, why bother", "Find a more appropriate
 tool" (the wrong pick for the lock), "You discover another lock
-protecting" — none captured on this side yet (2026-09-23): the script
-echoes every first-of-a-kind answer so they become fixtures. Sources:
-docs/bibliography.md.
+protecting". The first live run (2026-09-23, two grendel boxes at
+Locksmithing 1) captured the identify failure ("Careful probing of the
+oaken crate fails to reveal to you what type of trap protects it."),
+the shift ("your careless examination caused something to shift inside
+the trap mechanism"), the frog trap's look ("a lumpy green rune hidden
+inside the box near the lock"), two readings (12/17 "Prayer would be a
+good start...", 13/17 "You have an amazingly minimal chance..."), the
+careful disarm's retry ("You work with the trap for a while but are
+unable to make any progress.") and the hindrance lines; the rest stay
+pick.lic's until the ranks reach a box, and the script echoes every
+first-of-a-kind answer so they become fixtures. Every IDENTIFY taught
+(0/34 to 2/34 in five attempts), so a box past the reading still
+trains. Sources: docs/bibliography.md.
 """
 
 import re
@@ -143,6 +153,11 @@ TRAP_SPRUNG = (
     "tiny projectiles slamming into you",
 )
 INJURED = ("no shape to be disarming",)
+# Worn armor and brawling gear on the hands hinder every DISARM and PICK
+# (the wiki's warning; captured 2026-09-23 in the Chambers: "Your armor
+# hinders your attempt." / "Your brass knuckles hinders your attempt."),
+# said once a run so the operator can take them off.
+HINDERED = ("hinders your attempt",)
 LOST = ("need to have the item in your hands", "disarm what", "what were you referring")
 IDENTIFY_FAILED = ("fails to reveal to you what type of trap", "something to shift")
 # A box whose last trap is down answers IDENTIFY with the disarmed

@@ -522,9 +522,18 @@ holds until Locksmithing drains below 28 (`once` exits). Under
 "return_word": "return"`) after the hunt and the skins the loop ends
 it at the target. Every wording is pick.lic's and the wiki's until
 captured: the run echoes its first answer of each kind ("boxes: disarm
-identify answered ...") for the fixtures (#293). Cecil owns no lockpick
-yet (2026-09-23): Ragge's Locksmithing in the Crossing (map 15003)
-sells an ordinary pick for 125 Kronars and a ring for 3,000.
+identify answered ...") for the fixtures (#293). Ragge's Locksmithing
+in the Crossing (map 19125; the wiki's "RoomID 15003" is the game's
+own number) sells an ordinary pick for 125 Kronars and a ring for
+3,000 — ORDER the item for the quote, OFFER the quoted sum, PUT the
+pick ON the ring, WEAR the ring (bought for Cecil 2026-09-23). The
+first live run that day: two grendel boxes at Locksmithing 1 read as
+12/17 and 13/17 (a lumpy green rune, the frog trap) and went back
+into the sack, yet the five IDENTIFYs and one careful DISARM took the
+skill from 0/34 to 2/34 — a box past the reading still trains, so a
+practice mode that cycles IDENTIFY on it is the low-rank way in. Worn
+plate and brass knuckles hinder every attempt ("Your armor hinders
+your attempt."), said once a run.
 
 ## The maintenance shutdown
 

@@ -175,6 +175,11 @@ lessons the code and docs cannot carry themselves.
   a night of refetching the same soul and quest pages.
 - Elanthipedia item pages 404 under guessed names; shop pages
   (Tembeg's Armory) list items with coverage and price.
+- A shop page's "RoomID" is Elanthipedia's own number, not the
+  community map's id: `;go2 15003` (Ragge's Locksmithing's wiki
+  RoomID) walked Cecil onto the Faldesu ferry toward Iltesh Neg Degti
+  on 2026-09-23. Resolve a shop by its title in the map
+  (`MapDB.rooms` — Ragge's Salesroom is 19125) before any walk.
 - The engine feeds the parser one line at a time with the newline
   split off, so an accumulator that collects a multi-line window
   (the Spells window's pushStream) sees the lines glued together

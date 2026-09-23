@@ -48,6 +48,7 @@ Stop with:  ;stop boxes, or ;boxes return.
 from client.game import discard, flight, probe
 from client.game.boxes import (
     DISARM_OUTCOMES,
+    HINDERED,
     LOCK_CAUTION,
     LOCK_READINGS,
     OPEN_OUTCOMES,
@@ -110,6 +111,22 @@ class Run:
         self.reported.add(kind)
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         self.say(f"{command} answered {first!r}")
+
+
+def hindrance(run, answer):
+    """The gear hindering the attempt, said once a run: "Your armor
+    hinders your attempt." / "Your brass knuckles hinders your attempt."
+    (captured 2026-09-23) — the operator can take it off."""
+    if "hindered" in run.reported:
+        return
+    lines = [
+        line.strip()
+        for line in answer.splitlines()
+        if any(word in line.lower() for word in HINDERED)
+    ]
+    if lines:
+        run.reported.add("hindered")
+        run.say(f"{' '.join(lines)} — remove it for better odds")
 
 
 def wound_floor(profile):
@@ -242,6 +259,7 @@ def disarm(run, noun):
             answer = ask(s, f"disarm my {noun} identify")
             s.waitrt()
             run.report("disarm identify", "disarm identify", answer)
+            hindrance(run, answer)
             outcome = classify(answer, DISARM_OUTCOMES)
             if outcome == "sprung":
                 why = sprung(run, answer)
@@ -275,6 +293,7 @@ def disarm(run, noun):
         answer = ask(s, command)
         s.waitrt()
         run.report("disarm", "disarm", answer)
+        hindrance(run, answer)
         outcome = classify(answer, DISARM_OUTCOMES)
         if outcome == "sprung":
             why = sprung(run, answer)
@@ -306,6 +325,7 @@ def pick(run, noun):
             answer = ask(s, f"pick my {noun} identify")
             s.waitrt()
             run.report("pick identify", "pick identify", answer)
+            hindrance(run, answer)
             outcome = classify(answer, PICK_OUTCOMES)
             if outcome == "sprung":
                 why = sprung(run, answer)
@@ -343,6 +363,7 @@ def pick(run, noun):
         answer = ask(s, command)
         s.waitrt()
         run.report("pick", "pick", answer)
+        hindrance(run, answer)
         outcome = classify(answer, PICK_OUTCOMES)
         if outcome == "sprung":
             why = sprung(run, answer)

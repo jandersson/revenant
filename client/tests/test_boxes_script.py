@@ -348,3 +348,24 @@ def test_danger_ends_the_run_and_the_exp_window_without_the_skill_is_asked():
     run(fake)
     assert fake.sent[0] == "exp locksmithing"
     assert fake.state.experience["Locksmithing"]["mindstate"] == 2
+
+
+def test_hindering_gear_is_said_once_a_run():
+    # Captured 2026-09-23: plate and brass knuckles hinder every attempt.
+    answers = one_easy_box()
+    hindered = (
+        "Your armor hinders your attempt.\nYour brass knuckles hinders your attempt.\n"
+        + SIMPLE_TRAP
+    )
+    answers[3] = (
+        "disarm my box identify",
+        lambda c: hindered if _DISARMS["count"] < 1 else NO_TRAP,
+    )
+    fake = Fake(answers, mindstates=[1, 3, 5, 7])
+    out = run(fake)
+    line = (
+        "boxes: Your armor hinders your attempt. Your brass knuckles hinders your "
+        "attempt. — remove it for better odds"
+    )
+    assert out.count(line) == 1
+    assert "the box opened" in out

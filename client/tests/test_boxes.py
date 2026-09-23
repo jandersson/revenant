@@ -188,3 +188,45 @@ def test_the_arguments():
     }
     assert parse_args(["until=99"])["until"] == 34
     assert parse_args(["until=x", "limit=y"])["limit"] == 0
+
+
+# Captured 2026-09-23 in the Chambers: the first live run, two grendel
+# boxes at Locksmithing 1 — both past the reading, every IDENTIFY taught.
+CAPTURED_FAILED = (
+    "Your armor hinders your attempt.\nYour brass knuckles hinders your attempt.\n"
+    "Careful probing of the oaken crate fails to reveal to you what type of trap "
+    "protects it.\nYou get the distinct feeling your careless examination caused "
+    "something to shift inside the trap mechanism.  This is not likely to be a "
+    "good thing.\nRoundtime: 8 sec.\n"
+)
+CAPTURED_PRAYER = (
+    "Your armor hinders your attempt.\nYour brass knuckles hinders your attempt.\n"
+    "While checking the crate with a careful eye, you notice a lumpy green rune "
+    "hidden inside the box near the lock.\nPrayer would be a good start for any "
+    "attempt of yours at disarming the oaken crate.\nRoundtime: 10 sec.\n"
+)
+CAPTURED_MINIMAL = (
+    "While checking the coffer with a careful eye, you notice a lumpy green rune "
+    "hidden inside the box near the lock.\nYou have an amazingly minimal chance at "
+    "disarming the steel coffer.\nRoundtime: 8 sec.\n"
+)
+CAPTURED_RETRY = (
+    "You carefully work at disarming the coffer.\nThe lack of identification of the "
+    "trap hinders your initial efforts somewhat.\nYour armor hinders your attempt.\n"
+    "Your brass knuckles hinders your attempt.\nYou work with the trap for a while "
+    "but are unable to make any progress.\nRoundtime: 12 sec.\n"
+)
+
+
+def test_the_first_live_runs_answers_read_as_the_tables_say():
+    from client.game.boxes import HINDERED
+
+    assert classify(CAPTURED_FAILED, DISARM_OUTCOMES) == "identify failed"
+    assert reading(CAPTURED_FAILED, TRAP_READINGS) is None
+    assert reading(CAPTURED_PRAYER, TRAP_READINGS) == 12
+    assert caution(12, TRAP_CAUTION) is None  # past 11: too hard
+    assert reading(CAPTURED_MINIMAL, TRAP_READINGS) == 13
+    assert classify(CAPTURED_RETRY, DISARM_OUTCOMES) == "retry"
+    assert classify(CAPTURED_PRAYER, DISARM_OUTCOMES) is None  # a reading, no outcome
+    assert any(word in CAPTURED_PRAYER.lower() for word in HINDERED)
+    assert not any(word in CAPTURED_MINIMAL.lower() for word in HINDERED)
