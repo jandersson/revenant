@@ -243,6 +243,67 @@ def test_without_a_catalyst_the_salve_waits_in_the_mortar():
     assert fake.sent[-2:] == ["stow my pestle", "stow my mortar"]
 
 
+BUSY_MORTAR = (
+    "You realize the dried nemoih is not required to continue crafting the "
+    "georin salve, so you stop.\n"
+)
+
+
+def test_a_remedy_left_in_the_mortar_is_finished_first_and_the_mortar_freed():
+    # 2026-09-23: a run that ended on a missing catalyst left a nemoih
+    # salve in the mortar; the next order's flowers were refused and
+    # the script spun on "Crush what?" four times a second. Now the
+    # remedy in the mortar is finished, taken out and stowed first.
+    fake = Fake(
+        {
+            "study my book": [TOO_HARD],
+            "get my nemoih": ["You get some dried nemoih."],
+            "put my nemoih in my mortar": [
+                BUSY_MORTAR,
+                "You put your nemoih in your iron mortar.",
+            ],
+            "get my water": ["You get some water."],
+            "pour my water in my mortar": [POURED],
+            "crush my nemoih in my mortar with my pestle": [NEED_WATER],
+            "crush my salve in my mortar with my pestle": [FINISHED, CRUSHED, FINISHED],
+        },
+        mindstates=[0, 1, 2, 3, 4, 5],
+    )
+    out = run(fake, ["count=1"])
+    # "georin salve" is what the game calls the neck salve in progress.
+    assert "the mortar already holds an unfinished neck salve" in out
+    assert "the mortar holds an unfinished neck salve — finishing it first" in out
+    assert "the neck salve is done and stowed — the mortar is free" in out
+    assert "remedies: head salve finished (1)" in out
+    # The neck salve's page (3, 1) studied before its crush, the head
+    # salve's (3, 4) before the nemoih went in.
+    assert fake.sent.index("turn my book to page 1") < fake.sent.index(
+        "get my salve from my mortar"
+    )
+    assert fake.sent.count("put my nemoih in my mortar") == 2
+    assert crushes(fake) == [
+        "crush my salve in my mortar with my pestle",
+        "crush my nemoih in my mortar with my pestle",
+        "crush my salve in my mortar with my pestle",
+        "crush my salve in my mortar with my pestle",
+    ]
+
+
+def test_a_crush_refused_again_and_again_ends_the_run_instead_of_spinning():
+    fake = Fake(
+        {
+            "study my book": [TOO_HARD],
+            "get my nemoih": ["You get some dried nemoih."],
+            "put my nemoih in my mortar": ["You put your nemoih in your iron mortar."],
+            "crush my nemoih in my mortar with my pestle": ["Crush what?\n"],
+        },
+        mindstates=[0, 1, 2, 3, 4, 5],
+    )
+    out = run(fake)
+    assert "CRUSH refused again and again" in out
+    assert len(crushes(fake)) <= 3
+
+
 def test_a_spent_study_is_studied_again_and_a_second_refusal_ends_it():
     # 2026-09-22: three crushes of the wrong herb spent the readiness;
     # the right herb was refused until the page was studied again.

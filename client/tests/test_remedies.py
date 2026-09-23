@@ -205,6 +205,28 @@ def test_the_arguments():
     assert remedies.parse_args(["salve=bogus"])["salve"] == "head"
 
 
+def test_the_remedy_the_mortar_already_holds_is_read_off_the_refusal():
+    # Captured 2026-09-23: a nemoih salve left unfinished by a run that
+    # ended on a missing catalyst, refusing the next order's flowers.
+    from client.game.remedies import MORTAR_BUSY, remedy_in_mortar
+
+    line = (
+        "You realize the red flowers is not required to continue crafting the "
+        "nemoih salve, so you stop.\n"
+    )
+    assert any(word in line for word in MORTAR_BUSY)
+    assert remedy_in_mortar(line) == ("head salve", (3, 4, "nemoih", None, "salve"))
+    cream = "You realize the dried nemoih is not required to continue crafting some blister cream, so you stop."
+    assert remedy_in_mortar(cream) == (
+        "blister cream",
+        (2, 1, "flowers", "nemoih", "cream"),
+    )
+    assert remedy_in_mortar("You put your flowers in your iron mortar.") is None
+    assert (
+        remedy_in_mortar("... continue crafting the mystery goo, so you stop.") is None
+    )
+
+
 def test_the_buildings_rooms_share_the_title_before_the_comma():
     from client.game.remedies import building_rooms
 

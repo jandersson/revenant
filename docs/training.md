@@ -535,8 +535,14 @@ careful DISARM, not the identifies: a practice mode that re-ran
 DISARM IDENTIFY on a box past the reading sent eighty of them in
 forty seconds (the game answers an identify of a trap already read
 at once, with no roundtime — the wiki: only the last trap already
-disarmed costs a small one) and left Locksmithing at 0/34, so the
-mode is gone. A box past the reading goes straight back into the
+disarmed costs a small one; the game says so in words, "Somebody has
+already located and identified the current trap on the ironwood
+skippet...", captured on the second run) and left Locksmithing at
+0/34, so the mode is gone. A failed careful DISARM shifts the trap
+("your manipulation caused something to shift inside the trap
+mechanism") and the next reading is harder — the skippet went from
+10/17 to 11/17 and past the threshold that night — so one attempt
+on a borderline box is what the rank gets. A box past the reading goes straight back into the
 container, and the run ends when every box has been tried; the
 low-rank way in is boxes a low rank can read as its own, off lower
 creatures than the grendels and cougars (their boxes read 12-13/17
@@ -608,7 +614,14 @@ order in hand — every stack and the hand-in — and end, so the task is
 order of four stacks (the operator, 2026-09-23). `;remedies` runs the loop, holds at mind-lock, adds the profile's
 `catalyst` when asked and stows the finished salve; with no catalyst
 named it stops at the request, the salve left unfinished for the next
-run. The recipe is the book page's, not the wiki's — blister cream is
+run — and the next run, whatever it makes, finishes that salve first:
+on 2026-09-23 a run that ran out of nuggets left a nemoih salve in
+the mortar, the next order's flowers were refused ("You realize the
+red flowers is not required to continue crafting the nemoih salve, so
+you stop.") and the script spun on "Crush what?" four commands a
+second until stopped; now the remedy in the mortar is finished, taken
+out and stowed, and a CRUSH refused twice running ends the run. The
+recipe is the book page's, not the wiki's — blister cream is
 five red flowers per use, water, one piece of nemoih and a catalyst —
 and the STUDY is spent by the next attempt, a failed one included: a
 crush of the wrong herb, then the right one, both answered "You cannot

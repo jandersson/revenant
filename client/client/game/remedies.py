@@ -126,6 +126,36 @@ FREE_HAND = ("need a free hand",)
 STUDIED = ("feel ready to begin",)
 TOO_HARD = ("far beyond your abilities",)
 POURED = ("mix it in thoroughly", "toss the water")
+# The mortar already holds another remedy in progress (2026-09-23: a
+# run that ended on a missing catalyst left a nemoih salve in it, and
+# the next order's flowers were refused — "You realize the red flowers
+# is not required to continue crafting the nemoih salve, so you
+# stop." — until the script spun on Crush what?).
+MORTAR_BUSY = ("not required to continue crafting",)
+_IN_MORTAR = re.compile(
+    r"not required to continue crafting (?:the |some |a |an )?(?P<name>[\w' -]+?)[,.]",
+    re.IGNORECASE,
+)
+
+
+def remedy_in_mortar(text):
+    """The remedy the mortar already holds, off the refusal of another
+    herb: (name as the book knows it, its recipe) — "nemoih salve" is
+    the head salve, a chapter-3 remedy named by its herb while
+    unfinished — or None when no such line or no such recipe."""
+    match = _IN_MORTAR.search(text or "")
+    if not match:
+        return None
+    name = match.group("name").strip().lower()
+    spec = recipe(name)
+    if spec is not None:
+        return name, spec
+    herb = name.split()[0]
+    salve = HERB_SALVE.get(herb)
+    if salve is None:
+        return None
+    return f"{salve} salve", SALVES[salve]
+
 
 CRUSH_OUTCOMES = (
     ("no instructions", NO_INSTRUCTIONS),

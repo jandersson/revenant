@@ -61,7 +61,13 @@ the bank's teller when the purse is short, the society's Supplies
 second herb one stack, water ten splashes) or the Forging Society's
 Supplies (8775, a coal nugget per remedy) walked to, ORDER # twice
 per item (the quote checked against the noun before the buy), each
-STOWed — and the walk back resumes the remedy left in the mortar. At
+STOWed — and the walk back resumes the remedy left in the mortar. A
+remedy another run left unfinished in the mortar ("You realize the
+red flowers is not required to continue crafting the nemoih salve, so
+you stop.", 2026-09-23: a run that ended on a missing catalyst) is
+finished first, taken out and stowed, then the order's own; a CRUSH
+refused twice running ("Crush what?") ends the run rather than
+spinning. At
 mind-lock the orders go on for the pay (`once` ends there); the
 tally at the end is what was earned against what was spent. Every
 order handed in is a row in history.db's `work_orders` table
@@ -103,9 +109,11 @@ from client.game.remedies import (
     building_rooms,
     CATALOG,
     CRUSH_OUTCOMES,
+    MORTAR_BUSY,
     NO_MASTER,
     ORDER_TRIES,
     POURED,
+    remedy_in_mortar,
     REJECTED,
     REJECTIONS,
     STUDIED,
@@ -141,6 +149,7 @@ COLLECT_SECONDS = 3
 TAIL_SECONDS = 1.5
 MAX_CRUSHES = 400  # the fuse under the loop
 MISSES = 3  # unrecognized CRUSH answers before the run ends
+REFUSALS = 2  # "Crush what?" answers in a row before the run ends
 STUDIES = 2  # STUDYs per remedy before the recipe is called wrong
 DEFAULT_MASTER = "lanshado"
 DEFAULT_HALL = "8860"  # the Crossing Alchemy Society's Tool Shop
@@ -226,6 +235,15 @@ def fetch_into_mortar(s, noun, what):
         return False
     verb = "pour" if what == "water" else "put"
     answer = ask(s, f"{verb} my {noun} in my mortar")
+    if any(word in answer for word in MORTAR_BUSY):
+        # Another remedy is in progress in the mortar (2026-09-23): the
+        # herb stays in hand for the caller, the pestle comes back up.
+        held = remedy_in_mortar(answer)
+        name = held[0] if held else "remedy"
+        s.echo(f"remedies: the mortar already holds an unfinished {name}")
+        ask(s, f"stow my {noun}")
+        ask(s, "get my pestle")
+        return f"busy:{name}"
     if what == "water" and not any(word in answer for word in POURED):
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         s.echo(f"remedies: the pour answered {first!r}")
@@ -264,8 +282,23 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
         return "book"
     misses = 0
     studies = 1
-    if not started and not fetch_into_mortar(s, herb, "herb"):
-        return f"dried {herb}"
+    refused = 0
+    if not started:
+        fetched = fetch_into_mortar(s, herb, "herb")
+        if isinstance(fetched, str):
+            # The mortar holds another remedy in progress (2026-09-23):
+            # finished first, taken out and stowed, then this one.
+            why = finish_in_mortar(
+                s, fetched.split(":", 1)[1], catalyst, options, tally
+            )
+            if why is not None:
+                return why
+            fetched = fetch_into_mortar(s, herb, "herb")
+            if isinstance(fetched, str):
+                s.echo("remedies: the mortar is still busy — stopping")
+                return "mortar"
+        if not fetched:
+            return f"dried {herb}"
     for _ in range(MAX_CRUSHES):
         if why := danger(s):
             return why
@@ -300,6 +333,7 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
         if outcome == "crushed":
             started = True
             misses = 0
+            refused = 0
         elif outcome == "need water":
             started = True
             if not fetch_into_mortar(s, "water", "water"):
@@ -338,7 +372,20 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
             ask(s, "stow my pestle")
             ask(s, "get my pestle")
         elif outcome == "missing" and not started:
-            if not fetch_into_mortar(s, herb, "herb"):
+            # "Crush what?" with nothing in the mortar: the herb fetched
+            # again, but not for ever — the first evening's spin was
+            # four commands a second on a busy mortar (2026-09-23).
+            refused += 1
+            if refused >= REFUSALS:
+                s.echo(
+                    "remedies: CRUSH refused again and again — the mortar or the "
+                    "hands are not as expected, stopping"
+                )
+                return "mortar"
+            fetched = fetch_into_mortar(s, herb, "herb")
+            if isinstance(fetched, str):
+                return "mortar"
+            if not fetched:
                 return f"dried {herb}"
         elif outcome is None and is_noise(answer):
             tally["noise"] = tally.get("noise", 0) + 1  # a bystander's line
@@ -350,6 +397,31 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
             if misses >= MISSES:
                 return "unrecognized"
     return "fuse"
+
+
+def finish_in_mortar(s, name, catalyst, options, tally):
+    """The remedy another run left unfinished in the mortar, finished
+    and stowed so the mortar is free (2026-09-23: a run that ended on
+    a missing catalyst left a nemoih salve, and the next order's
+    flowers were refused). None when the mortar is free again, else
+    why not — the caller's restock buys what it ran out of and comes
+    back to it."""
+    spec = recipe(name)
+    if spec is None:
+        s.echo(
+            f"remedies: the mortar holds an unfinished {name} the book has no page for"
+        )
+        return "mortar"
+    s.echo(f"remedies: the mortar holds an unfinished {name} — finishing it first")
+    why = craft(s, spec, f"the {name}", catalyst, options, tally, started=True)
+    if why is not None:
+        return why
+    take_out(s, spec[4])
+    ask(s, f"stow my {spec[4]}")
+    if not tools_in_hand(s):
+        return "mortar"
+    s.echo(f"remedies: the {name} is done and stowed — the mortar is free")
+    return None
 
 
 def take_out(s, noun):
