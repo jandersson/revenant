@@ -262,3 +262,30 @@ def test_the_wear_back_lines_read_as_worn():
     assert any(word in CAPTURED_KNUCKLES_ON.lower() for word in WORN)
     assert any(word in CAPTURED_GAUNTLETS_ON.lower() for word in WORN)
     assert not any(word in "What were you referring to?\n".lower() for word in WORN)
+
+
+# The second live run (the boxes task under ;train, 2026-09-23): a
+# known trap's identify comes back at once, and a failed careful
+# attempt shifts the trap.
+CAPTURED_KNOWN_TRAP = (
+    "Somebody has already located and identified the current trap on the "
+    "ironwood skippet...\n\nExamining the box for traps reveals a tiny glass tube "
+    "filled with a black gaseous substance of some sort and a tiny hammer at the "
+    "ready to do what it was designed for.\nDisarming the ironwood skippet would "
+    "be a longshot.\n"
+)
+CAPTURED_DISARM_SHIFT = (
+    "You carefully work at disarming the skippet.\nYour armor hinders your "
+    "attempt.\nYou work with the trap for a while but are unable to make any "
+    "progress.\nYou get the distinct feeling your manipulation caused something "
+    "to shift inside the trap mechanism.  This is not likely to be a good thing.\n"
+    "Roundtime: 15 sec.\n"
+)
+
+
+def test_a_known_traps_identify_still_reads_and_a_shifted_attempt_is_a_retry():
+    assert reading(CAPTURED_KNOWN_TRAP, TRAP_READINGS) == 11  # longshot: too hard
+    assert classify(CAPTURED_KNOWN_TRAP, DISARM_OUTCOMES) is None
+    # The shift line matches the identify-failed fragment first; the
+    # script treats it as a retry after a DISARM, and identifies again.
+    assert classify(CAPTURED_DISARM_SHIFT, DISARM_OUTCOMES) == "identify failed"

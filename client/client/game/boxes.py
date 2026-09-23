@@ -38,11 +38,17 @@ the trap mechanism"), the frog trap's look ("a lumpy green rune hidden
 inside the box near the lock"), two readings (12/17 "Prayer would be a
 good start...", 13/17 "You have an amazingly minimal chance..."), the
 careful disarm's retry ("You work with the trap for a while but are
-unable to make any progress.") and the hindrance lines; the rest stay
-pick.lic's until the ranks reach a box, and the script echoes every
-first-of-a-kind answer so they become fixtures. Every IDENTIFY taught
-(0/34 to 2/34 in five attempts), so a box past the reading still
-trains. Sources: docs/bibliography.md.
+unable to make any progress.") and the hindrance lines; the second
+live run (the boxes task under ;train, that evening) the known-trap
+answer — "Somebody has already located and identified the current
+trap on the ironwood skippet..." then the trap's look and the reading,
+at once, with no roundtime, and no experience: an identify teaches
+only the first time — and the shift after a failed attempt ("your
+manipulation caused something to shift inside the trap mechanism"),
+which moved the skippet's reading from 10/17 to 11/17, past the
+threshold. The rest stay pick.lic's until the ranks reach a box, and
+the script echoes every first-of-a-kind answer so they become
+fixtures. Sources: docs/bibliography.md.
 """
 
 import re

@@ -410,7 +410,11 @@ def disarm(run, noun):
         if outcome in ("disarmed", "no trap"):
             run.say(f"the {noun}'s trap is down ({word or 'plain'}, read {rank}/17)")
             continue  # IDENTIFY again: another trap, or none
-        if outcome == "retry":
+        if outcome in ("retry", "identify failed"):
+            # "identify failed" here is the shift line after a failed
+            # attempt ("your manipulation caused something to shift",
+            # 2026-09-23) — the trap moved, and the next IDENTIFY reads
+            # it again, harder (10/17 to 11/17 that night).
             continue
         run.report("disarm?", "disarm (unrecognized)", answer)
     return "too hard"
