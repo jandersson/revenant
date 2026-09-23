@@ -16,6 +16,14 @@ whenever health drops), when the trained skills mind-lock, at the kill
 fuse, or when you type
 ;hunt return  (the current kill is finished first, then the walk home).
 ;stop hunt  quits where it stands.  ;hunt here  skips the walk;  ;hunt profile  prints the profile it would use.
+;hunt <style>  hunts one of the profile's hunt styles — `hunts` in the
+profile file, a name to the keys that differ for that kind of hunt
+(ground, prey, weapons, skinning, the box limit, the skills) and
+`until`, what ends it: "lock" (the trained skills mind-lock, the
+default), "boxes" (the loot container holds `box_limit` boxes — the
+farm for ;boxes, off creatures whose boxes the rank can read), "kills"
+(`max_kills`). ;hunt styles lists them; ;hunt profile <style> prints
+the merged profile; a ;train task passes the style in its args (#299).
 
 Everything character-specific comes from the profile
 (~/.revenant/profiles/<name>.json — File → Character Profile… in the
@@ -1463,6 +1471,9 @@ def loop(s, profile, db, ground, avoid, tally):
             return "trained skills mind-locked"
         if profile["max_kills"] and tally.kills >= profile["max_kills"]:
             return "kill fuse reached"
+        box_limit = int(profile.get("box_limit") or 0)
+        if profile.get("until") == "boxes" and box_limit and tally.boxes >= box_limit:
+            return f"{tally.boxes} box(es) in the {profile.get('loot_container') or 'pack'} — the farm is done"
         if tally.kills > tally.rotated_at and not rotate(s, profile, tally):
             return "every weapon skill mind-locked"
         if tally.room_clear or not hostiles(s.state):
@@ -1559,9 +1570,29 @@ def main(s):
     from client.settings import setting
     from client.game.walker import avoided_rooms
 
+    from client.game.profile import styled, styles
+
     name = getattr(s.state, "name", None) or ""
     profile = load_profile(name)
-    if s.args and s.args[0] == "profile":
+    words = [str(word).lower() for word in (s.args or [])]
+    known = styles(profile)
+    if words and words[0] == "styles":
+        if not known:
+            s.echo("hunt: no hunt styles — `hunts` in the profile file names them")
+        for style, overlay in known.items():
+            keys = ", ".join(f"{k}={v}" for k, v in overlay.items())
+            s.echo(f"hunt: {style}: {keys}")
+        return
+    # A style word lays its overlay on the profile (#299): `;hunt boxes`,
+    # or the plan task's args. The words `here` and `profile` stay.
+    chosen = next((word for word in words if word in known), None)
+    if chosen:
+        profile = styled(profile, chosen)
+        s.echo(f"hunt: the {chosen} style — until {profile['until']}")
+    elif words and words[0] not in ("here", "profile") and known:
+        s.echo(f"hunt: no style named {words[0]!r} — styles: {', '.join(known)}")
+        return
+    if words and words[0] == "profile":
         s.echo(f"hunt: profile for {name or 'an unnamed character'}")
         for line in describe(profile):
             s.echo(f"  {line}")

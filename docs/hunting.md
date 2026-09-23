@@ -666,6 +666,37 @@ twelve; docs/protocol.md) is tallied per swing and reported at the
 end of the run — a reading for the experiment, no rule yet (#280):
 dr-scripts' combat-trainer holds attacks while badly off balance.
 
+## Hunt styles
+
+One character hunts for more than one reason: to train the weapon
+skills, to fill the sack with boxes for `;boxes`, later to farm coins
+or gems. Each is the same loop with a few keys changed, so the profile
+holds them as **hunt styles** — `hunts` in `~/.revenant/profiles/<name>.json`,
+hand-edited beside the dialog's fields (the dialog leaves the key
+alone and the file keeps it), a name to the keys that differ:
+
+```json
+"hunts": {
+  "boxes": {"hunting_ground": "goblins", "prey": "goblin", "skin": false,
+            "bundle": false, "weapons": ["scimitar:Small Edged:scabbard"],
+            "train_skills": [], "box_limit": 8, "until": "boxes"}
+}
+```
+
+`;hunt boxes` lays that over the profile and hunts it; `;hunt styles`
+lists them, `;hunt profile boxes` prints the merged profile, and a
+`;train` task passes the style in its args (`"script": "hunt", "args":
+["boxes"], "skills": []` — a farm ends on its own, like the skins and
+bank tasks). `until` is what ends the run: `lock` (the trained skills
+mind-lock, the default and the training hunt), `boxes` (the loot
+container holds `box_limit` boxes: "8 box(es) in the sack — the farm
+is done", then the walk home), `kills` (`max_kills`, which ends any
+hunt anyway). The boxes farm goes where the rank can read the boxes:
+the wiki's creatures-with-boxes table starts at 0 ranks with goblins,
+sleazy louts and trollkin (the map's `goblins` ground is seven rooms
+off the Crossing, `louts` fifteen), and the grendels' and cougars'
+boxes read 12-13/17 at rank 1 (2026-09-23, #299).
+
 ## Out of scope in the first cut
 
 Ranged attacks, a policy for several opponents at once, selling

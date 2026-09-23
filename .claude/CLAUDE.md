@@ -175,6 +175,10 @@ for `client/client/<pkg>/x.py`.
   "fists:Brawling", a locked skill's turn sat out — and `brawling`,
   the fists turn's PUNCH/KICK/ELBOW, #238). FIELDS is the
   schema; the GUI's Character Profile dialog builds itself from it.
+  `hunts` (hand-edited, kept by the dialog) names hunt styles — a
+  partial profile plus `until` (lock / boxes / kills) — that `;hunt
+  <style>` or a plan task's args lay over the profile: one hunt to
+  train, one to farm boxes for `;boxes` (#299).
   `scripts/skins.py` sells the worn bundle at the nearest tannery.
   `scripts/cast.py` (`;cast`, #225) is that cast loop on its own —
   the first buff on the mana ramp with the cambrinth and a POWER a

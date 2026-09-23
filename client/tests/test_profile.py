@@ -78,6 +78,44 @@ def test_garbage_file_yields_defaults(tmp_path):
     assert load_profile("Lanival") == DEFAULTS
 
 
+def test_hunt_styles_lay_a_partial_profile_over_the_whole(tmp_path, monkeypatch):
+    # #299: one hunt to train, one to farm boxes. `hunts` in the file is a
+    # name to the keys that differ, plus `until`; the dialog leaves the
+    # key alone and the file keeps it.
+    from client.game.profile import DEFAULTS, load_profile, save_profile, styled, styles
+
+    monkeypatch.setenv("REVENANT_PROFILES", str(tmp_path))
+    base = DEFAULTS | {
+        "hunting_ground": "bobcats",
+        "skin": True,
+        "weapons": ["scimitar:Small Edged:scabbard", "fists:Brawling"],
+        "hunts": {
+            "Boxes": {
+                "hunting_ground": "goblins",
+                "skin": "false",
+                "weapons": "scimitar:Small Edged:scabbard",
+                "box_limit": "8",
+                "until": "boxes",
+            }
+        },
+    }
+    save_profile("Lanival", base)
+    profile = load_profile("Lanival")
+    assert list(styles(profile)) == ["boxes"]
+    farm = styled(profile, "BOXES")
+    assert farm["hunting_ground"] == "goblins"
+    assert farm["skin"] is False
+    assert farm["weapons"] == ["scimitar:Small Edged:scabbard"]
+    assert farm["box_limit"] == 8
+    assert farm["until"] == "boxes"
+    assert farm["hunt_style"] == "boxes"
+    assert farm["home"] == profile["home"]  # everything else as it was
+    assert profile["skin"] is True  # the base untouched
+    assert styled(profile, "nosuch") is None
+    assert styles(DEFAULTS) == {}
+    assert styles({"hunts": "junk"}) == {}
+
+
 def test_describe_reads_like_the_dialog():
     lines = describe(
         load_profile("Lanival") | {"skin": True, "train_skills": ["Evasion"]}

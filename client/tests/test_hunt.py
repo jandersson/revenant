@@ -968,3 +968,28 @@ def test_the_worn_cambrinth_piece_in_hand_is_worn_back_not_stowed_as_a_skin(trav
     first = arena.sent.index("skin rat")
     assert arena.sent[first : first + 3] == ["skin rat", "wear my anklet", "skin rat"]
     assert "put my anklet in my sack" not in arena.sent
+
+
+def test_a_boxes_style_hunt_ends_once_the_sack_holds_the_box_limit(monkeypatch):
+    # #299: the boxes farm — no skinning, the box limit as the end rule
+    # ("until": "boxes") — ends on its own once the loot container holds
+    # the limit, the way a training hunt ends at the mind-lock.
+    found = iter([["a small wooden coffer"], ["a small wooden coffer"], []])
+    monkeypatch.setattr(
+        hunt_arena.hunt.loot,
+        "new_items",
+        lambda before, after, creatures=(): next(found, []),
+    )
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands), (KILL, kill), (KILL, kill)],
+            "loot": [NOTHING] * 3,
+            "get coffer": ["You pick up a small wooden coffer."] * 3,
+            "put my coffer": ["You put your coffer in your sack."] * 3,
+        }
+    )
+    farm = PROFILE | {"skin": False, "box_limit": 2, "until": "boxes"}
+    _run(arena, profile=farm, travel_first=False)
+    assert arena.sent.count("get coffer") == 2
+    assert not any(c.startswith("skin") for c in arena.sent)
+    assert any("2 box(es) in the sack — the farm is done" in e for e in arena.echoed)

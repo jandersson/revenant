@@ -388,6 +388,39 @@ def save_profile(character, values: dict) -> Path:
     return path
 
 
+def styles(profile: dict) -> dict:
+    """The profile's hunt styles: `hunts` in the file, a name to a
+    partial profile — the keys that differ for that kind of hunt
+    (ground, prey, weapons, skinning, the box limit, the skills) and
+    `until`, what ends it: "lock" (the trained skills mind-lock, the
+    default), "boxes" (the loot container holds `box_limit` boxes),
+    "kills" (`max_kills`). Hand-edited beside the dialog's fields
+    (the operator's ask, 2026-09-23: one hunt to train, one to farm
+    boxes, a third to come)."""
+    raw = profile.get("hunts")
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        str(name).strip().lower(): dict(overlay)
+        for name, overlay in raw.items()
+        if str(name).strip() and isinstance(overlay, dict)
+    }
+
+
+def styled(profile: dict, name) -> dict:
+    """The profile with the named hunt style laid over it, each key
+    coerced to its kind; None when the profile has no such style. The
+    style's `until` rides along as a plain key."""
+    overlay = styles(profile).get(str(name or "").strip().lower())
+    if overlay is None:
+        return None
+    merged = dict(profile)
+    merged.update(normalize(overlay))
+    merged["hunt_style"] = str(name).strip().lower()
+    merged["until"] = str(overlay.get("until") or "lock").strip().lower()
+    return merged
+
+
 def describe(profile: dict) -> list:
     """One line per FIELDS row, for ;hunt profile and the like."""
     lines = []
