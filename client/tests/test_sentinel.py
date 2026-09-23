@@ -166,6 +166,7 @@ def test_npcs_own_characters_players_present_and_boilerplate_pass_in_silence():
         ("logons", "Uthmor has logged on."),
     ):
         watch.handle(stream, line, 5.0)
+    watch.judge(10.0)
     assert s.bells == 0
     assert s.echoed == []
     # The NPC's canned line and your own character's are news once (the
@@ -179,11 +180,27 @@ def test_a_new_line_lands_in_the_dock_once_and_a_hidden_command_alerts():
     watch = _watch(s)
     watch.handle("", "A stranger looks at you oddly.", 1.0)
     watch.handle("", "A stranger looks at you oddly.", 2.0)
+    watch.judge(10.0)
     assert s.attention == ["A stranger looks at you oddly.\n"]
     assert s.bells == 0
     watch.handle("", 'Uthmor says, "J_u_M_p"', 3.0)
     assert s.bells == 3
     assert any("hidden command" in text for text in s.echoed)
+
+
+def test_spam_rings_the_bells_but_never_starts_the_grace():
+    # Too weak a sign to end a session on: the first evening's false
+    # alarms were the character's own lines, now left out of the
+    # windows; a stranger's flood still rings, and only rings.
+    s = Handle()
+    watch = _watch(s)
+    for i in range(6):
+        watch.handle("", "A rat squeaks loudly.", float(i))
+    watch.judge(20.0)
+    assert s.bells == 3
+    assert watch.grace_until is None
+    assert any("SENTINEL: spam:" in text for text in s.echoed)
+    assert not any(";sentinel ok within" in text for text in s.echoed)
 
 
 def test_a_staff_broadcast_and_an_arrival_ring_once_without_a_grace():
@@ -200,13 +217,21 @@ def test_a_staff_broadcast_and_an_arrival_ring_once_without_a_grace():
     assert watch.grace_until is None
 
 
-def test_the_rooms_description_right_after_a_room_frame_is_not_news():
+def test_the_rooms_description_on_either_side_of_its_room_frame_is_not_news():
+    # The description and the room frame arrive in either order
+    # (client/ui/roomids.py), so a story line is judged only once the
+    # window has passed, against the frames on both sides of it.
     s = Handle()
     watch = _watch(s)
+    watch.handle("", "A wide green sweeps toward the river.", 9.5)  # before
     watch.handle("room", "123\tThe Crossing, Town Green", 10.0)
-    watch.handle("", "A wide green sweeps toward the river.", 10.5)
+    watch.handle("", "Oaks line the walk here.", 10.5)  # after
+    watch.judge(10.6)
+    assert watch.pending  # too soon to judge anything
+    watch.judge(13.0)
     assert s.attention == []
     watch.handle("", "A wide green sweeps toward the river.", 20.0)
+    watch.judge(30.0)
     assert s.attention == ["A wide green sweeps toward the river.\n"]
 
 

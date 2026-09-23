@@ -19,8 +19,9 @@ seen before flagged once as new and remembered
 shapes watched over the recent lines — the same line more than
 UNIQUE times in the last WINDOW, or FREQUENCY near-duplicate lines
 (Levenshtein under SIMILARITY percent) within SPAN seconds — the
-thresholds status-monitor ships (4, 6, 70). Sources:
-docs/bibliography.md.
+thresholds status-monitor ships (4, 6, 70), over the lines that can be
+a flood at all (`spam_material`: not the character's own "You ..."
+lines, not a paragraph). Sources: docs/bibliography.md.
 """
 
 import json
@@ -223,6 +224,21 @@ def own_names(login):
     return seen
 
 
+SPAM_MAX_LENGTH = 200  # a flood is short lines; a room's paragraph is not one
+_OWN_DOING = re.compile(r"^(?:You|Your)\b")
+
+
+def spam_material(line):
+    """Whether a line can count toward the spam windows: not the
+    character's own doings ("You continue playing on your copper
+    zills.", "You go north." — a script's loop repeats them by design;
+    status-monitor filters each such wording by name, 2026-09-23) and
+    not a paragraph (adjacent rooms' descriptions rhyme). Every line
+    still counts as news once."""
+    text = (line or "").strip()
+    return bool(text) and len(text) <= SPAM_MAX_LENGTH and not _OWN_DOING.match(text)
+
+
 def distance(a, b):
     """Levenshtein distance between two strings, each cut to
     MAX_COMPARE characters."""
@@ -290,7 +306,8 @@ class Novelty:
         self.settle(now)
         if key in self.seen:
             return None
-        self.recent.append(key)
+        if spam_material(text):
+            self.recent.append(key)
         counts = Counter(self.recent)
         if counts[key] > UNIQUE:
             self._reset()

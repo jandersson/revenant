@@ -14,15 +14,19 @@ starts the grace: a player or GM — a bare name, never an NPC with an
 article ("A young sacristan says to you, ...") and never one of your
 own characters from ~/.revenant/login.json — whispering, speaking,
 thinking or gesturing to you; a word spelled to slip past a script
-("J_u_M_p", "jUmP"); the same line more than four times in the last
-twenty, or six near-duplicates within ninety seconds (status-monitor's
-thresholds). What rings once and lands in the Attention dock without a
-grace: a staff notice for this instance on the `ooc` stream ("TWEET: ...
+("J_u_M_p", "jUmP"). What rings three times without a grace — too weak
+a sign to end a session on: the same line more than four times in the
+last twenty, or six near-duplicates within ninety seconds
+(status-monitor's thresholds), the character's own "You ..." lines and
+paragraphs left out (the first evening rang on "You continue playing
+on your copper zills." and a walk's room descriptions). What rings
+once: a staff notice for this instance on the `ooc` stream ("TWEET: ...
 #drprime", a calendar notice aside) and a player arriving in the room.
 Every other story line never seen before lands in the Attention dock
 once and is remembered (`~/.revenant/sentinel/<name>.json`, numerals
 and currency words scrubbed, lines naming a player present skipped,
-the room's exits and company never news).
+the room's exits and company never news, a line within a second and a
+half of a room frame — its description, either side — never judged).
 
 The alert also runs settings.json's `alert_command` with the alert as
 its last argument — a toast, a mail, a bot; empty runs nothing — and
@@ -120,7 +124,8 @@ class Watch:
         self.store = store
         self.own = own
         self.buffers = {}  # stream -> the piece of a line still coming
-        self.arrived_at = 0.0
+        self.pending = []  # (when, story line) awaiting judgement
+        self.arrivals = []  # when the room frames came, the recent ones
         self.players = list(getattr(s.state, "room_players", None) or [])
         self.quiet_until = 0.0
         self.grace_until = None
@@ -166,16 +171,19 @@ class Watch:
             self.command_failed = True
             self.say(f"alert_command failed ({error}) — not tried again this run")
 
-    def alert(self, kind, text, now):
-        """The escalating alert: bells, the echo, the hand-off, the
-        grace — unless the watch is quiet."""
+    def alert(self, kind, text, now, grace=True):
+        """The alert: bells, the echo, the hand-off — and the grace,
+        unless the kind is too weak a sign to end a session on (spam)
+        or the watch is quiet."""
         self.alerts += 1
         line = f"{kind}: {text}"
         self.note(f"! {line}")
         if now < self.quiet_until:
             return
         self.ring(BELLS)
-        if self.grace_until is None:
+        if not grace:
+            self.say(line)
+        elif self.grace_until is None:
             self.grace_until = now + self.grace_minutes * 60
             self.grace_reason = line
             self.say(
@@ -198,7 +206,7 @@ class Watch:
 
     def handle(self, stream, line, now):
         if stream == "room":
-            self.arrived_at = now
+            self.arrivals.append(now)
             return
         if stream in NOISE_STREAMS:
             return
@@ -218,16 +226,28 @@ class Watch:
                 return
         if stream != "":
             return
-        if now - self.arrived_at < ARRIVAL_WINDOW:
-            return
-        verdict = self.store.observe(line, now, names=self.players)
-        if verdict is None:
-            return
-        what, detail = verdict
-        if what == "new":
-            self.note(detail)
-        else:
-            self.alert("spam", detail, now)
+        # Judged once ARRIVAL_WINDOW has passed: a room's description
+        # lands on either side of its room frame (client/ui/roomids.py).
+        self.pending.append((now, line))
+
+    def judge(self, now):
+        """The story lines older than ARRIVAL_WINDOW through the store:
+        one within the window of a room frame, before or after, is the
+        room's own text and never news; the rest are news once or, past
+        the thresholds, spam — bells without a grace."""
+        while self.pending and now - self.pending[0][0] >= ARRIVAL_WINDOW:
+            when, line = self.pending.pop(0)
+            if any(abs(when - arrived) < ARRIVAL_WINDOW for arrived in self.arrivals):
+                continue
+            verdict = self.store.observe(line, when, names=self.players)
+            if verdict is None:
+                continue
+            what, detail = verdict
+            if what == "new":
+                self.note(detail)
+            else:
+                self.alert("spam", detail, now, grace=False)
+        self.arrivals = [t for t in self.arrivals if now - t < 2 * ARRIVAL_WINDOW]
 
     def watch_players(self, now):
         current = list(getattr(self.s.state, "room_players", None) or [])
@@ -353,6 +373,7 @@ class Watch:
                 for line in self.lines_from(stream, text):
                     self.handle(stream, line, now)
                 item = s.get(timeout=0, streams=None)
+            self.judge(now)
             self.watch_players(now)
             if self.check_grace(now):
                 return

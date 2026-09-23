@@ -189,6 +189,30 @@ def test_near_duplicate_lines_within_the_span_are_spam():
     assert "near-duplicate" in verdicts[-1][1]
 
 
+def test_your_own_doings_and_paragraphs_are_news_once_but_never_spam():
+    # 2026-09-23, the first evening: ;perform's "You continue playing on
+    # your copper zills." rang the bells every few minutes, and a walk's
+    # room descriptions rhymed past the near-duplicate threshold.
+    from client.game.novelty import spam_material
+
+    assert not spam_material("You continue playing on your copper zills.")
+    assert not spam_material("Your armor hinders your attempt.")
+    assert not spam_material("A " + "long room paragraph " * 12 + "ends here.")
+    assert spam_material("Someone pokes you.")
+    store = Novelty()
+    verdicts = [
+        store.observe("You continue playing on your copper zills.", float(i))
+        for i in range(UNIQUE * 3)
+    ]
+    assert verdicts[0][0] == "new"
+    assert all(verdict is None for verdict in verdicts[1:])
+    walk = [
+        store.observe(f"You go {way}.", float(i))
+        for i, way in enumerate(["north", "south", "east", "west", "up", "down", "out"])
+    ]
+    assert all(verdict is None or verdict[0] == "new" for verdict in walk)
+
+
 def test_near_duplicates_spread_past_the_span_are_not_spam():
     store = Novelty()
     verdicts = []
