@@ -272,3 +272,20 @@ def test_the_shutdown_minutes_are_a_plan_setting():
     assert DEFAULTS["shutdown_minutes"] == 3
     assert any(key == "shutdown_minutes" for key, *_ in PLAN_FIELDS)
     assert normalize({"shutdown_minutes": "5"})["shutdown_minutes"] == 5
+
+
+def test_the_windows_spelling_wins_over_a_lowercase_seed():
+    # #295: a session from before the fix holds "parry ability" (a
+    # script's seed, stuck at 11) beside the window's "Parry Ability";
+    # a rest waiting on the seed never ended. The window's key wins,
+    # whichever came first.
+    from client.game.training import mindstate
+
+    both = {
+        "parry ability": {"rank": 45, "mindstate": 11},
+        "Parry Ability": {"rank": 46, "mindstate": 8},
+    }
+    assert mindstate(both, "Parry Ability") == 8
+    assert mindstate(both, "parry ability") == 8
+    assert mindstate({"parry ability": {"mindstate": 11}}, "Parry Ability") == 11
+    assert mindstate({}, "Parry Ability") == 0

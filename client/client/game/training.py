@@ -356,10 +356,18 @@ def mindstate(experience, skill) -> int:
     window doesn't show it (nothing learning). Names match ignoring
     case, so a plan may say "small edged"."""
     wanted = skill.strip().lower()
-    for name, entry in (experience or {}).items():
-        if name.strip().lower() == wanted:
+    found = [
+        (name, entry)
+        for name, entry in (experience or {}).items()
+        if str(name).strip().lower() == wanted and isinstance(entry, dict)
+    ]
+    # The window's own spelling wins over a lowercase seed from before
+    # #295: the seed never moves, and a rest waiting on it never ends
+    # (Cecil's, 02:09 to 09:00 on 2026-09-23).
+    for name, entry in found:
+        if name != name.lower():
             return int(entry.get("mindstate", 0))
-    return 0
+    return int(found[0][1].get("mindstate", 0)) if found else 0
 
 
 def task_mindstates(task, experience) -> dict:
