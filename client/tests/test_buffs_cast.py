@@ -78,3 +78,16 @@ def test_a_recognized_answer_opens_no_second_window(monkeypatch):
     outcome, reported = _cast(handle, STRUCK)
     assert outcome == "ok" and reported == []
     assert handle.pending == [APPROACH]  # left in the stream, unread
+
+
+# Captured 2026-09-23 at 16:00: nothing was held when the CAST went out.
+NOT_PREPARED = "You don't have a spell prepared!\n"
+
+
+def test_a_cast_with_nothing_prepared_is_a_failed_cast_not_a_mystery(monkeypatch):
+    monkeypatch.setattr(buffs, "CAST_TAIL_SECONDS", 0.6)
+    handle = Handle([READY])
+    outcome, reported = _cast(handle, NOT_PREPARED)
+    assert outcome == "collapsed"
+    assert reported == []
+    assert "release" not in handle.sent

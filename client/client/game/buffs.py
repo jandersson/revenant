@@ -153,7 +153,19 @@ CAST_OUTCOMES = (
     # The spell's own skill is short of the spell (captured 2026-09-18,
     # Footman's Strike at Targeted Magic 1, #202): no mana will help.
     ("lacking", ("lacking the skill to complete the pattern",)),
-    ("failed", ("pattern collapses", "backfire", "not enough mana", "nothing to cast")),
+    # "You don't have a spell prepared!" (captured 2026-09-23 16:00): the
+    # CAST went out with nothing held — the pattern had gone with the
+    # foe — so nothing to release, the cast simply did not happen.
+    (
+        "failed",
+        (
+            "pattern collapses",
+            "backfire",
+            "not enough mana",
+            "nothing to cast",
+            "don't have a spell prepared",
+        ),
+    ),
     ("ok", ("takes effect", "renewed", "you gesture", "slams into")),
 )
 # Training casts: Elanthipedia's magic category — "fewer but larger
