@@ -345,6 +345,39 @@ def test_help_unknown_script(tmp_path):
     assert any("no script named 'nosuch'" in e for e in recorder.emitted)
 
 
+def test_a_return_word_at_a_stopped_script_does_not_start_it(tmp_path):
+    # #298: `;remedies return` twenty seconds after `;stop train` had
+    # taken the task down started a training run with "return" as an
+    # argument the script ignored. Not running: nothing to return from.
+    (tmp_path / "waiter.py").write_text(
+        '"""Wait about:  ;waiter\n\nThe manual."""\n'
+        "def main(s):\n"
+        "    s.echo('started')\n"
+        "    while True:\n"
+        "        line = s.command(timeout=5)\n"
+        "        if line:\n"
+        "            s.echo(f'got {line}')\n"
+        "        if line == 'return':\n"
+        "            return\n"
+    )
+    manager, recorder = make_manager(tmp_path)
+    manager.handle_command(";waiter return")
+    assert any(
+        "waiter is not running — nothing to return from" in e for e in recorder.emitted
+    )
+    assert not any("started" in e for e in recorder.emitted)
+    # Running, the word is handed over as before; other words still launch.
+    manager.handle_command(";waiter")
+    manager.handle_command(";waiter return")
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline and not any(
+        "got return" in e for e in recorder.emitted
+    ):
+        time.sleep(0.05)
+    assert any("got return" in e for e in recorder.emitted)
+    manager.stop("waiter")
+
+
 def test_k_and_kill_are_stop_aliases(tmp_path):
     (tmp_path / "waiter.py").write_text(
         "def main(s):\n    while True:\n        s.sleep(5)\n"

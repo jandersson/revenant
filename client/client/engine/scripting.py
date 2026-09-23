@@ -403,6 +403,11 @@ class Script:
 # order (walker binds names from mapdb, so mapdb reloads first). Never
 # session, core, xml_data or this module — they own the socket, the
 # parser and the threads, and only ;reexec may replace them.
+# The convention every script keeps: a typed `;<name> return` is the
+# graceful end. At a script that is not running it is nothing to do,
+# never a launch with an argument the script ignores (#298).
+RETURN_WORD = "return"
+
 RELOADABLE_MODULES = (
     "client.settings",
     "client.ui.textfont",
@@ -640,6 +645,13 @@ class ScriptManager(ClientLogger):
                 script.feed_command(payload)
             else:
                 self.emit(f"{name} is already running (;stop {name} first)")
+            return
+        if payload.split() == [RETURN_WORD]:
+            # The graceful-end word at a script that is not running is
+            # not a launch (#298: `;remedies return` twenty seconds after
+            # `;stop train` had taken the task down started a training
+            # run, and its leftover salve broke the next order).
+            self.emit(f"{name} is not running — nothing to return from")
             return
         self.start(name, [] if queue_on_start else payload.split())
         if queue_on_start and payload:

@@ -77,7 +77,12 @@ The last five are what an orchestrator needs: `;train`
 until the task's skills reach their target, tells the script its
 return word (`;hunt return` finishes the kill and walks home) and
 kills it after a grace. The convention for every script: a typed
-`return` is the graceful end, `;stop <name>` the abrupt one. A script the user started by hand is theirs — `s.run`
+`return` is the graceful end, `;stop <name>` the abrupt one — and at
+a script that is not running the word is nothing to do ("not running
+— nothing to return from"), never a launch: on 2026-09-23 a
+`;remedies return` sent after `;stop train` had already taken the
+task down started a training run instead, and its leftover salve
+broke the next order (#298). A script the user started by hand is theirs — `s.run`
 refuses it rather than adopting it. Model: [training.md](training.md).
 
 Synthetic streams worth knowing: `compass` (one frame per room, the
