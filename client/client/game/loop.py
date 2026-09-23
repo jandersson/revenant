@@ -57,19 +57,51 @@ def pause(s, seconds):
     return True
 
 
+def _entry(s, skill):
+    """The exp window's entry for `skill`, the name matched ignoring
+    case (a plan or a script says "parry ability"); when a lowercase
+    seed from before #295 sits beside the window's own spelling, the
+    window's wins."""
+    experience = getattr(s.state, "experience", None) or {}
+    wanted = skill.strip().lower()
+    found = [
+        (name, entry)
+        for name, entry in experience.items()
+        if str(name).strip().lower() == wanted and entry
+    ]
+    if not found:
+        return None
+    for name, entry in found:
+        if name != name.lower():
+            return entry
+    return found[0][1]
+
+
 def mindstate(s, skill):
     """The exp window's mindstate (0-34) for `skill`, or None when the
     window does not list it — a clear pool is absent from it, and a
     guild without the skill never shows it."""
-    entry = (getattr(s.state, "experience", None) or {}).get(skill)
+    entry = _entry(s, skill)
     return entry["mindstate"] if entry else None
 
 
 def _exp_answer(skill):
     # Case-insensitive: a script's ask() may lower-case the answer.
     return re.compile(
-        rf"{re.escape(skill)}:\s+(\d+)\s+[\d.]+%\s+.*?\((\d+)/34\)", re.IGNORECASE
+        rf"(?P<name>{re.escape(skill)}):\s+(\d+)\s+[\d.]+%\s+.*?\((\d+)/34\)",
+        re.IGNORECASE,
     )
+
+
+def _window_name(skill, printed):
+    """The key the exp window would use: the answer's own spelling when
+    it kept its case, else the skill in title case — "parry ability"
+    seeded as "Parry Ability", so the window's later pushes update the
+    same entry rather than leaving the seed stuck beside it (#295: a
+    class read 11/34 for half an hour while the window said 25)."""
+    if printed != printed.lower():
+        return printed.strip()
+    return " ".join(word.capitalize() for word in skill.strip().split())
 
 
 def ensure_mindstate(s, skill, ask):
@@ -86,10 +118,10 @@ def ensure_mindstate(s, skill, ask):
         if value is None:
             match = _exp_answer(skill).search(answer or "")
             if match:
-                value = int(match.group(2))
+                value = int(match.group(3))
                 s.state.experience = dict(getattr(s.state, "experience", None) or {})
-                s.state.experience[skill] = {
-                    "rank": int(match.group(1)),
+                s.state.experience[_window_name(skill, match.group("name"))] = {
+                    "rank": int(match.group(2)),
                     "percent": 0,
                     "mindstate": value,
                     "rate": LEARNING_RATES[min(value, 34)],

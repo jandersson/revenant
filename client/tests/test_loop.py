@@ -83,3 +83,40 @@ def test_a_skill_the_window_lacks_is_asked_of_exp_and_seeded_whole():
         "rate": "dabbling",
     }
     assert loop.ensure_mindstate(handle, "Scholarship", lambda s, c: "") is None
+
+
+def test_a_skill_is_found_and_seeded_under_the_windows_spelling():
+    # #295: ;listen asked "exp parry ability" and seeded "parry ability"
+    # beside the window's "Parry Ability"; the window's pushes updated
+    # its own key and the seed sat at 11 while the class taught to 25.
+    handle = Handle()
+    handle.state.experience = {"Parry Ability": {"rank": 45, "mindstate": 22}}
+    assert loop.mindstate(handle, "parry ability") == 22
+    assert loop.ensure_mindstate(handle, "parry ability", lambda s, c: "") == 22
+    assert list(handle.state.experience) == ["Parry Ability"]  # no seed
+
+    fresh = Handle()
+    fresh.state.experience = {}
+    loop.ensure_mindstate(
+        fresh,
+        "parry ability",
+        lambda s, c: "Parry Ability:   45 63% dabbling  (11/34)\n",
+    )
+    assert list(fresh.state.experience) == ["Parry Ability"]
+    lowered = Handle()
+    lowered.state.experience = {}
+    loop.ensure_mindstate(
+        lowered,
+        "parry ability",
+        lambda s, c: "parry ability:   45 63% dabbling  (11/34)\n",
+    )
+    assert list(lowered.state.experience) == ["Parry Ability"]
+
+    # A session from before the fix holds both: the window's wins.
+    stale = Handle()
+    stale.state.experience = {
+        "parry ability": {"rank": 45, "mindstate": 11},
+        "Parry Ability": {"rank": 46, "mindstate": 25},
+    }
+    assert loop.mindstate(stale, "parry ability") == 25
+    assert loop.mindstate(stale, "Parry Ability") == 25

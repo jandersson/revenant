@@ -102,7 +102,14 @@ lessons the code and docs cannot carry themselves.
   seed without a "rate" raised KeyError in the exp rewrite and ended
   the session at 04:30 on 2026-09-20 with `;train` running (#239).
   The renderer now reads with `.get` and the reader survives our own
-  errors, but the rule stands: seed complete entries or none.
+  errors, but the rule stands: seed complete entries or none — and
+  under the window's own spelling: `;listen`'s `exp parry ability`
+  seeded a lowercase "parry ability" beside the window's "Parry
+  Ability", the window kept updating its own key, and the seed sat at
+  11/34 through a class that taught to 25 (#295, 2026-09-23).
+  `loop.mindstate` matches ignoring case now and prefers the window's
+  key; a session from before the fix keeps the stale seed until
+  relaunched.
 - `;stop all` used to stop `;deathwatch` too: the emergency stop in
   the invasion of 2026-09-22 left the character unwatched until it
   was restarted by hand. It keeps the background monitors now —
