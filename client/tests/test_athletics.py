@@ -745,9 +745,10 @@ def test_the_award_timer_wait_casts_the_profiles_buffs(monkeypatch):
     assert athletics.wait_filler(handle) is None
 
 
-def test_an_occupied_rung_is_their_spot_and_the_ladder_falls_back():
-    # 2026-09-12, #178: a player already at the spot on arrival owns
-    # it; the next-best rung is taken instead, no laps there.
+def test_a_player_at_the_rung_is_no_reason_to_leave_it():
+    # 2026-09-23: a climbing wall is nobody's — the "their room" rule is
+    # the hunt's, about the creatures a room spawns (the operator). A
+    # player already at the swimming hole changes nothing: the laps run.
     handle = FakeHandle(args=[], mindstates=[5], sleeps=60)
     handle.state.experience["Athletics"]["rank"] = 7
     walks = []
@@ -759,10 +760,10 @@ def test_an_occupied_rung_is_their_spot_and_the_ladder_falls_back():
 
     with pytest.raises(LoopDone):
         athletics.auto_train(handle, db=LADDER_MAP, walk=fake_walk)
-    assert walks[0] == [19069]  # the swimming hole, occupied
-    assert any("their spot" in echo for echo in handle.echoes)
-    assert walks[1] == [1068]  # the oak, next-best
-    assert ("put", "west") not in handle.calls  # no lap in their room
+    assert walks[0] == [19069]  # the swimming hole, with a player in it
+    assert not any("their spot" in echo for echo in handle.echoes)
+    assert not any("abandoning" in echo for echo in handle.echoes)
+    assert ("put", "west") in handle.calls  # the laps went on there
 
 
 def test_a_crowded_rung_is_left_like_an_occupied_one():
@@ -828,11 +829,11 @@ def test_escape_stands_first_and_falls_back_to_an_exit_when_the_climb_fails():
     assert puts[-1] == "nw"
 
 
-def test_a_taken_first_stop_does_not_cost_the_whole_rotation():
-    # 2026-09-23 15:05: Lazaro at the first embrasure on arrival sent
+def test_a_player_at_a_rotation_stop_is_no_reason_to_skip_it():
+    # 2026-09-23 15:05: a player at the first embrasure on arrival sent
     # Cecil (rank 70) to the rank-30 mine ladder for the whole task —
-    # 4/34 in twelve laps. A rotation skips the taken stop inside its
-    # lap and climbs the rest; only a single spot falls back.
+    # 4/34 in twelve laps; later the same afternoon a passer-by cost a
+    # stop. Players never count for a climb; only a crowd of creatures.
     handle = FakeHandle(args=[], mindstates=[5], sleeps=60)
     handle.state.experience["Athletics"]["rank"] = 70
     walks = []
@@ -845,8 +846,8 @@ def test_a_taken_first_stop_does_not_cost_the_whole_rotation():
     with pytest.raises(LoopDone):
         athletics.auto_train(handle, db=LADDER_MAP, walk=fake_walk)
     puts = [c[1] for c in handle.calls if c[0] == "put"]
-    assert walks[0] == [835]  # the rotation's first stop, taken
+    assert walks[0] == [835]  # the rotation's first stop, a player in it
     assert not any("abandoning" in echo for echo in handle.echoes)
-    assert any("at this stop — theirs, skipping it" in echo for echo in handle.echoes)
-    assert any(p.startswith("climb ") for p in puts)  # the lap went on
+    assert not any("skipping it" in echo for echo in handle.echoes)
+    assert "climb embrasure" in puts  # climbed there all the same
     assert not any("mine ladder" in echo for echo in handle.echoes)

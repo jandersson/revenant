@@ -466,9 +466,12 @@ of the ground: a player already there makes it theirs, the loop says
 so and moves on to the next room without a swing, and a ground with
 someone in every room is left to them ("ground taken"). Someone who
 arrives while the fight is on has come into our room and is not the
-rule's concern. `;athletics` does the same at a rung and at each
-rotation stop: their spot, the next-best rung. Claude driving by hand
-checks the room first.
+rule's concern. The rule is about the creatures a room spawns, not
+the room: a climbing wall is nobody's, so `;athletics` never skips a
+rung or a rotation stop for a player in it (it did until 2026-09-23,
+when a passer-by cost a stop and the operator set the rule straight).
+Claude driving by hand checks the room first before a fight, never
+before a climb.
 
 A crowd of creatures is not the same rule. The room's own listing
 (`room objs`, "You also see a musk hog, a musk hog and a rusty

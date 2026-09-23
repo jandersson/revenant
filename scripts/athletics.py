@@ -31,10 +31,12 @@ into an engagement. A spot that keeps re-engaging is contested (#86):
 after three hostile break-offs in ten minutes the script gives it up —
 spawn areas never empty on their own, so waiting is futile; auto mode
 falls back to the next-best rung and manual mode stops with advice.
-A rung or rotation stop with another player already in it on arrival
-is theirs, and one listing three or more creatures is a crowd
-(dr-scripts' climb? rule): the next-best rung, or the stop skipped,
-said either way (#178).
+A rung or rotation stop listing three or more creatures on arrival is
+a crowd (dr-scripts' climb? rule): the next-best rung, or the stop
+skipped, said either way (#178). Another player in the room is no
+reason to skip: a climbing wall is nobody's — the "their room" rule
+is the hunt's, about the creatures a room spawns (the operator,
+2026-09-23).
 Stop with:  ;stop athletics
 """
 
@@ -107,11 +109,6 @@ EXP_LINE = re.compile(r"Athletics:\s+(\d+)\s+[\d.]+%")
 ENC_LINE = re.compile(r"Encumbrance\s*:\s*(.+)")
 
 
-def occupants(s):
-    """The other players in the room, as the parser read "Also here"."""
-    return list(getattr(s.state, "room_players", None) or [])
-
-
 def crowd(s):
     """The room's listed creatures when they make a crowd, else []."""
     names = list(getattr(s.state, "room_creatures", None) or [])
@@ -119,11 +116,12 @@ def crowd(s):
 
 
 def taken_by(s, doing):
-    """Why the room is not ours on arrival — "<names> <doing> — theirs"
-    for a player already in it, "<n> creatures here (...) — a crowd" for
-    CROWDED or more creatures listed — or None for a room of our own (#178)."""
-    if names := occupants(s):
-        return f"{', '.join(names)} {doing} — their"
+    """Why the room is no place to climb on arrival — "<n> creatures here
+    (...) — a crowd" for CROWDED or more creatures listed (a climb gets
+    interrupted, #178) — or None. Another player in the room is no
+    reason: a climbing wall is nobody's, the "their room" rule is about
+    the creatures a hunting room spawns (the operator, 2026-09-23,
+    after a stop was skipped for a passer-by)."""
     if beasts := crowd(s):
         return f"{len(beasts)} creatures here ({counted(beasts)}) — a crowd, not our"
     return None
@@ -670,13 +668,14 @@ def auto_train(s, db=None, walk=None):
             )
             return
         s.sleep(1)  # the room's players arrive with the room
-        # A rotation's stops are skipped one by one inside the lap (a
-        # taken stop, "at this stop — theirs, skipping it"); a taken first
-        # stop is not the rung taken. It was, on 2026-09-23 15:05: Lazaro
-        # at the first embrasure sent Cecil to the rank-30 mine ladder
-        # for the whole task, 4/34 in 12 laps at rank 70.
+        # A rotation's stops are judged one by one inside the lap (a
+        # crowded stop, "at this stop — a crowd, not ours, skipping it");
+        # a crowded first stop is not the rung lost. It was, on
+        # 2026-09-23 15:05, when a player at the first embrasure still
+        # counted: Cecil went to the rank-30 mine ladder for the whole
+        # task, 4/34 in 12 laps at rank 70.
         if rung.get("kind") != "rotation" and (why := taken_by(s, "training here")):
-            # Their spot, or a crowd (#178): the next-best rung, no laps here.
+            # A crowd (#178): the next-best rung, no laps here.
             s.echo(f"ATHLETICS: {why} spot")
             contested.add(rung["label"])
             rung = fall_back(s, rank, contested)

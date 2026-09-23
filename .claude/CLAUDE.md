@@ -435,13 +435,16 @@ Traps that cost time before:
   the lines that matter. Never a summarizing fetch of a table.
 - **Another player's room is theirs.** A room someone else is already
   hunting or training in ("Also here: …") is left, not shared: a
-  script arriving in one moves on to the next room or rung and never
-  starts a fight there (`;hunt` and `;athletics` read the parser's
-  `room_players` on every arrival), and Claude driving by hand checks
-  the room's players before any action that takes a kill (#178,
-  2026-09-12). A crowd of creatures is not that rule: `;athletics`
-  skips a rung or stop listing three (`room_creatures`, a climb gets
-  interrupted), `;hunt` fights them — a full room is what a hunt farms.
+  script arriving in one moves on to the next room and never starts a
+  fight there (`;hunt` reads the parser's `room_players` on every
+  arrival), and Claude driving by hand checks the room's players
+  before any action that takes a kill (#178, 2026-09-12). The rule is
+  about the creatures a room spawns: a climbing wall is nobody's, so
+  `;athletics` never skips a rung or a stop for a player in it (the
+  operator, 2026-09-23). A crowd of creatures is not that rule either:
+  `;athletics` skips a rung or stop listing three (`room_creatures`, a
+  climb gets interrupted), `;hunt` fights them — a full room is what a
+  hunt farms.
 - **Never DROP.** A dropped item is a lost item. A script drops only
   through `client/game/discard.py`'s `drop()`, which allows the
   built-in foraged junk (grass, grass rope) plus settings.json's
