@@ -188,21 +188,31 @@ DEFAULT_WOUND_FLOOR = "harmful"
 # still", never "falls to the ground" alone (#240). "Twisting in
 # agony, the cougar falls to the ground lifeless." (2026-08-22, eight
 # times, "a cougar which appears dead" after it) is the other captured
-# kill. The rest are assumptions until captured.
-_KILL_WORDS = (
-    "goes still",
-    "falls to the ground and lies still",
-    "falls to the ground lifeless",
-    " dies",
-    "collapses",
-    "keels over",
-)
-_KILL_NOUN = re.compile(
-    r"\b(?:the|a|an) ((?:[\w'-]+ )*?)([\w'-]+) (?:slowly |suddenly )?"
+# kill. The rest are assumptions until captured. A kill phrase ends its
+# sentence: "The scimitar lands a very heavy hit that collapses the
+# ribcage and bursts the diaphragm ..." (2026-09-23, a bobcat) is the
+# swing, not the death — it read as a kill of "that" and the search
+# went at the room — so the phrase must be followed by the sentence's
+# end, and a pronoun is never the noun.
+_KILL_PHRASE = (
     r"(?:goes still|falls to the ground(?: and lies still| lifeless)|dies|"
-    r"collapses|keels over)",
-    re.IGNORECASE,
+    r"collapses|keels over)(?=[.!]|\s*$)"
 )
+_KILL_SENTENCE = re.compile(_KILL_PHRASE, re.IGNORECASE | re.MULTILINE)
+_KILL_NOUN = re.compile(
+    r"\b(?:the|a|an) ((?:[\w'-]+ )*?)([\w'-]+) (?:slowly |suddenly )?" + _KILL_PHRASE,
+    re.IGNORECASE | re.MULTILINE,
+)
+_PRONOUNS = frozenset({"that", "which", "it", "who", "this"})
+
+
+def is_kill(text):
+    """True when the answer holds a kill sentence — the phrase at its
+    sentence's end, never mid-sentence ("a hit that collapses the
+    ribcage")."""
+    return _KILL_SENTENCE.search(text or "") is not None
+
+
 # Bare ATTACK with every attacker dead (captured 2026-08-22).
 _ALL_DEAD = ("nothing else to face", "what are you trying to attack")
 # A corpse soaking swings (captured 2026-08-22, docs/combat.md); the
@@ -655,15 +665,18 @@ _NOUN_STOPS = {
 
 
 def kill_noun(text):
-    match = _KILL_NOUN.search(text)
-    if not match:
-        return None
-    phrase = (match.group(1) + match.group(2)).split()
-    for index, word in enumerate(phrase):
-        if word.lower() in _NOUN_STOPS:
-            phrase = phrase[:index]
-            break
-    return phrase[-1].lower() if phrase else match.group(2).lower()
+    """The corpse's noun from the kill sentence, or None: the first kill
+    sentence whose noun is a thing, not a pronoun."""
+    for match in _KILL_NOUN.finditer(text or ""):
+        phrase = (match.group(1) + match.group(2)).split()
+        for index, word in enumerate(phrase):
+            if word.lower() in _NOUN_STOPS:
+                phrase = phrase[:index]
+                break
+        noun = phrase[-1].lower() if phrase else match.group(2).lower()
+        if noun not in _PRONOUNS:
+            return noun
+    return None
 
 
 def items_in(text):
@@ -1040,7 +1053,13 @@ def skin(s, profile, corpse, tally):
         # tail whose success line landed after the roundtime): stow
         # what the parser says is there, or the hand itself, and once more.
         held = (getattr(s.state, "left_hand", None) or {}).get("noun")
-        if held:
+        piece = profile.get("cambrinth") or ""
+        if held and held == piece and profile.get("cambrinth_worn"):
+            # The worn cambrinth piece, off for a charge when the kill
+            # came (2026-09-23: the anklet went into the sack as if it
+            # were a skin, and the cast's INVOKE found nothing in hand).
+            ask(s, f"wear my {piece}")
+        elif held:
             stow(s, profile, held)
         else:
             ask(s, "stow left")
@@ -1329,7 +1348,7 @@ def swing(s, profile, tally, prey):
                     f"hunt: {verb} answered nothing known {TACTIC_MISSES} "
                     "times — tactics off for this run"
                 )
-    if any(word in lowered for word in _KILL_WORDS):
+    if is_kill(text):
         tally.kills += 1
         tally.empty_moves = 0
         tally.corpse_swings = 0

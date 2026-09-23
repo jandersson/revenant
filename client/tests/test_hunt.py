@@ -12,6 +12,7 @@ swing's variants (SMITE, maneuvers, HUNT) have files of their own.
 
 from types import SimpleNamespace
 
+import hunt_arena
 from hunt_arena import (
     Arena,
     ELBOWED,
@@ -677,8 +678,8 @@ def test_a_fall_grasping_a_mangled_leg_is_a_knockdown_and_lifeless_is_a_kill(tra
     assert not any("rat down (2)" in text for text in arena.echoed)
     assert not any("unrecognized" in text for text in arena.echoed)
     assert hunt.kill_noun(LIFELESS) == "cougar"
-    assert any(word in LIFELESS.lower() for word in hunt._KILL_WORDS)
-    assert not any(word in MANGLED.lower() for word in hunt._KILL_WORDS)
+    assert hunt.is_kill(LIFELESS)
+    assert not hunt.is_kill(MANGLED)
     # The badger that stood up before the SKIN reached it: a gone corpse,
     # nothing to report.
     stood = Arena(
@@ -920,3 +921,52 @@ def test_the_balance_word_is_tallied_per_swing_and_reported():
     _run(arena, travel_first=False)
     assert any("balance badly balanced x1" in text for text in arena.echoed)
     assert isinstance(SimpleNamespace(), object)
+
+
+# Captured 2026-09-23 at the bobcats: the swing's own sentence carries a
+# kill word mid-sentence, then the death line follows.
+HEAVY_HIT = (
+    "< Moving with the precision of a mongoose, you slice a watered steel "
+    "scimitar at a bobcat.  A bobcat fails to dodge, only slightly avoiding "
+    "the blow.  The scimitar lands a very heavy hit that collapses the ribcage "
+    "and bursts the diaphragm in a messy splattering of bloody pink froth.\n"
+)
+BOBCAT_DEAD = "The bobcat falls to the ground and lies still.\n"
+
+
+def test_a_kill_word_mid_sentence_is_the_swing_not_the_death():
+    # "that down (3)" went out and SEARCH THAT searched the room.
+    assert hunt.is_kill(HEAVY_HIT) is False
+    assert hunt.kill_noun(HEAVY_HIT) is None
+    assert hunt.is_kill(HEAVY_HIT + BOBCAT_DEAD) is True
+    assert hunt.kill_noun(HEAVY_HIT + BOBCAT_DEAD) == "bobcat"
+    assert hunt.kill_noun("The ship's rat falls to the ground and lies still.") == "rat"
+    assert hunt.is_kill("Twisting in agony, the cougar falls to the ground lifeless.")
+    assert hunt.kill_noun("The badger collapses.") == "badger"
+    assert hunt.kill_noun("The badger dies.") == "badger"
+
+
+def test_the_worn_cambrinth_piece_in_hand_is_worn_back_not_stowed_as_a_skin(travel):
+    # 2026-09-23: the anklet, off for a charge when the kill came, went
+    # into the sack as the "skin" in hand and the cast's INVOKE found
+    # nothing to invoke.
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "skin": [HANDS_FULL, TAIL_REMOVED],
+            "search": [NOTHING],
+        }
+    )
+    arena.state.left_hand = {
+        "noun": "anklet",
+        "exist": "9",
+        "name": "a cambrinth anklet",
+    }
+    _run(
+        arena,
+        profile=hunt_arena.PROFILE | {"cambrinth": "anklet", "cambrinth_worn": True},
+        travel_first=False,
+    )
+    first = arena.sent.index("skin rat")
+    assert arena.sent[first : first + 3] == ["skin rat", "wear my anklet", "skin rat"]
+    assert "put my anklet in my sack" not in arena.sent

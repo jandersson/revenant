@@ -58,7 +58,14 @@ grasping its mangled left leg!", the badger "lying down" and then
 are "The ship's rat falls to the ground and lies still." (2026-09-05)
 and "Twisting in agony, the cougar falls to the ground lifeless."
 (2026-08-22, "a cougar which appears dead" after it) — whole phrases,
-never "falls to the ground" alone.
+never "falls to the ground" alone, and always at the end of their
+sentence: the swing's own sentence can carry a kill word — "The
+scimitar lands a very heavy hit that collapses the ribcage and bursts
+the diaphragm in a messy splattering of bloody pink froth." (a bobcat,
+2026-09-23) — and read as a kill of "that" until the phrase had to be
+followed by the sentence's end; a pronoun is never the corpse's noun.
+The bobcat's own death line was the rat's ("The bobcat falls to the
+ground and lies still.").
 
 **Corpses keep their noun**: after a kill, `ATTACK cougar` resolves
 to the body — "The cougar is already quite dead." — while a second,
