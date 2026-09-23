@@ -248,7 +248,15 @@ entries from a dock-layout module.
   and the death watchdog (`;deathwatch`: logs an unattended corpse out
   after a rescue grace so the body keeps for a raise, or departs it
   with the best variant the favors afford before it decays —
-  docs/death.md holds the captured model)
+  docs/death.md holds the captured model), and the attention monitor
+  (`;sentinel`, #276: every line through `client/game/novelty.py` —
+  a stranger's whisper, speech or gesture at the character, a word
+  spelled to slip past a script, status-monitor.lic's two spam shapes
+  ring the bell and start a grace; a staff notice on `ooc` and a
+  player arriving ring once; every line never seen before lands in
+  the Attention dock and is remembered in
+  `~/.revenant/sentinel/<name>.json`; unanswered by `;sentinel ok`,
+  it gives `;train` its return word and QUITs — docs/running.md)
   (`session.autostart_scripts`; `;stop <name>` opts
   a session out; the GUI's File → Settings dialog over
   `client/settings.py` / ~/.revenant/settings.json turns them off

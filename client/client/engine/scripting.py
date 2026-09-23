@@ -437,6 +437,7 @@ RELOADABLE_MODULES = (
     "client.game.soul",
     "client.game.encumbrance",
     "client.game.status",
+    "client.game.novelty",
     "client.game.flight",  # binds status: after it
     "client.game.mapdb",
     "client.game.walker",

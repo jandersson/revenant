@@ -30,6 +30,7 @@ STREAM_WINDOWS = {
     "death": "Deaths",
     "exp": "Experience",
     "group": "Group",
+    "attention": "Attention",  # ;sentinel's new and addressed lines (#276)
 }
 
 

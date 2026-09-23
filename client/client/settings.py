@@ -16,6 +16,14 @@ DEFAULTS = {
     "autostart_beholder": True,  # keep the dashboard server up, quietly
     "autostart_sheet": True,  # snapshot the character sheet periodically
     "autostart_deathwatch": True,  # depart safely on unattended death (#90)
+    "autostart_sentinel": True,  # flag what is new or addressed at you (#276)
+    # ;sentinel's hand-off to the operator: a command run with the alert
+    # as its last argument ("" runs nothing — a toast, a mail, a bot),
+    # the minutes it waits for `;sentinel ok` before ending the session,
+    # and whether it ends it at all (;train return, then QUIT).
+    "alert_command": "",
+    "sentinel_grace_minutes": 10,
+    "sentinel_logout": True,
     "autostart_wealth": True,  # BANK ACCOUNT after login and every 3 hours (;wealth)
     "autostart_extra": [],  # more scripts to start, e.g. ["lnet", "athletics"]
     "quit_on_close": True,  # closing the window sends quit to the game

@@ -32,6 +32,7 @@ TEXT_VIEWS = (
     "Deaths",
     "Experience",
     "Group",  # GROUP's listing, a text dock since 2026-09-22
+    "Attention",  # ;sentinel's new and addressed lines (#276)
 )
 # The docks that hold status text rather than story: the story's
 # family and size never reach them, only their own dock_fonts row —

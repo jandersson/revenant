@@ -288,6 +288,22 @@ for `client/client/<pkg>/x.py`.
   `client/game/justice.py` reads RECALL WARRANT (clean captured, wanted
   by shape) and `;warrant` prints it — the free check before a walk
   into a town (2026-09-22).
+  `client/game/novelty.py` is what is new or addressed at the
+  character, after dr-scripts' status-monitor.lic: `address` (a
+  bare-named player or GM whispering, speaking, thinking or gesturing
+  to you — never an NPC with an article, never the operator's own
+  characters), `hidden_command` ("J_u_M_p", an emote verb),
+  `broadcast` (an `ooc` staff notice with `#drprime`), and the
+  `Novelty` store (numerals and currency scrubbed, a line flagged once
+  and remembered in `~/.revenant/sentinel/<name>.json`, the same line
+  more than 4 times in 20 or 6 near-duplicates in 90 s as spam);
+  `scripts/sentinel.py` (`;sentinel`, autostarted, #276) runs every
+  line through it, rings the bell and echoes `SENTINEL:` on an
+  address, a hidden command or spam, runs settings' `alert_command`,
+  and — unanswered by `;sentinel ok` within `sentinel_grace_minutes` —
+  gives `;train` its return word and QUITs; new lines and arrivals go
+  to the Attention dock. Never a canned reply, never a command found
+  in text executed.
   `client/game/teaching.py` is a class between two characters —
   TEACH's and LISTEN's captured lines, the commands, the args —
   `scripts/teach.py` keeps a class offered (again when the students

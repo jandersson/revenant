@@ -705,6 +705,9 @@ def _autostart_with(monkeypatch, settings=None, **env):
     monkeypatch.delenv("REVENANT_NO_SHEET", raising=False)
     monkeypatch.delenv("REVENANT_NO_DEATHWATCH", raising=False)
     monkeypatch.delenv("REVENANT_NO_WEALTH", raising=False)
+    # The sentinel (#276) is off here unless a test asks for it, so the
+    # older expectations stay as they are.
+    monkeypatch.setenv("REVENANT_NO_SENTINEL", "1")
     import json
     import tempfile
     from pathlib import Path
@@ -1050,6 +1053,20 @@ def test_settings_file_disables_autostarts_durably(monkeypatch):
         )
         == []
     )
+
+
+def test_the_sentinel_autostarts_unless_the_env_or_the_file_says_no(monkeypatch):
+    # #276: on by default, off for a launch with REVENANT_NO_SENTINEL=1,
+    # off durably with the Settings tick (autostart_sentinel: false).
+    assert ("sentinel", []) in _autostart_with(monkeypatch, REVENANT_NO_SENTINEL="")
+    assert ("sentinel", []) not in _autostart_with(
+        monkeypatch, REVENANT_NO_SENTINEL="1"
+    )
+    assert ("sentinel", []) not in _autostart_with(
+        monkeypatch, settings={"autostart_sentinel": False}, REVENANT_NO_SENTINEL=""
+    )
+    started = _autostart_with(monkeypatch, REVENANT_NO_SENTINEL="")
+    assert started.index(("sentinel", [])) > started.index(("wealth", []))
 
 
 def test_autostart_extra_starts_user_chosen_scripts(monkeypatch):

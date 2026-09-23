@@ -980,6 +980,10 @@ def autostart_scripts(server):
         "autostart_wealth", True
     ):
         server.scripts.start("wealth", [])
+    if not os.environ.get("REVENANT_NO_SENTINEL") and settings.get(
+        "autostart_sentinel", True
+    ):
+        server.scripts.start("sentinel", [])
     # User-chosen extras: script names with optional args ("lnet",
     # "athletics ladder"). Unknown names answer with the usual
     # no-script-named message rather than failing the startup.

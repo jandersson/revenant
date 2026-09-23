@@ -24,6 +24,7 @@ class TestWindowTitle:
             ("death", "Deaths"),
             ("exp", "Experience"),
             ("group", "Group"),  # GROUP's listing, rewritten on every change
+            ("attention", "Attention"),  # ;sentinel's new and addressed lines
         ],
     )
     def test_docked_streams_name_their_dock(self, stream, title):

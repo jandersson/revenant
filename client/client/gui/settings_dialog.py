@@ -57,6 +57,10 @@ class SettingsDialog(QDialog):
             "Track money: BANK ACCOUNT after login and every few hours (;wealth)"
         )
         self.autostart_wealth.setChecked(bool(settings.get("autostart_wealth")))
+        self.autostart_sentinel = QCheckBox(
+            "Flag what is new or addressed at you while away (;sentinel)"
+        )
+        self.autostart_sentinel.setChecked(bool(settings.get("autostart_sentinel")))
         self.quit_on_close = QCheckBox(
             "Quit the game when the window closes (File → Detach skips this)"
         )
@@ -140,6 +144,7 @@ class SettingsDialog(QDialog):
             self.autostart_sheet,
             self.autostart_deathwatch,
             self.autostart_wealth,
+            self.autostart_sentinel,
             self.quit_on_close,
             self.answer_idle_warning,
             self.clocks_earth_moon,
@@ -168,6 +173,7 @@ class SettingsDialog(QDialog):
             "autostart_sheet": self.autostart_sheet.isChecked(),
             "autostart_deathwatch": self.autostart_deathwatch.isChecked(),
             "autostart_wealth": self.autostart_wealth.isChecked(),
+            "autostart_sentinel": self.autostart_sentinel.isChecked(),
             "autostart_extra": [
                 entry.strip()
                 for entry in self.autostart_extra.text().split(",")
