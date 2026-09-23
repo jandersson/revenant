@@ -120,6 +120,19 @@ class Fake:
     def sleep(self, seconds):
         pass
 
+    # the scripts it drives: ;sheet, running (the autostart) or not
+    sheet_running = True
+
+    def is_running(self, name):
+        return name == "sheet" and self.sheet_running
+
+    def tell(self, name, line):
+        self.told = getattr(self, "told", []) + [(name, line)]
+
+    def run(self, name, args=()):
+        self.started = getattr(self, "started", []) + [(name, list(args))]
+        return True
+
 
 def walk(s, db, goals, describe="", avoid=()):
     s.walks.append(set(goals))
@@ -386,3 +399,39 @@ def test_a_stat_the_map_has_no_room_for_stops_without_walking():
     script.run(fake, ["train", "reflex"], mapdb=MAP, walk_fn=walk)
     assert "no room tagged 'reflex'" in echoes(fake)
     assert fake.walks == []
+
+
+def test_a_bought_point_asks_the_running_sheet_for_a_snapshot():
+    # The operator, 2026-09-24: a stat bought is on the record at once,
+    # not at the next three-hourly snapshot. TRAIN moves only the stat
+    # and the TDPs, so the autostarted ;sheet records INFO alone (#303).
+    fake = Fake(
+        {
+            "info": [info(), info(agility=9, tdps=319)],
+            "agility": [agility(8, 28, 347), agility(9, 31, 319)],
+            "train": [CONFIRM, DONE],
+        }
+    )
+    script.run(fake, ["train", "agility", "+1"], mapdb=MAP, walk_fn=walk)
+    assert fake.told == [("sheet", "info")]
+    assert "tdp: the sheet records INFO's new stats" in fake.echoed
+
+
+def test_with_no_sheet_running_a_bought_point_starts_sheet_info():
+    fake = Fake(
+        {
+            "info": [info(), info(agility=9, tdps=319)],
+            "agility": [agility(8, 28, 347), agility(9, 31, 319)],
+            "train": [CONFIRM, DONE],
+        }
+    )
+    fake.sheet_running = False
+    script.run(fake, ["train", "agility", "+1"], mapdb=MAP, walk_fn=walk)
+    assert fake.started == [("sheet", ["info"])]
+
+
+def test_a_run_that_bought_nothing_leaves_the_sheet_alone():
+    fake = Fake({"info": [info(), info()], "agility": [agility(8, 28, 20)]})
+    script.run(fake, ["train", "agility", "+1"], mapdb=MAP, walk_fn=walk)
+    assert "costs 28 and you have 20" in echoes(fake)
+    assert not hasattr(fake, "told") and not hasattr(fake, "started")

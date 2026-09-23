@@ -779,6 +779,43 @@ def test_sheet_once_typed_at_the_running_script_takes_a_plain_snapshot(
     assert connection.execute("SELECT count(*) FROM character").fetchone()[0] == 2
 
 
+def test_sheet_info_typed_at_the_running_script_records_info_alone(
+    monkeypatch, tmp_path
+):
+    # What ;tdp asks for after a bought point (#303): TRAIN moves only a
+    # stat and the TDPs, so INFO is the whole snapshot — no EXP ALL,
+    # no SPELL, no skill rows.
+    handle, connection = run_main(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_TEXT.splitlines(keepends=True)] * 2,
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
+            "inv list": [INV_LIST_TEXT.splitlines(keepends=True)],
+        },
+        requests=["info"],
+    )
+    assert handle.sent == ["info", "exp all", "spell", "inv list", "info"]
+    assert connection.execute("SELECT count(*) FROM character").fetchone()[0] == 2
+    stamps = connection.execute(
+        "SELECT count(DISTINCT logged_at) FROM stats"
+    ).fetchone()[0]
+    assert stamps == 2
+    skill_stamps = connection.execute(
+        "SELECT count(DISTINCT logged_at) FROM sheet_skills"
+    ).fetchone()[0]
+    assert skill_stamps == 1  # the latest skill snapshot is still the full one
+
+
+def test_sheet_info_from_cold_records_info_and_exits(monkeypatch, tmp_path):
+    handle = FakeHandle({"info": [INFO_TEXT.splitlines(keepends=True)]})
+    handle.args = ["info"]
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
+    sheet.main(handle)
+    assert handle.sent == ["info"]
+    assert any("sheet: INFO for" in line for line in handle.echoed)
+
+
 def test_an_unknown_request_is_explained_not_ignored(monkeypatch, tmp_path):
     handle, _ = run_main(
         monkeypatch,

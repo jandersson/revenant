@@ -209,7 +209,8 @@ for `client/client/<pkg>/x.py`.
   wherever the order puts it, and in the rests. Model: docs/training.md. `client/game/tdp.py` is the stat side:
   the game's TDP quotes parsed, the wiki's cost formula, ;tdp's
   goals; `scripts/tdp.py` walks to the tagged trainer and buys one
-  confirmed point at a time. `client/game/money.py` is coins both ways
+  confirmed point at a time, and a run that bought one ends with
+  `;sheet info` so the new stat is on record at once (#303). `client/game/money.py` is coins both ways
   (denomination lists, copper, INFO's carried and owed), shared by
   `;sheet`, `;wealth` and `;debt` (`scripts/debt.py`: fetch the
   shortfall from the teller, PAY ALL at the debt office); `;skins`

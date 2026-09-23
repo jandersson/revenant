@@ -39,7 +39,11 @@ the next point's cost and the TDPs before every point, buys only what
 the TDPs cover, and asks again after the pair — a value that did not
 rise stops the run with the answers echoed, so an unexpected wording
 costs at most one point. It stops on death or a refusal, and walks
-back to where it started unless told to stay. Stop with:  ;stop tdp
+back to where it started unless told to stay. A run that bought a
+point ends by asking ;sheet to record INFO, so history.db and beholder
+have the new stat and TDPs at once, not at the next three-hourly
+snapshot (#303).
+Stop with:  ;stop tdp
 """
 
 import re
@@ -155,9 +159,10 @@ def train_one(s, stat, before, fetch_fee=None):
     return rose, after
 
 
-def train_stat(s, stat, goal, mapdb, walk_fn):
+def train_stat(s, stat, goal, mapdb, walk_fn, bought=None):
     """Walk to the stat's trainer and buy points up to the goal or the
-    TDPs. True when every point up to the goal was bought."""
+    TDPs. True when every point up to the goal was bought; each point
+    bought is appended to `bought` as (stat, value)."""
     rooms = mapdb.rooms_tagged(stat.lower())
     if not rooms:
         s.echo(f"tdp: the map has no room tagged {stat.lower()!r}")
@@ -216,13 +221,15 @@ def train_stat(s, stat, goal, mapdb, walk_fn):
             s.echo(f"tdp: {stat} did not rise — stopping before another point")
             return False
         s.echo(f"tdp: {stat} is now {answer['value']}, TDPs {answer['tdps']}")
+        if bought is not None:
+            bought.append((stat, answer["value"]))
     return answer["value"] is not None and answer["value"] >= goal
 
 
 PLAN_POINTS = 3  # points one `;tdp plan` buys unless told otherwise
 
 
-def plan_points(s, mapdb, walk_fn, points=PLAN_POINTS):
+def plan_points(s, mapdb, walk_fn, points=PLAN_POINTS, bought_points=None):
     """Up to `points` points where the character's training plan says:
     INFO for the stats, the points and the guild, the plan's goals or
     the guild's tiers for the stat, the wiki's cost against the points
@@ -260,7 +267,7 @@ def plan_points(s, mapdb, walk_fn, points=PLAN_POINTS):
                 f"{info['tdps']} on hand keeps {reserve} — stopping"
             )
             break
-        if not train_stat(s, stat, value + 1, mapdb, walk_fn):
+        if not train_stat(s, stat, value + 1, mapdb, walk_fn, bought_points):
             break
         bought += 1
     if start is not None and locate(mapdb, s.state) != start:
@@ -270,8 +277,34 @@ def plan_points(s, mapdb, walk_fn, points=PLAN_POINTS):
     return bought
 
 
+def refresh_sheet(s):
+    """A bought point on the record at once (the operator, 2026-09-24,
+    #303): the running ;sheet — an autostart — records INFO, all TRAIN
+    moved (the stat and the TDPs), or ;sheet info starts when it is not
+    running. Otherwise history.db held the old stat until the next
+    three-hourly snapshot."""
+    running = getattr(s, "is_running", None)
+    if not callable(running):
+        return
+    if running("sheet"):
+        s.tell("sheet", "info")
+    else:
+        s.run("sheet", ["info"])
+    s.echo("tdp: the sheet records INFO's new stats")
+
+
 def run(s, words, mapdb=None, walk_fn=walk):
-    """The verb: show, quote, train, or plan."""
+    """The verb: show, quote, train, or plan; a run that bought a point
+    ends with a ;sheet snapshot."""
+    bought = []
+    try:
+        _run(s, words, mapdb, walk_fn, bought)
+    finally:
+        if bought:
+            refresh_sheet(s)
+
+
+def _run(s, words, mapdb, walk_fn, bought):
     if not words:
         show_info(s)
         return
@@ -280,7 +313,9 @@ def run(s, words, mapdb=None, walk_fn=walk):
             s.echo("tdp: training needs the map — none loaded")
             return
         points = int(words[1]) if len(words) > 1 and str(words[1]).isdigit() else None
-        plan_points(s, mapdb, walk_fn, PLAN_POINTS if points is None else points)
+        plan_points(
+            s, mapdb, walk_fn, PLAN_POINTS if points is None else points, bought
+        )
         return
     training = words[0].lower() == "train"
     stay = training and words[-1].lower() == "stay"
@@ -311,7 +346,7 @@ def run(s, words, mapdb=None, walk_fn=walk):
         return
     start = locate(mapdb, s.state)
     for stat, goal in goals:
-        if not train_stat(s, stat, goal, mapdb, walk_fn):
+        if not train_stat(s, stat, goal, mapdb, walk_fn, bought):
             break
     else:
         s.echo("tdp: every goal reached")

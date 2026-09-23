@@ -29,6 +29,11 @@ inventory snapshot and the schedule carries on; from cold it takes the
 one snapshot and exits, like `once`. ;sheet once at a running script
 takes an extra plain snapshot the same way.
 
+;sheet info records INFO alone — the stats, circle, TDPs, favors and
+purse — the same way (typed at the running script, or once from
+cold): what `;tdp` asks for after a bought point, since TRAIN moves
+only a stat and the TDPs (#303).
+
 ;stop sheet opts a session out; REVENANT_NO_SHEET=1 disables the
 autostart.
 """
@@ -617,11 +622,44 @@ def snapshot(s, inventory=False):
     )
 
 
+def info_snapshot(s):
+    """INFO alone into history.db: the stats, circle, TDPs, favors and
+    purse, no skills, spells or inventory (#303)."""
+    info, _ = ask(s, "info", parse_info, INFO_END, lambda r: bool(r["stats"]))
+    if not info["stats"]:
+        s.echo("sheet: INFO went unanswered — nothing stored")
+        return
+    character = (
+        (s.state.name if s.state else None)
+        or os.environ.get("REVENANT_CHARACTER")
+        or "unknown"
+    )
+    path = database_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(path)
+    try:
+        ensure_schema(connection)
+        insert_snapshot(
+            connection, character, datetime.now(timezone.utc).isoformat(), info, {}
+        )
+    finally:
+        connection.close()
+    s.echo(
+        f"sheet: INFO for {character} — {len(info['stats'])} stats, {info['tdps']} TDPs"
+    )
+
+
 def serve(s, request):
     """A line typed at the running script — `;sheet inv` / `;sheet once`
     while the autostart is up lands here, not in s.args (#122): the
     engine hands a running script the rest of the line as a command."""
     words = request.lower().split()
+    if "info" in words:
+        if s.dead:
+            s.echo("sheet: you are a ghost — the sheet can wait")
+            return
+        info_snapshot(s)
+        return
     if "inv" in words or "once" in words:
         if s.dead:
             s.echo("sheet: you are a ghost — the sheet can wait")
@@ -630,12 +668,16 @@ def serve(s, request):
         return
     s.echo(
         f"sheet: unknown request {request!r} — ;sheet inv snapshots the "
-        "inventory too, ;sheet once takes a plain snapshot now"
+        "inventory too, ;sheet once takes a plain snapshot now, ;sheet "
+        "info records INFO alone"
     )
 
 
 def main(s):
     args = [str(arg).lower() for arg in (s.args or [])]
+    if "info" in args:
+        info_snapshot(s)
+        return
     inventory = "inv" in args
     # `inv` is a request, not a schedule: take the snapshot and stop.
     once = inventory or "once" in args

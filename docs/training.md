@@ -181,7 +181,11 @@ typed twice in that stat's training room, and `;tdp train <stat>
 [goal]` does the walk and the spending with every point confirmed by
 the game's own numbers. `;tdp` alone shows INFO's eight stats and the
 TDPs; `;tdp agility 12` quotes the next point (the stat's own command)
-and the whole climb (TDP PROJECT) without spending.
+and the whole climb (TDP PROJECT) without spending. A run that
+bought a point ends by asking the autostarted `;sheet` to record
+INFO (`;sheet info`), all TRAIN moves, so history.db and beholder
+have the new stat and TDPs at once, not at the next three-hourly
+snapshot (#303).
 
 Captured 2026-09-12 on a circle-1 Dwarf at Agility 8 with 347 TDPs:
 
