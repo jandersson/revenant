@@ -213,6 +213,7 @@ TIER_RANKS = {
 NOVICE_STEPS = {"lowly": 1, "promising": 10, "able": 20, "trained": 30, "full": 40}
 _RANK_OF = re.compile(r"rank of an? ([a-z]+(?: [a-z]+)?)")
 MANA_FLOOR = 40  # % of mana under which no training cast goes out
+CAST_TAIL_SECONDS = 2.0  # a second window when a CAST's answer read as nothing (#294)
 CAST_GAP_SECONDS = 60  # between training casts, for a profile without cast_gap
 # The targeted casts: profile slot -> the skill it trains. Each is cast
 # at the prey between swings while that skill sits below lock, on the
@@ -520,6 +521,20 @@ def cast_once(
         ask(s, f"invoke my {invoke}")
     answer = ask(s, f"cast {target}" if target and not targeted else "cast")
     cast = classify(answer, CAST_OUTCOMES)
+    if cast is None:
+        # A bystander's line closed the window before the cast's own
+        # ("The cougar closes to melee range on you!" with its prompt,
+        # then the quiet, then the spell's line — #294, 2026-09-23):
+        # one more window, ended by a line the tables know.
+        more = probe.collect(
+            s,
+            CAST_TAIL_SECONDS,
+            until=None,
+            prompts_from=probe._prompts(s),
+        )
+        if more:
+            answer = f"{answer}\n{more}"
+            cast = classify(answer, CAST_OUTCOMES)
     if invoke:
         ask(s, put_back or f"stow my {invoke}")
     if cast == "corpse":
