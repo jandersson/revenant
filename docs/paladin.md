@@ -8,7 +8,7 @@ This page is the index of every Paladin fact the scripts rest on — the circles
 |---|---|
 | Circle | 10 — nine "Your Light shines from within you, Lanival.  You have earned your next rank!" from Verika since 2026-09-05, every gate met when asked; at 10, "It is time for you to learn the true calling of the Paladin -- leadership!  The Gods now grant you the ability to LEAD" |
 | Glyphs | Dueling (from the start) and Warding (the quest, 2026-09-19 05:41) — GLYPH lists them under "You have attained..." |
-| Spells | Heroic Strength, Aspirant's Aegis, Stun Foe, Sentinel's Resolve, Courage, Footman's Strike; a 12-mana cambrinth anklet worn between casts. "There was an error with the number of your available spell slots, which has now been corrected to 3." came unasked on 2026-09-19 |
+| Spells | Heroic Strength, Aspirant's Aegis, Stun Foe, Sentinel's Resolve, Courage, Footman's Strike, Hands of Justice (2026-09-23); a 12-mana cambrinth anklet worn between casts. "There was an error with the number of your available spell slots, which has now been corrected to 3." came unasked on 2026-09-19 |
 | Soul | pristine at the guild's arch (2026-09-20 04:3x); the deeds gated off while it reads so |
 | Training | the plan and profile in [training.md](training.md#a-worked-example-a-circle-5-paladin): badgers with the fists for Brawling (Small Edged outgrew them on 2026-09-20 and left the rotation; the scimitar stays the profile's weapon for whatever else draws one), climbs, books, the zills, power walking, forage; TDPs on the guild's tiers |
 
@@ -53,6 +53,7 @@ Scripted scenes at a fixed room with one command to act on ([Glyph of Warding wa
 | Aspirant's Aegis | Sacrifice | a buff | |
 | Sentinel's Resolve | Inspiration | a buff (Defending, Shield Usage); Verika: "Before you can learn this spell, you must ..." — learned 2026-09-20 | |
 | Courage | Inspiration | a buff, and the Warding spell that opens a fourth magic skill | |
+| Hands of Justice | Justice | a buff, and the Utility spell that opens a fifth magic skill — learned 2026-09-23 at circle 12 with the one free slot (one slot, prerequisites Stun Foe and Heroic Strength; chosen over Divine Guidance, and over saving toward Rutilor's Edge's two slots at Holy Magic 80) | [Hands of Justice](https://elanthipedia.play.net/Hands_of_Justice) |
 | Stun Foe | Justice | the `debilitation` cast at the prey (Debilitation) | #192 |
 | Footman's Strike | Justice | the `targeted` cast at the prey (Targeted Magic); wants the weapon in hand as its focus | #200, #202 |
 
