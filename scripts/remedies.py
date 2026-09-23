@@ -435,7 +435,12 @@ def find_master(s, profile, master, mapdb=None, here=None):
     away", "softly shuffles into the area", captured 2026-09-22; the
     operator, 2026-09-23: "he's in the society building somewhere, the
     script just needs to look for him"). False when the hall is out of
-    reach, the map shows no building, or he is nowhere in it."""
+    reach, the map shows no building, or he is nowhere in it. A room
+    that already lists him is the answer, no walk (the hand-in used to
+    walk back to the hall from the room he was found in, 12:10 on
+    2026-09-23)."""
+    if master_here(s, master):
+        return True
     if not to_master(s, profile):
         return False
     if master_here(s, master):

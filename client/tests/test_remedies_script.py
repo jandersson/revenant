@@ -731,8 +731,11 @@ def test_the_master_is_looked_for_through_the_building_when_the_hall_lacks_him()
 
     fake.state.room_objs = MASTER_LISTING
     fake.walked.clear()
+    hall_walks = []
+    script.to_master = lambda s, profile: hall_walks.append(1) or True
     assert find_master(fake, {}, "lanshado", mapdb=mapdb, here=8860)
-    assert fake.walked == []  # already in his room: no walk
+    assert fake.walked == [] and hall_walks == []  # in his room: no walk at all
+    script.to_master = lambda s, profile: True
 
     # The walker cannot name the room (here=None): the hall anchors it.
     fake.state.room_objs = "You also see a clerk."
