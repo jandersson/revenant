@@ -220,7 +220,12 @@ entries from a dock-layout module.
   search it, keep the profile's buffs cast and recast the first to
   train a magic skill, move along the ground, break off on the health
   or wound floor. `scripts/skins.py` sells the worn bundle at the
-  nearest tannery and keeps the rope. `client/game/buffs.py` is the
+  nearest tannery and keeps the rope. `scripts/repair.py` APPRAISEs
+  the gear worn and held and takes every piece at or below the
+  profile's `repair_floor` to the nearest repair shop — GIVE for the
+  estimate, GIVE again to pay, the ticket waited out and handed back,
+  the piece worn again (`client/game/repair.py`, #307).
+  `client/game/buffs.py` is the
   casting the hunt grew — the profile's buffs kept up, the first one
   recast between actions to train a magic skill with a mana ramp that
   backs off at the strain warning, and the profile's spells cast at

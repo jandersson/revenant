@@ -164,6 +164,11 @@ DEFAULTS = {
     # knuckles hinders your attempt."): ;boxes REMOVEs and stows each
     # noun before the first box and WEARs it back after (#293).
     "hindering_gear": [],
+    # ;repair: the pieces it appraises ([] = everything worn or held)
+    # and the condition % at or below which a piece goes to the shop
+    # (80: "rather scuffed up" and worse, #307).
+    "repair_items": [],
+    "repair_floor": 80,
 }
 
 # (key, label, kind, help) — kind is "bool", "int", "str" or "list".
@@ -309,6 +314,18 @@ FIELDS = (
         "Taken off for ;boxes (hinders picking)",
         "list",
         "knuckles, gauntlets — worn back after",
+    ),
+    (
+        "repair_items",
+        "Pieces ;repair appraises",
+        "list",
+        "plate, shield — empty: everything worn or held",
+    ),
+    (
+        "repair_floor",
+        "Repair a piece at or below condition %",
+        "int",
+        "80: rather scuffed up and worse",
     ),
 )
 

@@ -216,7 +216,14 @@ for `client/client/<pkg>/x.py`.
   shortfall from the teller, PAY ALL at the debt office); `;skins`
   (`scripts/skins.py`) sells the skin bundle `;hunt` wears at the
   nearest tannery, then every loose skin in a hand or the loot
-  container one at a time (#261), and keeps the rope. `client/game/bank.py` + `;bank`
+  container one at a time (#261), and keeps the rope.
+  `client/game/repair.py` + `;repair` (`scripts/repair.py`, #307): the
+  gear APPRAISEd QUICK, the wiki's condition phrase read as a health
+  band, every piece at or below the profile's `repair_floor` (80) given
+  twice to the nearest `repair` room's repairman (the estimate lapses
+  in ~20 s; the second GIVE pays), the ticket STOWed, waited out and
+  handed back, the piece worn again; a short purse fetched from the
+  teller. `client/game/bank.py` + `;bank`
   (`scripts/bank.py`, #235): the purse banked — every foreign coin
   EXCHANGEd at the map's `exchange` room into the province's own,
   DEPOSIT ALL at the `bank` room, `keep=N` copper withdrawn back;
