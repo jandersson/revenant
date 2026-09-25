@@ -319,8 +319,10 @@ for `client/client/<pkg>/x.py`.
   `scripts/sentinel.py` (`;sentinel`, autostarted, #276) runs every
   line through it, rings the bell and echoes `SENTINEL:` on an
   address, a hidden command or spam, runs settings' `alert_command`,
-  and — unanswered by `;sentinel ok` within `sentinel_grace_minutes` —
-  gives `;train` its return word and QUITs; new lines and arrivals go
+  and — only while a script acts on the character (`s.running_scripts()`
+  minus the background monitors), unanswered by `;sentinel ok` within
+  `sentinel_grace_minutes`, with `sentinel_logout` on (off by default,
+  2026-09-26) — gives `;train` its return word and QUITs; new lines and arrivals go
   to the Attention dock. Never a canned reply, never a command found
   in text executed.
   `client/game/teaching.py` is a class between two characters —

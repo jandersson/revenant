@@ -38,10 +38,16 @@ frame — its description, either side — never judged).
 The alert also runs settings.json's `alert_command` with the alert as
 its last argument — a toast, a mail, a bot; empty runs nothing — and
 the grace is `sentinel_grace_minutes` (10): `;sentinel ok` within it and
-the watch goes on; unanswered, with `sentinel_logout` on, ;train gets
-its return word (the running task finishes and walks home, up to five
-minutes), then QUIT — the character is off the board rather than
-answered for, the way ;deathwatch keeps a body. No canned reply and no
+the watch goes on; unanswered, with `sentinel_logout` on — off by
+default since 2026-09-26: a greeting in a public place is too thin a
+sign to end a session on — ;train gets its return word (the running
+task finishes and walks home, up to five minutes), then QUIT, the
+character off the board rather than answered for, the way ;deathwatch
+keeps a body. The grace runs only while a script acts on the character
+(anything running but the background monitors, `s.running_scripts()`):
+idle, an address is the bells and the dock — the character is only
+away from the keyboard, and on 2026-09-26 a stranger's "smiles at you"
+in the guild hall ended an idle session ten minutes after they left. No canned reply and no
 execution of the commands it finds: those exist to pass a presence
 check with nobody home, which is what closes accounts (#276).
 Stop with:  ;stop sentinel, or ;sentinel return.
@@ -69,6 +75,14 @@ BELLS = 3
 BELL_GAP = 0.25
 TRAIN_RETURN_WAIT = 300.0
 DEFAULT_GRACE_MINUTES = 10
+# The scripts that do not act on the character: the monitors ;stop all
+# spares (ScriptManager.KEEP_ON_STOP_ALL), this watch, and the keepers
+# of the link and the clock. Anything else running is acting, and only
+# then does an address start the grace (2026-09-26).
+BACKGROUND = frozenset(
+    ("deathwatch", "xp", "wealth", "sheet", "beholder", "lnet")
+    + ("sentinel", "antiidle", "clock")
+)
 # Streams a script never learns anything from: the game's windows and
 # the engine's synthetic frames.
 NOISE_STREAMS = frozenset(
@@ -180,17 +194,34 @@ class Watch:
             self.command_failed = True
             self.say(f"alert_command failed ({error}) — not tried again this run")
 
+    def acting(self):
+        """The scripts acting on the character now — every running one
+        but the background monitors ;stop all spares and this watch —
+        or None when the handle cannot list them (a session from before
+        2026-09-26: then the old rule, a grace on every address)."""
+        lister = getattr(self.s, "running_scripts", None)
+        if lister is None:
+            return None
+        names = list(lister())
+        return [name for name in names if name not in BACKGROUND]
+
     def alert(self, kind, text, now, grace=True):
         """The alert: bells, the echo, the hand-off — and the grace,
-        unless the kind is too weak a sign to end a session on (spam)
-        or the watch is quiet."""
+        unless the kind is too weak a sign to end a session on (spam),
+        the watch is quiet, or no script is acting on the character:
+        an idle character addressed in a public place is only away
+        from the keyboard, and a QUIT ten minutes after the passer-by
+        left answered nobody (the operator, 2026-09-26, after a smile
+        in the guild hall ended the session)."""
         self.alerts += 1
         line = f"{kind}: {text}"
         self.note(f"! {line}")
         if now < self.quiet_until:
             return
         self.ring(BELLS)
-        if not grace:
+        if grace and self.acting() == []:
+            self.say(f"{line} — no script is acting: noted, no grace")
+        elif not grace:
             self.say(line)
         elif self.grace_until is None:
             self.grace_until = now + self.grace_minutes * 60
@@ -320,7 +351,7 @@ class Watch:
         if self.grace_until is None or now < self.grace_until:
             return False
         self.grace_until = None
-        if not self.settings.get("sentinel_logout", True):
+        if not self.settings.get("sentinel_logout", False):
             self.say(
                 f"no answer to {self.grace_reason!r} — staying (sentinel_logout off)"
             )

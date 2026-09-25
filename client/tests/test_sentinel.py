@@ -74,6 +74,9 @@ class Handle:
     def is_running(self, name):
         return name in self.running
 
+    def running_scripts(self):
+        return sorted(self.running | {"sentinel", "xp"})
+
     def tell(self, name, line):
         self.told.append((name, line))
         self.running.discard(name)
@@ -100,6 +103,7 @@ def _watch(handle, settings=None, own=("Lanival", "Sable")):
 
 def test_a_strangers_whisper_rings_three_bells_and_starts_the_grace():
     s = Handle()
+    s.running.add("hunt")  # a script acting: the case the grace is for
     watch = _watch(s, {"sentinel_grace_minutes": 2})
     watch.handle("whispers", 'Uthmor whispers to you, "you there?"', 100.0)
     assert s.bells == 3
@@ -125,6 +129,7 @@ def test_a_shopkeepers_nod_in_her_own_shop_starts_no_grace():
 
 def test_ok_ends_the_grace_and_quiet_keeps_the_dock_filling_without_bells():
     s = Handle()
+    s.running.add("hunt")
     watch = _watch(s)
     watch.handle("", 'Uthmor says to you, "Hello?"', 10.0)
     assert watch.grace_until is not None
@@ -141,7 +146,7 @@ def test_ok_ends_the_grace_and_quiet_keeps_the_dock_filling_without_bells():
 def test_an_unanswered_grace_returns_the_trainer_and_quits(monkeypatch):
     s = Handle()
     s.running.add("train")
-    watch = _watch(s, {"sentinel_grace_minutes": 1})
+    watch = _watch(s, {"sentinel_grace_minutes": 1, "sentinel_logout": True})
     monkeypatch.setattr(sentinel.time, "time", lambda: 1000.0)
     watch.handle("", "Uthmor pokes you.", 0.0)
     assert watch.check_grace(30.0) is False  # still inside the minute
@@ -153,6 +158,7 @@ def test_an_unanswered_grace_returns_the_trainer_and_quits(monkeypatch):
 
 def test_the_grace_ends_without_a_logout_when_the_setting_says_so():
     s = Handle()
+    s.running.add("train")
     watch = _watch(s, {"sentinel_logout": False})
     watch.handle("", "Uthmor pokes you.", 0.0)
     assert watch.check_grace(10_000.0) is False
@@ -335,3 +341,40 @@ def test_a_failing_alert_command_is_said_once_and_the_bells_still_ring(monkeypat
     watch.handle("", "Uthmor pokes you.", 2.0)
     assert s.bells == 6
     assert sum("alert_command failed" in text for text in s.echoed) == 1
+
+
+def test_an_idle_character_addressed_rings_but_starts_no_grace():
+    # 2026-09-26: idle in the guild hall, "Allyzana smiles at you." (a
+    # stranger's greeting) started the grace and the session QUIT ten
+    # minutes after they had left. With no script acting, the character
+    # is only away from the keyboard: the bells, the dock, no countdown.
+    s = Handle()
+    watch = _watch(s, {"sentinel_grace_minutes": 10})
+    watch.handle("", "Uthmor smiles at you.", 100.0)
+    assert s.bells == 3
+    assert watch.grace_until is None
+    assert any("no script is acting: noted, no grace" in text for text in s.echoed)
+    assert watch.check_grace(10_000.0) is False
+
+
+def test_a_session_that_cannot_list_its_scripts_keeps_the_old_grace():
+    class OldHandle(Handle):
+        running_scripts = None  # a session from before the handle listed them
+
+    s = OldHandle()
+    watch = _watch(s)
+    watch.handle("", "Uthmor waves to you.", 100.0)
+    assert watch.grace_until is not None
+
+
+def test_by_default_an_unanswered_grace_stays_logged_in():
+    # 2026-09-26: a greeting in a public place is too thin a sign to end a
+    # session on; the logout is the operator's to turn on.
+    s = Handle()
+    s.running.add("hunt")
+    watch = _watch(s, {})
+    watch.handle("", "Uthmor waves to you.", 0.0)
+    assert watch.grace_until is not None
+    assert watch.check_grace(10_000.0) is False
+    assert "quit" not in s.sent
+    assert any("staying (sentinel_logout off)" in text for text in s.echoed)

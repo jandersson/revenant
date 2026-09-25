@@ -335,6 +335,12 @@ class Script:
         """True while that script's thread is alive."""
         return self._manager.alive(name)
 
+    def running_scripts(self):
+        """The names of every script running now, this one included —
+        ;sentinel tells an idle character from one a script is acting
+        on by it (2026-09-26)."""
+        return self._manager.names()
+
     def tell(self, name: str, line: str):
         """Hand a line to a running script, as typing ;<name> <line>
         would (it arrives through that script's s.command()). False
@@ -712,6 +718,12 @@ class ScriptManager(ClientLogger):
 
     def alive(self, name: str):
         return self.script(name) is not None
+
+    def names(self):
+        """The names of the scripts running now, sorted."""
+        with self.lock:
+            scripts = list(self.running.values())
+        return sorted(script.name for script in scripts if script.alive)
 
     def start(self, name: str, args):
         """Start a script; True when its thread is running. False — the
