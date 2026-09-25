@@ -1486,14 +1486,26 @@ def aim_at(s, prey):
     noun by ordinal when a corpse of it stands first in the room's
     listing — "second cougar" (#278; a swing at the plain noun landed
     on the corpse, "already quite dead", and was spent) — the plain
-    noun otherwise, and "" when the profile names no prey."""
+    noun otherwise, and "" when the profile names no prey — or when the
+    room's listing holds live creatures but none of the prey while
+    something hostile is on the character: a bare ATTACK fights what
+    engages. On 2026-09-25 the last goblin died, two musk hogs kept
+    at Lanival, and "attack goblin" answered "I could not find what
+    you were referring to." sixty times — the hunt broke off on "60
+    swings without a kill" among the hogs (#316)."""
     if not prey:
         return prey
-    return aim(
-        prey,
-        getattr(s.state, "room_creatures", None) or [],
-        getattr(s.state, "room_creatures_dead", None) or [],
-    )
+    names = list(getattr(s.state, "room_creatures", None) or [])
+    dead = list(getattr(s.state, "room_creatures_dead", None) or [])
+    dead += [False] * (len(names) - len(dead))
+    live = [name for name, flag in zip(names, dead) if not flag]
+    if (
+        live
+        and hostiles(s.state)
+        and not any(noun_of(name) == prey.lower() for name in live)
+    ):
+        return ""
+    return aim(prey, names, dead)
 
 
 def loop(s, profile, db, ground, avoid, tally):

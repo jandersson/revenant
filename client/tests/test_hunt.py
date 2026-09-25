@@ -1103,3 +1103,20 @@ def test_a_knockdown_is_no_kill_without_a_corpse_in_the_listing(travel):
     _run(arena, profile=PROFILE | {"skin": False}, travel_first=False)
     downs = [text for text in arena.echoed if " down (" in text]
     assert downs == ["hunt: rat down (1)"]
+
+
+def test_a_room_with_no_prey_left_but_hostiles_on_you_gets_a_bare_attack():
+    # 2026-09-25 (#316): the last goblin died, two musk hogs kept at the
+    # character, and "attack goblin" answered "I could not find what you
+    # were referring to." sixty times until the hunt broke off.
+    arena = Arena({}, hostiles=("7", "8"))
+    arena.state.room_creatures = ["a large musk hog", "a large musk hog"]
+    arena.state.room_creatures_dead = [False, False]
+    assert hunt.aim_at(arena, "goblin") == ""
+    # A goblin still listed alive: aim at it.
+    arena.state.room_creatures = ["a large musk hog", "a thin scavenger goblin"]
+    assert hunt.aim_at(arena, "goblin") == "goblin"
+    # Nothing hostile on the character: the prey noun as before.
+    arena.state.hostiles = {}
+    arena.state.room_creatures = ["a large musk hog"]
+    assert hunt.aim_at(arena, "goblin") == "goblin"
