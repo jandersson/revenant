@@ -53,6 +53,22 @@ profile it would use.
 
 ## What is captured and what is assumed
 
+**A kill is the room listing's word, not the death line's (#315).**
+The game re-sends the room's listing on every death, the corpse marked
+"which appears dead" (the parser's `room_creatures_dead`, #278), and
+`;hunt` counts a kill as a corpse the listing gained since its fight in
+the room began — corpses there at arrival are someone else's, and one
+that decays lowers the count. The death lines were a list that never
+ended: the rat's, the cougar's, the knockdowns that share their first
+words, and on 2026-09-25 the Crossing farmland goblins' "A dour
+forager goblin collapses to the ground, shuddering and moaning until
+it ceases all movement.", three of them uncounted until the hunt broke
+off on "60 swings without a kill" (#314). dr-scripts' combat-trainer
+decides a body to loot the same way, by `DRRoom.dead_npcs`. The known
+lines stay a hint: one waits a second for the listing, and counts the
+kill itself if the listing never marks it. The captures behind the
+lines:
+
 Captured (the 2026-08-22 traffic behind combat.md, and the first live
 `;hunt` on 2026-09-05 — a circle-1 Paladin against ship's rats at
 Barana's Shipyard):

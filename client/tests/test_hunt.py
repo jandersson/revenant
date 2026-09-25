@@ -1010,3 +1010,96 @@ def test_a_boxes_style_hunt_ends_once_the_sack_holds_the_box_limit(monkeypatch):
     assert arena.sent.count("get coffer") == 2
     assert not any(c.startswith("skin") for c in arena.sent)
     assert any("2 box(es) in the sack — the farm is done" in e for e in arena.echoed)
+
+
+# The kill is the room listing's word (#315): a corpse marked "which
+# appears dead" that was not there before the swing, whatever the
+# death line said.
+GOBLIN_DEATH = (
+    "A dour forager goblin collapses to the ground, shuddering and moaning "
+    "until it ceases all movement."
+)
+UNHEARD_DEATH = "The rat gives a final twitch, a sigh, and is no more."
+
+
+def _dies(noun):
+    def effect(arena):
+        kill(arena)
+        hunt_arena.mark_corpse(arena, noun)
+
+    return effect
+
+
+def test_a_death_line_nobody_wrote_down_is_a_kill_by_the_listing(travel):
+    arena = _run(
+        Arena({"attack": [(UNHEARD_DEATH, _dies("rat"))], "loot": [NOTHING]}),
+        profile=PROFILE | {"skin": False},
+    )
+    assert "loot" in arena.sent
+    assert any("rat down (1)" in text for text in arena.echoed)
+
+
+def test_the_farmland_goblin_is_counted(travel):
+    # 2026-09-25: three of these went uncounted and the hunt broke off
+    # on "60 swings without a kill" (#314).
+    arena = _run(
+        Arena(
+            {
+                "attack goblin": [(GOBLIN_DEATH, _dies("dour forager goblin"))],
+                "loot": [NOTHING],
+            }
+        ),
+        profile=PROFILE | {"prey": "goblin", "skin": False},
+    )
+    assert any("goblin down (1)" in text for text in arena.echoed)
+
+
+def test_a_corpse_on_the_ground_before_the_fight_is_not_ours(travel):
+    arena = Arena(
+        {
+            "attack": [(MISSED, _stands)] * 3 + [(UNHEARD_DEATH, _dies("rat"))],
+            "loot": [NOTHING],
+        }
+    )
+    hunt_arena.mark_corpse(arena, "rat")  # someone else's, from before
+    _run(arena, profile=PROFILE | {"skin": False}, travel_first=False)
+    downs = [text for text in arena.echoed if " down (" in text]
+    assert downs == ["hunt: rat down (1)"]
+
+
+def test_the_corpse_count_is_the_listings_and_a_decay_lowers_it():
+    tally = hunt.Tally()
+    s = SimpleNamespace(
+        state=SimpleNamespace(
+            room_uid=1,
+            room_creatures=["a rat", "a rat", "a goblin"],
+            room_creatures_dead=[True, False, False],
+        )
+    )
+    hunt.mark_room(s, tally)
+    assert hunt.new_corpses(s, tally) == []
+    s.state.room_creatures_dead = [True, True, False]
+    assert hunt.new_corpses(s, tally) == ["a rat"]
+    s.state.room_creatures = ["a rat", "a goblin"]  # one decayed away
+    s.state.room_creatures_dead = [True, False]
+    assert hunt.new_corpses(s, tally) == []
+    s.state.room_creatures_dead = [True, True]
+    assert hunt.new_corpses(s, tally) == ["a goblin"]
+
+
+def test_a_known_death_line_still_counts_when_the_listing_never_comes(travel):
+    # The line is a hint to wait for the listing; if the listing never
+    # marks the corpse, the line is the kill (#315).
+    arena = Arena({"attack": [(KILL, kill)], "loot": [NOTHING]})
+    arena.listing = False
+    _run(arena, profile=PROFILE | {"skin": False})
+    assert any("rat down (1)" in text for text in arena.echoed)
+
+
+def test_a_knockdown_is_no_kill_without_a_corpse_in_the_listing(travel):
+    arena = Arena(
+        {"attack": [(KNOCKED_DOWN, _stands)] * 3 + [(KILL, kill)], "loot": [NOTHING]}
+    )
+    _run(arena, profile=PROFILE | {"skin": False}, travel_first=False)
+    downs = [text for text in arena.echoed if " down (" in text]
+    assert downs == ["hunt: rat down (1)"]

@@ -54,7 +54,9 @@ stun beforehand: "A cougar shakes its head back and forth, its dark
 eyes befuddled." A second knockdown wording shares its first words
 with the kill line: "A striped badger screams and falls to the ground
 grasping its mangled left leg!", the badger "lying down" and then
-"grimaces as it stands back up" (2026-09-20, #240). The kill lines
+"grimaces as it stands back up" (2026-09-20, #240). `;hunt` counts
+kills by the room listing's corpses ("which appears dead") since
+2026-09-25 (#315); the lines below are its hint. The kill lines
 are "The ship's rat falls to the ground and lies still." (2026-09-05)
 and "Twisting in agony, the cougar falls to the ground lifeless."
 (2026-08-22, "a cougar which appears dead" after it) — whole phrases,

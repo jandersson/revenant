@@ -142,7 +142,12 @@ never asks HEALTH.
 A swing is aimed by ordinal when a corpse of the prey's noun stands
 first in the room's listing — "attack second cougar" — so it reaches
 the live one instead of the corpse ("already quite dead", a spent
-swing); the parser marks the corpses in `room_creatures_dead` and
+swing); the parser marks the corpses in `room_creatures_dead` —
+which is also what counts a kill: a corpse the listing gained since
+the fight in the room began, whatever the death line said (the
+farmland goblins' "collapses to the ground, shuddering and moaning
+until it ceases all movement" went uncounted, #314; a known line is a
+hint, #315) — and
 client/game/creatures.py counts them the way the game does, after
 lich-5's drdefs.rb (#278). The balance word the game states ("solidly
 balanced", lich-5's DRStats.balance) is tallied per swing and
@@ -151,9 +156,10 @@ reported at the end — a reading, no rule yet (#280).
 
 import re
 import time
+from collections import Counter
 
 from client.game import buffs, loot, probe
-from client.game.creatures import aim
+from client.game.creatures import aim, noun_of
 from client.game.probe import classify
 from client.game.profile import describe, load_profile
 from client.game.walker import locate, walk
@@ -490,6 +496,10 @@ class Tally:
         self.weapon = 0  # the weapons' rotation index: the turn in hand (#238)
         self.rotated_at = 0  # the kill count the weapon last turned on
         self.balances = {}  # balance word -> swings taken at it (#280)
+        # The corpses the room's listing marked when this room's fight
+        # began, by name: a kill is a corpse more than this (#315).
+        self.dead_room = None
+        self.dead_seen = Counter()
 
 
 def hostiles(state):
@@ -681,6 +691,48 @@ _NOUN_STOPS = {
     "shrieks", "howls", "gasps", "shudders", "staggers", "twitches", "sighs",
     "moans", "groans", "wails", "hisses", "roars", "snarls", "whimpers",
 }  # fmt: skip
+
+
+# How long a swing whose answer reads as a kill waits for the room's
+# listing to mark the corpse, when it has not yet (#315).
+LISTING_WAIT = 1.0
+
+
+def _room_key(state):
+    return (getattr(state, "room_uid", None), getattr(state, "room", None))
+
+
+def corpses(state):
+    """The room listing's corpses by name — "a dour forager goblin which
+    appears dead" is "dour forager goblin" (the parser's
+    room_creatures / room_creatures_dead, #278) — as a Counter."""
+    names = list(getattr(state, "room_creatures", None) or [])
+    dead = list(getattr(state, "room_creatures_dead", None) or [])
+    return Counter(name for name, flag in zip(names, dead) if flag)
+
+
+def mark_room(s, tally):
+    """Take the room's corpses as the baseline when the fight is in a
+    new room: a body on the ground at arrival was someone else's."""
+    key = _room_key(s.state)
+    if key != tally.dead_room:
+        tally.dead_room = key
+        tally.dead_seen = corpses(s.state)
+
+
+def new_corpses(s, tally):
+    """The corpses the listing gained since the baseline, oldest name
+    first, and the baseline moved to now (a corpse that decayed lowers
+    it). The kill is the listing's word, not the death line's: the
+    death lines are a list that never ends — the rat's, the cougar's,
+    the goblins' "collapses to the ground, shuddering and moaning until
+    it ceases all movement" (2026-09-25, missed, #314) — while the
+    listing marks every corpse "which appears dead" (dr-scripts'
+    combat-trainer loots by DRRoom.dead_npcs the same way, #315)."""
+    now = corpses(s.state)
+    gained = now - tally.dead_seen
+    tally.dead_seen = now
+    return list(gained.elements())
 
 
 def kill_noun(text):
@@ -1347,6 +1399,7 @@ def swing(s, profile, tally, prey):
     verb = swing_verb(profile, tally, s.state)
     if verb == "smite" and (tally.smite_off or not smite_allowed(s, tally)):
         verb = "attack"
+    mark_room(s, tally)
     text = ask(s, f"{verb} {prey}" if prey else verb)
     lowered = text.lower()
     if word := getattr(s.state, "balance", None):
@@ -1380,13 +1433,19 @@ def swing(s, profile, tally, prey):
                     f"hunt: {verb} answered nothing known {TACTIC_MISSES} "
                     "times — tactics off for this run"
                 )
-    if is_kill(text):
-        tally.kills += 1
+    fallen = new_corpses(s, tally)
+    if not fallen and is_kill(text):
+        # A death line the table knows, the listing not yet re-sent: the
+        # line is a hint to wait for it, and the kill if it never comes.
+        probe.collect(s, LISTING_WAIT)
+        fallen = new_corpses(s, tally) or [kill_noun(text) or prey or "corpse"]
+    if fallen:
+        tally.kills += len(fallen)
         tally.empty_moves = 0
         tally.corpse_swings = 0
         tally.stuns = 0  # a kill resets the fight's fuses (#236)
         tally.swings_at_kill = tally.swings
-        corpse = kill_noun(text) or prey or "corpse"
+        corpse = noun_of(fallen[-1]) or prey or "corpse"
         s.echo(f"hunt: {corpse} down ({tally.kills})")
         if tally.coins or tally.boxes:
             s.echo(

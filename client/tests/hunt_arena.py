@@ -49,6 +49,9 @@ hunt.MAX_ITERATIONS = 400  # a ground the arena cannot fill ends on the fuse
 hunt.ADVANCE_WAIT = 0.01
 
 
+hunt.LISTING_WAIT = 0.01
+
+
 buffs.PREPARE_SECONDS = 0.01
 
 
@@ -198,6 +201,7 @@ class Arena:
         self.arrivals = {}  # room -> hostiles present on arrival
         self.room = room
         self.dead = False
+        self.listing = True  # the game re-sends the room listing on a death
         self.state = SimpleNamespace(
             name="Lanival",
             hostiles={exist: True for exist in hostiles},
@@ -214,9 +218,17 @@ class Arena:
         for prefix, queue in self.answers.items():
             if command.startswith(prefix) and queue:
                 answer = queue.pop(0)
+                before = sum(getattr(self.state, "room_creatures_dead", None) or [])
                 if isinstance(answer, tuple):
                     answer, effect = answer
                     effect(self)
+                marked = sum(getattr(self.state, "room_creatures_dead", None) or [])
+                if self.listing and hunt.is_kill(answer) and marked == before:
+                    # The game re-sends the room's listing on a death,
+                    # the corpse marked "which appears dead" — what the
+                    # hunt counts kills by (#315) — unless the answer's
+                    # own effect marked it already.
+                    mark_corpse(self, hunt.kill_noun(answer) or "rat")
                 self.pending = [line + "\n" for line in answer.splitlines()]
                 return
 
@@ -238,6 +250,18 @@ class Arena:
 
 def kill(arena):
     arena.state.hostiles.clear()
+
+
+def mark_corpse(arena, noun):
+    """The room listing gains a corpse of `noun`, as the parser reads
+    the game's re-sent listing ("a rat which appears dead")."""
+    state = arena.state
+    state.room_creatures = list(getattr(state, "room_creatures", None) or []) + [
+        f"a {noun}"
+    ]
+    state.room_creatures_dead = list(
+        getattr(state, "room_creatures_dead", None) or []
+    ) + [True]
 
 
 def _run(arena, profile=PROFILE, travel_first=True):
