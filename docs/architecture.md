@@ -63,8 +63,9 @@ entries from a dock-layout module.
   Segments carry their own newlines — the engine appends "\n" to the last
   piece of each line per stream; frontends never add line breaks. Also
   parses the exp window (`<component id='exp Skill'>`) into
-  `experience` (rank/percent/mindstate per learning skill); the engine
-  rewrites a synthetic "exp" stream on change (Experience dock), and
+  `experience` (rank/percent/mindstate per skill, a cleared one kept at
+  0/34, #295); the engine rewrites a synthetic "exp" stream on change
+  (Experience dock) listing only the skills not at clear, and
   `scripts/xp.py` snapshots it to `~/.revenant/history.db` for history.
 - `client/client/engine/core.py` — `Engine`: owns a connection, feeds lines through
   XMLData, invokes `output_callback(text, stream)` per segment. Emits a

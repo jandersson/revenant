@@ -196,6 +196,33 @@ def test_an_exp_entry_a_script_seeded_without_a_rate_still_renders():
     )
 
 
+def test_a_cleared_skill_stays_in_the_table_but_leaves_the_window():
+    # #295 keeps every skill in the parser (;sheet seeds EXP ALL), so the
+    # window listed a page of "clear" rows (the operator, 2026-09-25);
+    # like the game's own window it lists only the learning skills.
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b"<component id='exp Athletics'>Athletics:  346 13% "
+            b"deliberative</component>\n"
+        ]
+    )
+    _read_all(engine, 1)
+    engine.xml_data.experience["Slings"] = {
+        "rank": 3,
+        "percent": 0,
+        "mindstate": 0,
+        "rate": "clear",
+    }
+    engine.xml_data.exp_updated = True
+    engine.connection = FakeConnection([b"A line goes by.\n"])
+    out = _read_all(engine, 1)
+    lines = [frame[0] for frame in out if frame[1] == "exp" and frame[2] == ""]
+    assert any(line.startswith("Athletics") for line in lines)
+    assert not any(line.startswith("Slings") for line in lines)
+    assert engine.xml_data.experience["Slings"]["rank"] == 3
+
+
 def test_the_rested_footer_is_the_exp_streams_last_line():
     # #176: the footer the game pushes with every pulse closes the
     # rewrite, and its own change rewrites the window too.

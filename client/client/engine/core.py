@@ -7,7 +7,7 @@ from xml.etree.ElementTree import ParseError, XMLParser
 from client.engine.login import simu_login
 from client.game.rested import describe as describe_rested
 from client.client_logger import ClientLogger
-from client.engine.xml_data import XMLData, describe_exp_mods
+from client.engine.xml_data import LEARNING_RATES, XMLData, describe_exp_mods
 
 
 def indicators_frame(indicator: dict) -> str:
@@ -214,6 +214,14 @@ class Engine(ClientLogger):
                             # a rate took the session down (2026-09-20,
                             # #239); a missing field is blank, never a crash.
                             entry = self.xml_data.experience[skill]
+                            # The parser keeps every skill, a cleared one
+                            # at 0/34 (#295); the window, like the game's,
+                            # lists only the learning ones.
+                            if (
+                                entry.get("rate") == LEARNING_RATES[0]
+                                or entry.get("mindstate") == 0
+                            ):
+                                continue
                             output_callback(
                                 f"{skill:<18} {entry.get('rank', ''):>5} "
                                 f"{entry.get('percent', ''):>3}%  {entry.get('rate', '')}\n",
