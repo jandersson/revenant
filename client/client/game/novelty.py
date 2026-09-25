@@ -146,19 +146,34 @@ def boilerplate(line):
     return len(_WORDS.findall(scrub(text))) < 2
 
 
-def address(line, stream="", ignore=()):
+def address(line, stream="", ignore=(), room=""):
     """The kind of direct address the line is — "whisper", "speech",
     "thought", "gesture" — from a bare-named speaker not in `ignore`
-    (the operator's own characters), or None."""
+    (the operator's own characters) and not named by the room itself,
+    or None. `room` is the room's title, object listing and creatures:
+    a shopkeeper goes bare-named too ("Mauriga nods to you" in
+    "Mauriga's Botanicals", "Repairman Catrox" in the listing) and rang
+    the QUIT alarm after a REFUSE on 2026-09-25 (#310); a player is
+    listed apart (room players) and never there."""
     if stream not in ADDRESS_STREAMS:
         return None
     text = (line or "").strip()
     ignored = {str(name).strip().casefold() for name in ignore}
     for kind, pattern in ADDRESS:
         match = pattern.match(text)
-        if match and match.group("name").casefold() not in ignored:
-            return kind
+        if not match:
+            continue
+        name = match.group("name")
+        if name.casefold() in ignored or room_names(room, name):
+            continue
+        return kind
     return None
+
+
+def room_names(room, name):
+    """True when the room's own text — title, listing, creatures — names
+    `name` as a word (an NPC of the room, not a visitor)."""
+    return bool(room) and re.search(rf"\b{re.escape(name)}\b", room) is not None
 
 
 def speaker(line):

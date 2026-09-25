@@ -66,6 +66,23 @@ def test_an_npc_with_an_article_or_a_quoted_whisper_is_no_address():
     assert address("Sable smiles broadly as he grasps your lesson.") is None
 
 
+def test_a_shopkeeper_the_room_names_is_no_address():
+    # Captured 2026-09-25 after a REFUSE at Mauriga's Botanicals (#310):
+    # a bare-named NPC, named by the room's title or its listing.
+    nod = (
+        'Mauriga nods to you.  "Perhaps another day.  In the meantime, make '
+        'sure that you eat a sicle fruit a day!"'
+    )
+    assert address(nod) == "gesture"  # no room given: read as a player
+    assert address(nod, room="[Mauriga's Botanicals, Salesroom]") is None
+    listing = "You also see Repairman Catrox, a large sign and a sooty swinging door."
+    assert (
+        address('Catrox says to you, "Did you want something?"', room=listing) is None
+    )
+    # A player is listed apart, never in the room's own text.
+    assert address(PLAYER_WAVES, room="[Mauriga's Botanicals, Salesroom]") == "gesture"
+
+
 def test_your_own_characters_and_noise_streams_are_ignored():
     assert address(PLAYER_SAYS, ignore=["sable"]) is None
     assert address(TRAINER, ignore=["Uthmor"]) is None

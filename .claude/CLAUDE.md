@@ -307,8 +307,9 @@ for `client/client/<pkg>/x.py`.
   `client/game/novelty.py` is what is new or addressed at the
   character, after dr-scripts' status-monitor.lic: `address` (a
   bare-named player or GM whispering, speaking, thinking or gesturing
-  to you — never an NPC with an article, never the operator's own
-  characters), `hidden_command` ("J_u_M_p", an emote verb),
+  to you — never an NPC with an article or one the room's title,
+  listing or creatures name (a shopkeeper, #310), never the
+  operator's own characters), `hidden_command` ("J_u_M_p", an emote verb),
   `broadcast` (an `ooc` staff notice with `#drprime`), and the
   `Novelty` store (numerals and currency scrubbed, a line flagged once
   and remembered in `~/.revenant/sentinel/<name>.json`, the same line

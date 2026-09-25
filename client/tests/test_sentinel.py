@@ -113,6 +113,16 @@ def test_a_strangers_whisper_rings_three_bells_and_starts_the_grace():
     assert watch.grace_until == 220.0
 
 
+def test_a_shopkeepers_nod_in_her_own_shop_starts_no_grace():
+    # #310: Mauriga's nod after a REFUSE armed the QUIT on 2026-09-25.
+    s = Handle()
+    s.state.room_title = "[Mauriga's Botanicals, Salesroom]"
+    watch = _watch(s)
+    watch.handle("", 'Mauriga nods to you.  "Perhaps another day."', 100.0)
+    assert s.bells == 0
+    assert watch.grace_until is None
+
+
 def test_ok_ends_the_grace_and_quiet_keeps_the_dock_filling_without_bells():
     s = Handle()
     watch = _watch(s)

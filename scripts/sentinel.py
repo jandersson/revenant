@@ -11,8 +11,10 @@ Every line the game sends goes through client/game/novelty.py (after
 dr-scripts' status-monitor.lic — the detection, never its auto-reply).
 What rings the bell three times, echoes SENTINEL: in every window and
 starts the grace: a player or GM — a bare name, never an NPC with an
-article ("A young sacristan says to you, ...") and never one of your
-own characters from ~/.revenant/login.json — whispering, speaking,
+article ("A young sacristan says to you, ...") nor one the room names
+in its title, listing or creatures (Mauriga in "Mauriga's Botanicals",
+"Repairman Catrox": a shopkeeper goes bare-named too, #310), and never
+one of your own characters from ~/.revenant/login.json — whispering, speaking,
 thinking or gesturing to you; a word spelled to slip past a script
 ("J_u_M_p", "jUmP"). What rings three times without a grace — too weak
 a sign to end a session on: the same line more than four times in the
@@ -211,6 +213,18 @@ class Watch:
         self.buffers[stream] = lines.pop()
         return [line.rstrip("\r") for line in lines]
 
+    def room_text(self):
+        """The room's own words — title, object listing, creatures — where
+        its NPCs are named: a shopkeeper nodding to you is not a player
+        addressing you (#310)."""
+        state = self.s.state
+        parts = [
+            str(getattr(state, "room_title", None) or ""),
+            str(getattr(state, "room_objs", None) or ""),
+        ]
+        parts += [str(c) for c in getattr(state, "room_creatures", None) or []]
+        return " ".join(part for part in parts if part)
+
     def present(self):
         """Who and what the room holds now: the players by name, the
         creatures by their listing and their noun — a line naming one
@@ -242,7 +256,7 @@ class Watch:
                 self.note(f"broadcast: {line.strip()}")
                 self.ring(1)
             return
-        kind = address(line, stream, ignore=self.own)
+        kind = address(line, stream, ignore=self.own, room=self.room_text())
         if kind:
             self.alert(kind, line.strip(), now)
             return
