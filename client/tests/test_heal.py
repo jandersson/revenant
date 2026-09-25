@@ -77,6 +77,15 @@ NO_STOCK = (
     "Mauriga says, \"I'm so sorry to disappoint you, but I don't have that "
     'reagent in stock."'
 )
+# Captured 2026-09-25: an ORDER while a quote is still open, and REFUSE.
+OPEN_ORDER = (
+    "Mauriga smiles patiently and says, \"Master Lanival, you've already ordered "
+    "something else.  Let's deal with one negotiation at a time, shall we?\""
+)
+REFUSED = (
+    'Mauriga nods to you.  "Perhaps another day.  In the meantime, make sure that '
+    'you eat a sicle fruit a day!"'
+)
 
 
 class Fake:
@@ -359,7 +368,9 @@ def test_buy_fetches_the_shortfall_orders_offers_and_eats(travel_map=MAP):
     s = Fake(
         {
             "health": [HEALTH],
-            "eat": [MISSING] * 5 + [ATE] * 5,
+            # plovik leaves is looked for twice: as her "plovik leaf", then
+            # as the table names it
+            "eat": [MISSING] * 6 + [ATE] * 5,
             "info": [INFO_BROKE],
             "withdraw": ["The clerk counts out some coins and hands them over."] * 6,
             "order": [QUOTE] * 5,
@@ -371,15 +382,17 @@ def test_buy_fetches_the_shortfall_orders_offers_and_eats(travel_map=MAP):
     assert s.walks == [{1900}, {8259}]
     withdrawn = [c for c in s.sent if c.startswith("withdraw")]
     assert withdrawn  # the wiki-priced estimate, largest coins first
-    # ORDER by the stem (her "plovik leaf" refused "plovik leaves"),
-    # then eat and stow at once so a hand stays free for the next.
-    at = s.sent.index("order jadice")
+    # ORDER by her catalog's whole name — the stem alone is answered
+    # out of stock (#308) — then eat and stow at once so a hand stays
+    # free for the next.
+    at = s.sent.index("order jadice flower")
     assert s.sent[at : at + 4] == [
-        "order jadice",
+        "order jadice flower",
         "offer 812",
-        "eat my jadice",
-        "stow my jadice",
+        "eat my jadice flower",
+        "stow my jadice flower",
     ]
+    assert "order plovik leaf" in s.sent  # the table's plovik leaves
     # Aloe leaves are on no Crossing catalog: said so, never ordered.
     assert sorted(eaten) == sorted(
         ["jadice flower", "nemoih root", "plovik leaves", "yelith root"]
@@ -392,7 +405,7 @@ def test_a_purchase_set_on_the_counter_is_fetched_and_one_out_of_stock_is_said()
     s = Fake(
         {
             "health": [HEALTH],
-            "eat": [MISSING] * 5 + [ATE] * 5,
+            "eat": [MISSING] * 6 + [ATE] * 5,
             "info": ["Wealth:\n  9 gold Kronars (9000 copper Kronars).\n"],
             "order": [NO_STOCK, QUOTE, QUOTE, QUOTE, NO_STOCK],
             "offer": [SOLD, ON_COUNTER, SOLD],
@@ -416,7 +429,7 @@ def test_a_herb_no_store_sells_to_eat_is_said_and_never_walked_for():
         "You have a few nearly invisible scars along the neck, a constant "
         "twitching in the left arm, a few nearly invisible scars along the abdomen."
     )
-    s = Fake({"health": [scars], "eat": [MISSING] * 5})
+    s = Fake({"health": [scars], "eat": [MISSING] * 5, "rub": [MISSING] * 5})
     reason, eaten = heal.run(s, heal.parse_args(["buy"]), mapdb=MAP, walk_fn=walk)
     assert reason == "done" and eaten == []
     assert s.walks == []  # no teller, no herbalist
@@ -469,3 +482,45 @@ def test_return_and_death_end_the_run():
 )
 def test_limbs_fold_into_the_herb_tables_limb(area, expected):
     assert heal.herb_area(area) == expected
+
+
+def test_a_salve_is_rubbed_a_potion_drunk_and_the_rest_eaten():
+    # dr-scripts' heal-remedy.lic: salves and saps are rubbed on,
+    # potions drunk. Mauriga sells the table's nilos grass as a salve.
+    assert heal.product("nilos grass") == "nilos salve"
+    assert heal.product("plovik leaves") == "plovik leaf"
+    assert heal.product("aloe leaves") == "aloe leaves"
+    assert heal.take_command("nilos salve") == "rub my nilos salve"
+    assert heal.take_command("sufil sap") == "rub my sufil sap"
+    assert heal.take_command("ithor potion") == "drink my ithor potion"
+    assert heal.take_command("jadice flower") == "eat my jadice flower"
+
+
+def test_an_order_left_open_is_refused_before_the_next():
+    # Captured 2026-09-25: a quote still open blocks every ORDER until
+    # REFUSE closes it.
+    s = Fake(
+        {
+            "info": ["Wealth:\n  9 gold Kronars (9000 copper Kronars).\n"],
+            "order": [OPEN_ORDER, QUOTE],
+            "refuse": [REFUSED],
+            "offer": [SOLD],
+            "eat": [ATE],
+        }
+    )
+    eaten = heal.buy(s, ["jadice flower"], MAP, walk)
+    assert s.sent[s.sent.index("refuse") - 1] == "order jadice flower"
+    assert s.sent.count("order jadice flower") == 2
+    assert eaten == ["jadice flower"]
+
+
+def test_a_quote_above_the_purse_is_refused_not_left_open():
+    s = Fake(
+        {
+            "info": ["Wealth:\n  9 gold Kronars (9000 copper Kronars).\n"],
+            "order": [QUOTE.replace("812", "9500")],
+            "refuse": [REFUSED],
+        }
+    )
+    assert heal.buy(s, ["jadice flower"], MAP, walk) == []
+    assert s.sent[-1] == "refuse"

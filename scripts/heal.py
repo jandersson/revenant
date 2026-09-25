@@ -29,9 +29,18 @@ ORDER, which quotes, then OFFER of the quoted sum (HELP SHOPS; Grek's
 knife 2026-09-14: "Well done! Here, take your knife."). `buy` reads
 INFO for the coins carried, WITHDRAWs the wiki-priced shortfall at the
 nearest teller (map tag `bank`), walks to the herbalist, ORDERs and
-OFFERs each missing herb by its first word (her catalog says "plovik
-leaf" where the table says "plovik leaves"), eats it on the spot and
-stows what is left, so a hand stays free for the next one. Captured
+OFFERs each missing herb by her catalog's whole name — READ PAGE 1 and
+2 at her pedestal, captured 2026-09-25: the table's nilos grass and
+georin grass are her Nilos Salve and Georin Salve, plovik leaves her
+Plovik Leaf, and "order jadice" alone is answered out of stock while
+"order jadice flower" quotes (#308) — takes it on the spot and stows
+what is left, so a hand stays free for the next one. A salve or sap is
+RUBbed on, a potion DRUNK, the rest EATen (dr-scripts' heal-remedy.lic;
+those wordings are not captured yet), a carried herb looked for in
+the catalog's form first, then as foraged. A quote it will not pay is
+REFUSEd — an open one blocks every ORDER after it ("you've already
+ordered something else.  Let's deal with one negotiation at a time"),
+and REFUSE answers "Perhaps another day." Captured
 2026-09-14 at Mauriga's: "That is a very wise selection.  I can give
 the root to you for 875 kronars.", "Mauriga smiles as she hands you
 your purchase.", with both hands full "Mauriga notices that your
@@ -79,29 +88,63 @@ COLLECT_SECONDS = 3
 TAIL_SECONDS = 1.0
 HEALTH_SECONDS = 2
 
-# Mauriga's Botanicals' prices from Elanthipedia (2026-09-14), the
-# estimate `buy` withdraws against; the shop's quote is the judge.
-PRICES = {
-    "jadice flower": 812,
-    "plovik leaves": 812,
-    "nilos grass": 812,
-    "hulnik grass": 812,
-    "nemoih root": 875,
-    "georin grass": 875,
-    "sufil sap": 875,
-    "yelith root": 937,
-    "ithor potion": 937,
-    "muljin sap": 937,
-    "junliar stem": 937,
-    "blocil potion": 937,
-    "riolur leaf": 1000,
+# Mauriga's Botanicals' catalog by the herb table's name: what she
+# sells it as — READ PAGE 1 / READ PAGE 2 at her pedestal, captured
+# 2026-09-25 ("Nilos Salve", "Georin Salve", "Plovik Leaf": the table's
+# nilos grass, georin grass and plovik leaves come from her as those)
+# — and Elanthipedia's price (2026-09-14), the estimate `buy`
+# withdraws against; the shop's quote is the judge. ORDER wants the
+# whole catalog name: "order jadice" is answered out of stock, "order
+# jadice flower" quotes (#308).
+CATALOG = {
+    "jadice flower": ("jadice flower", 812),
+    "plovik leaves": ("plovik leaf", 812),
+    "nilos grass": ("nilos salve", 812),
+    "hulnik grass": ("hulnik grass", 812),
+    "nemoih root": ("nemoih root", 875),
+    "georin grass": ("georin salve", 875),
+    "sufil sap": ("sufil sap", 875),
+    "yelith root": ("yelith root", 937),
+    "ithor potion": ("ithor potion", 937),
+    "muljin sap": ("muljin sap", 937),
+    "junliar stem": ("junliar stem", 937),
+    "blocil potion": ("blocil potion", 937),
+    "riolur leaf": ("riolur leaf", 1000),
 }
+PRICES = {herb: price for herb, (_, price) in CATALOG.items()}
+# How a remedy is taken, by its last word (dr-scripts' heal-remedy.lic:
+# salves and saps are rubbed on, potions drunk, the rest eaten).
+RUBBED = ("salve", "sap", "unguent", "ointment", "poultice", "poultices")
+DRUNK = ("potion", "tonic", "elixir", "draught")
 FALLBACK_PRICE = 1000  # a herb the table does not price
 # EAT, captured 2026-09-14: "You eat a portion of a nemoih root." An
 # answer outside the tables counts as eaten and is reported.
 EAT_OUTCOMES = (
-    ("missing", ("what were you referring", "could not find", "referring to")),
-    ("ok", ("you eat", "you take a bite", "you chew", "you swallow", "you nibble")),
+    (
+        "missing",
+        (
+            "what were you referring",
+            "could not find",
+            "referring to",
+            "rub what",
+            "drink what",
+        ),
+    ),
+    # "you rub" / "you drink" are heal-remedy.lic's success words, not
+    # captured here yet.
+    (
+        "ok",
+        (
+            "you eat",
+            "you take a bite",
+            "you chew",
+            "you swallow",
+            "you nibble",
+            "you rub",
+            "you drink",
+            "you take a drink",
+        ),
+    ),
 )
 # ORDER's quote and OFFER's sale at a catalog merchant. Grek's
 # 2026-09-14: "I can let that go for a mere 375 kronars." / "Well
@@ -113,6 +156,12 @@ EAT_OUTCOMES = (
 # you, but I don't have that reagent in stock."
 _QUOTE = re.compile(r"(\d[\d,]*)\s*kronars?", re.IGNORECASE)
 OUT_OF_STOCK = ("don't have that reagent", "not in stock", "don't carry")
+# A quote still open blocks the next ORDER (captured 2026-09-25):
+# "Master Lanival, you've already ordered something else.  Let's deal
+# with one negotiation at a time, shall we?" REFUSE closes one: "Mauriga
+# nods to you.  "Perhaps another day.  In the meantime, make sure that
+# you eat a sicle fruit a day!"" (Elanthipedia: Offer command).
+OPEN_ORDER = ("one negotiation at a time", "already ordered something")
 SALE_OUTCOMES = (
     ("refused", ("don't have enough", "not enough", "can't afford", "insufficient")),
     ("counter", ("places it on the counter",)),
@@ -229,32 +278,54 @@ def describe_plan(s, plan, town=TOWN):
             )
 
 
-def stem(herb):
-    """The word the shop and the hands know a herb by: "jadice" of
-    "jadice flower"."""
-    return herb.split()[0]
+def product(herb):
+    """What the herbalist sells a herb as — her catalog's whole name
+    ("nilos salve" for the table's nilos grass) — else the herb."""
+    return CATALOG.get(herb, (herb, None))[0]
+
+
+def take_command(item):
+    """RUB MY <salve or sap>, DRINK MY <potion>, EAT MY <the rest>."""
+    last = item.split()[-1]
+    if last in RUBBED:
+        return f"rub my {item}"
+    if last in DRUNK:
+        return f"drink my {item}"
+    return f"eat my {item}"
 
 
 def eat(s, herb):
-    """EAT the herb; "missing", "ok", or None for a wording outside the
-    tables (reported by the caller, counted as eaten)."""
-    answer = ask(s, f"eat my {herb}")
-    return probe.classify(answer, EAT_OUTCOMES), answer
+    """Take the herb — the catalog's form first (a bought salve is
+    rubbed on), then the herb itself as foraged; "missing", "ok", or
+    None for a wording outside the tables (reported by the caller,
+    counted as eaten)."""
+    forms = list(dict.fromkeys([product(herb), herb]))
+    for form in forms:
+        answer = ask(s, take_command(form))
+        outcome = probe.classify(answer, EAT_OUTCOMES)
+        if outcome != "missing":
+            return outcome, answer
+    return "missing", answer
 
 
 def eat_and_stow(s, herb, eaten):
-    """EAT a herb just bought (by its stem, the noun in hand) and stow
-    what is left — a root has portions — so a hand stays free."""
-    outcome, answer = eat(s, stem(herb))
+    """Take a herb just bought (by the catalog's name, what is in hand)
+    and stow what is left — a root has portions — so a hand stays
+    free."""
+    item = product(herb)
+    answer = ask(s, take_command(item))
+    outcome = probe.classify(answer, EAT_OUTCOMES)
     if outcome == "missing":
-        s.echo(f"heal: {herb} is not in hand to eat")
+        s.echo(f"heal: {item} is not in hand to take")
         return
     if outcome is None:
         first = (answer.strip().splitlines() or ["(silence)"])[0]
-        s.echo(f"heal: unrecognized eat answer {first!r} — please report it")
+        s.echo(
+            f"heal: unrecognized answer to {take_command(item)!r}: {first!r} — please report it"
+        )
     eaten.append(herb)
-    s.echo(f"heal: ate {herb}")
-    ask(s, f"stow my {stem(herb)}")
+    s.echo(f"heal: took {item} for {herb}" if item != herb else f"heal: ate {herb}")
+    ask(s, f"stow my {item}")
 
 
 def carried(s):
@@ -284,7 +355,7 @@ def withdraw(s, shortfall, mapdb, walk_fn, avoid=()):
 
 
 def buy(s, wanted, mapdb, walk_fn, avoid=(), town=TOWN):
-    """Coins for the wanted herbs, then each ORDERed by its stem, paid
+    """Coins for the wanted herbs, then each ORDERed by the catalog's name, paid
     for and eaten at the store the table says sells it (STORE_TAGS),
     one at a time so a hand stays free; the herbs eaten, in order. A
     herb no known store sells to eat is said so, and walked for by no
@@ -311,33 +382,39 @@ def buy(s, wanted, mapdb, walk_fn, avoid=(), town=TOWN):
     for herb in wanted:
         if s.dead:
             break
-        answer = ask(s, f"order {stem(herb)}")
+        item = product(herb)
+        answer = ask(s, f"order {item}")
+        if any(word in answer.lower() for word in OPEN_ORDER):
+            ask(s, "refuse")  # a quote left open blocks every ORDER
+            answer = ask(s, f"order {item}")
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         if any(word in answer.lower() for word in OUT_OF_STOCK):
             s.echo(f"heal: {herb} is not in stock here")
             continue
         match = _QUOTE.search(answer)
         if not match:
-            s.echo(f"heal: no quote for {herb} — {first}")
+            s.echo(f"heal: no quote for {item} — {first}")
             continue
         price = int(match.group(1).replace(",", ""))
         if price > purse:
+            ask(s, "refuse")
             s.echo(
-                f"heal: {herb} is {price} Kronars, more than the {purse} carried — skipped"
+                f"heal: {item} is {price} Kronars, more than the {purse} carried — skipped"
             )
             continue
         answer = ask(s, f"offer {price}")
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         outcome = probe.classify(answer, SALE_OUTCOMES)
         if outcome == "refused":
-            s.echo(f"heal: the herbalist refused {price} for {herb} — {first}")
+            ask(s, "refuse")
+            s.echo(f"heal: the herbalist refused {price} for {item} — {first}")
             continue
         if outcome is None:
             s.echo(f"heal: unrecognized sale answer {first!r} — please report it")
         purse -= price
-        s.echo(f"heal: bought {herb} for {price} Kronars")
+        s.echo(f"heal: bought {item} for {price} Kronars")
         if outcome == "counter":
-            ask(s, f"get {stem(herb)} from counter")
+            ask(s, f"get {item} from counter")
         eat_and_stow(s, herb, eaten)
     return eaten
 

@@ -193,12 +193,22 @@ selection.  I can give the root to you for 875 kronars.", the sale
 "Mauriga notices that your hands are full, and places it on the
 counter instead." — the first run bought three herbs before eating
 any, and two landed on the counter out of EAT's reach, so the script
-now orders by the herb's stem ("plovik leaf" on her catalog refused
-"plovik leaves"), eats each on the spot and stows the rest — out of
-stock "I'm so sorry to disappoint you, but I don't have that reagent
-in stock." (plovik and aloe that day), and EAT's "You eat a portion
-of a nemoih root." What an eaten herb says as it heals is still to
-capture; an answer outside the tables is echoed as unrecognized.
+takes each on the spot and stows the rest — out of stock "I'm so sorry
+to disappoint you, but I don't have that reagent in stock.", and
+EAT's "You eat a portion of a nemoih root." The stem ORDER adopted
+then ("order plovik") was wrong: on 2026-09-25 (#308) every stem was
+answered out of stock, "order jadice" included, while "order jadice
+flower" quoted 812 and "order nilos salve" 812. ORDER wants the
+catalog's whole name, and her READ PAGE 1 / READ PAGE 2 list Jadice
+Flower, Plovik Leaf, Nilos Salve, Hulnik Grass, Nemoih Root, Georin
+Salve, Sufil Sap / Yelith Root, Ithor Potion, Muljin Sap, Junliar
+Stem, Blocil Potion, Riolur Leaf — the table's nilos and georin grass
+come from her as salves, which are RUBbed on, and the potions are
+DRUNK (dr-scripts' heal-remedy.lic). An open quote blocks the next
+ORDER ("Let's deal with one negotiation at a time, shall we?") until
+REFUSE ("Perhaps another day."). What an eaten, rubbed or drunk herb
+says as it heals is still to capture; an answer outside the tables is
+echoed as unrecognized.
 
 The first plan, from the badger-hunting Paladin's HEALTH of
 2026-09-14 (minor abrasions to the head and left arm, external and
