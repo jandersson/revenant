@@ -202,10 +202,15 @@ DEFAULT_WOUND_FLOOR = "harmful"
 # ribcage and bursts the diaphragm ..." (2026-09-23, a bobcat) is the
 # swing, not the death — it read as a kill of "that" and the search
 # went at the room — so the phrase must be followed by the sentence's
-# end, and a pronoun is never the noun.
+# end, and a pronoun is never the noun. The goblins' death runs on
+# past "collapses": "A dour forager goblin collapses to the ground,
+# shuddering and moaning until it ceases all movement." (2026-09-25,
+# the Crossing farmland) — missed, every kill uncounted, and the hunt
+# broke off on "60 swings without a kill" (#314).
 _KILL_PHRASE = (
     r"(?:goes still|falls to the ground(?: and lies still| lifeless)|dies|"
-    r"collapses|keels over)(?=[.!]|\s*$)"
+    r"collapses(?: to the ground,[^.!\n]*? ceases all movement)?|keels over)"
+    r"(?=[.!]|\s*$)"
 )
 _KILL_SENTENCE = re.compile(_KILL_PHRASE, re.IGNORECASE | re.MULTILINE)
 _KILL_NOUN = re.compile(

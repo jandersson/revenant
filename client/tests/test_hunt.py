@@ -944,6 +944,23 @@ def test_a_kill_word_mid_sentence_is_the_swing_not_the_death():
     assert hunt.kill_noun("The badger dies.") == "badger"
 
 
+def test_the_goblins_long_death_line_is_a_kill():
+    # Captured 2026-09-25 in the Crossing farmland: missed, no kill was
+    # counted and the hunt broke off on "60 swings without a kill" (#314).
+    line = (
+        "A dour forager goblin collapses to the ground, shuddering and moaning "
+        "until it ceases all movement.\n"
+    )
+    assert hunt.is_kill(line)
+    assert hunt.kill_noun(line) == "goblin"
+    assert (
+        hunt.kill_noun(
+            "With one last high-pitched squeal, the musk hog falls to the ground lifeless."
+        )
+        == "hog"
+    )
+
+
 def test_the_worn_cambrinth_piece_in_hand_is_worn_back_not_stowed_as_a_skin(travel):
     # 2026-09-23: the anklet, off for a charge when the kill came, went
     # into the sack as the "skin" in hand and the cast's INVOKE found
