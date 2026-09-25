@@ -36,7 +36,8 @@ Plovik Leaf, and "order jadice" alone is answered out of stock while
 "order jadice flower" quotes (#308) — takes it on the spot and stows
 what is left, so a hand stays free for the next one. A salve or sap is
 RUBbed on, a potion DRUNK, the rest EATen (dr-scripts' heal-remedy.lic;
-those wordings are not captured yet), a carried herb looked for in
+RUB captured 2026-09-25: "You rub a portion of some nilos salve on
+yourself.", DRINK not yet), a carried herb looked for in
 the catalog's form first, then as foraged. A quote it will not pay is
 REFUSEd — an open one blocks every ORDER after it ("you've already
 ordered something else.  Let's deal with one negotiation at a time"),
@@ -130,8 +131,8 @@ EAT_OUTCOMES = (
             "drink what",
         ),
     ),
-    # "you rub" / "you drink" are heal-remedy.lic's success words, not
-    # captured here yet.
+    # "You rub a portion of some nilos salve on yourself." (captured
+    # 2026-09-25); "you drink" is heal-remedy.lic's, not captured yet.
     (
         "ok",
         (

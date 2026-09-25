@@ -524,3 +524,12 @@ def test_a_quote_above_the_purse_is_refused_not_left_open():
     )
     assert heal.buy(s, ["jadice flower"], MAP, walk) == []
     assert s.sent[-1] == "refuse"
+
+
+def test_the_captured_rub_and_eat_answers_read_as_taken():
+    # The first buy by catalog name, 2026-09-25.
+    for answer in (
+        "You rub a portion of some nilos salve on yourself.",
+        "You eat a portion of some hulnik grass.",
+    ):
+        assert heal.probe.classify(answer, heal.EAT_OUTCOMES) == "ok"

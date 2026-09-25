@@ -206,8 +206,14 @@ Stem, Blocil Potion, Riolur Leaf — the table's nilos and georin grass
 come from her as salves, which are RUBbed on, and the potions are
 DRUNK (dr-scripts' heal-remedy.lic). An open quote blocks the next
 ORDER ("Let's deal with one negotiation at a time, shall we?") until
-REFUSE ("Perhaps another day."). What an eaten, rubbed or drunk herb
-says as it heals is still to capture; an answer outside the tables is
+REFUSE ("Perhaps another day."). The first buy by the catalog's
+names (2026-09-25) bought six at 812-937 each and took every one:
+"You rub a portion of some nilos salve on yourself." (muljin sap and
+georin salve the same), "You eat a portion of some hulnik grass." /
+"of a plovik leaf." / "of a jadice flower.", then the healing ticks
+"You feel an itching sensation around your abdomen. / You feel a lot
+better." ("somewhat", "a little" as it slows) until HEALTH read scars
+only. DRINK is still to capture; an answer outside the tables is
 echoed as unrecognized.
 
 The first plan, from the badger-hunting Paladin's HEALTH of
