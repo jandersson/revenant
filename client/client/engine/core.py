@@ -50,6 +50,19 @@ def spells_frame(xml_data) -> str:
     return "\n".join(lines)
 
 
+def hands_frame(xml_data) -> str:
+    """The "hands" stream's wire text: "left name<TAB>right name", a
+    half "" when that hand is empty, from the <left>/<right> tags the
+    parser keeps. Full state every time; the input strip shows it
+    beside the posture (2026-09-25). Shared with session.attach()'s
+    replay."""
+
+    def name(held):
+        return str(held.get("name") or held.get("noun") or "") if held else ""
+
+    return f"{name(xml_data.left_hand)}\t{name(xml_data.right_hand)}"
+
+
 def room_frame(xml_data) -> str:
     """The "room" stream's wire text: "uid<TAB>title", either half ""
     when unknown; "" when neither is known. One frame per room change
@@ -96,6 +109,8 @@ class Engine(ClientLogger):
         # stream. Starts as "" (not None) so a fresh engine doesn't
         # emit an empty frame before any indicator ever parses.
         self._last_indicators = ""
+        # Last emitted hands frame, for the "hands" stream.
+        self._last_hands = "\t"
         # Last emitted spells frame: a pulse wipes and refills the
         # window, which reads as a change of state and back (#175).
         self._last_spells = None
@@ -323,6 +338,15 @@ class Engine(ClientLogger):
             self._last_indicators = active
             if output_callback:
                 output_callback(active, "indicators", "")
+
+        # What the hands hold: the input strip's L/R (2026-09-25).
+        if self.xml_data.hands_updated:
+            self.xml_data.hands_updated = False
+            held = hands_frame(self.xml_data)
+            if held != self._last_hands:
+                self._last_hands = held
+                if output_callback:
+                    output_callback(held, "hands", "")
 
         # The server states its own clock on every <prompt>; the
         # "timesync" frame carries server-minus-local seconds so

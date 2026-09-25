@@ -83,3 +83,11 @@ def test_partial_vitals_accumulate():
     status.feed("health 100", "vitals")
     status.feed("stamina 80", "vitals")
     assert status.vitals == {"health": 100, "stamina": 80}
+
+
+def test_the_status_line_says_what_the_hands_hold():
+    status = Status()
+    assert status.feed("\tsteel scimitar", "hands")
+    assert status.line() == "— | L - R steel scimitar | connecting"
+    status.feed("\t", "hands")
+    assert status.line() == "— | connecting"  # nothing held: nothing said

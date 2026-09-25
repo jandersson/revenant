@@ -29,6 +29,7 @@ from time import monotonic, sleep
 from client.client_logger import ClientLogger, log_dir
 from client.engine.core import (
     Engine,
+    hands_frame,
     indicators_frame,
     injuries_frame,
     room_frame,
@@ -221,6 +222,9 @@ class SessionServer(ClientLogger):
                 replay += encode_frame(
                     indicators_frame(self.engine.xml_data.indicator), "indicators"
                 )
+            # The hands change only when something is picked up or put
+            # away; the attach states them fresh.
+            replay += encode_frame(hands_frame(self.engine.xml_data), "hands")
             # The injuries panel changes only when something does (#163);
             # a late attacher gets the hurt set stated fresh — an empty
             # one included, or a window that attaches after the wounds

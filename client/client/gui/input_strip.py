@@ -54,6 +54,13 @@ VITAL_COLORS = {
 VITAL_LABELS = {"stamina": "fatigue"}
 
 
+def hands_text(frame: str) -> str:
+    """ "L: steel scimitar  R: —" from a "hands" frame, an em dash for
+    an empty hand."""
+    left, _, right = frame.partition("\t")
+    return f"L: {left.strip() or '—'}  R: {right.strip() or '—'}"
+
+
 class HistoryLineEdit(QLineEdit):
     """The command line with shell-style history: Up/Down browse what
     was typed, the unsent draft survives the browse (#76)."""
@@ -156,6 +163,9 @@ class InputStrip(QWidget):
         # the scrolling text buries (#75).
         self.status_strip = QLabel("")
         self.status_strip.setMinimumWidth(70)
+        # What the hands hold, from the "hands" frame (2026-09-25).
+        self.hands_label = QLabel("")
+        self.hands_label.setStyleSheet("color: #a0a0b0;")
         # The maintenance countdown (#277): "shutdown in N min" in the
         # alert red, ticking with the roundtime timer.
         self.shutdown_label = QLabel("")
@@ -165,6 +175,7 @@ class InputStrip(QWidget):
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(4, 0, 4, 0)
         row_layout.addWidget(self.status_strip)
+        row_layout.addWidget(self.hands_label)
         row_layout.addWidget(self.shutdown_label)
         row_layout.addWidget(self.rt_label)
         row_layout.addWidget(self.ct_label)
@@ -240,6 +251,10 @@ class InputStrip(QWidget):
             if icon in active:
                 parts.append(f'<b style="color:{color}">{word}</b>')
         self.status_strip.setText("&nbsp;".join(parts))
+
+    def update_hands(self, text: str):
+        """A "hands" frame: "left<TAB>right", a half "" when empty."""
+        self.hands_label.setText(hands_text(text))
 
     def update_vitals(self, text: str):
         """A "vitals" frame: "health 100 stamina 95 ..." — the full

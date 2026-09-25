@@ -116,3 +116,12 @@ def test_every_dock_has_a_view_menu_toggle(window):
     view_menu = next(a for a in window.menuBar().actions() if a.text() == "View")
     titles = {a.text() for a in view_menu.menu().actions()}
     assert {"Compass", "Clocks", "Map", "Experience", "Thoughts"} <= titles
+
+
+def test_a_hands_frame_shows_what_each_hand_holds(window):
+    strip = window.input_strip
+    window.dispatch_game_text("oak-hafted handaxe\tsteel scimitar", "hands", "")
+    assert strip.hands_label.text() == "L: oak-hafted handaxe  R: steel scimitar"
+    window.dispatch_game_text("\tsteel scimitar", "hands", "")
+    assert strip.hands_label.text() == "L: —  R: steel scimitar"
+    assert "scimitar" not in window.main_window.toPlainText()  # never story text

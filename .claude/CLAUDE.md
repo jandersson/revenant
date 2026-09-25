@@ -75,8 +75,8 @@ for `client/client/<pkg>/x.py`.
   so `;train`'s rest asks INFO once, not every poll (#282). `s.status`
   exposes each.
 - `client/engine/core.py` — `Engine`: feeds lines, emits synthetic streams
-  (compass = room-arrival signal, room, vitals, indicators, character,
-  timesync, roundtime/casttime, bell). It appends "\n" only to the last
+  (compass = room-arrival signal, room, vitals, indicators, hands,
+  character, timesync, roundtime/casttime, bell). It appends "\n" only to the last
   piece of a line per stream; frontends never add line breaks.
 - `client/engine/session.py` — the detachable daemon: JSON frames on
   127.0.0.1:4242, backlog replay for late attachers (transient streams
@@ -375,7 +375,7 @@ for `client/client/<pkg>/x.py`.
   restore, dispatch of each stream to its widget, styled text,
   reconnect. The docks' widgets sit beside it: `compass_dock.py`,
   `clocks_dock.py`, `input_strip.py` (command line, vitals bars,
-  status strip, RT/CT timers), `map_dock.py`, `injuries_dock.py` (the
+  status strip, what each hand holds, RT/CT timers), `map_dock.py`, `injuries_dock.py` (the
   game's injuries panel as badges, from the `injuries` stream, #163),
   `spells_dock.py` (the running spells with countdowns and the
   prepared one, from the `spells` stream the engine emits on any

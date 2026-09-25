@@ -151,6 +151,26 @@ def test_an_incomplete_line_is_held_not_flushed():
     assert out == []  # nothing emitted until the line completes
 
 
+def test_a_hand_change_emits_a_hands_frame_once():
+    # The login pair (captured 2026-09-11), then the left hand emptied;
+    # a repeat of the same state emits nothing.
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b'<left exist="45793296" noun="handaxe">oak-hafted handaxe</left>'
+            b'<right exist="45793297" noun="vambraces">plate vambraces</right>\n',
+            b"<left>Empty</left>\n",
+            b"<left>Empty</left>\n",
+        ]
+    )
+    out = _read_all(engine, 3)
+    hands = [frame for frame in out if frame[1] == "hands"]
+    assert hands == [
+        ("oak-hafted handaxe\tplate vambraces", "hands", ""),
+        ("\tplate vambraces", "hands", ""),
+    ]
+
+
 def test_exp_change_rewrites_the_whole_exp_stream():
     # The Experience dock is wipe-and-rewrite, like the game's own
     # resident windows: a clear frame, then one line per learning skill.

@@ -776,6 +776,9 @@ class ClientGUI(QMainWindow, ClientLogger):
         if stream == "indicators":
             self.input_strip.update_indicators(text)
             return
+        if stream == "hands":
+            self.input_strip.update_hands(text)
+            return
         if stream == "injuries":
             self.injuries.show_frame(text)
             return

@@ -84,6 +84,7 @@ class Status:
         self.room = ""
         self.vitals = {}
         self.indicators = set()
+        self.hands = ("", "")
         self.connection = "connecting"
 
     def feed(self, text, stream):
@@ -100,12 +101,16 @@ class Status:
                     self.vitals[vital] = int(value)
         elif stream == "indicators":
             self.indicators = set(text.split())
+        elif stream == "hands":
+            left, _, right = text.partition("\t")
+            self.hands = (left.strip(), right.strip())
         else:
             return False
         return True
 
     def line(self, roundtime=0):
-        """One line: name, room, vitals, posture and badges, roundtime."""
+        """One line: name, room, vitals, posture and badges, hands,
+        roundtime."""
         parts = [self.character or "—"]
         if self.room:
             parts.append(self.room)
@@ -127,6 +132,9 @@ class Status:
             if posture:
                 parts.append(posture)
             parts.extend(badges)
+        if any(self.hands):
+            left, right = self.hands
+            parts.append(f"L {left or '-'} R {right or '-'}")
         if roundtime > 0:
             parts.append(f"RT {roundtime}")
         parts.append(self.connection)

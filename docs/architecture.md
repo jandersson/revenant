@@ -83,7 +83,10 @@ entries from a dock-layout module.
   95 ..."`) whenever the game's minivitals dialog changes (partial
   game updates accumulate in xml_data.vitals), a full-state
   `"indicators"` frame (the active indicator ids, sorted) when
-  posture/stunned/bleeding/dead flip, and a `"timesync"` frame
+  posture/stunned/bleeding/dead flip, a `"hands"` frame ("left
+  name<TAB>right name", a half empty for an empty hand) when either
+  hand changes — the input strip's L/R and the TUI's status line,
+  stated fresh on attach — and a `"timesync"` frame
   (server-minus-local clock seconds, from the prompt's server time)
   when the delta first appears or moves >1s — the clocks dock and
   ;clock compute Elanthian time from it, immune to local clock
