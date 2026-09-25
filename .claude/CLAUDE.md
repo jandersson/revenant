@@ -385,7 +385,8 @@ for `client/client/<pkg>/x.py`.
   change of `active_spells`/`prepared_spell`; the raw `percWindow`
   text is dropped by the GUI, #175), `dock_collapse.py` (every dock's
   title bar with its fold button; the folded set saved beside the
-  layout keys, #180), `text_views.py` (the story/stream views and
+  layout keys, #180; a dock in a tab group never folds — a folded tab
+  capped the whole group's height), `text_views.py` (the story/stream views and
   per-view fonts).
   `chat_window.py` — the
   standalone LNet window; `settings_dialog.py`, `profile_dialog.py`,

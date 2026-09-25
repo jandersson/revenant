@@ -185,6 +185,9 @@ class ClientGUI(QMainWindow, ClientLogger):
         # Dock creation order and object names are what a saved layout
         # restores onto (#140): keep both stable.
         self.stream_docks = {}
+        # A folded dock tabbed into a group caps the group's height;
+        # switching the group's tab unfolds it (2026-09-25).
+        self.tabifiedDockWidgetActivated.connect(dock_collapse.unfold_group)
         self.__add_output_window()
         self.__add_stream_docks()
         self.__add_compass_dock()

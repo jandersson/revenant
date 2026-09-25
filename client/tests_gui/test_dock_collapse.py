@@ -132,3 +132,43 @@ def test_the_fold_is_saved_with_the_layout_and_applied_after_a_restore(window, q
     )
     assert saved == ["Clocks", "Thoughts"]
     assert window_layout.collapsed_from(settings.value("collapsed")) == saved
+
+
+def _tab_group(window, qapp):
+    docks = {d.objectName(): d for d in window.findChildren(QDockWidget)}
+    thoughts, injuries = docks["Thoughts"], docks["Injuries"]
+    window.show()
+    for dock in (thoughts, injuries):
+        dock.show()
+    window.tabifyDockWidget(thoughts, injuries)
+    qapp.processEvents()
+    return thoughts, injuries
+
+
+def test_a_tabbed_dock_never_folds(window, qapp):
+    # 2026-09-25: a folded tab gave the Thoughts/Injuries group its 23 px
+    # ceiling, the group sat at its minimum and its separator would not
+    # move. The tab bar already hides a tab.
+    thoughts, injuries = _tab_group(window, qapp)
+    assert dock_collapse.tabbed(injuries)
+    assert not dock_collapse.collapse(injuries)
+    assert not dock_collapse.is_collapsed(injuries)
+
+
+def test_a_folded_dock_tabbed_into_a_group_unfolds_on_the_tab_switch(window, qapp):
+    docks = {d.objectName(): d for d in window.findChildren(QDockWidget)}
+    injuries = docks["Injuries"]
+    window.show()
+    injuries.show()
+    qapp.processEvents()
+    assert dock_collapse.collapse(injuries)  # folded while on its own
+    thoughts, injuries = _tab_group(window, qapp)
+    window.tabifiedDockWidgetActivated.emit(thoughts)
+    assert not dock_collapse.is_collapsed(injuries)
+    assert injuries.maximumHeight() > 1000
+
+
+def test_a_restore_never_folds_a_tabbed_dock(window, qapp):
+    thoughts, injuries = _tab_group(window, qapp)
+    dock_collapse.apply_collapsed([thoughts, injuries], ["Injuries"])
+    assert not dock_collapse.is_collapsed(injuries)

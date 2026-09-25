@@ -18,6 +18,15 @@ and only docks given this title bar fold at all — the Input dock (the
 command line) keeps Qt's own and never folds, so Ctrl+Shift+D with
 the cursor in the command line does nothing.
 
+A dock that shares a tab group never folds: Qt gives the group the
+lowest ceiling among its tabs, so one folded tab pinned the whole
+group at its minimum and the separator under it would not move
+(Thoughts with Injuries and Spells, 2026-09-25). The tab bar already
+hides a tab; `collapse` refuses one, a folded dock tabbed into a group
+unfolds when its group's tab is switched (`unfold_group`, wired to the
+main window's tabifiedDockWidgetActivated), and a restore never folds
+a tabbed dock again.
+
 The collapsed set rides the layout round trip: `collapsed_names`
 lists the docks to save beside the window state, `apply_collapsed`
 folds them again after a restore (client/ui/window_layout.py keys).
@@ -106,10 +115,19 @@ def foldable(dock):
     return isinstance(dock.titleBarWidget(), DockTitleBar)
 
 
+def tabbed(dock):
+    """True when the dock shares a tab group with another open dock."""
+    main = dock.parentWidget()
+    if not isinstance(main, QMainWindow):
+        return False
+    return any(not other.isHidden() for other in main.tabifiedDockWidgets(dock))
+
+
 def collapse(dock):
     """Fold the dock to its title bar; False when it already is, floats,
-    or is not foldable."""
-    if is_collapsed(dock) or dock.isFloating() or not foldable(dock):
+    shares a tab group (a folded tab caps the whole group), or is not
+    foldable."""
+    if is_collapsed(dock) or dock.isFloating() or not foldable(dock) or tabbed(dock):
         return False
     bar = dock.titleBarWidget()
     dock.setProperty(EXPANDED_HEIGHT, dock.height())
@@ -155,6 +173,18 @@ def expand(dock):
     return True
 
 
+def unfold_group(dock):
+    """Expand the dock and every folded dock tabbed with it — a fold
+    from before the dock joined the group would cap the group's
+    height. Wired to QMainWindow.tabifiedDockWidgetActivated."""
+    main = dock.parentWidget()
+    group = [dock]
+    if isinstance(main, QMainWindow):
+        group += main.tabifiedDockWidgets(dock)
+    for member in group:
+        expand(member)
+
+
 def toggle(dock):
     return expand(dock) if is_collapsed(dock) else collapse(dock)
 
@@ -176,10 +206,11 @@ def collapsed_names(docks):
 
 def apply_collapsed(docks, names):
     """Fold the named docks after a layout restore; unnamed ones are
-    expanded, so a stale fold does not outlive its saved state."""
+    expanded, so a stale fold does not outlive its saved state. A
+    tabbed dock stays open whatever the saved set says."""
     wanted = set(names)
     for dock in docks:
-        if dock.objectName() in wanted:
+        if dock.objectName() in wanted and not tabbed(dock):
             collapse(dock)
         else:
             expand(dock)
