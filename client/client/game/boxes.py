@@ -12,7 +12,9 @@ it with the lockpick in hand or the worn lockpick ring's top pick, and
 OPEN plus LOOK IN show the loot. The caution grades the risk and the
 experience: CAREFUL is slowest and safest, plain is the middle, QUICK
 is faster and riskier, BLIND riskier still — a sprung trap hurts, and a
-reading of "longshot" or worse is a box for a better locksmith.
+reading of "longshot" or worse is a box for a better locksmith, unless
+its trap is one of NUISANCE_TRAPS (Elanthipedia: Box traps — a toad, a
+joke, a nap; never a wound), which a low rank takes the risk on.
 Kneeling or sitting helps (the wiki's advice; dr-scripts' pick.lic
 sits by default), and armor and brawling gear on the hands hinder
 ("Your brass knuckles hinders your attempt."): the profile's
@@ -100,6 +102,24 @@ LOCK_READINGS = (
 )
 TOO_HARD = 11  # "would be a longshot" and worse: left for a better locksmith
 
+# The traps whose spring is a nuisance, never a wound (Elanthipedia: Box
+# traps): (name, the fragment of the identify's look, whether it hits
+# the whole room). A box past TOO_HARD with one of these is worth the
+# risk at low ranks — the only boxes a rank-3 locksmith sees read 11 and
+# up (2026-09-25) — and gets a careful try; every other trap (Boomer,
+# Scythe, Fire Ant, Flea, the Crossbolts, Curse, ...) or a look not
+# recognized stays too hard. "Somebody has already located and
+# identified the current trap" repeats the look (captured 2026-09-23).
+NUISANCE_TRAPS = (
+    ("frog", "lumpy green rune", False),  # a toad for a few minutes
+    ("laughing gas", "black gaseous substance", True),  # jokes, kneeling
+    ("mime", "tiny bronze face", False),
+    ("shadowling", "small black crystal", False),  # gibberish speech
+    ("sleeper", "six pinholes", False),  # asleep ~30 s
+    ("mana sucker", "bronze seal over", False),
+    ("bouncing box", "pin lodged against the tumblers", False),  # box lost
+)
+
 # The caution per reading, pick.lic's thresholds rounded to the wiki's
 # 1-based ranks: (last rank of the band, the word after the box).
 TRAP_CAUTION = ((2, "quick"), (5, ""), (TOO_HARD - 1, "careful"))
@@ -112,6 +132,16 @@ def reading(answer, readings):
     for rank, fragment in enumerate(readings, 1):
         if fragment in lowered:
             return rank
+    return None
+
+
+def nuisance_trap(answer):
+    """(name, hits the room) for a nuisance trap the identify's look
+    shows, else None — a deadly trap and an unknown look alike."""
+    lowered = (answer or "").lower()
+    for name, fragment, area in NUISANCE_TRAPS:
+        if fragment in lowered:
+            return name, area
     return None
 
 
@@ -350,7 +380,8 @@ def boxes_in(answer):
 def parse_args(args):
     """;boxes' words: source=<container>, until=<mindstate>, once,
     careful (every step careful whatever the reading), stand (never
-    sit), limit=<boxes>. (`nopractice` is gone with the practice mode,
+    sit), limit=<boxes>, safe (never past TOO_HARD, not even for a
+    nuisance trap or a lock). (`nopractice` is gone with the practice mode,
     2026-09-23: an identify of a trap already read teaches nothing.)"""
     options = {
         "source": "",
@@ -359,6 +390,7 @@ def parse_args(args):
         "careful": False,
         "stand": False,
         "limit": 0,
+        "safe": False,
     }
     for word in args or []:
         text = str(word).strip()
@@ -381,4 +413,6 @@ def parse_args(args):
             options["careful"] = True
         elif lowered == "stand":
             options["stand"] = True
+        elif lowered == "safe":
+            options["safe"] = True
     return options

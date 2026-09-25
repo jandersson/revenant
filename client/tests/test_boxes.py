@@ -174,7 +174,9 @@ def test_the_arguments():
         "careful": False,
         "stand": False,
         "limit": 0,
+        "safe": False,
     }
+    assert parse_args(["safe"])["safe"] is True
     options = parse_args(
         ["source=backpack", "until=30", "once", "careful", "stand", "limit=3"]
     )
@@ -185,6 +187,7 @@ def test_the_arguments():
         "careful": True,
         "stand": True,
         "limit": 3,
+        "safe": False,
     }
     # The practice mode is gone (2026-09-23): an identify of a trap
     # already read is free of roundtime and teaches nothing.
@@ -289,3 +292,37 @@ def test_a_known_traps_identify_still_reads_and_a_shifted_attempt_is_a_retry():
     # The shift line matches the identify-failed fragment first; the
     # script treats it as a retry after a DISARM, and identifies again.
     assert classify(CAPTURED_DISARM_SHIFT, DISARM_OUTCOMES) == "identify failed"
+
+
+# Captured 2026-09-25 (the guild hall run at Locksmithing 3): the two
+# boxes' known-trap answers, the look repeated before the reading.
+CAPTURED_FROG = (
+    "Somebody has already located and identified the current trap on the oaken "
+    "crate...\nWhile checking the crate with a careful eye, you notice a lumpy "
+    "green rune hidden inside the box near the lock.\nPrayer would be a good "
+    "start for any attempt of yours at disarming the oaken crate.\n"
+)
+CAPTURED_LAUGHING_GAS = (
+    "Somebody has already located and identified the current trap on the "
+    "ironwood skippet...\nExamining the box for traps reveals a tiny glass tube "
+    "filled with a black gaseous substance of some sort and a tiny hammer at the "
+    "ready to do what it was designed for.\nDisarming the ironwood skippet would "
+    "be a longshot.\n"
+)
+# Elanthipedia: Box traps — a deadly one behind a similar tube.
+WIKI_FLEA = (
+    "Imbedded in the front of the iron box is a small glass tube of milky-white "
+    "opacity. Small black dots bounce inside.\nDisarming the iron box would be a "
+    "longshot.\n"
+)
+
+
+def test_a_nuisance_trap_is_told_from_a_deadly_one_by_its_look():
+    from client.game.boxes import nuisance_trap
+
+    assert nuisance_trap(CAPTURED_FROG) == ("frog", False)
+    assert nuisance_trap(CAPTURED_LAUGHING_GAS) == ("laughing gas", True)
+    assert nuisance_trap(WIKI_FLEA) is None  # deadly: never a risk worth it
+    assert nuisance_trap("Disarming the box would be a longshot.") is None
+    assert reading(CAPTURED_FROG, TRAP_READINGS) == 12
+    assert reading(CAPTURED_LAUGHING_GAS, TRAP_READINGS) == 11

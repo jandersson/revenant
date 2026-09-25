@@ -394,3 +394,83 @@ def test_a_box_past_the_reading_gets_one_identify_and_goes_straight_back():
     assert "practising" not in out
     assert "the crate goes back into the sack — for a better locksmith" in out
     assert "every box tried — 0 opened, 1 kept for a better locksmith" in out
+
+
+FROG_PRAYER = (
+    "While checking the crate with a careful eye, you notice a lumpy green rune "
+    "hidden inside the box near the lock.\nPrayer would be a good start for any "
+    "attempt of yours at disarming the mildewy deobar crate.\n"
+)
+LAUGHING_LONGSHOT = (
+    "Examining the box for traps reveals a tiny glass tube filled with a black "
+    "gaseous substance of some sort and a tiny hammer at the ready to do what it "
+    "was designed for.\n" + LONGSHOT
+)
+FLEA_LONGSHOT = (
+    "Imbedded in the front of the iron crate is a small glass tube of milky-white "
+    "opacity.\n" + LONGSHOT
+)
+# Captured 2026-09-23: a careful disarm that got nowhere.
+NO_PROGRESS = (
+    "You work with the trap for a while but are unable to make any progress.\n"
+)
+
+
+def crate_reading(identify):
+    """The easy-box table with the crate's identify answering `identify`
+    and every careful disarm of it getting nowhere."""
+    answers = [
+        (prefix, identify if prefix == "disarm my crate identify" else answer)
+        for prefix, answer in one_easy_box()
+    ]
+    answers.append(("disarm my crate", NO_PROGRESS))
+    return answers
+
+
+def test_a_nuisance_trap_past_the_threshold_gets_a_careful_try():
+    # 2026-09-25: at Locksmithing 3 both grendel boxes read 11-12, and
+    # both traps were a toad and a joke — the operator: accept the risk.
+    fake = Fake(crate_reading(FROG_PRAYER), mindstates=[1, 3, 5, 7])
+    out = run(fake)
+    assert "disarm my crate careful" in fake.sent
+    assert (
+        "the crate's trap reads 12/17 — a frog trap, a nuisance at worst: trying careful"
+        in out
+    )
+    assert "put my crate in my sack" in fake.sent  # no progress: kept
+
+
+def test_a_deadly_trap_past_the_threshold_still_goes_back():
+    fake = Fake(crate_reading(FLEA_LONGSHOT), mindstates=[1, 3, 5, 7])
+    out = run(fake)
+    assert "disarm my crate careful" not in fake.sent
+    assert "the crate's trap reads 11/17 — past 11, too hard" in out
+
+
+def test_a_trap_that_hits_the_room_waits_for_an_empty_room():
+    fake = Fake(crate_reading(LAUGHING_LONGSHOT), mindstates=[1, 3, 5, 7])
+    fake.state.room_players = ["Uthmor"]
+    out = run(fake)
+    assert "disarm my crate careful" not in fake.sent
+    assert "laughing gas trap would catch Uthmor too — left for an empty room" in out
+
+
+def test_safe_puts_back_even_a_nuisance_trap():
+    fake = Fake(crate_reading(FROG_PRAYER), mindstates=[1, 3, 5, 7])
+    out = run(fake, args=["safe"])
+    assert "disarm my crate careful" not in fake.sent
+    assert "the crate's trap reads 12/17 — past 11, too hard" in out
+
+
+def test_a_lock_past_the_threshold_is_picked_careful_anyway():
+    answers = [
+        (prefix, LONGSHOT_LOCK if prefix == "pick my box identify" else answer)
+        for prefix, answer in one_easy_box()
+    ]
+    fake = Fake(answers, mindstates=[1, 3, 5, 7])
+    out = run(fake)
+    assert "pick my box careful" in fake.sent
+    assert "trying careful anyway (a lock only risks the pick)" in out
+
+
+LONGSHOT_LOCK = "Opening the dented iron box would be a longshot.\n"

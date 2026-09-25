@@ -507,7 +507,17 @@ it ([Locksmithing skill](https://elanthipedia.play.net/Locksmithing_skill),
 takes a box at a time out of the container, DISARM MY <box> IDENTIFY
 reads the trap's difficulty as one of the wiki's seventeen phrases
 (`client/game/boxes.py`), and a reading of "longshot" (11/17) or
-worse puts the box back for a better locksmith; else DISARM MY <box>
+worse puts the box back for a better locksmith — unless the trap's look
+is one of the wiki's nuisance traps (frog, laughing gas, mime,
+shadowling, sleeper, mana sucker, bouncing box: a toad or a joke,
+never a wound), which gets a CAREFUL try whatever it reads. At
+Locksmithing 3 every grendel box read 11-12 (2026-09-25), and both
+traps were nuisances: the operator's call was to take that risk. A
+deadly trap or an unrecognized look still goes back, the room-wide
+laughing gas waits for a room without another player, a lock past the
+reading is picked CAREFUL anyway (it risks the pick, not the
+locksmith), and `;boxes safe` puts every box past the reading back;
+else DISARM MY <box>
 <caution> — QUICK through 2/17, plain through 5/17, CAREFUL through
 10/17, dr-scripts' pick.lic's thresholds rounded — until the trap is
 down, then PICK MY <box> IDENTIFY and PICK MY <box> <caution> the same

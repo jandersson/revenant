@@ -7,6 +7,7 @@
     ;boxes limit=3              stop after that many boxes opened
     ;boxes until=30             stop at that mindstate instead of 34
     ;boxes once                 exit at mind-lock instead of holding for the drain
+    ;boxes safe                 put back every box past "longshot", nuisance traps and locks included
     ;boxes return               (typed while it runs) finish the box in hand and end
 
 Every DISARM and PICK teaches Locksmithing (Elanthipedia: Locksmithing
@@ -20,10 +21,20 @@ identify of a trap already read comes back with no roundtime and
 teaches nothing (2026-09-23: eighty of them in forty seconds left
 Locksmithing at 0/34; the 0/34 to 2/34 of the first run was the one
 careful DISARM), so the boxes a low rank trains on are boxes it can
-read as its own, from lower creatures; else DISARM MY <box> <caution> —
+read as its own, from lower creatures — unless the trap's look is a
+nuisance trap (Elanthipedia: Box traps: frog, laughing gas, mime,
+shadowling, sleeper, mana sucker, bouncing box — a toad or a joke,
+never a wound), which gets a careful try whatever it reads: at rank 3
+every box from the Crossing's grendels read 11 and up (2026-09-25),
+so the risk is the only way in. A deadly trap or a look not recognized
+goes back; the laughing gas catches the whole room, so it waits for a
+room with no other player in it; `safe` puts back every box past the
+threshold. Else DISARM MY <box> <caution> —
 quick, plain or careful by the reading, pick.lic's thresholds — until
 the trap is down, up to five tries; then PICK MY <box> IDENTIFY and
-PICK MY <box> <caution> the same way, with the profile's `lockpick` in
+PICK MY <box> <caution> the same way — a lock past the threshold
+tried careful anyway, since a failed pick risks the pick, not the
+locksmith — with the profile's `lockpick` in
 the free hand (GOT from wherever it is kept, STOWed after) or the
 worn `lockpick_ring`, whose top pick the game takes by itself; OPEN,
 LOOK IN, and every item out — coins to the purse, a gem into the
@@ -89,6 +100,14 @@ from client.game.wounds import level, parse_health
 # the constants added since are read with a fallback.
 HINDERED = getattr(boxes_model, "HINDERED", ("hinders your attempt",))
 WORN = getattr(boxes_model, "WORN", ("onto your hands", "you slip", "you slide"))
+
+
+NUISANCE_TRAPS = getattr(boxes_model, "NUISANCE_TRAPS", ())
+
+
+def nuisance_trap(answer):
+    reader = getattr(boxes_model, "nuisance_trap", None)
+    return reader(answer) if reader is not None else None
 
 
 def hindering_gear(profile):
@@ -352,6 +371,30 @@ def put_back(run, noun, why):
     run.say(f"the {noun} goes back into the {run.container} — {why}")
 
 
+def risk_trap(run, noun, rank, answer):
+    """The caution for a trap past TOO_HARD: "careful" when its look is
+    a nuisance trap (a toad, jokes, a nap) and the run takes the risk,
+    else None, said — a deadly or unknown trap, `safe`, or a trap that
+    hits the whole room while another player stands in it."""
+    trap = None if run.options.get("safe") else nuisance_trap(answer)
+    if trap is None:
+        run.say(f"the {noun}'s trap reads {rank}/17 — past {TOO_HARD}, too hard")
+        return None
+    name, area = trap
+    players = list(getattr(run.s.state, "room_players", None) or [])
+    if area and players:
+        run.say(
+            f"the {noun}'s {name} trap would catch {', '.join(players)} too — "
+            "left for an empty room"
+        )
+        return None
+    run.say(
+        f"the {noun}'s trap reads {rank}/17 — a {name} trap, a nuisance at worst: "
+        "trying careful"
+    )
+    return "careful"
+
+
 def disarm(run, noun):
     """The traps off a box: "clear", "too hard", "stop:<why>" or
     "lost"."""
@@ -386,10 +429,9 @@ def disarm(run, noun):
         else:
             word = caution(rank, TRAP_CAUTION)
             if word is None:
-                run.say(
-                    f"the {noun}'s trap reads {rank}/17 — past {TOO_HARD}, too hard"
-                )
-                return "too hard"
+                word = risk_trap(run, noun, rank, answer)
+                if word is None:
+                    return "too hard"
         if run.options["careful"]:
             word = "careful"
         command = f"disarm my {noun} {word}".strip()
@@ -460,10 +502,18 @@ def pick(run, noun):
         else:
             word = caution(rank, LOCK_CAUTION)
             if word is None:
+                if run.options.get("safe"):
+                    run.say(
+                        f"the {noun}'s lock reads {rank}/17 — past {TOO_HARD}, too hard"
+                    )
+                    return "too hard"
+                # A lock has no trap: a failed pick costs roundtime and
+                # now and then the pick, never a wound.
                 run.say(
-                    f"the {noun}'s lock reads {rank}/17 — past {TOO_HARD}, too hard"
+                    f"the {noun}'s lock reads {rank}/17 — past {TOO_HARD}, "
+                    "trying careful anyway (a lock only risks the pick)"
                 )
-                return "too hard"
+                word = "careful"
         if run.options["careful"]:
             word = "careful"
         command = f"pick my {noun} {word}".strip()

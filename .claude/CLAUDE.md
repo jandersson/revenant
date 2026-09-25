@@ -253,7 +253,9 @@ for `client/client/<pkg>/x.py`.
   pick (the profile's `lockpick` in hand or the worn
   `lockpick_ring`), open, loot out, the empty box binned through
   discard.py (so `droppable` must list the box nouns), a longshot
-  reading put back, a sprung trap judged by the health and wound
+  reading put back unless its trap is a nuisance one (frog, laughing
+  gas, mime...: tried careful; a deadly or unknown trap never; a lock
+  past the reading tried careful too; `safe` puts every one back), a sprung trap judged by the health and wound
   floors, the profile's `hindering_gear` (knuckles, gauntlets) off
   before the first box and worn back after, even after a `;stop`.
   `client/game/remedies.py` is the Remedies craft — the chapter-3
