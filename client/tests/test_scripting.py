@@ -633,6 +633,21 @@ def test_the_reloadable_list_never_names_the_sessions_plumbing():
     )
 
 
+def test_every_pure_game_module_the_scripts_import_is_reloadable():
+    # 2026-09-26: a HEALTH wording fix in wounds.py never reached the
+    # running session — wounds was not on the list, so ;hunt kept
+    # reporting "compounded by" as a wound all afternoon.
+    from client.engine.scripting import RELOADABLE_MODULES
+
+    order = RELOADABLE_MODULES.index
+    for data, model in (
+        ("client.game.wounds_data", "client.game.wounds"),
+        ("client.game.herbs_data", "client.game.herbs"),
+        ("client.game.walker", "client.game.climblog"),
+    ):
+        assert order(data) < order(model)
+
+
 # --- developer mode: slow script loads are reported ---
 
 

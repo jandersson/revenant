@@ -137,9 +137,11 @@ entries from a dock-layout module.
   old code, telling every window why; twice before that it took the
   session down silently (#162). Scripts
   reload from disk on every start, and so do the client/ helper
-  modules they lean on (`scripting.RELOADABLE_MODULES`: probe,
-  walker, mapdb, inventory, circles, climbs, eltime, settings,
-  textfont — pure logic, reloaded in dependency order when their
+  modules they lean on (`scripting.RELOADABLE_MODULES`: every
+  `client/game/` module but history and balance, which the GUI and
+  the parser hold, plus settings and textfont — wounds and herbs
+  joined late, after a wounds fix sat unseen in a running session
+  for an afternoon — pure logic, reloaded in dependency order when their
   file changed since import, #138), so a script or walker edit
   reaches a running session on any platform via `;stop <name>` and
   running it again. A reload is a fresh module object, never a

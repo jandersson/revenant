@@ -454,6 +454,11 @@ RELOADABLE_MODULES = (
     "client.game.flight",  # binds status: after it
     "client.game.mapdb",
     "client.game.walker",
+    "client.game.climblog",  # binds the refusals from walker: after it
+    "client.game.wounds_data",
+    "client.game.wounds",  # binds ROWS from wounds_data: after it
+    "client.game.herbs_data",
+    "client.game.herbs",  # binds HERBS/SHOPS from herbs_data: after it
 )
 
 

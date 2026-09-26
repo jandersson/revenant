@@ -38,8 +38,8 @@ processes; the session owns the game socket and hosts scripts.
 The `client` package is three subpackages and two shared modules:
 `engine/` (the connection and the session process: socket, login,
 parser, engine, session, scripting, spawning), `game/` (the Qt-free
-models scripts lean on — what `RELOADABLE_MODULES` reloads, plus
-wounds, circles, eltime, history), `ui/` (toolkit-free frontend logic
+models scripts lean on — what `RELOADABLE_MODULES` reloads, all but
+history and balance, which the GUI and the parser hold), `ui/` (toolkit-free frontend logic
 the PyQt6 `gui/` and the Textual `tui.py` share), with `settings.py`
 and `client_logger.py` at the top. Paths below are `client/<pkg>/x.py`
 for `client/client/<pkg>/x.py`.
