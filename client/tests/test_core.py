@@ -36,6 +36,24 @@ def test_engine_emits_compass_stream_once_per_room():
     assert compass_frames == [("n e", "compass", "")]
 
 
+def test_a_windows_1252_byte_is_read_not_an_error_that_drops_the_read():
+    # Captured 2026-09-26: MEDITATE RESEARCH PREDICTION's answer carries a
+    # curly apostrophe, byte 0x92; the ASCII decode raised on it and the
+    # whole read was lost, 47 times in one session.
+    engine = Engine()
+    engine.connection = FakeConnection(
+        [
+            b"You recall that Prediction is a Basic ability.  It hones the "
+            b"Barbarian\x92s sense of what comes next.\n",
+            b"An odd byte \x81 here.\n",
+        ]
+    )
+    out = _read_all(engine, 2)
+    story = [text for text, stream, _ in out if stream == ""]
+    assert any("Barbarian\u2019s sense" in text for text in story)
+    assert any("An odd byte \ufffd here." in text for text in story)
+
+
 def test_a_bare_ampersand_in_a_component_does_not_swallow_later_compasses():
     # Captured 2026-09-12 at the Crossing Carousel Desk (#171): the room
     # objects line holds a bare "&", expat fails halfway with the

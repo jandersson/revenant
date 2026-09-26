@@ -100,9 +100,11 @@ def read_exp(s, skill, ask):
     window holds, and the answer written into the parser's table as a
     whole entry — rank, percent, mindstate, rate — under the key the
     table already spells the skill with (the window's spelling when it
-    has none). For a skill the exp window never pushes: a Barbarian's
-    Utility moved 0.15 to 0.30 % under MEDITATE RESEARCH with no line
-    in the window, and the table kept its login seed (#327, 2026-09-26).
+    has none). For a skill the exp window left silent: it pushes a line
+    only when the line's text changes, and a Barbarian's Utility moved
+    0.15 to 0.30 % under MEDITATE RESEARCH while the table kept its
+    login seed — that evening because the engine dropped the read
+    holding the line (a curly apostrophe, since decoded) (#327).
     None when the game shows no such skill."""
     answer = ask(s, f"exp {skill.lower()}") or ""
     match = re.search(_EXP_LINE.format(skill=re.escape(skill)), answer, re.IGNORECASE)

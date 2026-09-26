@@ -85,6 +85,16 @@ def escape_bare_ampersands(line: str) -> str:
     return _BARE_AMPERSAND.sub("&amp;", line)
 
 
+# The game's bytes are Windows-1252, not ASCII: MEDITATE RESEARCH
+# PREDICTION's answer carries a curly apostrophe, byte 0x92 ("the
+# Barbarian's"), and an ASCII decode raised on it and dropped the whole
+# read — 47 times in one evening's session, every PREDICTION research,
+# its answer and the exp window's Utility line lost with it (2026-09-26).
+# cp1252 is one byte per character, so a read split anywhere decodes the
+# same; its five undefined bytes become U+FFFD rather than an error.
+GAME_ENCODING = "cp1252"
+
+
 class Engine(ClientLogger):
     """Parses the game stream into (text, stream, style) segments and
     synthetic state frames. Owns a connection (a SocketClient, logged in
@@ -145,7 +155,9 @@ class Engine(ClientLogger):
         buff = []
 
         try:
-            read_data = self.connection.read_very_eager().decode("ASCII")
+            read_data = self.connection.read_very_eager().decode(
+                GAME_ENCODING, errors="replace"
+            )
         except EOFError as e:
             # No story line of its own: the session (or, in direct mode,
             # the reader's status bar) says what the close meant — one

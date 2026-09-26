@@ -25,10 +25,10 @@ researched longest ago, since at low ranks a research's dabbling has
 drained before the next and all three sit at 0 — waits the roundtime
 out, then waits the rest of the gap. A skill the exp window does not
 move after its research is read with EXP <skill> instead, said once
-per skill: the window never shows a Barbarian's Utility, which moved
-0.15 to 0.30 % under PREDICTION with no line in it (#327), and pushes
-a skill's line only when its text changes — a Warding still dabbling
-after a research got none. A name the game does not know
+per skill: the window pushes a skill's line only when its text changes
+— a Warding still dabbling after a research got none — and Utility's
+line after PREDICTION was lost for an evening to the engine dropping a
+read that held a curly apostrophe (#327; the decode is fixed). A name the game does not know
 ("What did you want to research") drops that skill for the run; a
 non-Barbarian's "trouble concentrating" ends it. At mind-lock on every
 skill the script holds until one drains below 28, then goes on; `once`

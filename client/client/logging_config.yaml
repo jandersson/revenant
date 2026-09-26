@@ -21,6 +21,7 @@ handlers:
     maxBytes: 10485760
     backupCount: 3
     delay: true
+    encoding: utf-8
   game_file:
     # Append-only archive: one file per process/session, never rotated
     # away. The filename is stamped in client_logger._init_logger.
@@ -28,6 +29,9 @@ handlers:
     formatter: game
     filename: revenant_game.log
     delay: true
+    # The game's text is decoded from cp1252 (core.GAME_ENCODING); a byte
+    # it leaves undefined arrives as U+FFFD, which only UTF-8 can write.
+    encoding: utf-8
 loggers:
   game:
     level: DEBUG
