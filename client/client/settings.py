@@ -16,6 +16,9 @@ DEFAULTS = {
     "autostart_beholder": True,  # keep the dashboard server up, quietly
     "autostart_sheet": True,  # snapshot the character sheet periodically
     "autostart_deathwatch": True,  # depart safely on unattended death (#90)
+    # ;deathwatch departs at once on a death at circle 1 with fewer than 6
+    # deaths — a young character's depart costs next to nothing (2026-09-26)
+    "deathwatch_young_depart": False,
     "autostart_sentinel": True,  # flag what is new or addressed at you (#276)
     # ;sentinel's hand-off to the operator: a command run with the alert
     # as its last argument ("" runs nothing — a toast, a mail, a bot),

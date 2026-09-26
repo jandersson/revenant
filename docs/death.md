@@ -70,6 +70,22 @@ wording ever needs to be known; the default ending is a QUIT, which
 spends nothing. Favors are the fuel: ;favors (docs/favors.md)
 is how a character keeps at least three banked.
 
+## A young character departs at once (optional)
+
+With the setting `deathwatch_young_depart` on (off by default; File →
+Settings, "... and depart at once while circle 1 with fewer than 6
+deaths"; `;deathwatch young` for one run), a death at circle 1 with
+fewer than 6 deaths skips the grace and the logout and walks the depart
+ladder at once — a new character loses next to nothing by departing, and
+waiting ten minutes as a ghost gains nothing (the operator, 2026-09-26,
+after a circle-1 Barbarian with 0 favors died on a goblin ground and was
+departed by hand into the Crossing's creche). The circle and the death
+count come off the lines the watch drains while alive (INFO's "Circle:
+1", EXP's footer "Deaths: 2" — ;sheet asks both at login), else INFO
+and EXP asked at the death; unknown keeps the usual ending. Whether the
+count includes the death being handled is not captured: the watch uses
+the last count it saw.
+
 ## Open anomaly
 
 The captured zero-favor decay-depart came back with **inventory

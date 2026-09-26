@@ -130,6 +130,71 @@ def test_zero_grace_departs_immediately_when_asked(monkeypatch):
     assert "depart full" in puts
 
 
+# Captured 2026-09-26: INFO's second line and EXP's footer.
+INFO_CIRCLE = "Gender: Male   Age: 109   Circle: 1"
+EXP_DEATHS = "Time Development Points: 291  Favors: 0  Deaths: 2"
+
+
+class DepartsHandle(FakeHandle):
+    """Any DEPART takes (a young character's costs nothing)."""
+
+    def put(self, command):
+        super().put(command)
+        if command.startswith("depart"):
+            self.state.indicator = {"IconDEAD": "n"}
+
+
+def test_a_young_characters_death_departs_at_once(monkeypatch):
+    monkeypatch.setattr(deathwatch, "DEPART_WAIT", 2)
+    handle = DepartsHandle(dead=True, sleeps=40)
+    seen = {}
+    for line in (INFO_CIRCLE, EXP_DEATHS):  # drained while alive
+        deathwatch.note(line, seen)
+    assert seen == {"circle": 1, "deaths": 2}
+    assert (
+        deathwatch.handle_death(handle, 10, "quit", young=True, seen=seen) == "departed"
+    )
+    puts = [call[1] for call in handle.calls if call[0] == "put"]
+    assert puts == ["depart full"]  # no grace, no quit
+    assert any("circle 1 with 2 death(s)" in echo for echo in handle.echoes)
+
+
+@pytest.mark.parametrize(
+    "seen", [{"circle": 2, "deaths": 0}, {"circle": 1, "deaths": 6}]
+)
+def test_past_circle_1_or_at_six_deaths_the_usual_ending_stands(monkeypatch, seen):
+    monkeypatch.setattr(deathwatch, "DECAY_SCAN_SECONDS", 0.05)
+    handle = FakeHandle(dead=True, sleeps=40)
+    assert (
+        deathwatch.handle_death(handle, 0, "quit", young=True, seen=dict(seen))
+        == "left"
+    )
+    assert ("put", "quit") in handle.calls
+    assert not any(
+        call[1].startswith("depart") for call in handle.calls if call[0] == "put"
+    )
+
+
+def test_a_count_unseen_is_asked_and_an_answer_never_given_keeps_the_usual_ending(
+    monkeypatch,
+):
+    monkeypatch.setattr(deathwatch, "ASK_SECONDS", 0.05)
+    monkeypatch.setattr(deathwatch, "DECAY_SCAN_SECONDS", 0.05)
+    handle = FakeHandle(dead=True, sleeps=40)
+    assert deathwatch.handle_death(handle, 0, "quit", young=True, seen={}) == "left"
+    puts = [call[1] for call in handle.calls if call[0] == "put"]
+    assert puts[:2] == ["info", "exp"] and puts[-1] == "quit"
+
+
+def test_young_is_the_setting_or_the_word_and_off_by_default():
+    assert deathwatch.young_wanted([], {"deathwatch_young_depart": True})
+    assert deathwatch.young_wanted(["young"], {})
+    assert not deathwatch.young_wanted([], {})
+    from client.settings import DEFAULTS
+
+    assert DEFAULTS["deathwatch_young_depart"] is False
+
+
 class RescuedHandle(FakeHandle):
     """A resurrection lands after two polls of the grace wait."""
 

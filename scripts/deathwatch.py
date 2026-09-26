@@ -4,6 +4,7 @@
     ;deathwatch 5          a five-minute grace
     ;deathwatch depart     depart at the grace instead (the old behaviour)
     ;deathwatch 5 depart   both
+    ;deathwatch young      depart at once on a death at circle 1 with fewer than 6 deaths (setting: deathwatch_young_depart)
 
 Watches the DEAD indicator; while you live it costs nothing. On death
 it alerts loudly, keeps the connection alive through the game's idle
@@ -22,6 +23,16 @@ indicator actually clearing. `;stop deathwatch` holds either off while
 a rescue is underway. A death that predates the watch — a restart or
 ;reexec mid-death — counts as freshly observed: the countdown starts
 the moment the script does.
+
+A young character's death costs next to nothing to leave, so with the
+setting `deathwatch_young_depart` on (off by default; File → Settings,
+or `young` in the arguments for one run) a death at circle 1 with
+fewer than 6 deaths departs at once, no grace, no logout (the
+operator, 2026-09-26, after a circle-1 Barbarian's first death). The
+circle and the death count are read off the lines the watch drains
+while you live — INFO's "Circle: 1" and EXP's "Deaths: 2", both in
+;sheet's login snapshot — and asked (INFO, EXP) at the death when none
+was seen; a count or circle still unknown keeps the usual ending.
 """
 
 import re
@@ -41,6 +52,15 @@ DEPART_LADDER = ("depart full", "depart items", "depart grave", "depart")
 
 # Captured 2026-08-22 (the Uthmor death log, docs/death.md).
 DECAY_LINE = re.compile(r"decay beyond its ability to hold your soul in (\d+) minute")
+# A young character departs at once when the setting says so: circle
+# at most YOUNG_CIRCLE, deaths below YOUNG_DEATHS (the operator's rule).
+YOUNG_CIRCLE = 1
+YOUNG_DEATHS = 6
+ASK_SECONDS = 3  # how long an INFO / EXP answer is collected at a death
+# INFO's "Name: ... Circle: 1" and EXP's footer "... Favors: 0  Deaths: 2"
+# (captured 2026-09-26).
+CIRCLE_LINE = re.compile(r"\bCircle:\s*(\d+)")
+DEATHS_LINE = re.compile(r"\bDeaths:\s*(\d+)")
 
 
 def is_dead(state):
@@ -56,6 +76,49 @@ def grace_minutes_from(args):
         except ValueError:
             continue
     return float(DEFAULT_GRACE_MINUTES)
+
+
+def note(line, seen):
+    """Keep the circle and the death count a passing line states."""
+    if match := CIRCLE_LINE.search(line or ""):
+        seen["circle"] = int(match.group(1))
+    if match := DEATHS_LINE.search(line or ""):
+        seen["deaths"] = int(match.group(1))
+
+
+def young_wanted(args, settings=None):
+    """True when `young` is in the arguments or the setting is on."""
+    if "young" in {str(arg).lower() for arg in args}:
+        return True
+    if settings is None:
+        try:
+            from client.settings import load_settings
+
+            settings = load_settings() or {}
+        except Exception:  # noqa: BLE001 — no settings, no young ending
+            settings = {}
+    return bool(settings.get("deathwatch_young_depart"))
+
+
+def is_young(seen):
+    """Circle 1 and fewer than 6 deaths, both known."""
+    circle, deaths = seen.get("circle"), seen.get("deaths")
+    return (
+        circle is not None
+        and deaths is not None
+        and circle <= YOUNG_CIRCLE
+        and deaths < YOUNG_DEATHS
+    )
+
+
+def ask_for(s, command, seen):
+    """Send a read-only command and note what its answer states."""
+    s.put(command)
+    deadline = time.monotonic() + ASK_SECONDS
+    while time.monotonic() < deadline:
+        line = s.get(timeout=0.5)
+        if line is not None:
+            note(line, seen)
 
 
 def mode_from(args):
@@ -131,7 +194,21 @@ def depart(s):
     return False
 
 
-def handle_death(s, grace_minutes, mode="quit"):
+def handle_death(s, grace_minutes, mode="quit", young=False, seen=None):
+    seen = {} if seen is None else seen
+    if young:
+        if seen.get("circle") is None:
+            ask_for(s, "info", seen)
+        if seen.get("deaths") is None:
+            ask_for(s, "exp", seen)
+        if is_young(seen):
+            s.echo(
+                f"DEATHWATCH: you are DEAD at circle {seen['circle']} with "
+                f"{seen['deaths']} death(s) — a young character departs at once "
+                "(deathwatch_young_depart)"
+            )
+            depart(s)
+            return "departed"
     decay = scan_decay_minutes(s)
     grace = grace_minutes
     if decay is not None:
@@ -164,12 +241,20 @@ def main(s):
         f"deathwatch: watching — on an unattended death, {ending} after "
         f"{grace_minutes:.0f} minute(s)"
     )
+    young = young_wanted(s.args)
+    if young:
+        s.echo(
+            f"deathwatch: a death at circle {YOUNG_CIRCLE} with fewer than "
+            f"{YOUNG_DEATHS} deaths departs at once"
+        )
+    seen = {}
     while True:
         if is_dead(s.state):
-            if handle_death(s, grace_minutes, mode) == "left":
+            if handle_death(s, grace_minutes, mode, young, seen) == "left":
                 return  # the connection ends with the QUIT; nothing to watch
         else:
-            # Keep the queue drained so a death scans only fresh lines.
-            while s.get(timeout=0) is not None:
-                pass
+            # Keep the queue drained so a death scans only fresh lines,
+            # noting the circle and the death count as they pass.
+            while (line := s.get(timeout=0)) is not None:
+                note(line, seen)
         s.sleep(POLL)

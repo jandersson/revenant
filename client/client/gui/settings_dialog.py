@@ -53,6 +53,12 @@ class SettingsDialog(QDialog):
             "Depart safely if you die unattended (;deathwatch)"
         )
         self.autostart_deathwatch.setChecked(bool(settings.get("autostart_deathwatch")))
+        self.deathwatch_young_depart = QCheckBox(
+            "... and depart at once while circle 1 with fewer than 6 deaths"
+        )
+        self.deathwatch_young_depart.setChecked(
+            bool(settings.get("deathwatch_young_depart"))
+        )
         self.autostart_wealth = QCheckBox(
             "Track money: BANK ACCOUNT after login and every few hours (;wealth)"
         )
@@ -143,6 +149,7 @@ class SettingsDialog(QDialog):
             self.autostart_beholder,
             self.autostart_sheet,
             self.autostart_deathwatch,
+            self.deathwatch_young_depart,
             self.autostart_wealth,
             self.autostart_sentinel,
             self.quit_on_close,
@@ -172,6 +179,7 @@ class SettingsDialog(QDialog):
             "autostart_beholder": self.autostart_beholder.isChecked(),
             "autostart_sheet": self.autostart_sheet.isChecked(),
             "autostart_deathwatch": self.autostart_deathwatch.isChecked(),
+            "deathwatch_young_depart": self.deathwatch_young_depart.isChecked(),
             "autostart_wealth": self.autostart_wealth.isChecked(),
             "autostart_sentinel": self.autostart_sentinel.isChecked(),
             "autostart_extra": [
