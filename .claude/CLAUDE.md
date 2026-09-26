@@ -4,8 +4,9 @@ A pure-Python client stack for DragonRealms (a Simutronics MUD). uv workspace
 monorepo: `client` (game client), `chat` (LNet chat), `beholder` (Dash
 dashboard over the history the `;xp` script logs to ~/.revenant/history.db).
 `launcher/` bridges to the external Ruby toolchain; revenant itself never
-grows Ruby dependencies (docs/why-python.md). docs/architecture.md tells the
-long version of everything below, with the issue history.
+grows Ruby dependencies (docs/why-python.md). docs/architecture.md is the
+one-page overview; the module docstrings, `git log` and the issues hold
+the detail and the history.
 
 ## Commands
 
@@ -37,8 +38,8 @@ green remote run is expected, not hoped for.
 One pipeline, one parser, several processes. Session and GUI are separate
 processes; the session owns the game socket and hosts scripts. This is a
 map, one line per module: the detail — every parser field, every script's
-model, the issue history — lives in the module docstrings (a script's is
-its `;help` manual) and in docs/architecture.md's Module reference. Paths
+model — lives in the module docstrings (a script's is its `;help`
+manual); the history in `git log` and the issues. Paths
 are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
 
 `client/engine/` — the connection and the session process:
@@ -140,8 +141,7 @@ Traps that cost time before:
 - Every change freshens the documentation it staled, in the same commit:
   the module docstring (it is the `;help` manual), README claims, this
   file (its module map stays one line per module — the detail goes in
-  docs/architecture.md's Module reference), docs/architecture.md, and
-  any docs/ model whose assumptions moved.
+  the docstring), and any docs/ page whose claims moved.
   Documentation is BLUF: the first two sentences carry what it does and why.
 - **Docs are short. Err on saying too little.** A doc page is for a
   reader who wants to use the thing: what it does, how to run it, the
