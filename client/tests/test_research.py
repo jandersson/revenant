@@ -13,10 +13,17 @@ from client.game import research
 
 REPO = pathlib.Path(__file__).parents[2]
 
-# dr-scripts' combat-trainer.lic's two patterns and Elanthipedia's
-# non-Barbarian line; none captured yet (2026-09-26).
+# Captured 2026-09-26 on a circle-1 Barbarian; the unknown-name line is
+# dr-scripts' combat-trainer.lic's pattern and the non-Barbarian line
+# Elanthipedia's, both uncaptured.
 BEGUN = (
-    "You clear your mind and begin to meditate on the Monkey form.\nRoundtime: 6 sec.\n"
+    "You clear your mind and begin to meditate upon the training you have received.\n"
+    "Roundtime: 8 sec.\n"
+)
+RECALLED = (
+    "You recall that Monkey Form is a Basic ability in the Path of the Flame.  "
+    "Practicing these movement styles will enhance the Barbarian's balance and "
+    "reflex if they possess sufficient augmentation skill.\n"
 )
 UNKNOWN = "What did you want to research?\n"
 NOT_BARBARIAN = "You attempt to meditate, but have trouble concentrating.\n"
@@ -48,6 +55,7 @@ def test_the_defaults_are_combat_trainers_abilities_for_the_three_skills():
 
 def test_answers_classify_begun_unknown_and_not_a_barbarian():
     assert research.classify(BEGUN) == "begun"
+    assert research.classify(BEGUN + RECALLED) == "begun"
     assert research.classify(UNKNOWN) == "unknown"
     assert research.classify(NOT_BARBARIAN) == "not a barbarian"
     assert research.classify("You are too tired to study right now.") is None
@@ -82,9 +90,45 @@ def test_the_next_skill_is_the_emptiest_below_the_target():
     )
     # A skill the window does not list yet is an empty pool.
     assert research.next_skill({"Augmentation": 5, "Utility": None}, 34) == "Utility"
-    # A tie goes to the first named; one at the target is done.
+    # With nothing researched yet a tie goes to the first named; one at
+    # the target is done.
     assert research.next_skill({"Augmentation": 4, "Warding": 4}, 34) == "Augmentation"
     assert research.next_skill({"Augmentation": 34, "Warding": 30}, 30) is None
+
+
+def test_a_tie_goes_to_the_skill_researched_longest_ago():
+    # The first live run: every pool drained to 0 between researches, and
+    # a tie to the first named alternated Augmentation and Warding and
+    # never reached Utility.
+    empty = {"Augmentation": 0, "Warding": 0, "Utility": 0}
+    assert (
+        research.next_skill(empty, 34, {"Augmentation": 0, "Warding": 1}) == "Utility"
+    )
+    assert (
+        research.next_skill(empty, 34, {"Augmentation": 3, "Warding": 1, "Utility": 2})
+        == "Warding"
+    )
+    # The emptier pool still goes first, however recently researched.
+    assert (
+        research.next_skill(
+            {"Augmentation": 0, "Warding": 1, "Utility": 1}, 34, {"Augmentation": 5}
+        )
+        == "Augmentation"
+    )
+
+
+def test_pools_that_drain_between_researches_get_all_three_in_turn():
+    fake = Fake({"Augmentation": 0, "Warding": 0, "Utility": 0}, step=0, stop_after=6)
+    run(fake)
+    assert (
+        researches(fake)
+        == [
+            "meditate research monkey",
+            "meditate research turtle",
+            "meditate research prediction",
+        ]
+        * 2
+    )
 
 
 # --- the loop ---

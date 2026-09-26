@@ -9,8 +9,8 @@
     ;research return                (typed while it runs) finish the research in hand and end
 
 MEDITATE RESEARCH <ability> teaches the skill of that ability whether or
-not the Barbarian knows it, about a minute apart, with a roundtime of
-5-8 s and no ability slot spent — the Barbarian's magic research
+not the Barbarian knows it, and Inner Fire beside it, about a minute
+apart, with a roundtime of 6-10 s and no ability slot spent — the Barbarian's magic research
 (Elanthipedia: Barbarian new player guide, Meditations; the model and
 its assumptions are client/game/research.py and docs/barbarian.md,
 #327). The defaults are
@@ -20,7 +20,9 @@ roars at a foe teach it — so it is not offered.
 
 Each round researches the chosen skill whose pool is emptiest (the exp
 window's mindstate; EXP <skill> when the window lacks it, and a skill
-the game shows no ranks in yet counts as empty), waits the roundtime
+the game shows no ranks in yet counts as empty) — on a tie the one
+researched longest ago, since at low ranks a research's dabbling has
+drained before the next and all three sit at 0 — waits the roundtime
 out, then waits the rest of the gap. A name the game does not know
 ("What did you want to research") drops that skill for the run; a
 non-Barbarian's "trouble concentrating" ends it. At mind-lock on every
@@ -28,9 +30,10 @@ skill the script holds until one drains below 28, then goes on; `once`
 exits instead. ;train runs it as a task (skills: ["Augmentation",
 "Warding", "Utility"], return_word "return"). It stops on death and on
 hostiles in the room, getting away first.
-The answers are dr-scripts' and the wiki's, uncaptured (2026-09-26):
-every answer outside the table is echoed as "research: <ability>
-answered ..." so it becomes a fixture — report it.
+The begun answer was captured on the first run (2026-09-26); the
+unknown-name and non-Barbarian answers are still dr-scripts' and the
+wiki's, so every answer outside the table is echoed as "research:
+<ability> answered ..." for a fixture.
 Stop with:  ;stop research, or ;research return.
 """
 
@@ -99,7 +102,8 @@ def run(s, options):
         + f", {options['gap']} s apart, until {until}/34"
     )
     last = None
-    for _ in range(MAX_ROUNDS):
+    researched = {}  # skill: the round it was last researched in
+    for round_number in range(MAX_ROUNDS):
         reason = danger(s)
         if reason:
             s.echo(f"research: {reason} — stopping")
@@ -109,7 +113,7 @@ def run(s, options):
         if wants_stop(s):
             s.echo("research: stopping as asked")
             return
-        skill = next_skill(mindstates(s, abilities), until)
+        skill = next_skill(mindstates(s, abilities), until, researched)
         if skill is None:
             if options["once"]:
                 s.echo(f"research: {', '.join(abilities)} at {until}/34 — done")
@@ -124,6 +128,7 @@ def run(s, options):
                 s.echo("research: stopping")
                 return
         last = clock()
+        researched[skill] = round_number
         ability = abilities[skill]
         outcome, answer = research(s, ability)
         if outcome == "not a barbarian":
