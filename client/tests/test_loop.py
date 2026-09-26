@@ -85,6 +85,32 @@ def test_a_skill_the_window_lacks_is_asked_of_exp_and_seeded_whole():
     assert loop.ensure_mindstate(handle, "Scholarship", lambda s, c: "") is None
 
 
+def test_read_exp_asks_whatever_the_window_holds_and_writes_the_whole_entry():
+    # #327: the window never pushes a Barbarian's Utility, so the table
+    # kept its login seed while MEDITATE RESEARCH moved it.
+    handle = Handle()
+    handle.state.experience = {
+        "Utility": {"rank": 0, "percent": 15, "mindstate": 0, "rate": "clear"}
+    }
+    asked = []
+
+    def ask(s, command):
+        asked.append(command)
+        return "         Utility:      0 30.00% dabbling       (1/34)\n"
+
+    assert loop.exp_entry(handle, "utility")["percent"] == 15
+    assert loop.read_exp(handle, "Utility", ask) == 1
+    assert asked == ["exp utility"]
+    assert handle.state.experience == {
+        "Utility": {"rank": 0, "percent": 30, "mindstate": 1, "rate": "dabbling"}
+    }
+    # A copy, not the table's own dict; nothing shown, nothing written.
+    loop.exp_entry(handle, "Utility")["percent"] = 99
+    assert handle.state.experience["Utility"]["percent"] == 30
+    assert loop.read_exp(handle, "Warding", lambda s, c: "") is None
+    assert "Warding" not in handle.state.experience
+
+
 def test_a_skill_is_found_and_seeded_under_the_windows_spelling():
     # #295: ;listen asked "exp parry ability" and seeded "parry ability"
     # beside the window's "Parry Ability"; the window's pushes updated

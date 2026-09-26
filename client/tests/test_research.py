@@ -270,6 +270,36 @@ def test_an_answer_outside_the_table_is_echoed_for_the_capture_and_the_run_goes_
     assert len(researches(fake)) == 2
 
 
+def test_a_skill_the_window_never_shows_is_read_with_exp_after_its_research():
+    # #327: the window pushed nothing for Utility while PREDICTION moved
+    # it 0.15 to 0.30 %; the table kept the login seed. EXP UTILITY says
+    # it, so the run can see Utility climb and lock.
+    fake = Fake({"Augmentation": 34, "Utility": 0}, step=12)
+    fake.skill_of["prediction"] = None  # no push for Utility
+    readings = iter([5, 17, 34])
+
+    def ask(s, command, *_):
+        if command == "exp utility":
+            fake.sent.append(command)
+            return f"         Utility:      0 30.00% dabbling       ({next(readings)}/34)\n"
+        return Fake.ask(fake, s, command)
+
+    fake.ask = ask
+    out = run(fake, ["augmentation", "utility", "once"])
+    assert researches(fake) == ["meditate research prediction"] * 3
+    assert fake.sent.count("exp utility") == 3
+    assert fake.state.experience["Utility"]["mindstate"] == 34
+    assert out.count("the exp window does not show Utility") == 1
+    assert "Augmentation, Utility at 34/34 — done" in out
+
+
+def test_a_skill_the_window_moves_costs_no_exp():
+    fake = Fake({"Augmentation": 0}, step=10, stop_after=2)
+    out = run(fake, ["augmentation"])
+    assert "exp augmentation" not in fake.sent
+    assert "does not show" not in out
+
+
 def test_a_named_ability_replaces_the_default():
     fake = Fake({"Augmentation": 0}, stop_after=1)
     run(fake, ["augmentation=buffalo"])

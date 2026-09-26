@@ -23,7 +23,10 @@ window's mindstate; EXP <skill> when the window lacks it, and a skill
 the game shows no ranks in yet counts as empty) — on a tie the one
 researched longest ago, since at low ranks a research's dabbling has
 drained before the next and all three sit at 0 — waits the roundtime
-out, then waits the rest of the gap. A name the game does not know
+out, then waits the rest of the gap. A skill the exp window does not
+move after its research is read with EXP <skill> instead, said once:
+the window never shows a Barbarian's Utility, which moved 0.15 to
+0.30 % under PREDICTION with no line in it (#327). A name the game does not know
 ("What did you want to research") drops that skill for the run; a
 non-Barbarian's "trouble concentrating" ends it. At mind-lock on every
 skill the script holds until one drains below 28, then goes on; `once`
@@ -40,7 +43,15 @@ Stop with:  ;stop research, or ;research return.
 from time import monotonic
 
 from client.game import flight, probe
-from client.game.loop import danger, ensure_mindstate, mindstate, pause, wants_stop
+from client.game.loop import (
+    danger,
+    ensure_mindstate,
+    exp_entry,
+    mindstate,
+    pause,
+    read_exp,
+    wants_stop,
+)
 from client.game.research import classify, next_skill, parse_args, research_command
 
 RESUME_BELOW = 28  # resume once enough has drained to be worth a round
@@ -103,6 +114,7 @@ def run(s, options):
     )
     last = None
     researched = {}  # skill: the round it was last researched in
+    silent = set()  # skills the exp window did not move after a research
     for round_number in range(MAX_ROUNDS):
         reason = danger(s)
         if reason:
@@ -130,6 +142,7 @@ def run(s, options):
         last = clock()
         researched[skill] = round_number
         ability = abilities[skill]
+        before = exp_entry(s, skill)
         outcome, answer = research(s, ability)
         if outcome == "not a barbarian":
             s.echo(
@@ -148,6 +161,15 @@ def run(s, options):
             continue
         if outcome is None:
             s.echo(f"research: {ability} answered {first_line(answer)!r}")
+        if exp_entry(s, skill) == before:
+            # The window said nothing of the skill: EXP says it (#327).
+            read_exp(s, skill, ask)
+            if skill not in silent:
+                silent.add(skill)
+                s.echo(
+                    f"research: the exp window does not show {skill} — reading "
+                    f"EXP {skill.upper()} after each research of it"
+                )
     s.echo(f"research: {MAX_ROUNDS} rounds — stopping")
 
 

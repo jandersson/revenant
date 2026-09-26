@@ -16,6 +16,10 @@ pause(s, seconds)  sleep in one-second slices so a typed return or a
 mindstate(s, skill)             the exp window's mindstate for a skill, or None.
 ensure_mindstate(s, skill, ask) the same, asking EXP <skill> when the window
                    lacks the skill and seeding the parser's whole entry (#239).
+exp_entry(s, skill)             a copy of the window's entry, or None.
+read_exp(s, skill, ask)         EXP <skill> asked whatever the window holds and
+                   written as the whole entry — for a skill the window never
+                   pushes (a Barbarian's Utility, #327).
 """
 
 import re
@@ -79,6 +83,50 @@ def mindstate(s, skill):
     guild without the skill never shows it."""
     entry = _entry(s, skill)
     return entry["mindstate"] if entry else None
+
+
+def exp_entry(s, skill):
+    """A copy of the exp window's entry for `skill` ({rank, percent,
+    mindstate, rate}), or None — to tell whether the window moved."""
+    entry = _entry(s, skill)
+    return dict(entry) if entry else None
+
+
+_EXP_LINE = r"(?P<name>{skill}):\s+(?P<rank>\d+)\s+(?P<percent>[\d.]+)%\s+.*?\((?P<mind>\d+)/34\)"
+
+
+def read_exp(s, skill, ask):
+    """The mindstate from EXP <skill>'s own answer, asked whatever the
+    window holds, and the answer written into the parser's table as a
+    whole entry — rank, percent, mindstate, rate — under the key the
+    table already spells the skill with (the window's spelling when it
+    has none). For a skill the exp window never pushes: a Barbarian's
+    Utility moved 0.15 to 0.30 % under MEDITATE RESEARCH with no line
+    in the window, and the table kept its login seed (#327, 2026-09-26).
+    None when the game shows no such skill."""
+    answer = ask(s, f"exp {skill.lower()}") or ""
+    match = re.search(_EXP_LINE.format(skill=re.escape(skill)), answer, re.IGNORECASE)
+    if not match:
+        return None
+    value = int(match.group("mind"))
+    experience = dict(getattr(s.state, "experience", None) or {})
+    wanted = skill.strip().lower()
+    key = next(
+        (
+            name
+            for name in experience
+            if str(name).strip().lower() == wanted and str(name) != str(name).lower()
+        ),
+        None,
+    ) or _window_name(skill, match.group("name"))
+    experience[key] = {
+        "rank": int(match.group("rank")),
+        "percent": int(float(match.group("percent"))),
+        "mindstate": value,
+        "rate": LEARNING_RATES[min(value, 34)],
+    }
+    s.state.experience = experience
+    return value
 
 
 def _exp_answer(skill):
