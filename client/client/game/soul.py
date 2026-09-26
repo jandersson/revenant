@@ -120,6 +120,10 @@ PRAYER_WAIT = 150  # seconds knelt for the prayer to complete (about 75)
 TITHED = ("soft prayer as the coins clink", "soothing sensation")
 TITHE_SHORT = ("but you do not",)  # dr-scripts' tithe.lic: not enough coins
 TITHE_REFUSED = ("attend to thy own woes",)  # dr-scripts' tithe.lic
+# Captured 2026-09-24 at the Crossing, the character owing the
+# province (#304): "That's very altruistic, but you should really pay
+# off your debt before making any donations."
+TITHE_DEBT = ("pay off your debt",)
 # PRAY BADGE, the pilgrim's badge held (captured 2026-09-20 with four
 # attuned sites on it): the boost, an empty badge, one not bonded to
 # the character, and no badge at all.

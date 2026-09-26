@@ -326,6 +326,64 @@ def test_a_short_purse_skips_the_tithe_and_never_withdraws(monkeypatch, tmp_path
     assert "tithe_refused" in soul.load_timers("Lanival")
 
 
+# #304: WEALTH with a debt to the province, in the shape captured
+# 2026-09-21 (#266), the almsbox's coin owed.
+WEALTH_OWING = (
+    "Debt:\n  You owe 1 silver, 6 bronze and 8 copper Dokoras to the Principality "
+    "of Ilithi. (168 copper Dokoras)\n\n" + WEALTH_RICH
+)
+TITHE_DEBT_LINE = (
+    "That's very altruistic, but you should really pay off your debt before "
+    "making any donations.\n"
+)
+
+
+def test_a_debt_to_the_province_skips_the_tithe_and_says_debt_pays_it(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    monkeypatch.setattr(script, "clock", lambda: 1000.0)
+    fake = Fake({"wealth": [WEALTH_OWING]})
+    script.run(fake, ["tithe"], mapdb=MAP, walk_fn=walk)
+    assert fake.sent == ["wealth"]  # no PUT the box would refuse
+    assert "you owe the province 168 copper dokoras" in echoes(fake)
+    assert ";debt pays it" in echoes(fake)
+    timers = soul.load_timers("Lanival")
+    assert timers["tithe_debt"] == "dokoras"
+    assert timers["tithe_refused"] == 1000.0
+
+
+def test_a_standing_debt_costs_no_walk_to_the_almsbox(monkeypatch, tmp_path):
+    # 2026-09-24: every rest walked 38 steps to the box to be refused.
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    soul.save_timers("Lanival", {"tithe_debt": "dokoras"})
+    fake = Fake({"wealth": [WEALTH_OWING]})
+    script.run(fake, ["tithe"], mapdb=MAP, walk_fn=walk)
+    assert fake.walks == []
+    assert fake.sent == ["wealth"]
+    assert "you owe" not in echoes(fake)  # said once, when first found
+
+
+def test_a_paid_debt_clears_the_mark_and_the_tithe_goes_ahead(monkeypatch, tmp_path):
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    monkeypatch.setattr(script, "clock", lambda: 1000.0)
+    soul.save_timers("Lanival", {"tithe_debt": "dokoras"})
+    fake = Fake({"wealth": ["Debt:\n  No debt.\n\n" + WEALTH_RICH], "put": [TITHED]})
+    script.run(fake, ["tithe"], mapdb=MAP, walk_fn=walk)
+    assert fake.walks == [{13143}]
+    assert fake.sent == ["wealth", "put 5 silver dokoras in almsbox"]
+    assert soul.load_timers("Lanival") == {"tithe": 1000.0}
+
+
+def test_the_almsbox_naming_a_debt_reads_as_debt_not_unknown(monkeypatch, tmp_path):
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    fake = Fake({"wealth": [WEALTH_RICH], "put": [TITHE_DEBT_LINE]})
+    script.run(fake, ["tithe"], mapdb=MAP, walk_fn=walk)
+    assert "unknown answer" not in echoes(fake)
+    assert ";debt pays it" in echoes(fake)
+    assert soul.load_timers("Lanival")["tithe_debt"] == "dokoras"
+
+
 def test_the_prayer_stays_knelt_for_the_completion_then_stands(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
     monkeypatch.setattr(script, "clock", lambda: 2000.0)

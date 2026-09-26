@@ -43,7 +43,9 @@ is paladin-quests.lic's warding scene with the readings in front of
 it: FOCUS ORB, wait for the girl's line, GUARD GIRL, wait for the
 gift, every line echoed so the first accepted run captures the scene.
 It never withdraws coins (a short purse is reported, ;debt and the
-teller are yours), never drops, and stops on death or hostiles.
+teller are yours; a debt to the province, which the box refuses a
+tithe for, is said once and costs no walk until WEALTH shows it
+paid, #304), never drops, and stops on death or hostiles.
 Stop with:  ;stop soul, or ;soul return.
 """
 
@@ -75,6 +77,7 @@ from client.game.soul import (
     PRAYER_WAIT,
     QUEST_DONE,
     SCENE_SECONDS,
+    TITHE_DEBT,
     TITHE_REFUSED,
     TITHE_SHORT,
     TITHE_SILVER,
@@ -241,6 +244,24 @@ def too_far(s, mapdb, rooms, what):
     return False
 
 
+def owes(s, timers, currency, wealth):
+    """True (said once, the tithe backed off) while WEALTH shows a debt
+    in the almsbox's coin: the box refuses a donation from a character
+    who owes the province (#304). A debt paid clears the mark."""
+    owed = wealth["debt"].get(currency.capitalize(), 0)
+    if not owed:
+        timers.pop("tithe_debt", None)
+        return False
+    if timers.get("tithe_debt") != currency:
+        s.echo(
+            f"soul: you owe the province {owed} copper {currency} — the almsbox "
+            "takes no tithe until it is paid (;debt pays it)"
+        )
+    timers["tithe_debt"] = currency
+    mark(timers, "tithe", False, clock())
+    return True
+
+
 def tithe(s, mapdb, timers, options, walk_fn=walk):
     """Walk to an almsbox and tithe. True when the box took the coins."""
     rooms = rooms_for(mapdb, "tithe", ALMSBOXES, options["almsbox"])
@@ -251,6 +272,14 @@ def tithe(s, mapdb, timers, options, walk_fn=walk):
     if too_far(s, mapdb, rooms, "almsbox"):
         mark(timers, "tithe", False, clock())
         return False
+    wealth = None
+    if timers.get("tithe_debt"):
+        # The box refused for this province's debt before: WEALTH
+        # (no roundtime) says whether it stands, and a standing debt
+        # costs no walk (#304: 38 steps every rest).
+        wealth = parse_wealth(ask(s, "wealth"))
+        if owes(s, timers, timers["tithe_debt"], wealth):
+            return False
     if not walk_fn(s, mapdb, rooms, describe="the almsbox"):
         s.echo("soul: could not reach an almsbox")
         mark(timers, "tithe", False, clock())
@@ -258,7 +287,9 @@ def tithe(s, mapdb, timers, options, walk_fn=walk):
     here = locate(mapdb, s.state)
     title = (mapdb.rooms.get(here) or {}).get("title", [""])[0] if here else ""
     currency = options["currency"] or currency_for(title)
-    wealth = parse_wealth(ask(s, "wealth"))
+    wealth = wealth or parse_wealth(ask(s, "wealth"))
+    if owes(s, timers, currency, wealth):
+        return False
     carried = wealth["carried"].get(currency.capitalize(), 0)
     if carried < TITHE_SILVER * 100:
         s.echo(
@@ -274,8 +305,16 @@ def tithe(s, mapdb, timers, options, walk_fn=walk):
     answer = ask(s, tithe_command(currency, noun))
     echo_lines(s, answer)
     outcome = classify(
-        answer, ("done", TITHED), ("short", TITHE_SHORT), ("refused", TITHE_REFUSED)
+        answer,
+        ("done", TITHED),
+        ("short", TITHE_SHORT),
+        ("refused", TITHE_REFUSED),
+        ("debt", TITHE_DEBT),
     )
+    if outcome == "debt":
+        # WEALTH showed no debt, yet the box names one: trust the box.
+        owes(s, timers, currency, {"debt": {currency.capitalize(): 1}})
+        return False
     if outcome == "done":
         mark(timers, "tithe", True, clock())
         s.echo(f"soul: tithed {TITHE_SILVER} silver {currency}")
