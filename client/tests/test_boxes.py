@@ -380,3 +380,40 @@ def test_the_experiments_captures_read_as_the_script_expects():
     assert reading(CAPTURED_LOCK_KNOWN, LOCK_READINGS) == 11
     assert classify(CAPTURED_PICK_NO_PROGRESS, PICK_OUTCOMES) == "retry"
     assert classify(CAPTURED_TRAP_SPENT, DISARM_OUTCOMES) == "no trap"
+
+
+# INV LIST as the parser keeps it, 2026-09-26: the coffer in the backpack,
+# the loot container the sack (#323).
+POSSESSIONS_WITH_A_COFFER = [
+    {"exist": "1", "name": "a large canvas sack", "noun": "sack", "depth": 0},
+    {
+        "exist": "2",
+        "name": "a cotton rag",
+        "noun": "rag",
+        "container_exist": "1",
+        "depth": 1,
+    },
+    {"exist": "3", "name": "a rugged backpack", "noun": "backpack", "depth": 0},
+    {
+        "exist": "4",
+        "name": "a plain steel coffer",
+        "noun": "coffer",
+        "container_exist": "3",
+        "depth": 1,
+    },
+    {
+        "exist": "5",
+        "name": "an iron mortar",
+        "noun": "mortar",
+        "container_exist": "3",
+        "depth": 1,
+    },
+]
+
+
+def test_a_box_outside_the_loot_container_names_its_container():
+    from client.game.boxes import box_containers
+
+    assert box_containers(POSSESSIONS_WITH_A_COFFER, "sack") == ["backpack"]
+    assert box_containers(POSSESSIONS_WITH_A_COFFER, "backpack") == []
+    assert box_containers([], "sack") == []

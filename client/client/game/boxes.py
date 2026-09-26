@@ -383,6 +383,25 @@ def listed(answer):
     return [item.strip() for item in items if item.strip()]
 
 
+def box_containers(possessions, primary):
+    """The containers other than `primary` that hold a box, by the
+    parser's INV LIST items ({name, noun, exist, container_exist}), each
+    container's noun once in listing order (#323: a coffer in the
+    backpack was never picked, the loot container being the sack)."""
+    by_exist = {item.get("exist"): item for item in possessions or []}
+    found = []
+    for item in possessions or []:
+        if noun_of(item.get("noun") or item.get("name") or "") not in BOX_NOUNS:
+            continue
+        holder = by_exist.get(item.get("container_exist"))
+        if not holder:
+            continue
+        noun = str(holder.get("noun") or noun_of(holder.get("name") or "")).lower()
+        if noun and noun != str(primary or "").lower() and noun not in found:
+            found.append(noun)
+    return found
+
+
 def boxes_in(answer):
     """The box nouns a container listing holds, repeats kept and in
     order: ["box", "coffer", "box"]; None when the container could not

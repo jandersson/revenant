@@ -576,3 +576,67 @@ def test_tries_sets_how_many_attempts_a_lock_gets_before_the_box_goes_back():
     fake = Fake(answers, mindstates=[1] * 40)
     run(fake, args=["tries=12"])
     assert fake.sent.count("pick my box careful") == 12
+
+
+# #323: a coffer in the backpack, the loot container (the sack) without
+# boxes — every run said "no boxes in the sack" and the coffer sat.
+POSSESSIONS_WITH_A_COFFER = [
+    {"exist": "1", "name": "a large canvas sack", "noun": "sack", "depth": 0},
+    {
+        "exist": "2",
+        "name": "a cotton rag",
+        "noun": "rag",
+        "container_exist": "1",
+        "depth": 1,
+    },
+    {"exist": "3", "name": "a rugged backpack", "noun": "backpack", "depth": 0},
+    {
+        "exist": "4",
+        "name": "a plain steel coffer",
+        "noun": "coffer",
+        "container_exist": "3",
+        "depth": 1,
+    },
+    {
+        "exist": "5",
+        "name": "an iron mortar",
+        "noun": "mortar",
+        "container_exist": "3",
+        "depth": 1,
+    },
+]
+BACKPACK = "In the rugged backpack you see an iron mortar and a plain steel coffer.\n"
+COFFER_LONGSHOT = "Disarming the plain steel coffer would be a longshot.\n"
+
+
+def test_a_box_in_another_container_is_worked_and_put_back_there():
+    fake = Fake(
+        [
+            ("look in my sack", "In the canvas sack you see a cotton rag.\n"),
+            ("look in my backpack", BACKPACK),
+            (
+                "get coffer from my backpack",
+                "You get a plain steel coffer from inside your rugged backpack.\n",
+            ),
+            ("disarm my coffer identify", COFFER_LONGSHOT),
+            ("put my coffer in my backpack", "You put your coffer in your backpack.\n"),
+        ],
+        mindstates=[1, 3],
+    )
+    fake.state.possessions = POSSESSIONS_WITH_A_COFFER
+    out = run(fake)
+    assert "1 box(es) in the backpack" in out
+    assert "get coffer from my backpack" in fake.sent
+    assert "put my coffer in my backpack" in fake.sent
+    assert "1 kept for a better locksmith" in out
+
+
+def test_a_named_source_works_that_container_alone():
+    fake = Fake(
+        [("look in my sack", "In the canvas sack you see a cotton rag.\n")],
+        mindstates=[1],
+    )
+    fake.state.possessions = POSSESSIONS_WITH_A_COFFER
+    out = run(fake, ["source=sack"])
+    assert "look in my backpack" not in fake.sent
+    assert "no boxes in the sack — nothing to pick" in out

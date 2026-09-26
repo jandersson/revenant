@@ -1,7 +1,7 @@
 """Train Locksmithing on the boxes the hunt brought home:  ;boxes
 
-    ;boxes                      every box in the loot container: disarmed, picked, opened, emptied
-    ;boxes source=backpack      the boxes wait in that container instead of the profile's loot_container
+    ;boxes                      every box in the loot container, then any other container INV LIST shows one in: disarmed, picked, opened, emptied
+    ;boxes source=backpack      that container alone instead of the profile's loot_container
     ;boxes careful              every DISARM and PICK careful, whatever the reading says
     ;boxes stand                stay standing (the script sits, which helps)
     ;boxes limit=3              stop after that many boxes opened
@@ -93,6 +93,7 @@ from client.game.boxes import (
     TOO_HARD,
     TRAP_CAUTION,
     TRAP_READINGS,
+    box_containers,
     boxes_in,
     caution,
     listed,
@@ -155,6 +156,7 @@ class Run:
         self.options = options
         self.container = options["source"] or profile.get("loot_container") or ""
         self.kept = {}  # noun -> boxes put back into the container
+        self.kept_elsewhere = 0  # put back into the containers worked before it
         self.reported = set()
         self.opened = 0
         self.pick_in_hand = False
@@ -774,20 +776,36 @@ def run_loop(s, profile, options):
     if value is None:
         run.say(f"EXP shows no {SKILL} — nothing to train")
         return
-    answer = ask(s, f"look in my {run.container}")
-    run.report("look in container", f"look in my {run.container}", answer)
+    primary = run.container
+    answer = ask(s, f"look in my {primary}")
+    run.report("look in container", f"look in my {primary}", answer)
     nouns = boxes_in(answer)
     if nouns is None:
-        run.say(f"cannot read the {run.container} — is it worn or held, and open?")
+        run.say(f"cannot read the {primary} — is it worn or held, and open?")
         return
-    if not nouns:
-        run.say(f"no boxes in the {run.container} — nothing to pick")
+    sources = [(primary, nouns)] if nouns else []
+    # Boxes that landed elsewhere — a full sack's STOW, a hand's put-away
+    # — are worked after the loot container's, unless source= named one
+    # (#323). INV LIST (the parser's possessions) says where they are.
+    if not options["source"]:
+        possessions = getattr(s.state, "possessions", None) or []
+        for container in box_containers(possessions, primary):
+            found = boxes_in(ask(s, f"look in my {container}")) or []
+            if found:
+                sources.append((container, found))
+    if not sources:
+        run.say(f"no boxes in the {primary} — nothing to pick")
         return
-    run.say(f"{len(nouns)} box(es) in the {run.container} — {SKILL} {value}/34")
+    for container, found in sources:
+        run.say(f"{len(found)} box(es) in the {container} — {SKILL} {value}/34")
     try:
         doff(run)
         sit(run)
-        for noun in nouns[:MAX_BOXES]:
+        work = [(container, noun) for container, found in sources for noun in found]
+        for container, noun in work[:MAX_BOXES]:
+            if container != run.container:
+                run.kept_elsewhere += sum(run.kept.values())
+                run.container, run.kept = container, {}
             reason = danger(s)
             if reason:
                 run.say(f"{reason} — stopping")
@@ -821,7 +839,7 @@ def run_loop(s, profile, options):
                 return
         run.say(
             f"every box tried — {run.opened} opened, "
-            f"{sum(run.kept.values())} kept for a better locksmith"
+            f"{run.kept_elsewhere + sum(run.kept.values())} kept for a better locksmith"
         )
     finally:
         put_pick_away(run)
