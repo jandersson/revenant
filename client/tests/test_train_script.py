@@ -520,6 +520,7 @@ def test_train_init_writes_the_starter_and_refuses_to_overwrite(clock, tmp_path)
         "athletics",
         "hunt",
         "skins",
+        "repair",
         "bank",
         "tdp",
         "forage",

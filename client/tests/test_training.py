@@ -117,6 +117,7 @@ def test_the_starter_plan_takes_home_and_skills_from_the_profile(monkeypatch):
         "athletics",
         "hunt",
         "skins",
+        "repair",
         "bank",
         "tdp",
         "forage",
@@ -124,9 +125,11 @@ def test_the_starter_plan_takes_home_and_skills_from_the_profile(monkeypatch):
     # Selling and banking are distinct tasks (the operator, 2026-09-20):
     # ;skins sells, the plan's bank task banks the purse (#235).
     assert starter["tasks"][2]["args"] == []
+    # The gear the hunt wore down, mended once a cycle (2026-09-26).
     assert starter["tasks"][3]["skills"] == []
-    assert starter["tasks"][4]["args"] == ["plan"]  # the TDPs, a task in the order
-    assert starter["tasks"][5]["skills"] == ["Outdoorsmanship"]
+    assert starter["tasks"][4]["skills"] == []
+    assert starter["tasks"][5]["args"] == ["plan"]  # the TDPs, a task in the order
+    assert starter["tasks"][6]["skills"] == ["Outdoorsmanship"]
     assert starter["tasks"][1]["skills"] == ["Small Edged"]
     assert starter["tasks"][1]["return_word"] == "return"
     assert validate(starter) == []

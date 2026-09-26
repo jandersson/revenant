@@ -264,7 +264,8 @@ def save_plan(character, plan: dict) -> Path:
 def starter_plan(character) -> dict:
     """The plan ;train init writes: the bundled trainers — climbs, the
     hunt (its skills from the character's profile), the skins sold and
-    banked after it, the purse banked (the foreign coins exchanged,
+    the gear it wore down repaired after it (;repair: the pieces at or
+    below the profile's repair_floor, 2026-09-26), the purse banked (the foreign coins exchanged,
     everything deposited, #235), the TDPs spent where the plan's `tdp`
     list says (`;tdp plan`, a task in the order, the operator
     2026-09-20), and foraging for Outdoorsmanship. Edit from there
@@ -287,6 +288,10 @@ def starter_plan(character) -> dict:
         # Selling and banking are distinct tasks (the operator, 2026-09-20):
         # ;skins sells, ;bank banks the purse (#235).
         normalize_task({"name": "skins", "script": "skins"}),
+        # The gear mended after the hunt that wore it down, before the
+        # bank takes the purse that pays for it (;repair, #307; the
+        # operator, 2026-09-26: otherwise the gear gets obliterated).
+        normalize_task({"name": "repair", "script": "repair"}),
         normalize_task({"name": "bank", "script": "bank"}),
         normalize_task({"name": "tdps", "script": "tdp", "args": ["plan"]}),
         normalize_task(
