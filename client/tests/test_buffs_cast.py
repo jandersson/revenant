@@ -91,3 +91,55 @@ def test_a_cast_with_nothing_prepared_is_a_failed_cast_not_a_mystery(monkeypatch
     assert outcome == "collapsed"
     assert reported == []
     assert "release" not in handle.sent
+
+
+def test_a_name_the_game_does_not_parse_is_prepared_by_its_abbreviation(
+    tmp_path, monkeypatch
+):
+    # 2026-09-26 (#320): "prepare hands of justice" answered "You have no
+    # idea how to cast that spell." every hunt while "prepare hoj" is the
+    # spell; ;sheet records the abbreviation off SPELLS in history.db.
+    import sqlite3
+
+    db = tmp_path / "history.db"
+    with sqlite3.connect(str(db)) as connection:
+        connection.execute(
+            "CREATE TABLE spells (seq INTEGER PRIMARY KEY, logged_at TEXT,"
+            " character_name TEXT, name TEXT, abbrev TEXT, kind TEXT, chapter TEXT)"
+        )
+        connection.execute(
+            "INSERT INTO spells (logged_at, character_name, name, abbrev, kind,"
+            " chapter) VALUES ('t', 'Lanival', 'Hands of Justice', 'hoj',"
+            " 'learned', 'Justice')"
+        )
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(db))
+    handle = Handle([])
+    handle.state.name = "Lanival"
+    answers = {
+        "prepare hands of justice": "You have no idea how to cast that spell.\n",
+        "prepare hoj": "You clasp your hands together and chant a brief prayer.\n",
+    }
+
+    def ask(s, command):
+        s.sent.append(command)
+        return answers.get(command, "")
+
+    buffs.cast_once(
+        handle,
+        "hands of justice",
+        0,
+        SimpleNamespace(cast_at={}),
+        ask,
+        lambda kind, answer: None,
+    )
+    assert handle.sent[:2] == ["prepare hands of justice", "prepare hoj"]
+
+
+def test_a_room_that_blocks_magic_is_a_failed_prepare():
+    # Captured 2026-09-26 in the Paladins' guild library.
+    from client.game.probe import classify
+
+    blocked = "Something in the area interferes with your spell preparations.\n"
+    assert classify(blocked, buffs.PREPARE_OUTCOMES) == "failed"
+    unknown = "You have no idea how to cast that spell.\n"
+    assert classify(unknown, buffs.PREPARE_OUTCOMES) == "failed"

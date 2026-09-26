@@ -4,7 +4,10 @@ shared so ;athletics can fill its award-timer waits the same way
 (dr-scripts casts buffs around its climbs, #177).
 
 cast_buffs() casts every profile buff that is not running (PREPARE,
-wait for the pattern, CAST) and, when the profile names a magic skill
+wait for the pattern, CAST — a name the game does not parse, "You have
+no idea how to cast that spell." to "prepare hands of justice", is
+prepared again by the abbreviation ;sheet recorded off SPELLS, "hoj",
+2026-09-26, #320) and, when the profile names a magic skill
 in `train_casting`, recasts the first buff between actions while that
 skill sits below mind-lock and mana holds, feeding more mana each time
 until the game warns of strain or a cast fails, then holding one step
@@ -126,7 +129,19 @@ BUFF_MINUTES = 10  # the wiki's shortest duration for the intro buffs
 PREPARE_OUTCOMES = (
     (
         "failed",
-        ("don't know", "unable to", "can't prepare", "cannot prepare", "no such"),
+        (
+            "don't know",
+            "unable to",
+            "can't prepare",
+            "cannot prepare",
+            "no such",
+            # Captured 2026-09-26: a name the game does not parse ("prepare
+            # hands of justice" — the abbreviation, hoj, prepares), and a
+            # room where magic will not form (the Paladins' guild library),
+            # which "prepar" below read as a pattern begun.
+            "no idea how to cast",
+            "interferes with your spell",
+        ),
     ),
     # Too much mana asked for (the wiki's Prepare page wording; not
     # yet observed here): the pattern is prepared but may not cast.
@@ -438,6 +453,29 @@ def charge_cambrinth(s, profile, state, ask, prefix, report):
     return False
 
 
+def abbreviation(character, spell):
+    """The spell's abbreviation as ;sheet recorded it off SPELLS ("hoj" for
+    Hands of Justice) in history.db's spells table, or None — no table,
+    no row, no abbreviation."""
+    if not character or not spell:
+        return None
+    try:
+        import sqlite3
+
+        from client.game.history import database_path
+
+        with sqlite3.connect(str(database_path())) as connection:
+            row = connection.execute(
+                "SELECT abbrev FROM spells WHERE character_name = ?"
+                " AND lower(name) = lower(?) AND abbrev IS NOT NULL"
+                " ORDER BY seq DESC LIMIT 1",
+                (character, str(spell)),
+            ).fetchone()
+    except Exception:  # no database yet, no table: the name stands
+        return None
+    return row[0] if row else None
+
+
 def cast_left(s):
     """Seconds the pattern PREPARE opened has still to form, by the
     parser's cast time against the last prompt's server time; 0 when
@@ -485,6 +523,15 @@ def cast_once(
     prepare = f"prepare {spell} {mana}" if mana else f"prepare {spell}"
     answer = ask(s, prepare)
     outcome = classify(answer, PREPARE_OUTCOMES)
+    if "no idea how to cast" in answer.lower():
+        # The name did not parse: the spell's own abbreviation, as ;sheet
+        # recorded it off SPELLS, prepares where "hands of justice" did
+        # not (2026-09-26, #320).
+        short = abbreviation(getattr(getattr(s, "state", None), "name", ""), spell)
+        if short and short.lower() != str(spell).lower():
+            prepare = f"prepare {short} {mana}" if mana else f"prepare {short}"
+            answer = ask(s, prepare)
+            outcome = classify(answer, PREPARE_OUTCOMES)
     if outcome == "held":
         # An earlier pattern is still held (a cast at a corpse leaves
         # it, #252): let it go and prepare once more.
