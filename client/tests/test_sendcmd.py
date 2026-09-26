@@ -153,6 +153,9 @@ def test_read_only_commands_are_allowlisted_and_the_rest_are_gated():
     assert allowlisted("BANK  Account")
     assert not allowlisted("bank debt")  # sends a runner to pay: gated
     assert not allowlisted("bank")
+    assert allowlisted("ability list")  # a Barbarian's abilities, recalled
+    assert allowlisted("ABILITY List")
+    assert not allowlisted("ability")
     assert not allowlisted("attack rat")
     assert not allowlisted("drop sack")
     assert not allowlisted(";hunt")

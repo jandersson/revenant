@@ -24,7 +24,7 @@ the operator's window as `>> [claude] ...`.
    story line instead of polling the log. Read-only commands may go
    out for what the parser does not hold: INFO, the stat words
    (AGILITY, STRENGTH, ...), TDP, TDP PROJECT, ENCUMBRANCE, VAULT
-   TIME, BANK ACCOUNT, WEALTH, TIME, HEALTH. They cost no roundtime
+   TIME, BANK ACCOUNT, WEALTH, TIME, HEALTH, ABILITY LIST. They cost no roundtime
    and change nothing. INFO prints a long block in the window; ask
    once and keep the answer.
 3. **The session refuses what an outsider must not do** (#161): GIVE,

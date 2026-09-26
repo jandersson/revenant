@@ -71,7 +71,7 @@ the session log records it, so nothing sent this way acts invisibly.
 Read-only commands go through whenever a session is listening: INFO,
 EXP, SPELL, HEALTH, WEALTH, LOOK, TIME, INVENTORY, GLANCE, ASSESS,
 TDP, ENCUMBRANCE, the eight stat words, PREMIUM, BANK ACCOUNT (that
-line alone: BANK DEBT and BANK WITHDRAW spend) and the `;list`,
+line alone: BANK DEBT and BANK WITHDRAW spend), ABILITY LIST and the `;list`,
 `;help`, `;stop`, `;sheet`, `;clock` scripts. Everything
 else is refused until the gate is open: "allow external tools to send
 any command" in File → Settings, or `REVENANT_ALLOW_SEND=1` for one
