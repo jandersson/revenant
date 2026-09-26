@@ -17,6 +17,8 @@ from test_repair import (
     NOT_YET,
     PRISTINE,
     QUOTE,
+    RANGU_LOOK,
+    RANGU_NOT_YET,
     RANGU_QUOTE,
     RANGU_RETURNED,
     RANGU_TICKET,
@@ -304,6 +306,26 @@ def test_pickup_walks_to_the_shop_the_ticket_names():
     assert fake.walks == [{19093}]
     assert "give my ticket to Catrox" in fake.sent
     assert fake.sent[-1] == "get my Catrox ticket"
+    assert "repair: 1 piece collected" in echoes(fake)
+
+
+def test_a_rangu_ticket_is_waited_out_and_the_tool_stowed_not_worn():
+    # 2026-09-26: the pestle's pickup tried WEAR MY PESTLE before stowing.
+    fake = Fake(
+        {
+            "look at my ticket": [RANGU_LOOK],
+            "give my ticket": [RANGU_NOT_YET, RANGU_RETURNED],
+            "get my Rangu ticket": [
+                "You get a Rangu repair ticket from inside your backpack.",
+                "What were you referring to?",
+            ],
+        }
+    )
+    script.run(fake, ["pickup"], mapdb=MAP, walk_fn=walk, profile=PROFILE)
+    assert fake.walks == [{19209}]
+    assert fake.slept >= 3 * 60
+    assert "stow my pestle" in fake.sent
+    assert "wear my pestle" not in fake.sent
     assert "repair: 1 piece collected" in echoes(fake)
 
 

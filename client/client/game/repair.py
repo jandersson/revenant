@@ -62,7 +62,15 @@ Captured 2026-09-26, an iron pestle worn past use:
                   ticket!  You must have it to reclaim your pestle."
                   — the first GIVE after the teller trip, 9 s after the
                   quote: an estimate still standing is paid at once.
-His tickets are "Rangu repair ticket"s (a customer's GET, same day).
+  LOOK AT TICKET  Looking at the Rangu ticket you see it is for an iron
+                  pestle.  You recall that your pestle won't be ready for
+                  another 3 roisaen.
+  GIVE TICKET     Rangu grumbles, "Well that isn't gonna be done for
+                  another 3 roisaen." / Rangu grumbles, "Well that is
+                  almost done, just give me a few more moments here." /
+                  You hand Rangu your ticket and are handed back an iron
+                  pestle.
+His tickets are "Rangu repair ticket"s.
 
 The quote is copper: 200 carried, 92 after the 108. The first ;repair
 run (a scimitar, "rather scuffed up", 5 Kronars, 1 roisaen) took GET

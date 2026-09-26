@@ -15,6 +15,11 @@ One JSON file per character, `~/.revenant/training/<name>.json`
 (`REVENANT_TRAINING` moves the directory). `;train init` writes a
 starter — climbs, the hunt, the skins sold, the gear the hunt wore down repaired (`;repair`, 2026-09-26: once a cycle, the pieces at or below the profile's `repair_floor`), the purse banked, and foraging, the hunt task's skills taken from
 the character's profile — and `;train plan` prints what the file says.
+A crafter's plan adds a `tool repair` task beside `repair` (script
+`repair`, args `["tools"]`): the profile's `repair_tools` ANALYZEd
+once a cycle and the worn ones taken to the Engineering Society's
+Rangu, so a pestle worn past use no longer stops every Alchemy task
+(#321, 2026-09-26).
 File → Training Plan… in the client edits it: the plan settings as a
 form, the tasks as an ordered list with add, remove, up and down, the
 selected task as a form, every row built from the same schema the

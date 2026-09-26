@@ -310,10 +310,10 @@ def wait_out(s, seconds):
     return True
 
 
-def collect(s, name, places):
+def collect(s, name, places, default="worn"):
     """Hand each of `name`'s tickets back until none is left, waiting out
     "not done for another N roisaen"; each piece back goes where
-    `places` ({noun: place}) says, worn by default. The count."""
+    `places` ({noun: place}) says, else `default`. The count."""
     returned = 0
     for _ in range(MAX_TICKETS):
         if s.dead:
@@ -328,7 +328,7 @@ def collect(s, name, places):
             if answer["kind"] == "returned":
                 noun = answer["noun"]
                 s.echo(f"repair: {answer['item']} back")
-                put_back(s, noun, places.get(noun, "worn"))
+                put_back(s, noun, places.get(noun, default))
                 returned += 1
                 break
             if answer["kind"] == "wait":
@@ -428,7 +428,9 @@ def pickup(s, mapdb, walk_fn):
     name = walk_to_shop(s, mapdb, walk_fn, rooms={room})
     if name is None:
         return 0
-    return collect(s, name, {})
+    # A tool shop's ticket is a tool, never worn: STOWed (2026-09-26,
+    # the pestle's pickup tried WEAR first).
+    return collect(s, name, {}, "stowed" if name in TOOL_SHOPS.values() else "worn")
 
 
 def run(s, words, mapdb=None, walk_fn=walk, profile=None):

@@ -76,8 +76,14 @@ RANGU_TICKET = (
     "says, \"I should be having that done for you in about 10 roisaen.  Don't "
     'lose this ticket!  You must have it to reclaim your pestle."\n'
 )
-# Assumed, not captured: Catrox's pickup line in Rangu's name.
 RANGU_RETURNED = "You hand Rangu your ticket and are handed back an iron pestle.\n"
+RANGU_LOOK = (
+    "Looking at the Rangu ticket you see it is for an iron pestle.  You recall "
+    "that your pestle won't be ready for another 3 roisaen.\n"
+)
+RANGU_NOT_YET = (
+    'Rangu grumbles, "Well that isn\'t gonna be done for another 3 roisaen."\n'
+)
 LOOK_READY = (
     "Looking at the Catrox ticket you see it is for some light full plate.  You "
     "recall that your plate should be ready by now.\n"
