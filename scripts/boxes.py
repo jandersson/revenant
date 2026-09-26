@@ -8,6 +8,7 @@
     ;boxes until=30             stop at that mindstate instead of 34
     ;boxes once                 exit at mind-lock instead of holding for the drain
     ;boxes safe                 put back every box past "longshot", nuisance traps and locks included
+    ;boxes tries=15             attempts at a trap or a lock before the box goes back (5 by default)
     ;boxes return               (typed while it runs) finish the box in hand and end
 
 Every DISARM and PICK teaches Locksmithing (Elanthipedia: Locksmithing
@@ -431,7 +432,7 @@ def disarm(run, noun):
     """The traps off a box: "clear", "too hard", "stop:<why>" or
     "lost"."""
     s = run.s
-    for _round in range(WORK_TRIES):
+    for _round in range(run.options.get("tries") or WORK_TRIES):
         rank = None
         for _ in range(IDENTIFY_TRIES):
             answer = ask(s, f"disarm my {noun} identify")
@@ -506,7 +507,7 @@ def pick(run, noun):
     """The locks off a box: "open", "too hard", "stop:<why>" or
     "lost"."""
     s = run.s
-    for _round in range(WORK_TRIES):
+    for _round in range(run.options.get("tries") or WORK_TRIES):
         if not ready_pick(run):
             return "stop:no lockpick"
         rank = None

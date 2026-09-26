@@ -175,8 +175,11 @@ def test_the_arguments():
         "stand": False,
         "limit": 0,
         "safe": False,
+        "tries": 0,
     }
     assert parse_args(["safe"])["safe"] is True
+    assert parse_args(["tries=15"])["tries"] == 15
+    assert parse_args(["tries=x"])["tries"] == 0
     options = parse_args(
         ["source=backpack", "until=30", "once", "careful", "stand", "limit=3"]
     )
@@ -188,6 +191,7 @@ def test_the_arguments():
         "stand": True,
         "limit": 3,
         "safe": False,
+        "tries": 0,
     }
     # The practice mode is gone (2026-09-23): an identify of a trap
     # already read is free of roundtime and teaches nothing.

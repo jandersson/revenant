@@ -388,7 +388,8 @@ def parse_args(args):
     """;boxes' words: source=<container>, until=<mindstate>, once,
     careful (every step careful whatever the reading), stand (never
     sit), limit=<boxes>, safe (never past TOO_HARD, not even for a
-    nuisance trap or a lock). (`nopractice` is gone with the practice mode,
+    nuisance trap or a lock), tries=<n> (attempts at a trap or a lock
+    before the box goes back; the script's five when not given). (`nopractice` is gone with the practice mode,
     2026-09-23: an identify of a trap already read teaches nothing.)"""
     options = {
         "source": "",
@@ -398,6 +399,7 @@ def parse_args(args):
         "stand": False,
         "limit": 0,
         "safe": False,
+        "tries": 0,  # 0: the script's WORK_TRIES
     }
     for word in args or []:
         text = str(word).strip()
@@ -407,6 +409,11 @@ def parse_args(args):
         elif lowered.startswith("until="):
             try:
                 options["until"] = max(1, min(34, int(text.split("=", 1)[1])))
+            except ValueError:
+                pass
+        elif lowered.startswith("tries="):
+            try:
+                options["tries"] = max(1, min(100, int(text.split("=", 1)[1])))
             except ValueError:
                 pass
         elif lowered.startswith("limit="):

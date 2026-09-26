@@ -512,3 +512,19 @@ def test_a_sprung_trap_that_floors_the_box_picks_it_up_and_the_stun_is_waited(
     assert "the crate was knocked to the floor — picked back up" in out
     assert "sit" in fake.sent[fake.sent.index("get crate") :]
     assert not any("would not identify" in line for line in out.splitlines())
+
+
+def test_tries_sets_how_many_attempts_a_lock_gets_before_the_box_goes_back():
+    answers = [
+        (prefix, LONGSHOT_LOCK if prefix == "pick my box identify" else answer)
+        for prefix, answer in one_easy_box()
+    ]
+    answers = [
+        (p, "You are unable to make any progress towards opening the lock.\n")
+        if p == "pick my box"
+        else (p, a)
+        for p, a in answers
+    ]
+    fake = Fake(answers, mindstates=[1] * 40)
+    run(fake, args=["tries=12"])
+    assert fake.sent.count("pick my box careful") == 12
