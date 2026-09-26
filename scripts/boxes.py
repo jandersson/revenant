@@ -41,9 +41,9 @@ worn `lockpick_ring`, whose top pick the game takes by itself (an
 empty ring — its last pick broken, or PICK wanting "a more
 appropriate tool" — falls back to the loose `lockpick`, and before
 the next box the ring is refilled once a run: the profile's
-`lockpick_refill` picks of `lockpick_kind` ORDERed at Ragge's
-Locksmithing, the teller visited first for a short purse, each PUT on
-the ring; `lockpick_refill` 0 never buys); OPEN,
+`lockpick_refill` picks of `lockpick_kind` bought at Ragge's
+Locksmithing — ORDER <kind> LOCKPICK, OFFER the quoted price — the
+teller visited first for a short purse, each PUT on the ring; `lockpick_refill` 0 never buys); OPEN,
 LOOK IN, and every item out — coins to the purse, a gem into the
 profile's `gem_pouch`, the rest into the loot container — and the empty
 box into the room's bucket through client/game/discard.py, which only
@@ -421,7 +421,7 @@ def refill_ring(run):
     if kind not in LOCKPICK_CATALOG:
         run.say(f"lockpick_kind {kind!r} is not on Ragge's catalog — no refill")
         return False
-    number, price = LOCKPICK_CATALOG[kind]
+    price = LOCKPICK_CATALOG[kind]
     from client.game.bank import withdraw
     from client.game.mapdb import MapDB
     from client.game.money import parse_wealth, phrase
@@ -441,13 +441,13 @@ def refill_ring(run):
         return False
     stacked = 0
     for _ in range(count):
-        answer = ask(s, f"order {number}")
+        answer = ask(s, f"order {kind} lockpick")
         quoted = order_quote(answer)
-        if quoted is None or "lockpick" not in quoted[0]:
+        if quoted is None or quoted > price * 2:
             first = (answer.strip().splitlines() or ["(silence)"])[0]
-            run.say(f"ORDER {number} answered {first!r} — no more picks bought")
+            run.say(f"ORDER {kind} lockpick answered {first!r} — no more picks bought")
             break
-        answer = ask(s, f"order {number}")
+        answer = ask(s, f"offer {quoted}")
         if not any(word in answer.lower() for word in ORDER_BOUGHT):
             first = (answer.strip().splitlines() or ["(silence)"])[0]
             run.say(f"the purchase answered {first!r} — no more picks bought")

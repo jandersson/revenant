@@ -324,30 +324,36 @@ BROKEN_PICK = (
 # last one!" An empty ring then answers PICK with WRONG_PICK's line.
 RING_EMPTY = ("that was the last one",)
 
-# Ragge's Locksmithing in the Crossing (map 19125, tagged `locksmith`),
-# its catalog's first page: kind -> (ORDER number, Kronars)
-# (Elanthipedia: Ragge's Locksmithing). A ring stacks one kind at a time
-# (Elanthipedia: Lockpick ring); PUT MY LOCKPICK ON MY RING stacks one.
+# Ragge's Locksmithing in the Crossing (map 19125, tagged `locksmith`):
+# kind -> Kronars (Elanthipedia: Ragge's Locksmithing). A ring stacks one
+# kind at a time (Elanthipedia: Lockpick ring). His catalog lists the
+# picks by name, no numbers (READ PAGE 1: " Ordinary Lockpick / Stout
+# Lockpick / Slim Lockpick / Lockpick Ring"), and a purchase is a haggle,
+# captured 2026-09-26:
+#   ORDER ORDINARY LOCKPICK  Ragge sighs.  "Despite the rarity of this
+#                            lockpick, I'm prepared to offer it to you
+#                            for 125 kronars."
+#   (a second ORDER)         Ragge exclaims, "Slow down! ... I can only
+#                            process one order at a time."
+#   OFFER 125                Ragge hands over your lockpick.
+#   PUT MY LOCKPICK ON MY RING  You put your lockpick on your lockpick ring.
+# ("I don't believe that I sell that." answers ORDER 1.) dr-scripts'
+# DRCT.buy_item makes the same OFFER after "prepared to offer it to you".
 LOCKPICK_SHOP = "locksmith"
-LOCKPICK_CATALOG = {"ordinary": (1, 125), "stout": (2, 250), "slim": (3, 500)}
-# The catalog shops' ORDER answers (captured at the Alchemy Society's
-# Supplies, client/game/remedies.py; assumed the same at Ragge's until
-# a refill captures his).
+LOCKPICK_CATALOG = {"ordinary": 125, "stout": 250, "slim": 500}
 ORDER_QUOTE = re.compile(
-    r"you can purchase (?P<item>.+?) for (?P<price>[\d,]+) kronars", re.IGNORECASE
+    r"offer it to you for (?P<price>[\d,]+) (?P<currency>kronars|lirums|dokoras)",
+    re.IGNORECASE,
 )
-ORDER_BOUGHT = ("takes some coins from you and hands you",)
+ORDER_BOUGHT = ("hands over your",)
 RING_REFUSED = ("can't", "cannot", "won't", "only", "doesn't", "what were you")
 
 
 def order_quote(text):
-    """(item, Kronars) from a catalog ORDER's quote, or None."""
+    """The price a merchant's ORDER quote names ("prepared to offer it to
+    you for 125 kronars"), or None."""
     match = ORDER_QUOTE.search(text or "")
-    if not match:
-        return None
-    return match.group("item").strip().lower(), int(
-        match.group("price").replace(",", "")
-    )
+    return int(match.group("price").replace(",", "")) if match else None
 
 
 FREE_HAND = ("better have an empty hand first",)
