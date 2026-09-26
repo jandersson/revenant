@@ -643,6 +643,14 @@ for `client/client/<pkg>/x.py`.
   (`debilitation`, `targeted`: Debilitation and Targeted Magic, in
   turn with the training cast), shared by `;hunt` and `;athletics`'
   wait filler. Model and assumptions: docs/hunting.md.
+  `client/game/barbarian.py` is a Barbarian's side of the hunt, who
+  casts nothing (#328): the profile's `analyze` self-combo (ANALYZE
+  FLAME and its "... by landing a jab, a feint and a slice." attacks
+  swung in place of ATTACK while Expertise is unlocked, never on the
+  fists turn), its `abilities` (dr-scripts' table of 37 berserks, forms
+  and meditations — start command, activated line, ended line — kept
+  up like buffs, meditations outside the fight) and its `roar` at the
+  prey once a minute for Debilitation. docs/barbarian.md.
 - `client/game/training.py` — per-character training plans
   (`~/.revenant/training/<name>.json`, File → Training Plan… in the
   GUI or hand-edited, `;train init`

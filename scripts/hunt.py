@@ -101,6 +101,17 @@ non-battle spell's 26 s) gets a swing per roundtime until it is nearly
 ready, #250 — and CAST follows the last swing; a foe that went down
 under a swing has the pattern RELEASEd rather than cast at nothing
 (#203, after dr-scripts' combat-trainer).
+A Barbarian casts nothing (client/game/barbarian.py, #328): `analyze`
+names a self-combo ("flame") started whenever none runs while Expertise
+sits below lock, its attacks ("... by landing a jab, a feint and a
+slice.") swung in turn in place of ATTACK — never on the fists turn,
+never in place of SMITE or a maneuver — which is what trains
+Expertise; `abilities` lists berserks, forms and meditations kept up
+the way `buffs` are, started before the walk and again when one ends
+(meditations outside the fight only); `roar` is ROAR <name> at the
+prey once a minute while Debilitation sits below lock. The wordings
+are dr-scripts' (combat-trainer.lic, data/base-spells.yaml) and lich's
+DRCA, uncaptured.
 `weapons` lists the weapons the hunt trains, each with the skill it
 trains — "handaxe:Small Edged:sack", "fists:Brawling" (the operator,
 2026-09-20: no argument per weapon type, #238). The one whose skill
@@ -189,7 +200,7 @@ import time
 from pathlib import Path
 from collections import Counter
 
-from client.game import buffs, flight, loot, lootlog, probe
+from client.game import barbarian, buffs, flight, loot, lootlog, probe
 from client.game.creatures import aim, noun_of, outgrown
 from client.game.probe import classify
 from client.game.profile import describe, load_profile
@@ -505,6 +516,7 @@ class Tally:
         # is worn; False: no rope (or the bundle refused), skins stowed loose.
         self.bundle = None
         self.buffs = buffs.BuffState()  # the casts (client/game/buffs.py)
+        self.barb = barbarian.BarbState()  # a Barbarian's pieces (#328)
         self.last_smite = None  # clock() of the last smite that struck (#183)
         self.smite_off = False  # a smite drew on the soul pool: no more (#217)
         self.smite_warned = False  # "no free smites" said once per run
@@ -1203,6 +1215,12 @@ def cast_buffs(s, profile, tally, fight=False, filler=None):
     def report(what, answer):
         unrecognized(s, tally, what, answer)
 
+    # A Barbarian's abilities and roar (#328): none for a profile without
+    # them, so a caster's hunt is untouched.
+    barbarian.keep_abilities(s, profile, tally.barb, ask, "hunt", report, fight=fight)
+    if fight:
+        barbarian.roar(s, profile, tally.barb, ask, "hunt", report, profile["prey"])
+
     def fill():
         if taken["alive"] is not None:
             tally.swings += 1  # the loop counted the first
@@ -1730,6 +1748,19 @@ def swing(s, profile, tally, prey):
     verb = swing_verb(profile, tally, s.state)
     if verb == "smite" and (tally.smite_off or not smite_allowed(s, tally)):
         verb = "attack"
+    combo = False
+    if verb == "attack":
+        # A Barbarian's self-combo takes the place of ATTACK (#328).
+        attack = barbarian.next_combo_attack(
+            s,
+            profile,
+            tally.barb,
+            ask,
+            "hunt",
+            lambda what, answer: unrecognized(s, tally, what, answer),
+        )
+        if attack:
+            verb, combo = attack, True
     mark_room(s, tally)
     text = ask(s, f"{verb} {prey}" if prey else verb)
     lowered = text.lower()
@@ -1742,7 +1773,7 @@ def swing(s, profile, tally, prey):
         s.echo("hunt: that SMITE drew on the soul pool — smiting off for this run")
     if verb == "smite" and any(word in lowered for word in _SMITE_STRUCK):
         tally.last_smite = clock()  # spent only when it struck
-    if plain_swing(profile, verb):
+    if combo or plain_swing(profile, verb):
         tally.since_maneuver += 1
     else:
         tally.since_maneuver = 0
@@ -2002,6 +2033,8 @@ def hunt(s, profile, db, travel=True, avoid=()):
     s.echo(
         f"hunt: {reason} — {tally.kills} kill(s), {tally.skins} skin(s)"
         + (f", {tally.maneuvers} maneuver(s)" if tally.maneuvers else "")
+        + (f", {tally.barb.combos} self-combo(s)" if tally.barb.combos else "")
+        + (f", {tally.barb.roars} roar(s)" if tally.barb.roars else "")
         + (f", {tally.tracks} HUNT(s)" if tally.tracks else "")
         + (
             f", {tally.unrecognized} unrecognized answer(s)"

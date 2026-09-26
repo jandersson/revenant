@@ -71,7 +71,8 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
 - `profile.py` per-character profiles (FIELDS is the schema the GUI
   dialog builds from; `hunts` styles; `weapons` + `weapon_target`);
   `training.py` + `drain.py` the `;train` plan and the drain model.
-- `buffs.py` buffs, training and targeted casts; `creatures.py` +
+- `buffs.py` buffs, training and targeted casts; `barbarian.py` a
+  Barbarian's instead (ANALYZE combos, abilities, roars); `creatures.py` +
   `creatures_data.py`; `loot.py` + `lootlog.py`; `boxes.py`;
   `wounds.py`, `herbs.py`, `empathy.py`; `soul.py`; `tdp.py`;
   `money.py`, `bank.py`, `repair.py`; `remedies.py` + `workorders.py`;

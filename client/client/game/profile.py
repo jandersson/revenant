@@ -113,6 +113,19 @@ DEFAULTS = {
     # which is what trains Tactics (Elanthipedia: Tactics skill, #190).
     # [] is off.
     "tactics": [],
+    # Barbarians (client/game/barbarian.py, #328). A self-combo — ANALYZE
+    # FLAME, ACCURACY, DAMAGE — started whenever none runs while Expertise
+    # sits below lock; its attacks take the place of ATTACK, which is what
+    # trains Expertise (Elanthipedia: Expertise). Never on the fists turn.
+    # "" is off.
+    "analyze": "",
+    # Berserks, forms and meditations kept up through the hunt ("Avalanche",
+    # "Buffalo"): started before the walk and whenever one ends; in the
+    # fight berserks and forms only. [] is off.
+    "abilities": [],
+    # A roar at the prey once a minute while Debilitation sits below lock
+    # ("anger"): the Barbarian's only Debilitation trainer. "" is off.
+    "roar": "",
     # The weapons the hunt trains, each with the skill it trains —
     # "noun:Skill[:container]", the container where it is kept between
     # turns ("handaxe:Small Edged:sack"), or "fists:Brawling" for the
@@ -255,6 +268,19 @@ FIELDS = (
         "list",
         "bob, circle — empty: off",
     ),
+    (
+        "analyze",
+        "Barbarian self-combo for Expertise (ANALYZE)",
+        "str",
+        "flame (0), accuracy (50), damage (125) — empty: off",
+    ),
+    (
+        "abilities",
+        "Barbarian abilities to keep up",
+        "list",
+        "Avalanche, Buffalo — berserks, forms, meditations",
+    ),
+    ("roar", "Barbarian roar at the prey (Debilitation)", "str", "anger — empty: off"),
     ("perception", "HUNT for tracks when a room empties (Perception)", "bool", ""),
     (
         "weapons",

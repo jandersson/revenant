@@ -28,7 +28,7 @@ Four kinds, each its own verb (ABILITY LIST, BERSERK LIST, FORM LIST, ROAR LIST,
 
 Masteries are passive, bought from the Pit Masters with a slot. Slots come at one per even circle to 100 (the wiki; circle 1 showed three sessions after the reset). The guild is permanently "on preview": CHOOSE FORGET ALL at a guild leader, or ASK about forgetting one, is free (the guide, 2026-09).
 
-Nothing in the code keeps an ability up yet: `client/game/buffs.py` is PREPARE and CAST, and none of it applies. An ability layer beside it — a profile list such as `berserk:avalanche`, `form:buffalo`, a roar at the prey for Debilitation — is the next piece, and it touches ;hunt (#328).
+`client/game/buffs.py` is PREPARE and CAST, and none of it applies; `client/game/barbarian.py` is the Barbarian's side instead (#328). The profile's `abilities` ("Avalanche", "Buffalo") are started before ;hunt walks to the ground and again whenever one ends — berserks and forms in the fight too, meditations only outside it, seated. ABILITIES is dr-scripts' table of 37 (data/base-spells.yaml `barb_abilities`: the start command, the line that says it took, the line that says it ended), and the refusals are lich-5's DRCA.activate_barb_buff?'s: not trained (off for the run), already running, lacking the inner fire (tried again a minute on), must be sitting (SIT, again, STAND), must be unengaged, should stand. A running ability is one the Spells window lists (after POWER meditation) or one started this run whose ended line has not come. The profile's `roar` goes out as ROAR <name> at the prey once a minute while Debilitation is unlocked; no roar wording is published, so a run reports its first answer. None of it captured: Westan knows no ability yet.
 
 ## Research: ;research
 
@@ -38,7 +38,7 @@ The first run (2026-09-26, circle 1, no abilities learned) captured the begun an
 
 ## Expertise
 
-Expertise is the Barbarian-only weapon skill and a hard gate every circle. It trains from Advanced Combat Maneuvers (the weapon class's maneuvers, a 90 s cooldown that an Expertise check halves) and from the self-only ANALYZE combos — FLAME from 0 ranks (a little Inner Fire back), ACCURACY at 50, DAMAGE at 125 and on up ([Expertise](https://elanthipedia.play.net/Expertise)). A combo advances on a miss too and carries over between kills. ;hunt runs neither yet; ANALYZE FLAME in rotation, the way `tactics` rotates BOB and CIRCLE, is the cheapest step, and it touches ;hunt (#328).
+Expertise is the Barbarian-only weapon skill and a hard gate every circle. It trains from Advanced Combat Maneuvers (the weapon class's maneuvers, a 90 s cooldown that an Expertise check halves) and from the self-only ANALYZE combos — FLAME from 0 ranks (a little Inner Fire back), ACCURACY at 50, DAMAGE at 125 and on up ([Expertise](https://elanthipedia.play.net/Expertise)). A combo advances on a miss too and carries over between kills. ;hunt runs the combos with the profile's `analyze` ("flame"): when no combo runs and Expertise sits below lock, ANALYZE <type> goes out and its answer's attacks ("... by landing a jab, a feint and a slice.", combat-trainer.lic's shape) are the next swings in place of ATTACK — never in place of SMITE or a tactics maneuver, never on the fists turn (the attacks are weapon attacks); "cannot repeat" waits a minute, three answers outside the table turn it off (#328). The maneuvers (ACMs) are not run yet.
 
 ## Circles
 
