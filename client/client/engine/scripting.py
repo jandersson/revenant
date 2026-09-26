@@ -54,7 +54,7 @@ import traceback
 from importlib import util as importlib_util
 from pathlib import Path
 from threading import Event, Lock, Thread
-from time import monotonic, perf_counter, strftime
+from time import monotonic, perf_counter, sleep, strftime
 
 from client.client_logger import ClientLogger
 from client.settings import dev_mode
@@ -130,7 +130,11 @@ class Script:
         `cleanup=True`, which goes out anyway: for a finally: clause that
         puts an item back (;cast stopped between the GET and the stow
         left the cambrinth piece in hand, 2026-09-20). Nothing is read
-        back; a cleanup put is fire-and-forget."""
+        back; a cleanup put is fire-and-forget. One after the stop, while the
+        character is stunned or in roundtime, is held by the manager and
+        sent once they pass, in order (#318: a `;stop boxes` under a
+        laughing-gas stun sent GET and WEAR blind, and the gauntlets
+        stayed in the backpack)."""
         if not cleanup:
             self._check()
         self._manager.emit(f"[{self.name}]> {command}")
@@ -140,7 +144,10 @@ class Script:
             getattr(state, "prompt_count", None) if state is not None else None,
             self._manager.clock(),
         )
-        self._manager.send(command)
+        if cleanup and self._stop.is_set():
+            self._manager.send_cleanup(command, self.name)
+        else:
+            self._manager.send(command)
 
     def echo(self, text: str):
         """Show text in the front ends without sending anything to the game.
@@ -462,6 +469,11 @@ RELOADABLE_MODULES = (
 )
 
 
+# A stopped script's cleanup puts wait out a stun or roundtime this
+# long at most, looked at this often, then go out anyway (#318).
+CLEANUP_HOLD_SECONDS = 300
+CLEANUP_POLL = 0.5
+
 # A script start that takes this long to load — helper reloads and the
 # script's own imports — is reported in developer mode (settings
 # dev_mode / REVENANT_DEV=1). Loads are normally milliseconds; a slow one
@@ -526,7 +538,56 @@ class ScriptManager(ClientLogger):
         self.reloadable = tuple(reloadable)
         self._module_stamps = {}
         self._moved_warned = False  # the "restart the session" line, once (#155)
+        # Stopped scripts' cleanup puts held for a stun or roundtime (#318).
+        self._held = []
+        self._held_lock = Lock()
+        self._held_thread = None
         self._stamp_modules()
+
+    # -- cleanup puts held for a stun (#318) ------------------------------
+
+    def _blocked(self):
+        """True while the character cannot act on a command: stunned, or
+        in roundtime by the game's clock."""
+        if self.state is None:
+            return False
+        from client.game.status import status
+
+        now = status(self.state)
+        return bool(now.stunned or now.roundtime)
+
+    def send_cleanup(self, command, name=""):
+        """A stopped script's cleanup put: sent now when the character can
+        act and nothing is held before it, else held — the first one
+        said — and sent by a worker once the stun and roundtime pass, or
+        after CLEANUP_HOLD_SECONDS whatever they say."""
+        with self._held_lock:
+            if not self._held and not self._blocked():
+                self.send(command)
+                return
+            if not self._held:
+                self.emit(
+                    f"[{name}] holding the cleanup until the stun or roundtime passes"
+                )
+            self._held.append(command)
+            if self._held_thread is None or not self._held_thread.is_alive():
+                self._held_thread = Thread(
+                    target=self._send_held, name="cleanup-held", daemon=True
+                )
+                self._held_thread.start()
+
+    def _send_held(self):
+        deadline = self.clock() + CLEANUP_HOLD_SECONDS
+        while True:
+            sleep(CLEANUP_POLL)
+            with self._held_lock:
+                if not self._held:
+                    return
+                if self._blocked() and self.clock() < deadline:
+                    continue
+                # One per look: the next waits out any roundtime this
+                # one brings (a GET, then the WEAR).
+                self.send(self._held.pop(0))
 
     # -- helper-module reload (#138) ------------------------------------
 

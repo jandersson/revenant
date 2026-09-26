@@ -217,7 +217,8 @@ def don(run):
     """The gear taken off worn back, last off first: GET MY <noun>, WEAR
     MY <noun>; a piece that will not go on is stowed and said. After a
     `;stop boxes` every read raises, so the rest goes out blind as
-    cleanup puts — the gear is never left in the sack."""
+    cleanup puts — the gear is never left in the sack; under a trap's
+    stun the session holds them until it passes (#318)."""
     s = run.s
     run.donning = None
     try:

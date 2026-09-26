@@ -155,6 +155,55 @@ def test_a_cleanup_put_goes_out_after_the_stop_and_a_plain_one_does_not(tmp_path
     assert not any("crashed" in e for e in recorder.emitted)
 
 
+def test_a_cleanup_put_under_a_stun_is_held_until_the_stun_passes(
+    tmp_path, monkeypatch
+):
+    # #318: a `;stop boxes` under the laughing gas's stun sent GET and
+    # WEAR blind ("You are still stunned.") and the gauntlets stayed in
+    # the backpack.
+    import client.engine.scripting as scripting
+
+    monkeypatch.setattr(scripting, "CLEANUP_POLL", 0.01)
+    (tmp_path / "hold.py").write_text(
+        "def main(s):\n"
+        "    try:\n"
+        "        s.sleep(10)\n"
+        "    finally:\n"
+        "        s.put('get my gauntlets', cleanup=True)\n"
+        "        s.put('wear my gauntlets', cleanup=True)\n"
+    )
+    manager, recorder = make_manager(tmp_path)
+    manager.state = types.SimpleNamespace(indicator={"IconSTUNNED": "y"})
+    manager.start("hold", [])
+    assert wait_for(lambda: "hold" in manager.running)
+    manager.handle_command(";stop hold")
+    assert wait_for(lambda: any("hold stopped" in e for e in recorder.emitted))
+    time.sleep(0.1)
+    assert recorder.sent == []  # held while stunned
+    assert any("holding the cleanup" in e for e in recorder.emitted)
+    manager.state.indicator = {"IconSTUNNED": "n"}
+    assert wait_for(lambda: len(recorder.sent) == 2)
+    assert recorder.sent == ["get my gauntlets", "wear my gauntlets"]
+
+
+def test_a_held_cleanup_goes_out_anyway_after_the_hold(tmp_path, monkeypatch):
+    import client.engine.scripting as scripting
+
+    monkeypatch.setattr(scripting, "CLEANUP_POLL", 0.01)
+    monkeypatch.setattr(scripting, "CLEANUP_HOLD_SECONDS", 0.05)
+    manager, recorder = make_manager(tmp_path)
+    manager.state = types.SimpleNamespace(indicator={"IconSTUNNED": "y"})
+    manager.send_cleanup("wear my knuckles", "boxes")
+    assert wait_for(lambda: recorder.sent == ["wear my knuckles"])
+
+
+def test_a_cleanup_with_the_character_free_goes_out_at_once(tmp_path):
+    manager, recorder = make_manager(tmp_path)
+    manager.state = types.SimpleNamespace(indicator={})
+    manager.send_cleanup("wear my anklet", "cast")
+    assert recorder.sent == ["wear my anklet"]
+
+
 def test_crash_is_reported_with_location(tmp_path):
     (tmp_path / "boom.py").write_text("def main(s):\n    raise ValueError('kaboom')\n")
     manager, recorder = make_manager(tmp_path)

@@ -607,7 +607,8 @@ are uncaptured, then STOW — and goes back on when the run ends, however
 it ends (GET, WEAR: "You slide some brass knuckles onto your hands and
 clench your fists to secure the fit.", "You slip some plate gauntlets
 onto your hands."; after `;stop boxes` the puts go out blind as
-cleanup). A piece that will not come off or go back on is said;
+cleanup, which the session holds while the character is stunned or in
+roundtime and sends once that passes, #318). A piece that will not come off or go back on is said;
 whatever still hinders after that is said once a run.
 
 ## The maintenance shutdown

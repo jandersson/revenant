@@ -100,7 +100,9 @@ for `client/client/<pkg>/x.py`.
   while the next start gets the new code (#181). Handle API:
   put/get/waitfor/waitrt/echo/emit/sleep/command/state/args (every
   call raises ScriptStopped after a `;stop`, except `put(cmd,
-  cleanup=True)` — for a `finally:` that puts an item back), plus
+  cleanup=True)` — for a `finally:` that puts an item back; the
+  manager holds one while the character is stunned or in roundtime
+  and sends it after, #318), plus
   run/is_running/tell/kill/crashed for a script that drives other
   scripts (`;train`), and flag/flagged/unflag — a regex watched on
   every story line while the script does other things, the match
