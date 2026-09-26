@@ -947,3 +947,15 @@ def test_a_pestle_worn_past_use_stops_the_crushing_at_once():
     out = run(fake, ["work", "count=1"])
     assert sum(c.startswith("crush ") for c in fake.sent) <= 2
     assert "the tool needs repair or replacing" in out
+
+
+def test_a_stopped_run_puts_the_pestle_and_mortar_away():
+    # 2026-09-26: a ;stop remedies left both in hand, and ;forage after it
+    # could not collect with no hand free.
+    fake = Fake({})
+    puts = []
+    fake.put = lambda command, cleanup=False: puts.append((command, cleanup))
+    fake.state.left_hand = {"noun": "pestle"}
+    fake.state.right_hand = {"noun": "mortar"}
+    script.put_tools_away(fake)
+    assert puts == [("stow my pestle", True), ("stow my mortar", True)]

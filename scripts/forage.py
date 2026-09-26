@@ -93,6 +93,11 @@ _TRIED = (
     "dragon's egg",
 )
 _REFUSED = ("can't do that", "cannot do that", "not something you can", "what were you")
+# Both hands full (captured 2026-09-26: a stopped ;remedies left the
+# pestle and the mortar in them): "You really need to have at least one
+# hand free to properly collect something." — 1263 times in nineteen
+# minutes, no roundtime, until the fuse. The hands are freed with STOW.
+_HANDS_FULL = ("at least one hand free",)
 
 
 def parse_args(args):
@@ -111,10 +116,12 @@ def parse_args(args):
 
 
 def classify(answer):
-    """ "empty" (nothing here), "refused", "ok", "tried" (a failed try
+    """ "hands full", "empty" (nothing here), "refused", "ok", "tried" (a failed try
     that says the item is here), or None for a wording outside the
     tables."""
     lowered = answer.lower()
+    if any(word in lowered for word in _HANDS_FULL):
+        return "hands full"
     if any(word in lowered for word in _EMPTY):
         return "empty"
     if any(word in lowered for word in _REFUSED):
@@ -128,6 +135,20 @@ def classify(answer):
 
 def first_line(answer):
     return (answer.strip().splitlines() or ["(silence)"])[0]
+
+
+def free_a_hand(s):
+    """STOW what the hands hold, left first — never a drop. True when a
+    hand was emptied (the parser's hand state lags, so the answer is
+    the judge: anything but "What were you referring to?" counts)."""
+    for side in ("left_hand", "right_hand"):
+        held = getattr(s.state, side, None)
+        noun = held.get("noun") if isinstance(held, dict) else None
+        if noun:
+            answer = probe.ask(s, f"stow my {noun}", COLLECT_SECONDS, TAIL_SECONDS)
+            s.echo(f"forage: both hands full — stowed the {noun}")
+            return "what were you" not in answer.lower()
+    return False
 
 
 def find_item(s, db, item, avoid=()):
@@ -149,7 +170,7 @@ def run(s, options, db=None, avoid=()):
     item, count = options["item"], options["count"]
     if db is not None and not options["here"] and not find_item(s, db, item, avoid):
         return "no room to collect in", 0
-    collected = successes = empties = 0
+    collected = successes = empties = freed = 0
     seen = set()
     for _ in range(MAX_COLLECTS):
         if reason := danger(s):
@@ -162,6 +183,11 @@ def run(s, options, db=None, avoid=()):
             return f"{count} collect(s) done", collected
         answer = probe.ask(s, f"collect {item} practice", COLLECT_SECONDS, TAIL_SECONDS)
         outcome = classify(answer)
+        if outcome == "hands full":
+            freed += 1
+            if freed > 2 or not free_a_hand(s):
+                return f"no hand free: {first_line(answer)}", collected
+            continue
         if outcome == "empty":
             empties += 1
             limit = EMPTY_STREAK if successes else EMPTY_LIMIT

@@ -241,3 +241,34 @@ def test_return_danger_and_death_end_the_run(travel):
     s = Fake([PRACTICED], experience=_exp(10))
     s.dead = True
     assert forage.run(s, forage.parse_args([]), db=MAP)[0] == "you are dead"
+
+
+HANDS_FULL = (
+    "You really need to have at least one hand free to properly collect something."
+)
+
+
+def test_full_hands_are_emptied_with_stow_and_the_collecting_goes_on(travel):
+    # 2026-09-26: a stopped ;remedies left the pestle and the mortar in
+    # hand; COLLECT answered HANDS_FULL 1263 times until the fuse.
+    s = Fake(
+        [HANDS_FULL, "You put your pestle in your backpack.", PRACTICED],
+        experience=_exp(10),
+    )
+    s.state.left_hand = {"noun": "pestle"}
+    s.state.right_hand = {"noun": "mortar"}
+    reason, collected = forage.run(s, forage.parse_args(["rock", "1"]), db=MAP)
+    assert s.sent == [
+        "collect rock practice",
+        "stow my pestle",
+        "collect rock practice",
+    ]
+    assert (reason, collected) == ("1 collect(s) done", 1)
+    assert "forage: both hands full — stowed the pestle" in s.echoed
+
+
+def test_hands_that_will_not_free_end_the_run_instead_of_spinning(travel):
+    s = Fake([HANDS_FULL] * 10, experience=_exp(10))
+    reason, collected = forage.run(s, forage.parse_args([]), db=MAP)
+    assert reason.startswith("no hand free")
+    assert s.sent.count("collect rock practice") == 1  # no hand state to stow

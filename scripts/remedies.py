@@ -1055,10 +1055,26 @@ def run(s, options):
         else:
             train(s, options, profile)
     finally:
+        put_tools_away(s)
         # The weapon stays sheathed: a hunt WIELDs its own (the operator,
         # 2026-09-22 — no reason for a crafter to end armed).
         if danger(s) and "hostiles" in (danger(s) or ""):
             flight.react(s, "remedies")
+
+
+def put_tools_away(s):
+    """The pestle and the mortar out of the hands at any end, a ;stop
+    too (the cleanup put that still goes out after one): a stopped run
+    left both in hand on 2026-09-26, and the next task, ;forage, could
+    not collect with no hand free."""
+    for side in ("left_hand", "right_hand"):
+        held = getattr(s.state, side, None)
+        noun = held.get("noun") if isinstance(held, dict) else None
+        if noun in ("pestle", "mortar"):
+            try:
+                s.put(f"stow my {noun}", cleanup=True)
+            except TypeError:  # a handle without the cleanup flag
+                s.put(f"stow my {noun}")
 
 
 def main(s):
