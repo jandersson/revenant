@@ -640,3 +640,113 @@ def test_a_named_source_works_that_container_alone():
     out = run(fake, ["source=sack"])
     assert "look in my backpack" not in fake.sent
     assert "no boxes in the sack — nothing to pick" in out
+
+
+# --- the empty ring refilled at Ragge's (the operator, 2026-09-26) ---
+
+# The catalog shops' ORDER answers as the Alchemy Society's Supplies gave
+# them (client/game/remedies.py); Ragge's are assumed the same.
+RAGGE_QUOTE = "You can purchase an ordinary lockpick for 125 kronars.\n"
+RAGGE_BOUGHT = (
+    "The locksmith takes some coins from you and hands you an ordinary lockpick.\n"
+)
+ON_RING = "You put your lockpick on your lockpick ring.\n"
+
+
+def _refill_world(monkeypatch, carried=2000, walked=None, withdrawn=None):
+    import client.game.bank as bank
+    import client.game.mapdb as mapdb
+    import client.game.walker as walker
+
+    walked = walked if walked is not None else []
+    withdrawn = withdrawn if withdrawn is not None else []
+    db = SimpleNamespace(rooms_tagged=lambda tag: [19125] if tag == "locksmith" else [])
+    monkeypatch.setattr(mapdb.MapDB, "load", classmethod(lambda cls, path=None: db))
+    monkeypatch.setattr(
+        walker,
+        "walk",
+        lambda s, db, goals, describe="", avoid=(): walked.append(set(goals)) or True,
+    )
+    monkeypatch.setattr(
+        bank,
+        "withdraw",
+        lambda s, db, walk, ask, prefix, copper, currency, retry="": (
+            withdrawn.append(copper) or True
+        ),
+    )
+    wealth = f"Wealth:\n  {carried} copper Kronars ({carried} copper Kronars).\n"
+    return wealth, walked, withdrawn
+
+
+def _refill_run(fake, profile):
+    script.probe = SimpleNamespace(ask=fake.ask)
+    run = script.Run(fake, dict(PROFILE, **profile), script.parse_args([]))
+    run.ring_empty = True
+    return run
+
+
+def test_an_empty_ring_is_refilled_at_ragges_with_the_profiles_count(monkeypatch):
+    wealth, walked, withdrawn = _refill_world(monkeypatch)
+    fake = Fake(
+        [
+            ("wealth", wealth),
+            (
+                "order 1",
+                lambda c: RAGGE_QUOTE if fake.sent.count(c) % 2 else RAGGE_BOUGHT,
+            ),
+            ("put my lockpick on my ring", ON_RING),
+        ]
+    )
+    run = _refill_run(fake, {"lockpick_ring": "ring", "lockpick_refill": 3})
+    assert script.refill_ring(run)
+    assert walked == [{19125}]
+    assert withdrawn == []
+    assert fake.sent.count("order 1") == 6  # a quote and a buy per pick
+    assert fake.sent.count("put my lockpick on my ring") == 3
+    assert not run.ring_empty
+    assert "the ring refilled — 3 ordinary lockpick(s)" in "\n".join(fake.echoed)
+    assert not script.refill_ring(run)  # once a run
+
+
+def test_a_short_purse_fetches_the_picks_price_from_the_teller(monkeypatch):
+    wealth, walked, withdrawn = _refill_world(monkeypatch, carried=100)
+    fake = Fake(
+        [
+            ("wealth", wealth),
+            (
+                "order 1",
+                lambda c: RAGGE_QUOTE if fake.sent.count(c) % 2 else RAGGE_BOUGHT,
+            ),
+            ("put my lockpick on my ring", ON_RING),
+        ]
+    )
+    run = _refill_run(fake, {"lockpick_ring": "ring", "lockpick_refill": 2})
+    assert script.refill_ring(run)
+    assert withdrawn == [150]  # 250 for two, 100 carried
+
+
+def test_a_refill_of_zero_never_buys(monkeypatch):
+    _refill_world(monkeypatch)
+    fake = Fake([])
+    run = _refill_run(fake, {"lockpick_ring": "ring", "lockpick_refill": 0})
+    assert not script.refill_ring(run)
+    assert fake.sent == []
+
+
+def test_a_quote_for_something_else_buys_nothing(monkeypatch):
+    wealth, _, _ = _refill_world(monkeypatch)
+    fake = Fake(
+        [
+            ("wealth", wealth),
+            (
+                "order 1",
+                "You can purchase a lockpick ring for 3000 kronars.\n".replace(
+                    "lockpick ring", "brass key"
+                ),
+            ),
+        ]
+    )
+    run = _refill_run(fake, {"lockpick_ring": "ring", "lockpick_refill": 2})
+    assert not script.refill_ring(run)
+    assert fake.sent.count("order 1") == 1
+    assert run.ring_empty

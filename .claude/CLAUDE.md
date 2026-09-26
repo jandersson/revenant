@@ -261,7 +261,8 @@ for `client/client/<pkg>/x.py`.
   yet — and `scripts/boxes.py` (`;boxes`, #293) works the loot
   container's boxes for Locksmithing: identify, disarm, identify,
   pick (the profile's `lockpick` in hand or the worn
-  `lockpick_ring`), open, loot out, the empty box binned through
+  `lockpick_ring`, refilled at Ragge's when it runs empty —
+  `lockpick_refill` picks of `lockpick_kind`), open, loot out, the empty box binned through
   discard.py (so `droppable` must list the box nouns), a longshot
   reading put back unless its trap is a nuisance one (frog, laughing
   gas, mime...: tried careful; a deadly or unknown trap never; a lock

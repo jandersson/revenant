@@ -41,6 +41,20 @@ def test_links_become_items_with_ids_containers_and_depth():
     assert armet["name"] == "a metal armet"
 
 
+def test_a_closed_containers_state_is_not_its_noun():
+    # 2026-09-26: "a plain steel coffer (closed)" read as noun "(closed)",
+    # so ;boxes never saw the coffer in the backpack (#323).
+    items = possessions.build(
+        [
+            ("  ", "remove #1", "a rugged backpack"),
+            ("    -", "get #2 in #1", "a plain steel coffer (closed)"),
+            ("    -", "get #3 in #1", "a poorly made oaken crate (open)"),
+        ]
+    )
+    assert [item["noun"] for item in items] == ["backpack", "coffer", "crate"]
+    assert items[1]["name"] == "a plain steel coffer (closed)"
+
+
 def test_a_noun_finds_its_items_in_order():
     items = possessions.build(LINKS)
     assert [item["exist"] for item in possessions.find(items, "tail")] == [

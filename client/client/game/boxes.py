@@ -323,6 +323,33 @@ BROKEN_PICK = (
 # discard): "You look down at your lockpick ring and realize that was the
 # last one!" An empty ring then answers PICK with WRONG_PICK's line.
 RING_EMPTY = ("that was the last one",)
+
+# Ragge's Locksmithing in the Crossing (map 19125, tagged `locksmith`),
+# its catalog's first page: kind -> (ORDER number, Kronars)
+# (Elanthipedia: Ragge's Locksmithing). A ring stacks one kind at a time
+# (Elanthipedia: Lockpick ring); PUT MY LOCKPICK ON MY RING stacks one.
+LOCKPICK_SHOP = "locksmith"
+LOCKPICK_CATALOG = {"ordinary": (1, 125), "stout": (2, 250), "slim": (3, 500)}
+# The catalog shops' ORDER answers (captured at the Alchemy Society's
+# Supplies, client/game/remedies.py; assumed the same at Ragge's until
+# a refill captures his).
+ORDER_QUOTE = re.compile(
+    r"you can purchase (?P<item>.+?) for (?P<price>[\d,]+) kronars", re.IGNORECASE
+)
+ORDER_BOUGHT = ("takes some coins from you and hands you",)
+RING_REFUSED = ("can't", "cannot", "won't", "only", "doesn't", "what were you")
+
+
+def order_quote(text):
+    """(item, Kronars) from a catalog ORDER's quote, or None."""
+    match = ORDER_QUOTE.search(text or "")
+    if not match:
+        return None
+    return match.group("item").strip().lower(), int(
+        match.group("price").replace(",", "")
+    )
+
+
 FREE_HAND = ("better have an empty hand first",)
 PICK_RETRY = (
     "fails to teach you anything about the lock",
@@ -391,7 +418,10 @@ def box_containers(possessions, primary):
     by_exist = {item.get("exist"): item for item in possessions or []}
     found = []
     for item in possessions or []:
-        if noun_of(item.get("noun") or item.get("name") or "") not in BOX_NOUNS:
+        # The name's noun, a "(closed)" dropped, whatever an older
+        # listing stored as the noun (#323).
+        name = re.sub(r"\s*\([^)]*\)\s*$", "", str(item.get("name") or ""))
+        if noun_of(name or item.get("noun") or "") not in BOX_NOUNS:
             continue
         holder = by_exist.get(item.get("container_exist"))
         if not holder:

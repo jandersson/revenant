@@ -39,7 +39,11 @@ locksmith — with the profile's `lockpick` in
 the free hand (GOT from wherever it is kept, STOWed after) or the
 worn `lockpick_ring`, whose top pick the game takes by itself (an
 empty ring — its last pick broken, or PICK wanting "a more
-appropriate tool" — falls back to the loose `lockpick`); OPEN,
+appropriate tool" — falls back to the loose `lockpick`, and before
+the next box the ring is refilled once a run: the profile's
+`lockpick_refill` picks of `lockpick_kind` ORDERed at Ragge's
+Locksmithing, the teller visited first for a short purse, each PUT on
+the ring; `lockpick_refill` 0 never buys); OPEN,
 LOOK IN, and every item out — coins to the purse, a gem into the
 profile's `gem_pouch`, the rest into the loot container — and the empty
 box into the room's bucket through client/game/discard.py, which only
@@ -86,8 +90,12 @@ from client.game.boxes import (
     LOCK_CAUTION,
     LOCK_READINGS,
     OPEN_OUTCOMES,
+    LOCKPICK_CATALOG,
+    LOCKPICK_SHOP,
+    ORDER_BOUGHT,
     PICK_OUTCOMES,
     RING_EMPTY,
+    RING_REFUSED,
     SKILL,
     TAKE_OUTCOMES,
     TOO_HARD,
@@ -97,6 +105,7 @@ from client.game.boxes import (
     boxes_in,
     caution,
     listed,
+    order_quote,
     parse_args,
     reading,
 )
@@ -163,6 +172,7 @@ class Run:
         # The worn ring ran out of picks this run: the loose lockpick
         # from here (2026-09-26).
         self.ring_empty = False
+        self.refilled = False  # one trip to Ragge's a run at most
         self.doffed = []  # the hindering gear taken off, in order
 
     def say(self, text):
@@ -392,6 +402,72 @@ def ring_ran_out(run):
         "(Ragge's Locksmithing in the Crossing sells picks for the ring)"
     )
     return True
+
+
+def refill_ring(run):
+    """The empty ring refilled (the operator, 2026-09-26): the profile's
+    `lockpick_refill` picks of `lockpick_kind` ORDERed at the nearest
+    `locksmith` room (Ragge's in the Crossing) — the purse topped up
+    at the teller first, each quote checked before the second ORDER
+    buys — and PUT on the worn ring one by one. Once a run. True when
+    the ring holds picks again; False, said, otherwise."""
+    s, profile = run.s, run.profile
+    count = int(profile.get("lockpick_refill") or 0)
+    ring = profile.get("lockpick_ring") or ""
+    if not ring or count <= 0 or run.refilled:
+        return False
+    run.refilled = True
+    kind = str(profile.get("lockpick_kind") or "ordinary").lower()
+    if kind not in LOCKPICK_CATALOG:
+        run.say(f"lockpick_kind {kind!r} is not on Ragge's catalog — no refill")
+        return False
+    number, price = LOCKPICK_CATALOG[kind]
+    from client.game.bank import withdraw
+    from client.game.mapdb import MapDB
+    from client.game.money import parse_wealth, phrase
+    from client.game.walker import walk
+
+    mapdb = MapDB.load()
+    need = price * count
+    carried = parse_wealth(ask(s, "wealth"))["carried"].get("Kronars", 0)
+    if carried < need and not withdraw(
+        s, mapdb, walk, ask, "boxes", need - carried, "Kronars"
+    ):
+        run.say("no coins for lockpicks — no refill")
+        return False
+    shop = set(mapdb.rooms_tagged(LOCKPICK_SHOP))
+    if not shop or not walk(s, mapdb, shop, describe="Ragge's Locksmithing"):
+        run.say("could not reach a locksmith — no refill")
+        return False
+    stacked = 0
+    for _ in range(count):
+        answer = ask(s, f"order {number}")
+        quoted = order_quote(answer)
+        if quoted is None or "lockpick" not in quoted[0]:
+            first = (answer.strip().splitlines() or ["(silence)"])[0]
+            run.say(f"ORDER {number} answered {first!r} — no more picks bought")
+            break
+        answer = ask(s, f"order {number}")
+        if not any(word in answer.lower() for word in ORDER_BOUGHT):
+            first = (answer.strip().splitlines() or ["(silence)"])[0]
+            run.say(f"the purchase answered {first!r} — no more picks bought")
+            break
+        answer = ask(s, f"put my lockpick on my {ring}")
+        if stacked == 0:
+            run.report("ring", "put on ring", answer)
+        if any(word in answer.lower() for word in RING_REFUSED):
+            first = (answer.strip().splitlines() or ["(silence)"])[0]
+            run.say(f"the {ring} refused the pick: {first!r} — stowed, no more bought")
+            ask(s, "stow my lockpick")
+            break
+        stacked += 1
+    if stacked:
+        run.ring_empty = False
+        run.say(
+            f"the {ring} refilled — {stacked} {kind} lockpick(s), "
+            f"{phrase(stacked * price, 'Kronars')}"
+        )
+    return bool(stacked)
 
 
 def put_pick_away(run):
@@ -824,7 +900,17 @@ def run_loop(s, profile, options):
                 if not hold_at_lock(run, options["until"]):
                     run.say("stopping")
                     return
+            if run.ring_empty and not run.refilled:
+                # Between boxes, the loose pick put away: the trip to
+                # Ragge's for the ring (the operator, 2026-09-26).
+                put_pick_away(run)
+                refill_ring(run)
             outcome = one_box(run, noun)
+            if outcome == "stop:no lockpick" and refill_ring(run):
+                # Nothing to pick with at all: the ring refilled, the
+                # same box again (put back for "the run ends" — not kept).
+                run.kept[noun] = max(0, run.kept.get(noun, 0) - 1)
+                outcome = one_box(run, noun)
             if outcome.startswith("stop:"):
                 why = outcome[5:]
                 run.say(f"{why} — stopping")

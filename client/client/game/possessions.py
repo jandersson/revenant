@@ -20,6 +20,19 @@ import re
 from client.game.inventory import _depth
 
 # "remove #53174575", "get #50886622 in #53174575", "get #50886688".
+# A state the listing appends to a container's name: "a plain steel
+# coffer (closed)" (2026-09-26) — not part of the noun.
+_STATE_SUFFIX = re.compile(r"\s*\([^)]*\)\s*$")
+
+
+def noun_of(name):
+    """The item's noun: the name's last word, a trailing "(closed)" or
+    "(open)" dropped (#323: both of Cecil's boxes read as "(closed)", and
+    ;boxes never found the coffer in the backpack)."""
+    words = _STATE_SUFFIX.sub("", str(name or "")).split()
+    return words[-1] if words else ""
+
+
 _COMMAND = re.compile(
     r"^\s*(?P<verb>[a-z]+)\s+#(?P<exist>\d+)(?:\s+in\s+#(?P<container>\d+))?",
     re.IGNORECASE,
@@ -52,7 +65,7 @@ def build(links):
             {
                 "exist": exist,
                 "name": name,
-                "noun": name.split()[-1],
+                "noun": noun_of(name),
                 "verb": verb,
                 "container_exist": container,
                 "worn": verb == "remove",

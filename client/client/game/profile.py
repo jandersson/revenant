@@ -160,6 +160,11 @@ DEFAULTS = {
     # held (#293). Ragge's Locksmithing in the Crossing sells both.
     "lockpick": "lockpick",
     "lockpick_ring": "",
+    # The ring refilled when it runs empty: that many picks of that kind
+    # bought at Ragge's and put on it (0: never, the loose lockpick
+    # only; 2026-09-26, the operator).
+    "lockpick_refill": 10,
+    "lockpick_kind": "ordinary",
     # The worn gear that hinders every DISARM and PICK ("Your brass
     # knuckles hinders your attempt."): ;boxes REMOVEs and stows each
     # noun before the first box and WEARs it back after (#293).
@@ -311,6 +316,18 @@ FIELDS = (
         "Worn lockpick ring (its top pick is used)",
         "str",
         "ring — empty: the lockpick is held",
+    ),
+    (
+        "lockpick_refill",
+        "Picks bought for the ring when it runs empty",
+        "int",
+        "10 — 0: never buy, use the loose lockpick",
+    ),
+    (
+        "lockpick_kind",
+        "Kind of pick bought for the ring",
+        "str",
+        "ordinary (125 Kronars), stout (250), slim (500)",
     ),
     (
         "hindering_gear",
