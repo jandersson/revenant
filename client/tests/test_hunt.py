@@ -1191,3 +1191,34 @@ def test_a_break_off_that_never_gets_clear_says_so():
     s = _Breaking({})
     assert hunt.escape(s, None) is False
     assert any("intervene" in text for text in s.echoed)
+
+
+class _Runner(Arena):
+    """An arena that records the scripts the hunt starts."""
+
+    def __init__(self, *args, running=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        self.started = []
+        self.alive = set(running)
+
+    def run(self, name, args=()):
+        self.started.append((name, list(args)))
+        return True
+
+    def is_running(self, name):
+        return name in self.alive
+
+
+def test_a_hunt_returned_by_hand_sells_the_skins_and_banks(travel):
+    # The operator, 2026-09-26: ;hunt return should sell and bank after.
+    arena = _Runner({"attack": []})
+    arena.commands = ["return"]
+    _run(arena, travel_first=False)
+    assert arena.started == [("skins", ["bank"])]
+
+
+def test_under_train_the_return_leaves_selling_and_banking_to_the_plan(travel):
+    arena = _Runner({"attack": []}, running=("train",))
+    arena.commands = ["return"]
+    _run(arena, travel_first=False)
+    assert arena.started == []

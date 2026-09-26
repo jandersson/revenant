@@ -17,7 +17,7 @@ away, #314)
 or at a wound at the profile's wound floor (HEALTH after each kill and
 whenever health drops), when the trained skills mind-lock, at the kill
 fuse, or when you type
-;hunt return  (the current kill is finished first, then the walk home).
+;hunt return  (the current kill is finished first, then the walk home, then ;skins bank — the skins sold and the purse banked — unless ;train runs the hunt).
 ;stop hunt  quits where it stands.  ;hunt here  skips the walk;  ;hunt profile  prints the profile it would use.
 ;hunt <style>  hunts one of the profile's hunt styles — `hunts` in the
 profile file, a name to the keys that differ for that kind of hunt
@@ -1687,6 +1687,27 @@ def hunt(s, profile, db, travel=True, avoid=()):
         # Never an end among them (#314): the walk home or off the
         # ground failed, or never ran — keep getting away.
         flight.react(s, "hunt")
+    if reason.startswith("returning on request") and not s.dead:
+        sell_and_bank(s)
+
+
+def sell_and_bank(s):
+    """A hunt ended by hand with `;hunt return` sells the skins and banks
+    the purse after it — ;skins bank, waited for (the operator,
+    2026-09-26). Not under ;train, whose plan runs skins and bank as
+    tasks of their own (selling and banking are distinct tasks, the
+    operator, 2026-09-20): the loop's own return word ends the hunt
+    there, and the tasks follow."""
+    running = getattr(s, "is_running", None)
+    start = getattr(s, "run", None)
+    if running is None or start is None or running("train"):
+        return
+    s.echo("hunt: returned — selling the skins and banking (;skins bank)")
+    if not start("skins", ["bank"]):
+        s.echo("hunt: could not start ;skins — sell and bank by hand")
+        return
+    while running("skins"):
+        s.sleep(1)
 
 
 def main(s):
