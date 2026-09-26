@@ -465,6 +465,7 @@ RELOADABLE_MODULES = (
     "client.game.climblog",  # binds the refusals from walker: after it
     "client.game.wounds_data",
     "client.game.wounds",  # binds ROWS from wounds_data: after it
+    "client.game.empathy",  # binds level from wounds: after it
     "client.game.herbs_data",
     "client.game.herbs",  # binds HERBS/SHOPS from herbs_data: after it
 )

@@ -168,6 +168,45 @@ lines are the signal a script would watch for; the guild courtyard is
 where to send `;go2` for it. Not data, not automated: an Empath is a
 person, and the ask is a sentence, not a command.
 
+### The Empath's side: ;empath
+
+`;empath <patient>` is the other half, for the operator's own Empath:
+TOUCH, TAKE every wound most urgent first, TOUCH again for the scars
+the fresh wounds hid, then heal himself with Heal Wounds and Heal
+Scars until HEALTH reads clean (client/game/empathy.py; Elanthipedia:
+Empath healing, Take command, Heal Wounds, Heal Scars). Worked out by
+hand on 2026-09-26 with a high-circle Empath (Empathy 484) and a
+circle-13 Paladin fresh off a hunt, then scripted:
+
+1. **TOUCH lists the wounds on the familiar stream**, not the story —
+   "<patient>'s injuries include... / Wounds to the LEFT ARM: / Fresh
+   External: cuts and bruises about the left arm -- minor", four row
+   kinds (fresh or scars, external or internal), ending "<patient> has
+   normal vitality." A script reading only the story sees the link
+   line and nothing else.
+2. **The order** is the operator's: anything bleeding, then severity,
+   the head and torso before the limbs, fresh before scars, the outside
+   before the inside.
+3. **TAKE <patient> <part> [INTERNAL] [SCAR]** is answered "You sense
+   that <patient>'s external chest wounds are fully healed." once the
+   transfer ends. The link holds while TAKEs follow each other (eight in
+   a row on one TOUCH) and lapses when idle a minute: "You have no
+   empathic link with <patient> and cannot transfer his wounds." The
+   patient sees "<Empath> touches you.  He'll probably get warts." at
+   every TOUCH, so the script touches once per round.
+4. **Fresh wounds hide scars**: after every fresh wound was taken, the
+   next TOUCH listed internal scars on the limbs, chest and nerves the
+   first had not. A second round takes them.
+5. **A toad cannot be healed**: the patient turned into a toad by a box's
+   frog trap mid-healing, and every TAKE answered "no empathic link"
+   until it wore off.
+6. **Self-heal**: PREPARE HW 15 ("You feel fully prepared to cast your
+   spell."), CAST LEFT ARM — "The external wounds on your left arm
+   appear completely healed. / The internal wounds on your left arm
+   appear completely healed." Heal Scars the same; 15 mana cleared a
+   minor part in one cast, a negligible internal scar sometimes took
+   two ("greatly improved", then "completely healed").
+
 ## The healing script: ;heal
 
 `;heal` (scripts/heal.py, #198) reads HEALTH through `wounds.py`, points

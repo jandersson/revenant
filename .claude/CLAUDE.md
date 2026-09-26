@@ -174,6 +174,12 @@ for `client/client/<pkg>/x.py`.
   to the nearest NPC healer instead (Shard's Quentin: DEMEANOR
   FRIENDLY EMPATH, LIE DOWN, Dokoras per part, #218) — what heals
   nerve damage and internal scars no herb touches. Model: docs/healing.md.
+  `client/game/empathy.py` + `;empath` (`scripts/empath.py`) are the
+  Empath's side: TOUCH <patient> (the listing arrives on the familiar
+  stream), TAKE every wound most urgent first (bleeding, severity,
+  torso before limbs, fresh before scars) on one TOUCH per round,
+  another round for the scars that bared, then Heal Wounds / Heal
+  Scars on himself worst first off HEALTH (2026-09-26).
 - `client/game/profile.py` — per-character profiles
   (`~/.revenant/profiles/<name>.json`): the quirks `;hunt` must not
   hard-code (weapon, stance, skin, pouch, bundle, buffs, the magic
