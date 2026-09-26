@@ -27,8 +27,10 @@ up for the cycle (a rest among things biting you never drains, #182).
     ;train init      write the starter plan (init force overwrites)
 
 While it runs:  ;train skip  ends the current task (or the rest),
-;train rest  stops training and rests now. Stop with:  ;stop train —
-a task's script stops with it. A script task ends early with the
+;train rest  stops training and rests now, ;train return  ends the
+run gracefully — the task's script gets its own return word (;hunt
+finishes the kill and walks home), and no task or rest follows (#338).
+Stop with:  ;stop train — at once, and a task's script stops with it. A script task ends early with the
 task's return word when it has one (hunt's ;hunt return finishes
 the kill and walks home), killed after the grace otherwise; scripts that
 exit on their own (a rung the map lost) end the task for this
@@ -81,7 +83,9 @@ TDP_POINTS_PER_REST = 3  # stat points bought in one rest at most (#230)
 TDP_MINUTES = 12  # one ;tdp run, the walk there and back included
 INFO_SECONDS = 2  # INFO's answer window in the rest
 INFO_TAIL = 0.5
-WORDS = ("skip", "rest", "status")
+WORDS = ("skip", "rest", "return", "status")
+# rest()'s answer to a typed return: the run ends, no next cycle (#338).
+RETURNED = "return"
 
 
 def experience(s):
@@ -243,6 +247,7 @@ ENDINGS = {
     "ended": "its script ended on its own",
     "skip": "skipped",
     "rest": "resting on request",
+    "return": "returned on request",
     "skipped": "could not start",
     "failed": "failed to start",
     "crashed": "its script crashed",
@@ -431,7 +436,7 @@ def train_cycle(s, plan, db=None, walk=None):
         if task is None:
             break
         reason = run_task(s, plan, task, db, walk)
-        if reason in ("dead", "shutdown"):
+        if reason in ("dead", "shutdown", "return"):
             return reason
         spent.add(task["name"])
         outcomes.append(reason)
@@ -614,7 +619,7 @@ def drain_note(s, plan):
 def rest(s, plan, db, walk, index):
     """The rest: to the index-th safe room, the rest commands, then hold
     until every trained skill has drained (or the cap). Returns the
-    next rest's index, or None on death."""
+    next rest's index, None on death, or RETURNED on a typed return."""
     room = safe_room(plan, index)
     if room is not None:
         go_to(s, db, walk, room)
@@ -647,9 +652,12 @@ def rest(s, plan, db, walk, index):
         if cap and clock() - started >= cap * 60:
             s.echo(f"train: {cap} minutes of rest — moving on")
             return index
-        if user_word(s, plan) == "skip":
+        word = user_word(s, plan)
+        if word == "skip":
             s.echo("train: rest skipped")
             return index
+        if word == "return":
+            return RETURNED  # run() ends the run
         if hostiles_present(s.state):
             # A rest among things biting you never drains (#182): out of
             # the room, to the next safe room when the plan has one,
@@ -702,9 +710,15 @@ def run(s, plan, cycles, db=None, walk=None):
                 "start me again after it"
             )
             return
+        if outcome == "return":
+            s.echo("train: returned on request — the run ends here")
+            return
         index = rest(s, plan, db, walk, index)
         if index is None:
             s.echo("train: you are dead — stopping; deathwatch has it")
+            return
+        if index == RETURNED:
+            s.echo("train: returned on request — the rest and the run end here")
             return
         if shutdown_soon(s, plan):
             s.echo(

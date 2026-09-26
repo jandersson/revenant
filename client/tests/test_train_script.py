@@ -459,7 +459,35 @@ def test_train_status_answers_while_running(clock):
     run(clock, fake, plan(tasks=[plan()["tasks"][0]]))
     assert "  Athletics: 5/34" in fake.echoed
     assert any(
-        "I understand ;train skip / rest / status" in text for text in fake.echoed
+        "I understand ;train skip / rest / return / status" in text
+        for text in fake.echoed
+    )
+
+
+def test_train_return_hands_the_task_its_return_word_and_ends_the_run(clock):
+    # #338 (2026-09-26): ;train return was not understood, and ending a
+    # run took ;hunt return, then ;stop train once home, by hand.
+    rats = plan()["tasks"][1]
+    fake = Fake([{"Small Edged": 5}] * 20)
+    fake.commands = ["return"]
+    run(clock, fake, plan(tasks=[rats, plan()["tasks"][0]]), cycles=0)
+    assert fake.told == [("hunt", "return")]
+    assert fake.killed == []  # it finished within the grace
+    assert fake.started == [("hunt", [])]  # no next task
+    assert fake.walks == []  # and no rest
+    assert any("rats returned on request" in text for text in fake.echoed)
+    assert fake.echoed[-1] == "train: returned on request — the run ends here"
+
+
+def test_train_return_during_the_rest_ends_the_run_without_a_next_cycle(clock):
+    def typed(fake):
+        fake.commands.append("return")
+
+    fake = Fake([{"Athletics": 5}, {"Athletics": 30}, typed] + [{"Athletics": 30}] * 5)
+    run(clock, fake, plan(tasks=[plan()["tasks"][0]]), cycles=0)
+    assert fake.started == [("athletics", [])]  # one cycle, none after
+    assert fake.echoed[-1] == (
+        "train: returned on request — the rest and the run end here"
     )
 
 

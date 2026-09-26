@@ -78,8 +78,11 @@ loop learns it.
    cap). The rest's first line after "resting until" is the drain
    model's guess at its length (`client/game/drain.py`, #300). `;train skip` ends the rest early; `;train rest` while
    training starts it early.
-3. **Again**, until the cycles run out or `;stop train` — which stops
-   the running task's script too.
+3. **Again**, until the cycles run out, `;train return` — the graceful
+   end: the running task's script gets its return word as at a time
+   budget, and neither a next task nor a rest follows (#338) — or
+   `;stop train`, which stops at once and takes the task's script
+   with it.
 
 Death ends the loop at any point: deathwatch owns death, and the
 loop's only job is to take the child script down with it. Hostiles at
