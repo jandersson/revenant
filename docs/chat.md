@@ -1,8 +1,8 @@
 # LNet chat
 
-Revenant talks to LNet, the Lich project's chat server, two ways: a standalone window (`revenant-chat`) and `;lnet` inside the game window. Both share one library, `chat/`, and one rule.
+Revenant talks to LNet, the Lich project's chat server, in a standalone window (`revenant-chat`) or in the game window's Thoughts dock (`;lnet`).
 
-> **LNet's rule: only log in as a character who is in the game right now.** Being on LNet as a character who is not logged into DragonRealms is a bannable offence there. The standalone window makes it easy to forget, so open it only while that character is playing, and close it when they log out.
+> **Only be on LNet as a character who is in the game right now.** Being on LNet as a character who is not logged into DragonRealms is a bannable offence. Open the standalone window only while that character plays, and close it when they log out.
 
 ## The standalone window
 
@@ -11,45 +11,36 @@ uv run revenant-chat            # pick one of your characters
 uv run revenant-chat Lanival    # or name one
 ```
 
-Only names from your cached roster (the same list the game picker uses) are offered or accepted: LNet names are character names. The last name used is remembered.
+Only names from your character roster are offered. Ctrl+R reconnects; Ctrl+Q quits.
 
-Plain typing goes to your default channel. The commands work with or without a leading `;`:
+## Commands
+
+The same in both places; in the game window they start with `;`.
 
 | Typed | Does |
 | --- | --- |
-| `chat <msg>` or plain text | send to your default channel |
-| `chat on <channel> <msg>` (or `chat :<channel> <msg>`) | send to a channel |
-| `chat to <name> <msg>` (or `chat ::<name> <msg>`) | private message |
-| `reply <msg>` | answer the last private message (the first private from anyone shows this hint) |
+| `chat <msg>` (or plain text in the window) | send to your default channel |
+| `chat on <channel> <msg>` / `chat :<channel> <msg>` | send to a channel |
+| `chat to <name> <msg>` / `chat ::<name> <msg>` | private message |
+| `reply <msg>` | answer the last private message |
 | `who [name]` | who is connected |
 | `stats` | server statistics |
-| `channels [all]` | list channels (top 15, or all) |
-| `tune <channel>` / `untune <channel>` | manage channel subscriptions |
+| `channels [all]` | list channels |
+| `tune <channel>` / `untune <channel>` | subscribe or unsubscribe |
 
-Ctrl+R reconnects; Ctrl+Q quits.
-
-The server names people with a game prefix, `DR:Atanamir`, and a private has to carry that exact string. Once someone has spoken this session, `chat to atanamir` finds them without the prefix or the capital; a name nobody has heard from goes through as typed.
-
-## Inside the game window: `;lnet`
-
-`;lnet` brings the same chat into the Thoughts dock, lich-style (`[Channel]-Name: "msg"`, `[Private]-Name` for tells, `[PrivateTo]-Name` for your own). The classic commands are the table above with a `;` in front, and `;chat` starts the connection on demand. `;help lnet` is the manual; `;stop lnet` disconnects. Identity is the character the session is playing (`LNET_NAME` overrides).
-
-Replies to `;who`, `;stats` and `;channels` arrive as Ruby Marshal, the serialisation Lich reads natively, and render through `chat/rmarshal.py`.
+- A name you have heard from this session can be typed without the server's `DR:` prefix or capital.
+- In the game window, `;lnet` starts on the first command; `;stop lnet` disconnects. Identity is the character being played.
 
 ## Passwords
 
-LNet names can be password-protected on the server. If a name is protected, login must carry the password or the server answers `password required` and disconnects.
+A protected name must log in with its password.
 
-- The durable place is the OS keychain, service `revenant-lnet`, one entry per name. The game window's File → LNet Password… stores it for the character the window plays (a masked field, the keychain and nowhere else, #290); the chat window fills it in when a login is rejected, asking once with a "remember" checkbox; from a terminal: `keyring set revenant-lnet <Name>`. `;lnet` with nothing stored says so before it tries.
+- Store it in the OS keychain: File → **LNet Password…** in the game window, the chat window's *remember* box, or `keyring set revenant-lnet <Name>`.
 - `LNET_PASSWORD` overrides for one run.
-- The git-ignored `chat/lnet_password.txt` is a legacy fallback from before the keychain. Never commit a password.
+- To protect or change a name's password, log in and call `Server.register_password("...")`; `"nil"` removes it. Forgotten passwords reset at <https://lnet.lichproject.org>.
 
-To protect a name (or change its password), log in and call `Server.register_password("...")`; the literal string `"nil"` removes protection. Forgotten passwords are reset at <https://lnet.lichproject.org>.
+## Logs and internals
 
-## Logs
-
-Every connection keeps an append-only traffic log beside the game logs, `~/.revenant/logs/lnet-<Name>-<stamp>.log` (the logged-in name): every element sent and every chunk received, timestamped, the login's password redacted. It is how a message that renders oddly gets diagnosed after the fact.
-
-## Under the hood
-
-`chat/chat.py` is a minimal LNet client in pure Python (stdlib `ssl` only). It connects to `lnet.lichproject.org:7155`, verifies the server against the pinned CA in `chat/LnetCert.txt` plus the `lichproject.org`/`LichNet` common-name check the reference client uses, sends the login element, answers pings, and parses the incoming XML stream into typed messages. The protocol notes follow `lnet.lic` 1.15; the module began as a rough port of rcuhljr's Genie LNet plugin (see [bibliography.md](bibliography.md)). `chat/commands.py` holds the command grammar the window and the script share. `LNET_DEBUG` set to anything prints raw protocol to stdout.
+- Every connection logs its traffic to `~/.revenant/logs/lnet-<Name>-<stamp>.log`, password redacted.
+- `chat/chat.py` is a stdlib-only LNet client (TLS to `lnet.lichproject.org:7155`, pinned CA); `chat/commands.py` is the grammar both frontends share. `LNET_DEBUG=1` prints the raw protocol.
+- Sources: [bibliography.md](bibliography.md).

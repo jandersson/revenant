@@ -1,147 +1,38 @@
-# The combat model automation assumes
+# Combat
 
-Anything in revenant that fights, flees, or watches a fight — the
-;athletics danger handling today, hunting scripts tomorrow — leans on
-the mechanics recorded here, with their evidence. Canon lives on
-[Elanthipedia's Combat 101](https://elanthipedia.play.net/Combat_101)
-and [Stance](https://elanthipedia.play.net/Stance) pages — this is not
-a mirror, it is what our code believes and why.
+What the scripts that fight or flee (`;hunt`, `;fight`, `;athletics`, `;train`) believe about DragonRealms combat. Canon is Elanthipedia's [Combat 101](https://elanthipedia.play.net/Combat_101) and [Stance](https://elanthipedia.play.net/Stance).
 
-## Engagement and range
+## Range
 
-Three ranges: missile (farthest; outdoor encounters start here), pole
-(~8-16 ft), melee (~2-6 ft; all weapon types). Hostiles advance
-through them — captured 2026-08-22 (the #72 death log): "The cougar
-begins to advance on you!" → "closes to pole weapon range" → "closes
-to melee range". The `<crtrStatus hostile disengaged>` tags
-(state.hostiles) announce presence *before* the advance — nine
-seconds of clean escape window in that capture. The tags can come
-**exactly once per sighting**: later `room objs` pulses may list the
-creature as prose only, or arrive empty, with no crtrStatus behind
-them (the cave-bear capture, 2026-08-22 — #85, which climbed
-;athletics straight into a melee engagement). The parser therefore
-treats each crtrStatus burst as the enumeration and never clears
-hostiles on a bare room-objs pulse; a stale entry self-heals at the
-next room change.
+- Three ranges: missile (outdoor fights start here), pole, melee. A hostile advances one step at a time.
+- The parser's `hostiles` comes from the `crtrStatus` tags, which may arrive only once per sighting; it is cleared on a room change, never on an empty listing.
+- `RETREAT` steps out one range and **can fail** while engaged ("You are unable to retreat from...").
+- At missile range you can move or climb again, even with the creature still in the room.
 
-`RETREAT` backs out one range at a time and **can fail**: engaged
-opponents hinder it — "You are unable to retreat from a cougar!"
-eight times in a row in the death capture, each with ~2s roundtime.
-Movement out of the room auto-retreats first and fails the same way.
+## Getting away
 
-**The escape recipe** (captured working, 2026-08-22): burst
-`retreat` → `retreat` → `<direction>` back to back, riding the game's
-type-ahead — "You retreat back to pole range." → "You retreat from
-combat." → "You go north." Each retreat steps one range outward
-(melee → pole → missile), and **movement and climbing become legal
-again at missile range even while the creature stays in the room** —
-so success is *the room changing*, not the room emptying (a cave bear
-that wouldn't leave pinned the old empty-room check). Full
-disengagement, when it happens, announces itself as *"You retreat
-from combat"*. Anything slower loses the race: critters re-advance in
-the gaps between spaced commands (four single-retreat-then-move
-attempts failed against the same cougars minutes earlier). ;athletics
-and the shared walker both encode the burst.
+Every script flees the same way (`client/game/flight.py`):
+
+1. STAND if sitting or prone (RETREAT from a seat does nothing).
+2. RETREAT, RETREAT and a move, sent back to back so the creature has no gap to close in.
+3. The move is the script's own next step first, then each compass exit, then OUT; up to eight bursts.
+4. Success is **the room changing**, not the hostiles leaving.
+
+Spawn areas never empty on their own: a script leaves a contested spot rather than wait.
 
 ## Attacking
 
-`ATTACK <noun>` picks the balance-regaining maneuver automatically;
-roundtime scales with the weapon and maneuver. Barehanded works
-(brawling). Captured knockdown (cougar, 2026-08-22): "The cougar
-slowly tips over and falls down." — the cougar stunned and prone, not
-dead (it was read as the kill line until 2026-09-14, #197) — with a
-stun beforehand: "A cougar shakes its head back and forth, its dark
-eyes befuddled." A second knockdown wording shares its first words
-with the kill line: "A striped badger screams and falls to the ground
-grasping its mangled left leg!", the badger "lying down" and then
-"grimaces as it stands back up" (2026-09-20, #240). `;hunt` counts
-kills by the room listing's corpses ("which appears dead") since
-2026-09-25 (#315); the lines below are its hint. The kill lines
-are "The ship's rat falls to the ground and lies still." (2026-09-05)
-and "Twisting in agony, the cougar falls to the ground lifeless."
-(2026-08-22, "a cougar which appears dead" after it) — whole phrases,
-never "falls to the ground" alone, and always at the end of their
-sentence: the swing's own sentence can carry a kill word — "The
-scimitar lands a very heavy hit that collapses the ribcage and bursts
-the diaphragm in a messy splattering of bloody pink froth." (a bobcat,
-2026-09-23) — and read as a kill of "that" until the phrase had to be
-followed by the sentence's end; a pronoun is never the corpse's noun.
-The bobcat's own death line was the rat's ("The bobcat falls to the
-ground and lies still.").
+- `ATTACK <noun>` picks the maneuver; barehanded trains Brawling.
+- **Corpses keep their noun.** "The cougar is already quite dead." means the swing hit the body; `;hunt` aims with an ordinal ("attack second cougar") past it.
+- **A kill is counted by the room listing:** a new "which appears dead" creature. Death lines vary too much to trust; a knockdown ("falls to the ground grasping its...") is not a kill.
+- A bare `LOOT` searches the last creature fought and disposes of the corpse.
+- "What were you referring to?" means nothing by that noun is left.
 
-**Corpses keep their noun**: after a kill, `ATTACK cougar` resolves
-to the body — "The cougar is already quite dead." — while a second,
-living cougar closes unmolested (captured: ten wasted swings).
-The corpse's `<crtrStatus>` keeps `hostile="1"` and adds `dead="1"`
-(captured 2026-09-05); the parser leaves it out of `state.hostiles`.
-**`SEARCH <corpse>` disposes of it** (confirmed 2026-08-22; a bare
-LOOT does the same to the last creature fought, and needs no noun —
-the hunt's choice since 2026-09-23),
-clearing the noun so the next ATTACK finds the living one — the
-retarget move for automation. `FACE NEXT` remains an unverified
-alternative. "What were you referring to?" means nothing by that
-noun remains (searched or decayed).
+## Stance and balance
 
-## Defense
+- `STANCE SET <evasion> <parry> <shield> [<attack>]`: 180 base points plus some from Defending ranks. `;hunt` sets the profile's `stance` before it fights.
+- The balance word ("solidly balanced", 0 to 11) is `s.status.balance` / `balance_level`; `;hunt` tallies it and reports it at the end, but acts on nothing yet.
 
-`STANCE SET <evasion> <parry> <shield> (<attack>)`: 180 base
-defensive points, conventionally 100/80 in primary and secondary
-defenses; Defending ranks add points (1 per 50/60/70 ranks for
-armor-primary/secondary/tertiary guilds); attack sacrifices 5:1 into
-defense. Parry points auto-convert to shield when a blow can't be
-parried. Automation should set a defensive stance before wading in —
-not yet encoded anywhere.
+## Caveat
 
-## What the scripts do with this
-
-- **Spawn areas never empty on their own** (operator-confirmed
-  2026-08-22): creatures are continuously present, not on a timer — a
-  camped room is never fixed by waiting. Automation reacts to a
-  contested spot by *leaving*, never by waiting for a despawn.
-- **;athletics** (#72): hostiles present → break off and escape along
-  the training edge, repeatedly; low health → hold; dead → stop. Three
-  break-offs in ten minutes mean the spot is contested (#86, the
-  cave-bear stalemate: escape worked, the next lap climbed straight
-  back in) — auto mode abandons the rung for the next-best one,
-  manual mode stops with advice. The award-timer wait between travel
-  climbs is slept back at the lap's start room in danger-poll chunks
-  (repeat climbs inside the window grant nothing but cost nothing),
-  never idling deep in the spawn rooms.
-- **Driving a fight** (session probes, not yet a script): attack
-  loop, watch vitals, treat "already quite dead" as a retarget
-  signal, stop on the kill line or "What were you referring to?",
-  break off under a health floor.
-- A proper hunting script would add stance, facing, loot/skinning,
-  and multi-opponent policy — none of that exists yet.
-
-## Getting away: the shared escape
-
-Every trainer that stops on hostiles gets away the same way since #285
-(`client/game/flight.py`, after the Crossing's auto invasion of
-2026-09-22 found a character sitting between climbs outside the western
-gate): STAND when the indicator says seated or prone (RETREAT from a
-seat does nothing), then the burst above — RETREAT, RETREAT, a move —
-judged by the room changing or the hostile set emptying, never by the
-answer. The move is the caller's own step first (`;athletics` climbs
-along its edge: the cave-bear stalemate, #86, is escaped by climbing),
-then each compass exit, then OUT, one per burst up to eight: a climb
-that fails for footing never changes the room, and the goblin outside
-the gate re-advanced through eight of them (#286). `flight.react` is
-the ladder with the echoes and the bell; `;train` runs it when a task's
-script ended among hostiles before starting the next, and its rest's
-flee is the same burst. `;stop all` leaves the background monitors (deathwatch, xp, wealth, sheet, beholder, lnet) running.
-lich-5's `DRC.retreat` loops RETREAT with `fix_standing`; dr-scripts'
-`gosafe` and `safe-room` walk to a configured safe room
-(docs/bibliography.md).
-
-## Where the lines arrive
-
-Every swing, hit and kill line — yours and the creature's — comes
-inside `<pushStream id="combat"/>` ... `<popStream/>`, in every hunt
-log since 2026-08-22. The engine routes that block as the `combat`
-stream, the main window shows it like story text, and a script
-handle's default `get()` delivers the story alone, so an answer
-collector that reads only the story never sees a kill.
-`probe.collect` reads both (`STORY_STREAMS`, 2026-09-12); a script
-reading the story by hand for combat text must ask for the `combat`
-stream too.
+Every swing, hit and kill line arrives on the **`combat` stream**, not the story. `probe.collect` reads both; a script reading `get()` by hand must ask for `combat` too or it never sees a kill.

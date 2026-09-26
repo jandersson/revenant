@@ -1,848 +1,102 @@
-# The training loop ;train runs
+# Training with ;train
 
-`;train` is the orchestrator: it runs the trainers a character's plan
-names, each until the skills it trains reach a target mindstate, and
-once every task is trained it rests in a safe room until those skills
-have drained into ranks — then goes again. It is scaffolding: the loop
-knows nothing about any skill, and a task is one line of JSON tying
-skills to whatever trains them. This file records the plan, the loop,
-and what it assumes about the game; `client/tests/test_training.py`
-and `test_train_script.py` pin the same behavior.
-
-## The plan
-
-One JSON file per character, `~/.revenant/training/<name>.json`
-(`REVENANT_TRAINING` moves the directory). `;train init` writes a
-starter — climbs, the hunt, the skins sold, the gear the hunt wore down repaired (`;repair`, 2026-09-26: once a cycle, the pieces at or below the profile's `repair_floor`), the purse banked, and foraging, the hunt task's skills taken from
-the character's profile — and `;train plan` prints what the file says.
-A crafter's plan adds a `tool repair` task beside `repair` (script
-`repair`, args `["tools"]`): the profile's `repair_tools` ANALYZEd
-once a cycle and the worn ones taken to the Engineering Society's
-Rangu, so a pestle worn past use no longer stops every Alchemy task
-(#321, 2026-09-26).
-File → Training Plan… in the client edits it: the plan settings as a
-form, the tasks as an ordered list with add, remove, up and down, the
-selected task as a form, every row built from the same schema the
-loop reads (`PLAN_FIELDS` / `TASK_FIELDS`), and OK refuses a plan the
-validator rejects, listing why; the starter plan fills the dialog
-when no file exists yet. The file is coerced on load, so a string where
-a number belongs or a comma-separated list where a JSON list belongs
-still works, and a mistake the loop cannot live with (a task naming no
-script and no commands, an unknown order) is reported and refuses to
-run.
-
-| key | what the loop does with it |
-| --- | --- |
-| safe_rooms | `;go2` targets; each rest walks to the next one in the list, round and round. Empty rests wherever training ended |
-| rest_commands | sent on arrival at the safe room (`sit`) |
-| target | a task's skills are trained once every one sits at this mindstate or above (0-34; default 30) |
-| rest_until | the rest ends once every skill any task trains has drained to this or below (default 10) |
-| rest_minutes | a cap on the rest; 0 waits for the drain |
-| task_minutes | a task's time budget, when it never reaches the target; 0 is no budget |
-| order | `listed` runs tasks in file order; `lowest` runs the task whose least-trained skill is lowest first |
-| poll | seconds between mindstate checks |
-| cycles | train-rest cycles before exiting; 0 loops until stopped (`;train once` is 1) |
-| tdp | where the TDPs go — spent by a `tdps` task (`{"script": "tdp", "args": ["plan"]}`, up to three points wherever the order puts it, the operator's choice 2026-09-20 so the loop can be structured around it) and in the rests, through `;tdp` one confirmed point at a time, up to three a rest: a list of `<stat> <target>` entries taken in order (`stamina 30`, `strength 30`: the first stat under its target gets the point), or `auto` for the guild's tiers — a Paladin's are the new player guide's, Strength and Stamina to 15, then Reflex, Agility and Discipline to 15, then the lowest of all eight (#230) |
-| tdp_reserve | TDPs never spent by the loop (0) |
-| soul | `on` for a Paladin: a state reading first (`;soul read`, four hours' worth), and while it says pristine no deed; below pristine the soul deeds run in the rests — `;soul badge` every 31 minutes where the character stands, `;soul tithe` and `;soul pray` when their timers allow and their rooms are near, each waited for and the rest's room walked back to — and a `;soul keep` started by hand is taken over, since a prayer with ten seconds of roundtime must never land mid-hunt (#227, [soul.md](soul.md)). `off` by default |
-| tasks | the list below |
-
-A task:
-
-| key | what the loop does with it |
-| --- | --- |
-| name | how it is reported; defaults to the script's name |
-| skills | the exp-window names it trains (`Small Edged`, case ignored); the task is done when all of them reach the target. No skills: the task runs its time budget once per cycle |
-| script, args | started as `;<script> <args>` and watched; a script the user already runs by hand is left alone and the task skipped |
-| return_word, return_grace | how the script is ended at the target: the word is delivered as `;<script> <word>` would be (`return` for the bundled trainers), and the kill follows once the grace (seconds, default 120) runs out. No word: killed at once. A plan saved with the old `stop_word` / `stop_grace` keys still loads, its "stop" read as "return" |
-| commands, pace | instead of a script: the commands cycled in the loop's own thread, roundtime waited out, `pace` seconds apart |
-| setup, teardown | commands sent before the task and after it (`get my flute` / `stow my flute`) |
-| target, minutes | this task's own target and time budget, overriding the plan's |
-| helper, helper_script, helper_args, helper_room | a second character of yours logged in for the task — the teacher of a class: `helper` names them (their account password in the keychain), `helper_script` what to start on their side (`teach` by default) with `helper_args` (`parry ability, to, cecil`), `helper_room` where both meet (a map id; blank: where you stand). Their session is found in the registry or spawned without a window, walked there by `;go2`, started, given the return word when the task ends, and logged out (`;logout`, QUIT from inside) unless the next task names them too (2026-09-22, `client/game/helper.py`) |
-
-Unknown keys survive a save, so a task can grow a field before the
-loop learns it.
+`;train` runs your character's training plan: each task until its skills reach a target mindstate, then a rest until they drain into ranks, then again. The plan is one JSON file per character; the loop knows nothing about any skill beyond what the plan says.
 
 ## The loop
 
-1. **Train.** Every task once per cycle, in the plan's order, skipping
-   the ones whose skills already sit at the target. A task ends at the
-   target, at its time budget, when its script exits on its own (a
-   rung the map lost; `;hunt` waits an empty ground out rather than
-   exiting), on `;train skip`, or on
-   death. Its script is ended with the return word first — `;hunt
-   return` finishes the kill and walks home — and killed after the grace.
-2. **Rest.** With every task trained, walk to the next safe room, send
-   the rest commands, and hold, polling the exp window, until every
-   skill the plan trains has drained to `rest_until` or below (or the
-   cap). The rest's first line after "resting until" is the drain
-   model's guess at its length (`client/game/drain.py`, #300). `;train skip` ends the rest early; `;train rest` while
-   training starts it early.
-3. **Again**, until the cycles run out, `;train return` — the graceful
-   end: the running task's script gets its return word as at a time
-   budget, and neither a next task nor a rest follows (#338) — or
-   `;stop train`, which stops at once and takes the task's script
-   with it.
+1. **Train.** Run each task in order, skipping any whose skills already sit at the target. A task ends at the target, at its time budget, or when its script exits.
+2. **Rest.** Walk to the next safe room, send the rest commands (`sit`), and wait until every trained skill has drained to the rest floor. The rest opens with a guess at how long that takes.
+3. **Repeat** until the plan's cycles run out or you end it.
 
-Death ends the loop at any point: deathwatch owns death, and the
-loop's only job is to take the child script down with it. Hostiles at
-the rest move it: to the next safe room when the plan has more than
-one (the burst escape, then the walk), out of the room to rest next
-door otherwise, and after five such moves in one rest it is given up
-for the cycle — a rest among things biting you never drains, since
-the attacked skills stay full (2026-09-12: twenty minutes among rats
-with Evasion and Parry locked, #182). A script task gone within five
-seconds of starting is a failed start (`;attune` refusing a room with
-hostiles in it, a rung the map lost), said so and not counted as
-trained; a cycle in which no task trained stops the loop instead of
-resting.
+Death ends the loop. Each trainer handles its own danger; hostiles at a rest move it to the next safe room or next door.
 
-## A worked example: a circle-5 Paladin
+## Commands
 
-Lanival's files as they stand on 2026-09-20, the shapes every other character's copy: the plan in `~/.revenant/training/lanival.json` and the profile in `~/.revenant/profiles/lanival.json` (the keys left at their defaults are omitted here; `;train init` writes a starter with every key).
+| Command | Does |
+| --- | --- |
+| `;train` | run the plan until stopped |
+| `;train once` | one train-and-rest cycle |
+| `;train task <name>` | that one task, once, no rest |
+| `;train plan` | print the plan |
+| `;train status` | the tracked skills' mindstates |
+| `;train init` | write a starter plan (`init force` overwrites) |
+
+While it runs:
+
+- `;train skip` — end the current task, or the rest.
+- `;train rest` — stop training and rest now.
+- `;train return` — end gracefully: the task's script finishes (`;hunt` finishes the kill and walks home), and nothing follows.
+- `;stop train` — end at once, the task's script with it.
+
+A game shutdown announcement winds the run down the same way as `return`, a few minutes before the link drops.
+
+## The plan
+
+Edit it in File → Training Plan…, or by hand in `~/.revenant/training/<name>.json`. `;train init` writes a starter from your profile: climbs, the hunt, skins sold, gear repaired, the purse banked, foraging.
+
+| Plan key | Meaning |
+| --- | --- |
+| `target` | train each task's skills to this mindstate, 0-34 (30) |
+| `rest_until` | rest until every trained skill drains to this (10) |
+| `rest_minutes` | cap on a rest; 0 waits for the drain |
+| `task_minutes` | time budget per task; 0 is none (30) |
+| `order` | `listed`, or `lowest` (least-trained task first) |
+| `safe_rooms` | where to rest, rotated; empty rests where training ended |
+| `rest_commands` | sent on arrival at the safe room |
+| `cycles` | train-rest cycles; 0 loops until stopped |
+| `poll` | seconds between mindstate checks |
+| `soul` | `on` for a Paladin: soul deeds in the rests while the soul is below pristine ([soul.md](soul.md)) |
+| `tdp` | TDPs spent in the rests: stat targets (`stamina 30`) or `auto` for the guild's order |
+| `tdp_reserve` | TDPs never spent |
+| `shutdown_minutes` | wind down this close to a game shutdown (3) |
+
+A task:
+
+| Task key | Meaning |
+| --- | --- |
+| `name` | how it is reported |
+| `skills` | exp-window names it trains (`Small Edged`) |
+| `script`, `args` | started as `;<script> <args>` |
+| `return_word` | how the script is ended gracefully (`return`); empty kills it at once |
+| `return_grace` | seconds after the word before the kill (120) |
+| `commands`, `pace` | commands cycled instead of a script, `pace` seconds apart |
+| `setup`, `teardown` | sent before and after the task (`get my flute` / `stow my flute`) |
+| `target`, `minutes` | this task's own target and budget |
+| `helper`, `helper_script`, `helper_args`, `helper_room` | a second character of yours logged in for the task, such as a teacher for `;listen` |
+
+A task with no `skills` runs once per cycle for its `minutes`: selling skins, banking, spending TDPs, a timed box farm.
+
+A few tasks:
 
 ```json
-{
- "target": 30, "rest_until": 10, "task_minutes": 30, "order": "listed", "poll": 30,
- "soul": "on",
- "tdp": ["auto"], "tdp_reserve": 0,
- "tasks": [
-  {"name": "climbs",      "skills": ["Athletics"],       "script": "athletics"},
-  {"name": "hunt",        "skills": ["Brawling"],        "script": "hunt",        "return_word": "return"},
-  {"name": "skins",       "skills": [],                  "script": "skins"},
-  {"name": "bank",        "skills": [],                  "script": "bank"},
-  {"name": "tdps",        "skills": [],                  "script": "tdp",         "args": ["plan"]},
-  {"name": "scholarship", "skills": ["Scholarship"],     "script": "scholarship", "args": ["books"], "return_word": "return"},
-  {"name": "performance", "skills": ["Performance"],     "script": "perform",     "return_word": "return", "pace": 90},
-  {"name": "attunement",  "skills": ["Attunement"],      "script": "attune"},
-  {"name": "forage",      "skills": ["Outdoorsmanship"], "script": "forage",      "return_word": "return"}
- ]
-}
+{"name": "hunt", "skills": ["Brawling"], "script": "hunt", "return_word": "return"}
+{"name": "bank", "skills": [], "script": "bank"}
+{"name": "books", "skills": ["Scholarship"], "script": "scholarship", "args": ["books"], "return_word": "return"}
 ```
 
-What the loop does with it: the climbs until Athletics reaches 30, the hunt with the fists until Brawling reaches the target (the profile's `weapons` holds the fists turn alone since the evening of 2026-09-20 — Small Edged at 40-odd ranks stopped learning from the level-3 badgers, so the scimitar's turn was spending kills on nothing and the operator dropped it; the parry stick and the knuckles are worn, #238), the skins sold, the purse banked (`;bank`: every foreign coin exchanged at the money-changer into the province's own, then DEPOSIT ALL — coins weigh, #235; selling and banking are distinct tasks by the operator's design, and `;skins bank` by hand runs `;bank` rather than a deposit of its own since 2026-09-20), four library books, the zills until Performance locks, a lap of power walking, a forage — then the rest, wherever the last task ended (no `safe_rooms`), until every trained skill drains to 10, with the badge prayer, the tithe and the Chadatru prayer whenever their timers allow and up to three stat points bought on the guild's tiers. `return_word` marks the scripts that end gracefully on a typed `return` (the hunt finishes the kill and walks home); the others are killed at the target.
+## Trainers
 
-```json
-{
- "hunting_ground": "badgers", "prey": "badger", "home": "11716",
- "weapon": "scimitar", "weapon_container": "scabbard", "stance": "100 40 40",
- "skin": true, "bundle": true, "loot_container": "sack",
- "buffs": ["heroic strength", "aspirant's aegis", "sentinel's resolve", "courage"],
- "train_casting": "Augmentation",
- "cambrinth": "anklet", "cambrinth_mana": 12, "cambrinth_worn": true, "cast_gap": 60,
- "debilitation": "stun foe", "targeted": "footman's strike",
- "smite": false,
- "tactics": ["bob", "circle"], "perception": true,
- "weapons": ["fists:Brawling"], "brawling": ["punch", "kick", "elbow"],
- "health_floor": 60, "wound_floor": "harmful",
- "attune_start": "732", "instrument": "zills", "library": "11716"
-}
-```
+Each is a script with its own manual (`;help <name>`). Under `;train`, give each `"return_word": "return"`.
 
-The profile is the hunt's and the trainers' quirks ([hunting.md](hunting.md)): striped badgers in the Brambles (level 3 on the Zoluren ladder, 19-42 ranks; an evening on the level-5 grass eels gave no kill, nine stuns and deep cuts on every limb, #236, so the badgers it is until the weapon ranks say otherwise), the watered steel scimitar drawn from a shoulder scabbard (Milgrym's and Berolt's, 2026-09-20 — two steps of slice and balance over the handaxe, which stays in the sack as a spare), a defensive stance, every kill skinned into a worn bundle, four buffs kept up (Heroic Strength, Aspirant's Aegis, and from circle 8 Sentinel's Resolve for Defending and Shield Usage and Courage, the Warding spell that opens a fourth magic skill) with Heroic Strength recast for Augmentation through a 12-mana cambrinth anklet worn between casts, Stun Foe at the prey for Debilitation, Footman's Strike at the prey for Targeted Magic, no smiting (the soul pool pays for smites past the free ones, #217 — the hunt asks SMITE CHECK first when it is on), bob and circle for Tactics, HUNT for Perception, a break-off at 60% health or at a harmful wound (HEALTH after each kill and on every drop) to the guild library, the power-walking start room, the copper zills, the guild library's shelves.
+| Script | Trains |
+| --- | --- |
+| `hunt` | weapons, defenses, magic ([hunting.md](hunting.md)) |
+| `athletics` | Athletics |
+| `forage` | Outdoorsmanship, Perception |
+| `attune` | Attunement (power walking; `here` for Moon Mages) |
+| `perform` | Performance |
+| `scholarship books` | Scholarship |
+| `appraise` | Appraisal |
+| `boxes` | Locksmithing, on the hunt's boxes |
+| `remedies work` | Alchemy, as paid work orders |
+| `research` | a Barbarian's Augmentation, Warding, Utility |
+| `listen` / `teach` | a class between two of your characters |
+| `tdp plan` | spends TDPs (no skill) |
 
-## The soul in the rests
+## Plan well
 
-A Paladin's soul is on timers (docs/soul.md): the badge every 31 minutes, the tithe every 4 hours, the Chadatru prayer every 2. With `soul: on` `;train` first wants a state reading younger than four hours — `;soul read` in a rest: RUB at an orb, else a walk through the nearest soulstone arch (#231) — and while it says pristine runs no deed at all (the operator, 2026-09-20: the deeds restore a soul, they do not maintain one). Below pristine it runs those deeds in its rests — a rest is idle by design, the badge prays where the character stands, the tithe and the prayer only when `;soul`'s own guard finds their rooms near — through `;soul <deed>` on the handle (run, is_running, kill), sharing the timer file so the two never tithe twice, and it kills a `;soul keep` it finds running, because keep does not know what the character is doing and a ten-second prayer in a hunt is a bad idea. Never in a task: `;hunt` wants only the pool reading (#217).
+- **Count the skills moving.** More pools above 0/34 learn more than one pool held full; a full pool wastes what it would have learned.
+- **The slowest skill sets the rest's length.** Lower `rest_until` means longer rests; `rest_minutes` caps them.
+- **A task killed without a return word leaves the character where it stood.** Use `teardown` for what must be undone, such as a held instrument.
 
-## TDPs in the rests
-
-The `tdps` task is the same spending as a task: `;tdp plan` reads the plan's `tdp` and `tdp_reserve`, buys up to three points and walks back, once a cycle wherever the order puts it — a rest comes only every three to four hours on an eight-task plan, and the points piled up faster than three a rest spent them (402 to 571 in one day, 2026-09-20). With a `tdp` list the rest asks INFO (no roundtime) for the stats and the points, picks the stat — the plan's first goal still under its target, or the guild's tiers on `auto` (`client/game/tdp.py`, GUILD_TIERS: the Paladin's from Elanthipedia's Paladin new player guide) — prices the point by the wiki's formula, and when the points past `tdp_reserve` cover it runs `;tdp train <stat> +1`, which walks to the trainer, buys the one point the game quotes and walks back; three points a rest at most, so a rest stays a rest (#230). Never in a task. INFO goes out once per rest: the exp window pushes the TDP count on every pulse (the parser's `tdps`, beside `favors`), so the polls after the first read it there, a rest that cannot afford the point says so once, and only a purchase (the stats move) prices again — 247 INFOs had gone out in one afternoon for 5 points against a 45-point cost (#282).
-
-## What it assumes
-
-- **The exp window is the gauge.** A task's progress is its skills'
-  mindstates as `client/engine/xml_data.py` parses the window (0-34); a skill
-  the window doesn't show is at 0. Resting until the pool drains is
-  the outflow model in [experience.md](experience.md): the pool
-  converts to ranks in pulses regardless of activity, and a full pool
-  wastes inflow.
-- **Trainers handle their own danger.** `;athletics` breaks off from
-  hostiles and holds below its health floor; `;hunt` has the profile's
-  floors. The orchestrator watches only for death and for the goal.
-- **Draining is one floor for every skill.** Skills drain at different
-  rates; `rest_until` is checked against every tracked skill, so the
-  slowest one sets the rest's length. `rest_minutes` caps it, and a
-  higher floor shortens every rest. The rates are measured: a
-  Paladin's tertiary skill drains 0.65 buckets a 200-second pulse, a
-  secondary 0.91, a primary 1.14 (experience.md, "How fast a pool
-  drains", #300), and the rest opens with the drain model's guess —
-  "the drain model expects about 103 min — Athletics drains last" —
-  from the guild and Wisdom in the latest `;sheet` snapshot. A tertiary skill at
-  34 takes about 1 h 50 min to reach 10.
-- **A stopped script leaves the character wherever it was.** A task
-  without a return word is killed mid-action; the next task's script
-  starts from there (the bundled trainers walk to their own spots).
-  `teardown` is for what must be undone (a wielded instrument), not a
-  walk home.
-
-Nothing here is captured from the game beyond what the trainers and
-the experience model already pin; the loop sends no command of its
-own except the plan's (`rest_commands`, `setup`, `teardown`,
-`commands`) and the burst escape. The first attended run is the place
-to learn what the rest floor and the budgets should default to.
-
-## Spending TDPs: ;tdp
-
-Stats rise by spending Time Development Points, one point per TRAIN
-typed twice in that stat's training room, and `;tdp train <stat>
-[goal]` does the walk and the spending with every point confirmed by
-the game's own numbers. `;tdp` alone shows INFO's eight stats and the
-TDPs; `;tdp agility 12` quotes the next point (the stat's own command)
-and the whole climb (TDP PROJECT) without spending. A run that
-bought a point ends by asking the autostarted `;sheet` to record
-INFO (`;sheet info`), all TRAIN moves, so history.db and beholder
-have the new stat and TDPs at once, not at the next three-hourly
-snapshot (#303).
-
-Captured 2026-09-12 on a circle-1 Dwarf at Agility 8 with 347 TDPs:
-
-```
-> agility
-Your base Agility is eight (8).
-It will cost you 28 TDPs to raise your Agility from 8 to 9.
-You currently have 347 TDPs available.
-> tdp project agility 12
-It will cost you 132 TDPs to reach 12 points in Agility.
-> tdp
-You have 347 TDPs.
-> dir agility
-Directions towards Agility training in Crossing: Southwest.
-Type DIR STOP to stop these direction suggestions.
-```
-
-The figures match Elanthipedia's formula ([Attributes](https://elanthipedia.play.net/Attributes)):
-a point from value *v* costs 3*v* plus the race's modifier times
-*v* // 2 in integer math (a Dwarf pays +1 on Agility: 24 + 4 = 28; 28
-+ 31 + 35 + 38 = 132), and 15*v* from 100 up. `client/game/tdp.py`
-carries the formula for estimates and tests; the script trusts the
-quote. DIR keeps repeating its hint every few lines until DIR STOP,
-so the script never uses it — the map tags every training room
-(`agility`, `strength`, ... one per stat per city; Crossing's are
-50984-50989 plus the Academy rooms) and the walker takes it there.
-
-The TRAIN pair itself, captured the same day when `;tdp train agility
-+2` ran attended (Agility 8 → 10, TDPs 347 → 288):
-
-```
-> train
-You consult with the teachers and together decide that it will take 28 moon cycles until you successfully train your agility to 9 ranks.  There is also a fee of 56 Kronars to complete this training.
-That would leave you 319 time development points afterward.  If this is OK, you will need to STUDY once again to get your new rank.
-> train
-(You now have 319 time development points.)
-The trainer notes how young you are and that you should keep some coins to help you get equipped.  So, the cost of 56 Kronars is added to your Provincial debt.
-(Your debt has increased by 56 Kronars.)
-After what seems an astonishing amount of time, you find you have completed your training in agility.
-Your attempts to train are praiseworthy, but you must find both the proper place and the proper teacher first.
-```
-
-Three things the wiki does not say. A point costs coins as well:
-a fee of 2 Kronars per TDP (56 for 28, 62 for 31), and a character
-carrying none has it put on the provincial debt (930 → 1048 copper
-over the two points; 674 copper by the end of 2026-09-20, a day whose
-plan banked the purse right before the `tdps` task — "Since you aren't
-carrying any Kronars, the cost of the training, 70 Kronars, is added
-to your debt."), which is the debt that blocks GIVE in
-[social.md](social.md). So `;tdp` reads the quoted fee, checks INFO's
-purse and, when it falls short, WITHDRAWs the difference at the nearest
-teller and walks back before the confirming TRAIN (#247; the withdrawal
-is `client/game/bank.py`'s, shared with `;debt`, and echoes the teller's
-lines alone). The "moon cycles"
-are flavor; the point lands at once. And the completed training is
-followed by the same "must find both the proper place and the proper
-teacher" line that TRAIN answers in the wrong room, so the script
-reads "completed your training" before it reads a refusal. It still
-re-asks the stat after every pair and stops the moment the value has
-not risen, echoing both answers; it buys only points the quoted TDPs
-cover, stops on death, echoes the fee and debt lines, and walks back
-to where it started unless told `stay`. The Elanthipedia rule of thumb
-that a guild may refuse a character with any stat below 8 is the
-reason to spend early.
-
-One thing the game did that took a day to understand (#165): over
-eleven points the TDP count rose six times by exactly twice the
-previous point's cost — after every point that started *below* the
-character's racial starting stat, never after one at or above it.
-DR3 made TDPs a derived number, recalculated on every rank gain from
-ranks and circles minus the stats, and it assumes every character
-began at the race's starting values ([DR-Socharis,
-2012](https://elanthipedia.play.net/Post:Long_Time,_No_Post_-_10/02/2012_-_03:51));
-a DR1-era character whose rolled stats sit below those starts has
-each such point counted the other way, so raising it toward the start
-nets +cost. Predicted and confirmed with Stamina: the point that
-ended at the Dwarf start of 12 came back double, the one that ended
-at 13 did not. `;tdp` flags the stats still below the start; train
-those first.
-
-## Foraging: ;forage
-
-Outdoorsmanship, a Survival skill, trains by foraging (also mining,
-lumberjacking, fishing, tending parasites, companions), and COLLECT
-for the easiest item pays best: "the easier item you collect, the more
-you will get, which grants more experience" ([Outdoorsmanship
-skill](https://elanthipedia.play.net/Outdoorsmanship_skill)). `COLLECT
-<item> PRACTICE` "gains experience without generating items", so no
-piles are left to KICK; the base roundtime is 15 seconds, falling only
-past 1350 ranks ([Collect
-command](https://elanthipedia.play.net/Collect_command)). Perception
-lists "Foraging (COLLECT <item> being the most efficient)" first among
-its trainers, so the same loop feeds it ([Perception
-skill](https://elanthipedia.play.net/Perception_skill)). `;forage`
-(scripts/forage.py) COLLECTs the item — rock by default — with
-PRACTICE until Outdoorsmanship mind-locks, `;forage <item> <n>` for n
-collects, `;forage return` to end after the one in hand. The community
-map tags each room with what it yields (`rock` on 142 of the
-Crossing's rooms, 1204 map-wide), so a room without the item is left
-for the nearest tagged one through the walker; `here` skips that.
-Captured on the first run, 2026-09-14, on the Crossing's streets at
-rank 1: the practice answers "You wander around and poke your fingers
-into a few places, wondering what you might find." and "You find
-something dead and lifeless, is this what you were looking for?" with
-a 6-second roundtime (the wiki's 15-second base is not what a rank-1
-character saw) and Outdoorsmanship rising 1 74% dabbling → learning
-on the first; the near misses "You are certain you could find what
-you were looking for, if you had a bit more luck.", "You are sure you
-knew what you were looking for when you started to forage." and "You
-begin to forage around, but can't quite seem to remember what it was
-you were looking for."; and "You forage around
-but are unable to find anything." (6 s) in a room with nothing to
-collect and on a failed try where there is something — so three of
-those in a row end the run only before the first success, ten after.
-An answer outside the table is echoed once per wording while the run
-goes on. Under `;train`: `"script": "forage",
-"skills": ["Outdoorsmanship"], "return_word": "return"` (#193).
-
-## Power walking: ;attune
-
-Attunement trains by perceiving mana — POWER, PERCEIVE or
-CONCENTRATE — and a room pays once per sixty seconds
-([Attunement skill](https://elanthipedia.play.net/Attunement_skill),
-[Perceive command](https://elanthipedia.play.net/Perceive_command)),
-so every guild but the Moon Mages walks: perceive, step to the next
-room, perceive again. `;attune` builds a chain of streets from where
-you stand (plain compass moves in both directions, so shop doors and
-climbs are never part of it), walks it out and back POWERing on each
-arrival, waits out a room that paid within the minute, and holds at
-mind-lock until enough drains to be worth the laps. `;attune here`
-perceives in place once a minute, which is how a Moon Mage trains it:
-lunar mana is everywhere. Standalone it is a standing trainer like
-`;athletics`: it holds at the lock and walks again once the pool has
-drained, until stopped; `;attune once` exits at the lock instead.
-Under `;train` (`"script": "attune", "skills": ["Attunement"],
-"return_word": "return"`) the loop ends the task itself when Attunement
-reaches the plan's target — the word lands within a second,
-held or walking — and moves to the next task.
-
-Captured 2026-09-12 on a circle-1 Paladin at rank 2, on the
-Crossing's Hodierna Way:
-
-```
-> power
-You reach out with your weak senses and see glowing streams of golden Holy mana radiating through the area.  Waves of black ripple through the mana streams.
-Roundtime: 8 sec.
-```
-
-The room's first POWER took Attunement from thoughtful (4/34) to
-considering (6/34); a second POWER in the same room within the minute
-gave nothing; one room east, the next POWER paid again. The roundtime
-was 8-9 s, the wiki's 8-12 at low ranks. "Waves of black ripple
-through the mana streams" rode along on every perceive that day and
-is not understood — some influence on the local mana, not the
-character's. The script stops on death or hostiles, when eight
-perceives in a row gain nothing (a guild that cannot sense mana), and
-when the map has no street to loop from the starting room.
-
-## Playing: ;perform
-
-Performance trains by playing an instrument: PLAY (song) {mood} ON
-{instrument} starts a song that then runs on its own, and the skill
-learns while it plays ([Performance skill](https://elanthipedia.play.net/Performance_skill),
-[Play command](https://elanthipedia.play.net/Play_command)). The Play
-page gives the song per rank band — scales to 39, arpeggios to 49,
-ditty to 58, ballad to 69, waltz to 79, march to 99, lament to 124,
-hymn to 179, polka to 219, reel to 249, serenade to 299, psalm to
-349, tango to 449, bolero to 474, nocturne to 524, requiem to 549, a
-concerto from 550 — and says off-key or halting moods make any song
-easier, so `;perform` plays the band's song off-key on the profile's
-`instrument` (`instrument=`, `song=`, `mood=` override it), watches
-the mindstate, starts the song again when the story says it ended,
-and at mind-lock STOPs PLAY and holds until the pool has drained
-(`once` exits instead). Under `;train` (`"script": "perform",
-"skills": ["Performance"], "return_word": "return"`) the loop ends it
-at the plan's target; the word stops the song first. It stops on
-death, on hostiles, on the game's own refusal for a fight the parser
-has not shown yet ("You cannot use the copper zills while in combat!",
-2026-09-20 right after a `;reexec`, #243), without the instrument,
-and when EXP shows no Performance.
-
-Captured 2026-09-18 on a rank-2 Paladin, a pair of copper zills worn
-on a finger (Riverhaven's peddler, 500 Lirums), aboard the Faldesu
-ferry:
-
-```
-> play scales off-key on my zills
-You fumble slightly as you begin an off-key ruff on your copper zills.
-You continue playing on your copper zills.
-You continue to fumble through a few uncertain rhythms on your copper zills, but it doesn't sound like what you intended.
-> play scales on my zills
-You're already playing a song!  You'll need to stop that one first.
-> stop play
-You stop playing your song.
-```
-
-Performance went 2 00% learning → thoughtful within the first minute
-and reached rank 3 on the second song. Whether a song ends on its
-own, and its wording, is uncaptured (the script's ENDED table is a
-guess); so is a PLAY with no instrument on you.
-
-An instrument gathers dirt as it plays, and the game says so at PLAY:
-"Your zills's dirtiness may affect your performance." (2026-09-20,
-before every song of the evening). The first such warning of a run
-has `;perform` clean it with the profile's `instrument_cloth` (a
-cotton rag, the True Bard D'Or, 62 Kronars) and start the song over;
-no cloth in the profile, or none on you, is said once and the song
-plays dirty (#233). CLEAN <instrument> WITH <cloth> is the wiki's
-verb ([Clean command](https://elanthipedia.play.net/Clean_command):
-"CLEAN (stringed/percussion instrument) WITH (cloth)"), and it wants
-the instrument in hand and dry, so the sequence, captured by hand
-that day, is:
-
-```
-> get my rag
-> stop play
-> clean my zills with my rag
-You must be holding the copper zills to clean them.
-> remove my zills
-You slide a pair of copper zills off your finger.
-> clean my zills with my rag
-Your copper zills are so wet that they are still dripping!  Maybe you should dry them off before attempting to clean them.
-> wipe my zills with my rag
-Using your rag, you scrub at your copper zills in attempt to wipe the water from them.  Your rag soaks up the water easily, but remains noticably damp afterwards.
-[Roundtime: 4 seconds.]
-> clean my zills with my rag
-With sure strokes that display your innate talent, you spend a few moments cleaning your copper zills.  You manage to clean a very large amount of dirt and grime from them.
-[Roundtime: 5 seconds.]
-> wear my zills
-You slide a pair of copper zills onto your finger.
-> stow my rag
-```
-
-DRY is not a verb ("Please rephrase that command."); the wet zills
-were a river crossing's. Whatever else a hand holds is STOWed before
-the cloth is fetched, never dropped.
-
-## Reading: ;scholarship books
-
-Scholarship trains by "reading books at a library"
-([Scholarship skill](https://elanthipedia.play.net/Scholarship_skill));
-the RECALL forms the wiki also lists ([Recall command](https://elanthipedia.play.net/Recall_command):
-HOLIDAY, IMMORTAL <name>, HERB) answered but registered nothing at
-rank 2 (2026-09-18), so the plan's recall task is gone and
-`;scholarship books` reads (LOOK SHELVES, and LOOK BOOKCASE where a
-library has both: the Asemath Academy's 55 books sit on two, 20 steps
-from the Paladins' guild library whose four gave rank 11 three percent
-on 2026-09-20, #256). A Lorethew library lends by call letters
-(the sign: "Use the Call Letters of a book to get it (GET). Look on
-the shelves for a complete listing ... You are granted use of our
-books (READ) ... Please return all books"): LOOK SHELVES prints the
-table of titles and letters; GET <letters>; READ MY BOOK ("You get an
-urge to open it up and read the contents.", or "You will need to open
-that up before you can read it." — unknown, that second wording had
-the script paging outside the reader, 481 "Please rephrase that
-command." on 2026-09-21, #258; a page answer without "Reading:" now
-means the reader is closed: one OPEN and READ more, then the book is
-returned and reported); OPEN MY BOOK; READ MY
-BOOK again into the page reader, where a bare number turns to that
-page ("Reading:  INTRODUCTION: ..."), "?" prints the help, a number
-past the end answers "'17' is not a page in this book!" and Q closes
-the book. Nothing but a number or Q goes out while the reader is open
-(it takes anything else for a page), and Q never goes out outside it
-(it is some other verb there). STOW MY BOOK — or PUT ... IN MY
-<container> — returns the book: "You return the book to where it
-belongs." No DROP.
-
-Measured on a Paladin at Scholarship 2 in the guild library: four
-books (13, about 3, 15 and 19 pages) took the skill to rank 4 at 24
-percent in fifteen minutes; a book teaches per read, not per page
-(the three-page story moved it as much as the thirteen-page
-introduction), teaches nothing read again at once, and taught again
-70 minutes later. So the script reads the shelves through, returns
-each book, and skips a book read within the last `timer` minutes (60
-by default; the timer's true length is unmeasured) — the read times
-are kept per character in `~/.revenant/scholarship/<name>.json`, so a
-later run skips them too. When every book is within the timer, the
-run waits for the first one if it is within `wait` minutes (10) and
-otherwise ends and says so, so `;train` moves on and comes back
-(#255: the reader idled 58 minutes of a 30-minute slot twice on
-2026-09-20; `wait=60` holds like before). At mind-lock
-the book is closed and returned and the script holds like `;attune`
-(`once` exits). It stops on death or hostiles with the book returned,
-waits out bleeding (the sign: "Please do not read a book while
-bleeding"), and walks to the profile's `library` first (`library=`
-overrides). Under `;train`: `"script": "scholarship", "args":
-["books"], "skills": ["Scholarship"], "return_word": "return"`.
-`;scholarship classes` — listening to classes at the town's nexus
-rooms — is planned on #210 and not built.
-
-## Appraising: ;appraise
-
-Appraisal trains by APPRAISE <item>: every look at an item on you
-teaches it at any rank, a valuable or many-part item — a full gem
-pouch, a bundle, a weapon, armor — most, else "appraise all of your
-inventory" ([Appraisal skill](https://elanthipedia.play.net/Appraisal_skill),
-[Appraise command](https://elanthipedia.play.net/Appraise_command)).
-QUICK shortens the roundtime (2 s with ranks against 4 s plain;
-8 s at rank 2, captured 2026-09-11). Creatures teach nothing below 76
-ranks and other players are never appraised. `;appraise` cycles the
-profile's `appraisal_items`, else everything worn or held as the last
-INV LIST saw it (a pouch and a bundle first), APPRAISE MY <noun> QUICK
-each, waits the roundtime out, drops an item the game cannot find, and
-at mind-lock holds until Appraisal drains below 28 (`once` exits).
-Under `;train` (`"script": "appraise", "skills": ["Appraisal"],
-"return_word": "return"`) the loop ends it at the target. The method is
-dr-scripts' appraisal.lic's; the success wordings grade with the ranks
-("You guess that ...", "You are confident that ... worth about 193
-Kronars.", the wiki's "You are certain that ..."), so the script reads
-only refusals and echoes a run's first answer for the fixtures (#275).
-
-## Researching: ;research
-
-A Barbarian trains Augmentation, Warding and Utility by MEDITATE
-RESEARCH <ability>: it teaches the ability's skill whether the
-ability is known or not, costs 5-8 s of roundtime and no slot, and
-waits about a minute before the next
-([Barbarian new player guide](https://elanthipedia.play.net/Barbarian_new_player_guide)).
-`;research` researches the emptiest of the three each round, 60 s
-apart (`gap=`), with dr-scripts' combat-trainer.lic's MONKEY, TURTLE
-and PREDICTION unless `skill=ability` names another, and at
-mind-lock holds until one drains below 28 (`once` exits). Under
-`;train` (`"script": "research", "skills": ["Augmentation",
-"Warding", "Utility"], "return_word": "return"`) the loop ends it
-at the target. The answers are uncaptured; the run echoes any it does
-not know (#327). The Barbarian's other facts are in
-[barbarian.md](barbarian.md).
-
-## Picking boxes: ;boxes
-
-Locksmithing trains on the boxes the hunt brings home in the loot
-container (`box_limit` caps how many): every DISARM and PICK teaches
-it ([Locksmithing skill](https://elanthipedia.play.net/Locksmithing_skill),
-[Disarm command](https://elanthipedia.play.net/Disarm_command),
-[Pick command](https://elanthipedia.play.net/Pick_command)). `;boxes`
-takes a box at a time out of the container, DISARM MY <box> IDENTIFY
-reads the trap's difficulty as one of the wiki's seventeen phrases
-(`client/game/boxes.py`), and a reading of "longshot" (11/17) or
-worse puts the box back for a better locksmith — unless the trap's look
-is one of the wiki's nuisance traps (frog, laughing gas, mime,
-shadowling, sleeper, mana sucker, bouncing box: a toad or a joke,
-never a wound), which gets a CAREFUL try whatever it reads. At
-Locksmithing 3 every grendel box read 11-12 (2026-09-25), and both
-traps were nuisances: the operator's call was to take that risk. A
-deadly trap or an unrecognized look still goes back, the room-wide
-laughing gas waits for a room without another player, a lock past the
-reading is picked CAREFUL anyway (it risks the pick, not the
-locksmith), and `;boxes safe` puts every box past the reading back;
-else DISARM MY <box>
-<caution> — QUICK through 2/17, plain through 5/17, CAREFUL through
-10/17, dr-scripts' pick.lic's thresholds rounded — until the trap is
-down, then PICK MY <box> IDENTIFY and PICK MY <box> <caution> the same
-way (QUICK through 4/17, plain through 7/17), with the profile's
-`lockpick` in the free hand (GOT from wherever it is kept, STOWed
-before the loot comes out) or the worn `lockpick_ring`, whose top pick
-the game takes by itself. OPEN, LOOK IN, and every item out: coins to
-the purse, a gem into the `gem_pouch`, the rest into the loot
-container; the empty box into the room's bucket through
-`client/game/discard.py`, which takes only a noun settings.json's
-`droppable` lists (add `box`, `coffer`, `chest`, `strongbox`, `crate`,
-`caddy`, `trunk`, `casket`, `skippet`) — a box not on the list goes
-back into the container and is said, nothing is DROPped. The script
-sits first (the wiki: kneeling or sitting helps) and stands at the
-end; `stand` keeps it standing, `careful` makes every step careful
-whatever the reading, `source=<container>` names another container,
-`limit=N` stops after N boxes. A sprung trap is said with its line, the
-stun waited out, and a health below `health_floor` or a wound at
-`wound_floor` (HEALTH, the hunt's floor) ends the run for `;heal`; so
-does "You're in no shape to be disarming anything". At mind-lock it
-holds until Locksmithing drains below 28 (`once` exits). Under
-`;train` (`"script": "boxes", "skills": ["Locksmithing"],
-"return_word": "return"`) after the hunt and the skins the loop ends
-it at the target. Every wording is pick.lic's and the wiki's until
-captured: the run echoes its first answer of each kind ("boxes: disarm
-identify answered ...") for the fixtures (#293). Ragge's Locksmithing
-in the Crossing (map 19125; the wiki's "RoomID 15003" is the game's
-own number) sells an ordinary pick for 125 Kronars and a ring for
-3,000 — ORDER the item for the quote, OFFER the quoted sum, PUT the
-pick ON the ring, WEAR the ring (bought for Cecil 2026-09-23). The
-first live run that day: two grendel boxes at Locksmithing 1 read as
-12/17 and 13/17 (a lumpy green rune, the frog trap) and went back
-into the sack, yet the five IDENTIFYs and one careful DISARM took the
-skill from 0/34 to 2/34 — which the evening's run showed was the one
-careful DISARM, not the identifies: a practice mode that re-ran
-DISARM IDENTIFY on a box past the reading sent eighty of them in
-forty seconds (the game answers an identify of a trap already read
-at once, with no roundtime — the wiki: only the last trap already
-disarmed costs a small one; the game says so in words, "Somebody has
-already located and identified the current trap on the ironwood
-skippet...", captured on the second run) and left Locksmithing at
-0/34, so the mode is gone. A failed careful DISARM shifts the trap
-("your manipulation caused something to shift inside the trap
-mechanism") and the next reading is harder — the skippet went from
-10/17 to 11/17 and past the threshold that night — so one attempt
-on a borderline box is what the rank gets. A box past the reading goes straight back into the
-container, and the run ends when every box has been tried; the
-low-rank way in is boxes a low rank can read as its own, off lower
-creatures than the grendels and cougars (their boxes read 12-13/17
-at rank 1). The `boxes` task stays in Cecil's plan after the skins
-(`{"skills": ["Locksmithing"], "script": "boxes", "return_word":
-"return"}`) and ends on its own when the sack holds nothing it can
-open. Some worn gear hinders every attempt ("Your armor hinders your
-attempt." / "Your brass knuckles hinders your attempt."): which pieces
-is nobody's rule written down — the wiki's Hindrance page is about
-maneuvering and stealth, and dr-scripts leaves it to a hand-set
-`hinders_lockpicking` flag per item (its sample profiles flag ring
-gloves, a ring balaclava, a target shield, brass knuckles, and not a
-quilted shirt or pants). An experiment on 2026-09-26 settled one
-Paladin's kit, a careful PICK after each change — the lock's IDENTIFY
-is no instrument: a lock already inspected answers "Somebody has
-already inspected the current lock on this crate..." and the reading
-alone, never the hindrance line:
-
-| Worn | "Your armor hinders your attempt." |
-|---|---|
-| everything | yes, and "Your brass knuckles hinders your attempt." |
-| knuckles, gauntlets, light full plate, target shield off | yes |
-| the rugged leather cowl off too (boots, breeches, parry stick still on) | no |
-| light full plate alone added back | no |
-| plate gauntlets alone | yes |
-| metal target shield alone | yes |
-
-So the hands (gauntlets, knuckles), the head (a leather cowl) and the
-shield hinder, and body plate and leg wear do not — the prediction
-that plate hindered and the shield did not was wrong twice. Untested:
-other head and hand pieces, other shields, a balaclava. The profile's
-`hindering_gear` (`["knuckles", "gauntlets", "cowl", "shield"]` for
-Cecil since) comes off before the first box —
-REMOVE, judged by the piece landing in a hand since REMOVE's wordings
-are uncaptured, then STOW — and goes back on when the run ends, however
-it ends (GET, WEAR: "You slide some brass knuckles onto your hands and
-clench your fists to secure the fit.", "You slip some plate gauntlets
-onto your hands."; after `;stop boxes` the puts go out blind as
-cleanup, which the session holds while the character is stunned or in
-roundtime and sends once that passes, #318). A piece that will not come off or go back on is said;
-whatever still hinders after that is said once a run.
-
-## The maintenance shutdown
-
-The game announces its maintenance ("DragonRealms will be shutting
-down in 15 minutes for routine maintenance", then 10, 5, 1) and the
-parser keeps the target time (`shutdown_at`, docs/protocol.md). Once
-it is within the plan's `shutdown_minutes` (3 by default), `;train`
-gives the running task its return word — the hunt finishes the kill
-and walks home — ends a rest, and stops with a word to start it again
-after; an unattended run is no longer cut mid-fight when the link
-drops. The window's strip counts the minutes down in red. After
-lich-5's `DRParser.shutting_down?`, which dr-scripts poll (#277).
-
-## Alchemy: ;remedies
-
-Alchemy trains by making remedies, and every step teaches: on
-2026-09-22 a rank-2 Paladin went from 0/34 clear to rank 3, 60%
-dabbling in four CRUSHes of one head salve at the Crossing Alchemy
-Society. Crushing a raw foraged flower into powder taught nothing —
-Pfanston's 2014 shortcut is gone — so a salve it is: the apprentice
-remedies book's page STUDied ("You now feel ready to begin the
-crafting process."; the same answer warned the design was "far beyond
-your abilities" at rank 2, and the crushes taught anyway), five pieces
-of the dried herb in the mortar, CRUSH MY <herb> IN MY MORTAR WITH MY
-PESTLE ("With short strokes you crush some unfinished nemoih salve
-with your pestle." plus a mishap line, 17-20 s), a splash of water
-when the game asks ("You need another splash of water to continue
-crafting ..."; POUR MY WATER IN MY MORTAR: "You toss the water into
-the mortar and mix it in thoroughly."), and a catalyst last. The
-society sells the tools (mortar 125, pestle 125, bowl 125, mixing
-stick 93, sieve 218; ORDER # twice — the first quotes, the second
-buys), the books (apprentice 625, the work order logbook 625, RUBbed
-once to bond) and the dried herbs (25 nemoih 250, 25 red flowers 343)
-and water (10 splashes 62), and its Tool Shop has a dry press and a
-plant grinder for foraged herbs. It sells no catalyst, but the
-Crossing Forging Society's Supplies (map 8775) sells coal nuggets —
-tiny 31, massive 212 Kronars — and coal is a mid-grade catalyst
-(potency 50, toxicity 40); seolarn weed is the foraged one at rank 70.
-The catalyst goes in when the game asks ("You need another catalyst
-material to continue crafting ..."; "You vigorously rub the nugget
-alongside the mortar to scrape some shavings into the mixture." — the
-nugget stays in hand), and seven crushes later "Applying the final
-touches, you complete working on some dirty nemoih salve." — rank 2 to
-rank 5 on the one salve, "dirty" the quality the mishaps bought.
-`;remedies work` never leaves an order half-done for `;train`'s return
-word: at the target or the time budget the word makes it finish the
-order in hand — every stack and the hand-in — and end, so the task is
-`{"name": "workorders", "skills": ["Alchemy"], "script":
-"remedies", "args": ["work"], "return_word": "return",
-"return_grace": 2700, "minutes": 45}` — the grace covering an easy
-order of four stacks (the operator, 2026-09-23). `;remedies` runs the loop, holds at mind-lock, adds the profile's
-`catalyst` when asked and stows the finished salve; with no catalyst
-named it stops at the request, the salve left unfinished for the next
-run — and the next run, whatever it makes, finishes that salve first:
-on 2026-09-23 a run that ran out of nuggets left a nemoih salve in
-the mortar, the next order's flowers were refused ("You realize the
-red flowers is not required to continue crafting the nemoih salve, so
-you stop.") and the script spun on "Crush what?" four commands a
-second until stopped; now the remedy in the mortar is finished, taken
-out and stowed, and a CRUSH refused twice running ends the run. The
-recipe is the book page's, not the wiki's — blister cream is
-five red flowers per use, water, one piece of nemoih and a catalyst —
-and the STUDY is spent by the next attempt, a failed one included: a
-crush of the wrong herb, then the right one, both answered "You cannot
-figure out how to do that" until the page was studied again.
-`;remedies work` is the society's order (Elanthipedia: Work orders),
-completed live the same evening: ASK LANSHADO FOR EASY REMEDIES WORK
-in the Tool Shop — or wherever he stands: he wanders the society's five
-rooms ("Lanshado steadies himself and shuffles away", "softly shuffles
-into the area"), and a Tool Shop without him (01:26 on 2026-09-23, the
-first `;train` cycle) is followed by the building's other rooms, two
-laps, until a listing names him (`building_rooms`, the map's rooms
-sharing the title before the comma) — ("an order for some blister cream. I need 2 stacks (5
-uses each) finely-crafted, made from any material and due in 65
-roisaen"), each 25-piece stack crafted into a 5-use remedy, BUNDLE MY
-CREAM WITH MY LOGBOOK ("You notate the cream in the logbook then
-bundle it up for delivery."), READ MY LOGBOOK counting down ("deliver
-1 more within the next 33 roisaen", "This work order appears to be
-complete"), and GIVE MY LOGBOOK TO LANSHADO: "You hand Lanshado your
-logbook and bundled items, and are given 1146 Kronars in return." —
-748 Kronars of flowers and coal in, so an easy order at rank 6 pays
-about 400 over its materials and the training is free. So `;remedies
-work` runs the orders as a living, one after the next until `return`
-(or `count` orders): the logbook is READ first and an order it still
-tracks resumed (a complete one handed straight in); an order for an
-item the book has no page for, or whose herb the Supplies does not
-stock (hulnik, sufil), is asked again up to three times — a new order
-replaces the old without penalty; and what runs out mid-craft is
-bought on the spot — the tools stowed, INFO's purse checked and the
-shortfall WITHDRAWn from the teller, the society's Supplies (map 8862:
-the controlling herb a 25-piece stack per remedy still owed, the
-second herb one stack, water ten splashes at 62) or the Forging
-Society's Supplies (8775: a coal nugget per remedy, 31) walked to,
-ORDER # twice per item with the quote checked against the noun, each
-purchase STOWed — and the walk back takes up the remedy left in the
-mortar (the page studied again, no herb put in; only the controlling
-herb, which goes in first, starts the stack over). At mind-lock the
-crushes go on for the pay, said once (`once` ends there), and the
-closing tally is what was earned against what was spent. Every order
-handed in is a row in history.db's `work_orders` table
-(`client/game/workorders.py`, beside `;xp`'s mindstates): the pay,
-the materials at catalog prices (390 Kronars a blister cream — the
-stack of flowers, a piece of nemoih, a splash of water, a coal
-nugget), the coin that left the purse while the order was open, the
-crushes and the roundtime they cost (seconds a crush is what better
-tools lower — the society's iron set is the floor to measure from),
-the minutes end to end, and the rank before and after; `;remedies
-ledger` prints the totals, the profit and the seconds a crush of each
-item, and the last few orders. The order in progress is kept in
-`~/.revenant/workorders/<name>.json` from the master's word to the
-pay, so a run that ends mid-order and the run that resumes the
-logbook's order write one row between them (#288: the first run's
-1,496 Kronars of purchases had fallen outside the row); a catalyst
-run buys one nugget more than the stacks owed, a spare for a rejected
-stack.
-The first order on record (2026-09-22): 1,144 paid, 780 in
-materials, 748 spent — 364 profit, 396 kept, Alchemy 9 to 10. The
-purchase wordings are captured; a refusal for want of coin is not, so
-any answer that is not the hand-over ends the purchase and the order
-waits in the logbook. The order's quality is enforced after all: the
-third stack of the second scripted order (rank 10, Alchemy locked)
-answered BUNDLE with "The work order requires items of a higher
-quality, so you decide against bundling that." after four creams had
-passed — a rejected remedy is disposed of (the operator's call; the
-disposal goes through `client/game/discard.py` — into the room's
-bucket or bin when the listing shows one, DROP otherwise — so
-settings.json's `droppable` names the remedy nouns, and a refusal
-stows it instead),
-another stack is crafted for the order, three rejections
-in one order end it, and the ledger counts the rejected stacks in the
-order's cost. Two things bit: PUT MY NEMOIH
-IN MY MORTAR took the whole 25-piece stack (MARK and BREAK the stack
-to five first — uncaptured), and the mortar and pestle fill both hands,
-so every fetch stows the pestle first.
-
-## Classes: ;teach and ;listen
-
-Two characters in one room train each other: the teacher's TEACH
-<skill> TO <student> ("You begin to lecture Cecil on the proper use
-of the Scholarship skill.") and the student's LISTEN TO <teacher>
-("You begin to listen to Masah teach the Scholarship skill.") —
-captured 2026-09-22 in the Paladins' Guild Chambers, a Thief
-teaching a Paladin. The student learns the skill taught and
-Scholarship (LISTEN ... OBSERVE weights it toward Scholarship), the
-teacher Teaching, until either moves: the teacher then sees "All of
-your students have left, so you stop teaching." (Elanthipedia:
-Teach command, Listen command). `;teach scholarship to cecil` keeps
-the class offered on the teacher's side — again, after twenty
-seconds, whenever the students leave — until `return`; `;listen
-masah` joins it on the student's, reads the skill off the answer,
-holds on that skill's mindstate (the lock held until it drains,
-`once` exits) and LISTENs again when the class ended, giving up after
-three refusals. The student's side has no class-ended line at all —
-the teacher walking off shows only as the room's "Masah just left."
-— so `;listen` watches the teacher in the room's players every poll
-and the leaving line; the teacher's side sees an untaken offer
-expire within minutes ("You stop trying to teach Parry Ability to
-Cecil.") and `;teach` offers again at once, and a student joining
-("Cecil begins to listen to you teach the Parry Ability skill.").
-STOP LISTENING and STOP TEACHING end a class from either side —
-"You stop listening to Fallanor." / "Cecil stops listening to you."
-and "Because you have no more students, your class ends."; "You stop
-teaching." / "Fallanor stops teaching." — and `;teach` offers again
-after any of them while it runs (`;teach return` is the way to end
-it). ASSESS TEACH lists the room's classes ("Fallanor is teaching a
-class on extremely advanced (compared to what you already know)
-Parry Ability which is still open to new students.  You are in this
-class!" / "No one seems to be teaching.", five seconds of roundtime),
-and `;listen` with no teacher named joins the first class it lists.
-`;train` runs the student's side as a task,
-`{"name": "class", "skills": ["Parry Ability", "Scholarship"],
-"script": "listen", "args": ["fallanor", "parry ability"], "return_word": "return",
-"helper": "Fallanor", "helper_args": ["parry ability", "to",
-"cecil"], "helper_room": "7890"}`: the loop logs the teacher in
-for the task and out after it (the `helper` keys above) — and a
-teacher an earlier loop left behind is logged out too: the spawn
-marks the session's registry row (`spawned_by: train`, the student's
-`parent_port`), the next loop treats a marked session as its own, and
-the session itself logs out once the student's port has refused two
-heartbeats in a row (a minute or so; a relaunch within one beat keeps
-it), after Fallanor stood offering a class to nobody when Cecil's
-session was relaunched mid-class (#296, 2026-09-23) — and one
-class trains two skills — the student learns Scholarship for
-listening whatever is taught, so a class replaces the books (the
-operator, 2026-09-22). Its rest walks away and ends the class, and
-the teacher's `;teach` offers it again when the student is back and
-listening. The student's lines
-for a class ending, a LISTEN with nothing offered and a skill the
-teacher cannot give are uncaptured and read by shape.
-
-## Hostiles mid-training
-
-A trainer that meets hostiles — a song, a book, a climb, a mortar — no
-longer stops and stands among them: it runs the shared escape
-(`client/game/flight.py`, docs/combat.md): STAND, RETREAT twice and a
-move through the type-ahead, the climb or the compass exits in turn,
-until the room changes. `;train` reads a task's script ending with
-hostiles in the room as "ended among hostiles", gets away before the
-next task, and its rest's flee is the same burst. `;stop all` keeps
-`;deathwatch` up. The Crossing's auto invasion (goblins or trollkin at
-the gates, once a day; ASK HENGWILD ABOUT INVASION) is what taught it
-(#285, 2026-09-22); its announcement wording is uncaptured, so nothing
-yet pulls a character back before a hostile is in the room.
-
-## Out of scope in the first cut
-
-A dialog for the plan (the file is the interface), a trainer per
-skill (each new script is one task line away), conditions beyond
-mindstate (time of day, rested-experience hours, a spell's duration),
-and running two tasks at once. `;hunt` keeps its own buffs up and
-recasts one to train a magic skill (its profile's `buffs` and
-`train_casting`, [hunting.md](hunting.md); `;cast` runs that loop on
-its own, standing still, with a POWER a minute for Attunement — the
-gondola ride, the ferry, the wait at an altar, #225); a buff kept up under any
-other trainer is still the orchestrator's to learn. Each is a plan key
-and a branch away.
+How fast pools drain is in [experience.md](experience.md).

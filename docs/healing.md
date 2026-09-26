@@ -1,280 +1,68 @@
-# The healing model the scripts assume
+# Healing
 
-What heals what, for a low-circle character without an Empath at
-hand: bleeding is stopped by tending, wounds and scars are treated by
-herbs matched to the body area and the kind of damage, and the herbs
-are bought in shops or, at Knife Clan, eaten as cookies. `;tend` does
-the first today; `client/game/herbs.py` holds the second as data for
-the healing script still to be written; this file records the sources
-and what was captured, so it is not relearned. The wound vocabulary
-itself is [wounds.md](wounds.md).
+Stop the bleeding with `;tend`, heal wounds with herbs through `;heal`, and go to an NPC healer (`;heal npc`) or a player Empath for what herbs cannot touch. An Empath character heals others with `;empath`.
 
-## Bleeding first
+## What heals what
 
-A bleeder kills a low-circle character faster than any wound. TEND
-binds external bleeders and trains First Aid; internal bleeders take
-hundreds of ranks and are left for magic. `;tend` watches the bleeding
-indicator and tends worst-first (rates and responses from Lich's
-healing commons and [Elanthipedia: Damage](https://elanthipedia.play.net/Damage);
-model in [wounds.md](wounds.md)).
+| Damage | Answer |
+| --- | --- |
+| External bleeding | `;tend` |
+| Internal bleeding | magic (an Empath) |
+| Fresh wounds, external or internal | herbs (`;heal`), or an NPC healer |
+| Nerve damage ("twitching") | an NPC healer |
+| Scars | a player Empath; NPC healers leave them |
 
-## Herbs: area and kind
+The wound readings themselves are in [wounds.md](wounds.md).
 
-Elanthipedia's [Healing herbs](https://elanthipedia.play.net/Healing_herbs)
-table gives each herb a body part, a location (internal, external, or
-both) and a type (wounds or scars). `tools/herb_tables.py` generates
-`client/game/herbs_data.py` from it, and `client/game/herbs.py` maps
-the wiki's parts onto HEALTH's areas: "all" treats every area,
-"torso" the chest, abdomen and back, "face" the head, "skinnerve" the
-skin. `remedies(area, kind)` answers a parsed wound — `remedies("limb",
-"external")` lists the herbs for fresh external wounds to a limb —
-specific-part herbs first, cure-alls after. `sources(herb)` and
-`sources_in(herb, "Crossing")` are the wiki's shop table: in the
-Crossing, the Alchemy Society stocks most herb products, Mauriga's
-Botanicals a few (hulnik, muljin, sufil, yelith, blocil), Fenwyrthie's
-Curio Shop cebi and hisan.
-
-Eating a herb heals the matching damage over time; the wiki's
-foraging columns (ranks, season, time, terrain) ride along in the
-data for a forager script someday. Costs are not in the table.
-
-## Knife Clan's kitchen: the retired NPC healer
-
-Dokt, once the NPC healer for Knife Clan, no longer heals. Captured
-2026-09-11 in `[Knife Clan, Healer's Kitchen]` (map room 6218, tagged
-`dokt` and `npchealer`; the room "smells of baked goods with fading
-notes of an antiseptic"):
+## ;tend
 
 ```
-Dokt grunts.  "I'm done with poultices and salves.  Herbs still work, though.  Just...in a nicer shape now."
-Dokt rocks from heel to toe and back while stretching his limbs and grimacing.  He looks around and says, "Healing is in my blood.  I can't give it up, but it was well beyond time leave the scalpels to others."
-A glass counter reads:
-"These remedy-infused cookies are ideal for your external wounds."
-On the glass counter you see a crisped jadice cookie, a spiced bark hulnik cookie, a honey-glazed nilos cookie and a toasted plovik cookie.
+;tend         watch: tend every bleeder, worst first, whenever bleeding starts
+;tend once    one check-and-tend pass
 ```
 
-Elanthipedia's [Dokt](https://elanthipedia.play.net/Dokt) page agrees:
-"the former NPC healer for Knife Clan", "now a baker selling herbal
-remedy cookies". The four cookies are the four herbs for external
-wounds of the limbs (jadice), back (hulnik), abdomen (nilos) and
-chest (plovik) — `herbs.KITCHEN_COOKIES` — and nothing on the counter
-treats the head, the neck, scars or internal damage. What is not
-captured: the price of a cookie and the purchase grammar (LOOK shows
-"nothing unusual"; a bare ORDER answers "Order what?"; the character
-had no coins to try further). The lesson for the walker's sitting,
-scratched Paladin: minor abrasions close on their own, and a cookie
-run is a Kronar problem before it is a healing one.
+It trains First Aid as it goes and leaves internal bleeders alone.
 
-## The hospital: Shard's NPC healer Quentin, and `;heal npc`
-
-Every province has a hospital with an NPC Empath who heals for the
-province's coins, part by part ([Elanthipedia:
-Hospital](https://elanthipedia.play.net/Hospital)): Shard's is
-[Quentin](https://elanthipedia.play.net/Quentin) in Quentin's
-Healerium off Yavash Circle (map room 8908, tagged `npchealer`),
-Riverhaven's Fraethis (the Riverhaven Hospital's tending chamber,
-8720; "won't heal eye wounds"), Leth Deriel's Arthianna for Zoluren;
-the Crossing has none. It is what heals nerve damage and internal
-scars — the "twitching" of five backfires, which no herb a shop sells
-touches (2026-09-21) — and the wiki warns that a herb eaten first
-makes the Empath ignore that part's remaining wounds.
-
-Captured 2026-09-19 (#218), a circle-5 Paladin driven by hand:
+## ;heal: herbs
 
 ```
-The healer Quentin looks towards you, and you pull away.
-[Change your overall DEMEANOR or your DEMEANOR towards EMPATHS if you wish the healer Quentin to heal you.]
-You now regard empaths with a friendly demeanor.
-Quentin glances oddly at you and then touches your nervous system, snickering all the while.  After a moment it feels better.
-[72 Dokoras are taken from you.]
-Roundtime:  2 seconds.
+;heal              HEALTH, then use a carried herb for each wound
+;heal list         the plan: wounds, herbs, the shop; nothing used
+;heal buy          fetch coins from the teller, buy the missing herbs, use them
+;heal floor=minor  treat only wounds this bad or worse (default insignificant)
 ```
 
-Riverhaven's Fraethis, captured 2026-09-26 on a circle-1 Barbarian with 13
-Lirums and a bleeding chest, healed on credit rather than refusing:
+- One herb per wound area and kind, one use per run; it heals over time.
+- In the Crossing the herbalist is Mauriga's Botanicals, 812–1000 Kronars a herb. The Alchemy Society's herbs are crafting stock, not remedies.
+- A bleeder is reported, not treated: run `;tend`.
+
+## ;heal npc: the hospital
 
 ```
-Fraethis approaches you and touches you.
-Your chest tingles for a moment, then suddenly feels a bit better.  The Empath looks a bit pale.
-[Your debt to Therengia has been increased by 172 Lirums.]
+;heal npc          the nearest NPC healer
+;heal quentin      a healer by name (quentin, arthianna, fraethis)
 ```
 
-A second touch on the same chest cost 165 more; the bleeding stopped
-after the first. `;heal npc` counts a part put on the debt as a part
-healed and says so, and goes to the healer nearest the character —
-until that day it read the coin off the lowest-numbered healer on the
-map, called the Barbarian's Lirums foreign and stopped at the first
-step looking for a money-changer in another province.
+It walks to the healer, sets DEMEANOR FRIENDLY EMPATH (left friendly after), lies down, and lets the healer work part by part; then stands, reads HEALTH and says what was paid and what is left.
 
-The price is per part and by the wound (chest 54, neck 30, a leg 24,
-the nerves 72 that day); minor abrasions and scars were left. `;heal
-npc` is that visit: INFO first (an empty purse stops it before the
-walk — `;bank` exchanges foreign coins into the province's at the
-money-changer), the walk to the nearest `npchealer` room (Knife
-Clan's retired Dokt excluded), DEMEANOR FRIENDLY EMPATH — left
-friendly afterwards, the operator's choice — LIE DOWN, the touches
-until twenty quiet seconds, STAND, HEALTH, and what was taken and
-what is left said. The first scripted visit (2026-09-21, Cecil after
-six backfires): 5 gold Kronars exchanged into 3 gold, 4 silver and 3
-copper Dokoras at the First Bank of Ilithi's Coin Exchange, one
-touch — the nervous system, 120 Dokoras, "some severe twitching" gone
-from HEALTH — and then "Quentin whispers, "Just between you and me
-and the Queen, I think you don't really need healing.  Are you just
-my friend or something?"": the internal scars in the limbs and chest
-(the twitching per part) and the faint neck and abdomen scars are his
-to leave, an Empath's or a scar herb's (nuloe stem for the limbs at
-Shard's Osut'vie, 451 Dokoras, four steps away); the script ends the
-visit on that line. His threshold, from the two visits (the operator's
-reading, 2026-09-21): wounds above a minor floor — a level-4 nerve
-wound taken, "minor abrasions" left on 2026-09-19 — and never scars,
-level-4 internal ones included. The Hospital page marks only Elys and
-Arthianna "Heals all wounds", so the other healers have a floor too;
-where Quentin's lies between minor and severe is unmeasured.
+- The healer takes the province's coins, per part; foreign coins are exchanged first. An empty purse stops it before the walk.
+- Healers: Shard's Quentin, Riverhaven's Fraethis, Leth Deriel's Arthianna. The Crossing has none, and Knife Clan's Dokt only sells herb cookies now.
+- **Caveat:** healers leave scars and minor wounds. Eating a herb first can also make the healer skip that part.
 
-Arthianna the same evening, with the scars alone left: "Arthianna
-nudges you.  "What are you doing lying there with the wounded?" she
-grins." — "Heals all wounds" stops at scars too, and the script ends
-the visit on that line as well. A player Empath in her tent, a Master
-Healer, then healed the scars by touch ("Your all set now." — HEALTH:
-"no significant injuries"): the scars' answer is a player Empath.
+## Player Empaths
 
-Shard's Osut'vie (the stillroom, map room 13997, herbalist Idizieq)
-sells its remedies off a long counter, not the alchemy catalog, and
-ORDER there is a sale, not a quote (captured 2026-09-21): ORDER NULOE
-STEM — "You decide to purchase the stem, and pay the sales clerk 451
-Dokoras." / "The sales clerk hands you your nuloe stem." — while ORDER
-NULOE alone answers "Order what?" and ORDER STEM takes the first stem
-on the counter (a junliar stem, 676 Dokoras, for the back's internal
-wounds — bought by mistake that day). Name the whole item. The
-hospital page's own lines ("Elys approaches
-you and touches you.", "Your nervous system tingles for a moment,
-then suddenly feels a bit better.") are in the table for the other
-towns' healers, uncaptured.
+Ask aloud in the Empaths' Guild courtyard (`;go2 5713` in the Crossing). An Empath who touches you heals everything, scars and internal damage included, usually for free. This is never automated: the ask is yours.
 
-## Empaths
-
-Player Empaths heal by touch and take the wounds onto themselves; the
-Crossing guild is where to find one, and asking works. Captured
-2026-09-11 in `[Empaths' Guild, Courtyard Garden]` (map room 5713, uid
-14002 — a `;go2 5713` from anywhere in town), a circle-1 Paladin with
-minor abrasions from the felled tree, names replaced with the
-synthetic cast:
+## ;empath: healing as an Empath
 
 ```
-You say, "Hey folks - anyone able to remove the bruises from my rat hunting attempts."
-Sable whispers, "need healing?"
-Sable rests her hand on your arm with a soft smile.
-You feel a warmth radiate from Sable's touch.
-You have a brief sensation that leaves your wounds tingling.
-Your external head, neck, right arm, left arm, right leg, left leg, chest, abdomen and back wounds feel fully healed.
-Your internal head, neck, right arm, left arm, right leg, left leg, chest, abdomen and back wounds feel fully healed.
-Your external head, neck, right arm, left arm, right leg, left leg, chest, abdomen and back scars feel fully healed.
-Your internal head, neck, right arm, left arm, right leg, left leg, chest, abdomen and back scars feel fully healed.
-Sable whispers, "what was once yours is now mine"
-Gushing geysers of bright blue and white energy spring up from under Sable's feet, enwreathing her body with a cool glow.  Her body twists and shakes as flesh and bone regrow immediately, leaving Sable completely healed.
+;empath Uthmor           TOUCH, take every wound, touch again for bared scars, heal yourself
+;empath Uthmor take      the transfers only
+;empath self             Heal Wounds and Heal Scars on yourself, worst first
+;empath ... mana=15      mana per cast (default 15)
 ```
 
-One sentence aloud in the courtyard, an offer by whisper within a
-minute, a touch, and four lines that say every area and every kind
-is clean — the Empath's "what was once yours is now mine" is literal:
-the wounds went to her, and she cleared them off herself a moment
-later. Free, complete, internal damage and scars included, which no
-herb or cookie matches for a circle 1. The four "feel fully healed"
-lines are the signal a script would watch for; the guild courtyard is
-where to send `;go2` for it. Not data, not automated: an Empath is a
-person, and the ask is a sentence, not a command.
+- Bleeding first, then the worst wounds, fresh before scars; taking fresh wounds bares scars, so it touches again (up to three rounds).
+- It stops when mana drops below a fifth, or the patient is gone or refuses the touch.
 
-### The Empath's side: ;empath
-
-`;empath <patient>` is the other half, for the operator's own Empath:
-TOUCH, TAKE every wound most urgent first, TOUCH again for the scars
-the fresh wounds hid, then heal himself with Heal Wounds and Heal
-Scars until HEALTH reads clean (client/game/empathy.py; Elanthipedia:
-Empath healing, Take command, Heal Wounds, Heal Scars). Worked out by
-hand on 2026-09-26 with a high-circle Empath (Empathy 484) and a
-circle-13 Paladin fresh off a hunt, then scripted:
-
-1. **TOUCH lists the wounds on the familiar stream**, not the story —
-   "<patient>'s injuries include... / Wounds to the LEFT ARM: / Fresh
-   External: cuts and bruises about the left arm -- minor", four row
-   kinds (fresh or scars, external or internal), ending "<patient> has
-   normal vitality." A script reading only the story sees the link
-   line and nothing else.
-2. **The order** is the operator's: anything bleeding, then severity,
-   the head and torso before the limbs, fresh before scars, the outside
-   before the inside.
-3. **TAKE <patient> <part> [INTERNAL] [SCAR]** is answered "You sense
-   that <patient>'s external chest wounds are fully healed." once the
-   transfer ends. The link holds while TAKEs follow each other (eight in
-   a row on one TOUCH) and lapses when idle a minute: "You have no
-   empathic link with <patient> and cannot transfer his wounds." The
-   patient sees "<Empath> touches you.  He'll probably get warts." at
-   every TOUCH, so the script touches once per round.
-4. **Fresh wounds hide scars**: after every fresh wound was taken, the
-   next TOUCH listed internal scars on the limbs, chest and nerves the
-   first had not. A second round takes them.
-5. **A toad cannot be healed**: the patient turned into a toad by a box's
-   frog trap mid-healing, and every TAKE answered "no empathic link"
-   until it wore off.
-6. **Self-heal**: PREPARE HW 15 ("You feel fully prepared to cast your
-   spell."), CAST LEFT ARM — "The external wounds on your left arm
-   appear completely healed. / The internal wounds on your left arm
-   appear completely healed." Heal Scars the same; 15 mana cleared a
-   minor part in one cast, a negligible internal scar sometimes took
-   two ("greatly improved", then "completely healed").
-
-## The healing script: ;heal
-
-`;heal` (scripts/heal.py, #198) reads HEALTH through `wounds.py`, points
-a bleeder at `;tend`, and for every wound at the floor or worse
-(`insignificant` by default, `floor=minor` to leave scratches to close
-on their own) asks `remedies(area, kind)` for the first herb the town
-sells, else the table's first — one EAT per herb per run, since a herb
-heals its part over time. `;heal list` prints the plan with each
-herb's shop; `;heal buy` reads INFO for the coins carried, WITHDRAWs the
-shortfall against the wiki's prices at the nearest teller, walks to the
-herbalist (map tag `herbalist`: Mauriga's Botanicals, room 8259), and
-ORDERs then OFFERs each missing herb the way HELP SHOPS describes a
-catalog merchant (Grek's knife, 2026-09-14: "I can let that go for a
-mere 375 kronars." / "Well done! Here, take your knife."), then eats
-it. [Mauriga's Botanicals](https://elanthipedia.play.net/Mauriga's_Botanicals)
-lists jadice, plovik, nilos, hulnik, nemoih, georin and sufil at 812 to
-875 Kronars and yelith, ithor, muljin, junliar, blocil and riolur at
-937 to 1000 (2026-09-14); the [Alchemy Society](https://elanthipedia.play.net/Alchemy_Society_(Crossing))
-sells dried herbs in 25-piece lots for crafting, not for eating.
-Captured on the first buy, 2026-09-14: the quote "That is a very wise
-selection.  I can give the root to you for 875 kronars.", the sale
-"Mauriga smiles as she hands you your purchase.", with both hands full
-"Mauriga notices that your hands are full, and places it on the
-counter instead." — the first run bought three herbs before eating
-any, and two landed on the counter out of EAT's reach, so the script
-takes each on the spot and stows the rest — out of stock "I'm so sorry
-to disappoint you, but I don't have that reagent in stock.", and
-EAT's "You eat a portion of a nemoih root." The stem ORDER adopted
-then ("order plovik") was wrong: on 2026-09-25 (#308) every stem was
-answered out of stock, "order jadice" included, while "order jadice
-flower" quoted 812 and "order nilos salve" 812. ORDER wants the
-catalog's whole name, and her READ PAGE 1 / READ PAGE 2 list Jadice
-Flower, Plovik Leaf, Nilos Salve, Hulnik Grass, Nemoih Root, Georin
-Salve, Sufil Sap / Yelith Root, Ithor Potion, Muljin Sap, Junliar
-Stem, Blocil Potion, Riolur Leaf — the table's nilos and georin grass
-come from her as salves, which are RUBbed on, and the potions are
-DRUNK (dr-scripts' heal-remedy.lic). An open quote blocks the next
-ORDER ("Let's deal with one negotiation at a time, shall we?") until
-REFUSE ("Perhaps another day."). The first buy by the catalog's
-names (2026-09-25) bought six at 812-937 each and took every one:
-"You rub a portion of some nilos salve on yourself." (muljin sap and
-georin salve the same), "You eat a portion of some hulnik grass." /
-"of a plovik leaf." / "of a jadice flower.", then the healing ticks
-"You feel an itching sensation around your abdomen. / You feel a lot
-better." ("somewhat", "a little" as it slows) until HEALTH read scars
-only. DRINK is still to capture; an answer outside the tables is
-echoed as unrecognized.
-
-The first plan, from the badger-hunting Paladin's HEALTH of
-2026-09-14 (minor abrasions to the head and left arm, external and
-internal minor damage to the left leg, tiny scratches to the chest,
-minor twitching): jadice flower for both limbs, nemoih root for the
-head, plovik leaves for the chest, yelith root for the leg's internal
-damage, and aloe leaves for the skin — the last one no shop in town
-stocks, which the script says.
+`;stop <name>` ends any of these at once; `;heal return` and `;empath return` finish the step in hand first.

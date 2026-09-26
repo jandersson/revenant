@@ -5,7 +5,7 @@ hold a rescue grace inside it (answering the idle check), then QUIT —
 a logged-out body keeps for a raise (the operator's decision, #186) —
 or, asked for with `depart`, walk the depart ladder best-variant-first,
 judging every attempt by the indicator actually clearing. The wordings
-come from a captured death (2026-08-22, docs/death.md).
+come from a captured death (2026-08-22); the fixtures below are the record.
 """
 
 import importlib.util

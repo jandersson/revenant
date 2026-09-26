@@ -1,115 +1,32 @@
-# The circle-requirements model
+# Circle requirements
 
-`;circle` and beholder's Circle-gates view compute what gates the next
-circle — the guildleader's answer — locally from the latest `;sheet`
-snapshot, using the character's guild requirement table; `;circle`
-asks INFO first (read-only, no roundtime) for the circle and guild as
-they stand now — a snapshot several circles old gated a circle the
-character had passed (2026-09-20) — lays the exp window's ranks over
-the snapshot (a skill that ranked since the sheet was taken counts at
-its current rank), and `;circle fresh` runs `;sheet` first. All eleven
-circled guilds are encoded in
-[client/client/game/circles.py](https://github.com/jandersson/revenant/tree/master/client/client/game/circles.py); Commoners
-don't circle. This file records the model, the evidence, the wiki
-corrections applied, and the open questions, so a future discrepancy
-has a dated record of what was believed and why. Canon lives on each
-guild's Elanthipedia page (e.g.
-[Thief](https://elanthipedia.play.net/Thief)) — this is not a mirror.
+`;circle` tells you what gates your next circle — the guildleader's answer — computed locally, with no trip to the guild.
 
-## The model
+```
+;circle          INFO's circle and guild now, the exp window's ranks over the latest ;sheet snapshot
+;circle fresh    run ;sheet first, then the gates
+```
 
-A requirement is either a **named skill** (Thievery, Parry Ability,
-Inner Fire, Trading, ...) or a **slot** — "3rd Survival" is your
-third-best survival skill, whatever it is. Ranks required to advance
-TO circle C are the per-circle rates summed across the tables' circle
-bands (1-10, 11-30, 31-70, 71-100, 101-150, 151+) up to C; every
-encoding is validated by re-deriving the wiki's own Cumulative column
-in [test_circles.py](https://github.com/jandersson/revenant/tree/master/client/tests/test_circles.py) (checkpoints
-10/30/70/100; Thief through 200).
+Beholder's Circle-gates view shows the same. All eleven circled guilds are encoded in `client/client/game/circles.py`, transcribed from each guild's Elanthipedia page; Commoners don't circle.
 
-Slots fill best-first by (rank, percent). A guild's named skills stay
-out of its slots unless the wiki marks them **soft**: Thief (Thievery,
-Stealth), Bard (Tactics), Cleric (Attunement), Empath
-(Outdoorsmanship), Necromancer (Targeted Magic), Paladin (Shield
-Usage, Tactics, Scholarship), Ranger (Instinct). The captured Thief
-guildleader answer confirms the mechanic (Stealth sat in a survival
-slot while its named requirement was met). Barbarian's Primary Mastery
-is a slot over the two Mastery skills.
+## How a requirement is read
 
-Assumptions not directly stated by the wiki:
+- A requirement is a **named skill** (Thievery, Inner Fire, Trading...) or a **slot**: "3rd Survival" is your third-best survival skill, whatever it is.
+- The ranks needed for circle C are the per-circle rates summed over the wiki's bands (1-10, 11-30, 31-70, 71-100, 101-150, 151+). The tests re-derive each wiki Cumulative column from the rates.
+- Slots fill best-first by rank, then percent.
+- A guild's named skills stay out of its slots unless the wiki marks them soft (Thief's Stealth, Paladin's Tactics, Ranger's Instinct...).
 
-- Parry Ability, Expertise, and the Masteries never fill Nth-Weapon
-  slots; armor slots draw from the four armor skills — Light Armor,
-  Chain Armor, Brigandine, Plate Armor — never Defending, Shield
-  Usage, or Conviction (those appear only as named rows in every
-  guild's table). Until 2026-09-13 the set read "Light and Heavy
-  Armor", a pre-DR3 name, and a Paladin wearing plate with a leather
-  cowl was told "2nd Armor 0/4" while his guildleader asked for
-  nothing; the four names are the wiki's.
-- Equal-rank ties: the game fills a tied slot in an order of its own
-  — a Paladin's guildleader named "4th Survival (Locksmithing)" where
-  the sort (percent, then name) named First Aid, both at rank 1, 0%,
-  Outdoorsmanship beside them (2026-09-14, #195) — so a tied slot is
-  reported with every skill on that rank and percent: "4th Survival
-  (First Aid, Locksmithing or Outdoorsmanship) 1/2". The *set* of
-  unmet requirements is unaffected.
-- The Primary Magic skills (Holy Magic, Lunar Magic, Arcane Magic, Life
-  Magic, Elemental Magic, Inner Fire, Inner Magic) never fill an
-  Nth-Magic slot. This one is stated by the wiki, not assumed: the
-  Cleric page's requirements notes read "The following 'mastery' skills
-  never count toward Nth skill requirements, since they affect all or
-  most of the skillset", list the Primary Magic skill among them, and
-  name the fillers — "Attunement, Arcana, Targeted Magic, Augmentation,
-  Debilitation, Utility, and Warding" (checked 2026-09-05, #134). A
-  Primary Magic skill appears only where a table names it (Barbarian's
-  Inner Fire). The same note adds "For Clerics, Sorcery and Thievery
-  also do not count towards Nth skill requirements"; encoded as the
-  Cleric table's `excluded` list, and the Moon Mage page's "For Moon
-  Mages, Thievery also does not count towards Nth skill requirements"
-  likewise (#148). Both pages also list Offhand Weapon among the
-  mastery skills that never count, so it left the weapon slot set. The
-  other nine guild pages have not been checked for a list of their own;
-  a guild without an `excluded` entry gets none.
-- Barbarian's single lore slot is labeled "2nd Lore" in the wiki's
-  rate table but "1st Lore" in its cumulative table; encoded as the
-  best-other-lore slot ("1st Lore").
+## Assumptions
 
-## Evidence
+- Parry Ability, Expertise, Offhand Weapon and the Masteries never fill a weapon slot.
+- Armor slots draw only from Light Armor, Chain Armor, Brigandine and Plate Armor.
+- Primary Magic skills (Holy, Lunar, Inner Fire...) never fill a magic slot — the wiki says so. Clerics also exclude Sorcery and Thievery; Moon Mages exclude Thievery.
+- Barbarian's single lore slot is read as "1st Lore" (the wiki's two tables disagree).
+- Where a wiki rate table and its Cumulative column disagree, the value that fits the most checkpoints wins.
 
-- **Captured `ASK KALAG ABOUT CIRCLE`, 2026-08-22** (Thief, circle 1
-  → 2), against the same day's captured `EXP ALL` roster: the
-  computation reproduces the guildleader's list gate for gate,
-  including named-Stealth met at exactly 4 ranks while
-  Stealth-as-survival-slot gated, and three requirements each unmet
-  by exactly one rank.
-- **Each guild's Cumulative column** re-derives from the encoded
-  rates. Necromancer and Ranger publish no cumulative table — their
-  transcriptions carry no cross-check.
+## Caveats
 
-## Wiki corrections applied
-
-Where a guild's rate table and its cumulative column disagree, the
-value consistent across the most checkpoints wins:
-
-- **Thief**: 2nd Magic cumulative at circle 100 reads 130; the rates
-  and the 150 value (340 = 140 + 4×50) prove 140.
-- **Barbarian**: 2nd Armor band 11-30 reads 2/circle; three
-  checkpoints prove 1. 3rd and 4th Survival band 31-70 read 2/circle;
-  the checkpoints prove 1.5. The "Total Magic" cumulative row
-  miscounts its own rows by 10.
-- **Cleric**: 3rd Magic band 31-70 reads 4/circle; three checkpoints
-  prove 3.
-
-## Open questions
-
-- **2nd Lore at Thief circle 2**: the wiki rate (1/circle → 2 ranks)
-  says the captured roster's second-best lore should have been
-  listed; the guildleader named only 3rd Lore. `;circle` may
-  over-report that one slot around circle 2. The next few circles
-  discriminate — compare the guildleader's answer at circle 3.
-- **High-band incoherencies**: a few rows admit no per-circle rate
-  between the wiki's own checkpoints — Barbarian Expertise and Bard
-  4th Magic across 71-100, Bard 2nd Lore across 101-150. Rates are
-  encoded as printed and validation stops before the incoherent
-  band for those rows; expect small errors there until a capture
-  settles them.
+- **Ties:** the game fills an equal-rank slot in an order of its own, so `;circle` names every tied skill: "4th Survival (First Aid, Locksmithing or Outdoorsmanship) 1/2". The set of unmet gates is still right.
+- A few high-band rows (Barbarian Expertise and Bard 4th Magic at 71-100, Bard 2nd Lore at 101-150) have no rate that fits the wiki's checkpoints; expect small errors there.
+- Around Thief circle 2, `;circle` may list a 2nd Lore gate the guildleader does not.
+- Necromancer and Ranger publish no cumulative table, so their encodings carry no cross-check.

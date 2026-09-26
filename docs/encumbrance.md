@@ -1,137 +1,35 @@
-# Encumbrance: what a burden level says about the load
+# Encumbrance
 
-The game shows a burden level, not a weight, and Elanthipedia's
-[Encumbrance](https://elanthipedia.play.net/Encumbrance) page gives
-the rule that ties the two, so a level plus Strength and Stamina is a
-band of weights and the points that would lighten it are a small
-range. `;enc` does that arithmetic, and `;enc ballast` pins the load
-by adding coins of known weight until the level rises. The formula
-is the wiki's, from a pre-DR3 page, and it held when tested on
-2026-09-12: two ballast runs pinned a load, the rule said two points
-would lighten it, and two points did.
+The game shows a burden level, not a weight; `;enc` turns the level into a weight band and says how many Strength or Stamina points would lighten it. The rule is Elanthipedia's [Encumbrance](https://elanthipedia.play.net/Encumbrance) page, and it held when tested.
+
+## Using it
+
+```
+;enc                    the level, its weight band, the points that would lighten it
+;enc log <note>         log a reading with a note
+;enc ballast [step=50]  at a teller: pin the load's weight with coins
+;enc show               the logged readings
+```
 
 ## The rule
 
-Number the levels 1 to 12 — None, Light Burden, Somewhat Burdened,
-Burdened, Heavy Burden, Very Heavy Burden, Overburdened, Very
-Overburdened, Extremely Overburdened, Tottering Under Burden, "Are
-you even able to move?", "It's amazing you aren't squashed!". At
-level *L* a character carries up to
+Levels run 1 (None) to 12 ("It's amazing you aren't squashed!"). At level *L* a character carries up to
 
     10 × ceil(0.4 × (L + 5) × (Strength + Stamina)) stones
 
-(the wiki's example: 10 Strength and 10 Stamina carry 480 stones with
-none). Strength and Stamina count alike, there are no racial terms,
-and a coin of any metal weighs 0.2 stones. The wiki also notes the
-"armor anomaly": worn armor burdens less than the same armor carried
-in a container.
+- Strength and Stamina count the same; each point widens every band.
+- A coin of any metal weighs 0.2 stones.
+- Because the load's place inside its band is unknown, `;enc` gives the points needed as a range.
 
-## The captured case
+## Ballast
 
-2026-09-12, a circle-1 Dwarf Paladin at Strength 10 and Stamina 11,
-wearing light full plate, gauntlets and an armet with the greaves in
-hand and a sack holding a mask, vambraces, a leather jacket and a
-handaxe: `Encumbrance : Very Heavy Burden`. By the rule that is a
-load over 840 and up to 930 stones, and Heavy Burden holds up to
-40 × (Strength + Stamina): 880 at 22, 920 at 23, 960 at 24. So one
-to three points of either stat would lighten him, and which depends
-on where in the band the load sits. Stamina was the cheaper point
-for him (28 TDPs against 30, the Dwarf's discount), and each point
-widens every band the same.
+`;enc ballast` withdraws copper in steps (50 stones by default), reads ENCUMBRANCE after each, and stops when the level rises. The load is then known to one step, so the points needed are exact. The coins go back with DEPOSIT; every step is logged to history.db's `encumbrance` table. A smaller `step=` narrows the band.
 
-## The ballast result
+## Armor
 
-Two runs the same day, at the Crossing teller. With 50-stone steps,
-250 copper coins tipped him from Very Heavy Burden to Overburdened at
-once: a load over 880 and up to 930 stones. With 10-stone steps, 10,
-20 and 30 stones changed nothing and 40 stones (200 coins) tipped him:
-a load over 890 and up to 900 stones. The runs agree, the teller
-hands over and takes back exactly the count named, and ENCUMBRANCE
-answered each time within seconds. By the rule, Heavy Burden holds
-880 stones at 22 combined points and 920 at 23, so the prediction was
-that two points of Strength or Stamina make him Heavy Burden. `;tdp
-train stamina +2` took Stamina 11 → 13, and `;enc` read Heavy Burden:
-the rule holds. That one point alone would not have done it was not
-observed (both were bought in one run); the arithmetic says so.
+- **Wear armor, never carry it.** Worn full plate counted about half its 500 stones; the same plate in hand or in a sack counted in full.
+- **A container adds nothing.** An item reads the same in hand or in a sack.
 
-## The vault readings: what a stowed jacket costs
+## Weighing one item
 
-Later the same day, at Strength 10 + Stamina 13 (bands: None to 560,
-Light 561-650, Somewhat 651-740, Burdened 741-830, Heavy 831-920), the
-character walked into his vault carrying the boiled leather jacket in
-one hand and the light plate greaves in the other, the sack holding a
-map, a tunic and a handaxe. The last reading before that, with the
-jacket still in the sack, was Heavy Burden pinned to 870-920 stones.
-
-```
-You put your jacket on the wire rack which is inside a secure vault.
-  Encumbrance : Light Burden
-You put your greaves on the wire rack which is inside a secure vault.
-  Encumbrance : None
-```
-
-By the rule the jacket's departure took at least 221 stones off the
-load (from over 870 to at most 650), and the greaves' at least one
-(the wiki gives light plate greaves 101 stones, light full plate 500).
-A plain leather jacket is 150 stones on the wiki; a boiled one has no
-page. Either this jacket weighs over 220 stones, or a piece of armor
-carried rather than worn burdens more than its weight — the "armor
-anomaly" the wiki describes without numbers. The three-state readings
-below separate the two.
-
-## Three states: in hand, worn, in the sack
-
-The same day, in the vault chamber at 10 + 13, one item at a time with
-the level read after each move (bands: None to 560, Light 561-650,
-Somewhat 651-740, Burdened 741-830):
-
-| item | in hand | worn | in the sack |
-|---|---|---|---|
-| light plate greaves, 101 stones | Light | refused: the plate covers the legs | Light |
-| boiled leather jacket | Burdened | refused: the plate covers the torso | Burdened |
-| light full plate, 500 stones | Somewhat | None | — |
-
-Three things follow. **A container adds nothing**: hand and sack read
-the same band for both items, and a doubling would have crossed one.
-**The jacket burdens 220-359 stones** — from the bands, the base load
-with the plate worn is 460-549 (greaves in hand read Light), the base
-plus the jacket 741-830, and the earlier base plus jacket plus greaves
-870-920; heavy for a jacket, but it is what it is. **Worn armor burdens
-less than its weight**: held, the plate lifted the level from None to
-Somewhat, so everything else he carries is 151-240 stones; worn, the
-plate plus that rest fits under 560, so the worn plate counts at most
-320-409 of its 500 stones, and likely far less. That is the wiki's
-anomaly in numbers, and the practical rule with it: wear the armor,
-never carry it — in hand or in a sack, a piece counts in full.
-
-The rule's arithmetic, then, is right for what is carried; what is
-worn is discounted. Ballast at the teller gave the factor the same
-day: with the plate held the load pinned at 710-720 stones, worn at
-460-510, a difference of 200-260 for a 500-stone plate — **a worn
-full plate counts 240-300 stones, about half its weight**, and the
-rest of what he carries is 210-220.
-
-## Weighing things
-
-Ballast answers the burden question; for an item's weight in stones
-the direct instrument is MAMAS, the Merchant Adventurers' Mapping,
-Assay, and Survey Company ([Elanthipedia](https://elanthipedia.play.net/Category:MAMAS_shops)),
-with a Crossing branch: PUT <item> ON COUNTER weighs it for a fee,
-ASK CLERK ABOUT WEIGHT lists your 25 heaviest items, ASK CLERK ABOUT
-TOTAL your whole inventory lightest to heaviest. Appraising gives the
-weight too, but only with a great deal of Appraisal skill or as a
-Trader.
-
-## The experiment
-
-`;enc ballast` at a teller withdraws coins in steps (50 stones, 250
-coins, by default), asks ENCUMBRANCE after each, and stops at the
-first step that lifts the level. The load then weighs over
-`ceiling − ballast` and up to `ceiling − ballast + step`, where the
-ceiling is the band's upper edge; a smaller `step=` narrows it. Every
-step is a row in history.db's `encumbrance` table, the coins are
-copper so the count drawn is the count carried, they go back with
-DEPOSIT step by step, and the script says exactly
-how many points would drop the level at each end of the pinned range.
-Training that many (`;tdp train stamina +2`) and reading `;enc` again
-is the check on the formula, and the first case passed it.
+MAMAS shops weigh items for a fee: PUT <item> ON COUNTER, or ASK CLERK ABOUT WEIGHT for your 25 heaviest. The Crossing has a branch.
