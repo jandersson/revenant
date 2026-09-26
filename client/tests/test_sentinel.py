@@ -231,14 +231,36 @@ def test_a_staff_broadcast_and_an_arrival_ring_once_without_a_grace():
     assert s.bells == 1  # idle: the dock note alone, no bell (the operator)
     assert s.attention[-1] == "arrived: Uthmor\n"  # Sable is the operator's own
     assert watch.grace_until is None
-    # Hunting, someone walking in matters: one bell.
-    s.state.room_players = []
-    watch.watch_players(3.0)
+    # Hunting too, an arrival is no bell (the operator, 2026-09-26: a
+    # hunter sharing the ground rang one on every walk-in), and the same
+    # player comes back to the dock once in fifteen minutes.
     s.running.add("hunt")
+    notes = len(s.attention)
+    for when in (3.0, 5.0, 7.0):
+        s.state.room_players = []
+        watch.watch_players(when)
+        s.state.room_players = ["Uthmor"]
+        watch.watch_players(when + 1)
+    assert s.bells == 1
+    assert len(s.attention) == notes
+    s.state.room_players = []
+    watch.watch_players(2.0 + sentinel.ARRIVAL_REPEAT)
     s.state.room_players = ["Uthmor"]
-    watch.watch_players(4.0)
-    assert s.bells == 2
+    watch.watch_players(3.0 + sentinel.ARRIVAL_REPEAT)
     assert s.attention[-1] == "arrived: Uthmor\n"
+    assert s.bells == 1
+
+
+def test_comings_and_goings_are_never_spam():
+    # 2026-09-26: "Corporate Slave X just arrived." five times in twenty
+    # lines rang the spam bells (#306's shape, a hunter this time).
+    s = Handle()
+    watch = _watch(s)
+    for i in range(8):
+        watch.handle("", "Corporate Slave Uthmor just arrived.\n", 10.0 + i * 5)
+        watch.handle("", "Corporate Slave Uthmor goes out.\n", 12.0 + i * 5)
+    watch.judge(200.0)
+    assert s.bells == 0
 
 
 def test_the_rooms_description_on_either_side_of_its_room_frame_is_not_news():

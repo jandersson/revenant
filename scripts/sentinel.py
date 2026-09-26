@@ -26,8 +26,11 @@ most once an hour (the first evening rang on "You continue playing on
 your copper zills.", a walk's room descriptions, "Crush what?" fifteen
 times and a box's identify twelve). What rings once: a staff notice
 for this instance on the `ooc` stream ("TWEET: ... #drprime", a
-calendar notice aside) and, while ;hunt runs, a player arriving in the
-room (idle in a shop the arrivals are a ticker: the dock alone). Every other
+calendar notice aside). A player arriving in the room is a line in the
+dock, never a bell, the same player at most once in fifteen minutes,
+and a comings-and-goings line ("X just arrived.", "X goes out.") is
+never news or spam (the operator, 2026-09-26: a hunter sharing the
+ground rang the bells on every arrival). Every other
 story line never seen before lands in the Attention dock once and is
 remembered (`~/.revenant/sentinel/<name>.json`, numerals and currency
 words scrubbed; lines naming a player or a creature present when the
@@ -75,6 +78,7 @@ BELLS = 3
 BELL_GAP = 0.25
 TRAIN_RETURN_WAIT = 300.0
 DEFAULT_GRACE_MINUTES = 10
+ARRIVAL_REPEAT = 900.0  # a player's arrival is noted once in fifteen minutes
 # The scripts that do not act on the character: the monitors ;stop all
 # spares (ScriptManager.KEEP_ON_STOP_ALL), this watch, and the keepers
 # of the link and the clock. Anything else running is acting, and only
@@ -151,6 +155,7 @@ class Watch:
         self.sent_at = []  # when the character's own commands went out, the recent ones
         self.players = list(getattr(s.state, "room_players", None) or [])
         self.quiet_until = 0.0
+        self.arrival_rung = {}  # player -> when their arrival last rang
         self.grace_until = None
         self.grace_reason = ""
         self.grace_minutes = float(
@@ -337,13 +342,19 @@ class Watch:
             name for name in newcomers(self.players, current) if name not in self.own
         ]
         self.players = current
-        if arrived and now >= self.quiet_until:
-            self.note(f"arrived: {', '.join(arrived)}")
-            # The bell only while ;hunt runs: someone walking into the
-            # hunting room matters, a shop's passers-by are a ticker
-            # (the operator, 2026-09-23, idling at the Alchemy Society).
-            if self.s.is_running("hunt"):
-                self.ring(1)
+        # An arrival is a line in the dock, never a bell (the operator,
+        # 2026-09-26: "I don't care about players' arrivals" — a hunter
+        # sharing the ground walked in and out, a bell each time), and a
+        # player's comes back to the dock once in ARRIVAL_REPEAT.
+        fresh = [
+            name
+            for name in arrived
+            if now - self.arrival_rung.get(name, -ARRIVAL_REPEAT) >= ARRIVAL_REPEAT
+        ]
+        if fresh and now >= self.quiet_until:
+            for name in fresh:
+                self.arrival_rung[name] = now
+            self.note(f"arrived: {', '.join(fresh)}")
 
     # -- the grace and its end ------------------------------------------
 

@@ -61,6 +61,15 @@ BOILERPLATE = tuple(
         r"^>",
         r"^\*",
         r"^-",  # an inventory item line (INV LIST, the sheet's login listing)
+        # Comings and goings — a player's or a creature's — are the
+        # arrivals watch's business, never news or spam: "Corporate
+        # Slave X just arrived." five times in twenty lines rang the
+        # spam bells while a hunter shared the farmland (2026-09-26),
+        # the same shape as a climber on the athletics route (#306).
+        r"\bjust (?:arrived|went \w+|left)[.!]?$",
+        r"\bcame through\b",
+        r"\b(?:goes|went|runs|ran|wanders|walks|strides|limps|crawls|climbed|climbs)"
+        r" (?:out|up|down|through|(?:north|south)(?:east|west)?|east|west)\b[^.]*[.!]$",
     )
 )
 _WORDS = re.compile(r"[A-Za-z]{2,}")
