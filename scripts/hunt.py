@@ -21,7 +21,8 @@ until the room really changes, writes a move the map had wrong to the
 local map, and a hunt never ends among hostiles — it keeps getting
 away, #314)
 or at a wound at the profile's wound floor (HEALTH after each kill and
-whenever health drops), when the trained skills mind-lock, at the kill
+whenever health drops; one already there keeps the hunt from setting
+out), when the trained skills mind-lock, at the kill
 fuse, or when you type
 ;hunt return  (the current kill is finished first, then the walk home, then ;skins bank — the skins sold and the purse banked — unless ;train runs the hunt).
 ;stop hunt  quits where it stands.  ;hunt here  skips the walk;  ;hunt profile  prints the profile it would use.
@@ -2046,6 +2047,17 @@ def hunt(s, profile, db, travel=True, avoid=()):
         if not ground:
             s.echo(
                 f"hunt: nothing in the map matches ground {ground_name!r} — check the profile"
+            )
+            return
+        # A wound already at the floor ends the hunt before the buffs and
+        # the walk: the box farm set out with the chest wound the hunt
+        # before it had stopped on, spent three minutes buffing and a
+        # 33-step walk, and broke off after two kills (2026-09-27).
+        if hit := wound_at_floor(s, profile):
+            area, kind, lvl = hit
+            s.echo(
+                f"hunt: {area} {kind.replace('_', ' ')} {SEVERITIES[lvl]} — already "
+                "at the wound floor; not setting out (;heal treats it)"
             )
             return
         # The buffs before the walk, not among the prey: four casts on

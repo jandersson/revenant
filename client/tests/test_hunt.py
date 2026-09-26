@@ -457,6 +457,20 @@ def test_a_wound_at_the_floor_breaks_the_hunt_off_after_a_kill(travel):
     assert "sheathe my handaxe in my sack" not in arena.sent  # walked home, still armed
 
 
+def test_a_wound_already_at_the_floor_keeps_the_hunt_home(travel):
+    # 2026-09-27: the box farm set out with the chest wound the hunt
+    # before had stopped on — three minutes of buffs, 33 steps, two kills
+    # and the same break-off. HEALTH is asked before the buffs and walk.
+    arena = Arena({"attack": [(KILL, kill)], "health": [HURT]})
+    _run(arena, profile=PROFILE | {"wound_floor": "harmful"})
+    assert arena.sent == ["health"]
+    assert arena.walks == []
+    assert any(
+        "neck external harmful — already at the wound floor; not setting out" in text
+        for text in arena.echoed
+    )
+
+
 def test_a_wound_below_the_floor_keeps_hunting(travel):
     arena = Arena(
         {

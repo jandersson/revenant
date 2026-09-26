@@ -82,7 +82,7 @@ A `;train` task passes the style in its args: `"script": "hunt", "args": ["boxes
 
 ## What ends a hunt
 
-- **Health** below `health_floor`, or a **wound** at `wound_floor`: retreat, then walk home (or to the nearest room off the ground if no `home`).
+- **Health** below `health_floor`, or a **wound** at `wound_floor`: retreat, then walk home (or to the nearest room off the ground if no `home`). A wound already at the floor keeps the hunt from setting out; `;heal` treats it.
 - **A losing fight**: 60 swings without a kill, or three stuns in one fight, break off the same way.
 - **Locks**: every `train_skills` skill mind-locked, or every weapon in the rotation locked.
 - **The style's `until`**: boxes, or `max_kills`.
