@@ -1,39 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#232742"/>
-      <stop offset="1" stop-color="#0e0f1a"/>
-    </linearGradient>
-    <linearGradient id="yavash" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#e85558"/>
-      <stop offset="1" stop-color="#8f1f2c"/>
-    </linearGradient>
-    <linearGradient id="xibar" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#e8f0ff"/>
-      <stop offset="1" stop-color="#8fb0f0"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="114" fill="url(#bg)"/>
+  <!-- The moons of Elanthia, flat for small sizes (2026-09-26):
+       black Katamba as a crescent ringed in miasma, crimson Yavash,
+       blue Xibar, and a shard of Grazhir. -->
+  <rect width="512" height="512" rx="114" fill="#1a1d31"/>
 
-  <!-- Katamba, the black moon: burnt dark, ringed by faint miasma,
-       said to emit shadows as the other moons emit light -->
-  <path d="M 236,144 A 112,112 0 1,1 236,368 A 146,146 0 0,0 236,144 Z"
-        fill="none" stroke="#9a8fc0" stroke-opacity="0.12" stroke-width="26"/>
-  <path d="M 236,144 A 112,112 0 1,1 236,368 A 146,146 0 0,0 236,144 Z"
-        fill="none" stroke="#9a8fc0" stroke-opacity="0.30" stroke-width="10"/>
-  <path d="M 236,144 A 112,112 0 1,1 236,368 A 146,146 0 0,0 236,144 Z"
-        fill="#0a0a13" stroke="#b9b0dd" stroke-opacity="0.85" stroke-width="3"/>
+  <!-- Katamba: one faint ring of miasma, a heavy rim, a near-black body -->
+  <path d="M 262,108 A 150,150 0 1,1 262,404 A 184,184 0 0,0 262,108 Z"
+        fill="none" stroke="#9a8fc0" stroke-opacity="0.22" stroke-width="30"/>
+  <path d="M 262,108 A 150,150 0 1,1 262,404 A 184,184 0 0,0 262,108 Z"
+        fill="#0a0a13" stroke="#c9c1ea" stroke-width="12"/>
 
   <!-- Yavash, the crimson moon -->
-  <circle cx="124" cy="134" r="62" fill="#ff5a5a" opacity="0.10"/>
-  <circle cx="124" cy="134" r="48" fill="#ff5a5a" opacity="0.14"/>
-  <circle cx="124" cy="134" r="38" fill="url(#yavash)"/>
+  <circle cx="132" cy="148" r="74" fill="#e0505a" opacity="0.18"/>
+  <circle cx="132" cy="148" r="58" fill="#d9404a"/>
+  <circle cx="114" cy="130" r="18" fill="#f07a80"/>
 
-  <!-- Xibar, the blue ice moon -->
-  <circle cx="126" cy="330" r="42" fill="#8fb8ff" opacity="0.14"/>
-  <circle cx="126" cy="330" r="24" fill="url(#xibar)"/>
+  <!-- Xibar, the blue moon -->
+  <circle cx="142" cy="364" r="56" fill="#8fb8ff" opacity="0.18"/>
+  <circle cx="142" cy="364" r="40" fill="#a9c4ff"/>
+  <circle cx="130" cy="352" r="12" fill="#dbe6ff"/>
 
-  <!-- Shards of Grazhir -->
-  <path d="M396,110 Q399,121 410,124 Q399,127 396,138 Q393,127 382,124 Q393,121 396,110 Z" fill="#f3f1ff"/>
-  <path d="M428,162 Q429.5,167.5 435,169 Q429.5,170.5 428,176 Q426.5,170.5 421,169 Q426.5,167.5 428,162 Z" fill="#cfd4f5" opacity="0.9"/>
+  <!-- Grazhir's shards -->
+  <path d="M414,92 L427,126 L461,139 L427,152 L414,186 L401,152 L367,139 L401,126 Z" fill="#f3f1ff"/>
+  <path d="M452,204 L457,217 L470,222 L457,227 L452,240 L447,227 L434,222 L447,217 Z" fill="#cfd4f5"/>
 </svg>
