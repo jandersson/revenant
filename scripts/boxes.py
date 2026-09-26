@@ -16,9 +16,16 @@ skill, Disarm command, Pick command; client/game/boxes.py is the model,
 after dr-scripts' pick.lic, which pops boxes the same way). A box
 already in hand at the start — ;hunt's, refused by a full loot
 container — is PUT into the loot container or any other container
-INV LIST shows first, so PICK has its free hand; one that fits
-nowhere is worked first from the hand, two end the run before it
-starts, and nothing is dropped (2026-09-26). A box at a
+INV LIST shows first, so PICK has its free hand, else LOWERed to the
+feet (LOWER <box> TO GROUND, Elanthipedia: Lower command) and worked
+first, LIFTed one at a time; a box kept past the reading with no room
+in the container goes to the feet too. The at-feet slot is the
+character's, not the room's — the janitor never takes it — but no
+move is possible while anything lies there (Elanthipedia: Inventory,
+At Feet Slot; the operator, 2026-09-26), so before a flight, a walk
+to Ragge's and at every end, a `;stop` included, each box is LIFTed
+and put into a container with room, else held. Nothing is dropped. A
+box at a
 time out of the container (GET <box> FROM MY <container>, the next of
 its noun by ordinal when one was put back): DISARM MY <box> IDENTIFY
 reads the trap's difficulty, and a reading of "longshot" or worse is a
@@ -188,6 +195,8 @@ class Run:
         self.ring_empty = False
         self.refilled = False  # one trip to Ragge's a run at most
         self.doffed = []  # the hindering gear taken off, in order
+        self.at_feet = []  # box nouns LOWERed to the feet, not yet lifted
+        self.targets = [self.container]  # where a box may go, loot container first
 
     def say(self, text):
         self.s.echo(f"boxes: {text}")
@@ -543,41 +552,110 @@ def take_box(run, noun):
     return not any(word in lowered for word in ("referring", "get what", "can't"))
 
 
+FEET = "feet"
+
+
+def lower_to_feet(run, noun):
+    """The box in hand into the at-feet slot — LOWER <item> TO GROUND,
+    "You lower the <item> and place it on the ground at your feet."
+    (Elanthipedia: Lower command). Not a DROP: the slot stays with the
+    character, the janitor never clears it, and it holds fifteen items;
+    but no move is possible while anything lies there (Inventory, At
+    Feet Slot), so every box lowered is lifted again before the run
+    ends or flees (the operator, 2026-09-26). True when it went down."""
+    answer = ask(run.s, f"lower {noun} to ground")
+    if "at your feet" not in answer.lower():
+        run.report("lower", f"lower {noun} to ground", answer)
+        return False
+    run.at_feet.append(noun)
+    return True
+
+
+def lift(run, noun):
+    """LIFT <item>: the box at the feet back into a hand (Elanthipedia:
+    Lift command; the answer uncaptured, judged like a GET)."""
+    answer = ask(run.s, f"lift {noun}")
+    run.report("lift", f"lift {noun}", answer)
+    lowered = answer.lower()
+    if any(word in lowered for word in ("referring", "lift what", "can't", "nothing")):
+        return False
+    if noun in run.at_feet:
+        run.at_feet.remove(noun)
+    return True
+
+
+def into_a_container(run, noun):
+    """The box in hand PUT into the first container with room — the loot
+    container, then the others INV LIST shows; the container, or None."""
+    for container in run.targets:
+        answer = ask(run.s, f"put my {noun} in my {container}")
+        if "you put" in answer.lower():
+            return container
+    return None
+
+
+def clear_feet(run):
+    """Nothing left at the feet, before a flight and at every end: each
+    box LIFTed and put into a container with room, else held. After a
+    `;stop` every read raises, so the LIFTs go out blind as cleanup
+    puts — a box left at the feet would hold the character in the room."""
+    try:
+        for noun in list(run.at_feet):
+            if not lift(run, noun):
+                run.say(
+                    f"the {noun} at your feet would not LIFT — LIFT it before moving"
+                )
+                continue
+            container = into_a_container(run, noun)
+            if container:
+                run.say(f"the {noun} from your feet goes into the {container}")
+            else:
+                run.say(
+                    f"the {noun} from your feet stays in hand — no container has room"
+                )
+    except ScriptStopped:
+        for noun in run.at_feet:
+            run.s.put(f"lift {noun}", cleanup=True)
+        run.at_feet = []
+        raise
+
+
 def put_back(run, noun, why):
     """The box in hand back into the container, remembered so the next
-    GET passes it. False when the container had no room: the box is
-    still in hand."""
+    GET passes it; at the feet when the container has no room. False when
+    neither took it: the box is still in hand."""
     answer = ask(run.s, f"put my {noun} in my {run.container}")
-    if "you put" not in answer.lower():
+    if "you put" in answer.lower():
+        run.kept[noun] = run.kept.get(noun, 0) + 1
+        run.say(f"the {noun} goes back into the {run.container} — {why}")
+        return True
+    if lower_to_feet(run, noun):
+        run.kept_elsewhere += 1
         run.say(
-            f"the {noun} does not fit back into the {run.container} — it stays in hand"
+            f"no room in the {run.container}: the {noun} goes down at your feet — {why}"
         )
-        return False
-    run.kept[noun] = run.kept.get(noun, 0) + 1
-    run.say(f"the {noun} goes back into the {run.container} — {why}")
-    return True
+        return True
+    run.say(f"the {noun} does not fit back into the {run.container} — it stays in hand")
+    return False
 
 
 def stash_held(run):
     """Boxes already in hand at the start — ;hunt's, refused by a full
     loot container (2026-09-26: a chest and a casket) — put into the loot
-    container, else any container INV LIST shows, so both hands are free
-    to pick. Returns ({noun: container} put away, [nouns still in hand]).
-    Nothing is dropped."""
+    container, else any container INV LIST shows, else at the feet, so
+    both hands are free to pick. Returns ({noun: container or FEET},
+    [nouns still in hand]). Nothing is dropped."""
     s = run.s
     hands = (getattr(s.state, "left_hand", None), getattr(s.state, "right_hand", None))
-    possessions = getattr(s.state, "possessions", None) or []
-    targets = [run.container] + [
-        noun for noun in containers(possessions) if noun != run.container
-    ]
     placed, stuck = {}, []
     for noun in held_boxes(*hands):
-        for container in targets:
-            answer = ask(s, f"put my {noun} in my {container}")
-            if "you put" in answer.lower():
-                placed[noun] = container
-                run.say(f"the {noun} in hand goes into the {container}")
-                break
+        container = into_a_container(run, noun)
+        if container:
+            placed[noun] = container
+            run.say(f"the {noun} in hand goes into the {container}")
+        elif lower_to_feet(run, noun):
+            placed[noun] = FEET
+            run.say(f"no container has room: the {noun} in hand goes down at your feet")
         else:
             stuck.append(noun)
     return placed, stuck
@@ -897,10 +975,14 @@ def kept(run, noun):
     return "kept"
 
 
-def one_box(run, noun, held=False):
+def one_box(run, noun, source="container"):
     """One box out, worked and away: "done", "kept", "lost" or
-    "stop:<why>". `held`: the box is in hand already, no GET."""
-    if not held and not take_box(run, noun):
+    "stop:<why>". `source`: "container" (GET it), "feet" (LIFT it) or
+    "hand" (in hand already)."""
+    if source == FEET:
+        if not lift(run, noun):
+            return "lost"
+    elif source != "hand" and not take_box(run, noun):
         return "lost"
     outcome = disarm(run, noun)
     if outcome.startswith("stop:"):
@@ -939,19 +1021,23 @@ def run_loop(s, profile, options):
         run.say(f"EXP shows no {SKILL} — nothing to train")
         return
     primary = run.container
+    possessions = getattr(s.state, "possessions", None) or []
+    run.targets = [primary] + [c for c in containers(possessions) if c != primary]
     placed, stuck = stash_held(run)
     if len(stuck) > 1:
         run.say(
-            f"the {stuck[0]} and the {stuck[1]} are in hand and no container has "
-            "room for either — PICK wants a free hand; nothing is dropped, "
+            f"the {stuck[0]} and the {stuck[1]} are in hand and neither a container "
+            "nor your feet took them — PICK wants a free hand; nothing is dropped, "
             "make room and start again"
         )
+        clear_feet(run)
         return
     answer = ask(s, f"look in my {primary}")
     run.report("look in container", f"look in my {primary}", answer)
     nouns = boxes_in(answer)
     if nouns is None:
         run.say(f"cannot read the {primary} — is it worn or held, and open?")
+        clear_feet(run)
         return
     sources = [(primary, nouns)] if nouns else []
     # Boxes that landed elsewhere — a full sack's STOW, a hand's put-away
@@ -962,25 +1048,38 @@ def run_loop(s, profile, options):
         # A box just put away from a hand is there whatever the login's
         # INV LIST says.
         extra = box_containers(possessions, primary)
-        extra += [c for c in placed.values() if c != primary and c not in extra]
+        extra += [
+            c for c in placed.values() if c not in (primary, FEET) and c not in extra
+        ]
         for container in extra:
             found = boxes_in(ask(s, f"look in my {container}")) or []
             if found:
                 sources.append((container, found))
-    if not sources and not stuck:
+    feet = list(run.at_feet)
+    if not sources and not stuck and not feet:
         run.say(f"no boxes in the {primary} — nothing to pick")
         return
     if stuck:
         run.say(f"the {stuck[0]} in hand fits nowhere — it is worked first")
+    if feet:
+        run.say(
+            f"{len(feet)} box(es) at your feet — worked first, LIFTed one at a time"
+        )
     for container, found in sources:
         run.say(f"{len(found)} box(es) in the {container} — {SKILL} {value}/34")
     try:
         doff(run)
         sit(run)
-        work = [(primary, noun, True) for noun in stuck] + [
-            (container, noun, False) for container, found in sources for noun in found
-        ]
-        for container, noun, held in work[:MAX_BOXES]:
+        work = (
+            [(primary, noun, "hand") for noun in stuck]
+            + [(primary, noun, FEET) for noun in feet]
+            + [
+                (container, noun, "container")
+                for container, found in sources
+                for noun in found
+            ]
+        )
+        for container, noun, source in work[:MAX_BOXES]:
             if container != run.container:
                 run.kept_elsewhere += sum(run.kept.values())
                 run.container, run.kept = container, {}
@@ -988,6 +1087,7 @@ def run_loop(s, profile, options):
             if reason:
                 run.say(f"{reason} — stopping")
                 if "hostiles" in reason:
+                    clear_feet(run)  # no move is possible with a box there
                     stand(run)
                     flight.react(s, "boxes")
                 return
@@ -1006,8 +1106,11 @@ def run_loop(s, profile, options):
                 # Between boxes, the loose pick put away: the trip to
                 # Ragge's for the ring (the operator, 2026-09-26).
                 put_pick_away(run)
+                clear_feet(run)  # the walk to Ragge's
                 refill_ring(run)
-            outcome = one_box(run, noun, held)
+            outcome = one_box(run, noun, source)
+            if outcome == "stop:no lockpick":
+                clear_feet(run)  # the walk to Ragge's
             if outcome == "stop:no lockpick" and refill_ring(run):
                 # Nothing to pick with at all: the ring refilled, the
                 # same box again (put back for "the run ends" — not kept).
@@ -1017,6 +1120,7 @@ def run_loop(s, profile, options):
                 why = outcome[5:]
                 run.say(f"{why} — stopping")
                 if "hostiles" in why:
+                    clear_feet(run)
                     stand(run)
                     flight.react(s, "boxes")
                 return
@@ -1030,8 +1134,13 @@ def run_loop(s, profile, options):
             f"{run.kept_elsewhere + sum(run.kept.values())} kept for a better locksmith"
         )
     finally:
-        put_pick_away(run)
-        don(run)
+        try:
+            put_pick_away(run)
+            don(run)
+        finally:
+            # After the gear is back on, both hands free: nothing is left
+            # at the feet to hold the character in the room.
+            clear_feet(run)
         stand(run)
 
 

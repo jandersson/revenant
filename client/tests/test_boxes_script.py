@@ -851,12 +851,53 @@ def test_boxes_in_hand_go_into_a_container_with_room_before_the_run():
 
 
 def test_two_boxes_in_hand_with_no_room_anywhere_end_the_run_before_it_starts():
-    fake = Fake([("put my", SACK_FULL)], mindstates=[1])
+    fake = Fake([("put my", SACK_FULL)], mindstates=[1])  # LOWER unanswered
     _holding(fake, "chest", "casket")
     out = run(fake)
-    assert "the chest and the casket are in hand and no container has room" in out
+    assert "the chest and the casket are in hand and neither a container" in out
     assert "sit" not in fake.sent
     assert "drop" not in " ".join(fake.sent)
+
+
+# Elanthipedia: Lower command. The at-feet slot is the character's, not
+# the room's: the janitor never takes it, but no move is possible while
+# anything lies there (the operator, 2026-09-26).
+AT_FEET = "You lower the {} and place it on the ground at your feet.\n"
+
+
+def test_boxes_with_no_room_anywhere_go_to_the_feet_and_are_lifted_to_work():
+    fake = Fake(
+        [
+            ("put my", SACK_FULL),
+            ("lower chest to ground", AT_FEET.format("chest")),
+            ("lower casket to ground", AT_FEET.format("casket")),
+            ("lift chest", "You pick up a reinforced oaken chest.\n"),
+            ("lift casket", "You pick up a driftwood casket.\n"),
+            ("look in my sack", "In the canvas sack you see a cotton rag.\n"),
+            ("look in my backpack", "In the rugged backpack you see an iron mortar.\n"),
+            ("disarm my chest identify", CHEST_LONGSHOT),
+            (
+                "disarm my casket identify",
+                "Disarming the casket would be a longshot.\n",
+            ),
+        ],
+        mindstates=[1],
+    )
+    _holding(fake, "chest", "casket")
+    out = run(fake)
+    assert "no container has room: the chest in hand goes down at your feet" in out
+    assert "2 box(es) at your feet" in out
+    sent = fake.sent
+    assert sent.index("lift chest") < sent.index("disarm my chest identify")
+    # Both past the reading: back at the feet, and lifted again at the
+    # end — never a run that leaves the character unable to move.
+    assert sent.count("lower chest to ground") == 2
+    assert sent.count("lift chest") == 2 and sent.count("lift casket") == 2
+    assert sent.index(
+        "lift casket", sent.index("disarm my casket identify")
+    ) > sent.index("disarm my casket identify")
+    assert "the chest from your feet stays in hand" in out
+    assert "drop" not in " ".join(sent)
 
 
 def test_one_box_in_hand_with_no_room_is_worked_first_without_a_get():
@@ -876,3 +917,28 @@ def test_one_box_in_hand_with_no_room_is_worked_first_without_a_get():
     assert not any(c.startswith("get chest") for c in fake.sent)
     # Past the reading and nowhere to put it back: the run ends, in hand.
     assert "the chest is in hand with nowhere to go — stopping" in out
+
+
+def test_a_stop_still_lifts_every_box_off_the_feet():
+    # After ;stop boxes every read raises; a box left at the feet would
+    # keep the character from moving, so the LIFTs go out as cleanup.
+    from client.engine.scripting import ScriptStopped
+
+    puts = []
+
+    def stopped(s, command, *_):
+        raise ScriptStopped()
+
+    handle = SimpleNamespace(
+        echo=lambda text: None,
+        put=lambda cmd, cleanup=False: puts.append((cmd, cleanup)),
+    )
+    script.probe = SimpleNamespace(ask=stopped)
+    runner = script.Run(handle, PROFILE, script.parse_args([]))
+    runner.at_feet = ["chest", "casket"]
+    try:
+        script.clear_feet(runner)
+    except ScriptStopped:
+        pass
+    assert puts == [("lift chest", True), ("lift casket", True)]
+    assert runner.at_feet == []

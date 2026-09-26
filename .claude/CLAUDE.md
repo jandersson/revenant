@@ -523,7 +523,12 @@ Traps that cost time before:
   puts a listed item in the room's trash (a bucket, a waste bin, a
   chute, off the parser's `room_objs`) before it ever DROPs; a hand
   is freed with STOW from the parser's hand state, a load lightened
-  by stowing or banking coins. No echo suggests dropping.
+  by stowing or banking coins. No echo suggests dropping. LOWER
+  <item> TO GROUND is not a drop: the at-feet slot stays with the
+  character and the janitor never clears it, but no move is possible
+  while anything lies there, so a script that lowers (`;boxes`, a box
+  with no room anywhere) LIFTs it again before any walk, flight or
+  end, a `;stop` included (the operator, 2026-09-26).
 - **Claude drives a session only through `revenant-send --origin claude`**,
   so every line it sends shows in the window as `>> [claude] ...` and
   the operator can tell its commands from their own and from other
