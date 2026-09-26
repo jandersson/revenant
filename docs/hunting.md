@@ -730,6 +730,45 @@ ground (mostly cougars, 30-49; bobcats 45-65) ended with Small Edged
 weighed; the defenses (Evasion, Parry, Shield) cap the same way and are
 left to the reader of the numbers.
 
+## Choosing a ground: the bestiary
+
+A ground is named three ways, tried in order: an exact map tag, a
+hunting zone of the bestiary, a ;go2 target (a room id, a title). The
+bestiary is dr-scripts' data/base-hunting.yaml — 344 zones, each with
+its map rooms, province and creatures with the rank range they suit
+("# https://elanthipedia.play.net/Rat 0-30" above `rats:`), and six
+towns' zones weakest first — generated into
+`client/game/hunting_data.py` by `tools/hunting_tables.py` (read line
+by line, since the ranges live in the YAML's comments; never
+hand-edited) and read by `client/game/hunting.py` (#340).
+
+Why: the map's tags were the only names, and they are sparse. On
+2026-09-26 a circle-1 Barbarian at Riverhaven's guild, profile ground
+`rats`, walked 169 steps toward the Crossing's shipyard until the
+ferry wanted 30 lirums he did not have; the ground was changed to the
+tagged grass eels (25-50), which beat him to a harmful chest wound in
+under a minute. Riverhaven's weakest zones, heggarangi frogs (0-26,
+rooms 487-490) and zombie goblins (5-35), carry no tag. A tag still
+wins: 293 of the 320 zone names that are also tags list the same
+rooms, 27 differ by a room or a few, and no ground that worked moves.
+
+`;hunt grounds [rank]` lists the zones whose range holds the rank —
+the weakest of the profile's weapon skills by default, so the listing
+never suggests what the weakest weapon cannot handle — nearest first
+by the map's travel time from where the character stands, unreachable
+zones left out:
+
+```
+hunt: hunting zones for rank 4, nearest first:
+  heggarangi_frog_riverhaven (0-26: Heggarangi frog) — 24 step(s)
+  mechanical_mice (0-2000: Giant mechanical mouse) — 90 step(s)
+  black_rats (0-30: Rat) — 151 step(s)
+```
+
+The ranges are dr-scripts' reading of each creature; the Critter
+template's MinCap/MaxCap (`creatures_data.py`, "A ground outgrown") is
+the wiki's, and the two need not agree.
+
 ## Hunt styles
 
 One character hunts for more than one reason: to train the weapon

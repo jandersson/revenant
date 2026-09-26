@@ -1,0 +1,160 @@
+"""The hunting bestiary (#340): dr-scripts' hunting zones read into
+ZONES and TOWNS by tools/hunting_tables.py, a ground resolved as a map
+tag, a zone or a ;go2 target, and the zones that suit a rank listed
+nearest first (client/game/hunting.py)."""
+
+import importlib.util
+import pathlib
+
+from client.game import hunting
+from client.game.mapdb import MapDB
+
+REPO = pathlib.Path(__file__).parents[2]
+
+
+def _tables():
+    spec = importlib.util.spec_from_file_location(
+        "hunting_tables", REPO / "tools/hunting_tables.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+tables = _tables()
+
+# The YAML's shapes: the escort zones left out, the town lists, a banner
+# per province, the rank comment above a zone, a note, a commented-out
+# room, a zone of two creatures, an open-ended range.
+YAML = """---
+escort_zones:
+  grave_worms:
+    base: 2317
+hunting_areas_by_town:
+  Riverhaven:
+  # https://elanthipedia.play.net/Heggarangi_frog                          00-26
+    - heggarangi_frog_riverhaven
+    - grass_eels_riverhaven
+hunting_zones:
+################################################################################
+##########                          ZOLUREN                           ##########
+################################################################################
+  # https://elanthipedia.play.net/Rat                                       0-30
+  # same rats, out ne gate
+  black_rats:
+  - 14106
+  - 14107 # a slow room
+################################################################################
+##########                          THERENGIA                         ##########
+################################################################################
+  # https://elanthipedia.play.net/Heggarangi_frog                          00-26
+  heggarangi_frog_riverhaven:
+  - 488
+  # - 13126
+  - 487
+  # https://elanthipedia.play.net/Grass_eel                                25-50
+  # https://elanthipedia.play.net/Wood_Troll_(1)                           36-?
+  grass_eels_riverhaven:
+  - 591
+"""
+
+
+def test_the_generator_reads_zones_ranges_provinces_and_towns():
+    zones, towns = tables.parse(YAML)
+    assert set(zones) == {
+        "black_rats",
+        "heggarangi_frog_riverhaven",
+        "grass_eels_riverhaven",
+    }
+    assert zones["black_rats"] == (
+        "Zoluren",
+        [14106, 14107],
+        [("Rat", 0, 30)],
+        ["same rats, out ne gate"],
+    )
+    assert zones["heggarangi_frog_riverhaven"] == (
+        "Therengia",
+        [488, 487],
+        [("Heggarangi frog", 0, 26)],
+        [],  # the commented-out room is no note
+    )
+    assert zones["grass_eels_riverhaven"][2] == [
+        ("Grass eel", 25, 50),
+        ("Wood Troll", 36, None),
+    ]
+    assert towns == {
+        "Riverhaven": ["heggarangi_frog_riverhaven", "grass_eels_riverhaven"]
+    }
+
+
+def test_the_generated_table_holds_the_zones_the_hunt_leans_on():
+    assert hunting.zone("rats")[1] == (6049, 6048, 6047, 6046, 6050, 6053, 6054)
+    assert hunting.zone_range("heggarangi_frog_riverhaven") == (0, 26)
+    assert hunting.TOWNS["Riverhaven"][0] == "heggarangi_frog_riverhaven"
+    assert len(hunting.ZONES) > 300
+
+
+MAP = MapDB(
+    [
+        {
+            "id": 7821,
+            "uid": [1],
+            "title": ["[Barbarian Guild]"],
+            "wayto": {"488": "go path", "6046": "go ferry"},
+            "timeto": {"488": 5, "6046": 300},
+        },
+        {
+            "id": 488,
+            "uid": [488],
+            "title": ["[Riverhaven, Pond]"],
+            "wayto": {"487": "north"},
+        },
+        {"id": 487, "uid": [487], "title": ["[Riverhaven, Pond]"], "wayto": {}},
+        {
+            "id": 6046,
+            "uid": [6046],
+            "title": ["[Barana's Shipyard]"],
+            "tags": ["rats"],
+            "wayto": {},
+        },
+        {
+            "id": 591,
+            "uid": [591],
+            "title": ["[Riverhaven West Wilds, Meadow]"],
+            "wayto": {},
+        },
+    ]
+)
+
+
+def test_a_ground_is_a_map_tag_first_then_a_zone_then_a_go2_target():
+    # "rats" is a tag in this map: the tag's rooms, not the zone's seven.
+    assert hunting.ground_rooms(MAP, "rats") == [6046]
+    # An untagged zone: its rooms the map knows.
+    assert hunting.ground_rooms(MAP, "heggarangi_frog_riverhaven") == [487, 488]
+    # Neither: ;go2's resolution, a room id here.
+    assert hunting.ground_rooms(MAP, "591") == [591]
+    assert hunting.ground_rooms(MAP, "") == []
+
+
+def test_the_zones_that_suit_a_rank_are_listed_nearest_first():
+    rows = hunting.grounds(MAP, 7821, 4)
+    names = [name for name, _, _, _ in rows]
+    assert names[0] == "heggarangi_frog_riverhaven"  # 5 s away
+    assert "rats" in names  # the ferry's 300 s, after it
+    assert "grass_eels_riverhaven" not in names  # 25-50 does not hold rank 4
+    assert hunting.describe(rows[0]) == (
+        "heggarangi_frog_riverhaven (0-26: Heggarangi frog) — 1 step(s)"
+    )
+
+
+def test_the_rank_to_ask_with_is_the_weakest_weapons():
+    profile = {"weapons": ["sword:Small Edged:scabbard", "fists:Brawling"]}
+    experience = {
+        "Small Edged": {"rank": 5},
+        "Brawling": {"rank": 4},
+        "Large Edged": {"rank": 1},  # not a turn of this profile
+    }
+    assert hunting.weapon_rank(profile, experience) == 4
+    assert hunting.weapon_rank({"weapons": []}, experience) is None
+    assert hunting.fits("rats", 30) and not hunting.fits("rats", 31)

@@ -25,6 +25,11 @@ whenever health drops), when the trained skills mind-lock, at the kill
 fuse, or when you type
 ;hunt return  (the current kill is finished first, then the walk home, then ;skins bank — the skins sold and the purse banked — unless ;train runs the hunt).
 ;stop hunt  quits where it stands.  ;hunt here  skips the walk;  ;hunt profile  prints the profile it would use.
+;hunt grounds [rank]  lists the hunting zones whose rank range holds the weakest weapon's rank (or <rank>), nearest first.
+The ground (`hunting_ground`) is a map tag, else a hunting zone of
+the bestiary — dr-scripts' base-hunting.yaml, client/game/hunting.py:
+heggarangi_frog_riverhaven, rats, goblins ... with their rooms and
+rank ranges — else a ;go2 target (a room id, a title) (#340).
 ;hunt <style>  hunts one of the profile's hunt styles — `hunts` in the
 profile file, a name to the keys that differ for that kind of hunt
 (ground, prey, weapons, skinning, the box limit, the skills) and
@@ -200,7 +205,7 @@ import time
 from pathlib import Path
 from collections import Counter
 
-from client.game import barbarian, buffs, flight, loot, lootlog, probe
+from client.game import barbarian, buffs, flight, hunting, loot, lootlog, probe
 from client.game.creatures import aim, noun_of, outgrown
 from client.game.probe import classify
 from client.game.profile import describe, load_profile
@@ -1994,7 +1999,8 @@ def loop(s, profile, db, ground, avoid, tally):
 
 def hunt(s, profile, db, travel=True, avoid=()):
     ground_name = profile["hunting_ground"]
-    ground = sorted(db.resolve(ground_name)) if ground_name else []
+    # A map tag, else a bestiary zone, else a ;go2 target (#340).
+    ground = hunting.ground_rooms(db, ground_name)
     tally = Tally()
     set_stores(s, profile)
     if travel:
@@ -2089,6 +2095,28 @@ def sell_and_bank(s):
         s.sleep(1)
 
 
+def show_grounds(s, profile, db, words, avoid=()):
+    """;hunt grounds [rank]: the bestiary's zones whose rank range holds
+    the rank — the given one, else the weakest of the profile's weapon
+    skills — nearest first from where the character stands (#340)."""
+    rank = next((int(word) for word in words if word.isdigit()), None)
+    if rank is None:
+        rank = hunting.weapon_rank(profile, getattr(s.state, "experience", None))
+    if rank is None:
+        s.echo("hunt: no weapon skill to go by — ;hunt grounds <rank>")
+        return
+    here = locate(db, s.state)
+    rows = hunting.grounds(db, here, rank, avoid=avoid)
+    if not rows:
+        s.echo(f"hunt: no hunting zone reachable from here suits rank {rank}")
+        return
+    s.echo(f"hunt: hunting zones for rank {rank}, nearest first:")
+    current = str(profile.get("hunting_ground") or "").strip().lower()
+    for row in rows:
+        mark = "  (your ground)" if row[0] == current else ""
+        s.echo(f"  {hunting.describe(row)}{mark}")
+
+
 def main(s):
     from client.game.mapdb import MapDB, download, mapdb_path
     from client.settings import setting
@@ -2113,7 +2141,7 @@ def main(s):
     if chosen:
         profile = styled(profile, chosen)
         s.echo(f"hunt: the {chosen} style — until {profile['until']}")
-    elif words and words[0] not in ("here", "profile") and known:
+    elif words and words[0] not in ("here", "profile", "grounds") and known:
         s.echo(f"hunt: no style named {words[0]!r} — styles: {', '.join(known)}")
         return
     if words and words[0] == "profile":
@@ -2131,6 +2159,11 @@ def main(s):
         download()
     db = MapDB.load()
     words = [str(word).lower() for word in (s.args or [])]
+    if words and words[0] == "grounds":
+        show_grounds(
+            s, profile, db, words[1:], avoided_rooms(db, setting("avoid_rooms"))
+        )
+        return
     travel = "here" not in words
     try:
         hunt(

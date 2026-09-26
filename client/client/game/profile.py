@@ -22,9 +22,12 @@ import re
 from pathlib import Path
 
 DEFAULTS = {
-    # What to fight and where. The ground is a ;go2 target (tag, room
-    # id or title substring); every room it resolves to is part of the
-    # ground, and the loop moves between them when one runs empty.
+    # What to fight and where. The ground is a map tag, else a hunting
+    # zone of the bestiary (client/game/hunting.py, dr-scripts' zones:
+    # "heggarangi_frog_riverhaven", #340), else a ;go2 target (room id,
+    # title substring); every room it resolves to is part of the ground,
+    # and the loop moves between them when one runs empty. ;hunt grounds
+    # lists the zones that suit the weakest weapon.
     "hunting_ground": "rats",
     "prey": "",  # noun to ATTACK; "" swings at whatever engages you
     "home": "",  # a ;go2 target to walk back to when the hunt ends
@@ -200,7 +203,12 @@ DEFAULTS = {
 
 # (key, label, kind, help) — kind is "bool", "int", "str" or "list".
 FIELDS = (
-    ("hunting_ground", "Hunting ground (;go2 target)", "str", "rats, 6046, a title"),
+    (
+        "hunting_ground",
+        "Hunting ground (zone, tag or ;go2 target)",
+        "str",
+        "heggarangi_frog_riverhaven, rats, 6046 — ;hunt grounds lists zones",
+    ),
     ("prey", "Prey noun to attack", "str", "empty: whatever engages you"),
     (
         "home",
