@@ -149,6 +149,10 @@ def test_read_only_commands_are_allowlisted_and_the_rest_are_gated():
     assert not allowlisted("train")
     assert not allowlisted("vault pay 1 5000")  # VAULT reads and pays alike: gated
     assert not allowlisted("bank withdraw 1 all")
+    assert allowlisted("bank account")
+    assert allowlisted("BANK  Account")
+    assert not allowlisted("bank debt")  # sends a runner to pay: gated
+    assert not allowlisted("bank")
     assert not allowlisted("attack rat")
     assert not allowlisted("drop sack")
     assert not allowlisted(";hunt")

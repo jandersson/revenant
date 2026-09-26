@@ -14,7 +14,8 @@ by the player never acts invisibly.
 
 Off by default, in two tiers. Read-only commands on the allowlist
 (INFO, EXP, SPELL, HEALTH, WEALTH, LOOK, TIME, INVENTORY, GLANCE, ASSESS,
-TDP, ENCUMBRANCE, the eight stat words, PREMIUM, and the ;list / ;help /
+TDP, ENCUMBRANCE, the eight stat words, PREMIUM, BANK ACCOUNT (that
+line alone: BANK DEBT and BANK WITHDRAW spend), and the ;list / ;help /
 ;stop / ;sheet / ;clock scripts) go through whenever a session is
 listening. Anything else - everything that spends, drops,
 moves or attacks - needs the gate open: the "allow external sends"
@@ -90,6 +91,10 @@ ALLOWLIST = frozenset(
         "premium",
     }
 )
+# Whole lines that only ask, where the first word alone also acts:
+# BANK ACCOUNT lists the balances, BANK DEBT sends a runner to pay one
+# and BANK WITHDRAW spends (the operator, 2026-09-26).
+READ_ONLY_LINES = frozenset({"bank account"})
 # Scripts that only read or stop something.
 SCRIPT_ALLOWLIST = frozenset({";list", ";help", ";stop", ";sheet", ";clock"})
 
@@ -121,7 +126,7 @@ def allowlisted(command):
     first = words[0].lower()
     if first.startswith(";"):
         return first in SCRIPT_ALLOWLIST
-    return first in ALLOWLIST
+    return first in ALLOWLIST or " ".join(words).lower() in READ_ONLY_LINES
 
 
 def gate_open(settings=None, environ=None):
