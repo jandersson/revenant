@@ -446,6 +446,7 @@ RELOADABLE_MODULES = (
     "client.game.seek",  # binds chain/circuit from attune: after it
     "client.game.perform",
     "client.game.appraisal",
+    "client.game.research",
     "client.game.repair",
     "client.game.remedies",
     "client.game.workorders",  # binds the catalogs from remedies: after it

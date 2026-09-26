@@ -262,6 +262,12 @@ for `client/client/<pkg>/x.py`.
   parser's `possessions`, a pouch and a bundle first — and
   `scripts/appraise.py` APPRAISEs them QUICK until Appraisal
   mind-locks, dropping what the game cannot find (#275).
+  `client/game/research.py` + `;research` (`scripts/research.py`,
+  #327) are a Barbarian's MEDITATE RESEARCH — the emptiest of
+  Augmentation, Warding and Utility researched a minute apart, by
+  combat-trainer's MONKEY / TURTLE / PREDICTION, until they lock;
+  docs/barbarian.md indexes the Barbarian facts (Inner Fire, the
+  ability verbs, Expertise) and what ;hunt still lacks for one (#328).
   `client/game/boxes.py` is a box picked open in words — the wiki's
   seventeen IDENTIFY readings, the caution per reading, DISARM /
   PICK / OPEN's outcomes after dr-scripts' pick.lic, none captured

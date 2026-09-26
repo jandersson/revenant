@@ -502,6 +502,23 @@ dr-scripts' appraisal.lic's; the success wordings grade with the ranks
 Kronars.", the wiki's "You are certain that ..."), so the script reads
 only refusals and echoes a run's first answer for the fixtures (#275).
 
+## Researching: ;research
+
+A Barbarian trains Augmentation, Warding and Utility by MEDITATE
+RESEARCH <ability>: it teaches the ability's skill whether the
+ability is known or not, costs 5-8 s of roundtime and no slot, and
+waits about a minute before the next
+([Barbarian new player guide](https://elanthipedia.play.net/Barbarian_new_player_guide)).
+`;research` researches the emptiest of the three each round, 60 s
+apart (`gap=`), with dr-scripts' combat-trainer.lic's MONKEY, TURTLE
+and PREDICTION unless `skill=ability` names another, and at
+mind-lock holds until one drains below 28 (`once` exits). Under
+`;train` (`"script": "research", "skills": ["Augmentation",
+"Warding", "Utility"], "return_word": "return"`) the loop ends it
+at the target. The answers are uncaptured; the run echoes any it does
+not know (#327). The Barbarian's other facts are in
+[barbarian.md](barbarian.md).
+
 ## Picking boxes: ;boxes
 
 Locksmithing trains on the boxes the hunt brings home in the loot
