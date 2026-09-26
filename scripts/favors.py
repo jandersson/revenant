@@ -12,7 +12,9 @@ plant (OPEN WINDOW until it slides open, GO WINDOW), the empty vase
 IN FONT), the dirty altar (GET SPONGE, CLEAN ALTAR WITH SPONGE), the
 unlit candles (GET TINDER, LIGHT CANDLE), the last three followed by
 GO STAIR and GO DOOR; a puzzle that needs a hand
-gets one, the item that is not the orb stowed — and hands a
+gets one, the item that is not the orb put away (STOW, else SHEATHE,
+else PUT in a worn container; a hand nothing frees hands the room to
+you, #347) — and hands a
 room it does not recognise to you, then walks to the temple's
 Resurrection Creche, rubs the orb full of
 unabsorbed experience, and lays it on the altar. Favors are what stand
@@ -272,17 +274,59 @@ def on_the_map(s, db):
     return here is not None and db.path(here, {CRECHE}) is not None
 
 
+# Freeing a hand: what says it worked. STOW answers "You put your
+# handaxe in your canvas sack." (2026-09-13); with no STOW container set,
+# "I can't find your container for stowing things in! Type STORE HELP
+# ..." (2026-09-26, #347: the sword stayed, every GET NUTFLOWER met "You
+# must clear one of your hands first." and the room was tried again and
+# again). SHEATHE put the sword in the worn scabbard: "You sheathe the
+# short sword in your ornate scabbard." (the same night, sent by hand).
+_FREED = ("you put", "you sheathe", "you stow", "you slip", "you place")
+
+
+def worn_containers(state, skip=()):
+    """The nouns of worn or held containers (items something is listed
+    in, per the parser's possessions), in the listing's order."""
+    items = list(getattr(state, "possessions", None) or [])
+    holders = {item.get("container_exist") for item in items}
+    nouns = []
+    for item in items:
+        noun = str(item.get("noun") or "").strip()
+        if (
+            item.get("exist") in holders
+            and noun
+            and noun not in skip
+            and noun not in nouns
+        ):
+            nouns.append(noun)
+    return nouns
+
+
 def free_hand(s):
     """A puzzle that picks something up needs a hand, and the orb has
-    one: with both full, STOW the item that is not the orb (captured
-    2026-09-13: "You must clear one of your hands first.")."""
+    one: with both full, put the item that is not the orb away — STOW,
+    else SHEATHE (a weapon goes back to its sheath), else PUT it in a
+    worn container — and True once a hand is free (the answer says the
+    item went, or the parser's hands show one empty). False when nothing
+    freed one: the caller hands the room over rather than loop (#347)."""
     hands = [getattr(s.state, side, None) for side in ("left_hand", "right_hand")]
     if not all(hands):
-        return
+        return True
     other = next((h for h in hands if "orb" not in str(h.get("noun") or "")), None)
-    if other and other.get("noun"):
-        ask(s, f"stow my {other['noun']}")
+    if not other or not other.get("noun"):
+        return False
+    noun = other["noun"]
+    tries = [f"stow my {noun}", f"sheathe {noun}"] + [
+        f"put my {noun} in my {container}"
+        for container in worn_containers(s.state, skip=(noun, "orb"))
+    ]
+    for command in tries:
+        answer = ask(s, command).lower()
         s.waitrt()
+        still = [getattr(s.state, side, None) for side in ("left_hand", "right_hand")]
+        if any(word in answer for word in _FREED) or not all(still):
+            return True
+    return False
 
 
 def match_puzzle(description):
@@ -332,7 +376,14 @@ def solve_puzzles(s, db):
             return wait_out_puzzles(s, db)
         steps = ", ".join(command for command, _ in puzzle["steps"])
         s.echo(f"favors: {puzzle['name']} — {steps}, then {', '.join(puzzle['exit'])}")
-        free_hand(s)
+        if not free_hand(s):
+            # Both hands full and nothing put the other item away: the
+            # room is the human's, never a loop (#347).
+            s.echo(
+                "favors: both hands are full and nothing freed one — put away what "
+                "is not the orb (SHEATHE, STOW, PUT ... IN ...), then solve this room"
+            )
+            return wait_out_puzzles(s, db)
         for command, done in puzzle["steps"]:
             for _ in range(STEP_TRIES):
                 answer = ask(s, command).lower()

@@ -55,7 +55,12 @@ a mirror, it is what our code believes and why.
    you stride along the branching path toward the copse of juniper
    trees." then the teleport; with the orb and a weapon in hand the
    game says "You must clear one of your hands first.", so the script
-   stows whatever is not the orb before a puzzle), and the empty font
+   puts away whatever is not the orb before a puzzle — STOW, else
+   SHEATHE, else PUT in a worn container, judged by the answer or the
+   hands; with no STOW container set STOW answers "I can't find your
+   container for stowing things in!" and the room looped until #347,
+   2026-09-26, and a hand nothing frees now hands the room to you), and
+   the empty font
    (the third favor: "Two fiery braziers stand astride a steep stone
    stairway which leads to a massive iron door ... a granite altar
    with several candles and a water jug on it, and a granite font";

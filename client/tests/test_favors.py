@@ -381,6 +381,131 @@ def test_the_vase_room_is_filled_with_a_free_hand_and_left_by_the_path(monkeypat
     assert any("favor earned" in echo for echo in handle.echoed)
 
 
+def _vase_run(monkeypatch, answers):
+    """The vase room with a short sword and the orb in hand; `answers`
+    are what freeing the hand meets."""
+    _quick(monkeypatch)
+    handle = FakeHandle(
+        {
+            "get orb on altar": [[("", "You get a glass orb from the altar.")]],
+            "go arch": [[("compass", "none")]],
+            "look": [[("", line) for line in VASE_ROOM.splitlines()]],
+            **answers,
+            "get nutflower": [
+                [
+                    (
+                        "",
+                        "You carefully pick some of the nutflower blossoms and arrange them neatly in the vase.",
+                    )
+                ]
+            ],
+            "go path": [
+                [
+                    (
+                        "",
+                        "Having filled the vase with flowers, you stride along the branching path.",
+                    )
+                ]
+            ],
+            **_creche_answers(),
+        }
+    )
+    handle.state.right_hand = {"noun": "sword", "exist": "2", "name": "short sword"}
+    handle.state.possessions = [
+        {
+            "noun": "scabbard",
+            "name": "an ornate scabbard",
+            "exist": "9",
+            "container_exist": None,
+            "depth": 0,
+        },
+        {
+            "noun": "broadsword",
+            "name": "a broadsword",
+            "exist": "8",
+            "container_exist": "9",
+            "depth": 1,
+        },
+        {
+            "noun": "knapsack",
+            "name": "a canvas knapsack",
+            "exist": "7",
+            "container_exist": None,
+            "depth": 0,
+        },
+        {
+            "noun": "knife",
+            "name": "a skinning knife",
+            "exist": "6",
+            "container_exist": "7",
+            "depth": 1,
+        },
+    ]
+    original_put = handle.put
+
+    def put(command):
+        original_put(command)
+        if command == "get orb on altar":
+            handle.state.left_hand = {"noun": "orb", "exist": "1", "name": "orb"}
+
+    handle.put = put
+    handle.commands = ["done"]
+    monkeypatch.setattr(
+        favors,
+        "locate",
+        lambda db, state: favors.GROTTO if "go path" in handle.sent else None,
+    )
+    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    return handle
+
+
+NO_STOW = (
+    "I can't find your container for stowing things in!  Type STORE HELP for "
+    "information on how to set up your containers."
+)
+
+
+def test_no_stow_container_sheathes_the_weapon_instead(monkeypatch):
+    # #347, captured 2026-09-26: STOW had no container, the sword stayed,
+    # and the vase room looped; SHEATHE freed the hand.
+    handle = _vase_run(
+        monkeypatch,
+        {
+            "stow my sword": [[("", NO_STOW)]],
+            "sheathe sword": [
+                [("", "You sheathe the short sword in your ornate scabbard.")]
+            ],
+        },
+    )
+    puzzle = handle.sent[handle.sent.index("go arch") + 1 :]
+    assert puzzle[:5] == [
+        "look",
+        "stow my sword",
+        "sheathe sword",
+        "get nutflower",
+        "go path",
+    ]
+    assert any("favor earned" in echo for echo in handle.echoed)
+
+
+def test_a_hand_nothing_frees_hands_the_room_over_instead_of_looping(monkeypatch):
+    handle = _vase_run(
+        monkeypatch,
+        {
+            "stow my sword": [[("", NO_STOW)]],
+            "sheathe sword": [[("", "Sheathe what?")]],
+            "put my sword in my scabbard": [
+                [("", "There isn't any more room in the scabbard.")]
+            ],
+            "put my sword in my knapsack": [[("", "The sword is too long to fit.")]],
+        },
+    )
+    assert handle.sent.count("look") == 1  # the room tried once, not in a loop
+    assert "get nutflower" not in handle.sent
+    assert any("both hands are full and nothing freed one" in e for e in handle.echoed)
+    assert any("solve this room by hand" in e for e in handle.echoed)
+
+
 FONT_ROOM = (
     "[Siergelde, Labyrinth]\n"
     "Two fiery braziers stand astride a steep stone stairway which leads to a "
