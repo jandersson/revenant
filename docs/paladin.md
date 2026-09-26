@@ -2,7 +2,9 @@
 
 This page is the index of every Paladin fact the scripts rest on — the circles, the soul, the glyph quests, the smite, the spells, the guild's rooms — each with its capture date and a link to the model that holds the long version. It exists because a session asking "what does this Paladin need next" read five files to find out (#228). Canon is Elanthipedia ([Paladin](https://elanthipedia.play.net/Paladin)); the wiki cache (`uv run python tools/wiki.py "<Title>"`) holds the raw pages; this is what our code believes and why, never a mirror. The character is Lanival in the synthetic cast, a Dwarf Paladin of the Crossing guild.
 
-## Where he stands (2026-09-20)
+## Where he stands
+
+The snapshot was taken 2026-09-20; a row updated since carries its own date.
 
 | | |
 |---|---|

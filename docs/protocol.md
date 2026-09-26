@@ -223,7 +223,7 @@ prints. It is Lich's `stunned?` / `hidden?` / `checkprone` idiom over
 this parser's state; every value is derived on access, so a view taken
 once stays current.
 
-## Spell tags (captured 2026-09-12)
+## Spell tags
 
 `<spell>Heroic Strength</spell>` names the prepared spell and
 `<spell>None</spell>` follows the cast; the parser keeps it as
@@ -234,9 +234,10 @@ line per running spell, the time left in parentheses, a roisan being
 a real minute — and `<popStream/>` on the next line, often followed by
 `<castTime .../>`. A clear with no push after it means nothing is
 running. The parser keeps the window as `active_spells`
-({name: minutes left, or None for a count it cannot read}).
+({name: minutes left, or None for a count it cannot read}). Captured
+2026-09-12.
 
-## The room's players (captured 2026-09-12)
+## The room's players
 
 `<component id='room players'>Also here: Sky Knight Kaldean who is
 darkened by an unnatural shadow, Sand Flower Cyranth, Cecil and
@@ -245,8 +246,9 @@ Penello.</component>` comes with every room and on every change, empty
 there. Entries are split on commas and a final "and"; a title stands
 before the name and a " who is ..." state after it, so the name is the
 last word before that. The parser keeps the names as `room_players`.
+Captured 2026-09-12.
 
-## Inventory links carry the exist ids (captured 2026-09-13)
+## Inventory links carry the exist ids
 
 INV LIST answers in the main stream with one command link per item:
 `<d cmd='remove #53174575'>a lumpy bundle</d>` for a worn item,
@@ -258,9 +260,9 @@ exist ids the hand tags carry, and `#<id>` works as a noun in a
 command. The parser collects the links as the listing streams and
 builds `possessions` at the footer (client/game/possessions.py, #184).
 Story lines ("You put your handaxe in your canvas sack") and the
-room's objects carry no ids in our stream.
+room's objects carry no ids in our stream. Captured 2026-09-13.
 
-## The room's creatures (captured 2026-09-12)
+## The room's creatures
 
 `<component id='room objs'>You also see <pushBold/>a town guard<popBold/>,
 <pushBold/>Forest Warden Hengwild<popBold/>, a large parchment and a big
@@ -272,12 +274,13 @@ every change, and empty when the room lists nothing. The parser keeps
 the bold names, in order, as `room_creatures` (dr-scripts' `DRRoom.npcs`),
 cleared on `<nav>` until the new room's listing lands. The hostile
 status tags (`<crtrStatus>`, above) are the fight's view; this is the
-head count on arrival, before anything engages (#178).
+head count on arrival, before anything engages (#178). Captured
+2026-09-12.
 
-## Corpses in the listing, the balance word, the shutdown, the exp mods (2026-09-22)
+## Corpses, balance, the shutdown and exp mods, after DRInfomon
 
 Four things lich-5's DRInfomon (`lib/dragonrealms/drinfomon/`) reads
-that the parser now keeps too:
+that the parser keeps too, added 2026-09-22:
 
 - **Corpses in the room's listing** (#278). The text right after a bold
   creature says whether it is one: `<pushBold/>a cougar<popBold/> which
