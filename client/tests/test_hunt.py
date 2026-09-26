@@ -1120,3 +1120,74 @@ def test_a_room_with_no_prey_left_but_hostiles_on_you_gets_a_bare_attack():
     arena.state.hostiles = {}
     arena.state.room_creatures = ["a large musk hog"]
     assert hunt.aim_at(arena, "goblin") == "goblin"
+
+
+class _Breaking:
+    """A handle for the break-off alone: the room changes when the
+    scripted move is the one that leads out."""
+
+    def __init__(self, leads):
+        self.leads = dict(leads)  # move -> uid it lands in
+        self.sent, self.echoed = [], []
+        self.dead = False
+        self.state = SimpleNamespace(
+            room_uid=11,
+            room_title="[Farmland, Open Area]",
+            compass=["south", "southeast"],
+            hostiles={"1": True},
+            indicator={},
+        )
+
+    def put(self, command):
+        self.sent.append(command)
+        if command in self.leads:
+            self.state.room_uid = self.leads[command]
+
+    def waitrt(self):
+        pass
+
+    def sleep(self, seconds):
+        pass
+
+    def echo(self, text):
+        self.echoed.append(text)
+
+
+def test_a_break_off_moves_until_the_room_changes_and_writes_what_the_map_had_wrong(
+    tmp_path, monkeypatch
+):
+    # 2026-09-25 (#314): 1473's southeast led to 1479, which the map had
+    # under southwest; the break-off's one blind burst and the walk off
+    # the ground that found no path left the character among the hogs.
+    from client.game.mapdb import MapDB
+
+    from client.game import walker
+
+    local = tmp_path / "local.json"
+    monkeypatch.setenv("REVENANT_MAPDB_LOCAL", str(local))
+    # An earlier test assigns a stub to hunt.locate: the real one here.
+    monkeypatch.setattr(hunt, "locate", walker.locate)
+    db = MapDB(
+        [
+            {
+                "id": 1,
+                "uid": [11],
+                "title": ["[Farmland, Open Area]"],
+                "wayto": {"2": "south", "3": "southwest"},
+            },
+            {"id": 2, "uid": [22], "title": ["[Farmland, Grain Fields]"], "wayto": {}},
+            {"id": 3, "uid": [33], "title": ["[Farmland, Grain Fields]"], "wayto": {}},
+        ]
+    )
+    s = _Breaking({"southeast": 33})  # south is held: the mob closes again
+    assert hunt.escape(s, db) is True
+    assert s.sent.count("retreat") == 4  # two bursts: south held, southeast out
+    assert db.rooms[1]["wayto"]["3"] == "southeast"
+    assert local.is_file()
+    assert any("the map had southeast from 1 wrong" in text for text in s.echoed)
+
+
+def test_a_break_off_that_never_gets_clear_says_so():
+    s = _Breaking({})
+    assert hunt.escape(s, None) is False
+    assert any("intervene" in text for text in s.echoed)

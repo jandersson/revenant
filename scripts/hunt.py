@@ -10,7 +10,10 @@ while and lap it again, as long as it takes (the operator, 2026-09-13:
 an empty ground is not a reason to go home). Breaks off and walks home below the health floor
 (with no home set, a break-off still leaves the ground for the nearest
 room off it — a character left standing among what hurt it died there,
-2026-09-13, #185)
+2026-09-13, #185; the break-off bursts RETREAT, RETREAT and an exit
+until the room really changes, writes a move the map had wrong to the
+local map, and a hunt never ends among hostiles — it keeps getting
+away, #314)
 or at a wound at the profile's wound floor (HEALTH after each kill and
 whenever health drops), when the trained skills mind-lock, at the kill
 fuse, or when you type
@@ -158,7 +161,7 @@ import re
 import time
 from collections import Counter
 
-from client.game import buffs, loot, probe
+from client.game import buffs, flight, loot, probe
 from client.game.creatures import aim, noun_of
 from client.game.probe import classify
 from client.game.profile import describe, load_profile
@@ -843,14 +846,55 @@ def leave_ground(s, db, ground, avoid):
     return False
 
 
-def escape(s):
-    """The burst: retreat, retreat, first exit (docs/combat.md)."""
-    exits = list(getattr(s.state, "compass", None) or [])
-    direction = exits[0] if exits else "out"
-    s.put("retreat")
-    s.put("retreat")
-    s.put(direction)
-    s.echo(f"hunt: breaking off — retreating {direction}")
+def escape(s, db=None):
+    """The break-off: flight's burst — RETREAT, RETREAT, a move through
+    the type-ahead (docs/combat.md) — again with the next exit until the
+    room changes or no hostile is left, and the move that landed written
+    to the local map when the map says otherwise. One blind burst down
+    the first exit was the whole of it until 2026-09-26: twice in the
+    Crossing farmland it landed in a room the map had under another
+    direction, the walk off the ground found no path, and the hunt ended
+    with the character among the hostiles (#314). True when clear."""
+    for attempt in range(flight.ATTEMPTS):
+        candidates = flight.moves(s.state)
+        move = candidates[attempt % len(candidates)]
+        here = locate(db, s.state) if db is not None else None
+        before = getattr(s.state, "room_uid", None)
+        s.echo(f"hunt: breaking off — retreating {move}")
+        flight.burst(s, move)
+        if getattr(s.state, "room_uid", None) != before:
+            note_landing(s, db, here, move)
+            return True
+        if not hostiles(s.state):
+            return True
+    s.echo("hunt: could not get clear of them — intervene if you can")
+    return False
+
+
+def note_landing(s, db, here, move):
+    """The room a move from `here` landed in, written to the local map
+    when the map has no such move from there or sends it elsewhere —
+    the walker's own correction (#232) for a break-off's move, so the
+    next walk plans with it (#314: 1473's southeast is 1479, which the
+    map filed under southwest)."""
+    if db is None or here is None:
+        return
+    there = locate(db, s.state)
+    if there is None or db.same_place(here, there):
+        return
+    wayto = db.rooms.get(here, {}).get("wayto") or {}
+    mapped = next((dest for dest, command in wayto.items() if command == move), None)
+    try:
+        mapped = int(mapped) if mapped is not None else None
+    except (TypeError, ValueError):
+        mapped = None
+    if mapped is not None and db.same_place(mapped, there):
+        return
+    db.record_edge(here, there, move)
+    s.echo(
+        f"hunt: the map had {move} from {here} wrong — it leads to {there}; "
+        "written to the local map"
+    )
 
 
 def draw(s, profile):
@@ -1522,15 +1566,15 @@ def loop(s, profile, db, ground, avoid, tally):
             return "returning on request"
         current = health(s.state)
         if current is not None and current < floor:
-            escape(s)
+            escape(s, db)
             return f"health {current}% below the floor"
         if tally.stuns >= STUN_LIMIT:
-            escape(s)
+            escape(s, db)
             return (
                 f"stunned {tally.stuns} times in one fight — the ground is beyond you"
             )
         if tally.swings - tally.swings_at_kill >= KILL_LESS_SWINGS:
-            escape(s)
+            escape(s, db)
             return (
                 f"{KILL_LESS_SWINGS} swings without a kill — the ground is beyond you"
             )
@@ -1541,7 +1585,7 @@ def loop(s, profile, db, ground, avoid, tally):
             tally.check_wounds = False
             if hit := wound_at_floor(s, profile):
                 area, kind, lvl = hit
-                escape(s)
+                escape(s, db)
                 return f"{area} {kind.replace('_', ' ')} {SEVERITIES[lvl]} — at the wound floor"
         if locked(s.state, profile["train_skills"]):
             return "trained skills mind-locked"
@@ -1639,6 +1683,10 @@ def hunt(s, profile, db, travel=True, avoid=()):
             s.echo(f"hunt: nothing in the map matches home {profile['home']!r}")
     elif any(word in reason for word in BROKE_OFF) and ground:
         leave_ground(s, db, ground, avoid)
+    if hostiles(s.state) and not s.dead:
+        # Never an end among them (#314): the walk home or off the
+        # ground failed, or never ran — keep getting away.
+        flight.react(s, "hunt")
 
 
 def main(s):
