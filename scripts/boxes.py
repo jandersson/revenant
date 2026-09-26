@@ -37,7 +37,9 @@ PICK MY <box> <caution> the same way — a lock at or past the threshold
 tried careful anyway, since a failed pick risks the pick, not the
 locksmith — with the profile's `lockpick` in
 the free hand (GOT from wherever it is kept, STOWed after) or the
-worn `lockpick_ring`, whose top pick the game takes by itself; OPEN,
+worn `lockpick_ring`, whose top pick the game takes by itself (an
+empty ring — its last pick broken, or PICK wanting "a more
+appropriate tool" — falls back to the loose `lockpick`); OPEN,
 LOOK IN, and every item out — coins to the purse, a gem into the
 profile's `gem_pouch`, the rest into the loot container — and the empty
 box into the room's bucket through client/game/discard.py, which only
@@ -85,6 +87,7 @@ from client.game.boxes import (
     LOCK_READINGS,
     OPEN_OUTCOMES,
     PICK_OUTCOMES,
+    RING_EMPTY,
     SKILL,
     TAKE_OUTCOMES,
     TOO_HARD,
@@ -155,6 +158,9 @@ class Run:
         self.reported = set()
         self.opened = 0
         self.pick_in_hand = False
+        # The worn ring ran out of picks this run: the loose lockpick
+        # from here (2026-09-26).
+        self.ring_empty = False
         self.doffed = []  # the hindering gear taken off, in order
 
     def say(self, text):
@@ -352,7 +358,7 @@ def ready_pick(run):
     """A lockpick in hand when the profile keeps no ring; True when the
     game has one to pick with."""
     profile = run.profile
-    if profile.get("lockpick_ring"):
+    if profile.get("lockpick_ring") and not run.ring_empty:
         return True
     if run.pick_in_hand:
         return True
@@ -365,6 +371,24 @@ def ready_pick(run):
         )
         return False
     run.pick_in_hand = True
+    return True
+
+
+def ring_ran_out(run):
+    """The worn ring is empty — its last pick broke, or PICK found "a
+    more appropriate tool" wanting while the ring was the tool (captured
+    2026-09-26: the ring's last pick went on a 12/17 crate, and the next
+    run read the empty ring as a lock wanting another kind of pick and
+    put the crate back). True, said once, the first time; False when
+    the ring was already out or none is worn — then the answer is the
+    lock's."""
+    if not run.profile.get("lockpick_ring") or run.ring_empty:
+        return False
+    run.ring_empty = True
+    run.say(
+        "the lockpick ring is empty — the loose lockpick from here "
+        "(Ragge's Locksmithing in the Crossing sells picks for the ring)"
+    )
     return True
 
 
@@ -534,6 +558,10 @@ def pick(run, noun):
             if outcome == "not locked":
                 return "open"
             if outcome == "wrong pick":
+                if ring_ran_out(run):
+                    if not ready_pick(run):
+                        return "stop:no lockpick"
+                    continue
                 run.say(f"the {noun}'s lock wants another kind of lockpick — left")
                 return "too hard"
             if outcome == "free hand":
@@ -587,11 +615,19 @@ def pick(run, noun):
         if outcome == "more locks":
             continue
         if outcome == "wrong pick":
+            if ring_ran_out(run):
+                if not ready_pick(run):
+                    return "stop:no lockpick"
+                continue
             run.say(f"the {noun}'s lock wants another kind of lockpick — left")
             return "too hard"
         if outcome == "broken pick":
             run.pick_in_hand = False
             run.say("the lockpick broke")
+            if any(line in answer.lower() for line in RING_EMPTY):
+                ring_ran_out(run)
+                if not ready_pick(run):
+                    return "stop:no lockpick"
             continue
         if outcome == "no pick":
             run.pick_in_hand = False

@@ -310,10 +310,19 @@ DISARM_OUTCOMES = (
 WRONG_PICK = ("find a more appropriate tool",)
 NO_PICK = ("you'll need a lockpick", "need a lockpick", "pick with what", "no lockpick")
 BROKEN_PICK = (
-    "lockpick breaks",
-    "lockpick snaps",
-    "breaks off in the lock",
-)  # uncaptured
+    "lockpick breaks",  # uncaptured
+    "lockpick snaps",  # uncaptured
+    "breaks off in the lock",  # uncaptured
+    # Captured 2026-09-26 on a 12/17 crate lock: "You quickly notice the
+    # lockpick is bent beyond practical use.  With a grimace, you discard
+    # the now useless lockpick." (after "You wince as you feel your
+    # lockpick bend in the lock." on earlier tries).
+    "bent beyond practical use",
+)
+# The worn ring's last pick gone (captured 2026-09-26, the line after the
+# discard): "You look down at your lockpick ring and realize that was the
+# last one!" An empty ring then answers PICK with WRONG_PICK's line.
+RING_EMPTY = ("that was the last one",)
 FREE_HAND = ("better have an empty hand first",)
 PICK_RETRY = (
     "fails to teach you anything about the lock",

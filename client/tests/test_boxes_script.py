@@ -243,6 +243,54 @@ def test_a_worn_ring_means_no_lockpick_is_fetched():
     assert "pick my box quick" in fake.sent
 
 
+def test_an_empty_ring_falls_back_to_the_loose_lockpick():
+    # 2026-09-26: the ring's last pick broke on a crate; the next run's
+    # PICK answered "Find a more appropriate tool and try again!", was
+    # read as a lock wanting another kind of pick, and the crate went back
+    # with a loose lockpick sitting in the pack.
+    answers = one_easy_box()
+    picks = {"n": 0}
+
+    def identify(command):
+        picks["n"] += 1
+        return (
+            "Find a more appropriate tool and try again!\n"
+            if picks["n"] == 1
+            else JUNK_LOCK
+        )
+
+    answers[5] = ("pick my box identify", identify)
+    fake = Fake(answers, mindstates=[1, 3, 5, 7])
+    out = run(fake, profile={"lockpick_ring": "ring"})
+    assert "the lockpick ring is empty — the loose lockpick from here" in out
+    assert "wants another kind of lockpick" not in out
+    assert "get my lockpick" in fake.sent
+    assert fake.sent.count("pick my box identify") == 2
+    assert "the box opened" in out
+
+
+def test_the_rings_last_pick_breaking_switches_to_the_loose_one():
+    answers = one_easy_box()
+    last = (
+        "You quickly notice the lockpick is bent beyond practical use.  With a "
+        "grimace, you discard the now useless lockpick.\n"
+        "You look down at your lockpick ring and realize that was the last one!\n"
+    )
+    tries = {"n": 0}
+
+    def pick(command):
+        tries["n"] += 1
+        return last if tries["n"] == 1 else UNLOCKED
+
+    answers[6] = ("pick my box", pick)
+    fake = Fake(answers, mindstates=[1, 3, 5, 7])
+    out = run(fake, profile={"lockpick_ring": "ring"})
+    assert "the lockpick broke" in out
+    assert "the lockpick ring is empty" in out
+    assert "get my lockpick" in fake.sent
+    assert "the box opened" in out
+
+
 def test_the_careful_word_and_stand_override_the_reading_and_the_sit():
     fake = Fake(one_easy_box(), mindstates=[1, 3, 5, 7])
     run(fake, ["careful", "stand"])
