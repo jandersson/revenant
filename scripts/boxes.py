@@ -7,7 +7,7 @@
     ;boxes limit=3              stop after that many boxes opened
     ;boxes until=30             stop at that mindstate instead of 34
     ;boxes once                 exit at mind-lock instead of holding for the drain
-    ;boxes safe                 put back every box past "longshot", nuisance traps and locks included
+    ;boxes safe                 put back every box reading "longshot" or harder, nuisance traps and locks included
     ;boxes tries=15             attempts at a trap or a lock before the box goes back (5 by default)
     ;boxes return               (typed while it runs) finish the box in hand and end
 
@@ -29,11 +29,11 @@ never a wound), which gets a careful try whatever it reads: at rank 3
 every box from the Crossing's grendels read 11 and up (2026-09-25),
 so the risk is the only way in. A deadly trap or a look not recognized
 goes back; the laughing gas catches the whole room, so it waits for a
-room with no other player in it; `safe` puts back every box past the
+room with no other player in it; `safe` puts back every box at or past the
 threshold. Else DISARM MY <box> <caution> —
 quick, plain or careful by the reading, pick.lic's thresholds — until
 the trap is down, up to five tries; then PICK MY <box> IDENTIFY and
-PICK MY <box> <caution> the same way — a lock past the threshold
+PICK MY <box> <caution> the same way — a lock at or past the threshold
 tried careful anyway, since a failed pick risks the pick, not the
 locksmith — with the profile's `lockpick` in
 the free hand (GOT from wherever it is kept, STOWed after) or the
@@ -411,7 +411,7 @@ def risk_trap(run, noun, rank, answer):
     hits the whole room while another player stands in it."""
     trap = None if run.options.get("safe") else nuisance_trap(answer)
     if trap is None:
-        run.say(f"the {noun}'s trap reads {rank}/17 — past {TOO_HARD}, too hard")
+        run.say(f"the {noun}'s trap reads {rank}/17 — {TOO_HARD} or harder, too hard")
         return None
     name, area = trap
     players = list(getattr(run.s.state, "room_players", None) or [])
@@ -549,13 +549,13 @@ def pick(run, noun):
             if word is None:
                 if run.options.get("safe"):
                     run.say(
-                        f"the {noun}'s lock reads {rank}/17 — past {TOO_HARD}, too hard"
+                        f"the {noun}'s lock reads {rank}/17 — {TOO_HARD} or harder, too hard"
                     )
                     return "too hard"
                 # A lock has no trap: a failed pick costs roundtime and
                 # now and then the pick, never a wound.
                 run.say(
-                    f"the {noun}'s lock reads {rank}/17 — past {TOO_HARD}, "
+                    f"the {noun}'s lock reads {rank}/17 — {TOO_HARD} or harder, "
                     "trying careful anyway (a lock only risks the pick)"
                 )
                 word = "careful"

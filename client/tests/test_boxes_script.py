@@ -203,7 +203,7 @@ def test_a_longshot_reading_puts_the_box_back_for_a_better_locksmith():
     assert "disarm my crate identify" in fake.sent
     assert "disarm my crate careful" not in fake.sent
     assert "put my crate in my sack" in fake.sent
-    assert "the crate's trap reads 11/17 — past 11, too hard" in out
+    assert "the crate's trap reads 11/17 — 11 or harder, too hard" in out
     assert "the crate goes back into the sack — for a better locksmith" in out
     assert "every box tried — 1 opened, 1 kept" in out
 
@@ -444,7 +444,7 @@ def test_a_deadly_trap_past_the_threshold_still_goes_back():
     fake = Fake(crate_reading(FLEA_LONGSHOT), mindstates=[1, 3, 5, 7])
     out = run(fake)
     assert "disarm my crate careful" not in fake.sent
-    assert "the crate's trap reads 11/17 — past 11, too hard" in out
+    assert "the crate's trap reads 11/17 — 11 or harder, too hard" in out
 
 
 def test_a_trap_that_hits_the_room_waits_for_an_empty_room():
@@ -459,7 +459,7 @@ def test_safe_puts_back_even_a_nuisance_trap():
     fake = Fake(crate_reading(FROG_PRAYER), mindstates=[1, 3, 5, 7])
     out = run(fake, args=["safe"])
     assert "disarm my crate careful" not in fake.sent
-    assert "the crate's trap reads 12/17 — past 11, too hard" in out
+    assert "the crate's trap reads 12/17 — 11 or harder, too hard" in out
 
 
 def test_a_lock_past_the_threshold_is_picked_careful_anyway():
