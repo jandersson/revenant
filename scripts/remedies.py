@@ -27,7 +27,8 @@ after CRUSH with what the game asks for put in as it asks: a splash of
 water, one piece of the page's second herb (blister cream wants
 nemoih beside its red flowers), the catalyst last — a tiny coal nugget
 from the Crossing Forging Society's Supplies (31 Kronars, the
-profile's `catalyst` noun), one use each. "Applying the final touches,
+profile's `catalyst`, named `coal nugget`: a looted lead nugget answers
+GET MY NUGGET too, and a refused catalyst stops the craft), one use each. "Applying the final touches,
 you complete working on some blister cream." ends it and the remedy is
 stowed, or bundled with the logbook under `work`.
 
@@ -274,6 +275,20 @@ def hold_at_lock(s, until):
             return True
 
 
+def refused_ingredient(s, noun, what):
+    """The game would not take what GET MY <noun> found for the remedy
+    in progress ("...is not required to continue crafting the blister
+    cream"): another thing answered to the noun — a looted lead nugget
+    for the coal one, 2026-09-27, CRUSH and PUT went round 370 times
+    until the fuse. Said, and the craft stops; the remedy waits in the
+    mortar."""
+    s.echo(
+        f"remedies: GET MY {noun.upper()} found something the remedy refuses as its "
+        f"{what} — name it more exactly in the profile (coal nugget); stopping"
+    )
+    return "refused"
+
+
 def craft(s, spec, what, catalyst, options, tally, started=False):
     """One remedy from `spec` (chapter, page, herb, extra, noun): the
     page studied, the herb in, CRUSH until finished with the water, the
@@ -366,14 +381,20 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
             refused = 0
         elif outcome == "need water":
             started = True
-            if not fetch_into_mortar(s, "water", "water"):
+            fetched = fetch_into_mortar(s, "water", "water")
+            if isinstance(fetched, str):
+                return refused_ingredient(s, "water", "water")
+            if not fetched:
                 return "water"
         elif outcome == "need herb":
             started = True
             if not extra:
                 s.echo("remedies: the game wants a second herb the page did not list")
                 return "second herb"
-            if not fetch_into_mortar(s, extra, "second herb"):
+            fetched = fetch_into_mortar(s, extra, "second herb")
+            if isinstance(fetched, str):
+                return refused_ingredient(s, extra, "second herb")
+            if not fetched:
                 return f"dried {extra}"
         elif outcome == "need catalyst":
             started = True
@@ -383,7 +404,10 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
                     "— it stays unfinished in the mortar for the next run"
                 )
                 return "catalyst"
-            if not fetch_into_mortar(s, catalyst, "catalyst"):
+            fetched = fetch_into_mortar(s, catalyst, "catalyst")
+            if isinstance(fetched, str):
+                return refused_ingredient(s, catalyst, "catalyst")
+            if not fetched:
                 return catalyst
         elif outcome in ("finished", "done already"):
             return None
@@ -802,7 +826,9 @@ def buy(s, noun, count, shop, catalog, tally):
     the noun before the second ORDER buys it, each purchase STOWed.
     False, said, when the quote names something else, the shop keeps
     the item, or the walk fails."""
-    number, price = catalog[noun]
+    # "coal nugget" is the catalog's "nugget": the profile names it
+    # whole, since a looted lead nugget answered GET MY NUGGET first.
+    number, price = catalog.get(noun) or catalog[noun.split()[-1]]
     need = price * count
     purse = carried(s)
     if purse < need and not withdraw_coins(s, need - purse):

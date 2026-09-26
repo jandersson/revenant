@@ -1028,3 +1028,63 @@ def test_stacks_already_carried_are_bundled_before_any_crush():
     assert fake.crushes == 0
     assert "a blister cream from the backpack bundled — 1 more" in out
     assert "order 1 paid" in out
+
+
+# Captured 2026-09-27 (Cecil's blister cream): GET MY NUGGET found a
+# looted lead nugget, not the coal one the catalyst is.
+LEAD_REFUSED = (
+    "You cannot find a way to add that as an ingredient to the salve.\n"
+    "You realize the lead nugget is not required to continue crafting the "
+    "head salve, so you stop.\n"
+)
+
+
+def test_a_catalyst_the_remedy_refuses_stops_the_craft_not_a_loop():
+    # 2026-09-27: the refusal read as "another remedy in the mortar",
+    # the fetch counted as done, and CRUSH / PUT went round 370 times
+    # until the 400-crush fuse while the work order's timer ran.
+    fake = Fake(
+        {
+            "study my book": [TOO_HARD],
+            "get my nemoih": ["You get some dried nemoih."],
+            "put my nemoih in my mortar": ["You put your nemoih in your iron mortar."],
+            "get my nugget": ["You get a medium lead nugget."],
+            "put my nugget in my mortar": [LEAD_REFUSED],
+            "crush my nemoih in my mortar with my pestle": [CRUSHED],
+            "crush my salve in my mortar with my pestle": [NEED_CATALYST],
+        },
+        mindstates=[0] * 10,
+    )
+    out = run(fake, ["count=1"])
+    assert "found something the remedy refuses as its catalyst" in out
+    assert fake.sent.count("put my nugget in my mortar") == 1
+    assert len(crushes(fake)) == 2
+
+
+def test_a_catalyst_named_coal_nugget_is_bought_as_the_catalog_nugget():
+    from client.game.profile import DEFAULTS, save_profile
+
+    save_profile(
+        "Lanival",
+        DEFAULTS
+        | {
+            "weapon": "scimitar",
+            "weapon_container": "scabbard",
+            "catalyst": "coal nugget",
+        },
+    )
+    fake = Fake(
+        work_answers(
+            info=[INFO_POOR],
+            **{
+                "get my coal nugget": [MISSING, "You get a tiny coal nugget."],
+                "put my coal nugget in my mortar": [SHAVINGS],
+                "order 1": [QUOTE_NUGGET, BOUGHT_NUGGET] * 4,
+            },
+        ),
+        mindstates=[3] + [5] * 30,
+    )
+    out = run(fake, ["work", "count=1"])
+    assert "8775" in fake.walked
+    assert "bought 3 x coal nugget" in out
+    assert "stow my coal nugget" in fake.sent

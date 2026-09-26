@@ -168,7 +168,8 @@ DEFAULTS = {
     # The items ;appraise APPRAISEs in rotation for Appraisal ("pouch",
     # "shield"); [] means everything worn or held (#275).
     "appraisal_items": [],
-    # The catalyst ;remedies adds to a salve ("coal", "weed"); "" leaves
+    # The catalyst ;remedies adds to a salve ("coal nugget": a bare
+    # "nugget" also answers for a looted lead one); "" leaves
     # the salve unfinished in the mortar when the game asks (#284).
     "catalyst": "",
     # The crafting master ;remedies work asks for orders, and the room
@@ -337,7 +338,7 @@ FIELDS = (
         "catalyst",
         "Catalyst ;remedies adds to a salve (Alchemy)",
         "str",
-        "coal, weed — empty: the salve waits unfinished",
+        "coal nugget — empty: the salve waits unfinished",
     ),
     (
         "crafting_master",
