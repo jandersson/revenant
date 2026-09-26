@@ -136,8 +136,11 @@ WAY_REFUSALS = ("could not find what you were referring", "You can't go there")
 # Customs answered a circle-2 Paladin "You're not experienced enough to
 # go there." and left him where he stood (captured 2026-09-18, #209).
 # Not a stall: no retreat, no retry — the edge is closed for the run
-# and the route planned again without it.
-GATE_REFUSALS = ("not experienced enough to go there",)
+# and the route planned again without it. The same trail answers a guild
+# it keeps out "Barbarians are not allowed to go there." (captured
+# 2026-09-26, a circle-1 Barbarian walked toward the Paladins' Guild: a
+# stall, a RETREAT burst, the trail again, "stalled at step 148").
+GATE_REFUSALS = ("not experienced enough to go there", "not allowed to go there")
 REROUTES = 3  # closed ways worked around on one walk before giving up
 _HINDERS = re.compile(r"Your (.+?) makes? the climb more difficult")
 

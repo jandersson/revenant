@@ -798,6 +798,27 @@ def test_a_closed_way_is_routed_around_without_a_retreat():
     assert any("going round" in echo for echo in handle.echoes)
 
 
+# Captured 2026-09-26: a Barbarian at the Northeast Customs, the trail
+# into the Paladins' Guild.
+GUILD_REFUSED = "Barbarians are not allowed to go there.\n"
+
+
+class GuildGateHandle(GateHandle):
+    def put(self, command):
+        super().put(command)
+        if command == "go trail":
+            self.pending = [("", GUILD_REFUSED)]
+
+
+def test_a_guild_that_keeps_you_out_is_a_closed_way_not_a_stall():
+    handle = GuildGateHandle(uids=[10817, 10816, 11716])
+    handle.state.room_uid = 10818
+    assert walker.walk(handle, GATED, [11716], describe="the library") is True
+    assert puts_of(handle) == ["go trail", "west", "west", "north"]
+    assert "retreat" not in puts_of(handle)
+    assert any("closed to you" in echo for echo in handle.echoes)
+
+
 def test_a_closed_edge_is_out_of_the_route_for_the_rest_of_the_walk():
     route = GATED.path(818, [11716], closed={(818, 15122)})
     assert [dest for dest, _ in route] == [817, 816, 11716]
