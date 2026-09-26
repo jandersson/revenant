@@ -135,6 +135,44 @@ def test_a_name_the_game_does_not_parse_is_prepared_by_its_abbreviation(
     assert handle.sent[:2] == ["prepare hands of justice", "prepare hoj"]
 
 
+def test_the_abbreviation_that_prepared_is_used_first_for_the_rest_of_the_run(
+    tmp_path, monkeypatch
+):
+    # 2026-09-26: every Hands of Justice cast in a hunt sent the refused
+    # "prepare hands of justice" before "prepare hoj" — a command spent
+    # on each cast. The run remembers the abbreviation that worked.
+    import sqlite3
+
+    db = tmp_path / "history.db"
+    with sqlite3.connect(str(db)) as connection:
+        connection.execute(
+            "CREATE TABLE spells (seq INTEGER PRIMARY KEY, logged_at TEXT,"
+            " character_name TEXT, name TEXT, abbrev TEXT, kind TEXT, chapter TEXT)"
+        )
+        connection.execute(
+            "INSERT INTO spells (logged_at, character_name, name, abbrev, kind,"
+            " chapter) VALUES ('t', 'Lanival', 'Hands of Justice', 'hoj',"
+            " 'learned', 'Justice')"
+        )
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(db))
+    handle = Handle([])
+    handle.state.name = "Lanival"
+    answers = {
+        "prepare hands of justice": "You have no idea how to cast that spell.\n",
+        "prepare hoj": "You begin chanting a prayer to invoke the Hands of Justice spell.\n",
+    }
+
+    def ask(s, command):
+        s.sent.append(command)
+        return answers.get(command, "")
+
+    state = buffs.BuffState()
+    for _ in range(2):
+        buffs.cast_once(handle, "hands of justice", 0, state, ask, lambda *a: None)
+    prepares = [command for command in handle.sent if command.startswith("prepare")]
+    assert prepares == ["prepare hands of justice", "prepare hoj", "prepare hoj"]
+
+
 def test_a_room_that_blocks_magic_is_a_failed_prepare():
     # Captured 2026-09-26 in the Paladins' guild library.
     from client.game.probe import classify

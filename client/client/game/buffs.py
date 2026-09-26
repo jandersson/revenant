@@ -7,7 +7,8 @@ cast_buffs() casts every profile buff that is not running (PREPARE,
 wait for the pattern, CAST — a name the game does not parse, "You have
 no idea how to cast that spell." to "prepare hands of justice", is
 prepared again by the abbreviation ;sheet recorded off SPELLS, "hoj",
-2026-09-26, #320) and, when the profile names a magic skill
+2026-09-26, #320, and by the abbreviation first for the rest of the
+run) and, when the profile names a magic skill
 in `train_casting`, recasts the first buff between actions while that
 skill sits below mind-lock and mana holds, feeding more mana each time
 until the game warns of strain or a cast fails, then holding one step
@@ -290,6 +291,7 @@ class BuffState:
         self.slots_off = set()  # targeted slots whose spell refused this run
         self.discerned = set()  # targeted slots (and "buff") DISCERNed this run (#202)
         self.last_training = None  # "buff" or a targeted slot: whose turn it was
+        self.short_names = {}  # spell -> the abbreviation that prepared it (#320)
 
 
 def locked(state, skills):
@@ -536,10 +538,16 @@ def cast_once(
     another spell's and TARGET refused it — released, #252),
     "collapsed" (the cast failed), "strained" (cast, but the mana
     asked was too much) or "ok"."""
-    prepare = f"prepare {spell} {mana}" if mana else f"prepare {spell}"
+    # A spell that prepared by its abbreviation earlier in the run is
+    # prepared by it at once: the name's refusal cost a command every
+    # cast (the operator, 2026-09-26).
+    short_names = getattr(state, "short_names", None)
+    known = (short_names or {}).get(str(spell).lower())
+    name = known or spell
+    prepare = f"prepare {name} {mana}" if mana else f"prepare {name}"
     answer = ask(s, prepare)
     outcome = classify(answer, PREPARE_OUTCOMES)
-    if "no idea how to cast" in answer.lower():
+    if not known and "no idea how to cast" in answer.lower():
         # The name did not parse: the spell's own abbreviation, as ;sheet
         # recorded it off SPELLS, prepares where "hands of justice" did
         # not (2026-09-26, #320).
@@ -548,6 +556,8 @@ def cast_once(
             prepare = f"prepare {short} {mana}" if mana else f"prepare {short}"
             answer = ask(s, prepare)
             outcome = classify(answer, PREPARE_OUTCOMES)
+            if outcome != "failed" and short_names is not None:
+                short_names[str(spell).lower()] = short
     if outcome == "held":
         # An earlier pattern is still held (a cast at a corpse leaves
         # it, #252): let it go and prepare once more.
