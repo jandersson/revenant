@@ -132,6 +132,9 @@ for `client/client/<pkg>/x.py`.
   `client/game/loot.py` reads what a SEARCH left on the ground off
   the room listing's difference (coins, a box, an item), so `;hunt`
   grabs its loot whatever the game called it (2026-09-23).
+  `client/game/lootlog.py` writes every LOOT's outcome (box,
+  treasure, nothing) per creature and ground to history.db's `loot`
+  table — the box drop rate, which the game does not publish (#329).
   `client/game/flight.py` is the escape every trainer runs on
   hostiles — STAND, RETREAT twice and a move through the type-ahead,
   the caller's step then the compass exits, judged by the room

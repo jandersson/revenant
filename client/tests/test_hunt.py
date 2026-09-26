@@ -230,6 +230,20 @@ def test_a_kill_is_skinned_stowed_and_searched(travel):
     assert any("1 kill(s), 1 skin(s)" in text for text in arena.echoed)
 
 
+def test_every_search_is_a_row_in_the_loot_table(travel, tmp_path, monkeypatch):
+    # #329: the box drop rate per creature, read off history.db.
+    import sqlite3
+
+    db = tmp_path / "history.db"
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(db))
+    _run(Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]}))
+    with sqlite3.connect(str(db)) as connection:
+        rows = connection.execute(
+            "SELECT creature, ground, outcome FROM loot"
+        ).fetchall()
+    assert rows == [("rat", PROFILE["hunting_ground"], "nothing")]
+
+
 def test_a_held_skinning_knife_is_fetched_stowed_and_never_taken_for_the_skin(travel):
     # Grek's skinning knife (2026-09-14) cannot be worn: the hunt GETs
     # it before the cut and stows it after, and the hand it sits in is

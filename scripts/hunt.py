@@ -3,7 +3,9 @@
 Walks to your profile's hunting ground (;go2's map), readies the weapon
 and stance, and fights whatever engages you until you say stop: attack,
 retarget past corpses, skin the kill if the profile says so, LOOT it (a
-bare LOOT, the last creature fought — no corpse noun needed), pouch
+bare LOOT, the last creature fought — no corpse noun needed — its
+outcome a row in history.db's `loot` table, the box drop rate per
+creature, #329), pouch
 any gems (STOW GEM, and a box STOW BOX, straight off the ground into the
 containers STORE names — STORE GEMS IN MY <gem_pouch> and STORE BOXES
 IN MY <loot_container> sent only when the profile's container changes,
@@ -184,7 +186,7 @@ import time
 from pathlib import Path
 from collections import Counter
 
-from client.game import buffs, flight, loot, probe
+from client.game import buffs, flight, loot, lootlog, probe
 from client.game.creatures import aim, noun_of, outgrown
 from client.game.probe import classify
 from client.game.profile import describe, load_profile
@@ -1509,6 +1511,10 @@ def dispose(s, profile, corpse, tally):
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         s.echo(f"hunt: loot answered {first!r}")
     outcome = classify(answer, SEARCH_OUTCOMES)
+    if outcome in ("found", "nothing"):
+        # Every search a row in history.db's loot table: the box drop
+        # rate per creature and ground, read off data (#329).
+        lootlog.log(s, answer, profile.get("hunting_ground") or "")
     taken = grab(s, profile, before, tally) if outcome is not None else []
     if outcome == "found":
         for item in items_in(answer):

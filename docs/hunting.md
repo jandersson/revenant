@@ -110,6 +110,17 @@ Barana's Shipyard):
   container: festival wares at 1.4-3.1 million Kronars or a crafted
   lootsack from a rare Tailoring instruction ("You will need to
   acquire a loot sack before you can make further use of this verb.").
+- Every LOOT's outcome is a row in history.db's `loot` table (#329,
+  `client/game/lootlog.py`): the creature as "You search the
+  scavenger goblin." names it, the room, the hunting ground, and
+  box / treasure / nothing — or unknown when the answer window closed
+  before the carried line. The game publishes no drop rate: the Goods
+  option "first checks for a box, and if it finds none, then treasure
+  is generated", one or the other per creature, and a creature page
+  only says "Has Boxes=yes". `lootlog.rates()` reads the rows back per
+  creature. Counted by hand from the game logs before the table
+  existed (2026-09-26): goblins 9 boxes in 50 searches, grendels 9 in
+  52; rats, cougars, badgers, bobcats and hogs carry nothing.
 
 Captured on the second live hunt (2026-09-12, the same character and
 ground, seven kills):
