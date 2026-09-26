@@ -289,7 +289,7 @@ def test_a_skill_the_window_never_shows_is_read_with_exp_after_its_research():
     assert researches(fake) == ["meditate research prediction"] * 3
     assert fake.sent.count("exp utility") == 3
     assert fake.state.experience["Utility"]["mindstate"] == 34
-    assert out.count("the exp window does not show Utility") == 1
+    assert out.count("the exp window did not move Utility after its research") == 1
     assert "Augmentation, Utility at 34/34 — done" in out
 
 
@@ -297,7 +297,7 @@ def test_a_skill_the_window_moves_costs_no_exp():
     fake = Fake({"Augmentation": 0}, step=10, stop_after=2)
     out = run(fake, ["augmentation"])
     assert "exp augmentation" not in fake.sent
-    assert "does not show" not in out
+    assert "did not move" not in out
 
 
 def test_a_named_ability_replaces_the_default():
