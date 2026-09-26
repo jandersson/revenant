@@ -23,6 +23,21 @@ from dataclasses import dataclass, field
 
 from client.game.wounds_data import ROWS
 
+# Wordings the game sent that the wiki's table (wounds_data.py, generated,
+# never hand-edited) lacks — (area, level, kind, phrase) like ROWS, each
+# with its capture (#339):
+# - the eye's level-2 external wound read "tiny scratches to the left
+#   eye" (a Barbarian among frogs, 2026-09-26); the wiki has "light
+#   scratches to the [right/left] eye", every other part "tiny scratches";
+# - a nerve scar read "slight numbness in your fingers and toes" (the
+#   Paladin, in the logs); the wiki's self column at level 3 has "slight
+#   difficulty moving your fingers and toes" (its Empath column "slight
+#   numbness in the fingers and toes") — level 3 until a second reading.
+CAPTURED = (
+    ("eye", 2, "external", "tiny scratches to the [right/left] eye"),
+    ("skin", 3, "internal_scar", "slight numbness in your fingers and toes"),
+)
+
 SEVERITIES = (
     "none",
     "insignificant",
@@ -137,7 +152,7 @@ def _compile():
     first so a longer wording claims its span before a shorter one
     contained in it; a repeated phrase keeps its lowest level."""
     seen = {}
-    for area, lvl, kind, phrase in ROWS:
+    for area, lvl, kind, phrase in ROWS + CAPTURED:
         key = (area, kind, phrase)
         seen[key] = min(lvl, seen.get(key, lvl))
     rows = sorted(seen.items(), key=lambda item: -len(item[0][2]))

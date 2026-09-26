@@ -182,6 +182,18 @@ def test_every_panel_part_maps_to_a_health_area():
     assert wounds.panel_area("tail") is None
 
 
+def test_wordings_the_game_sent_beyond_the_wikis_table_are_known():
+    # #339: both echoed "unrecognized wound ... please report it" on every
+    # HEALTH (five times in two minutes among the frogs, 2026-09-26).
+    health = parse_health(
+        "You have some minor abrasions to the head, tiny scratches to the left "
+        "eye, slight numbness in your fingers and toes."
+    )
+    assert health.unknown == []
+    assert health.wounds["left eye"].external == 2
+    assert health.wounds["skin"].internal_scar == 3
+
+
 def test_a_wording_without_the_wikis_article_still_matches():
     # #335, captured 2026-09-26: HEALTH listed the internal chest wound
     # without the "a" the wiki's phrase starts with; it never matched and

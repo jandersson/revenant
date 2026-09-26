@@ -45,7 +45,14 @@ generated verbatim by `tools/wound_tables.py`, 240 rows, placeholders
 (`[right/left]`, `[hand/arm/leg/tail]`) expanded by the parser into the
 area name ("right arm"). The "(touch)" rows are left out: they carry no
 body area and HEALTH never shows them. Regenerate the file when the
-wiki changes; never edit it by hand.
+wiki changes; never edit it by hand. Where the game's own words differ
+from the wiki's, `CAPTURED` in `client/game/wounds.py` holds the
+game's, each dated (#339): "tiny scratches to the left eye" (the wiki:
+"light scratches"), "slight numbness in your fingers and toes" (the
+wiki's self column: "slight difficulty moving ..."). A wording's
+leading article is optional ("a severely swollen ..." matched HEALTH's
+bare "severely swollen ..." only from #335). Replayed over the 67
+distinct HEALTH lists in the game logs on 2026-09-26, none is unknown.
 
 The parser matches phrases longest-first anywhere in the "You have …"
 sentence, so wordings that contain commas ("a bruised, swollen and
