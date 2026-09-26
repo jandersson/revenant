@@ -262,8 +262,9 @@ for `client/client/<pkg>/x.py`.
   container's boxes for Locksmithing: identify, disarm, identify,
   pick (the profile's `lockpick` in hand or the worn
   `lockpick_ring`, refilled at Ragge's when it runs empty —
-  `lockpick_refill` picks of `lockpick_kind`), open, loot out, the empty box binned through
-  discard.py (so `droppable` must list the box nouns), a longshot
+  `lockpick_refill` picks of `lockpick_kind`), open, loot out, the empty box DISMANTLEd (binned through
+  discard.py when that fails, so `droppable` lists the box nouns), a frog
+  trap's toad waited out, a longshot
   reading put back unless its trap is a nuisance one (frog, laughing
   gas, mime...: tried careful; a deadly or unknown trap never; a lock
   past the reading tried careful too; `safe` puts every one back), a sprung trap judged by the health and wound

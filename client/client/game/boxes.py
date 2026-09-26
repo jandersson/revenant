@@ -197,6 +197,18 @@ INJURED = ("no shape to be disarming",)
 # "You are still stunned." to every DISARM for over thirty seconds) —
 # nothing was tried; the stun is waited out and the step taken again.
 STUNNED = ("you are still stunned",)
+# The frog trap sprung (captured 2026-09-26 on a steel coffer): "It glows
+# a bright green then dims and you notice the world around you has gotten
+# much bigger!" — then every command, GET and WEAR included, answers
+# "You're just a simple toad now.  Get used to it." for a few minutes,
+# and the box lands on the floor.
+TOAD = ("simple toad now", "gotten much bigger")
+# DISMANTLE of an emptied box (captured 2026-09-26, an oaken crate held):
+# "You examine the oaken crate to determine a weak point from which to
+# start the destruction. / You move your hands in a practiced maneuver,
+# dismantling the oaken crate and tossing the pieces aside. / Roundtime:
+# 3 seconds." (Elanthipedia: Dismantle command.)
+DISMANTLED = ("tossing the pieces aside", "dismantling the")
 # Worn armor and brawling gear on the hands hinder every DISARM and PICK
 # (the wiki's warning; captured 2026-09-23 in the Chambers: "Your armor
 # hinders your attempt." / "Your brass knuckles hinders your attempt."),

@@ -741,3 +741,65 @@ def test_an_order_ragge_refuses_buys_nothing(monkeypatch):
     assert not script.refill_ring(run)
     assert not any(command.startswith("offer") for command in fake.sent)
     assert run.ring_empty
+
+
+# --- the frog trap's toad, and DISMANTLE (captured 2026-09-26) ---
+
+FROG_SPRUNG = (
+    "Slowly, you push on the green rune and attempt to move it away from the "
+    "lock, but your finger slips slightly causing you to rub it.  It glows a "
+    "bright green then dims and you notice the world around you has gotten much "
+    "bigger!\n"
+)
+TOAD = "You're just a simple toad now.  Get used to it.\n"
+DISMANTLE = (
+    "You examine the oaken crate to determine a weak point from which to start "
+    "the destruction.\nYou move your hands in a practiced maneuver, dismantling "
+    "the oaken crate and tossing the pieces aside.\nRoundtime: 3 seconds.\n"
+)
+
+
+def test_a_toad_is_waited_out_before_the_box_is_picked_back_up():
+    # 2026-09-26: the frog trap made Cecil a toad; the run went on, every
+    # GET answered TOAD, the coffer stayed on the floor and the gear read
+    # "nowhere to be worn back".
+    fake = None
+    seen = {"disarm": 0, "poll": 0}
+
+    def disarm(command):
+        seen["disarm"] += 1
+        if seen["disarm"] == 1:
+            fake.state.room_objs = "You also see a mildewy deobar crate and a bucket."
+            return FROG_SPRUNG
+        return NO_PROGRESS
+
+    def poll(command):
+        seen["poll"] += 1
+        return TOAD if seen["poll"] == 1 else "What were you referring to?\n"
+
+    answers = crate_reading(FROG_PRAYER)
+    answers = [(p, disarm if p == "disarm my crate" else a) for p, a in answers]
+    answers.insert(0, ("get my nothing-at-all", poll))
+    fake = Fake(answers, mindstates=[1, 3, 5, 7])
+    out = run(fake)
+    assert "turned into a toad by the trap — waiting it out" in out
+    assert "a character again" in out
+    assert seen["poll"] == 2
+    assert "get crate" in fake.sent  # off the floor once the toad wore off
+
+
+def test_an_emptied_box_is_dismantled_not_binned():
+    answers = one_easy_box()
+    answers.insert(0, ("dismantle my box", DISMANTLE))
+    fake = Fake(answers, mindstates=[1, 3, 5, 7])
+    out = run(fake)
+    assert "dismantle my box" in fake.sent
+    assert "put my box in bucket" not in fake.sent
+    assert "the box opened" in out
+
+
+def test_a_box_that_will_not_dismantle_goes_to_the_bucket_as_before():
+    fake = Fake(one_easy_box(), mindstates=[1, 3, 5, 7])  # DISMANTLE unanswered
+    run(fake)
+    assert "dismantle my box" in fake.sent
+    assert "put my box in bucket" in fake.sent

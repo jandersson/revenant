@@ -46,9 +46,14 @@ Locksmithing — ORDER <kind> LOCKPICK, OFFER the quoted price — the
 teller visited first for a short purse, each PUT on the ring; `lockpick_refill` 0 never buys); OPEN,
 LOOK IN, and every item out — coins to the purse, a gem into the
 profile's `gem_pouch`, the rest into the loot container — and the empty
-box into the room's bucket through client/game/discard.py, which only
-takes a noun settings.json's `droppable` lists (box, coffer, chest...);
-a box not on the list goes back into the container and is said. It sits
+box DISMANTLEd in hand ("...dismantling the oaken crate and tossing the
+pieces aside.", 2026-09-26; Elanthipedia: Dismantle command), or, when
+that answers otherwise, into the room's bucket through
+client/game/discard.py, which only takes a noun settings.json's
+`droppable` lists (box, coffer, chest...); a box not on the list goes
+back into the container and is said. A frog trap's toad (every command
+answering "You're just a simple toad now.") is waited out, ten minutes
+at most, before the box is picked up or the gear worn back. It sits
 first (the wiki: kneeling or sitting helps) and stands at the end.
 Some worn gear hinders every attempt ("Your armor hinders your
 attempt." / "Your brass knuckles hinders your attempt.", captured
@@ -96,6 +101,8 @@ from client.game.boxes import (
     PICK_OUTCOMES,
     RING_EMPTY,
     RING_REFUSED,
+    DISMANTLED,
+    TOAD,
     SKILL,
     TAKE_OUTCOMES,
     TOO_HARD,
@@ -259,7 +266,9 @@ def don_reading(run):
         noun = run.doffed.pop()
         run.donning = noun
         free_other_hand(run, "")
-        ask(s, f"get my {noun}")
+        answer = ask(s, f"get my {noun}")
+        if is_toad(answer) and wait_toad(run):
+            answer = ask(s, f"get my {noun}")
         if not in_hand(s, noun):
             run.say(f"the {noun} is nowhere to be worn back — please look for it")
             continue
@@ -345,13 +354,41 @@ def recover(run, noun):
         s.waitrt()
 
 
+TOAD_WAIT = 600  # seconds the frog trap's toad is waited out at most
+TOAD_POLL = 15
+
+
+def is_toad(answer):
+    return any(line in (answer or "").lower() for line in TOAD)
+
+
+def wait_toad(run):
+    """The frog trap's toad waited out: GLANCE (no roundtime) every
+    fifteen seconds until it answers as a character again, ten minutes
+    at most. On 2026-09-26 the run went on as a toad — the coffer stayed
+    on the floor and all four pieces of gear read "nowhere to be worn
+    back", every GET answering "You're just a simple toad now." True
+    when the toad has worn off."""
+    s = run.s
+    run.say("turned into a toad by the trap — waiting it out")
+    for _ in range(TOAD_WAIT // TOAD_POLL):
+        s.sleep(TOAD_POLL)
+        if not is_toad(ask(s, "get my nothing-at-all")):
+            run.say("a character again")
+            return True
+    return False
+
+
 def sprung(run, answer, noun=""):
     """A trap went off: said, the stun waited out, the roundtime too,
-    the box picked back up; the reason to stop, or None."""
+    a toad waited out, the box picked back up; the reason to stop, or
+    None."""
     first = (answer.strip().splitlines() or ["(silence)"])[0]
     run.say(f"a trap sprung — {first!r}")
     run.s.waitrt()
     wait_stun(run)
+    if is_toad(answer) and not wait_toad(run):
+        return "still a toad after ten minutes"
     recover(run, noun)
     return hurt(run)
 
@@ -777,9 +814,17 @@ def empty(run, noun):
 
 
 def dispose(run, noun):
-    """The emptied box into the room's bucket through discard.drop —
-    only a noun on the droppable list — else back into the container."""
+    """The emptied box DISMANTLEd in hand (the operator, 2026-09-26:
+    "You should be able to DISMANTLE the empty boxes"); an answer that is
+    not the dismantling goes the old way — the room's bucket through
+    discard.drop for a noun on the droppable list — else back into the
+    container."""
     s = run.s
+    answer = ask(s, f"dismantle my {noun}")
+    s.waitrt()
+    if any(line in answer.lower() for line in DISMANTLED):
+        return True
+    run.report("dismantle", f"dismantle my {noun}", answer)
     if discard.droppable(noun):
         answer = discard.drop(s, noun, lambda handle, command: ask(handle, command))
         if answer is not None:
