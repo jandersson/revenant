@@ -235,7 +235,11 @@ def parse_wound_list(text, health):
     remainder = text
     for start, end in sorted(taken, reverse=True):
         remainder = remainder[:start] + "|" + remainder[end:]
-    for fragment in re.split(r"[|,]| and ", remainder):
+    # "compounded by" joins an internal wound to an external one on the
+    # same part ("minor swelling and bruising in the abdomen compounded by
+    # cuts and bruises about the abdomen", captured 2026-09-25): both
+    # halves match the table, the joiner is no wound of its own.
+    for fragment in re.split(r"[|,]| and | compounded by ", remainder):
         fragment = fragment.strip(" .")
         # HEALTH prefixes articles the wiki leaves off ("some minor
         # abrasions", "an occasional twitching"): not a wound of their own.

@@ -180,3 +180,16 @@ def test_every_panel_part_maps_to_a_health_area():
     assert wounds.panel_area("rightArm") == "limb"
     assert wounds.panel_area("leftEye") == "eye"
     assert wounds.panel_area("tail") is None
+
+
+def test_a_compounded_wound_is_both_halves_and_no_unknown_fragment():
+    # Captured 2026-09-25: HEALTH joins an internal and an external wound
+    # on one part with "compounded by"; ;hunt reported the joiner as an
+    # unrecognized wound (2026-09-26).
+    health = parse_health(
+        "You have some minor abrasions to the neck, minor swelling and bruising "
+        "in the abdomen compounded by cuts and bruises about the abdomen, some "
+        "minor abrasions to the back."
+    )
+    assert health.unknown == []
+    assert sorted(health.wounds) == ["abdomen", "back", "neck"]
