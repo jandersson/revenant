@@ -31,7 +31,8 @@ structure the train loop with it"): the character's training plan
 names where the TDPs go (`tdp`: stat targets, or `auto` for the
 guild's tiers — client/game/tdp.py's GUILD_TIERS) and what to keep
 (`tdp_reserve`), and each point is INFO, the next stat, its cost
-against the points past the reserve, then one confirmed TRAIN pair
+from the stat's own command (before any walk: the race's modifier
+is in it) against the points past the reserve, then one confirmed TRAIN pair
 at its trainer; a `{"script": "tdp", "args": ["plan"]}` task runs
 it once a cycle wherever the plan puts it. It never trusts the TRAIN wording alone:
 it asks the stat's own command (AGILITY, STRENGTH, ...) for the value,
@@ -232,8 +233,9 @@ PLAN_POINTS = 3  # points one `;tdp plan` buys unless told otherwise
 def plan_points(s, mapdb, walk_fn, points=PLAN_POINTS, bought_points=None):
     """Up to `points` points where the character's training plan says:
     INFO for the stats, the points and the guild, the plan's goals or
-    the guild's tiers for the stat, the wiki's cost against the points
-    past `tdp_reserve`, then one confirmed point at its trainer; the
+    the guild's tiers for the stat, the stat command's quoted cost
+    against the points past `tdp_reserve` — asked before any walk —
+    then one confirmed point at its trainer; the
     walk back at the end. The points bought."""
     from client.game.training import load_plan
 
@@ -260,10 +262,16 @@ def plan_points(s, mapdb, walk_fn, points=PLAN_POINTS, bought_points=None):
             s.echo("tdp: every goal of the plan reached")
             break
         stat, value = choice
-        cost = point_cost(value)
+        # The stat's own command quotes the cost anywhere, race modifier
+        # included; the wiki's bare formula said 48 for Reflex 16, the
+        # game 56, and the walk to the trainer went for nothing
+        # (2026-09-27).
+        cost = parse_stat_answer(ask(s, stat.lower()))["next_cost"]
+        if cost is None:
+            cost = point_cost(value)
         if info["tdps"] - reserve < cost:
             s.echo(
-                f"tdp: {stat} {value} → {value + 1} costs about {cost} and "
+                f"tdp: {stat} {value} → {value + 1} costs {cost} and "
                 f"{info['tdps']} on hand keeps {reserve} — stopping"
             )
             break

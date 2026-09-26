@@ -218,7 +218,14 @@ def test_plan_buys_where_the_training_plan_says_and_keeps_the_reserve(
             # The plan's INFO, the fee check's INFO (no purse to read in
             # this fixture, #247), the plan's INFO for the second point.
             "info": [PALADIN_INFO, PALADIN_INFO, PALADIN_INFO.replace("347", "317")],
-            "strength": [strength(10, 30, 347), strength(11, 33, 317)],
+            # The plan's quote, the trainer's, the pair's check, and the
+            # plan's quote for the second point.
+            "strength": [
+                strength(10, 30, 347),
+                strength(10, 30, 347),
+                strength(11, 33, 317),
+                strength(11, 33, 317),
+            ],
             "train": [CONFIRM, DONE],
         }
     )
@@ -234,6 +241,36 @@ def test_plan_buys_where_the_training_plan_says_and_keeps_the_reserve(
     script.run(idle, ["plan"], mapdb=MAP, walk_fn=walk)
     assert idle.sent == [] and idle.walks == []
     assert "tdp list is empty" in echoes(idle)
+
+
+def test_plan_asks_the_stat_for_its_cost_before_walking(monkeypatch, tmp_path):
+    # 2026-09-27: the wiki's bare formula priced Reflex 16 → 17 at 48,
+    # under the 49 on hand; the game's quote, the race modifier in it,
+    # was 56, and the walk to the trainer went for nothing.
+    monkeypatch.setenv("REVENANT_TRAINING", str(tmp_path))
+    from client.game import training
+
+    training.save_plan(
+        "Lanival",
+        training.load_plan("Lanival") | {"tdp": ["reflex 20"], "tdp_reserve": 0},
+    )
+    fake = Fake(
+        {
+            "info": [
+                PALADIN_INFO.replace("Reflex :   8", "Reflex :  16").replace(
+                    "347", "49"
+                )
+            ],
+            "reflex": [
+                "It will cost you 56 TDPs to raise your Reflex from 16 to 17.\n"
+                "You currently have 49 TDPs available.\n"
+            ],
+        }
+    )
+    script.run(fake, ["plan"], mapdb=MAP, walk_fn=walk)
+    assert fake.sent == ["info", "reflex"]
+    assert fake.walks == []
+    assert "Reflex 16 → 17 costs 56 and 49 on hand keeps 0 — stopping" in echoes(fake)
 
 
 def test_training_walks_there_trains_twice_per_point_and_walks_back():
