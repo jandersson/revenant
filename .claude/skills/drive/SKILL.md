@@ -84,7 +84,7 @@ uv run revenant-send --origin claude --character NAME ";tdp help"
   was invisible here); a command with roundtime (POWER 8-12 s, CLIMB,
   INV LIST) needs a window longer than it, and a long walk or a
   script's whole run needs the log
-  instead: `~/.revenant/logs/game-<stamp>.log`, newest for that session,
+  instead: `~/.revenant/logs/game-<Name>-<stamp>.log`, the newest with the character's name,
   read with the XML stripped (`sed 's/<[^>]*>//g'`). Scripts' echoes go
   to the windows, not the game log; the session's debug log
   (`revenant_client-*.log`) has script starts and external sends.

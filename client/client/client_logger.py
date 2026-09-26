@@ -1,6 +1,7 @@
 import logging.config
 import os
 import pathlib
+import re
 import sys
 import time
 from datetime import datetime
@@ -18,6 +19,25 @@ _SESSION_STAMP = datetime.now().strftime("%Y%m%d-%H%M%S")
 # Unlike the game log (an archive), debug logs are disposable — inits
 # prune ones this many days old.
 DEBUG_LOG_KEEP_DAYS = 7
+
+# A character's name goes into its process's file names (the operator,
+# 2026-09-26: two characters' sessions, a GUI each, and the files told
+# apart only by opening them): game-Westan-<stamp>.log. The session gets
+# REVENANT_CHARACTER from its spawn, the GUI from the launcher.
+_UNSAFE_NAME = re.compile(r"[^A-Za-z0-9-]")
+
+
+def log_filenames(character=None, stamp=None, pid=None):
+    """(game log, debug log) file names for this process: the character's
+    name after the prefix when there is one — "game-Westan-<stamp>.log",
+    "revenant_client-Westan-<stamp>-<pid>.log" — else the plain stamped
+    names. Only letters, digits and hyphens of the name are kept."""
+    stamp = stamp or _SESSION_STAMP
+    pid = os.getpid() if pid is None else pid
+    name = _UNSAFE_NAME.sub("", (character or "").strip())
+    tag = f"{name}-" if name else ""
+    return f"game-{tag}{stamp}.log", f"revenant_client-{tag}{stamp}-{pid}.log"
+
 
 # dictConfig is destructive — it replaces root's handlers and (by
 # default) disables every logger that already exists. Running it once
@@ -76,12 +96,9 @@ class ClientLogger:
         for handler in config["handlers"].values():
             if "filename" in handler:
                 handler["filename"] = str(directory / handler["filename"])
-        config["handlers"]["game_file"]["filename"] = str(
-            directory / f"game-{_SESSION_STAMP}.log"
-        )
-        config["handlers"]["file"]["filename"] = str(
-            directory / f"revenant_client-{_SESSION_STAMP}-{os.getpid()}.log"
-        )
+        game_name, debug_name = log_filenames(os.environ.get("REVENANT_CHARACTER"))
+        config["handlers"]["game_file"]["filename"] = str(directory / game_name)
+        config["handlers"]["file"]["filename"] = str(directory / debug_name)
         prune_debug_logs(directory)
         config["disable_existing_loggers"] = False
         if not console_usable():

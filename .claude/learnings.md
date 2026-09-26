@@ -158,7 +158,7 @@ lessons the code and docs cannot carry themselves.
   `dead="1"` that still said `hostile="1"` — three fixtures in one
   fight. Captured HEALTH answers were already in the logs when the
   wound parser was built.
-- The session's debug log (`revenant_client-<stamp>-<pid>.log`) says
+- The session's debug log (`revenant_client-<Name>-<stamp>-<pid>.log`) says
   which scripts started and when, and since #241 (2026-09-20) holds
   every script echo (`[hunt] hunt: unrecognized skin answer ...`) and
   every command a script put; the sessions registry says who is

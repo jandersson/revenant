@@ -33,6 +33,40 @@ def test_dictconfig_runs_once_and_preserves_existing_loggers(monkeypatch):
     assert not bystander.disabled
 
 
+def test_the_log_files_carry_the_characters_name():
+    # The operator, 2026-09-26: two characters' logs told apart only by
+    # opening them. The name follows the prefix; without one, the plain
+    # stamped names; only letters, digits and hyphens are kept.
+    assert client_logger.log_filenames("Westan", "20260926-195600", 53044) == (
+        "game-Westan-20260926-195600.log",
+        "revenant_client-Westan-20260926-195600-53044.log",
+    )
+    assert client_logger.log_filenames(None, "20260926-195600", 7) == (
+        "game-20260926-195600.log",
+        "revenant_client-20260926-195600-7.log",
+    )
+    assert client_logger.log_filenames("../Sab le", "s", 1)[0] == "game-Sable-s.log"
+
+
+def test_the_handlers_take_the_name_from_revenant_character(monkeypatch):
+    applied = []
+    monkeypatch.setattr(
+        client_logger.logging.config,
+        "dictConfig",
+        lambda config: applied.append(config),
+    )
+    monkeypatch.setattr(client_logger, "_CONFIGURED", False)
+    monkeypatch.setenv("REVENANT_CHARACTER", "Lanival")
+
+    class Thing(client_logger.ClientLogger):
+        pass
+
+    Thing().log.debug("configure")
+    handlers = applied[0]["handlers"]
+    assert "game-Lanival-" in handlers["game_file"]["filename"]
+    assert "revenant_client-Lanival-" in handlers["file"]["filename"]
+
+
 def test_no_console_handler_without_a_console(monkeypatch):
     # #242: a ;reexec child under pythonw inherited a stdout whose flush
     # raised EINVAL on every record, and reexec-<stamp>.err filled with

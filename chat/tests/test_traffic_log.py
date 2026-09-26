@@ -79,6 +79,10 @@ def test_the_log_is_append_only_and_created_on_demand(tmp_path):
 def test_the_log_file_is_named_for_the_connections_moment(tmp_path):
     log = TrafficLog.in_directory(tmp_path, when=datetime(2026, 9, 4, 21, 55, 7))
     assert log.path == tmp_path / "lnet-20260904-215507.log"
+    named = TrafficLog.in_directory(
+        tmp_path, when=datetime(2026, 9, 4, 21, 55, 7), name="Lanival"
+    )
+    assert named.path == tmp_path / "lnet-Lanival-20260904-215507.log"
 
 
 def test_a_server_with_a_log_dir_logs_the_login_redacted_and_the_replies(tmp_path):

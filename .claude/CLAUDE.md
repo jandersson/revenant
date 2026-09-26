@@ -559,7 +559,9 @@ Traps that cost time before:
 - macOS: the filesystem is case-insensitive (`.venv/bin/Revenant` collides
   with the `revenant` script); CPython finds a venv only when `pyvenv.cfg`
   sits beside the interpreter's parent, hence `.venv/branded/`.
-- Logs: raw game lines append to `~/.revenant/logs/game-<stamp>.log`, LNet
-  traffic to `lnet-<stamp>.log` (password redacted); both append-only,
-  never rotated. The debug log is per process, size-capped, pruned at 7
-  days. `REVENANT_LOG_DIR` moves all of it; tests isolate via conftest.
+- Logs: raw game lines append to `~/.revenant/logs/game-<Name>-<stamp>.log`, LNet
+  traffic to `lnet-<Name>-<stamp>.log` (password redacted); both append-only,
+  never rotated. The debug log is per process
+  (`revenant_client-<Name>-<stamp>-<pid>.log`), size-capped, pruned at 7
+  days; <Name> is the character (REVENANT_CHARACTER), absent when a
+  process has none. `REVENANT_LOG_DIR` moves all of it; tests isolate via conftest.

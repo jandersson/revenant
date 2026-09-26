@@ -48,7 +48,7 @@ To protect a name (or change its password), log in and call `Server.register_pas
 
 ## Logs
 
-Every connection keeps an append-only traffic log beside the game logs, `~/.revenant/logs/lnet-<stamp>.log`: every element sent and every chunk received, timestamped, the login's password redacted. It is how a message that renders oddly gets diagnosed after the fact.
+Every connection keeps an append-only traffic log beside the game logs, `~/.revenant/logs/lnet-<Name>-<stamp>.log` (the logged-in name): every element sent and every chunk received, timestamped, the login's password redacted. It is how a message that renders oddly gets diagnosed after the fact.
 
 ## Under the hood
 

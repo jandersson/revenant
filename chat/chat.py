@@ -8,7 +8,7 @@ element. Passwords are registered/changed after login with a
 <data type='newpassword'> element and reset at https://lnet.lichproject.org.
 
 Traffic is logged, append-only, when the caller names a log directory
-(Server(log_dir=...)): one lnet-<stamp>.log per connection, every
+(Server(log_dir=...)): one lnet-<name>-<stamp>.log per connection, every
 element sent and every chunk received, timestamped, the login's
 password attribute redacted — the same archive the game socket keeps,
 so a rendering bug seen live can be diagnosed afterwards (#144).
@@ -61,9 +61,13 @@ class TrafficLog:
         self.path = Path(path)
 
     @classmethod
-    def in_directory(cls, directory, when=None):
+    def in_directory(cls, directory, when=None, name=None):
+        """The log for a connection opened now: lnet-<name>-<stamp>.log,
+        or lnet-<stamp>.log without a name."""
         when = when or datetime.now()
-        return cls(Path(directory) / when.strftime("lnet-%Y%m%d-%H%M%S.log"))
+        name = re.sub(r"[^A-Za-z0-9-]", "", name or "")
+        tag = f"{name}-" if name else ""
+        return cls(Path(directory) / when.strftime(f"lnet-{tag}%Y%m%d-%H%M%S.log"))
 
     def sent(self, data):
         self._write(">>", data)
@@ -192,6 +196,7 @@ class Server:
         self.port = port
         self.connection = None
         self.login_info = None
+        self.username = None  # the traffic log's name (set_login_info)
         self.is_debugging = debug
         self._parser = None
         self._depth = 0
@@ -231,9 +236,10 @@ class Server:
         self._parser.feed(b"<r>")
         self._depth = 0
         if self.log_dir is not None:
-            self.log = TrafficLog.in_directory(self.log_dir)
+            self.log = TrafficLog.in_directory(self.log_dir, name=self.username)
 
     def set_login_info(self, username, game="DR", password=None):
+        self.username = username
         attributes = {
             "name": username,
             "game": game,

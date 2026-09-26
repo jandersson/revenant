@@ -576,3 +576,15 @@ def test_a_spawned_helper_session_learns_who_spawned_it(monkeypatch):
     assert marked["REVENANT_SPAWNED_BY"] == "train"
     assert marked["REVENANT_PARENT_PORT"] == "4242"
     assert "REVENANT_SPAWNED_BY" not in plain and "REVENANT_PARENT_PORT" not in plain
+
+
+def test_the_gui_learns_the_attached_sessions_character_for_its_log_name(monkeypatch):
+    # exec_gui exports it as REVENANT_CHARACTER, which names the GUI's
+    # debug log (client_logger.log_filenames, 2026-09-26).
+    monkeypatch.setattr(
+        launch, "character_for_port", lambda port: {"4243": "Sable"}.get(str(port))
+    )
+    assert launch.attached_character(["--attach", "127.0.0.1:4243"]) == "Sable"
+    assert launch.attached_character(["--attach", "127.0.0.1:4299"]) is None
+    assert launch.attached_character([]) is None
+    assert launch.attached_character(["--attach"]) is None

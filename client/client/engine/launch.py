@@ -34,7 +34,7 @@ from client.engine.login import (
     save_login_defaults,
 )
 from client.engine.procspawn import command_for
-from client.engine.registry import running_sessions
+from client.engine.registry import character_for_port, running_sessions
 from client.engine.wire import DEFAULT_HOST, DEFAULT_PORT
 
 
@@ -303,12 +303,26 @@ def rebrand_for_dock():
         )
 
 
+def attached_character(gui_args):
+    """The character of the session an `--attach host:port` names, from
+    the registry; None without one or for a port it does not list."""
+    args = list(gui_args)
+    if "--attach" not in args or args.index("--attach") + 1 >= len(args):
+        return None
+    _, _, port = args[args.index("--attach") + 1].rpartition(":")
+    return character_for_port(port) if port.isdigit() else None
+
+
 def exec_gui(gui_args):
     """Replace this process with the GUI (re-exec'd under the branded
     interpreter name on macOS; a proper .app bundle is issue #20)."""
     interpreter = Path(sys.executable)
     if sys.platform == "darwin":
         interpreter = branded_interpreter(interpreter)
+    character = attached_character(gui_args)
+    if character:
+        # The GUI's debug log is named after it (client_logger).
+        os.environ["REVENANT_CHARACTER"] = character
     # client.engine.guiboot, not the GUI module itself: the exec leaves every
     # guard behind, and guiboot puts one in the new process (#108).
     os.execv(
