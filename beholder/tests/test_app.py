@@ -22,6 +22,20 @@ def test_mindstate_figure_has_one_sorted_trace_per_skill():
     assert "Lanival" in figure.layout.title.text
 
 
+def test_the_skills_moving_chart_plots_the_count_against_the_skills_tracked():
+    series = {
+        "times": ["2026-09-26T21:00:00+00:00", "2026-09-26T21:01:00+00:00"],
+        "moving": [20, 21],
+        "tracked": [49, 49],
+    }
+    figure = app.moving_figure(series, "Lanival")
+    assert figure.data[0].y == (20, 21)
+    assert figure.layout.yaxis.range == (0, 49)
+    assert "Skills moving — Lanival" in figure.layout.title.text
+    empty = app.moving_figure({"times": [], "moving": [], "tracked": []}, None)
+    assert empty.data[0].y == ()
+
+
 def test_rested_windows_are_shaded_on_the_mindstate_plot():
     windows = [("2026-08-22T10:00:00+00:00", "2026-08-22T15:42:00+00:00")]
     figure = app.mindstate_figure({}, "Lanival", windows)

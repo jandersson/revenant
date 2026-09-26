@@ -48,6 +48,44 @@ def connection(tmp_path):
     connection.close()
 
 
+def test_skills_moving_counts_the_pools_above_zero_per_tick(tmp_path):
+    # The operator's KPI (2026-09-26): a skill with mindstate above 0 is
+    # moving; each ;xp tick is one reading, every skill logged.
+    import sqlite3
+
+    path = tmp_path / "xp.db"
+    writer = sqlite3.connect(path)
+    writer.execute(SCHEMA)
+    writer.executemany(
+        "INSERT INTO mindstate "
+        "(logged_at, character_name, skill_name, rank, percent, mindstate) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        [
+            ("2026-09-26T21:00:00+00:00", "Lanival", "Evasion", 200, 20, 10),
+            ("2026-09-26T21:00:00+00:00", "Lanival", "Sorcery", 100, 10, 0),
+            ("2026-09-26T21:00:00+00:00", "Lanival", "Locksmithing", 5, 0, 34),
+            ("2026-09-26T21:01:00+00:00", "Lanival", "Evasion", 200, 21, 9),
+            ("2026-09-26T21:01:00+00:00", "Lanival", "Sorcery", 100, 11, 2),
+            ("2026-09-26T21:01:00+00:00", "Lanival", "Locksmithing", 5, 0, 33),
+            ("2026-09-26T21:00:30+00:00", "Sable", "Athletics", 50, 5, 3),
+        ],
+    )
+    writer.commit()
+    writer.close()
+    connection = data.connect(path)
+    try:
+        assert data.skills_moving(connection, "Lanival") == {
+            "times": ["2026-09-26T21:00:00+00:00", "2026-09-26T21:01:00+00:00"],
+            "moving": [2, 3],
+            "tracked": [3, 3],
+        }
+        later = data.skills_moving(connection, "Lanival", "2026-09-26T21:00:30")
+        assert later["moving"] == [3]
+        assert data.skills_moving(connection, "Nobody")["times"] == []
+    finally:
+        connection.close()
+
+
 def test_characters_are_distinct_and_sorted(connection):
     assert data.characters(connection) == ["Lanival", "Sable"]
 

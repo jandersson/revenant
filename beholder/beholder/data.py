@@ -196,6 +196,27 @@ def _mindstate_series(rows):
     return series
 
 
+def skills_moving(connection, character, since_iso=""):
+    """How many skills had something in their pool at each ;xp tick —
+    mindstate above 0 — beside how many the tick logged: {"times": [...],
+    "moving": [...], "tracked": [...]}. The operator's measure of a
+    training run is the number of skills moving (.claude/CLAUDE.md);
+    ;xp writes every skill each minute, so one tick is one reading."""
+    series = {"times": [], "moving": [], "tracked": []}
+    rows = connection.execute(
+        "SELECT logged_at, SUM(mindstate > 0), COUNT(*)"
+        "  FROM mindstate"
+        " WHERE character_name = ? AND logged_at >= ?"
+        " GROUP BY logged_at ORDER BY logged_at",
+        (character, since_iso),
+    )
+    for logged_at, moving, tracked in rows:
+        series["times"].append(logged_at)
+        series["moving"].append(moving)
+        series["tracked"].append(tracked)
+    return series
+
+
 def history_since(connection, character, since_iso):
     """Time series per skill from a cutoff onward — the dock's recent
     window. Same shape as history(); ISO-8601 UTC strings compare as

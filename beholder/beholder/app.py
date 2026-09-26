@@ -1,6 +1,8 @@
 """The beholder dashboard: skill experience history in the browser.
 
-Plots mindstate and rank over time per character and skill, with a
+Charts how many skills are moving (a pool above 0) at every ;xp tick —
+the measure a training run is judged by — and plots mindstate and
+rank over time per character and skill, with a
 sortable table of the latest learning queue — the historical companion
 to the GUI's live Experience dock — and a Circle-gates table computing
 what blocks the next circle from the latest ;sheet snapshot. Data
@@ -243,6 +245,52 @@ def mindstate_figure(series, character, windows=()):
     )
 
 
+def moving_figure(series, character):
+    """Skills moving over time — the measure a training run is judged
+    by: how many skills have something in their pool, one reading a
+    minute, with the same 1d/3d/all buttons as the mindstate plot."""
+    figure = go.Figure()
+    figure.add_trace(
+        go.Scatter(
+            x=series["times"],
+            y=series["moving"],
+            name="Skills moving",
+            mode="lines",
+            line={"width": 2},
+            customdata=series["tracked"],
+            hovertemplate="%{y} of %{customdata} skills moving<extra></extra>",
+        )
+    )
+    top = max(series["tracked"], default=0)
+    figure.update_layout(
+        xaxis={
+            "title": "Time (UTC)",
+            "type": "date",
+            "rangeselector": {
+                "bgcolor": PANEL,
+                "activecolor": GRID,
+                "font": {"color": INK},
+                "x": 1.0,
+                "xanchor": "right",
+                "y": 1.02,
+                "yanchor": "bottom",
+                "buttons": [
+                    {"count": 1, "label": "1d", "step": "day", "stepmode": "backward"},
+                    {"count": 3, "label": "3d", "step": "day", "stepmode": "backward"},
+                    {"step": "all"},
+                ],
+            },
+        },
+        yaxis={"title": "Skills with a pool", "range": [0, top or None]},
+        showlegend=False,
+        height=260,
+    )
+    return themed(
+        figure,
+        f"Skills moving — {character}" if character else "Skills moving",
+    )
+
+
 def series_figure(times, named_values, title, y_title):
     """One small single-axis chart (never dual-axis): one line per
     (name, values); a lone series shows no legend — the title names it."""
@@ -318,6 +366,7 @@ def serve_layout():
             html.P(hint, id="empty-hint"),
             html.Label("Character"),
             dcc.Dropdown(id="char-dropdown", options=names, value=character),
+            dcc.Graph(id="moving-plot"),
             html.Label("Skills"),
             dcc.Dropdown(id="skills-dropdown", multi=True),
             dcc.Graph(id="mindstate-plot"),
@@ -622,6 +671,19 @@ def update_wealth(character, _tick):
     )
     themed(figure, f"Carried coin — {character}")
     return f"snapshot at {logged_at}", rows, figure
+
+
+@app.callback(
+    Output("moving-plot", "figure"),
+    Input("char-dropdown", "value"),
+    Input("refresh", "n_intervals"),
+)
+def update_moving(character, _tick):
+    """The skills-moving chart, from every ;xp tick of the character."""
+    empty = {"times": [], "moving": [], "tracked": []}
+    if not character:
+        return moving_figure(empty, character)
+    return moving_figure(query(data.skills_moving, character, default=empty), character)
 
 
 @app.callback(
