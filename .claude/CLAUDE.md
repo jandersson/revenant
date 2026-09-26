@@ -518,6 +518,15 @@ Traps that cost time before:
   `;athletics` skips a rung or stop listing three (`room_creatures`, a
   climb gets interrupted), `;hunt` fights them — a full room is what a
   hunt farms.
+- **The measure of training is the number of skills moving.** A skill
+  with something in its pool learns while it drains; a locked one
+  wastes what it earns, an empty one earns nothing. So every design
+  choice about training — a script's rotation, a ;train task's gate or
+  budget, a farm's size — prefers keeping more skills above 0/34 over
+  filling one to lock: the emptiest weapon first, each to a target and
+  then the next (`weapon_target`); a box farm gated by time, a few
+  boxes a cycle, not a batch that locks Locksmithing and then idles
+  (the operator, 2026-09-26). Say what a proposal does to that count.
 - **Never DROP.** A dropped item is a lost item. A script drops only
   through `client/game/discard.py`'s `drop()`, which allows the
   built-in foraged junk (grass, grass rope) plus settings.json's
