@@ -43,9 +43,12 @@ box into the room's bucket through client/game/discard.py, which only
 takes a noun settings.json's `droppable` lists (box, coffer, chest...);
 a box not on the list goes back into the container and is said. It sits
 first (the wiki: kneeling or sitting helps) and stands at the end.
-Armor and brawling gear on the hands hinder every attempt ("Your brass
-knuckles hinders your attempt.", captured 2026-09-23): each noun in the
-profile's `hindering_gear` (knuckles, gauntlets) is REMOVEd and stowed
+Some worn gear hinders every attempt ("Your armor hinders your
+attempt." / "Your brass knuckles hinders your attempt.", captured
+2026-09-23): the hands, the head and a shield — gauntlets, knuckles, a
+leather cowl, a target shield — and not body plate or leg wear, one
+piece at a time on 2026-09-26 (docs/training.md). Each noun in the
+profile's `hindering_gear` (knuckles, gauntlets, cowl, shield) is REMOVEd and stowed
 before the first box — judged by the piece landing in a hand, whatever
 the game says — and GOT and worn back when the run ends, however it
 ends; a piece that would not come off or go back on is said. Whatever

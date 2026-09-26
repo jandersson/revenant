@@ -313,7 +313,7 @@ FIELDS = (
         "hindering_gear",
         "Taken off for ;boxes (hinders picking)",
         "list",
-        "knuckles, gauntlets — worn back after",
+        "knuckles, gauntlets, cowl, shield — hands, head, shield; worn back after",
     ),
     (
         "repair_items",

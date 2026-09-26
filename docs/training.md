@@ -570,11 +570,33 @@ creatures than the grendels and cougars (their boxes read 12-13/17
 at rank 1). The `boxes` task stays in Cecil's plan after the skins
 (`{"skills": ["Locksmithing"], "script": "boxes", "return_word":
 "return"}`) and ends on its own when the sack holds nothing it can
-open. Worn plate and brass knuckles hinder every attempt ("Your
-armor hinders your attempt." / "Your brass knuckles hinders your
-attempt."; the wiki: Locksmithing is especially hindered by armor and
-brawling gear on the hands), so the profile's `hindering_gear`
-(`["knuckles", "gauntlets"]` for Cecil) comes off before the first box —
+open. Some worn gear hinders every attempt ("Your armor hinders your
+attempt." / "Your brass knuckles hinders your attempt."): which pieces
+is nobody's rule written down — the wiki's Hindrance page is about
+maneuvering and stealth, and dr-scripts leaves it to a hand-set
+`hinders_lockpicking` flag per item (its sample profiles flag ring
+gloves, a ring balaclava, a target shield, brass knuckles, and not a
+quilted shirt or pants). An experiment on 2026-09-26 settled one
+Paladin's kit, a careful PICK after each change — the lock's IDENTIFY
+is no instrument: a lock already inspected answers "Somebody has
+already inspected the current lock on this crate..." and the reading
+alone, never the hindrance line:
+
+| Worn | "Your armor hinders your attempt." |
+|---|---|
+| everything | yes, and "Your brass knuckles hinders your attempt." |
+| knuckles, gauntlets, light full plate, target shield off | yes |
+| the rugged leather cowl off too (boots, breeches, parry stick still on) | no |
+| light full plate alone added back | no |
+| plate gauntlets alone | yes |
+| metal target shield alone | yes |
+
+So the hands (gauntlets, knuckles), the head (a leather cowl) and the
+shield hinder, and body plate and leg wear do not — the prediction
+that plate hindered and the shield did not was wrong twice. Untested:
+other head and hand pieces, other shields, a balaclava. The profile's
+`hindering_gear` (`["knuckles", "gauntlets", "cowl", "shield"]` for
+Cecil since) comes off before the first box —
 REMOVE, judged by the piece landing in a hand since REMOVE's wordings
 are uncaptured, then STOW — and goes back on when the run ends, however
 it ends (GET, WEAR: "You slide some brass knuckles onto your hands and

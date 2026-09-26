@@ -349,3 +349,30 @@ def test_the_laughing_gas_is_a_sprung_trap_and_the_stun_after_it_a_wait():
     assert classify(CAPTURED_LAUGHING_SPRUNG, DISARM_OUTCOMES) == "sprung"
     assert classify("You are still stunned.", DISARM_OUTCOMES) == "stunned"
     assert classify("You are still stunned.", PICK_OUTCOMES) == "stunned"
+
+
+# Captured 2026-09-26 in the guild hall (the hindering-gear experiment):
+# a lock already inspected answers with the reading alone, never the
+# hindrance line; a careful PICK that gets nowhere; a trap already sprung.
+CAPTURED_LOCK_KNOWN = (
+    "Somebody has already inspected the current lock on this crate...\n"
+    "Opening the oaken crate would be a longshot.\n"
+)
+CAPTURED_PICK_NO_PROGRESS = (
+    "You deftly remove a lockpick from the lockpick ring and begin to work at "
+    "carefully picking open the crate.\n"
+    "Your armor hinders your attempt.\n"
+    "You are unable to make any progress towards opening the lock.\n"
+    "You return your lockpick to the lockpick ring.\n"
+    "Roundtime: 15 sec.\n"
+)
+CAPTURED_TRAP_SPENT = (
+    "You see a shattered glass tube with a tiny hammer inside the lock.  You "
+    "deem it quite safe.\n"
+)
+
+
+def test_the_experiments_captures_read_as_the_script_expects():
+    assert reading(CAPTURED_LOCK_KNOWN, LOCK_READINGS) == 11
+    assert classify(CAPTURED_PICK_NO_PROGRESS, PICK_OUTCOMES) == "retry"
+    assert classify(CAPTURED_TRAP_SPENT, DISARM_OUTCOMES) == "no trap"
