@@ -143,6 +143,13 @@ Traps that cost time before:
   docs/architecture.md's Module reference), docs/architecture.md, and
   any docs/ model whose assumptions moved.
   Documentation is BLUF: the first two sentences carry what it does and why.
+- **Docs are short. Err on saying too little.** A doc page is for a
+  reader who wants to use the thing: what it does, how to run it, the
+  one caveat that bites — in short sections, lists and small tables,
+  never a paragraph over a few lines. No incident stories, dates or
+  issue trails in docs/ or the README; the commits, the issues and
+  the code's docstrings keep those (the operator, 2026-09-27, on
+  running.md and architecture.md: "a super dump of text").
 - **Credit every source in docs/bibliography.md.** A feature that drew on a
   Lich script, the lich-5 commons, dr-scripts, a Genie plugin, a wiki page,
   another client, or someone's protocol notes gets a row (source linked,
