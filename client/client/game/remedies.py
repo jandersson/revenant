@@ -325,10 +325,22 @@ def parse_order(text):
     }
 
 
+# An order past its due time (captured 2026-09-26): READ MY LOGBOOK
+# answers "This logbook is tracking a work order that has expired.  You
+# must untie any items bundled with the logbook then ASK the trainer for
+# another work order.", and the master, asked anyway, "you realize you
+# have items bundled with the logbook, and should untie them before
+# getting a new work order."
+LOGBOOK_EXPIRED = ("work order that has expired",)
+MASTER_UNTIE = ("should untie them", "untie any items bundled")
+
+
 def parse_logbook(text):
-    """("none" | "open" | "done", remaining, roisaen) from READ MY
-    LOGBOOK."""
+    """("none" | "open" | "done" | "expired", remaining, roisaen) from
+    READ MY LOGBOOK."""
     lowered = (text or "").lower()
+    if any(word in lowered for word in LOGBOOK_EXPIRED):
+        return "expired", 0, None
     if any(word in lowered for word in LOGBOOK_DONE):
         due = re.search(r"within the next (\d+) roisaen", lowered)
         return "done", 0, int(due.group(1)) if due else None

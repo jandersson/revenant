@@ -879,3 +879,56 @@ def test_an_ask_that_finds_him_gone_looks_again_once():
     assert sought == [1]
     assert parsed and parsed["item"] == "blister cream"
     assert fake.sent.count("ask lanshado for easy remedies work") == 2
+
+
+# Captured 2026-09-26: an order past its due time, the logbook's word and
+# the master's when asked anyway.
+LOGBOOK_EXPIRED = (
+    "You open your logbook and sort through its contents.\n"
+    "This logbook is tracking a work order that has expired.  You must untie any "
+    "items bundled with the logbook then ASK the trainer for another work order.\n"
+)
+MASTER_UNTIE_FIRST = (
+    'Lanshado looks at your logbook and says, "Hmm, you realize you have items '
+    "bundled with the logbook, and should untie them before getting a new work "
+    'order."\n'
+)
+
+
+def test_an_expired_order_is_untied_and_a_new_one_asked():
+    # 2026-09-26: a blister cream order from the night before stopped
+    # every ;remedies work after it ("no order read, stopping").
+    fake = Fake(
+        work_answers(
+            **{
+                "read my logbook": [LOGBOOK_EXPIRED, LOGBOOK_OPEN, LOGBOOK_DONE],
+                "untie my logbook": [
+                    "You untie some blister cream from your logbook.\n",
+                    "There is nothing tied to your logbook.\n",
+                ],
+            }
+        ),
+        mindstates=[3] + [5] * 30,
+    )
+    out = run(fake, ["work", "count=1"])
+    assert "the logbook's order expired — untying it for a new one" in out
+    assert fake.sent.index("untie my logbook") < fake.sent.index(
+        "ask lanshado for easy remedies work"
+    )
+    assert "order 1 paid 1146 Kronars" in out
+
+
+def test_a_master_asking_to_untie_first_gets_the_logbook_untied_and_asked_again():
+    fake = Fake(
+        work_answers(
+            **{
+                "ask lanshado for easy remedies work": [MASTER_UNTIE_FIRST, ORDER],
+                "untie my logbook": ["There is nothing tied to your logbook.\n"],
+            }
+        ),
+        mindstates=[3] + [5] * 30,
+    )
+    out = run(fake, ["work", "count=1"])
+    assert fake.sent.count("ask lanshado for easy remedies work") >= 2
+    assert "untie my logbook" in fake.sent
+    assert "no order read" not in out

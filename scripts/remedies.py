@@ -33,7 +33,10 @@ stowed, or bundled with the logbook under `work`.
 
 `work` is the society's orders (Elanthipedia: Work orders), run as a
 living: the logbook in hand and READ first — an order it still tracks
-is resumed, a complete one handed in — else ASK <master> FOR EASY
+is resumed, a complete one handed in, an expired one (past its due
+time: "This logbook is tracking a work order that has expired.")
+UNTIEd and its stacks stowed before a new one is asked, 2026-09-26 —
+else ASK <master> FOR EASY
 REMEDIES WORK where the master stands (Lanshado in the Crossing
 society's Tool Shop, map 8860 — the profile's `crafting_master` and
 `crafting_hall`; he wanders the building — "Lanshado steadies himself
@@ -106,6 +109,7 @@ from client.game.probe import classify
 from client.game.money import parse_wealth, phrase
 from client.game.seek import present
 from client.game.remedies import (
+    MASTER_UNTIE,
     BOUGHT,
     BUNDLED,
     building_rooms,
@@ -582,6 +586,36 @@ def find_master(s, profile, master, mapdb=None, here=None):
     return False
 
 
+UNTIE_TRIES = 10  # stacks untied from an expired order's logbook at most
+UNTIED_NONE = ("nothing", "what were you referring", "isn't anything", "not bundled")
+
+
+def untie_expired(s):
+    """An order past its due time: UNTIE MY LOGBOOK until nothing more is
+    tied to it, each piece that comes off STOWed — a stack of the same
+    remedy fills a later order — and the saved order cleared, so the
+    master will give another (2026-09-26: a blister cream order from the
+    night before stopped every ;remedies work after it). UNTIE's
+    answers are uncaptured: the first is echoed for the fixtures."""
+    s.echo("remedies: the logbook's order expired — untying it for a new one")
+    for attempt in range(UNTIE_TRIES):
+        answer = ask(s, "untie my logbook")
+        lowered = answer.lower()
+        if attempt == 0:
+            first = (answer.strip().splitlines() or ["(silence)"])[0]
+            s.echo(f"remedies: UNTIE answered {first!r} — please report it")
+        if any(word in lowered for word in UNTIED_NONE) or not lowered.strip():
+            break
+        for side in ("right_hand", "left_hand"):
+            held = getattr(s.state, side, None)
+            noun = held.get("noun") if isinstance(held, dict) else None
+            if noun and noun != "logbook":
+                ask(s, f"stow my {noun}")
+    name = getattr(s.state, "name", None) or ""
+    if name:
+        clear_open(name)
+
+
 def order(s, master, level, seek=None):
     """The logbook in hand and read — an order it still tracks is
     resumed, a complete one goes straight to the master — else the
@@ -592,6 +626,8 @@ def order(s, master, level, seek=None):
         return None
     text = ask(s, "read my logbook")
     state, remaining, due = parse_logbook(text)
+    if state == "expired":
+        untie_expired(s)
     if state == "done":
         ask(s, "stow my logbook")
         s.echo("remedies: the logbook holds a complete order — handing it in")
@@ -611,6 +647,9 @@ def order(s, master, level, seek=None):
         }
     answer = ask(s, f"ask {master} for {level} remedies work")
     if any(word in answer for word in NO_MASTER) and seek is not None and seek():
+        answer = ask(s, f"ask {master} for {level} remedies work")
+    if any(word in answer.lower() for word in MASTER_UNTIE):
+        untie_expired(s)
         answer = ask(s, f"ask {master} for {level} remedies work")
     if any(word in answer for word in NO_MASTER):
         s.echo(f"remedies: {master} is not here — stopping")
