@@ -117,6 +117,8 @@ ANALYZE_OUTCOMES = (
     ("closer", ("you must be closer",)),
     ("again", ("you fail to find any",)),
     ("no weapon", ("you need to hold",)),
+    # Sent while stunned it does not happen (#336): no miss, asked again.
+    ("stunned", ("you are still stunned",)),
 )
 ABILITY_OUTCOMES = (
     ("untrained", ("you have not been trained",)),

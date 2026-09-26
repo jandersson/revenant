@@ -68,6 +68,10 @@ deliver three blows ..." counts them) the swing is an ATTACK instead:
 a smite past the free ones draws on the soul pool, and one with the
 pool empty harms the soul (#217; docs/soul.md). A smite the game
 answers "Drawing upon holy wrath" turns smiting off for the run.
+A swing waits out a stun first (the status indicator, 20 s at most),
+and one answered "You are still stunned." did not happen: the maneuver
+keeps its turn, a self-combo's attack its place, and neither counts as
+a miss (#336).
 `tactics` lists tactical maneuvers in rotation ("bob", "circle",
 "weave"): every third swing is the next one instead of ATTACK while
 Tactics sits below mind-lock in the exp window — a maneuver is what
@@ -234,6 +238,15 @@ STUN_LIMIT = 3  # stuns taken in one fight (a kill resets) before it ends
 # Captured 2026-09-20 on the eels: "The teeth lands a light hit that
 # lightly pierces the left forearm, lightly stunning you."
 _STUNNED = ("stunning you",)
+# A command sent while stunned does not happen: "You are still stunned."
+# (captured 2026-09-26 on a circle-1 Barbarian among grass eels — a FEINT,
+# a DRAW, a CIRCLE and a FEINT inside two seconds, the maneuvers reported
+# as unrecognized and the self-combo's queue emptied, #336). The swing
+# waits the stun out first (the status indicator, STUN_WAIT at most), and
+# an answer that still says so is a swing that never went out.
+_STILL_STUNNED = ("you are still stunned",)
+STUN_WAIT = 20  # seconds a swing waits for a stun to pass
+STUN_POLL = 0.5
 DEFAULT_WOUND_FLOOR = "harmful"
 
 # The captured kill line: "The ship's rat falls to the ground and lies
@@ -536,6 +549,7 @@ class Tally:
         self.tracks = 0  # HUNTs the game answered
         self.track_misses = 0  # unrecognized HUNT answers in a row
         self.stuns = 0  # stuns taken since the last kill (#236)
+        self.stunned_swings = 0  # swings answered "You are still stunned." (#336)
         self.swings_at_kill = 0  # tally.swings at the last kill (#236)
         self.tracking_off = False  # HUNT refused this run, said once
         self.swings = 0  # swings this run, against MAX_ACTIONS
@@ -1745,11 +1759,24 @@ def smite_allowed(s, tally):
     return False
 
 
+def wait_out_stun(s):
+    """Sleep while the status indicator says stunned, STUN_WAIT seconds
+    at most (#336). A handle without the status (a test's) waits none."""
+    waited = 0.0
+    while waited < STUN_WAIT and not s.dead:
+        status = getattr(s, "status", None)
+        if not getattr(status, "stunned", False):
+            return
+        s.sleep(STUN_POLL)
+        waited += STUN_POLL
+
+
 def swing(s, profile, tally, prey):
     """One swing — ATTACK, SMITE or a maneuver (swing_verb) — and what
     its answer means: a kill disposed of, a maneuver tallied, a corpse
     or an empty room noted, an advance waited out. True while the room
     still holds a live hostile (a cast's filler asks, #203)."""
+    wait_out_stun(s)
     verb = swing_verb(profile, tally, s.state)
     if verb == "smite" and (tally.smite_off or not smite_allowed(s, tally)):
         verb = "attack"
@@ -1772,6 +1799,18 @@ def swing(s, profile, tally, prey):
     if word := getattr(s.state, "balance", None):
         tally.balances[word] = tally.balances.get(word, 0) + 1
     tally.stuns += sum(lowered.count(word) for word in _STUNNED)
+    if any(word in lowered for word in _STILL_STUNNED):
+        # Nothing went out (#336): the attack keeps its place in the
+        # combo, the maneuver and the brawling attack their turn.
+        if combo:
+            tally.barb.combo.insert(0, verb)
+        elif fists_turn(profile) and verb in brawling(profile):
+            tally.brawl = max(0, tally.brawl - 1)
+        elif not plain_swing(profile, verb):
+            tally.tactic = max(0, tally.tactic - 1)
+        tally.stunned_swings += 1
+        wait_out_stun(s)
+        return bool(hostiles(s.state))
     if verb == "smite" and any(word in lowered for word in _SMITE_WRATH):
         # The pool paid for that one: no more smites this run (#217).
         tally.smite_off = True
