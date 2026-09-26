@@ -270,3 +270,4 @@ lessons the code and docs cannot carry themselves.
   reload is a fresh module copy — running scripts keep the code they
   started with, the next start gets the new — and the log says which
   running scripts kept theirs.
+- Heredoc Python edits in Bash turn \b into a real backspace (0x08) in the file: a regex that looks right in grep matches nothing. Write the edit script with the Write tool; check with od -c when a pattern mysteriously fails (2026-09-26).
