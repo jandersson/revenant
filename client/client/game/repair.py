@@ -56,6 +56,12 @@ Captured 2026-09-26, an iron pestle worn past use:
   GIVE (no coin)  Rangu beats his fist down upon the counter and
                   exclaims, "Ya'll need more coin if I am to be repairing
                   that!"
+  GIVE (paid)     You hand Rangu 20 Kronars and he gives you back a
+                  repair ticket.  Rangu says, "I should be having that
+                  done for you in about 10 roisaen.  Don't lose this
+                  ticket!  You must have it to reclaim your pestle."
+                  — the first GIVE after the teller trip, 9 s after the
+                  quote: an estimate still standing is paid at once.
 His tickets are "Rangu repair ticket"s (a customer's GET, same day).
 
 The quote is copper: 200 carried, 92 after the 108. The first ;repair
@@ -129,6 +135,9 @@ _TICKET = re.compile(
     r"gives you back a repair ticket.*?in about (?P<roisaen>\d+) roisaen", re.DOTALL
 )
 TICKETED = "gives you back a repair ticket"
+_PAID = re.compile(
+    r"You hand \S+ (?P<amount>[\d,]+) (?P<currency>Kronars|Lirums|Dokoras)"
+)
 SHORT = ("need more coin",)
 UNDAMAGED = (
     "isn't a scratch on that",
@@ -177,9 +186,12 @@ def classify_give(text):
     lowered = text.lower()
     ticket = _TICKET.search(text)
     if ticket or TICKETED in lowered:
+        paid = _PAID.search(text)
         return {
             "kind": "ticket",
             "roisaen": int(ticket.group("roisaen")) if ticket else None,
+            "copper": int(paid.group("amount").replace(",", "")) if paid else None,
+            "currency": paid.group("currency") if paid else None,
         }
     quote = _QUOTE.search(text)
     if quote:

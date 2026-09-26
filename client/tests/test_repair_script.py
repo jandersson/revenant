@@ -365,6 +365,33 @@ def test_a_battered_pestle_goes_to_rangu_and_back_into_the_pack():
     assert "repair: 1 of 1 repaired" in echoes(fake)
 
 
+def test_an_estimate_still_standing_after_the_teller_is_paid_at_the_first_give():
+    # 2026-09-26: back from the teller 9 s after Rangu's quote, the first
+    # GIVE paid and handed back a ticket; the run called it "no estimate",
+    # said "0 of 1 repaired" and left the pestle's ticket in hand.
+    fake = Fake(
+        {
+            "analyze my mortar": [ANALYZE_GOOD],
+            "analyze my pestle": [ANALYZE_BATTERED],
+            "wealth": [wealth(0), wealth(20)],
+            "withdraw": [COUNTED.format("2 bronze")],
+            "give my pestle": [RANGU_QUOTE, RANGU_TICKET],
+            "give my ticket": [RANGU_RETURNED],
+            "get my Rangu ticket": [
+                "You get a Rangu repair ticket from inside your backpack.",
+                "What were you referring to?",
+            ],
+        },
+        possessions=[],
+    )
+    script.run(fake, ["tools"], mapdb=MAP, walk_fn=walk, profile=TOOLS)
+    assert fake.walks == [{19209}, {1900}, {19209}]
+    assert fake.sent.count("give my pestle to Rangu") == 2
+    assert "pestle handed in for 2 bronze Kronars, ready in 10 roisaen" in echoes(fake)
+    assert "no estimate" not in echoes(fake)
+    assert "repair: 1 of 1 repaired" in echoes(fake)
+
+
 def test_tools_in_good_condition_go_nowhere():
     fake = Fake(
         {

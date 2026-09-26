@@ -226,7 +226,9 @@ def put_back(s, noun, place):
 
 def hand_in(s, name, due, purse):
     """GIVE each due piece to `name` twice — the estimate, then the
-    payment. Returns (given, short, stopped): given [(noun, place,
+    payment; a first GIVE answered with a ticket paid an estimate still
+    standing (Rangu, 2026-09-26: back from the teller within seconds)
+    and counts as handed in. Returns (given, short, stopped): given [(noun, place,
     roisaen)], short [(noun, place, copper, currency)] the purse could
     not cover, stopped True once "return" was typed. `purse`
     ({currency: copper}) is spent down as tickets come back."""
@@ -241,6 +243,19 @@ def hand_in(s, name, due, purse):
         if answer["kind"] == "busy":
             s.sleep(5)
             answer = classify_give(ask(s, f"give my {noun} to {name}"))
+        if answer["kind"] == "ticket":
+            copper, currency = answer["copper"], answer["currency"]
+            if purse is not None and copper and currency:
+                purse[currency] = purse.get(currency, 0) - copper
+            cost = phrase(copper, currency) if copper and currency else "the estimate"
+            s.echo(
+                f"repair: {noun} handed in for {cost}, "
+                f"ready in {answer['roisaen']} roisaen"
+            )
+            ask(s, "stow my ticket")
+            s.waitrt()
+            given.append((noun, place, answer["roisaen"]))
+            continue
         if answer["kind"] != "quote":
             reason = {
                 "undamaged": "not a scratch on it",

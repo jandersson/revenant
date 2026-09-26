@@ -71,13 +71,12 @@ RANGU_SHORT = (
     "Rangu beats his fist down upon the counter and exclaims, \"Ya'll need more "
     'coin if I am to be repairing that!"\n'
 )
-# Assumed, not captured: Catrox's ticket and pickup lines in Rangu's name.
 RANGU_TICKET = (
-    TICKET.replace("Catrox", "Rangu")
-    .replace("108", "20")
-    .replace("plate", "pestle")
-    .replace("about 5", "about 10")
+    "You hand Rangu 20 Kronars and he gives you back a repair ticket.  Rangu "
+    "says, \"I should be having that done for you in about 10 roisaen.  Don't "
+    'lose this ticket!  You must have it to reclaim your pestle."\n'
 )
+# Assumed, not captured: Catrox's pickup line in Rangu's name.
 RANGU_RETURNED = "You hand Rangu your ticket and are handed back an iron pestle.\n"
 LOOK_READY = (
     "Looking at the Catrox ticket you see it is for some light full plate.  You "
@@ -112,7 +111,13 @@ def test_the_estimate_is_copper_currency_and_roisaen():
 
 
 def test_the_second_give_hands_back_a_ticket():
-    assert repair.classify_give(TICKET) == {"kind": "ticket", "roisaen": 5}
+    assert repair.classify_give(TICKET) == {
+        "kind": "ticket",
+        "roisaen": 5,
+        "copper": 108,
+        "currency": "Kronars",
+    }
+    assert repair.classify_give(RANGU_TICKET)["roisaen"] == 10
 
 
 def test_a_quick_second_give_without_coin_is_short():
