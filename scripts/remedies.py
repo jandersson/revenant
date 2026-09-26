@@ -35,7 +35,9 @@ stowed, or bundled with the logbook under `work`.
 living: the logbook in hand and READ first — an order it still tracks
 is resumed, a complete one handed in, an expired one (past its due
 time: "This logbook is tracking a work order that has expired.")
-UNTIEd and its stacks stowed before a new one is asked, 2026-09-26 —
+UNTIEd and its stacks stowed before a new one is asked, 2026-09-26, and
+every order bundles the finished stacks of its remedy INV LIST shows
+in a container before any crush, #324 —
 else ASK <master> FOR EASY
 REMEDIES WORK where the master stands (Lanshado in the Crossing
 society's Tool Shop, map 8860 — the profile's `crafting_master` and
@@ -472,6 +474,54 @@ def take_out(s, noun):
     ask(s, "stow my pestle")
     ask(s, f"get my {noun} from my mortar")
     ask(s, "stow my mortar")
+
+
+def stacks_on_hand(possessions, item):
+    """Finished stacks of `item` ("blister cream") the parser's INV LIST
+    shows directly in a container — never the unfinished one in the
+    mortar — as the containers' nouns, one per stack, in listing order."""
+    by_exist = {entry.get("exist"): entry for entry in possessions or []}
+    wanted = str(item or "").strip().lower()
+    found = []
+    for entry in possessions or []:
+        name = str(entry.get("name") or "").strip().lower()
+        for article in ("some ", "a ", "an "):
+            if name.startswith(article):
+                name = name[len(article) :]
+                break
+        if not wanted or name != wanted:
+            continue
+        holder = by_exist.get(entry.get("container_exist")) or {}
+        noun = str(holder.get("noun") or "").lower()
+        if noun and noun != "mortar":
+            found.append(noun)
+    return found
+
+
+def bundle_on_hand(s, item, noun, remaining):
+    """Bundle the finished stacks of the order's remedy already carried
+    before a new one is crafted (#324: two blister creams untied from an
+    expired order sat in the backpack while the run crushed a third, 10
+    roisaen from the deadline). GET MY <item> FROM MY <container>, then
+    the craft's own bundle(); a GET that finds none (the listing is as
+    old as the last INV LIST) or an answer the table lacks ends it.
+    The stacks still owed."""
+    stacks = stacks_on_hand(getattr(s.state, "possessions", None), item)
+    for container in stacks:
+        if remaining <= 0:
+            break
+        if missing(ask(s, f"get my {item} from my {container}")):
+            break
+        outcome, left, due = bundle(s, noun, remaining)
+        if outcome == "unknown":
+            break
+        if outcome == "bundled":
+            remaining = left
+            s.echo(
+                f"remedies: a {item} from the {container} bundled — "
+                f"{remaining} more, {due} roisaen"
+            )
+    return remaining
 
 
 def tools_in_hand(s):
@@ -954,6 +1004,8 @@ def work(s, options, profile):
         snapshot = {key: tally.get(key, 0) for key in COUNTERS}
         state = open_order(s, parsed, options["level"])
         remaining = parsed["count"]
+        if remaining and spec:
+            remaining = bundle_on_hand(s, parsed["item"], spec[4], remaining)
         why = None
         started = False
         rejected = 0

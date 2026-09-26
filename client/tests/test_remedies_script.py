@@ -961,3 +961,70 @@ def test_a_stopped_run_puts_the_pestle_and_mortar_away():
     fake.state.right_hand = {"noun": "mortar"}
     script.put_tools_away(fake)
     assert puts == [("stow my pestle", True), ("stow my mortar", True)]
+
+
+# #324: the stacks untied from an expired order, as INV LIST keeps them
+# (2026-09-26): two finished creams in the backpack, a third begun in
+# the mortar.
+CREAMS_ON_HAND = [
+    {"exist": "1", "name": "a rugged backpack", "noun": "backpack", "depth": 0},
+    {
+        "exist": "2",
+        "name": "some blister cream",
+        "noun": "cream",
+        "container_exist": "1",
+        "depth": 1,
+    },
+    {
+        "exist": "3",
+        "name": "some blister cream",
+        "noun": "cream",
+        "container_exist": "1",
+        "depth": 1,
+    },
+    {
+        "exist": "4",
+        "name": "an iron mortar",
+        "noun": "mortar",
+        "container_exist": "1",
+        "depth": 1,
+    },
+    {
+        "exist": "5",
+        "name": "some unfinished blister cream",
+        "noun": "cream",
+        "container_exist": "4",
+        "depth": 2,
+    },
+]
+
+
+def test_the_finished_stacks_on_hand_are_the_stacks_found():
+    assert script.stacks_on_hand(CREAMS_ON_HAND, "blister cream") == [
+        "backpack",
+        "backpack",
+    ]
+    assert script.stacks_on_hand(CREAMS_ON_HAND, "nemoih salve") == []
+
+
+def test_stacks_already_carried_are_bundled_before_any_crush():
+    # 2026-09-26: the run crushed a third cream with two in the pack and
+    # 10 roisaen left; bundled by hand, "You notate the cream in the
+    # logbook then bundle it up for delivery." each.
+    fake = Fake(
+        work_answers(
+            **{
+                "get my blister cream from my backpack": [
+                    "You get some blister cream from inside your backpack.\n"
+                ],
+            }
+        ),
+        mindstates=[3] + [5] * 30,
+    )
+    fake.state.possessions = CREAMS_ON_HAND
+    out = run(fake, ["work", "count=1"])
+    assert fake.sent.count("get my blister cream from my backpack") == 2
+    assert fake.sent.count("bundle my cream with my logbook") == 2
+    assert fake.crushes == 0
+    assert "a blister cream from the backpack bundled — 1 more" in out
+    assert "order 1 paid" in out
