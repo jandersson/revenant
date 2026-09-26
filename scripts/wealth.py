@@ -12,7 +12,14 @@ Holders' Council ..."); the option is free on a Premium account and an
 urchin-runner (SimuCoins) service otherwise, so a silent answer is
 reported as such and not retried until the next interval — except a
 BANK ACCOUNT the game refused for roundtime ("...wait 1 seconds."),
-asked again once the seconds have passed (#268). Each branch
+asked again once the seconds have passed (#268). A character with no
+account gets the slip with zero totals and "You have no open bank
+accounts!" (captured 2026-09-26): that ends the report with nothing on
+deposit, said so, and INFO and the summary follow as for any other —
+it read as a silent answer and drew the Premium advice until #330.
+The first ask waits START_DELAY (45 s) past the start, clear of the
+autostarted ;sheet's login INV LIST, whose roundtime refused a BANK
+ACCOUNT sent in the same second (#330). Each branch
 line becomes a `bank` wealth row in ~/.revenant/history.db (the branch
 in the `bank` column, the report's own copper total as the amount; its
 Totals block is skipped, the branches add up to it); INFO follows,
@@ -39,7 +46,10 @@ from client.game.history import database_path as history_database_path
 from client.game.money import parse_wealth, phrase, to_copper
 
 INTERVAL = 3 * 3600  # seconds between BANK ACCOUNT asks
-START_DELAY = 20  # seconds after the start before the first ask: login noise
+# Seconds after the start before the first ask: past the login noise and
+# ;sheet's INV LIST (sent about 20 s in, 3-4 s of roundtime), which
+# refused a BANK ACCOUNT sent in the same second (#330, 2026-09-26).
+START_DELAY = 45
 REPORT_WAIT = 20  # seconds a report gets to arrive before it counts as none
 REPORT_SETTLE = 3  # seconds of silence after a branch line that end a report
 INFO_SECONDS = 3  # INFO's answer, opening window
@@ -62,6 +72,10 @@ _DEPOSIT = re.compile(
     r"\b(?P<currency>Kronars|Lirums|Dokoras)\s*$"
 )
 _REPORT_END = re.compile(r"You have \d+ open bank accounts?")
+# The report of a character with no account: zero totals, then this
+# (captured 2026-09-26, #330) — a report of nothing, not a silence.
+_NO_ACCOUNTS = re.compile(r"You have no open bank accounts")
+NO_ACCOUNTS = "no bank account open — nothing on deposit"
 # BANK ACCOUNT sent inside a roundtime did not run (#268, 2026-09-21):
 # "...wait 1 seconds." — asked again once the seconds have passed.
 _WAIT = re.compile(r"^\.\.\.wait (\d+) seconds?\.")
@@ -281,6 +295,12 @@ def main(s):
                 last_branch_at = clock()
                 continue
             if report and _REPORT_END.search(line):
+                finish()
+                if once:
+                    return
+                continue
+            if asked_at is not None and not report and _NO_ACCOUNTS.search(line):
+                s.echo(f"wealth: {NO_ACCOUNTS}")
                 finish()
                 if once:
                     return

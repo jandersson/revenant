@@ -329,6 +329,55 @@ def test_a_typed_now_asks_again_and_the_interval_asks_by_itself(tmp_path, monkey
     assert fake.sent.count("bank account") >= 3  # start, the typed now, the interval
 
 
+# Captured 2026-09-26 on a fresh circle-1 character (#330).
+NO_ACCOUNT_LINES = [
+    "You flag down a local you know works with the Estate Holders' Council and "
+    "send him to fetch info on your bank accounts.",
+    "He returns and hands you a slip of paper with figures on it...",
+    "You currently have the following amounts on deposit:",
+    "          Totals:",
+    "         Kronars:           0 | no coins",
+    "          Lirums:           0 | no coins",
+    "         Dokoras:           0 | no coins",
+    "You have no open bank accounts!",
+    "You have no arrangements with the local Traders' Guild representative for "
+    "urchin runners.",
+]
+
+
+def test_no_open_account_is_a_report_of_nothing_not_a_silence(tmp_path, monkeypatch):
+    # #330: the report came whole, but with no branch line it read as
+    # silence and the character was told about Premium and urchin runners.
+    fake = Fake(
+        answers=[NO_ACCOUNT_LINES],
+        info=[
+            "Wealth:",
+            "  No Kronars.",
+            "  1 bronze and 3 copper Lirums (13 copper Lirums).",
+            "Debt:",
+            "  You owe 2 gold, 4 bronze, and 7 copper Kronars to the Principality "
+            "of Zoluren. (2047 copper Kronars)",
+        ],
+    )
+    run_tracker(fake, monkeypatch=monkeypatch, tmp_path=tmp_path)
+    assert fake.sent == ["bank account", "info"]
+    text = "\n".join(fake.echoed)
+    assert "gave no report" not in text
+    assert "wealth: no bank account open — nothing on deposit" in text
+    assert "Kronars: on deposit 0 copper, carrying 0 copper, owing 2 gold" in text
+    assert "Lirums: on deposit 0 copper, carrying 1 bronze and 3 copper" in text
+    connection = sqlite3.connect(wealth.database_path())
+    assert connection.execute(
+        "SELECT COUNT(*) FROM wealth WHERE kind = 'bank'"
+    ).fetchone() == (0,)
+
+
+def test_the_first_ask_waits_past_sheets_login_inv_list():
+    # ;sheet sends INV LIST about 20 s after login; a BANK ACCOUNT in the
+    # same second met "...wait 4 seconds." (#330).
+    assert wealth.START_DELAY >= 40
+
+
 def test_a_silent_answer_is_reported_not_retried(tmp_path, monkeypatch):
     fake = Fake(answers=[[]])
     run_tracker(fake, monkeypatch=monkeypatch, tmp_path=tmp_path)
