@@ -180,7 +180,13 @@ def unfinished_in_mortar(text):
     return f"{salve} salve", SALVES[salve]
 
 
+# A tool worn past use (captured 2026-09-26): "The iron pestle is far
+# too damaged to be used for that." — no "you" in it, so it read as a
+# bystander's line and the crushes ran on, 34 in two minutes.
+TOOL_WORN = ("far too damaged to be used",)
+
 CRUSH_OUTCOMES = (
+    ("tool worn", TOOL_WORN),
     ("no instructions", NO_INSTRUCTIONS),
     ("missing", MISSING),
     ("free hand", FREE_HAND),

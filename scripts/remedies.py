@@ -351,6 +351,13 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
         tally["crushes"] += 1
         tally["crush_seconds"] = tally.get("crush_seconds", 0) + roundtime_of(answer)
         outcome = classify(answer, CRUSH_OUTCOMES)
+        if outcome == "tool worn":
+            first = (answer.strip().splitlines() or ["(silence)"])[0]
+            s.echo(
+                f"remedies: {first} — the tool needs repair or replacing "
+                "(a repairman mends no tools); stopping"
+            )
+            return "tool"
         if outcome == "crushed":
             started = True
             misses = 0
@@ -595,8 +602,9 @@ def untie_expired(s):
     tied to it, each piece that comes off STOWed — a stack of the same
     remedy fills a later order — and the saved order cleared, so the
     master will give another (2026-09-26: a blister cream order from the
-    night before stopped every ;remedies work after it). UNTIE's
-    answers are uncaptured: the first is echoed for the fixtures."""
+    night before stopped every ;remedies work after it). UNTIE answers
+    "You untie the cream from the logbook." (captured 2026-09-26); the
+    first answer of a run is still echoed, for the wordings not seen."""
     s.echo("remedies: the logbook's order expired — untying it for a new one")
     for attempt in range(UNTIE_TRIES):
         answer = ask(s, "untie my logbook")

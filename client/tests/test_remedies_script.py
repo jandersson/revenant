@@ -903,7 +903,8 @@ def test_an_expired_order_is_untied_and_a_new_one_asked():
             **{
                 "read my logbook": [LOGBOOK_EXPIRED, LOGBOOK_OPEN, LOGBOOK_DONE],
                 "untie my logbook": [
-                    "You untie some blister cream from your logbook.\n",
+                    # Captured 2026-09-26, the first live untie.
+                    "You untie the cream from the logbook.\n",
                     "There is nothing tied to your logbook.\n",
                 ],
             }
@@ -932,3 +933,17 @@ def test_a_master_asking_to_untie_first_gets_the_logbook_untied_and_asked_again(
     assert fake.sent.count("ask lanshado for easy remedies work") >= 2
     assert "untie my logbook" in fake.sent
     assert "no order read" not in out
+
+
+def test_a_pestle_worn_past_use_stops_the_crushing_at_once():
+    # Captured 2026-09-26: "The iron pestle is far too damaged to be used
+    # for that." read as a bystander's line (no "you") and the crushes ran
+    # on — 34 in two minutes until stopped by hand.
+    worn = "The iron pestle is far too damaged to be used for that.\n"
+    fake = Fake(
+        work_answers(**{"crush my cream in my mortar with my pestle": [worn]}),
+        mindstates=[3] + [5] * 30,
+    )
+    out = run(fake, ["work", "count=1"])
+    assert sum(c.startswith("crush ") for c in fake.sent) <= 2
+    assert "the tool needs repair or replacing" in out
