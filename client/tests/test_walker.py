@@ -12,7 +12,14 @@ from types import SimpleNamespace
 import pytest
 
 from client.game import walker
-from client.game.mapdb import MapDB, ride_of, RIDE_SECONDS, translate_embedded, walkable
+from client.game.mapdb import (
+    MapDB,
+    RIDE_SECONDS,
+    ride_of,
+    split_move,
+    translate_embedded,
+    walkable,
+)
 
 
 def test_translate_embedded_handles_lich_styles():
@@ -500,6 +507,75 @@ def test_walk_expands_a_scripted_edge_and_verifies_arrival():
         ("put", "go door"),  # the final command gets the compass sync
         ("waitrt",),  # arrival settle
     ]
+
+
+# The map's poplar over the Northwall Trail's river (rooms 1613 and 4):
+# the crossing leaves you lying, and the edge ends in a STAND.
+POPLAR = MapDB(
+    [
+        {
+            "id": 1613,
+            "uid": [205053],
+            "title": ["[[Northwall Trail, Deadfall]]"],
+            "wayto": {"4": ";e fput 'go poplar'; waitrt?; fput 'stand'"},
+        },
+        {
+            "id": 4,
+            "uid": [205054],
+            "title": ["[[Northwall Trail, Riverbank]]"],
+            "wayto": {"1615": "north"},
+        },
+        {
+            "id": 1615,
+            "uid": [205055],
+            "title": ["[[Northwall Trail, River's Edge]]"],
+            "wayto": {},
+        },
+    ]
+)
+
+
+def test_split_move_keeps_a_trailing_stand_or_look_for_after_the_move():
+    assert split_move(["go poplar", "stand"]) == ([], "go poplar", ["stand"])
+    assert split_move(["climb heavy barricade", "look"]) == (
+        [],
+        "climb heavy barricade",
+        ["look"],
+    )
+    assert split_move(
+        [
+            "unlock iron arch",
+            "open iron arch",
+            "go iron arch",
+            "close door",
+            "lock door",
+        ]
+    ) == (
+        ["unlock iron arch", "open iron arch"],
+        "go iron arch",
+        ["close door", "lock door"],
+    )
+    assert split_move(["say grek", "go door"]) == (["say grek"], "go door", [])
+    assert split_move(["stand"]) == ([], "stand", [])
+
+
+def test_an_edge_ending_in_stand_waits_on_the_move_and_stands_after():
+    # 2026-09-27: STAND was taken for the move, waited for a room it
+    # never brings, and ;athletics stopped at the poplar ("stalled at
+    # step 5 ('stand')") after a retreat burst.
+    class StandStaysHandle(FakeHandle):
+        """STAND moves nobody: no compass frame follows it."""
+
+        def get(self, timeout=None, streams=("",)):
+            if timeout != 0 and puts_of(self)[-1] == "stand":
+                return None
+            return super().get(timeout, streams)
+
+    handle = StandStaysHandle(uids=[205054, 205055])
+    handle.state.room_uid = 205053
+    assert walker.walk(handle, POPLAR, [1615]) is True
+    assert puts_of(handle) == ["go poplar", "stand", "north"]
+    assert not any("stalled" in echo for echo in handle.echoes)
 
 
 def test_walk_stops_when_the_scripted_edge_lands_off_course():

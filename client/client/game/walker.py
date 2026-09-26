@@ -23,6 +23,7 @@ from client.game.mapdb import (
     normalize_title,
     ride_args,
     ride_of,
+    split_move,
     translate_embedded,
     walkable,
 )
@@ -564,8 +565,9 @@ def _follow(s, db, route, here, closed):
         if s.dead:
             s.echo(f"died en route at step {number} — stopping; deathwatch takes it")
             return False
-        # A scripted edge translates to several game commands; the last
-        # one lands in the destination room and gets the arrival check.
+        # A scripted edge translates to several game commands; the move
+        # lands in the destination room and gets the arrival check, and
+        # a STAND or LOOK after it goes out once there (split_move).
         commands = translate_embedded(command) or [command]
         ride = ride_of(command)
         if ride:
@@ -575,8 +577,9 @@ def _follow(s, db, route, here, closed):
             if handler(s, ride_args(command)) != "landed":
                 return False
             commands = [leave]
+        before, move, after = split_move(commands)
         s.waitrt()
-        for preliminary in commands[:-1]:
+        for preliminary in before:
             s.put(preliminary)
             s.waitrt()
         # Discard any stale compass frames so the next one that arrives
@@ -584,9 +587,9 @@ def _follow(s, db, route, here, closed):
         # walk (the double-frame bug, structurally prevented).
         while s.get(timeout=0, streams=("compass",)) is not None:
             pass
-        s.put(commands[-1])
+        s.put(move)
         outcome, hindering, wording = await_arrival(s)
-        note_climb(s, commands[-1], outcome, wording, dest)
+        note_climb(s, move, outcome, wording, dest)
         if outcome == "posture":
             # Kneeling (a prayer), sitting or lying: STAND and one retry
             # (#220); the engaged-stall burst below would not help.
@@ -595,9 +598,9 @@ def _follow(s, db, route, here, closed):
             s.put("stand")
             s.waitrt()
             s.echo(f"step {number}: stood up first ({first!r})")
-            s.put(commands[-1])
+            s.put(move)
             outcome, hindering, wording = await_arrival(s)
-            note_climb(s, commands[-1], outcome, wording, dest)
+            note_climb(s, move, outcome, wording, dest)
             if outcome == "posture":
                 s.echo(f"step {number}: still cannot move ({first!r}) — stopping here")
                 return False
@@ -610,8 +613,8 @@ def _follow(s, db, route, here, closed):
         if outcome == "refused":
             # A climb beyond the character's Athletics (#157): one
             # retry standing and unburdened, then the truth and a stop.
-            outcome, again, wording = retry_climb(s, commands[-1], hindering)
-            note_climb(s, commands[-1], outcome, wording, dest)
+            outcome, again, wording = retry_climb(s, move, hindering)
+            note_climb(s, move, outcome, wording, dest)
             if outcome == "refused":
                 # Beyond the character (#157): the edge is closed for
                 # this walk and the route planned again without it
@@ -619,7 +622,7 @@ def _follow(s, db, route, here, closed):
                 # gondola avoids); no other way, and the walk ends.
                 load = ", ".join(dict.fromkeys(hindering + again))
                 s.echo(
-                    f"the climb at step {number} ({commands[-1]!r}) is beyond "
+                    f"the climb at step {number} ({move!r}) is beyond "
                     "your Athletics"
                     + (f" with your {load}" if load else "")
                     + " — shed the load, train it (;athletics), or take the "
@@ -647,22 +650,25 @@ def _follow(s, db, route, here, closed):
             if list(getattr(s.state, "compass", None) or []) != ["out"]:
                 s.put("retreat")
                 s.put("retreat")
-            s.put(commands[-1])
+            s.put(move)
             outcome, _, wording = await_arrival(s)
-            note_climb(s, commands[-1], outcome, wording, dest)
+            note_climb(s, move, outcome, wording, dest)
             if outcome in ("refused", "closed"):
                 # The retry was turned back in words (a climb's refusal
                 # that came late, or a way closed): the edge is closed
                 # for this walk and the route planned again (#211).
                 closed.add((here, dest))
                 s.echo(
-                    f"step {number} ({commands[-1]!r}) is turned back for you — "
+                    f"step {number} ({move!r}) is turned back for you — "
                     "going round if the map has a way"
                 )
                 return "closed"
         if outcome != "arrived":
-            s.echo(f"stalled at step {number} ({commands[-1]!r}) — stopping here")
+            s.echo(f"stalled at step {number} ({move!r}) — stopping here")
             return False
+        for follow_up in after:
+            s.waitrt()
+            s.put(follow_up)
         previous, here = here, dest  # the planned room, or its twin: the same place
         # Arrival check: the nav uid is exact when the map knows it;
         # title comparison is the fallback for unmapped-uid rooms.
@@ -682,11 +688,11 @@ def _follow(s, db, route, here, closed):
                 # is planned again from the room the game says we are
                 # in, the way a closed way is.
                 closed.add((previous, dest))
-                db.record_edge(previous, mapped, commands[-1])
+                db.record_edge(previous, mapped, move)
                 s.echo(
                     f"off course at step {number}: in room {mapped} "
                     f"({s.state.room_title!r}), expected {dest} — the map now "
-                    f"says {previous} {commands[-1]} -> {mapped}; planning "
+                    f"says {previous} {move} -> {mapped}; planning "
                     "again from here"
                 )
                 return "closed"

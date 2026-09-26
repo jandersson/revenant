@@ -330,6 +330,26 @@ def translate_embedded(command):
     return commands or None
 
 
+# Verbs an edge sends after its move, in the room it lands in: the
+# poplar over the Northwall Trail's river leaves you lying (`fput 'go
+# poplar'; waitrt?; fput 'stand'`), the heavy barricade ends with a
+# LOOK, the iron arch closes and locks the door behind you.
+AFTER_MOVE_VERBS = frozenset({"stand", "look", "close", "lock"})
+
+
+def split_move(commands):
+    """(before, move, after) for a translated edge's commands: `after`
+    are the trailing commands sent in the room the move lands in
+    (AFTER_MOVE_VERBS), `move` the last one before them — the command
+    the walker waits on for arrival. A STAND taken for the move waited
+    for a room that never came and stopped ;athletics at the poplar
+    (2026-09-27)."""
+    end = len(commands)
+    while end > 1 and commands[end - 1].split()[0].lower() in AFTER_MOVE_VERBS:
+        end -= 1
+    return commands[: end - 1], commands[end - 1], commands[end:]
+
+
 def _ride_match(command):
     if not isinstance(command, str) or not command.startswith(";e"):
         return None
