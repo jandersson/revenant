@@ -181,7 +181,19 @@ CAST_OUTCOMES = (
             "don't have a spell prepared",
         ),
     ),
-    ("ok", ("takes effect", "renewed", "you gesture", "slams into")),
+    (
+        "ok",
+        (
+            "takes effect",
+            "renewed",
+            "you gesture",
+            "slams into",
+            # Hands of Justice's cast, captured 2026-09-26 (#320): "You
+            # clasp your hands together and chant a brief prayer for
+            # Chadatru's divine guidance."
+            "clasp your hands together",
+        ),
+    ),
 )
 # Training casts: Elanthipedia's magic category — "fewer but larger
 # spellcasts are more efficient in terms of experience" — so the mana

@@ -143,3 +143,15 @@ def test_a_room_that_blocks_magic_is_a_failed_prepare():
     assert classify(blocked, buffs.PREPARE_OUTCOMES) == "failed"
     unknown = "You have no idea how to cast that spell.\n"
     assert classify(unknown, buffs.PREPARE_OUTCOMES) == "failed"
+
+
+def test_the_hands_of_justice_cast_is_a_cast():
+    # Captured 2026-09-26, the first live cast (#320).
+    from client.game.probe import classify
+
+    cast = (
+        "You clasp your hands together and chant a brief prayer for Chadatru's "
+        "divine guidance.\nYour hands glow briefly with a pristine white light as "
+        "you feel your dedication to the pursuit of justice strengthened!\n"
+    )
+    assert classify(cast, buffs.CAST_OUTCOMES) == "ok"
