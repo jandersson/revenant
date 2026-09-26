@@ -192,6 +192,11 @@ TRAP_SPRUNG = (
     "tiny projectiles slamming into you",
 )
 INJURED = ("no shape to be disarming",)
+# A command while a sprung trap's stun lasts (captured 2026-09-25, the
+# laughing gas: "You are completely incapacitated with laughter!" then
+# "You are still stunned." to every DISARM for over thirty seconds) —
+# nothing was tried; the stun is waited out and the step taken again.
+STUNNED = ("you are still stunned",)
 # Worn armor and brawling gear on the hands hinder every DISARM and PICK
 # (the wiki's warning; captured 2026-09-23 in the Chambers: "Your armor
 # hinders your attempt." / "Your brass knuckles hinders your attempt."),
@@ -292,6 +297,7 @@ MORE_TRAPS = (
 )
 DISARM_OUTCOMES = (
     ("sprung", TRAP_SPRUNG),
+    ("stunned", STUNNED),
     ("injured", INJURED),
     ("lost", LOST),
     ("identify failed", IDENTIFY_FAILED),
@@ -319,6 +325,7 @@ MORE_LOCKS = ("discover another lock protecting",)
 PICK_LOST = ("pick what", "what were you referring")
 PICK_OUTCOMES = (
     ("sprung", TRAP_SPRUNG),
+    ("stunned", STUNNED),
     ("injured", INJURED),
     ("lost", PICK_LOST),
     ("wrong pick", WRONG_PICK),

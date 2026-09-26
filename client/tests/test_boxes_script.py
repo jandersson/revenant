@@ -474,3 +474,41 @@ def test_a_lock_past_the_threshold_is_picked_careful_anyway():
 
 
 LONGSHOT_LOCK = "Opening the dented iron box would be a longshot.\n"
+
+
+def test_a_sprung_trap_that_floors_the_box_picks_it_up_and_the_stun_is_waited(
+    monkeypatch,
+):
+    # 2026-09-25: the laughing gas left the skippet on the floor and the
+    # character prone; "You are still stunned." answered every DISARM
+    # after, and the run skipped every box and left the skippet there.
+    from test_boxes import CAPTURED_LAUGHING_SPRUNG
+
+    fake = None
+    answers_seen = {"disarm": 0}
+
+    def disarm(command):
+        answers_seen["disarm"] += 1
+        if answers_seen["disarm"] == 1:
+            fake.state.room_objs = "You also see a mildewy deobar crate and a bucket."
+            fake.status.stunned = True
+            fake.status.posture = "prone"
+            return CAPTURED_LAUGHING_SPRUNG
+        if answers_seen["disarm"] == 2:
+            return "You are still stunned.\n"
+        return NO_PROGRESS
+
+    answers = crate_reading(FROG_PRAYER)
+    answers = [(p, disarm if p == "disarm my crate" else a) for p, a in answers]
+    fake = Fake(answers, mindstates=[1, 3, 5, 7])
+    fake.status.posture = "sitting"
+
+    def sleep(seconds):
+        fake.status.stunned = False  # the stun wears off while waited
+
+    fake.sleep = sleep
+    out = run(fake)
+    assert "get crate" in fake.sent  # off the floor, no "my"
+    assert "the crate was knocked to the floor — picked back up" in out
+    assert "sit" in fake.sent[fake.sent.index("get crate") :]
+    assert not any("would not identify" in line for line in out.splitlines())

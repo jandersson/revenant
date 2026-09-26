@@ -326,3 +326,26 @@ def test_a_nuisance_trap_is_told_from_a_deadly_one_by_its_look():
     assert nuisance_trap("Disarming the box would be a longshot.") is None
     assert reading(CAPTURED_FROG, TRAP_READINGS) == 12
     assert reading(CAPTURED_LAUGHING_GAS, TRAP_READINGS) == 11
+
+
+# Captured 2026-09-25 in the guild hall: the laughing gas going off on a
+# careful DISARM of the ironwood skippet, and the stun's answer after.
+CAPTURED_LAUGHING_SPRUNG = (
+    "You carefully work at disarming the skippet.\n"
+    "Your armor hinders your attempt.\n"
+    "Almost casually, you press on the tiny hammer set to break the tube.  The "
+    'hammer slips from its locked position and strikes the tube with a tiny "clink", '
+    "shattering it!  Free from the glass prison, the black substance bursts into a "
+    "cloud of sweet smelling mist.\n"
+    "Just as the mist is about to swirl outwards into the room, it suddenly swarms "
+    "into your body instead, glittering with rainbow-hues for a few moments before "
+    "being absorbed into you completely!\n"
+    "You are completely incapacitated with laughter!\n"
+    "Roundtime: 14 sec.\n"
+)
+
+
+def test_the_laughing_gas_is_a_sprung_trap_and_the_stun_after_it_a_wait():
+    assert classify(CAPTURED_LAUGHING_SPRUNG, DISARM_OUTCOMES) == "sprung"
+    assert classify("You are still stunned.", DISARM_OUTCOMES) == "stunned"
+    assert classify("You are still stunned.", PICK_OUTCOMES) == "stunned"

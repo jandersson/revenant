@@ -51,7 +51,11 @@ the game says — and GOT and worn back when the run ends, however it
 ends; a piece that would not come off or go back on is said. Whatever
 still hinders after that is said once.
 
-A sprung trap is said with its line; the stun is waited out, and a
+A sprung trap is said with its line; the stun is waited out (up to
+five minutes; "You are still stunned." to any step meanwhile is a
+wait, not a try — the laughing gas outlasted the old thirty seconds
+and the run skipped every box, 2026-09-25), a box knocked to the floor
+is picked back up and a prone character sits up again, and a
 health below the profile's `health_floor` or a wound at its
 `wound_floor` (HEALTH, the hunt's floor) ends the run so ;heal can
 run. "You're in no shape to be disarming anything" ends it too. A
@@ -285,22 +289,47 @@ def hurt(run):
     return None
 
 
+STUN_WAIT = 300  # seconds a sprung trap's stun is waited out at most
+
+
 def wait_stun(run):
-    """A sprung trap's stun waited out, a second at a time."""
+    """A sprung trap's stun waited out, a second at a time — up to five
+    minutes: the laughing gas held Lanival past the thirty seconds this
+    once waited, and every DISARM after answered "You are still
+    stunned." until the boxes were all skipped (2026-09-25)."""
     s = run.s
-    for _ in range(30):
+    for _ in range(STUN_WAIT):
         if not getattr(getattr(s, "status", None), "stunned", False):
             return
         s.sleep(1)
 
 
-def sprung(run, answer):
-    """A trap went off: said, the stun waited out, the roundtime too;
-    the reason to stop, or None."""
+def recover(run, noun):
+    """After a sprung trap: the box back in hand if it left it — the
+    laughing gas put the skippet on the floor (2026-09-25: "You also see
+    a cracked ironwood skippet", and the put-back that followed left it
+    there) — and the character back off the floor."""
+    s = run.s
+    if noun and not in_hand(s, noun):
+        objs = str(getattr(s.state, "room_objs", "") or "").lower()
+        if noun.lower() in objs:
+            ask(s, f"get {noun}")
+            s.waitrt()
+            run.say(f"the {noun} was knocked to the floor — picked back up")
+    posture = getattr(getattr(s, "status", None), "posture", None)
+    if posture == "prone":
+        ask(s, "stand" if run.options.get("stand") else "sit")
+        s.waitrt()
+
+
+def sprung(run, answer, noun=""):
+    """A trap went off: said, the stun waited out, the roundtime too,
+    the box picked back up; the reason to stop, or None."""
     first = (answer.strip().splitlines() or ["(silence)"])[0]
     run.say(f"a trap sprung — {first!r}")
     run.s.waitrt()
     wait_stun(run)
+    recover(run, noun)
     return hurt(run)
 
 
@@ -408,9 +437,13 @@ def disarm(run, noun):
             hindrance(run, answer)
             outcome = classify(answer, DISARM_OUTCOMES)
             if outcome == "sprung":
-                why = sprung(run, answer)
+                why = sprung(run, answer, noun)
                 if why:
                     return f"stop:{why}"
+                continue
+            if outcome == "stunned":
+                wait_stun(run)  # nothing was tried: wait, take the step again
+                recover(run, noun)
                 continue
             if outcome == "injured":
                 return "stop:too hurt to disarm anything"
@@ -441,9 +474,13 @@ def disarm(run, noun):
         hindrance(run, answer)
         outcome = classify(answer, DISARM_OUTCOMES)
         if outcome == "sprung":
-            why = sprung(run, answer)
+            why = sprung(run, answer, noun)
             if why:
                 return f"stop:{why}"
+            continue
+        if outcome == "stunned":
+            wait_stun(run)  # nothing was tried: wait, take the step again
+            recover(run, noun)
             continue
         if outcome == "injured":
             return "stop:too hurt to disarm anything"
@@ -477,9 +514,13 @@ def pick(run, noun):
             hindrance(run, answer)
             outcome = classify(answer, PICK_OUTCOMES)
             if outcome == "sprung":
-                why = sprung(run, answer)
+                why = sprung(run, answer, noun)
                 if why:
                     return f"stop:{why}"
+                continue
+            if outcome == "stunned":
+                wait_stun(run)  # nothing was tried: wait, take the step again
+                recover(run, noun)
                 continue
             if outcome == "injured":
                 return "stop:too hurt to pick anything"
@@ -523,9 +564,13 @@ def pick(run, noun):
         hindrance(run, answer)
         outcome = classify(answer, PICK_OUTCOMES)
         if outcome == "sprung":
-            why = sprung(run, answer)
+            why = sprung(run, answer, noun)
             if why:
                 return f"stop:{why}"
+            continue
+        if outcome == "stunned":
+            wait_stun(run)  # nothing was tried: wait, take the step again
+            recover(run, noun)
             continue
         if outcome == "injured":
             return "stop:too hurt to pick anything"
