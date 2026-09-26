@@ -72,8 +72,11 @@ def test_a_box_on_the_ground_goes_in_with_stow_box(monkeypatch):
         {
             "attack": [(KILL, _no_kill), (KILL, kill), (KILL, kill)],
             "loot": [NOTHING] * 3,
-            # Uncaptured: combat-trainer's STOW success words ("You pick up").
-            "stow box": ["You pick up a small wooden coffer and put it in your sack."]
+            # Captured 2026-09-26 at the goblins, the first STOW BOX.
+            "stow box": [
+                "You pick up a mud-stained steel crate.\n"
+                "You put your crate in your canvas sack.\n"
+            ]
             * 3,
         }
     )

@@ -234,6 +234,10 @@ DISCERN_OUTCOMES = (
 # game's usual "referring to" refusal.
 TARGET_OUTCOMES = (
     ("missing", ("what were you referring", "could not find", "nothing to target")),
+    # The foe named is a corpse (captured 2026-09-26 at the goblins, #325:
+    # "There is no need to target a scavenger goblin.  It is already
+    # dead."): released like a missing one, not reported as unknown.
+    ("missing", ("no need to target",)),
     # The held spell is not the targeted one ("This spell cannot be
     # targeted.", captured 2026-09-20 with Stun Foe still held, #252).
     ("untargetable", ("cannot be targeted",)),
