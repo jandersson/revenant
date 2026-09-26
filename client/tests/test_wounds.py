@@ -182,6 +182,23 @@ def test_every_panel_part_maps_to_a_health_area():
     assert wounds.panel_area("tail") is None
 
 
+def test_a_wording_without_the_wikis_article_still_matches():
+    # #335, captured 2026-09-26: HEALTH listed the internal chest wound
+    # without the "a" the wiki's phrase starts with; it never matched and
+    # its leftover split into 'severely swollen' and 'bruised chest area'.
+    health = parse_health(
+        "You have some minor abrasions to the head, severely swollen and bruised "
+        "chest area compounded by deep cuts across the chest area, minor swelling "
+        "and bruising in the abdomen compounded by cuts and bruises about the "
+        "abdomen, some minor abrasions to the back."
+    )
+    assert health.unknown == []
+    assert (health.wounds["chest"].internal, health.wounds["chest"].external) == (4, 4)
+    # With the article, as the wiki writes it, the same.
+    health = parse_health("You have a severely swollen and bruised right eye.")
+    assert health.unknown == [] and health.wounds["right eye"].internal == 4
+
+
 def test_a_compounded_wound_is_both_halves_and_no_unknown_fragment():
     # Captured 2026-09-25: HEALTH joins an internal and an external wound
     # on one part with "compounded by"; ;hunt reported the joiner as an

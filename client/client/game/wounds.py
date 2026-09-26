@@ -111,8 +111,19 @@ def level(name):
     return SEVERITIES.index(str(name).strip().lower())
 
 
+# A wording's leading article is optional: the wiki writes "a severely
+# swollen and bruised chest area" where HEALTH listed "..., severely
+# swollen and bruised chest area compounded by deep cuts across the
+# chest area" (2026-09-26, #335 — the phrase never matched, and the
+# leftover split on " and " into two unknown wounds), and HEALTH writes
+# "some minor abrasions" where the wiki has "minor abrasions".
+_ARTICLE = re.compile(r"^(?:a|an|some)\s+", re.IGNORECASE)
+_OPTIONAL_ARTICLE = r"(?:\b(?:a|an|some)\s+)?"
+
+
 def _pattern(phrase):
-    escaped = re.escape(phrase)
+    phrase = _ARTICLE.sub("", phrase)
+    escaped = _OPTIONAL_ARTICLE + re.escape(phrase)
     escaped = escaped.replace(re.escape("[right/left]"), r"(?P<side>right|left)")
     escaped = escaped.replace(re.escape("[left/right]"), r"(?P<side>left|right)")
     escaped = escaped.replace(
