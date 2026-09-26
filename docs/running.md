@@ -113,7 +113,37 @@ File → Settings edits `~/.revenant/settings.json`: the game text's font and si
 
 ## Unattended: the sentinel
 
-`;sentinel` (autostarted, off with the Settings tick or `REVENANT_NO_SENTINEL=1`) watches every line for what an unattended `;train` cannot answer: a player or GM whispering, speaking, thinking or gesturing to you (never an NPC with an article, never one of your own characters from the login file), a word spelled to slip past a script ("J_u_M_p"), a staff notice for this instance on the `ooc` stream, and the two spam shapes dr-scripts' status-monitor watches (the same line more than 4 times in the last 20, 6 near-duplicates in 90 s). Every line never seen before lands in the Attention dock once and is remembered per character (`~/.revenant/sentinel/<name>.json`); a player arriving in the room is noted there too, never with a bell and the same player at most once in fifteen minutes, and a comings-and-goings line ("X just arrived.") is never news or spam (the operator, 2026-09-26: a hunter sharing the ground rang the bells on every arrival). An address or a hidden command rings the bell three times, echoes `SENTINEL:` in every window, runs settings.json's `alert_command` with the alert as its last argument (a toast, a mail, a bot — empty runs nothing), and — only while a script acts on the character; idle, it is only away from the keyboard (2026-09-26) — starts the grace (`sentinel_grace_minutes`, 10): type `;sentinel ok` and the watch goes on; unanswered, with `sentinel_logout` on (off by default since 2026-09-26: a greeting in a public place is too thin a sign to end a session on), it gives `;train` its return word (the running task finishes and walks home, up to five minutes) and QUITs. Spam rings and echoes the same way but starts no grace: too weak a sign to end a session on, and the character's own "You ..." lines and paragraphs never count toward it (the first evening rang on `;perform`'s "You continue playing on your copper zills." and a walk's room descriptions; a line within a second and a half of a room or compass frame, either side, is the room's own text and is never judged). Nor do the answers to the character's own commands count as spam (a story line within two seconds of a line the session sent: "Crush what?" rang fifteen times and a box's identify twelve, repeated by the scripts that sent them), and the same spam line rings at most once an hour. A line naming a player or a creature the room held when it came is their business, inventory listings and the exp table's number-stripped husks are never news — the first evening's dock held 810 lines in two hours, most of them these. `;sentinel status` says where it stands, `;sentinel quiet N` silences alerts for N minutes while you are there. No canned reply, no execution of commands found in text: those exist to pass a presence check with nobody home, which is what closes accounts (#276).
+`;sentinel` watches the game for what an unattended `;train` cannot answer: someone talking to you, a trick aimed at scripts, a staff notice, spam. It rings the bell and tells you; it never answers for you. It is autostarted; turn it off with the Settings tick or `REVENANT_NO_SENTINEL=1` (#276).
+
+**What it alerts on**
+
+- A player or GM whispering, speaking, thinking or gesturing to you — never an NPC (a name with an article) and never one of your own characters from the login file.
+- A word spelled to slip past a script ("J_u_M_p").
+- A staff notice for this instance on the `ooc` stream.
+- Spam, in the two shapes dr-scripts' status-monitor watches: the same line more than 4 times in the last 20, or 6 near-duplicates within 90 seconds. The same spam line rings at most once an hour.
+
+**What an alert does**
+
+1. Rings the bell three times and echoes `SENTINEL: …` in every window.
+2. Runs `alert_command` from settings.json with the alert as its last argument (a toast, a mail, a bot; empty runs nothing).
+3. For an address or a hidden command only, and only while a script is acting on the character, starts a grace period (`sentinel_grace_minutes`, 10). Type `;sentinel ok` and the watch goes on.
+4. If the grace runs out and `sentinel_logout` is on, it gives `;train` its return word (the task finishes and walks home, up to five minutes) and QUITs. `sentinel_logout` is off by default: a greeting in a public place is too thin a sign to end a session on.
+
+Spam rings and echoes but never starts a grace. With no script running, an alert only rings: you are simply away from the keyboard.
+
+**The Attention dock** gets every line the sentinel has never seen before, once, remembered per character in `~/.revenant/sentinel/<name>.json`. A player arriving in the room is noted there too, without a bell and at most once per player in fifteen minutes.
+
+**What it ignores**
+
+- Comings and goings ("X just arrived.") — never news, never spam.
+- A line naming a player or creature in the room at the time: that is their business.
+- Your own "You …" lines and paragraphs, and any line within 1.5 seconds of a room or compass frame (the room's own description).
+- The answer to a command the session sent — any story line within two seconds of it — so a script repeating "Crush what?" is not spam.
+- Inventory listings and the exp table.
+
+**Commands:** `;sentinel status` says where it stands; `;sentinel quiet N` silences alerts for N minutes while you are at the keyboard; `;sentinel ok` answers a grace.
+
+It never sends a canned reply and never runs a command it finds in text. Those exist to pass a presence check with nobody home, and that is what gets accounts closed.
 
 ## Logs
 
