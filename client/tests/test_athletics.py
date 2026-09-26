@@ -37,10 +37,15 @@ class FakeHandle:
     """A Script-handle stand-in: records the calls, ends after a budget
     of sleeps (the way ;stop ends the thread via ScriptStopped)."""
 
-    def __init__(self, args, mindstates=(), sleeps=10, exp_response=None):
+    def __init__(
+        self, args, mindstates=(), sleeps=10, exp_response=None, return_after=None
+    ):
         self.args = args
         self.calls = []
         self.echoes = []
+        # `;athletics return` typed once this many sleeps have passed.
+        self._return_after = return_after
+        self._typed = []
         # Each sleep consumes the next mindstate, so a test scripts the
         # drain: [34, 34, 20] locks for two polls, then resumes.
         self._mindstates = list(mindstates)
@@ -77,9 +82,16 @@ class FakeHandle:
         if len(self._mindstates) > 1:
             self._mindstates.pop(0)
             self._apply_mindstate()
+        if self._return_after is not None:
+            self._return_after -= 1
+            if self._return_after == 0:
+                self._typed.append("return")
         self._sleeps -= 1
         if self._sleeps <= 0:
             raise LoopDone()
+
+    def command(self, timeout=None):
+        return self._typed.pop(0) if self._typed else None
 
     def echo(self, text):
         self.echoes.append(text)
@@ -177,6 +189,28 @@ def test_pauses_while_mind_locked_and_resumes_after_draining():
     assert handle.calls[2] == ("put", "swim north")
     assert any("mind-locked" in echo for echo in handle.echoes)
     assert any("resuming" in echo for echo in handle.echoes)
+
+
+def test_return_typed_during_the_mind_lock_pause_ends_without_a_climb():
+    # Lanival at 34/34 in the swimming hole: the typed return sat unread
+    # through the pause, and the swim resumed once the pool drained.
+    handle = FakeHandle(
+        args=["swim north"], mindstates=[34] * 10, sleeps=10, return_after=2
+    )
+    assert athletics.main(handle) is None
+    assert not [c for c in handle.calls if c[0] == "put"]
+    assert any("returning" in echo for echo in handle.echoes)
+
+
+def test_return_typed_mid_lap_finishes_the_step_in_hand_then_ends():
+    handle = FakeHandle(args=["climb up | climb down"], sleeps=10, return_after=1)
+    athletics.main(handle)
+    assert handle.calls == [
+        ("put", "climb up"),
+        ("waitrt",),
+        ("sleep", athletics.PAUSE),
+    ]
+    assert any("returning" in echo for echo in handle.echoes)
 
 
 def test_mindstate_handles_missing_state():

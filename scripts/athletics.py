@@ -22,6 +22,8 @@ once and warns when a load would blunt every climb. Also:
 
     ;athletics list                     show the ladder for your rank
     ;athletics climb x | climb back     train a manual loop right here
+    ;athletics return                   finish the climb or swim in hand,
+                                        end where you stand
 
 Progress is echoed about every five minutes; pair with ;xp for
 history. Danger interrupts training (#72): hostiles in the room mean
@@ -37,14 +39,15 @@ skipped, said either way (#178). Another player in the room is no
 reason to skip: a climbing wall is nobody's — the "their room" rule
 is the hunt's, about the creatures a room spawns (the operator,
 2026-09-23).
-Stop with:  ;stop athletics
+Stop with:  ;stop athletics (at once) or ;athletics return (the climb
+in hand finished first, the mind-lock pause included)
 """
 
 import re
 import time
 
 from client.game import buffs, climbs, probe
-from client.game import flight
+from client.game import flight, loop
 from client.game.status import counted
 
 MIND_LOCK = 34  # mindstate 34/34: nothing more fits
@@ -501,12 +504,16 @@ def train(
             )
             while current is not None and current > RESUME_BELOW:
                 s.sleep(LOCK_POLL)
+                if loop.wants_stop(s):
+                    return returned(s)
                 if danger(s.state):
                     break  # dealt with below, before any climb
                 current = mindstate(s.state)
             s.echo("resuming")
             reports.clear()  # a lock is the opposite of stale
         for command in commands:
+            if loop.wants_stop(s):
+                return returned(s)
             reason = danger(s.state)
             if reason:
                 if handle_danger(s, reason, commands) == "stop":
@@ -570,6 +577,8 @@ def train(
             while remaining > 0:
                 s.sleep(min(DANGER_POLL, remaining))
                 remaining -= DANGER_POLL
+                if loop.wants_stop(s):
+                    return returned(s)
                 if danger(s.state):
                     break  # the next lap's check handles it now
         laps += 1
@@ -596,6 +605,14 @@ def train(
             result = stale_result(s, reports, stop_when_stale)
             if result:
                 return result
+
+
+def returned(s):
+    """The graceful end a typed `;athletics return` asks for: the climb
+    or swim in hand has had its roundtime; the script ends where the
+    character stands (nothing to walk home to, nothing left in hand)."""
+    s.echo("returning — the climb in hand is done; ending here")
+    return "return"
 
 
 def ask(s, command):
@@ -703,7 +720,7 @@ def auto_train(s, db=None, walk=None):
             walk=walk,
             filler=filler,
         )
-        if result == "danger":
+        if result in ("danger", "return"):
             return
         rank = current_rank(s.state) or rank
         if result in ("contested", "too_hard"):
