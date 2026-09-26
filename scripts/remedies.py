@@ -595,6 +595,7 @@ def find_master(s, profile, master, mapdb=None, here=None):
 
 UNTIE_TRIES = 10  # stacks untied from an expired order's logbook at most
 UNTIED_NONE = ("nothing", "what were you referring", "isn't anything", "not bundled")
+UNTIED_ONE = ("you untie",)
 
 
 def untie_expired(s):
@@ -603,13 +604,14 @@ def untie_expired(s):
     remedy fills a later order — and the saved order cleared, so the
     master will give another (2026-09-26: a blister cream order from the
     night before stopped every ;remedies work after it). UNTIE answers
-    "You untie the cream from the logbook." (captured 2026-09-26); the
-    first answer of a run is still echoed, for the wordings not seen."""
+    "You untie the cream from the logbook." and, with nothing left on
+    it, "You have nothing bundled with the logbook." (both captured
+    2026-09-26); an answer that is neither is echoed for the report."""
     s.echo("remedies: the logbook's order expired — untying it for a new one")
     for attempt in range(UNTIE_TRIES):
         answer = ask(s, "untie my logbook")
         lowered = answer.lower()
-        if attempt == 0:
+        if not any(word in lowered for word in UNTIED_NONE + UNTIED_ONE):
             first = (answer.strip().splitlines() or ["(silence)"])[0]
             s.echo(f"remedies: UNTIE answered {first!r} — please report it")
         if any(word in lowered for word in UNTIED_NONE) or not lowered.strip():

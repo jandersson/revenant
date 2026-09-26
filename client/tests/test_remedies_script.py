@@ -905,7 +905,8 @@ def test_an_expired_order_is_untied_and_a_new_one_asked():
                 "untie my logbook": [
                     # Captured 2026-09-26, the first live untie.
                     "You untie the cream from the logbook.\n",
-                    "There is nothing tied to your logbook.\n",
+                    # Captured 2026-09-26, the logbook bare.
+                    "You have nothing bundled with the logbook.\n",
                 ],
             }
         ),
@@ -917,6 +918,7 @@ def test_an_expired_order_is_untied_and_a_new_one_asked():
         "ask lanshado for easy remedies work"
     )
     assert "order 1 paid 1146 Kronars" in out
+    assert "please report it" not in out  # both wordings are known
 
 
 def test_a_master_asking_to_untie_first_gets_the_logbook_untied_and_asked_again():
