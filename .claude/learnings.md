@@ -271,3 +271,4 @@ lessons the code and docs cannot carry themselves.
   started with, the next start gets the new — and the log says which
   running scripts kept theirs.
 - Heredoc Python edits in Bash turn \b into a real backspace (0x08) in the file: a regex that looks right in grep matches nothing. Write the edit script with the Write tool; check with od -c when a pattern mysteriously fails (2026-09-26).
+- A log watch piped through `cut` (or any stage without line buffering) delivers nothing: `tail -F log | grep --line-buffered X | cut -c...` sat silent for 30 minutes while ;train changed tasks. End the pipe at `grep --line-buffered`, or use `awk '{print; fflush()}'` (2026-09-26).
