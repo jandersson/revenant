@@ -1364,3 +1364,15 @@ def test_only_live_creatures_are_weighed():
     s, echoed = _outgrown_handle(["a blood wolf", "a cougar"], dead=[True, False])
     hunt.say_outgrown(s, OUTGROWN_PROFILE, tally)
     assert "the cougar teaches to rank 49" in echoed[0]
+
+
+def test_every_swing_logs_its_aim_and_the_room_as_the_parser_holds_it(travel, caplog):
+    # #325: an aim at a corpse the logged listing marked dead; the fix
+    # needs the state at the swing, which the logs did not hold.
+    import logging
+
+    caplog.set_level(logging.DEBUG, logger="client.scripts.hunt")
+    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
+    _run(arena)
+    aims = [r.getMessage() for r in caplog.records if r.getMessage().startswith("aim ")]
+    assert aims and "creatures" in aims[0] and "dead" in aims[0]

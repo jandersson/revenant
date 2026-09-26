@@ -172,6 +172,7 @@ reported at the end — a reading, no rule yet (#280).
 """
 
 import json
+import logging
 import re
 import time
 from pathlib import Path
@@ -1689,6 +1690,7 @@ def swing(s, profile, tally, prey):
     elif any(word in lowered for word in _ALL_DEAD):
         tally.room_clear = True  # the game says so; the hostile state lags
     elif corpse := _DEAD_NOUN.search(text):
+        log_room(s, "corpse answered", corpse.group(0))
         tally.corpse_swings += 1
         if tally.corpse_swings > CORPSE_SWINGS:
             s.echo("hunt: only a corpse answers — the room is clear")
@@ -1705,6 +1707,24 @@ def swing(s, profile, tally, prey):
         ask(s, f"advance {prey}" if prey else "advance")
         probe.collect(s, ADVANCE_WAIT, until="melee range")
     return not tally.room_clear and bool(hostiles(s.state))
+
+
+_LOG = logging.getLogger("client.scripts.hunt")
+
+
+def log_room(s, what, target=""):
+    """The room as the parser holds it, into the session's debug log with
+    the swing's aim (#325: an aim at a corpse the logged listing marked
+    dead — the state at the swing is what the fix needs)."""
+    state = s.state
+    _LOG.debug(
+        "%s %r: creatures %s dead %s hostiles %s",
+        what,
+        target,
+        list(getattr(state, "room_creatures", None) or []),
+        list(getattr(state, "room_creatures_dead", None) or []),
+        dict(hostiles(state)),
+    )
 
 
 def aim_at(s, prey):
@@ -1820,6 +1840,7 @@ def loop(s, profile, db, ground, avoid, tally):
         # A cast due before this swing wraps it: PREPARE, the swing while
         # the pattern forms, CAST (#203). Otherwise the swing alone.
         target = aim_at(s, prey)
+        log_room(s, "aim", target)
         if not cast_buffs(
             s,
             profile,
