@@ -482,7 +482,10 @@ creature is not built (#194).
 A room another player is already hunting in is theirs — the
 community's unwritten rule, and the operator's (2026-09-12, after
 `;hunt` fought rats in a shipyard room with two other players in it).
-Sharing a spawn takes their kills. The parser keeps the room's
+Sharing a spawn takes their kills. The operator's own characters
+(~/.revenant/login.json) never make a room someone else's: an Empath
+grouped with the hunter follows him from room to room, and on
+2026-09-26 `;hunt boxes` gave up the whole goblins' ground to him. The parser keeps the room's
 players from the `room players` component ("Also here: Sky Knight
 Kaldean who is darkened by an unnatural shadow, Sand Flower Cyranth,
 Cecil and Penello." — the name is the last word before any "who is",

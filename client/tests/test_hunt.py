@@ -755,6 +755,36 @@ def test_a_ground_with_someone_in_every_room_is_left_to_them(travel):
     assert any("leaving it to them" in text for text in arena.echoed)
 
 
+def test_the_operators_own_grouped_character_is_no_other_hunter(travel, monkeypatch):
+    # 2026-09-26: an Empath of the operator's, grouped with the hunter,
+    # followed him into every room of the goblins' ground; ;hunt boxes
+    # read "Uthmor hunting here — their room, moving on" room after room
+    # and gave the ground up.
+    import json
+
+    login = {"character": "Lanival", "accounts": {"TESTACCT": ["Lanival", "Uthmor"]}}
+    path = monkeypatch_login(monkeypatch, json.dumps(login))
+    assert path.exists()
+    arena = Arena(
+        {"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]},
+        hostiles=(),
+    )
+    arena.state.room_players = ["Uthmor"]
+    arena.arrivals = {6046: {"2": True}}
+    _run(arena)
+    assert not any("their room" in text for text in arena.echoed)
+    assert any(c.startswith("attack") for c in arena.sent)
+
+
+def monkeypatch_login(monkeypatch, text):
+    import os
+    import pathlib
+
+    path = pathlib.Path(os.environ["REVENANT_LOGIN_DEFAULTS"])
+    path.write_text(text)
+    return path
+
+
 def test_a_paladin_smites_one_swing_a_minute_and_attacks_the_rest(travel, monkeypatch):
     # #183: SMITE trains Conviction, a free smite comes back every
     # minute and the experience once a minute, so the loop smites at

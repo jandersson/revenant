@@ -1355,9 +1355,29 @@ def dispose(s, profile, corpse, tally):
         unrecognized(s, tally, "loot", answer)
 
 
-def occupants(s):
-    """The other players in the room, as the parser read "Also here"."""
-    return list(getattr(s.state, "room_players", None) or [])
+def own_characters():
+    """The operator's own characters (~/.revenant/login.json, through
+    client/game/novelty.py's own_names, as ;sentinel reads them); [] when
+    the file cannot be read."""
+    try:
+        from client.engine.login import load_login_defaults
+        from client.game.novelty import own_names
+
+        return own_names(load_login_defaults())
+    except Exception:  # noqa: BLE001 - a missing file is no characters
+        return []
+
+
+def occupants(s, own=None):
+    """The other players in the room, as the parser read "Also here" —
+    never one of the operator's own characters: an Empath grouped with
+    the hunter follows him from room to room, and on 2026-09-26 ;hunt
+    boxes read him as a hunter in every room of the goblins' ground,
+    moved on and on, and gave the ground up ("every room of the ground
+    has someone in it")."""
+    mine = {str(name).casefold() for name in (own_characters() if own is None else own)}
+    names = list(getattr(s.state, "room_players", None) or [])
+    return [name for name in names if str(name).casefold() not in mine]
 
 
 def settle(s, db, ground, avoid, tally):
