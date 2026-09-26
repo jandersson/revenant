@@ -119,3 +119,55 @@ def test_intelligence_is_not_an_input():
     import inspect
 
     assert "intelligence" not in inspect.signature(drain.minutes_to).parameters
+
+
+# --- what a bucket is worth (fitted 2026-09-26) ---
+
+
+def test_a_rank_costs_two_hundred_bits_plus_the_rank():
+    assert drain.rank_cost(0) == 200
+    assert drain.rank_cost(90) == 290
+
+
+def test_the_pages_pool_grows_with_rank_placement_and_the_mental_stats():
+    # Elanthipedia's worked shape: 1000 bits at rank 0 for a primary
+    # skill at Intelligence and Discipline 10, 850 secondary, 700 tertiary.
+    assert drain.pool_bits("primary", 0) == 1000
+    assert drain.pool_bits("secondary", 0) == 850
+    assert drain.pool_bits("tertiary", 0) == 700
+    assert drain.pool_bits("primary", 900) == 8500
+    # Intelligence 30 scores 120 and Discipline 30 scores 40: 16 % more.
+    assert drain.pool_bits("tertiary", 0, 30, 30) == pytest.approx(700 * 1.16)
+    assert drain.intelligence_score(60) == 210
+    assert drain.discipline_score(60) == 70
+
+
+def test_a_bucket_holds_k_over_rank_of_the_pages_bucket():
+    # The fit: a Paladin's 375 clean drains, ranks 10-100, held about
+    # 8.35 / rank of the page's pool / 34 — 3.2 % of a rank per bucket
+    # at rank 50 for a primary skill, 1.8 % at 90 tertiary.
+    share = drain.bits_per_bucket("primary", 50, 12, 12) / drain.rank_cost(50)
+    assert share == pytest.approx(0.036, abs=0.003)
+    share = drain.bits_per_bucket("tertiary", 90, 12, 12) / drain.rank_cost(90)
+    assert share == pytest.approx(0.016, abs=0.003)
+    # The fit held down to rank 2.7; below 3 the rank counts as 3.
+    assert drain.bits_per_bucket("tertiary", 0) == pytest.approx(
+        drain.BUCKET_K / 3 * drain.pool_bits("tertiary", 0) / 34
+    )
+    assert drain.bits_per_bucket("tertiary", 1) == pytest.approx(
+        drain.BUCKET_K / 3 * drain.pool_bits("tertiary", 1) / 34
+    )
+
+
+def test_ranks_from_a_mindstate_crosses_ranks_at_their_own_cost():
+    # A full pool of a primary skill at rank 50 is about a rank.
+    assert drain.ranks_from(34, "Small Edged", 50, 0, "Paladin", 15, 15) == (51, 5)
+    # A rank-0 tertiary skill: one bucket is worth 28 % of a rank at the
+    # floor's scale, so 22 % goes to 50 %.
+    assert drain.ranks_from(1, "Warding", 0, 22, "Barbarian", 10, 12) == (0, 50)
+    # Rested experience triples it, across the rank.
+    assert drain.ranks_from(1, "Warding", 0, 22, "Barbarian", 10, 12, rexp=True) == (
+        1,
+        8,
+    )
+    assert drain.ranks_from(5, "Nonsense", 1, 0, "Paladin") is None

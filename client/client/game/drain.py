@@ -36,6 +36,28 @@ Wisdom 15 gives the fitted rates. An assumption, not a measurement. A
 Wisdom of None uses the fitted rates as they are. Discipline's share
 of the pulse ("10% efficiency") is below what the data can see, and
 is left out.
+
+What a bucket is worth — the ranks the pool will turn into — is the
+other half (docs/experience.md, "What a mindstate is worth", #332). A rank
+n costs 200 + n bits (Elanthipedia: Experience, reverse-engineered
+from CONVERT), and the page gives the pool's size in bits: 15000,
+12750 or 10500 * r / (r + 900) + 1000, 850 or 700 by placement, times
+(1000 + i + d) / 1000 for Intelligence's and Discipline's scores. A
+bucket would be a 34th of that. It is not: 375 clean drain runs of
+the same Paladin (ranks 10-100, Intelligence and Discipline 8-16,
+no REXP, drained at the fitted speed so nothing flowed in) hold
+BUCKET_K / rank of it, K = 8.35 — 7.7 primary, 8.0 secondary, 8.5
+tertiary, and 8.3-8.6 in every band of twenty ranks — with a median
+error of 4.5 %. At rank 50 that is 3.2 % of a rank per bucket for a
+primary skill, 2.4 % tertiary; at rank 90, 1.8 %. The same K held
+below rank 10, down to rank 2.7 (eleven runs, K 7.0-8.4): a bucket
+there is worth several of the page's. Under RANK_FLOOR (3), the lowest
+rank measured, the rank is taken as 3. Three early runs read K 22-26
+— about 3 x 8.35 — from the Paladin's first days, before ;xp flagged
+REXP, which triples what a drain buys (REXP_FACTOR). Above rank 100 it
+is not established: two other characters' runs at ranks 145-485 with
+Intelligence 30-65 read K 30-41, about three times the fit again, and
+their REXP use at the time is unknown.
 """
 
 PULSE_SECONDS = 200
@@ -242,3 +264,83 @@ def rest_estimate(experience, skills, floor, guild, wisdom=None):
         if minutes > slowest[0]:
             slowest = (minutes, skill)
     return slowest
+
+
+# What a bucket is worth (fitted 2026-09-26, see the module docstring).
+BUCKET_K = 8.35  # a bucket holds K / rank of the page's pool / 34
+RANK_FLOOR = 3  # the lowest rank the fit reached; lower ranks count as it
+BUCKETS = 34
+REXP_FACTOR = 3  # rested experience: each drained bit is worth three
+_POOL_BASE = {
+    "primary": (15000, 1000),
+    "secondary": (12750, 850),
+    "tertiary": (10500, 700),
+}
+
+
+def rank_cost(rank):
+    """Bits from rank to rank + 1 (Elanthipedia: Experience)."""
+    return 200 + int(rank)
+
+
+def intelligence_score(value):
+    """Elanthipedia: (x-10)*60/10 under 30, ((x-30)*30+1200)/10 to 60,
+    ((x-60)*15+2100)/10 above."""
+    if value < 30:
+        return (value - 10) * 60 / 10
+    if value <= 60:
+        return ((value - 30) * 30 + 1200) / 10
+    return ((value - 60) * 15 + 2100) / 10
+
+
+def discipline_score(value):
+    """Elanthipedia: (x-10)*20/10 under 30, ((x-30)*10+400)/10 to 60,
+    ((x-60)*5+700)/10 above."""
+    if value < 30:
+        return (value - 10) * 20 / 10
+    if value <= 60:
+        return ((value - 30) * 10 + 400) / 10
+    return ((value - 60) * 5 + 700) / 10
+
+
+def pool_bits(tier, rank, intelligence=10, discipline=10):
+    """The page's pool size in bits for a skill of that placement."""
+    scale, floor = _POOL_BASE[tier]
+    base = scale * rank / (rank + 900) + floor
+    stats = 1000 + intelligence_score(intelligence) + discipline_score(discipline)
+    return stats / 1000 * base
+
+
+def bits_per_bucket(tier, rank, intelligence=10, discipline=10):
+    """Bits one mindstate bucket turns into: the page's pool / 34,
+    scaled by BUCKET_K / rank, the rank no lower than RANK_FLOOR."""
+    scale = BUCKET_K / max(float(rank), RANK_FLOOR)
+    return scale * pool_bits(tier, rank, intelligence, discipline) / BUCKETS
+
+
+def ranks_from(
+    mindstate,
+    skill,
+    rank,
+    percent,
+    guild,
+    intelligence=10,
+    discipline=10,
+    rexp=False,
+):
+    """The rank and percent the skill should stand at once `mindstate`
+    buckets have drained, as (rank, percent); None when the placement
+    is unknown. Bucket by bucket, so a rank crossed on the way costs
+    its own 200 + n and the next bucket is worth the new rank's share."""
+    tier = placement(skill, guild)
+    if tier is None:
+        return None
+    rank, into = int(rank), rank_cost(rank) * int(percent) / 100
+    for _ in range(max(0, int(mindstate))):
+        into += bits_per_bucket(tier, rank, intelligence, discipline) * (
+            REXP_FACTOR if rexp else 1
+        )
+        while into >= rank_cost(rank):
+            into -= rank_cost(rank)
+            rank += 1
+    return rank, int(into / rank_cost(rank) * 100)

@@ -216,7 +216,9 @@ for `client/client/<pkg>/x.py`.
   drains — linear, 1.14 / 0.91 / 0.65 buckets a 200 s pulse for a
   primary / secondary / tertiary skill, fitted from ;xp's rows, the
   guilds' skillset table beside it — and a rest opens with its guess
-  at the rest's length (#300); `scripts/train.py` is the loop, orchestrating
+  at the rest's length (#300); it also values a bucket: 8.35 / rank
+  of the wiki's pool / 34, a rank costing 200 + n bits, fitted over
+  ranks 10-100 (`ranks_from`, `tools/experience_fit.py`, #332); `scripts/train.py` is the loop, orchestrating
   other scripts through the handle's `run`/`is_running`/`tell`/`kill`,
   and with the plan's `soul: on` runs the soul deeds (`;soul badge`,
   `tithe`, `pray`) in its rests, taking a hand-started `;soul keep`

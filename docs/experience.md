@@ -143,6 +143,64 @@ this is what `client/game/drain.py` computes a rest's length from.
   Skillsets table read through the Paladin's rates. A Moon Mage's
   rows (magic primary) are the next test.
 
+## What a mindstate is worth
+
+A mindstate bucket turns into BUCKET_K / rank of the Experience page's
+bucket, K = 8.35: at rank 50 about 3.6 % of a rank per bucket for a
+primary skill and 2.5 % for a tertiary one, at rank 90 1.6 % tertiary,
+so a full pool of a primary skill at rank 50 is about one rank.
+Fitted 2026-09-26 from ;xp's rows of one Paladin (#332);
+`client/game/drain.py` computes it (`bits_per_bucket`, `ranks_from`)
+and `tools/experience_fit.py` refits it from history.db.
+
+- **The two halves from the page.** A rank n costs 200 + n bits
+  (reverse-engineered from CONVERT; [Talk:Convert command](https://elanthipedia.play.net/Talk:Convert_command)).
+  The pool holds 15000, 12750 or 10500 * r / (r + 900) + 1000, 850 or
+  700 bits by placement, times (1000 + i + d) / 1000 for the
+  Intelligence and Discipline scores (three segments each, breaks at
+  30 and 60). Taken at face value a bucket would be a 34th of that —
+  about 7 % of a rank at rank 50 for a primary skill.
+- **Method.** The drain runs of "How fast a pool drains" (at least five
+  buckets, one REXP flag throughout, no REXP), kept only when they
+  drained within 15 % of the fitted speed — a run that fell slower was
+  being fed while it drained, and a run that shows no rise can still
+  be fed; the stricter test, minutes in which no skill rose at all,
+  left two runs. The bits gained (rank and percent to bits, 200 + n a
+  rank) over the buckets drained, against the page's pool / 34 at the
+  run's rank and stats.
+- **Result.** 375 runs at ranks 10-100 hold K / rank of the page's
+  bucket, K = 8.35 (quartiles 7.93-8.65): 7.7 primary, 8.0 secondary,
+  8.5 tertiary, 8.2-8.6 in every band of twenty ranks; median error
+  4.5 %. The shape is the page's pool divided by the rank — a bucket
+  is worth fewer bits as the skill climbs, where the page's pool
+  alone would make it worth more. The same K held below rank 10, down
+  to rank 2.7 (eleven runs, 7.0-8.4); below 3 the model counts the rank
+  as 3.
+
+  | Tier | Rank | Bits a bucket | % of a rank a bucket | Page's pool / 34 |
+  | --- | --- | --- | --- | --- |
+  | primary | 30-40 | 10.8 | 4.6 | 46.6 |
+  | primary | 50-60 | 8.1 | 3.2 | 56.5 |
+  | secondary | 30-40 | 8.8 | 3.7 | 40.8 |
+  | secondary | 70-80 | 6.0 | 2.2 | 56.9 |
+  | tertiary | 30-40 | 7.8 | 3.3 | 33.5 |
+  | tertiary | 80-100 | 5.1 | 1.8 | 49.0 |
+
+- **REXP** multiplies the ranks a drain buys by three (the page); the
+  model's `rexp=True` does the same. Three runs from the Paladin's
+  first days read K 22-26, about 3 x 8.35: those days predate ;xp's
+  REXP flag, and REXP is the likely reason.
+- **Open.** Above rank 100 there are four runs, from two other
+  characters (ranks 145-485, Intelligence 30-65), reading K 30-41 —
+  again about three times the fit; their rows carry no REXP flag and
+  no `rested` readings, so REXP there is likely but unverified, and the
+  fit is not established above rank 100. Intelligence and Discipline
+  enter only through the page's formula; the data spans 8-16. A
+  rank-0 Barbarian's single MEDITATE RESEARCHes moved Warding 7-15 %
+  where the floor says about 28 % a bucket; one research may put in
+  less than a whole bucket (dabbling is anything up to 1/34), so a
+  drained run of several buckets under rank 3 is the test.
+
 ## What the code assumes, and where
 
 - **`;athletics` pauses at mind-lock** — inflow to a full pool is
@@ -154,6 +212,9 @@ this is what `client/game/drain.py` computes a rest's length from.
   (`client/game/drain.py`): the slowest tracked skill's buckets over
   its tier's rate, scaled by Wisdom. The rest itself still ends on
   the exp window.
+- **`client/game/drain.py` values a bucket** at K / rank of the
+  page's pool / 34 (K = 8.35, ranks 10-100, above), `ranks_from`
+  the rank a mindstate drains to; nothing calls it yet.
 - **`;xp` snapshots rank/percent/mindstate per minute** — meaningful
   because mindstate is a real gauge of pending experience, not
   cosmetic.
