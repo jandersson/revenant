@@ -184,7 +184,8 @@ for `client/client/<pkg>/x.py`.
   (`~/.revenant/profiles/<name>.json`): the quirks `;hunt` must not
   hard-code (weapon, stance, skin, pouch, bundle, buffs, the magic
   skill to train by recasting, floors, ground, home; `weapons` — the
-  turns one hunt cycles per kill, "handaxe:Small Edged:sack",
+  turns one hunt trains, the emptiest pool first and each kept until
+  its skill reaches `weapon_target` (30), "handaxe:Small Edged:sack",
   "fists:Brawling", a locked skill's turn sat out — and `brawling`,
   the fists turn's PUNCH/KICK/ELBOW, #238). FIELDS is the
   schema; the GUI's Character Profile dialog builds itself from it.

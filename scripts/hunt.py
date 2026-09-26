@@ -96,10 +96,16 @@ non-battle spell's 26 s) gets a swing per roundtime until it is nearly
 ready, #250 — and CAST follows the last swing; a foe that went down
 under a swing has the pattern RELEASEd rather than cast at nothing
 (#203, after dr-scripts' combat-trainer).
-`weapons` lists the weapons the hunt cycles through, one turn per
-kill, each with the skill it trains — "handaxe:Small Edged:sack",
-"fists:Brawling" — so every weapon skill learns in the same evening
-(the operator, 2026-09-20: no argument per weapon type, #238). A
+`weapons` lists the weapons the hunt trains, each with the skill it
+trains — "handaxe:Small Edged:sack", "fists:Brawling" (the operator,
+2026-09-20: no argument per weapon type, #238). The one whose skill
+has the emptiest pool fights first and keeps the hands, kill after
+kill, until its skill reaches the profile's `weapon_target` (30);
+the next emptiest takes over after the kill that got it there, so
+one more skill is moving at every hand-over (the operator,
+2026-09-26: skills moving is the measure; it was one turn per kill).
+With every weapon past the target, the emptiest unlocked one fights
+on toward lock. A
 turn's weapon is WIELDed after the last one is SHEATHEd into its
 container — WIELD finds it wherever it sits and remembers the place
 (#259: the scimitar in the sack, the profile naming the scabbard, and
@@ -599,16 +605,42 @@ def plain_swing(profile, verb):
     )
 
 
-def next_turn(s, profile, tally, from_current=False):
-    """The next weapons entry whose skill is not mind-locked, cyclic
-    from the one after the current (from the current itself at the
-    start, `from_current`); the current one when it is the only one
-    open; None when every skill is locked (a turn with no skill never
-    locks). The fists turn is skipped when the profile lists no
-    brawling attacks, said once."""
+DEFAULT_WEAPON_TARGET = 30
+
+
+def turn_target(profile):
+    """The mindstate a weapon is trained to before the next takes over:
+    the profile's `weapon_target` (30, the ;train plan's target), at
+    most mind lock; 0 or less trains each to lock."""
+    try:
+        value = int(profile.get("weapon_target", DEFAULT_WEAPON_TARGET))
+    except (TypeError, ValueError):
+        value = DEFAULT_WEAPON_TARGET
+    return MIND_LOCK if value <= 0 else min(value, MIND_LOCK)
+
+
+def next_turn(s, profile, tally, from_current=False, leave=False):
+    """The weapons entry to fight with. The one in hand while its skill
+    sits below `turn_target` — a kill does not hand it on; else the open
+    turn whose skill has the emptiest pool (the lowest mindstate, the
+    plan's order after the one in hand breaking ties), one below the
+    target first and one past it, toward lock, when none is below. So
+    each weapon fills to the target and the next starts moving (the
+    operator, 2026-09-26: the number of skills moving is the measure).
+    `from_current` is the hunt's start: nothing is in hand, the emptiest
+    pool takes it, the plan's order breaking ties. `leave` hands the one
+    in hand over (a stalled turn). None when no turn is open: every skill
+    is locked (a turn with no skill never locks and is never below the
+    target — it fights when nothing else can) or, with `leave`, the one
+    in hand is the only one. The fists turn is skipped when the profile
+    lists no brawling attacks, said once."""
     plan = weapon_plan(profile)
-    for step in range(0 if from_current else 1, len(plan) + 1):
-        index = (tally.weapon + step) % len(plan)
+    if from_current:
+        order = list(range(len(plan)))
+    else:
+        order = [(tally.weapon + step) % len(plan) for step in range(1, len(plan) + 1)]
+    open_turns = []
+    for index in order:
         entry = plan[index]
         if entry["skill"] and locked(s.state, [entry["skill"]]):
             continue
@@ -619,8 +651,23 @@ def next_turn(s, profile, tally, from_current=False):
                     "hunt: the profile lists no brawling attacks — fists turn skipped"
                 )
             continue
-        return index
-    return None
+        if leave and index == tally.weapon:
+            continue
+        open_turns.append(index)
+    if not open_turns:
+        return None
+
+    def pool(index):
+        skill = plan[index]["skill"]
+        return mindstate_of(s.state, skill) if skill else MIND_LOCK
+
+    target = turn_target(profile)
+    held = tally.weapon
+    if not from_current and held in open_turns and pool(held) < target:
+        return held
+    below = [index for index in open_turns if pool(index) < target]
+    candidates = below or open_turns
+    return min(candidates, key=lambda index: (pool(index), candidates.index(index)))
 
 
 def arm(s, profile, tally, index):
@@ -641,7 +688,7 @@ def arm(s, profile, tally, index):
     if entry["skill"]:
         s.echo(
             f"hunt: {entry['weapon'] or 'fists'} for {entry['skill']}"
-            + (f" ({mindstate_of(s.state, entry['skill'])}/34)")
+            f" ({mindstate_of(s.state, entry['skill'])}/34) — to {turn_target(profile)}"
         )
 
 
@@ -670,7 +717,7 @@ def stalled_turn(tally, profile):
 def pass_turn(s, profile, tally):
     """The next open turn takes the hands, said; False when there is none
     other than the one in hand."""
-    index = next_turn(s, profile, tally)
+    index = next_turn(s, profile, tally, leave=True)
     if index is None or index == tally.weapon:
         return False
     weapon = weapon_plan(profile)[tally.weapon]["weapon"] or "fists"
@@ -689,7 +736,8 @@ def farming(profile):
 
 
 def rotate(s, profile, tally):
-    """After a kill: the next open turn takes the hands. False when
+    """After a kill: the turn in hand keeps the hands until its skill
+    reaches the target, then the emptiest open one takes them. False when
     every weapon skill is locked — the hunt's end, unless the hunt is a
     farm (`until` boxes): its end is the box count, and the weapon in
     hand keeps swinging (2026-09-26: the boxes style's mace locked Small

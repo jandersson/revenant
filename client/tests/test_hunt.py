@@ -56,23 +56,29 @@ def test_readies_the_weapon_and_stance_walks_to_the_ground_then_hunts(travel):
     assert any(text.startswith("hunt: rat down (1)") for text in arena.echoed)
 
 
-def test_the_weapons_take_turns_per_kill_and_the_fists_turn_swings_the_brawling_attacks(
+def test_the_emptiest_weapon_fills_to_the_target_then_the_next_takes_over(
     travel,
 ):
-    # #238, the operator: no argument per weapon type — the profile
-    # lists the weapons and the hunt cycles them, one per kill, so every
-    # weapon skill learns in one evening. The fists turn draws nothing
+    # The operator, 2026-09-26: the measure is the number of skills
+    # moving, so the weapon with the emptiest pool fights first and
+    # keeps the hands, kill after kill, until its skill reaches the
+    # profile's weapon_target (30); then the next emptiest takes over.
+    # It was one weapon per kill (#238). The fists turn draws nothing
     # (the parry stick and the knuckles are worn and work worn) and
     # swings PUNCH, KICK, ELBOW in turn — the answers are the captured
     # ones, a hit, a miss and a hit, none of them read as anything but a
     # swing that did not kill.
+    def brawling_filled(arena):
+        arena.state.experience["Brawling"]["mindstate"] = 30
+        _stands(arena)
+
     arena = _run(
         Arena(
             {
-                "attack": [(KILL, _stands), (KILL, kill)],
+                "attack": [(KILL, kill)],
                 "punch": [PUNCHED + "\n", PUNCH_MISSED + "\n"],
-                "kick": [KICKED + "\n"],
-                "elbow": [(ELBOWED + "\n" + KILL, _stands)],
+                "kick": [(KICKED + "\n" + KILL, _stands)],
+                "elbow": [(ELBOWED + "\n" + KILL, brawling_filled)],
                 "skin": [SKINNED] * 3,
                 "loot": [NOTHING] * 3,
             },
@@ -91,18 +97,45 @@ def test_the_weapons_take_turns_per_kill_and_the_fists_turn_swings_the_brawling_
         or c.startswith(("wield my", "sheathe my handaxe", "get my", "stow my"))
     ]
     assert fights == [
-        "wield my handaxe",
-        "attack rat",  # the first kill: the axe's turn
-        "sheathe my handaxe in my sack",  # then the fists' turn, nothing drawn
-        "punch rat",
-        "kick rat",
-        "elbow rat",  # the second kill
-        "wield my handaxe",  # the axe again
+        "punch rat",  # Brawling's pool (5) is the emptiest: the fists first
+        "kick rat",  # the first kill, Brawling still below 30: fists again
+        "elbow rat",  # the second kill fills Brawling to 30
+        "wield my handaxe",  # Small Edged (10) takes over
         "attack rat",
     ]
+    assert any("hunt: fists for Brawling (5/34) — to 30" in t for t in arena.echoed)
     assert any("hunt: handaxe for Small Edged (10/34)" in t for t in arena.echoed)
-    assert any("hunt: fists for Brawling (5/34)" in t for t in arena.echoed)
     assert not any("unrecognized" in text for text in arena.echoed)
+
+
+def _turns(experience, profile_extra=None, held=0, **kwargs):
+    arena = Arena({}, experience=experience)
+    tally = SimpleNamespace(weapon=held, fists_warned=False)
+    profile = ROTATING | {
+        "weapons": ["handaxe:Small Edged:sack", "fists:Brawling", "mace:Small Blunt"]
+    }
+    profile |= profile_extra or {}
+    return hunt.next_turn(arena, profile, tally, **kwargs)
+
+
+def test_the_turn_in_hand_stays_below_the_target_and_the_emptiest_follows_it():
+    ms = {
+        "Small Edged": {"rank": 58, "mindstate": 12},
+        "Brawling": {"rank": 58, "mindstate": 3},
+        "Small Blunt": {"rank": 17, "mindstate": 34},
+    }
+    assert _turns(ms, from_current=True) == 1  # the emptiest pool starts
+    assert _turns(ms, held=0) == 0  # 12 < 30: the handaxe keeps the hands
+    ms["Small Edged"]["mindstate"] = 30
+    assert _turns(ms, held=0) == 1  # at the target: the fists, the mace locked
+    assert _turns(ms, held=0, leave=True) == 1  # a stalled turn hands over
+    ms["Brawling"]["mindstate"] = 31
+    # Every open weapon past the target: the emptiest fights on toward lock.
+    assert _turns(ms, held=1) == 0
+    assert _turns(ms, {"weapon_target": 0}, held=1) == 1  # 0: each to lock
+    ms["Small Edged"]["mindstate"] = 34
+    ms["Brawling"]["mindstate"] = 34
+    assert _turns(ms, held=1) is None  # every skill locked
 
 
 def test_a_single_fists_turn_hunts_bare_handed_whatever_the_weapon_says(travel):
@@ -1279,9 +1312,9 @@ def test_a_turn_that_cannot_kill_hands_over_before_the_hunt_breaks_off(travel):
                 "skin": [SKINNED],
                 "loot": [NOTHING],
             },
-            experience={
-                "Small Edged": {"rank": 39, "percent": 0, "mindstate": 10},
-                "Brawling": {"rank": 7, "percent": 0, "mindstate": 5},
+            experience={  # Small Edged's the emptier pool: the handaxe starts
+                "Small Edged": {"rank": 39, "percent": 0, "mindstate": 5},
+                "Brawling": {"rank": 7, "percent": 0, "mindstate": 10},
             },
         ),
         profile=ROTATING | {"max_kills": 1},

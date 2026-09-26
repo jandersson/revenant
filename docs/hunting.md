@@ -41,7 +41,8 @@ It holds what no script should hard-code:
 | smite | a Paladin: one swing a minute is SMITE instead of ATTACK, spent only when the game answers with its conviction line — the free smite regenerates every minute and Conviction experience comes at most once a minute ([Smite command](https://elanthipedia.play.net/Smite_command), #183). SMITE CHECK goes out first and with no free blow the swing is an ATTACK: a smite past the free ones draws on the soul pool, and with the pool empty it harms the soul (#217, [soul.md](soul.md)) |
 | tactics | tactical maneuvers in rotation (`bob`, `circle`, `weave`): every third swing is the next one instead of ATTACK while Tactics sits below mind-lock; SMITE keeps its minute ahead of them; a maneuver the foe wins ("You hesitate and change your mind, circle back awkwardly.  The cougar easily out maneuvers you.", 4 s roundtime, the vineyard cougars 2026-09-21, #265) is an attempt like any other; three answers outside the table turn them off for the run. Model and captures: [Tactics](#tactics) below (#190) |
 | perception | HUNT for tracks once a room of the ground has emptied, and on every lap of an empty ground, at most once per 75 seconds while Perception sits below lock — the skill's own learning timer; the tracks are not followed. Model: [Tracks](#tracks) below (#194) |
-| weapons | the weapons the hunt cycles through, one turn per kill, each with the skill it trains — `handaxe:Small Edged:sack` (the container it goes back into between turns), `fists:Brawling` for the brawling attacks with nothing in hand. A turn whose skill is mind-locked sits out until it drains; every turn locked ends the hunt. A single turn is that turn (`fists:Brawling` alone hunts bare-handed whatever `weapon` says — below two entries the list was ignored until 2026-09-20). Empty: `weapon` alone, never swapped (#238; [Weapons in rotation](#weapons-in-rotation-and-the-fists) below) |
+| weapons | the weapons the hunt trains, the emptiest pool first, each kept until its skill reaches `weapon_target`, each with the skill it trains — `handaxe:Small Edged:sack` (the container it goes back into between turns), `fists:Brawling` for the brawling attacks with nothing in hand. A turn whose skill is mind-locked sits out until it drains; every turn locked ends the hunt. A single turn is that turn (`fists:Brawling` alone hunts bare-handed whatever `weapon` says — below two entries the list was ignored until 2026-09-20). Empty: `weapon` alone, never swapped (#238; [Weapons in rotation](#weapons-in-rotation-and-the-fists) below) |
+| weapon_target | the mindstate each weapon is trained to before the next takes over (30, the ;train plan's target; 0 trains each to lock). With every weapon past it, the emptiest unlocked one fights on toward lock |
 | brawling | the brawling attacks the fists turn swings in rotation instead of ATTACK (`punch`, `kick`, `elbow`): what trains Brawling; punch wants a free hand, the other two none. At range PUNCH answers "Actually, using a weapon would probably be a bit more effective." and KICK its dirt emote, no roundtime on either: the loop ADVANCEs and waits for melee, as the maneuvers' "must be closer" does (#257). Empty: the fists turn is skipped, said once |
 | attune_start | not the hunt's: where `;attune` walks before building its street loop, a `;go2` target; empty loops from wherever it stands (`;attune from=<target>` overrides it for one run) |
 
@@ -354,14 +355,22 @@ cast at nothing; a self-cast buff casts regardless (#203).
 
 ## Weapons in rotation, and the fists
 
-The profile's `weapons` are the turns one hunt cycles through, one
-per kill (#238; the operator, 2026-09-20: no argument per weapon type,
-"the script should just cycle weapons that are being trained"). Each
+The profile's `weapons` are the turns one hunt trains, one at a time
+until each is full: the weapon whose skill has the emptiest pool (the
+lowest mindstate) takes the hands at the start and keeps them, kill
+after kill, until its skill reaches the profile's `weapon_target`
+(30); after the kill that got it there the next emptiest takes over.
+Each hand-over starts one more skill moving, and the number of skills
+moving is the measure a training run is judged by (the operator,
+2026-09-26). Until then the turns went one per kill (#238; the
+operator, 2026-09-20: no argument per weapon type, "the script should
+just cycle weapons that are being trained"), which kept every pool
+moving slowly and none of them full. With every weapon past the
+target the emptiest unlocked one fights on toward lock. Each
 entry names the weapon, the skill it trains and the container it goes
-back into — `handaxe:Small Edged:sack` — and after every kill the
-next turn whose skill sits below mind-lock takes the hands: the last
-weapon PUT back in its container, the hands cleared with STOW, the
-next one GOT; a turn whose skill is locked sits out until it drains,
+back into — `handaxe:Small Edged:sack` — and a hand-over puts the
+last weapon back in its container, clears the hands with STOW and
+gets the next one; a turn whose skill is locked sits out until it drains,
 and when every turn is locked the hunt ends "every weapon skill
 mind-locked". The fists turn (`fists:Brawling`) draws nothing: the
 parry stick and the brass knuckles are worn and work worn, PUNCH

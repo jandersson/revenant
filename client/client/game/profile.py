@@ -113,15 +113,21 @@ DEFAULTS = {
     # which is what trains Tactics (Elanthipedia: Tactics skill, #190).
     # [] is off.
     "tactics": [],
-    # The weapons the hunt cycles through, one per kill, each with the
-    # skill it trains — "noun:Skill[:container]", the container where
-    # it is kept between turns ("handaxe:Small Edged:sack"), or
-    # "fists:Brawling" for the brawling attacks with nothing in hand (a
-    # parry stick and knuckles are worn and work worn). A weapon whose
-    # skill is mind-locked sits out until it drains; all locked ends
-    # the hunt (the operator, 2026-09-20: no argument per weapon type,
-    # #238). [] hunts with `weapon` alone.
+    # The weapons the hunt trains, each with the skill it trains —
+    # "noun:Skill[:container]", the container where it is kept between
+    # turns ("handaxe:Small Edged:sack"), or "fists:Brawling" for the
+    # brawling attacks with nothing in hand (a parry stick and knuckles
+    # are worn and work worn). The one with the emptiest pool fights
+    # until its skill reaches `weapon_target`, then the next emptiest
+    # takes over, so one more skill is moving at each hand-over (the
+    # operator, 2026-09-26; it was one weapon per kill, #238). A weapon
+    # whose skill is mind-locked sits out until it drains; all locked
+    # ends the hunt. [] hunts with `weapon` alone.
     "weapons": [],
+    # The mindstate each weapon is trained to before the next takes
+    # over (the ;train plan's target by default); once every weapon is
+    # past it, the emptiest unlocked one fights on toward lock.
+    "weapon_target": 30,
     # The brawling attacks in rotation for the fists turn ("punch",
     # "kick", "elbow" — Elanthipedia: Brawling skill; punch wants a
     # free hand, elbow and kick none), which is what trains Brawling.
@@ -252,9 +258,15 @@ FIELDS = (
     ("perception", "HUNT for tracks when a room empties (Perception)", "bool", ""),
     (
         "weapons",
-        "Weapons cycled per kill (noun:Skill[:container])",
+        "Weapons trained in turn (noun:Skill[:container])",
         "list",
         "handaxe:Small Edged:sack, fists:Brawling — empty: the weapon alone",
+    ),
+    (
+        "weapon_target",
+        "Train each weapon to mindstate, then the next",
+        "int",
+        "0-34 (30)",
     ),
     (
         "brawling",
