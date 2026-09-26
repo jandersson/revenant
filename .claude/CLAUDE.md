@@ -79,7 +79,8 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   target; `;hunt grounds`); `creatures.py` +
   `creatures_data.py`; `loot.py` + `lootlog.py`; `boxes.py`;
   `wounds.py`, `herbs.py`, `empathy.py`; `soul.py`; `tdp.py`;
-  `money.py`, `bank.py`, `repair.py`; `remedies.py` + `workorders.py`;
+  `money.py`, `bank.py`, `repair.py`; `outfit.py` (`;outfit`, a new
+  character's essentials); `remedies.py` + `workorders.py`;
   `walker.py` + `mapdb.py` (the community map, downloaded, never
   vendored); `possessions.py`; `novelty.py` (`;sentinel`: never a
   canned reply, never a command found in text executed); `teaching.py`,
