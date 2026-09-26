@@ -29,8 +29,11 @@ fuse, or when you type
 profile file, a name to the keys that differ for that kind of hunt
 (ground, prey, weapons, skinning, the box limit, the skills) and
 `until`, what ends it: "lock" (the trained skills mind-lock, the
-default), "boxes" (the loot container holds `box_limit` boxes — the
-farm for ;boxes, off creatures whose boxes the rank can read), "kills"
+default), "boxes" (the loot container holds `box_limit` boxes, or has
+no room for the next — the farm for ;boxes, off creatures whose boxes
+the rank can read; STOW BOX leaves a refused box in hand, "You pick
+up a reinforced oaken chest. There isn't any more room in the sack
+for that.", and no box is picked up after it, 2026-09-26), "kills"
 (`max_kills`). ;hunt styles lists them; ;hunt profile <style> prints
 the merged profile; a ;train task passes the style in its args (#299).
 
@@ -493,6 +496,7 @@ class Tally:
         self.coins = 0  # coin piles STOWed after a search that left some
         self.boxes = 0  # boxes into the loot container
         self.unlootable = set()  # nouns the game found no room for this run
+        self.boxes_full = False  # the loot container refused a box: no more boxes
         self.unrecognized = 0
         self.empty_moves = 0
         self.room_clear = False
@@ -1404,6 +1408,19 @@ def listing(s):
     return str(getattr(s.state, "room_objs", "") or "")
 
 
+def boxes_full(s, profile, tally, noun, held):
+    """The loot container refused a box: no box is picked up for the
+    rest of the run — a farm ends on it — said once, with where the
+    refused one is (in hand, since a GET or STOW BOX picked it up; never
+    dropped)."""
+    tally.boxes_full = True
+    container = profile.get("loot_container") or "pack"
+    where = "is in hand — ;boxes works it first" if held else "stays on the ground"
+    s.echo(
+        f"hunt: the {container} is full — the {noun} {where}; no more boxes this run"
+    )
+
+
 def grab(s, profile, before, tally):
     """What the search left on the ground, read off the room listing
     (client/game/loot.py, after combat-trainer's LootProcess): each
@@ -1428,6 +1445,8 @@ def grab(s, profile, before, tally):
         noun = loot.noun_of(entry)
         if noun in tally.unlootable:
             continue
+        if what == "box" and tally.boxes_full:
+            continue  # said once, when the container refused the first
         if what == "box" and limit and tally.boxes >= limit:
             s.echo(f"hunt: {limit} box(es) carried — the {noun} stays")
             continue
@@ -1450,7 +1469,16 @@ def grab(s, profile, before, tally):
                 continue
             if outcome == "no room":
                 tally.unlootable.add(noun)
-                s.echo(f"hunt: no room for the {noun} — it stays on the ground")
+                if what == "box":
+                    # "You pick up a reinforced oaken chest. There isn't
+                    # any more room in the sack for that." — STOW BOX
+                    # leaves the box in hand (2026-09-26): no GET after
+                    # it, and no box after it, or the next one takes the
+                    # weapon's hand (the casket did, a minute later).
+                    boxes_full(s, profile, tally, noun, "you pick up" in answer)
+                    taken.append(noun)
+                else:
+                    s.echo(f"hunt: no room for the {noun} — it stays on the ground")
                 continue
             if outcome == "gone":
                 continue
@@ -1471,7 +1499,10 @@ def grab(s, profile, before, tally):
             continue
         if outcome == "no room":
             tally.unlootable.add(noun)
-            s.echo(f"hunt: no room for the {noun} — it stays on the ground")
+            if what == "box":
+                boxes_full(s, profile, tally, noun, False)
+            else:
+                s.echo(f"hunt: no room for the {noun} — it stays on the ground")
             continue
         if outcome in ("gone", "held"):
             continue
@@ -1483,7 +1514,11 @@ def grab(s, profile, before, tally):
             continue
         if not stow(s, profile, noun):
             tally.unlootable.add(noun)
-            s.echo(f"hunt: no room for the {noun} anywhere — it stays in hand")
+            taken.append(noun)
+            if what == "box":
+                boxes_full(s, profile, tally, noun, True)
+            else:
+                s.echo(f"hunt: no room for the {noun} anywhere — it stays in hand")
             continue
         if what == "box":
             tally.boxes += 1
@@ -1518,8 +1553,11 @@ def dispose(s, profile, corpse, tally):
     taken = grab(s, profile, before, tally) if outcome is not None else []
     if outcome == "found":
         for item in items_in(answer):
-            if item not in taken:
-                pocket(s, profile, item)
+            if item in taken or item in tally.unlootable:
+                continue
+            if tally.boxes_full and item in loot.BOX_NOUNS:
+                continue  # no room for it, and a GET would free a hand for it
+            pocket(s, profile, item)
     elif outcome is None:
         unrecognized(s, tally, "loot", answer)
 
@@ -1892,6 +1930,11 @@ def loop(s, profile, db, ground, avoid, tally):
         box_limit = int(profile.get("box_limit") or 0)
         if profile.get("until") == "boxes" and box_limit and tally.boxes >= box_limit:
             return f"{tally.boxes} box(es) in the {profile.get('loot_container') or 'pack'} — the farm is done"
+        if farming(profile) and tally.boxes_full:
+            return (
+                f"the {profile.get('loot_container') or 'pack'} is full after "
+                f"{tally.boxes} box(es) this run — the farm is done"
+            )
         if tally.kills > tally.rotated_at and not rotate(s, profile, tally):
             return "every weapon skill mind-locked"
         if tally.room_clear or not hostiles(s.state):

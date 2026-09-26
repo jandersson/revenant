@@ -13,7 +13,12 @@
 
 Every DISARM and PICK teaches Locksmithing (Elanthipedia: Locksmithing
 skill, Disarm command, Pick command; client/game/boxes.py is the model,
-after dr-scripts' pick.lic, which pops boxes the same way). A box at a
+after dr-scripts' pick.lic, which pops boxes the same way). A box
+already in hand at the start — ;hunt's, refused by a full loot
+container — is PUT into the loot container or any other container
+INV LIST shows first, so PICK has its free hand; one that fits
+nowhere is worked first from the hand, two end the run before it
+starts, and nothing is dropped (2026-09-26). A box at a
 time out of the container (GET <box> FROM MY <container>, the next of
 its noun by ordinal when one was put back): DISARM MY <box> IDENTIFY
 reads the trap's difficulty, and a reading of "longshot" or worse is a
@@ -111,6 +116,8 @@ from client.game.boxes import (
     box_containers,
     boxes_in,
     caution,
+    containers,
+    held_boxes,
     listed,
     order_quote,
     parse_args,
@@ -538,10 +545,42 @@ def take_box(run, noun):
 
 def put_back(run, noun, why):
     """The box in hand back into the container, remembered so the next
-    GET passes it."""
-    ask(run.s, f"put my {noun} in my {run.container}")
+    GET passes it. False when the container had no room: the box is
+    still in hand."""
+    answer = ask(run.s, f"put my {noun} in my {run.container}")
+    if "you put" not in answer.lower():
+        run.say(
+            f"the {noun} does not fit back into the {run.container} — it stays in hand"
+        )
+        return False
     run.kept[noun] = run.kept.get(noun, 0) + 1
     run.say(f"the {noun} goes back into the {run.container} — {why}")
+    return True
+
+
+def stash_held(run):
+    """Boxes already in hand at the start — ;hunt's, refused by a full
+    loot container (2026-09-26: a chest and a casket) — put into the loot
+    container, else any container INV LIST shows, so both hands are free
+    to pick. Returns ({noun: container} put away, [nouns still in hand]).
+    Nothing is dropped."""
+    s = run.s
+    hands = (getattr(s.state, "left_hand", None), getattr(s.state, "right_hand", None))
+    possessions = getattr(s.state, "possessions", None) or []
+    targets = [run.container] + [
+        noun for noun in containers(possessions) if noun != run.container
+    ]
+    placed, stuck = {}, []
+    for noun in held_boxes(*hands):
+        for container in targets:
+            answer = ask(s, f"put my {noun} in my {container}")
+            if "you put" in answer.lower():
+                placed[noun] = container
+                run.say(f"the {noun} in hand goes into the {container}")
+                break
+        else:
+            stuck.append(noun)
+    return placed, stuck
 
 
 def risk_trap(run, noun, rank, answer):
@@ -851,15 +890,17 @@ def kept(run, noun):
     practising on it — an identify of a trap already read is free of
     roundtime and of experience (2026-09-23: eighty in forty seconds,
     Locksmithing unmoved), and a DISARM past the reading is the trap
-    sprung, not the skill trained."""
-    put_back(run, noun, "for a better locksmith")
+    sprung, not the skill trained. A container with no room for it ends
+    the run: PICK wants the other hand free."""
+    if not put_back(run, noun, "for a better locksmith"):
+        return f"stop:the {noun} is in hand with nowhere to go"
     return "kept"
 
 
-def one_box(run, noun):
+def one_box(run, noun, held=False):
     """One box out, worked and away: "done", "kept", "lost" or
-    "stop:<why>"."""
-    if not take_box(run, noun):
+    "stop:<why>". `held`: the box is in hand already, no GET."""
+    if not held and not take_box(run, noun):
         return "lost"
     outcome = disarm(run, noun)
     if outcome.startswith("stop:"):
@@ -898,6 +939,14 @@ def run_loop(s, profile, options):
         run.say(f"EXP shows no {SKILL} — nothing to train")
         return
     primary = run.container
+    placed, stuck = stash_held(run)
+    if len(stuck) > 1:
+        run.say(
+            f"the {stuck[0]} and the {stuck[1]} are in hand and no container has "
+            "room for either — PICK wants a free hand; nothing is dropped, "
+            "make room and start again"
+        )
+        return
     answer = ask(s, f"look in my {primary}")
     run.report("look in container", f"look in my {primary}", answer)
     nouns = boxes_in(answer)
@@ -910,20 +959,28 @@ def run_loop(s, profile, options):
     # (#323). INV LIST (the parser's possessions) says where they are.
     if not options["source"]:
         possessions = getattr(s.state, "possessions", None) or []
-        for container in box_containers(possessions, primary):
+        # A box just put away from a hand is there whatever the login's
+        # INV LIST says.
+        extra = box_containers(possessions, primary)
+        extra += [c for c in placed.values() if c != primary and c not in extra]
+        for container in extra:
             found = boxes_in(ask(s, f"look in my {container}")) or []
             if found:
                 sources.append((container, found))
-    if not sources:
+    if not sources and not stuck:
         run.say(f"no boxes in the {primary} — nothing to pick")
         return
+    if stuck:
+        run.say(f"the {stuck[0]} in hand fits nowhere — it is worked first")
     for container, found in sources:
         run.say(f"{len(found)} box(es) in the {container} — {SKILL} {value}/34")
     try:
         doff(run)
         sit(run)
-        work = [(container, noun) for container, found in sources for noun in found]
-        for container, noun in work[:MAX_BOXES]:
+        work = [(primary, noun, True) for noun in stuck] + [
+            (container, noun, False) for container, found in sources for noun in found
+        ]
+        for container, noun, held in work[:MAX_BOXES]:
             if container != run.container:
                 run.kept_elsewhere += sum(run.kept.values())
                 run.container, run.kept = container, {}
@@ -950,7 +1007,7 @@ def run_loop(s, profile, options):
                 # Ragge's for the ring (the operator, 2026-09-26).
                 put_pick_away(run)
                 refill_ring(run)
-            outcome = one_box(run, noun)
+            outcome = one_box(run, noun, held)
             if outcome == "stop:no lockpick" and refill_ring(run):
                 # Nothing to pick with at all: the ring refilled, the
                 # same box again (put back for "the run ends" — not kept).

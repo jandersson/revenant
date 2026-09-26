@@ -227,7 +227,10 @@ def test_a_second_box_of_a_kept_noun_is_taken_by_ordinal():
 
 
 def test_a_box_not_on_the_droppable_list_goes_back_into_the_container():
-    fake = Fake(one_easy_box(), mindstates=[1, 3, 5, 7])
+    table = one_easy_box() + [
+        ("put my box in my sack", "You put your box in your canvas sack.\n")
+    ]
+    fake = Fake(table, mindstates=[1, 3, 5, 7])
     out = run(fake, droppable=())
     assert "put my box in bucket" not in fake.sent
     assert "drop my box" not in fake.sent
@@ -803,3 +806,73 @@ def test_a_box_that_will_not_dismantle_goes_to_the_bucket_as_before():
     run(fake)
     assert "dismantle my box" in fake.sent
     assert "put my box in bucket" in fake.sent
+
+
+# Captured 2026-09-26: ;hunt came home from the goblins holding a chest
+# and a casket the full sack had refused.
+SACK_FULL = "There isn't any more room in the sack for that.\n"
+CHEST_LONGSHOT = "Disarming the reinforced oaken chest would be a longshot.\n"
+
+
+def _holding(fake, *nouns):
+    hands = [{"noun": noun, "exist": str(i)} for i, noun in enumerate(nouns, 10)]
+    fake.state.left_hand = hands[0] if hands else None
+    fake.state.right_hand = hands[1] if len(hands) > 1 else None
+    fake.state.possessions = POSSESSIONS_WITH_A_COFFER
+
+
+def test_boxes_in_hand_go_into_a_container_with_room_before_the_run():
+    fake = Fake(
+        [
+            ("put my chest in my sack", SACK_FULL),
+            ("put my casket in my sack", SACK_FULL),
+            ("put my chest in my backpack", "You put your chest in your backpack.\n"),
+            ("put my casket in my backpack", "You put your casket in your backpack.\n"),
+            ("look in my sack", "In the canvas sack you see a cotton rag.\n"),
+            (
+                "look in my backpack",
+                "In the rugged backpack you see an iron mortar, a reinforced "
+                "oaken chest and a driftwood casket.\n",
+            ),
+        ],
+        mindstates=[1],
+    )
+    _holding(fake, "chest", "casket")
+    out = run(fake)
+    assert fake.sent[:4] == [
+        "put my chest in my sack",
+        "put my chest in my backpack",
+        "put my casket in my sack",
+        "put my casket in my backpack",
+    ]
+    assert "the chest in hand goes into the backpack" in out
+    assert "2 box(es) in the backpack" in out
+    assert "drop" not in " ".join(fake.sent)
+
+
+def test_two_boxes_in_hand_with_no_room_anywhere_end_the_run_before_it_starts():
+    fake = Fake([("put my", SACK_FULL)], mindstates=[1])
+    _holding(fake, "chest", "casket")
+    out = run(fake)
+    assert "the chest and the casket are in hand and no container has room" in out
+    assert "sit" not in fake.sent
+    assert "drop" not in " ".join(fake.sent)
+
+
+def test_one_box_in_hand_with_no_room_is_worked_first_without_a_get():
+    fake = Fake(
+        [
+            ("put my chest in my", SACK_FULL),
+            ("look in my sack", "In the canvas sack you see a cotton rag.\n"),
+            ("look in my backpack", "In the rugged backpack you see an iron mortar.\n"),
+            ("disarm my chest identify", CHEST_LONGSHOT),
+        ],
+        mindstates=[1],
+    )
+    _holding(fake, "chest")
+    out = run(fake)
+    assert "the chest in hand fits nowhere — it is worked first" in out
+    assert "disarm my chest identify" in fake.sent
+    assert not any(c.startswith("get chest") for c in fake.sent)
+    # Past the reading and nowhere to put it back: the run ends, in hand.
+    assert "the chest is in hand with nowhere to go — stopping" in out

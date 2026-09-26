@@ -450,6 +450,37 @@ def box_containers(possessions, primary):
     return found
 
 
+def held_boxes(*hands):
+    """The box nouns the parser's hand states hold ({noun, ...} or None),
+    in the order given — a box a full loot container refused stays in
+    hand (2026-09-26: ;hunt came home holding a chest and a casket)."""
+    found = []
+    for hand in hands:
+        noun = (
+            str((hand or {}).get("noun") or "").lower()
+            if isinstance(hand, dict)
+            else ""
+        )
+        if noun in BOX_NOUNS:
+            found.append(noun)
+    return found
+
+
+def containers(possessions):
+    """The containers the parser's INV LIST items show holding something,
+    each noun once in listing order — where a box in hand may still fit."""
+    by_exist = {item.get("exist"): item for item in possessions or []}
+    found = []
+    for item in possessions or []:
+        holder = by_exist.get(item.get("container_exist"))
+        if not holder:
+            continue
+        noun = str(holder.get("noun") or noun_of(holder.get("name") or "")).lower()
+        if noun and noun not in found:
+            found.append(noun)
+    return found
+
+
 def boxes_in(answer):
     """The box nouns a container listing holds, repeats kept and in
     order: ["box", "coffer", "box"]; None when the container could not

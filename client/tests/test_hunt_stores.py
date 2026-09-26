@@ -87,6 +87,45 @@ def test_a_box_on_the_ground_goes_in_with_stow_box(monkeypatch):
     assert any("2 box(es) in the sack — the farm is done" in e for e in arena.echoed)
 
 
+def test_a_full_sack_ends_the_farm_with_the_box_in_hand(monkeypatch):
+    # 2026-09-26 at the goblins: STOW BOX picked the chest up and the
+    # sack refused it; the hunt said it stayed on the ground, tried GET
+    # CHEST and the pouch for it, farmed on — the box count never grew —
+    # and for the next box sheathed the broadsword to free a hand, the
+    # chest and a casket in hand among three goblins.
+    found = iter([["a reinforced oaken chest"], ["a driftwood casket"], []])
+    monkeypatch.setattr(
+        hunt.loot, "new_items", lambda before, after, creatures=(): next(found, [])
+    )
+    searched = (
+        "You search the scavenger goblin.\n"
+        "The goblin was carrying a reinforced oaken chest!\n"
+    )
+    arena = Arena(
+        {
+            "attack": [(KILL, kill), (KILL, kill)],
+            "loot": [searched, NOTHING],
+            "stow box": [
+                "You pick up a reinforced oaken chest.\n"
+                "There isn't any more room in the sack for that.\n"
+            ],
+        }
+    )
+    farm = PROFILE | {"skin": False, "box_limit": 8, "until": "boxes"}
+    _run(arena, profile=farm, travel_first=False)
+    assert arena.sent.count("stow box") == 1
+    assert not any(
+        c.startswith(("get chest", "get casket", "put my chest")) for c in arena.sent
+    )
+    assert not any(c.startswith("sheathe") for c in arena.sent)
+    assert any("the sack is full — the chest is in hand" in e for e in arena.echoed)
+    assert any(
+        "the sack is full after 0 box(es) this run — the farm is done" in e
+        for e in arena.echoed
+    )
+    assert arena.sent.count("loot") == 1  # the farm ended on the refusal
+
+
 def _no_kill(arena):
     """The first swing's line, the rat still up (test_hunt's _stands)."""
 
