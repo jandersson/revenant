@@ -11,6 +11,19 @@ from client.game import barbarian
 
 # The shape combat-trainer reads: "by landing an? (.*)\.$".
 COMBO = "You reveal a weakness in your stance by landing a jab, a feint and a slice."
+# Captured 2026-09-26 among grass eels: the combo, and the remainder an
+# ANALYZE gives while one runs.
+FLAME = (
+    "With a keen eye you study the battlefield and try to discern what "
+    "weaknesses may be exploited.\n"
+    "Increased inner fire may be achieved by landing a draw, a feint, a draw "
+    "and a feint.\nRoundtime: 3 sec.\n"
+)
+RECALLED = (
+    "With a keen eye you study the battlefield and try to discern what "
+    "weaknesses may be exploited.\n"
+    "You recall your combo may be completed by landing a feint, a draw and a feint.\n"
+)
 COMBO_OXFORD = (
     "Analyzing, you see you can gain an edge by landing a draw, a thrust, and a chop."
 )
@@ -67,6 +80,11 @@ def test_a_combo_answer_names_its_attacks_as_verbs():
     assert barbarian.combo_attacks(COMBO) == ["jab", "feint", "slice"]
     assert barbarian.combo_attacks(COMBO_OXFORD) == ["draw", "thrust", "chop"]
     assert barbarian.combo_attacks("You fail to find any holes.") == []
+
+
+def test_the_captured_flame_combo_and_its_remainder_parse():
+    assert barbarian.combo_attacks(FLAME) == ["draw", "feint", "draw", "feint"]
+    assert barbarian.combo_attacks(RECALLED) == ["feint", "draw", "feint"]
 
 
 def test_analyze_starts_a_combo_and_the_swings_are_its_attacks():

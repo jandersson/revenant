@@ -16,7 +16,18 @@ FLAME has none), "Analyze what?" and "What are you trying to attack?"
 (nothing engaged), "You must be closer", "You fail to find any" (try
 again), "You need to hold" (no weapon). combat-trainer never runs one
 on a brawling turn — the attacks are weapon attacks — and neither does
-this. None captured yet (2026-09-26).
+this. Captured 2026-09-26 on a circle-1 Barbarian among grass eels:
+"With a keen eye you study the battlefield and try to discern what
+weaknesses may be exploited." / "Increased inner fire may be achieved
+by landing a draw, a feint, a draw and a feint." (3 s of roundtime); an
+ANALYZE with a combo still running gives what is left — "You recall
+your combo may be completed by landing a feint, a draw and a feint." —
+which the same parse queues, so a queue emptied by attacks the game
+refused ("You are still stunned.") resyncs on the next ANALYZE; the
+finished combo: "Utilizing flawless combat expertise you execute an
+aggressive attack combination and fan the flames of your internal
+fire."; and "Analyze what?" before anything was engaged. The other
+answers are still combat-trainer's.
 
 An ability is its verb and name — BERSERK AVALANCHE, FORM BUFFALO,
 MEDITATE TENACITY — and ABILITIES is dr-scripts' table of them
