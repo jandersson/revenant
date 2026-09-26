@@ -47,7 +47,9 @@ def to_copper(text):
 
 def split(copper):
     """[(count, denomination)] for a copper total, largest coins first,
-    zero counts left out: 1510 → [(1, "gold"), (5, "silver"), (1, "bronze")]."""
+    zero counts left out: 1510 → [(1, "gold"), (5, "silver"), (1, "bronze")].
+    For a non-negative total: the callers turn it into WITHDRAWs, and a
+    negative one would floor-divide into -1 platinum plus positive coins."""
     parts, left = [], int(copper)
     for denomination in DENOMINATIONS:
         count, left = divmod(left, COPPER_PER[denomination])
@@ -57,7 +59,13 @@ def split(copper):
 
 
 def phrase(copper, currency=""):
-    """ "1 gold, 5 silver and 1 bronze Kronars" — the game's own shape."""
+    """ "1 gold, 5 silver and 1 bronze Kronars" — the game's own shape. A
+    negative amount (;wealth's net, owing more than is held) is the
+    minus sign before the amount's phrase: -2047 is "-2 gold, 4 bronze
+    and 7 copper", not the -1 platinum and positive coins floor division
+    gave (#333)."""
+    if copper < 0:
+        return "-" + phrase(-copper, currency)
     parts = [f"{count} {denomination}" for count, denomination in split(copper)]
     if not parts:
         parts = ["0 copper"]

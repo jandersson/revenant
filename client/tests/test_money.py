@@ -46,6 +46,15 @@ def test_phrase_reads_like_the_game():
     assert money.to_copper(money.phrase(123456)) == 123456
 
 
+def test_a_negative_amount_is_the_minus_sign_before_its_phrase():
+    # #333: ;wealth's net for a character owing 2047 copper Kronars and
+    # holding none read "-1 platinum, 7 gold, 9 silver, 5 bronze and 3
+    # copper" — floor division of a negative total.
+    assert money.phrase(-2047) == "-2 gold, 4 bronze and 7 copper"
+    assert money.phrase(-1510, "Kronars") == "-1 gold, 5 silver and 1 bronze Kronars"
+    assert money.phrase(-3) == "-3 copper"
+
+
 def test_info_splits_into_carried_and_owed_per_currency():
     assert money.parse_wealth(INFO) == {
         "carried": {"Kronars": 0, "Lirums": 0, "Dokoras": 0},

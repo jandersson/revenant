@@ -366,6 +366,8 @@ def test_no_open_account_is_a_report_of_nothing_not_a_silence(tmp_path, monkeypa
     assert "wealth: no bank account open — nothing on deposit" in text
     assert "Kronars: on deposit 0 copper, carrying 0 copper, owing 2 gold" in text
     assert "Lirums: on deposit 0 copper, carrying 1 bronze and 3 copper" in text
+    # The net of owing more than is held (#333).
+    assert "net -2 gold, 4 bronze and 7 copper" in text
     connection = sqlite3.connect(wealth.database_path())
     assert connection.execute(
         "SELECT COUNT(*) FROM wealth WHERE kind = 'bank'"
