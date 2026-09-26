@@ -11,10 +11,15 @@ from client.game.mapdb import MapDB
 from test_repair import (
     APPRAISE_DENTED,
     APPRAISE_PRISTINE,
+    ANALYZE_BATTERED,
+    ANALYZE_GOOD,
     LOOK_WAITING,
     NOT_YET,
     PRISTINE,
     QUOTE,
+    RANGU_QUOTE,
+    RANGU_RETURNED,
+    RANGU_TICKET,
     RETURNED,
     TICKET,
 )
@@ -51,6 +56,14 @@ MAP = MapDB(
             "title": ["[Catrox's Forge, Entryway]"],
             "tags": ["crossing repair", "repair"],
             "wayto": {},
+        },
+        {
+            "id": 19209,
+            "uid": [44101],
+            "title": [
+                "[Crossing Engineering Society, Rangu's Repair Shop and Bookstore]"
+            ],
+            "wayto": {},  # no `repair` tag: the tool shop is known by room
         },
         {
             "id": 12314,
@@ -299,3 +312,89 @@ def test_pickup_without_a_ticket_goes_nowhere():
     script.run(fake, ["pickup"], mapdb=MAP, walk_fn=walk, profile=PROFILE)
     assert fake.walks == []
     assert "no repair ticket on you" in echoes(fake)
+
+
+# --- ;repair tools: crafting tools to the Engineering Society's Rangu ---
+
+TOOLS = {**PROFILE, "repair_tools": ["mortar", "pestle"]}
+
+
+def test_a_battered_pestle_goes_to_rangu_and_back_into_the_pack():
+    # 2026-09-26: every CRUSH answered "far too damaged"; APPRAISE names
+    # no condition for a tool, ANALYZE does.
+    fake = Fake(
+        {
+            "analyze my mortar": [ANALYZE_GOOD],
+            "analyze my pestle": [ANALYZE_BATTERED],
+            "wealth": [wealth(200)],
+            "give my pestle": [RANGU_QUOTE, RANGU_TICKET],
+            "give my ticket": [RANGU_RETURNED],
+            "get my Rangu ticket": [
+                "You get a Rangu repair ticket from inside your backpack.",
+                "What were you referring to?",
+            ],
+        },
+        possessions=[],
+    )
+    script.run(fake, ["tools"], mapdb=MAP, walk_fn=walk, profile=TOOLS)
+    assert fake.sent[:6] == [
+        "get my mortar",
+        "analyze my mortar",
+        "stow my mortar",
+        "get my pestle",
+        "analyze my pestle",
+        "stow my pestle",
+    ]
+    assert fake.walks == [{19209}]
+    assert fake.sent[6:] == [
+        "wealth",
+        "get my pestle",
+        "give my pestle to Rangu",
+        "give my pestle to Rangu",
+        "stow my ticket",
+        "get my Rangu ticket",
+        "give my ticket to Rangu",
+        "stow my pestle",
+        "get my Rangu ticket",
+    ]
+    assert fake.slept >= 10 * 60
+    assert "pestle is battered and practically destroyed (0-20 %) — to repair" in (
+        echoes(fake)
+    )
+    assert "mortar is in good condition (81-90 %)" in echoes(fake)
+    assert "repair: 1 of 1 repaired" in echoes(fake)
+
+
+def test_tools_in_good_condition_go_nowhere():
+    fake = Fake(
+        {
+            "analyze my mortar": [ANALYZE_GOOD],
+            "analyze my pestle": [ANALYZE_GOOD],
+        },
+        possessions=[],
+    )
+    script.run(fake, ["tools"], mapdb=MAP, walk_fn=walk, profile=TOOLS)
+    assert fake.walks == []
+    assert "no tool at or below 80 % — all good" in echoes(fake)
+
+
+def test_tools_without_a_list_say_how_to_name_them():
+    fake = Fake({}, possessions=[])
+    script.run(fake, ["tools"], mapdb=MAP, walk_fn=walk, profile=PROFILE)
+    assert fake.sent == []
+    assert ";repair tools pestle mortar" in echoes(fake)
+
+
+def test_the_gear_run_never_walks_to_the_tool_shop():
+    fake = Fake(
+        {
+            "appraise my plate": [APPRAISE_DENTED],
+            "appraise my shield": [APPRAISE_PRISTINE],
+            "wealth": [wealth(200)],
+            "give my plate": [QUOTE, TICKET],
+            "give my ticket": [RETURNED],
+            "get my Catrox ticket": GOT_THEN_NONE,
+        }
+    )
+    script.run(fake, [], mapdb=MAP, walk_fn=walk, profile=PROFILE)
+    assert fake.walks == [{19093}]

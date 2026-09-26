@@ -52,6 +52,33 @@ LOOK_WAITING = (
     "recall that your plate won't be ready for another 4 roisaen.\n"
     "Written at the bottom you see Catrox's Forge, Crossing, Zoluren.\n"
 )
+# The Engineering Society's Rangu, crafting tools only (captured
+# 2026-09-26, an iron pestle worn past use).
+ANALYZE_BATTERED = (
+    "This appears to be a crafting tool and it is battered and practically "
+    "destroyed.\nRoundtime: 10 sec.\n"
+)
+ANALYZE_GOOD = (
+    "This appears to be a crafting tool and it is in good condition.\n"
+    "Roundtime: 10 sec.\n"
+)
+RANGU_QUOTE = (
+    'Rangu looks over the pestle and says, "That will cost 20 Kronars to '
+    "repair.  Just give it to me again if you want, and I'll have it ready in 10 "
+    'roisaen."\n'
+)
+RANGU_SHORT = (
+    "Rangu beats his fist down upon the counter and exclaims, \"Ya'll need more "
+    'coin if I am to be repairing that!"\n'
+)
+# Assumed, not captured: Catrox's ticket and pickup lines in Rangu's name.
+RANGU_TICKET = (
+    TICKET.replace("Catrox", "Rangu")
+    .replace("108", "20")
+    .replace("plate", "pestle")
+    .replace("about 5", "about 10")
+)
+RANGU_RETURNED = "You hand Rangu your ticket and are handed back an iron pestle.\n"
 LOOK_READY = (
     "Looking at the Catrox ticket you see it is for some light full plate.  You "
     "recall that your plate should be ready by now.\n"
@@ -126,7 +153,27 @@ def test_the_ticket_names_its_shop_and_the_wait():
 def test_a_repairman_is_found_by_name():
     assert repair.shop_room("Catrox") == 19093
     assert repair.shop_room("catrox") == 19093
+    assert repair.shop_room("Rangu") == 19209  # a Rangu ticket's pickup
     assert repair.shop_room("Nobody") is None
+
+
+def test_analyze_names_a_tools_condition_in_the_same_phrases():
+    assert repair.condition(ANALYZE_BATTERED) == (
+        "battered and practically destroyed",
+        0,
+        20,
+    )
+    assert repair.condition(ANALYZE_GOOD)[0] == "in good condition"
+
+
+def test_rangus_quote_and_his_short_purse_read_like_catroxs():
+    assert repair.classify_give(RANGU_QUOTE) == {
+        "kind": "quote",
+        "copper": 20,
+        "currency": "Kronars",
+        "roisaen": 10,
+    }
+    assert repair.classify_give(RANGU_SHORT) == {"kind": "short"}
 
 
 def test_the_pieces_are_the_hands_then_everything_worn():

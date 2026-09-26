@@ -169,6 +169,9 @@ DEFAULTS = {
     # (80: "rather scuffed up" and worse, #307).
     "repair_items": [],
     "repair_floor": 80,
+    # ;repair tools: the crafting tools it ANALYZEs and takes to the
+    # Engineering Society's Rangu (mortar, pestle — 2026-09-26).
+    "repair_tools": [],
 }
 
 # (key, label, kind, help) — kind is "bool", "int", "str" or "list".
@@ -326,6 +329,12 @@ FIELDS = (
         "Repair a piece at or below condition %",
         "int",
         "80: rather scuffed up and worse",
+    ),
+    (
+        "repair_tools",
+        "Crafting tools ;repair tools takes to Rangu",
+        "list",
+        "mortar, pestle",
     ),
 )
 

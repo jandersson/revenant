@@ -223,7 +223,10 @@ for `client/client/<pkg>/x.py`.
   twice to the nearest `repair` room's repairman (the estimate lapses
   in ~20 s; the second GIVE pays), the ticket STOWed, waited out and
   handed back, the piece worn again; a short purse fetched from the
-  teller. `client/game/bank.py` + `;bank`
+  teller; `;repair tools` ANALYZEs the profile's `repair_tools`
+  (APPRAISE names no condition for a tool) and takes the worn ones
+  to the Engineering Society's Rangu, the Crossing's crafting-tool
+  repairman (2026-09-26). `client/game/bank.py` + `;bank`
   (`scripts/bank.py`, #235): the purse banked — every foreign coin
   EXCHANGEd at the map's `exchange` room into the province's own,
   DEPOSIT ALL at the `bank` room, `keep=N` copper withdrawn back;

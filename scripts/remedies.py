@@ -355,7 +355,7 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
             first = (answer.strip().splitlines() or ["(silence)"])[0]
             s.echo(
                 f"remedies: {first} — the tool needs repair or replacing "
-                "(a repairman mends no tools); stopping"
+                "(;repair tools takes it to Rangu); stopping"
             )
             return "tool"
         if outcome == "crushed":

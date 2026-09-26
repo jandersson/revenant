@@ -37,6 +37,27 @@ few dents and dings":
                   just give me a few more moments here." / You hand
                   Catrox your ticket and are handed back some light full
                   plate.
+Crafting tools go to a different shop: the Crossing Engineering
+Society's Repairman Rangu, "Only crafting tools are repaired here"
+(Elanthipedia: Engineering Society (Crossing); Crafting tools, Repair;
+the Forging guide). APPRAISE names no condition for a tool; ANALYZE
+does, with the same phrases, 10 s of roundtime, the tool in hand.
+Captured 2026-09-26, an iron pestle worn past use:
+  ANALYZE         This appears to be a crafting tool and it is battered
+                  and practically destroyed.
+  ASK ABOUT       Rangu explains, "I can repair any of your crafting
+   REPAIRS        tools back to new.  My recommendation is you don't
+                  wait until they are mangled beyond recognition, or else
+                  you'll pay dearly for it.  Just give me the tool and
+                  I'll provide you with an estimate."
+  GIVE (quote)    Rangu looks over the pestle and says, "That will cost
+                  20 Kronars to repair.  Just give it to me again if you
+                  want, and I'll have it ready in 10 roisaen."
+  GIVE (no coin)  Rangu beats his fist down upon the counter and
+                  exclaims, "Ya'll need more coin if I am to be repairing
+                  that!"
+His tickets are "Rangu repair ticket"s (a customer's GET, same day).
+
 The quote is copper: 200 carried, 92 after the 108. The first ;repair
 run (a scimitar, "rather scuffed up", 5 Kronars, 1 roisaen) took GET
 MY CATROX TICKET for the stowed ticket and got "You hand Catrox your
@@ -86,6 +107,15 @@ SHOPS = {
     51797: "Verrys",  # Leth Deriel
     8391: "Lakyan",  # Fang Cove
     8392: "Osmandikar",  # Fang Cove
+}
+
+# The crafting-tool repairman per map room (Elanthipedia: Engineering
+# Society (Crossing) — "Only crafting tools are repaired here"). The
+# map does not tag his shop `repair`, and lists it twice (the uid-less
+# twin too).
+TOOL_SHOPS = {
+    19209: "Rangu",  # Crossing Engineering Society
+    8866: "Rangu",
 }
 
 # The GIVE answers, captured unless marked; lich-5's give_item?
@@ -219,7 +249,7 @@ def bare(item):
 
 def shop_room(name):
     """The map room of the repairman `name` ("Catrox"), or None."""
-    for room, shopkeeper in SHOPS.items():
+    for room, shopkeeper in {**SHOPS, **TOOL_SHOPS}.items():
         if shopkeeper.lower() == (name or "").lower():
             return room
     return None

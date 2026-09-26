@@ -4,6 +4,8 @@
     ;repair check        appraise only: each piece's condition, nothing moves
     ;repair plate shield those pieces, whatever their condition (worn, held, or GOT from a container)
     ;repair floor=70     repair pieces whose condition tops out at or below 70 % (the profile's `repair_floor`, else 80)
+    ;repair tools        ANALYZE the profile's `repair_tools` (mortar, pestle...) and take every one at or below the floor to Rangu
+    ;repair tools pestle that tool, whatever its condition
     ;repair pickup       walk to the shop your tickets name and collect what is ready
     ;repair ... back     walk back to where you started when done
     ;repair return       (typed while it runs) hand in nothing more, collect the tickets already given, end
@@ -36,6 +38,18 @@ another N roisaen" waited out, and WEARs each worn piece back; a held
 one stays in the hand. Captured 2026-09-24 at Catrox's Forge (#307).
 Stops on death. `pickup` collects tickets from an earlier run: LOOK
 AT MY TICKET names the shop, the script walks there and hands each in.
+
+`tools` is the same errand for crafting tools, which no weapon or
+armor shop takes: each is GOT and ANALYZEd — APPRAISE names no
+condition for a tool, ANALYZE does, in the same phrases, 10 s of
+roundtime — and STOWed back, and the worn ones go to the Crossing
+Engineering Society's Repairman Rangu ("Only crafting tools are
+repaired here"; Elanthipedia: Engineering Society (Crossing), Crafting
+tools), who quotes and tickets the way Catrox does and hands each tool
+back to be STOWed. A pestle "battered and practically destroyed" cost
+20 Kronars and 10 roisaen there (2026-09-26); a new one is 125, and a
+tool that far gone is past field repair with a wire brush and oil
+(Blacksmithing techniques: Advanced Tool Repair).
 Stop with:  ;stop repair, or ;repair return (keeps the tickets' pickup).
 """
 
@@ -47,6 +61,7 @@ from client.game.profile import load_profile
 from client.game.repair import (
     DEFAULT_FLOOR,
     SHOPS,
+    TOOL_SHOPS,
     candidates,
     classify_give,
     classify_pickup,
@@ -85,7 +100,7 @@ def parse_words(words):
     mode, items, floor, back = "repair", [], None, False
     for word in words:
         lowered = word.lower()
-        if lowered in ("check", "pickup"):
+        if lowered in ("check", "pickup", "tools"):
             mode = lowered
         elif lowered == "back":
             back = True
@@ -122,6 +137,40 @@ def appraise(s, pieces, floor, echo_all=True):
     return due
 
 
+def analyze(s, tools, floor):
+    """GET and ANALYZE each tool noun, STOW it back unless it was in a
+    hand; the ones at or below the floor as [(noun, place, reading)],
+    place "held" or "stowed". Every reading is echoed."""
+    due = []
+    held = {h.get("noun") for h in hands(s) if isinstance(h, dict)}
+    for noun in tools:
+        if s.dead:
+            return due
+        place = "held" if noun in held else "stowed"
+        if place == "stowed":
+            if not free_hand(s):
+                return due
+            answer = ask(s, f"get my {noun}")
+            s.waitrt()
+            if missing(answer):
+                s.echo(f"repair: no {noun} on you — skipped")
+                continue
+        reading = condition(ask(s, f"analyze my {noun}"))
+        s.waitrt()
+        if place == "stowed":
+            ask(s, f"stow my {noun}")
+            s.waitrt()
+        if reading is None:
+            s.echo(f"repair: ANALYZE named no condition for the {noun} — skipped")
+            continue
+        verdict = needs_repair(reading, floor)
+        mark = " — to repair" if verdict else ""
+        s.echo(f"repair: {noun} is {reading[0]} ({reading[1]}-{reading[2]} %){mark}")
+        if verdict:
+            due.append((noun, place, reading))
+    return due
+
+
 def free_hand(s):
     """A hand empty for a REMOVE or a ticket: the left hand's item STOWed
     when both are full. False, said, when it would not go."""
@@ -147,10 +196,11 @@ def take(s, noun, place):
         return True
     if not free_hand(s):
         return False
-    answer = ask(s, f"remove my {noun}")
-    s.waitrt()
-    if not missing(answer):
-        return True
+    if place != "stowed":
+        answer = ask(s, f"remove my {noun}")
+        s.waitrt()
+        if not missing(answer):
+            return True
     answer = ask(s, f"get my {noun}")
     s.waitrt()
     if missing(answer):
@@ -160,9 +210,12 @@ def take(s, noun, place):
 
 
 def put_back(s, noun, place):
-    """The piece where it was: worn ones WORN back, a held one left in
-    the hand."""
-    if place == "worn":
+    """The piece where it was: worn ones WORN back, a stowed tool
+    STOWed, a held one left in the hand."""
+    if place == "stowed":
+        ask(s, f"stow my {noun}")
+        s.waitrt()
+    elif place == "worn":
         answer = ask(s, f"wear my {noun}")
         s.waitrt()
         if missing(answer) or "can't" in answer.lower():
@@ -285,27 +338,34 @@ def purse_of(s):
     return carried or None
 
 
-def walk_to_shop(s, mapdb, walk_fn, rooms=None):
-    """Walk to the nearest known repair shop; its repairman's name, or
-    None, said."""
-    tagged = set(mapdb.rooms_tagged("repair")) & set(rooms or SHOPS)
-    if not tagged:
+def walk_to_shop(s, mapdb, walk_fn, rooms=None, shops=SHOPS):
+    """Walk to the nearest known repair shop (`shops`: the gear shops by
+    default, TOOL_SHOPS for tools); its repairman's name, or None, said.
+    A gear shop must carry the map's `repair` tag; the tool shop has
+    none."""
+    tagged = set(mapdb.rooms_tagged("repair"))
+    goals = {
+        room
+        for room in (rooms or shops)
+        if room in mapdb.rooms and (room in TOOL_SHOPS or room in tagged)
+    }
+    if not goals:
         s.echo("repair: the map has no repair shop whose repairman is known")
         return None
-    if not walk_fn(s, mapdb, tagged, describe="the repair shop"):
+    if not walk_fn(s, mapdb, goals, describe="the repair shop"):
         s.echo("repair: could not reach a repair shop — stopping")
         return None
     here = locate(mapdb, s.state)
-    name = SHOPS.get(here)
+    name = {**SHOPS, **TOOL_SHOPS}.get(here)
     if name is None:
         s.echo("repair: arrived, but not in a shop whose repairman is known")
     return name
 
 
-def repair(s, mapdb, walk_fn, due):
+def repair(s, mapdb, walk_fn, due, shops=SHOPS):
     """Hand every due piece in at the nearest shop, fetch coins for what
     the purse could not cover, wait and collect. The pieces back."""
-    name = walk_to_shop(s, mapdb, walk_fn)
+    name = walk_to_shop(s, mapdb, walk_fn, shops=shops)
     if name is None:
         return 0
     shop = locate(mapdb, s.state)
@@ -368,6 +428,27 @@ def run(s, words, mapdb=None, walk_fn=walk, profile=None):
         start = locate(mapdb, s.state)
         count = pickup(s, mapdb, walk_fn)
         s.echo(f"repair: {count} piece{'s' if count != 1 else ''} collected")
+        walk_home(s, mapdb, walk_fn, start, back)
+        return
+    if mode == "tools":
+        tools = items or profile.get("repair_tools") or []
+        if not tools:
+            s.echo(
+                "repair: no tools named — ;repair tools pestle mortar, or the "
+                "profile's repair_tools"
+            )
+            return
+        tools = [str(tool).strip().lower() for tool in tools]
+        due = analyze(s, tools, 100 if items else floor)
+        if not due:
+            s.echo(f"repair: no tool at or below {floor} % — all good")
+            return
+        if mapdb is None:
+            s.echo("repair: walking to a shop needs the map — none loaded")
+            return
+        start = locate(mapdb, s.state)
+        count = repair(s, mapdb, walk_fn, due, shops=TOOL_SHOPS)
+        s.echo(f"repair: {count} of {len(due)} repaired")
         walk_home(s, mapdb, walk_fn, start, back)
         return
     listed = items or profile.get("repair_items") or []
