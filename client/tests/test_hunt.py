@@ -1271,3 +1271,53 @@ def test_an_abbreviated_exit_is_the_maps_spelled_out_one(tmp_path, monkeypatch):
     assert hunt.escape(s, db) is True
     assert db.rooms[1]["wayto"] == {"2": "northeast"}
     assert not (tmp_path / "local.json").exists()
+
+
+def _outgrown_handle(creatures, dead=()):
+    echoed = []
+    s = SimpleNamespace(
+        echo=echoed.append,
+        state=SimpleNamespace(
+            room_creatures=list(creatures),
+            room_creatures_dead=list(dead),
+            experience={
+                "Small Edged": {"rank": 58},
+                "Brawling": {"rank": 57},
+                "Small Blunt": {"rank": 13},
+            },
+        ),
+    )
+    return s, echoed
+
+
+OUTGROWN_PROFILE = PROFILE | {
+    "weapons": ["scimitar:Small Edged:scabbard", "fists:Brawling", "mace:Small Blunt"]
+}
+
+
+def test_a_ground_whose_creatures_cap_below_the_weapons_is_said_once():
+    # #322: the cougars' MaxCap is 49; the rotation's Small Edged 58 and
+    # Brawling 57 learned nothing there for five hunts.
+    tally = hunt.Tally()
+    s, echoed = _outgrown_handle(["a cougar"])
+    hunt.say_outgrown(s, OUTGROWN_PROFILE, tally)
+    hunt.say_outgrown(s, OUTGROWN_PROFILE, tally)
+    assert echoed == [
+        "hunt: the cougar teaches to rank 49 — Brawling 57, Small Edged 58 past "
+        "it; a harder ground trains them"
+    ]
+
+
+def test_a_ground_that_still_teaches_says_nothing():
+    tally = hunt.Tally()
+    s, echoed = _outgrown_handle(["a blood wolf"])
+    hunt.say_outgrown(s, OUTGROWN_PROFILE, tally)
+    assert echoed == []
+    assert tally.caps_said
+
+
+def test_only_live_creatures_are_weighed():
+    tally = hunt.Tally()
+    s, echoed = _outgrown_handle(["a blood wolf", "a cougar"], dead=[True, False])
+    hunt.say_outgrown(s, OUTGROWN_PROFILE, tally)
+    assert "the cougar teaches to rank 49" in echoed[0]

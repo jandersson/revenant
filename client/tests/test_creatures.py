@@ -29,3 +29,37 @@ def test_aim_reaches_the_first_live_one_past_the_corpses():
     assert creatures.aim("rat", names, []) == "rat"
     assert creatures.aim("Cougar", [], []) == "cougar"
     assert creatures.aim("", names, []) == ""
+
+
+# --- what a room's creatures can still teach (#322) ---
+
+
+def test_a_listing_name_finds_its_creature_past_the_article_and_adjectives():
+    assert creatures.caps_of("a cougar")[0] == "cougar"
+    assert creatures.caps_of("a dour forager goblin")[0] == "forager goblin"
+    assert creatures.caps_of("a blood wolf")[0] == "blood wolf"
+    assert creatures.caps_of("a rise in the cliff") is None
+
+
+def test_cougars_have_nothing_left_for_rank_58_and_wolves_do():
+    # 2026-09-26: five hunts on the bobcats ground — mostly cougars,
+    # MaxCap 49 — left Small Edged 58 and Brawling 57 at 0-3/34.
+    ranks = {"Small Edged": 58, "Brawling": 57, "Small Blunt": 13}
+    top, past = creatures.outgrown(["a cougar", "a cougar"], ranks)
+    assert top == ("cougar", 49)
+    assert past == [("Brawling", 57), ("Small Edged", 58)]
+    top, past = creatures.outgrown(["a blood wolf"], ranks)
+    assert past == []
+
+
+def test_the_most_generous_creature_in_the_room_decides():
+    top, past = creatures.outgrown(["a cougar", "a bobcat"], {"Small Edged": 58})
+    assert top == ("bobcat", 65)
+    assert past == []
+
+
+def test_creatures_the_table_does_not_know_say_nothing():
+    assert creatures.outgrown(["a glimmering wisp of nothing"], {"Brawling": 57}) == (
+        None,
+        [],
+    )

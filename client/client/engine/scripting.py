@@ -432,7 +432,8 @@ RELOADABLE_MODULES = (
     "client.game.possessions",  # binds _depth from inventory: after it
     "client.game.probe",
     "client.game.loop",
-    "client.game.creatures",
+    "client.game.creatures_data",
+    "client.game.creatures",  # binds CAPS from creatures_data: after it
     "client.game.discard",
     "client.game.buffs",
     "client.game.profile",

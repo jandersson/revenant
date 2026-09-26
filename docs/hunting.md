@@ -682,6 +682,31 @@ twelve; docs/protocol.md) is tallied per swing and reported at the
 end of the run — a reading for the experiment, no rule yet (#280):
 dr-scripts' combat-trainer holds attacks while badly off balance.
 
+## A ground outgrown
+
+`;hunt` says once a hunt which weapon skills the room's creatures can
+no longer teach, because a ground that has stopped teaching looks like
+any other hunt: kills, skins, and a pool that barely moves. A creature
+teaches a skill fully below its MinCap, less and less up to its
+MaxCap, and nothing past it (Elanthipedia's Critter template;
+`tools/creature_tables.py` reads every page using it through the
+wiki's API into `client/game/creatures_data.py`, a variant's highest
+MaxCap kept per name). The first room with live creatures is weighed:
+the known creature with the highest MaxCap decides, and each weapon
+turn's skill at or above it is named ("the cougar teaches to rank 49 —
+Brawling 57, Small Edged 58 past it; a harder ground trains them").
+Names are matched by their last words, so the game's random adjectives
+("a dour forager goblin") drop away; a room of creatures the table
+does not know says nothing and the next room is weighed instead.
+
+Why: from 2026-09-25 to 26 five `;train` hunts on the `bobcats`
+ground (mostly cougars, 30-49; bobcats 45-65) ended with Small Edged
+0-3/30 and Brawling 1-3/30 while the rank-13 Small Blunt reached
+27-34/30. The first hunt at `crossing_blood_wolves` (Blood wolf (1),
+60-75) ended at 17/30 and 20/30 (#322). Only the weapon skills are
+weighed; the defenses (Evasion, Parry, Shield) cap the same way and are
+left to the reader of the numbers.
+
 ## Hunt styles
 
 One character hunts for more than one reason: to train the weapon

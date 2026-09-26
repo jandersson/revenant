@@ -131,6 +131,13 @@ tracks are not followed, the ground's rooms are the map's (#194).
 The weapon stays in hand when the hunt ends — stowed, it parries
 nothing — and its container is only where the first swing fetches it
 from.
+Once a hunt, the first room with live creatures is weighed against
+the weapon turns' ranks: a creature teaches nothing past its MaxCap
+(Elanthipedia's Critter pages, client/game/creatures_data.py), and the
+skills past the room's most generous one are said — "the cougar
+teaches to rank 49 — Brawling 57, Small Edged 58 past it" — so a
+ground the character has outgrown shows at once, not after five
+hunts of 0/34 (#322).
 The game's answers are classified by keyword (the tables below, model
 in docs/hunting.md); a skin or search answer the script cannot place is
 echoed as "hunt: unrecognized ..." — report those and they become
@@ -165,7 +172,7 @@ import time
 from collections import Counter
 
 from client.game import buffs, flight, loot, probe
-from client.game.creatures import aim, noun_of
+from client.game.creatures import aim, noun_of, outgrown
 from client.game.probe import classify
 from client.game.profile import describe, load_profile
 from client.game.walker import DIRECTIONS, locate, walk
@@ -488,6 +495,7 @@ class Tally:
         self.tactic_misses = 0  # unrecognized maneuver answers in a row
         self.tactics_off = False  # the maneuvers refused this run, said once
         self.loot_reported = False  # LOOT's first answer echoed for the fixtures
+        self.caps_said = False  # the ground's teaching caps looked at once (#322)
         self.last_track = None  # clock() of the last HUNT that read tracks (#194)
         self.tracks = 0  # HUNTs the game answered
         self.track_misses = 0  # unrecognized HUNT answers in a row
@@ -1600,6 +1608,34 @@ def aim_at(s, prey):
     return aim(prey, names, dead)
 
 
+def say_outgrown(s, profile, tally):
+    """Once a hunt, with live creatures in the room: the weapon skills
+    their MaxCap no longer teaches, said (#322: five hunts on cougars,
+    MaxCap 49, taught Small Edged 58 and Brawling 57 nothing). A room
+    of creatures the table does not know is looked at again next time."""
+    if tally.caps_said:
+        return
+    names = list(getattr(s.state, "room_creatures", None) or [])
+    dead = list(getattr(s.state, "room_creatures_dead", None) or [])
+    dead += [False] * (len(names) - len(dead))
+    live = [name for name, flag in zip(names, dead) if not flag]
+    ranks = {
+        entry["skill"]: buffs.rank_of(s.state, entry["skill"])
+        for entry in weapon_plan(profile)
+        if entry["skill"]
+    }
+    top, past = outgrown(live, ranks)
+    if top is None:
+        return
+    tally.caps_said = True
+    if past:
+        skills = ", ".join(f"{skill} {rank}" for skill, rank in past)
+        s.echo(
+            f"hunt: the {top[0]} teaches to rank {top[1]} — {skills} past it; "
+            "a harder ground trains them"
+        )
+
+
 def loop(s, profile, db, ground, avoid, tally):
     """Fight until something ends the hunt; returns why."""
     prey = profile["prey"]
@@ -1653,6 +1689,7 @@ def loop(s, profile, db, ground, avoid, tally):
             if not settle(s, db, ground, avoid, tally):
                 return "ground taken"
             continue
+        say_outgrown(s, profile, tally)
         tally.swings += 1
         # A cast due before this swing wraps it: PREPARE, the swing while
         # the pattern forms, CAST (#203). Otherwise the swing alone.
