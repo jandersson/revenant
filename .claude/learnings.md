@@ -270,5 +270,5 @@ lessons the code and docs cannot carry themselves.
   reload is a fresh module copy — running scripts keep the code they
   started with, the next start gets the new — and the log says which
   running scripts kept theirs.
-- Heredoc Python edits in Bash turn \b into a real backspace (0x08) in the file: a regex that looks right in grep matches nothing. Write the edit script with the Write tool; check with od -c when a pattern mysteriously fails (2026-09-26).
+- Heredoc Python edits in Bash turn \b into a real backspace (0x08) in the file: a regex that looks right in grep matches nothing. Write the edit script with the Write tool; check with od -c when a pattern mysteriously fails (2026-09-26). It bit three more times the same day after this line was written, so a PreToolUse hook in the operator's ~/.claude/settings.json (hooks/no_heredoc_escapes.py) now refuses Python fed from a heredoc whose body holds a backslash escape.
 - A log watch piped through `cut` (or any stage without line buffering) delivers nothing: `tail -F log | grep --line-buffered X | cut -c...` sat silent for 30 minutes while ;train changed tasks. End the pipe at `grep --line-buffered`, or use `awk '{print; fflush()}'` (2026-09-26).

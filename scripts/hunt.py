@@ -682,13 +682,22 @@ def pass_turn(s, profile, tally):
     return True
 
 
+def farming(profile):
+    """True for a hunt that ends on its haul, not on the skills: a
+    `until` of boxes (#299)."""
+    return str(profile.get("until") or "").lower() == "boxes"
+
+
 def rotate(s, profile, tally):
     """After a kill: the next open turn takes the hands. False when
-    every weapon skill is locked — the hunt's end."""
+    every weapon skill is locked — the hunt's end, unless the hunt is a
+    farm (`until` boxes): its end is the box count, and the weapon in
+    hand keeps swinging (2026-09-26: the boxes style's mace locked Small
+    Blunt five kills in and ended the farm)."""
     tally.rotated_at = tally.kills
     index = next_turn(s, profile, tally)
     if index is None:
-        return False
+        return farming(profile)
     if index != tally.weapon:
         arm(s, profile, tally, index)
     return True
@@ -1363,7 +1372,10 @@ def grab(s, profile, before, tally):
         if not loot.lootable(entry, additions, subtractions):
             continue
         what = loot.kind(entry)
-        noun = "coins" if what == "coins" else loot.noun_of(entry)
+        # The entry's own noun, coins included: a lone "bronze coin"
+        # answers GET COIN, never GET COINS (2026-09-26, the goblins'
+        # Dokora left on the ground, "What were you referring to?").
+        noun = loot.noun_of(entry)
         if noun in tally.unlootable:
             continue
         if what == "box" and limit and tally.boxes >= limit:
@@ -1878,6 +1890,8 @@ def hunt(s, profile, db, travel=True, avoid=()):
     wear_bundle(s, profile, tally)
     cast_buffs(s, profile, tally)
     first = next_turn(s, profile, tally, from_current=True) if has_turns(profile) else 0
+    if first is None and farming(profile):
+        first = 0  # a farm fights on with its first turn, locked or not
     if first is None:
         s.echo("hunt: every weapon skill is mind-locked — nothing to train")
         return

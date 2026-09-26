@@ -89,3 +89,54 @@ def test_a_box_on_the_ground_goes_in_with_stow_box(monkeypatch):
 
 def _no_kill(arena):
     """The first swing's line, the rat still up (test_hunt's _stands)."""
+
+
+def test_a_lone_coin_is_picked_up_as_a_coin_not_as_coins(monkeypatch):
+    # 2026-09-26: a goblin dropped "8 copper coins (Kronars) and 1 bronze
+    # coin (Dokora)"; GET COINS twice took the coppers and answered "What
+    # were you referring to?" for the bronze, which stayed on the ground.
+    found = iter([["some copper coins", "a bronze coin"], []])
+    monkeypatch.setattr(
+        hunt.loot, "new_items", lambda before, after, creatures=(): next(found, [])
+    )
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "loot": [NOTHING],
+            "get coins": ["You pick up 8 copper Kronars.\n"],
+            "get coin": ["You pick up 1 bronze Dokora.\n"],
+        }
+    )
+    _run(arena, profile=PROFILE | {"skin": False, "max_kills": 1}, travel_first=False)
+    gets = [c for c in arena.sent if c.startswith("get coin")]
+    assert gets == ["get coins", "get coin"]
+
+
+def test_a_box_farm_fights_on_when_its_weapon_skill_locks(monkeypatch):
+    # 2026-09-26: the boxes style's mace mind-locked Small Blunt five kills
+    # in and the farm ended "every weapon skill mind-locked" with its box
+    # limit far off.
+    found = iter([["a small wooden coffer"], []])
+    monkeypatch.setattr(
+        hunt.loot, "new_items", lambda before, after, creatures=(): next(found, [])
+    )
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "loot": [NOTHING],
+            "stow box": [
+                "You pick up a mud-stained steel crate.\n"
+                "You put your crate in your canvas sack.\n"
+            ],
+        },
+        experience={"Small Blunt": {"rank": 13, "percent": 0, "mindstate": 34}},
+    )
+    farm = PROFILE | {
+        "skin": False,
+        "box_limit": 1,
+        "until": "boxes",
+        "weapons": ["mace:Small Blunt:backpack"],
+    }
+    _run(arena, profile=farm, travel_first=False)
+    assert not any("mind-locked" in e for e in arena.echoed)
+    assert any("1 box(es) in the sack — the farm is done" in e for e in arena.echoed)
