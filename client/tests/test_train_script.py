@@ -814,3 +814,74 @@ def test_a_task_whose_script_ended_among_hostiles_gets_away_first(clock):
     assert any("ended among hostiles — getting away" in text for text in fake.echoed)
     assert fake.sent[:3] == ["retreat", "retreat", "nw"]
     assert any("ended among hostiles — got away" in text for text in fake.echoed)
+
+
+HEAL = {
+    "name": "heal",
+    "helper": "Riphik",
+    "helper_script": "empath",
+    "helper_args": ["cecil"],
+    "helper_room": "7890",
+    "when": "wounded",
+}
+
+
+class HelperWorld:
+    """The helper's session as ;train sees it: the scripts it runs, poll
+    by poll (the last repeating), and every line sent to it."""
+
+    def __init__(self, polls):
+        self.polls = list(polls)
+        self.sent = []
+
+    def __call__(self, s, db=None):
+        return self  # stands in for the HelperIO class
+
+    def scripts_of(self, port):
+        return self.polls.pop(0) if len(self.polls) > 1 else self.polls[0]
+
+    def send(self, port, line):
+        self.sent.append(line.split("\t", 1)[-1])
+
+    def sleep(self, seconds):
+        pass
+
+
+def test_a_helper_task_lasts_while_the_helpers_script_runs(clock, monkeypatch):
+    # The operator, 2026-09-27: Riphik called in to heal Cecil the way
+    # Fallanor is called in to teach. No script or commands of the
+    # student's own: the task lasts while ;empath runs, then Riphik's
+    # session logs out, with no ;empath return to start it again.
+    from client.game import helper
+
+    world = HelperWorld([["empath"], ["empath"], []])
+    monkeypatch.setattr(train, "HelperIO", world)
+    monkeypatch.setattr(
+        train,
+        "start_helper",
+        lambda s, task, db, walk: helper.Helper("Riphik", 4260, True),
+    )
+    fake = Fake()
+    fake.state.injuries = {"chest": ("wound", 2)}
+    clock["fake"] = fake
+    task = normalize({"tasks": [HEAL]})["tasks"][0]
+    reason = train.run_task(fake, plan(poll=10), task, db=MAP, walk=walk)
+    assert reason == "helper done"
+    assert world.sent == [";logout"]
+    assert any("heal its helper's script ended" in text for text in fake.echoed)
+
+
+def test_a_task_only_when_wounded_is_skipped_while_the_panel_is_clean(
+    clock, monkeypatch
+):
+    called = []
+    monkeypatch.setattr(
+        train, "start_helper", lambda *args: called.append(args) or None
+    )
+    fake = Fake()
+    fake.state.injuries = {}
+    clock["fake"] = fake
+    task = normalize({"tasks": [HEAL]})["tasks"][0]
+    assert train.run_task(fake, plan(), task, db=MAP, walk=walk) == "unneeded"
+    assert called == []
+    assert "train: heal — not wounded, skipped" in fake.echoed

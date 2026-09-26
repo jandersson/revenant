@@ -18,6 +18,12 @@ loop left behind as its own to log out, and the session itself logs
 out once the spawning session's port has refused two heartbeats in a
 row — a teacher offering a class to nobody after the student's
 session was relaunched (2026-09-23) is gone within a minute or two.
+An account plays one character at a time, so a helper sharing its
+account with a logged-in character has that one `;logout` first
+(Riphik and Westan). A task with no script or commands of the
+student's own lasts while the helper's script runs (the session's
+`scripts` state) — Riphik's `;empath cecil` after a hunt — and ends
+without a return word that would start the script again.
 Every line to the helper goes through the wire tagged "train", so its
 window reads `>> [train] ...`. A helper that cannot be had — no
 account cached for the name, no password in the keychain, a session
@@ -35,6 +41,7 @@ DEFAULT_SCRIPT = "teach"
 ARRIVAL_SECONDS = 180  # the helper's walk to the room
 KNOWN_SECONDS = 30  # a fresh login's parser learning its room before ;go2
 SETTLE_SECONDS = 3  # after a script start or return, before the next line
+LOGOUT_SECONDS = 90  # the account's other character's ;logout
 
 
 class Helper:
@@ -92,6 +99,27 @@ def spawned_by_loop(sessions, name):
     return False
 
 
+def account_holder(io, sessions, name, account):
+    """The other character with a live session on `account`, or None:
+    an account plays one character at a time (Riphik and Westan share
+    one)."""
+    for entry in sessions or []:
+        other = str(entry.get("character") or "")
+        if other and other.lower() != name.lower() and io.account_for(other) == account:
+            return other
+    return None
+
+
+def running(io, helper, script):
+    """True while `script` runs in the helper's session, False once it
+    has ended, None when the session does not say (an older session
+    without `scripts` in its state, or no answer)."""
+    names = io.scripts_of(helper.port)
+    if names is None:
+        return None
+    return script.lower() in {str(n).lower() for n in names}
+
+
 def ensure(io, name, echo, spawned_before=(), own_port=None):
     """The helper's session — found, or spawned off the keychain — as a
     Helper; None, said, when it cannot be had. A session found that
@@ -116,6 +144,20 @@ def ensure(io, name, echo, spawned_before=(), own_port=None):
             f"{name} in once with Remember me"
         )
         return None
+    if other := account_holder(io, sessions, name, account):
+        # The account plays one character at a time: the other logs out
+        # through its own ;logout first rather than being cut off by
+        # the login (the operator, 2026-09-27: "it's cool if you drop
+        # Westan" for Riphik).
+        echo(f"train: logging {other} out — {name} shares the account")
+        io.send(find_session(sessions, other), tagged(";logout"))
+        deadline = io.now() + LOGOUT_SECONDS
+        while find_session(io.sessions(), other) and io.now() < deadline:
+            io.sleep(2)
+        if find_session(io.sessions(), other):
+            echo(f"train: {other} did not log out — the task goes on without {name}")
+            return None
+        io.sleep(SETTLE_SECONDS)
     echo(f"train: logging {name} in")
     port = io.spawn(name, account, own_port)
     if port is None:
@@ -153,11 +195,14 @@ def start(io, helper, script, args):
     io.sleep(SETTLE_SECONDS)
 
 
-def finish(io, helper, script, keep, echo):
-    """The helper's script given its return word; a session this loop
-    spawned logged out unless `keep` (the next task wants it too)."""
-    io.send(helper.port, tagged(f";{script} return"))
-    io.sleep(SETTLE_SECONDS)
+def finish(io, helper, script, keep, echo, ended=False):
+    """The helper's script given its return word — unless it `ended`
+    on its own, when `;<script> return` would start it again with
+    "return" for its argument; a session this loop spawned logged out
+    unless `keep` (the next task wants it too)."""
+    if not ended:
+        io.send(helper.port, tagged(f";{script} return"))
+        io.sleep(SETTLE_SECONDS)
     if helper.spawned and not keep:
         echo(f"train: logging {helper.name} out")
         io.send(helper.port, tagged(";logout"))

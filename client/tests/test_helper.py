@@ -175,3 +175,68 @@ def test_what_cannot_be_had_is_said_and_the_task_goes_on_alone():
     late = helper.Helper("Fallanor", 4250, True)
     assert helper.bring(slow, late, "7890", said.append, seconds=10) is False
     assert "did not reach room 7890" in said[-1]
+
+
+def test_the_accounts_other_character_logs_out_before_the_helper_logs_in():
+    # An account plays one character at a time: Westan, on Riphik's
+    # account, is given ;logout and waited out before the spawn (the
+    # operator, 2026-09-27: "it's cool if you drop Westan").
+    said = []
+    io = IO(
+        sessions=[{"port": 4243, "character": "Westan"}],
+        accounts={"Riphik": "TESTACCT", "Westan": "TESTACCT"},
+        passwords={"TESTACCT"},
+    )
+    original_sleep = io.sleep
+
+    def sleep(seconds):
+        original_sleep(seconds)
+        if (4243, "\x1etrain\t;logout") in io.sent:
+            io.registry = []  # the QUIT took: the session is gone
+
+    io.sleep = sleep
+    active = helper.ensure(io, "Riphik", said.append)
+    assert io.sent[0] == (4243, "\x1etrain\t;logout")
+    assert io.spawned == [("Riphik", "TESTACCT")]
+    assert active.port == 4250
+    assert "train: logging Westan out — Riphik shares the account" in said
+    # One that never logs out: no spawn, said, and the task goes on alone.
+    stuck = IO(
+        sessions=[{"port": 4243, "character": "Westan"}],
+        accounts={"Riphik": "TESTACCT", "Westan": "TESTACCT"},
+        passwords={"TESTACCT"},
+    )
+    assert helper.ensure(stuck, "Riphik", said.append) is None
+    assert stuck.spawned == []
+    assert "Westan did not log out" in said[-1]
+    # A character on another account is left alone.
+    apart = IO(
+        sessions=[{"port": 4243, "character": "Sable"}],
+        accounts={"Riphik": "TESTACCT", "Sable": "OTHERACCT"},
+        passwords={"TESTACCT"},
+    )
+    helper.ensure(apart, "Riphik", said.append)
+    assert apart.sent == [] and apart.spawned == [("Riphik", "TESTACCT")]
+
+
+def test_a_helper_script_that_ended_is_not_told_return():
+    said = []
+    io = IO()
+    active = helper.Helper("Riphik", 4260, spawned=True)
+    assert helper.finish(io, active, "empath", keep=False, echo=said.append, ended=True)
+    assert io.sent == [(4260, "\x1etrain\t;logout")]
+
+
+def test_running_reads_the_helpers_scripts():
+    class Scripts(IO):
+        def __init__(self, names):
+            super().__init__()
+            self.names = names
+
+        def scripts_of(self, port):
+            return self.names
+
+    active = helper.Helper("Riphik", 4260, spawned=True)
+    assert helper.running(Scripts(["empath", "lnet"]), active, "empath") is True
+    assert helper.running(Scripts(["lnet"]), active, "empath") is False
+    assert helper.running(Scripts(None), active, "empath") is None

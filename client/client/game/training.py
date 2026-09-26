@@ -92,6 +92,8 @@ TASK_DEFAULTS = {
     "helper_script": "",
     "helper_args": [],
     "helper_room": "",
+    # "wounded": the task is skipped while the injuries panel is clean.
+    "when": "",
     # None: the plan's value applies.
     "target": None,
     "minutes": None,
@@ -128,7 +130,7 @@ PLAN_FIELDS = (
 TASK_FIELDS = (
     ("name", "Name", "str", "how the task is reported"),
     ("skills", "Skills it trains", "list", "Small Edged, Evasion"),
-    ("script", "Script", "str", "hunt — or leave empty and give commands"),
+    ("script", "Script", "str", "hunt — or empty: commands, or the helper's script"),
     ("args", "Script arguments", "list", ""),
     ("return_word", "Return word", "str", "return — empty: killed at once"),
     ("return_grace", "Seconds before the kill", "int", "120"),
@@ -140,6 +142,7 @@ TASK_FIELDS = (
     ("helper_script", "Helper's script", "str", "teach (the default)"),
     ("helper_args", "Helper's arguments", "list", "parry ability, to, cecil"),
     ("helper_room", "Room for both", "str", "7890 — blank: where you stand"),
+    ("when", "Only when", "str", "wounded — blank: always"),
     ("target", "Own target mindstate", "optint", "blank: the plan's"),
     ("minutes", "Own time budget, minutes", "optint", "blank: the plan's"),
 )
@@ -214,7 +217,7 @@ def normalize_task(values, index=0) -> dict:
             task[key] = _int(value, TASK_DEFAULTS[key])
         elif key in _TASK_OPTIONAL_INTS:
             task[key] = None if value in (None, "") else _int(value, None)
-        elif key in ("name", "script", "return_word"):
+        elif key in ("name", "script", "return_word", "when"):
             task[key] = str(value or "").strip()
         else:
             task[key] = value  # a key this build doesn't know: kept as is

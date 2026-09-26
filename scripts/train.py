@@ -3,8 +3,10 @@
 The orchestrator: a loop over your training plan
 (~/.revenant/training/<name>.json — ;train init writes a starter,
 ;train plan shows it, docs/training.md explains every key). Each task ties skills to what trains them — a bundled
-script (;athletics, ;hunt) started and watched, or a plain command
-loop (play my flute) run in place — and the loop runs the tasks whose
+script (;athletics, ;hunt) started and watched, a plain command
+loop (play my flute) run in place, or a helper's script alone (an
+Empath's ;empath <you>, the task lasting while it runs; `when`
+wounded skips it while the injuries panel is clean) — and the loop runs the tasks whose
 skills sit below the target mindstate, each until its skills reach
 the target or its time budget runs out. When every task is trained it
 walks to a safe room (several rotate, rest by rest), sends the rest
@@ -253,6 +255,8 @@ ENDINGS = {
     "crashed": "its script crashed",
     "shutdown": "wound down for the game's shutdown",
     "hostiles": "ended among hostiles — got away",
+    "helper done": "its helper's script ended",
+    "unneeded": "not needed",
 }
 UNTRAINED = ("skipped", "failed", "crashed")  # a task that never trained
 
@@ -331,6 +335,19 @@ class HelperIO:
         room = self.db.room_by_uid(uid)
         return str(room) if room is not None else None
 
+    def scripts_of(self, port):
+        """The scripts running in the session on `port`, or None when
+        it does not say."""
+        from client.engine.launch import DEFAULT_HOST
+        from client.engine.wire import request_state
+
+        try:
+            state = request_state(DEFAULT_HOST, port, ["scripts"], helper.ORIGIN)
+        except OSError:
+            return None
+        names = state.get("scripts") if isinstance(state, dict) else None
+        return list(names) if isinstance(names, list) else None
+
     def now(self):
         return clock()
 
@@ -371,15 +388,35 @@ def start_helper(s, task, db, walk):
     return active
 
 
-def end_helper(s, task, active, following, db):
-    """The helper's script returned; its session logged out unless the
-    next task keeps it."""
+def end_helper(s, task, active, following, db, ended=False):
+    """The helper's script returned (unless it `ended` on its own); its
+    session logged out unless the next task keeps it."""
     if active is None:
         return
     spec = helper.spec_of(task)
     keep = helper.keeps(following, active.name)
-    if helper.finish(HelperIO(s, db), active, spec["script"], keep, s.echo):
+    if helper.finish(HelperIO(s, db), active, spec["script"], keep, s.echo, ended):
         SPAWNED.discard(active.name.lower())
+
+
+def run_helper_task(s, plan, task, deadline, active, db):
+    """A task whose work is the helper's, with no script or commands of
+    its own: Riphik's `;empath cecil` while Cecil holds still. It lasts
+    while the helper's script runs; "helper done" once it has ended."""
+    io = HelperIO(s, db)
+    script = helper.spec_of(task)["script"]
+    while True:
+        reason = watch(s, plan, task, deadline)
+        if reason is not None:
+            return reason
+        if helper.running(io, active, script) is False:
+            return "helper done"
+        s.sleep(plan["poll"])
+
+
+def wounded(s):
+    """True when the injuries panel shows a wound or a scar."""
+    return bool(getattr(s.state, "injuries", None))
 
 
 def task_named(plan, wanted):
@@ -403,6 +440,9 @@ def run_task(s, plan, task, db=None, walk=None):
     task with a helper has the helper logged in, brought and started
     before the setup, and returned and logged out after the teardown
     (client/game/helper.py)."""
+    if task.get("when") == "wounded" and not wounded(s):
+        s.echo(f"train: {task['name']} — not wounded, skipped")
+        return "unneeded"
     budget = task_minutes(plan, task)
     deadline = clock() + budget * 60 if budget else None
     limit = f"up to {budget} min" if budget else "no time limit"
@@ -411,9 +451,16 @@ def run_task(s, plan, task, db=None, walk=None):
     send_each(s, task["setup"])
     if task["script"]:
         reason = run_script_task(s, plan, task, deadline)
-    else:
+    elif task["commands"]:
         reason = run_command_task(s, plan, task, deadline)
-    end_helper(s, task, active, following_task(plan, task), db)
+    elif active is not None:
+        reason = run_helper_task(s, plan, task, deadline, active, db)
+    else:
+        s.echo(f"train: {task['name']} has no script, commands or helper — skipped")
+        reason = "skipped"
+    end_helper(
+        s, task, active, following_task(plan, task), db, ended=reason == "helper done"
+    )
     if reason != "dead":
         send_each(s, task["teardown"])
         s.echo(
