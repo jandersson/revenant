@@ -297,6 +297,82 @@ def test_a_healer_who_finds_no_wound_ends_the_visit_at_once(monkeypatch):
     assert any("the rest needs no healing" in t for t in s.echoed)
 
 
+RIVERHAVEN = MapDB(
+    [
+        {
+            "id": 7821,
+            "uid": [1017303],
+            "title": ["[Barbarian Guild, Lower Amphitheatre]"],
+            "wayto": {"8720": "go grate"},
+            "timeto": {"8720": 0.2},
+        },
+        {
+            "id": 8720,
+            "uid": [8720],
+            "title": ["[Riverhaven Hospital, Tending Chamber]"],
+            "tags": ["npchealer"],
+            "wayto": {},
+        },
+        {
+            "id": 1000,
+            "uid": [1000],
+            "title": ["[Arthianna's Clinic, Healing Tent]"],
+            "image": "Zoluren, Leth Deriel.jpg",
+            "tags": ["npchealer"],
+            "wayto": {},
+        },
+        {
+            "id": 19280,
+            "uid": [19280],
+            "title": ["[Leth Deriel, Coin Exchange]"],
+            "tags": ["exchange"],
+            "wayto": {},
+        },
+    ]
+)
+INFO_LIRUMS = (
+    "Wealth:\n  No Kronars.\n  1 bronze and 3 copper Lirums (13 copper Lirums).\n"
+    "  No Dokoras.\n"
+)
+# Captured 2026-09-26, Riverhaven's Fraethis and a purse of 13 Lirums.
+ON_CREDIT = (
+    "You lie down.\n"
+    "Fraethis approaches you and touches you.\n"
+    "Your chest tingles for a moment, then suddenly feels a bit better.  The "
+    "Empath looks a bit pale.\n"
+    "[Your debt to Therengia has been increased by 172 Lirums.]\n"
+    "Roundtime:  1 seconds.\n"
+)
+
+
+def test_npc_goes_to_the_healer_nearest_and_pays_in_his_towns_coin(monkeypatch):
+    # 2026-09-26: the lowest-numbered healer (Arthianna, 1000, Zoluren)
+    # set the coin, the Riverhaven Barbarian's Lirums read as foreign,
+    # and the visit stopped looking for a money-changer it could not
+    # reach. The nearest from where he stands is Fraethis (8720), whose
+    # town's coin the Lirums are: no exchange, straight to him.
+    monkeypatch.setattr(heal, "HEALER_POLL", 0.01)
+    monkeypatch.setattr(heal, "HEALER_QUIET", 0.02)
+    s = Fake(
+        {
+            "info": [INFO_LIRUMS],
+            "demeanor": [FRIENDLY],
+            "lie down": [ON_CREDIT],
+            "stand": ["You stand back up.\n"],
+            "health": [CLEAN],
+        }
+    )
+    s.state.room_uid = 1017303
+    reason, _ = heal.run(s, heal.parse_args(["npc"]), mapdb=RIVERHAVEN, walk_fn=walk)
+    assert reason == "healed"
+    assert s.walks == [{8720}]
+    assert not any(c.startswith("exchange") for c in s.sent)
+    # The part paid on credit is a part healed, said as debt.
+    assert any(
+        "put 172 Lirums on your Therengia debt for 1 part(s)" in t for t in s.echoed
+    )
+
+
 def test_npc_stops_on_an_empty_purse_and_reports_a_refusal(monkeypatch):
     monkeypatch.setattr(heal, "HEALER_POLL", 0.01)
     monkeypatch.setattr(heal, "HEALER_WAIT", 0.02)

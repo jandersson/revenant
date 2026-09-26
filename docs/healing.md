@@ -90,6 +90,22 @@ Quentin glances oddly at you and then touches your nervous system, snickering al
 Roundtime:  2 seconds.
 ```
 
+Riverhaven's Fraethis, captured 2026-09-26 on a circle-1 Barbarian with 13
+Lirums and a bleeding chest, healed on credit rather than refusing:
+
+```
+Fraethis approaches you and touches you.
+Your chest tingles for a moment, then suddenly feels a bit better.  The Empath looks a bit pale.
+[Your debt to Therengia has been increased by 172 Lirums.]
+```
+
+A second touch on the same chest cost 165 more; the bleeding stopped
+after the first. `;heal npc` counts a part put on the debt as a part
+healed and says so, and goes to the healer nearest the character —
+until that day it read the coin off the lowest-numbered healer on the
+map, called the Barbarian's Lirums foreign and stopped at the first
+step looking for a money-changer in another province.
+
 The price is per part and by the wound (chest 54, neck 30, a leg 24,
 the nerves 72 that day); minor abrasions and scars were left. `;heal
 npc` is that visit: INFO first (an empty purse stops it before the

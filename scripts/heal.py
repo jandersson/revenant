@@ -62,7 +62,13 @@ the operator, 2026-09-21), LIE DOWN, and he works part by part —
 snickering all the while.  After a moment it feels better." /
 "[72 Dokoras are taken from you.]", captured 2026-09-19 — until twenty
 quiet seconds; then STAND, HEALTH, and what he took and what is left
-are said. An empty purse stops it before the walk: he takes the
+are said. The healer is the nearest from where the character stands,
+and his town decides the coin (the lowest-numbered one on the map
+decided it until 2026-09-26, when a Riverhaven Barbarian was sent to
+exchange his Lirums in another province and never left). A healer
+paid on credit when the purse runs short — "[Your debt to Therengia
+has been increased by 172 Lirums.]", Riverhaven's Fraethis, captured
+2026-09-26 — is counted as a paid part and said as debt. An empty purse stops it before the walk: he takes the
 province's coins (Dokoras in Shard — the province read off the map's
 town for his room), and a purse of foreign coins only is EXCHANGEd
 first at the money-changer nearest him (First Bank of Ilithi's Coin
@@ -79,7 +85,7 @@ from client.game.bank import exchange_command, foreign, handed
 from client.game.mapdb import MapDB
 from client.game.money import parse_wealth, phrase, split
 from client.game.soul import currency_for
-from client.game.walker import avoided_rooms, walk
+from client.game.walker import avoided_rooms, locate, walk
 from client.game.wounds import SEVERITIES, level, parse_health
 from client.settings import load_settings
 
@@ -174,6 +180,10 @@ WITHDRAW_REFUSALS = ("you do not have", "insufficient", "no account", "don't hav
 # neutral demeanor with "The healer Quentin looks towards you, and you
 # pull away." (captured 2026-09-19).
 _TAKEN = re.compile(r"\[(\d+) (\w+) are taken from you\.\]")
+# A healer paid on credit when the purse runs short (Riverhaven's
+# Fraethis, 2026-09-26, 13 Lirums on hand): "[Your debt to Therengia
+# has been increased by 172 Lirums.]" — a part healed all the same.
+_DEBT = re.compile(r"\[Your debt to (\w+) has been increased by (\d+) (\w+)\.\]")
 HEALER_TOUCHED = ("feels better", "touches you", "feels a bit better")
 HEALER_REFUSED = ("pull away",)
 # The healer done with what he will touch (captured 2026-09-21, the
@@ -457,6 +467,23 @@ def change_coins(s, mapdb, walk_fn, healer_room, purse, home, avoid=()):
     return True
 
 
+def nearest_healer(s, mapdb, rooms, avoid=()):
+    """The healer room the walk will reach: the nearest of `rooms` from
+    where the character stands (walker.locate), the lowest id when the
+    position or a path is unknown. Its town decides the coin and the
+    money-changer — the lowest id alone sent a Riverhaven Barbarian's
+    Lirums to be exchanged beside a healer in another province, with no
+    path there, and the visit stopped before a step (2026-09-26)."""
+    here = locate(mapdb, getattr(s, "state", None))
+    if here in rooms:
+        return here
+    if here is not None:
+        route = mapdb.path(here, rooms, avoid=avoid)
+        if route:
+            return route[-1][0]
+    return min(rooms)
+
+
 def visit_healer(s, mapdb, walk_fn=walk, avoid=(), healer=""):
     """The hospital: walk to the nearest NPC healer (or the one named,
     "quentin"), DEMEANOR FRIENDLY EMPATH, LIE DOWN, let the touches run
@@ -490,23 +517,30 @@ def visit_healer(s, mapdb, walk_fn=walk, avoid=(), healer=""):
             "money-changer"
         )
         return "no coins", []
-    healer_room = min(rooms)
+    healer_room = nearest_healer(s, mapdb, rooms, avoid)
     home = home_of(mapdb, healer_room)
     if not purse.get(home.capitalize(), 0):
         # Only foreign coins: the money-changer by the healer first.
         if not change_coins(s, mapdb, walk_fn, healer_room, purse, home, avoid):
             return "no coins", []
-    if not walk_fn(s, mapdb, rooms, describe="the NPC healer", avoid=avoid):
+    if not walk_fn(s, mapdb, {healer_room}, describe="the NPC healer", avoid=avoid):
         s.echo("heal: could not reach the healer — stopping")
         return "unreachable", []
     taken, parts, currency = 0, 0, ""
+    owed, province = 0, ""
 
     def absorb(text):
-        nonlocal taken, parts, currency
+        nonlocal taken, parts, currency, owed, province
         touched = False
         for match in _TAKEN.finditer(text):
             taken += int(match.group(1))
             currency = match.group(2)
+            parts += 1
+            touched = True
+        for match in _DEBT.finditer(text):
+            province = match.group(1)
+            owed += int(match.group(2))
+            currency = match.group(3)
             parts += 1
             touched = True
         return touched or any(word in text.lower() for word in HEALER_TOUCHED)
@@ -551,10 +585,14 @@ def visit_healer(s, mapdb, walk_fn=walk, avoid=(), healer=""):
         )
     health = parse_health(ask(s, "health"))
     left = ", ".join(health.wounds) if health.wounds else "nothing, HEALTH is clean"
-    s.echo(
-        f"heal: the healer took {taken} {currency or 'coins'} for {parts} part(s)"
-        f" — left: {left}"
-    )
+    paid = f"took {taken} {currency or 'coins'}"
+    if owed:
+        paid = (
+            f"took {taken} and put {owed} {currency} on your {province} debt"
+            if taken
+            else f"put {owed} {currency} on your {province} debt"
+        )
+    s.echo(f"heal: the healer {paid} for {parts} part(s) — left: {left}")
     return ("healed" if parts else "not healed"), []
 
 
