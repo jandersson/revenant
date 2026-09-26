@@ -113,7 +113,10 @@ your plate-clad elbow at a striped badger" — each shaped like a
 weapon swing in the combat stream, the kill line the same, so the
 attacks need no table of their own. A
 weapon whose skill sits at mind-lock is skipped until it drains; all
-of them locked ends the hunt. The knife, the skins, the casts and the
+of them locked ends the hunt. A turn that goes twenty swings without a
+kill passes to the next (a new weapon at rank 3 cannot finish the
+ground's creatures, 2026-09-26); only sixty with no kill from any turn
+break the hunt off. The knife, the skins, the casts and the
 maneuvers are the same whatever is in hand, SMITE keeps its minute
 when the profile smites, and with `weapons` empty the hunt is the
 profile's `weapon` alone, never swapped. A single turn listed is that
@@ -165,7 +168,7 @@ from client.game import buffs, flight, loot, probe
 from client.game.creatures import aim, noun_of
 from client.game.probe import classify
 from client.game.profile import describe, load_profile
-from client.game.walker import locate, walk
+from client.game.walker import DIRECTIONS, locate, walk
 from client.game.wounds import SEVERITIES, level, parse_health
 
 MAX_ACTIONS = 600  # swings per run, not forever — the fuse under the loop
@@ -498,6 +501,7 @@ class Tally:
         self.brawl = 0  # the brawling attacks' rotation index (#238)
         self.weapon = 0  # the weapons' rotation index: the turn in hand (#238)
         self.rotated_at = 0  # the kill count the weapon last turned on
+        self.turn_started = 0  # tally.swings when the turn in hand began
         self.balances = {}  # balance word -> swings taken at it (#280)
         # The corpses the room's listing marked when this room's fight
         # began, by name: a kill is a corpse more than this (#315).
@@ -613,6 +617,7 @@ def arm(s, profile, tally, index):
     if tally.armed and tally.armed != entry["weapon"]:
         unready(s, profile)  # the last turn's weapon back where it lives
     tally.weapon = index
+    tally.turn_started = tally.swings
     tally.armed = entry["weapon"]
     profile["weapon"] = entry["weapon"]
     profile["weapon_container"] = entry["container"]
@@ -628,6 +633,38 @@ def arm(s, profile, tally, index):
 def mindstate_of(state, skill):
     experience = getattr(state, "experience", None) or {}
     return (experience.get(skill) or {}).get("mindstate", 0)
+
+
+# A turn that goes this many swings without a kill hands the hands to
+# the next: a new weapon at rank 3 cannot finish the ground's creatures
+# (2026-09-26: the mace, bought that night, swung sixty times at the
+# bobcats and broke the hunt off). The hunt's own KILL_LESS_SWINGS
+# still ends it when no turn kills — every turn stalled in its turn.
+TURN_STALL_SWINGS = 20
+
+
+def stalled_turn(tally, profile):
+    """True when the turn in hand has gone TURN_STALL_SWINGS swings
+    without a kill and the profile has another turn to pass to."""
+    if len(weapon_plan(profile)) < 2:
+        return False
+    since = max(tally.swings_at_kill, tally.turn_started)
+    return tally.swings - since >= TURN_STALL_SWINGS
+
+
+def pass_turn(s, profile, tally):
+    """The next open turn takes the hands, said; False when there is none
+    other than the one in hand."""
+    index = next_turn(s, profile, tally)
+    if index is None or index == tally.weapon:
+        return False
+    weapon = weapon_plan(profile)[tally.weapon]["weapon"] or "fists"
+    s.echo(
+        f"hunt: {weapon} has gone {TURN_STALL_SWINGS} swings without a kill — "
+        "the next turn"
+    )
+    arm(s, profile, tally, index)
+    return True
 
 
 def rotate(s, profile, tally):
@@ -883,7 +920,18 @@ def note_landing(s, db, here, move):
     if there is None or db.same_place(here, there):
         return
     wayto = db.rooms.get(here, {}).get("wayto") or {}
-    mapped = next((dest for dest, command in wayto.items() if command == move), None)
+    # "ne" and "northeast" are one move: the escape sends the compass's
+    # abbreviation, the map spells it out (a false "had ne wrong" on the
+    # Siergelde Cliffs, 2026-09-26).
+    spelled = DIRECTIONS.get(move, move)
+    mapped = next(
+        (
+            dest
+            for dest, command in wayto.items()
+            if DIRECTIONS.get(command, command) == spelled
+        ),
+        None,
+    )
     try:
         mapped = int(mapped) if mapped is not None else None
     except (TypeError, ValueError):
@@ -1573,6 +1621,8 @@ def loop(s, profile, db, ground, avoid, tally):
             return (
                 f"stunned {tally.stuns} times in one fight — the ground is beyond you"
             )
+        if stalled_turn(tally, profile) and pass_turn(s, profile, tally):
+            continue
         if tally.swings - tally.swings_at_kill >= KILL_LESS_SWINGS:
             escape(s, db)
             return (

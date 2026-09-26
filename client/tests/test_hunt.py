@@ -1222,3 +1222,52 @@ def test_under_train_the_return_leaves_selling_and_banking_to_the_plan(travel):
     arena.commands = ["return"]
     _run(arena, travel_first=False)
     assert arena.started == []
+
+
+def test_a_turn_that_cannot_kill_hands_over_before_the_hunt_breaks_off(travel):
+    # 2026-09-26: the mace, bought that night at rank 3, swung sixty
+    # times at bobcats and broke the whole hunt off; a stalled turn now
+    # passes to the next after TURN_STALL_SWINGS.
+    arena = _run(
+        Arena(
+            {
+                "attack": [(MISSED, _stands)] * hunt.TURN_STALL_SWINGS,
+                "punch": [(KILL, kill)],
+                "skin": [SKINNED],
+                "loot": [NOTHING],
+            },
+            experience={
+                "Small Edged": {"rank": 39, "percent": 0, "mindstate": 10},
+                "Brawling": {"rank": 7, "percent": 0, "mindstate": 5},
+            },
+        ),
+        profile=ROTATING | {"max_kills": 1},
+        travel_first=False,
+    )
+    assert any(
+        f"handaxe has gone {hunt.TURN_STALL_SWINGS} swings without a kill" in text
+        for text in arena.echoed
+    )
+    assert "punch rat" in arena.sent or "punch" in " ".join(arena.sent)
+    assert not any("the ground is beyond you" in text for text in arena.echoed)
+
+
+def test_an_abbreviated_exit_is_the_maps_spelled_out_one(tmp_path, monkeypatch):
+    # 2026-09-26: the escape went "ne", the map says "northeast" for the
+    # same room — no correction to write.
+    from client.game import walker
+    from client.game.mapdb import MapDB
+
+    monkeypatch.setenv("REVENANT_MAPDB_LOCAL", str(tmp_path / "local.json"))
+    monkeypatch.setattr(hunt, "locate", walker.locate)
+    db = MapDB(
+        [
+            {"id": 1, "uid": [11], "title": ["[Cliffs]"], "wayto": {"2": "northeast"}},
+            {"id": 2, "uid": [22], "title": ["[Cliffs]"], "wayto": {}},
+        ]
+    )
+    s = _Breaking({"ne": 22})
+    s.state.compass = ["ne"]
+    assert hunt.escape(s, db) is True
+    assert db.rooms[1]["wayto"] == {"2": "northeast"}
+    assert not (tmp_path / "local.json").exists()
