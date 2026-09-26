@@ -755,6 +755,19 @@ def test_a_ground_with_someone_in_every_room_is_left_to_them(travel):
     assert any("leaving it to them" in text for text in arena.echoed)
 
 
+def test_a_failed_walk_off_an_occupied_room_is_said(travel, monkeypatch):
+    # 2026-09-26: the walk on from a room two players held failed on a
+    # map edge and ;hunt ended without a word, Cecil standing in a field.
+    arena = Arena({"attack": [(KILL, kill)]}, hostiles=())
+    arena.state.room_players = ["Bankismo"]
+    monkeypatch.setattr(hunt, "next_room", lambda *args, **kwargs: False)
+    _run(arena)
+    assert any(
+        "could not walk on to another room of the ground — stopping" in text
+        for text in arena.echoed
+    )
+
+
 def test_the_operators_own_grouped_character_is_no_other_hunter(travel, monkeypatch):
     # 2026-09-26: an Empath of the operator's, grouped with the hunter,
     # followed him into every room of the goblins' ground; ;hunt boxes

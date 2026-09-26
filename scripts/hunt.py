@@ -4,7 +4,11 @@ Walks to your profile's hunting ground (;go2's map), readies the weapon
 and stance, and fights whatever engages you until you say stop: attack,
 retarget past corpses, skin the kill if the profile says so, LOOT it (a
 bare LOOT, the last creature fought — no corpse noun needed), pouch
-any gems, and move on to the next room of the ground when
+any gems (STOW GEM, and a box STOW BOX, straight off the ground into the
+containers STORE names — STORE GEMS IN MY <gem_pouch> and STORE BOXES
+IN MY <loot_container> sent only when the profile's container changes,
+remembered in ~/.revenant/stores/<name>.json; STOW HELP / STORE HELP,
+2026-09-26), and move on to the next room of the ground when
 this one runs empty — and when the whole ground is empty, wait a
 while and lap it again, as long as it takes (the operator, 2026-09-13:
 an empty ground is not a reason to go home). Breaks off and walks home below the health floor
@@ -167,8 +171,10 @@ balanced", lich-5's DRStats.balance) is tallied per swing and
 reported at the end — a reading, no rule yet (#280).
 """
 
+import json
 import re
 import time
+from pathlib import Path
 from collections import Counter
 
 from client.game import buffs, flight, loot, probe
@@ -1200,6 +1206,77 @@ def stow(s, profile, item):
     return not any(word in answer for word in _NO_ROOM)
 
 
+# STORE's option per loot kind and the profile key naming its
+# container: STORE BOXES IN MY <loot_container>, STORE GEMS IN MY
+# <gem_pouch>, sent when the container changes (STORE HELP, 2026-09-26: "You can only store things in
+# containers that you are wearing"; STORE LIST showed boxes "--Not
+# Set--", so a STOWed box went to the default container, the backpack,
+# where ;boxes never looked, #323).
+STORES = {"box": ("boxes", "loot_container"), "gem": ("gems", "gem_pouch")}
+
+
+def stores_set(profile, what):
+    """True when the hunt set STORE for this kind this run (set_stores)."""
+    return what in (profile.get("_stores") or ())
+
+
+STORED = (
+    "you will now store",
+)  # captured 2026-09-26: "You will now store boxes in your canvas sack."
+
+
+def stores_path(character):
+    """Where the STORE containers ;hunt last set are remembered, per
+    character (REVENANT_STORES_DIR moves the directory)."""
+    import os
+
+    base = os.environ.get("REVENANT_STORES_DIR") or str(
+        Path.home() / ".revenant" / "stores"
+    )
+    return Path(base) / f"{character or 'unknown'}.json"
+
+
+def load_stores(character):
+    try:
+        return json.loads(stores_path(character).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def remember_stores(character, stores):
+    path = stores_path(character)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(stores, indent=1), encoding="utf-8")
+
+
+def set_stores(s, profile):
+    """STORE each loot kind in the profile's container — only when that
+    container is not the one last set: STORE is the game's own setting
+    and stays until changed (the operator, 2026-09-26). The kinds STOW
+    GEM / STOW BOX may use are kept in the profile as `_stores` (a
+    run-only key); a refusal is said, and that kind is picked up by hand."""
+    character = getattr(s.state, "name", None)
+    known = load_stores(character)
+    done = []
+    for what, (option, key) in STORES.items():
+        container = str(profile.get(key) or "").strip().lower()
+        if not container:
+            continue
+        if known.get(option) != container:
+            answer = ask(s, f"store {option} in my {container}")
+            if not any(word in answer.lower() for word in STORED):
+                first = (answer.strip().splitlines() or ["(silence)"])[0]
+                s.echo(
+                    f"hunt: STORE {option} answered {first!r} — {option} picked up by hand"
+                )
+                continue
+            known[option] = container
+            remember_stores(character, known)
+        done.append(what)
+    profile["_stores"] = tuple(done)
+    return done
+
+
 def pocket(s, profile, item):
     """Something a search turned up: picked up, then into the gem pouch
     when the profile keeps one (the game refuses non-gems, which then
@@ -1291,6 +1368,31 @@ def grab(s, profile, before, tally):
         if what == "box" and limit and tally.boxes >= limit:
             s.echo(f"hunt: {limit} box(es) carried — the {noun} stays")
             continue
+        if what in ("gem", "box") and stores_set(profile, what):
+            # STOW GEM / STOW BOX: the first of its kind on the ground
+            # straight into its STORE container, no hand needed (the
+            # operator, 2026-09-26); anything but a stow falls through
+            # to the GET below.
+            answer = ask(s, f"stow {what}").lower()
+            outcome = classify(answer, loot.STOW_OUTCOMES)
+            if any(line in answer for line in loot.POUCH_FULL):
+                outcome = "pouch full"  # the spare pouch is #283
+            if outcome == "stowed":
+                if what == "box":
+                    tally.boxes += 1
+                taken.append(noun)
+                continue
+            if outcome == "not yours":
+                s.echo(f"hunt: the {noun} is someone else's — left")
+                continue
+            if outcome == "no room":
+                tally.unlootable.add(noun)
+                s.echo(f"hunt: no room for the {noun} — it stays on the ground")
+                continue
+            if outcome == "gone":
+                continue
+            if outcome is None:
+                unrecognized(s, tally, f"stow {what}", answer)
         if what == "gem" and profile.get("gem_pouch"):
             pocket(s, profile, noun)
             taken.append(noun)
@@ -1393,6 +1495,10 @@ def settle(s, db, ground, avoid, tally):
             return True
         s.echo(f"hunt: {', '.join(names)} hunting here — their room, moving on")
         if not next_room(s, db, ground, avoid, tally):
+            # Said: on 2026-09-26 the walk off an occupied room failed on
+            # a map edge and the hunt ended without a word, the character
+            # standing in the field.
+            s.echo("hunt: could not walk on to another room of the ground — stopping")
             return False
     s.echo("hunt: every room of the ground has someone in it — leaving it to them")
     return False
@@ -1729,6 +1835,7 @@ def hunt(s, profile, db, travel=True, avoid=()):
     ground_name = profile["hunting_ground"]
     ground = sorted(db.resolve(ground_name)) if ground_name else []
     tally = Tally()
+    set_stores(s, profile)
     if travel:
         if not ground:
             s.echo(

@@ -34,6 +34,7 @@ def _isolated_login_defaults(tmp_path, monkeypatch):
     # The book reader's read times per character (#255): never the
     # operator's ~/.revenant/scholarship.
     monkeypatch.setenv("REVENANT_SCHOLARSHIP_DIR", str(tmp_path / "scholarship"))
+    monkeypatch.setenv("REVENANT_STORES_DIR", str(tmp_path / "stores"))
 
 
 @pytest.fixture

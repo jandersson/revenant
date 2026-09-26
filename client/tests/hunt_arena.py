@@ -265,6 +265,15 @@ def mark_corpse(arena, noun):
 
 
 def _run(arena, profile=PROFILE, travel_first=True):
+    # STORE was set on an earlier run: the arena's fights start where
+    # they did before STOW GEM / STOW BOX (test_hunt_stores.py sets it).
+    hunt.remember_stores(
+        getattr(arena.state, "name", None),
+        {
+            "boxes": str(profile.get("loot_container") or "").lower(),
+            "gems": str(profile.get("gem_pouch") or "").lower(),
+        },
+    )
     hunt.hunt(arena, dict(profile), GROUND, travel=travel_first)
     return arena
 
