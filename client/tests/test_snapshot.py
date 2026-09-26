@@ -54,6 +54,15 @@ def test_fields_narrow_the_answer_and_an_unknown_name_is_said_back():
     }
 
 
+def test_the_running_scripts_are_the_sessions_list():
+    # What ;list says, read without a >> [claude] ;list in every window
+    # (a polling loop flooded the operator's screen, 2026-09-26).
+    assert snapshot(_state(), ["scripts"], scripts=["xp", "hunt"]) == {
+        "scripts": ["hunt", "xp"]
+    }
+    assert snapshot(_state(), ["scripts"]) == {"scripts": []}
+
+
 def test_a_fresh_parser_snapshots_to_empties_not_errors():
     fresh = snapshot(XMLData())
     assert fresh["room"] == {"title": None, "uid": None, "compass": []}

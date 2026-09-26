@@ -1189,6 +1189,10 @@ def test_a_state_request_is_answered_to_the_asker_alone():
     assert state["status"]["posture"] == "standing"
     assert state["unknown"] == ["moon"]
     assert "vitals" not in state
+    # The running scripts, from the session's own manager.
+    assert isinstance(
+        wire.request_state("127.0.0.1", port, ["scripts"])["scripts"], list
+    )
     assert wire.request_state("127.0.0.1", port)["room"] == {
         "title": None,
         "uid": None,

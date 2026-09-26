@@ -442,7 +442,14 @@ class SessionServer(ClientLogger):
                     self.log.info("state request from %s: %s", asker, wanted or "all")
                     self.reply(
                         conn,
-                        json.dumps(snapshot(self.engine.xml_data, wanted), default=str),
+                        json.dumps(
+                            snapshot(
+                                self.engine.xml_data,
+                                wanted,
+                                scripts=self.scripts.names(),
+                            ),
+                            default=str,
+                        ),
                         "state",
                     )
                     continue

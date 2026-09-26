@@ -33,7 +33,7 @@ Two read-only forms (#216) type nothing at the game and echo nothing
 to a window. --state prints the parser's state as JSON — the room,
 the vitals, the exp window, the hands, the status words, the
 injuries, the spells, the room's players, creatures and objects, the
-rested footer, the possessions (client/engine/snapshot.py) — all of
+rested footer, the possessions, the running scripts (client/engine/snapshot.py) — all of
 it, or the comma list given (`--state room,vitals`): what the docks
 already show, so a driver reads it here instead of sending LOOK, EXP
 or HEALTH at the character. --wait-for TEXT stays attached until a

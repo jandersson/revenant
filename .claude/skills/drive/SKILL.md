@@ -19,8 +19,10 @@ the operator's window as `>> [claude] ...`.
    --state` (all of it, or `--state room,vitals,hands`) prints what
    the parser already holds — the room and compass, vitals, the exp
    window's ranks and mindstates, hands, posture and badges, injuries,
-   spells, who and what is in the room — with nothing typed at the
-   character and nothing echoed (#216); `--wait-for TEXT` waits for a
+   spells, who and what is in the room, and the running scripts
+   (`--state scripts`) — with nothing typed at the character and
+   nothing echoed (#216). Never poll `;list` to see what runs: each
+   one echoes `>> [claude] ;list` in the operator's window; `--wait-for TEXT` waits for a
    story line instead of polling the log. Read-only commands may go
    out for what the parser does not hold: INFO, the stat words
    (AGILITY, STRENGTH, ...), TDP, TDP PROJECT, ENCUMBRANCE, VAULT

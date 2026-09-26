@@ -11,7 +11,10 @@ instead of typing LOOK, EXP or HEALTH at the game to learn it. Every
 value is built on the call, from the parser's current fields, and
 nothing is sent to the game or echoed to a window. `fields` narrows
 the answer to the names given; a name the snapshot does not know is
-listed under "unknown" rather than refused.
+listed under "unknown" rather than refused. `scripts` is the session's
+own list of running scripts, passed in by the session — what `;list`
+says, without a `>> [claude] ;list` in every window (a watch loop that
+polled ;list flooded the operator's screen, 2026-09-26).
 """
 
 from client.game.status import Status
@@ -36,6 +39,7 @@ FIELDS = (
     "exp_mods",
     "tdps",
     "favors",
+    "scripts",
 )
 
 
@@ -89,12 +93,14 @@ def _spells(xml_data):
     }
 
 
-def snapshot(xml_data, fields=None) -> dict:
+def snapshot(xml_data, fields=None, scripts=None) -> dict:
     """The state as a dict of plain JSON types; `fields` (an iterable of
-    names, or None for all of FIELDS) picks the keys."""
+    names, or None for all of FIELDS) picks the keys; `scripts` is the
+    running scripts' names ([] when the caller has none to give)."""
     status = Status(xml_data)
     builders = {
         "name": lambda: getattr(xml_data, "name", None),
+        "scripts": lambda: sorted(scripts or []),
         "dead": lambda: status.dead,
         "room": lambda: _room(xml_data),
         "vitals": lambda: dict(getattr(xml_data, "vitals", None) or {}),

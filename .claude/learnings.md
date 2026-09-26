@@ -149,6 +149,14 @@ lessons the code and docs cannot carry themselves.
   the teller first (2026-09-22, ;remedies work). Read INFO through
   `probe.ask` raw when the parser cares about case.
 
+- Never poll a session with `;list` (or any command) to watch for a
+  script to end: every send echoes `>> [claude] ...` in the operator's
+  window, and a loop waiting on `grep research` never ended because
+  `;list` also prints every available script, research included — it
+  flooded the screen until the operator stopped it (2026-09-26). Read
+  `revenant-send --state scripts` (nothing sent, nothing echoed) or wait
+  on a line with `--wait-for`.
+
 ## Evidence first
 
 - The game logs under `~/.revenant/logs/game-*.log` are the record of
