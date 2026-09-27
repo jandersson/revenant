@@ -1,4 +1,61 @@
-"""Heal another as an Empath, then yourself:  ;empath <patient>
+"""Heal a patient as an Empath, then yourself:  ;empath <patient>
+
+    ;empath <patient>          TOUCH them, take every wound, then heal yourself
+    ;empath <patient> take     the transfers only, no self-heal after
+    ;empath <patient> parts    one TAKE per wound instead of TAKE EVERYTHING
+    ;empath self               heal your own wounds and scars, worst first
+    ;empath ... mana=15        the mana each healing spell is prepared with (15 by default)
+    ;empath return             (typed while it runs) finish the transfer or cast in hand and end
+    ;stop empath               quit at once
+
+What it does
+  - TOUCHes the patient for the wound list; nothing is ever taken without the
+    patient in the room.
+  - TENDs a lodged arrow, bolt or parasite out first: TAKE moves wounds, not objects.
+  - Takes poison, disease or low vitality only when you know the spell that
+    cures it after (Flush Poisons, Cure Disease, Vitality Healing).
+  - Opens each round with TAKE EVERYTHING; what the next TOUCH still lists is
+    taken one part at a time, bleeding and severest first, up to three rounds.
+  - Heals you from HEALTH: the cures first, then Heal Wounds and Heal Scars,
+    worst first.
+
+When it stops
+  - the patient reads clean, or three rounds leave them hurt
+  - a TOUCH that finds nobody, or is avoided
+  - the game warns that a transfer would kill you
+  - your HEALTH reads clean, forty casts, or mana below a fifth
+  - ;empath return, or ;stop empath
+
+client/game/empathy.py is the model; docs/healing.md covers healing.
+"""
+
+import time
+
+from client.game import buffs, probe
+from client.game.empathy import (
+    AVOIDED,
+    CURES,
+    HEALED,
+    LINKED,
+    NO_LINK,
+    PREPARED,
+    TAKEN,
+    TENDED,
+    afflictions,
+    foreign_bodies,
+    vitality,
+    parse_touch,
+    take_command,
+    transfer_order,
+    heal_casts,
+)
+from client.game.loop import wants_stop
+from client.game.wounds import parse_health
+
+
+# The design notes the manual above leaves out: what each rule came
+# from, with its issue — read by people, never served as ;help.
+_NOTES = """Heal another as an Empath, then yourself:  ;empath <patient>
 
     ;empath <patient>          TOUCH them, TAKE every wound most urgent first, touch again for what that bared, then heal yourself
     ;empath <patient> take     the transfers only, no self-heal after
@@ -58,29 +115,6 @@ Nothing is ever taken without the patient in the room:
 a TOUCH that finds nobody, or is avoided (a cold demeanor), ends it.
 Stop with:  ;stop empath, or ;empath return.
 """
-
-import time
-
-from client.game import buffs, probe
-from client.game.empathy import (
-    AVOIDED,
-    CURES,
-    HEALED,
-    LINKED,
-    NO_LINK,
-    PREPARED,
-    TAKEN,
-    TENDED,
-    afflictions,
-    foreign_bodies,
-    vitality,
-    parse_touch,
-    take_command,
-    transfer_order,
-    heal_casts,
-)
-from client.game.loop import wants_stop
-from client.game.wounds import parse_health
 
 COLLECT_SECONDS = 4
 TAIL_SECONDS = 1
