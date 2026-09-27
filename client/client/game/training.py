@@ -346,8 +346,10 @@ def validate(plan: dict) -> list:
     for task in plan["tasks"]:
         if task["script"] and task["commands"]:
             problems.append(f"task {task['name']}: a script or commands, not both")
-        elif not task["script"] and not task["commands"]:
-            problems.append(f"task {task['name']}: names no script and no commands")
+        elif not task["script"] and not task["commands"] and not task["helper"]:
+            # A helper alone is a task: it lasts while the helper's
+            # script runs (Riphik's ;empath, scripts/train.py).
+            problems.append(f"task {task['name']}: names no script, commands or helper")
         if task["name"] in names:
             problems.append(f"task {task['name']}: the name is used twice")
         names.add(task["name"])

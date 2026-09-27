@@ -572,7 +572,7 @@ def test_train_plan_prints_the_plan_and_a_broken_one_refuses_to_run(clock, tmp_p
     assert any("neither: no skills" in text for text in fake.echoed)
     fake = Fake(args=[])
     train.main(fake)
-    assert any("names no script and no commands" in text for text in fake.echoed)
+    assert any("names no script, commands or helper" in text for text in fake.echoed)
     assert fake.started == []
 
 
@@ -885,3 +885,14 @@ def test_a_task_only_when_wounded_is_skipped_while_the_panel_is_clean(
     assert train.run_task(fake, plan(), task, db=MAP, walk=walk) == "unneeded"
     assert called == []
     assert "train: heal — not wounded, skipped" in fake.echoed
+
+
+def test_a_helper_alone_is_a_valid_task():
+    # 2026-09-27: the heal task (Riphik's ;empath) was refused as naming
+    # "no script and no commands" before it ever ran.
+    from client.game.training import validate
+
+    assert validate(normalize(DEFAULTS | {"tasks": [HEAL]})) == []
+    assert validate(normalize(DEFAULTS | {"tasks": [{"name": "neither"}]})) == [
+        "task neither: names no script, commands or helper"
+    ]

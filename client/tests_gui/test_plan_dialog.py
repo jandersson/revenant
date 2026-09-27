@@ -87,7 +87,7 @@ def test_a_plan_the_validator_rejects_is_not_accepted(qapp):
     dialog.add_task()  # a task with no script and no commands
     dialog.try_accept()
     assert dialog.result() != dialog.DialogCode.Accepted
-    assert "names no script and no commands" in dialog.problems.text()
+    assert "names no script, commands or helper" in dialog.problems.text()
     dialog.task_widgets["script"][1].setText("athletics")
     dialog.try_accept()
     assert dialog.result() == dialog.DialogCode.Accepted
