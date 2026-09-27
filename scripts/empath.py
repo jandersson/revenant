@@ -2,6 +2,7 @@
 
     ;empath <patient>          TOUCH them, TAKE every wound most urgent first, touch again for what that bared, then heal yourself
     ;empath <patient> take     the transfers only, no self-heal after
+    ;empath <patient> parts    one TAKE per wound instead of TAKE EVERYTHING
     ;empath self               heal your own wounds (Heal Wounds) and scars (Heal Scars), worst first
     ;empath ... mana=15        the mana each Heal Wounds / Heal Scars is prepared with (15 by default)
     ;empath return             (typed while it runs) finish the transfer or cast in hand and end
@@ -25,7 +26,15 @@ The self-heal reads HEALTH (client/game/wounds.py), casts the worst
 first — PREPARE HW for fresh wounds or HS for scars, CAST <part> (outside
 then inside) or CAST <part> INTERNAL — and reads HEALTH again, until
 "no significant injuries" or forty casts. It stops when the mana runs
-below a fifth. Nothing is ever taken without the patient in the room:
+below a fifth. Each round opens with TAKE <patient> EVERYTHING, every wound and scar
+in one transfer (Elanthipedia: Empath healing, a skilled Empath's
+form), read until the lines stop coming; whatever the next TOUCH
+still lists, or all of it when EVERYTHING brings nothing over (its
+answer is said, uncaptured until then), is taken one part at a time.
+The game's warning that a transfer would kill the Empath ("You
+realize that you are taking a wound that will kill you if you finish
+the transfer", the wiki's wording) ends the heal at once.
+Nothing is ever taken without the patient in the room:
 a TOUCH that finds nobody, or is avoided (a cold demeanor), ends it.
 Stop with:  ;stop empath, or ;empath return.
 """
@@ -54,6 +63,11 @@ TOUCH_SECONDS = 6  # the listing arrives on the familiar stream
 TAKE_SECONDS = 45  # a transfer runs while the wound moves
 PREPARE_SECONDS = 25
 ROUNDS = 3
+EVERYTHING_QUIET = 45  # seconds without a line that end TAKE EVERYTHING's reading
+EVERYTHING_SECONDS = 600  # the whole transfer, however many parts
+# The link broken because the transfer would kill the Empath
+# (Elanthipedia: Empath healing), uncaptured.
+FATAL = ("will kill you if you finish",)
 MAX_CASTS = 40
 MANA_FLOOR = 20  # percent
 DEFAULT_MANA = 15
@@ -107,13 +121,47 @@ def touch(s, patient):
     return injuries
 
 
+def take_everything(s, patient):
+    """TAKE <patient> EVERYTHING, read until EVERYTHING_QUIET seconds pass
+    without a line: the number of parts that came over ("...fully
+    healed"), "fatal" on the death warning, or 0 (its answer said) when
+    nothing did."""
+    while s.get(timeout=0, streams=STREAMS) is not None:
+        pass
+    s.put(f"take {patient} everything")
+    lines, healed = [], 0
+    now = time.monotonic()
+    deadline, quiet = now + EVERYTHING_SECONDS, now + EVERYTHING_QUIET
+    while time.monotonic() < min(deadline, quiet):
+        piece = s.get(timeout=0.5, streams=STREAMS)
+        if piece is None:
+            continue
+        text = piece[1] if isinstance(piece, tuple) else piece
+        lines.append(text)
+        quiet = time.monotonic() + EVERYTHING_QUIET
+        lowered = text.lower()
+        if any(word in lowered for word in FATAL):
+            s.echo(f"empath: {text.strip()} — the heal stops here")
+            return "fatal"
+        healed += sum(lowered.count(word) for word in TAKEN)
+    if not healed:
+        first = ("".join(lines).strip().splitlines() or ["(silence)"])[-1]
+        s.echo(f"empath: TAKE EVERYTHING answered {first!r} — one part at a time")
+    return healed
+
+
 def take(s, patient, injury):
     """One transfer, the link renewed once if it had lapsed. True when
-    the wound came over."""
+    the wound came over, "fatal" on the death warning."""
     command = take_command(patient, injury)
     for attempt in range(2):
-        answer = exchange(s, command, TAKEN + NO_LINK + ("cannot",), TAKE_SECONDS)
+        answer = exchange(
+            s, command, TAKEN + NO_LINK + FATAL + ("cannot",), TAKE_SECONDS
+        )
         lowered = answer.lower()
+        if any(word in lowered for word in FATAL):
+            s.echo(f"empath: {command} would kill you — the heal stops here")
+            return "fatal"
         if any(word in lowered for word in TAKEN):
             return True
         if any(word in lowered for word in NO_LINK) and attempt == 0:
@@ -127,9 +175,10 @@ def take(s, patient, injury):
     return False
 
 
-def heal_other(s, patient):
-    """The rounds of TOUCH and TAKE until the patient reads clean. True
-    when they do."""
+def heal_other(s, patient, everything=True):
+    """The rounds of TOUCH and TAKE until the patient reads clean: TAKE
+    EVERYTHING first in each round (unless `everything` is off), one
+    part at a time when it brought nothing. True when clean."""
     for round_ in range(1, ROUNDS + 1):
         injuries = touch(s, patient)
         if injuries is None:
@@ -143,11 +192,23 @@ def heal_other(s, patient):
             f"empath: round {round_} — {len(order)} wound(s) on {patient.capitalize()}, "
             f"worst {worst.part} {worst.kind.replace('_', ' ')} (level {worst.level})"
         )
+        if everything:
+            moved = take_everything(s, patient)
+            if moved == "fatal":
+                return False
+            if moved:
+                s.echo(f"empath: TAKE EVERYTHING brought {moved} part(s) over")
+                continue  # the next TOUCH says what is left
         for injury in order:
             if s.dead or wants_stop(s):
                 s.echo("empath: stopping as asked")
                 return False
-            take(s, patient, injury)
+            if take(s, patient, injury) == "fatal":
+                return False
+    # The last round's transfers checked too: it may have cleared them.
+    if touch(s, patient) == []:
+        s.echo(f"empath: {patient.capitalize()} has no injuries left")
+        return True
     s.echo(
         f"empath: {ROUNDS} rounds and {patient} still reads hurt — TOUCH them to see"
     )
@@ -195,26 +256,28 @@ def heal_self(s, amount):
 
 
 def parse_words(words):
-    """(patient, take_only, amount) from ;empath's words."""
-    patient, take_only, amount = "", False, DEFAULT_MANA
+    """(patient, take_only, amount, everything) from ;empath's words."""
+    patient, take_only, amount, everything = "", False, DEFAULT_MANA, True
     for word in words:
         lowered = word.lower()
         if lowered.startswith("mana=") and lowered[5:].isdigit():
             amount = int(lowered[5:])
         elif lowered == "take":
             take_only = True
+        elif lowered == "parts":
+            everything = False
         elif not patient:
             patient = lowered
-    return patient, take_only, amount
+    return patient, take_only, amount, everything
 
 
 def run(s, words):
-    patient, take_only, amount = parse_words(words)
+    patient, take_only, amount, everything = parse_words(words)
     if not patient:
         s.echo("empath: whom? — ;empath <patient>, or ;empath self")
         return
     if patient != "self":
-        heal_other(s, patient)
+        heal_other(s, patient, everything)
         if take_only or s.dead or wants_stop(s):
             return
     heal_self(s, amount)

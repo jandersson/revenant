@@ -70,11 +70,13 @@ Ask aloud in the Empaths' Guild courtyard (`;go2 5713` in the Crossing). An Empa
 ```
 ;empath Uthmor           TOUCH, take every wound, touch again for bared scars, heal yourself
 ;empath Uthmor take      the transfers only
+;empath Uthmor parts     one TAKE per wound instead of TAKE EVERYTHING
 ;empath self             Heal Wounds and Heal Scars on yourself, worst first
 ;empath ... mana=15      mana per cast (default 15)
 ```
 
-- Bleeding first, then the worst wounds, fresh before scars; taking fresh wounds bares scars, so it touches again (up to three rounds).
+- Each round is one TAKE EVERYTHING; what it leaves, or all of it when it brings nothing over, is taken part by part: bleeding first, then the worst, fresh before scars. Taking fresh wounds bares scars, so it touches again (up to three rounds).
+- The game's warning that a transfer would kill the Empath ends the heal.
 - It stops when mana drops below a fifth, or the patient is gone or refuses the touch.
 
 `;stop <name>` ends any of these at once; `;heal return` and `;empath return` finish the step in hand first.

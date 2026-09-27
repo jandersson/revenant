@@ -25,6 +25,7 @@ script = _script()
 script.TOUCH_SECONDS = 0.3
 script.TAKE_SECONDS = 0.3
 script.PREPARE_SECONDS = 0.3
+script.EVERYTHING_QUIET = 0.3
 
 LINK = (
     "You touch Lanival.\n"
@@ -115,7 +116,13 @@ def test_the_patient_is_touched_once_and_the_torso_taken_before_the_arm():
     )
     out = run(fake, ["lanival"])
     takes = [c for c in fake.sent if c.startswith("take")]
-    assert takes == ["take lanival chest", "take lanival left arm"]
+    # TAKE EVERYTHING first; it brought nothing here, so part by part.
+    assert takes == [
+        "take lanival everything",
+        "take lanival chest",
+        "take lanival left arm",
+    ]
+    assert "TAKE EVERYTHING answered '(silence)' — one part at a time" in out
     assert fake.sent.count("touch lanival") == 2  # a round, then the check
     assert "Lanival has no injuries left" in out
     casts = [c for c in fake.sent if c.startswith("cast")]
@@ -131,7 +138,8 @@ def test_a_lapsed_link_is_renewed_with_one_touch_and_the_take_sent_again():
             "take lanival left arm": TAKEN.format(part="left arm"),
         }
     )
-    run(fake, ["lanival", "take"])
+    run(fake, ["lanival", "take", "parts"])
+    assert "take lanival everything" not in fake.sent
     assert fake.sent.count("take lanival chest") == 2
     assert fake.sent.count("touch lanival") == 3
     assert not any(c.startswith("cast") for c in fake.sent)  # take only
@@ -149,3 +157,53 @@ def test_self_heal_stops_when_the_mana_runs_low():
     out = run(fake, ["self"])
     assert "mana below 20%" in out
     assert not any(c.startswith("prepare") for c in fake.sent)
+
+
+def test_take_everything_brings_every_part_over_in_one_transfer():
+    # The operator, 2026-09-27: one TAKE EVERYTHING instead of ~40 TAKEs
+    # (Elanthipedia: Empath healing). Its lines are the single TAKE's,
+    # one "fully healed" per part — an assumption until captured.
+    fake = Fake(
+        {
+            "touch lanival": [TOUCH_TWO, LINK + TOUCH_CLEAN],
+            "take lanival everything": (
+                "You feel the transfer beginning as a cold stillness settles in "
+                "the center of your being...\n"
+                + TAKEN.format(part="chest")
+                + TAKEN.format(part="left arm")
+            ),
+        }
+    )
+    out = run(fake, ["lanival", "take"])
+    takes = [c for c in fake.sent if c.startswith("take")]
+    assert takes == ["take lanival everything"]
+    assert "TAKE EVERYTHING brought 2 part(s) over" in out
+    assert "Lanival has no injuries left" in out
+
+
+def test_the_death_warning_stops_the_heal_at_once():
+    fatal = (
+        "You realize that you are taking a wound that will kill you if you "
+        "finish the transfer.\n"
+    )
+    fake = Fake({"touch lanival": TOUCH_TWO, "take lanival": fatal})
+    out = run(fake, ["lanival"])
+    assert "the heal stops here" in out
+    assert [c for c in fake.sent if c.startswith("take")] == ["take lanival everything"]
+    assert not any(c.startswith(("cast", "prepare")) for c in fake.sent)
+    parts = Fake({"touch lanival": TOUCH_TWO, "take lanival": fatal})
+    run(parts, ["lanival", "parts"])
+    assert [c for c in parts.sent if c.startswith("take")] == ["take lanival chest"]
+
+
+def test_the_last_round_is_checked_before_saying_hurt():
+    fake = Fake(
+        {
+            "touch lanival": [TOUCH_TWO, TOUCH_TWO, TOUCH_TWO, LINK + TOUCH_CLEAN],
+            "take lanival chest": TAKEN.format(part="chest"),
+            "take lanival left arm": TAKEN.format(part="left arm"),
+        }
+    )
+    out = run(fake, ["lanival", "take", "parts"])
+    assert "Lanival has no injuries left" in out
+    assert "still reads hurt" not in out
