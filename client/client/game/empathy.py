@@ -71,6 +71,38 @@ PREPARED = ("fully prepared to cast",)
 HEALED = ("appear completely healed",)
 IMPROVED = ("appear", "improved", "better")
 
+# Poison and disease, the patient's in TOUCH's listing and the Empath's
+# own in HEALTH — the patterns of lich-5's common-healing.rb
+# (parse_perceived_health_lines and the HEALTH check), uncaptured here.
+_POISON_TOUCH = re.compile(
+    r"^\s*\w+ (?:has|have) a .* poison|having trouble breathing|cyanide poison",
+    re.IGNORECASE | re.MULTILINE,
+)
+_DISEASE_TOUCH = re.compile(
+    r"^\s*[\w']+ wounds are (?:badly )?infected|^\s*\w+ (?:has|have) a dormant infection"
+    r"|^\s*\w+ (?:body|skin) is covered (?:in|with) open oozing sores",
+    re.IGNORECASE | re.MULTILINE,
+)
+_POISON_SELF = re.compile(
+    r"^\s*You have .* poison(?:ed)?|having trouble breathing",
+    re.IGNORECASE | re.MULTILINE,
+)
+_DISEASE_SELF = re.compile(
+    r"^\s*You have a dormant infection|^\s*Your wounds are infected"
+    r"|^\s*Your body is covered in open oozing sores",
+    re.IGNORECASE | re.MULTILINE,
+)
+# The cures an Empath casts on himself (Elanthipedia: Flush Poisons,
+# Cure Disease): kind -> (spell, abbreviation, the cured words).
+CURES = {
+    "poison": ("Flush Poisons", "fp", ("flushes all poison", "finds no toxins")),
+    "disease": (
+        "Cure Disease",
+        "cd",
+        ("completely cured of all disease", "don't seem to be so afflicted"),
+    ),
+}
+
 # The head and torso before the limbs at one severity: a wound there is
 # the one that kills (the wiki's shock and death rules follow the vital
 # areas).
@@ -123,6 +155,20 @@ def parse_touch(text):
             # BLEEDING filter).
             injuries.append(Injury(part, "external", 9, line.strip(), True))
     return injuries if seen else None
+
+
+def afflictions(text, own=False):
+    """The poison and disease a TOUCH listing (or, `own`, the Empath's
+    HEALTH) shows: the kinds, in CURES's order."""
+    poison, disease = (
+        (_POISON_SELF, _DISEASE_SELF) if own else (_POISON_TOUCH, _DISEASE_TOUCH)
+    )
+    found = []
+    if poison.search(text or ""):
+        found.append("poison")
+    if disease.search(text or ""):
+        found.append("disease")
+    return found
 
 
 def priority(injury):

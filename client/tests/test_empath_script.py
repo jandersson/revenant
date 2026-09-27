@@ -207,3 +207,46 @@ def test_the_last_round_is_checked_before_saying_hurt():
     out = run(fake, ["lanival", "take", "parts"])
     assert "Lanival has no injuries left" in out
     assert "still reads hurt" not in out
+
+
+POISONED = LINK + "Lanival's injuries include...\nLanival has a mild nerve poison.\n"
+FLUSHED = (
+    "You gesture.\nA sudden wave of heat washes over you as your spell flushes "
+    "all poison from your body.\n"
+)
+
+
+def knows(*spells):
+    return SimpleNamespace(
+        abbreviation=lambda character, spell: "x" if spell in spells else None
+    )
+
+
+def test_poison_is_taken_when_flush_poisons_is_known_and_flushed_after(monkeypatch):
+    monkeypatch.setattr(script, "buffs", knows("Flush Poisons"))
+    fake = Fake(
+        {
+            "touch lanival": [POISONED, LINK + TOUCH_CLEAN],
+            "take lanival poison": "You feel the poison begin to seep into you.\n",
+            "health": [
+                "Your body feels at full strength.\nYou have a mild poison.\n",
+                CLEAN,
+            ],
+            "prepare fp": "You feel fully prepared to cast your spell.\n",
+            "cast": FLUSHED,
+        }
+    )
+    out = run(fake, ["lanival"])
+    assert "take lanival poison" in fake.sent
+    assert "TAKE POISON answered" in out
+    assert "prepare fp 15" in fake.sent and "cast" in fake.sent
+    assert "Flush Poisons cast — the poison is gone" in out
+    assert "Lanival has no injuries left" in out
+
+
+def test_poison_is_left_when_the_empath_cannot_cure_it(monkeypatch):
+    monkeypatch.setattr(script, "buffs", knows())
+    fake = Fake({"touch lanival": POISONED})
+    out = run(fake, ["lanival", "take"])
+    assert "take lanival poison" not in fake.sent
+    assert "Flush Poisons is not among your recorded spells" in out

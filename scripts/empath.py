@@ -34,6 +34,11 @@ answer is said, uncaptured until then), is taken one part at a time.
 The game's warning that a transfer would kill the Empath ("You
 realize that you are taking a wound that will kill you if you finish
 the transfer", the wiki's wording) ends the heal at once.
+Poison and disease go first (TOUCH's lines read with lich-5's
+common-healing.rb patterns): TAKE <patient> POISON and TAKE
+<patient> DISEASE, and only when the Empath's own spell list (as
+;sheet recorded it) has Flush Poisons or Cure Disease to cure himself
+after — the self-heal casts those before any wound.
 Nothing is ever taken without the patient in the room:
 a TOUCH that finds nobody, or is avoided (a cold demeanor), ends it.
 Stop with:  ;stop empath, or ;empath return.
@@ -41,14 +46,16 @@ Stop with:  ;stop empath, or ;empath return.
 
 import time
 
-from client.game import probe
+from client.game import buffs, probe
 from client.game.empathy import (
     AVOIDED,
+    CURES,
     HEALED,
     LINKED,
     NO_LINK,
     PREPARED,
     TAKEN,
+    afflictions,
     parse_touch,
     take_command,
     transfer_order,
@@ -98,8 +105,9 @@ def exchange(s, command, until, seconds):
 
 
 def touch(s, patient):
-    """TOUCH the patient: the Injury list, or None (said) when there was
-    no link — nobody by that name, or a touch avoided."""
+    """TOUCH the patient: (the Injury list, the afflictions), or None
+    (said) when there was no link — nobody by that name, or a touch
+    avoided."""
     answer = exchange(
         s, f"touch {patient}", ("vitality", "nothing wrong with"), TOUCH_SECONDS
     )
@@ -118,7 +126,7 @@ def touch(s, patient):
             + ("" if linked else f" — is {patient} here?")
         )
         return None
-    return injuries
+    return injuries, afflictions(answer)
 
 
 def take_everything(s, patient):
@@ -175,17 +183,47 @@ def take(s, patient, injury):
     return False
 
 
+def take_affliction(s, patient, kind):
+    """TAKE <patient> POISON or DISEASE, when the Empath knows the spell
+    that cures it after; True when sent, "fatal" on the death warning."""
+    spell, _, _ = CURES[kind]
+    if not buffs.abbreviation(getattr(s.state, "name", None), spell):
+        s.echo(
+            f"empath: {patient.capitalize()} has {kind} — {spell} is not among "
+            "your recorded spells (;sheet records them), so it is left"
+        )
+        return False
+    answer = exchange(
+        s,
+        f"take {patient} {kind}",
+        TAKEN + NO_LINK + FATAL + ("cannot",),
+        TAKE_SECONDS,
+    )
+    if any(word in answer.lower() for word in FATAL):
+        s.echo(f"empath: TAKE {kind.upper()} would kill you — the heal stops here")
+        return "fatal"
+    last = (answer.strip().splitlines() or ["(silence)"])[-1]
+    s.echo(f"empath: TAKE {kind.upper()} answered {last!r}")
+    return True
+
+
 def heal_other(s, patient, everything=True):
     """The rounds of TOUCH and TAKE until the patient reads clean: TAKE
     EVERYTHING first in each round (unless `everything` is off), one
     part at a time when it brought nothing. True when clean."""
     for round_ in range(1, ROUNDS + 1):
-        injuries = touch(s, patient)
-        if injuries is None:
+        listing = touch(s, patient)
+        if listing is None:
             return False
-        if not injuries:
+        injuries, ails = listing
+        for kind in ails:
+            if take_affliction(s, patient, kind) == "fatal":
+                return False
+        if not injuries and not ails:
             s.echo(f"empath: {patient.capitalize()} has no injuries left")
             return True
+        if not injuries:
+            continue  # the afflictions taken: the next TOUCH checks them
         order = transfer_order(injuries)
         worst = order[0]
         s.echo(
@@ -206,7 +244,7 @@ def heal_other(s, patient, everything=True):
             if take(s, patient, injury) == "fatal":
                 return False
     # The last round's transfers checked too: it may have cleared them.
-    if touch(s, patient) == []:
+    if touch(s, patient) == ([], []):
         s.echo(f"empath: {patient.capitalize()} has no injuries left")
         return True
     s.echo(
@@ -225,19 +263,42 @@ def cast(s, spell, target, amount):
     """PREPARE the spell, wait for the pattern, CAST at the target; the
     answer."""
     exchange(s, f"prepare {spell} {amount}", PREPARED, PREPARE_SECONDS)
-    answer = ask(s, f"cast {target}")
+    answer = ask(s, f"cast {target}".rstrip())
     s.waitrt()
     return answer
+
+
+def cure(s, kind, amount):
+    """Flush Poisons or Cure Disease cast on yourself; True when the
+    answer says it took."""
+    spell, abbrev, done = CURES[kind]
+    answer = cast(s, abbrev, "", amount)
+    if any(word in answer.lower() for word in done):
+        s.echo(f"empath: {spell} cast — the {kind} is gone")
+        return True
+    last = (answer.strip().splitlines() or ["(silence)"])[-1]
+    s.echo(f"empath: {spell} answered {last!r}")
+    return False
 
 
 def heal_self(s, amount):
     """Heal Wounds and Heal Scars, worst first, until HEALTH reads clean.
     True when it does."""
+    cured = set()
     for count in range(MAX_CASTS):
         if s.dead or wants_stop(s):
             s.echo("empath: stopping as asked")
             return False
-        casts = heal_casts(parse_health(ask(s, "health")))
+        answer = ask(s, "health")
+        ails = [kind for kind in afflictions(answer, own=True) if kind not in cured]
+        if ails:
+            if mana(s) < MANA_FLOOR:
+                s.echo(f"empath: mana below {MANA_FLOOR}% — {', '.join(ails)} left")
+                return False
+            cure(s, ails[0], amount)
+            cured.add(ails[0])  # one cast each: a second is the operator's call
+            continue
+        casts = heal_casts(parse_health(answer))
         if not casts:
             s.echo(f"empath: healed — {count} cast(s)")
             return True

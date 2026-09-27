@@ -115,3 +115,19 @@ def test_the_self_heal_casts_worst_first_wounds_before_scars():
 
 def test_an_unhurt_empath_casts_nothing():
     assert heal_casts(parse_health("You have no significant injuries.\n")) == []
+
+
+def test_poison_and_disease_are_read_off_touch_and_health():
+    # lich-5 common-healing.rb's patterns; uncaptured here (#358).
+    from client.game.empathy import afflictions
+
+    touch = (
+        "Lanival's injuries include...\n"
+        "Lanival has a mild nerve poison.\n"
+        "Lanival's wounds are badly infected.\n"
+    )
+    assert afflictions(touch) == ["poison", "disease"]
+    assert afflictions("Lanival has normal vitality.\n") == []
+    own = "You have a mild poison.\nYour wounds are infected.\n"
+    assert afflictions(own, own=True) == ["poison", "disease"]
+    assert afflictions("You have no significant injuries.\n", own=True) == []
