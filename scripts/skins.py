@@ -1,4 +1,40 @@
-"""Sell the bundle of skins you wear at the nearest tannery:  ;skins
+"""Sell your bundle of skins and every loose skin at the nearest tannery:  ;skins
+
+    ;skins               walk to the nearest tannery, sell the bundle and the loose skins, stay there
+    ;skins bank          ... then run ;bank and wait for it
+    ;skins bank keep=N   ... with keep=N passed on to ;bank
+    ;skins back          ... then walk back to where you started (last word: ;skins bank back)
+    ;stop skins          quit at once
+
+What it does
+  - Takes the bundle off (or out of the loot container, or from a hand) and SELLs it whole.
+  - Keeps the rope for the next hunt: into the profile's `loot_container`, else STOWed.
+  - Sells loose parts one at a time: one in a hand, then each skin noun that
+    LOOK IN the loot container lists, until none of it is left.
+  - Says what the tanner paid: the bundle, and the loose parts' count and sum.
+  - Stays at the tannery, since where it started is usually the hunting ground.
+  - bank leaves the banking to ;bank (foreign coins exchanged, DEPOSIT ALL);
+    a ;bank already running is the operator's and is left alone.
+
+When it stops
+  - death
+  - no tannery on the map, or none reachable
+  - nothing sold and no bank: it ends at the tannery, back or not
+
+;train's starter plan runs ;skins and ;bank as two tasks. The profile's `bundle` setting
+(docs/hunting.md); Elanthipedia's Bundle command and Falken's Tannery.
+"""
+
+import re
+
+from client.game import probe
+from client.game.mapdb import MapDB
+from client.game.profile import load_profile
+from client.game.walker import locate, walk
+
+# The design notes the manual above leaves out: what each rule came
+# from, with its issue — read by people, never served as ;help.
+_NOTES = """Sell the bundle of skins you wear at the nearest tannery:  ;skins
 
     ;skins             walk to the nearest tannery, sell the bundle and every loose skin, keep the rope, stay there
     ;skins bank        ... then run ;bank and wait for it (the money-changer for foreign coins, DEPOSIT ALL; keep=N is passed on)
@@ -39,13 +75,6 @@ then `{"script": "bank"}`, each with no skills, once a cycle after the
 hunt. Stops on death.
 Stop with:  ;stop skins
 """
-
-import re
-
-from client.game import probe
-from client.game.mapdb import MapDB
-from client.game.profile import load_profile
-from client.game.walker import locate, walk
 
 COLLECT_SECONDS = 3
 TAIL_SECONDS = 1.5
