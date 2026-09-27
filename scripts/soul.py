@@ -1,52 +1,32 @@
 """Keep a Paladin's soul up and read it:  ;soul
 
-    ;soul                     read the soul: RUB and EXHALE the orb here, else walk through the nearest soulstone arch for the state; say it
-    ;soul keep                keep the boosts running on their timers — badge every 31 min, tithe every 4 h, Chadatru every 2 h — while the soul reads below pristine, until ;soul return
-    ;soul tithe               one tithe of 5 silver at the nearest almsbox (the map's `tithe` rooms and the Crossing's two), then back
-    ;soul pray                one prayer at the nearest Chadatru altar, knelt until it completes
-    ;soul badge               one PRAY BADGE on the pilgrim's badge (REMOVE it, pray, WEAR it), wherever you stand
-    ;soul quest               the Glyph of Warding scene at the guild orb once the readings say ready (FOCUS ORB, GUARD GIRL)
-    ;soul quest force         FOCUS the orb whatever the readings say
-    ;soul ... almsbox=ID      an almsbox room the map has not tagged;  altar=ID likewise;  currency=lirums to override the coin
-    ;soul return              (typed while it runs) finish the deed in hand and end
+    ;soul [read]            read the soul: RUB and EXHALE the orb here, else walk through the nearest soulstone arch
+    ;soul keep              run the deeds on their timers while the soul reads below pristine
+    ;soul tithe             one tithe of 5 silver at the nearest almsbox, then back
+    ;soul pray              one prayer at the nearest Chadatru altar, knelt until it completes
+    ;soul badge             one PRAY BADGE on the pilgrim's badge, wherever you stand
+    ;soul quest             the Glyph of Warding scene at the guild orb, once the readings say ready
+    ;soul quest force       FOCUS the orb whatever the readings say
+    ;soul ... almsbox=<id>  an almsbox room the map has not tagged (altar=<id> likewise)
+    ;soul ... currency=<c>  tithe in another coin than the town's (lirums, ...)
+    ;soul return            (typed during keep) finish the deed in hand and end
+    ;stop soul              quit at once
 
-The circle-5 glyph quest's orb wants a pristine luminescent soul and,
-by the players' reports, a full soul pool; what raises the soul is on
-timers (Elanthipedia: Soul system, Glyph of Warding walkthrough;
-client/game/soul.py is the model). This script is those deeds, the
-way dr-scripts' tithe.lic and crossing-training.lic's check_chadatru
-run them inside a training loop: walk to the almsbox, PUT 5 silver of
-the town's coin in it (IN BOX at the Crossing guild's steel tithe box,
-whose inscription says so, IN ALMSBOX elsewhere — the noun is read off
-the room's listing), walk to the altar, PRAY CHADATRU and stay
-knelt until "A warm, soothing sensation washes over your soul" — and
-the readings the scripts there never take: RUB for the state, EXHALE
-for the pool at an orb, and where there is none — the Crossing guild
-has no orb — a walk through the nearest soulstone arch (the guild's
-Chambers, Shard's tower door) for the state alone, in the RUB's words
-(#231). A reading is kept four hours in the timers file, and while
-it says pristine no deed runs: the deeds restore a soul, they do not
-maintain one, and the soul drifts slowly and never below chalky grey
-on its own (Elanthipedia: Soul system; the operator, 2026-09-20). A
-stale reading is taken again first. The pilgrim's badge is the third deed (2026-09-20):
-REMOVE MY BADGE (it is worn; GET it when it is not), PRAY BADGE, WEAR
-it again, every thirty-one minutes wherever
-the character stands — "A warm, soothing sensation washes over your
-soul. / You feel a strengthening of your faith and bolstering of your
-soul." with sites on it, "It doesn't do anything though." with none,
-and no badge at all turns the deed off for the run. `keep` does every
-deed whenever its timer allows and waits between, reading the orb when
-it stands in the Orb Room; the timers live in
-~/.revenant/soul/<name>.json across runs, a refusal ("inappropriate so
-soon") backs off twenty minutes. `quest`
-is paladin-quests.lic's warding scene with the readings in front of
-it: FOCUS ORB, wait for the girl's line, GUARD GIRL, wait for the
-gift, every line echoed so the first accepted run captures the scene.
-It never withdraws coins (a short purse is reported, ;debt and the
-teller are yours; a debt to the province, which the box refuses a
-tithe for, is said once and costs no walk until WEALTH shows it
-paid, #304), never drops, and stops on death or hostiles.
-Stop with:  ;stop soul, or ;soul return.
+What it does
+  - Reads the state (RUB, or the arch) and the pool (EXHALE, at an orb); a reading holds 4 hours.
+  - Runs no deed while the soul reads pristine: the deeds restore a soul, not keep one.
+  - keep: the badge every 31 min, the tithe every 4 h, the prayer every 2 h; a refusal
+    backs off 20 min. The timers live in ~/.revenant/soul/<name>.json.
+  - quest: FOCUS ORB, GUARD GIRL, every line of the scene echoed.
+
+What it never does
+  - withdraw coins: a short purse or a debt to the province is reported, the teller is yours
+  - walk to a deed's room over 80 steps away (the other town's almsbox)
+  - drop anything: the hands are emptied with STOW
+
+It stops on death, on hostiles in the room (it flees), and on ;soul return.
+client/game/soul.py is the model and docs/soul.md the guide, after Elanthipedia's
+Soul system page and dr-scripts' tithe.lic.
 """
 
 import time
@@ -99,6 +79,59 @@ from client.game.soul import (
     tithe_command,
 )
 from client.game.walker import locate, walk
+
+# The design notes the manual above leaves out: what each rule came
+# from, with its issue — read by people, never served as ;help.
+_NOTES = """Keep a Paladin's soul up and read it:  ;soul
+
+    ;soul                     read the soul: RUB and EXHALE the orb here, else walk through the nearest soulstone arch for the state; say it
+    ;soul keep                keep the boosts running on their timers — badge every 31 min, tithe every 4 h, Chadatru every 2 h — while the soul reads below pristine, until ;soul return
+    ;soul tithe               one tithe of 5 silver at the nearest almsbox (the map's `tithe` rooms and the Crossing's two), then back
+    ;soul pray                one prayer at the nearest Chadatru altar, knelt until it completes
+    ;soul badge               one PRAY BADGE on the pilgrim's badge (REMOVE it, pray, WEAR it), wherever you stand
+    ;soul quest               the Glyph of Warding scene at the guild orb once the readings say ready (FOCUS ORB, GUARD GIRL)
+    ;soul quest force         FOCUS the orb whatever the readings say
+    ;soul ... almsbox=ID      an almsbox room the map has not tagged;  altar=ID likewise;  currency=lirums to override the coin
+    ;soul return              (typed while it runs) finish the deed in hand and end
+
+The circle-5 glyph quest's orb wants a pristine luminescent soul and,
+by the players' reports, a full soul pool; what raises the soul is on
+timers (Elanthipedia: Soul system, Glyph of Warding walkthrough;
+client/game/soul.py is the model). This script is those deeds, the
+way dr-scripts' tithe.lic and crossing-training.lic's check_chadatru
+run them inside a training loop: walk to the almsbox, PUT 5 silver of
+the town's coin in it (IN BOX at the Crossing guild's steel tithe box,
+whose inscription says so, IN ALMSBOX elsewhere — the noun is read off
+the room's listing), walk to the altar, PRAY CHADATRU and stay
+knelt until "A warm, soothing sensation washes over your soul" — and
+the readings the scripts there never take: RUB for the state, EXHALE
+for the pool at an orb, and where there is none — the Crossing guild
+has no orb — a walk through the nearest soulstone arch (the guild's
+Chambers, Shard's tower door) for the state alone, in the RUB's words
+(#231). A reading is kept four hours in the timers file, and while
+it says pristine no deed runs: the deeds restore a soul, they do not
+maintain one, and the soul drifts slowly and never below chalky grey
+on its own (Elanthipedia: Soul system; the operator, 2026-09-20). A
+stale reading is taken again first. The pilgrim's badge is the third deed (2026-09-20):
+REMOVE MY BADGE (it is worn; GET it when it is not), PRAY BADGE, WEAR
+it again, every thirty-one minutes wherever
+the character stands — "A warm, soothing sensation washes over your
+soul. / You feel a strengthening of your faith and bolstering of your
+soul." with sites on it, "It doesn't do anything though." with none,
+and no badge at all turns the deed off for the run. `keep` does every
+deed whenever its timer allows and waits between, reading the orb when
+it stands in the Orb Room; the timers live in
+~/.revenant/soul/<name>.json across runs, a refusal ("inappropriate so
+soon") backs off twenty minutes. `quest`
+is paladin-quests.lic's warding scene with the readings in front of
+it: FOCUS ORB, wait for the girl's line, GUARD GIRL, wait for the
+gift, every line echoed so the first accepted run captures the scene.
+It never withdraws coins (a short purse is reported, ;debt and the
+teller are yours; a debt to the province, which the box refuses a
+tithe for, is said once and costs no walk until WEALTH shows it
+paid, #304), never drops, and stops on death or hostiles.
+Stop with:  ;stop soul, or ;soul return.
+"""
 
 COLLECT_SECONDS = 2
 TAIL_SECONDS = 0.5
