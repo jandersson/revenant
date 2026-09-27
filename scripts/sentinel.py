@@ -1,4 +1,52 @@
-"""Watch for what an unattended session cannot answer:  ;sentinel  (autostarted)
+"""Watch an unattended session for what it cannot answer, and ring:  ;sentinel  (autostarted)
+
+    ;sentinel               watch (autostarted; off with the Settings tick or REVENANT_NO_SENTINEL=1)
+    ;sentinel ok            I am here: the grace ends, the watch goes on
+    ;sentinel quiet [min]   no bells for that many minutes (30 by default); the dock still fills
+    ;sentinel grace <min>   the grace length for this run (no number: say it)
+    ;sentinel status        what it has flagged and where the grace stands
+    ;sentinel return        stop watching
+    ;stop sentinel          stop watching at once
+
+The words after `;sentinel` are typed while it runs.
+
+Three bells, a SENTINEL: echo and the grace
+  - a player or GM whispering, speaking, thinking or gesturing to you
+    (never an NPC, a shopkeeper the room names, or one of your own characters)
+  - a word spelled to slip past a script ("J_u_M_p")
+
+Bells without a grace, or only a note
+  - spam: the same line over and over, or near-duplicates in a burst (bells, no grace)
+  - a staff notice for this instance on the ooc stream (one bell)
+  - a player arriving: a line in the Attention dock, never a bell
+  - a story line never seen before: a line in the Attention dock, once
+
+The grace
+  - `sentinel_grace_minutes` (10), started only while a script acts on the character
+  - unanswered, with `sentinel_logout` on (off by default): ;train returns, then QUIT
+  - settings.json's `alert_command` runs with the alert as its last argument
+  - it never replies and never runs a command it finds in the text
+
+The detection is client/game/novelty.py; docs/running.md covers the settings.
+"""
+
+import os
+import shlex
+import subprocess
+import time
+
+from client.game import novelty
+from client.game.novelty import (
+    ADDRESS_STREAMS,
+    address,
+    broadcast,
+    hidden_command,
+    newcomers,
+)
+
+# The design notes the manual above leaves out: what each rule came
+# from, with its issue — read by people, never served as ;help.
+_NOTES = """Watch for what an unattended session cannot answer:  ;sentinel  (autostarted)
 
     ;sentinel                 watch (autostarted; off with the Settings tick or REVENANT_NO_SENTINEL=1)
     ;sentinel ok              (typed while it runs) I am here — the grace ends, the watch goes on
@@ -55,20 +103,6 @@ execution of the commands it finds: those exist to pass a presence
 check with nobody home, which is what closes accounts (#276).
 Stop with:  ;stop sentinel, or ;sentinel return.
 """
-
-import os
-import shlex
-import subprocess
-import time
-
-from client.game import novelty
-from client.game.novelty import (
-    ADDRESS_STREAMS,
-    address,
-    broadcast,
-    hidden_command,
-    newcomers,
-)
 
 POLL = 1.0
 SAVE_EVERY = 300.0
