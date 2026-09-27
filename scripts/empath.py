@@ -30,7 +30,12 @@ below a fifth. Each round opens with TAKE <patient> EVERYTHING, every wound and 
 in one transfer (Elanthipedia: Empath healing, a skilled Empath's
 form), read until the lines stop coming; whatever the next TOUCH
 still lists, or all of it when EVERYTHING brings nothing over (its
-answer is said, uncaptured until then), is taken one part at a time.
+answer is said), is taken one part at a time. Captured 2026-09-27,
+Riphik on Cecil's eight wounds: one "You feel the transfer
+beginning..." and, about a minute later, one line per kind naming
+every part — "You sense that Cecil's external neck, left arm, left
+hand and abdomen wounds are fully healed.", then the internal wounds,
+the external scars, the internal scars; the next TOUCH read clean.
 The game's warning that a transfer would kill the Empath ("You
 realize that you are taking a wound that will kill you if you finish
 the transfer", the wiki's wording) ends the heal at once.
@@ -144,7 +149,7 @@ def touch(s, patient):
 
 def take_everything(s, patient):
     """TAKE <patient> EVERYTHING, read until EVERYTHING_QUIET seconds pass
-    without a line: the number of parts that came over ("...fully
+    without a line: the number of kinds that came over (one "...fully
     healed"), "fatal" on the death warning, or 0 (its answer said) when
     nothing did."""
     while s.get(timeout=0, streams=STREAMS) is not None:
@@ -254,7 +259,7 @@ def heal_other(s, patient, everything=True):
             if moved == "fatal":
                 return False
             if moved:
-                s.echo(f"empath: TAKE EVERYTHING brought {moved} part(s) over")
+                s.echo(f"empath: TAKE EVERYTHING healed {moved} kind(s) of wound")
                 continue  # the next TOUCH says what is left
         for injury in order:
             if s.dead or wants_stop(s):

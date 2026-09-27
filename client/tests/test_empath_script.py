@@ -161,23 +161,27 @@ def test_self_heal_stops_when_the_mana_runs_low():
 
 def test_take_everything_brings_every_part_over_in_one_transfer():
     # The operator, 2026-09-27: one TAKE EVERYTHING instead of ~40 TAKEs
-    # (Elanthipedia: Empath healing). Its lines are the single TAKE's,
-    # one "fully healed" per part — an assumption until captured.
+    # (Elanthipedia: Empath healing). Captured that morning, Riphik on
+    # eight wounds: the transfer line, then one line per kind naming
+    # every part.
     fake = Fake(
         {
             "touch lanival": [TOUCH_TWO, LINK + TOUCH_CLEAN],
             "take lanival everything": (
                 "You feel the transfer beginning as a cold stillness settles in "
-                "the center of your being...\n"
-                + TAKEN.format(part="chest")
-                + TAKEN.format(part="left arm")
+                "the center of your being and you steel yourself for the "
+                "impending explosion of pain.\n"
+                "You sense that Lanival's external left arm and chest wounds are "
+                "fully healed.\n"
+                "You sense that Lanival's internal left arm and chest wounds are "
+                "fully healed.\n"
             ),
         }
     )
     out = run(fake, ["lanival", "take"])
     takes = [c for c in fake.sent if c.startswith("take")]
     assert takes == ["take lanival everything"]
-    assert "TAKE EVERYTHING brought 2 part(s) over" in out
+    assert "TAKE EVERYTHING healed 2 kind(s) of wound" in out
     assert "Lanival has no injuries left" in out
 
 
