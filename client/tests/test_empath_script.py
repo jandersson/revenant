@@ -295,3 +295,31 @@ def test_vitality_is_left_when_your_own_is_low(monkeypatch):
     out = run(fake, ["lanival", "take"])
     assert "take lanival vitality" not in fake.sent
     assert "yours is below 70% — it is left" in out
+
+
+LODGED = TOUCH_TWO.replace(
+    "\nLanival has normal vitality.",
+    "\nLanival has a crossbow bolt lodged firmly into his left arm.\n"
+    "Lanival has normal vitality.",
+)
+
+
+def test_a_lodged_object_is_tended_out_before_any_take():
+    # Elanthipedia: Damage — a lodged projectile comes out with TEND; a
+    # TAKE moves wounds, not objects.
+    fake = Fake(
+        {
+            "touch lanival": [LODGED, LINK + TOUCH_CLEAN],
+            "tend lanival left arm": (
+                "You skillfully remove a crossbow bolt from Lanival's left arm.\n"
+            ),
+            "take lanival chest": TAKEN.format(part="chest"),
+            "take lanival left arm": TAKEN.format(part="left arm"),
+        }
+    )
+    out = run(fake, ["lanival", "take", "parts"])
+    assert fake.sent.index("tend lanival left arm") < fake.sent.index(
+        "take lanival chest"
+    )
+    assert "TEND lanival left arm answered" in out
+    assert "Lanival has no injuries left" in out

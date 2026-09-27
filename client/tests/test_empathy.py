@@ -139,3 +139,16 @@ def test_vitality_is_read_off_touch():
     assert vitality("Lanival has normal vitality.\n") == 100
     assert vitality("Lanival has 45% vitality remaining.\n") == 45
     assert vitality("Lanival's injuries include...\n") is None
+
+
+def test_lodged_objects_and_parasites_are_read_off_touch():
+    # lich-5's shapes turned to a patient; uncaptured (#358).
+    from client.game.empathy import foreign_bodies
+
+    touch = (
+        "Lanival has a crossbow bolt lodged firmly into his left arm.\n"
+        "Lanival has a small red blood mite on his chest.\n"
+        "Lanival has a crossbow bolt lodged deeply into his left arm.\n"
+    )
+    assert foreign_bodies(touch) == ["left arm", "chest"]
+    assert foreign_bodies("Lanival has normal vitality.\n") == []

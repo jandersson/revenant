@@ -105,6 +105,34 @@ CURES = {
     # vitality is fully restored.").
     "vitality": ("Vitality Healing", "vh", ("vitality is fully restored",)),
 }
+# Things in the patient no TAKE moves: a lodged arrow or bolt, a
+# parasite (Elanthipedia: Damage — both come out with TEND, by the
+# patient or another). The shapes are lich-5's common-healing-data.rb
+# (LODGED_BODY_PART_REGEX, PARASITES_REGEX) turned to a patient; uncaptured.
+_PART_WORDS = r"(?P<part>(?:left |right )?(?:head|eye|neck|chest|abdomen|back|arm|hand|leg|tail|skin))"
+_WHOSE = r"(?:his|her|your|\w+'s)"
+_LODGED = re.compile(rf"lodged .*? in(?:to)? {_WHOSE} {_PART_WORDS}", re.IGNORECASE)
+_PARASITE = re.compile(
+    r"(?:(?:small|large) (?:black|red) blood mite|(?:black|red|albino) (?:sand|forest)"
+    rf" leech|(?:green|red) blood worm|retch maggot).*? on {_WHOSE} {_PART_WORDS}",
+    re.IGNORECASE,
+)
+# TEND's answers (scripts/tend.py's, captured on the tender's own wounds).
+TENDED = ("remove", "you work carefully at tending", "you work carefully at binding")
+
+
+def foreign_bodies(text):
+    """The parts a TOUCH listing names a lodged object or a parasite in,
+    in order, each once."""
+    parts = []
+    for pattern in (_LODGED, _PARASITE):
+        for match in pattern.finditer(text or ""):
+            part = match.group("part").lower()
+            if part not in parts:
+                parts.append(part)
+    return parts
+
+
 # TOUCH's vitality line: "Cecil has normal vitality." (captured
 # 2026-09-26) or "... has 45% vitality remaining" (lich-5's pattern).
 _VITALITY = re.compile(r"has (\d+)% vitality remaining", re.IGNORECASE)

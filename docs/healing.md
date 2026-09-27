@@ -78,6 +78,7 @@ Ask aloud in the Empaths' Guild courtyard (`;go2 5713` in the Crossing). An Empa
 
 - Each round is one TAKE EVERYTHING; what it leaves, or all of it when it brings nothing over, is taken part by part: bleeding first, then the worst, fresh before scars. Taking fresh wounds bares scars, so it touches again (up to three rounds).
 - The game's warning that a transfer would kill the Empath ends the heal.
+- A lodged arrow or bolt, or a parasite, is TENDed out of the patient before any transfer.
 - Poison and disease go first, taken only when your recorded spells (`;sheet`) include Flush Poisons or Cure Disease; the self-heal casts those before any wound.
 - A patient below 80% vitality gets some of yours (TAKE VITALITY) when you know Vitality Healing and stand at 70% or more; the self-heal restores yours after.
 - It stops when mana drops below a fifth, or the patient is gone or refuses the touch.

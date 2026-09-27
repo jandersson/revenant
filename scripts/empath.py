@@ -50,6 +50,10 @@ Vitality Healing and his own health stands at OWN_FLOOR or more
 (a patient with more stamina has more vitality to lose, the wiki
 warns), and the self-heal casts Vitality Healing when his own health
 bar is below full.
+A lodged arrow or bolt, or a parasite (TOUCH's lines read with
+lich-5's patterns), is TENDed out of the patient first — TAKE
+moves wounds, not objects (Elanthipedia: Damage); the answer is
+said, and anything the TEND left in the Empath's hands stays there.
 Nothing is ever taken without the patient in the room:
 a TOUCH that finds nobody, or is avoided (a cold demeanor), ends it.
 Stop with:  ;stop empath, or ;empath return.
@@ -66,7 +70,9 @@ from client.game.empathy import (
     NO_LINK,
     PREPARED,
     TAKEN,
+    TENDED,
     afflictions,
+    foreign_bodies,
     vitality,
     parse_touch,
     take_command,
@@ -144,7 +150,7 @@ def touch(s, patient):
     percent = vitality(answer)
     if percent is not None and percent < VITALITY_FLOOR:
         ails.append("vitality")
-    return injuries, ails
+    return injuries, ails, foreign_bodies(answer)
 
 
 def take_everything(s, patient):
@@ -201,6 +207,17 @@ def take(s, patient, injury):
     return False
 
 
+def tend_out(s, patient, part):
+    """TEND <patient> <part>: a lodged object or a parasite out before
+    any TAKE. The answer is said (uncaptured)."""
+    answer = exchange(
+        s, f"tend {patient} {part}", TENDED + ("can't", "cannot"), TAKE_SECONDS
+    )
+    last = (answer.strip().splitlines() or ["(silence)"])[-1]
+    s.echo(f"empath: TEND {patient} {part} answered {last!r}")
+    return answer
+
+
 def take_affliction(s, patient, kind):
     """TAKE <patient> POISON or DISEASE, when the Empath knows the spell
     that cures it after; True when sent, "fatal" on the death warning."""
@@ -239,11 +256,15 @@ def heal_other(s, patient, everything=True):
         listing = touch(s, patient)
         if listing is None:
             return False
-        injuries, ails = listing
+        injuries, ails, bodies = listing
+        for part in bodies:
+            if s.dead or wants_stop(s):
+                return False
+            tend_out(s, patient, part)
         for kind in ails:
             if take_affliction(s, patient, kind) == "fatal":
                 return False
-        if not injuries and not ails:
+        if not injuries and not ails and not bodies:
             s.echo(f"empath: {patient.capitalize()} has no injuries left")
             return True
         if not injuries:
@@ -268,7 +289,7 @@ def heal_other(s, patient, everything=True):
             if take(s, patient, injury) == "fatal":
                 return False
     # The last round's transfers checked too: it may have cleared them.
-    if touch(s, patient) == ([], []):
+    if touch(s, patient) == ([], [], []):
         s.echo(f"empath: {patient.capitalize()} has no injuries left")
         return True
     s.echo(
