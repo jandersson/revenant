@@ -970,3 +970,27 @@ def test_the_drained_task_brings_the_when_tasks_before_it():
     assert top_up_tasks(current, exp(Athletics=31, Small_Edged=31, Brawling=31)) == []
     off = normalize(DEFAULTS | {"tasks": tasks, "top_up": "off"})
     assert top_up_tasks(off, exp(Athletics=0, Small_Edged=0, Brawling=0)) == []
+
+
+def test_a_task_tops_up_once_a_rest_even_if_its_skill_never_moves(clock):
+    # 2026-09-27: ;boxes with no box to open left Locksmithing at 0/34,
+    # "drained" at every look, and the rest ran it again every poll.
+    fake = run(
+        clock,
+        Fake(
+            [
+                {"Athletics": 30, "Small Edged": 30},
+                {"Athletics": 0, "Small Edged": 25},  # climbs drained
+                {"Athletics": 0, "Small Edged": 20},  # and it earned nothing
+                {"Athletics": 0, "Small Edged": 15},
+                {"Athletics": 0, "Small Edged": 8},  # the whole pool drained
+            ],
+            exits={"athletics": 0},  # it ends at once each time
+        ),
+        plan(top_up="on"),
+    )
+    assert fake.started.count(("athletics", [])) == 1
+    assert fake.echoed[-2:] == [
+        "train: rested — the pool has drained",
+        "train: 1 cycle(s) done",
+    ]

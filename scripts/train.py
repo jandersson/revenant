@@ -613,6 +613,10 @@ def rest(s, plan, db, walk, index):
     moves = 0
     bought = 0
     quote = {}  # the rest's TDP pricing (#282)
+    # Each task tops up once a rest: ;boxes with no box to open left
+    # Locksmithing at 0/34 — "drained" at every look — and ran again
+    # every poll (2026-09-27).
+    topped = set()
     while True:
         if s.dead:
             return None
@@ -625,8 +629,13 @@ def rest(s, plan, db, walk, index):
         if rested(plan, experience(s)):
             s.echo("train: rested — the pool has drained")
             return index
-        ready = top_up_tasks(plan, experience(s))
-        if ready:
+        ready = [
+            task
+            for task in top_up_tasks(plan, experience(s))
+            if task["name"] not in topped
+        ]
+        if any(task["skills"] for task in ready):
+            topped.update(task["name"] for task in ready)
             ended = top_up(s, plan, ready, db, walk)
             if ended == "dead":
                 return None
