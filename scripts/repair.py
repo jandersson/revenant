@@ -1,4 +1,56 @@
-"""Repair your gear at the nearest repair shop:  ;repair
+"""Repair your gear at the nearest repair shop and put it back on:  ;repair
+
+    ;repair                 appraise what you wear and hold; repair every piece at or below the floor
+    ;repair check           appraise only: each piece's condition, nothing moves
+    ;repair <piece> ...     those pieces, whatever their condition (worn, held or in a container)
+    ;repair floor=<N>       the floor in % (the profile's `repair_floor`, else 80)
+    ;repair tools           ANALYZE the profile's `repair_tools`; the worn ones go to the tool repairman
+    ;repair tools <tool>    that tool, whatever its condition
+    ;repair pickup          walk to the shop your ticket names and collect what is ready
+    ;repair ... back        walk back to where you started when done
+    ;repair return          (typed while it runs) hand in nothing more, collect the tickets given, end
+    ;stop repair            quit at once; the tickets keep for ;repair pickup
+
+What it does
+  - Reads each condition (APPRAISE QUICK; ANALYZE for a tool) and takes in the pieces
+    whose band tops out at or below the floor.
+  - The pieces: the profile's `repair_items`, else the hands and everything worn.
+  - GIVEs each to the nearest known repairman for the estimate, again to pay; stows the ticket.
+  - A price the purse cannot cover: coins from the nearest teller, then a second round.
+  - Waits out the longest estimate (a roisaen is a minute), hands the tickets back and
+    wears each piece again; a held one stays in hand, a tool is stowed.
+
+When it stops
+  - death, or ;repair return once the tickets are collected
+  - no known shop on the map, or none reachable
+  - a ticket refused, or not ready after a dozen waits (the ticket is kept)
+
+Shops and condition bands: client/game/repair.py (Elanthipedia: Repair; dr-scripts'
+repair.lic and base-town.yaml).
+"""
+
+from client.game import bank, probe
+from client.game.loop import wants_stop
+from client.game.mapdb import MapDB
+from client.game.money import parse_wealth, phrase
+from client.game.profile import load_profile
+from client.game.repair import (
+    DEFAULT_FLOOR,
+    SHOPS,
+    TOOL_SHOPS,
+    candidates,
+    classify_give,
+    classify_pickup,
+    condition,
+    needs_repair,
+    read_ticket,
+    shop_room,
+)
+from client.game.walker import locate, walk
+
+# The design notes the manual above leaves out: what each rule came
+# from, with its issue — read by people, never served as ;help.
+_NOTES = """Repair your gear at the nearest repair shop:  ;repair
 
     ;repair              appraise what you wear and hold, take every piece at or below the floor to the nearest shop, wait, wear it back
     ;repair check        appraise only: each piece's condition, nothing moves
@@ -52,25 +104,6 @@ tool that far gone is past field repair with a wire brush and oil
 (Blacksmithing techniques: Advanced Tool Repair).
 Stop with:  ;stop repair, or ;repair return (keeps the tickets' pickup).
 """
-
-from client.game import bank, probe
-from client.game.loop import wants_stop
-from client.game.mapdb import MapDB
-from client.game.money import parse_wealth, phrase
-from client.game.profile import load_profile
-from client.game.repair import (
-    DEFAULT_FLOOR,
-    SHOPS,
-    TOOL_SHOPS,
-    candidates,
-    classify_give,
-    classify_pickup,
-    condition,
-    needs_repair,
-    read_ticket,
-    shop_room,
-)
-from client.game.walker import locate, walk
 
 COLLECT_SECONDS = 3
 TAIL_SECONDS = 1
