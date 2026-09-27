@@ -1,4 +1,40 @@
-"""Train Outdoorsmanship by collecting — COLLECT rock, wait, again:  ;forage
+"""Train Outdoorsmanship by collecting, nothing left in piles:  ;forage
+
+    ;forage              COLLECT rock PRACTICE until Outdoorsmanship mind-locks
+    ;forage <item>       another item the map tags rooms with (dirt, moss, ...)
+    ;forage <item> <n>   n collects, then end
+    ;forage here         collect where you stand, even if the map lists no such item here
+    ;forage return       (typed while it runs) finish the collect in hand and end
+    ;stop forage         quit at once
+
+What it does
+  - Walks to the nearest room the community map tags with the item, unless `here`
+    (settings.json's `avoid_rooms` are walked around).
+  - COLLECT <item> PRACTICE again and again: experience without items;
+    Perception trains alongside.
+  - Both hands full: STOWs what they hold, never a drop, and goes on.
+
+When it stops
+  - Outdoorsmanship mind-locks, or the <n> collects are done
+  - nothing to find: 3 empty answers in a row before a first success, 10 after
+  - a refusal, or no hand could be freed
+  - death, or hostiles in the room (it flees)
+  - ;forage return
+
+;train runs it as a task for Outdoorsmanship. The method is Elanthipedia's
+(Outdoorsmanship skill, Collect command). Report any "forage: unrecognized ..." line.
+"""
+
+from client.game import flight, probe
+from client.game.loop import danger, wants_stop
+from client.game.buffs import locked
+from client.game.mapdb import MapDB
+from client.game.walker import avoided_rooms, locate, walk
+from client.settings import load_settings
+
+# The design notes the manual above leaves out: what each rule came
+# from, with its issue — read by people, never served as ;help.
+_NOTES = """Train Outdoorsmanship by collecting — COLLECT rock, wait, again:  ;forage
 
     ;forage              COLLECT rock PRACTICE until Outdoorsmanship mind-locks
     ;forage <item>       another item the map tags rooms with (dirt, moss, ...)
@@ -42,13 +78,6 @@ Stops at mind-lock, on death, on hostiles in the room, and on
 ["Outdoorsmanship"], return_word "return").
 Stop with:  ;stop forage (at once), or ;forage return for a clean finish.
 """
-
-from client.game import flight, probe
-from client.game.loop import danger, wants_stop
-from client.game.buffs import locked
-from client.game.mapdb import MapDB
-from client.game.walker import avoided_rooms, locate, walk
-from client.settings import load_settings
 
 ITEM = "rock"
 SKILL = "Outdoorsmanship"
