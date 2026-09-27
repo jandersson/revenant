@@ -36,7 +36,7 @@ from pathlib import Path
 from collections import Counter
 
 from client.game import barbarian, buffs, flight, hunting, loot, lootlog, probe
-from client.game.creatures import aim, noun_of, outgrown
+from client.game.creatures import aim, aim_corpse, noun_of, outgrown
 from client.game.probe import classify
 from client.game.profile import describe, load_profile
 from client.game.walker import DIRECTIONS, locate, walk
@@ -1626,7 +1626,13 @@ def dispose(s, profile, corpse, tally):
     whatever the game called it). LOOT's own lines are uncaptured: the
     run's first answer is echoed for the fixtures."""
     if profile["skin"]:
-        skin(s, profile, corpse, tally)
+        # By ordinal past a live one of the noun listed first (#325).
+        target = aim_corpse(
+            corpse,
+            getattr(s.state, "room_creatures", None),
+            getattr(s.state, "room_creatures_dead", None),
+        )
+        skin(s, profile, target, tally)
     before = listing(s)
     answer = ask(s, "loot")
     if not tally.loot_reported:
@@ -1834,6 +1840,14 @@ def wait_out_stun(s):
             return
         s.sleep(STUN_POLL)
         waited += STUN_POLL
+
+
+def aimed_swing(s, profile, tally, prey):
+    """swing() at the prey aimed now, past any corpse listed before the
+    live one (aim_at), the room logged with the aim."""
+    target = aim_at(s, prey)
+    log_room(s, "aim", target)
+    return swing(s, profile, tally, target)
 
 
 def swing(s, profile, tally, prey):
@@ -2087,17 +2101,19 @@ def loop(s, profile, db, ground, avoid, tally):
         say_outgrown(s, profile, tally)
         tally.swings += 1
         # A cast due before this swing wraps it: PREPARE, the swing while
-        # the pattern forms, CAST (#203). Otherwise the swing alone.
-        target = aim_at(s, prey)
-        log_room(s, "aim", target)
+        # the pattern forms, CAST (#203). Otherwise the swing alone. Each
+        # swing is aimed as it goes out: a long pattern gets several, and
+        # one aimed before the cast went on at the goblin listed first
+        # after the filler killed it — "already quite dead", three times,
+        # a live one behind it (#325).
         if not cast_buffs(
             s,
             profile,
             tally,
             fight=True,
-            filler=lambda: swing(s, profile, tally, target),
+            filler=lambda: aimed_swing(s, profile, tally, prey),
         ):
-            swing(s, profile, tally, target)
+            aimed_swing(s, profile, tally, prey)
     return "action budget spent"
 
 

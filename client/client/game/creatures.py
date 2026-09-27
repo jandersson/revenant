@@ -112,6 +112,25 @@ def outgrown(names, ranks):
     return (creature, cap), past
 
 
+def aim_corpse(noun, names, dead=()):
+    """The phrase that reaches the first corpse of `noun` in the listing
+    — "second goblin" when a live one is listed before it — for SKIN
+    after a kill (#325: "skin goblin" reached the first goblin, alive);
+    the plain noun when the listing marks none of them dead."""
+    noun = str(noun or "").strip().lower()
+    if not noun:
+        return noun
+    dead = list(dead or [])
+    k = 0
+    for index, name in enumerate(names or []):
+        if noun_of(name) != noun:
+            continue
+        k += 1
+        if index < len(dead) and dead[index]:
+            return phrase(noun, k)
+    return noun
+
+
 def aim(noun, names, dead=()):
     """The phrase that reaches the first live creature of `noun` in the
     listing: the plain noun when the first of them lives (or when the

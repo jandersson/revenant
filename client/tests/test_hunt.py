@@ -1469,3 +1469,49 @@ def test_every_swing_logs_its_aim_and_the_room_as_the_parser_holds_it(travel, ca
     _run(arena)
     aims = [r.getMessage() for r in caplog.records if r.getMessage().startswith("aim ")]
     assert aims and "creatures" in aims[0] and "dead" in aims[0]
+
+
+def test_every_filler_swing_under_a_cast_is_aimed_afresh(travel, monkeypatch):
+    # #325, caught 2026-09-27 at the goblins: a cast's filler swings all
+    # went at the target aimed before the cast; one killed the goblin
+    # listed first, and the next "attack goblin" hit its corpse ("already
+    # quite dead") three times while a live one stood behind it.
+    casts = []
+
+    def casting(s, profile, tally, fight=False, filler=None):
+        if fight and filler and not casts:
+            casts.append(1)
+            filler()  # the pattern forms over two swings
+            filler()
+            return True
+        return False
+
+    monkeypatch.setattr(hunt, "cast_buffs", casting)
+
+    def first_falls(arena):
+        arena.state.room_creatures = ["a rat", "a rat"]
+        arena.state.room_creatures_dead = [True, False]
+        arena.state.hostiles = {"2": True}
+
+    arena = Arena(
+        {
+            "attack": [(KILL, first_falls), (KILL, kill)],
+            "skin": [SKINNED, SKINNED],
+            "loot": [NOTHING, NOTHING],
+        },
+        hostiles=("1", "2"),
+    )
+    arena.state.room_creatures = ["a rat", "a rat"]
+    arena.state.room_creatures_dead = [False, False]
+    _run(arena, profile=PROFILE | {"max_kills": 2}, travel_first=False)
+    attacks = [c for c in arena.sent if c.startswith("attack")]
+    assert attacks[:2] == ["attack rat", "attack second rat"]
+
+
+def test_the_corpse_is_skinned_by_ordinal_past_a_live_one_listed_first():
+    from client.game.creatures import aim_corpse
+
+    names = ["a large musk hog", "a scavenger goblin", "a scavenger goblin"]
+    assert aim_corpse("goblin", names, [False, False, True]) == "second goblin"
+    assert aim_corpse("goblin", names, [False, True, False]) == "goblin"
+    assert aim_corpse("goblin", names, []) == "goblin"  # nothing marked
