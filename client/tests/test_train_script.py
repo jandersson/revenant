@@ -994,3 +994,31 @@ def test_a_task_tops_up_once_a_rest_even_if_its_skill_never_moves(clock):
         "train: rested — the pool has drained",
         "train: 1 cycle(s) done",
     ]
+
+
+def test_a_staying_healer_is_not_waited_on_once_the_student_is_clean(
+    clock, monkeypatch
+):
+    # 2026-09-27: Riphik healed Cecil in ninety seconds, then himself for
+    # eight minutes while Cecil stood by. With helper_after "stay" the
+    # task ends when the panel is clean; ;empath runs on, never told
+    # return.
+    from client.game import helper
+
+    world = HelperWorld([["empath"]])  # still healing himself
+
+    def heal(s):
+        s.state.injuries = {}  # Riphik has taken everything
+
+    monkeypatch.setattr(train, "HelperIO", world)
+    monkeypatch.setattr(
+        train,
+        "start_helper",
+        lambda s, task, db, walk: helper.Helper("Riphik", 4260, True),
+    )
+    fake = Fake([lambda s: None, heal])  # hurt at the start, clean a poll on
+    fake.state.injuries = {"chest": ("wound", 2)}
+    clock["fake"] = fake
+    task = normalize({"tasks": [HEAL | {"helper_after": "stay"}]})["tasks"][0]
+    assert train.run_task(fake, plan(poll=10), task, db=MAP, walk=walk) == "healed"
+    assert world.sent == []  # no ;empath return, no ;logout

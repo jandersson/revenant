@@ -260,6 +260,7 @@ ENDINGS = {
     "shutdown": "wound down for the game's shutdown",
     "hostiles": "ended among hostiles — got away",
     "helper done": "its helper's script ended",
+    "healed": "healed — the helper finishes on its own",
     "unneeded": "not needed",
 }
 UNTRAINED = ("skipped", "failed", "crashed")  # a task that never trained
@@ -321,12 +322,19 @@ def run_helper_task(s, plan, task, deadline, active, db):
     while the helper's script runs; "helper done" once it has ended."""
     io = HelperIO(s, db)
     script = helper.spec_of(task)["script"]
+    # A helper that stays needs no waiting on past the student's own
+    # need: Riphik healed Cecil in ninety seconds and then himself for
+    # eight minutes while Cecil stood by (2026-09-27). A `when: wounded`
+    # task ends once the panel is clean; the helper's script runs on.
+    healed_ends = task.get("when") == "wounded" and task.get("helper_after") == "stay"
     while True:
         reason = watch(s, plan, task, deadline)
         if reason is not None:
             return reason
         if helper.running(io, active, script) is False:
             return "helper done"
+        if healed_ends and not wounded(s):
+            return "healed"
         s.sleep(plan["poll"])
 
 
@@ -375,7 +383,12 @@ def run_task(s, plan, task, db=None, walk=None):
         s.echo(f"train: {task['name']} has no script, commands or helper — skipped")
         reason = "skipped"
     end_helper(
-        s, task, active, following_task(plan, task), db, ended=reason == "helper done"
+        s,
+        task,
+        active,
+        following_task(plan, task),
+        db,
+        ended=reason in ("helper done", "healed"),
     )
     if reason != "dead":
         send_each(s, task["teardown"])
