@@ -973,6 +973,7 @@ BROKE_OFF = (  # a break-off's reasons: the ground is left, home or not
     "below the floor",
     "at the wound floor",
     "beyond you",
+    "ground taken",
 )
 
 
@@ -1654,7 +1655,11 @@ def settle(s, db, ground, avoid, tally):
         if not names:
             return True
         s.echo(f"hunt: {', '.join(names)} hunting here — their room, moving on")
-        if not next_room(s, db, ground, avoid, tally):
+        # Walked out whatever is in it: the creatures are theirs, and
+        # next_room's "something arrived — staying" held Cecil in
+        # Ketamira's room six times over until the ground was called
+        # taken (2026-09-27).
+        if not step_on(s, db, ground, avoid):
             # Said: on 2026-09-26 the walk off an occupied room failed on
             # a map edge and the hunt ended without a word, the character
             # standing in the field.
@@ -1708,9 +1713,19 @@ def next_room(s, db, ground, avoid, tally):
         # fight in, never to walk out of engaged.
         s.echo("hunt: something arrived — staying")
         return True
+    s.echo("hunt: room empty — moving on")
+    return step_on(s, db, ground, avoid)
+
+
+def step_on(s, db, ground, avoid):
+    """The walk to the next room of the ground, cyclically; False only
+    when the walk fails."""
+    here = locate(db, s.state)
+    others = [room for room in ground if room != here]
+    if not others:
+        return True
     later = [room for room in others if here is not None and room > here]
     target = (later or others)[0]
-    s.echo("hunt: room empty — moving on")
     if not walk(s, db, {target}, describe=f"room {target}", avoid=avoid):
         return False
     probe.collect(s, SETTLE_SECONDS)
@@ -2088,6 +2103,9 @@ def hunt(s, profile, db, travel=True, avoid=()):
             return
         probe.collect(s, SETTLE_SECONDS)
     if travel and not settle(s, db, ground, avoid, tally):
+        # Home, as any end (2026-09-27: the ground given up ended the
+        # hunt in a taken room, among its goblins).
+        go_home(s, profile, db, ground, avoid, "ground taken")
         return
     wear_bundle(s, profile, tally)
     cast_buffs(s, profile, tally)
@@ -2124,6 +2142,14 @@ def hunt(s, profile, db, travel=True, avoid=()):
     )
     if s.dead:
         return
+    go_home(s, profile, db, ground, avoid, reason)
+    if reason.startswith("returning on request") and not s.dead:
+        sell_and_bank(s)
+
+
+def go_home(s, profile, db, ground, avoid, reason):
+    """Every end of a hunt: home when the profile names one, else off
+    the ground after a break-off, and never an end among hostiles."""
     # The weapon stays in hand at every end: a stowed weapon is no
     # parry (2026-09-12, three rats and an empty hand after a stop),
     # and nothing a hunt hands over to needs both hands. Its container
@@ -2140,8 +2166,6 @@ def hunt(s, profile, db, travel=True, avoid=()):
         # Never an end among them (#314): the walk home or off the
         # ground failed, or never ran — keep getting away.
         flight.react(s, "hunt")
-    if reason.startswith("returning on request") and not s.dead:
-        sell_and_bank(s)
 
 
 def sell_and_bank(s):

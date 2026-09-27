@@ -832,12 +832,28 @@ def test_a_ground_with_someone_in_every_room_is_left_to_them(travel):
     assert any("leaving it to them" in text for text in arena.echoed)
 
 
+def test_an_occupied_room_is_left_whatever_is_in_it_and_a_taken_ground_goes_home(
+    travel,
+):
+    # 2026-09-27: the goblins in Ketamira's room held Cecil there —
+    # "something arrived — staying" six times — until the ground was
+    # called taken, and the hunt ended in that room among them.
+    arena = Arena({"attack": [(KILL, kill)]})  # a rat in every room
+    arena.state.room_players = ["Bankismo"]
+    _run(arena)
+    assert not any(c.startswith("attack") for c in arena.sent)
+    assert not any("something arrived — staying" in t for t in arena.echoed)
+    assert {6047} in arena.walks  # walked on out of the taken room
+    assert any("leaving it to them" in t for t in arena.echoed)
+    assert arena.walks[-1] == {1}  # and home
+
+
 def test_a_failed_walk_off_an_occupied_room_is_said(travel, monkeypatch):
     # 2026-09-26: the walk on from a room two players held failed on a
     # map edge and ;hunt ended without a word, Cecil standing in a field.
     arena = Arena({"attack": [(KILL, kill)]}, hostiles=())
     arena.state.room_players = ["Bankismo"]
-    monkeypatch.setattr(hunt, "next_room", lambda *args, **kwargs: False)
+    monkeypatch.setattr(hunt, "step_on", lambda *args, **kwargs: False)
     _run(arena)
     assert any(
         "could not walk on to another room of the ground — stopping" in text

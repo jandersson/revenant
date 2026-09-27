@@ -17,7 +17,7 @@
 
 - Under `;train`, `;hunt return` skips the selling and banking; the plan has its own tasks for those ([training.md](training.md)).
 - The weapon stays in hand when the hunt ends.
-- A room another player is already in is theirs: the hunt moves on without a swing. A room full of creatures is fought, one at a time.
+- A room another player is already in is theirs: the hunt moves on without a swing, whatever creatures are in it. With every room taken, it goes home. A room full of creatures is fought, one at a time.
 
 ## The profile
 
