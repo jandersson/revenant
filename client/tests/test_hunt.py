@@ -138,6 +138,22 @@ def test_the_turn_in_hand_stays_below_the_target_and_the_emptiest_follows_it():
     assert _turns(ms, held=1) is None  # every skill locked
 
 
+def test_equally_empty_pools_go_to_the_weakest_weapon_first():
+    # 2026-09-27: after a rest every pool read 0/34 and the plan's order
+    # alone picked the handaxe, fists and mace in turn; the 30-minute
+    # hunt ended before the weakest weapons (ranks 15 and 9) got one.
+    ms = {
+        "Small Edged": {"rank": 60, "mindstate": 0},
+        "Brawling": {"rank": 61, "mindstate": 0},
+        "Small Blunt": {"rank": 24, "mindstate": 0},
+    }
+    assert _turns(ms, from_current=True) == 2  # the mace, rank 24
+    ms["Small Blunt"]["mindstate"] = 30
+    assert _turns(ms, held=2) == 0  # then the handaxe (60) before the fists (61)
+    ms["Small Edged"]["mindstate"] = 5
+    assert _turns(ms, held=2) == 1  # an emptier pool still comes first
+
+
 def test_a_single_fists_turn_hunts_bare_handed_whatever_the_weapon_says(travel):
     # 2026-09-20: Small Edged outgrew the badgers and the operator left
     # "fists:Brawling" alone in `weapons`; the list was ignored below two

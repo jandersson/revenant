@@ -660,13 +660,17 @@ def turn_target(profile):
 def next_turn(s, profile, tally, from_current=False, leave=False):
     """The weapons entry to fight with. The one in hand while its skill
     sits below `turn_target` — a kill does not hand it on; else the open
-    turn whose skill has the emptiest pool (the lowest mindstate, the
-    plan's order after the one in hand breaking ties), one below the
+    turn whose skill has the emptiest pool (the lowest mindstate; the
+    lowest rank, then the plan's order after the one in hand, breaking
+    ties — after a rest every pool reads 0, and the order alone gave the
+    first three weapons each 30-minute hunt while Large Edged and Large
+    Blunt, ranks 15 and 9, never got a turn, 2026-09-27), one below the
     target first and one past it, toward lock, when none is below. So
     each weapon fills to the target and the next starts moving (the
     operator, 2026-09-26: the number of skills moving is the measure).
     `from_current` is the hunt's start: nothing is in hand, the emptiest
-    pool takes it, the plan's order breaking ties. `leave` hands the one
+    pool takes it, the lowest rank and then the plan's order breaking
+    ties. `leave` hands the one
     in hand over (a stalled turn). None when no turn is open: every skill
     is locked (a turn with no skill never locks and is never below the
     target — it fights when nothing else can) or, with `leave`, the one
@@ -705,7 +709,15 @@ def next_turn(s, profile, tally, from_current=False, leave=False):
         return held
     below = [index for index in open_turns if pool(index) < target]
     candidates = below or open_turns
-    return min(candidates, key=lambda index: (pool(index), candidates.index(index)))
+
+    def rank(index):
+        skill = plan[index]["skill"]
+        return rank_of(s.state, skill) if skill else 0
+
+    return min(
+        candidates,
+        key=lambda index: (pool(index), rank(index), candidates.index(index)),
+    )
 
 
 def arm(s, profile, tally, index):
@@ -733,6 +745,11 @@ def arm(s, profile, tally, index):
 def mindstate_of(state, skill):
     experience = getattr(state, "experience", None) or {}
     return (experience.get(skill) or {}).get("mindstate", 0)
+
+
+def rank_of(state, skill):
+    experience = getattr(state, "experience", None) or {}
+    return (experience.get(skill) or {}).get("rank", 0)
 
 
 # A turn that goes this many swings without a kill hands the hands to
