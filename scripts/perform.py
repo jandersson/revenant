@@ -1,4 +1,60 @@
-"""Train Performance by playing the profile's instrument:  ;perform
+"""Train Performance by playing the profile's instrument to mind-lock:  ;perform
+
+    ;perform                    play the rank's song off-key until Performance mind-locks
+    ;perform instrument=<noun>  another instrument (the profile's `instrument` otherwise)
+    ;perform song=<song>        a song of your own instead of the rank's
+    ;perform mood=<style>       another style (off-key by default; mood= alone for the plain style)
+    ;perform until=30           stop at that mindstate instead of 34
+    ;perform once               exit at mind-lock instead of holding for the drain
+    ;perform return             (typed while it runs) stop the song and end
+    ;stop perform               quit at once; the song plays on (STOP PLAY yourself)
+
+What it does
+  - PLAYs the song for your rank band, starts it again when it ends, watches the mindstate.
+  - At mind-lock STOPs PLAY and holds until the pool drains, then plays again.
+  - A room that refuses a song sends it to the profile's `home` once, to play there.
+  - An instrument the game calls dirty is cleaned once a run with `instrument_cloth`
+    (removed and worn again, wiped when wet); with no cloth it plays dirty.
+  - Nothing is ever dropped: whatever else is in hand is stowed for the cloth.
+
+When it stops
+  - death, or hostiles in the room (the shared escape)
+  - the instrument not on you, or EXP showing no Performance
+  - a song refused at home too, or a PLAY answer it does not know
+  - mind-lock with `once`, or ;perform return
+
+;train runs it as a Performance task. The profile is ~/.revenant/profiles/<name>.json
+(File > Character Profile...); the songs and wordings are client/game/perform.py's.
+"""
+
+import re
+import time
+
+from client.engine.xml_data import LEARNING_RATES
+from client.game import flight
+from client.game import probe
+from client.game.loop import danger, wants_stop
+from client.game.perform import (
+    ALREADY,
+    CLEANED,
+    DIRTY,
+    ENDED,
+    IN_COMBAT,
+    MUST_HOLD,
+    NO_CLOTH,
+    NO_INSTRUMENT,
+    NOT_HERE,
+    STARTED,
+    STOPPED,
+    WET,
+    parse_args,
+    play_command,
+    song_for,
+)
+
+# The design notes the manual above leaves out: what each rule came
+# from, with its issue — read by people, never served as ;help.
+_NOTES = """Train Performance by playing the profile's instrument:  ;perform
 
     ;perform                    play the rank's song off-key on the profile's instrument until mind-lock
     ;perform instrument=zills   another instrument (the profile's `instrument` otherwise)
@@ -43,31 +99,6 @@ over (#233). No cloth in the profile, or none on you, is said once
 and the song plays dirty; nothing is ever dropped.
 Stop with:  ;stop perform (the song plays on — STOP PLAY yourself), or ;perform return.
 """
-
-import re
-import time
-
-from client.engine.xml_data import LEARNING_RATES
-from client.game import flight
-from client.game import probe
-from client.game.loop import danger, wants_stop
-from client.game.perform import (
-    ALREADY,
-    CLEANED,
-    DIRTY,
-    ENDED,
-    IN_COMBAT,
-    MUST_HOLD,
-    NO_CLOTH,
-    NO_INSTRUMENT,
-    NOT_HERE,
-    STARTED,
-    STOPPED,
-    WET,
-    parse_args,
-    play_command,
-    song_for,
-)
 
 MIND_LOCK = 34
 RESUME_BELOW = 28  # resume once enough has drained to be worth a song
