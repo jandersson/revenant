@@ -395,6 +395,9 @@ def end_helper(s, task, active, following, db, ended=False):
         return
     spec = helper.spec_of(task)
     keep = helper.keeps(following, active.name)
+    if task.get("helper_after") == "stay" and not keep:
+        keep = True
+        s.echo(f"train: {active.name} stays logged in")
     if helper.finish(HelperIO(s, db), active, spec["script"], keep, s.echo, ended):
         SPAWNED.discard(active.name.lower())
 

@@ -23,7 +23,9 @@ account with a logged-in character has that one `;logout` first
 (Riphik and Westan). A task with no script or commands of the
 student's own lasts while the helper's script runs (the session's
 `scripts` state) — Riphik's `;empath cecil` after a hunt — and ends
-without a return word that would start the script again.
+without a return word that would start the script again. A task whose
+`helper_after` is "stay" leaves the helper logged in for the next one
+(Riphik between heals; the session answers the idle warning itself).
 Every line to the helper goes through the wire tagged "train", so its
 window reads `>> [train] ...`. A helper that cannot be had — no
 account cached for the name, no password in the keychain, a session

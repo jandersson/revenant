@@ -92,6 +92,9 @@ TASK_DEFAULTS = {
     "helper_script": "",
     "helper_args": [],
     "helper_room": "",
+    # "stay": the helper stays logged in after the task (Riphik
+    # waiting for the next heal); blank logs a spawned one out.
+    "helper_after": "",
     # "wounded": the task is skipped while the injuries panel is clean.
     "when": "",
     # None: the plan's value applies.
@@ -142,6 +145,7 @@ TASK_FIELDS = (
     ("helper_script", "Helper's script", "str", "teach (the default)"),
     ("helper_args", "Helper's arguments", "list", "parry ability, to, cecil"),
     ("helper_room", "Room for both", "str", "7890 — blank: where you stand"),
+    ("helper_after", "Helper afterwards", "str", "stay — blank: logged out"),
     ("when", "Only when", "str", "wounded — blank: always"),
     ("target", "Own target mindstate", "optint", "blank: the plan's"),
     ("minutes", "Own time budget, minutes", "optint", "blank: the plan's"),
@@ -217,7 +221,7 @@ def normalize_task(values, index=0) -> dict:
             task[key] = _int(value, TASK_DEFAULTS[key])
         elif key in _TASK_OPTIONAL_INTS:
             task[key] = None if value in (None, "") else _int(value, None)
-        elif key in ("name", "script", "return_word", "when"):
+        elif key in ("name", "script", "return_word", "when", "helper_after"):
             task[key] = str(value or "").strip()
         else:
             task[key] = value  # a key this build doesn't know: kept as is

@@ -63,6 +63,7 @@ A task:
 | `setup`, `teardown` | sent before and after the task (`get my flute` / `stow my flute`) |
 | `target`, `minutes` | this task's own target and budget |
 | `helper`, `helper_script`, `helper_args`, `helper_room` | a second character of yours logged in for the task, such as a teacher for `;listen`; one sharing its account with a logged-in character logs that one out first |
+| `helper_after` | `stay`: the helper stays logged in after the task, ready for the next |
 | `when` | `wounded`: skipped while the injuries panel is clean |
 
 A task with no `skills` runs once per cycle for its `minutes`: selling skins, banking, spending TDPs, a timed box farm.
@@ -75,7 +76,7 @@ A few tasks:
 {"name": "hunt", "skills": ["Brawling"], "script": "hunt", "return_word": "return"}
 {"name": "bank", "skills": [], "script": "bank"}
 {"name": "books", "skills": ["Scholarship"], "script": "scholarship", "args": ["books"], "return_word": "return"}
-{"name": "heal", "helper": "Riphik", "helper_script": "empath", "helper_args": ["cecil"], "helper_room": "7890", "when": "wounded", "minutes": 20}
+{"name": "heal", "helper": "Riphik", "helper_script": "empath", "helper_args": ["cecil"], "helper_room": "7890", "helper_after": "stay", "when": "wounded", "minutes": 20}
 ```
 
 ## Trainers

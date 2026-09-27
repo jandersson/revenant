@@ -896,3 +896,23 @@ def test_a_helper_alone_is_a_valid_task():
     assert validate(normalize(DEFAULTS | {"tasks": [{"name": "neither"}]})) == [
         "task neither: names no script, commands or helper"
     ]
+
+
+def test_a_helper_told_to_stay_is_not_logged_out(clock, monkeypatch):
+    # The operator, 2026-09-27: keep Riphik logged in between heals.
+    from client.game import helper
+
+    world = HelperWorld([["empath"], []])
+    monkeypatch.setattr(train, "HelperIO", world)
+    monkeypatch.setattr(
+        train,
+        "start_helper",
+        lambda s, task, db, walk: helper.Helper("Riphik", 4260, True),
+    )
+    fake = Fake()
+    fake.state.injuries = {"chest": ("wound", 2)}
+    clock["fake"] = fake
+    task = normalize({"tasks": [HEAL | {"helper_after": "stay"}]})["tasks"][0]
+    assert train.run_task(fake, plan(poll=10), task, db=MAP, walk=walk) == "helper done"
+    assert world.sent == []
+    assert "train: Riphik stays logged in" in fake.echoed
