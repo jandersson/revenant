@@ -1,4 +1,50 @@
-"""Eat the herb that treats each wound, buying what is missing:  ;heal
+"""Treat your wounds with herbs, an NPC healer or your own Empath:  ;heal
+
+    ;heal                  HEALTH, then take a carried herb for each wound at the floor or worse
+    ;heal list             the wounds, their herbs and the town's shop; nothing taken
+    ;heal buy              ... and buy the missing herbs at the herbalist, coins from the teller first
+    ;heal floor=<level>    treat wounds this bad or worse (default insignificant; floor=minor)
+    ;heal npc              the nearest NPC healer: friendly demeanor, LIE DOWN, paid per part
+    ;heal quentin          that healer by name (arthianna, fraethis likewise)
+    ;heal healer=<word>    the healer whose room title holds <word>
+    ;heal <empath>         log in your own Empath, walk them to you, ;empath <you>, log them out
+    ;heal <empath> stay    ... and leave them logged in
+    ;heal return           (typed while it runs) end after the herb in hand, the healer or the Empath
+    ;stop heal             quit at once
+
+Herbs
+  - One herb per wounded part, the first the town sells; salves rubbed on, potions drunk.
+  - buy ORDERs each by the herbalist's catalog name; a quote above the purse is skipped.
+  - A herb no shop sells to eat (the scar herbs) is said so before any walk.
+  - Bleeding is reported, not treated: ;tend does that.
+
+NPC healer
+  - For nerve damage and internal scars, which no herb touches.
+  - Paid in his province's coin: foreign coins EXCHANGEd near him first; an empty purse stops it.
+  - Part by part until twenty quiet seconds, then HEALTH and what he took.
+
+Your own Empath
+  - Found logged in, or logged in off the keychain; ;empath takes every wound and scar.
+
+Nothing walks back afterwards; death stops it. Herbs: client/game/herbs.py
+(Elanthipedia's Healing herbs); docs/healing.md.
+"""
+
+import re
+
+from client.game import helper, herbs, probe
+from client.game.loop import wants_stop
+from client.game.bank import exchange_command, foreign, handed
+from client.game.mapdb import MapDB
+from client.game.money import parse_wealth, phrase, split
+from client.game.soul import currency_for
+from client.game.walker import avoided_rooms, locate, walk
+from client.game.wounds import SEVERITIES, level, parse_health
+from client.settings import load_settings
+
+# The design notes the manual above leaves out: what each rule came
+# from, with its issue — read by people, never served as ;help.
+_NOTES = """Eat the herb that treats each wound, buying what is missing:  ;heal
 
     ;heal                HEALTH, then EAT a carried herb for every wound at the floor or worse
     ;heal list           the wounds, the herbs that treat them and the town's shop; nothing eaten
@@ -89,18 +135,6 @@ Exchange), the way ;bank does it. Nothing walks back afterwards.
 Stops on death and on `return`.
 Stop with:  ;stop heal (at once), or ;heal return for a clean finish.
 """
-
-import re
-
-from client.game import helper, herbs, probe
-from client.game.loop import wants_stop
-from client.game.bank import exchange_command, foreign, handed
-from client.game.mapdb import MapDB
-from client.game.money import parse_wealth, phrase, split
-from client.game.soul import currency_for
-from client.game.walker import avoided_rooms, locate, walk
-from client.game.wounds import SEVERITIES, level, parse_health
-from client.settings import load_settings
 
 TOWN = "Crossing"
 DEFAULT_FLOOR = "insignificant"
