@@ -133,8 +133,11 @@ Traps that cost time before:
   it two ways: `;help <name>` and `;<name> help` (the latter answered
   before the script is started or, when it runs, handed the word). So
   a script never parses "help" itself, and its docstring opens with
-  the usage lines — every verb and option, one per line — before the
-  story. Two ways to end a script, the same for all of them: `;stop
+  the usage lines — every verb and option, one per line — then a few
+  short lists (what it does, what stops it), a screenful at most; the
+  design history and wordings go in a `_NOTES` string below the
+  imports, never in the manual (the operator, 2026-09-27: ";hunt help
+  is unreadable" at 2,280 words). Two ways to end a script, the same for all of them: `;stop
   <name>` quits at once, wherever the character stands; a typed
   `;<name> return` is the graceful end (finish the kill or the
   perceive, walk home). Never a `stop` word of a script's own.

@@ -1,4 +1,50 @@
-"""Hunt a ground in a loop, the way your character does it:  ;hunt
+"""Hunt your profile's ground, train its weapons, walk home:  ;hunt
+
+    ;hunt                   walk to the ground and hunt until one of the stops below
+    ;hunt here              hunt where you stand, no walk
+    ;hunt <style>           a hunt style from the profile's `hunts` (its ground, prey, weapons, `until`)
+    ;hunt styles            list the profile's hunt styles
+    ;hunt profile [style]   print the profile the hunt would use
+    ;hunt grounds [rank]    hunting zones for your weakest weapon's rank (or <rank>), nearest first
+    ;hunt return            (typed while it runs) finish the kill, walk home, sell and bank
+    ;stop hunt              quit where you stand
+
+What it does
+  - Walks to the ground (a map tag, a bestiary zone or a ;go2 target) with the buffs up.
+  - Fights one creature at a time: attack, skin, loot, gems and boxes stowed.
+  - Moves room to room; a room another player hunts is theirs and is skipped.
+  - Trains the `weapons` in turn: the emptiest pool first, each to `weapon_target`.
+  - Between swings, as the profile says: maneuvers, SMITE, training casts,
+    HUNT for Perception; a Barbarian's combos, abilities and roars instead.
+
+When it stops, and walks home
+  - health below `health_floor`, or a wound at `wound_floor` (also checked before setting out)
+  - 60 swings without a kill, or three stuns in one fight
+  - every trained skill mind-locked, or the style's `until` (boxes, kills)
+  - every room of the ground taken by other players
+  - ;hunt return (under ;train the plan sells and banks instead)
+
+The profile is ~/.revenant/profiles/<name>.json (File > Character Profile...);
+docs/hunting.md explains every key. Report any "hunt: unrecognized ..." line.
+"""
+
+import json
+import logging
+import re
+import time
+from pathlib import Path
+from collections import Counter
+
+from client.game import barbarian, buffs, flight, hunting, loot, lootlog, probe
+from client.game.creatures import aim, noun_of, outgrown
+from client.game.probe import classify
+from client.game.profile import describe, load_profile
+from client.game.walker import DIRECTIONS, locate, walk
+from client.game.wounds import SEVERITIES, level, parse_health
+
+# The design notes the manual above leaves out: what each rule came
+# from, with its issue — read by people, never served as ;help.
+_NOTES = """Hunt a ground in a loop, the way your character does it:  ;hunt
 
 Walks to your profile's hunting ground (;go2's map), readies the weapon
 and stance, and fights whatever engages you until you say stop: attack,
@@ -202,20 +248,6 @@ lich-5's drdefs.rb (#278). The balance word the game states ("solidly
 balanced", lich-5's DRStats.balance) is tallied per swing and
 reported at the end — a reading, no rule yet (#280).
 """
-
-import json
-import logging
-import re
-import time
-from pathlib import Path
-from collections import Counter
-
-from client.game import barbarian, buffs, flight, hunting, loot, lootlog, probe
-from client.game.creatures import aim, noun_of, outgrown
-from client.game.probe import classify
-from client.game.profile import describe, load_profile
-from client.game.walker import DIRECTIONS, locate, walk
-from client.game.wounds import SEVERITIES, level, parse_health
 
 MAX_ACTIONS = 600  # swings per run, not forever — the fuse under the loop
 # The outer fuse, moves and waits included: an empty ground laps for
