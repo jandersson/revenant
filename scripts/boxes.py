@@ -1,5 +1,83 @@
 """Train Locksmithing on the boxes the hunt brought home:  ;boxes
 
+    ;boxes                  every box in the loot container, then in any other container holding one
+    ;boxes source=<bag>     that container alone instead of the profile's `loot_container`
+    ;boxes careful          every DISARM and PICK careful, whatever the reading
+    ;boxes safe             put back every box reading "longshot" or harder, no exceptions
+    ;boxes stand            stay standing (the script sits, which helps)
+    ;boxes limit=<n>        stop after n boxes opened
+    ;boxes until=<n>        treat that mindstate as the lock instead of 34
+    ;boxes once             exit at the lock instead of holding for the drain
+    ;boxes tries=<n>        tries at a trap or a lock before the box goes back (5)
+    ;boxes return           (typed while it runs) finish the box in hand and end
+    ;stop boxes             quit at once
+
+What it does
+  - Sits, takes off the `hindering_gear`, and per box: DISARM, PICK, OPEN, empty, DISMANTLE.
+  - Puts back a trap reading "longshot" or worse unless it is a nuisance trap;
+    a deadly or unknown one always.
+  - Picks with the `lockpick` or the worn `lockpick_ring`, refilled once a run at
+    Ragge's (`lockpick_refill` of `lockpick_kind`; 0 never buys).
+  - Coins to the purse, gems to `gem_pouch`, the rest to the loot container.
+  - At the lock it holds until Locksmithing drains, then goes on.
+
+Never a drop
+  - An undismantled box goes in the room's bucket only if settings.json's
+    `droppable` lists it, else back into the container.
+  - A box with no room anywhere is lowered to the feet, and LIFTed again before
+    any flight, walk or end, ;stop included.
+
+When it stops
+  - every box tried, the `limit`, or the lock with `once`
+  - below `health_floor` or a wound at `wound_floor`, so ;heal can run
+  - no lockpick left, death, or hostiles (it flees)
+  - ;boxes return; the gear goes back on however it ends
+
+client/game/boxes.py is the model, after dr-scripts' pick.lic and Elanthipedia;
+docs/training.md has the profile keys. Report any "boxes: <command> answered ..." line.
+"""
+
+from client.engine.scripting import ScriptStopped
+from client.game import discard, flight, probe
+from client.game import boxes as boxes_model
+from client.game.boxes import (
+    DISARM_OUTCOMES,
+    LOCK_CAUTION,
+    LOCK_READINGS,
+    OPEN_OUTCOMES,
+    LOCKPICK_CATALOG,
+    LOCKPICK_SHOP,
+    ORDER_BOUGHT,
+    PICK_OUTCOMES,
+    RING_EMPTY,
+    RING_REFUSED,
+    DISMANTLED,
+    TOAD,
+    SKILL,
+    TAKE_OUTCOMES,
+    TOO_HARD,
+    TRAP_CAUTION,
+    TRAP_READINGS,
+    box_containers,
+    boxes_in,
+    caution,
+    containers,
+    held_boxes,
+    listed,
+    order_quote,
+    parse_args,
+    reading,
+)
+from client.game.creatures import noun_of, phrase
+from client.game.loop import danger, ensure_mindstate, mindstate, pause, wants_stop
+from client.game.loot import GEM_NOUNS
+from client.game.probe import classify
+from client.game.wounds import level, parse_health
+
+# The design notes the manual above leaves out: what each rule came
+# from, with its issue — read by people, never served as ;help.
+_NOTES = """Train Locksmithing on the boxes the hunt brought home:  ;boxes
+
     ;boxes                      every box in the loot container, then any other container INV LIST shows one in: disarmed, picked, opened, emptied
     ;boxes source=backpack      that container alone instead of the profile's loot_container
     ;boxes careful              every DISARM and PICK careful, whatever the reading says
@@ -98,43 +176,6 @@ the first answer of each kind in a run is echoed as
 "boxes: <command> answered ..." so they become fixtures — report them.
 Stop with:  ;stop boxes, or ;boxes return.
 """
-
-from client.engine.scripting import ScriptStopped
-from client.game import discard, flight, probe
-from client.game import boxes as boxes_model
-from client.game.boxes import (
-    DISARM_OUTCOMES,
-    LOCK_CAUTION,
-    LOCK_READINGS,
-    OPEN_OUTCOMES,
-    LOCKPICK_CATALOG,
-    LOCKPICK_SHOP,
-    ORDER_BOUGHT,
-    PICK_OUTCOMES,
-    RING_EMPTY,
-    RING_REFUSED,
-    DISMANTLED,
-    TOAD,
-    SKILL,
-    TAKE_OUTCOMES,
-    TOO_HARD,
-    TRAP_CAUTION,
-    TRAP_READINGS,
-    box_containers,
-    boxes_in,
-    caution,
-    containers,
-    held_boxes,
-    listed,
-    order_quote,
-    parse_args,
-    reading,
-)
-from client.game.creatures import noun_of, phrase
-from client.game.loop import danger, ensure_mindstate, mindstate, pause, wants_stop
-from client.game.loot import GEM_NOUNS
-from client.game.probe import classify
-from client.game.wounds import level, parse_health
 
 # A session started before client/game/boxes.py joined RELOADABLE_MODULES
 # keeps the copy it first imported (2026-09-23: the loop's first boxes
