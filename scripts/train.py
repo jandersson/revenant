@@ -1,5 +1,65 @@
 """Train a character by plan — tasks until their skills fill, then rest:  ;train
 
+    ;train               run the plan until stopped (or its `cycles` run out)
+    ;train once          one train-rest cycle
+    ;train task <name>   that one task, once, no rest (a helper's login and logout included)
+    ;train plan          print the plan it would run
+    ;train status        the tracked skills' mindstates (also while running)
+    ;train init [force]  write the starter plan (force overwrites one)
+    ;train skip          (typed while it runs) end the current task, or the rest
+    ;train rest          (typed while it runs) stop training and rest now
+    ;train return        (typed while it runs) the task's script gets its own return
+                         word (;hunt finishes the kill, walks home); no task or rest follows
+    ;stop train          quit at once; a task's script stops with it
+
+What it does
+  - Runs each task whose skills sit below the target mindstate, until they reach
+    it or its time budget runs out: a bundled script, a command loop, or a helper's.
+  - Rests in a safe room (several rotate) until every trained skill has drained
+    to `rest_until`, when the pool converts to ranks; the drain model guesses how long.
+  - Keeps the most skills moving: a task whose skills drain first trains again
+    during the rest (`top_up`, once a rest).
+  - In the rests: soul deeds when `soul` is on, stat points from the plan's `tdp` list.
+  - Hostiles at the rest send it to the next safe room, or next door.
+
+When it stops
+  - death, or a cycle in which no task trained
+  - the game's maintenance shutdown within `shutdown_minutes`
+  - the plan's `cycles` done, ;train return, or ;stop train
+
+The plan is ~/.revenant/training/<name>.json; docs/training.md explains every key.
+"""
+
+import sqlite3
+import time
+
+from client.game import drain, flight, helper
+from client.game.history import database_path
+
+from client.game.training import (
+    describe,
+    load_plan,
+    next_task,
+    plan_path,
+    rested,
+    safe_room,
+    top_up_tasks,
+    satisfied,
+    save_plan,
+    starter_plan,
+    status_lines,
+    task_minutes,
+    task_mindstates,
+    task_target,
+    tracked_skills,
+    validate,
+)
+
+
+# The design notes the manual above leaves out: what each rule came
+# from, with its issue — read by people, never served as ;help.
+_NOTES = """Train a character by plan — tasks until their skills fill, then rest:  ;train
+
 The orchestrator: a loop over your training plan
 (~/.revenant/training/<name>.json — ;train init writes a starter,
 ;train plan shows it, docs/training.md explains every key). Each task ties skills to what trains them — a bundled
@@ -53,31 +113,6 @@ it is within the plan's `shutdown_minutes` (3), the task in hand gets
 its return word — the hunt finishes the kill and walks home — a rest
 ends, and ;train stops with a word to start it again after.
 """
-
-import sqlite3
-import time
-
-from client.game import drain, flight, helper
-from client.game.history import database_path
-
-from client.game.training import (
-    describe,
-    load_plan,
-    next_task,
-    plan_path,
-    rested,
-    safe_room,
-    top_up_tasks,
-    satisfied,
-    save_plan,
-    starter_plan,
-    status_lines,
-    task_minutes,
-    task_mindstates,
-    task_target,
-    tracked_skills,
-    validate,
-)
 
 clock = time.monotonic  # tests replace it
 EXIT_WAIT = 10  # seconds a killed task script gets to wind down
