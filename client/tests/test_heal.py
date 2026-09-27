@@ -135,17 +135,22 @@ def test_the_arguments_are_a_mode_and_a_floor():
         "mode": "eat",
         "floor": "insignificant",
         "healer": "",
+        "empath": "",
+        "stay": False,
     }
-    assert heal.parse_args(["buy", "floor=minor"]) == {
+    assert heal.parse_args(["buy", "floor=minor"]) | {} == {
         "mode": "buy",
         "floor": "minor",
         "healer": "",
+        "empath": "",
+        "stay": False,
     }
-    assert heal.parse_args(["quentin"]) == {
-        "mode": "npc",
-        "floor": "insignificant",
-        "healer": "quentin",
-    }
+    assert heal.parse_args(["quentin"])["mode"] == "npc"
+    assert heal.parse_args(["quentin"])["healer"] == "quentin"
+    # Any other word is an Empath of your own.
+    assert heal.parse_args(["riphik"])["mode"] == "empath"
+    assert heal.parse_args(["riphik"])["empath"] == "Riphik"
+    assert heal.parse_args(["riphik", "stay"])["stay"] is True
     assert heal.parse_args(["arthianna"])["healer"] == "arthianna"
     assert heal.parse_args(["healer=tending"])["healer"] == "tending"
 
@@ -609,3 +614,97 @@ def test_the_captured_rub_and_eat_answers_read_as_taken():
         "You eat a portion of some hulnik grass.",
     ):
         assert heal.probe.classify(answer, heal.EAT_OUTCOMES) == "ok"
+
+
+class EmpathWorld:
+    """The Empath's side as helper.py sees it: the registry, the login
+    cache, the spawn, the wire, the room and the scripts it runs."""
+
+    def __init__(self, sessions=(), scripts=((),)):
+        self.registry = list(sessions)
+        self.scripts = [list(names) for names in scripts]
+        self.sent = []
+        self.spawned = []
+        self.clock = 0.0
+
+    def sessions(self):
+        return self.registry
+
+    def account_for(self, name):
+        return {"Uthmor": "TESTACCT", "Sable": "TESTACCT"}.get(name)
+
+    def has_password(self, account):
+        return True
+
+    def spawn(self, name, account, parent_port=None):
+        self.spawned.append(name)
+        return 4260
+
+    def own_port(self):
+        return 4242
+
+    def send(self, port, line):
+        self.sent.append((port, line.split("\t", 1)[-1]))
+        if line.endswith(";logout"):
+            self.registry = [r for r in self.registry if r["port"] != port]
+        return True
+
+    def room_of(self, port):
+        return "100"  # the Empath stands in the patient's room
+
+    def scripts_of(self, port):
+        return self.scripts.pop(0) if len(self.scripts) > 1 else self.scripts[0]
+
+    def now(self):
+        return self.clock
+
+    def sleep(self, seconds):
+        self.clock += seconds
+
+
+def patient(health):
+    fake = Fake({"health": health})
+    fake.state.uid = None
+    return fake
+
+
+def empath_call(fake, world, stay=False, monkeypatch=None):
+    monkeypatch.setattr(heal, "locate", lambda db, state: 100)
+    return heal.call_empath(fake, "Uthmor", stay, MAP, io=world)
+
+
+def test_an_empath_of_your_own_is_logged_in_brought_and_logged_out(monkeypatch):
+    # The operator, 2026-09-27: `;heal riphik` — the Empath called in
+    # the way ;train calls a teacher, Sable (on the same account) given
+    # ;logout first, ;empath <you> waited out, then logged out again.
+    world = EmpathWorld(
+        sessions=[{"port": 4243, "character": "Sable"}],
+        scripts=[["empath"], ["empath"], []],
+    )
+    fake = patient([HEALTH, CLEAN])
+    reason = empath_call(fake, world, monkeypatch=monkeypatch)
+    assert reason == "Uthmor is done"
+    assert world.sent[0] == (4243, ";logout")
+    assert world.spawned == ["Uthmor"]
+    assert (4260, ";empath lanival") in world.sent
+    assert world.sent[-1] == (4260, ";logout")
+    assert (4260, ";empath return") not in world.sent
+
+
+def test_an_empath_told_to_stay_or_already_in_stays_logged_in(monkeypatch):
+    world = EmpathWorld(scripts=[["empath"], []])
+    fake = patient([HEALTH, CLEAN])
+    empath_call(fake, world, stay=True, monkeypatch=monkeypatch)
+    assert (4260, ";logout") not in world.sent
+    assert "heal: Uthmor stays logged in" in fake.echoed
+    # One already logged in is found, used, and left as found.
+    found = EmpathWorld(sessions=[{"port": 4261, "character": "Uthmor"}], scripts=[[]])
+    empath_call(patient([HEALTH, CLEAN]), found, monkeypatch=monkeypatch)
+    assert found.spawned == [] and (4261, ";logout") not in found.sent
+
+
+def test_no_wound_calls_no_empath(monkeypatch):
+    world = EmpathWorld()
+    fake = patient([CLEAN])
+    assert empath_call(fake, world, monkeypatch=monkeypatch) == "no wounds"
+    assert world.sent == [] and world.spawned == []

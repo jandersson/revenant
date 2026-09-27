@@ -7,7 +7,7 @@ Stop the bleeding with `;tend`, heal wounds with herbs through `;heal`, and go t
 | Damage | Answer |
 | --- | --- |
 | External bleeding | `;tend` |
-| Internal bleeding | magic (an Empath) |
+| Internal bleeding | magic (an Empath: `;heal <empath>`) |
 | Fresh wounds, external or internal | herbs (`;heal`), or an NPC healer |
 | Nerve damage ("twitching") | an NPC healer |
 | Scars | a player Empath; NPC healers leave them |
@@ -48,6 +48,18 @@ It walks to the healer, sets DEMEANOR FRIENDLY EMPATH (left friendly after), lie
 - The healer takes the province's coins, per part; foreign coins are exchanged first. An empty purse stops it before the walk.
 - Healers: Shard's Quentin, Riverhaven's Fraethis, Leth Deriel's Arthianna. The Crossing has none, and Knife Clan's Dokt only sells herb cookies now.
 - **Caveat:** healers leave scars and minor wounds. Eating a herb first can also make the healer skip that part.
+
+## ;heal <empath>: an Empath of your own
+
+```
+;heal uthmor        log in your Empath character, walk them to you, ;empath <you>, log them out
+;heal uthmor stay   ... and leave them logged in
+```
+
+- It heals everything the Empath can take: wounds, scars, internal bleeding.
+- The Empath's account plays one character at a time: another character logged in on it is logged out first.
+- An Empath already logged in is used and left logged in.
+- In a training plan the same is a task with a `helper` (see [training.md](training.md)).
 
 ## Player Empaths
 

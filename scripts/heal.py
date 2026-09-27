@@ -6,7 +6,9 @@
     ;heal floor=minor    treat wounds this bad or worse (default insignificant)
     ;heal npc            walk to the nearest NPC healer, DEMEANOR FRIENDLY EMPATH, LIE DOWN, paid per part in the province's coin
     ;heal quentin        ... Shard's Quentin by name (arthianna, fraethis, healer=<word in the room's title> likewise); foreign coins EXCHANGEd at the money-changer by the healer first
-    ;heal return         (typed while it runs) end after the herb in hand
+    ;heal <empath>       log in your own Empath character (riphik), walk them to you, ;empath <you>, log them out
+    ;heal <empath> stay  ... and leave them logged in for the next time
+    ;heal return         (typed while it runs) end after the herb in hand, or tell the Empath to finish
 
 Wounds are read from HEALTH by client/game/wounds.py (area, kind,
 severity) and answered by client/game/herbs.py, whose table is
@@ -51,6 +53,17 @@ don't have that reagent in stock.", and EAT's "You eat a portion of
 a nemoih root." — a root has portions, and the rest goes in the sack.
 A herb the shop quotes above the purse is skipped, said so. Nothing
 walks back afterwards.
+An Empath of your own (`;heal riphik`, any word that is not one of the
+above) is logged in the way ;train logs in a helper
+(client/game/helper.py): found in the registry or spawned off the
+keychain — the account's other character given ;logout first, since
+an account plays one character at a time — walked to the room you
+stand in, and started on `;empath <you>`, which takes every wound
+and scar and heals the Empath after (scripts/empath.py). This waits
+while that runs (the Empath session's `scripts` state), then logs a
+spawned Empath out unless told `stay`; one already logged in stays.
+The operator, 2026-09-27: Riphik heals new characters better than
+any herb, scars and internal bleeding included.
 `npc` is the hospital instead of herbs — what heals nerve damage and
 internal scars no shop's herb touches (#218): the nearest room the map
 tags `npchealer` (Knife Clan's retired Dokt excluded; Shard's Quentin,
@@ -79,7 +92,7 @@ Stop with:  ;stop heal (at once), or ;heal return for a clean finish.
 
 import re
 
-from client.game import herbs, probe
+from client.game import helper, herbs, probe
 from client.game.loop import wants_stop
 from client.game.bank import exchange_command, foreign, handed
 from client.game.mapdb import MapDB
@@ -205,7 +218,13 @@ def ask(s, command):
 
 
 def parse_args(args):
-    options = {"mode": "eat", "floor": DEFAULT_FLOOR, "healer": ""}
+    options = {
+        "mode": "eat",
+        "floor": DEFAULT_FLOOR,
+        "healer": "",
+        "empath": "",
+        "stay": False,
+    }
     for arg in args:
         low = arg.strip().lower()
         if low in ("list", "buy", "npc"):
@@ -216,6 +235,11 @@ def parse_args(args):
             options["mode"], options["healer"] = "npc", low
         elif low.startswith("floor="):
             options["floor"] = low.split("=", 1)[1]
+        elif low == "stay":
+            options["stay"] = True
+        elif low and low != "return":
+            # Any other word names an Empath of your own: `;heal riphik`.
+            options["mode"], options["empath"] = "empath", arg.strip().capitalize()
     return options
 
 
@@ -596,8 +620,64 @@ def visit_healer(s, mapdb, walk_fn=walk, avoid=(), healer=""):
     return ("healed" if parts else "not healed"), []
 
 
+EMPATH_SCRIPT = "empath"
+EMPATH_MINUTES = (
+    30  # the Empath's whole run: a login, the walk, the rounds, the self-heal
+)
+EMPATH_POLL = 10  # seconds between looks at the Empath's running scripts
+
+
+def call_empath(s, name, stay, mapdb, io=None):
+    """An Empath of your own logged in (or found), brought to your room,
+    started on ;empath <you> and waited for; logged out after when this
+    run spawned them, unless `stay`. The reason the call ended."""
+    if not wounded_now(s):
+        return "no wounds"
+    patient = str(getattr(s.state, "name", "") or "")
+    here = locate(mapdb, getattr(s, "state", None)) if mapdb is not None else None
+    if not patient or here is None:
+        return f"your room is not on the map — {name} cannot be walked to you"
+    io = io or helper.SessionIO(s, mapdb)
+    active = helper.ensure(io, name, s.echo, own_port=io.own_port())
+    if active is None:
+        return f"{name} could not be had"
+    ended = False
+    reason = f"{name} did not reach you"
+    if helper.bring(io, active, str(here), s.echo):
+        helper.start(io, active, EMPATH_SCRIPT, [patient.lower()])
+        s.echo(f"heal: {name} started ;{EMPATH_SCRIPT} {patient.lower()}")
+        reason = f"{name} ran out of time"
+        deadline = io.now() + EMPATH_MINUTES * 60
+        while io.now() < deadline:
+            if s.dead:
+                reason = "you are dead"
+                break
+            if wants_stop(s):
+                reason = "returning on request"
+                break
+            if helper.running(io, active, EMPATH_SCRIPT) is False:
+                ended = True
+                reason = f"{name} is done"
+                break
+            io.sleep(EMPATH_POLL)
+    helper.finish(io, active, EMPATH_SCRIPT, stay or not active.spawned, s.echo, ended)
+    if active.spawned and stay:
+        s.echo(f"heal: {name} stays logged in")
+    if reason == f"{name} is done" and wounded_now(s):
+        reason += " — some wounds remain"
+    return reason
+
+
+def wounded_now(s):
+    """HEALTH says a wound, a scar or a bleeder."""
+    health = parse_health(ask(s, "health"))
+    return bool(health.wounds or health.bleeding)
+
+
 def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
     """Returns (reason, eaten)."""
+    if options["mode"] == "empath":
+        return call_empath(s, options["empath"], options["stay"], mapdb), []
     if options["mode"] == "npc":
         return visit_healer(s, mapdb, walk_fn, avoid, healer=options["healer"])
     health = parse_health(ask(s, "health"))
@@ -639,7 +719,7 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
 
 def main(s):
     options = parse_args(s.args or [])
-    db = MapDB.load() if options["mode"] in ("buy", "npc") else None
+    db = MapDB.load() if options["mode"] in ("buy", "npc", "empath") else None
     avoid = avoided_rooms(db, load_settings().get("avoid_rooms")) if db else ()
     reason, eaten = run(s, options, mapdb=db, avoid=avoid)
     s.echo(f"heal: {reason} — {len(eaten)} herb(s) eaten")

@@ -36,6 +36,8 @@ through the `io` object `scripts/train.py` provides, so the decisions
 here are tested dry.
 """
 
+from time import monotonic
+
 from client.engine.wire import EXTERNAL_MARK
 
 ORIGIN = "train"
@@ -210,3 +212,97 @@ def finish(io, helper, script, keep, echo, ended=False):
         io.send(helper.port, tagged(";logout"))
         return True
     return False
+
+
+class SessionIO:
+    """What this module needs of the world, for ;train and ;heal alike:
+    the registry, the login cache and keychain, the launcher's spawn,
+    the wire, the map, and the calling script's stop-aware sleep."""
+
+    def __init__(self, s, db=None):
+        self.s = s
+        self.db = db
+
+    def sessions(self):
+        from client.engine.registry import running_sessions
+
+        return running_sessions()
+
+    def account_for(self, name):
+        from client.engine.login import account_for_character, load_login_defaults
+
+        return account_for_character(load_login_defaults(), name)
+
+    def has_password(self, account):
+        from client.engine.login import keychain_password
+
+        return keychain_password(account) is not None
+
+    def own_port(self):
+        """This loop's session port, off the registry by the character's
+        name — the parent a spawned helper watches (#296)."""
+        name = getattr(self.s.state, "name", None)
+        return find_session(self.sessions(), name) if name else None
+
+    def spawn(self, name, account, parent_port=None):
+        from client.engine.launch import (
+            DEFAULT_HOST,
+            get_free_port,
+            spawn_session,
+            wait_for_session,
+        )
+
+        port = get_free_port(DEFAULT_HOST)
+        process = spawn_session(
+            DEFAULT_HOST,
+            port,
+            name,
+            key=None,
+            account=account,
+            spawned_by=ORIGIN,
+            parent_port=parent_port,
+        )
+        try:
+            wait_for_session(process, DEFAULT_HOST, port, timeout=90)
+        except SystemExit:
+            return None
+        return port
+
+    def send(self, port, line):
+        from client.engine.launch import DEFAULT_HOST
+        from client.engine.wire import send_line
+
+        return send_line(DEFAULT_HOST, port, line)
+
+    def room_of(self, port):
+        from client.engine.launch import DEFAULT_HOST
+        from client.engine.wire import request_state
+
+        try:
+            state = request_state(DEFAULT_HOST, port, ["room"], ORIGIN)
+        except OSError:
+            return None
+        uid = (state.get("room") or {}).get("uid") if isinstance(state, dict) else None
+        if not uid or self.db is None:
+            return None
+        room = self.db.room_by_uid(uid)
+        return str(room) if room is not None else None
+
+    def scripts_of(self, port):
+        """The scripts running in the session on `port`, or None when
+        it does not say."""
+        from client.engine.launch import DEFAULT_HOST
+        from client.engine.wire import request_state
+
+        try:
+            state = request_state(DEFAULT_HOST, port, ["scripts"], ORIGIN)
+        except OSError:
+            return None
+        names = state.get("scripts") if isinstance(state, dict) else None
+        return list(names) if isinstance(names, list) else None
+
+    def now(self):
+        return monotonic()
+
+    def sleep(self, seconds):
+        self.s.sleep(seconds)
