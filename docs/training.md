@@ -46,6 +46,7 @@ Edit it in File → Training Plan…, or by hand in `~/.revenant/training/<name>
 | `cycles` | train-rest cycles; 0 loops until stopped |
 | `poll` | seconds between mindstate checks |
 | `soul` | `on` for a Paladin: soul deeds in the rests while the soul is below pristine ([soul.md](soul.md)) |
+| `top_up` | `on` (default): a task whose own skills have all drained trains again during the rest, with the `when` tasks just before it |
 | `tdp` | TDPs spent in the rests: stat targets (`stamina 30`) or `auto` for the guild's order |
 | `tdp_reserve` | TDPs never spent |
 | `shutdown_minutes` | wind down this close to a game shutdown (3) |
@@ -101,7 +102,7 @@ Each is a script with its own manual (`;help <name>`). Under `;train`, give each
 ## Plan well
 
 - **Count the skills moving.** More pools above 0/34 learn more than one pool held full; a full pool wastes what it would have learned.
-- **The slowest skill sets the rest's length.** Lower `rest_until` means longer rests; `rest_minutes` caps them.
+- **The slowest skill sets the rest's length.** Lower `rest_until` means longer rests; `rest_minutes` caps them. With `top_up` on, the tasks that drained first train again in the meantime.
 - **A task killed without a return word leaves the character where it stood.** Use `teardown` for what must be undone, such as a held instrument.
 
 How fast pools drain is in [experience.md](experience.md).

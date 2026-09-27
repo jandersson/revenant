@@ -164,6 +164,7 @@ def walk(s, db, goals, describe="", avoid=()):
 def plan(**overrides):
     values = dict(DEFAULTS)
     values["poll"] = 10
+    values["top_up"] = "off"  # whole rests; the top-up has its own tests
     values["tasks"] = [
         {"name": "climbs", "script": "athletics", "skills": ["Athletics"]},
         {
@@ -916,3 +917,56 @@ def test_a_helper_told_to_stay_is_not_logged_out(clock, monkeypatch):
     assert train.run_task(fake, plan(poll=10), task, db=MAP, walk=walk) == "helper done"
     assert world.sent == []
     assert "train: Riphik stays logged in" in fake.echoed
+
+
+def test_a_task_whose_skills_drain_first_trains_again_during_the_rest(clock):
+    # The operator, 2026-09-27: Cecil's rest waited ~107 minutes on
+    # Attunement and Outdoorsmanship while eight skills sat empty. A task
+    # whose own skills have all drained trains again, then the rest goes on.
+    fake = run(
+        clock,
+        Fake(
+            [
+                {"Athletics": 30, "Small Edged": 30},  # both at target: rest
+                {"Athletics": 5, "Small Edged": 25},  # climbs drained first
+                {"Athletics": 30, "Small Edged": 20},  # climbs trained again
+                {"Athletics": 8, "Small Edged": 8},  # the whole pool drained
+            ]
+        ),
+        plan(top_up="on", safe_rooms=["home"]),
+    )
+    assert fake.started == [("athletics", [])]
+    assert "train: drained — climbs before the rest goes on" in fake.echoed
+    assert "train: back to the rest" in fake.echoed
+    assert fake.walks == [{1}, {1}]  # to the rest, and back to it after
+    assert fake.echoed[-2:] == [
+        "train: rested — the pool has drained",
+        "train: 1 cycle(s) done",
+    ]
+
+
+def test_the_drained_task_brings_the_when_tasks_before_it():
+    from client.game.training import top_up_tasks
+
+    tasks = [
+        {"name": "climbs", "script": "athletics", "skills": ["Athletics"]},
+        HEAL,
+        {"name": "hunt", "script": "hunt", "skills": ["Small Edged", "Brawling"]},
+        {"name": "skins", "script": "skins", "skills": []},
+    ]
+    current = normalize(DEFAULTS | {"tasks": tasks, "top_up": "on"})
+
+    def exp(**states):
+        return {
+            skill.replace("_", " "): {"rank": 1, "percent": 0, "mindstate": state}
+            for skill, state in states.items()
+        }
+
+    ready = top_up_tasks(current, exp(Athletics=20, Small_Edged=3, Brawling=0))
+    assert [task["name"] for task in ready] == ["heal", "hunt"]
+    # One skill still above rest_until keeps the task resting.
+    assert top_up_tasks(current, exp(Athletics=20, Small_Edged=3, Brawling=12)) == []
+    # A task at its target is not topped up; off turns it all off.
+    assert top_up_tasks(current, exp(Athletics=31, Small_Edged=31, Brawling=31)) == []
+    off = normalize(DEFAULTS | {"tasks": tasks, "top_up": "off"})
+    assert top_up_tasks(off, exp(Athletics=0, Small_Edged=0, Brawling=0)) == []

@@ -64,6 +64,9 @@ DEFAULTS = {
     "poll": 30,
     "cycles": 0,
     "soul": "off",
+    # A task whose skills have all drained trains again while the
+    # rest goes on for the others (the operator, 2026-09-27).
+    "top_up": "on",
     "tdp": [],
     "tdp_reserve": 0,
     # The run ends, the task in hand wound down first, once the game's
@@ -73,7 +76,11 @@ DEFAULTS = {
 }
 SOUL = ("off", "on")
 # The choices behind each "choice" plan field, for the dialog.
-CHOICES = {"order": None, "soul": SOUL}  # order's are ORDERS, defined below
+CHOICES = {
+    "order": None,
+    "soul": SOUL,
+    "top_up": SOUL,
+}  # order's are ORDERS, defined below
 
 TASK_DEFAULTS = {
     "name": "",
@@ -121,6 +128,7 @@ PLAN_FIELDS = (
     ("poll", "Seconds between mindstate checks", "int", ""),
     ("cycles", "Train-rest cycles", "int", "0: until stopped"),
     ("soul", "Soul deeds in the rests (a Paladin)", "choice", "on or off"),
+    ("top_up", "Train a drained task during the rest", "choice", "on or off"),
     (
         "tdp",
         "TDPs spent in the rests: stat targets, or auto",
@@ -238,7 +246,7 @@ def normalize(values: dict) -> dict:
             clean[key] = _list(value)
         elif key in _INTS:
             clean[key] = _int(value, DEFAULTS[key])
-        elif key in ("order", "soul"):
+        elif key in ("order", "soul", "top_up"):
             clean[key] = str(value or "").strip().lower() or DEFAULTS[key]
         elif key == "tasks":
             tasks = value if isinstance(value, list) else []
@@ -426,6 +434,38 @@ def rested(plan, experience) -> bool:
         mindstate(experience, skill) <= plan["rest_until"]
         for skill in tracked_skills(plan)
     )
+
+
+def drained(plan, task, experience) -> bool:
+    """True when a task that trains skills has every one at rest_until
+    or below and is not at its target: ready to train again before the
+    whole rest is over."""
+    if not task["skills"] or satisfied(plan, task, experience):
+        return False
+    return all(
+        mindstate(experience, skill) <= plan["rest_until"] for skill in task["skills"]
+    )
+
+
+def top_up_tasks(plan, experience) -> list:
+    """The tasks a rest pauses for (top_up on): the drained ones, each
+    with the `when` tasks right before it in the plan — the heal before
+    the hunt — in plan order; [] when none is drained."""
+    if plan.get("top_up", "on") != "on":
+        return []
+    tasks = plan["tasks"]
+    chosen = []
+    for index, task in enumerate(tasks):
+        if not drained(plan, task, experience):
+            continue
+        before = index
+        while before > 0 and tasks[before - 1].get("when"):
+            before -= 1
+        for companion in tasks[before:index]:
+            if companion not in chosen:
+                chosen.append(companion)
+        chosen.append(task)
+    return chosen
 
 
 def next_task(plan, experience, spent=()):

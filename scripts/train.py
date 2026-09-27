@@ -11,7 +11,10 @@ skills sit below the target mindstate, each until its skills reach
 the target or its time budget runs out. When every task is trained it
 walks to a safe room (several rotate, rest by rest), sends the rest
 commands (sit), and holds until every trained skill has drained to
-the rest floor — that is when the pool converts to ranks — then
+the rest floor — that is when the pool converts to ranks; a task
+whose own skills all drain first trains again in the meantime
+(`top_up`, on by default: eight of Cecil's skills sat empty for most
+of a 107-minute rest, the operator, 2026-09-27) — then
 starts the next cycle. A rest opens with the drain model's guess
 at its length (client/game/drain.py, #300: the guild's skillset tiers
 and the rates fitted from ;xp's rows); the exp window still ends it.
@@ -64,6 +67,7 @@ from client.game.training import (
     plan_path,
     rested,
     safe_room,
+    top_up_tasks,
     satisfied,
     save_plan,
     starter_plan,
@@ -575,9 +579,24 @@ def drain_note(s, plan):
     return f"train: the drain model expects about {round(minutes)} min — {skill} drains last"
 
 
+def top_up(s, plan, tasks, db, walk):
+    """A pause in the rest: the drained tasks (and the `when` tasks
+    before them) run once, in plan order; why the pass ended."""
+    names = ", ".join(task["name"] for task in tasks)
+    s.echo(f"train: drained — {names} before the rest goes on")
+    for task in tasks:
+        if s.dead:
+            return "dead"
+        reason = run_task(s, plan, task, db, walk)
+        if reason in ("dead", "shutdown", "return", "rest"):
+            return reason
+    return "done"
+
+
 def rest(s, plan, db, walk, index):
     """The rest: to the index-th safe room, the rest commands, then hold
-    until every trained skill has drained (or the cap). Returns the
+    until every trained skill has drained (or the cap); a task whose own
+    skills drain first is trained in the meantime (top_up). Returns the
     next rest's index, None on death, or RETURNED on a typed return."""
     room = safe_room(plan, index)
     if room is not None:
@@ -606,6 +625,22 @@ def rest(s, plan, db, walk, index):
         if rested(plan, experience(s)):
             s.echo("train: rested — the pool has drained")
             return index
+        ready = top_up_tasks(plan, experience(s))
+        if ready:
+            ended = top_up(s, plan, ready, db, walk)
+            if ended == "dead":
+                return None
+            if ended == "return":
+                return RETURNED
+            if ended == "shutdown":
+                return index  # run() ends the run
+            room = safe_room(plan, index)
+            if room is not None:
+                go_to(s, db, walk, room)
+                index += 1
+            send_each(s, plan["rest_commands"])
+            s.echo("train: back to the rest")
+            continue
         if shutdown_soon(s, plan):
             return index  # run() ends the run
         if cap and clock() - started >= cap * 60:
