@@ -1,4 +1,90 @@
-"""Train Alchemy by crushing remedies in the mortar, and fill the society's work orders:  ;remedies
+"""Train Alchemy crushing remedies, or fill the society's work orders:  ;remedies
+
+    ;remedies                 the head salve, CRUSHed until Alchemy mind-locks
+    ;remedies <salve>         another chapter-3 salve (neck, abdominal, chest, head, back, eye;
+                              or salve=<name>); its dried herb must be on you
+    ;remedies count=2         finish that many remedies (orders, with work), then end
+    ;remedies until=30        stop at that mindstate instead of 34
+    ;remedies once            end at mind-lock instead of holding or, with work, working on
+    ;remedies work            the Alchemy Society's easy work orders, one after another, for the pay
+    ;remedies work hard       a harder tier: challenging or hard
+    ;remedies ledger          the orders on record: pay, materials, profit, the last few
+    ;remedies return          (typed while it runs) finish the remedy, or the order, in hand and end
+    ;stop remedies            quit at once; the mortar and pestle are stowed
+
+What it does
+  - STUDies the book page, puts the herb's dried stack in the mortar and CRUSHes,
+    adding water, the second herb and the catalyst as the game asks.
+  - Work: reads the logbook (resumes, hands in or clears an order), finds the master,
+    crafts and bundles each stack, hands the logbook in for the pay.
+  - Buys what runs out (herbs, water, coal), coins from the bank when short,
+    and finishes a remedy left in the mortar first.
+  - A remedy too poor for the order is discarded if `droppable` names it, else stowed.
+  - Every order handed in is a row in history.db, summed by `;remedies ledger`.
+
+When it stops
+  - mind-lock with `once` (else it holds for the drain, or works on under `work`)
+  - `count` reached, or ;remedies return
+  - death or hostiles (the shared escape)
+  - the herb, water, catalyst or book not on you, or CRUSH answers it cannot read
+
+Profile keys: `catalyst` (coal nugget), `crafting_master`, `crafting_hall`. ;train runs
+it as an Alchemy task (`"args": ["work"]` for orders, with `return_grace` and `minutes`
+long enough to finish one). The recipes and wordings are client/game/remedies.py's.
+"""
+
+import logging
+import time
+
+from client.game import discard, flight, probe
+from client.game.loop import danger, ensure_mindstate, mindstate, pause, wants_stop
+from client.game.probe import classify
+from client.game.money import parse_wealth, phrase
+from client.game.seek import present
+from client.game.remedies import (
+    MASTER_UNTIE,
+    BOUGHT,
+    BUNDLED,
+    building_rooms,
+    CATALOG,
+    CRUSH_OUTCOMES,
+    MORTAR_BUSY,
+    NO_MASTER,
+    ORDER_TRIES,
+    POURED,
+    remedy_in_mortar,
+    unfinished_in_mortar,
+    REJECTED,
+    REJECTIONS,
+    STUDIED,
+    TOO_HARD,
+    crush_command,
+    is_noise,
+    logbook_item,
+    parse_args,
+    parse_logbook,
+    parse_order,
+    payment,
+    quote,
+    recipe,
+    roundtime_of,
+    sellable,
+    shortage,
+)
+from client.game.workorders import (
+    clear_open,
+    ledger_lines,
+    load_open,
+    material_cost,
+    open_ledger,
+    record,
+    rows,
+    save_open,
+)
+
+# The design notes the manual above leaves out: what each rule came
+# from, with its issue — read by people, never served as ;help.
+_NOTES = """Train Alchemy by crushing remedies in the mortar, and fill the society's work orders:  ;remedies
 
     ;remedies                 the head salve — dried nemoih in the mortar, CRUSHed until Alchemy mind-locks
     ;remedies chest           another chapter-3 salve (neck, abdominal, chest, head, back, eye); its dried herb must be on you
@@ -102,55 +188,6 @@ for the orders, with `return_grace` long enough for the order in hand
 match, since the return word finishes the order before it ends).
 Stop with:  ;stop remedies, or ;remedies return.
 """
-
-import logging
-import time
-
-from client.game import discard, flight, probe
-from client.game.loop import danger, ensure_mindstate, mindstate, pause, wants_stop
-from client.game.probe import classify
-from client.game.money import parse_wealth, phrase
-from client.game.seek import present
-from client.game.remedies import (
-    MASTER_UNTIE,
-    BOUGHT,
-    BUNDLED,
-    building_rooms,
-    CATALOG,
-    CRUSH_OUTCOMES,
-    MORTAR_BUSY,
-    NO_MASTER,
-    ORDER_TRIES,
-    POURED,
-    remedy_in_mortar,
-    unfinished_in_mortar,
-    REJECTED,
-    REJECTIONS,
-    STUDIED,
-    TOO_HARD,
-    crush_command,
-    is_noise,
-    logbook_item,
-    parse_args,
-    parse_logbook,
-    parse_order,
-    payment,
-    quote,
-    recipe,
-    roundtime_of,
-    sellable,
-    shortage,
-)
-from client.game.workorders import (
-    clear_open,
-    ledger_lines,
-    load_open,
-    material_cost,
-    open_ledger,
-    record,
-    rows,
-    save_open,
-)
 
 SKILL = "Alchemy"
 RESUME_BELOW = 28
