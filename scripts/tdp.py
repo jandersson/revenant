@@ -1,6 +1,62 @@
 """Spend Time Development Points on stats, one confirmed point at a time:  ;tdp
 
     ;tdp                         INFO: the eight stats and the TDPs on hand (spends nothing)
+    ;tdp <stat>                  what the next point costs (a prefix works: agi)
+    ;tdp <stat> <N>              ... and what reaching N costs (TDP PROJECT)
+    ;tdp train <stat>            walk to its trainer, TRAIN one point, walk back
+    ;tdp train <stat> <N> <stat> +2 ... [stay]
+                                 several goals in order: to N, then two points;
+                                 `stay` stays in the last training room
+    ;tdp plan [N]                up to N points (3) where the training plan's `tdp` list says
+    ;stop tdp                    quit at once
+
+What it does
+  - Asks the stat's own command for its value, the next point's cost and the
+    TDPs before every point, and buys only what the TDPs cover.
+  - TRAINs twice in the stat's training room (the map tags it), then asks again:
+    a value that did not rise stops the run, so a surprise costs one point at most.
+  - Pays the coin fee from the purse; when it falls short, WITHDRAWs the rest at
+    the nearest teller rather than let it go on the provincial debt.
+  - Flags a stat below its race's starting value: train those first.
+  - `plan` spends past `tdp_reserve` on the plan's stat targets, or the guild's
+    tiers on `auto`; a ;train task runs it once a cycle.
+  - A run that bought a point has ;sheet record INFO at once.
+
+When it stops, and walks back unless told to stay
+  - every goal reached, or the next point costs more than the TDPs on hand
+  - a value that did not rise, a teller that refuses, a trainer out of reach
+  - death, or ;stop tdp
+
+client/game/tdp.py is the model; docs/training.md lists the plan's `tdp` keys.
+"""
+
+import re
+
+from client.game import bank, probe
+from client.game.money import parse_wealth, phrase
+from client.game.tdp import (
+    STATS,
+    TRAIN_OUTCOMES,
+    below_start,
+    fee_of,
+    next_stat,
+    parse_goals,
+    parse_info,
+    parse_project,
+    parse_stat_answer,
+    plan_goals,
+    point_cost,
+    stat_name,
+)
+from client.game.mapdb import MapDB
+from client.game.walker import locate, walk
+
+
+# The design notes the manual above leaves out: what each rule came
+# from, with its issue — read by people, never served as ;help.
+_NOTES = """Spend Time Development Points on stats, one confirmed point at a time:  ;tdp
+
+    ;tdp                         INFO: the eight stats and the TDPs on hand (spends nothing)
     ;tdp agility                 what the next point costs, from the stat's own command
     ;tdp agility 12              ... and what reaching 12 costs (TDP PROJECT)
     ;tdp train agility           walk to the Agility trainer, TRAIN one point, walk back
@@ -46,27 +102,6 @@ have the new stat and TDPs at once, not at the next three-hourly
 snapshot (#303).
 Stop with:  ;stop tdp
 """
-
-import re
-
-from client.game import bank, probe
-from client.game.money import parse_wealth, phrase
-from client.game.tdp import (
-    STATS,
-    TRAIN_OUTCOMES,
-    below_start,
-    fee_of,
-    next_stat,
-    parse_goals,
-    parse_info,
-    parse_project,
-    parse_stat_answer,
-    plan_goals,
-    point_cost,
-    stat_name,
-)
-from client.game.mapdb import MapDB
-from client.game.walker import locate, walk
 
 COLLECT_SECONDS = 3  # a command's answer, opening window
 # The lines of a TRAIN pair worth showing when it worked: the fee
