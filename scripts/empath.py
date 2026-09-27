@@ -38,7 +38,13 @@ Poison and disease go first (TOUCH's lines read with lich-5's
 common-healing.rb patterns): TAKE <patient> POISON and TAKE
 <patient> DISEASE, and only when the Empath's own spell list (as
 ;sheet recorded it) has Flush Poisons or Cure Disease to cure himself
-after — the self-heal casts those before any wound.
+after — the self-heal casts those before any wound. Vitality the
+same way: a patient below VITALITY_FLOOR (TOUCH's "N% vitality
+remaining") gets TAKE <patient> VITALITY when the Empath knows
+Vitality Healing and his own health stands at OWN_FLOOR or more
+(a patient with more stamina has more vitality to lose, the wiki
+warns), and the self-heal casts Vitality Healing when his own health
+bar is below full.
 Nothing is ever taken without the patient in the room:
 a TOUCH that finds nobody, or is avoided (a cold demeanor), ends it.
 Stop with:  ;stop empath, or ;empath return.
@@ -56,6 +62,7 @@ from client.game.empathy import (
     PREPARED,
     TAKEN,
     afflictions,
+    vitality,
     parse_touch,
     take_command,
     transfer_order,
@@ -75,6 +82,8 @@ EVERYTHING_SECONDS = 600  # the whole transfer, however many parts
 # The link broken because the transfer would kill the Empath
 # (Elanthipedia: Empath healing), uncaptured.
 FATAL = ("will kill you if you finish",)
+VITALITY_FLOOR = 80  # percent: a patient below it gets vitality taken
+OWN_FLOOR = 70  # percent of the Empath's own health before giving any
 MAX_CASTS = 40
 MANA_FLOOR = 20  # percent
 DEFAULT_MANA = 15
@@ -126,7 +135,11 @@ def touch(s, patient):
             + ("" if linked else f" — is {patient} here?")
         )
         return None
-    return injuries, afflictions(answer)
+    ails = afflictions(answer)
+    percent = vitality(answer)
+    if percent is not None and percent < VITALITY_FLOOR:
+        ails.append("vitality")
+    return injuries, ails
 
 
 def take_everything(s, patient):
@@ -193,6 +206,12 @@ def take_affliction(s, patient, kind):
             "your recorded spells (;sheet records them), so it is left"
         )
         return False
+    if kind == "vitality" and own_health(s) < OWN_FLOOR:
+        s.echo(
+            f"empath: {patient.capitalize()} is low on vitality, and yours is "
+            f"below {OWN_FLOOR}% — it is left"
+        )
+        return False
     answer = exchange(
         s,
         f"take {patient} {kind}",
@@ -253,6 +272,13 @@ def heal_other(s, patient, everything=True):
     return False
 
 
+def own_health(s):
+    """The Empath's own health bar (his vitality), 100 when unknown."""
+    vitals = getattr(s.state, "vitals", None) or {}
+    value = vitals.get("health") if isinstance(vitals, dict) else None
+    return 100 if value is None else value
+
+
 def mana(s):
     vitals = getattr(s.state, "vitals", None) or {}
     value = vitals.get("mana") if isinstance(vitals, dict) else None
@@ -269,12 +295,13 @@ def cast(s, spell, target, amount):
 
 
 def cure(s, kind, amount):
-    """Flush Poisons or Cure Disease cast on yourself; True when the
-    answer says it took."""
+    """Flush Poisons, Cure Disease or Vitality Healing cast on yourself;
+    True when the answer says it took."""
     spell, abbrev, done = CURES[kind]
     answer = cast(s, abbrev, "", amount)
     if any(word in answer.lower() for word in done):
-        s.echo(f"empath: {spell} cast — the {kind} is gone")
+        gone = "restored" if kind == "vitality" else "gone"
+        s.echo(f"empath: {spell} cast — your {kind} is {gone}")
         return True
     last = (answer.strip().splitlines() or ["(silence)"])[-1]
     s.echo(f"empath: {spell} answered {last!r}")
@@ -290,7 +317,10 @@ def heal_self(s, amount):
             s.echo("empath: stopping as asked")
             return False
         answer = ask(s, "health")
-        ails = [kind for kind in afflictions(answer, own=True) if kind not in cured]
+        own = afflictions(answer, own=True)
+        if own_health(s) < 100:
+            own.append("vitality")
+        ails = [kind for kind in own if kind not in cured]
         if ails:
             if mana(s) < MANA_FLOOR:
                 s.echo(f"empath: mana below {MANA_FLOOR}% — {', '.join(ails)} left")

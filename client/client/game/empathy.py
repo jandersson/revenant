@@ -101,7 +101,13 @@ CURES = {
         "cd",
         ("completely cured of all disease", "don't seem to be so afflicted"),
     ),
+    # Elanthipedia: Vitality Healing ("With a wave of your hand, your
+    # vitality is fully restored.").
+    "vitality": ("Vitality Healing", "vh", ("vitality is fully restored",)),
 }
+# TOUCH's vitality line: "Cecil has normal vitality." (captured
+# 2026-09-26) or "... has 45% vitality remaining" (lich-5's pattern).
+_VITALITY = re.compile(r"has (\d+)% vitality remaining", re.IGNORECASE)
 
 # The head and torso before the limbs at one severity: a wound there is
 # the one that kills (the wiki's shock and death rules follow the vital
@@ -169,6 +175,15 @@ def afflictions(text, own=False):
     if disease.search(text or ""):
         found.append("disease")
     return found
+
+
+def vitality(text):
+    """The patient's vitality in percent off a TOUCH listing: 100 for
+    "normal vitality", None when the listing does not say."""
+    match = _VITALITY.search(text or "")
+    if match:
+        return int(match.group(1))
+    return 100 if "normal vitality" in (text or "").lower() else None
 
 
 def priority(injury):

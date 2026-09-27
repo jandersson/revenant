@@ -131,3 +131,11 @@ def test_poison_and_disease_are_read_off_touch_and_health():
     own = "You have a mild poison.\nYour wounds are infected.\n"
     assert afflictions(own, own=True) == ["poison", "disease"]
     assert afflictions("You have no significant injuries.\n", own=True) == []
+
+
+def test_vitality_is_read_off_touch():
+    from client.game.empathy import vitality
+
+    assert vitality("Lanival has normal vitality.\n") == 100
+    assert vitality("Lanival has 45% vitality remaining.\n") == 45
+    assert vitality("Lanival's injuries include...\n") is None
