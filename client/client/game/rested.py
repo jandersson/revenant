@@ -15,7 +15,9 @@ group that pulses with experience in it deducts twenty seconds, so a
 training minute shows as a drop of one to three minutes, while an idle
 bank holds still or grows (docs/experience.md, Elanthipedia
 "Experience"). That is `burning(previous, current)`, the boolean
-beholder shades the 3x windows from (#176).
+beholder shades the 3x windows from (#176). The footer does not tick
+every minute, so `Burn` keeps the flag up for STICKY_MINUTES after the
+last fall: a spending stretch reads burning throughout (#346).
 """
 
 import re
@@ -67,6 +69,40 @@ def burning(previous, current):
     if before is None or after is None:
         return None
     return after < before
+
+
+# How long the bank still counts as burning after Usable last fell.
+# The footer's falls come 1-3 minutes apart in training, every 5 on a
+# slower character and every 10 in a steady trickle (history.db's rested
+# rows, 2026-09-28: 1480 of Cecil's falls, 38 of his 61 ten-minute gaps
+# between two more), so a flag per fall flickered — Westan's 21:29 read 1
+# between two minutes of 0 — and no drain run read 3x throughout (#346).
+STICKY_MINUTES = 11
+
+
+class Burn:
+    """Whether the bank burns, one reading a minute: True from a fall of
+    the usable figure until STICKY_MINUTES pass without another, False
+    otherwise and whenever nothing usable is left, None until two
+    readable readings (the first minute, a footer never seen)."""
+
+    def __init__(self):
+        self.previous = None
+        self.quiet = None  # minutes since the last fall; None: none seen
+
+    def step(self, reading):
+        fell = burning(self.previous, reading)
+        if reading:
+            self.previous = reading
+        if fell is None:
+            return None
+        if fell:
+            self.quiet = 0
+        elif self.quiet is not None:
+            self.quiet += 1
+        if reading.get("usable") == 0 or self.quiet is None:
+            return False
+        return self.quiet < STICKY_MINUTES
 
 
 def hhmm(minutes):

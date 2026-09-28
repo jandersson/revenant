@@ -9,6 +9,8 @@ import importlib.util
 import pathlib
 import sqlite3
 
+from client.game.rested import Burn
+
 REPO = pathlib.Path(__file__).parents[2]
 
 
@@ -74,35 +76,28 @@ def test_a_mindstate_table_from_before_the_flag_gains_the_column():
 
 
 def test_a_minute_logs_the_flag_from_the_banks_movement_and_the_footer_once():
-    # #176: the flag is the usable figure falling since the previous
-    # minute; the footer goes to the rested table only when it changed.
+    # #176: the flag comes from the usable figure falling; #346: it stays
+    # up while the footer sits between falls. The footer goes to the
+    # rested table only when it changed.
     connection = sqlite3.connect(":memory:")
     xp.ensure_schema(connection)
     full = {"stored": 345, "usable": 331, "refresh": 79}
     less = {"stored": 344, "usable": 330, "refresh": 78}
-    seen = logged = None
-    seen, logged = xp.snapshot(
-        connection, "Lanival", "T1", EXPERIENCE, full, seen, logged
-    )
-    seen, logged = xp.snapshot(
-        connection, "Lanival", "T2", EXPERIENCE, less, seen, logged
-    )
-    seen, logged = xp.snapshot(
-        connection, "Lanival", "T3", EXPERIENCE, less, seen, logged
-    )
-    seen, logged = xp.snapshot(connection, "Lanival", "T4", {}, less, seen, logged)
+    burn, logged = Burn(), None
+    logged = xp.snapshot(connection, "Lanival", "T1", EXPERIENCE, full, burn, logged)
+    logged = xp.snapshot(connection, "Lanival", "T2", EXPERIENCE, less, burn, logged)
+    logged = xp.snapshot(connection, "Lanival", "T3", EXPERIENCE, less, burn, logged)
+    logged = xp.snapshot(connection, "Lanival", "T4", {}, less, burn, logged)
     flags = connection.execute(
         "SELECT logged_at, is_rexp FROM mindstate WHERE skill_name = 'Athletics'"
         " ORDER BY seq"
     ).fetchall()
-    assert flags == [("T1", None), ("T2", 1), ("T3", 0)]  # T4: nothing learning
+    assert flags == [("T1", None), ("T2", 1), ("T3", 1)]  # T4: nothing learning
     assert connection.execute(
         "SELECT logged_at, stored, usable, refresh FROM rested ORDER BY seq"
     ).fetchall() == [("T1", 345, 331, 79), ("T2", 344, 330, 78)]
     # No footer yet (a session before the first pulse): rows unflagged.
-    seen, logged = xp.snapshot(
-        connection, "Lanival", "T5", EXPERIENCE, None, None, None
-    )
+    xp.snapshot(connection, "Lanival", "T5", EXPERIENCE, None, Burn(), None)
     assert connection.execute(
         "SELECT is_rexp FROM mindstate WHERE logged_at = 'T5'"
     ).fetchall() == [(None,), (None,)]

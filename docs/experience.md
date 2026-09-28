@@ -46,7 +46,7 @@ Autostarted; writes `~/.revenant/history.db` every minute:
 
 | Table | Rows |
 | --- | --- |
-| `mindstate` | rank, percent, mindstate per skill; `is_rexp` 1 when REXP burned that minute |
+| `mindstate` | rank, percent, mindstate per skill; `is_rexp` 1 while REXP burns (its footer fell within the last 11 minutes) |
 | `rested` | the footer's stored, usable and refresh minutes, on change |
 
 Beholder plots them. `;stop xp` opts a session out; `REVENANT_NO_XP=1` turns off the autostart.

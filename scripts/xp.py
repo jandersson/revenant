@@ -4,8 +4,9 @@ Every minute, snapshots the exp window (skills currently in the learning
 queue, with rank / percent / mindstate) into ~/.revenant/history.db
 (override with REVENANT_HISTORY_DB), each row flagged `is_rexp` when
 rested experience was burning that minute — the EXP footer's usable
-figure fell since the last look; NULL the first minute or before the
-game has shown the footer — and logs the footer itself to the `rested`
+figure fell within the last eleven minutes (client/game/rested.py's
+Burn: the footer does not tick every minute, #346); NULL the first
+minute or before the game has shown the footer — and logs the footer itself to the `rested`
 table whenever it changes (stored, usable, refresh in minutes), so
 beholder shades the 3x windows exactly and charts the bank's slope
 (#176). The Experience dock shows the live view; this file is the
@@ -20,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from client.game.history import database_path as history_database_path
-from client.game.rested import burning
+from client.game.rested import Burn
 
 INTERVAL = 60  # seconds between snapshots
 
@@ -105,18 +106,18 @@ def insert_rested(connection, character, logged_at, reading):
     connection.commit()
 
 
-def snapshot(connection, character, logged_at, experience, reading, seen, logged):
-    """One minute's logging: the mindstate rows flagged by the bank's
-    movement since `seen` (the previous minute's footer), and a rested
-    row when the footer differs from `logged` (the last one written).
-    Returns the (seen, logged) pair for the next minute."""
+def snapshot(connection, character, logged_at, experience, reading, burn, logged):
+    """One minute's logging: the mindstate rows flagged by `burn` (a
+    rested.Burn fed one footer a minute), and a rested row when the
+    footer differs from `logged` (the last one written). Returns the
+    footer last written, for the next minute."""
+    flag = burn.step(reading)
     if experience:
-        rows = snapshot_rows(experience, character, logged_at, burning(seen, reading))
-        insert(connection, rows)
+        insert(connection, snapshot_rows(experience, character, logged_at, flag))
     if reading and reading != logged:
         insert_rested(connection, character, logged_at, reading)
         logged = reading
-    return reading, logged
+    return logged
 
 
 def main(s):
@@ -130,15 +131,15 @@ def main(s):
     connection = sqlite3.connect(path)
     ensure_schema(connection)
     s.echo(f"logging experience for {character} to {path} every {INTERVAL}s")
-    seen = logged = None
+    burn, logged = Burn(), None
     try:
         while True:
             experience = dict(getattr(s.state, "experience", None) or {})
             reading = getattr(s.state, "rested", None)
             reading = dict(reading) if reading else None
             logged_at = datetime.now(timezone.utc).isoformat()
-            seen, logged = snapshot(
-                connection, character, logged_at, experience, reading, seen, logged
+            logged = snapshot(
+                connection, character, logged_at, experience, reading, burn, logged
             )
             s.sleep(INTERVAL)
     finally:
