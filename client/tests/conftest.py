@@ -35,6 +35,10 @@ def _isolated_login_defaults(tmp_path, monkeypatch):
     # operator's ~/.revenant/scholarship.
     monkeypatch.setenv("REVENANT_SCHOLARSHIP_DIR", str(tmp_path / "scholarship"))
     monkeypatch.setenv("REVENANT_STORES_DIR", str(tmp_path / "stores"))
+    # The walker writes off-course edges to the local map overlay: a
+    # test's fake [Gate] replaced a real Muspar'i street in the
+    # operator's ~/.revenant/mapdb/local.json (2026-09-28, #364).
+    monkeypatch.setenv("REVENANT_MAPDB_LOCAL", str(tmp_path / "mapdb-local.json"))
 
 
 @pytest.fixture

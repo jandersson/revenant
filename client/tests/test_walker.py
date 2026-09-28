@@ -1063,7 +1063,9 @@ def test_a_wrong_edge_that_leads_back_to_the_start_is_closed_not_retaken(
     handle.state.room_uid = 150101
     assert walker.walk(handle, dale, [7890], describe="the arch") is True
     assert puts_of(handle) == ["out", "go shop", "out", "east", "east", "east", "east"]
-    assert dale.rooms[1081]["wayto"] == {"1082": "east", "19240": "go shop"}
+    # Closed for the walk, not written (#364): only a compass move's
+    # landing reaches the local map.
+    assert dale.rooms[1081]["wayto"] == {"19242": "go shop", "1082": "east"}
 
 
 def test_a_dead_end_whose_exits_never_land_ends_with_the_no_path_answer(
@@ -1385,3 +1387,64 @@ def test_character_ranks_reads_the_exp_window_and_tolerates_none():
     assert walker.character_ranks(state) == {"Athletics": 37}
     assert walker.character_ranks(SimpleNamespace()) == {}
     assert walker.character_ranks(None) == {}
+
+
+def test_an_off_course_stair_or_named_move_is_never_written_to_the_map(
+    tmp_path, monkeypatch
+):
+    # #364, 2026-09-28: the Crossing temple's staircase passes rooms in
+    # one move; the arrival read wrote "5751 down -> 5752", then "-> 5750",
+    # and a later walk went over the ferry and the gondola to Shard. The
+    # edge is closed for the walk, the map left as it is.
+    monkeypatch.setenv("REVENANT_MAPDB_LOCAL", str(tmp_path / "local.json"))
+    temple = MapDB(
+        [
+            {
+                "id": 5751,
+                "uid": [1],
+                "title": ["[Grand Stairway, Temple Entrance]"],
+                "wayto": {"5752": "down"},
+            },
+            {
+                "id": 5752,
+                "uid": [2],
+                "title": ["[The Crossing Temple, Entrance Hall]"],
+                "wayto": {"5760": "west"},
+            },
+            {
+                "id": 5750,
+                "uid": [3],
+                "title": ["[Temple Grounds, Grand Stairway]"],
+                "wayto": {"5760": "north"},
+            },
+            {"id": 5760, "uid": [4], "title": ["[Temple Grounds, Path]"]},
+        ]
+    )
+    handle = FakeHandle(uids=[3, 4])  # "down" landed a room further on
+    handle.state.room_uid = 1
+    assert walker.walk(handle, temple, [5760]) is True
+    assert any("left off the map" in echo for echo in handle.echoes)
+    assert temple.rooms[5751]["wayto"] == {"5752": "down"}
+    assert not (tmp_path / "local.json").exists()
+
+
+def test_a_step_limit_holds_on_every_plan_a_replan_included(tmp_path, monkeypatch):
+    # #364: ;soul's 80-step limit was checked once, before the walk; after
+    # two closed ways the replan went 261 steps to Shard's altar.
+    monkeypatch.setenv("REVENANT_MAPDB_LOCAL", str(tmp_path / "local.json"))
+    rooms = [
+        {
+            "id": i,
+            "uid": [100 + i],
+            "title": [f"[Road {i}]"],
+            "wayto": {str(i + 1): "east"},
+        }
+        for i in range(1, 10)
+    ]
+    rooms.append({"id": 10, "uid": [110], "title": ["[Altar]"], "wayto": {}})
+    road = MapDB(rooms)
+    handle = FakeHandle(uids=[])
+    handle.state.room_uid = 101
+    assert walker.walk(handle, road, [10], describe="the altar", max_steps=5) is False
+    assert handle.calls == []  # not a step taken
+    assert any("past the 5-step limit" in echo for echo in handle.echoes)

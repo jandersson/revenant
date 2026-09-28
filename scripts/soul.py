@@ -230,7 +230,7 @@ def read_arch(s, mapdb, walk_fn=walk):
         return None
     if too_far(s, mapdb, rooms, "soulstone arch"):
         return None
-    if not walk_fn(s, mapdb, rooms, describe="the soulstone arch"):
+    if not walk_fn(s, mapdb, rooms, describe="the soulstone arch", max_steps=MAX_STEPS):
         s.echo("soul: could not reach a soulstone arch")
         return None
     here = locate(mapdb, s.state)
@@ -315,7 +315,7 @@ def tithe(s, mapdb, timers, options, walk_fn=walk):
         wealth = parse_wealth(ask(s, "wealth"))
         if owes(s, timers, timers["tithe_debt"], wealth):
             return False
-    if not walk_fn(s, mapdb, rooms, describe="the almsbox"):
+    if not walk_fn(s, mapdb, rooms, describe="the almsbox", max_steps=MAX_STEPS):
         s.echo("soul: could not reach an almsbox")
         mark(timers, "tithe", False, clock())
         return False
@@ -370,7 +370,7 @@ def pray(s, mapdb, timers, options, walk_fn=walk):
     if too_far(s, mapdb, rooms, "altar"):
         mark(timers, "pray", False, clock())
         return False
-    if not walk_fn(s, mapdb, rooms, describe="Chadatru's altar"):
+    if not walk_fn(s, mapdb, rooms, describe="Chadatru's altar", max_steps=MAX_STEPS):
         s.echo("soul: could not reach an altar")
         mark(timers, "pray", False, clock())
         return False

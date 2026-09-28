@@ -182,7 +182,7 @@ class Fake:
         pass
 
 
-def walk(s, db, goals, describe="", avoid=()):
+def walk(s, db, goals, describe="", avoid=(), max_steps=None):
     s.walks.append(set(goals))
     room = min(goals)
     s.state.room_uid = db.rooms[room]["uid"][0]

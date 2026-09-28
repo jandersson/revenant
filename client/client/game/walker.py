@@ -31,6 +31,27 @@ from client.game.mapdb import (
 module_logger = ClientLogger()
 
 ARRIVAL_TIMEOUT = 15  # seconds for the compass frame after a move
+# The moves whose off-course arrival is written to the local map (#364).
+COMPASS_MOVES = frozenset(
+    (
+        "north",
+        "south",
+        "east",
+        "west",
+        "northeast",
+        "northwest",
+        "southeast",
+        "southwest",
+        "n",
+        "s",
+        "e",
+        "w",
+        "ne",
+        "nw",
+        "se",
+        "sw",
+    )
+)
 
 # The Faldesu ferry (#205), after bescort's take_rh_ferry, captured on
 # the first ride (2026-09-18, North Road, Ferry → Riverhaven). GO FERRY
@@ -490,7 +511,7 @@ def leave_dead_end(s, db, here):
     return None
 
 
-def walk(s, db, goals, describe="destination", avoid=()):
+def walk(s, db, goals, describe="destination", avoid=(), max_steps=None):
     """Walk to the nearest goal room; True on arrival (or already there).
 
     Rooms in `avoid` are routed around when a clean detour exists;
@@ -538,6 +559,16 @@ def walk(s, db, goals, describe="destination", avoid=()):
             return False
         if not route:
             return True
+        if max_steps and len(route) > max_steps:
+            # Checked on every plan, a replan included: ;soul's altar walk
+            # was 53 steps when it set out, and after two closed ways the
+            # nearest altar was Shard's, 261 steps over the ferry and the
+            # gondola (2026-09-28, #364).
+            s.echo(
+                f"the way to {describe} is {len(route)} steps — past the "
+                f"{max_steps}-step limit; stopping here"
+            )
+            return False
         crossed = [dest for dest, _ in route if dest in avoid]
         if crossed:
             titles = db.rooms[crossed[0]].get("title") or ["?"]
@@ -688,12 +719,22 @@ def _follow(s, db, route, here, closed):
                 # is planned again from the room the game says we are
                 # in, the way a closed way is.
                 closed.add((previous, dest))
-                db.record_edge(previous, mapped, move)
+                # Written to the local map only for a plain compass move
+                # that changed room: the Crossing temple's staircase, its
+                # clockwise/widdershins ring and its `go` doors pass rooms
+                # in one move, and the arrival read there wrote "5751 down
+                # -> 5752" and then "-> 5750", which sent a later walk
+                # over the ferry and the gondola to Shard (2026-09-28,
+                # #364). Anything else is closed for this walk only.
+                if move.strip().lower() in COMPASS_MOVES and mapped != previous:
+                    db.record_edge(previous, mapped, move)
+                    note = f"the map now says {previous} {move} -> {mapped}"
+                else:
+                    note = "left off the map (a stair, a ring or a named way)"
                 s.echo(
                     f"off course at step {number}: in room {mapped} "
-                    f"({s.state.room_title!r}), expected {dest} — the map now "
-                    f"says {previous} {move} -> {mapped}; planning "
-                    "again from here"
+                    f"({s.state.room_title!r}), expected {dest} — {note}; "
+                    "planning again from here"
                 )
                 return "closed"
             continue
