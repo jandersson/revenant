@@ -205,7 +205,9 @@ Traps that cost time before:
   character and the janitor never clears it, but no move is possible
   while anything lies there, so a script that lowers (`;boxes`, a box
   with no room anywhere) LIFTs it again before any walk, flight or
-  end, a `;stop` included (the operator, 2026-09-26).
+  end, a `;stop` included (the operator, 2026-09-26). The profile's
+  `loot_ignore` (common metals, junk) goes only into a room's trash
+  through `discard.trash()`, never a DROP; with no bin it is kept (#365).
 - **Claude drives a session only through `revenant-send --origin claude`**,
   so every line it sends shows in the window as `>> [claude] ...` and
   the operator can tell its commands from their own and from other

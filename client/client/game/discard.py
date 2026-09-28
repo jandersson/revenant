@@ -26,6 +26,10 @@ back to the DROP.
 
 Names are matched whole, so "grass rope" is droppable and "rope" is
 not — the bundling rope ;hunt's skins ride on is "bundling rope".
+
+trash() is the other way out, for loot the profile's `loot_ignore`
+names (#365): into the room's receptacle only, never a DROP — with no
+receptacle the item is kept.
 """
 
 import re
@@ -63,6 +67,20 @@ def receptacle(room_objs):
     wrought-iron bench and a bucket"), or None."""
     match = RECEPTACLE.search(room_objs or "")
     return match.group(1).lower() if match else None
+
+
+def trash(s, item, ask):
+    """PUT MY <item> IN the room's trash receptacle, for an item the
+    character's own `loot_ignore` names (#365); never a DROP. None, and
+    nothing sent, when the room shows no receptacle or the PUT is
+    refused — the caller keeps the item."""
+    bin_noun = receptacle(getattr(getattr(s, "state", None), "room_objs", ""))
+    if not bin_noun:
+        return None
+    answer = ask(s, f"put my {item} in {bin_noun}")
+    if any(word in (answer or "").lower() for word in PUT_REFUSALS):
+        return None
+    return answer
 
 
 def drop(s, item, ask):

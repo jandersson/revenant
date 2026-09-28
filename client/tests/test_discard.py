@@ -98,3 +98,13 @@ def test_settings_extend_the_list(tmp_path, monkeypatch):
     assert discard.droppable("broken twig")
     assert discard.droppable("grass")  # the built-ins stay
     assert not discard.droppable("nail")
+
+
+def test_trash_puts_ignored_loot_in_the_rooms_bin_and_never_drops():
+    handle = Handle("You also see a bench and a waste bin.")
+    assert discard.trash(handle, "copper nugget", ask) == "You drop it."
+    assert handle.sent == ["put my copper nugget in bin"]
+    # No bin in the room: nothing sent, the caller keeps the item.
+    bare = Handle("You also see a bench.")
+    assert discard.trash(bare, "copper nugget", ask) is None
+    assert bare.sent == []

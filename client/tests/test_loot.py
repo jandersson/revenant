@@ -123,3 +123,41 @@ def test_each_entry_is_coins_a_box_or_an_item():
     assert not loot.lootable("a war club")
     assert loot.lootable("a war club", additions=["club"])
     assert not loot.lootable("some waermodi stones", subtractions=["stones"])
+
+
+def test_loot_ignore_names_an_item_by_the_end_of_its_name_or_a_lone_metal():
+    ignore = ["copper", "zinc", "embroidery needle"]
+    assert loot.ignored("a large copper nugget", ignore)
+    assert loot.ignored("a medium zinc nugget", ignore)
+    assert loot.ignored("a copper bar", ignore)
+    assert loot.ignored("an embroidery needle", ignore)
+    # Copper coins are coins, not metal; a rare metal stays kept.
+    assert not loot.ignored("some copper coins", ignore)
+    assert not loot.ignored("a small animite nugget", ignore)
+    assert not loot.ignored("a sewing needle", ignore)
+    assert not loot.ignored("a large copper nugget", [])
+
+
+def test_the_default_loot_ignore_is_the_common_metals_and_keeps_the_rare():
+    common = loot.COMMON_METALS
+    for item in (
+        "a massive covellite nugget",
+        "a medium lead nugget",
+        "a small silver fragment",
+        "an iron ingot",
+    ):
+        assert loot.ignored(item, common), item
+    for item in ("a large damite nugget", "a kertig nugget", "a tiny coal nugget"):
+        assert not loot.ignored(item, common), item
+
+
+def test_a_hunt_never_picks_up_ignored_loot_even_when_its_noun_is_added():
+    ignore = loot.COMMON_METALS
+    assert not loot.lootable("a large copper nugget", ["nugget"], (), ignore)
+    assert loot.lootable("a large damite nugget", ["nugget"], (), ignore)
+
+
+def test_an_items_short_name_is_its_last_two_words():
+    assert loot.short_name("a large copper nugget") == "copper nugget"
+    assert loot.short_name("an embroidery needle") == "embroidery needle"
+    assert loot.short_name("a ruby") == "ruby"

@@ -34,6 +34,7 @@ File → Character Profile, or `~/.revenant/profiles/<name>.json`. The keys a hu
 | `bundle` | put skins on a worn bundling rope (free at any tannery) |
 | `loot_container`, `gem_pouch` | where loot and skins go; where gems go |
 | `loot_additions`, `loot_subtractions` | nouns also picked up; nouns never picked up |
+| `loot_ignore` | loot not worth keeping: never picked up, trashed from boxes (default: the common metals) |
 | `box_limit` | boxes carried at most (0: no limit) |
 | `health_floor` | break off below this health % (60) |
 | `wound_floor` | break off at a wound this bad; empty is `harmful`, `off` never checks |
@@ -92,7 +93,8 @@ An empty ground is not an end: the hunt waits and laps it again.
 
 ## Loot and skins
 
-- Each kill is skinned (with `skin`) and LOOTed. Coins, gems and boxes are picked up, plus `loot_additions`, minus `loot_subtractions`.
+- Each kill is skinned (with `skin`) and LOOTed. Coins, gems and boxes are picked up, plus `loot_additions`, minus `loot_subtractions` and `loot_ignore`.
+- `loot_ignore` holds phrases that end an item's name (`embroidery needle`) or a lone metal (`copper` for any copper nugget or bar). The default is the common metals (copper, covellite, iron, lead, nickel, oravir, silver, tin, zinc); rare ones are kept. `;boxes` puts these in the room's trash, or keeps them where there is none.
 - Gems go to `gem_pouch`; gems are kept for `;appraise`, never sold.
 - A full loot container stops skinning or box pickups for the run, and says so. `;skins` sells skins; `;boxes` opens boxes.
 - With `bundle`, the first skin starts a bundle from the rope in the loot container and later skins go straight into it. `;skins` sells the bundle and keeps the rope.

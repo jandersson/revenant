@@ -19,6 +19,8 @@ What it does
   - Picks with the `lockpick` or the worn `lockpick_ring`, refilled once a run at
     Ragge's (`lockpick_refill` of `lockpick_kind`; 0 never buys).
   - Coins to the purse, gems to `gem_pouch`, the rest to the loot container.
+  - What `loot_ignore` names (the common metals by default) goes in the room's
+    trash; with no trash in the room it is kept.
   - At the lock it holds until Locksmithing drains, then goes on.
 
 Never a drop
@@ -70,7 +72,7 @@ from client.game.boxes import (
 )
 from client.game.creatures import noun_of, phrase
 from client.game.loop import danger, ensure_mindstate, mindstate, pause, wants_stop
-from client.game.loot import GEM_NOUNS
+from client.game.loot import GEM_NOUNS, ignored, short_name
 from client.game.probe import classify
 from client.game.wounds import level, parse_health
 
@@ -950,6 +952,11 @@ def empty(run, noun):
         thing = noun_of(item)
         if thing in ("stuff",):
             continue
+        # An ignored item comes out by its short name, so GET takes it
+        # and not a kept one of the same noun (#365).
+        ignore = ignored(item, run.profile.get("loot_ignore") or ())
+        if ignore:
+            thing = short_name(item)
         answer = ask(s, f"get {thing} from my {noun}")
         run.report("take", "get from box", answer)
         outcome = classify(answer, TAKE_OUTCOMES)
@@ -958,6 +965,15 @@ def empty(run, noun):
             answer = ask(s, f"get {thing} from my {noun}")
             outcome = classify(answer, TAKE_OUTCOMES)
         if outcome == "coins":
+            taken += 1
+            continue
+        if outcome == "taken" and ignore:
+            trashed = discard.trash(s, thing, ask)
+            if trashed is None:
+                run.say(f"no trash here for the {thing} (loot_ignore) — kept")
+                stow_loot(run, item)
+            else:
+                run.say(f"the {thing} is on loot_ignore — in the trash")
             taken += 1
             continue
         if outcome == "taken":

@@ -21,6 +21,8 @@ import os
 import re
 from pathlib import Path
 
+from client.game.loot import COMMON_METALS
+
 DEFAULTS = {
     # What to fight and where. The ground is a map tag, else a hunting
     # zone of the bestiary (client/game/hunting.py, dr-scripts' zones:
@@ -52,6 +54,10 @@ DEFAULTS = {
     # and how many boxes to carry (0: no limit).
     "loot_additions": [],
     "loot_subtractions": [],
+    # Loot not worth keeping (#365): a hunt leaves it, ;boxes puts it
+    # in the room's trash. A phrase ends the item's name; a lone metal
+    # names any piece of it. Default: the common metals.
+    "loot_ignore": list(COMMON_METALS),
     "box_limit": 0,
     # Skins go on a bundling rope: a worn lumpy bundle takes each skin
     # straight from SKIN (BUNDLE help's auto-bundling), the rope is free
@@ -226,6 +232,12 @@ FIELDS = (
     ("gem_pouch", "Gem pouch noun", "str", "empty: gems are stowed like loot"),
     ("loot_additions", "Also pick up after a search", "list", "club, dagger"),
     ("loot_subtractions", "Never pick up", "list", "runestone"),
+    (
+        "loot_ignore",
+        "Not worth keeping (trashed from boxes)",
+        "list",
+        "copper, embroidery needle",
+    ),
     ("box_limit", "Boxes to carry at most", "int", "0: no limit"),
     (
         "bundle",

@@ -13,7 +13,9 @@ is the listing after the search less the listing before it, counted
 (coins repeat), less corpses and creatures; `lootable` keeps what a
 hunt wants — coins, a gem, a box — plus the profile's `loot_additions`
 and less its `loot_subtractions`, so a grendel's war club stays where
-it fell. That is combat-trainer's LootProcess: its `lootables` matched
+it fell. `ignored` reads the profile's `loot_ignore` — the common
+metals by default, rare ones kept (#365) — which a hunt never picks up
+and ;boxes puts in the room's trash. That is combat-trainer's LootProcess: its `lootables` matched
 against DRRoom.room_objs, the gem and box nouns from dr-scripts'
 base-items.yaml (GEM_NOUNS and BOX_NOUNS below are those lists), the
 pickup one STOW with its answers read (STOW_OUTCOMES is its list: "You
@@ -53,6 +55,25 @@ GEM_NOUNS = frozenset(
     carnelian diamond crystal emerald ruby tourmaline tanzanite jade ivory sunstone
     iolite beryl garnet alexandrite amethyst citrine aquamarine star-stone kunzite
     stones spinel opal peridot andalusite chrysoprase chrysoberyl""".split()
+)
+
+# Elanthipedia's Mining page (2026-09-28): the common metals, the
+# profile's default `loot_ignore` — the rare, very rare and quest-only
+# ones are kept. METAL_FORMS are the page's and Category:Crafting
+# materials' names for a piece of metal, mined or dropped.
+COMMON_METALS = (
+    "copper",
+    "covellite",
+    "iron",
+    "lead",
+    "nickel",
+    "oravir",
+    "silver",
+    "tin",
+    "zinc",
+)
+METAL_FORMS = frozenset(
+    {"nugget", "fragment", "lump", "shard", "tear", "bar", "ingot", "fist"}
 )
 
 # GET/STOW <item>'s answers, combat-trainer's bput list for its STOW: the
@@ -127,11 +148,42 @@ def kind(entry):
     return "item"
 
 
-def lootable(entry, additions=(), subtractions=()):
+def ignored(entry, ignore=()):
+    """True when the profile's `loot_ignore` names the item: a phrase
+    that ends its name, word for word ("embroidery needle" for "an
+    embroidery needle"), or a lone metal naming that metal in any form
+    ("copper" for "a large copper nugget", never for copper coins)."""
+    words = re.findall(r"[a-z'-]+", str(entry or "").lower())
+    for item in ignore or ():
+        wanted = str(item).strip().lower().split()
+        if not wanted or len(wanted) > len(words):
+            continue
+        if words[-len(wanted) :] == wanted:
+            return True
+        if len(wanted) == 1 and words[-1] in METAL_FORMS and wanted[0] in words[:-1]:
+            return True
+    return False
+
+
+def short_name(entry):
+    """The item's last two words ("copper nugget" for "a large copper
+    nugget"), one for a one-word name: specific enough that GET and PUT
+    take this item and not another of the same noun."""
+    words = str(entry or "").split()
+    if words and words[0].lower() in ("a", "an", "some", "the"):
+        words = words[1:]
+    return " ".join(words[-2:]).lower()
+
+
+def lootable(entry, additions=(), subtractions=(), ignore=()):
     """True for what a hunt takes: coins, a gem, a box, and the profile's
-    `loot_additions` (nouns), less its `loot_subtractions`."""
+    `loot_additions` (nouns), less its `loot_subtractions` and whatever
+    its `loot_ignore` names (so additions "nugget" takes only the rare
+    metals)."""
     noun = noun_of(entry)
     if noun in {str(n).strip().lower() for n in subtractions or ()}:
+        return False
+    if ignored(entry, ignore):
         return False
     if noun in {str(n).strip().lower() for n in additions or ()}:
         return True

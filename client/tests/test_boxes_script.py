@@ -159,7 +159,7 @@ def disarmed(command):
     return DISARMED
 
 
-def run(fake, args=(), profile=None, droppable=("box",)):
+def run(fake, args=(), profile=None, droppable=("box",), bin_here=True):
     _DISARMS["count"] = 0
     script.probe = SimpleNamespace(ask=fake.ask)
     # The script's own view of discard.py, never the shared module: a
@@ -167,6 +167,9 @@ def run(fake, args=(), profile=None, droppable=("box",)):
     script.discard = SimpleNamespace(
         droppable=lambda item: item in droppable,
         drop=lambda s, item, ask: ask(s, f"put my {item} in bucket"),
+        trash=lambda s, item, ask: (
+            ask(s, f"put my {item} in bucket") if bin_here else None
+        ),
     )
     script.run_loop(
         fake, dict(PROFILE, **(profile or {})), script.parse_args(list(args))
@@ -942,3 +945,58 @@ def test_a_stop_still_lifts_every_box_off_the_feet():
         pass
     assert puts == [("lift chest", True), ("lift casket", True)]
     assert runner.at_feet == []
+
+
+def nugget_box():
+    """One easy box holding a common copper nugget, a rare damite one
+    and an embroidery needle (#365)."""
+    table = one_easy_box()
+    table[table.index(("open my box", OPENED))] = (
+        "open my box",
+        "In the iron box you see a large copper nugget, a large damite nugget "
+        "and an embroidery needle.\n",
+    )
+    return [
+        (
+            "get copper nugget from my box",
+            "You get a large copper nugget from inside your iron box.\n",
+        ),
+        (
+            "get embroidery needle from my box",
+            "You get an embroidery needle from inside your iron box.\n",
+        ),
+        (
+            "get nugget from my box",
+            "You get a large damite nugget from inside your iron box.\n",
+        ),
+        ("put my nugget in my sack", "You put your nugget in your canvas sack.\n"),
+        ("put my copper nugget in bucket", "You drop a copper nugget in a bucket.\n"),
+        (
+            "put my embroidery needle in bucket",
+            "You drop an embroidery needle in a bucket.\n",
+        ),
+    ] + table
+
+
+IGNORE = {"loot_ignore": ["copper", "zinc", "embroidery needle"]}
+
+
+def test_loot_ignore_items_go_in_the_trash_and_a_rare_nugget_is_kept():
+    fake = Fake(nugget_box(), mindstates=[1, 3, 5, 7])
+    out = run(fake, profile=IGNORE)
+    assert "get copper nugget from my box" in fake.sent
+    assert "put my copper nugget in bucket" in fake.sent
+    assert "put my embroidery needle in bucket" in fake.sent
+    assert "get nugget from my box" in fake.sent  # the damite, by its noun
+    assert "put my nugget in my sack" in fake.sent
+    assert not any(command.startswith("drop") for command in fake.sent)
+    assert "the copper nugget is on loot_ignore — in the trash" in out
+
+
+def test_with_no_trash_in_the_room_an_ignored_item_is_kept():
+    fake = Fake(nugget_box(), mindstates=[1, 3, 5, 7])
+    out = run(fake, profile=IGNORE, bin_here=False)
+    assert "put my copper nugget in bucket" not in fake.sent
+    assert not any(command.startswith("drop") for command in fake.sent)
+    assert "no trash here for the copper nugget (loot_ignore) — kept" in out
+    assert fake.sent.count("put my nugget in my sack") == 2  # copper and damite

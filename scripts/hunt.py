@@ -1553,9 +1553,10 @@ def grab(s, profile, before, tally):
     creatures = getattr(s.state, "room_creatures", None) or ()
     additions = profile.get("loot_additions") or ()
     subtractions = profile.get("loot_subtractions") or ()
+    ignore = profile.get("loot_ignore") or ()
     limit = int(profile.get("box_limit") or 0)
     for entry in loot.new_items(before, listing(s), creatures):
-        if not loot.lootable(entry, additions, subtractions):
+        if not loot.lootable(entry, additions, subtractions, ignore):
             continue
         what = loot.kind(entry)
         # The entry's own noun, coins included: a lone "bronze coin"
