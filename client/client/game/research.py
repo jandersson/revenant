@@ -13,15 +13,27 @@ project's skill to 34/34, FUNDAMENTAL the magic skill and Arcana to
 17/34 each. One project at a time. A cast, a PREPARE, a PLAY, a STUDY
 or a fight loses the portion in hand; perceiving, appraising and
 walking do not (Elanthipedia: Magical research, Gauge Flow). The
-wordings are dr-scripts' researcher.lic and crossing-training.lic's
-and the wiki's until captured: the start ("You tentatively reach out
-and begin manipulating the mana streams, ..."), a portion's end
-("... there is still more to learn before you arrive at a
-breakthrough."), the breakthrough ("Breakthrough! ..."), a lost
-portion ("Distracted by your spellcasting, you forget what you were
-researching."), RESEARCH STATUS ("You have completed N% of a project
-about ...", "You're not researching anything"). crossing-training
-recasts Gauge Flow below 20 minutes left before a project.
+start patterns are dr-scripts' researcher.lic's, one per project's
+wording. Captured 2026-09-29 on a Moon Mage, Gauge Flow at 98 mana
+(DISCERN: "... for a total of 100 streams.", the Spells window
+"Gauge Flow  (88 roisaen)"): RESEARCH STATUS idle "You're not
+researching anything!", mid-portion "You believe that you're 36%
+complete with a portion of research about Mana Stream Theory.  You
+estimate that you will complete it a few minutes from now."; the
+starts "You confidently begin to bend the mana streams ..."
+(AUGMENTATION) and "You focus your magical perception as tightly as
+possible, ..." (STREAM), no roundtime; pulses that end nothing ("You
+continue to study the mana streams."); a portion's end "You make
+definite progress in your project about Augmentation Patterns
+Research and decide to take a break.  However, there is still more to
+learn before you arrive at a breakthrough."; the last portion's start
+"... only requires 182 more seconds of research, so you adjust your
+plans accordingly."; the breakthrough "Breakthrough!" on its own line,
+then "You have woven an Augmentation pattern ...", Augmentation 0 to
+34/34 after 482 s of research. Still the wiki's: a lost portion
+("Distracted by your spellcasting, you forget what you were
+researching."). crossing-training recasts Gauge Flow below 20 minutes
+left before a project.
 
 MEDITATE RESEARCH <ability> is "the Barbarian equivalent of magic
 research": it teaches the skill of the named ability — Augmentation,
@@ -198,7 +210,9 @@ PORTION_ENDS = (
         ),
     ),
 )
-_STATUS_PERCENT = re.compile(r"completed (\d+)%")
+# "you're 36% complete with a portion of research about ..." (captured
+# mid-portion) or researcher.lic's "You have completed N% of a project".
+_STATUS_PERCENT = re.compile(r"(\d+)% complete|completed (\d+)%")
 
 
 def _first(answer, table):
@@ -230,7 +244,7 @@ def research_status(answer):
     if "not researching anything" in lowered:
         return None, None
     match = _STATUS_PERCENT.search(lowered)
-    percent = int(match.group(1)) if match else None
+    percent = int(match.group(1) or match.group(2)) if match else None
     if not match and "you estimate" not in lowered:
         return None, None  # no project in the answer at all
     for project in PROJECTS:

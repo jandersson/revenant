@@ -5,8 +5,10 @@ locks the project's skill. The loop casts Gauge Flow at DISCERN's mana
 when it is down, finishes a project in progress first, picks the
 emptiest skill's project next, and ends on a typed return, a danger,
 or an answer its tables lack (client/game/research.py,
-scripts/research.py). The wordings are dr-scripts' researcher.lic and
-crossing-training.lic's and Elanthipedia's until captured."""
+scripts/research.py). The start, the portion's end, the idle status
+and DISCERN's estimate were captured on a Moon Mage (2026-09-29); the
+lost portion is Elanthipedia's and dr-scripts' crossing-training.lic's
+until captured."""
 
 import importlib.util
 import pathlib
@@ -16,14 +18,23 @@ from client.game import buffs, research
 
 REPO = pathlib.Path(__file__).parents[2]
 
+# Captured 2026-09-29, RESEARCH AUGMENTATION 300 under a 98-mana Gauge
+# Flow; the pulses between ("Noting that your research is progressing
+# nicely, you continue to focus on it.") end nothing.
 STARTED = (
-    "You tentatively reach out and begin manipulating the mana streams, testing "
-    "their give and the amount of energy coursing through them.\n"
+    "You confidently begin to bend the mana streams around and through you, "
+    "testing the limits of your ability to weave augmentation spells into the "
+    "flesh.\n"
 )
 PORTION = (
-    "You make definite progress in your Mana Stream Theory research project and "
-    "decide to take a break.  However, there is still more to learn before you "
-    "arrive at a breakthrough.\n"
+    "You make definite progress in your project about Augmentation Patterns "
+    "Research and decide to take a break.  However, there is still more to learn "
+    "before you arrive at a breakthrough.\n"
+)
+# The next portion's start, when less than its seconds are left.
+SHORTENED = (
+    "You realize that your project about Augmentation Patterns Research only "
+    "requires 182 more seconds of research, so you adjust your plans accordingly.\n"
 )
 BREAKTHROUGH = (
     "Breakthrough!  The mana streams dance in front of your magical senses and, at "
@@ -31,10 +42,10 @@ BREAKTHROUGH = (
     "and weave.\n"
 )
 LOST = "Distracted by your spellcasting, you forget what you were researching.\n"
-IDLE = "You're not researching anything.\n"
-DISCERN = (
+IDLE = "You're not researching anything!\n"  # captured 2026-09-29
+DISCERN = (  # captured 2026-09-29: the spell's own cap
     "The spell requires at minimum 5 mana streams and you think you can reinforce "
-    "it with 55 more, for a total of 60 streams.\n"
+    "it with 95 more, for a total of 100 streams.\n"
 )
 ENDS = {"portion": PORTION, "breakthrough": BREAKTHROUGH, "lost": LOST}
 
@@ -73,10 +84,26 @@ def test_a_portion_ends_in_progress_a_breakthrough_or_a_loss():
     assert research.portion_end(BREAKTHROUGH) == "breakthrough"
     assert research.portion_end(LOST) == "lost"
     assert research.portion_end("You continue to flex the mana streams.") is None
+    pulse = (
+        "Noting that your research is progressing nicely, you continue to focus on it."
+    )
+    assert research.portion_end(pulse) is None
+
+
+def test_a_shortened_portion_is_a_start_not_an_end():
+    # The last portion of a project says how much is left, then starts.
+    assert research.start_outcome(SHORTENED + STARTED) == "started"
+    assert research.portion_end(SHORTENED) is None
 
 
 def test_research_status_names_the_project_in_progress():
     assert research.research_status(IDLE) == (None, None)
+    # Captured 2026-09-29, mid-portion.
+    assert research.research_status(
+        "You believe that you're 36% complete with a portion of research about "
+        "Mana Stream Theory.  You estimate that you will complete it a few "
+        "minutes from now."
+    ) == ("stream", 36)
     assert research.research_status(
         "You have completed 40% of a project about Mana Stream Theory."
     ) == ("stream", 40)
@@ -243,7 +270,7 @@ def test_it_casts_gauge_flow_then_researches_the_emptiest_project_to_its_breakth
     assert fake.sent[:3] == [
         "research status",
         "discern gauge flow",
-        "cast gauge flow 58",
+        "cast gauge flow 98",
     ]
     assert portions(fake) == [
         "research stream 300",
@@ -251,17 +278,17 @@ def test_it_casts_gauge_flow_then_researches_the_emptiest_project_to_its_breakth
         "research augmentation 300",
     ]
     assert "STREAM for Attunement (2/34)" in out
-    assert "a STREAM portion done — more to learn" in out
+    assert "research: STREAM portion done — more to learn" in out
     assert "breakthrough — STREAM done, Attunement 34/34" in out
     assert "Attunement, Augmentation at 34/34 — done" in out
-    assert fake.cast_mana == [58]  # still up for the second project
+    assert fake.cast_mana == [98]  # still up for the second project
 
 
 def test_gauge_flow_under_twenty_minutes_is_recast_before_the_portion():
     fake = Fake({"Attunement": 0}, ends=["breakthrough"], active={"Gauge Flow": 12})
     out = run(fake, ["stream", "once"])
-    assert fake.cast_mana == [58]
-    assert "Gauge Flow cast at 58 mana (12 min left)" in out
+    assert fake.cast_mana == [98]
+    assert "Gauge Flow cast at 98 mana (12 min left)" in out
 
 
 def test_gauge_flow_with_time_left_is_not_recast():
@@ -274,8 +301,8 @@ def test_gauge_flow_with_time_left_is_not_recast():
 def test_a_gauge_flow_that_fails_at_discerns_mana_is_tried_at_the_minimum():
     fake = Fake({"Attunement": 0}, ends=["breakthrough"], casts=["collapsed", "ok"])
     out = run(fake, ["stream", "once"])
-    assert fake.cast_mana == [58, 0]
-    assert "Gauge Flow failed at 58 mana — the minimum from here" in out
+    assert fake.cast_mana == [98, 0]
+    assert "Gauge Flow failed at 98 mana — the minimum from here" in out
     assert portions(fake) == ["research stream 300"]
 
 
@@ -344,7 +371,7 @@ def test_a_return_late_in_a_portion_finishes_it_first():
     # the portion starts about 1000 and ends 300 s on; the return at 1250
     fake = Fake({"Attunement": 0}, ends=["portion", "portion"], stop_at=1250)
     out = run(fake, ["stream"])
-    assert "a STREAM portion done — more to learn" in out
+    assert "research: STREAM portion done — more to learn" in out
     assert out.endswith("research: stopping as asked")
     assert portions(fake) == ["research stream 300"]
 

@@ -448,7 +448,7 @@ def run_caster(s, options):
             )
             current = None
         elif end == "portion":
-            s.echo(f"research: a {current.upper()} portion done — more to learn")
+            s.echo(f"research: {current.upper()} portion done — more to learn")
         elif end == "lost":
             s.echo(f"research: the portion was lost ({line!r}) — starting it again")
         else:
