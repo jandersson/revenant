@@ -1022,3 +1022,57 @@ def test_a_staying_healer_is_not_waited_on_once_the_student_is_clean(
     task = normalize({"tasks": [HEAL | {"helper_after": "stay"}]})["tasks"][0]
     assert train.run_task(fake, plan(poll=10), task, db=MAP, walk=walk) == "healed"
     assert world.sent == []  # no ;empath return, no ;logout
+
+
+def test_a_healer_told_after_logs_out_once_his_own_heal_is_done(clock, monkeypatch):
+    # The operator, 2026-09-28: Riphik logged out once Cecil is healed
+    # and Riphik has healed himself. The task ends when Cecil is clean,
+    # as with "stay"; Riphik lingers until ;empath ends, then ;logout.
+    from client.game import helper
+
+    world = HelperWorld([["empath"]])  # still healing himself
+
+    def heal(s):
+        s.state.injuries = {}
+
+    monkeypatch.setattr(train, "HelperIO", world)
+    monkeypatch.setattr(train, "LINGERING", {})
+    monkeypatch.setattr(
+        train,
+        "start_helper",
+        lambda s, task, db, walk: helper.Helper("Riphik", 4260, True),
+    )
+    fake = Fake([lambda s: None, heal])
+    fake.state.injuries = {"chest": ("wound", 2)}
+    clock["fake"] = fake
+    task = normalize({"tasks": [HEAL | {"helper_after": "after"}]})["tasks"][0]
+    assert train.run_task(fake, plan(poll=10), task, db=MAP, walk=walk) == "healed"
+    assert world.sent == []  # no ;empath return, not yet out
+    assert "train: Riphik logs out once ;empath is done" in fake.echoed
+    assert "riphik" in train.LINGERING
+
+    world.polls = [["empath"]]
+    train.settle_helpers(fake)
+    assert world.sent == []  # still healing himself
+    world.polls = [[]]
+    train.settle_helpers(fake)
+    assert world.sent == [";logout"]  # his ;empath has ended: out
+    assert train.LINGERING == {}
+
+
+def test_a_lingering_healer_wanted_again_is_not_logged_out(monkeypatch):
+    from client.game import helper
+
+    monkeypatch.setattr(
+        train, "LINGERING", {"riphik": (helper.Helper("Riphik", 4260, True), "empath")}
+    )
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        train, "HelperIO", lambda s, db=None: SimpleNamespace(own_port=lambda: None)
+    )
+    monkeypatch.setattr(train.helper, "ensure", lambda *args, **kwargs: None)
+    fake = Fake()
+    task = normalize({"tasks": [HEAL | {"helper_after": "after"}]})["tasks"][0]
+    train.start_helper(fake, task, None, None)
+    assert train.LINGERING == {}

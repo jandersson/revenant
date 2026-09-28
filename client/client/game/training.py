@@ -100,7 +100,8 @@ TASK_DEFAULTS = {
     "helper_args": [],
     "helper_room": "",
     # "stay": the helper stays logged in after the task (Riphik
-    # waiting for the next heal); blank logs a spawned one out.
+    # waiting for the next heal); "after": logged out once its script
+    # ends, the student gone on meanwhile; blank logs a spawned one out.
     "helper_after": "",
     # "wounded": the task is skipped while the injuries panel is clean.
     "when": "",
@@ -153,7 +154,12 @@ TASK_FIELDS = (
     ("helper_script", "Helper's script", "str", "teach (the default)"),
     ("helper_args", "Helper's arguments", "list", "parry ability, to, cecil"),
     ("helper_room", "Room for both", "str", "7890 — blank: where you stand"),
-    ("helper_after", "Helper afterwards", "str", "stay — blank: logged out"),
+    (
+        "helper_after",
+        "Helper afterwards",
+        "str",
+        "stay, after (out once its script ends) — blank: logged out",
+    ),
     ("when", "Only when", "str", "wounded — blank: always"),
     ("target", "Own target mindstate", "optint", "blank: the plan's"),
     ("minutes", "Own time budget, minutes", "optint", "blank: the plan's"),

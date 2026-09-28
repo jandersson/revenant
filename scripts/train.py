@@ -219,6 +219,7 @@ def watch(s, plan, task, deadline, running=None):
     still up."""
     if s.dead:
         return "dead"
+    settle_helpers(s)
     if shutdown_soon(s, plan):
         return "shutdown"
     if running is not None and not running():
@@ -305,6 +306,23 @@ HelperIO = helper.SessionIO  # the world helper.py acts on
 
 
 SPAWNED = set()  # helper names this loop logged in (logged out at their last task)
+# helper_after "after": name -> (Helper, script), logged out once the
+# script has ended — Riphik after healing himself too, while Cecil has
+# gone on (the operator, 2026-09-28).
+LINGERING = {}
+
+
+def settle_helpers(s):
+    """Every lingering helper whose script has ended, logged out; one
+    whose session does not say is left be."""
+    if not LINGERING:
+        return
+    io = HelperIO(s, None)
+    for name, (active, script) in list(LINGERING.items()):
+        if helper.running(io, active, script) is False:
+            del LINGERING[name]
+            if helper.finish(io, active, script, False, s.echo, ended=True):
+                SPAWNED.discard(name)
 
 
 def start_helper(s, task, db, walk):
@@ -314,6 +332,7 @@ def start_helper(s, task, db, walk):
     spec = helper.spec_of(task)
     if not spec:
         return None
+    LINGERING.pop(spec["name"].lower(), None)  # wanted again: not logged out
     io = HelperIO(s, db)
     active = helper.ensure(io, spec["name"], s.echo, SPAWNED, own_port=io.own_port())
     if active is None:
@@ -347,6 +366,13 @@ def end_helper(s, task, active, following, db, ended=False):
     if task.get("helper_after") == "stay" and not keep:
         keep = True
         s.echo(f"train: {active.name} stays logged in")
+    if task.get("helper_after") == "after" and not keep and ended:
+        io = HelperIO(s, db)
+        if helper.running(io, active, spec["script"]) is not False:
+            # Still at it (healing himself): out once the script ends.
+            LINGERING[active.name.lower()] = (active, spec["script"])
+            s.echo(f"train: {active.name} logs out once ;{spec['script']} is done")
+            return
     if helper.finish(HelperIO(s, db), active, spec["script"], keep, s.echo, ended):
         SPAWNED.discard(active.name.lower())
 
@@ -361,7 +387,10 @@ def run_helper_task(s, plan, task, deadline, active, db):
     # need: Riphik healed Cecil in ninety seconds and then himself for
     # eight minutes while Cecil stood by (2026-09-27). A `when: wounded`
     # task ends once the panel is clean; the helper's script runs on.
-    healed_ends = task.get("when") == "wounded" and task.get("helper_after") == "stay"
+    healed_ends = task.get("when") == "wounded" and task.get("helper_after") in (
+        "stay",
+        "after",
+    )
     while True:
         reason = watch(s, plan, task, deadline)
         if reason is not None:
@@ -668,6 +697,7 @@ def rest(s, plan, db, walk, index):
     while True:
         if s.dead:
             return None
+        settle_helpers(s)
         soul_step(s, plan, db, walk, room)
         if s.dead:
             return None
