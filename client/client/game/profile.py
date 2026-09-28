@@ -68,12 +68,15 @@ DEFAULTS = {
     # before the first swing, and again whenever the Spells window no
     # longer lists it (Heroic Strength, Manifest Force, ...).
     "buffs": [],
-    # A magic skill to train by recasting the first buff between swings
-    # while it sits below mind-lock and mana holds: "Augmentation" for
-    # a Paladin's Heroic Strength. The mana fed grows by steps until
-    # the game warns of strain, then holds one step under. "" casts
-    # buffs only when they run out.
-    "train_casting": "",
+    # Magic skills to train by recasting buffs between swings while
+    # mana holds: each cast goes to the skill with the emptiest pool
+    # below mind-lock, with the first buff DISCERN says uses it (#374)
+    # — Augmentation, Warding, Utility for a Paladin's Heroic Strength,
+    # Aspirant's Aegis and Hands of Justice; "all" for every skill the
+    # buffs use. The mana fed grows by steps until the game warns of
+    # strain, then holds one step under. Empty casts buffs only when
+    # they run out.
+    "train_casting": [],
     # A cambrinth piece held for Arcana: its noun ("flake"), charged with
     # cambrinth_mana before every training cast and INVOKEd into it. The
     # piece must not outrank the skill (a 1- or 5-mana piece at 0 ranks,
@@ -254,9 +257,9 @@ FIELDS = (
     ("buffs", "Buff spells to keep up", "list", "Heroic Strength, Manifest Force"),
     (
         "train_casting",
-        "Recast the first buff to train",
-        "str",
-        "Augmentation — empty: cast only when it runs out",
+        "Magic skills to train with the buffs",
+        "list",
+        "Augmentation, Warding, Utility — or all; empty: cast only when they run out",
     ),
     ("cambrinth", "Cambrinth piece to charge for Arcana", "str", "flake — empty: none"),
     ("cambrinth_mana", "Mana per cambrinth charge", "int", "1: the piece's capacity"),

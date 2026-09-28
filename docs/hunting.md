@@ -104,7 +104,7 @@ An empty ground is not an end: the hunt waits and laps it again.
 ## Spells and abilities
 
 - **`buffs`** are cast before the walk and recast whenever the Spells window drops one.
-- **`train_casting`** (e.g. `Augmentation`) recasts the first buff every `cast_gap` seconds (60), feeding a little more mana each time until the game warns of strain.
+- **`train_casting`** (e.g. `Augmentation, Warding, Utility`, or `all`) recasts a buff every `cast_gap` seconds (60) for the named skill with the emptiest pool, feeding a little more mana each time until the game warns of strain. Each skill is trained by the first buff DISCERN says uses it; a skill no buff uses is named once.
 - **`cambrinth`** charges a piece with `cambrinth_mana` before each training cast, for Arcana. Set `cambrinth_worn` for an anklet or armband; a worn piece is removed to charge. The piece must not outrank your Arcana (a 1- or 5-mana piece at 0 ranks).
 - **`debilitation`** (e.g. `Stun Foe`) and **`targeted`** (e.g. `Footman's Strike`) are cast at the prey on the same gap. The training casts take turns, so a swing never carries two.
 - Mana never ramps past what DISCERN says you can hold. A spell your ranks cannot cast is turned off for the run, with the rank it needs.

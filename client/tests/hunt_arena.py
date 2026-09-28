@@ -193,6 +193,10 @@ class Arena:
         self, answers, hostiles=("1",), health=100, room=6046, experience=None
     ):
         self.answers = {prefix: list(queue) for prefix, queue in answers.items()}
+        # DISCERN names the skill a training buff trains (#374); a test
+        # that scripts "discern" answers first, the prefixes being tried
+        # in order.
+        self.answers.setdefault("discern heroic strength", [HS_SKILL] * 9)
         self.sent = []
         self.echoed = []
         self.commands = []
@@ -338,6 +342,18 @@ CAST = (
     "You gesture.\nThe spell takes effect, the invisible flame of your soul "
     "intertwining with your flesh.  You feel holy strength and vigor course "
     "through your body."
+)
+
+
+# Heroic Strength's DISCERN report, captured 2026-09-28: the sentence
+# that names the skill, without the estimate, so a ramp test that wants
+# a ceiling scripts its own DISCERN.
+HS_SKILL = (
+    "This is a non-battle spell that can be cast on an area or group.  It "
+    "affects yourself.  It requires a minimum of one mana streams, and can "
+    "expand to a maximum of one hundred mana streams woven into it.  It "
+    "requires the Augmentation skill to cast effectively.  This spell has no "
+    "prerequisites.  It will also cost two spell slots.\nRoundtime: 11 sec."
 )
 
 

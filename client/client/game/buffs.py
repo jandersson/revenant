@@ -8,16 +8,21 @@ wait for the pattern, CAST — a name the game does not parse, "You have
 no idea how to cast that spell." to "prepare hands of justice", is
 prepared again by the abbreviation ;sheet recorded off SPELLS, "hoj",
 2026-09-26, #320, and by the abbreviation first for the rest of the
-run) and, when the profile names a magic skill
-in `train_casting`, recasts the first buff between actions while that
-skill sits below mind-lock and mana holds, feeding more mana each time
-until the game warns of strain or a cast fails, then holding one step
-under — at most one cast per the profile's `cast_gap` seconds (60 by
-default: at 20 the first badger fight was seven swings to the badger's
-42 in four minutes, a cambrinth cycle being eight commands, 2026-09-14,
-#189). The Spells window (state.active_spells, client/engine/xml_data.py)
-says when a buff has run out; a session whose parser predates that
-state recasts on BUFF_MINUTES instead.
+run) and, for the magic skills the profile names in `train_casting`,
+recasts buffs between actions while mana holds, feeding more mana each
+time until the game warns of strain or a cast fails, then holding one
+step under — at most one training cast per the profile's `cast_gap`
+seconds (60 by default: at 20 the first badger fight was seven swings
+to the badger's 42 in four minutes, a cambrinth cycle being eight
+commands, 2026-09-14, #189). Each skill is trained by the first buff
+DISCERN says uses it ("It requires the Augmentation skill to cast
+effectively.", remembered across runs in spell_skills_path()), and each
+cast goes to the named skill with the emptiest pool below lock — the
+weapon rotation's rule: one skill named used to take every ramped cast
+while the others learned only from minimum-mana recasts (#374). The
+Spells window (state.active_spells, client/engine/xml_data.py) says
+when a buff has run out; a session whose parser predates that state
+recasts on BUFF_MINUTES instead.
 
 Captured 2026-09-12 with Heroic Strength on a circle-1 Paladin: "You
 begin chanting a prayer to invoke the Heroic Strength spell." / "You
@@ -115,7 +120,10 @@ targeting pattern around <target> has completed." until captured),
 CAST with no argument (Elanthipedia: Target command).
 """
 
+import json
+import os
 import re
+from pathlib import Path
 from time import monotonic
 
 from client.game import probe
@@ -280,16 +288,24 @@ class BuffState:
     def __init__(self):
         self.cast_at = {}  # buff -> monotonic() of its last cast
         self.buffs_off = set()  # buffs that refused this run
-        self.mana = 0  # the next training cast's mana; 0 is the minimum
-        self.mana_cap = None  # one step under the strain, once met
-        self.training_off = False  # even the minimum failed this run
+        # The training ramps, one per buff (#374): the next training
+        # cast's mana (0 is the minimum), one step under the strain once
+        # met, and DISCERN's total as the ceiling.
+        self.buff_mana = {}
+        self.buff_cap = {}
+        self.buff_limit = {}
+        self.training_spells_off = set()  # buffs whose minimum failed this run
+        self.training_off = False  # no buff is left to train with this run
+        self.trained_at = None  # monotonic() of the last training cast
+        self.spell_skills = None  # spell -> its skills, loaded on first use
+        self.unmatched = set()  # named skills no buff trains, said once
         self.cambrinth_off = False  # the piece refused this run, said once
         self.slot_mana = {}  # targeted slot -> its next cast's mana (#192, #200)
         self.slot_cap = {}  # targeted slot -> one step under its strain, once met
         self.slot_limit = {}  # targeted slot -> DISCERN's total, the ramp's ceiling
-        self.mana_limit = None  # the training buff's DISCERN total, likewise
         self.slots_off = set()  # targeted slots whose spell refused this run
-        self.discerned = set()  # targeted slots (and "buff") DISCERNed this run (#202)
+        # Targeted slots and "buff:<spell>" keys DISCERNed this run (#202)
+        self.discerned = set()
         self.last_training = None  # "buff" or a targeted slot: whose turn it was
         self.short_names = {}  # spell -> the abbreviation that prepared it (#320)
 
@@ -355,6 +371,142 @@ def rank_floor(text):
     if words[-1] == "novice" and len(words) == 2:
         base = NOVICE_STEPS.get(words[0], base)
     return base, title
+
+
+# DISCERN names the spell's magic skill (captured 2026-09-28 on Heroic
+# Strength, Stun Foe and Footman's Strike): "It requires the
+# Augmentation skill to cast effectively." A spell of two skills is the
+# Discern command page's "pair of skills", its wording not yet captured.
+_SKILL_OF = re.compile(r"requires the ([A-Z][A-Za-z' ,]*?) skills? to cast effectively")
+
+
+def discerned_skills(text):
+    """The magic skills DISCERN's report names, or [] when it names none."""
+    match = _SKILL_OF.search(text or "")
+    if not match:
+        return []
+    return [
+        part.strip() for part in re.split(r",|\band\b", match.group(1)) if part.strip()
+    ]
+
+
+def spell_skills_path() -> Path:
+    """Where the skills DISCERN named are kept: every character's in one
+    file, since a spell's skill is the game's, not the caster's.
+    REVENANT_SPELL_SKILLS moves it (tests point it at a temp file)."""
+    return Path(
+        os.environ.get("REVENANT_SPELL_SKILLS", "~/.revenant/spell_skills.json")
+    ).expanduser()
+
+
+def _read_spell_skills():
+    try:
+        data = json.loads(spell_skills_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {
+        str(spell).lower(): [str(skill) for skill in skills]
+        for spell, skills in data.items()
+        if isinstance(skills, list)
+    }
+
+
+def skills_of(state, spell):
+    """The magic skills the spell uses as DISCERN named them, or None
+    while no DISCERN has (read from spell_skills_path() once a run)."""
+    if getattr(state, "spell_skills", None) is None:
+        state.spell_skills = _read_spell_skills()
+    return state.spell_skills.get(str(spell).lower())
+
+
+def remember_skills(state, spell, skills):
+    """Keep what DISCERN said the spell uses, for this run and the next."""
+    skills_of(state, spell)
+    state.spell_skills[str(spell).lower()] = list(skills)
+    stored = _read_spell_skills()
+    stored[str(spell).lower()] = list(skills)
+    path = spell_skills_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(stored, indent=1, sort_keys=True), encoding="utf-8")
+    except OSError:
+        pass  # known for this run; the next one DISCERNs again
+
+
+def training_skills(profile):
+    """The skills `train_casting` names, in order: a list, or one string
+    of names split on commas (a profile from before #374 holds one
+    skill). "all" stands for every skill a profile buff uses."""
+    raw = profile.get("train_casting") or []
+    if isinstance(raw, str):
+        raw = raw.split(",")
+    return [str(name).strip() for name in raw if str(name).strip()]
+
+
+def training_buffs(profile, state):
+    """skill -> the buff whose recasts train it: for each skill
+    `train_casting` names (every skill of the buffs, for "all"), the
+    first buff in the profile's order that DISCERN said uses it and
+    that is still in the run. The skill is spelled as DISCERN spells
+    it, which is the exp window's spelling (#374)."""
+    names = training_skills(profile)
+    every = any(name.lower() == "all" for name in names)
+    wanted = {name.lower() for name in names}
+    chosen = {}
+    for spell in profile.get("buffs") or []:
+        if spell in state.buffs_off or spell in state.training_spells_off:
+            continue
+        for skill in skills_of(state, spell) or []:
+            taken = {known.lower() for known in chosen}
+            if skill.lower() not in taken and (every or skill.lower() in wanted):
+                chosen[skill] = spell
+    if every:
+        return chosen
+    order = [name.lower() for name in names]
+    return dict(sorted(chosen.items(), key=lambda item: order.index(item[0].lower())))
+
+
+def training_pick(s, profile, state):
+    """(skill, buff) the next training cast serves: of the skills
+    training_buffs() maps, the one below lock with the emptiest pool —
+    the lowest mindstate, then the lowest rank, then the profile's
+    order — so every named skill keeps learning, the weapon rotation's
+    rule (#374). A profile naming no skill but a cambrinth piece
+    recasts its first buff for Arcana. None when nothing is left to
+    train."""
+    if not training_skills(profile):
+        if not profile.get("cambrinth") or state.cambrinth_off:
+            return None
+        if locked(s.state, ["Arcana"]):
+            return None
+        for spell in profile.get("buffs") or []:
+            if spell not in state.buffs_off and spell not in state.training_spells_off:
+                return "Arcana", spell
+        return None
+    experience = getattr(s.state, "experience", None) or {}
+    choices = []
+    for order, (skill, spell) in enumerate(training_buffs(profile, state).items()):
+        if locked(s.state, [skill]):
+            continue
+        entry = experience.get(skill) or {}
+        emptiness = (entry.get("mindstate") or 0, entry.get("rank") or 0, order)
+        choices.append((emptiness, skill, spell))
+    if not choices:
+        return None
+    _, skill, spell = min(choices)
+    return skill, spell
+
+
+def _training_left(profile, state):
+    """True while some buff can still train what the profile asks for."""
+    if training_skills(profile):
+        return bool(training_buffs(profile, state))
+    return any(
+        spell not in state.buffs_off and spell not in state.training_spells_off
+        for spell in profile.get("buffs") or []
+    )
 
 
 def buff_running(s, spell, state):
@@ -642,22 +794,19 @@ def cast_once(
 
 
 def training_cast_due(s, profile, state):
-    """True when the first buff should be recast for the skill named
-    in train_casting: the skill is below lock, mana is above the floor,
-    and the last cast is the profile's cast_gap seconds old
+    """True when a buff should be recast for training: training_pick()
+    finds a named skill below lock (or Arcana, for a cambrinth piece
+    alone), mana is above the floor, and the last training cast, of
+    whichever buff, is the profile's cast_gap seconds old
     (CAST_GAP_SECONDS for a profile without the key, #189)."""
-    skill = profile["train_casting"]
-    piece = profile.get("cambrinth") and not state.cambrinth_off
-    if not (skill or piece) or not profile["buffs"] or state.training_off:
+    if not profile["buffs"] or state.training_off:
         return False
-    if skill and locked(s.state, [skill]):
+    if training_pick(s, profile, state) is None:
         return False
-    if not skill and locked(s.state, ["Arcana"]):
-        return False  # the cambrinth was the only reason to recast
     mana = (getattr(s.state, "vitals", None) or {}).get("mana")
     if mana is not None and mana < MANA_FLOOR:
         return False
-    last = state.cast_at.get(profile["buffs"][0])
+    last = state.trained_at
     return last is None or monotonic() - last >= cast_gap(profile)
 
 
@@ -745,17 +894,66 @@ def discern_slots(s, profile, state, ask, prefix, report):
             report("discern", answer)
         else:
             _cap_by_discern(s, prefix, spell, answer, state.slot_limit, slot)
-    # The training buff too: its ramp climbed the same way, with no
-    # estimate to stop it (2026-09-20).
-    spell = profile.get("buffs") or []
-    spell = spell[0] if profile.get("train_casting") and spell else ""
-    if spell and "buff" not in state.discerned and not state.training_off:
-        state.discerned.add("buff")
-        answer = ask(s, f"discern {spell}")
-        s.waitrt()
-        limits = {}
-        _cap_by_discern(s, prefix, spell, answer, limits, "buff")
-        state.mana_limit = limits.get("buff")
+    # The training buffs too: their ramps climbed the same way, with no
+    # estimate to stop them (2026-09-20).
+    discern_training_buffs(s, profile, state, ask, prefix)
+
+
+def discern_training_buffs(s, profile, state, ask, prefix):
+    """DISCERN the buffs `train_casting` needs, once per run each, in
+    the profile's order: a buff whose skill no DISCERN has named yet
+    (its report says it, and spell_skills_path() keeps it for the next
+    run), and the first buff of each named skill, whose estimate is its
+    ramp's ceiling. A buff known to use nothing asked for is never
+    DISCERNed. A named skill no buff uses is said once, and with none
+    left at all the training casts are off (#374)."""
+    names = training_skills(profile)
+    if not names or state.training_off:
+        return
+    every = any(name.lower() == "all" for name in names)
+    wanted = {name.lower() for name in names}
+    covered = set()
+
+    def serves(skills):
+        return any(
+            skill.lower() not in covered and (every or skill.lower() in wanted)
+            for skill in skills
+        )
+
+    for spell in profile["buffs"]:
+        if not every and wanted <= covered:
+            break
+        if spell in state.buffs_off or spell in state.training_spells_off:
+            continue
+        known = skills_of(state, spell)
+        if known is not None and not serves(known):
+            continue
+        key = f"buff:{str(spell).lower()}"
+        if key not in state.discerned:
+            state.discerned.add(key)
+            answer = ask(s, f"discern {spell}")
+            s.waitrt()
+            learned = discerned_skills(answer)
+            if learned:
+                remember_skills(state, spell, learned)
+                known = learned
+            elif known is None:
+                s.echo(
+                    f"{prefix}: DISCERN named no skill for {spell} — no training on it"
+                )
+            limits = {}
+            _cap_by_discern(s, prefix, spell, answer, limits, "buff")
+            if "buff" in limits:
+                state.buff_limit[spell] = limits["buff"]
+        if known and serves(known):
+            covered |= {skill.lower() for skill in known}
+    for name in names:
+        if name.lower() in ("all", *covered) or name.lower() in state.unmatched:
+            continue
+        state.unmatched.add(name.lower())
+        s.echo(f"{prefix}: no buff in the profile uses {name} — nothing trains it")
+    if not _training_left(profile, state):
+        state.training_off = True
 
 
 def _cap_by_discern(s, prefix, spell, answer, limits, key):
@@ -832,15 +1030,24 @@ def cast_targeted(s, profile, state, ask, prefix, report, slot, target="", fille
 
 
 def cast_buffs(
-    s, profile, state, ask, prefix="buffs", report=None, train=True, filler=None
+    s,
+    profile,
+    state,
+    ask,
+    prefix="buffs",
+    report=None,
+    train=True,
+    filler=None,
+    upkeep=True,
 ):
     """Every profile buff not running: PREPARE it, wait for the pattern,
-    CAST. A refusal takes that buff off for the run, said once. The
-    first buff is cast again for training when training_cast_due says
-    so (and `train` allows it — a caller whose targeted cast took
-    this turn passes False), feeding state.mana, which climbs a step
-    per cast until the strain warning or a collapsed cast and then
-    holds one step under. The caller's `filler` (a swing) runs while
+    CAST. A refusal takes that buff off for the run, said once. When
+    training_cast_due says so (and `train` allows it — a caller whose
+    targeted cast took this turn passes False), the buff training_pick
+    names is cast again for training on its own ramp, which climbs a
+    step per cast until the strain warning or a collapsed cast and then
+    holds one step under. `upkeep` False casts nothing but that (;cast
+    standing still, #374). The caller's `filler` (a swing) runs while
     each pattern forms (#203). True when any cast went out."""
     if report is None:
 
@@ -848,14 +1055,18 @@ def cast_buffs(
             first = (answer.strip().splitlines() or ["(silence)"])[0]
             s.echo(f"{prefix}: unrecognized {what} answer {first!r} — please report it")
 
+    pick = None
+    if train and training_cast_due(s, profile, state):
+        pick = training_pick(s, profile, state)
     cast = False
-    for index, spell in enumerate(profile["buffs"]):
+    dropped = False
+    for spell in profile["buffs"]:
         if spell in state.buffs_off:
             continue
-        training = train and index == 0 and training_cast_due(s, profile, state)
-        if not training and buff_running(s, spell, state):
+        training = pick is not None and spell == pick[1]
+        if not training and (not upkeep or buff_running(s, spell, state)):
             continue
-        mana = state.mana if training else 0
+        mana = state.buff_mana.get(spell, 0) if training else 0
         invoke = None
         if training and charge_cambrinth(s, profile, state, ask, prefix, report):
             invoke = profile["cambrinth"]
@@ -873,35 +1084,44 @@ def cast_buffs(
         cast = True
         if training:
             state.last_training = "buff"
+            state.trained_at = monotonic()
         if result == "refused":
             s.echo(f"{prefix}: cannot prepare {spell} — off for this run")
             state.buffs_off.add(spell)
+            dropped = True
         elif result == "lacking":
             s.echo(f"{prefix}: {spell} fails for lack of ranks — off for this run")
             state.buffs_off.add(spell)
+            dropped = True
         elif not training:
             if result == "collapsed":
                 s.echo(f"{prefix}: {spell} did not cast — off for this run")
                 state.buffs_off.add(spell)
+                dropped = True
             else:
                 s.echo(f"{prefix}: cast {spell}")
         elif result == "ok":
             s.echo(
-                f"{prefix}: cast {spell} at {mana or 'minimum'} mana "
-                f"for {profile['train_casting'] or 'Arcana'}"
+                f"{prefix}: cast {spell} at {mana or 'minimum'} mana for {pick[0]}"
                 + (f" (+{profile['cambrinth']})" if invoke else "")
             )
-            if state.mana_cap is None:
-                state.mana = climb(mana, state.mana_limit)
+            if spell not in state.buff_cap:
+                state.buff_mana[spell] = climb(mana, state.buff_limit.get(spell))
         elif mana == 0:
             # Even the minimum failed (a circle-1 Paladin's 5 mana
-            # "barely backfires", 2026-09-12): no more training casts.
-            state.training_off = True
-            s.echo(f"{prefix}: {spell} fails at minimum mana — training casts off")
+            # "barely backfires", 2026-09-12): no more training casts of
+            # this buff; another may still train the skill.
+            state.training_spells_off.add(spell)
+            dropped = True
+            s.echo(f"{prefix}: {spell} fails at minimum mana — no training casts of it")
         else:
-            state.mana = state.mana_cap = mana - MANA_STEP
+            state.buff_mana[spell] = state.buff_cap[spell] = mana - MANA_STEP
             s.echo(
                 f"{prefix}: {spell} at {mana} mana was too much ({result}) — "
-                f"holding at {state.mana or 'minimum'}"
+                f"holding at {state.buff_mana[spell] or 'minimum'}"
             )
+    if dropped and not state.training_off and not _training_left(profile, state):
+        if training_skills(profile) or profile.get("cambrinth"):
+            state.training_off = True
+            s.echo(f"{prefix}: no buff left to train with — training casts off")
     return cast

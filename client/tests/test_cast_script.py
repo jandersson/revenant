@@ -49,6 +49,14 @@ ANSWERS = {
     ]
     * 9,
     "stow": [""] * 9,
+    # DISCERN names each spell's skill (captured 2026-09-28 on Heroic
+    # Strength; the Aegis line is that sentence with its skill, #374).
+    "discern heroic strength": [
+        "It requires the Augmentation skill to cast effectively.\n"
+    ]
+    * 9,
+    "discern aspirant's aegis": ["It requires the Warding skill to cast effectively.\n"]
+    * 9,
     "power": [
         "You reach out with your weak senses and see glowing streams of golden Holy mana radiating through the area.\n"
     ]
@@ -276,3 +284,23 @@ def test_a_song_playing_stops_the_run_with_the_reason(monkeypatch):
     fake = Fake(quiet, learning(10))
     script.run(fake, ["nopower"], PROFILE)
     assert "refuses spellwork while a song plays" in echoes(fake)
+
+
+def test_with_no_skill_named_every_skill_of_the_buffs_takes_its_turn(monkeypatch):
+    # #374: ;cast rotates the way the hunt does. Warding is not in the
+    # window yet, so it is the emptiest; the lapsed Heroic Strength is
+    # not kept up — only training casts go out standing still.
+    now = [1000.0]
+    monkeypatch.setattr(script, "clock", lambda: now[0])
+    monkeypatch.setattr(buffs, "monotonic", lambda: now[0])
+    fake = Fake(ANSWERS, learning(10))
+    fake.commands = [None, "return"]
+    profile = {
+        **PROFILE,
+        "buffs": ["heroic strength", "aspirant's aegis"],
+        "train_casting": "",
+    }
+    script.run(fake, ["nopower"], profile)
+    prepares = [command for command in fake.sent if command.startswith("prepare")]
+    assert prepares == ["prepare aspirant's aegis"]
+    assert "for Warding (+flake)" in echoes(fake)

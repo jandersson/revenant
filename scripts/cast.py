@@ -1,8 +1,8 @@
 """Train magic on the spot — cast, charge the cambrinth, perceive:  ;cast
 
-    ;cast                     cast the profile's first buff on the mana ramp with the cambrinth, POWER once a minute, until the skills lock
-    ;cast spell=<name>        another spell than the profile's first buff (a self-cast buff)
-    ;cast skill=<Skill>       the skill the casts train (the profile's train_casting otherwise)
+    ;cast                     train the profile's train_casting skills with its buffs on the mana ramp, the cambrinth charged, POWER once a minute, until the skills lock
+    ;cast spell=<name>        cast that spell alone (a self-cast buff), for the skill it uses
+    ;cast skill=<Skill>       train that skill alone, with the first buff that uses it
     ;cast until=30            stop at that mindstate instead of 34
     ;cast once                exit at the lock instead of holding for the drain
     ;cast nopower             no POWER between casts
@@ -12,18 +12,21 @@ The hunt's cast loop without the hunt (#225): what a gondola ride, a
 ferry crossing or a wait at an altar can train while the character
 stands still. Every `cast_gap` seconds (the profile's, 60 by default)
 it does what ;hunt does between swings through client/game/buffs.py
-— GET and CHARGE the profile's `cambrinth` piece with `cambrinth_mana`
-(the charge trains Arcana), PREPARE the spell at the ramped mana,
-INVOKE the piece, CAST, stow it — and once a minute POWERs, which
+— picks the named skill with the emptiest pool and the first buff
+DISCERN says uses it (#374), GETs and CHARGEs the profile's
+`cambrinth` piece with `cambrinth_mana` (the charge trains Arcana),
+PREPAREs the buff at its ramped mana, INVOKEs the piece, CASTs, stows
+it — and once a minute POWERs, which
 trains Attunement (Elanthipedia: Attunement skill, Perceive command:
 once per room per minute, so standing still it pays at most once a
 minute; whether a room pays again without leaving it is measured on
 the first run). The mana fed rises by two per cast until the game
 warns of strain or a cast fails, then holds one step under
-(Elanthipedia's magic category: fewer, larger casts teach more). It
-watches the skills in the exp window — the profile's `train_casting`
-(the spell's book: Augmentation for Heroic Strength), Arcana when a
-piece is named, Attunement when it POWERs — and at mind-lock of all
+(Elanthipedia's magic category: fewer, larger casts teach more). Only
+training casts go out: a buff that lapses is not kept up. A profile
+naming no skill in `train_casting` trains every skill its buffs use.
+It watches the skills in the exp window — the skills trained, Arcana
+when a piece is named, Attunement when it POWERs — and at mind-lock of all
 of them holds until enough drains to be worth casting again; `once`
 exits at the lock. Stops on death, on hostiles in the room, when mana
 sits under the floor for ten minutes, and when the profile names no
@@ -86,12 +89,14 @@ def ask(s, command):
     return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
 
 
-def skills_watched(profile, options):
-    """The skills whose mindstates decide the lock: the training skill,
-    Arcana for a cambrinth piece, Attunement when POWERing."""
-    watched = []
-    if profile["train_casting"]:
-        watched.append(profile["train_casting"])
+def skills_watched(profile, options, state):
+    """The skills whose mindstates decide the lock: the skills trained
+    (as DISCERN spells them once it has named each buff's, the names
+    the profile gives before), Arcana for a cambrinth piece, Attunement
+    when POWERing."""
+    watched = list(buffs.training_buffs(profile, state)) or [
+        name for name in buffs.training_skills(profile) if name.lower() != "all"
+    ]
     if profile.get("cambrinth"):
         watched.append("Arcana")
     if options["power"]:
@@ -121,14 +126,17 @@ def any_drained(s, skills, floor):
 
 
 def cast_profile(profile, options):
-    """The profile as the cast loop sees it: the spell as the only buff,
-    the skill as train_casting."""
+    """The profile as the cast loop sees it: spell= as the only buff,
+    skill= as the only skill trained; with neither named, the profile's
+    `train_casting`, or every skill of the buffs when it names none —
+    and so the skill spell= uses, when that is all that is given."""
     shaped = dict(profile)
-    shaped["buffs"] = (
-        [options["spell"]] if options["spell"] else list(profile["buffs"][:1])
-    )
+    if options["spell"]:
+        shaped["buffs"] = [options["spell"]]
     if options["skill"]:
-        shaped["train_casting"] = options["skill"]
+        shaped["train_casting"] = [options["skill"]]
+    elif options["spell"] or not buffs.training_skills(profile):
+        shaped["train_casting"] = ["all"]
     return shaped
 
 
@@ -165,11 +173,8 @@ def run(s, words, profile):
 
 
 def loop(s, options, shaped):
-    skills = skills_watched(shaped, options)
     state = buffs.BuffState()
-    state.cast_at[shaped["buffs"][0]] = clock() - buffs.cast_gap(
-        shaped
-    )  # first cast at once
+    skills = skills_watched(shaped, options, state)
 
     busy = {"song": False}
 
@@ -181,7 +186,8 @@ def loop(s, options, shaped):
         s.echo(f"cast: unrecognized {what} answer {first!r} — please report it")
 
     s.echo(
-        f"cast: {shaped['buffs'][0]} for {shaped['train_casting'] or 'Arcana'}"
+        f"cast: {', '.join(shaped['buffs'])} for "
+        f"{', '.join(buffs.training_skills(shaped))}"
         + (f" with the {shaped['cambrinth']}" if shaped.get("cambrinth") else "")
         + (", POWER between casts" if options["power"] else "")
         + f" — watching {', '.join(skills) or 'nothing'}"
@@ -189,6 +195,7 @@ def loop(s, options, shaped):
     last_power = None
     low_since = None
     while True:
+        skills = skills_watched(shaped, options, state)
         reason = danger(s)
         if reason:
             s.echo(f"cast: {reason} — stopping")
@@ -228,7 +235,6 @@ def loop(s, options, shaped):
             elif PERCEIVED not in answer:
                 s.echo("cast: POWER answered no perceive line — no more POWER this run")
                 options["power"] = False
-                skills = skills_watched(shaped, options)
             last_power = clock()
         if not busy["song"]:
             # DISCERN once, before the first cast: the game's estimate of
@@ -236,7 +242,7 @@ def loop(s, options, shaped):
             # the hunt's ramp climbed past it and backfired five times in
             # one evening, each a nerve wound (2026-09-20).
             buffs.discern_slots(s, shaped, state, ask, "cast", report)
-            buffs.cast_buffs(s, shaped, state, ask, "cast", report)
+            buffs.cast_buffs(s, shaped, state, ask, "cast", report, upkeep=False)
         if busy["song"]:
             s.echo(
                 "cast: the game refuses spellwork while a song plays — "

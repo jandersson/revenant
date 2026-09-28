@@ -619,6 +619,7 @@ DISCERN_FS_MIN = (
 
 
 DISCERN_HS = (
+    "It requires the Augmentation skill to cast effectively.\n"
     "The spell requires at minimum 1 mana streams and you think you can "
     "reinforce it with 3 more, for a total of 4 streams.\nRoundtime: 13 sec."
 )

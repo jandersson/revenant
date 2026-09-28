@@ -42,6 +42,9 @@ def _isolated_login_defaults(tmp_path, monkeypatch):
     # Every safe point reads the character's profile (the interludes,
     # #372): a fake's name must never find the operator's.
     monkeypatch.setenv("REVENANT_PROFILES", str(tmp_path / "profiles"))
+    # The skills DISCERN named for each spell (#374): a test's fixture
+    # never lands in the operator's ~/.revenant/spell_skills.json.
+    monkeypatch.setenv("REVENANT_SPELL_SKILLS", str(tmp_path / "spell_skills.json"))
 
 
 @pytest.fixture
