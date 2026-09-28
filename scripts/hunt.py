@@ -1,4 +1,4 @@
-"""Hunt your profile's ground, train its weapons, walk home:  ;hunt
+"""Hunt your profile's ground, train its weapons, walk home, sell and bank:  ;hunt
 
     ;hunt                   walk to the ground and hunt until one of the stops below
     ;hunt here              hunt where you stand, no walk
@@ -6,7 +6,7 @@
     ;hunt styles            list the profile's hunt styles
     ;hunt profile [style]   print the profile the hunt would use
     ;hunt grounds [rank]    hunting zones for your weakest weapon's rank (or <rank>), nearest first
-    ;hunt return            (typed while it runs) finish the kill, walk home, sell and bank
+    ;hunt return            (typed while it runs) finish the kill and end as below
     ;stop hunt              quit where you stand
 
 What it does
@@ -19,12 +19,13 @@ What it does
   - The profile's `almanac` studied whenever its timer allows: in a clear room,
     or mid-fight after a RETREAT to pole range.
 
-When it stops, and walks home
+When it stops — then walks home, and runs ;skins bank (skins sold, purse banked)
   - health below `health_floor`, or a wound at `wound_floor` (also checked before setting out)
   - 60 swings without a kill, or three stuns in one fight
   - every trained skill mind-locked, or the style's `until` (boxes, kills)
   - every room of the ground taken by other players
-  - ;hunt return (under ;train the plan sells and banks instead)
+  - ;hunt return
+  - a hunt that never reached the fight (no ground, a wound at the floor) ends without selling
 
 The profile is ~/.revenant/profiles/<name>.json (File > Character Profile...);
 docs/hunting.md explains every key. Report any "hunt: unrecognized ..." line.
@@ -82,7 +83,7 @@ or at a wound at the profile's wound floor (HEALTH after each kill and
 whenever health drops; one already there keeps the hunt from setting
 out), when the trained skills mind-lock, at the kill
 fuse, or when you type
-;hunt return  (the current kill is finished first, then the walk home, then ;skins bank — the skins sold and the purse banked — unless ;train runs the hunt).
+;hunt return  (the current kill is finished first, then the walk home, then ;skins bank — the skins sold and the purse banked; every end that fought does the same, under ;train too, the operator 2026-09-28).
 ;stop hunt  quits where it stands.  ;hunt here  skips the walk;  ;hunt profile  prints the profile it would use.
 ;hunt grounds [rank]  lists the hunting zones whose rank range holds the weakest weapon's rank (or <rank>), nearest first.
 The ground (`hunting_ground`) is a map tag, else a hunting zone of
@@ -2296,7 +2297,7 @@ def hunt(s, profile, db, travel=True, avoid=()):
     if s.dead:
         return
     go_home(s, profile, db, ground, avoid, reason)
-    if reason.startswith("returning on request") and not s.dead:
+    if not s.dead:
         sell_and_bank(s)
 
 
@@ -2322,22 +2323,26 @@ def go_home(s, profile, db, ground, avoid, reason):
 
 
 def sell_and_bank(s):
-    """A hunt ended by hand with `;hunt return` sells the skins and banks
-    the purse after it — ;skins bank, waited for (the operator,
-    2026-09-26). Not under ;train, whose plan runs skins and bank as
-    tasks of their own (selling and banking are distinct tasks, the
-    operator, 2026-09-20): the loop's own return word ends the hunt
-    there, and the tasks follow."""
+    """Every hunt that fought ends by selling the skins and banking the
+    purse — ;skins bank, waited for — under ;train too (the operator,
+    2026-09-28: the box farm ended at 20:59 with fifteen skins, and the
+    plan went on to ;boxes; 2026-09-26 it was only after ;hunt return).
+    A ;stop of the hunt meanwhile stops the ;skins it started (and
+    ;skins its ;bank)."""
     running = getattr(s, "is_running", None)
     start = getattr(s, "run", None)
-    if running is None or start is None or running("train"):
+    if running is None or start is None:
         return
-    s.echo("hunt: returned — selling the skins and banking (;skins bank)")
+    s.echo("hunt: selling the skins and banking (;skins bank)")
     if not start("skins", ["bank"]):
         s.echo("hunt: could not start ;skins — sell and bank by hand")
         return
-    while running("skins"):
-        s.sleep(1)
+    try:
+        while running("skins"):
+            s.sleep(1)
+    except BaseException:
+        s.kill("skins")
+        raise
 
 
 def show_grounds(s, profile, db, words, avoid=()):

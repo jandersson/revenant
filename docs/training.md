@@ -32,7 +32,7 @@ A game shutdown announcement winds the run down the same way as `return`, a few 
 
 ## The plan
 
-Edit it in File → Training Plan…, or by hand in `~/.revenant/training/<name>.json`. `;train init` writes a starter from your profile: climbs, the hunt, skins sold, gear repaired, the purse banked, foraging.
+Edit it in File → Training Plan…, or by hand in `~/.revenant/training/<name>.json`. `;train init` writes a starter from your profile: climbs, the hunt (it sells its skins and banks as it ends, with ten minutes' grace after `return`), gear repaired, the purse banked, foraging.
 
 | Plan key | Meaning |
 | --- | --- |

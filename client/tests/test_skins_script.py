@@ -6,6 +6,10 @@ import importlib.util
 import pathlib
 from types import SimpleNamespace
 
+import pytest
+
+from client.engine.scripting import ScriptStopped
+
 from client.game.mapdb import MapDB
 
 REPO = pathlib.Path(__file__).parents[2]
@@ -177,6 +181,22 @@ def test_a_bundle_in_the_sack_is_fetched_when_none_is_worn():
         "get my bundle from my sack",
         "sell my bundle",
     ]
+
+
+def test_a_stop_while_banking_stops_the_bank_it_started():
+    # ;hunt stops its ;skins, and ;skins its ;bank (2026-09-28).
+    fake = Fake({})
+    fake.polls = 5
+    killed = []
+    fake.kill = killed.append
+
+    def stopped(seconds):
+        raise ScriptStopped()
+
+    fake.sleep = stopped
+    with pytest.raises(ScriptStopped):
+        script.hand_to_bank(fake, [])
+    assert killed == ["bank"]
 
 
 def test_bank_runs_the_bank_script_and_waits_for_it():

@@ -1,6 +1,6 @@
 # Hunting
 
-`;hunt` walks to your hunting ground, fights whatever is there, skins and loots each kill, and moves room to room until a limit sends it home. Everything character-specific comes from your profile, so the same script hunts for any character.
+`;hunt` walks to your hunting ground, fights whatever is there, skins and loots each kill, and moves room to room until a limit sends it home, where it sells the skins and banks the purse (`;skins bank`). Everything character-specific comes from your profile, so the same script hunts for any character.
 
 ## Running it
 
@@ -11,11 +11,11 @@
 ;hunt grounds [rank]  # hunting zones that suit your weakest weapon, nearest first
 ;hunt profile [style] # print the profile it would use
 ;hunt styles          # list the hunt styles
-;hunt return          # finish the kill, walk home, sell skins and bank
+;hunt return          # finish the kill, then end as any hunt does
 ;stop hunt            # quit where you stand
 ```
 
-- Under `;train`, `;hunt return` skips the selling and banking; the plan has its own tasks for those ([training.md](training.md)).
+- Every hunt that fought ends with `;skins bank`, under `;train` too; `;stop hunt` stops the selling with it.
 - The weapon stays in hand when the hunt ends.
 - A room another player is already in is theirs: the hunt moves on without a swing, whatever creatures are in it. With every room taken, it goes home. A room full of creatures is fought, one at a time.
 

@@ -38,6 +38,7 @@ from client.game import drain, flight, helper, interlude
 from client.game.history import database_path
 
 from client.game.training import (
+    HUNT_RETURN_GRACE,
     describe,
     favors_cap,
     load_plan,
@@ -188,14 +189,19 @@ def progress(plan, task, experience_now):
 
 def stop_script(s, task):
     """End a task's script: the return word first, when it has one,
-    then the kill once the grace runs out; wait for the thread to go."""
+    then the kill once the grace runs out; wait for the thread to go.
+    A hunt's grace is at least HUNT_RETURN_GRACE: it sells and banks
+    on its way out."""
     name = task["script"]
     if not s.is_running(name):
         return
     if task["return_word"]:
         s.tell(name, task["return_word"])
         s.echo(f"train: told ;{name} {task['return_word']} — waiting for it to finish")
-        deadline = clock() + task["return_grace"]
+        grace = task["return_grace"]
+        if name == "hunt":
+            grace = max(grace, HUNT_RETURN_GRACE)
+        deadline = clock() + grace
         while s.is_running(name) and clock() < deadline:
             s.sleep(1)
     if s.is_running(name):

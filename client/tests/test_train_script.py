@@ -547,8 +547,7 @@ def test_train_init_writes_the_starter_and_refuses_to_overwrite(clock, tmp_path)
     written = json.loads(path.read_text())
     assert [task["script"] for task in written["tasks"]] == [
         "athletics",
-        "hunt",
-        "skins",
+        "hunt",  # it sells its skins and banks as it ends
         "repair",
         "bank",
         "tdp",
@@ -1133,3 +1132,42 @@ def test_train_studies_the_profiles_almanac_between_tasks(clock, monkeypatch):
     fake.state.hostiles = {"1": "a goblin"}
     train.study_almanac(fake, plan())
     assert len(studied) == 1  # never with a hostile about
+
+
+def test_a_hunt_told_to_return_gets_minutes_to_sell_and_bank(monkeypatch):
+    # Every hunt ends with ;skins bank (the operator, 2026-09-28): a plan's
+    # hunt task with the old two-minute grace is not killed mid-sale.
+    now = [0.0]
+    monkeypatch.setattr(train, "clock", lambda: now[0])
+
+    class Handle:
+        def __init__(self, busy_until):
+            self.busy_until = busy_until
+            self.killed = []
+
+        def is_running(self, name):
+            return name not in self.killed and now[0] < self.busy_until
+
+        def tell(self, name, word):
+            pass
+
+        def echo(self, text):
+            pass
+
+        def sleep(self, seconds):
+            now[0] += seconds
+
+        def kill(self, name):
+            self.killed.append(name)
+
+    hunting = Handle(busy_until=400)
+    train.stop_script(
+        hunting, {"script": "hunt", "return_word": "return", "return_grace": 120}
+    )
+    assert hunting.killed == [] and now[0] >= 400
+    now[0] = 0.0
+    foraging = Handle(busy_until=400)
+    train.stop_script(
+        foraging, {"script": "forage", "return_word": "return", "return_grace": 120}
+    )
+    assert foraging.killed == ["forage"]

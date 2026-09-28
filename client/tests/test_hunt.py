@@ -12,6 +12,10 @@ swing's variants (SMITE, maneuvers, HUNT) have files of their own.
 
 from types import SimpleNamespace
 
+import pytest
+
+from client.engine.scripting import ScriptStopped
+
 import hunt_arena
 from hunt_arena import (
     Arena,
@@ -1355,6 +1359,9 @@ class _Runner(Arena):
     def is_running(self, name):
         return name in self.alive
 
+    def kill(self, name):
+        self.killed = getattr(self, "killed", []) + [name]
+
 
 def test_a_hunt_returned_by_hand_sells_the_skins_and_banks(travel):
     # The operator, 2026-09-26: ;hunt return should sell and bank after.
@@ -1364,11 +1371,29 @@ def test_a_hunt_returned_by_hand_sells_the_skins_and_banks(travel):
     assert arena.started == [("skins", ["bank"])]
 
 
-def test_under_train_the_return_leaves_selling_and_banking_to_the_plan(travel):
-    arena = _Runner({"attack": []}, running=("train",))
-    arena.commands = ["return"]
-    _run(arena, travel_first=False)
-    assert arena.started == []
+def test_every_end_that_fought_sells_and_banks_under_train_too(travel):
+    # The operator, 2026-09-28: the box farm ended with fifteen skins and
+    # the plan went on to ;boxes. Every hunt concludes with ;skins bank.
+    arena = _Runner(
+        {"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]},
+        running=("train",),
+    )
+    _run(arena, profile=PROFILE | {"max_kills": 1}, travel_first=False)
+    assert arena.started == [("skins", ["bank"])]
+    assert "hunt: selling the skins and banking (;skins bank)" in arena.echoed
+
+
+def test_a_stop_while_selling_stops_the_skins_it_started(travel):
+    class Selling(_Runner):
+        def sleep(self, seconds):
+            if "skins" in self.alive:
+                raise ScriptStopped()
+
+    arena = Selling({"attack": []}, running=("skins",))
+    arena.started = []
+    with pytest.raises(ScriptStopped):
+        hunt.sell_and_bank(arena)
+    assert arena.killed == ["skins"]
 
 
 def test_a_turn_that_cannot_kill_hands_over_before_the_hunt_breaks_off(travel):

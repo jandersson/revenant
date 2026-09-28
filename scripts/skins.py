@@ -21,7 +21,7 @@ When it stops
   - no tannery on the map, or none reachable
   - nothing sold and no bank: it ends at the tannery, back or not
 
-;train's starter plan runs ;skins and ;bank as two tasks. The profile's `bundle` setting
+Every ;hunt that fought ends with ;skins bank. The profile's `bundle` setting
 (docs/hunting.md); Elanthipedia's Bundle command and Falken's Tannery.
 """
 
@@ -166,8 +166,12 @@ def hand_to_bank(s, args):
     if not s.run("bank", list(args)):
         s.echo("skins: could not start ;bank — the purse stays as it is")
         return False
-    while s.is_running("bank"):
-        s.sleep(1)
+    try:
+        while s.is_running("bank"):
+            s.sleep(1)
+    except BaseException:
+        s.kill("bank")  # ;stop skins (or its ;hunt) takes the ;bank with it
+        raise
     return True
 
 
