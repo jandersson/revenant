@@ -20,7 +20,7 @@ What it does
   - Keeps the most skills moving: a task whose skills drain first trains again
     during the rest (`top_up`, once a rest).
   - In the rests: soul deeds when `soul` is on, stat points from the plan's `tdp` list.
-  - The plan's `almanac` studied whenever its timer allows, between tasks and in rests.
+  - The profile's `almanac` studied whenever its timer allows, between tasks and in rests.
   - Hostiles at the rest send it to the next safe room, or next door.
 
 When it stops
@@ -34,12 +34,10 @@ The plan is ~/.revenant/training/<name>.json; docs/training.md explains every ke
 import sqlite3
 import time
 
-from client.game import drain, flight, helper, probe
+from client.game import almanac, drain, flight, helper, probe
 from client.game.history import database_path
 
 from client.game.training import (
-    almanac_answer,
-    ALMANAC_SECONDS,
     describe,
     favors_cap,
     load_plan,
@@ -319,48 +317,24 @@ SPAWNED = set()  # helper names this loop logged in (logged out at their last ta
 LINGERING = {}
 
 
-ALMANAC = {"next": 0.0, "off": False}  # this run's almanac timer
 ALMANAC_ASK = 4  # seconds for the almanac's answers
 
 
-def study_almanac(s, plan):
-    """The plan's almanac studied when its timer allows (the game's
-    "try again in N roisaen" sets the next look): GOT with a free hand,
-    OPENed, STUDIEd, stowed again unless it was already in hand. Never
-    with hostiles about; a missing almanac is off for the run."""
-    noun = plan.get("almanac")
-    if not noun or ALMANAC["off"] or clock() < ALMANAC["next"] or s.dead:
+def study_almanac(s, plan=None):
+    """The profile's almanac (client/game/almanac.py) studied when its
+    timer allows, never with hostiles about — between tasks and in the
+    rests, the moments no other script holds the hands."""
+    if s.dead or hostiles_present(s.state):
         return
-    state = s.state
-    if hostiles_present(state):
-        return
-    hands = [getattr(state, side, None) for side in ("left_hand", "right_hand")]
-    held = any((hand or {}).get("noun") == noun for hand in hands)
-    if not held and all(hands):
-        return  # no hand free: the next poll
+    noun = str(profile_of(s).get("almanac") or "").strip().lower()
+    if noun:
+        almanac.study(s, noun, lambda h, c: probe.ask(h, c, ALMANAC_ASK, 0.5), "train")
 
-    def ask(command):
-        return probe.ask(s, command, ALMANAC_ASK, 0.5)
 
-    s.waitrt()
-    got = "" if held else ask(f"get my {noun}").lower()
-    if any(word in got for word in ("what were you", "could not find")):
-        s.echo(f"train: no {noun} on you — the almanac is off for this run")
-        ALMANAC["off"] = True
-        return
-    ask(f"open my {noun}")
-    answer = ask(f"study my {noun}")
-    s.waitrt()
-    if not held:
-        ask(f"stow my {noun}")
-    outcome, skill, wait = almanac_answer(answer)
-    if outcome == "learned":
-        s.echo(f"train: almanac studied — {skill}")
-    elif outcome is None:
-        first = (answer.strip().splitlines() or ["(silence)"])[0]
-        s.echo(f"train: the almanac answered {first!r} — trying again in 10 minutes")
-        wait = ALMANAC_SECONDS
-    ALMANAC["next"] = clock() + wait + 20
+def profile_of(s):
+    from client.game.profile import load_profile
+
+    return load_profile(getattr(s.state, "name", None) or "")
 
 
 def settle_helpers(s):

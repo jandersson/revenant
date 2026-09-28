@@ -16,6 +16,7 @@ What it does
   - Trains the `weapons` in turn: the emptiest pool first, each to `weapon_target`.
   - Between swings, as the profile says: maneuvers, SMITE, training casts,
     HUNT for Perception; a Barbarian's combos, abilities and roars instead.
+  - In a clear room, the profile's `almanac` studied whenever its timer allows.
 
 When it stops, and walks home
   - health below `health_floor`, or a wound at `wound_floor` (also checked before setting out)
@@ -35,7 +36,16 @@ import time
 from pathlib import Path
 from collections import Counter
 
-from client.game import barbarian, buffs, flight, hunting, loot, lootlog, probe
+from client.game import (
+    almanac,
+    barbarian,
+    buffs,
+    flight,
+    hunting,
+    loot,
+    lootlog,
+    probe,
+)
 from client.game.creatures import aim, aim_corpse, noun_of, outgrown
 from client.game.probe import classify
 from client.game.profile import describe, load_profile
@@ -1769,6 +1779,15 @@ def wait_for_prey(s, seconds):
     return bool(hostiles(s.state))
 
 
+def study_almanac(s, profile):
+    """The profile's almanac (client/game/almanac.py) studied when its
+    timer allows — only in a room with nothing hostile in it, since the
+    study costs ten seconds of roundtime."""
+    noun = str(profile.get("almanac") or "").strip().lower()
+    if noun and not hostiles(s.state):
+        almanac.study(s, noun, ask, "hunt")
+
+
 def next_room(s, db, ground, avoid, tally):
     """The room is empty: on to the next room of the ground, cyclically;
     a one-room ground waits and looks instead. Once the ground has
@@ -2143,6 +2162,7 @@ def loop(s, profile, db, ground, avoid, tally):
             return "every weapon skill mind-locked"
         if tally.room_clear or not hostiles(s.state):
             track(s, profile, tally)
+            study_almanac(s, profile)  # a clear room: the hands are the hunt's
             if not next_room(s, db, ground, avoid, tally):
                 return "the walk to the next room failed"
             if not settle(s, db, ground, avoid, tally):

@@ -36,6 +36,7 @@ File → Character Profile, or `~/.revenant/profiles/<name>.json`. The keys a hu
 | `loot_additions`, `loot_subtractions` | nouns also picked up; nouns never picked up |
 | `loot_ignore` | loot not worth keeping: never picked up, trashed from boxes (default: the common metals) |
 | `box_limit` | boxes carried at most (0: no limit) |
+| `almanac` | an almanac's noun: studied whenever its 10-minute timer allows — by `;hunt` in a clear room, by `;train` between tasks and in the rests |
 | `health_floor` | break off below this health % (60) |
 | `wound_floor` | break off at a wound this bad; empty is `harmful`, `off` never checks |
 | `train_skills` | end when all of these mind-lock |

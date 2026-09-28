@@ -178,6 +178,9 @@ DEFAULTS = {
     # "nugget" also answers for a looted lead one); "" leaves
     # the salve unfinished in the mortar when the game asks (#284).
     "catalyst": "",
+    # The almanac's noun (client/game/almanac.py): ;train and ;hunt
+    # study it whenever its ten-minute timer allows; "" for none.
+    "almanac": "",
     # ;remedies forages a herb it runs out of (;forage herb) before it
     # buys any: the red flowers, once an order (#370).
     "forage_herbs": False,
@@ -354,6 +357,12 @@ FIELDS = (
         "Catalyst ;remedies adds to a salve (Alchemy)",
         "str",
         "coal nugget — empty: the salve waits unfinished",
+    ),
+    (
+        "almanac",
+        "Almanac studied every 10 minutes (its noun)",
+        "str",
+        "almanac — empty: none",
     ),
     (
         "forage_herbs",

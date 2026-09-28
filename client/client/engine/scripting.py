@@ -435,6 +435,7 @@ RELOADABLE_MODULES = (
     "client.game.creatures_data",
     "client.game.creatures",  # binds CAPS from creatures_data: after it
     "client.game.loot",  # binds noun_of from creatures: after it
+    "client.game.almanac",
     "client.game.discard",
     "client.game.buffs",
     "client.game.barbarian",

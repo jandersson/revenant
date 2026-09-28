@@ -73,9 +73,6 @@ DEFAULTS = {
     # The run ends, the task in hand wound down first, once the game's
     # announced shutdown is this close (#277).
     "shutdown_minutes": 3,
-    # The almanac's noun, studied whenever its 10-minute timer allows,
-    # at each task's start and every rest poll; "" for none.
-    "almanac": "",
     "tasks": [],
 }
 SOUL = ("off", "on")
@@ -144,7 +141,6 @@ PLAN_FIELDS = (
     ),
     ("tdp_reserve", "TDPs kept unspent", "int", "0"),
     ("shutdown_minutes", "Wind down when the shutdown is within, minutes", "int", "3"),
-    ("almanac", "Almanac studied every 10 minutes", "str", "almanac — empty: none"),
 )
 TASK_FIELDS = (
     ("name", "Name", "str", "how the task is reported"),
@@ -259,7 +255,7 @@ def normalize(values: dict) -> dict:
             clean[key] = _list(value)
         elif key in _INTS:
             clean[key] = _int(value, DEFAULTS[key])
-        elif key in ("order", "soul", "top_up", "almanac"):
+        elif key in ("order", "soul", "top_up"):
             clean[key] = str(value or "").strip().lower() or DEFAULTS[key]
         elif key == "tasks":
             tasks = value if isinstance(value, list) else []
@@ -389,37 +385,6 @@ def validate(plan: dict) -> list:
 
 
 _FAVORS_WHEN = re.compile(r"^favors\s*<\s*(\d+)$")
-
-# The almanac (captured 2026-09-28 on the Squat Bungalow's diamond-hide
-# almanac): STUDY, open and ready — "You set about studying your
-# diamond-hide almanac intently.  You believe you've learned something
-# significant about Bow!" (10 s; Bow 0 to 17/34, the wiki's 50%); on
-# its timer — "You've gleaned all the insight you can from the
-# diamond-hide almanac, for now. / [Please try again in 9 roisaen.]";
-# closed — "...you would learn something significant about a random
-# skill if you were to OPEN the diamond-hide almanac and STUDY its
-# contents." (no study). Elanthipedia: Almanac — 10 minutes, shared by
-# every almanac and the one who studied.
-ALMANAC_SECONDS = 600
-_ALMANAC_LEARNED = re.compile(r"learned something significant about (?P<skill>[^!.]+)")
-_ALMANAC_WAIT = re.compile(r"try again in (?P<n>\d+) roisa")
-ALMANAC_CLOSED = "if you were to open"
-
-
-def almanac_answer(answer):
-    """What a STUDY of the almanac said: ("learned", skill, seconds to
-    the next), ("waiting", None, seconds), ("closed", None, 0), or
-    (None, None, 0) for an answer outside the table."""
-    text = str(answer or "")
-    learned = _ALMANAC_LEARNED.search(text)
-    if learned:
-        return "learned", learned.group("skill").strip(), ALMANAC_SECONDS
-    wait = _ALMANAC_WAIT.search(text)
-    if wait:
-        return "waiting", None, int(wait.group("n")) * 60
-    if ALMANAC_CLOSED in text.lower():
-        return "closed", None, 0
-    return None, None, 0
 
 
 def favors_cap(when):

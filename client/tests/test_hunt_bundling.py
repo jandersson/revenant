@@ -367,3 +367,23 @@ def test_a_searched_item_on_loot_ignore_is_left_where_it_fell():
         hunt.named("The scout was carrying a sewing needle!", "needle"),
         ["embroidery needle"],
     )
+
+
+def test_a_clear_room_studies_the_almanac_and_a_fight_never_does(monkeypatch):
+    # The operator, 2026-09-28: the almanac keeps a skill moving every
+    # ten minutes, a hunt included — but only in a room with no hostile.
+    from types import SimpleNamespace
+
+    studied = []
+    monkeypatch.setattr(
+        hunt.almanac,
+        "study",
+        lambda s, noun, ask, prefix: studied.append((noun, prefix)),
+    )
+    s = SimpleNamespace(state=SimpleNamespace(hostiles={}))
+    hunt.study_almanac(s, {"almanac": "almanac"})
+    assert studied == [("almanac", "hunt")]
+    s.state.hostiles = {"1": "a S'lai scout"}
+    hunt.study_almanac(s, {"almanac": "almanac"})
+    hunt.study_almanac(SimpleNamespace(state=SimpleNamespace(hostiles={})), {})
+    assert len(studied) == 1

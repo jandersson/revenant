@@ -50,7 +50,6 @@ Edit it in File → Training Plan…, or by hand in `~/.revenant/training/<name>
 | `tdp` | TDPs spent in the rests: stat targets (`stamina 30`) or `auto` for the guild's order |
 | `tdp_reserve` | TDPs never spent |
 | `shutdown_minutes` | wind down this close to a game shutdown (3) |
-| `almanac` | an almanac's noun: studied whenever its 10-minute timer allows, at each task's start and in the rests (a free hand, no hostiles) |
 
 A task:
 
