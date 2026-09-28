@@ -14,7 +14,8 @@ What it does
     (settings.json's `avoid_rooms` are walked around).
   - COLLECT <item> PRACTICE again and again: experience without items;
     Perception trains alongside.
-  - herb: FORAGE finds go into the loot container; then, at the Crossing Alchemy
+  - herb: FORAGE <herb> PRECISE (Remedial Herb Gathering; plain FORAGE without it),
+    finds into the loot container; then, at the Crossing Alchemy
     Society's dry press, each is pressed and all are combined into one dried stack.
   - Both hands full: STOWs what they hold, never a drop, and goes on.
 
@@ -101,7 +102,11 @@ FLOWERS IN PRESS — "... You then crank the press open and remove some
 dried red flowers." (5-7 s); a dried one answers "That herb already
 appears prepared, and so you stop." Dried stacks join: "You combine
 the stacks of herbs together." A remedy takes five pieces a use, so
-the stack's size is ;remedies' to use (#370).
+the stack's size is ;remedies' to use (#370). With the Remedies
+technique Remedial Herb Gathering, FORAGE RED FLOWER PRECISE found on
+three tries in three, 10, 9 and 10 pieces, at 10 s of roundtime (plain:
+about one in five, 6 pieces, 3-4 s) — about three times the pieces a
+minute; COUNT waits the roundtime out ("...wait 1 seconds." otherwise).
 """
 
 ITEM = "rock"
@@ -305,6 +310,7 @@ def gather_herb(s, options, bag):
     put in `bag`. (why it ended, pieces, the find's noun)."""
     item, target = options["item"], options["pieces"]
     pieces, misses, noun = 0, 0, ""
+    precise = True  # Remedial Herb Gathering's PRECISE; plain FORAGE without it
     for _ in range(MAX_COLLECTS):
         if reason := danger(s):
             return reason, pieces, noun
@@ -312,7 +318,8 @@ def gather_herb(s, options, bag):
             return "returning on request", pieces, noun
         if pieces >= target:
             return f"{pieces} piece(s) of {item} found", pieces, noun
-        answer = ask(s, f"forage {item}")
+        answer = ask(s, f"forage {item} precise" if precise else f"forage {item}")
+        s.waitrt()  # the forage's roundtime before COUNT and PUT
         found = _HERB_FOUND.search(answer)
         if found:
             misses = 0
@@ -321,6 +328,15 @@ def gather_herb(s, options, bag):
             ask(s, f"put my {noun} in my {bag}")
             continue
         outcome = classify(answer)
+        if precise and outcome is None:
+            # Not a find, not a known miss: taken for a character without
+            # the technique (its refusal is uncaptured) — plain from here.
+            precise = False
+            s.echo(
+                f"forage: FORAGE PRECISE answered {first_line(answer)!r} — "
+                "plain FORAGE from here"
+            )
+            continue
         if outcome == "hands full":
             if not free_a_hand(s):
                 return f"no hand free: {first_line(answer)}", pieces, noun

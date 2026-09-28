@@ -344,9 +344,10 @@ def test_a_herb_is_foraged_to_the_pieces_then_pressed_and_combined(travel):
     )
     options = forage.parse_args(["herb", "red", "flower", "pieces=12"])
     reason = forage.run_herb(s, options, db=GARDEN, bag="sack")
+    # PRECISE first (Remedial Herb Gathering: 9-10 pieces a find, 3 in 3).
     assert s.sent[:4] == [
-        "forage red flower",
-        "forage red flower",
+        "forage red flower precise",
+        "forage red flower precise",
         "count my flowers",
         "put my flowers in my sack",
     ]
@@ -368,3 +369,14 @@ def test_a_herb_never_found_ends_after_the_misses(travel, monkeypatch):
     reason = forage.run_herb(s, options, db=GARDEN, bag="sack")
     assert reason == "no red flowers found in 3 tries"
     assert s.walks == []  # nothing to press
+
+
+def test_an_answer_precise_does_not_know_falls_back_to_plain_forage(travel):
+    # A character without Remedial Herb Gathering: its refusal is
+    # uncaptured, so any unknown answer to PRECISE means plain FORAGE.
+    s = Fake([ODD, HERB_FOUND, SIX, INTO_SACK], room=19343)
+    options = forage.parse_args(["herb", "red", "flower", "pieces=6", "here"])
+    reason, pieces, noun = forage.gather_herb(s, options, "sack")
+    assert s.sent[:2] == ["forage red flower precise", "forage red flower"]
+    assert (pieces, noun) == (6, "flowers")
+    assert any("plain FORAGE from here" in text for text in s.echoed)
