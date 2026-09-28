@@ -8,8 +8,9 @@ gets one retry standing with the hindering items stowed, then stops
 with what would help; an engagement gets the retreat burst, unless
 the room's only exit is "out" — a bank or shop, where nothing engages
 and a retreat has nowhere to go (#171) (docs/movement.md); a move sent
-into roundtime ("...wait 7 seconds.") waits it out and goes again
-(#367). A ferry edge
+into roundtime ("...wait 7 seconds.") waits it out and goes again, and
+a hidden way's SEARCH is repeated until it finds something (#367). A
+ferry edge
 (the map's bescort 'faldesu' crossing, #205) is ridden: GO FERRY when
 the ferry is at the dock, the wait for it when not, the crossing, then
 GO DOCK as the step's move — after dr-scripts' bescort take_rh_ferry,
@@ -171,6 +172,15 @@ GATE_REFUSALS = ("not experienced enough to go there", "not allowed to go there"
 # the move sent again, never the stall's retreat burst.
 ROUNDTIME_WAIT = re.compile(r"\.\.\.wait (\d+) seconds?")
 ROUNDTIME_RETRIES = 3
+# A hidden way's SEARCH finds it only now and then: the Stony Incline's
+# path showed on the ninth ("You don't find anything of interest here."
+# eight times, then "There seems to be some sort of path leading to the
+# east.", 2026-09-28, #367), so the SEARCH is repeated until the answer
+# is not the empty one.
+SEARCH_EMPTY = ("don't find anything of interest",)
+SEARCH_FOUND = ("seems to be",)
+SEARCH_TRIES = 15
+SEARCH_ANSWER_SECONDS = 4
 REROUTES = 3  # closed ways worked around on one walk before giving up
 _HINDERS = re.compile(r"Your (.+?) makes? the climb more difficult")
 
@@ -363,6 +373,20 @@ def ride_ferry(s, direction=""):
         return "unknown"
     s.echo(f"no ferry came in {FERRY_WAIT_SECONDS // 60} minutes — stopping here")
     return "no ferry"
+
+
+def search_hidden(s, command):
+    """SEARCH for a hidden way until the answer is not the empty one,
+    SEARCH_TRIES at most (#367): True when found. The move after it
+    tells the rest — a way still hidden answers "could not find"."""
+    for _ in range(SEARCH_TRIES):
+        s.waitrt()
+        s.put(command)
+        answer = read_story(s, SEARCH_ANSWER_SECONDS, until=SEARCH_EMPTY + SEARCH_FOUND)
+        if not any(needle in answer for needle in SEARCH_EMPTY):
+            return True
+    s.echo(f"{SEARCH_TRIES} searches found no hidden way here")
+    return False
 
 
 # route -> (the ride, the step's own move off it)
@@ -621,7 +645,10 @@ def _follow(s, db, route, here, closed):
         before, move, after = split_move(commands)
         s.waitrt()
         for preliminary in before:
-            s.put(preliminary)
+            if preliminary.split()[0].lower() == "search":
+                search_hidden(s, preliminary)
+            else:
+                s.put(preliminary)
             s.waitrt()
         # Discard any stale compass frames so the next one that arrives
         # pairs with this move — a spurious frame must never desync the

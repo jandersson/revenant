@@ -1482,6 +1482,8 @@ class RoundtimeHandle(FakeHandle):
 
     def put(self, command):
         super().put(command)
+        if command == "search":
+            self.pending = [("", SEARCHED_FOUND)]
         if command == "go path":
             self.tries += 1
             if self.tries == 1:
@@ -1494,7 +1496,8 @@ class RoundtimeHandle(FakeHandle):
         if timeout == 0:
             return None
         if self.pending:
-            return self.pending.pop(0)
+            item = self.pending.pop(0)
+            return item if streams is None else item[1]
         if self.tries == 1:
             return None  # nothing moved: the roundtime answer only
         return super().get(timeout, streams)
@@ -1507,3 +1510,59 @@ def test_a_move_sent_into_roundtime_waits_it_out_and_goes_again():
     assert puts_of(handle) == ["search", "go path", "go path"]
     assert "retreat" not in puts_of(handle)
     assert handle.slept and handle.slept[0] >= 7
+
+
+# The same room's SEARCH, captured 2026-09-28 (#367): eight empty
+# answers, then the path.
+SEARCHED_EMPTY = (
+    "You search around for a moment.\nRoundtime: 7 sec.\n"
+    "You don't find anything of interest here.\n"
+)
+SEARCHED_FOUND = (
+    "You search around for a moment.\nRoundtime: 7 sec.\n"
+    "There seems to be some sort of path leading to the east.\n"
+)
+
+
+class SearchHandle(FakeHandle):
+    """SEARCH answers empty `misses` times, then finds the path."""
+
+    def __init__(self, uids, misses):
+        super().__init__(uids)
+        self.misses = misses
+        self.pending = []
+
+    def put(self, command):
+        super().put(command)
+        if command == "search":
+            found = self.misses <= 0
+            self.misses -= 1
+            self.pending = [("", SEARCHED_FOUND if found else SEARCHED_EMPTY)]
+
+    def get(self, timeout=None, streams=("",)):
+        if timeout == 0:
+            return None
+        if self.pending:
+            item = self.pending.pop(0)
+            return item if streams is None else item[1]
+        if puts_of(self)[-1:] == ["search"]:
+            return None
+        return super().get(timeout, streams)
+
+
+def test_a_hidden_way_is_searched_for_until_it_shows(monkeypatch):
+    monkeypatch.setattr(walker, "SEARCH_ANSWER_SECONDS", 0.2)
+    handle = SearchHandle(uids=[156010], misses=3)
+    handle.state.room_uid = 156002
+    assert walker.walk(handle, HIDDEN, [7280], describe="the road") is True
+    assert puts_of(handle) == ["search"] * 4 + ["go path"]
+
+
+def test_a_hidden_way_never_found_stops_at_the_search_limit(monkeypatch):
+    monkeypatch.setattr(walker, "SEARCH_ANSWER_SECONDS", 0.2)
+    monkeypatch.setattr(walker, "SEARCH_TRIES", 3)
+    handle = SearchHandle(uids=[], misses=99)
+    handle.state.room_uid = 156002
+    walker.search_hidden(handle, "search")
+    assert puts_of(handle) == ["search"] * 3
+    assert any("3 searches found no hidden way" in echo for echo in handle.echoes)
