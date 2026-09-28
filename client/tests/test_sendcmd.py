@@ -148,6 +148,10 @@ def test_read_only_commands_are_allowlisted_and_the_rest_are_gated():
     assert allowlisted("encumbrance")
     assert not allowlisted("train")
     assert not allowlisted("vault pay 1 5000")  # VAULT reads and pays alike: gated
+    assert allowlisted("vault time")  # the rent's due date (#380)
+    assert allowlisted("VAULT Numbers")
+    assert not allowlisted("vault standard")  # off Premium, an urchin runner
+    assert not allowlisted("vault")
     assert not allowlisted("bank withdraw 1 all")
     assert allowlisted("bank account")
     assert allowlisted("BANK  Account")

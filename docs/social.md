@@ -44,7 +44,7 @@ Carried coins weigh and are lost on death, so bank a hunt's takings (`;bank`).
 
 ## Vault rent on a Premium account
 
-Rent is 5 gold Kronars per 30 days at a Carousel Square desk, but on a Premium account `PAY RENT` is waived and still credits the month. VAULT TIME and VAULT STANDARD are free remote reads there. The wiki does not state the waiver.
+Rent is 5 gold Kronars per 30 days at a Carousel Square desk, but on a Premium account `PAY RENT` is waived and still credits the month. VAULT TIME and VAULT STANDARD are free remote reads there, but only where a town's justice reaches (an urchin to send). With rent due, VAULT STANDARD answers "You can't access your vault at this time. Rent is due." The wiki does not state the waiver.
 
 ## Asking for help
 

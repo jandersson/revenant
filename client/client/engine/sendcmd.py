@@ -96,7 +96,13 @@ ALLOWLIST = frozenset(
 # and BANK WITHDRAW spends (the operator, 2026-09-26). ABILITY LIST
 # recalls a Barbarian's known abilities and free slots (the operator,
 # 2026-09-26); the line alone, since ABILITY's other forms are unread.
-READ_ONLY_LINES = frozenset({"bank account", "ability list"})
+# VAULT TIME says when the rent is due and VAULT NUMBERS names the
+# vaults (#380); VAULT STANDARD and FAMILY stay gated, since off a
+# Premium account each spends an urchin runner, and VAULT PAY, STORE
+# and REMOVE act.
+READ_ONLY_LINES = frozenset(
+    {"bank account", "ability list", "vault time", "vault numbers"}
+)
 # Scripts that only read or stop something.
 SCRIPT_ALLOWLIST = frozenset({";list", ";help", ";stop", ";sheet", ";clock"})
 
