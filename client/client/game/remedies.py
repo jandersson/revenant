@@ -143,6 +143,10 @@ MORTAR_BUSY = ("not required to continue crafting",)
 # combined with the herb's other stacks first ("You combine the stacks
 # of herbs together."), and bought when they are not enough.
 MORTAR_FULL = ("can only hold",)
+# A herb ;forage herb can gather instead of the Supplies (#370): the
+# stack's noun to its forage name (Elanthipedia: Red flower; the plural
+# never finds). The profile's `forage_herbs` turns it on.
+FORAGE_NAMES = {"flowers": "red flower"}
 STACK_PIECES = 25
 WRONG_SIZE = ("calls for stacks of",)
 COMBINED = ("you combine",)

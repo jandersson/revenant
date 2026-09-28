@@ -21,6 +21,8 @@ What it does
     and finishes a remedy left in the mortar first.
   - A herb stack short of 25 pieces is combined with the herb's other stacks
     first (foraged ones from ;forage herb); the mortar takes 25 of a bigger one.
+  - With the profile's `forage_herbs`, red flowers it runs out of are foraged
+    (;forage herb, once an order) before any are bought.
   - A remedy too poor for the order is discarded if `droppable` names it, else stowed.
   - Every order handed in is a row in history.db, summed by `;remedies ledger`.
 
@@ -30,7 +32,7 @@ When it stops
   - death or hostiles (the shared escape)
   - the herb, water, catalyst or book not on you, or CRUSH answers it cannot read
 
-Profile keys: `catalyst` (coal nugget), `crafting_master`, `crafting_hall`. ;train runs
+Profile keys: `catalyst` (coal nugget), `forage_herbs`, `crafting_master`, `crafting_hall`. ;train runs
 it as an Alchemy task (`"args": ["work"]` for orders, with `return_grace` and `minutes`
 long enough to finish one). The recipes and wordings are client/game/remedies.py's.
 """
@@ -51,6 +53,7 @@ from client.game.remedies import (
     CATALOG,
     COMBINED,
     CRUSH_OUTCOMES,
+    FORAGE_NAMES,
     MORTAR_BUSY,
     MORTAR_FULL,
     STACK_PIECES,
@@ -943,13 +946,45 @@ def buy(s, noun, count, shop, catalog, tally):
     return True
 
 
-def restock(s, spec, catalyst, why, remaining, tally):
-    """What the craft ran out of, bought for the stacks still to make;
-    None when `why` is no shortage, else whether it was bought."""
+FORAGE_POLL = 5  # seconds between looks at the ;forage run
+
+
+def forage_herb(s, noun, stacks):
+    """;forage herb for the stacks still owed, waited out (#370): True
+    when it ran to its end, False when it would not start or the run
+    was told to stop meanwhile (the forage stopped too)."""
+    name = FORAGE_NAMES[noun]
+    wanted = stacks * STACK_PIECES
+    s.echo(f"remedies: foraging {wanted} pieces of {name} instead of buying")
+    if not s.run("forage", ["herb", *name.split(), f"pieces={wanted}"]):
+        return False
+    while s.is_running("forage"):
+        if s.dead or wants_stop(s):
+            s.kill("forage")
+            return False
+        s.sleep(FORAGE_POLL)
+    return True
+
+
+def restock(s, spec, catalyst, why, remaining, tally, profile=None):
+    """What the craft ran out of, bought for the stacks still to make —
+    or, for a herb the profile's `forage_herbs` gathers, foraged once an
+    order first; None when `why` is no shortage, else whether it was
+    had."""
     short = shortage(why, spec, catalyst)
     if short is None:
         return None
     noun, per_stack, shop, catalog = short
+    if (
+        per_stack
+        and noun in FORAGE_NAMES
+        and (profile or {}).get("forage_herbs")
+        and not tally.get("foraged")
+    ):
+        tally["foraged"] = True  # once an order: a short forage is bought for
+        if forage_herb(s, noun, per_stack * remaining):
+            return True
+        s.echo(f"remedies: no {noun} foraged — buying them")
     count = max(1, per_stack * remaining)
     if catalyst and noun == catalyst:
         count += 1  # a spare nugget: a rejected stack cost a 44-room walk (#288)
@@ -1116,6 +1151,7 @@ def work(s, options, profile):
             break
         snapshot = {key: tally.get(key, 0) for key in COUNTERS}
         state = open_order(s, parsed, options["level"])
+        tally.pop("foraged", None)  # each order may forage its herb once
         remaining = parsed["count"]
         if remaining and spec:
             remaining = bundle_on_hand(s, parsed["item"], spec[4], remaining)
@@ -1157,7 +1193,7 @@ def work(s, options, profile):
                 continue
             ask(s, "stow my pestle")
             ask(s, "stow my mortar")
-            bought = restock(s, spec, catalyst, why, remaining, tally)
+            bought = restock(s, spec, catalyst, why, remaining, tally, profile)
             if not bought:
                 if bought is False:
                     why = f"out of {why}"

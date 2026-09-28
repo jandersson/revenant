@@ -1177,3 +1177,65 @@ def test_a_remedy_of_another_stack_size_is_kept_not_bundled_or_dropped():
     assert outcome == "size"
     assert "stow my cream" in fake.sent
     assert not any(c.startswith("drop") for c in fake.sent)
+
+
+class Foraging(Fake):
+    """A handle that can start ;forage: it runs for `polls` looks."""
+
+    def __init__(self, answers, polls=2):
+        super().__init__(answers)
+        self.started, self.killed, self.polls = [], [], polls
+
+    def run(self, name, args):
+        self.started.append((name, list(args)))
+        return True
+
+    def is_running(self, name):
+        self.polls -= 1
+        return self.polls >= 0
+
+    def kill(self, name):
+        self.killed.append(name)
+
+
+SPEC = ("2", "1", "flowers", "nemoih", "cream")
+
+
+def test_a_herb_run_out_is_foraged_once_an_order_before_any_is_bought(monkeypatch):
+    fake = Foraging({})
+    script.probe = SimpleNamespace(ask=fake.ask)
+    bought = []
+    monkeypatch.setattr(
+        script,
+        "buy",
+        lambda s, noun, count, shop, catalog, tally: (
+            bought.append((noun, count)) or True
+        ),
+    )
+    tally = {"spent": 0}
+    had = script.restock(
+        fake, SPEC, "nugget", "dried flowers", 3, tally, {"forage_herbs": True}
+    )
+    assert had is True
+    assert fake.started == [("forage", ["herb", "red", "flower", "pieces=75"])]
+    assert bought == []
+    # The second shortage in the same order is bought, not foraged again.
+    script.restock(
+        fake, SPEC, "nugget", "dried flowers", 3, tally, {"forage_herbs": True}
+    )
+    assert len(fake.started) == 1 and bought == [("flowers", 3)]
+
+
+def test_without_forage_herbs_the_herb_is_bought(monkeypatch):
+    fake = Foraging({})
+    script.probe = SimpleNamespace(ask=fake.ask)
+    bought = []
+    monkeypatch.setattr(
+        script,
+        "buy",
+        lambda s, noun, count, shop, catalog, tally: (
+            bought.append((noun, count)) or True
+        ),
+    )
+    script.restock(fake, SPEC, "nugget", "dried flowers", 2, {"spent": 0}, {})
+    assert fake.started == [] and bought == [("flowers", 2)]

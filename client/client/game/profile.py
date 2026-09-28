@@ -178,6 +178,9 @@ DEFAULTS = {
     # "nugget" also answers for a looted lead one); "" leaves
     # the salve unfinished in the mortar when the game asks (#284).
     "catalyst": "",
+    # ;remedies forages a herb it runs out of (;forage herb) before it
+    # buys any: the red flowers, once an order (#370).
+    "forage_herbs": False,
     # The crafting master ;remedies work asks for orders, and the room
     # (a ;go2 target) they stand in: the Crossing Alchemy Society's
     # Lanshado in its Tool Shop by default (#284).
@@ -351,6 +354,12 @@ FIELDS = (
         "Catalyst ;remedies adds to a salve (Alchemy)",
         "str",
         "coal nugget — empty: the salve waits unfinished",
+    ),
+    (
+        "forage_herbs",
+        "Forage remedy herbs instead of buying",
+        "bool",
+        "red flowers: ;forage herb, then the dry press",
     ),
     (
         "crafting_master",
