@@ -600,12 +600,19 @@ def test_a_running_script_keeps_the_helper_it_imported_across_a_reload(
 
     os.utime(helper, (1_000_000, 1_000_000))
     sys.modules.pop("pair_helper", None)
+    # longrun reads once, then waits for the test's release file, so
+    # its second read comes after the reload by construction: a fixed
+    # count of short sleeps ran past the 5 s wait on a slow macOS
+    # runner (#366).
+    release = tmp_path / "release"
     (tmp_path / "longrun.py").write_text(
+        "from pathlib import Path\n"
         "from pair_helper import read\n\n"
         "def main(s):\n"
-        "    for _ in range(40):\n"
-        "        s.echo(str(read()))\n"
+        "    s.echo(str(read()))\n"
+        f"    while not Path({str(release)!r}).exists():\n"
         "        s.sleep(0.02)\n"
+        "    s.echo(str(read()))\n"
     )
     (tmp_path / "peek.py").write_text(
         "import pair_helper\n\ndef main(s):\n    s.echo('peek ' + str(pair_helper.read()))\n"
@@ -630,10 +637,13 @@ def test_a_running_script_keeps_the_helper_it_imported_across_a_reload(
         e.startswith("reloaded pair_helper (edited since import); longrun keeps")
         for e in out
     )
-    assert wait_for(lambda: any("longrun exited" in e for e in recorder.emitted))
+    release.write_text("")
+    assert wait_for(
+        lambda: any("longrun exited" in e for e in recorder.emitted), timeout=30
+    )
     assert not any("longrun crashed" in e for e in recorder.emitted)
     echoes = [e for e in recorder.emitted if e.startswith("[longrun] ")]
-    assert set(echoes) == {"[longrun] 1"}  # never the new inner's tuple
+    assert echoes == ["[longrun] 1", "[longrun] 1"]  # never the new inner's tuple
 
 
 def test_a_crash_is_remembered_until_the_next_start(tmp_path):
