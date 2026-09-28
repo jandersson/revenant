@@ -16,7 +16,8 @@ What it does
   - Reads the state (RUB, or the arch) and the pool (EXHALE, at an orb); a reading holds 4 hours.
   - Runs no deed while the soul reads pristine: the deeds restore a soul, not keep one.
   - keep: the badge every 31 min, the tithe every 4 h, the prayer every 2 h; a refusal
-    backs off 20 min. The timers live in ~/.revenant/soul/<name>.json.
+    backs off 20 min; an altar that answers with the plain prayer turns praying off
+    until ;soul pray is typed. The timers live in ~/.revenant/soul/<name>.json.
   - quest: FOCUS ORB, GUARD GIRL, every line of the scene echoed.
 
 What it never does
@@ -52,6 +53,7 @@ from client.game.soul import (
     GUARDED,
     ORB_ROOM,
     PRAYER_BEGUN,
+    PRAYER_GENERIC,
     PRAYER_DONE,
     PRAYER_SOON,
     PRAYER_WAIT,
@@ -376,7 +378,11 @@ def pray(s, mapdb, timers, options, walk_fn=walk):
     answer = ask(s, "pray chadatru")
     echo_lines(s, answer)
     outcome = classify(
-        answer, ("done", PRAYER_DONE), ("begun", PRAYER_BEGUN), ("soon", PRAYER_SOON)
+        answer,
+        ("done", PRAYER_DONE),
+        ("begun", PRAYER_BEGUN),
+        ("soon", PRAYER_SOON),
+        ("generic", PRAYER_GENERIC),
     )
     if outcome == "begun":
         s.echo(f"soul: the prayer has begun — staying knelt up to {PRAYER_WAIT} s")
@@ -391,6 +397,14 @@ def pray(s, mapdb, timers, options, walk_fn=walk):
     mark(timers, "pray", False, clock())
     if outcome == "soon":
         s.echo("soul: too soon since the last prayer — backing off twenty minutes")
+    elif outcome == "generic":
+        # The plain prayer, not the soul's (#305): no point walking here
+        # every rest. Off for ;train until ;soul pray is run by hand.
+        timers["pray_off"] = True
+        s.echo(
+            "soul: this altar answered PRAY CHADATRU with the plain prayer, not the "
+            "soul's — prayers off for ;train until ;soul pray is run by hand (#305)"
+        )
     else:
         s.echo(f"soul: the prayer did not complete ({outcome})")
     return False
@@ -569,6 +583,8 @@ def run(s, words, mapdb=None, walk_fn=walk):
         save_timers(character(s), timers)
         return
     timers.pop("badge_off", None)  # a new run looks for the badge again
+    if verb == "pray":
+        timers.pop("pray_off", None)  # typed by hand: try the altar again
     if verb == "badge":
         pray_badge(s, timers)
         save_timers(character(s), timers)

@@ -397,21 +397,28 @@ def test_the_prayer_stays_knelt_for_the_completion_then_stands(monkeypatch, tmp_
     assert soul.load_timers("Lanival") == {"pray": 2000.0}
 
 
-def test_the_crossing_altars_kneel_line_is_waited_on_not_abandoned(
+def test_the_plain_prayer_turns_praying_off_for_train_until_typed_by_hand(
     monkeypatch, tmp_path
 ):
-    # #305 (captured 2026-09-24, again 2026-09-28): at the Crossing's
-    # Chadatru altar PRAY answers "You kneel down and begin to pray." and
-    # a STAND a second later abandoned the prayer every time.
+    # #305: at the Crossing's Eyes of the Thirteen shrine PRAY CHADATRU
+    # answers "You kneel down and begin to pray." — the plain PRAY's line
+    # (Elanthipedia: Pray command), and 150 s knelt after it brought
+    # nothing (2026-09-28). No wait, and no walk there every rest.
     monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
     monkeypatch.setattr(script, "clock", lambda: 2000.0)
     kneel = "You kneel down and begin to pray.\n"
-    fake = Fake({"pray": [(kneel, PRAYER_DONE)], "stow": [""], "stand": [""]})
+    fake = Fake({"pray": [kneel], "stow": [""], "stand": [""]})
     fake.status.posture = "kneeling"
     script.run(fake, ["pray"], mapdb=MAP, walk_fn=walk)
-    assert "the prayer has begun" in echoes(fake)
-    assert "soul: prayed to Chadatru" in echoes(fake)
-    assert soul.load_timers("Lanival") == {"pray": 2000.0}
+    assert "the prayer has begun" not in echoes(fake)
+    assert "prayers off for ;train until ;soul pray is run by hand" in echoes(fake)
+    timers = soul.load_timers("Lanival")
+    assert timers["pray_off"] is True
+    # Typed by hand, the altar is tried again.
+    again = Fake({"pray": [PRAYER_BEGUN + PRAYER_DONE], "stow": [""], "stand": [""]})
+    again.status.posture = "kneeling"
+    script.run(again, ["pray"], mapdb=MAP, walk_fn=walk)
+    assert "pray_off" not in soul.load_timers("Lanival")
 
 
 def test_a_prayer_too_soon_backs_off(monkeypatch, tmp_path):
