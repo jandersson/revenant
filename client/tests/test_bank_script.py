@@ -195,3 +195,72 @@ def test_an_empty_purse_with_a_keep_fetches_it_from_the_teller():
 def test_parse_args():
     assert script.parse_args(["back", "keep=500"]) == {"back": True, "keep": 500}
     assert script.parse_args([]) == {"back": False, "keep": 0}
+
+
+# Riverhaven, as the community map writes it: a guild hall that names no
+# town, and the bank's rooms with their province (#342).
+RIVERHAVEN = MapDB(
+    [
+        {
+            "id": 1,
+            "uid": [1],
+            "title": ["[Barbarian Guild, Lower Amphitheatre]"],
+            "wayto": {"7954": "go bank"},
+        },
+        {
+            "id": 7954,
+            "uid": [7954],
+            "title": ["[Bank of Riverhaven, Foreign Exchange]"],
+            "location": "Therengia",
+            "tags": ["exchange"],
+            "wayto": {"7953": "west", "1": "out"},
+        },
+        {
+            "id": 7953,
+            "uid": [7953],
+            "title": ["[Bank of Riverhaven, Teller]"],
+            "location": "Therengia",
+            "tags": ["bank"],
+            "wayto": {"7954": "east"},
+        },
+    ]
+)
+WEALTH_RIVERHAVEN = (
+    "Wealth:\n"
+    "  2 silver, 3 bronze, and 2 copper Kronars (232 copper Kronars).\n"
+    "  6 bronze and 5 copper Lirums (65 copper Lirums).\n"
+    "  No Dokoras.\n"
+)
+
+
+def test_the_coin_is_the_tellers_not_the_starting_rooms():
+    # 2026-09-26 (#342): ;bank from the Barbarian Guild exchanged a
+    # Riverhaven purse's Lirums into Kronars, and the teller then had no
+    # Lirums to take. The teller the walk ends at is in Therengia.
+    fake = Fake(
+        {
+            "wealth": [WEALTH_RIVERHAVEN],
+            "exchange all kronars": [EXCHANGED_LIRUMS],
+            "deposit all": [DEPOSITED],
+        }
+    )
+    fake.state.room_title = "[Barbarian Guild, Lower Amphitheatre]"
+    script.run(fake, [], RIVERHAVEN, walk_fn=walk)
+    assert "exchange all kronars to lirums" in fake.sent
+    assert not any(command.startswith("exchange all lirums") for command in fake.sent)
+    assert fake.walks == [{7954}, {7953}]
+
+
+def test_a_rooms_coin_reads_its_title_location_and_map_image():
+    def room(**data):
+        return MapDB([{"id": 5, "title": ["[Somewhere]"], **data}])
+
+    assert bank.room_currency(room(location="Therengia"), 5) == "lirums"
+    assert bank.room_currency(room(location="Qi'Reshalia"), 5) == "lirums"
+    assert bank.room_currency(room(location="Forfedhdar"), 5) == "dokoras"
+    assert bank.room_currency(room(image="Ilitha, Fang Cove.jpg"), 5) == "dokoras"
+    assert bank.room_currency(room(location="Zoluren"), 5) == "kronars"
+    assert bank.room_currency(room(), 5) == "kronars"
+    assert bank.nearest(RIVERHAVEN, 1, [7953]) == 7953
+    assert bank.nearest(RIVERHAVEN, 7953, [7953]) == 7953
+    assert bank.nearest(RIVERHAVEN, None, [7953]) is None

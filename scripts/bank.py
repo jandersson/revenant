@@ -8,9 +8,10 @@
 Coins weigh, and a hunt's takings and the far towns' change pile up
 (the operator, 2026-09-20: a bank loop in ;train "will reduce
 encumbrance"). WEALTH says what the purse holds; every currency that
-is not the province's own — Kronars in Zoluren, Lirums in Therengia,
-Dokoras in Ilithi and the islands, read off the room's title
-(client/game/soul.py) — is exchanged at the nearest room the map tags
+is not the province's own — the coin of the teller the walk ends at
+(Kronars in Zoluren, Lirums in Therengia and Qi'Reshalia, Dokoras in
+Ilithi and Forfedhdar; client/game/bank.py) — is exchanged at the
+nearest room of that province the map tags
 `exchange` (Elanthipedia: Exchange command — "You hand your money to
 the money-changer.  After collecting a modest fee, he hands you 8
 silver, and 6 copper Kronars.", captured 2026-09-20), then everything
@@ -31,10 +32,12 @@ from client.game.bank import (
     foreign,
     handed,
     home_currency,
+    nearest,
+    room_currency,
 )
 from client.game.mapdb import MapDB
 from client.game.money import parse_wealth, split
-from client.game.walker import locate, walk
+from client.game.walker import character_ranks, locate, walk
 
 COLLECT_SECONDS = 3
 TAIL_SECONDS = 1.5
@@ -58,8 +61,12 @@ def parse_args(words):
 
 def exchange(s, mapdb, walk_fn, currencies, home):
     """Walk to the money-changer and EXCHANGE ALL of each currency into
-    the province's; False when no exchange is on the map or reachable."""
+    the province's; False when no exchange is on the map or reachable.
+    A changer of the home province is walked to when the map has one."""
     changers = mapdb.rooms_tagged("exchange")
+    changers = [room for room in changers if room_currency(mapdb, room) == home] or (
+        changers
+    )
     if not changers:
         s.echo("bank: the map has no room tagged 'exchange' — the foreign coins stay")
         return False
@@ -88,8 +95,16 @@ def withdraw_back(s, copper, home):
 def run(s, words, mapdb, walk_fn=walk):
     options = parse_args(words)
     start = locate(mapdb, s.state)
-    title = getattr(s.state, "room_title", "") or ""
-    home = home_currency(title)
+    # The coin is the teller's, not the starting room's: a guild hall
+    # names no town, and a Riverhaven purse's Lirums were exchanged into
+    # Kronars the teller would not take (2026-09-26, #342).
+    tellers = mapdb.rooms_tagged("bank")
+    teller = nearest(mapdb, start, tellers, character_ranks(s.state))
+    if teller is not None:
+        home = room_currency(mapdb, teller)
+        tellers = [teller]
+    else:
+        home = home_currency(getattr(s.state, "room_title", "") or "")
     wealth = parse_wealth(ask(s, "wealth"))
     carried = wealth["carried"]
     if not any(carried.values()):
@@ -103,7 +118,6 @@ def run(s, words, mapdb, walk_fn=walk):
         s.echo(
             f"bank: the purse is empty — withdrawing the {options['keep']} copper keep"
         )
-        tellers = mapdb.rooms_tagged("bank")
         if not tellers or not walk_fn(
             s, mapdb, set(tellers), describe="the bank teller"
         ):
@@ -121,7 +135,7 @@ def run(s, words, mapdb, walk_fn=walk):
             return
     else:
         s.echo(f"bank: nothing foreign in the purse — {home} only")
-    if not deposit(s, mapdb, walk_fn, ask, "bank"):
+    if not deposit(s, mapdb, walk_fn, ask, "bank", tellers):
         return
     if options["keep"] > 0:
         withdraw_back(s, options["keep"], home)

@@ -82,6 +82,13 @@ def test_the_coin_follows_the_province_and_the_tithe_command_says_it():
     assert soul.currency_for("[Temple of Light, Alcove of Smaragdaus]") == "dokoras"
     assert soul.currency_for("[Paladins' Guild, Foyer]") == "kronars"
     assert soul.currency_for("[Riverhaven, Temple Gate]") == "lirums"
+    # Elanthipedia: Currency — Lirums in Therengia and Qi'Reshalia,
+    # Dokoras in Ilithi and Forfedhdar (#342: Ratha and Hibarnhvidar
+    # stood the other way round).
+    assert soul.currency_for("[Ratha, Port Walk]") == "lirums"
+    assert soul.currency_for("[Mer'Kresh, Town Hall]") == "lirums"
+    assert soul.currency_for("[Inner Hibarnhvidar, Main Cavern]") == "dokoras"
+    assert soul.currency_for("[Shard, East Bridge]") == "dokoras"
     assert soul.tithe_command("dokoras") == "put 5 silver dokoras in almsbox"
 
 

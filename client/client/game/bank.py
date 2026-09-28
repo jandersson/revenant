@@ -14,10 +14,11 @@ Lirums; the Teller (1900, tagged `bank`) — "The clerk slides a small
 metal box across the counter into which you drop all your Kronars.
 She counts them carefully and records the deposit in her ledger." to
 DEPOSIT ALL (first captured 2026-09-14 for ;skins bank). The
-province's coin comes from the room title (client/game/soul.py's
-`currency_for`: Dokoras in Ilithi and the islands, Lirums in
-Therengia, Kronars elsewhere). Elanthipedia: Exchange command,
-Deposit command, Currency.
+province's coin is the teller's (`room_currency`: the map room's title,
+location and image read by client/game/soul.py's `currency_for` —
+Dokoras in Ilithi and Forfedhdar, Lirums in Therengia and Qi'Reshalia,
+Kronars in Zoluren), never the starting room's: a guild hall names no
+town (#342). Elanthipedia: Exchange command, Deposit command, Currency.
 """
 
 import re
@@ -73,6 +74,28 @@ def withdraw(s, mapdb, walk_fn, ask, prefix, copper, currency, retry="try again"
     return True
 
 
+def room_currency(mapdb, room):
+    """The coin of the province a map room is in: its title, the map's
+    location and its image name, read by soul.currency_for — "[Barbarian
+    Guild, Lower Amphitheatre]" names no town, and ;bank exchanged a
+    Riverhaven purse's Lirums into Kronars on it (2026-09-26, #342)."""
+    data = mapdb.rooms.get(room) or {}
+    words = list(data.get("title") or [])
+    words += [str(data.get("location") or ""), str(data.get("image") or "")]
+    return currency_for(" ".join(words))
+
+
+def nearest(mapdb, start, rooms, ranks=None):
+    """The room of `rooms` a walk from `start` would end at, or None
+    when there is no start or no way."""
+    if start is None or not rooms:
+        return None
+    route = mapdb.path(start, set(rooms), ranks=ranks)
+    if route is None:
+        return None
+    return route[-1][0] if route else start
+
+
 def home_currency(title):
     """The province's coin from the room title — soul.currency_for's rule
     (Dokoras in Ilithi and the islands, Lirums in Therengia, Kronars
@@ -107,12 +130,12 @@ def handed(answer):
     return match.group(1).strip() if match else None
 
 
-def deposit(s, mapdb, walk_fn, ask, prefix):
-    """Walk to the nearest teller and DEPOSIT ALL: the clerk's ledger
-    line is reported as a deposit, any other answer echoed line by
-    line. False when no teller is on the map or reachable — the coins
-    stay in the purse (#196)."""
-    tellers = mapdb.rooms_tagged("bank")
+def deposit(s, mapdb, walk_fn, ask, prefix, tellers=None):
+    """Walk to the nearest teller (of `tellers`, else every one the map
+    tags) and DEPOSIT ALL: the clerk's ledger line is reported as a
+    deposit, any other answer echoed line by line. False when no teller
+    is on the map or reachable — the coins stay in the purse (#196)."""
+    tellers = tellers or mapdb.rooms_tagged("bank")
     if not tellers:
         s.echo(f"{prefix}: the map has no room tagged 'bank' — the coins stay with you")
         return False

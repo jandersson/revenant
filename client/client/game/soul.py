@@ -195,11 +195,39 @@ ARCHES = {
 # pristine reading gates the deeds for four hours — the tithe's own
 # period — before the arch is walked through again.
 STATE_FRESH_SECONDS = 4 * 3600
-# The coin the almsbox asks for, by the province the room's title names
-# (Elanthipedia: Currency): Ilithi, Qi and the islands take Dokoras,
-# Therengia Lirums, Zoluren and the rest Kronars.
-_DOKORA_TOWNS = ("shard", "temple of light", "ratha", "aesry", "mer'kresh", "hara")
-_LIRUM_TOWNS = ("riverhaven", "theren", "langenfirth", "hibarnhvidar", "muspar")
+# The coin of the province a room's title (or the map's location and
+# image name, bank.room_currency) names — Elanthipedia: Currency, "Each
+# province uses one currency type": Dokoras in Ilithi and Forfedhdar,
+# Lirums in Therengia and Qi'Reshalia, Kronars in Zoluren and wherever
+# the text names no province. Ratha and Hibarnhvidar stood the other way
+# round until 2026-09-28 (#342).
+_DOKORA_TOWNS = (
+    "ilithi",
+    "forfedhdar",
+    "shard",
+    "temple of light",
+    "chyolvea",
+    "fang cove",
+    "hibarnhvidar",
+    "boar clan",
+    "ain ghazal",
+    "raven's point",
+)
+_LIRUM_TOWNS = (
+    "therengia",
+    "qi'reshalia",
+    "riverhaven",
+    "theren",
+    "throne city",
+    "muspar",
+    "rossman",
+    "el bain",
+    "langenfirth",
+    "ratha",
+    "aesry",
+    "mer'kresh",
+    "hara'jaal",
+)
 
 
 def parse_state(text):

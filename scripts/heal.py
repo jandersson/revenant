@@ -34,10 +34,9 @@ import re
 
 from client.game import helper, herbs, probe
 from client.game.loop import wants_stop
-from client.game.bank import exchange_command, foreign, handed
+from client.game.bank import exchange_command, foreign, handed, room_currency
 from client.game.mapdb import MapDB
 from client.game.money import parse_wealth, phrase, split
-from client.game.soul import currency_for
 from client.game.walker import avoided_rooms, locate, walk
 from client.game.wounds import SEVERITIES, level, parse_health
 from client.settings import load_settings
@@ -489,15 +488,10 @@ def buy(s, wanted, mapdb, walk_fn, avoid=(), town=TOWN):
 
 
 def home_of(mapdb, room):
-    """The province's coin at a map room: from its title, else from the
-    map's own name for the room's town (Quentin's Healerium names no
-    town, its map image "Ilithi, Shard" does)."""
-    data = mapdb.rooms[room]
-    title = " ".join(data.get("title") or [])
-    home = currency_for(title)
-    if home == "kronars":
-        home = currency_for(str(data.get("image") or ""))
-    return home
+    """The province's coin at a map room (client/game/bank.py's
+    room_currency: Quentin's Healerium names no town, its map image
+    "Ilithi, Shard" does)."""
+    return room_currency(mapdb, room)
 
 
 def change_coins(s, mapdb, walk_fn, healer_room, purse, home, avoid=()):
