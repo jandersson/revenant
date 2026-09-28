@@ -434,6 +434,7 @@ RELOADABLE_MODULES = (
     "client.game.loop",
     "client.game.creatures_data",
     "client.game.creatures",  # binds CAPS from creatures_data: after it
+    "client.game.loot",  # binds noun_of from creatures: after it
     "client.game.discard",
     "client.game.buffs",
     "client.game.barbarian",
@@ -456,7 +457,6 @@ RELOADABLE_MODULES = (
     "client.game.justice",
     "client.game.teaching",
     "client.game.helper",
-    "client.game.loot",  # binds noun_of from creatures: after it
     "client.game.boxes",  # binds BOX_NOUNS from loot: after it
     "client.game.lootlog",  # binds BOX_NOUNS from loot: after it
     "client.game.scholarship",

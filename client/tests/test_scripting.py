@@ -693,6 +693,9 @@ def test_every_pure_game_module_the_scripts_import_is_reloadable():
         ("client.game.wounds_data", "client.game.wounds"),
         ("client.game.herbs_data", "client.game.herbs"),
         ("client.game.walker", "client.game.climblog"),
+        # profile binds COMMON_METALS from loot (#365): a stale loot
+        # would fail profile's import in a running session.
+        ("client.game.loot", "client.game.profile"),
     ):
         assert order(data) < order(model)
 
