@@ -370,10 +370,8 @@ def press_herb(s, noun, bag):
         if home:
             again = ask(s, f"get dried {noun} from my {home}").lower()
             if any(word in again for word in _GOT):
-                if not any(
-                    word in ask(s, f"combine {noun} with {noun}").lower()
-                    for word in _COMBINED
-                ):
+                joined = ask(s, f"combine {noun} with {noun}").lower()
+                if not any(word in joined for word in _COMBINED):
                     s.echo(f"forage: the {noun} would not combine — two stacks kept")
                     ask(s, "stow left")
         stored = _STOWED_IN.search(ask(s, f"stow my {noun}"))

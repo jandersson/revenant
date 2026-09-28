@@ -1116,3 +1116,79 @@ def test_a_when_the_loop_does_not_know_is_a_plan_problem():
     assert validate(good) == []
     bad = normalize(DEFAULTS | {"tasks": [FAVORS | {"when": "raining"}]})
     assert validate(bad) == ["task favors: when 'raining' is not wounded or favors<N"]
+
+
+# The almanac (captured 2026-09-28, the Squat Bungalow's diamond-hide
+# almanac): studied whenever its timer allows, between tasks and in rests.
+STUDIED = (
+    "You set about studying your diamond-hide almanac intently.  You believe "
+    "you've learned something significant about Bow!\nRoundtime: 10 seconds\n"
+)
+GLEANED = (
+    "You've gleaned all the insight you can from the diamond-hide almanac, for "
+    "now.\n[Please try again in 9 roisaen.]\n"
+)
+
+
+def _almanac(monkeypatch, answers):
+    sent = []
+
+    def ask(s, command, *_):
+        sent.append(command)
+        for prefix, answer in answers.items():
+            if command.startswith(prefix):
+                return answer
+        return ""
+
+    monkeypatch.setattr(train, "probe", SimpleNamespace(ask=ask))
+    monkeypatch.setattr(train, "ALMANAC", {"next": 0.0, "off": False})
+    return sent
+
+
+def test_the_almanac_is_studied_when_ready_and_stowed_again(clock, monkeypatch):
+    sent = _almanac(
+        monkeypatch,
+        {"get my almanac": "You get a diamond-hide almanac.", "study my": STUDIED},
+    )
+    fake = Fake()
+    clock["fake"] = fake
+    train.study_almanac(fake, plan(almanac="almanac"))
+    assert sent == [
+        "get my almanac",
+        "open my almanac",
+        "study my almanac",
+        "stow my almanac",
+    ]
+    assert "train: almanac studied — Bow" in fake.echoed
+    assert train.ALMANAC["next"] == fake.now + 600 + 20
+    # Before the timer runs out nothing is sent.
+    train.study_almanac(fake, plan(almanac="almanac"))
+    assert len(sent) == 4
+
+
+def test_the_almanacs_own_countdown_sets_the_next_study(clock, monkeypatch):
+    _almanac(monkeypatch, {"study my": GLEANED})
+    fake = Fake()
+    clock["fake"] = fake
+    train.study_almanac(fake, plan(almanac="almanac"))
+    assert train.ALMANAC["next"] == fake.now + 9 * 60 + 20
+
+
+def test_no_almanac_on_you_turns_it_off_for_the_run(clock, monkeypatch):
+    sent = _almanac(monkeypatch, {"get my almanac": "What were you referring to?"})
+    fake = Fake()
+    clock["fake"] = fake
+    train.study_almanac(fake, plan(almanac="almanac"))
+    assert sent == ["get my almanac"] and train.ALMANAC["off"]
+    assert any("almanac is off for this run" in text for text in fake.echoed)
+
+
+def test_no_almanac_study_with_both_hands_full_or_none_named(clock, monkeypatch):
+    sent = _almanac(monkeypatch, {})
+    fake = Fake()
+    fake.state.left_hand = {"noun": "mortar"}
+    fake.state.right_hand = {"noun": "pestle"}
+    clock["fake"] = fake
+    train.study_almanac(fake, plan(almanac="almanac"))
+    train.study_almanac(fake, plan())  # no almanac in the plan
+    assert sent == []

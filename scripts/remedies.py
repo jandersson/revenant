@@ -334,9 +334,8 @@ def full_stack(s, noun):
         while held < STACK_PIECES:
             if missing(ask(s, f"get {noun} from my {container}")):
                 break
-            if not any(
-                word in ask(s, f"combine {noun} with {noun}") for word in COMBINED
-            ):
+            joined = ask(s, f"combine {noun} with {noun}")
+            if not any(word in joined for word in COMBINED):
                 ask(s, f"stow my {noun}")  # one of the two back: they would not join
                 break
             held = pieces(ask(s, f"count my {noun}")) or held
