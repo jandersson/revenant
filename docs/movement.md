@@ -33,7 +33,7 @@
 
 | Ride | Between | Fare |
 | --- | --- | --- |
-| Faldesu ferry | the Crossing's North Road and Riverhaven | 30 Lirums, added to your debt if you have none |
+| Faldesu ferry | the Crossing's North Road and Riverhaven | 30 Lirums; short of it, a young character rides on debt and anyone else is turned away |
 | Alfren's Ferry | the Crossing and the Segoltha's south bank (the way to Leth Deriel and Shard) | 35 Kronars |
 | Obsidian Pass gondola | the two platforms over the Chasm | free |
 

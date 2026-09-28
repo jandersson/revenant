@@ -251,7 +251,8 @@ class FerryHandle(FakeHandle):
     "away" (the ferry is out; the dock's story then brings one in, or
     not), "aboard" (the fee, then the ferry's room — a compass frame),
     "debt" (no lirums: the captain's grumble, the debt line, and aboard
-    all the same) or "fare" (refused and left on the dock, uncaptured).
+    all the same) or "fare" (refused and left on the dock, captured at
+    the Riverhaven dock on 2026-09-26 — WEALTH then reads the purse).
     The crossing's story docks the ferry (or not); GO DOCK lands with a
     compass frame like any move."""
 
@@ -269,6 +270,11 @@ class FerryHandle(FakeHandle):
         "sense to keep enough coins on ya fer emergencies, so I'll just add it "
         "to yer debt.\n[Your debt to the province of Therengia is being "
         "increased by 30 lirums.]\n"
+    )
+    ASSUMING = "[Assuming you mean the ferry His Daring Exploit.]\n"
+    WEALTH = (
+        "Wealth:\n  No Kronars.\n  1 bronze and 3 copper Lirums (13 copper "
+        "Lirums).\n  No Dokoras.\nDebt:\n  No debt.\n"
     )
     ARRIVES = 'The ferry "Her Opulence" pulls up to the dock.\n'
     LANDS = (
@@ -297,8 +303,14 @@ class FerryHandle(FakeHandle):
                 self.answer = [("", line) for line in lines] + [("compass", "")]
                 self.story = [self.LANDS] if self.lands else []
             else:
-                self.answer = [("", self.FEE), ("", self.NO_LIRUMS)]
+                self.answer = [
+                    ("", self.ASSUMING),
+                    ("", self.FEE),
+                    ("", self.NO_LIRUMS),
+                ]
                 self.story = []
+        elif command == "wealth":
+            self.story = [self.WEALTH]
         elif command == "go dock":
             self.state.room_uid = self._uids.pop(0)
             self.answer = [("compass", "e")]
@@ -320,6 +332,7 @@ def quick_ferry(monkeypatch):
     monkeypatch.setattr(walker, "FERRY_ANSWER_SECONDS", 0.05)
     monkeypatch.setattr(walker, "FERRY_WAIT_SECONDS", 0.15)
     monkeypatch.setattr(walker, "FERRY_POLL_SECONDS", 0.05)
+    monkeypatch.setattr(walker, "WEALTH_SECONDS", 0.05)
 
 
 ALFREN_SOUTH = (
@@ -364,8 +377,12 @@ def test_a_refusal_that_leaves_you_on_the_dock_stops_the_walk(quick_ferry):
     handle = FerryHandle(uids=[10470], answers=["fare"])
     handle.state.room_uid = 10385
     assert walker.walk(handle, FERRY, [470]) is False
-    assert puts_of(handle) == ["go ferry"]
-    assert any("refused the fare" in echo for echo in handle.echoes)
+    assert puts_of(handle) == ["go ferry", "wealth"]
+    # The refusal and the fare against the purse — not the "[Assuming
+    # you mean the ferry ...]" note ahead of them (#337).
+    [refused] = [echo for echo in handle.echoes if "refused the fare" in echo]
+    assert "of 30 lirums, you carry 1 bronze and 3 copper Lirums" in refused
+    assert "afford the fare" in refused and "Assuming" not in refused
 
 
 def test_a_ferry_that_never_comes_stops_the_walk(quick_ferry):

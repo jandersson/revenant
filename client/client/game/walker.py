@@ -22,6 +22,7 @@ import re
 from time import monotonic
 
 from client.client_logger import ClientLogger
+from client.game import money
 from client.game.mapdb import (
     normalize_title,
     ride_args,
@@ -72,7 +73,10 @@ COMPASS_MOVES = frozenset(
 # emergencies, so I'll just add it to yer debt." / "[Your debt to the
 # province of Therengia is being increased by 30 lirums.]" — and you
 # are aboard all the same (the refusal that leaves you on the dock, for
-# a character the captain does not call young, is still uncaptured).
+# a character the captain does not call young, was captured at the
+# Riverhaven dock on 2026-09-26 with 13 lirums on hand: "[Assuming you
+# mean the ferry His Daring Exploit.]", the fee line, then the "Hey,"
+# line above — and nothing more, the character still on the dock).
 # Aboard: "Next departure in one minute!", "All ashore who's going
 # ashore!", "Cast off!", "You feel the ferry shudder slightly as it
 # shoves off.", the quarter-way lines, "You are nearing the docks.",
@@ -91,6 +95,7 @@ FERRY_AWAY = (
     "just pulled away from the dock",
 )
 FERRY_NO_FARE = ("afford the fare",)
+WEALTH_SECONDS = 2  # WEALTH's answer, read for the purse beside a refused fare
 FERRY_FEE = re.compile(r"transportation fee of (\d+ \w+)")
 # Alfren's, captured 2026-09-18: "The Captain stops you and requests a
 # transportation fee of 35 kronars as you board the craft." / "You
@@ -363,7 +368,16 @@ def ride_ferry(s, direction=""):
                 return "stuck"
             return "landed"
         if any(needle in answer for needle in FERRY_NO_FARE):
-            s.echo(f"the ferry refused the fare: {first!r} — stopping here")
+            # The game's own line, not the "[Assuming you mean the
+            # ferry ...]" note ahead of it (#337), and the fare against
+            # the purse.
+            fee = FERRY_FEE.search(answer)
+            s.echo(
+                "the ferry refused the fare"
+                + (f" of {fee.group(1)}" if fee else "")
+                + fare_purse(s, fee.group(1) if fee else "")
+                + f": {answer_line(answer, FERRY_NO_FARE)!r} — stopping here"
+            )
             return "fare"
         if any(needle in answer for needle in FERRY_AWAY):
             s.echo("no ferry at the dock — waiting for one")
@@ -373,6 +387,20 @@ def ride_ferry(s, direction=""):
         return "unknown"
     s.echo(f"no ferry came in {FERRY_WAIT_SECONDS // 60} minutes — stopping here")
     return "no ferry"
+
+
+def fare_purse(s, fee):
+    """ ", you carry <coins>" for a fare's currency ("30 lirums"), from
+    WEALTH (no roundtime, nothing changes); "" when the currency or the
+    answer is not known."""
+    currency = fee.split()[-1].capitalize() if fee else ""
+    if currency not in money.CURRENCIES:
+        return ""
+    s.put("wealth")
+    carried = money.parse_wealth(read_story(s, WEALTH_SECONDS))["carried"]
+    if currency not in carried:
+        return ""
+    return f", you carry {money.phrase(carried[currency], currency)}"
 
 
 def search_hidden(s, command):
