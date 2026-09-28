@@ -260,3 +260,101 @@ def test_a_privateto_element_off_the_wire_parses_to_that_shape():
         None,
     )
     assert str(message) == '[PrivateTo]-Somefriend: "test"'
+
+
+# --- the connection: a server close is logged in again (#371) ------------
+
+
+class ScriptedServer:
+    """A connection whose receive_messages() plays a script: "welcome"
+    is the server's greeting, an exception is raised, the end is quiet
+    (TimeoutError)."""
+
+    def __init__(self, script):
+        self.script = list(script)
+        self.connection = SimpleNamespace(
+            settimeout=lambda seconds: None,
+            shutdown=lambda how: None,
+            close=lambda: None,
+        )
+
+    def set_login_info(self, name, password=None):
+        pass
+
+    def connect(self):
+        pass
+
+    def login(self):
+        pass
+
+    def receive_messages(self):
+        step = self.script.pop(0) if self.script else TimeoutError()
+        if isinstance(step, BaseException):
+            raise step
+        return [SimpleNamespace(message_type="greeting", sender=None)]
+
+
+class Stop(Exception):
+    pass
+
+
+def _connections(monkeypatch, scripts):
+    servers = [ScriptedServer(script) for script in scripts]
+    monkeypatch.setattr(lnet, "make_server", lambda: servers.pop(0))
+    monkeypatch.setattr(
+        "client.engine.lnet_login.lnet_password", lambda name, legacy_file=None: "pw"
+    )
+
+
+def _handle(limit=400):
+    said, slept = [], []
+
+    def sleep(seconds):
+        slept.append(seconds)
+        if len(slept) > limit:
+            raise Stop()  # ;stop, as the real sleep raises ScriptStopped
+
+    handle = SimpleNamespace(
+        state=SimpleNamespace(name="Lanival"),
+        echo=said.append,
+        emit=lambda text, stream: None,
+        command=lambda timeout=0: None,
+        sleep=sleep,
+    )
+    return handle, said, slept
+
+
+def test_a_connection_the_server_closes_is_logged_in_again(monkeypatch):
+    from chat.chat import LoginRejected
+
+    _connections(
+        monkeypatch,
+        [
+            ["welcome", ConnectionError("server closed the connection")],
+            ["welcome", LoginRejected("password required")],
+        ],
+    )
+    handle, said, slept = _handle()
+    lnet.main(handle)
+    assert "LNet connection lost: server closed the connection" in said
+    assert "logging in to LNet again in 30 s (;stop lnet to stay off)" in said
+    assert said.count("connected to LNet as Lanival") == 2
+    assert (
+        sum(1 for seconds in slept if seconds == 1) == 30
+    )  # the wait, a second a beat
+    # A rejected login ends the script: no third connection was asked for.
+    assert said[-1].startswith("store the password")
+
+
+def test_the_waits_grow_while_the_server_stays_away(monkeypatch):
+    refused = ConnectionRefusedError("no route")
+    _connections(monkeypatch, [[refused]] * 3 + [["welcome", Stop()]])
+    handle, said, _ = _handle(limit=10_000)
+    try:
+        lnet.main(handle)
+    except Stop:
+        pass
+    import re
+
+    waits = re.findall(r"again in (\d+) s", "\n".join(said))
+    assert waits == ["30", "60", "120"]

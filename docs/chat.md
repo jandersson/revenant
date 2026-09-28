@@ -29,7 +29,7 @@ The same in both places; in the game window they start with `;`.
 | `tune <channel>` / `untune <channel>` | subscribe or unsubscribe |
 
 - A name you have heard from this session can be typed without the server's `DR:` prefix or capital.
-- In the game window, `;lnet` starts on the first command; `;stop lnet` disconnects. Identity is the character being played.
+- In the game window, `;lnet` starts on the first command; `;stop lnet` disconnects. Identity is the character being played. When the server drops the connection, `;lnet` logs in again after 30 s, then 1, 2, 4 and 5 minutes; a rejected login ends it.
 
 ## Passwords
 
