@@ -165,6 +165,13 @@ lessons the code and docs cannot carry themselves.
 
 ## Evidence first
 
+- INFO's "Wealth:" is the coins on the character, not what they own:
+  Crannach showed 300 copper there and had 57.6 million copper Kronars
+  in the Crossing bank alone (2026-09-28). Before calling a character
+  short of money, read the banks: history.db's `wealth` rows with
+  kind 'bank' (;wealth logs BANK ACCOUNT at login), or send BANK
+  ACCOUNT (read-only). Buying scripts reach the teller themselves.
+
 - The game logs under `~/.revenant/logs/game-*.log` are the record of
   what the game said. Grep them before assuming a wording, and after
   every live run: the first `;hunt` (2026-09-05) exposed a kill line
