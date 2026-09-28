@@ -409,6 +409,13 @@ def test_burden_warning_only_when_meaningfully_burdened():
     athletics.check_burden(heavy)
     assert ("put", "encumbrance") in heavy.calls
     assert any("Heavily Burdened" in echo for echo in heavy.echoes)
+    # The advice is what lightens a load: an item weighs the same in a
+    # sack as in a hand (docs/encumbrance.md), and nothing is dropped
+    # (#373).
+    [advice] = heavy.echoes
+    assert "a container does not lighten it" in advice
+    assert "bank coins" in advice and "vault" in advice and ";enc" in advice
+    assert "drop" not in advice.lower()
 
     light = FakeHandle((), exp_response="   Encumbrance : Light Burden")
     athletics.check_burden(light)

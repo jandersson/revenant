@@ -166,8 +166,9 @@ def check_burden(s):
     if "burdened" in level.lower():
         s.echo(
             f"ATHLETICS: you are {level} — encumbrance penalizes every "
-            "climb; stow the load in a container or bank the coins for "
-            "cleaner gains (never drop it)"
+            "climb, and a container does not lighten it: bank coins, leave "
+            "gear in a vault, wear armor rather than carry it, or raise "
+            "Strength or Stamina (;enc shows how far)"
         )
 
 
