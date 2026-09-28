@@ -430,6 +430,18 @@ def await_arrival(s, timeout=ARRIVAL_TIMEOUT):
             return "roundtime", hindering, "".join(seen)
 
 
+def answer_line(wording, needles):
+    """The story line that holds one of `needles` — the game's answer —
+    else the first line: a bystander's "Sekhhtha goes west." arrived
+    before "You're not experienced enough to go there." and stood in
+    for it in the echo (2026-09-27, #359)."""
+    lines = wording.strip().splitlines() or ["?"]
+    return next(
+        (line for line in lines if any(needle in line for needle in needles)),
+        lines[0],
+    )
+
+
 def note_climb(s, command, outcome, wording, room):
     """Every climb the walker sends goes into history.db's climbs table
     with what the state knows for free (#159): up, the refusal's kind,
@@ -670,7 +682,7 @@ def _follow(s, db, route, here, closed):
         if outcome == "posture":
             # Kneeling (a prayer), sitting or lying: STAND and one retry
             # (#220); the engaged-stall burst below would not help.
-            first = (wording.strip().splitlines() or ["?"])[0]
+            first = answer_line(wording, KNEELING_REFUSALS)
             s.waitrt()
             s.put("stand")
             s.waitrt()
@@ -684,7 +696,7 @@ def _follow(s, db, route, here, closed):
         if outcome == "closed":
             closed.add((here, dest))
             titles = db.rooms[dest].get("title") or ["?"]
-            first = (wording.strip().splitlines() or ["?"])[0]
+            first = answer_line(wording, GATE_REFUSALS + WAY_REFUSALS)
             s.echo(f"the way to {titles[0]} is closed to you ({first!r}) — going round")
             return "closed"
         if outcome == "refused":

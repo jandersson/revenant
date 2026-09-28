@@ -897,6 +897,32 @@ def test_a_guild_that_keeps_you_out_is_a_closed_way_not_a_stall():
     assert any("closed to you" in echo for echo in handle.echoes)
 
 
+class CrowdedGateHandle(GateHandle):
+    # Cecil at the Northeast Customs, 2026-09-27 04:55 (#359): someone
+    # walked off between the move and the game's refusal.
+    def put(self, command):
+        super().put(command)
+        if command == "go trail":
+            self.pending = [("", "Sekhhtha goes west.\n"), ("", NOT_EXPERIENCED)]
+
+
+def test_the_closed_way_echo_quotes_the_refusal_not_a_bystander():
+    handle = CrowdedGateHandle(uids=[10817, 10816, 11716])
+    handle.state.room_uid = 10818
+    assert walker.walk(handle, GATED, [11716], describe="the library") is True
+    [closed] = [echo for echo in handle.echoes if "closed to you" in echo]
+    assert "not experienced enough to go there" in closed
+    assert "Sekhhtha" not in closed
+
+
+def test_answer_line_is_the_line_holding_the_answer_else_the_first():
+    assert walker.answer_line("A goes west.\nYou can't go there.\n", ("go there",)) == (
+        "You can't go there."
+    )
+    assert walker.answer_line("A goes west.\n", ("go there",)) == "A goes west."
+    assert walker.answer_line("", ("go there",)) == "?"
+
+
 def test_a_closed_edge_is_out_of_the_route_for_the_rest_of_the_walk():
     route = GATED.path(818, [11716], closed={(818, 15122)})
     assert [dest for dest, _ in route] == [817, 816, 11716]
