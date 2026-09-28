@@ -397,6 +397,23 @@ def test_the_prayer_stays_knelt_for_the_completion_then_stands(monkeypatch, tmp_
     assert soul.load_timers("Lanival") == {"pray": 2000.0}
 
 
+def test_the_crossing_altars_kneel_line_is_waited_on_not_abandoned(
+    monkeypatch, tmp_path
+):
+    # #305 (captured 2026-09-24, again 2026-09-28): at the Crossing's
+    # Chadatru altar PRAY answers "You kneel down and begin to pray." and
+    # a STAND a second later abandoned the prayer every time.
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    monkeypatch.setattr(script, "clock", lambda: 2000.0)
+    kneel = "You kneel down and begin to pray.\n"
+    fake = Fake({"pray": [(kneel, PRAYER_DONE)], "stow": [""], "stand": [""]})
+    fake.status.posture = "kneeling"
+    script.run(fake, ["pray"], mapdb=MAP, walk_fn=walk)
+    assert "the prayer has begun" in echoes(fake)
+    assert "soul: prayed to Chadatru" in echoes(fake)
+    assert soul.load_timers("Lanival") == {"pray": 2000.0}
+
+
 def test_a_prayer_too_soon_backs_off(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
     monkeypatch.setattr(script, "clock", lambda: 3000.0)

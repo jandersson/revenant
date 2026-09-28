@@ -138,7 +138,11 @@ BADGE_EMPTY = ("doesn't do anything",)
 BADGE_NOT_YOURS = ("not your pilgrim's badge",)
 BADGE_NONE = ("what were you referring", "could not find")
 # The prayer's answers.
-PRAYER_BEGUN = ("head is not cleared enough",)
+# The Crossing's altar opens with "You kneel down and begin to pray."
+# (captured 2026-09-24 and 2026-09-28, #305): a STAND sent a second
+# after it abandoned every prayer there. Taken as begun, like Shard's
+# line; if the soothing line never comes, the wait says so.
+PRAYER_BEGUN = ("head is not cleared enough", "you kneel down and begin to pray")
 PRAYER_DONE = ("soothing sensation washes over your soul",)
 PRAYER_SOON = ("inappropriate so soon",)
 # The quest's orb (FOCUS ORB): the refusals and the vision's lines.
