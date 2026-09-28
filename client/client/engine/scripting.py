@@ -348,6 +348,14 @@ class Script:
         on by it (2026-09-26)."""
         return self._manager.names()
 
+    def younger_scripts(self):
+        """The scripts started after this one and running still, oldest
+        first: the child a script waits on (;remedies' ;forage) is
+        acting on the character, so the waiting parent's safe points
+        leave it alone (2026-09-28: the almanac studied from ;remedies
+        mid-forage read ;forage's "...wait" as its own answer)."""
+        return self._manager.started_after(self.name)
+
     def tell(self, name: str, line: str):
         """Hand a line to a running script, as typing ;<name> <line>
         would (it arrives through that script's s.command()). False
@@ -799,6 +807,16 @@ class ScriptManager(ClientLogger):
         with self.lock:
             scripts = list(self.running.values())
         return sorted(script.name for script in scripts if script.alive)
+
+    def started_after(self, name):
+        """The running scripts started after `name`, oldest first; every
+        running one when `name` is not running. `running` keeps start
+        order: a script leaves it when it ends and a restart re-enters
+        at the end."""
+        with self.lock:
+            scripts = [script for script in self.running.values() if script.alive]
+        order = [script.name for script in scripts]
+        return order[order.index(name) + 1 :] if name in order else order
 
     def start(self, name: str, args):
         """Start a script; True when its thread is running. False — the

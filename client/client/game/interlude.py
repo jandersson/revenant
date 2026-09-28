@@ -12,7 +12,8 @@ post(name)      a one-shot request — `;break almanac` — honored at the
 pending()       the requests not yet honored.
 
 Never with the character dead, stunned or something hostile in the
-room; never in ;favors (the orb is in hand through the puzzles); a
+room; never while a script started after this one runs (the child a
+script waits on — ;remedies' ;forage — has the safe points); never in ;favors (the orb is in hand through the puzzles); a
 script in NO_MAKE_ROOM waits for a free hand instead (;boxes: a box and
 lockpick are not stowed blind). Each run echoes under the script it
 interrupted: "[perform] interlude: almanac studied — Bow".
@@ -155,12 +156,26 @@ def _restore(s, noun):
         s.echo(f"interlude: the {noun} did not come back ({first!r}) — get it by hand")
 
 
+def _child_acting(s):
+    """True when a script started after this one runs still, a monitor
+    aside: the child it waits on is acting on the character, and a
+    chore's commands would cross the child's (2026-09-28: ;remedies
+    studied mid-forage, ;forage's "...wait 4 seconds." read as the
+    STUDY's answer and the STUDY sent three times). The child's own
+    safe points run the chores instead. A session whose handle predates
+    younger_scripts() runs them as before."""
+    younger = getattr(s, "younger_scripts", None)
+    if younger is None:
+        return False
+    return any(other not in BACKGROUND for other in younger())
+
+
 def run_due(s, make_room=True):
     """Every interlude due now, run on this script's thread. `make_room`
     False: only when a hand is already free (;hunt's clear room keeps
     its weapon and shield)."""
     name = str(getattr(s, "name", "") or "")
-    if name in NEVER or not _safe(s):
+    if name in NEVER or not _safe(s) or _child_acting(s):
         return
     due = [n for n in REGISTRY if n in _PENDING or REGISTRY[n][0](s)]
     if not due or not _LOCK.acquire(blocking=False):

@@ -948,3 +948,23 @@ def test_stop_all_keeps_deathwatch_running(tmp_path):
     assert any("kept running: deathwatch" in e for e in recorder.emitted)
     manager.stop("deathwatch")
     assert wait_for(lambda: not manager.alive("deathwatch"))
+
+
+def test_younger_scripts_are_the_ones_started_after_in_start_order(tmp_path):
+    # The interludes leave a waiting parent's safe points alone while its
+    # child acts (;remedies and its ;forage, 2026-09-28).
+    for name in ("parent", "child", "aardvark"):
+        (tmp_path / f"{name}.py").write_text(
+            "def main(s):\n    while True:\n        s.sleep(0.05)\n"
+        )
+    manager, recorder = make_manager(tmp_path)
+    for name in ("parent", "child", "aardvark"):
+        manager.start(name, [])
+    try:
+        assert manager.started_after("parent") == ["child", "aardvark"]
+        assert manager.started_after("aardvark") == []
+        assert manager.started_after("gone") == ["parent", "child", "aardvark"]
+        manager.stop("child")
+        assert wait_for(lambda: manager.started_after("parent") == ["aardvark"])
+    finally:
+        manager.stop("all")

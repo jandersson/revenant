@@ -9,7 +9,8 @@ STUDY, open and ready — "You set about studying your diamond-hide
 almanac intently.  You believe you've learned something significant
 about Bow!" (10 s; Bow 0 to 17/34); on its timer — "You've gleaned all
 the insight you can from the diamond-hide almanac, for now. /
-[Please try again in 9 roisaen.]"; closed — "...you would learn
+[Please try again in 9 roisaen.]" (rounded down: 9:48 were left), and
+under a minute "[Please try again in about a roisan.]"; closed — "...you would learn
 something significant about a random skill if you were to OPEN the
 diamond-hide almanac and STUDY its contents." (no study; the same once
 the timer ran out, so the skill is not rolled ahead). Elanthipedia:
@@ -22,7 +23,7 @@ import time
 
 SECONDS = 600
 _LEARNED = re.compile(r"learned something significant about (?P<skill>[^!.]+)")
-_WAIT = re.compile(r"try again in (?P<n>\d+) roisa")
+_WAIT = re.compile(r"try again in (?:about )?(?P<n>\d+|an?) roisa")
 _CLOSED = "if you were to open"
 _MISSING = ("what were you", "could not find")
 
@@ -44,7 +45,10 @@ def answer(text):
         return "learned", learned.group("skill").strip(), SECONDS
     wait = _WAIT.search(text)
     if wait:
-        return "waiting", None, int(wait.group("n")) * 60
+        # The countdown is rounded down: "9 roisaen" came with 9:48 left
+        # and the next try, 13 s early, read "about a roisan" (2026-09-28).
+        n = wait.group("n")
+        return "waiting", None, (int(n) + 1) * 60 if n.isdigit() else 60
     if _CLOSED in text.lower():
         return "closed", None, 0
     return None, None, 0

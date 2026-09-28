@@ -197,7 +197,32 @@ def test_a_break_forces_the_almanac_past_the_local_timer_once(monkeypatch, fresh
     game.answers["study"] = GLEANED  # the game's countdown decides
     interlude.run_due(s)
     assert "study my almanac" in game.sent and interlude.pending() == []
-    assert almanac._NEXT["almanac"] == fresh["t"] + 540 + 20
+    # "9 roisaen" is rounded down: ten minutes, and the slack.
+    assert almanac._NEXT["almanac"] == fresh["t"] + 600 + 20
+
+
+def test_the_countdown_is_read_rounded_up_and_about_a_roisan_is_a_minute():
+    # Captured 2026-09-28: "9 roisaen" with 9:48 left, and 13 s early
+    # the next try's "about a roisan".
+    assert almanac.answer(GLEANED) == ("waiting", None, 600)
+    about = (
+        "You've gleaned all the insight you can from the diamond-hide almanac, "
+        "for now.\n[Please try again in about a roisan.]\n"
+    )
+    assert almanac.answer(about) == ("waiting", None, 60)
+
+
+def test_a_parent_waiting_on_its_child_leaves_the_chore_to_the_child(monkeypatch):
+    # 2026-09-28: ;remedies studied while its ;forage foraged, and read
+    # ;forage's "...wait 4 seconds." as the STUDY's answer.
+    with_almanac()
+    s, game = handle(monkeypatch, "remedies")
+    s.younger_scripts = lambda: ["forage"]
+    interlude.run_due(s)
+    assert game.sent == []
+    s.younger_scripts = lambda: ["xp", "sheet"]  # monitors act on nothing
+    interlude.run_due(s)
+    assert "study my almanac" in game.sent
 
 
 def test_a_break_waits_out_a_hostile_and_is_honored_after(monkeypatch):

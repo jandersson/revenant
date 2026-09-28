@@ -61,7 +61,7 @@ def asker(answers):
 
 def test_the_answers_read_as_learned_waiting_or_closed():
     assert almanac.answer(STUDIED) == ("learned", "Bow", 600)
-    assert almanac.answer(GLEANED) == ("waiting", None, 540)
+    assert almanac.answer(GLEANED) == ("waiting", None, 600)  # rounded up
     assert almanac.answer(CLOSED) == ("closed", None, 0)
     assert almanac.answer("Something odd.") == (None, None, 0)
 
@@ -90,7 +90,7 @@ def test_the_countdown_sets_the_next_try_and_a_book_in_hand_stays_there(fresh):
     ask, sent = asker({"study": GLEANED})
     almanac.study(s, "almanac", ask, "train")
     assert sent == ["open my almanac", "study my almanac"]  # no GET, no STOW
-    assert almanac._NEXT["almanac"] == 1000.0 + 540 + 20
+    assert almanac._NEXT["almanac"] == 1000.0 + 600 + 20
 
 
 def test_no_almanac_on_you_is_off_and_full_hands_wait():
