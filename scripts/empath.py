@@ -35,6 +35,7 @@ from client.game import buffs, probe
 from client.game.empathy import (
     AVOIDED,
     CURES,
+    GONE,
     HEALED,
     LINKED,
     NO_LINK,
@@ -158,14 +159,19 @@ def exchange(s, command, until, seconds):
     return "".join(lines)
 
 
-def touch(s, patient):
+def touch(s, patient, after_transfer=False):
     """TOUCH the patient: (the Injury list, the afflictions), or None
     (said) when there was no link — nobody by that name, or a touch
-    avoided."""
+    avoided. After a transfer (`after_transfer`) a patient no longer in
+    the room is "gone", not a question: ;train walks the patient on the
+    moment they read clean (2026-09-28: "TOUCH cecil answered 'Touch
+    what?' — is cecil here?" four minutes into the Empath's own heal)."""
     answer = exchange(
         s, f"touch {patient}", ("vitality", "nothing wrong with"), TOUCH_SECONDS
     )
     lowered = answer.lower()
+    if after_transfer and any(word in lowered for word in GONE):
+        return "gone"
     if any(word in lowered for word in AVOIDED):
         s.echo(
             f"empath: {patient.capitalize()} avoids the touch — their demeanor is cold"
@@ -287,7 +293,10 @@ def heal_other(s, patient, everything=True):
     EVERYTHING first in each round (unless `everything` is off), one
     part at a time when it brought nothing. True when clean."""
     for round_ in range(1, ROUNDS + 1):
-        listing = touch(s, patient)
+        listing = touch(s, patient, after_transfer=round_ > 1)
+        if listing == "gone":
+            s.echo(f"empath: {patient.capitalize()} has gone — the transfers are done")
+            return True
         if listing is None:
             return False
         injuries, ails, bodies = listing
@@ -323,7 +332,11 @@ def heal_other(s, patient, everything=True):
             if take(s, patient, injury) == "fatal":
                 return False
     # The last round's transfers checked too: it may have cleared them.
-    if touch(s, patient) == ([], [], []):
+    last = touch(s, patient, after_transfer=True)
+    if last == "gone":
+        s.echo(f"empath: {patient.capitalize()} has gone — the transfers are done")
+        return True
+    if last == ([], [], []):
         s.echo(f"empath: {patient.capitalize()} has no injuries left")
         return True
     s.echo(

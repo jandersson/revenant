@@ -65,6 +65,7 @@ NO_INJURIES = ("no injuries to speak of", "you sense nothing wrong with")
 LINKED = ("empathic link has been forged",)
 NO_LINK = ("you have no empathic link",)
 AVOIDED = ("avoids your touch",)
+GONE = ("touch what",)  # nobody by that name in the room
 TAKEN = ("fully healed",)
 TRANSFERRING = ("you feel the transfer beginning",)
 PREPARED = ("fully prepared to cast",)

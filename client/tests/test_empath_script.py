@@ -152,6 +152,23 @@ def test_a_patient_who_is_not_here_ends_it_with_no_transfer():
     assert not any(c.startswith("take") for c in fake.sent)
 
 
+def test_a_patient_who_left_after_the_transfer_ends_it_quietly():
+    # 2026-09-28: ;train walked Cecil on once he read clean, and the
+    # Empath's next TOUCH asked "is cecil here?" four minutes later.
+    fake = Fake(
+        {
+            "touch lanival": [TOUCH_TWO, "Touch what?\n"],
+            "take lanival everything": (
+                "You sense that Lanival's external left arm and chest wounds are "
+                "fully healed.\n"
+            ),
+        }
+    )
+    out = run(fake, ["lanival", "take"])
+    assert "is lanival here?" not in out
+    assert "Lanival has gone — the transfers are done" in out
+
+
 def test_self_heal_stops_when_the_mana_runs_low():
     fake = Fake({"health": HURT}, mana=10)
     out = run(fake, ["self"])
