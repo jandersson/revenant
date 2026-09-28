@@ -95,7 +95,7 @@ Each is a script with its own manual (`;help <name>`). Under `;train`, give each
 | `appraise` | Appraisal |
 | `boxes` | Locksmithing, on the hunt's boxes |
 | `remedies work` | Alchemy, as paid work orders |
-| `research` | a Barbarian's Augmentation, Warding, Utility |
+| `research` | Attunement, Augmentation, Utility, Warding (a caster's RESEARCH projects; a Barbarian's MEDITATE RESEARCH without Attunement) |
 | `listen` / `teach` | a class between two of your characters |
 | `tdp plan` | spends TDPs (no skill) |
 

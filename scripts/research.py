@@ -1,50 +1,39 @@
-"""Train a Barbarian's magic skills by MEDITATE RESEARCH:  ;research
+"""Lock the magic skills by research — a caster's RESEARCH, a Barbarian's MEDITATE RESEARCH:  ;research
 
-    ;research                       Augmentation, Warding and Utility in turn, the emptiest pool first, until all three mind-lock
-    ;research augmentation warding  those skills only (util, aug, ward will do)
-    ;research augmentation=buffalo  research that ability for the skill instead of the default
-    ;research gap=90                seconds from one research to the next (60)
-    ;research until=30              stop at that mindstate instead of 34
-    ;research once                  exit when every skill is there instead of holding for the drain
-    ;research return                (typed while it runs) finish the research in hand and end
+    ;research                   every project or skill in turn, the emptiest pool first, until all mind-lock
+    ;research stream warding    a caster: those projects only (stream, augmentation, utility, warding, fundamental)
+    ;research portion=120       a caster: seconds per RESEARCH portion (30-300, default 300)
+    ;research augmentation      a Barbarian: that skill only (augmentation, warding, utility)
+    ;research warding=buffalo   a Barbarian: research that ability for the skill
+    ;research gap=90            a Barbarian: seconds from one research to the next (60)
+    ;research until=30          stop at that mindstate instead of 34
+    ;research once              exit when every skill is there instead of holding for the drain
+    ;research return            (typed while it runs) end after the portion or research in hand
 
-MEDITATE RESEARCH <ability> teaches the skill of that ability whether or
-not the Barbarian knows it, and Inner Fire beside it, about a minute
-apart, with a roundtime of 6-10 s and no ability slot spent — the Barbarian's magic research
-(Elanthipedia: Barbarian new player guide, Meditations; the model and
-its assumptions are client/game/research.py and docs/barbarian.md,
-#327). The defaults are
-dr-scripts' combat-trainer.lic's: MONKEY for Augmentation, TURTLE for
-Warding, PREDICTION for Utility. Debilitation cannot be researched —
-roars at a foe teach it — so it is not offered.
+A caster (any guild but Barbarian, by the latest ;sheet or INFO):
+- Casts Gauge Flow when it is down or under 20 minutes left, at one
+  step under DISCERN's mana (more mana, a shorter project).
+- RESEARCH <project> in portions until the breakthrough locks its
+  skill: STREAM Attunement, AUGMENTATION, UTILITY, WARDING their own,
+  FUNDAMENTAL Arcana and the magic skill at 17/34.
+- Finishes a project already in progress first; one at a time.
+- A cast, PLAY, STUDY or fight loses a portion; a return typed with
+  more than 90 s of it left ends at once, the portion running on.
 
-Each round researches the chosen skill whose pool is emptiest (the exp
-window's mindstate; EXP <skill> when the window lacks it, and a skill
-the game shows no ranks in yet counts as empty) — on a tie the one
-researched longest ago, since at low ranks a research's dabbling has
-drained before the next and all three sit at 0 — waits the roundtime
-out, then waits the rest of the gap. A skill the exp window does not
-move after its research is read with EXP <skill> instead, said once
-per skill: the window pushes a skill's line only when its text changes
-— a Warding still dabbling after a research got none — and Utility's
-line after PREDICTION was lost for an evening to the engine dropping a
-read that held a curly apostrophe (#327; the decode is fixed). A name the game does not know
-("What did you want to research") drops that skill for the run; a
-non-Barbarian's "trouble concentrating" ends it. At mind-lock on every
-skill the script holds until one drains below 28, then goes on; `once`
-exits instead. ;train runs it as a task (skills: ["Augmentation",
-"Warding", "Utility"], return_word "return"). It stops on death and on
-hostiles in the room, getting away first.
-The begun answer was captured on the first run (2026-09-26); the
-unknown-name and non-Barbarian answers are still dr-scripts' and the
-wiki's, so every answer outside the table is echoed as "research:
-<ability> answered ..." for a fixture.
+A Barbarian: MEDITATE RESEARCH <ability> teaches that ability's skill,
+about a minute apart (MONKEY Augmentation, TURTLE Warding, PREDICTION
+Utility).
+
+What stops it: death, hostiles in the room, an answer the tables do
+not know (echoed for a capture), Gauge Flow that will not cast.
 Stop with:  ;stop research, or ;research return.
 """
 
+import sqlite3
 from time import monotonic
 
-from client.game import flight, probe
+from client.game import buffs, flight, probe
+from client.game.history import database_path
 from client.game.loop import (
     danger,
     ensure_mindstate,
@@ -54,13 +43,55 @@ from client.game.loop import (
     read_exp,
     wants_stop,
 )
-from client.game.research import classify, next_skill, parse_args, research_command
+from client.game.research import (
+    GAUGE_FLOW,
+    GAUGE_MINUTES,
+    PORTION_SLACK,
+    PROJECTS,
+    classify,
+    gauge_mana,
+    next_skill,
+    parse_args,
+    parse_caster_args,
+    portion_end,
+    research_command,
+    research_status,
+    start_outcome,
+    wants_caster,
+)
+from client.game.tdp import parse_info
+
+_NOTES = """
+The Barbarian's mode: MEDITATE RESEARCH <ability> teaches the skill
+of that ability whether or not the Barbarian knows it, and Inner Fire
+beside it, about a minute apart, with 6-10 s of roundtime and no
+ability slot spent (Elanthipedia: Barbarian new player guide,
+Meditations; client/game/research.py, docs/barbarian.md, #327). The
+defaults are dr-scripts' combat-trainer.lic's. Debilitation cannot be
+researched. A tie goes to the skill researched longest ago: at low
+ranks a research's dabbling has drained before the next. A skill the
+exp window does not move after its research is read with EXP <skill>
+(the window pushes a line only when its text changes). A name the game
+does not know drops that skill; a non-Barbarian's "trouble
+concentrating" ends it.
+
+The caster's mode (#385): Elanthipedia's Magical research and Gauge
+Flow pages; the wordings are dr-scripts' researcher.lic and
+crossing-training.lic's until the first live run captures them, so
+every answer outside the tables is echoed. The portion runs in the
+game, not the script: ;stop leaves it running, and only a cast, a
+PREPARE, a PLAY, a STUDY, locksmithing or a fight loses it. The
+portion wait therefore reads the typed return itself — wants_stop()
+runs the interludes, and the almanac's STUDY would lose the portion.
+"""
 
 RESUME_BELOW = 28  # resume once enough has drained to be worth a round
 LOCK_POLL = 30
 COLLECT_SECONDS = 2
 TAIL_SECONDS = 0.5
 MAX_ROUNDS = 2000  # the fuse under the loop
+RETURN_WAIT = 90  # a portion ending within this of a typed return is finished
+GAUGE_UNSEEN_MINUTES = 10  # recast after this without a Spells window to read
 clock = monotonic
 
 
@@ -100,10 +131,11 @@ def research(s, ability):
 
 
 def first_line(answer):
-    return (answer.strip().splitlines() or ["(silence)"])[0]
+    return ((answer or "").strip().splitlines() or ["(silence)"])[0]
 
 
 def run(s, options):
+    """The Barbarian's MEDITATE RESEARCH loop."""
     abilities = dict(options["abilities"])
     until = options["until"]
     for skill in abilities:
@@ -175,5 +207,268 @@ def run(s, options):
     s.echo(f"research: {MAX_ROUNDS} rounds — stopping")
 
 
+# --- a caster's magical research (#385) ---
+
+
+def snapshot_guild(name):
+    """The guild of the latest ;sheet snapshot in history.db, or None."""
+    try:
+        connection = sqlite3.connect(database_path())
+    except sqlite3.Error:
+        return None
+    try:
+        row = connection.execute(
+            "SELECT guild FROM character WHERE character_name = ?"
+            " AND guild IS NOT NULL ORDER BY logged_at DESC LIMIT 1",
+            (name,),
+        ).fetchone()
+    except sqlite3.Error:
+        row = None  # no table yet: ;sheet has never run here
+    finally:
+        connection.close()
+    return row[0] if row else None
+
+
+def character_guild(s):
+    """The character's guild: the latest ;sheet snapshot's, else INFO's
+    (read-only, no roundtime); None when neither says."""
+    name = getattr(s.state, "name", None)
+    guild = snapshot_guild(name) if name else None
+    return guild or parse_info(ask(s, "info") or "").get("guild")
+
+
+def gauge_minutes(s):
+    """Gauge Flow's minutes left by the Spells window — None when it is
+    not up, a large number for "Indefinite", and False for a parser
+    without the window."""
+    active = getattr(s.state, "active_spells", None)
+    if not isinstance(active, dict):
+        return False
+    for name, minutes in active.items():
+        if str(name).strip().lower() == GAUGE_FLOW.lower():
+            return 9999 if minutes is None else minutes
+    return None
+
+
+def report(s):
+    def said(what, answer):
+        s.echo(f"research: Gauge Flow's {what} answered {first_line(answer)!r}")
+
+    return said
+
+
+def ensure_gauge(s, gauge):
+    """Gauge Flow up for a portion: cast when the Spells window lacks it
+    or shows under GAUGE_MINUTES left (without the window, once per
+    GAUGE_UNSEEN_MINUTES). The mana is DISCERN's, asked once per run;
+    a cast that fails there is tried at the minimum. False when the
+    spell will not cast."""
+    minutes = gauge_minutes(s)
+    if minutes is False:
+        cast_at = gauge.get("cast_at")
+        if cast_at is not None and clock() - cast_at < GAUGE_UNSEEN_MINUTES * 60:
+            return True
+    elif minutes is not None and minutes >= GAUGE_MINUTES:
+        return True
+    if gauge.get("mana") is None:
+        answer = ask(s, "discern gauge flow")
+        s.waitrt()
+        gauge["mana"] = gauge_mana(buffs.mana_limit(answer or ""), buffs.MANA_STEP)
+    why = "not up" if not minutes else f"{minutes} min left"
+    for attempt in range(2):
+        mana = gauge["mana"]
+        outcome = buffs.cast_once(
+            s, GAUGE_FLOW, mana, buffs.BuffState(), ask, report(s)
+        )
+        if outcome in ("ok", "strained"):
+            gauge["cast_at"] = clock()
+            s.echo(f"research: Gauge Flow cast at {mana or 'the minimum'} mana ({why})")
+            return True
+        if outcome == "collapsed" and mana and attempt == 0:
+            s.echo(
+                f"research: Gauge Flow failed at {mana} mana — the minimum from here"
+            )
+            gauge["mana"] = 0
+            continue
+        break
+    s.echo(
+        f"research: Gauge Flow did not cast ({outcome}) — research needs it; stopping"
+    )
+    return False
+
+
+def await_portion(s, ends_at):
+    """Wait for the portion due to end at `ends_at` (clock()): (end,
+    line, returned). `end` is "breakthrough", "portion" or "lost"
+    (research.portion_end) with its line; "danger"; "returned" for a
+    return typed with more than RETURN_WAIT left, the portion running
+    on in the game; None once PORTION_SLACK has passed the end with no
+    end line. A return typed with less left is `returned` and the
+    portion finished. The return is read here, not through
+    wants_stop(): that runs the interludes, and a STUDY loses the
+    portion."""
+    partial, returned = "", False
+    while clock() < ends_at + PORTION_SLACK:
+        if danger(s):
+            return "danger", "", returned
+        while (typed := s.command(timeout=0)) is not None:
+            if "return" in typed.lower():
+                if ends_at - clock() > RETURN_WAIT:
+                    return "returned", "", True
+                returned = True
+        piece = s.get(timeout=1, streams=probe.STORY_STREAMS)
+        if piece is None:
+            continue
+        partial += piece
+        if not partial.endswith("\n"):
+            continue
+        line, partial = partial.rstrip("\r\n"), ""
+        end = portion_end(line)
+        if end:
+            return end, line, returned
+    return None, "", returned
+
+
+def pick_project(s, projects, until, researched):
+    """The project whose skill has the emptiest pool below `until`."""
+    skill = next_skill(
+        mindstates(s, [PROJECTS[p] for p in projects]), until, researched
+    )
+    return next((p for p in projects if PROJECTS[p] == skill), None)
+
+
+def run_caster(s, options):
+    """The caster's magical research loop."""
+    projects = list(options["projects"])
+    until, portion = options["until"], options["portion"]
+    for project in projects:
+        skill = PROJECTS[project]
+        if ensure_mindstate(s, skill, ask) is None:
+            s.echo(f"research: EXP shows no {skill} yet — its pool counts as empty")
+    status = ask(s, "research status")
+    current, percent = research_status(status)
+    if current == "other":
+        s.echo(
+            f"research: RESEARCH STATUS shows a project this script does not run "
+            f"({first_line(status)!r}) — finish it or RESEARCH CANCEL it; stopping"
+        )
+        return
+    s.echo(
+        "research: "
+        + ", ".join(f"{p.upper()} for {PROJECTS[p]}" for p in projects)
+        + f", {portion} s portions, until {until}/34"
+    )
+    if current:
+        s.echo(
+            f"research: finishing the {current.upper()} project in progress"
+            + (f" ({percent}%)" if percent is not None else "")
+        )
+    gauge = {}
+    researched = {}  # skill: the round its project last had a portion
+    returned = False  # typed during a portion that was then finished
+    for round_number in range(MAX_ROUNDS):
+        reason = danger(s)
+        if reason:
+            s.echo(f"research: {reason} — stopping")
+            if "hostiles" in reason:
+                flight.react(s, "research")
+            return
+        if returned or wants_stop(s):
+            s.echo("research: stopping as asked")
+            return
+        if current is None:
+            current = pick_project(s, projects, until, researched)
+            if current is None:
+                skills = [PROJECTS[p] for p in projects]
+                if options["once"]:
+                    s.echo(f"research: {', '.join(skills)} at {until}/34 — done")
+                    return
+                if not hold_at_lock(s, skills, until):
+                    s.echo("research: stopping")
+                    return
+                continue
+            skill = PROJECTS[current]
+            s.echo(
+                f"research: {current.upper()} for {skill} "
+                f"({mindstate(s, skill) or 0}/34)"
+            )
+        skill = PROJECTS[current]
+        if (mindstate(s, skill) or 0) >= until:
+            # A project in progress whose skill is full: its breakthrough
+            # would teach nothing now, so the pool drains first.
+            if options["once"]:
+                s.echo(f"research: {skill} at {until}/34 — done")
+                return
+            if not hold_at_lock(s, [skill], until):
+                s.echo("research: stopping")
+                return
+            continue
+        if not ensure_gauge(s, gauge):
+            return
+        before = exp_entry(s, skill)
+        answer = ask(s, f"research {current} {portion}")
+        s.waitrt()
+        outcome = start_outcome(answer)
+        if outcome == "unknown":
+            s.echo(
+                f"research: RESEARCH {current.upper()} answered "
+                f"{first_line(answer)!r} — out of the run"
+            )
+            if current in projects:
+                projects.remove(current)
+            current = None
+            if not projects:
+                s.echo("research: nothing left to research — stopping")
+                return
+            continue
+        if outcome in ("blocked", None):
+            s.echo(
+                f"research: RESEARCH {current.upper()} answered "
+                f"{first_line(answer)!r} — stopping"
+            )
+            return
+        researched[skill] = round_number
+        ends_at = clock() + portion
+        end, line, returned = await_portion(s, ends_at)
+        if end == "danger":
+            continue  # the loop's top says why and gets away
+        if end == "returned":
+            s.echo(
+                f"research: ending — the portion runs on in the game for about "
+                f"{max(0, round(ends_at - clock()))} s more "
+                f"(a cast, PLAY, STUDY or fight loses it)"
+            )
+            return
+        if end == "breakthrough":
+            if exp_entry(s, skill) == before:
+                read_exp(s, skill, ask)
+            s.echo(
+                f"research: breakthrough — {current.upper()} done, "
+                f"{skill} {mindstate(s, skill) or 0}/34"
+            )
+            current = None
+        elif end == "portion":
+            s.echo(f"research: a {current.upper()} portion done — more to learn")
+        elif end == "lost":
+            s.echo(f"research: the portion was lost ({line!r}) — starting it again")
+        else:
+            # No end line the table knows: RESEARCH STATUS says where
+            # the project stands, and the answer is kept for a capture.
+            status = ask(s, "research status")
+            current, _ = research_status(status)
+            s.echo(
+                f"research: no end line within {portion + PORTION_SLACK} s — "
+                f"RESEARCH STATUS: {first_line(status)!r}"
+            )
+            if current == "other":
+                s.echo("research: another project is in progress — stopping")
+                return
+    s.echo(f"research: {MAX_ROUNDS} rounds — stopping")
+
+
 def main(s):
-    run(s, parse_args(s.args or []))
+    args = list(s.args or [])
+    if wants_caster(args) or character_guild(s) not in (None, "Barbarian"):
+        run_caster(s, parse_caster_args(args))
+    else:
+        run(s, parse_args(args))

@@ -1,6 +1,27 @@
-"""A Barbarian's MEDITATE RESEARCH: the abilities studied per skill, the
-answers read, the next skill to study. ;research (scripts/research.py)
-is the loop.
+"""Research that locks a magic skill: a Barbarian's MEDITATE RESEARCH
+(the abilities studied per skill, the answers read, the next skill to
+study) and a caster's magical research (the projects, the portion's
+answers, RESEARCH STATUS read, Gauge Flow's mana). ;research
+(scripts/research.py) is the loop.
+
+A caster's magical research: with Gauge Flow up, RESEARCH <project>
+<30-300 seconds> starts a portion; the portions add up to the project's
+time (6.5 minutes for STREAM, 10 for AUGMENTATION, UTILITY and
+WARDING, 5 for FUNDAMENTAL at a minimum-mana Gauge Flow, up to 20%
+less at its cap of 100 mana) and only the breakthrough teaches: the
+project's skill to 34/34, FUNDAMENTAL the magic skill and Arcana to
+17/34 each. One project at a time. A cast, a PREPARE, a PLAY, a STUDY
+or a fight loses the portion in hand; perceiving, appraising and
+walking do not (Elanthipedia: Magical research, Gauge Flow). The
+wordings are dr-scripts' researcher.lic and crossing-training.lic's
+and the wiki's until captured: the start ("You tentatively reach out
+and begin manipulating the mana streams, ..."), a portion's end
+("... there is still more to learn before you arrive at a
+breakthrough."), the breakthrough ("Breakthrough! ..."), a lost
+portion ("Distracted by your spellcasting, you forget what you were
+researching."), RESEARCH STATUS ("You have completed N% of a project
+about ...", "You're not researching anything"). crossing-training
+recasts Gauge Flow below 20 minutes left before a project.
 
 MEDITATE RESEARCH <ability> is "the Barbarian equivalent of magic
 research": it teaches the skill of the named ability — Augmentation,
@@ -32,6 +53,8 @@ cooldown answer. Still uncaptured: "What did you want to research"
 but have trouble concentrating." (Elanthipedia: Meditate command).
 Qt-free, reloadable.
 """
+
+import re
 
 # The ability researched per skill when the arguments name none.
 DEFAULT_ABILITIES = {
@@ -117,3 +140,159 @@ def next_skill(mindstates, until, researched=None):
         if (value or 0) < until
     ]
     return min(open_skills)[3] if open_skills else None
+
+
+# --- A caster's magical research -------------------------------------
+
+# project shorthand -> the skill its breakthrough locks. FUNDAMENTAL
+# teaches the guild's magic skill beside Arcana, 17/34 each; Arcana is
+# the pool it is chosen by.
+PROJECTS = {
+    "stream": "Attunement",
+    "augmentation": "Augmentation",
+    "utility": "Utility",
+    "warding": "Warding",
+    "fundamental": "Arcana",
+}
+CASTER_DEFAULT = ("stream", "augmentation", "utility", "warding")
+# Words only a caster's research knows: the mode needs no guild then.
+CASTER_WORDS = ("stream", "attunement", "fundamental", "arcana")
+GAUGE_FLOW = "Gauge Flow"
+GAUGE_MINUTES = 20  # crossing-training.lic's floor before a portion
+GAUGE_CAP = 100  # the spell's cast cap (Elanthipedia: Gauge Flow)
+PORTION_SECONDS = 300  # a portion's most; 30 its least
+PORTION_SLACK = 30  # past a portion's length before the wait gives up
+
+# RESEARCH <project> <seconds>, the answer's first match, lower-cased:
+# researcher.lic's patterns. "busy" is a portion already running.
+START_ANSWERS = (
+    ("busy", ("you are already busy",)),
+    ("blocked", ("you cannot begin",)),
+    ("unknown", ("usage:", "you do not know how to research")),
+    (
+        "started",
+        (
+            "you tentatively",
+            "you focus",
+            "you confidently",
+            "you expertly coach",
+            "abandoning the normal",
+            "you start to research",
+            "you begin to bend",
+            "with a mixture of rational concern",
+        ),
+    ),
+)
+# A portion's end, one line: crossing-training.lic's flags and the wiki.
+PORTION_ENDS = (
+    ("breakthrough", ("breakthrough!",)),
+    ("portion", ("there is still more to learn before",)),
+    (
+        "lost",
+        (
+            "distracted by combat",
+            "distracted by your spellcasting",
+            "distracted by your devices",
+            "you lose your focus on your research project",
+            "you forget what you were",
+        ),
+    ),
+)
+_STATUS_PERCENT = re.compile(r"completed (\d+)%")
+
+
+def _first(answer, table):
+    lowered = (answer or "").lower()
+    for outcome, phrases in table:
+        if any(phrase in lowered for phrase in phrases):
+            return outcome
+    return None
+
+
+def start_outcome(answer):
+    """RESEARCH <project>'s answer: "started", "busy", "blocked",
+    "unknown", or None for a wording the table lacks."""
+    return _first(answer, START_ANSWERS)
+
+
+def portion_end(line):
+    """ "breakthrough", "portion" (done, more to learn), "lost", or None
+    for a line that ends nothing."""
+    return _first(line, PORTION_ENDS)
+
+
+def research_status(answer):
+    """(project, percent) from RESEARCH STATUS: (None, None) when
+    nothing is researched, ("other", percent) for a project this table
+    does not hold (a symbiosis, SORCERY), the shorthand otherwise —
+    crossing-training.lic reads the project by its name's word."""
+    lowered = (answer or "").lower()
+    if "not researching anything" in lowered:
+        return None, None
+    match = _STATUS_PERCENT.search(lowered)
+    percent = int(match.group(1)) if match else None
+    if not match and "you estimate" not in lowered:
+        return None, None  # no project in the answer at all
+    for project in PROJECTS:
+        if project in lowered:
+            return project, percent
+    return "other", percent
+
+
+def project_named(word):
+    """The project a word names — a shorthand, a skill ("attunement" is
+    STREAM, "arcana" FUNDAMENTAL), a prefix ("aug") — or None."""
+    word = word.strip().lower()
+    if not word:
+        return None
+    for project, skill in PROJECTS.items():
+        if project.startswith(word) or skill.lower().startswith(word):
+            return project
+    return None
+
+
+def wants_caster(args):
+    """True when the words name a project only a caster researches."""
+    return any(
+        str(arg).strip().lower().partition("=")[0] in CASTER_WORDS for arg in args
+    )
+
+
+def parse_caster_args(args):
+    """{"projects", "until", "portion", "once"} from ;research's words
+    for a caster: project words (stream, augmentation, utility, warding,
+    fundamental, or the skills' names) in the order given, none meaning
+    CASTER_DEFAULT; until= the mindstate to stop at; portion= the
+    seconds per RESEARCH (30-300); `once`."""
+    options = {
+        "projects": [],
+        "until": MIND_LOCK,
+        "portion": PORTION_SECONDS,
+        "once": False,
+    }
+    for arg in args:
+        key, sep, value = str(arg).strip().lower().partition("=")
+        if sep and key == "until" and value.isdigit():
+            options["until"] = min(int(value), MIND_LOCK)
+        elif sep and key == "portion" and value.isdigit():
+            options["portion"] = max(30, min(int(value), PORTION_SECONDS))
+        elif not sep and key == "once":
+            options["once"] = True
+        elif not sep and (project := project_named(key)) is not None:
+            if project not in options["projects"]:
+                options["projects"].append(project)
+    if not options["projects"]:
+        options["projects"] = list(CASTER_DEFAULT)
+    return options
+
+
+def gauge_mana(estimate, step):
+    """The mana to prepare Gauge Flow with, from DISCERN's (minimum,
+    total) estimate: one `step` under the total, never past the cast
+    cap — more mana shortens the research — and 0 (the minimum, a bare
+    PREPARE) without an estimate or with no room above the minimum."""
+    if estimate is None:
+        return 0
+    minimum, total = estimate
+    mana = min(total - step, GAUGE_CAP)
+    return mana if mana > minimum else 0
