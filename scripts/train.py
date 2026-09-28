@@ -38,6 +38,7 @@ from client.game.history import database_path
 
 from client.game.training import (
     describe,
+    favors_cap,
     load_plan,
     next_task,
     plan_path,
@@ -66,7 +67,10 @@ The orchestrator: a loop over your training plan
 script (;athletics, ;hunt) started and watched, a plain command
 loop (play my flute) run in place, or a helper's script alone (an
 Empath's ;empath <you>, the task lasting while it runs; `when`
-wounded skips it while the injuries panel is clean) — and the loop runs the tasks whose
+wounded skips it while the injuries panel is clean, `when` favors<10
+skips it once the exp window's favors reach 10 — the ;favors task,
+kept at the operator's cap of 10 rather than bought with LTB points,
+2026-09-28) — and the loop runs the tasks whose
 skills sit below the target mindstate, each until its skills reach
 the target or its time budget runs out. When every task is trained it
 walks to a safe room (several rotate, rest by rest), sends the rest
@@ -431,6 +435,13 @@ def run_task(s, plan, task, db=None, walk=None):
     if task.get("when") == "wounded" and not wounded(s):
         s.echo(f"train: {task['name']} — not wounded, skipped")
         return "unneeded"
+    cap = favors_cap(task.get("when"))
+    if cap is not None:
+        have = getattr(s.state, "favors", None)
+        if have is None or have >= cap:
+            held = "not read yet" if have is None else f"{have}"
+            s.echo(f"train: {task['name']} — favors {held} (cap {cap}), skipped")
+            return "unneeded"
     budget = task_minutes(plan, task)
     deadline = clock() + budget * 60 if budget else None
     limit = f"up to {budget} min" if budget else "no time limit"

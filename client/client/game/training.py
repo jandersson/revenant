@@ -47,6 +47,7 @@ time budget once per cycle.
 
 import json
 import os
+import re
 from pathlib import Path
 
 from client.game.profile import load_profile, slug
@@ -103,7 +104,9 @@ TASK_DEFAULTS = {
     # waiting for the next heal); "after": logged out once its script
     # ends, the student gone on meanwhile; blank logs a spawned one out.
     "helper_after": "",
-    # "wounded": the task is skipped while the injuries panel is clean.
+    # "wounded": the task is skipped while the injuries panel is clean;
+    # "favors<10": skipped once the exp window's favors reach 10 — the
+    # ;favors task, a cap the operator keeps (2026-09-28).
     "when": "",
     # None: the plan's value applies.
     "target": None,
@@ -160,7 +163,7 @@ TASK_FIELDS = (
         "str",
         "stay, after (out once its script ends) — blank: logged out",
     ),
-    ("when", "Only when", "str", "wounded — blank: always"),
+    ("when", "Only when", "str", "wounded, favors<10 — blank: always"),
     ("target", "Own target mindstate", "optint", "blank: the plan's"),
     ("minutes", "Own time budget, minutes", "optint", "blank: the plan's"),
 )
@@ -373,7 +376,21 @@ def validate(plan: dict) -> list:
         names.add(task["name"])
         if task["pace"] < 0:
             problems.append(f"task {task['name']}: pace must be 0 or more")
+        when = str(task.get("when") or "").strip().lower()
+        if when not in ("", "wounded") and favors_cap(when) is None:
+            problems.append(
+                f"task {task['name']}: when {task['when']!r} is not wounded or favors<N"
+            )
     return problems
+
+
+_FAVORS_WHEN = re.compile(r"^favors\s*<\s*(\d+)$")
+
+
+def favors_cap(when):
+    """N out of a task's `when` of "favors<N", else None."""
+    match = _FAVORS_WHEN.match(str(when or "").strip().lower())
+    return int(match.group(1)) if match else None
 
 
 # -- the decisions ---------------------------------------------------------

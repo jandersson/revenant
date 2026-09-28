@@ -65,7 +65,7 @@ A task:
 | `target`, `minutes` | this task's own target and budget |
 | `helper`, `helper_script`, `helper_args`, `helper_room` | a second character of yours logged in for the task, such as a teacher for `;listen`; one sharing its account with a logged-in character logs that one out first |
 | `helper_after` | `stay`: the helper stays logged in after the task, ready for the next; `after`: the helper logs out once its script ends. With either, a `when: wounded` task ends once you are clean, the helper finishing on its own |
-| `when` | `wounded`: skipped while the injuries panel is clean |
+| `when` | `wounded`: skipped while the injuries panel is clean; `favors<10`: skipped once you hold 10 favors (a `;favors` task keeps you at that cap) |
 
 A task with no `skills` runs once per cycle for its `minutes`: selling skins, banking, spending TDPs, a timed box farm.
 

@@ -1076,3 +1076,43 @@ def test_a_lingering_healer_wanted_again_is_not_logged_out(monkeypatch):
     task = normalize({"tasks": [HEAL | {"helper_after": "after"}]})["tasks"][0]
     train.start_helper(fake, task, None, None)
     assert train.LINGERING == {}
+
+
+FAVORS = {"name": "favors", "script": "favors", "when": "favors<10", "skills": []}
+
+
+def test_the_favors_task_runs_below_the_cap_and_is_skipped_at_it(clock):
+    # The operator, 2026-09-28: ;train earns favors up to a cap of 10 with
+    # ;favors — never LTB points. The exp window's count decides.
+    task = normalize({"tasks": [FAVORS]})["tasks"][0]
+    fake = Fake()
+    fake.state.favors = 10
+    clock["fake"] = fake
+    assert train.run_task(fake, plan(), task, db=MAP, walk=walk) == "unneeded"
+    assert "train: favors — favors 10 (cap 10), skipped" in fake.echoed
+    assert fake.started == []
+    fake = Fake()
+    fake.state.favors = 5
+    clock["fake"] = fake
+    train.run_task(fake, plan(), task, db=MAP, walk=walk)
+    assert fake.started == [("favors", [])]
+
+
+def test_a_favors_task_waits_for_the_count_to_be_read(clock):
+    task = normalize({"tasks": [FAVORS]})["tasks"][0]
+    fake = Fake()
+    fake.state.favors = None
+    clock["fake"] = fake
+    assert train.run_task(fake, plan(), task, db=MAP, walk=walk) == "unneeded"
+    assert "train: favors — favors not read yet (cap 10), skipped" in fake.echoed
+
+
+def test_a_when_the_loop_does_not_know_is_a_plan_problem():
+    from client.game.training import favors_cap, validate
+
+    assert favors_cap("favors<10") == 10 and favors_cap("favors < 3") == 3
+    assert favors_cap("wounded") is None
+    good = normalize(DEFAULTS | {"tasks": [FAVORS]})
+    assert validate(good) == []
+    bad = normalize(DEFAULTS | {"tasks": [FAVORS | {"when": "raining"}]})
+    assert validate(bad) == ["task favors: when 'raining' is not wounded or favors<N"]
