@@ -7,7 +7,9 @@ any script can travel. A climb the game turns back for footing (#157)
 gets one retry standing with the hindering items stowed, then stops
 with what would help; an engagement gets the retreat burst, unless
 the room's only exit is "out" — a bank or shop, where nothing engages
-and a retreat has nowhere to go (#171) (docs/movement.md). A ferry edge
+and a retreat has nowhere to go (#171) (docs/movement.md); a move sent
+into roundtime ("...wait 7 seconds.") waits it out and goes again
+(#367). A ferry edge
 (the map's bescort 'faldesu' crossing, #205) is ridden: GO FERRY when
 the ferry is at the dock, the wait for it when not, the crossing, then
 GO DOCK as the step's move — after dr-scripts' bescort take_rh_ferry,
@@ -163,6 +165,12 @@ WAY_REFUSALS = ("could not find what you were referring", "You can't go there")
 # 2026-09-26, a circle-1 Barbarian walked toward the Paladins' Guild: a
 # stall, a RETREAT burst, the trail again, "stalled at step 148").
 GATE_REFUSALS = ("not experienced enough to go there", "not allowed to go there")
+# A move sent into roundtime — a hidden path's SEARCH still running —
+# answers "...wait 7 seconds." and nothing moves (captured 2026-09-28 at
+# the Foothills' Stony Incline, #367): the roundtime is slept out and
+# the move sent again, never the stall's retreat burst.
+ROUNDTIME_WAIT = re.compile(r"\.\.\.wait (\d+) seconds?")
+ROUNDTIME_RETRIES = 3
 REROUTES = 3  # closed ways worked around on one walk before giving up
 _HINDERS = re.compile(r"Your (.+?) makes? the climb more difficult")
 
@@ -394,6 +402,8 @@ def await_arrival(s, timeout=ARRIVAL_TIMEOUT):
             return "closed", hindering, "".join(seen)
         if any(needle in text for needle in KNEELING_REFUSALS):
             return "posture", hindering, "".join(seen)
+        if ROUNDTIME_WAIT.search(text):
+            return "roundtime", hindering, "".join(seen)
 
 
 def note_climb(s, command, outcome, wording, room):
@@ -620,6 +630,15 @@ def _follow(s, db, route, here, closed):
             pass
         s.put(move)
         outcome, hindering, wording = await_arrival(s)
+        for _ in range(ROUNDTIME_RETRIES):
+            if outcome != "roundtime":
+                break
+            # Sent into roundtime (#367): sleep it out, the move again.
+            match = ROUNDTIME_WAIT.search(wording)
+            s.sleep(int(match.group(1)) + 0.5 if match else 1)
+            s.waitrt()
+            s.put(move)
+            outcome, hindering, wording = await_arrival(s)
         note_climb(s, move, outcome, wording, dest)
         if outcome == "posture":
             # Kneeling (a prayer), sitting or lying: STAND and one retry

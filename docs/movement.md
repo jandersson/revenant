@@ -22,7 +22,7 @@
 ## What the walk does for you
 
 - **Stands up first** if you are sitting or kneeling.
-- **Waits out roundtime** before every step.
+- **Waits out roundtime** before every step; a step the game answers "...wait N seconds." is sent again once that roundtime is over.
 - **Escapes an engagement:** a step that stalls gets RETREAT, RETREAT and the step again, once.
 - **Checks every room** it lands in against the route, and stops rather than guessing when it is lost.
 - **Goes round a closed way:** a guild or circle gate ("not experienced enough"), an exit the game cannot find, or a climb that failed twice is dropped from the route and the walk replans from where you stand.

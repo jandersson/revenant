@@ -1448,3 +1448,62 @@ def test_a_step_limit_holds_on_every_plan_a_replan_included(tmp_path, monkeypatc
     assert walker.walk(handle, road, [10], describe="the altar", max_steps=5) is False
     assert handle.calls == []  # not a step taken
     assert any("past the 5-step limit" in echo for echo in handle.echoes)
+
+
+# The Foothills' Stony Incline, captured 2026-09-28 (#367): the hidden
+# path's SEARCH was still in roundtime when GO PATH went out.
+HIDDEN = MapDB(
+    [
+        {
+            "id": 1187,
+            "uid": [156002],
+            "title": ["[Foothills, Stony Incline]"],
+            "wayto": {"7280": ";e fput 'search'; move 'go path'"},
+        },
+        {
+            "id": 7280,
+            "uid": [156010],
+            "title": ["[Foothills, Abandoned Road]"],
+            "wayto": {"1187": "west"},
+        },
+    ]
+)
+IN_ROUNDTIME = "...wait 7 seconds.\n"
+
+
+class RoundtimeHandle(FakeHandle):
+    """GO PATH answers "...wait 7 seconds." the first time, lands after."""
+
+    def __init__(self, uids):
+        super().__init__(uids)
+        self.pending = []
+        self.slept = []
+        self.tries = 0
+
+    def put(self, command):
+        super().put(command)
+        if command == "go path":
+            self.tries += 1
+            if self.tries == 1:
+                self.pending = [("", IN_ROUNDTIME)]
+
+    def sleep(self, seconds):
+        self.slept.append(seconds)
+
+    def get(self, timeout=None, streams=("",)):
+        if timeout == 0:
+            return None
+        if self.pending:
+            return self.pending.pop(0)
+        if self.tries == 1:
+            return None  # nothing moved: the roundtime answer only
+        return super().get(timeout, streams)
+
+
+def test_a_move_sent_into_roundtime_waits_it_out_and_goes_again():
+    handle = RoundtimeHandle(uids=[156010])
+    handle.state.room_uid = 156002
+    assert walker.walk(handle, HIDDEN, [7280], describe="the road") is True
+    assert puts_of(handle) == ["search", "go path", "go path"]
+    assert "retreat" not in puts_of(handle)
+    assert handle.slept and handle.slept[0] >= 7
