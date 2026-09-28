@@ -1,33 +1,24 @@
-"""Train Attunement by power walking — perceive mana room after room:  ;attune
+"""Train Attunement by perceiving mana, room after room:  ;attune
 
     ;attune              loop a chain of nearby streets, POWER in each, until mind-lock
     ;attune rooms=4      a shorter loop (default 8 rooms out and back)
     ;attune until=30     stop at that mindstate instead of 34
     ;attune from=1420    walk to that ;go2 target first (the profile's attune_start otherwise)
-    ;attune here         perceive in place, once a minute (Moon Mages: lunar mana is everywhere)
+    ;attune here         perceive in place, once a minute (a Moon Mage's way)
     ;attune once         exit at mind-lock instead of holding for the drain
     ;attune return       (typed while it runs) finish the current perceive and end
 
-Perceiving mana trains Attunement once per room per sixty seconds
-(Elanthipedia: Attunement skill, Perceive command), so the script
-builds a chain of rooms from where you stand — or, first, walks to
-the profile's `attune_start` (a ;go2 target: a room id, a tag, a
-title) or the run's `from=` target, so a hunting ground or a shop with
-no street to loop is no reason to give up — plain compass moves
-in both directions, streets rather than shop doors — and walks it out
-and back, POWERing on every arrival and waiting out any room that
-paid within the minute. Captured 2026-09-12 on a circle-1 Paladin:
-"You reach out with your weak senses and see glowing streams of
-golden Holy mana radiating through the area.", 8-9 s of roundtime,
-and the mindstate rising 4/34 → 6/34 on a room's first POWER. At
-mind-lock it holds, polling until enough has drained to be worth the
-walking, then resumes — a standalone run is a standing trainer, like
-;athletics; `once` exits at the lock instead. ;train runs it as a
-task (skills: ["Attunement"], return_word "return") and ends it
-itself when the skill reaches the plan's target: the word lands within
-a second, held or walking. It stops on death, on hostiles in the
-room, when eight perceives in a row gain nothing (a guild that cannot
-sense mana), and when the map has no street to loop.
+What it does:
+- A room pays Attunement once a minute, so it walks a chain of plain
+  compass streets out and back, POWERs on every arrival, and waits
+  out a room that paid within the minute.
+- A Moon Mage's POWER reads the moons: the run says so once and
+  switches to PERCEIVE MANA in place, once a minute.
+- At mind-lock it holds until the pool drains, then resumes; ;train
+  runs it as a task and ends it at the plan's target.
+
+What stops it: death, hostiles in the room, eight perceives in a row
+without gain, no street to loop, a failed walk.
 Stop with:  ;stop attune (at once), or ;attune return for a clean finish.
 """
 
@@ -37,10 +28,31 @@ import time
 from client.game import probe
 from client.game import flight
 from client.game.loop import danger, pause, wants_stop
-from client.game.attune import PERCEIVED, chain, circuit, wait_for
+from client.game.attune import (
+    LUNAR_PERCEIVE,
+    PERCEIVED,
+    chain,
+    circuit,
+    reads_moons,
+    wait_for,
+)
 from client.game.mapdb import MapDB
 from client.game.walker import avoided_rooms, locate, walk
 from client.settings import load_settings
+
+_NOTES = """
+Perceiving mana trains Attunement once per room per sixty seconds
+(Elanthipedia: Attunement skill, Perceive command). The start room is
+the profile's `attune_start` (a ;go2 target) or the run's `from=`, so
+a hunting ground or a shop with no street is no reason to give up.
+Captured 2026-09-12 on a circle-1 Paladin: "You reach out with your
+weak senses and see glowing streams of golden Holy mana radiating
+through the area.", 8-9 s of roundtime, the mindstate 4/34 -> 6/34 on
+a room's first POWER. A Moon Mage's POWER answered with the moons and
+taught nothing; PERCEIVE MANA taught, about a minute apart (#384,
+2026-09-28; client/game/attune.py has the wordings). ;train's stop
+word lands within a second, held or walking.
+"""
 
 MIND_LOCK = 34
 RESUME_BELOW = 28  # resume once enough has drained to be worth the laps
@@ -111,11 +123,10 @@ def ensure_mindstate(s):
     return value
 
 
-def perceive(s):
-    """POWER, its roundtime waited out; True when the game answered
-    with a perceive line."""
-    answer = probe.ask(s, "power", COLLECT_SECONDS, TAIL_SECONDS)
-    return PERCEIVED in answer
+def perceive(s, command="power"):
+    """POWER (or a Moon Mage's PERCEIVE MANA), its roundtime waited
+    out; the game's answer."""
+    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS) or ""
 
 
 def hold_at_lock(s, until):
@@ -173,6 +184,7 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
             f"attune: looping {len(rooms) - 1} rooms out and back: {' → '.join(titles)}"
         )
     order = circuit(rooms)
+    command = "power"
     last_seen, stale, count, position = {}, 0, 0, 0
     while True:
         if wants_stop(s):
@@ -203,8 +215,16 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
             s.echo("attune: stopping")
             return
         before = mindstate(s)
-        if not perceive(s):
-            s.echo("attune: POWER gave no perceive line — stopping")
+        answer = perceive(s, command)
+        if PERCEIVED not in answer:
+            if command == "power" and reads_moons(answer):
+                s.echo(
+                    "attune: POWER reads the moons (a Moon Mage) — "
+                    "PERCEIVE MANA in place from here, once a minute"
+                )
+                command, here, order, position = LUNAR_PERCEIVE, True, [None], 0
+                continue
+            s.echo(f"attune: {command.upper()} gave no perceive line — stopping")
             return
         last_seen[room] = clock()
         count += 1

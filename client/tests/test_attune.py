@@ -55,3 +55,22 @@ def test_a_room_pays_again_after_the_minute():
     assert attune.wait_for(5, {}, now=100.0) == 0
     assert attune.wait_for(5, {5: 100.0}, now=130.0) == 30.0
     assert attune.wait_for(5, {5: 100.0}, now=161.0) == 0
+
+
+# Captured 2026-09-28 on a Moon Mage (#384).
+MOONS = (
+    "Yavash and Xibar are dominant, while Katamba's influence is moderate.\n"
+    "Psychic Projection and Perception spells are favored.\n"
+    "Roundtime: 3 sec.\n"
+)
+
+
+def test_a_moon_mages_power_reads_the_moons_not_the_mana():
+    assert attune.reads_moons(MOONS)
+    assert attune.PERCEIVED not in MOONS
+    paladin = (
+        "You reach out with your weak senses and see glowing streams of "
+        "golden Holy mana radiating through the area."
+    )
+    assert not attune.reads_moons(paladin)
+    assert not attune.reads_moons(None)

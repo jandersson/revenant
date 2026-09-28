@@ -1,7 +1,8 @@
 """How ;attune trains — these tests are the manual. It loops a chain
 of street rooms, POWERs on every arrival, waits out a room that paid
 within the minute, holds at mind-lock, and stops on danger, on a
-typed stop, or when perceives stop paying."""
+typed stop, or when perceives stop paying. A Moon Mage's POWER reads
+the moons, and the run perceives mana in place instead."""
 
 import importlib.util
 import pathlib
@@ -297,3 +298,65 @@ def test_until_holds_at_a_lower_target_and_resumes_when_drained():
     assert "mind-locked (30/34)" in echoes(fake)
     assert "walking again" in echoes(fake)
     assert fake.sent.count("power") == 2
+
+
+# Captured 2026-09-28 on a Moon Mage (#384): POWER reads the moons and
+# teaches nothing; PERCEIVE MANA answers one line per book.
+MOONS = (
+    "Yavash and Xibar are dominant, while Katamba's influence is moderate.\n"
+    "Psychic Projection and Perception spells are favored.\n"
+    "Roundtime: 3 sec.\n"
+)
+LUNAR = (
+    "You reach out with your senses and see brilliant streams of cold, white "
+    "Lunar mana available for the Enlightened Geometry book.\n"
+    "You reach out with your senses and see brilliant streams of cold, white "
+    "Lunar mana available for the Psychic Projection book.\n"
+    "Roundtime: 8 sec.\n"
+)
+
+
+class MoonMage(Fake):
+    """POWER reads the moons (3 s, no gain); PERCEIVE MANA perceives."""
+
+    def put(self, command):
+        self.sent.append(command)
+        if command == "power":
+            self.pending = [line + "\n" for line in MOONS.splitlines()]
+            self.now += 3
+        elif command == "perceive mana":
+            self.pending = [line + "\n" for line in LUNAR.splitlines()]
+            self.now += 8
+            self._next_mindstate()
+
+
+def test_a_moon_mage_perceives_mana_in_place_once_a_minute():
+    fake = MoonMage(mindstates=[0, 2, 3, 4], stop_at=1080)
+    run(fake, ["here"], mapdb=None)
+    assert fake.sent[0] == "power"  # once, to learn the guild
+    assert fake.sent.count("power") == 1
+    assert fake.sent.count("perceive mana") == 2
+    assert "POWER reads the moons (a Moon Mage)" in echoes(fake)
+    assert "gave no perceive line" not in echoes(fake)
+    assert 60 <= sum(fake.slept) <= 65  # the minute between the two
+
+
+def test_a_moon_mage_stops_walking_once_power_reads_the_moons():
+    # lunar mana is the same in every room: one walk, then in place
+    fake = MoonMage(mindstates=[0, 2, 3, 34])
+    run(fake, ["once"])
+    assert fake.walks == [2]
+    assert fake.sent == ["power"] + ["perceive mana"] * 3
+    assert "Attunement at 34/34 — done" in echoes(fake)
+
+
+def test_an_answer_that_is_no_perceive_stops_it_and_names_the_command():
+    class Deaf(Fake):
+        def put(self, command):
+            self.sent.append(command)
+            self.pending = ["You can't do that.\n"]
+
+    fake = Deaf(mindstates=[4])
+    run(fake, ["here"], mapdb=None)
+    assert fake.sent == ["power"]
+    assert fake.echoed[-1] == "attune: POWER gave no perceive line — stopping"

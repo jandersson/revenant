@@ -89,7 +89,7 @@ Each is a script with its own manual (`;help <name>`). Under `;train`, give each
 | `hunt` | weapons, defenses, magic ([hunting.md](hunting.md)) |
 | `athletics` | Athletics |
 | `forage` | Outdoorsmanship, Perception |
-| `attune` | Attunement (power walking; `here` for Moon Mages) |
+| `attune` | Attunement (power walking; a Moon Mage perceives mana in place) |
 | `perform` | Performance |
 | `scholarship books` | Scholarship |
 | `appraise` | Appraisal |
