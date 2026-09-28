@@ -92,7 +92,7 @@ Each is a script with its own manual (`;help <name>`). Under `;train`, give each
 | `attune` | Attunement (power walking; a Moon Mage perceives mana in place) |
 | `perform` | Performance |
 | `scholarship books` | Scholarship |
-| `appraise` | Appraisal |
+| `appraise` | Appraisal (`focus=<item>`: plus a drain boost to the item's skill) |
 | `boxes` | Locksmithing, on the hunt's boxes |
 | `remedies work` | Alchemy, as paid work orders |
 | `research` | Attunement, Augmentation, Utility, Warding (a caster's RESEARCH projects; a Barbarian's MEDITATE RESEARCH without Attunement) |

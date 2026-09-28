@@ -30,6 +30,22 @@ about 193 Kronars." and "Roundtime: 8 sec." — the certainty words
 ;appraise reads no success wording: any answer that is not a refusal
 below is an appraisal, and the first of a run is echoed so more become
 fixtures. Model: docs/training.md.
+
+APPRAISE FOCUS <item> (200 ranks and up, #383) is a research-style
+project beside the rotation: its breakthrough pays Appraisal and then
+boosts the drain of the item's skill for 20 to 60 minutes by Appraisal
+rank (a locked or trapped box: Locksmithing; yourself: Evasion; a
+shield: Shield Usage; a concept word such as OFFENSE: Tactics) until
+"Your focused insight of <skill> has been fully explored." One project
+at a time, never beside a magical research project, and appraising
+items does not interrupt it (Elanthipedia: Appraisal skill, Magical
+research). The wordings are the wiki's and dr-scripts' appraisal.lic's
+until captured: the start "You carefully examine your deobar coffer,
+focusing beyond any individual details. ...", APPRAISE FOCUS CHECK's
+"You are currently ..." (a project runs) and "You have completed ..."
+(the boost runs). appraisal.lic answers "You will lose your progress"
+by sending the focus again; here it is a refusal, since what would be
+lost is a research project.
 """
 
 import re
@@ -70,19 +86,102 @@ REFUSED = (
 )
 
 
+# APPRAISE FOCUS (#383).
+FOCUS_RANKS = 200
+# Words APPRAISE FOCUS takes as concepts, not items (appraisal.lic's).
+FOCUS_CONCEPTS = (
+    "defense",
+    "arcane",
+    "recall",
+    "logic",
+    "offense",
+    "magic",
+    "khri",
+    "inner fire",
+)
+# APPRAISE FOCUS <item>'s answer, the first match, lower-cased.
+FOCUS_ANSWERS = (
+    ("research", ("you will lose your progress",)),
+    ("running", ("you are already",)),
+    ("boost", ("you currently feel",)),
+    ("refused", ("you can't seem", "you cant seem", "you can not seem")),
+    ("started", ("you carefully",)),
+)
+# APPRAISE FOCUS CHECK's answer.
+FOCUS_CHECK = (
+    ("running", ("you are currently",)),
+    ("boost", ("you have completed",)),
+)
+# The project's lines as they arrive, in any answer.
+FOCUS_EVENTS = (
+    ("breakthrough", ("breakthrough!",)),
+    ("explored", ("has been fully explored",)),
+)
+
+
+def _first(text, table):
+    lowered = (text or "").lower()
+    for outcome, phrases in table:
+        if any(phrase in lowered for phrase in phrases):
+            return outcome
+    return None
+
+
+def focus_command(item):
+    """APPRAISE FOCUS MY <item>, or APPRAISE FOCUS <concept>."""
+    item = str(item).strip().lower()
+    if item in FOCUS_CONCEPTS or item.startswith(("#", "my ")):
+        return f"appraise focus {item}"
+    return f"appraise focus my {item}"
+
+
+def focus_outcome(answer):
+    """APPRAISE FOCUS's answer: "started", "running" (a project already),
+    "boost" (the last one's boost still runs), "refused" (not a thing
+    to focus on), "research" (a magical research project would be
+    lost), or None for a wording the table lacks."""
+    return _first(answer, FOCUS_ANSWERS)
+
+
+def focus_check(answer):
+    """APPRAISE FOCUS CHECK: "running", "boost", or None (no project and
+    no boost, or a wording the table lacks)."""
+    return _first(answer, FOCUS_CHECK)
+
+
+def focus_events(text):
+    """The focus lines in `text`, in table order: "breakthrough",
+    "explored"."""
+    lowered = (text or "").lower()
+    return [
+        event
+        for event, phrases in FOCUS_EVENTS
+        if any(phrase in lowered for phrase in phrases)
+    ]
+
+
 def parse_args(args):
-    """{"items", "careful", "until", "once"} from ;appraise's arguments:
-    items= a comma-separated list of your own ([] means the profile's,
-    else the possessions), `careful` for full appraisals (QUICK
-    otherwise), until= the mindstate to stop at (34), `once` to exit at
-    the lock instead of holding for the drain."""
-    options = {"items": [], "careful": False, "until": 34, "once": False}
+    """{"items", "careful", "until", "once", "focus"} from ;appraise's
+    arguments: items= a comma-separated list of your own ([] means the
+    profile's, else the possessions), `careful` for full appraisals
+    (QUICK otherwise), until= the mindstate to stop at (34), `once` to
+    exit at the lock instead of holding for the drain, focus= the item
+    or concept for APPRAISE FOCUS beside the rotation ("" for none)."""
+    options = {
+        "items": [],
+        "careful": False,
+        "until": 34,
+        "once": False,
+        "focus": "",
+    }
     for arg in args:
         key, sep, value = str(arg).lower().partition("=")
         if sep and key == "items":
             options["items"] = [
                 item.strip() for item in value.split(",") if item.strip()
             ]
+        elif sep and key == "focus" and value.strip():
+            options["focus"] = value.strip().replace("_", " ")
         elif sep and key == "until" and value.isdigit():
             options["until"] = int(value)
         elif key == "careful":

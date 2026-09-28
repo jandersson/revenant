@@ -338,3 +338,137 @@ def test_labels_come_from_the_names_not_the_last_word():
         "fuzzy gem pouch in the large hunting pack",
         "large hunting pack",
     ]
+
+
+# --- APPRAISE FOCUS beside the rotation (#383) ---
+
+# The wiki's start and end lines; the CHECK and refusal answers are
+# dr-scripts' appraisal.lic patterns, the idle CHECK a guess.
+FOCUS_STARTED = (
+    "You carefully examine your deobar coffer, focusing beyond any individual "
+    "details.  Instead you concentrate your efforts toward honing your knowledge "
+    "of locksmithing based on its abstract.\n"
+)
+FOCUS_EXPLORED = "Your focused insight of locksmithing has been fully explored.\n"
+IDLE_CHECK = "You are not focusing on anything.\n"
+RUNNING_CHECK = "You are currently focusing on your deobar coffer.\n"
+BOOST_CHECK = "You have completed your study of the deobar coffer.\n"
+
+
+class FocusFake(Fake):
+    """A Fake at 1205 Appraisal answering the focus: CHECK answers come
+    off `checks` (the last one stays), APPRAISE FOCUS answers
+    `focus_answer`, and `events` maps an appraisal's count to a line
+    that arrives with its answer."""
+
+    def __init__(
+        self,
+        *args,
+        checks=(IDLE_CHECK,),
+        focus_answer=FOCUS_STARTED,
+        rank=1205,
+        events=None,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.state.experience["Appraisal"]["rank"] = rank
+        self.checks = list(checks)
+        self.focus_answer = focus_answer
+        self.events = dict(events or {})
+
+    def ask(self, s, command, *_):
+        if command == "appraise focus check":
+            self.sent.append(command)
+            return self.checks.pop(0) if len(self.checks) > 1 else self.checks[0]
+        if command.startswith("appraise focus "):
+            self.sent.append(command)
+            return self.focus_answer
+        if command.startswith("get my "):
+            self.sent.append(command)
+            return "You get a deobar coffer from inside your haversack.\n"
+        if command.startswith("stow my "):
+            self.sent.append(command)
+            return "You put your coffer in your haversack.\n"
+        answer = super().ask(s, command)
+        if command.startswith("appraise my ") and self.appraised in self.events:
+            answer += self.events.pop(self.appraised)
+        return answer
+
+
+FOCUS_START = [
+    "appraise focus check",
+    "get my coffer",
+    "appraise focus my coffer",
+    "stow my coffer",
+]
+
+
+def test_a_focus_starts_beside_the_rotation_and_is_checked_while_it_runs():
+    fake = FocusFake(
+        mindstates=[1, 5, 10, 20, 30, 34], checks=[IDLE_CHECK, RUNNING_CHECK]
+    )
+    out = run(fake, ["once", "focus=coffer"])
+    assert fake.sent[:5] == FOCUS_START + ["appraise my pouch quick"]
+    assert "APPRAISE FOCUS on coffer beside the rotation" in out
+    assert "APPRAISE FOCUS on the coffer begun" in out
+    assert "APPRAISE FOCUS CHECK answered 'you are not focusing" in out
+    assert fake.sent.count("appraise focus my coffer") == 1
+    assert fake.sent.count("appraise focus check") >= 2  # every FOCUS_POLL
+    assert "Appraisal at 34/34 — done" in out
+
+
+def test_below_200_ranks_the_rotation_runs_alone():
+    fake = FocusFake(mindstates=[1, 5, 10, 34], rank=150)
+    out = run(fake, ["once", "focus=coffer"])
+    assert "APPRAISE FOCUS needs 200 Appraisal ranks, 150 here" in out
+    assert not [c for c in fake.sent if c.startswith("appraise focus")]
+
+
+def test_a_research_project_in_progress_turns_the_focus_off_never_repeated():
+    # appraisal.lic sends the focus again on this answer; that would end
+    # the research project.
+    fake = FocusFake(
+        mindstates=[1, 5, 10, 34],
+        focus_answer="You will lose your progress on your research if you do that.\n",
+    )
+    out = run(fake, ["once", "focus=coffer"])
+    assert "would end the magical research in progress — focus off for the run" in out
+    assert fake.sent.count("appraise focus my coffer") == 1
+    assert fake.sent.count("appraise focus check") == 1
+    assert "stow my coffer" in fake.sent  # the item goes back all the same
+
+
+def test_a_boost_still_running_starts_no_focus():
+    fake = FocusFake(mindstates=[1, 5, 10, 34], checks=[BOOST_CHECK])
+    run(fake, ["once", "focus=coffer"])
+    assert "get my coffer" not in fake.sent
+    assert "appraise focus my coffer" not in fake.sent
+
+
+def test_a_boost_that_runs_out_starts_the_next_focus_at_once():
+    fake = FocusFake(mindstates=[1, 5, 10, 34], events={2: FOCUS_EXPLORED})
+    out = run(fake, ["once", "focus=coffer"])
+    assert "the focus boost has run out — a new focus next" in out
+    scimitar = fake.sent.index("appraise my scimitar quick")
+    assert fake.sent[scimitar + 1 : scimitar + 6] == FOCUS_START + [
+        "appraise my sack quick"
+    ]
+
+
+def test_a_concept_is_focused_with_nothing_fetched():
+    fake = FocusFake(mindstates=[1, 5, 10, 34], checks=[IDLE_CHECK, RUNNING_CHECK])
+    run(fake, ["once", "focus=offense"])
+    assert "appraise focus offense" in fake.sent
+    assert not [c for c in fake.sent if c.startswith(("get my", "stow my"))]
+
+
+def test_an_item_the_game_cannot_find_turns_the_focus_off():
+    fake = FocusFake(mindstates=[1, 5, 10, 34])
+    fake.ask = lambda s, command, *_, inner=fake.ask: (
+        (fake.sent.append(command) or MISSING)
+        if command.startswith("get my ")
+        else inner(s, command)
+    )
+    out = run(fake, ["once", "focus=coffer"])
+    assert "no coffer to focus on" in out and "focus off for the run" in out
+    assert "appraise focus my coffer" not in fake.sent
