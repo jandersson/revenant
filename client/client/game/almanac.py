@@ -53,6 +53,12 @@ def ready(noun):
     return bool(noun) and noun not in _OFF and clock() >= _NEXT.get(noun, 0.0)
 
 
+def hand_free(state, noun):
+    """True when the book is in hand or a hand is free for it."""
+    hands = [getattr(state, side, None) for side in ("left_hand", "right_hand")]
+    return any((hand or {}).get("noun") == noun for hand in hands) or not all(hands)
+
+
 def study(s, noun, ask, prefix):
     """The almanac studied if ready and a hand is free: GOT (unless in
     hand), OPENed, STUDIEd, stowed again unless it was in hand. `ask` is

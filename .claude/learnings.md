@@ -157,6 +157,12 @@ lessons the code and docs cannot carry themselves.
   `revenant-send --state scripts` (nothing sent, nothing echoed) or wait
   on a line with `--wait-for`.
 
+- Never send a command inside a generator: `any(word in ask(s, "get
+  my almanac") for word in WORDS)` sends the GET once per word it
+  checks when none matches — a refused RETREAT went out three times
+  (2026-09-28, ;hunt's mid-fight almanac, caught by its test). Ask
+  first into a variable, then test the answer.
+
 ## Evidence first
 
 - The game logs under `~/.revenant/logs/game-*.log` are the record of

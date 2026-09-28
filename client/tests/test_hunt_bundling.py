@@ -369,21 +369,67 @@ def test_a_searched_item_on_loot_ignore_is_left_where_it_fell():
     )
 
 
-def test_a_clear_room_studies_the_almanac_and_a_fight_never_does(monkeypatch):
-    # The operator, 2026-09-28: the almanac keeps a skill moving every
-    # ten minutes, a hunt included — but only in a room with no hostile.
+def _almanac_hunt(monkeypatch, retreat, ready=True):
     from types import SimpleNamespace
 
-    studied = []
+    studied, sent = [], []
+    monkeypatch.setattr(hunt.almanac, "ready", lambda noun: ready and bool(noun))
     monkeypatch.setattr(
-        hunt.almanac,
-        "study",
-        lambda s, noun, ask, prefix: studied.append((noun, prefix)),
+        hunt.almanac, "study", lambda s, noun, ask, prefix: studied.append(prefix)
     )
-    s = SimpleNamespace(state=SimpleNamespace(hostiles={}))
+
+    def ask(s, command, *_):
+        sent.append(command)
+        return retreat
+
+    monkeypatch.setattr(hunt, "probe", SimpleNamespace(ask=ask, collect=ask))
+    state = SimpleNamespace(
+        hostiles={"1": "a S'lai scout"},
+        stunned=False,
+        left_hand=None,
+        right_hand={"noun": "mace"},
+    )
+    return SimpleNamespace(state=state), studied, sent
+
+
+def test_a_clear_room_studies_the_almanac(monkeypatch):
+    s, studied, _ = _almanac_hunt(monkeypatch, "")
+    s.state.hostiles = {}
     hunt.study_almanac(s, {"almanac": "almanac"})
-    assert studied == [("almanac", "hunt")]
-    s.state.hostiles = {"1": "a S'lai scout"}
-    hunt.study_almanac(s, {"almanac": "almanac"})
-    hunt.study_almanac(SimpleNamespace(state=SimpleNamespace(hostiles={})), {})
-    assert len(studied) == 1
+    hunt.study_almanac(s, {})  # no almanac in the profile
+    assert studied == ["hunt"]
+
+
+def test_mid_fight_the_almanac_is_studied_after_a_retreat_to_pole_range(
+    monkeypatch,
+):
+    # The operator, 2026-09-28: keep the skill moving mid-fight too — retreat
+    # to pole range, then study. Captured: "You retreat back to pole range."
+    s, studied, sent = _almanac_hunt(monkeypatch, "You retreat back to pole range.\n")
+    tally = hunt.Tally()
+    assert hunt.study_in_fight(s, {"almanac": "almanac"}, tally) is True
+    assert sent == ["retreat"] and studied == ["hunt"]
+
+
+def test_a_refused_retreat_puts_the_study_off_and_the_fight_goes_on(monkeypatch):
+    s, studied, sent = _almanac_hunt(
+        monkeypatch, "You are unable to retreat from the S'lai scout!\n"
+    )
+    tally = hunt.Tally()
+    assert hunt.study_in_fight(s, {"almanac": "almanac"}, tally) is False
+    assert studied == [] and tally.almanac_retry > 0
+    # Within the minute nothing is tried again.
+    assert hunt.study_in_fight(s, {"almanac": "almanac"}, tally) is False
+    assert sent == ["retreat"]
+
+
+def test_no_mid_fight_study_stunned_hands_full_or_not_ready(monkeypatch):
+    s, studied, sent = _almanac_hunt(monkeypatch, "You retreat back to pole range.\n")
+    s.state.stunned = True
+    assert not hunt.study_in_fight(s, {"almanac": "almanac"}, hunt.Tally())
+    s.state.stunned = False
+    s.state.left_hand = {"noun": "leaves"}
+    assert not hunt.study_in_fight(s, {"almanac": "almanac"}, hunt.Tally())
+    s, studied, sent = _almanac_hunt(monkeypatch, "", ready=False)
+    assert not hunt.study_in_fight(s, {"almanac": "almanac"}, hunt.Tally())
+    assert sent == [] and studied == []

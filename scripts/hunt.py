@@ -16,7 +16,8 @@ What it does
   - Trains the `weapons` in turn: the emptiest pool first, each to `weapon_target`.
   - Between swings, as the profile says: maneuvers, SMITE, training casts,
     HUNT for Perception; a Barbarian's combos, abilities and roars instead.
-  - In a clear room, the profile's `almanac` studied whenever its timer allows.
+  - The profile's `almanac` studied whenever its timer allows: in a clear room,
+    or mid-fight after a RETREAT to pole range.
 
 When it stops, and walks home
   - health below `health_floor`, or a wound at `wound_floor` (also checked before setting out)
@@ -582,6 +583,7 @@ class Tally:
         self.smite_off = False  # a smite drew on the soul pool: no more (#217)
         self.smite_warned = False  # "no free smites" said once per run
         self.maneuvers = 0  # tactical maneuvers the game answered (#190)
+        self.almanac_retry = 0.0  # a refused retreat puts the next study off
         self.since_maneuver = 0  # plain swings since the last maneuver
         self.tactic = 0  # the rotation index
         self.tactic_misses = 0  # unrecognized maneuver answers in a row
@@ -1781,11 +1783,36 @@ def wait_for_prey(s, seconds):
 
 def study_almanac(s, profile):
     """The profile's almanac (client/game/almanac.py) studied when its
-    timer allows — only in a room with nothing hostile in it, since the
-    study costs ten seconds of roundtime."""
+    timer allows, in a room with nothing hostile in it."""
     noun = str(profile.get("almanac") or "").strip().lower()
     if noun and not hostiles(s.state):
         almanac.study(s, noun, ask, "hunt")
+
+
+# RETREAT's answers (flight.py; captured 2026-09-22): out a range, or
+# already out; engaged past escape, "You are unable to retreat from...".
+RETREATED = ("retreat back to pole range", "retreat from combat", "as far away")
+ALMANAC_RETRY = 60  # seconds before a study refused a retreat tries again
+
+
+def study_in_fight(s, profile, tally):
+    """The almanac studied mid-fight when it is ready (the operator,
+    2026-09-28: every ten minutes keeps a skill moving): RETREAT to pole
+    range first, then the study's ten seconds, the creature closing in
+    again meanwhile. Only standing, unstunned, with a hand free; a
+    retreat refused waits a minute. True when a study went out."""
+    noun = str(profile.get("almanac") or "").strip().lower()
+    state = s.state
+    if not almanac.ready(noun) or time.monotonic() < tally.almanac_retry:
+        return False
+    if getattr(state, "stunned", False) or not almanac.hand_free(state, noun):
+        return False
+    answer = ask(s, "retreat").lower()
+    if not any(word in answer for word in RETREATED):
+        tally.almanac_retry = time.monotonic() + ALMANAC_RETRY
+        return False
+    almanac.study(s, noun, ask, "hunt")
+    return True
 
 
 def next_room(s, db, ground, avoid, tally):
@@ -2168,6 +2195,8 @@ def loop(s, profile, db, ground, avoid, tally):
             if not settle(s, db, ground, avoid, tally):
                 return "ground taken"
             continue
+        if study_in_fight(s, profile, tally):
+            continue  # the checks again before the next swing
         say_outgrown(s, profile, tally)
         tally.swings += 1
         # A cast due before this swing wraps it: PREPARE, the swing while
