@@ -1,16 +1,18 @@
 """Train Performance by playing the profile's instrument to mind-lock:  ;perform
 
-    ;perform                    play the rank's song off-key until Performance mind-locks
+    ;perform                    play the rank's song in its best style until Performance mind-locks
     ;perform instrument=<noun>  another instrument (the profile's `instrument` otherwise)
     ;perform song=<song>        a song of your own instead of the rank's
-    ;perform mood=<style>       another style (off-key by default; mood= alone for the plain style)
+    ;perform mood=<style>       one style, no search (mood= alone for the game's own style)
     ;perform until=30           stop at that mindstate instead of 34
     ;perform once               exit at mind-lock instead of holding for the drain
     ;perform return             (typed while it runs) stop the song and end
     ;stop perform               quit at once; the song plays on (STOP PLAY yourself)
 
 What it does
-  - PLAYs the song for your rank band, starts it again when it ends, watches the mindstate.
+  - Tries every style of the song for your rank band (PLAY, STOP PLAY: no roundtime) and keeps
+    the one the game rates nearest "with only the slightest hint of difficulty"; again after each lock.
+  - PLAYs it, starts it again when it ends, watches the mindstate.
   - At mind-lock STOPs PLAY and holds until the pool drains, then plays again.
   - A room that refuses a song sends it to the profile's `home` once, to play there.
   - An instrument the game calls dirty is cleaned once a run with `instrument_cloth`
@@ -47,6 +49,9 @@ from client.game.perform import (
     STARTED,
     STOPPED,
     WET,
+    STYLES,
+    TIERS,
+    difficulty,
     parse_args,
     play_command,
     song_for,
@@ -56,12 +61,12 @@ from client.game.perform import (
 # from, with its issue — read by people, never served as ;help.
 _NOTES = """Train Performance by playing the profile's instrument:  ;perform
 
-    ;perform                    play the rank's song off-key on the profile's instrument until mind-lock
+    ;perform                    play the rank's song in its best style on the profile's instrument until mind-lock
     ;perform instrument=zills   another instrument (the profile's `instrument` otherwise)
                                 a room that refuses a song (a bank's teller: "now isn't the best time to be playing") sends it home once, the profile's `home`, to play there
                                 an instrument the game calls dirty at PLAY is cleaned once per run with the profile's `instrument_cloth` (REMOVE, WIPE when wet, CLEAN, WEAR), then played again; no cloth is said once and the song plays dirty
     ;perform song=ballad        a song of your own instead of the rank's band
-    ;perform mood=halting       another style (off-key by default; mood= alone for the plain style)
+    ;perform mood=halting       one style, no search (every style tried by default; mood= alone for the plain style)
     ;perform until=30           stop at that mindstate instead of 34
     ;perform once               exit at mind-lock instead of holding for the drain
     ;perform return             (typed while it runs) stop the song and end
@@ -70,7 +75,13 @@ PLAY starts a song that runs on its own, and Performance learns while
 it plays (Elanthipedia: Performance skill, Play command; the song per
 rank band and the wordings are client/game/perform.py's). The script
 PLAYs the band's song — scales to rank 39, arpeggios to 49, and so on
-— off-key, the easiest style, watches the mindstate, starts the song
+— in the style the game rates nearest "with only the slightest hint
+of difficulty": with no mood= a run's first start is followed by a pass
+over all nineteen styles (PLAY, the start line's tier, STOP PLAY — no
+roundtime, the operator's "it costs nothing to step through each
+style", 2026-09-28, #381), again after each lock; off-key, the fixed
+default until then, was effortless for Crannach's concerto at 1180 and
+taught a sixth of masterful's rate — watches the mindstate, starts the song
 again when the story says it ended, and at mind-lock STOPs PLAY and
 holds until enough has drained to be worth playing again; `once`
 exits at the lock instead. ;train runs it as a task (skills:
@@ -253,6 +264,37 @@ def start_song(s, options):
     return "unknown", False
 
 
+def pick_style(s, options):
+    """Every style of the song, hardest known first: PLAY, read the
+    start line's tier, STOP PLAY — no roundtime either way (#381). The
+    first "slightest hint" ends the pass; else the best tier seen wins,
+    the harder style on a tie. (style, tier) — (None, None) when no
+    style started, the regular start then saying why — and every
+    style's tier echoed on one line."""
+    song = options["song"] or song_for(rank(s))
+    best = None  # (tier index, style)
+    seen = []
+    for style in STYLES:
+        answer = ask(s, play_command(song, style, options["instrument"]))
+        if any(word in answer for word in ALREADY):
+            stop_song(s)
+            answer = ask(s, play_command(song, style, options["instrument"]))
+        if any(word in answer for word in NO_INSTRUMENT + NOT_HERE + IN_COMBAT):
+            return None, None
+        tier = difficulty(answer)
+        if any(word in answer for word in STARTED):
+            stop_song(s)
+        seen.append(f"{style or 'plain'} {tier or '?'}")
+        if tier is not None and (best is None or TIERS.index(tier) < best[0]):
+            best = (TIERS.index(tier), style)
+        if tier == "slightest":
+            break
+    s.echo(f"perform: the {song}'s styles — {', '.join(seen)}")
+    if best is None:
+        return None, None
+    return best[1], TIERS[best[0]]
+
+
 def home_of(s):
     """The profile's home — a ;go2 target — or ""."""
     name = getattr(s.state, "name", None)
@@ -325,6 +367,12 @@ def run(s, options, walker=walk_home):
     songs = 0
     moved = False  # walked home once for a room that refuses a song
     cleaned = False  # the instrument cleaned once for a dirt warning (#233)
+    # No mood= given: every style tried after the first start (and the
+    # cleaning it may call for), and again after each lock (#381).
+    search = options["mood"] is None
+    search_due = search
+    if search:
+        options["mood"] = ""
     while True:
         reason = danger(s)
         if reason:
@@ -345,6 +393,7 @@ def run(s, options, walker=walk_home):
             if not hold_at_lock(s, options["until"]):
                 s.echo("perform: stopping")
                 return
+            search_due = search  # the rank may have moved while held
             continue
         if not playing:
             outcome, dirty = start_song(s, options)
@@ -397,12 +446,20 @@ def run(s, options, walker=walk_home):
                     stop_song(s)
                     clean_instrument(s, options["instrument"], cloth)
                     continue
+            if search_due:
+                search_due = False
+                stop_song(s)
+                style, tier = pick_style(s, options)
+                if style is not None:
+                    options["mood"] = style
+                    s.echo(f"perform: {style or 'the plain style'} plays {tier}")
+                continue
             playing = True
             songs += 1
             s.echo(
                 f"perform: playing {options['song'] or song_for(rank(s))} "
-                f"{options['mood']} on the {options['instrument']} "
-                f"(Performance {value}/34)"
+                f"{options['mood'] or 'in the plain style'} on the "
+                f"{options['instrument']} (Performance {value}/34)"
             )
         outcome = watch(s, POLL, until=options["until"])
         if outcome == "stop":

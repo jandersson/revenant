@@ -117,10 +117,14 @@ class Fake:
         self._tick()
 
 
-def run(fake, args=(), instrument="zills"):
+def run(fake, args=(), instrument="zills", mood="off-key"):
+    """A run with the style fixed (off-key, the tests of everything but
+    the style search); mood=None searches (#381)."""
     script.clock = lambda: fake.now
     script.probe = SimpleNamespace(ask=fake.ask, collect=fake.collect)
     extra = [f"instrument={instrument}"] if instrument else []
+    if mood is not None:
+        extra.append(f"mood={mood}")
     script.run(fake, script.parse_args(list(args) + extra))
     return "\n".join(fake.echoed)
 
@@ -147,7 +151,7 @@ def test_the_play_line_and_the_args():
     assert options == {
         "instrument": "lyre",
         "song": "ballad",
-        "mood": "off-key",
+        "mood": None,  # every style tried (#381)
         "until": 30,
         "once": True,
     }
@@ -259,7 +263,11 @@ def test_a_room_that_refuses_the_song_sends_it_home_once(monkeypatch, tmp_path):
     def drive(fake, walker):
         script.clock = lambda: fake.now
         script.probe = SimpleNamespace(ask=fake.ask, collect=fake.collect)
-        script.run(fake, script.parse_args(["once", "instrument=zills"]), walker=walker)
+        script.run(
+            fake,
+            script.parse_args(["once", "instrument=zills", "mood=off-key"]),
+            walker=walker,
+        )
 
     walks = []
     fake = RefusingHere(mindstates=[5, 34])
@@ -442,3 +450,98 @@ def test_hostiles_have_it_get_away_not_just_stop():
     assert "hostiles in the room" in out
     assert "perform: hostiles here — getting away" in out
     assert fake.sent[-3:] == ["retreat", "retreat", "nw"] or "retreat" in fake.sent
+
+
+# --- the style search (#381) ------------------------------------------------
+
+# Captured 2026-09-28 on Crannach's thin-edged zills at Performance 1180.
+EFFORTLESS = (
+    "You effortlessly begin an off-key concerto on your thin-edged zills, your "
+    "heart swelling in pride at your hard-earned skill.\n"
+)
+PLAIN = "You begin a masterful concerto on your thin-edged zills.\n"
+SLIGHTEST = (
+    "You begin a fierce concerto on your thin-edged zills with only the slightest "
+    "hint of difficulty.\n"
+)
+
+
+class Styled(Fake):
+    """Answers PLAY by the style it names: `tiers` maps a style to its
+    start line, anything else plays plain."""
+
+    def __init__(self, tiers, **kwargs):
+        super().__init__(**kwargs)
+        self.tiers = tiers
+
+    def ask(self, s, command, *_):
+        if command.startswith("play ") and self.played_at is None:
+            self.sent.append(command)
+            self.played_at = self.now
+            words = command.split()
+            style = words[2] if len(words) > 5 else ""
+            return self.tiers.get(style, PLAIN)
+        return super().ask(s, command)
+
+
+def test_every_style_is_tried_and_the_slightest_hint_is_kept():
+    # The operator, 2026-09-28: "It costs nothing to step through each
+    # style." Masterful and confident play plain, fierce with the
+    # slightest hint: the pass ends there and fierce plays on.
+    fake = Styled(
+        {"fierce": SLIGHTEST, "off-key": EFFORTLESS},
+        mindstates=[5] * 60 + [34],
+        rank=1180,
+        stop_at=1000 + 300,
+    )
+    out = run(fake, ["once"], mood=None)
+    assert plays(fake) == [
+        "play concerto on my zills",  # the first start (dirt is read here)
+        "play concerto masterful on my zills",
+        "play concerto confident on my zills",
+        "play concerto fierce on my zills",
+        "play concerto fierce on my zills",  # kept
+    ]
+    assert (
+        "perform: the concerto's styles — masterful plain, confident plain, fierce slightest"
+        in out
+    )
+    assert "perform: fierce plays slightest" in out
+    assert "playing concerto fierce on the zills" in out
+
+
+def test_with_no_slightest_hint_the_best_tier_wins_the_harder_style_first():
+    # Crannach's evening: off-key effortless, masterful plain — masterful.
+    fake = Styled(
+        {"off-key": EFFORTLESS, "halting": EFFORTLESS},
+        mindstates=[5] * 90 + [34],
+        rank=1180,
+        stop_at=1000 + 400,
+    )
+    out = run(fake, ["once"], mood=None)
+    assert len(plays(fake)) == 1 + len(perform.STYLES) + 1
+    assert plays(fake)[-1] == "play concerto masterful on my zills"
+    assert "off-key effortless" in out
+    assert "perform: masterful plays plain" in out
+
+
+def test_a_fixed_mood_tries_no_other_style():
+    fake = Styled({}, mindstates=[5] * 20 + [34], rank=1180, stop_at=1000 + 60)
+    run(fake, ["once"], mood="masterful")
+    assert plays(fake) == ["play concerto masterful on my zills"]
+
+
+def test_the_start_lines_read_as_their_tiers():
+    assert perform.difficulty(SLIGHTEST) == "slightest"
+    assert perform.difficulty(PLAIN) == "plain"
+    assert perform.difficulty(EFFORTLESS) == "effortless"
+    assert perform.difficulty(STARTED) == "fumble"
+    assert (
+        perform.difficulty(
+            "You begin some off-key rudiments on your copper zills, your skill in "
+            "your craft showcased in every note."
+        )
+        == "showcased"
+    )
+    assert perform.difficulty(ALREADY) is None
+    assert perform.TIERS[:2] == ("slightest", "plain")

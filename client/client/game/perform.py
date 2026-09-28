@@ -4,8 +4,12 @@ Performance trains by playing: PLAY (song) {mood} ON {instrument}
 starts a song that then runs on its own, and the best gain is a song
 "played with only the slightest hint of difficulty" (Elanthipedia:
 Performance skill, Play command). The Play command page gives the
-song per rank band, SONGS below, and says off-key or halting moods
-make any song easier, so the default is the band's song off-key.
+song per rank band, SONGS below, and the styles, STYLES below: off-key
+and halting make any song easier, confident and masterful harder. A
+run tries every style first and plays the one whose start line comes
+nearest the slightest hint (TIERS, #381): off-key, the old fixed
+default, was "effortless" for a concerto at rank 1180 and taught a
+sixth of what masterful did.
 Captured 2026-09-18 on a rank-2 Paladin with a pair of copper zills
 worn, on the Faldesu ferry: `play scales off-key on my zills` — "You
 fumble slightly as you begin an off-key ruff on your copper zills.";
@@ -45,7 +49,43 @@ SONGS = (
     (525, "requiem"),
     (550, "concerto"),
 )
-MOOD = "off-key"  # the easiest style, for the band's song at its floor
+MOOD = "off-key"  # the easiest style
+# Elanthipedia's Play command, all eighteen styles and "" for the game's
+# own: the known hardest first, so the first style that starts "with
+# only the slightest hint of difficulty" is the hardest that does; the
+# middle ones vary by song ("certain combinations can make a particular
+# song easier or more difficult"), the easy two last (#381).
+STYLES = (
+    "masterful",
+    "confident",
+    "fierce",
+    "flashy",
+    "loud",
+    "quick",
+    "excited",
+    "haunting",
+    "romantic",
+    "cheerful",
+    "playful",
+    "solemn",
+    "mournful",
+    "wistful",
+    "quiet",
+    "slow",
+    "",
+    "halting",
+    "off-key",
+)
+# A start line's difficulty, the best first (#381). The wiki's best rate
+# is "with only the slightest hint of difficulty"; the rest are captured
+# starts in the game logs, hardest to easiest: "You fumble slightly as
+# you begin ...", "You begin ..." with nothing after the instrument,
+# "... your skill in your craft showcased in every note.", "You
+# effortlessly begin ..., your heart swelling in pride at your
+# hard-earned skill." A plain start before a fumble is a guess; plain
+# before effortless is measured (Crannach at 1180, 2026-09-28: masterful
+# 2 -> 12/34 in three minutes, off-key 0 -> 1 in two).
+TIERS = ("slightest", "plain", "fumble", "showcased", "effortless")
 # A fourth start at rank 49 (2026-09-22): "You effortlessly begin some
 # off-key rudiments on your copper zills, your heart swelling in pride
 # at your hard-earned skill." — an adverb between "you" and "begin".
@@ -91,6 +131,23 @@ CLEANED = ("moments cleaning", "dirt and grime")
 NO_CLOTH = ("what were you referring", "could not find")
 
 
+def difficulty(answer):
+    """The TIERS entry a PLAY's start line reads as, or None for an
+    answer that is no start (a refusal, a style the song refuses)."""
+    text = str(answer or "").lower()
+    if "slightest hint of difficulty" in text:
+        return "slightest"
+    if "effortlessly begin" in text:
+        return "effortless"
+    if "showcased in every note" in text:
+        return "showcased"
+    if "fumble" in text and "begin" in text:
+        return "fumble"
+    if "you begin" in text:
+        return "plain"
+    return None
+
+
 def song_for(rank):
     """The song of the rank's band: scales at 0-39, ..., a concerto from
     550; scales for an unknown rank."""
@@ -111,8 +168,9 @@ def play_command(song, mood, instrument):
 def parse_args(args):
     """{"instrument", "song", "mood", "until", "once"} from ;perform's
     arguments; "" for the instrument means the profile's, "" for the
-    song means the rank's band."""
-    options = {"instrument": "", "song": "", "mood": MOOD, "until": 34, "once": False}
+    song means the rank's band, None for the mood means every style
+    tried and the best kept (#381), "" the game's own style."""
+    options = {"instrument": "", "song": "", "mood": None, "until": 34, "once": False}
     for arg in args:
         key, sep, value = str(arg).lower().partition("=")
         if sep and key in ("instrument", "song", "mood"):
