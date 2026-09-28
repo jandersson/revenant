@@ -314,3 +314,27 @@ def test_a_named_item_inside_a_container_is_said_and_dropped():
     )
     out = run(fake, ["items=second pouch,shield", "once"])
     assert "the second pouch is inside a container" in out
+
+
+def test_labels_come_from_the_names_not_the_last_word():
+    # "pouch in the hide x37" (2026-09-28): a name's last word is no noun.
+    from client.game.appraisal import label_of, targets
+
+    pack = {
+        "noun": "hide",
+        "depth": 0,
+        "exist": "42",
+        "name": "a large hunting pack crafted from wyvern hide",
+    }
+    pouch = {
+        "noun": "pouch",
+        "depth": 1,
+        "exist": "43",
+        "container_exist": "42",
+        "name": "a fuzzy gem pouch (closed)",
+    }
+    assert label_of(pack) == "large hunting pack"
+    assert [t["label"] for t in targets([pack, pouch])] == [
+        "fuzzy gem pouch in the large hunting pack",
+        "large hunting pack",
+    ]

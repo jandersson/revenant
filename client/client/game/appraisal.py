@@ -32,6 +32,8 @@ below is an appraisal, and the first of a run is echoed so more become
 fixtures. Model: docs/training.md.
 """
 
+import re
+
 QUICK = "quick"
 CAREFUL = "careful"
 # Nouns that teach most, first in the rotation when the character has one.
@@ -110,26 +112,52 @@ def rotation(possessions, items=()):
     return favored + [noun for noun in nouns if noun not in FAVORED]
 
 
+# Where an item's name turns from what it is to how it looks: "a large
+# hunting pack crafted from wyvern hide" is a large hunting pack. The
+# listing's last word is no noun for such a name, so labels are cut
+# here instead (#382: Crannach's rotation echoed "pouch in the hide x37").
+_DESCRIBED = re.compile(
+    r"\s+(?:crafted|with|bearing|made|of|from|embroidered|trimmed|painted|"
+    r"covered|surmounted|displaying|engraved|sealed|tipped|inlaid|wrapped|"
+    r"artfully|stitched|decorated|patterned|etched|streaked|studded|set|"
+    r"topped|carved|embellished|bound|lined|edged|fit)\b.*$",
+    re.IGNORECASE,
+)
+
+
+def label_of(item):
+    """What an item is called in the echoes: its name without the
+    article, a trailing "(closed)" or its description; the noun when
+    the listing gave no name."""
+    name = re.sub(r"\s*\([^)]*\)\s*$", "", str(item.get("name") or "")).split()
+    if name and name[0].lower() in ("a", "an", "some", "the"):
+        name = name[1:]
+    short = _DESCRIBED.sub("", " ".join(name)).strip()
+    return short or str(item.get("noun") or "").strip()
+
+
+def _target(label, noun, ref, key, fetch=None, back=None):
+    return {
+        "label": label,
+        "noun": noun,
+        "ref": ref,
+        "fetch": fetch,
+        "back": back,
+        "key": key,
+    }
+
+
 def targets(possessions, items=()):
-    """What to appraise, in order: [{"label", "ref", "fetch", "back",
-    "key"}]. `items` given: each as MY <noun>. Else the last INV LIST's
-    possessions: everything worn or held — by its game id (#<exist>)
-    when the listing gave one, so twins are two items — and each pouch
-    or bundle one level inside a worn or held container, fetched with
-    GET #<id> IN #<container> and put back after (#382); FAVORED first,
-    those inside after the ones worn."""
+    """What to appraise, in order: [{"label", "noun", "ref", "fetch",
+    "back", "key"}]. `items` given: each as MY <noun>. Else the last INV
+    LIST's possessions: everything worn or held — by its game id
+    (#<exist>) when the listing gave one, so twins are two items — and
+    each pouch or bundle one level inside a worn or held container,
+    fetched with GET #<id> IN #<container> and put back after (#382);
+    FAVORED first, those inside after the ones worn."""
     if items:
         nouns = dict.fromkeys(str(item).strip() for item in items if str(item).strip())
-        return [
-            {
-                "label": noun,
-                "ref": f"my {noun}",
-                "fetch": None,
-                "back": None,
-                "key": noun,
-            }
-            for noun in nouns
-        ]
+        return [_target(noun, noun, f"my {noun}", noun) for noun in nouns]
     possessions = possessions or []
     holders = {item.get("exist"): item for item in possessions if item.get("exist")}
     top, inside, nouns = [], [], set()
@@ -140,26 +168,10 @@ def targets(possessions, items=()):
             continue
         if item.get("depth", 0) == 0:
             if exist:
-                top.append(
-                    {
-                        "label": noun,
-                        "ref": f"#{exist}",
-                        "fetch": None,
-                        "back": None,
-                        "key": exist,
-                    }
-                )
+                top.append(_target(label_of(item), noun, f"#{exist}", exist))
             elif noun not in nouns:
                 nouns.add(noun)
-                top.append(
-                    {
-                        "label": noun,
-                        "ref": f"my {noun}",
-                        "fetch": None,
-                        "back": None,
-                        "key": noun,
-                    }
-                )
+                top.append(_target(noun, noun, f"my {noun}", noun))
             continue
         holder = holders.get(item.get("container_exist"))
         if (
@@ -171,16 +183,17 @@ def targets(possessions, items=()):
         ):
             where = f"#{holder['exist']}"
             inside.append(
-                {
-                    "label": f"{noun} in the {holder.get('noun') or 'container'}",
-                    "ref": f"#{exist}",
-                    "fetch": f"get #{exist} in {where}",
-                    "back": f"put #{exist} in {where}",
-                    "key": exist,
-                }
+                _target(
+                    f"{label_of(item)} in the {label_of(holder)}",
+                    noun,
+                    f"#{exist}",
+                    exist,
+                    fetch=f"get #{exist} in {where}",
+                    back=f"put #{exist} in {where}",
+                )
             )
-    favored = [target for target in top if target["label"] in FAVORED]
-    rest = [target for target in top if target["label"] not in FAVORED]
+    favored = [target for target in top if target["noun"] in FAVORED]
+    rest = [target for target in top if target["noun"] not in FAVORED]
     return favored + inside + rest
 
 
