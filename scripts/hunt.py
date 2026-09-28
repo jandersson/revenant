@@ -746,9 +746,24 @@ def next_turn(s, profile, tally, from_current=False, leave=False):
         skill = plan[index]["skill"]
         return rank_of(s.state, skill) if skill else 0
 
+    # Ties — after a rest every pool reads 0 — go to the skill trained
+    # longest ago (the stores file's `turns`), then the lowest rank:
+    # the plan's order alone starved the weakest weapons, the rank
+    # alone the strongest (Brawling and Small Edged sat at 0 through a
+    # hunt that filled the other three, 2026-09-28).
+    last = getattr(tally, "turn_times", None) or {}
+
+    def trained(index):
+        return last.get(plan[index]["skill"] or "", 0)
+
     return min(
         candidates,
-        key=lambda index: (pool(index), rank(index), candidates.index(index)),
+        key=lambda index: (
+            pool(index),
+            trained(index),
+            rank(index),
+            candidates.index(index),
+        ),
     )
 
 
@@ -758,6 +773,8 @@ def arm(s, profile, tally, index):
     fists), the profile's `weapon` and `weapon_container` set to it so
     the knife, the skins and the put-back read the turn in hand."""
     entry = weapon_plan(profile)[index]
+    if entry["skill"]:
+        note_turn(s, tally, entry["skill"])
     if tally.armed and tally.armed != entry["weapon"]:
         unready(s, profile)  # the last turn's weapon back where it lives
     tally.weapon = index
@@ -1399,6 +1416,20 @@ def remember_stores(character, stores):
     path = stores_path(character)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(stores, indent=1), encoding="utf-8")
+
+
+def note_turn(s, tally, skill):
+    """A weapon turn taken: its skill's time into the stores file's
+    `turns`, so the next hunt's ties go to the one trained longest ago."""
+    now = time.time()
+    tally.turn_times = dict(getattr(tally, "turn_times", None) or {}) | {skill: now}
+    character = getattr(s.state, "name", None)
+    known = load_stores(character)
+    known["turns"] = dict(known.get("turns") or {}) | {skill: now}
+    try:
+        remember_stores(character, known)
+    except OSError:
+        pass  # a remembered order is a nicety, never a stop
 
 
 def set_stores(s, profile):
@@ -2122,6 +2153,9 @@ def hunt(s, profile, db, travel=True, avoid=()):
     # A map tag, else a bestiary zone, else a ;go2 target (#340).
     ground = hunting.ground_rooms(db, ground_name)
     tally = Tally()
+    tally.turn_times = dict(
+        load_stores(getattr(s.state, "name", None)).get("turns") or {}
+    )
     set_stores(s, profile)
     if travel:
         if not ground:

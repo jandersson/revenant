@@ -73,7 +73,7 @@ A `;train` task passes the style in its args: `"script": "hunt", "args": ["boxes
 
 `weapons` lists `noun:Skill[:container]` entries, e.g. `handaxe:Small Edged:sack`, `fists:Brawling`.
 
-- The weapon whose skill has the emptiest pool fights first, and keeps fighting until its skill reaches `weapon_target` (30). Then the next emptiest takes over. Equally empty pools go to the lowest-ranked skill first.
+- The weapon whose skill has the emptiest pool fights first, and keeps fighting until its skill reaches `weapon_target` (30). Then the next emptiest takes over. Equally empty pools go to the skill trained longest ago, then the lowest rank.
 - Once every weapon is past the target, the emptiest unlocked one fights on to lock.
 - A locked skill's weapon sits out until it drains. All locked ends the hunt.
 - A weapon that goes 20 swings without a kill hands over to the next.

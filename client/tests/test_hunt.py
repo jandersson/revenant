@@ -108,9 +108,9 @@ def test_the_emptiest_weapon_fills_to_the_target_then_the_next_takes_over(
     assert not any("unrecognized" in text for text in arena.echoed)
 
 
-def _turns(experience, profile_extra=None, held=0, **kwargs):
+def _turns(experience, profile_extra=None, held=0, turn_times=None, **kwargs):
     arena = Arena({}, experience=experience)
-    tally = SimpleNamespace(weapon=held, fists_warned=False)
+    tally = SimpleNamespace(weapon=held, fists_warned=False, turn_times=turn_times)
     profile = ROTATING | {
         "weapons": ["handaxe:Small Edged:sack", "fists:Brawling", "mace:Small Blunt"]
     }
@@ -1515,3 +1515,27 @@ def test_the_corpse_is_skinned_by_ordinal_past_a_live_one_listed_first():
     assert aim_corpse("goblin", names, [False, False, True]) == "second goblin"
     assert aim_corpse("goblin", names, [False, True, False]) == "goblin"
     assert aim_corpse("goblin", names, []) == "goblin"  # nothing marked
+
+
+def test_tied_empty_pools_go_to_the_weapon_trained_longest_ago():
+    # 2026-09-28: with every pool at 0 after a rest, the rank alone sent
+    # the weakest three weapons first every hunt, and Brawling and Small
+    # Edged (ranks 61 and 60) sat at 0. The last turn's time breaks the
+    # tie first; a skill never recorded counts as longest ago.
+    ms = {
+        "Small Edged": {"rank": 60, "mindstate": 0},
+        "Brawling": {"rank": 61, "mindstate": 0},
+        "Small Blunt": {"rank": 24, "mindstate": 0},
+    }
+    times = {"Small Blunt": 300.0, "Small Edged": 200.0, "Brawling": 100.0}
+    assert _turns(ms, from_current=True, turn_times=times) == 1  # the fists
+    times = {"Small Blunt": 300.0}
+    assert _turns(ms, from_current=True, turn_times=times) == 0  # never: rank
+    assert _turns(ms, from_current=True) == 2  # nothing remembered: rank
+
+
+def test_a_turn_taken_is_remembered_for_the_next_hunt(travel):
+    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
+    _run(arena, profile=ROTATING, travel_first=False)
+    turns = hunt.load_stores("Lanival").get("turns") or {}
+    assert set(turns) <= {"Small Edged", "Brawling"} and turns
