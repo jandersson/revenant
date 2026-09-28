@@ -19,6 +19,8 @@ What it does
     crafts and bundles each stack, hands the logbook in for the pay.
   - Buys what runs out (herbs, water, coal), coins from the bank when short,
     and finishes a remedy left in the mortar first.
+  - A herb stack short of 25 pieces is combined with the herb's other stacks
+    first (foraged ones from ;forage herb); the mortar takes 25 of a bigger one.
   - A remedy too poor for the order is discarded if `droppable` names it, else stowed.
   - Every order handed in is a row in history.db, summed by `;remedies ledger`.
 
@@ -47,8 +49,14 @@ from client.game.remedies import (
     BUNDLED,
     building_rooms,
     CATALOG,
+    COMBINED,
     CRUSH_OUTCOMES,
     MORTAR_BUSY,
+    MORTAR_FULL,
+    STACK_PIECES,
+    WRONG_SIZE,
+    containers_of,
+    pieces,
     NO_MASTER,
     ORDER_TRIES,
     POURED,
@@ -280,8 +288,18 @@ def fetch_into_mortar(s, noun, what):
         s.echo(f"remedies: no {noun} on you — the {what} is missing")
         ask(s, "get my pestle")
         return False
+    if what == "herb" and not full_stack(s, noun):
+        s.echo(
+            f"remedies: the {noun} on you come to fewer than {STACK_PIECES} pieces "
+            f"— the {what} is missing"
+        )
+        ask(s, f"stow my {noun}")
+        ask(s, "get my pestle")
+        return False
     verb = "pour" if what == "water" else "put"
     answer = ask(s, f"{verb} my {noun} in my mortar")
+    if what == "herb" and any(word in answer for word in MORTAR_FULL):
+        ask(s, f"stow my {noun}")  # the mortar took its 25; the rest back
     if any(word in answer for word in MORTAR_BUSY):
         # Another remedy is in progress in the mortar (2026-09-23): the
         # herb stays in hand for the caller, the pestle comes back up.
@@ -298,6 +316,31 @@ def fetch_into_mortar(s, noun, what):
         ask(s, f"stow my {noun}")  # the flask, the second herb's stack, a nugget
     ask(s, "get my pestle")
     return True
+
+
+def full_stack(s, noun):
+    """The herb in hand brought to STACK_PIECES: COUNT it, and while it
+    is short combine the herb's other stacks into it, container by
+    container (the mortar set down meanwhile, for the hand). True when
+    it holds enough — or COUNT says nothing, the old way (#370)."""
+    held = pieces(ask(s, f"count my {noun}"))
+    if held is None or held >= STACK_PIECES:
+        return True
+    ask(s, "stow my mortar")
+    for container in containers_of(getattr(s.state, "possessions", None)):
+        while held < STACK_PIECES:
+            if missing(ask(s, f"get {noun} from my {container}")):
+                break
+            if not any(
+                word in ask(s, f"combine {noun} with {noun}") for word in COMBINED
+            ):
+                ask(s, f"stow my {noun}")  # one of the two back: they would not join
+                break
+            held = pieces(ask(s, f"count my {noun}")) or held
+        if held >= STACK_PIECES:
+            break
+    ask(s, "get my mortar")
+    return held >= STACK_PIECES
 
 
 def hold_at_lock(s, until):
@@ -574,7 +617,7 @@ def bundle_on_hand(s, item, noun, remaining):
         if missing(ask(s, f"get my {item} from my {container}")):
             break
         outcome, left, due = bundle(s, noun, remaining)
-        if outcome == "unknown":
+        if outcome in ("unknown", "size"):
             break
         if outcome == "bundled":
             remaining = left
@@ -803,6 +846,13 @@ def bundle(s, noun, expected):
     outcome = "bundled"
     if any(word in answer for word in REJECTED):
         outcome = "rejected"
+    elif any(word in answer for word in WRONG_SIZE):
+        # A remedy of another size than the order's stacks (#370): kept.
+        outcome = "size"
+        s.echo(
+            f"remedies: the {noun} is not a stack of the order's size — kept; "
+            f"a herb stack short of {STACK_PIECES} pieces made it"
+        )
     elif not any(word in answer for word in BUNDLED):
         outcome = "unknown"
         first = (answer.strip().splitlines() or ["(silence)"])[0]
@@ -1093,6 +1143,9 @@ def work(s, options, profile):
                         break
                 elif outcome == "unknown":
                     why = "the bundle answered nothing known"
+                    break
+                elif outcome == "size":
+                    why = f"the {spec[4]} was not the order's stack size"
                     break
                 else:
                     s.echo(

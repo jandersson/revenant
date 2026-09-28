@@ -132,6 +132,43 @@ POURED = ("mix it in thoroughly", "toss the water")
 # is not required to continue crafting the nemoih salve, so you
 # stop." — until the script spun on Crush what?).
 MORTAR_BUSY = ("not required to continue crafting",)
+# The mortar measures the herb itself (captured 2026-09-28 on a
+# 37-piece stack of pressed and bought red flowers, #370): "The mortar
+# can only hold 25 pieces of material.  So you count off and place only
+# that many inside." — the rest stays in hand and is stowed. A smaller
+# stack makes a smaller remedy (6 pieces made a 1-use cream), which the
+# order refuses: "...you notice the workorder calls for stacks of 5 for
+# each remedy, and think it best to mark and cut the remedy down to the
+# required size before bundling." So a stack short of STACK_PIECES is
+# combined with the herb's other stacks first ("You combine the stacks
+# of herbs together."), and bought when they are not enough.
+MORTAR_FULL = ("can only hold",)
+STACK_PIECES = 25
+WRONG_SIZE = ("calls for stacks of",)
+COMBINED = ("you combine",)
+PIECES = re.compile(r"count out (\d+) pieces?")
+
+
+def pieces(answer):
+    """COUNT's pieces ("You count out 12 pieces of material there."), or
+    None for an answer that gives none."""
+    match = PIECES.search(str(answer or "").lower())
+    return int(match.group(1)) if match else None
+
+
+def containers_of(possessions):
+    """The container nouns the parser's INV LIST shows holding anything,
+    in listing order — where another stack of a herb may be."""
+    by_exist = {entry.get("exist"): entry for entry in possessions or []}
+    nouns = []
+    for entry in possessions or []:
+        holder = by_exist.get(entry.get("container_exist")) or {}
+        noun = str(holder.get("noun") or "").lower()
+        if noun and noun != "mortar" and noun not in nouns:
+            nouns.append(noun)
+    return nouns
+
+
 _IN_MORTAR = re.compile(
     r"not required to continue crafting (?:the |some |a |an )?(?P<name>[\w' -]+?)[,.]",
     re.IGNORECASE,

@@ -1088,3 +1088,92 @@ def test_a_catalyst_named_coal_nugget_is_bought_as_the_catalog_nugget():
     assert "8775" in fake.walked
     assert "bought 3 x coal nugget" in out
     assert "stow my coal nugget" in fake.sent
+
+
+# The herb's size (#370), captured 2026-09-28: a foraged 12-piece stack,
+# a bought 25, the mortar measuring off its 25 from the 37 combined.
+PACK = [
+    {
+        "exist": "1",
+        "noun": "backpack",
+        "name": "a rugged backpack",
+        "container_exist": None,
+    },
+    {
+        "exist": "2",
+        "noun": "flowers",
+        "name": "some dried red flowers",
+        "container_exist": "1",
+    },
+]
+TWELVE = "You count out 12 pieces of material there.\n"
+THIRTY_SEVEN = "You count out 37 pieces of material there.\n"
+FROM_PACK = "You get some dried red flowers from inside your backpack.\n"
+JOINED = "You combine the stacks of herbs together.\n"
+MEASURED = (
+    "The mortar can only hold 25 pieces of material.  So you count off and place "
+    "only that many inside.\n"
+)
+WRONG_SIZE = (
+    "You notice the workorder calls for stacks of 5 for each remedy, and think it "
+    "best to mark and cut the remedy down to the required size before bundling.\n"
+)
+
+
+def _fetching(answers):
+    fake = Fake(answers)
+    fake.state.possessions = PACK
+    script.probe = SimpleNamespace(ask=fake.ask)
+    return fake
+
+
+def test_a_short_herb_stack_is_combined_with_another_before_the_mortar():
+    fake = _fetching(
+        {
+            "get my flowers": ["You get some dried red flowers."],
+            "count my flowers": [TWELVE, THIRTY_SEVEN],
+            "get flowers from my backpack": [FROM_PACK],
+            "combine flowers with flowers": [JOINED],
+            "put my flowers in my mortar": [MEASURED],
+        }
+    )
+    assert script.fetch_into_mortar(fake, "flowers", "herb") is True
+    sent = fake.sent
+    assert sent.index("combine flowers with flowers") < sent.index(
+        "put my flowers in my mortar"
+    )
+    assert sent.index("stow my mortar") < sent.index("get flowers from my backpack")
+    # The mortar took its 25; the other 12 go back, then the pestle.
+    after = sent[sent.index("put my flowers in my mortar") :]
+    assert after[:3] == [
+        "put my flowers in my mortar",
+        "stow my flowers",
+        "get my pestle",
+    ]
+
+
+def test_a_herb_stack_too_short_to_top_up_is_stowed_and_bought_for():
+    fake = _fetching(
+        {
+            "get my flowers": ["You get some dried red flowers."],
+            "count my flowers": [TWELVE],
+            "get flowers from my backpack": [MISSING],
+        }
+    )
+    assert script.fetch_into_mortar(fake, "flowers", "herb") is False
+    assert "put my flowers in my mortar" not in fake.sent
+    assert "stow my flowers" in fake.sent
+    assert any("fewer than 25 pieces" in text for text in fake.echoed)
+
+
+def test_a_remedy_of_another_stack_size_is_kept_not_bundled_or_dropped():
+    fake = _fetching(
+        {
+            "bundle my cream with my logbook": [WRONG_SIZE],
+            "read my logbook": [LOGBOOK_OPEN],
+        }
+    )
+    outcome, remaining, _ = script.bundle(fake, "cream", 4)
+    assert outcome == "size"
+    assert "stow my cream" in fake.sent
+    assert not any(c.startswith("drop") for c in fake.sent)
