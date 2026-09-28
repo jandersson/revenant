@@ -2,6 +2,7 @@
 
     ;repair                 appraise what you wear and hold; repair every piece at or below the floor
     ;repair check           appraise only: each piece's condition, nothing moves
+    ;repair check <piece>   the same for those pieces, against the floor
     ;repair <piece> ...     those pieces, whatever their condition (worn, held or in a container)
     ;repair floor=<N>       the floor in % (the profile's `repair_floor`, else 80)
     ;repair tools           ANALYZE the profile's `repair_tools`; the worn ones go to the tool repairman
@@ -506,8 +507,9 @@ def run(s, words, mapdb=None, walk_fn=walk, profile=None):
     if not pieces:
         s.echo("repair: nothing to look at — ;sheet inv lists what you wear")
         return
-    # Named pieces go in whatever their condition: the floor is 100.
-    due = appraise(s, pieces, 100 if items else floor)
+    # Named pieces go in whatever their condition: the floor is 100 —
+    # but a check reads them against the floor it reports (#363).
+    due = appraise(s, pieces, 100 if items and mode != "check" else floor)
     if mode == "check":
         s.echo(f"repair: {len(due)} to repair at a floor of {floor} %")
         return

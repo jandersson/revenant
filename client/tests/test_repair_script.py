@@ -207,6 +207,20 @@ def test_check_appraises_and_goes_nowhere():
     assert "repair: 1 to repair at a floor of 80 %" in echoes(fake)
 
 
+def test_check_of_a_named_piece_reads_it_against_the_floor():
+    # ;repair check shield marked a shield in good condition "to repair"
+    # and counted it "at a floor of 80 %", a floor it never used (#363).
+    fake = Fake({"appraise my shield": [APPRAISE_GOOD]})
+    script.run(fake, ["check", "shield"], mapdb=None, walk_fn=walk, profile=PROFILE)
+    assert fake.walks == []
+    assert fake.sent == ["appraise my shield quick"]
+    assert "shield is in good condition (81-90 %)" in echoes(fake)
+    assert "repair: 0 to repair at a floor of 80 %" in echoes(fake)
+    fake = Fake({"appraise my plate": [APPRAISE_DENTED]})
+    script.run(fake, ["check", "plate"], mapdb=None, walk_fn=walk, profile=PROFILE)
+    assert "repair: 1 to repair at a floor of 80 %" in echoes(fake)
+
+
 def test_nothing_below_the_floor_walks_nowhere():
     fake = Fake(
         {
