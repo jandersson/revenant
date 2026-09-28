@@ -60,7 +60,10 @@ def test_with_only_the_monitors_running_break_does_the_chore_itself(fresh):
 def test_an_unknown_chore_and_the_bare_listing(fresh):
     s = handle(["nap"])
     script.main(s)
-    assert s.echoed == ["break: no chore 'nap' — almanac"] and interlude.pending() == []
+    assert (
+        s.echoed == ["break: no chore 'nap' — almanac, sweep"]
+        and interlude.pending() == []
+    )
     s = handle([])
     script.main(s)
-    assert s.echoed == ["break: chores almanac; requested none"]
+    assert s.echoed == ["break: chores almanac, sweep; requested none"]

@@ -29,7 +29,8 @@ not — the bundling rope ;hunt's skins ride on is "bundling rope".
 
 trash() is the other way out, for loot the profile's `loot_ignore`
 names (#365): into the room's receptacle only, never a DROP — with no
-receptacle the item is kept.
+receptacle the item is kept, and the loot sweep takes it at the next
+bin (client/game/sweep.py, #378).
 """
 
 import re
@@ -76,6 +77,10 @@ def trash(s, item, ask):
     refused — the caller keeps the item."""
     bin_noun = receptacle(getattr(getattr(s, "state", None), "room_objs", ""))
     if not bin_noun:
+        # Kept: the next bin's loot sweep takes it (#378).
+        from client.game import sweep
+
+        sweep.mark()
         return None
     answer = ask(s, f"put my {item} in {bin_noun}")
     if any(word in (answer or "").lower() for word in PUT_REFUSALS):

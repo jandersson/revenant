@@ -58,6 +58,11 @@ DEFAULTS = {
     # in the room's trash. A phrase ends the item's name; a lone metal
     # names any piece of it. Default: the common metals.
     "loot_ignore": list(COMMON_METALS),
+    # The loot sweep (#378): beside a bin, what loot_ignore names goes
+    # out of the loot container into the trash, each item checked in
+    # hand and named. Off until turned on — `;break sweep` shows first
+    # what it would take.
+    "loot_sweep": False,
     "box_limit": 0,
     # Skins go on a bundling rope: a worn lumpy bundle takes each skin
     # straight from SKIN (BUNDLE help's auto-bundling), the rope is free
@@ -246,6 +251,12 @@ FIELDS = (
         "Not worth keeping (trashed from boxes)",
         "list",
         "copper, embroidery needle",
+    ),
+    (
+        "loot_sweep",
+        "Trash those from the loot container beside a bin",
+        "bool",
+        ";break sweep shows what it would take",
     ),
     ("box_limit", "Boxes to carry at most", "int", "0: no limit"),
     (

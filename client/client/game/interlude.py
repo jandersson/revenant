@@ -1,5 +1,6 @@
 """Interludes — short chores any running script does at its next safe
-point; the almanac is the first. `loop.wants_stop()` (every trainer
+point: the almanac on its timer, and the loot sweep beside a bin
+(client/game/sweep.py; `;break sweep` is its dry run). `loop.wants_stop()` (every trainer
 calls it between steps) and `pause()`'s slices run them, so every
 script with a safe point gives them time without code of its own;
 ;train runs them between tasks and in rests, ;hunt in a clear room.
@@ -101,8 +102,46 @@ def _almanac_in_hand(s):
     return almanac.hand_free(s.state, almanac_noun(s))
 
 
+def _loot_profile(s):
+    character = getattr(getattr(s, "state", None), "name", None)
+    return profile(character) if character else {}
+
+
+def _sweep_due(s):
+    """The loot sweep (client/game/sweep.py, #378): on in the profile,
+    the container may hold a `loot_ignore` item, and a bin stands here."""
+    from client.game import discard, sweep
+
+    loot = _loot_profile(s)
+    if not loot.get("loot_sweep") or not loot.get("loot_container"):
+        return False
+    if not sweep.dirty():
+        return False
+    return bool(discard.receptacle(getattr(s.state, "room_objs", "") or ""))
+
+
+def _sweep(s, forced):
+    """`;break sweep` is the dry run: it names what the sweep would trash
+    and moves nothing, whether the sweep is on or not."""
+    from client.game import sweep
+
+    return sweep.run(s, _loot_profile(s), ask, "sweep", dry=forced)
+
+
+def _sweep_hand(s):
+    if "sweep" in _PENDING:
+        return True  # the dry run takes nothing in hand
+    state = s.state
+    return not (
+        getattr(state, "left_hand", None) and getattr(state, "right_hand", None)
+    )
+
+
 # name -> (due(s), run(s, forced), fits(s): True when its needs are met)
-REGISTRY = {"almanac": (_almanac_due, _study, _almanac_in_hand)}
+REGISTRY = {
+    "almanac": (_almanac_due, _study, _almanac_in_hand),
+    "sweep": (_sweep_due, _sweep, _sweep_hand),
+}
 
 
 def post(name):

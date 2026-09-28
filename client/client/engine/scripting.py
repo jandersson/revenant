@@ -446,6 +446,7 @@ RELOADABLE_MODULES = (
     "client.game.interlude",  # binds almanac and probe: after them
     "client.game.loop",  # binds interlude: after it
     "client.game.discard",
+    "client.game.sweep",  # binds loot and discard: after them
     "client.game.buffs",
     "client.game.barbarian",
     "client.game.hunting_data",
