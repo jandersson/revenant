@@ -4,6 +4,8 @@
     ;forage <item>       another item the map tags rooms with (dirt, moss, ...)
     ;forage <item> <n>   n collects, then end
     ;forage here         collect where you stand, even if the map lists no such item here
+    ;forage herb red flower [pieces=25]
+                         FORAGE a remedy's herb until that many pieces, then dry and combine them
     ;forage return       (typed while it runs) finish the collect in hand and end
     ;stop forage         quit at once
 
@@ -12,18 +14,23 @@ What it does
     (settings.json's `avoid_rooms` are walked around).
   - COLLECT <item> PRACTICE again and again: experience without items;
     Perception trains alongside.
+  - herb: FORAGE finds go into the loot container; then, at the Crossing Alchemy
+    Society's dry press, each is pressed and all are combined into one dried stack.
   - Both hands full: STOWs what they hold, never a drop, and goes on.
 
 When it stops
-  - Outdoorsmanship mind-locks, or the <n> collects are done
+  - Outdoorsmanship mind-locks, or the <n> collects are done (herb: the pieces)
   - nothing to find: 3 empty answers in a row before a first success, 10 after
+    (herb: 40 tries without a find)
   - a refusal, or no hand could be freed
   - death, or hostiles in the room (it flees)
-  - ;forage return
+  - ;forage return (herb: the finds so far are still pressed)
 
 ;train runs it as a task for Outdoorsmanship. The method is Elanthipedia's
 (Outdoorsmanship skill, Collect command). Report any "forage: unrecognized ..." line.
 """
+
+import re
 
 from client.game import flight, probe
 from client.game.loop import danger, wants_stop
@@ -77,6 +84,24 @@ Stops at mind-lock, on death, on hostiles in the room, and on
 `return`. ;train runs it as a task (skills:
 ["Outdoorsmanship"], return_word "return").
 Stop with:  ;stop forage (at once), or ;forage return for a clean finish.
+
+The herb mode (#370, captured 2026-09-28 on a circle-14 Paladin,
+Outdoorsmanship 66, the Crossing): FORAGE RED FLOWER finds about one
+try in four or five — "You manage to find some red flowers." (6
+pieces, COUNT: "You count out 6 pieces of material there."); the
+plural name answers "can't quite seem to remember what it was you
+were looking for" and never finds, so the herb is the wiki's forage
+name (Elanthipedia: Red flower). COLLECT RED FLOWER found nothing in
+15 at that rank (a pile's size is skill against the herb's
+difficulty). A raw herb will not COMBINE ("The flowers must first be
+prepared before it can be combined with anything else."); the
+Alchemy Society's Tool Shop has a public dry press (LOOK: "A large
+iron press designed for fast drying of herbs and spices."): PUT MY
+FLOWERS IN PRESS — "... You then crank the press open and remove some
+dried red flowers." (5-7 s); a dried one answers "That herb already
+appears prepared, and so you stop." Dried stacks join: "You combine
+the stacks of herbs together." A remedy takes five pieces a use, so
+the stack's size is ;remedies' to use (#370).
 """
 
 ITEM = "rock"
@@ -128,13 +153,36 @@ _REFUSED = ("can't do that", "cannot do that", "not something you can", "what we
 # minutes, no roundtime, until the fuse. The hands are freed with STOW.
 _HANDS_FULL = ("at least one hand free",)
 
+# The herb mode (#370, captured 2026-09-28; the wordings in _NOTES).
+HERB_PIECES = 25  # a bought stack's size: five uses of a remedy
+HERB_MISSES = 40  # tries without a find before the run gives up
+PRESS_ROOMS = (8860,)  # the Crossing Alchemy Society's Tool Shop: a dry press
+_HERB_FOUND = re.compile(r"you manage to find (?:some |an? )?(?P<what>[^.!]+)", re.I)
+_PIECES = re.compile(r"count out (\d+) pieces?")
+_PRESSED = ("remove some dried",)
+_PREPARED = ("already appears prepared",)
+_COMBINED = ("you combine",)
+_STOWED_IN = re.compile(r"you put your .+? in your (?P<container>[^.]+)\.", re.I)
+_GOT = ("you get", "you pick up", "you are already holding")
+
 
 def parse_args(args):
     options = {"item": ITEM, "count": 0, "here": False}
-    for arg in args:
-        low = arg.strip().lower()
-        if not low:
-            continue
+    words = [arg.strip().lower() for arg in args if arg.strip()]
+    if words and words[0] == "herb":
+        # ;forage herb red flower [pieces=N] [here]
+        options.update(herb=True, pieces=HERB_PIECES)
+        name = []
+        for low in words[1:]:
+            if low == "here":
+                options["here"] = True
+            elif low.startswith("pieces=") and low[7:].isdigit():
+                options["pieces"] = int(low[7:])
+            else:
+                name.append(low)
+        options["item"] = " ".join(name)
+        return options
+    for low in words:
         if low == "here":
             options["here"] = True
         elif low.isdigit():
@@ -242,11 +290,123 @@ def run(s, options, db=None, avoid=()):
     return "collect fuse spent", collected
 
 
+def ask(s, command):
+    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
+
+
+def pieces_of(s, noun):
+    """COUNT MY <noun>: its pieces, 0 when the answer gives none."""
+    match = _PIECES.search(ask(s, f"count my {noun}").lower())
+    return int(match.group(1)) if match else 0
+
+
+def gather_herb(s, options, bag):
+    """FORAGE the herb until the pieces are in: each find counted and
+    put in `bag`. (why it ended, pieces, the find's noun)."""
+    item, target = options["item"], options["pieces"]
+    pieces, misses, noun = 0, 0, ""
+    for _ in range(MAX_COLLECTS):
+        if reason := danger(s):
+            return reason, pieces, noun
+        if wants_stop(s):
+            return "returning on request", pieces, noun
+        if pieces >= target:
+            return f"{pieces} piece(s) of {item} found", pieces, noun
+        answer = ask(s, f"forage {item}")
+        found = _HERB_FOUND.search(answer)
+        if found:
+            misses = 0
+            noun = found.group("what").split()[-1].lower()
+            pieces += pieces_of(s, noun)
+            ask(s, f"put my {noun} in my {bag}")
+            continue
+        outcome = classify(answer)
+        if outcome == "hands full":
+            if not free_a_hand(s):
+                return f"no hand free: {first_line(answer)}", pieces, noun
+            continue
+        if outcome == "refused":
+            return f"refused: {first_line(answer)}", pieces, noun
+        misses += 1
+        if misses >= HERB_MISSES:
+            return f"no {item} found in {misses} tries", pieces, noun
+    return "forage fuse spent", pieces, noun
+
+
+def press_herb(s, noun, bag):
+    """At the dry press: each raw find out of `bag` pressed and combined
+    with the dried stack before it, the stack stowed. The dried stack's
+    pieces, or None when nothing came out of the bag."""
+    home = ""  # where STOW puts the dried stack, read off its answer
+    stacks = 0
+    for _ in range(MAX_COLLECTS):
+        if s.dead or danger(s):
+            break
+        got = ask(s, f"get {noun} from my {bag}").lower()
+        if not any(word in got for word in _GOT):
+            break  # the bag holds no more
+        pressed = ask(s, f"put my {noun} in press").lower()
+        if not any(word in pressed for word in _PRESSED + _PREPARED):
+            s.echo(f"forage: the press answered {first_line(pressed)!r} — stopping")
+            ask(s, f"put my {noun} in my {bag}")
+            break
+        stacks += 1
+        if home:
+            again = ask(s, f"get dried {noun} from my {home}").lower()
+            if any(word in again for word in _GOT):
+                if not any(
+                    word in ask(s, f"combine {noun} with {noun}").lower()
+                    for word in _COMBINED
+                ):
+                    s.echo(f"forage: the {noun} would not combine — two stacks kept")
+                    ask(s, "stow left")
+        stored = _STOWED_IN.search(ask(s, f"stow my {noun}"))
+        if stored:
+            home = stored.group("container").strip()
+        if any(word in pressed for word in _PREPARED) and home == bag:
+            break  # the bag holds only the dried stack now: all pressed
+    if not stacks:
+        return None
+    if home:
+        ask(s, f"get dried {noun} from my {home}")
+        total = pieces_of(s, noun)
+        ask(s, f"stow my {noun}")
+        return total
+    return 0
+
+
+def run_herb(s, options, db=None, avoid=(), bag="sack"):
+    """The herb mode: gather, then press and combine. Why it ended."""
+    item = options["item"]
+    if not item:
+        return "which herb? — ;forage herb red flower"
+    if db is not None and not options["here"] and not find_item(s, db, item, avoid):
+        return "no room to forage in"
+    reason, pieces, noun = gather_herb(s, options, bag)
+    if not pieces:
+        return reason
+    s.echo(f"forage: {reason} — to the dry press")
+    if db is not None and not walk(s, db, set(PRESS_ROOMS), describe="the dry press"):
+        return f"{reason}; could not reach the dry press — the {noun} wait in the {bag}"
+    total = press_herb(s, noun, bag)
+    if total is None:
+        return f"{reason}; nothing to press"
+    return f"{reason}; pressed and combined — {total} dried piece(s) stowed"
+
+
 def main(s):
     options = parse_args(s.args or [])
     db = None if options["here"] else MapDB.load()
     avoid = avoided_rooms(db, load_settings().get("avoid_rooms")) if db else ()
-    reason, collected = run(s, options, db=db, avoid=avoid)
-    s.echo(f"forage: {reason} — {collected} collect(s) of {options['item']}")
+    if options.get("herb"):
+        from client.game.profile import load_profile
+
+        profile = load_profile(getattr(s.state, "name", None) or "")
+        bag = profile.get("loot_container") or "backpack"
+        reason = run_herb(s, options, db=db, avoid=avoid, bag=bag)
+        s.echo(f"forage: {reason}")
+    else:
+        reason, collected = run(s, options, db=db, avoid=avoid)
+        s.echo(f"forage: {reason} — {collected} collect(s) of {options['item']}")
     if "hostiles" in reason:
         flight.react(s, "forage")

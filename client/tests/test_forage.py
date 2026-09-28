@@ -272,3 +272,99 @@ def test_hands_that_will_not_free_end_the_run_instead_of_spinning(travel):
     reason, collected = forage.run(s, forage.parse_args([]), db=MAP)
     assert reason.startswith("no hand free")
     assert s.sent.count("collect rock practice") == 1  # no hand state to stow
+
+
+# The herb mode (#370), captured 2026-09-28 at Midton Circle and the
+# Alchemy Society's dry press.
+GARDEN = MapDB(
+    [
+        {
+            "id": 19343,
+            "uid": [1],
+            "title": ["[Crossing, Midton Circle]"],
+            "tags": ["red flower"],
+            "wayto": {"8860": "go walkway"},
+        },
+        {
+            "id": 8860,
+            "uid": [2],
+            "title": ["[Crossing Alchemy Society, Tool Shop]"],
+            "tags": [],
+            "wayto": {"19343": "out"},
+        },
+    ]
+)
+HERB_FOUND = "You manage to find some red flowers.\nRoundtime: 4 sec."
+SIX = "You count out 6 pieces of material there."
+INTO_SACK = "You put your flowers in your canvas sack."
+FROM_SACK = "You get some red flowers from inside your canvas sack."
+PRESSED = (
+    "You place some red flowers on top of the press and crank the handle until "
+    "the top has firmly closed down.  A slight hiss and some steam escape from the "
+    "edges.  You then crank the press open and remove some dried red flowers.\n"
+    "Roundtime: 5 sec."
+)
+INTO_PACK = "You put your flowers in your backpack."
+FROM_PACK = "You get some dried red flowers from inside your backpack."
+COMBINED = "You combine the stacks of herbs together."
+NOTHING = "What were you referring to?"
+
+
+def test_the_herb_arguments_are_its_name_and_the_pieces_wanted():
+    options = forage.parse_args(["herb", "red", "flower", "pieces=12"])
+    assert options["herb"] and options["item"] == "red flower"
+    assert options["pieces"] == 12 and not options["here"]
+    assert forage.parse_args(["herb", "red", "flower"])["pieces"] == 25
+
+
+def test_a_herb_is_foraged_to_the_pieces_then_pressed_and_combined(travel):
+    s = Fake(
+        [
+            EMPTY,  # a miss
+            HERB_FOUND,
+            SIX,
+            INTO_SACK,
+            HERB_FOUND,
+            SIX,
+            INTO_SACK,  # 12 pieces: enough
+            FROM_SACK,
+            PRESSED,
+            INTO_PACK,  # the first pressed and stowed
+            FROM_SACK,
+            PRESSED,
+            FROM_PACK,
+            COMBINED,
+            INTO_PACK,  # joined
+            NOTHING,  # the sack is empty
+            FROM_PACK,
+            "You count out 12 pieces of material there.",
+            INTO_PACK,
+        ],
+        room=19343,
+    )
+    options = forage.parse_args(["herb", "red", "flower", "pieces=12"])
+    reason = forage.run_herb(s, options, db=GARDEN, bag="sack")
+    assert s.sent[:4] == [
+        "forage red flower",
+        "forage red flower",
+        "count my flowers",
+        "put my flowers in my sack",
+    ]
+    assert s.walks == [{8860}]  # to the press once the pieces were in
+    assert s.sent.count("put my flowers in press") == 2
+    assert "get dried flowers from my backpack" in s.sent
+    assert "combine flowers with flowers" in s.sent
+    assert reason.endswith("pressed and combined — 12 dried piece(s) stowed")
+
+
+def test_a_herb_never_found_ends_after_the_misses(travel, monkeypatch):
+    monkeypatch.setattr(forage, "HERB_MISSES", 3)
+    s = Fake([EMPTY, FORGOT, TRIED], room=19343)
+    # The plural is no forage name: it never finds, and the map tags none.
+    assert forage.run_herb(
+        Fake([], room=19343), forage.parse_args(["herb", "red", "flowers"]), GARDEN
+    ) == ("no room to forage in")
+    options = forage.parse_args(["herb", "red", "flowers", "here"])
+    reason = forage.run_herb(s, options, db=GARDEN, bag="sack")
+    assert reason == "no red flowers found in 3 tries"
+    assert s.walks == []  # nothing to press
