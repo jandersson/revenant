@@ -333,7 +333,9 @@ def test_a_gem_found_on_the_corpse_goes_in_the_pouch(travel):
     assert "put my ruby in my pouch" in arena.sent
 
 
-def test_what_the_pouch_refuses_is_stowed_like_loot(travel):
+def test_a_found_non_gem_is_stowed_like_loot_never_pouched(travel):
+    # Only a gem tries the pouch (2026-09-28: a scout's plovik leaves
+    # went at a full pouch and stayed in hand through the fight).
     found = "You search the rat.\nYou find a rusty nail."
     arena = _run(
         Arena(
@@ -341,12 +343,11 @@ def test_what_the_pouch_refuses_is_stowed_like_loot(travel):
                 "attack": [(KILL, kill)],
                 "skin": [SKINNED],
                 "loot": [found],
-                "put my nail": ["You can't put that in there."],
             }
         ),
         profile=PROFILE | {"gem_pouch": "pouch"},
     )
-    assert "put my nail in my pouch" in arena.sent
+    assert "put my nail in my pouch" not in arena.sent
     assert "put my nail in my sack" in arena.sent
 
 

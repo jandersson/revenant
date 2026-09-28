@@ -1461,15 +1461,20 @@ def set_stores(s, profile):
 
 
 def pocket(s, profile, item):
-    """Something a search turned up: picked up, then into the gem pouch
-    when the profile keeps one (the game refuses non-gems, which then
-    get stowed like loot), else stowed."""
+    """Something a search turned up: picked up, then a gem into the gem
+    pouch when the profile keeps one, anything else — or a gem the
+    pouch refuses — stowed like loot. Only "You put" is a pouching: a
+    S'lai scout's plovik leaves went at a full pouch, "There isn't any
+    more room in the pouch for that.", and stayed in hand through the
+    fight (2026-09-28)."""
     ask(s, f"get {item}")
     pouch = profile["gem_pouch"]
-    if pouch:
+    if pouch and noun_of(item) in loot.GEM_NOUNS:
         answer = ask(s, f"put my {item} in my {pouch}")
-        if "can't" not in answer.lower() and "cannot" not in answer.lower():
+        if "you put" in answer.lower():
             return
+        if any(line in answer.lower() for line in _NO_ROOM):
+            s.echo(f"hunt: the {pouch} is full — the {item} goes with the loot (#283)")
     stow(s, profile, item)
 
 

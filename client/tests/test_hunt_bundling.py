@@ -301,3 +301,54 @@ def test_kill_and_item_nouns_are_read_from_the_game_lines():
         ),
     ):
         assert hunt.items_in("You search the small grendel.\n" + line) == [item], line
+
+
+# A S'lai scout's pockets, captured 2026-09-28: herbs are no gem, and a
+# full pouch answers "There isn't any more room in the pouch for that."
+POUCH_FULL_ANSWER = "There isn't any more room in the pouch for that.\n"
+
+
+def _pocketing(monkeypatch, answers):
+    from types import SimpleNamespace
+
+    sent, echoed = [], []
+
+    def ask(s, command, *_):
+        sent.append(command)
+        for prefix, answer in answers:
+            if command.startswith(prefix):
+                return answer
+        return "You put it away.\n"
+
+    monkeypatch.setattr(hunt, "probe", SimpleNamespace(ask=ask))
+    handle = SimpleNamespace(echo=echoed.append)
+    profile = {"gem_pouch": "pouch", "loot_container": "sack"}
+    return handle, profile, sent, echoed
+
+
+def test_a_searched_herb_is_stowed_with_the_loot_not_pouched(monkeypatch):
+    handle, profile, sent, _ = _pocketing(monkeypatch, [])
+    hunt.pocket(handle, profile, "leaves")
+    assert sent == ["get leaves", "put my leaves in my sack"]
+
+
+def test_a_gem_the_full_pouch_refuses_is_stowed_and_said(monkeypatch):
+    handle, profile, sent, echoed = _pocketing(
+        monkeypatch, [("put my stones in my pouch", POUCH_FULL_ANSWER)]
+    )
+    hunt.pocket(handle, profile, "stones")
+    assert sent == [
+        "get stones",
+        "put my stones in my pouch",
+        "put my stones in my sack",
+    ]
+    assert any("pouch is full" in line for line in echoed)
+
+
+def test_a_gem_the_pouch_takes_stays_there(monkeypatch):
+    handle, profile, sent, _ = _pocketing(
+        monkeypatch,
+        [("put my stones in my pouch", "You put your stones in your gem pouch.\n")],
+    )
+    hunt.pocket(handle, profile, "stones")
+    assert sent == ["get stones", "put my stones in my pouch"]
