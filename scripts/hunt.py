@@ -144,8 +144,9 @@ were a minute standing in the badgers' room, 2026-09-20 — and whenever
 the Spells window drops one), and
 `train_casting` names the magic skills to train by recasting buffs
 between swings — each cast for the skill with the emptiest pool, with
-the first buff DISCERN says uses it (#374) — feeding more mana each
-time until the game warns of strain, until the skills lock — one cast
+the first buff DISCERN says uses it (#374) — starting a step under
+DISCERN's estimate and feeding more up to it until the game warns of
+strain (#375), until the skills lock — one cast
 per the profile's `cast_gap` seconds (60 by default: at 20 a badger
 got six bites per swing, #189).
 `debilitation` names a targeted spell ("Stun Foe") cast at the prey

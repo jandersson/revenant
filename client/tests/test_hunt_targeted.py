@@ -695,14 +695,16 @@ def test_the_training_buff_is_discerned_and_its_ramp_capped_too(travel):
     arena.state.vitals["mana"] = 100
     _run(arena, profile=TRAINING | {"max_kills": 3}, travel_first=False)
     assert arena.sent.count("discern heroic strength") == 1
+    # The ramp starts a step under the estimate, not at the minimum (#375).
     assert prepares(arena) == [
-        "prepare heroic strength",
         "prepare heroic strength 2",
         "prepare heroic strength 4",
         "prepare heroic strength 4",  # the estimate's total, not 6
+        "prepare heroic strength 4",
     ]
     assert any(
-        "DISCERN caps heroic strength at 4 mana (minimum 1)" in t for t in arena.echoed
+        "DISCERN caps heroic strength at 4 mana (minimum 1), starting at 2" in t
+        for t in arena.echoed
     )
     assert buffs.mana_limit("You think you could weave at most 27 mana streams") is None
     assert (

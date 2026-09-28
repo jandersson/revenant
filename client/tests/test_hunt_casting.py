@@ -647,7 +647,9 @@ def test_a_worn_piece_found_in_the_sack_is_got_instead_and_worn_back(travel):
         "charge my anklet 12",
         "get my anklet",
         "charge my anklet 12",
-        "prepare heroic strength 2",  # the training ramp's second step
+        # The ramp's second step is 2 streams, and the anklet's 12 are
+        # invoked into the cast: the minimum is prepared (#375).
+        "prepare heroic strength",
     ]
     assert not [text for text in arena.echoed if "unrecognized" in text]
     assert not [text for text in arena.echoed if "cambrinth off" in text]

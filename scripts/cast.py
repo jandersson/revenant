@@ -20,8 +20,9 @@ it — and once a minute POWERs, which
 trains Attunement (Elanthipedia: Attunement skill, Perceive command:
 once per room per minute, so standing still it pays at most once a
 minute; whether a room pays again without leaving it is measured on
-the first run). The mana fed rises by two per cast until the game
-warns of strain or a cast fails, then holds one step under
+the first run). The mana fed starts two under DISCERN's estimate
+(the piece's charge counted) and rises by two per cast up to it until
+the game warns of strain or a cast fails, then holds one step under
 (Elanthipedia's magic category: fewer, larger casts teach more). Only
 training casts go out: a buff that lapses is not kept up. A profile
 naming no skill in `train_casting` trains every skill its buffs use.

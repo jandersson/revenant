@@ -73,9 +73,9 @@ DEFAULTS = {
     # below mind-lock, with the first buff DISCERN says uses it (#374)
     # — Augmentation, Warding, Utility for a Paladin's Heroic Strength,
     # Aspirant's Aegis and Hands of Justice; "all" for every skill the
-    # buffs use. The mana fed grows by steps until the game warns of
-    # strain, then holds one step under. Empty casts buffs only when
-    # they run out.
+    # buffs use. The mana fed starts a step under DISCERN's estimate
+    # and grows by steps up to it until the game warns of strain, then
+    # holds one step under. Empty casts buffs only when they run out.
     "train_casting": [],
     # A cambrinth piece held for Arcana: its noun ("flake"), charged with
     # cambrinth_mana before every training cast and INVOKEd into it. The

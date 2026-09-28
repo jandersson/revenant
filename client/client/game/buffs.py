@@ -9,9 +9,10 @@ no idea how to cast that spell." to "prepare hands of justice", is
 prepared again by the abbreviation ;sheet recorded off SPELLS, "hoj",
 2026-09-26, #320, and by the abbreviation first for the rest of the
 run) and, for the magic skills the profile names in `train_casting`,
-recasts buffs between actions while mana holds, feeding more mana each
-time until the game warns of strain or a cast fails, then holding one
-step under — at most one training cast per the profile's `cast_gap`
+recasts buffs between actions while mana holds, starting one step
+under DISCERN's estimate and feeding more each time up to it until the
+game warns of strain or a cast fails, then holding one step under — at
+most one training cast per the profile's `cast_gap`
 seconds (60 by default: at 20 the first badger fight was seven swings
 to the badger's 42 in four minutes, a cambrinth cycle being eight
 commands, 2026-09-14, #189). Each skill is trained by the first buff
@@ -93,9 +94,16 @@ able to cast this spell" before any PREPARE is spent, and reads the
 estimate — "The spell requires at minimum 1 mana streams and you
 think you can reinforce it with 2 more, for a total of 3 streams."
 (captured 2026-09-20) — as the ramp's ceiling: no cast climbs past
-the game's own idea of this caster's most, the training buff's ramp
-included (it is DISCERNed too), after five backfires in one evening
-had each left a nerve wound (#202). Captured 2026-09-18
+the game's own idea of this caster's most, the training buffs' ramps
+included (they are DISCERNed too), after five backfires in one evening
+had each left a nerve wound (#202). Each ramp starts one MANA_STEP
+under that estimate rather than at the minimum, and a buff's ramp
+counts streams — the prepared mana plus the cambrinth charge invoked
+into the cast — since the estimate counts them too: every run climbed
+from the minimum for a dozen casts, and 18 prepared with the anklet's
+12 backfired under an estimate of 28 (2026-09-28, #375; Elanthipedia,
+Magic 3.0: "Larger casts of spells are rewarded by a net increase in
+experience over several smaller casts"). Captured 2026-09-18
 on Footman's Strike at Targeted Magic 1: the spell's description, then
 "This is a targeted spell, which must be TARGETed at a specific
 opponent. ... To begin to be able to cast this spell, you will need to
@@ -206,8 +214,9 @@ CAST_OUTCOMES = (
 )
 # Training casts: Elanthipedia's magic category — "fewer but larger
 # spellcasts are more efficient in terms of experience" — so the mana
-# fed grows by MANA_STEP each cast until the strain warning or a
-# failed cast, then holds one step under.
+# fed starts a step under DISCERN's estimate (the minimum without one)
+# and grows by MANA_STEP each cast up to it, until the strain warning
+# or a failed cast, then holds one step under (#375).
 MANA_STEP = 2  # 5 backfired on a circle-1 Paladin (2026-09-12)
 # Cambrinth answers, failures before successes: a full piece's answer
 # still says "channel all the energy" on its first line.
@@ -893,7 +902,9 @@ def discern_slots(s, profile, state, ask, prefix, report):
         elif outcome is None:
             report("discern", answer)
         else:
-            _cap_by_discern(s, prefix, spell, answer, state.slot_limit, slot)
+            start = _cap_by_discern(s, prefix, spell, answer, state.slot_limit, slot)
+            if start is not None:
+                state.slot_mana.setdefault(slot, start)
     # The training buffs too: their ramps climbed the same way, with no
     # estimate to stop them (2026-09-20).
     discern_training_buffs(s, profile, state, ask, prefix)
@@ -942,9 +953,10 @@ def discern_training_buffs(s, profile, state, ask, prefix):
                     f"{prefix}: DISCERN named no skill for {spell} — no training on it"
                 )
             limits = {}
-            _cap_by_discern(s, prefix, spell, answer, limits, "buff")
+            start = _cap_by_discern(s, prefix, spell, answer, limits, "buff")
             if "buff" in limits:
                 state.buff_limit[spell] = limits["buff"]
+                state.buff_mana.setdefault(spell, start)
         if known and serves(known):
             covered |= {skill.lower() for skill in known}
     for name in names:
@@ -957,19 +969,27 @@ def discern_training_buffs(s, profile, state, ask, prefix):
 
 
 def _cap_by_discern(s, prefix, spell, answer, limits, key):
-    """DISCERN's estimate as the ramp's ceiling for `key`, said once;
-    an answer without the estimate leaves the ramp uncapped, as before."""
+    """DISCERN's estimate as the ramp's ceiling for `key`, said once, and
+    the ramp's start: one MANA_STEP under the estimate, the minimum when
+    that falls under it (#375). None for an answer without the
+    estimate, whose ramp climbs from the minimum uncapped, as before."""
     limit = mana_limit(answer)
     if limit is None:
-        return
+        return None
     minimum, total = limit
     # 0 is "the minimum" to the ramp (a bare PREPARE): an estimate that
     # allows nothing past it pins the ramp there.
     limits[key] = 0 if total <= minimum else total
+    start = total - MANA_STEP if total - MANA_STEP > minimum else 0
     s.echo(
         f"{prefix}: DISCERN caps {spell} at {total} mana"
-        + (" — the minimum, no ramp" if total <= minimum else f" (minimum {minimum})")
+        + (
+            " — the minimum, no ramp"
+            if total <= minimum
+            else f" (minimum {minimum}), starting at {start or 'the minimum'}"
+        )
     )
+    return start
 
 
 def cast_targeted(s, profile, state, ask, prefix, report, slot, target="", filler=None):
@@ -1066,10 +1086,16 @@ def cast_buffs(
         training = pick is not None and spell == pick[1]
         if not training and (not upkeep or buff_running(s, spell, state)):
             continue
-        mana = state.buff_mana.get(spell, 0) if training else 0
+        # The ramp counts streams: the prepared mana plus the cambrinth's
+        # charge when the piece is invoked into the same cast, which
+        # DISCERN's estimate counts too — 18 prepared with the anklet's 12
+        # backfired under an estimate of 28 (2026-09-28, #375).
+        streams = state.buff_mana.get(spell, 0) if training else 0
+        mana = streams
         invoke = None
         if training and charge_cambrinth(s, profile, state, ask, prefix, report):
             invoke = profile["cambrinth"]
+            mana = max(streams - int(profile.get("cambrinth_mana") or 1), 0)
         result = cast_once(
             s,
             spell,
@@ -1106,7 +1132,7 @@ def cast_buffs(
                 + (f" (+{profile['cambrinth']})" if invoke else "")
             )
             if spell not in state.buff_cap:
-                state.buff_mana[spell] = climb(mana, state.buff_limit.get(spell))
+                state.buff_mana[spell] = climb(streams, state.buff_limit.get(spell))
         elif mana == 0:
             # Even the minimum failed (a circle-1 Paladin's 5 mana
             # "barely backfires", 2026-09-12): no more training casts of
@@ -1115,9 +1141,9 @@ def cast_buffs(
             dropped = True
             s.echo(f"{prefix}: {spell} fails at minimum mana — no training casts of it")
         else:
-            state.buff_mana[spell] = state.buff_cap[spell] = mana - MANA_STEP
+            state.buff_mana[spell] = state.buff_cap[spell] = streams - MANA_STEP
             s.echo(
-                f"{prefix}: {spell} at {mana} mana was too much ({result}) — "
+                f"{prefix}: {spell} at {streams} mana was too much ({result}) — "
                 f"holding at {state.buff_mana[spell] or 'minimum'}"
             )
     if dropped and not state.training_off and not _training_left(profile, state):
