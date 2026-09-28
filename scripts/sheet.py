@@ -8,7 +8,8 @@ refresh, in minutes), and the spells: learned spells by chapter,
 apprentice spells, cantrips with their keywords, magic feats, and the
 spell slots left (#136) — into ~/.revenant/history.db, where beholder
 renders the history (#61). SPELL costs no roundtime, so it rides the
-schedule; it is asked once per snapshot and a miss waits for the next. Every session snapshots on start and every
+schedule; it is asked once per snapshot (never of a Barbarian, who has
+no spells) and a miss waits for the next. Every session snapshots on start and every
 three hours after; the sheet moves slowly, so that's plenty. A command
 the game leaves unanswered (login noise eats them) is re-asked, and
 whatever still won't answer is left out of the snapshot rather than
@@ -547,9 +548,12 @@ def snapshot(s, inventory=False):
             f"sheet: {len(seeded)} skill(s) the exp window does not show seeded from EXP ALL"
         )
     # SPELL costs no roundtime, so it joins the schedule (#136); the
-    # renaming room refuses it like everything else.
+    # renaming room refuses it like everything else, and a Barbarian has
+    # no spells — "You have no desire to soil yourself with magical
+    # trickery." (2026-09-26, #343). A guild INFO did not name gets the
+    # ask; the refusal parses to no spells.
     spells = {"spells": [], "slots": None}
-    if not renaming:
+    if not renaming and info.get("guild") != "Barbarian":
         spells, _ = ask(
             s,
             "spell",

@@ -1043,6 +1043,27 @@ def test_an_unanswered_spell_leaves_no_rows_and_null_slots(monkeypatch, tmp_path
     assert connection.execute("SELECT spell_slots FROM character").fetchone()[0] is None
 
 
+# A Barbarian's SPELL, captured 2026-09-26 (#343).
+NO_MAGIC = "You have no desire to soil yourself with magical trickery.\n"
+
+
+def test_a_barbarian_is_never_asked_for_spells(monkeypatch, tmp_path):
+    barbarian = INFO_TEXT.replace("Guild: Commoner", "Guild: Barbarian")
+    handle, connection = snapshot_into(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [barbarian.splitlines(keepends=True)],
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
+            "spell": [[NO_MAGIC]],
+        },
+    )
+    assert "spell" not in handle.sent
+    assert connection.execute("SELECT count(*) FROM spells").fetchone()[0] == 0
+    # Asked all the same (INFO unanswered), the refusal is no spells.
+    assert sheet.parse_spells(NO_MAGIC) == {"spells": [], "slots": None}
+
+
 def test_the_renaming_room_is_never_asked_for_spells(monkeypatch, tmp_path):
     renaming = "You must change your name to something which fits the game.\n"
     handle, _ = snapshot_into(
