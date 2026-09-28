@@ -7,6 +7,10 @@ import importlib.util
 import pathlib
 from types import SimpleNamespace
 
+import pytest
+
+from client.engine.scripting import ScriptStopped
+
 REPO = pathlib.Path(__file__).parents[2]
 
 
@@ -100,6 +104,7 @@ class Fake:
 
 def run(fake, args=()):
     script.probe = SimpleNamespace(ask=fake.ask)
+    script.clock = lambda: fake.slept  # the per-item wait runs on the fake's sleeps
     script.run(fake, script.parse_args(list(args)))
     return "\n".join(fake.echoed)
 
@@ -109,15 +114,16 @@ def appraisals(fake):
 
 
 def test_it_appraises_the_inventory_in_rotation_pouch_first_until_mind_lock():
+    # One lap, then the ten-minute wait an item needs before it teaches
+    # again (#382); the pool locks meanwhile.
     fake = Fake(mindstates=[1, 5, 10, 20, 30, 34])
     out = run(fake, ["once"])
     assert appraisals(fake) == [
         "appraise my pouch quick",
         "appraise my scimitar quick",
         "appraise my sack quick",
-        "appraise my pouch quick",
-        "appraise my scimitar quick",
     ]
+    assert "every item appraised in the last 10 min" in out
     assert (
         "appraise: 3 item(s) in rotation (pouch, scimitar, sack) — Appraisal 1/34"
         in out
@@ -193,3 +199,118 @@ def test_the_exp_window_without_the_skill_is_asked_and_seeded():
         "mindstate": 1,
         "rate": "dabbling",
     }
+
+
+# --- gem pouches in a container, and the per-item wait (#382) -----------------
+
+# Captured 2026-09-28 on Crannach's fuzzy gem pouches (Appraisal 1205).
+IN_THERE = "You can't appraise the fuzzy gem pouch in there.\n"
+TIED = (
+    "The fuzzy gem pouch is a container.\nYou are certain that the fuzzy gem pouch "
+    "weighs exactly 51 stones.\nYou sort through the gems and finally decide that "
+    "they're worth a total of about 1515348 Kronars.\nRoundtime: 5 seconds.\n"
+)
+CLOSED = (
+    "The fuzzy gem pouch is a container, and can be opened and closed.\nYou'll need "
+    "to open the fuzzy gem pouch to examine its contents.\n"
+)
+EMPTY = "There doesn't appear to be anything in the fuzzy gem pouch.\n"
+
+PACKED = [
+    {"noun": "pack", "depth": 0, "exist": "10", "container_exist": None},
+    {"noun": "pouch", "depth": 1, "exist": "11", "container_exist": "10"},
+    {"noun": "pouch", "depth": 1, "exist": "12", "container_exist": "10"},
+    {"noun": "pouch", "depth": 1, "exist": "13", "container_exist": "10"},
+    {"noun": "helm", "depth": 0, "exist": "20", "container_exist": None},
+]
+
+
+class Packed(Fake):
+    """The pack's pouches: GET #id IN #10 puts one in the right hand,
+    PUT #id IN #10 takes it back; each pouch answers as `answers` says."""
+
+    def __init__(self, answers, **kwargs):
+        super().__init__(possessions=PACKED, **kwargs)
+        self.answers = answers
+        self.state.left_hand = None
+        self.state.right_hand = None
+
+    def ask(self, s, command, *_):
+        self.sent.append(command)
+        words = command.split()
+        if words[0] == "get":
+            self.state.right_hand = {"noun": "pouch", "exist": words[1][1:]}
+            return "You get a fuzzy gem pouch from inside your hunting pack.\n"
+        if words[0] == "put":
+            self.state.right_hand = None
+            return "You put your pouch in your hunting pack.\n"
+        if words[0] == "appraise":
+            exist = words[1][1:]
+            if self.stop_after is not None and self.appraised >= self.stop_after:
+                self.stopped = True
+            self.appraised += 1
+            if self.mindstates:
+                self.state.experience["Appraisal"]["mindstate"] = self.mindstates.pop(0)
+            if exist in self.answers and exist not in (self.state.right_hand or {}).get(
+                "exist", ""
+            ):
+                return IN_THERE
+            return self.answers.get(exist, TIED)
+        return super().ask(s, command)
+
+    def put(self, command, cleanup=False):
+        self.sent.append(command)
+        if command.startswith("put "):
+            self.state.right_hand = None
+
+
+def test_pouches_in_a_container_are_got_appraised_in_hand_and_put_back():
+    fake = Packed({"12": CLOSED, "13": EMPTY}, mindstates=[1] + [5] * 20 + [34] * 5)
+    out = run(fake, ["once"])
+    assert fake.sent[:3] == [
+        "get #11 in #10",
+        "appraise #11 quick",
+        "put #11 in #10",
+    ]
+    assert "get #12 in #10" in fake.sent and "put #12 in #10" in fake.sent
+    assert "appraise #20 quick" in fake.sent  # the worn helm, after the pouches
+    # The worn pack is appraised too, after the pouches it holds.
+    assert "appraise: 5 item(s) in rotation (pouch in the pack x3, pack, helm)" in out
+    assert "the pouch in the pack is closed — nothing to appraise in it" in out
+    assert "the pouch in the pack is empty — out of the rotation (3 left)" in out
+    assert fake.state.right_hand is None  # every pouch back in the pack
+
+
+def test_no_item_is_appraised_twice_within_the_wait():
+    fake = Packed({}, mindstates=[1] + [5] * 1300, stop_after=6)
+    run(fake)
+    times = {}
+    for command in appraisals(fake):
+        times.setdefault(command, 0)
+        times[command] += 1
+    # Two laps of the four items in 1,200 fake seconds, never three.
+    assert max(times.values()) <= 2
+    assert fake.slept >= 600
+
+
+def test_a_stop_with_a_pouch_in_hand_puts_it_back():
+    class Stopped(Packed):
+        def waitrt(self):
+            if self.state.right_hand is not None:
+                raise ScriptStopped()
+
+    fake = Stopped({}, mindstates=[1, 5, 5])
+    with pytest.raises(ScriptStopped):
+        run(fake)
+    assert fake.sent[-1] == "put #11 in #10"
+    assert "the item in hand went back where it came from" in "\n".join(fake.echoed)
+
+
+def test_a_named_item_inside_a_container_is_said_and_dropped():
+    # appraisal_items naming a pouch in the pack: refused where it lies.
+    fake = Fake(mindstates=[1, 5, 5, 5], possessions=[])
+    fake.ask = lambda s, command, *_: (
+        fake.sent.append(command) or (IN_THERE if "second" in command else CERTAIN)
+    )
+    out = run(fake, ["items=second pouch,shield", "once"])
+    assert "the second pouch is inside a container" in out
