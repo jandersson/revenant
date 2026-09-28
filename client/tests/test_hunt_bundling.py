@@ -392,12 +392,20 @@ def _almanac_hunt(monkeypatch, retreat, ready=True):
     return SimpleNamespace(state=state), studied, sent
 
 
-def test_a_clear_room_studies_the_almanac(monkeypatch):
-    s, studied, _ = _almanac_hunt(monkeypatch, "")
+def test_a_clear_room_runs_the_interludes_with_the_weapon_kept(monkeypatch):
+    from types import SimpleNamespace
+
+    s, _, _ = _almanac_hunt(monkeypatch, "")
+    ran = []
+    monkeypatch.setattr(
+        hunt,
+        "interlude",
+        SimpleNamespace(run_due=lambda s, make_room=True: ran.append(make_room)),
+    )
+    hunt.study_almanac(s)  # a scout still here: nothing
     s.state.hostiles = {}
-    hunt.study_almanac(s, {"almanac": "almanac"})
-    hunt.study_almanac(s, {})  # no almanac in the profile
-    assert studied == ["hunt"]
+    hunt.study_almanac(s)
+    assert ran == [False]  # only with a hand already free
 
 
 def test_mid_fight_the_almanac_is_studied_after_a_retreat_to_pole_range(

@@ -1,0 +1,221 @@
+"""Interludes — these tests are the manual. A chore due (the profile's
+almanac on its timer, or a typed `;break almanac`) runs at the next
+safe point of whatever script reaches one; with both hands full the
+left hand's item is stowed for it and got back after
+(client/game/interlude.py, #372)."""
+
+from types import SimpleNamespace
+
+import pytest
+
+from client.game import almanac, interlude, loop
+from client.game.profile import save_profile
+
+STUDIED = (
+    "You set about studying your diamond-hide almanac intently.  You believe "
+    "you've learned something significant about Bow!\nRoundtime: 10 seconds\n"
+)
+GLEANED = (
+    "You've gleaned all the insight you can from the diamond-hide almanac, for "
+    "now.\n[Please try again in 9 roisaen.]\n"
+)
+
+
+@pytest.fixture(autouse=True)
+def fresh(monkeypatch):
+    now = {"t": 1000.0}
+    monkeypatch.setattr(almanac, "clock", lambda: now["t"])
+    monkeypatch.setattr(almanac, "_NEXT", {})
+    monkeypatch.setattr(almanac, "_OFF", set())
+    monkeypatch.setattr(interlude, "_PENDING", set())
+    monkeypatch.setattr(interlude, "_PROFILE", {})
+    return now
+
+
+class Game:
+    """The game's side: answers by command prefix, the hands kept."""
+
+    def __init__(self, s, answers=None):
+        self.s = s
+        self.sent = []
+        self.answers = {"study": STUDIED} | (answers or {})
+
+    def __call__(self, s, command):
+        self.sent.append(command)
+        state = s.state
+        verb, _, noun = command.partition(" my ")
+        for prefix, text in self.answers.items():
+            if command.startswith(prefix):
+                return text
+        if verb == "stow":
+            for side in ("left_hand", "right_hand"):
+                if (getattr(state, side) or {}).get("noun") == noun:
+                    setattr(state, side, None)
+            return f"You put your {noun} in your backpack.\n"
+        if verb == "get":
+            side = "left_hand" if state.left_hand is None else "right_hand"
+            setattr(state, side, {"noun": noun})
+            return f"You get a {noun} from inside your backpack.\n"
+        return ""
+
+
+def handle(monkeypatch, script="perform", left=None, right=None, answers=None):
+    echoed, put = [], []
+    s = SimpleNamespace(
+        name=script,
+        state=SimpleNamespace(
+            name="Lanival", left_hand=left, right_hand=right, hostiles={}, stunned=False
+        ),
+        dead=False,
+        echo=echoed.append,
+        echoed=echoed,
+        put=lambda command, cleanup=False: put.append(command),
+        waitrt=lambda: None,
+        command=lambda timeout=None: None,
+    )
+    game = Game(s, answers)
+    monkeypatch.setattr(interlude, "ask", game)
+    return s, game
+
+
+def with_almanac():
+    save_profile("Lanival", {"almanac": "almanac"})
+
+
+def test_nothing_is_due_without_an_almanac_in_the_profile(monkeypatch):
+    s, game = handle(monkeypatch)
+    interlude.run_due(s)
+    assert game.sent == []
+
+
+def test_a_due_almanac_is_studied_with_a_free_hand_and_named_under_the_script(
+    monkeypatch,
+):
+    with_almanac()
+    s, game = handle(monkeypatch, right={"noun": "lute"})
+    interlude.run_due(s)
+    assert game.sent == [
+        "get my almanac",
+        "open my almanac",
+        "study my almanac",
+        "stow my almanac",
+    ]
+    assert s.echoed == ["interlude: almanac studied — Bow"]
+    interlude.run_due(s)  # the timer: ten minutes before the next
+    assert len(game.sent) == 4
+
+
+def test_full_hands_make_room_the_left_item_stowed_and_got_back(monkeypatch):
+    # ;remedies after a crush: the remedy stays in the stowed mortar.
+    with_almanac()
+    s, game = handle(
+        monkeypatch, "remedies", left={"noun": "mortar"}, right={"noun": "pestle"}
+    )
+    interlude.run_due(s)
+    assert game.sent == [
+        "stow my mortar",
+        "get my almanac",
+        "open my almanac",
+        "study my almanac",
+        "stow my almanac",
+        "get my mortar",
+    ]
+    assert s.state.left_hand == {"noun": "mortar"}
+    assert s.state.right_hand == {"noun": "pestle"}
+
+
+def test_boxes_and_perform_wait_for_a_free_hand_and_favors_never(monkeypatch):
+    with_almanac()
+    for script in ("boxes", "perform"):
+        s, game = handle(
+            monkeypatch, script, left={"noun": "box"}, right={"noun": "lockpick"}
+        )
+        interlude.run_due(s)
+        assert game.sent == []
+    s, game = handle(monkeypatch, "favors")
+    interlude.run_due(s)
+    assert game.sent == []
+    s, game = handle(
+        monkeypatch, "hunt", left={"noun": "shield"}, right={"noun": "mace"}
+    )
+    interlude.run_due(s, make_room=False)  # ;hunt's clear room keeps both
+    assert game.sent == []
+
+
+def test_never_with_a_hostile_a_stun_or_a_dead_character(monkeypatch):
+    with_almanac()
+    for trouble in (
+        {"hostiles": {"1": "a goblin"}},
+        {"stunned": True},
+    ):
+        s, game = handle(monkeypatch)
+        vars(s.state).update(trouble)
+        interlude.run_due(s)
+        assert game.sent == []
+    s, game = handle(monkeypatch)
+    s.dead = True
+    interlude.run_due(s)
+    assert game.sent == []
+
+
+def test_a_stow_refused_leaves_the_hands_and_the_chore_waits(monkeypatch):
+    with_almanac()
+    s, game = handle(
+        monkeypatch,
+        "remedies",
+        left={"noun": "mortar"},
+        right={"noun": "pestle"},
+        answers={"stow my mortar": "There isn't any more room in the backpack.\n"},
+    )
+    interlude.run_due(s)
+    assert game.sent == ["stow my mortar"]
+    assert "the chore waits" in s.echoed[0]
+
+
+def test_an_item_that_does_not_come_back_is_said(monkeypatch):
+    with_almanac()
+    s, game = handle(
+        monkeypatch,
+        "remedies",
+        left={"noun": "mortar"},
+        right={"noun": "pestle"},
+        answers={"get my mortar": "What were you referring to?\n"},
+    )
+    interlude.run_due(s)
+    assert game.sent[-1] == "get my mortar"
+    assert "the mortar did not come back" in s.echoed[-1]
+
+
+def test_a_break_forces_the_almanac_past_the_local_timer_once(monkeypatch, fresh):
+    with_almanac()
+    almanac._NEXT["almanac"] = fresh["t"] + 300  # studied by hand, say
+    s, game = handle(monkeypatch)
+    interlude.run_due(s)
+    assert game.sent == []
+    assert interlude.post("almanac") and interlude.pending() == ["almanac"]
+    assert not interlude.post("nap")
+    game.answers["study"] = GLEANED  # the game's countdown decides
+    interlude.run_due(s)
+    assert "study my almanac" in game.sent and interlude.pending() == []
+    assert almanac._NEXT["almanac"] == fresh["t"] + 540 + 20
+
+
+def test_a_break_waits_out_a_hostile_and_is_honored_after(monkeypatch):
+    with_almanac()
+    s, game = handle(monkeypatch)
+    s.state.hostiles = {"1": "a goblin"}
+    interlude.post("almanac")
+    interlude.run_due(s)
+    assert game.sent == [] and interlude.pending() == ["almanac"]
+    s.state.hostiles = {}
+    interlude.run_due(s)
+    assert "study my almanac" in game.sent and interlude.pending() == []
+
+
+def test_every_safe_point_runs_the_interludes(monkeypatch):
+    # loop.wants_stop — called by every trainer between steps, and by
+    # pause() once a second.
+    with_almanac()
+    s, game = handle(monkeypatch, "athletics")
+    assert loop.wants_stop(s) is False
+    assert "study my almanac" in game.sent

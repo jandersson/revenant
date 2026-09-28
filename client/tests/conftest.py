@@ -39,6 +39,9 @@ def _isolated_login_defaults(tmp_path, monkeypatch):
     # test's fake [Gate] replaced a real Muspar'i street in the
     # operator's ~/.revenant/mapdb/local.json (2026-09-28, #364).
     monkeypatch.setenv("REVENANT_MAPDB_LOCAL", str(tmp_path / "mapdb-local.json"))
+    # Every safe point reads the character's profile (the interludes,
+    # #372): a fake's name must never find the operator's.
+    monkeypatch.setenv("REVENANT_PROFILES", str(tmp_path / "profiles"))
 
 
 @pytest.fixture

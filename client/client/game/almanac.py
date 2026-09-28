@@ -1,7 +1,8 @@
 """The almanac — one STUDY fills a random skill's pool by half, then the
 book rests ten minutes; the profile's `almanac` names its noun, and
-;train (between tasks, in the rests) and ;hunt (a clear room) study it
-whenever it is ready, sharing this module's timer.
+any running script studies it at its next safe point once it is ready
+(client/game/interlude.py), ;hunt mid-fight too, sharing this module's
+timer.
 
 Captured 2026-09-28 on the Squat Bungalow's diamond-hide almanac:
 STUDY, open and ready — "You set about studying your diamond-hide

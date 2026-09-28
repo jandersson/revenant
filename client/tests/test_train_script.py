@@ -1121,16 +1121,15 @@ def test_a_when_the_loop_does_not_know_is_a_plan_problem():
 def test_train_studies_the_profiles_almanac_between_tasks(clock, monkeypatch):
     # The operator, 2026-09-28: the almanac, every ten minutes it allows.
     studied = []
-    monkeypatch.setattr(train, "profile_of", lambda s: {"almanac": "almanac"})
     monkeypatch.setattr(
-        train.almanac,
-        "study",
-        lambda s, noun, ask, prefix: studied.append((noun, prefix)),
+        train,
+        "interlude",
+        SimpleNamespace(run_due=lambda s, make_room=True: studied.append(make_room)),
     )
     fake = Fake()
     clock["fake"] = fake
     train.study_almanac(fake, plan())
-    assert studied == [("almanac", "train")]
+    assert studied == [True]  # the interludes, a hand made if need be
     fake.state.hostiles = {"1": "a goblin"}
     train.study_almanac(fake, plan())
     assert len(studied) == 1  # never with a hostile about

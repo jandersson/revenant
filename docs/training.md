@@ -99,6 +99,10 @@ Each is a script with its own manual (`;help <name>`). Under `;train`, give each
 | `listen` / `teach` | a class between two of your characters |
 | `tdp plan` | spends TDPs (no skill) |
 
+## The almanac, in any trainer
+
+The profile's `almanac` is studied whenever its ten-minute timer allows, at the next safe point of whatever script is running: between two of a trainer's steps, between `;train`'s tasks and in its rests, in a `;hunt`'s clear room. With both hands full, the left hand's item is stowed for the study and taken back after; `;boxes` and `;perform` wait for a free hand instead. `;break almanac` asks for a study sooner.
+
 ## Plan well
 
 - **Count the skills moving.** More pools above 0/34 learn more than one pool held full; a full pool wastes what it would have learned.

@@ -20,7 +20,7 @@ What it does
   - Keeps the most skills moving: a task whose skills drain first trains again
     during the rest (`top_up`, once a rest).
   - In the rests: soul deeds when `soul` is on, stat points from the plan's `tdp` list.
-  - The profile's `almanac` studied whenever its timer allows, between tasks and in rests.
+  - The interludes (the profile's `almanac`, a typed `;break`) between tasks and in rests.
   - Hostiles at the rest send it to the next safe room, or next door.
 
 When it stops
@@ -34,7 +34,7 @@ The plan is ~/.revenant/training/<name>.json; docs/training.md explains every ke
 import sqlite3
 import time
 
-from client.game import almanac, drain, flight, helper, probe
+from client.game import drain, flight, helper, interlude
 from client.game.history import database_path
 
 from client.game.training import (
@@ -317,18 +317,14 @@ SPAWNED = set()  # helper names this loop logged in (logged out at their last ta
 LINGERING = {}
 
 
-ALMANAC_ASK = 4  # seconds for the almanac's answers
-
-
 def study_almanac(s, plan=None):
-    """The profile's almanac (client/game/almanac.py) studied when its
-    timer allows, never with hostiles about — between tasks and in the
-    rests, the moments no other script holds the hands."""
+    """The interludes due (client/game/interlude.py — the profile's
+    almanac, a typed ;break) run, never with hostiles about — between
+    tasks and in the rests, the moments no other script holds the
+    hands."""
     if s.dead or hostiles_present(s.state):
         return
-    noun = str(profile_of(s).get("almanac") or "").strip().lower()
-    if noun:
-        almanac.study(s, noun, lambda h, c: probe.ask(h, c, ALMANAC_ASK, 0.5), "train")
+    interlude.run_due(s)
 
 
 def profile_of(s):

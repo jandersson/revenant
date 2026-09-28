@@ -7,7 +7,8 @@ import them from here now, so the graceful-end rule — `;stop <name>`
 quits at once, a typed `;<name> return` finishes the step in hand and
 ends (the operator, 2026-09-12) — has one home. Qt-free, reloadable.
 
-wants_stop(s)      True once "return" was typed at the script.
+wants_stop(s)      True once "return" was typed at the script; a safe point,
+                   where the interludes due run (client/game/interlude.py).
 danger(s)          why the loop must end now — "you are dead", "hostiles
                    in the room" — or None. The floors a fight needs
                    (health, wounds, stuns) stay with ;hunt and ;athletics.
@@ -25,12 +26,15 @@ read_exp(s, skill, ask)         EXP <skill> asked whatever the window holds and
 import re
 
 from client.engine.xml_data import LEARNING_RATES
+from client.game import interlude
 
 
 def wants_stop(s):
     """True once "return" was typed at the script: finish the step in
     hand and end. (;stop <name> is the abrupt end for every script; a
-    typed word is the graceful one, the operator's rule 2026-09-12.)"""
+    typed word is the graceful one, the operator's rule 2026-09-12.)
+    A safe point, so the interludes due run here first (#372)."""
+    interlude.run_due(s)
     while (line := s.command(timeout=0)) is not None:
         if "return" in line.lower():
             return True

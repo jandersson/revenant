@@ -43,6 +43,7 @@ from client.game import (
     buffs,
     flight,
     hunting,
+    interlude,
     loot,
     lootlog,
     probe,
@@ -1781,12 +1782,12 @@ def wait_for_prey(s, seconds):
     return bool(hostiles(s.state))
 
 
-def study_almanac(s, profile):
-    """The profile's almanac (client/game/almanac.py) studied when its
-    timer allows, in a room with nothing hostile in it."""
-    noun = str(profile.get("almanac") or "").strip().lower()
-    if noun and not hostiles(s.state):
-        almanac.study(s, noun, ask, "hunt")
+def study_almanac(s):
+    """The interludes due (client/game/interlude.py — the profile's
+    almanac, a typed ;break) run in a room with nothing hostile in it,
+    only with a hand already free: the weapon and shield stay."""
+    if not hostiles(s.state):
+        interlude.run_due(s, make_room=False)
 
 
 # RETREAT's answers (flight.py; captured 2026-09-22): out a range, or
@@ -2189,7 +2190,7 @@ def loop(s, profile, db, ground, avoid, tally):
             return "every weapon skill mind-locked"
         if tally.room_clear or not hostiles(s.state):
             track(s, profile, tally)
-            study_almanac(s, profile)  # a clear room: the hands are the hunt's
+            study_almanac(s)  # a clear room: the hands are the hunt's
             if not next_room(s, db, ground, avoid, tally):
                 return "the walk to the next room failed"
             if not settle(s, db, ground, avoid, tally):
