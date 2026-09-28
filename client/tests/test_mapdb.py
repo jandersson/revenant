@@ -441,3 +441,62 @@ def test_gates_off_prices_every_gate_open_and_route_gates_lists_them():
     assert route == [(19459, "climb branch")]
     [(here, dest, gate)] = lone.route_gates(2245, route)
     assert (here, dest, gate.describe()) == (2245, 19459, "Athletics 540")
+
+
+# Fang Cove (#289): the map's own edges, as the community map writes
+# them. The EXIT portal returns a character to the town portal they came
+# in by; lich keeps that town in UserVars.premiumPortal.
+EXIT = ";e UserVars.premiumPortal = nil;move 'go portal'"
+ENTRY = ";e UserVars.premiumPortal = 'Crossing';move 'go meeting portal'"
+PREMIUM = (
+    ";e unless (Account.subscription == 'PREMIUM' || UserVars.premium || "
+    "['DRF', 'DRX'].include?(XMLData.game)) then nil else 0.2 end"
+)
+
+
+def back_to(town):
+    return f";e unless UserVars.premiumPortal == '{town}' then nil else 0.2 end"
+
+
+COVE = [
+    {
+        "id": 8308,
+        "title": ["[Fang Cove, Fate's Fortune Lane]"],
+        "wayto": {"932": EXIT, "389": EXIT},
+        "timeto": {"932": back_to("Crossing"), "389": back_to("Riverhaven")},
+    },
+    {
+        "id": 932,
+        "title": ["[The Strand, Sandy Path]"],
+        "wayto": {"8308": ENTRY, "1900": "northwest"},
+        "timeto": {"8308": PREMIUM},
+    },
+    {"id": 389, "title": ["[Riverhaven, Town Square]"], "wayto": {"932": "south"}},
+    {"id": 1900, "title": ["[Provincial Bank, Teller]"], "wayto": {"932": "southeast"}},
+]
+
+
+def test_a_fang_cove_portal_edge_is_its_go_portal_and_its_gate_names_the_town():
+    from client.game.mapdb import Gate, gate_of, translate_embedded
+
+    # The town note is lich's bookkeeping: nothing goes to the game.
+    assert translate_embedded(EXIT) == ["go portal"]
+    assert translate_embedded(ENTRY) == ["go meeting portal"]
+    assert translate_embedded(
+        ";e UserVars.premiumPortal = 'Riverhaven' ; move 'go meeting portal'"
+    ) == ["go meeting portal"]
+    # Any other UserVars write stays logic the walker does not run.
+    assert (
+        translate_embedded(";e UserVars.citizenship = 'Zoluren';move 'go gate'") is None
+    )
+    gate = gate_of(back_to("Crossing"))
+    assert gate == Gate(seconds=0.2, portal="Crossing")
+    assert gate.met({}) and gate.describe() == "entered Fang Cove from Crossing"
+    # The way in asks for a premium account: never assumed.
+    assert not gate_of(PREMIUM).met({})
+
+
+def test_from_fang_cove_the_exit_nearest_the_goal_is_planned_and_the_way_in_stays_closed():
+    cove = MapDB(COVE)
+    assert cove.path(8308, [1900]) == [(932, EXIT), (1900, "northwest")]
+    assert cove.path(1900, [8308]) is None

@@ -173,6 +173,10 @@ _ATOM_GUILD = re.compile(r"^DRStats\.guild\s*==\s*'(?P<guild>[A-Za-z ]+)'$")
 _ATOM_CIRCLE = re.compile(
     r"^(?:Scripting::)?DRStats\.circle\s*(?P<op>>=|>)\s*(?P<circle>\d+)$"
 )
+# Fang Cove's EXIT portal returns a character to the town portal they
+# came in by: the map gates each of its 13 `go portal` edges on the town
+# lich remembers in UserVars.premiumPortal (#289).
+_ATOM_PORTAL = re.compile(r"^UserVars\.premiumPortal\s*==\s*'(?P<town>[^']+)'$")
 # Atoms whose truth is fixed for this client.
 _STATIC_ATOMS = {
     "Script.exists?('bescort')": True,
@@ -188,8 +192,9 @@ class Gate:
     `seconds` is the edge's price once open. `skill`/`ranks` is the
     modified rank the skill must reach (0 ranks for a skill the exp
     window does not list), `guild` the guild the character must be in,
-    `circle` the least circle; `needs` names a condition the walker
-    cannot judge, and such a gate never opens."""
+    `circle` the least circle; `portal` the town a Fang Cove exit
+    returns to; `needs` names a condition the walker cannot judge, and
+    such a gate never opens."""
 
     seconds: float = DEFAULT_STEP_SECONDS
     skill: str | None = None
@@ -197,11 +202,15 @@ class Gate:
     guild: str | None = None
     circle: int = 0
     needs: str = ""
+    portal: str = ""
 
     def met(self, ranks=None, guild=None, circle=None) -> bool:
         """True when this character passes: `ranks` is {skill: rank}
         (the exp window's), `guild` and `circle` None when unknown —
-        and unknown never passes a gate that asks for them."""
+        and unknown never passes a gate that asks for them. A `portal`
+        gate always passes: the game lands the character in the town
+        they entered Fang Cove from, and a walk that lands elsewhere
+        than planned plans again from there (#232, #289)."""
         if self.needs:
             return False
         if self.skill and (ranks or {}).get(self.skill, 0) < self.ranks:
@@ -224,6 +233,8 @@ class Gate:
             parts.append(f"circle {self.circle}")
         if self.skill:
             parts.append(f"{self.skill} {self.ranks}")
+        if self.portal:
+            parts.append(f"entered Fang Cove from {self.portal}")
         return " ".join(parts) or "open"
 
 
@@ -273,6 +284,8 @@ def gate_of(timeto):
             fields["guild"] = guild.group("guild")
         elif circle := _ATOM_CIRCLE.match(atom):
             fields["circle"] = int(circle.group("circle")) + (circle.group("op") == ">")
+        elif portal := _ATOM_PORTAL.match(atom):
+            fields["portal"] = portal.group("town")
         else:
             return Gate(
                 seconds=seconds, needs=f"a condition the walker cannot judge ({atom})"
@@ -290,6 +303,9 @@ _SIMPLE_STATEMENT = re.compile(
     r"|waitrt\??"
     r"|waitfor\s*\(?\s*(['\"]).*?\3\s*\)?)$"
 )
+# Lich's note of the town a Fang Cove portal was entered from (#289):
+# bookkeeping for its own go2, nothing sent to the game.
+_BOOKKEEPING = re.compile(r"^UserVars\.premiumPortal\s*=\s*(?:nil|'[^']*'|\"[^\"]*\")$")
 
 
 @lru_cache(maxsize=4096)
@@ -307,14 +323,15 @@ def translate_embedded(command):
     arriving) the walker does not do, so that edge stays untranslated.
     Anything
     with logic (start_script, UserVars, waits, conditionals) stays
-    untranslatable."""
+    untranslatable, bar lich's note of the Fang Cove portal town
+    (`UserVars.premiumPortal = ...`), which sends nothing (#289)."""
     if not isinstance(command, str) or not command.startswith(";e"):
         return None
     commands = []
     waited = False  # a waitfor seen since the last command
     for statement in command[2:].split(";"):
         statement = statement.strip()
-        if not statement:
+        if not statement or _BOOKKEEPING.match(statement):
             continue
         match = _SIMPLE_STATEMENT.match(statement)
         if not match:

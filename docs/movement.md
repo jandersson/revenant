@@ -56,3 +56,4 @@ A climb depends on Athletics ranks, then Agility and Strength, then load, armor 
 
 - Circle and guild gates are unknown until the game refuses one; the walker learns them per walk, not permanently.
 - Edges that need a password, a premium portal, citizenship or a spell are treated as closed.
+- From Fang Cove the walk leaves by the EXIT portal (`go portal`), which returns you to the town you entered from; a landing elsewhere than planned replans from there.

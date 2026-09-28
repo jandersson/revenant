@@ -42,7 +42,9 @@ def test_translate_embedded_handles_lich_styles():
 def test_translate_embedded_refuses_logic():
     for scripted in [
         ";e start_script('bescort', ['airship']);wait_while{running?('bescort')};",
-        ";e UserVars.premiumPortal = 'Muspari';move 'go meeting portal'",
+        # A UserVars write is logic, bar Fang Cove's portal note (#289),
+        # whose edges translate and stay behind their premium gate.
+        ";e UserVars.citizenship = 'Zoluren';move 'go gate'",
         ";e fput 'pull lever' if Room.current.id == 5",
         ";e waitfor 'The ferry arrives'; move 'go ferry'",
         "north",  # not an embedded edge at all
@@ -1566,3 +1568,46 @@ def test_a_hidden_way_never_found_stops_at_the_search_limit(monkeypatch):
     walker.search_hidden(handle, "search")
     assert puts_of(handle) == ["search"] * 3
     assert any("3 searches found no hidden way" in echo for echo in handle.echoes)
+
+
+def test_a_fang_cove_portal_that_lands_in_another_town_plans_again_from_there():
+    # The EXIT portal returns a character to the town they came in by
+    # (#289); the walker plans the exit nearest the goal, and a landing
+    # elsewhere closes that exit for the walk and plans from the town it
+    # landed in — never written to the map (a named way, #364).
+    exit_ = ";e UserVars.premiumPortal = nil;move 'go portal'"
+
+    def back_to(town):
+        return f";e unless UserVars.premiumPortal == '{town}' then nil else 0.2 end"
+
+    cove = MapDB(
+        [
+            {
+                "id": 8308,
+                "uid": [9000],
+                "title": ["[Fang Cove, Fate's Fortune Lane]"],
+                "wayto": {"932": exit_, "389": exit_},
+                "timeto": {"932": back_to("Crossing"), "389": back_to("Riverhaven")},
+            },
+            {
+                "id": 932,
+                "uid": [10171],
+                "title": ["[The Strand, Sandy Path]"],
+                "wayto": {"1900": "northwest"},
+            },
+            {
+                "id": 389,
+                "uid": [1010101],
+                "title": ["[Riverhaven, Town Square]"],
+                "wayto": {"932": "south"},
+            },
+            {"id": 1900, "uid": [19104], "title": ["[Provincial Bank, Teller]"]},
+        ]
+    )
+    handle = FakeHandle(uids=[1010101, 10171, 19104])
+    handle.state.room_uid = 9000
+    assert walker.walk(handle, cove, [1900], describe="the bank") is True
+    assert puts_of(handle) == ["go portal", "south", "northwest"]
+    assert any("off course at step 1" in echo for echo in handle.echoes)
+    assert any("left off the map" in echo for echo in handle.echoes)
+    assert cove.rooms[8308]["wayto"] == {"932": exit_, "389": exit_}
