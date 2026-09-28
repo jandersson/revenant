@@ -352,3 +352,18 @@ def test_a_gem_the_pouch_takes_stays_there(monkeypatch):
     )
     hunt.pocket(handle, profile, "stones")
     assert sent == ["get stones", "put my stones in my pouch"]
+
+
+def test_a_searched_item_on_loot_ignore_is_left_where_it_fell():
+    # 2026-09-28: "The scout was carrying an embroidery needle!" — the
+    # wording path pocketed it though the profile's loot_ignore names it.
+    answer = "You search the S'lai scout.\nThe scout was carrying an embroidery needle!"
+    assert hunt.named(answer, "needle") == "embroidery needle"
+    assert hunt.named("The grendel was carrying some waermodi stones!", "stones") == (
+        "waermodi stones"
+    )
+    assert hunt.loot.ignored(hunt.named(answer, "needle"), ["embroidery needle"])
+    assert not hunt.loot.ignored(
+        hunt.named("The scout was carrying a sewing needle!", "needle"),
+        ["embroidery needle"],
+    )

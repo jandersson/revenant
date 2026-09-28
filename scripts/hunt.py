@@ -973,6 +973,16 @@ def items_in(text):
     ]
 
 
+def named(text, noun):
+    """The words the answer names the item with, article off: "embroidery
+    needle" out of "The scout was carrying an embroidery needle!" — the
+    noun alone when the answer has no article before it."""
+    match = re.search(
+        rf"\b(?:an?|some)\s+([^,!.]*?\b{re.escape(noun)})\b", text, re.IGNORECASE
+    )
+    return match.group(1) if match else noun
+
+
 def ask(s, command):
     return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
 
@@ -1683,11 +1693,14 @@ def dispose(s, profile, corpse, tally):
         lootlog.log(s, answer, profile.get("hunting_ground") or "")
     taken = grab(s, profile, before, tally) if outcome is not None else []
     if outcome == "found":
+        ignore = profile.get("loot_ignore") or ()
         for item in items_in(answer):
             if item in taken or item in tally.unlootable:
                 continue
             if tally.boxes_full and item in loot.BOX_NOUNS:
                 continue  # no room for it, and a GET would free a hand for it
+            if loot.ignored(named(answer, item), ignore):
+                continue  # "an embroidery needle" off a scout (#365)
             pocket(s, profile, item)
     elif outcome is None:
         unrecognized(s, tally, "loot", answer)

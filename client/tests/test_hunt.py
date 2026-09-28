@@ -351,6 +351,16 @@ def test_a_found_non_gem_is_stowed_like_loot_never_pouched(travel):
     assert "put my nail in my sack" in arena.sent
 
 
+def test_a_searched_item_the_profile_ignores_is_never_picked_up(travel):
+    # 2026-09-28: a scout's embroidery needle, on loot_ignore, was pocketed.
+    found = "You search the rat.\nThe rat was carrying an embroidery needle!"
+    arena = _run(
+        Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [found]}),
+        profile=PROFILE | {"loot_ignore": ["embroidery needle"]},
+    )
+    assert "get needle" not in arena.sent
+
+
 def test_an_empty_ground_is_waited_out_not_left(travel):
     # 2026-09-13, the operator: an empty ground is not a reason to go
     # home — pause after every empty lap and lap again until told.
