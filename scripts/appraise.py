@@ -253,8 +253,8 @@ def start_focus(s, focus, held):
         focus_off(
             s,
             focus,
-            f"APPRAISE FOCUS answered {first_line(answer)!r}: it would end the "
-            "magical research in progress",
+            f"APPRAISE FOCUS answered {first_line(answer)!r}: a magical research "
+            "project is in progress, and the two never run together",
         )
     else:
         focus_off(s, focus, f"APPRAISE FOCUS {item} answered {first_line(answer)!r}")

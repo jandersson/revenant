@@ -78,7 +78,15 @@ def test_the_focus_answers_classify():
     assert appraisal.focus_outcome(
         "You will lose your progress on your research project if you do that."
     ) == ("research")
+    # Captured 2026-09-29 beside a RESEARCH portion: not a focus running.
+    assert appraisal.focus_outcome(
+        "You are already working on a different research project."
+    ) == ("research")
     assert appraisal.focus_outcome("Huh?") is None
+    # Captured 2026-09-29 with nothing running.
+    assert (
+        appraisal.focus_check("You feel ready for any sort of appraisal focus.") is None
+    )
     assert appraisal.focus_check("You are currently focusing on ...") == "running"
     assert appraisal.focus_check("You have completed your focus ...") == "boost"
     assert appraisal.focus_check("You are not focusing on anything.") is None

@@ -350,7 +350,7 @@ FOCUS_STARTED = (
     "of locksmithing based on its abstract.\n"
 )
 FOCUS_EXPLORED = "Your focused insight of locksmithing has been fully explored.\n"
-IDLE_CHECK = "You are not focusing on anything.\n"
+IDLE_CHECK = "You feel ready for any sort of appraisal focus.\n"  # captured 2026-09-29
 RUNNING_CHECK = "You are currently focusing on your deobar coffer.\n"
 BOOST_CHECK = "You have completed your study of the deobar coffer.\n"
 
@@ -411,7 +411,7 @@ def test_a_focus_starts_beside_the_rotation_and_is_checked_while_it_runs():
     assert fake.sent[:5] == FOCUS_START + ["appraise my pouch quick"]
     assert "APPRAISE FOCUS on coffer beside the rotation" in out
     assert "APPRAISE FOCUS on the coffer begun" in out
-    assert "APPRAISE FOCUS CHECK answered 'you are not focusing" in out
+    assert "APPRAISE FOCUS CHECK answered 'you feel ready for any sort" in out
     assert fake.sent.count("appraise focus my coffer") == 1
     assert fake.sent.count("appraise focus check") >= 2  # every FOCUS_POLL
     assert "Appraisal at 34/34 — done" in out
@@ -432,10 +432,24 @@ def test_a_research_project_in_progress_turns_the_focus_off_never_repeated():
         focus_answer="You will lose your progress on your research if you do that.\n",
     )
     out = run(fake, ["once", "focus=coffer"])
-    assert "would end the magical research in progress — focus off for the run" in out
+    assert "a magical research project is in progress" in out
+    assert "focus off for the run" in out
     assert fake.sent.count("appraise focus my coffer") == 1
     assert fake.sent.count("appraise focus check") == 1
     assert "stow my coffer" in fake.sent  # the item goes back all the same
+
+
+def test_a_research_portion_running_refuses_the_focus_once_for_the_run():
+    # Captured 2026-09-29 beside a RESEARCH AUGMENTATION portion: read
+    # as a focus already running, it drew a refusal every two minutes.
+    fake = FocusFake(
+        mindstates=[1, 5, 10, 34],
+        focus_answer="You are already working on a different research project.\n",
+    )
+    out = run(fake, ["once", "focus=magic"])
+    assert "a magical research project is in progress" in out
+    assert fake.sent.count("appraise focus magic") == 1
+    assert fake.sent.count("appraise focus check") == 1
 
 
 def test_a_boost_still_running_starts_no_focus():

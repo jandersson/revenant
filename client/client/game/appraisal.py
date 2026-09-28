@@ -39,13 +39,16 @@ shield: Shield Usage; a concept word such as OFFENSE: Tactics) until
 "Your focused insight of <skill> has been fully explored." One project
 at a time, never beside a magical research project, and appraising
 items does not interrupt it (Elanthipedia: Appraisal skill, Magical
-research). The wordings are the wiki's and dr-scripts' appraisal.lic's
-until captured: the start "You carefully examine your deobar coffer,
-focusing beyond any individual details. ...", APPRAISE FOCUS CHECK's
-"You are currently ..." (a project runs) and "You have completed ..."
-(the boost runs). appraisal.lic answers "You will lose your progress"
-by sending the focus again; here it is a refusal, since what would be
-lost is a research project.
+research). Captured 2026-09-29: APPRAISE FOCUS CHECK with nothing
+running, "You feel ready for any sort of appraisal focus.", and the
+focus with a RESEARCH portion running, "You are already working on a
+different research project." (the research went on). Still the wiki's
+and dr-scripts' appraisal.lic's: the start "You carefully examine your
+deobar coffer, focusing beyond any individual details. ...", the
+CHECK's "You are currently ..." (a project runs) and "You have
+completed ..." (the boost runs). appraisal.lic answers "You will lose
+your progress" by sending the focus again; here it is a refusal, since
+what would be lost is a research project.
 """
 
 import re
@@ -101,7 +104,10 @@ FOCUS_CONCEPTS = (
 )
 # APPRAISE FOCUS <item>'s answer, the first match, lower-cased.
 FOCUS_ANSWERS = (
-    ("research", ("you will lose your progress",)),
+    # Captured 2026-09-29 with a RESEARCH portion running: "You are
+    # already working on a different research project." — read before
+    # "running", which "you are already" also matches.
+    ("research", ("you will lose your progress", "different research project")),
     ("running", ("you are already",)),
     ("boost", ("you currently feel",)),
     ("refused", ("you can't seem", "you cant seem", "you can not seem")),
