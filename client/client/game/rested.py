@@ -18,6 +18,18 @@ bank holds still or grows (docs/experience.md, Elanthipedia
 beholder shades the 3x windows from (#176). The footer does not tick
 every minute, so `Burn` keeps the flag up for STICKY_MINUTES after the
 last fall: a spending stretch reads burning throughout (#346).
+
+On some accounts the window's component arrives empty on every pulse
+(`<component id='exp rexp'></component>`, 250 times in one evening,
+2026-09-28) and the footer shows only at the foot of an EXP answer
+(;sheet's EXP ALL at login and every three hours, any EXP typed), so
+the parser takes it from the story too and says which source it has
+(`XMLData.rested_window`). Between such readings `available()` says
+what is certain: the bank spends at most one minute a minute (twenty
+seconds a pulse for each of the ten skill groups; Elanthipedia,
+Experience: Rested Experience System), so a reading with more usable
+minutes than minutes since it was taken still has some left. `Minute`
+gives ;xp its per-minute flag from whichever source the session has.
 """
 
 import re
@@ -34,9 +46,11 @@ KEYS = ("stored", "usable", "refresh")
 def parse_duration(text):
     """Minutes from the footer's wording, or None for anything unread:
     "5:42 hours" → 342, "6 hours" → 360, "38 minutes" → 38,
-    "less than a minute" → 0."""
+    "less than a minute" → 0, "none" → 0 (a cycle spent: "Usable This
+    Cycle: none", captured 2026-09-13 and read as unknown until
+    2026-09-29 — 1909 rows of history.db hold it as NULL)."""
     text = text.strip()
-    if text.startswith("less than a minute"):
+    if text.startswith(("less than a minute", "none")):
         return 0
     match = _DURATION.match(text)
     if not match:
@@ -103,6 +117,69 @@ class Burn:
         if reading.get("usable") == 0 or self.quiet is None:
             return False
         return self.quiet < STICKY_MINUTES
+
+
+# Minutes without draining before the bank starts to refill (2:1; the
+# wiki's Rested Experience System).
+REFILL_MINUTES = 5
+
+
+def available(reading, age):
+    """Whether rested experience is certainly left `age` minutes after
+    `reading`. What can be spent is the lesser of the bank and the
+    cycle's usable figure — "Usable This Cycle" can exceed what is
+    banked (Elanthipedia, Experience), and Cecil read 0 stored with 360
+    usable. True while that exceeds the age (the bank spends at most a
+    minute a minute); False when the cycle was spent and has not
+    refreshed since, or the bank was empty under REFILL_MINUTES ago (it
+    refills after five minutes without draining); None otherwise — it
+    may have run out or refilled, the cycle may have refreshed, or no
+    reading."""
+    if not reading or age is None:
+        return None
+    stored, usable = reading.get("stored"), reading.get("usable")
+    refresh = reading.get("refresh")
+    if usable is None or (refresh is not None and age >= refresh):
+        return None
+    if usable == 0:
+        return False
+    left = usable if stored is None else min(stored, usable)
+    if left == 0:
+        return False if age < REFILL_MINUTES else None
+    return True if left > age else None
+
+
+class Minute:
+    """;xp's flag for one minute, from whichever footer the session has:
+    the window's, read on every pulse (`Burn`), or else the last EXP
+    answer's (`available()`, burning only while some pool drains).
+    `count` is the parser's tally of footers read, so a repeat of the
+    same footer still dates the reading; None for a parser without it,
+    where a changed reading does."""
+
+    def __init__(self):
+        self.burn = Burn()
+        self.key = None
+        self.read_at = None
+
+    def step(self, reading, now, window=True, draining=True, count=None):
+        """The flag for this minute (1/0 as a bool, or None): `now` is a
+        clock in minutes, `window` whether the reading comes from the
+        exp window's component, `draining` whether any pool holds
+        experience."""
+        key = (
+            count
+            if count is not None
+            else (tuple(sorted(reading.items())) if reading else None)
+        )
+        if reading and key != self.key:
+            self.key, self.read_at = key, now
+        flag = self.burn.step(reading) if window else None
+        if flag is None and reading and self.read_at is not None:
+            flag = available(reading, now - self.read_at)
+            if flag and not draining:
+                flag = False  # nothing drains, so nothing burns
+        return flag
 
 
 def hhmm(minutes):

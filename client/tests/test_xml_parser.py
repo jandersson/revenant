@@ -776,6 +776,33 @@ def test_the_rested_footer_is_kept_from_the_exp_window(xml_data):
     assert xml_data.rested_updated
     # The footer is not a skill: the exp window keeps only skills.
     assert "rexp" not in xml_data.experience
+    assert xml_data.rested_window is True
+    assert xml_data.rested_source == "window"
+
+
+def test_an_empty_window_footer_leaves_the_exp_answers_footer_to_read(xml_data):
+    # Captured 2026-09-28 on one account: the component empty on every
+    # pulse, the footer only at the foot of an EXP answer in the story.
+    _feed_one(xml_data, "<component id='exp rexp'></component>")
+    assert xml_data.rested is None
+    assert xml_data.rested_window is False
+    footer = (
+        "Rested EXP Stored: 5:49 hours  Usable This Cycle: 5:49 hours  "
+        "Cycle Refreshes: 21:52 hours"
+    )
+    _feed_one(xml_data, footer)
+    assert xml_data.rested == {"stored": 349, "usable": 349, "refresh": 1312}
+    assert xml_data.rested_source == "exp"
+    assert xml_data.rested_count == 1
+    assert xml_data.rested_updated
+    # The same footer again is a fresh reading, though no change.
+    xml_data.rested_updated = False
+    _feed_one(xml_data, footer)
+    assert xml_data.rested_count == 2
+    assert not xml_data.rested_updated
+    assert xml_data.rested_window is False  # the story says nothing of the window
+    _feed_one(xml_data, "<component id='exp rexp'></component>")
+    assert xml_data.rested["usable"] == 349  # an empty pulse keeps the reading
 
 
 # -- the room's creatures: the bolded names of <component id='room objs'> (#178)

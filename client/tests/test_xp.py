@@ -9,7 +9,7 @@ import importlib.util
 import pathlib
 import sqlite3
 
-from client.game.rested import Burn
+from client.game.rested import Minute
 
 REPO = pathlib.Path(__file__).parents[2]
 
@@ -75,6 +75,14 @@ def test_a_mindstate_table_from_before_the_flag_gains_the_column():
     assert connection.execute("SELECT COUNT(*) FROM rested").fetchone() == (0,)
 
 
+def window(reading, count):
+    return {"reading": reading, "count": count, "window": True, "source": "window"}
+
+
+def answer(reading, count):
+    return {"reading": reading, "count": count, "window": False, "source": "exp"}
+
+
 def test_a_minute_logs_the_flag_from_the_banks_movement_and_the_footer_once():
     # #176: the flag comes from the usable figure falling; #346: it stays
     # up while the footer sits between falls. The footer goes to the
@@ -83,21 +91,98 @@ def test_a_minute_logs_the_flag_from_the_banks_movement_and_the_footer_once():
     xp.ensure_schema(connection)
     full = {"stored": 345, "usable": 331, "refresh": 79}
     less = {"stored": 344, "usable": 330, "refresh": 78}
-    burn, logged = Burn(), None
-    logged = xp.snapshot(connection, "Lanival", "T1", EXPERIENCE, full, burn, logged)
-    logged = xp.snapshot(connection, "Lanival", "T2", EXPERIENCE, less, burn, logged)
-    logged = xp.snapshot(connection, "Lanival", "T3", EXPERIENCE, less, burn, logged)
-    logged = xp.snapshot(connection, "Lanival", "T4", {}, less, burn, logged)
+    minute, logged = Minute(), None
+    for at, experience, found in (
+        ("T1", EXPERIENCE, window(full, 1)),
+        ("T2", EXPERIENCE, window(less, 5)),
+        ("T3", EXPERIENCE, window(less, 9)),
+        ("T4", {}, window(less, 12)),
+    ):
+        now = int(at[1])
+        logged = xp.snapshot(
+            connection, "Lanival", at, experience, now, found, minute, logged
+        )
     flags = connection.execute(
         "SELECT logged_at, is_rexp FROM mindstate WHERE skill_name = 'Athletics'"
         " ORDER BY seq"
     ).fetchall()
-    assert flags == [("T1", None), ("T2", 1), ("T3", 1)]  # T4: nothing learning
+    # T1: no fall seen yet, so the reading's age says it (#176's NULL
+    # before); T4: nothing learning.
+    assert flags == [("T1", 1), ("T2", 1), ("T3", 1)]
     assert connection.execute(
-        "SELECT logged_at, stored, usable, refresh FROM rested ORDER BY seq"
-    ).fetchall() == [("T1", 345, 331, 79), ("T2", 344, 330, 78)]
+        "SELECT logged_at, stored, usable, refresh, source FROM rested ORDER BY seq"
+    ).fetchall() == [("T1", 345, 331, 79, "window"), ("T2", 344, 330, 78, "window")]
     # No footer yet (a session before the first pulse): rows unflagged.
-    xp.snapshot(connection, "Lanival", "T5", EXPERIENCE, None, Burn(), None)
+    none = {"reading": None, "count": 0, "window": True, "source": "window"}
+    xp.snapshot(connection, "Lanival", "T5", EXPERIENCE, 5, none, Minute(), None)
     assert connection.execute(
         "SELECT is_rexp FROM mindstate WHERE logged_at = 'T5'"
     ).fetchall() == [(None,), (None,)]
+
+
+def test_an_empty_window_flags_from_the_last_exp_answer_and_logs_each_one():
+    # One account's exp window leaves the footer empty (2026-09-28): the
+    # EXP answers' footers are all there is — ;sheet's EXP ALL at login,
+    # a script's EXP ATTUNEMENT later.
+    connection = sqlite3.connect(":memory:")
+    xp.ensure_schema(connection)
+    login = {"stored": 360, "usable": 360, "refresh": 1409}
+    later = {"stored": 349, "usable": 349, "refresh": 1312}
+    minute, logged = Minute(), None
+    for at, now, found in (
+        ("T0", 0, answer(login, 1)),
+        ("T1", 1, answer(login, 1)),  # no new answer: not logged again
+        ("T2", 97, answer(later, 2)),
+        ("T3", 98, answer(later, 3)),  # the same figures, a fresh answer
+        ("T4", 500, answer(later, 3)),  # 402 minutes on: it may have run out
+    ):
+        logged = xp.snapshot(
+            connection, "Lanival", at, EXPERIENCE, now, found, minute, logged
+        )
+    flags = connection.execute(
+        "SELECT logged_at, is_rexp FROM mindstate WHERE skill_name = 'Athletics'"
+        " ORDER BY seq"
+    ).fetchall()
+    assert flags == [("T0", 1), ("T1", 1), ("T2", 1), ("T3", 1), ("T4", None)]
+    assert connection.execute(
+        "SELECT logged_at, usable, source FROM rested ORDER BY seq"
+    ).fetchall() == [("T0", 360, "exp"), ("T2", 349, "exp"), ("T3", 349, "exp")]
+
+
+def test_the_parsers_footer_reads_old_and_new_parsers_alike():
+    # A parser from before the EXP answers' footers: every reading is
+    # the window's, and a changed reading dates it.
+    old = type("State", (), {"rested": {"stored": 1, "usable": 1, "refresh": 2}})()
+    assert xp.footer(old) == {
+        "reading": {"stored": 1, "usable": 1, "refresh": 2},
+        "count": None,
+        "window": True,
+        "source": "window",
+    }
+    new = type(
+        "State",
+        (),
+        {
+            "rested": None,
+            "rested_count": 0,
+            "rested_window": False,
+            "rested_source": None,
+        },
+    )()
+    assert xp.footer(new)["window"] is False
+    assert xp.footer(None)["reading"] is None
+
+
+def test_a_rested_table_from_before_the_source_gains_the_column():
+    connection = sqlite3.connect(":memory:")
+    connection.execute(
+        "CREATE TABLE rested (seq INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " logged_at TEXT NOT NULL, character_name TEXT NOT NULL,"
+        " stored INTEGER, usable INTEGER, refresh INTEGER)"
+    )
+    connection.execute(
+        "INSERT INTO rested (logged_at, character_name, stored, usable, refresh)"
+        " VALUES ('T', 'Lanival', 1, 1, 1)"
+    )
+    xp.ensure_schema(connection)
+    assert connection.execute("SELECT source FROM rested").fetchall() == [(None,)]

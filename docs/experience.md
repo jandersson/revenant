@@ -19,7 +19,9 @@ Rested experience (REXP) triples the ranks each pulse buys while it burns.
 - **Burn:** 20 s per skill group that pulses with experience; train fewer groups to stretch it.
 - **Sleep:** SLEEP once still drains and burns; SLEEP twice banks.
 
-The EXP footer states it; the Experience dock shows it.
+The EXP footer states it; the Experience dock shows it. Some accounts get
+the exp window's footer empty: then only EXP answers carry it (`;sheet`'s
+EXP ALL at login and every three hours, any EXP typed).
 
 ## How fast a pool drains
 
@@ -46,7 +48,11 @@ Autostarted; writes `~/.revenant/history.db` every minute:
 
 | Table | Rows |
 | --- | --- |
-| `mindstate` | rank, percent, mindstate per skill; `is_rexp` 1 while REXP burns (its footer fell within the last 11 minutes) |
-| `rested` | the footer's stored, usable and refresh minutes, on change |
+| `mindstate` | rank, percent, mindstate per skill; `is_rexp` 1 while REXP burns (the window's footer fell within the last 11 minutes; with only EXP answers, the last one still had more to spend than minutes since), NULL when unknown |
+| `rested` | the footer's stored, usable and refresh minutes, on change and on every EXP answer; `source` `window` or `exp` |
 
 Beholder plots them. `;stop xp` opts a session out; `REVENANT_NO_XP=1` turns off the autostart.
+
+**Caveat:** older rows flag only the minutes the footer fell, and read a spent
+cycle ("Usable This Cycle: none") as NULL. For history, derive REXP from
+`rested`: it burns while the lesser of stored and usable is above 0 and a pool drains.

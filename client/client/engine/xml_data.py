@@ -288,9 +288,19 @@ class XMLData:
         # hours</component>, 1535 times in one session, #176): {stored,
         # usable, refresh} in minutes (client/game/rested.py), None
         # until the first pulse.
+        # Some accounts get the component empty on every pulse and the
+        # footer only at the foot of an EXP answer (2026-09-28), so the
+        # story's footer line is read too. rested_window: True while the
+        # component carries the footer, False when it arrives empty,
+        # None before the first; rested_count: footers read from either
+        # source, so a repeated one still dates the reading;
+        # rested_source: "window" or "exp", the last one's.
         self.rested = None
         self.rested_updated = False
         self._rested_text = None
+        self.rested_window = None
+        self.rested_count = 0
+        self.rested_source = None
         # Possessions from the last INV LIST (#184): the listing's
         # command links carry the exist ids — <d cmd='remove #id'> for
         # a worn item, <d cmd='get #id in #container'> for a content —
@@ -434,6 +444,21 @@ class XMLData:
                 if match.group(1) != self.balance:
                     self.balance = match.group(1)
                     self.balance_updated = True
+            elif self._rested_text is None and "Rested EXP Stored" in stripped:
+                # An EXP answer's footer, the story's copy of the window's.
+                rested = parse_rested(stripped)
+                if rested is not None:
+                    self._take_rested(rested, "exp")
+
+    def _take_rested(self, rested, source):
+        """A rested footer read from `source` ("window" or "exp")."""
+        self.rested_count += 1
+        self.rested_source = source
+        if source == "window":
+            self.rested_window = True
+        if rested != self.rested:
+            self.rested = rested
+            self.rested_updated = True
 
     def start(self, name: str, attributes: dict):
         self.active_tags.append(name)
@@ -599,10 +624,12 @@ class XMLData:
                 self.room_players = players
                 self.players_updated = True
         if name == "component" and self._rested_text is not None:
-            rested, self._rested_text = parse_rested(self._rested_text), None
-            if rested is not None and rested != self.rested:
-                self.rested = rested
-                self.rested_updated = True
+            text, self._rested_text = self._rested_text, None
+            rested = parse_rested(text)
+            if rested is not None:
+                self._take_rested(rested, "window")
+            elif not text.strip():
+                self.rested_window = False
         if name == "component" and self._objs_text is not None:
             self.room_objs, self._objs_text = "".join(self._objs_text).strip(), None
         if name == "component" and self._counter is not None:
