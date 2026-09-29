@@ -163,6 +163,18 @@ lessons the code and docs cannot carry themselves.
   (2026-09-28, ;hunt's mid-fight almanac, caught by its test). Ask
   first into a variable, then test the answer.
 
+- A script's line queue fills whether it reads or not: a parent
+  waiting on a child (;train on its task, ;remedies on ;forage) holds
+  the child's whole traffic, and its next read starts there. On
+  2026-09-29 two GETs that worked (the mortar, the almanac) read the
+  child's stale "What were you referring to?" as their answer, and a
+  task and the almanac were given up (#392). probe.ask clears the
+  queue before every send now; a script reading with s.get() after
+  s.put() on its own should call s.clear() first. And GET from the
+  STOW container can arrive with its "You get ..." glued to the end of
+  the stow window's <inv> line: grep the raw log line whole, never
+  cut to a width.
+
 ## Evidence first
 
 - INFO's "Wealth:" is the coins on the character, not what they own:

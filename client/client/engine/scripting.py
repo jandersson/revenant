@@ -180,6 +180,22 @@ class Script:
             if stream in streams:
                 return text
 
+    def clear(self):
+        """Drop every game line queued and not yet read, and return how
+        many: what came before a command is no answer to it (Lich's
+        `clear` before `bput`). A parent waiting on a child for half an
+        hour holds the child's whole traffic in its queue, and its next
+        GET read the child's stale "What were you referring to?" as its
+        own answer (2026-09-29, #392). Flags are matched as lines arrive
+        and keep what they caught."""
+        dropped = 0
+        while True:
+            try:
+                self._queue.get_nowait()
+            except queue.Empty:
+                return dropped
+            dropped += 1
+
     def command(self, timeout=None):
         """The next line a user handed to this running script — typing
         `;<name> <line>` while it runs delivers `<line>` here. None on

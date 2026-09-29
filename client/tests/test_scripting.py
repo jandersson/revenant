@@ -82,6 +82,19 @@ def test_get_with_zero_timeout_polls_queued_frames_without_blocking(tmp_path):
     assert script.get(timeout=0, streams=("compass",)) is None  # queue drained
 
 
+def test_clear_drops_the_unread_lines_and_the_flags_keep_their_catch(tmp_path):
+    # #392: a parent that waited on a child held the child's traffic
+    # and read a stale refusal as the answer to its own GET.
+    manager, recorder = make_manager(tmp_path)
+    script = Script("t", [], manager)
+    script.flag("gone", r"referring")
+    script.feed("What were you referring to?\n", "")
+    script.feed("You count out 75 pieces of material there.\n", "")
+    assert script.clear() == 2
+    assert script.get(timeout=0) is None
+    assert script.flagged("gone") == "What were you referring to?\n"
+
+
 def test_script_emit_targets_a_stream(tmp_path):
     (tmp_path / "mirror.py").write_text(
         "def main(s):\n    s.emit('psst', 'thoughts')\n"

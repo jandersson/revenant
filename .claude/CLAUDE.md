@@ -59,7 +59,8 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
 - `scripting.py` scripts are `main(s)` files in `scripts/`, loaded fresh
   on every start; `RELOADABLE_MODULES` reload with them as fresh copies.
   Handle API: put/get/waitfor/waitrt/echo/emit/sleep/command/state/args,
-  run/is_running/tell/kill/crashed/younger_scripts, flag/flagged/unflag.
+  run/is_running/tell/kill/crashed/younger_scripts, flag/flagged/unflag,
+  clear (probe.ask clears before every send).
 - `sendcmd.py` `revenant-send` (`--answer`, `--state`, `--wait-for`) and
   `policy.py` what an outside send may never do; the `drive` and
   `experiment` skills (`.claude/skills/`) are the procedures.

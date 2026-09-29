@@ -262,3 +262,54 @@ def test_ask_gives_the_refusal_back_after_three_resends():
     handle = RefusingHandle(["You gesture.\n"], refusals=10)
     assert probe.ask(handle, "cast", 0.02, 0) == "...wait 1 seconds."
     assert handle.sent == ["cast"] * (probe.WAIT_RETRIES + 1)
+
+
+class QueuedHandle:
+    """A handle with a queue the way a running script has one: lines
+    arrive whether or not the script reads them."""
+
+    def __init__(self, answer, backlog=()):
+        import queue
+
+        self._queue = queue.Queue()
+        for line in backlog:
+            self._queue.put(("", line))
+        self.answer = answer
+        self.sent = []
+
+    def put(self, command):
+        self.sent.append(command)
+        self._queue.put(("", self.answer))
+
+    def get(self, timeout=None, streams=("",)):
+        try:
+            _stream, text = self._queue.get_nowait()
+        except Exception:
+            return None
+        return text
+
+    def waitrt(self):
+        pass
+
+
+# Captured 2026-09-29 (#392): ;remedies waited on ;forage, whose "get
+# flowers from my sack" was refused; the refusal, still queued, read as
+# the answer to ;remedies' "get my mortar", which had worked.
+STALE = "What were you referring to?\n"
+
+
+def test_ask_drops_what_was_queued_before_the_command():
+    handle = QueuedHandle(
+        "You get an iron mortar from inside your backpack.\n", backlog=[STALE]
+    )
+    answer = probe.ask(handle, "get my mortar", 0.05, 0)
+    assert "referring" not in answer
+    assert answer == "You get an iron mortar from inside your backpack."
+
+
+def test_a_handle_with_its_own_clear_is_cleared_by_it():
+    cleared = []
+    handle = SimpleNamespace(clear=lambda: cleared.append(True))
+    probe.clear(handle)
+    assert cleared == [True]
+    probe.clear(SimpleNamespace())  # a fake with neither: nothing to do

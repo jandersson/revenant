@@ -123,10 +123,32 @@ def collect(s, seconds, until=None, prompts_from=None, quiet=QUIET_SECONDS):
     return "\n".join(lines)
 
 
+def clear(s):
+    """Drop the lines a handle has queued unread: what came before a
+    command is no answer to it. A session started before Script.clear()
+    has only the queue itself, emptied here all the same (#392); a
+    test's fake has neither and keeps its lines."""
+    method = getattr(s, "clear", None)
+    if callable(method):
+        method()
+        return
+    backlog = getattr(s, "_queue", None)
+    if backlog is None or not hasattr(backlog, "get_nowait"):
+        return
+    while True:
+        try:
+            backlog.get_nowait()
+        except Exception:  # queue.Empty
+            return
+
+
 def ask(s, command, seconds, tail_seconds):
     """Send a command and return the game's answer: the lines within
     `seconds` of sending, then — after any roundtime the command opened
-    has run out — the lines within `tail_seconds` more.
+    has run out — the lines within `tail_seconds` more. The lines queued
+    before the send are dropped first (clear()): a parent that waited
+    on a child read the child's stale "What were you referring to?" as
+    the answer to its own GET, twice in a minute (2026-09-29, #392).
 
     Results can land at the END of the roundtime (captured 2026-08-22:
     a 6s blind forage answered only after the old single collect window
@@ -149,6 +171,7 @@ def ask(s, command, seconds, tail_seconds):
     32 refusals in one day's logs). Lich's DragonRealms commons resend
     on the same line (`DRC.bput`, docs/bibliography.md)."""
     for attempt in range(WAIT_RETRIES + 1):
+        clear(s)
         before = _prompts(s)
         s.put(command)
         opening = collect(s, seconds, prompts_from=before)
