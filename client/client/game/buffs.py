@@ -868,6 +868,31 @@ def next_cast(s, profile, state):
     return next(turn for turn in order if turn in due)
 
 
+def discern(s, spell, state, ask):
+    """DISCERN <spell>, its roundtime waited out: the answer. A name the
+    game does not parse ("You have no idea how to cast that spell.",
+    captured 2026-09-29 on "discern hands of justice", which left
+    Utility with no training cast) is asked again by the abbreviation
+    ;sheet recorded off SPELLS, and a working abbreviation is kept for
+    the run's PREPAREs, as cast_once() does (#320)."""
+    short_names = getattr(state, "short_names", None)
+    known = (short_names or {}).get(str(spell).lower())
+    answer = ask(s, f"discern {known or spell}") or ""
+    s.waitrt()
+    if known or "no idea how to cast" not in answer.lower():
+        return answer
+    short = abbreviation(getattr(getattr(s, "state", None), "name", ""), spell)
+    if not short or short.lower() == str(spell).lower():
+        return answer
+    retry = ask(s, f"discern {short}") or ""
+    s.waitrt()
+    if "no idea how to cast" in retry.lower():
+        return answer
+    if short_names is not None:
+        short_names[str(spell).lower()] = short
+    return retry
+
+
 def discern_slots(s, profile, state, ask, prefix, report):
     """DISCERN each targeted slot's spell once per run, before its
     first cast: "You don't think you are able to cast this spell" (or a
@@ -882,8 +907,7 @@ def discern_slots(s, profile, state, ask, prefix, report):
         if not spell or slot in state.slots_off or slot in state.discerned:
             continue
         state.discerned.add(slot)
-        answer = ask(s, f"discern {spell}")
-        s.waitrt()
+        answer = discern(s, spell, state, ask)
         outcome = classify(answer, DISCERN_OUTCOMES)
         # The estimate is the ramp's ceiling (2026-09-20): "The spell
         # requires at minimum 1 mana streams and you think you can
@@ -942,8 +966,7 @@ def discern_training_buffs(s, profile, state, ask, prefix):
         key = f"buff:{str(spell).lower()}"
         if key not in state.discerned:
             state.discerned.add(key)
-            answer = ask(s, f"discern {spell}")
-            s.waitrt()
+            answer = discern(s, spell, state, ask)
             learned = discerned_skills(answer)
             if learned:
                 remember_skills(state, spell, learned)

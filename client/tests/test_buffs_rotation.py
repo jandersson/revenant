@@ -117,6 +117,35 @@ def test_a_buffs_skill_is_discerned_once_and_remembered_for_the_next_run(
     ]
 
 
+def test_a_name_discern_does_not_parse_is_asked_by_its_abbreviation(monkeypatch):
+    # Captured 2026-09-29 on Cecil: "discern hands of justice" answered
+    # "You have no idea how to cast that spell.", so Hands of Justice
+    # never named its skill and Utility had no training cast. PREPARE
+    # has retried by ;sheet's abbreviation since #320; DISCERN now too.
+    monkeypatch.setattr(buffs, "PREPARE_SECONDS", 0)
+    monkeypatch.setattr(
+        buffs, "abbreviation", lambda name, spell: "hoj" if "justice" in spell else None
+    )
+    unparsed = dict(DISCERNS)
+    unparsed["hands of justice"] = "You have no idea how to cast that spell.\n"
+    unparsed["hoj"] = UTIL
+
+    def picky(s, command):
+        s.sent.append(command)
+        if command.startswith("discern "):
+            return unparsed.get(command[len("discern ") :], "")
+        return ask(s, command)
+
+    handle = Handle(_exp(augmentation=33, warding=34, utility=0))
+    state = buffs.BuffState()
+    buffs.discern_slots(handle, PROFILE, state, picky, "hunt", _report)
+    assert handle.sent[-2:] == ["discern hands of justice", "discern hoj"]
+    assert not [e for e in handle.echoed if "nothing trains it" in e]
+    assert buffs.skills_of(state, "hands of justice") == ["Utility"]
+    # The abbreviation prepares it for the rest of the run.
+    assert state.short_names["hands of justice"] == "hoj"
+
+
 def test_a_skills_next_buff_takes_over_when_the_first_drops_out(monkeypatch):
     monkeypatch.setattr(buffs, "PREPARE_SECONDS", 0)
     handle = Handle(_exp(augmentation=0, warding=34, utility=34))
