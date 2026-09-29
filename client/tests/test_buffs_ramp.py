@@ -131,3 +131,80 @@ def test_a_collapse_at_the_estimate_holds_a_step_under(monkeypatch):
     buffs.cast_buffs(handle, PROFILE, state, backfire, "hunt", _report)
     assert state.buff_mana["heroic strength"] == 26
     assert "heroic strength" in state.buff_cap
+
+
+# Captured 2026-09-29 (Cecil's box-farm ;hunt, #390): DISCERN HOJ's
+# estimate; the skill sentence is Heroic Strength's with Utility.
+HOJ_DISCERN = (
+    "It requires the Utility skill to cast effectively.\n"
+    "The spell requires at minimum 5 mana streams and you think you can "
+    "reinforce it with 7 more, for a total of 12 streams.\nRoundtime: 9 sec.\n"
+)
+HOJ_PROFILE = dict(PROFILE, buffs=["hands of justice"], train_casting=["Utility"])
+
+
+def _hoj_handle():
+    handle = Handle()
+    handle.state.experience["Utility"] = {"rank": 40, "percent": 0, "mindstate": 0}
+    handle.state.active_spells = {"Hands of Justice": 10}
+    return handle
+
+
+def test_a_charge_that_overfills_a_small_buff_stays_out_of_its_cast(monkeypatch):
+    # Hands of Justice: minimum 5, total 12, the anklet's charge 12. The
+    # ramp's 10 streams left nothing to prepare, the bare PREPARE and
+    # the anklet made 17, and it backfired (2026-09-29).
+    monkeypatch.setattr(buffs, "PREPARE_SECONDS", 0)
+    handle = _hoj_handle()
+    state = buffs.BuffState()
+    answers = dict(ANSWERS, **{"discern hands of justice": HOJ_DISCERN})
+
+    def hoj(s, command):
+        s.sent.append(command)
+        if command.startswith("prepare"):
+            return "You begin chanting a prayer.\n"
+        return answers.get(command, "")
+
+    buffs.discern_slots(handle, HOJ_PROFILE, state, hoj, "hunt", _report)
+    assert state.buff_mana["hands of justice"] == 10
+    handle.sent.clear()
+    buffs.cast_buffs(handle, HOJ_PROFILE, state, hoj, "hunt", _report)
+    assert _prepares(handle) == ["prepare hands of justice 10"]
+    assert "invoke my anklet" not in handle.sent
+    assert "charge my anklet 12" not in handle.sent
+    assert "hands of justice" not in state.training_spells_off
+
+
+def test_a_backfire_at_minimum_with_the_charge_keeps_the_buff_training(monkeypatch):
+    # With no DISCERN estimate the charge is tried; its backfire at the
+    # minimum is the charge's fault, so the buff trains on without it.
+    monkeypatch.setattr(buffs, "PREPARE_SECONDS", 0)
+    handle = _hoj_handle()
+    state = buffs.BuffState()
+    answers = dict(
+        ANSWERS,
+        cast="You gesture.\nYour spell backfires.\n",
+        **{
+            "discern hands of justice": "It requires the Utility skill to cast effectively.\n"
+        },
+    )
+
+    def backfire(s, command):
+        s.sent.append(command)
+        if command.startswith("prepare"):
+            return "You begin chanting a prayer.\n"
+        return answers.get(command, "")
+
+    buffs.discern_slots(handle, HOJ_PROFILE, state, backfire, "hunt", _report)
+    assert "hands of justice" not in state.buff_floor  # no estimate read
+    state.buff_mana["hands of justice"] = 10
+    handle.sent.clear()
+    buffs.cast_buffs(handle, HOJ_PROFILE, state, backfire, "hunt", _report)
+    assert "invoke my anklet" in handle.sent
+    assert "hands of justice" in state.cambrinth_skip
+    assert "hands of justice" not in state.training_spells_off
+    assert any("cast without the anklet from here" in e for e in handle.echoed)
+    handle.sent.clear()
+    buffs.cast_buffs(handle, HOJ_PROFILE, state, ask, "hunt", _report)
+    assert "invoke my anklet" not in handle.sent
+    assert _prepares(handle) == ["prepare hands of justice 10"]

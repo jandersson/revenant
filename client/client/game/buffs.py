@@ -103,7 +103,12 @@ into the cast — since the estimate counts them too: every run climbed
 from the minimum for a dozen casts, and 18 prepared with the anklet's
 12 backfired under an estimate of 28 (2026-09-28, #375; Elanthipedia,
 Magic 3.0: "Larger casts of spells are rewarded by a net increase in
-experience over several smaller casts"). Captured 2026-09-18
+experience over several smaller casts"). A buff whose DISCERN
+minimum plus the charge passes its ramp casts without the piece, and
+a backfire at the minimum with the charge invoked keeps the buff and
+drops the piece from its casts: Hands of Justice (minimum 5, total 12)
+backfired with the anklet's 12 and left Utility untrained (2026-09-29,
+#390). Captured 2026-09-18
 on Footman's Strike at Targeted Magic 1: the spell's description, then
 "This is a targeted spell, which must be TARGETed at a specific
 opponent. ... To begin to be able to cast this spell, you will need to
@@ -303,6 +308,10 @@ class BuffState:
         self.buff_mana = {}
         self.buff_cap = {}
         self.buff_limit = {}
+        # DISCERN's minimum per buff, and the buffs the cambrinth's charge
+        # alone overfills: they train without the piece (#390).
+        self.buff_floor = {}
+        self.cambrinth_skip = set()
         self.training_spells_off = set()  # buffs whose minimum failed this run
         self.training_off = False  # no buff is left to train with this run
         self.trained_at = None  # monotonic() of the last training cast
@@ -980,6 +989,7 @@ def discern_training_buffs(s, profile, state, ask, prefix):
             if "buff" in limits:
                 state.buff_limit[spell] = limits["buff"]
                 state.buff_mana.setdefault(spell, start)
+                state.buff_floor[spell] = mana_limit(answer)[0]
         if known and serves(known):
             covered |= {skill.lower() for skill in known}
     for name in names:
@@ -1072,6 +1082,19 @@ def cast_targeted(s, profile, state, ask, prefix, report, slot, target="", fille
         )
 
 
+def cambrinth_fits(profile, state, spell, streams):
+    """Whether the cambrinth's charge fits `spell`'s training cast of
+    `streams` (prepared plus invoked): the spell's DISCERN minimum and
+    the charge together within it. True when the minimum is unknown,
+    unless the charge already overfilled this buff once this run."""
+    if spell in state.cambrinth_skip:
+        return False
+    floor = state.buff_floor.get(spell)
+    if floor is None:
+        return True
+    return streams - int(profile.get("cambrinth_mana") or 1) >= floor
+
+
 def cast_buffs(
     s,
     profile,
@@ -1113,10 +1136,17 @@ def cast_buffs(
         # charge when the piece is invoked into the same cast, which
         # DISCERN's estimate counts too — 18 prepared with the anklet's 12
         # backfired under an estimate of 28 (2026-09-28, #375).
+        # A spell whose minimum plus the charge passes the ramp's streams
+        # casts without the piece: Hands of Justice (minimum 5, total 12)
+        # backfired at its minimum with the anklet's 12 (2026-09-29, #390).
         streams = state.buff_mana.get(spell, 0) if training else 0
         mana = streams
         invoke = None
-        if training and charge_cambrinth(s, profile, state, ask, prefix, report):
+        if (
+            training
+            and cambrinth_fits(profile, state, spell, streams)
+            and charge_cambrinth(s, profile, state, ask, prefix, report)
+        ):
             invoke = profile["cambrinth"]
             mana = max(streams - int(profile.get("cambrinth_mana") or 1), 0)
         result = cast_once(
@@ -1156,6 +1186,14 @@ def cast_buffs(
             )
             if spell not in state.buff_cap:
                 state.buff_mana[spell] = climb(streams, state.buff_limit.get(spell))
+        elif mana == 0 and invoke:
+            # The minimum with the charge was too much, not the minimum
+            # itself: the piece stays out of this buff's casts (#390).
+            state.cambrinth_skip.add(spell)
+            s.echo(
+                f"{prefix}: {spell} at minimum mana with the {invoke}'s charge "
+                f"was too much ({result}) — cast without the {invoke} from here"
+            )
         elif mana == 0:
             # Even the minimum failed (a circle-1 Paladin's 5 mana
             # "barely backfires", 2026-09-12): no more training casts of
