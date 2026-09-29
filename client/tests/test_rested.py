@@ -57,6 +57,17 @@ def test_a_burn_holds_between_the_footers_falls_and_ends_after_a_quiet_spell():
     assert burn.step(at(0)) is False
 
 
+def test_an_empty_bank_ends_the_burn_at_once_whatever_usable_says():
+    # Usable can exceed the bank (Cecil, 2026-09-30: stored 19, usable
+    # 118): the bank runs dry first, both figures stop falling, and the
+    # burn ends there — not STICKY_MINUTES later.
+    burn = rested.Burn()
+    burn.step({"stored": 2, "usable": 101, "refresh": 900})
+    assert burn.step({"stored": 1, "usable": 100, "refresh": 899}) is True
+    assert burn.step({"stored": 0, "usable": 99, "refresh": 898}) is False
+    assert burn.step({"stored": 0, "usable": 99, "refresh": 897}) is False
+
+
 def test_a_sparse_reading_says_what_is_certain_for_as_long_as_it_can():
     # The bank spends at most a minute a minute, so 326 usable minutes
     # are still some 325 minutes on; past that it may have run out.

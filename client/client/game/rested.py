@@ -114,7 +114,11 @@ class Burn:
             self.quiet = 0
         elif self.quiet is not None:
             self.quiet += 1
-        if reading.get("usable") == 0 or self.quiet is None:
+        # Nothing left to spend — the cycle's usable figure, or the bank
+        # itself, which runs out first when usable exceeds it (Cecil,
+        # 2026-09-30: stored 19, usable 118): no sticky tail after it.
+        stored = reading.get("stored")
+        if reading.get("usable") == 0 or stored == 0 or self.quiet is None:
             return False
         return self.quiet < STICKY_MINUTES
 
