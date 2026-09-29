@@ -29,8 +29,12 @@ Never a drop
   - A box with no room anywhere is lowered to the feet, and LIFTed again before
     any flight, walk or end, ;stop included.
 
+A room whose guards forbid box work ("Do that somewhere else.", the bank):
+it walks to the profile's `home` once and works the boxes there.
+
 When it stops
   - every box tried, the `limit`, or the lock with `once`
+  - guards forbid box work here and at `home`, or there is no `home`
   - below `health_floor` or a wound at `wound_floor`, so ;heal can run
   - no lockpick left, death, or hostiles (it flees)
   - ;boxes return; the gear goes back on however it ends
@@ -229,6 +233,7 @@ class Run:
         self.options = options
         self.container = options["source"] or profile.get("loot_container") or ""
         self.kept = {}  # noun -> boxes put back into the container
+        self.moved = False  # walked home once, the guards having forbidden it
         self.kept_elsewhere = 0  # put back into the containers worked before it
         self.reported = set()
         self.opened = 0
@@ -740,6 +745,8 @@ def disarm(run, noun):
             run.report("disarm identify", "disarm identify", answer)
             hindrance(run, answer)
             outcome = classify(answer, DISARM_OUTCOMES)
+            if outcome == "forbidden":
+                return "stop:forbidden"
             if outcome == "sprung":
                 why = sprung(run, answer, noun)
                 if why:
@@ -777,6 +784,8 @@ def disarm(run, noun):
         run.report("disarm", "disarm", answer)
         hindrance(run, answer)
         outcome = classify(answer, DISARM_OUTCOMES)
+        if outcome == "forbidden":
+            return "stop:forbidden"
         if outcome == "sprung":
             why = sprung(run, answer, noun)
             if why:
@@ -817,6 +826,8 @@ def pick(run, noun):
             run.report("pick identify", "pick identify", answer)
             hindrance(run, answer)
             outcome = classify(answer, PICK_OUTCOMES)
+            if outcome == "forbidden":
+                return "stop:forbidden"
             if outcome == "sprung":
                 why = sprung(run, answer, noun)
                 if why:
@@ -871,6 +882,8 @@ def pick(run, noun):
         run.report("pick", "pick", answer)
         hindrance(run, answer)
         outcome = classify(answer, PICK_OUTCOMES)
+        if outcome == "forbidden":
+            return "stop:forbidden"
         if outcome == "sprung":
             why = sprung(run, answer, noun)
             if why:
@@ -1032,6 +1045,37 @@ def kept(run, noun):
     return "kept"
 
 
+def move_home(run):
+    """The guards forbid box work here: walk to the profile's `home` (a
+    ;go2 target) once, anything at the feet LIFTed first, and sit again.
+    False, said, when the run has moved already, names no home, or the
+    walk fails. ;hunt's last chore is ;skins bank, so a ;train box task
+    after a box farm starts in the bank (2026-09-29, #391)."""
+    if run.moved:
+        return False
+    run.moved = True
+    home = str(run.profile.get("home") or "").strip()
+    if not home:
+        run.say("the guards here forbid box work, and the profile names no home")
+        return False
+    from client.game.mapdb import MapDB
+    from client.game.walker import walk
+
+    mapdb = MapDB.load()
+    goals = mapdb.resolve(home) if mapdb is not None else None
+    if not goals:
+        run.say(f"the guards here forbid box work, and home {home!r} is not on the map")
+        return False
+    run.say(f"the guards here forbid box work — walking home ({home})")
+    clear_feet(run)
+    stand(run)
+    if not walk(run.s, mapdb, set(goals), describe="home"):
+        run.say("could not reach home")
+        return False
+    sit(run)
+    return True
+
+
 def one_box(run, noun, source="container"):
     """One box out, worked and away: "done", "kept", "lost" or
     "stop:<why>". `source`: "container" (GET it), "feet" (LIFT it) or
@@ -1166,6 +1210,12 @@ def run_loop(s, profile, options):
                 clear_feet(run)  # the walk to Ragge's
                 refill_ring(run)
             outcome = one_box(run, noun, source)
+            if outcome == "stop:forbidden" and move_home(run):
+                # Put back for "the run ends" — not kept: the same box again.
+                run.kept[noun] = max(0, run.kept.get(noun, 0) - 1)
+                outcome = one_box(run, noun)
+            if outcome == "stop:forbidden":
+                outcome = "stop:guards forbid box work here"
             if outcome == "stop:no lockpick":
                 clear_feet(run)  # the walk to Ragge's
             if outcome == "stop:no lockpick" and refill_ring(run):

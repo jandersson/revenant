@@ -1000,3 +1000,60 @@ def test_with_no_trash_in_the_room_an_ignored_item_is_kept():
     assert not any(command.startswith("drop") for command in fake.sent)
     assert "no trash here for the copper nugget (loot_ignore) — kept" in out
     assert fake.sent.count("put my nugget in my sack") == 2  # copper and damite
+
+
+# Captured 2026-09-29 in the Provincial Bank's teller room, where the
+# hunt's ;skins bank had left the character (#391).
+GUARD = 'A guard steps over you and says, "Do that somewhere else."\n'
+
+
+def _guarded_world(monkeypatch):
+    import client.game.mapdb as mapdb
+    import client.game.walker as walker
+
+    walked = []
+    db = SimpleNamespace(resolve=lambda target: {11716} if target == "11716" else set())
+    monkeypatch.setattr(mapdb.MapDB, "load", classmethod(lambda cls, path=None: db))
+    monkeypatch.setattr(
+        walker,
+        "walk",
+        lambda s, db, goals, describe="", avoid=(): walked.append(set(goals)) or True,
+    )
+    return walked
+
+
+def _guarded_box(walked):
+    def identify(command):
+        if not walked:
+            return GUARD
+        return SIMPLE_TRAP if _DISARMS["count"] < 1 else NO_TRAP
+
+    guarded = [
+        ("disarm my box identify", identify),
+        ("put my box in my sack", "You put your box in your canvas sack.\n"),
+    ]
+    rest = [row for row in one_easy_box() if row[0] != "disarm my box identify"]
+    return guarded + rest
+
+
+def test_guards_forbidding_box_work_send_the_run_home_once(monkeypatch):
+    walked = _guarded_world(monkeypatch)
+    fake = Fake(_guarded_box(walked), mindstates=[1, 3, 5, 7])
+    out = run(fake, ["limit=1"], profile={"home": "11716"})
+    assert walked == [{11716}]
+    assert "the guards here forbid box work — walking home (11716)" in out
+    # Back into the sack before the walk, taken again at home.
+    first = fake.sent.index("put my box in my sack")
+    assert fake.sent[first + 1] == "stand"
+    assert fake.sent.count("get box from my sack") == 2
+    assert "the box opened — 2 item(s) out (1 box(es) so far)" in out
+
+
+def test_guards_and_no_home_end_the_run_saying_so(monkeypatch):
+    walked = _guarded_world(monkeypatch)
+    fake = Fake(_guarded_box(walked), mindstates=[1, 3, 5, 7])
+    out = run(fake, profile={"home": ""})
+    assert walked == []
+    assert "the guards here forbid box work, and the profile names no home" in out
+    assert "guards forbid box work here — stopping" in out
+    assert fake.sent.count("disarm my box identify") == 1  # never tried again

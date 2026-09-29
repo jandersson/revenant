@@ -307,7 +307,13 @@ MORE_TRAPS = (
     "not yet fully disarmed",
     "still has more to torment",
 )
+# A room whose guards forbid box work (captured 2026-09-29 in the
+# Provincial Bank's teller room, where ;hunt's ;skins bank had left the
+# character): "A guard steps over you and says, "Do that somewhere
+# else."" — to DISARM IDENTIFY and DISARM alike.
+FORBIDDEN = ("do that somewhere else",)
 DISARM_OUTCOMES = (
+    ("forbidden", FORBIDDEN),
     ("sprung", TRAP_SPRUNG),
     ("stunned", STUNNED),
     ("injured", INJURED),
@@ -378,6 +384,7 @@ UNLOCKED = ("open and remove the lock", "you unlock", "the lock opens")
 MORE_LOCKS = ("discover another lock protecting",)
 PICK_LOST = ("pick what", "what were you referring")
 PICK_OUTCOMES = (
+    ("forbidden", FORBIDDEN),
     ("sprung", TRAP_SPRUNG),
     ("stunned", STUNNED),
     ("injured", INJURED),
