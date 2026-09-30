@@ -358,6 +358,25 @@ def test_a_herb_is_foraged_to_the_pieces_then_pressed_and_combined(travel):
     assert reason.endswith("pressed and combined — 12 dried piece(s) stowed")
 
 
+def test_a_stack_a_full_combine_left_over_is_stowed_not_kept_in_hand():
+    # Captured 2026-09-30 (#395): "You combine the stacks of herbs
+    # together, but some was left over." kept two stacks; one stayed in
+    # hand and ;remedies found no hand for its pestle and book.
+    s = Fake([INTO_PACK])
+    s.state.right_hand = {"noun": "flowers", "name": "dried red flowers"}
+    s.state.left_hand = {"noun": "knife", "name": "a skinning knife"}
+
+    def stow(command, put=s.put):
+        put(command)
+        s.state.right_hand = None  # the stow took the stack
+
+    s.put = stow
+    forage.stow_herb_in_hands(s, "flowers")
+    assert s.sent == ["stow my flowers"]  # the knife is not the herb
+    forage.stow_herb_in_hands(s, "flowers")
+    assert s.sent == ["stow my flowers"]  # nothing left to stow
+
+
 def test_a_herb_never_found_ends_after_the_misses(travel, monkeypatch):
     monkeypatch.setattr(forage, "HERB_MISSES", 3)
     s = Fake([EMPTY, FORGOT, TRIED], room=19343)

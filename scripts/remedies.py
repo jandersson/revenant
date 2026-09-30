@@ -631,6 +631,14 @@ def bundle_on_hand(s, item, noun, remaining):
 
 
 def tools_in_hand(s):
+    # The mortar and pestle fill both hands: anything else held — a herb
+    # stack ;forage left behind (2026-09-30, #395) — is stowed first,
+    # never dropped, or the pestle and the book find no hand.
+    for side in ("left_hand", "right_hand"):
+        held = getattr(s.state, side, None)
+        noun = held.get("noun") if isinstance(held, dict) else None
+        if noun and noun not in ("mortar", "pestle"):
+            ask(s, f"stow my {noun}")
     for tool in ("mortar", "pestle"):
         if missing(ask(s, f"get my {tool}")):
             s.echo(f"remedies: no {tool} on you — stopping")

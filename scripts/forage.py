@@ -349,6 +349,18 @@ def gather_herb(s, options, bag):
     return "forage fuse spent", pieces, noun
 
 
+def stow_herb_in_hands(s, noun):
+    """Every stack of `noun` still in a hand stowed, by the parser's hand
+    state: a combine that "left some over" (a stack at its limit) keeps
+    two stacks, and one left in hand blocked ;remedies' mortar and pestle
+    (2026-09-30, #395). Never a drop."""
+    for _ in range(2):
+        hands = [getattr(s.state, side, None) for side in ("left_hand", "right_hand")]
+        if not any(isinstance(h, dict) and h.get("noun") == noun for h in hands):
+            return
+        ask(s, f"stow my {noun}")
+
+
 def press_herb(s, noun, bag):
     """At the dry press: each raw find out of `bag` pressed and combined
     with the dried stack before it, the stack stowed. The dried stack's
@@ -377,6 +389,7 @@ def press_herb(s, noun, bag):
         stored = _STOWED_IN.search(ask(s, f"stow my {noun}"))
         if stored:
             home = stored.group("container").strip()
+        stow_herb_in_hands(s, noun)  # the stack a full combine left over
         if any(word in pressed for word in _PREPARED) and home == bag:
             break  # the bag holds only the dried stack now: all pressed
     if not stacks:
@@ -385,7 +398,9 @@ def press_herb(s, noun, bag):
         ask(s, f"get dried {noun} from my {home}")
         total = pieces_of(s, noun)
         ask(s, f"stow my {noun}")
+        stow_herb_in_hands(s, noun)
         return total
+    stow_herb_in_hands(s, noun)
     return 0
 
 

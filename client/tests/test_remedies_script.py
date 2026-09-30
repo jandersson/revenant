@@ -1239,3 +1239,20 @@ def test_without_forage_herbs_the_herb_is_bought(monkeypatch):
     )
     script.restock(fake, SPEC, "nugget", "dried flowers", 2, {"spent": 0}, {})
     assert fake.started == [] and bought == [("flowers", 2)]
+
+
+def test_a_stray_stack_in_hand_is_stowed_before_the_tools(monkeypatch):
+    # 2026-09-30 (#395): a herb stack ;forage left in hand, the mortar in
+    # the other, and the pestle and the book found no hand.
+    sent = []
+    handle = SimpleNamespace(
+        state=SimpleNamespace(
+            left_hand=None, right_hand={"noun": "flowers", "name": "dried red flowers"}
+        ),
+        echo=lambda text: None,
+    )
+    monkeypatch.setattr(
+        script, "ask", lambda s, command: sent.append(command) or "You get it."
+    )
+    assert script.tools_in_hand(handle)
+    assert sent == ["stow my flowers", "get my mortar", "get my pestle"]
