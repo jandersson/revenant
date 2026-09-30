@@ -171,6 +171,23 @@ WAY_REFUSALS = ("could not find what you were referring", "You can't go there")
 # 2026-09-26, a circle-1 Barbarian walked toward the Paladins' Guild: a
 # stall, a RETREAT burst, the trail again, "stalled at step 148").
 GATE_REFUSALS = ("not experienced enough to go there", "not allowed to go there")
+# A gate's refusal outlives its walk (#394): ;train's walks to Cecil's
+# rest room tried the Promenade twice an evening, each answered "not
+# experienced enough" (2026-09-29). The edges live here per character
+# name, planned around by every walk after the refusal, until a
+# relaunch (or an edit of this module) forgets them — a circle gained
+# mid-session included. A climb refused for Athletics and a way the
+# map has wrong stay closed for their walk alone.
+_GATED = {}
+
+
+def gated(s):
+    """The (room, dest) edges a gate has refused this character in the
+    session: the set itself, for the walk to add to."""
+    name = getattr(getattr(s, "state", None), "name", None) or ""
+    return _GATED.setdefault(name, set())
+
+
 # A move sent into roundtime — a hidden path's SEARCH still running —
 # answers "...wait 7 seconds." and nothing moves (captured 2026-09-28 at
 # the Foothills' Stony Incline, #367): the roundtime is slept out and
@@ -616,7 +633,9 @@ def walk(s, db, goals, describe="destination", avoid=(), max_steps=None):
         s.waitrt()
         s.echo(f"stood up first (you were {posture})")
     avoid = frozenset(avoid)
-    closed = set()  # (room, dest) edges the game refused this walk (#209)
+    # (room, dest) edges the game refused this walk (#209), and those a
+    # gate refused the character before in the session (#394).
+    closed = set(gated(s))
     ranks = character_ranks(s.state)
     goals = set(goals)
     for _ in range(REROUTES + 1):
@@ -725,7 +744,13 @@ def _follow(s, db, route, here, closed):
             closed.add((here, dest))
             titles = db.rooms[dest].get("title") or ["?"]
             first = answer_line(wording, GATE_REFUSALS + WAY_REFUSALS)
-            s.echo(f"the way to {titles[0]} is closed to you ({first!r}) — going round")
+            kept = ""
+            if any(needle in wording for needle in GATE_REFUSALS):
+                gated(s).add((here, dest))
+                kept = ", and on every walk this session"
+            s.echo(
+                f"the way to {titles[0]} is closed to you ({first!r}) — going round{kept}"
+            )
             return "closed"
         if outcome == "refused":
             # A climb beyond the character's Athletics (#157): one

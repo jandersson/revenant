@@ -26,7 +26,7 @@
 - **Searches for hidden ways:** a map edge that SEARCHes first repeats the SEARCH (15 at most) until something is found — one often finds nothing.
 - **Escapes an engagement:** a step that stalls gets RETREAT, RETREAT and the step again, once.
 - **Checks every room** it lands in against the route, and stops rather than guessing when it is lost.
-- **Goes round a closed way:** a guild or circle gate ("not experienced enough"), an exit the game cannot find, or a climb that failed twice is dropped from the route and the walk replans from where you stand.
+- **Goes round a closed way:** a guild or circle gate ("not experienced enough"), an exit the game cannot find, or a climb that failed twice is dropped from the route and the walk replans from where you stand. A gate stays dropped for every later walk until the session is relaunched.
 - **Leaves a room the map has no exits for** by trying OUT and the compass exits, and remembers the way in `~/.revenant/mapdb/local.json`.
 
 ## Rides

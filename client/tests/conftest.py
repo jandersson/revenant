@@ -45,6 +45,11 @@ def _isolated_login_defaults(tmp_path, monkeypatch):
     # The skills DISCERN named for each spell (#374): a test's fixture
     # never lands in the operator's ~/.revenant/spell_skills.json.
     monkeypatch.setenv("REVENANT_SPELL_SKILLS", str(tmp_path / "spell_skills.json"))
+    # The gates the walker remembers for the session (#394): one test's
+    # refused trail must not reroute the next test's walk.
+    from client.game import walker
+
+    monkeypatch.setattr(walker, "_GATED", {})
 
 
 @pytest.fixture

@@ -893,6 +893,41 @@ def test_a_closed_way_is_routed_around_without_a_retreat():
     assert any("going round" in echo for echo in handle.echoes)
 
 
+def test_a_gate_that_refused_once_is_planned_around_for_the_session():
+    # #394: every ;train walk to the rest room tried the Promenade first
+    # and was turned back ("not experienced enough"), twice an evening.
+    first = GateHandle(uids=[10817, 10816, 11716])
+    first.state.room_uid = 10818
+    assert walker.walk(first, GATED, [11716], describe="the library") is True
+    assert any("on every walk this session" in echo for echo in first.echoes)
+    again = GateHandle(uids=[10817, 10816, 11716])
+    again.state.room_uid = 10818
+    assert walker.walk(again, GATED, [11716], describe="the library") is True
+    assert puts_of(again) == ["west", "west", "north"]
+    # Another character's walk still tries it: the memory is per name.
+    other = GateHandle(uids=[10817, 10816, 11716])
+    other.state.room_uid = 10818
+    other.state.name = "Sable"
+    assert walker.walk(other, GATED, [11716], describe="the library") is True
+    assert puts_of(other)[0] == "go trail"
+
+
+class WrongWayHandle(GateHandle):
+    def put(self, command):
+        super().put(command)
+        if command == "go trail":
+            self.pending = [("", "You can't go there.\n")]
+
+
+def test_a_way_the_map_has_wrong_is_closed_for_its_walk_alone():
+    for _ in range(2):
+        handle = WrongWayHandle(uids=[10817, 10816, 11716])
+        handle.state.room_uid = 10818
+        assert walker.walk(handle, GATED, [11716], describe="the library") is True
+        assert puts_of(handle) == ["go trail", "west", "west", "north"]
+        assert not any("every walk this session" in echo for echo in handle.echoes)
+
+
 # Captured 2026-09-26: a Barbarian at the Northeast Customs, the trail
 # into the Paladins' Guild.
 GUILD_REFUSED = "Barbarians are not allowed to go there.\n"
