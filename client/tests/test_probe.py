@@ -91,13 +91,16 @@ class PromptedHandle(FakeHandle):
     `intruder` is an unrelated line and its prompt landing right after
     the send, before the answer."""
 
-    def __init__(self, answers, after_roundtime=(), roundtime=0, intruder=None):
+    def __init__(
+        self, answers, after_roundtime=(), roundtime=0, intruder=None, delay=0.1
+    ):
         super().__init__(answers, after_roundtime)
         self.state = SimpleNamespace(
             prompt_count=10, server_time=100, roundtime=0, casttime=0
         )
         self.roundtime = roundtime
         self.intruder = intruder
+        self.delay = delay
         self.waited = False
         self.due_at = None
 
@@ -106,7 +109,7 @@ class PromptedHandle(FakeHandle):
         self.pending = []
         if self.intruder:
             self.pending = [self.intruder]
-            self.due_at = time.monotonic() + 0.1  # the answer, a beat later
+            self.due_at = time.monotonic() + self.delay  # the answer, a beat later
         else:
             self.pending = list(self.answers)
 
@@ -168,6 +171,27 @@ def test_an_unrelated_prompt_right_after_the_send_does_not_cut_the_answer():
         "Rikkie just arrived.",
         "The clerk counts out 6 silver Kronars and hands them over.",
     ]
+
+
+def test_a_creatures_attack_and_its_prompt_never_end_the_answer_window():
+    # Captured 2026-09-30 03:50:51 (#398): a CIRCLE at the blood wolves;
+    # the wolf's claw and its prompt came first, the maneuver's answer
+    # past the quiet stretch, and ;hunt read the claw as the answer.
+    claw = (
+        "* Trying poorly, a blood wolf claws at you.  You barely block with a "
+        "metal target shield.  \n"
+    )
+    handle = PromptedHandle(
+        [
+            "You fake a blood wolf, first moving one way and then another, "
+            "leaving it off balance.\n",
+        ],
+        intruder=claw,
+        delay=probe.QUIET_SECONDS * 3,
+    )
+    answer = probe.ask(handle, "circle", 3.0, 1.5)
+    assert answer.splitlines()[0].startswith("* Trying poorly")
+    assert "You fake a blood wolf" in answer
 
 
 def test_a_fake_without_a_prompt_count_waits_the_windows_as_before():

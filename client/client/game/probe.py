@@ -31,6 +31,13 @@ import time
 # another player's arrival, right after the send, from closing the
 # window before the answer itself arrives.
 QUIET_SECONDS = 0.25
+# A creature's attack aimed at the character opens with "* " (every one
+# of 3,441 in a hunt night's combat stream; the character's own swings
+# open with "<"). It comes with a prompt of its own and is never a
+# command's answer, so it never ends the window: a wolf's claw and its
+# prompt closed a CIRCLE's window 2026-09-30 before "You fake a blood
+# wolf..." arrived, and ;hunt read the claw as the answer (#398).
+ATTACKED = "* "
 
 # The game's refusal of a command sent inside a roundtime; the command
 # did not run and ask() sends it again after the seconds named (#251).
@@ -84,7 +91,8 @@ def collect(s, seconds, until=None, prompts_from=None, quiet=QUIET_SECONDS):
     with newlines ("" when nothing does). A line containing `until`
     ends the wait early — the recognizable last line of an answer.
     With `prompts_from` (the prompt count before the command) the window
-    also ends once a prompt past it has been seen and no piece has come
+    also ends once a prompt past it has been seen, a line that is not a
+    creature's attack has come (ATTACKED, #398), and no piece has come
     for `quiet` seconds — the answer is complete (#248); nothing at all
     arriving still waits the window out.
 
@@ -98,13 +106,14 @@ def collect(s, seconds, until=None, prompts_from=None, quiet=QUIET_SECONDS):
     partial = ""
     deadline = time.monotonic() + seconds
     last_piece = None
+    answered = False  # a line past the creatures' attacks
     watching = prompts_from is not None
     while time.monotonic() < deadline:
         piece = s.get(timeout=0.1 if watching else 0.5, streams=STORY_STREAMS)
         if piece is None:
             if (
                 watching
-                and last_piece is not None
+                and answered
                 and (_prompts(s) or 0) > prompts_from
                 and time.monotonic() - last_piece >= quiet
             ):
@@ -116,6 +125,7 @@ def collect(s, seconds, until=None, prompts_from=None, quiet=QUIET_SECONDS):
             continue
         line, partial = partial.rstrip("\r\n"), ""
         lines.append(line)
+        answered = answered or not line.startswith(ATTACKED)
         if until is not None and until in line:
             break
     if partial:
