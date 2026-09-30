@@ -105,17 +105,37 @@ def home_currency(title):
 
 DEPOSITED = ("records the deposit",)  # the clerk's ledger line
 _HANDED = re.compile(r"hands you ([^.]+)\.")
+# The changer's floor (captured 2026-09-28, and three times on
+# 2026-09-29 on a purse's 4 copper Dokoras, #389): 'The money-changer
+# says crossly, "A transaction that small isn't worth my time.  The
+# minimum is one bronze or ten coppers."'
+CHANGER_MINIMUM = 10  # copper
+TOO_SMALL = ("isn't worth my time", "the minimum is")
 
 
 def foreign(wealth, home):
-    """The currencies to exchange: every one the purse holds coins of
-    that is not the province's own, in the game's order. `wealth` is
-    money.parse_wealth's dict, `home` "kronars"/"lirums"/"dokoras"."""
+    """The currencies to exchange: every one the purse holds at least the
+    changer's minimum of that is not the province's own, in the game's
+    order. `wealth` is money.parse_wealth's dict, `home`
+    "kronars"/"lirums"/"dokoras"."""
     carried = wealth.get("carried", {})
     return [
         currency.lower()
         for currency in CURRENCIES
-        if carried.get(currency, 0) > 0 and currency.lower() != home.lower()
+        if carried.get(currency, 0) >= CHANGER_MINIMUM
+        and currency.lower() != home.lower()
+    ]
+
+
+def small_change(wealth, home):
+    """(currency, copper) for each foreign coin the purse holds under the
+    changer's minimum: he will not take it, so it stays in the purse."""
+    carried = wealth.get("carried", {})
+    return [
+        (currency, carried[currency])
+        for currency in CURRENCIES
+        if 0 < carried.get(currency, 0) < CHANGER_MINIMUM
+        and currency.lower() != home.lower()
     ]
 
 
@@ -128,6 +148,34 @@ def handed(answer):
     Kronars"), or None when the answer was not his."""
     match = _HANDED.search(answer or "")
     return match.group(1).strip() if match else None
+
+
+def changer_line(answer):
+    """The money-changer's own line in an answer window — one he speaks,
+    or one said to the character — never a bystander's ("Cache exchanges
+    some words and coins with the money-changer." was quoted as his
+    answer, 2026-09-29, #389); None when the window holds none."""
+    for line in (answer or "").splitlines():
+        if line.strip().lower().startswith(("the money-changer", "you ")):
+            return line.strip()
+    return None
+
+
+def exchange_each(s, ask, prefix, currencies, home):
+    """EXCHANGE ALL of each currency into `home` where the character
+    stands (the money-changer's room), each outcome said: the coins he
+    handed over, a sum under his minimum kept, or his own line."""
+    for currency in currencies:
+        answer = ask(s, exchange_command(currency, home))
+        got = handed(answer)
+        if got:
+            s.echo(f"{prefix}: exchanged your {currency} for {got}")
+        elif any(word in answer.lower() for word in TOO_SMALL):
+            s.echo(f"{prefix}: the {currency} are under the changer's minimum — kept")
+        else:
+            line = changer_line(answer)
+            said = f"answered {line!r}" if line else "said nothing"
+            s.echo(f"{prefix}: the money-changer {said} to the {currency}")
 
 
 def deposit(s, mapdb, walk_fn, ask, prefix, tellers=None):

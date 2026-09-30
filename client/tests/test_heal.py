@@ -268,6 +268,19 @@ def test_quentin_exchanges_a_kronar_purse_into_dokoras_by_him_first(monkeypatch)
     )
 
 
+def test_small_change_alone_is_no_fee_and_walks_to_no_money_changer():
+    # #389: the changer takes 10 copper or more; 4 copper Kronars by
+    # Quentin are no fee, so no walk to him either.
+    s = Fake(
+        {"info": ["Wealth:\n  4 copper Kronars (4 copper Kronars).\n  No Dokoras.\n"]}
+    )
+    reason, _ = heal.run(s, heal.parse_args(["quentin"]), mapdb=HOSPITALS, walk_fn=walk)
+    assert reason == "no coins"
+    assert s.walks == []
+    assert not any(c.startswith("exchange") for c in s.sent)
+    assert any("under the money-changer's minimum" in t for t in s.echoed)
+
+
 def test_a_healer_who_finds_no_wound_ends_the_visit_at_once(monkeypatch):
     # Arthianna, 2026-09-21, to a patient with scars alone.
     monkeypatch.setattr(heal, "HEALER_POLL", 0.01)

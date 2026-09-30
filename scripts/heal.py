@@ -34,7 +34,7 @@ import re
 
 from client.game import helper, herbs, probe
 from client.game.loop import wants_stop
-from client.game.bank import exchange_command, foreign, handed, room_currency
+from client.game.bank import exchange_each, foreign, room_currency
 from client.game.mapdb import MapDB
 from client.game.money import parse_wealth, phrase, split
 from client.game.walker import avoided_rooms, locate, walk
@@ -499,6 +499,13 @@ def change_coins(s, mapdb, walk_fn, healer_room, purse, home, avoid=()):
     money-changer nearest the healer (the walker's nearest would be the
     one behind, in the town the walk started from). False, said, when
     none is on the map or reachable."""
+    currencies = foreign({"carried": purse}, home)
+    if not currencies:
+        s.echo(
+            f"heal: no {home} in the purse, and the rest is under the "
+            "money-changer's minimum of 10 copper — stopping"
+        )
+        return False
     changers = mapdb.rooms_tagged("exchange")
     if not changers:
         s.echo("heal: the map has no room tagged 'exchange' — carry the coins yourself")
@@ -508,14 +515,7 @@ def change_coins(s, mapdb, walk_fn, healer_room, purse, home, avoid=()):
     if not walk_fn(s, mapdb, goals, describe="the money-changer", avoid=avoid):
         s.echo("heal: could not reach a money-changer — stopping")
         return False
-    for currency in foreign({"carried": purse}, home):
-        answer = ask(s, exchange_command(currency, home))
-        got = handed(answer)
-        if got:
-            s.echo(f"heal: exchanged your {currency} for {got}")
-        else:
-            first = (answer.strip().splitlines() or ["(silence)"])[0]
-            s.echo(f"heal: the money-changer answered {first!r} to the {currency}")
+    exchange_each(s, ask, "heal", currencies, home)
     return True
 
 

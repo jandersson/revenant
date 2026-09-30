@@ -18,7 +18,9 @@ silver, and 6 copper Kronars.", captured 2026-09-20), then everything
 goes to the nearest teller (`bank`) with DEPOSIT ALL (Elanthipedia:
 Deposit command; the clerk "records the deposit in her ledger"). With
 nothing foreign the money-changer is skipped; with nothing at all
-nothing is walked. `keep=N` withdraws N copper back after the deposit
+nothing is walked. A foreign coin under the changer's minimum (10
+copper: "A transaction that small isn't worth my time.") stays in the
+purse, said once. `keep=N` withdraws N copper back after the deposit
 so a tithe or a trainer's fee is still in the purse (Elanthipedia:
 Withdraw command). In ;train a task `{"script": "bank"}` with no
 skills runs it once per cycle (client/game/bank.py is the model).
@@ -28,12 +30,12 @@ Stops on death. Stop with:  ;stop bank.
 from client.game import probe
 from client.game.bank import (
     deposit,
-    exchange_command,
+    exchange_each,
     foreign,
-    handed,
     home_currency,
     nearest,
     room_currency,
+    small_change,
 )
 from client.game.mapdb import MapDB
 from client.game.money import parse_wealth, split
@@ -73,14 +75,7 @@ def exchange(s, mapdb, walk_fn, currencies, home):
     if not walk_fn(s, mapdb, set(changers), describe="the money-changer"):
         s.echo("bank: could not reach a money-changer — the foreign coins stay")
         return False
-    for currency in currencies:
-        answer = ask(s, exchange_command(currency, home))
-        got = handed(answer)
-        if got:
-            s.echo(f"bank: exchanged your {currency} for {got}")
-        else:
-            first = (answer.strip().splitlines() or ["(silence)"])[0]
-            s.echo(f"bank: the money-changer answered {first!r} to the {currency}")
+    exchange_each(s, ask, "bank", currencies, home)
     return True
 
 
@@ -107,17 +102,24 @@ def run(s, words, mapdb, walk_fn=walk):
         home = home_currency(getattr(s.state, "room_title", "") or "")
     wealth = parse_wealth(ask(s, "wealth"))
     carried = wealth["carried"]
-    if not any(carried.values()):
+    small = small_change(wealth, home)
+    for currency, copper in small:
+        s.echo(f"bank: {copper} copper {currency} under the changer's minimum — kept")
+    currencies = foreign(wealth, home)
+    if not currencies and not carried.get(home.capitalize(), 0):
+        empty = (
+            "the purse holds only small change"
+            if any(carried.values())
+            else "the purse is empty"
+        )
         if options["keep"] <= 0:
-            s.echo("bank: the purse is empty — nothing to bank")
+            s.echo(f"bank: {empty} — nothing to bank")
             return
         # Nothing to deposit, something to fetch: the keep is what the
         # purse should hold, so the teller hands it over (2026-09-22, the
         # alchemy kit; an outside WITHDRAW the session refuses, #161 —
         # the script's own is the sanctioned one).
-        s.echo(
-            f"bank: the purse is empty — withdrawing the {options['keep']} copper keep"
-        )
+        s.echo(f"bank: {empty} — withdrawing the {options['keep']} copper keep")
         if not tellers or not walk_fn(
             s, mapdb, set(tellers), describe="the bank teller"
         ):
@@ -128,12 +130,11 @@ def run(s, words, mapdb, walk_fn=walk):
             if not walk_fn(s, mapdb, {start}, describe="where you started"):
                 s.echo("bank: could not walk back — you are at the bank")
         return
-    currencies = foreign(wealth, home)
     if currencies:
         exchange(s, mapdb, walk_fn, currencies, home)
         if s.dead:
             return
-    else:
+    elif not small:
         s.echo(f"bank: nothing foreign in the purse — {home} only")
     if not deposit(s, mapdb, walk_fn, ask, "bank", tellers):
         return

@@ -132,6 +132,70 @@ def test_foreign_coins_are_the_ones_not_the_provinces_and_handed_reads_the_chang
     assert bank.home_currency("[Provincial Bank, Money-changer]") == "kronars"
 
 
+# Captured 2026-09-29 at the Crossing's money-changer (#389): another
+# player's exchange, then the changer's refusal of 4 copper Dokoras.
+BYSTANDER = "Cache exchanges some words and coins with the money-changer.\n"
+TOO_SMALL = (
+    "The money-changer says crossly, \"A transaction that small isn't worth my "
+    'time.  The minimum is one bronze or ten coppers."\n'
+)
+WEALTH_SMALL = (
+    "Wealth:\n"
+    "  2 silver, 3 bronze, and 2 copper Kronars (232 copper Kronars).\n"
+    "  No Lirums.\n"
+    "  4 copper Dokoras (4 copper Dokoras).\n"
+)
+
+
+def test_a_foreign_coin_under_the_changers_minimum_is_kept_not_exchanged():
+    # 2026-09-29: 4 copper Dokoras went to the changer, who refused, and
+    # ;bank quoted another player's line as his answer.
+    wealth = parse_wealth(WEALTH_SMALL)
+    assert bank.foreign(wealth, "kronars") == []
+    assert bank.small_change(wealth, "kronars") == [("Dokoras", 4)]
+    fake = Fake({"wealth": [WEALTH_SMALL], "deposit": [DEPOSITED]})
+    script.run(fake, [], MAP, walk_fn=walk)
+    assert fake.sent == ["wealth", "deposit all"]
+    out = echoes(fake)
+    assert "4 copper Dokoras under the changer's minimum — kept" in out
+    assert "nothing foreign" not in out
+
+
+def test_small_change_alone_walks_nowhere():
+    fake = Fake(
+        {
+            "wealth": [
+                WEALTH_SMALL.replace(
+                    "2 silver, 3 bronze, and 2 copper Kronars (232 copper Kronars)",
+                    "No Kronars",
+                )
+            ]
+        }
+    )
+    script.run(fake, [], MAP, walk_fn=walk)
+    assert fake.sent == ["wealth"]
+    assert fake.walks == []
+    assert "the purse holds only small change — nothing to bank" in echoes(fake)
+
+
+def test_the_changers_answer_is_his_own_line_never_a_bystanders():
+    fake = Fake(
+        {
+            "exchange all dokoras": [BYSTANDER + TOO_SMALL],
+            "exchange all lirums": [BYSTANDER + "The money-changer shrugs.\n"],
+            "exchange all kronars": [BYSTANDER],
+        }
+    )
+    bank.exchange_each(fake, script.ask, "bank", ["dokoras"], "kronars")
+    bank.exchange_each(fake, script.ask, "bank", ["lirums"], "kronars")
+    bank.exchange_each(fake, script.ask, "bank", ["kronars"], "dokoras")
+    assert fake.echoed == [
+        "bank: the dokoras are under the changer's minimum — kept",
+        "bank: the money-changer answered 'The money-changer shrugs.' to the lirums",
+        "bank: the money-changer said nothing to the kronars",
+    ]
+
+
 def test_bank_exchanges_every_foreign_coin_then_deposits_all():
     fake = Fake(
         {
