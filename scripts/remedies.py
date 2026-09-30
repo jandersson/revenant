@@ -16,7 +16,8 @@ What it does
   - STUDies the book page, puts the herb's dried stack in the mortar and CRUSHes,
     adding water, the second herb and the catalyst as the game asks.
   - Work: reads the logbook (resumes, hands in or clears an order), finds the master,
-    crafts and bundles each stack, hands the logbook in for the pay.
+    crafts and bundles each stack, hands the logbook in for the pay. An order that
+    expires on the way is untied, its stacks stowed for the next, and another asked.
   - Buys what runs out (herbs, water, coal), coins from the bank when short,
     and finishes a remedy left in the mortar first.
   - A herb stack short of 25 pieces is combined with the herb's other stacks
@@ -61,6 +62,7 @@ from client.game.remedies import (
     containers_of,
     pieces,
     NO_MASTER,
+    ORDER_EXPIRED,
     ORDER_TRIES,
     POURED,
     remedy_in_mortar,
@@ -133,7 +135,9 @@ stowed, or bundled with the logbook under `work`.
 living: the logbook in hand and READ first — an order it still tracks
 is resumed, a complete one handed in, an expired one (past its due
 time: "This logbook is tracking a work order that has expired.")
-UNTIEd and its stacks stowed before a new one is asked, 2026-09-26, and
+UNTIEd and its stacks stowed before a new one is asked, 2026-09-26 — one
+that expires while it is worked, at a BUNDLE or the hand-in, goes the
+same way through the next READ, #397 — and
 every order bundles the finished stacks of its remedy INV LIST shows
 in a container before any crush, #324 —
 else ASK <master> FOR EASY
@@ -611,7 +615,7 @@ def bundle_on_hand(s, item, noun, remaining):
     roisaen from the deadline). GET MY <item> FROM MY <container>, then
     the craft's own bundle(); a GET that finds none (the listing is as
     old as the last INV LIST) or an answer the table lacks ends it.
-    The stacks still owed."""
+    The stacks still owed, None when the order has expired (#397)."""
     stacks = stacks_on_hand(getattr(s.state, "possessions", None), item)
     for container in stacks:
         if remaining <= 0:
@@ -619,6 +623,8 @@ def bundle_on_hand(s, item, noun, remaining):
         if missing(ask(s, f"get my {item} from my {container}")):
             break
         outcome, left, due = bundle(s, noun, remaining)
+        if outcome == "expired":
+            return None
         if outcome in ("unknown", "size"):
             break
         if outcome == "bundled":
@@ -845,12 +851,14 @@ def order(s, master, level, seek=None):
 
 def bundle(s, noun, expected):
     """The remedy in one hand, the logbook in the other, BUNDLEd; the
-    logbook's count read back. ("bundled" | "rejected" | "unknown",
-    remaining, roisaen): rejected is the order's quality unmet — the
-    remedy disposed of through discard.drop (stowed when the list
-    refuses it), the order still owed its stack;
+    logbook's count read back. ("bundled" | "rejected" | "unknown" |
+    "expired", remaining, roisaen): rejected is the order's quality
+    unmet — the remedy disposed of through discard.drop (stowed when the
+    list refuses it), the order still owed its stack;
     unknown is an answer the table lacks whose logbook count did not
-    move from `expected`, the remedy stowed likewise."""
+    move from `expected`, the remedy stowed likewise; expired is an
+    order past its due time (#397: the BUNDLE's answer or the READ's),
+    the remedy stowed for the next order."""
     ask(s, "get my logbook")
     answer = ask(s, f"bundle my {noun} with my logbook")
     outcome = "bundled"
@@ -863,12 +871,16 @@ def bundle(s, noun, expected):
             f"remedies: the {noun} is not a stack of the order's size — kept; "
             f"a herb stack short of {STACK_PIECES} pieces made it"
         )
+    elif any(word in answer.lower() for word in ORDER_EXPIRED):
+        outcome = "expired"
     elif not any(word in answer for word in BUNDLED):
         outcome = "unknown"
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         s.echo(f"remedies: BUNDLE answered {first!r} — please report it")
     state, remaining, due = parse_logbook(ask(s, "read my logbook"))
     ask(s, "stow my logbook")
+    if state == "expired":
+        outcome = "expired"
     if state == "done":
         remaining = 0
     if outcome == "unknown" and remaining < expected:
@@ -1134,6 +1146,22 @@ def ledger(s):
         s.echo(f"remedies: {line}")
 
 
+LAPSED = "the order expired"
+
+
+def lapsed(s, tally):
+    """An order that expired while it was worked (#397: the BUNDLE's or
+    the hand-in's answer): True to go on to the next order, whose READ
+    finds this one expired, unties its stacks and asks for another
+    (order, untie_expired); False, said, when the run was told to end."""
+    if tally.get("ending") or wants_stop(s):
+        s.echo(
+            "remedies: the order expired — stopping as asked; the next run unties it"
+        )
+        return False
+    return True
+
+
 def work(s, options, profile):
     """The work orders: an order asked (or the logbook's resumed), its
     stacks crafted and bundled — the herbs, water and coal bought as
@@ -1162,6 +1190,10 @@ def work(s, options, profile):
         remaining = parsed["count"]
         if remaining and spec:
             remaining = bundle_on_hand(s, parsed["item"], spec[4], remaining)
+        if remaining is None:
+            if lapsed(s, tally):
+                continue
+            break
         why = None
         started = False
         rejected = 0
@@ -1184,6 +1216,9 @@ def work(s, options, profile):
                     if rejected >= REJECTIONS:
                         why = f"{rejected} remedies below the order's quality"
                         break
+                elif outcome == "expired":
+                    why = LAPSED
+                    break
                 elif outcome == "unknown":
                     why = "the bundle answered nothing known"
                     break
@@ -1218,6 +1253,10 @@ def work(s, options, profile):
         ask(s, "stow my pestle")
         ask(s, "stow my mortar")
         sync_order(s, state, tally, snapshot)
+        if why == LAPSED:
+            if lapsed(s, tally):
+                continue
+            break
         if why is not None:
             s.echo(f"remedies: {why} — the order waits in the logbook")
             break
@@ -1227,6 +1266,11 @@ def work(s, options, profile):
         ask(s, "get my logbook")
         answer = ask(s, f"give my logbook to {master}")
         paid = payment(answer)
+        if paid is None and any(word in answer.lower() for word in ORDER_EXPIRED):
+            ask(s, "stow my logbook")
+            if lapsed(s, tally):
+                continue
+            break
         if paid is None:
             first = (answer.strip().splitlines() or ["(silence)"])[0]
             s.echo(f"remedies: the master answered {first!r} to the logbook — stopping")

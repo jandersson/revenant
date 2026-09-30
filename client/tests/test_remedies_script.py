@@ -937,6 +937,96 @@ def test_a_master_asking_to_untie_first_gets_the_logbook_untied_and_asked_again(
     assert "no order read" not in out
 
 
+# Captured 2026-09-30 (#397): an order that ran out while it was worked,
+# the BUNDLE's answer and the master's at the hand-in.
+BUNDLE_EXPIRED = (
+    "This work order has expired.  You should give this logbook to a crafting "
+    "trainer to have it cleared, or ask a trainer for a new work order.\n"
+)
+HANDIN_EXPIRED = (
+    "Apparently the work order time limit has expired.  You should untie any items "
+    "bundled with it and then ask Lanshado for another.\n"
+)
+UNTIED = "You untie the cream from the logbook.\n"
+UNTIED_NONE = "You have nothing bundled with the logbook.\n"
+
+
+def test_an_order_expiring_at_a_bundle_is_untied_and_another_asked():
+    # 2026-09-30 10:54: the BUNDLE answered the expiry, the READ after it
+    # was taken for "0 more", and the run walked the dead order to the
+    # master. The stack is stowed for the next order instead, the next
+    # READ unties the logbook, and a new order is asked and filled.
+    fake = Fake(
+        work_answers(
+            **{
+                "read my logbook": [
+                    LOGBOOK_NONE,
+                    LOGBOOK_EXPIRED,
+                    LOGBOOK_EXPIRED,
+                    LOGBOOK_OPEN,
+                    LOGBOOK_DONE,
+                ],
+                "bundle my cream with my logbook": [BUNDLE_EXPIRED, BUNDLED],
+                "untie my logbook": [UNTIED, UNTIED_NONE],
+            }
+        ),
+        mindstates=[3] + [5] * 60,
+    )
+    out = run(fake, ["work", "count=1"])
+    assert "please report it" not in out
+    assert out.count("the logbook's order expired — untying it for a new one") == 1
+    first_bundle = fake.sent.index("bundle my cream with my logbook")
+    assert "stow my cream" in fake.sent[first_bundle:]
+    assert fake.sent.count("ask lanshado for easy remedies work") == 2
+    asks = [i for i, c in enumerate(fake.sent) if c.startswith("ask lanshado")]
+    assert asks[0] < fake.sent.index("untie my logbook") < asks[1]
+    assert fake.sent.count("give my logbook to lanshado") == 1  # only the new one
+    assert "order 1 paid 1146 Kronars" in out
+
+
+def test_an_order_expiring_at_the_hand_in_is_untied_and_another_asked():
+    # 2026-09-30 10:54: the master's expiry answer stopped the run
+    # ("the master answered ... to the logbook — stopping").
+    fake = Fake(
+        work_answers(
+            **{
+                "read my logbook": [
+                    LOGBOOK_NONE,
+                    LOGBOOK_OPEN,
+                    LOGBOOK_DONE,
+                    LOGBOOK_EXPIRED,
+                    LOGBOOK_OPEN,
+                    LOGBOOK_DONE,
+                ],
+                "give my logbook to lanshado": [HANDIN_EXPIRED, PAID],
+                "untie my logbook": [UNTIED, UNTIED, UNTIED_NONE],
+            }
+        ),
+        mindstates=[3] + [5] * 60,
+    )
+    out = run(fake, ["work", "count=1"])
+    assert "to the logbook — stopping" not in out
+    assert out.count("the logbook's order expired — untying it for a new one") == 1
+    assert fake.sent.count("untie my logbook") == 3
+    assert fake.sent.count("ask lanshado for easy remedies work") == 2
+    assert "order 1 paid 1146 Kronars" in out
+
+
+def test_an_order_expiring_after_a_return_ends_the_run_there():
+    # A typed `return` finishes the order in hand; the hand-in finds it
+    # expired and the run ends without asking another — the next run's
+    # READ unties it.
+    fake = Fake(
+        work_answers(**{"give my logbook to lanshado": [HANDIN_EXPIRED]}),
+        mindstates=[3] + [5] * 60,
+        stop_after=1,
+    )
+    out = run(fake, ["work"])
+    assert "the order expired — stopping as asked; the next run unties it" in out
+    assert fake.sent.count("ask lanshado for easy remedies work") == 1
+    assert "untie my logbook" not in fake.sent
+
+
 def test_a_pestle_worn_past_use_stops_the_crushing_at_once():
     # Captured 2026-09-26: "The iron pestle is far too damaged to be used
     # for that." read as a bystander's line (no "you") and the crushes ran

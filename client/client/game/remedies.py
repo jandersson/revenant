@@ -380,6 +380,13 @@ def parse_order(text):
 # getting a new work order."
 LOGBOOK_EXPIRED = ("work order that has expired",)
 MASTER_UNTIE = ("should untie them", "untie any items bundled")
+# An order that runs out while it is worked (captured 2026-09-30, #397):
+# BUNDLE answers "This work order has expired.  You should give this
+# logbook to a crafting trainer to have it cleared, or ask a trainer for
+# a new work order.", and the master, handed the logbook, "Apparently
+# the work order time limit has expired.  You should untie any items
+# bundled with it and then ask Lanshado for another."
+ORDER_EXPIRED = ("work order has expired", "time limit has expired")
 
 
 def parse_logbook(text):
