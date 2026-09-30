@@ -290,6 +290,11 @@ CATALOG = {  # noun: (catalog number, Kronars)
     "flowers": (13, 343),
 }
 CATALYST_CATALOG = {"nugget": (1, 31)}
+# The catalyst is bought as a stock, not an order's worth (#393): one
+# nugget a remedy, three bought for a two-stack order and the Forging
+# Society's Supplies walked to again at the next order, 22 steps each
+# way (twice in one 45-minute task, 2026-09-29). Ten is 310 Kronars.
+CATALYST_STOCK = 10
 QUOTE = re.compile(
     r"you can purchase (?P<item>.+?) for (?P<price>[\d,]+) kronars", re.IGNORECASE
 )

@@ -18,8 +18,8 @@ What it does
   - Work: reads the logbook (resumes, hands in or clears an order), finds the master,
     crafts and bundles each stack, hands the logbook in for the pay. An order that
     expires on the way is untied, its stacks stowed for the next, and another asked.
-  - Buys what runs out (herbs, water, coal), coins from the bank when short,
-    and finishes a remedy left in the mortar first.
+  - Buys what runs out (herbs, water, coal ten at a time), coins from the bank
+    when short, and finishes a remedy left in the mortar first.
   - A herb stack short of 25 pieces is combined with the herb's other stacks
     first (foraged ones from ;forage herb); the mortar takes 25 of a bigger one.
   - With the profile's `forage_herbs`, red flowers it runs out of are foraged
@@ -52,6 +52,7 @@ from client.game.remedies import (
     BUNDLED,
     building_rooms,
     CATALOG,
+    CATALYST_STOCK,
     COMBINED,
     CRUSH_OUTCOMES,
     FORAGE_NAMES,
@@ -987,9 +988,10 @@ def forage_herb(s, noun, stacks):
 
 def restock(s, spec, catalyst, why, remaining, tally, profile=None):
     """What the craft ran out of, bought for the stacks still to make —
-    or, for a herb the profile's `forage_herbs` gathers, foraged once an
-    order first; None when `why` is no shortage, else whether it was
-    had."""
+    the catalyst a stock of CATALYST_STOCK (#393), or one past the order
+    when it owes more — or, for a herb the profile's `forage_herbs`
+    gathers, foraged once an order first; None when `why` is no
+    shortage, else whether it was had."""
     short = shortage(why, spec, catalyst)
     if short is None:
         return None
@@ -1006,7 +1008,10 @@ def restock(s, spec, catalyst, why, remaining, tally, profile=None):
         s.echo(f"remedies: no {noun} foraged — buying them")
     count = max(1, per_stack * remaining)
     if catalyst and noun == catalyst:
-        count += 1  # a spare nugget: a rejected stack cost a 44-room walk (#288)
+        # A spare past the order (a rejected stack cost a 44-room walk,
+        # #288), and never under a stock that spares the next orders the
+        # Forging Society's Supplies (#393).
+        count = max(count + 1, CATALYST_STOCK)
     return buy(s, noun, count, shop, catalog, tally)
 
 
