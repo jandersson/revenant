@@ -8,11 +8,14 @@ used to carry its own copy of (#407): ask, missing, said, unknown.
     act.unknown(s, "skins", "SELL", answer)          # the one report-it echo
 
 ask() is probe.ask with one pair of collection windows (ASK_SECONDS and
-TAIL_SECONDS, ceilings since #248; read at call time, so a test
-shortens them on this module) and never lower-cases: the parsers that
-care about case (money.parse_wealth, the HEALTH reader) read the
-answer as the game wrote it, and probe.classify lowers it itself. A
-script with a reason for a longer window passes its own.
+TAIL_SECONDS, read at call time, so a test shortens them on this
+module) and never lower-cases: the parsers that care about case
+(money.parse_wealth, the HEALTH reader) read the answer as the game
+wrote it, and probe.classify lowers it itself. The windows are the
+largest any script used (;empath's 4 s opening, ;mechlore's 2 s tail):
+since #248 they are ceilings, closed by the game's prompt and a quiet
+stream, so the larger pair costs nothing live and never cuts a slow
+answer short. No script keeps windows of its own.
 
 missing() knows both of the game's wordings for a thing that is not
 there, "What were you referring to?" and "I could not find what you
@@ -37,8 +40,8 @@ when one is passed (;hunt's end report counts them).
 
 from client.game import probe
 
-ASK_SECONDS = 3  # the opening window after a send
-TAIL_SECONDS = 1.5  # the window after a roundtime the command opened
+ASK_SECONDS = 4  # the opening window after a send
+TAIL_SECONDS = 2  # the window after a roundtime the command opened
 
 # The game's two wordings for a thing that is not there; "could not
 # find" alone also covers "I could not find a ..." forms.
