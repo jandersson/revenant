@@ -33,6 +33,7 @@ import sqlite3
 from time import monotonic
 
 from client.game import buffs, flight, probe
+from client.game.act import ask, said, unknown
 from client.game.history import database_path
 from client.game.loop import (
     danger,
@@ -87,17 +88,10 @@ runs the interludes, and the almanac's STUDY would lose the portion.
 
 RESUME_BELOW = 28  # resume once enough has drained to be worth a round
 LOCK_POLL = 30
-COLLECT_SECONDS = 2
-TAIL_SECONDS = 0.5
 MAX_ROUNDS = 2000  # the fuse under the loop
 RETURN_WAIT = 90  # a portion ending within this of a typed return is finished
 GAUGE_UNSEEN_MINUTES = 10  # recast after this without a Spells window to read
 clock = monotonic
-
-
-def ask(s, command):
-    """The game's answer to one command."""
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
 
 
 def mindstates(s, skills):
@@ -128,10 +122,6 @@ def research(s, ability):
     answer = ask(s, research_command(ability))
     s.waitrt()
     return classify(answer), answer
-
-
-def first_line(answer):
-    return ((answer or "").strip().splitlines() or ["(silence)"])[0]
 
 
 def run(s, options):
@@ -180,7 +170,7 @@ def run(s, options):
         outcome, answer = research(s, ability)
         if outcome == "not a barbarian":
             s.echo(
-                f"research: the game answered {first_line(answer)!r} — only a Barbarian researches this way"
+                f"research: the game answered {said(answer)!r} — only a Barbarian researches this way"
             )
             return
         if outcome == "unknown":
@@ -194,7 +184,7 @@ def run(s, options):
                 return
             continue
         if outcome is None:
-            s.echo(f"research: {ability} answered {first_line(answer)!r}")
+            s.echo(f"research: {ability} answered {said(answer)!r}")
         if exp_entry(s, skill) == before:
             # The window said nothing of the skill: EXP says it (#327).
             read_exp(s, skill, ask)
@@ -251,10 +241,13 @@ def gauge_minutes(s):
 
 
 def report(s):
-    def said(what, answer):
-        s.echo(f"research: Gauge Flow's {what} answered {first_line(answer)!r}")
+    """The report buffs.cast_once makes of a cast or target answer nothing
+    recognized: the common report-it echo, naming Gauge Flow."""
 
-    return said
+    def answered(what, answer):
+        unknown(s, "research", f"Gauge Flow's {what}", answer)
+
+    return answered
 
 
 def ensure_gauge(s, gauge):
@@ -350,7 +343,7 @@ def run_caster(s, options):
     if current == "other":
         s.echo(
             f"research: RESEARCH STATUS shows a project this script does not run "
-            f"({first_line(status)!r}) — finish it or RESEARCH CANCEL it; stopping"
+            f"({said(status)!r}) — finish it or RESEARCH CANCEL it; stopping"
         )
         return
     s.echo(
@@ -412,7 +405,7 @@ def run_caster(s, options):
         if outcome == "unknown":
             s.echo(
                 f"research: RESEARCH {current.upper()} answered "
-                f"{first_line(answer)!r} — out of the run"
+                f"{said(answer)!r} — out of the run"
             )
             if current in projects:
                 projects.remove(current)
@@ -424,7 +417,7 @@ def run_caster(s, options):
         if outcome in ("blocked", None):
             s.echo(
                 f"research: RESEARCH {current.upper()} answered "
-                f"{first_line(answer)!r} — stopping"
+                f"{said(answer)!r} — stopping"
             )
             return
         researched[skill] = round_number
@@ -458,7 +451,7 @@ def run_caster(s, options):
             current, _ = research_status(status)
             s.echo(
                 f"research: no end line within {portion + PORTION_SLACK} s — "
-                f"RESEARCH STATUS: {first_line(status)!r}"
+                f"RESEARCH STATUS: {said(status)!r}"
             )
             if current == "other":
                 s.echo("research: another project is in progress — stopping")

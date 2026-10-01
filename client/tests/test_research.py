@@ -193,7 +193,7 @@ class Fake:
 
 
 def run(fake, args=()):
-    script.probe = SimpleNamespace(ask=fake.ask)
+    script.ask = fake.ask  # act.ask, imported by name (#407)
     script.clock = lambda: (
         0.0
     )  # every research at the same instant: the whole gap waits

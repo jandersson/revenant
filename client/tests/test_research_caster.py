@@ -245,7 +245,8 @@ class Fake:
 
 
 def run(fake, args=()):
-    script.probe = SimpleNamespace(ask=fake.ask, STORY_STREAMS=("", "combat"))
+    script.ask = fake.ask  # act.ask, imported by name (#407)
+    script.probe = SimpleNamespace(STORY_STREAMS=("", "combat"))
     script.buffs = SimpleNamespace(
         cast_once=fake.cast_once,
         mana_limit=buffs.mana_limit,
