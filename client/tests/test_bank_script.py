@@ -353,3 +353,33 @@ def test_a_deposit_has_wealth_report_the_bank_now():
     empty = Fake({"wealth": [WEALTH_EMPTY]})
     script.run(empty, [], MAP, walk_fn=walk)
     assert empty.told == [] and empty.started == []  # no teller, no report
+
+
+def test_withdraw_here_draws_by_denomination_and_says_the_tellers_lines():
+    # The loop ;bank's keep and ;enc's ballast copied (#407).
+    sent, echoed = [], []
+    counted = "The clerk counts out {} and hands them over, making a notation in her ledger.\n"
+
+    def ask(s, command):
+        sent.append(command)
+        return counted.format(command.split(" ", 1)[1])
+
+    handle = SimpleNamespace(echo=echoed.append)
+    assert bank.withdraw_here(handle, ask, "tdp", 1250, "Kronars") is True
+    assert sent == ["withdraw 1 gold", "withdraw 2 silver", "withdraw 5 bronze"]
+    assert echoed[0] == "tdp: withdrawing 1 gold, 2 silver and 5 bronze Kronars"
+    assert echoed[1].startswith("tdp: The clerk counts out 1 gold")
+    refusing = SimpleNamespace(echo=echoed.append)
+    assert (
+        bank.withdraw_here(
+            refusing,
+            lambda s, c: "You do not seem to have an account with us.\n",
+            "tdp",
+            100,
+            "Kronars",
+        )
+        is False
+    )
+    assert "the teller refused" in echoed[-1]
+    assert bank.refused("You don't have enough coins in your account.")
+    assert not bank.refused(counted.format("1 gold"))

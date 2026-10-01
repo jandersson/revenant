@@ -23,7 +23,7 @@ town (#342). Elanthipedia: Exchange command, Deposit command, Currency.
 
 import re
 
-from client.game import travel
+from client.game import act, travel
 from client.game.money import CURRENCIES, phrase, split
 from client.game.soul import currency_for
 
@@ -59,20 +59,33 @@ def withdraw(s, mapdb, walk_fn, ask, prefix, copper, currency, retry="try again"
     if not travel.go(s, set(tellers), "the bank teller", db=mapdb, walk=walk_fn):
         s.echo(f"{prefix}: could not reach a teller — stopping")
         return False
+    return withdraw_here(s, ask, prefix, copper, currency, retry)
+
+
+def withdraw_here(s, ask, prefix, copper, currency, retry="try again"):
+    """WITHDRAW `copper` of `currency` at the teller already here, one
+    denomination per command, the teller's own lines said; False, said,
+    when the teller refused (#407: ;bank's keep and ;enc's ballast drew
+    their coins with copies of this loop)."""
     s.echo(f"{prefix}: withdrawing {phrase(copper, currency)}")
     for count, denomination in split(copper):
         answer = ask(s, f"withdraw {count} {denomination}")
-        lowered = answer.lower()
-        for line in answer.splitlines():
+        for line in act.lines(answer):
             if any(word in line.lower() for word in COUNTED + WITHDRAW_REFUSALS):
-                s.echo(f"{prefix}: {line.strip()}")
-        if any(needle in lowered for needle in WITHDRAW_REFUSALS):
+                s.echo(f"{prefix}: {line}")
+        if refused(answer):
             s.echo(
                 f"{prefix}: the teller refused — put the coins in your hands "
                 f"(GIVE from another character) and {retry}"
             )
             return False
     return True
+
+
+def refused(answer):
+    """True when the teller's answer refused a WITHDRAW."""
+    lowered = str(answer or "").lower()
+    return any(needle in lowered for needle in WITHDRAW_REFUSALS)
 
 
 def room_currency(mapdb, room):
