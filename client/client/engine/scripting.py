@@ -475,7 +475,6 @@ RELOADABLE_MODULES = (
     "client.game.drain",
     "client.game.tdp",
     "client.game.money",
-    "client.game.bank",  # binds names from money and soul: after them
     "client.game.attune",
     "client.game.seek",  # binds chain/circuit from attune: after it
     "client.game.perform",
@@ -500,6 +499,8 @@ RELOADABLE_MODULES = (
     "client.game.mapdb",
     "client.game.walker",
     "client.game.travel",  # binds walker and mapdb: after them
+    "client.game.bank",  # binds money, soul and travel: after them
+    "client.game.shop",  # binds bank, money, travel and act: after them
     "client.game.climblog",  # binds the refusals from walker: after it
     "client.game.wounds_data",
     "client.game.wounds",  # binds ROWS from wounds_data: after it

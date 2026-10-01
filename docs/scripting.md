@@ -69,6 +69,8 @@ def main(s):
 | `items.name(s, "dried red flowers")` | the held item's `#id`, else the name whole — what a command takes (a bare noun takes the first item of that noun) |
 | `items.containers(possessions, holding=word)` | the containers INV LIST shows, in listing order |
 | `items.listed(answer)` / `items.count(answer)` | a LOOK IN listing; COUNT's pieces |
+| `money.carried(s, "Kronars", ask)` | the purse, off WEALTH |
+| `shop.afford(s, ask, prefix, copper)` / `shop.buy(s, ask, prefix, "order 7", expect="nugget")` | the shortfall fetched at the teller; one purchase, the quote checked and the sale closed the shop's way |
 
 ## Training and walking
 

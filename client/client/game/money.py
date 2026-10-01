@@ -101,3 +101,17 @@ def parse_wealth(text):
         for currency in wealth["carried"]:
             wealth["debt"].setdefault(currency, 0)
     return wealth
+
+
+def purse(s, ask=None):
+    """WEALTH's carried coin per currency ({currency: copper}), {} when
+    the answer could not be read — the one purse reader (#407): nine
+    scripts read it off INFO or WEALTH their own way before."""
+    from client.game import act
+
+    return parse_wealth((ask or act.ask)(s, "wealth"))["carried"]
+
+
+def carried(s, currency="Kronars", ask=None):
+    """The copper of `currency` in the purse, 0 when none or unreadable."""
+    return purse(s, ask).get(currency, 0)

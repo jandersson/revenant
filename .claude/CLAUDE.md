@@ -99,7 +99,11 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   target; `;hunt grounds`); `creatures.py` +
   `creatures_data.py`; `loot.py` + `lootlog.py`; `boxes.py`;
   `wounds.py`, `herbs.py`, `empathy.py`; `soul.py`; `tdp.py`;
-  `money.py`, `bank.py`, `repair.py`; `outfit.py` (`;outfit`, a new
+  `money.py` (`purse`/`carried`: the one purse reader, off WEALTH),
+  `bank.py` (the teller and the money-changer), `shop.py` (`buy`: the
+  quote read and the sale closed the shop's way — ORDER twice,
+  OFFER, the counter; `afford`: the purse topped up at the teller),
+  `repair.py`; `outfit.py` (`;outfit`, a new
   character's essentials); `remedies.py` + `workorders.py` +
   `herbstacks.py` (a dried herb's stacks merged to full ones of 75);
   `walker.py` + `mapdb.py` (the community map, downloaded, never
