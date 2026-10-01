@@ -20,7 +20,9 @@ Deposit command; the clerk "records the deposit in her ledger"). With
 nothing foreign the money-changer is skipped; with nothing at all
 nothing is walked. A foreign coin under the changer's minimum (10
 copper: "A transaction that small isn't worth my time.") stays in the
-purse, said once. `keep=N` withdraws N copper back after the deposit
+purse, said once. After the teller, ;wealth reports the bank's figures
+(BANK ACCOUNT, logged to history.db) — told `now` when it runs,
+started for one report when not. `keep=N` withdraws N copper back after the deposit
 so a tithe or a trainer's fee is still in the purse (Elanthipedia:
 Withdraw command). In ;train a task `{"script": "bank"}` with no
 skills runs it once per cycle (client/game/bank.py is the model).
@@ -87,6 +89,17 @@ def withdraw_back(s, copper, home):
     s.echo(f"bank: kept {copper} copper {home} in the purse")
 
 
+def refresh_wealth(s):
+    """The money figures fresh after a deposit or a withdrawal (#404,
+    the operator, 2026-10-01): ;wealth asks BANK ACCOUNT now and logs
+    every branch, the purse and the debt — told when it runs, started
+    for one report when it does not. Not waited for."""
+    if s.is_running("wealth"):
+        s.tell("wealth", "now")
+    elif not s.run("wealth", ["now"]):
+        s.echo("bank: could not start ;wealth — the bank's figures are not refreshed")
+
+
 def run(s, words, mapdb, walk_fn=walk):
     options = parse_args(words)
     start = locate(mapdb, s.state)
@@ -126,6 +139,7 @@ def run(s, words, mapdb, walk_fn=walk):
             s.echo("bank: could not reach a teller — nothing withdrawn")
             return
         withdraw_back(s, options["keep"], home)
+        refresh_wealth(s)
         if options["back"] and start is not None and locate(mapdb, s.state) != start:
             if not walk_fn(s, mapdb, {start}, describe="where you started"):
                 s.echo("bank: could not walk back — you are at the bank")
@@ -140,6 +154,7 @@ def run(s, words, mapdb, walk_fn=walk):
         return
     if options["keep"] > 0:
         withdraw_back(s, options["keep"], home)
+    refresh_wealth(s)
     if options["back"] and start is not None and locate(mapdb, s.state) != start:
         if not walk_fn(s, mapdb, {start}, describe="where you started"):
             s.echo("bank: could not walk back — you are at the bank")

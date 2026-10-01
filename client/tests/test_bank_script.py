@@ -76,6 +76,7 @@ class Fake:
         self.sent = []
         self.echoed = []
         self.walks = []
+        self.running, self.told, self.started = set(), [], []
         self.pending = []
         self.dead = False
         self.args = []
@@ -99,6 +100,17 @@ class Fake:
 
     def echo(self, text):
         self.echoed.append(text)
+
+    # The other-script API: ;bank asks ;wealth for a report (#404).
+    def is_running(self, name):
+        return name in self.running
+
+    def tell(self, name, word):
+        self.told.append((name, word))
+
+    def run(self, name, args=()):
+        self.started.append((name, list(args)))
+        return True
 
     def waitrt(self):
         pass
@@ -328,3 +340,18 @@ def test_a_rooms_coin_reads_its_title_location_and_map_image():
     assert bank.nearest(RIVERHAVEN, 1, [7953]) == 7953
     assert bank.nearest(RIVERHAVEN, 7953, [7953]) == 7953
     assert bank.nearest(RIVERHAVEN, None, [7953]) is None
+
+
+def test_a_deposit_has_wealth_report_the_bank_now():
+    # #404 (the operator, 2026-10-01): 2,032 Kronars deposited showed in
+    # no figure until ;wealth's next three-hourly BANK ACCOUNT.
+    fake = Fake({"wealth": [WEALTH_HOME], "deposit": [DEPOSITED]})
+    fake.running = {"wealth"}
+    script.run(fake, [], MAP, walk_fn=walk)
+    assert fake.told == [("wealth", "now")] and fake.started == []
+    cold = Fake({"wealth": [WEALTH_HOME], "deposit": [DEPOSITED]})
+    script.run(cold, [], MAP, walk_fn=walk)
+    assert cold.started == [("wealth", ["now"])]
+    empty = Fake({"wealth": [WEALTH_EMPTY]})
+    script.run(empty, [], MAP, walk_fn=walk)
+    assert empty.told == [] and empty.started == []  # no teller, no report
