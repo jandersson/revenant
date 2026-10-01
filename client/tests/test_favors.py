@@ -89,9 +89,16 @@ class DrainingHandle(FakeHandle):
 
 
 class FakeMap:
-    """path() always answers "already there" — walking is stubbed."""
+    """path() always answers "already there" — walking is stubbed. The
+    grotto and the creche are the rooms travel.go finds in it (#407),
+    and no avoid_rooms entry resolves to anything."""
+
+    rooms = {favors.GROTTO: {}, favors.CRECHE: {}}
 
     def path(self, start, goals):
+        return []
+
+    def resolve(self, query):
         return []
 
 
@@ -210,7 +217,9 @@ def test_full_run_earns_a_favor(monkeypatch):
             "favor": [[("", "You currently have 1 favor, from Truffenyi.")]],
         }
     )
-    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    favors.main(
+        handle, db=FakeMap(), walk=lambda s, db, goals, describe="", avoid=(): True
+    )
     assert "say Truffenyi" in handle.sent
     assert handle.sent.index("stand") < handle.sent.index("get orb on altar")
     assert any("back on the map" in echo for echo in handle.echoed)
@@ -291,7 +300,9 @@ def test_the_choking_plant_room_is_solved_by_opening_the_window(monkeypatch):
         "locate",
         lambda db, state: favors.GROTTO if "go window" in handle.sent else None,
     )
-    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    favors.main(
+        handle, db=FakeMap(), walk=lambda s, db, goals, describe="", avoid=(): True
+    )
     puzzle = handle.sent[handle.sent.index("go arch") + 1 :]
     assert puzzle[:5] == [
         "look",
@@ -374,7 +385,9 @@ def test_the_vase_room_is_filled_with_a_free_hand_and_left_by_the_path(monkeypat
         "locate",
         lambda db, state: favors.GROTTO if "go path" in handle.sent else None,
     )
-    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    favors.main(
+        handle, db=FakeMap(), walk=lambda s, db, goals, describe="", avoid=(): True
+    )
     puzzle = handle.sent[handle.sent.index("go arch") + 1 :]
     assert puzzle[:4] == ["look", "stow my handaxe", "get nutflower", "go path"]
     assert any("the empty vase" in echo for echo in handle.echoed)
@@ -455,7 +468,9 @@ def _vase_run(monkeypatch, answers):
         "locate",
         lambda db, state: favors.GROTTO if "go path" in handle.sent else None,
     )
-    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    favors.main(
+        handle, db=FakeMap(), walk=lambda s, db, goals, describe="", avoid=(): True
+    )
     return handle
 
 
@@ -577,7 +592,9 @@ def test_the_font_room_is_filled_from_the_jug_and_left_by_stair_and_door(
         "locate",
         lambda db, state: favors.GROTTO if "go door" in handle.sent else None,
     )
-    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    favors.main(
+        handle, db=FakeMap(), walk=lambda s, db, goals, describe="", avoid=(): True
+    )
     puzzle = handle.sent[handle.sent.index("go arch") + 1 :]
     assert puzzle[:5] == ["look", "get jug", "pour jug in font", "go stair", "go door"]
     assert any("the empty font" in echo for echo in handle.echoed)
@@ -606,7 +623,9 @@ def test_an_unknown_puzzle_room_is_left_to_the_human(monkeypatch):
         }
     )
     handle.commands = ["done"]
-    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    favors.main(
+        handle, db=FakeMap(), walk=lambda s, db, goals, describe="", avoid=(): True
+    )
     assert any(
         "a puzzle room I do not know — [Siergelde, Labyrinth]" in e
         for e in handle.echoed
@@ -633,7 +652,9 @@ def test_an_orb_already_in_hand_skips_the_prayer(monkeypatch):
     monkeypatch.setattr(favors, "locate", lambda db, state: favors.GROTTO)
     handle = FakeHandle(_creche_answers())
     handle.state.left_hand = {"noun": "orb", "exist": "1", "name": "Truffenyi orb"}
-    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    favors.main(
+        handle, db=FakeMap(), walk=lambda s, db, goals, describe="", avoid=(): True
+    )
     assert "kneel" not in handle.sent and "get my orb" not in handle.sent
     assert any("already in your possession" in echo for echo in handle.echoed)
     assert handle.sent[0] == "rub my orb"
@@ -647,7 +668,9 @@ def test_a_stowed_orb_is_fetched_and_the_prayer_skipped(monkeypatch):
         _creche_answers()
         | {"get my orb": [[("", "You get a Truffenyi orb from your canvas sack.")]]}
     )
-    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    favors.main(
+        handle, db=FakeMap(), walk=lambda s, db, goals, describe="", avoid=(): True
+    )
     assert handle.sent[:2] == ["get my orb", "rub my orb"]
     assert "kneel" not in handle.sent
 
@@ -671,7 +694,9 @@ def test_a_listed_orb_is_fetched_by_its_id(monkeypatch):
             "depth": 1,
         }
     ]
-    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    favors.main(
+        handle, db=FakeMap(), walk=lambda s, db, goals, describe="", avoid=(): True
+    )
     assert handle.sent[:2] == ["get #50886699", "rub my orb"]
     assert "get my orb" not in handle.sent
 
@@ -687,7 +712,9 @@ def test_no_orb_anywhere_means_the_usual_prayer(monkeypatch):
             "go arch": [[("compass", "none")]],
         }
     )
-    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    favors.main(
+        handle, db=FakeMap(), walk=lambda s, db, goals, describe="", avoid=(): True
+    )
     assert handle.sent[0] == "get my orb"
     assert "kneel" in handle.sent and "get orb on altar" in handle.sent
 
@@ -708,7 +735,9 @@ def test_an_orb_in_hand_off_the_map_solves_the_puzzles_first(monkeypatch):
         "locate",
         lambda db, state: favors.GROTTO if "go window" in handle.sent else None,
     )
-    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    favors.main(
+        handle, db=FakeMap(), walk=lambda s, db, goals, describe="", avoid=(): True
+    )
     assert handle.sent[:4] == ["look", "open window", "go window", "rub my orb"]
     assert "kneel" not in handle.sent
 
@@ -716,7 +745,9 @@ def test_an_orb_in_hand_off_the_map_solves_the_puzzles_first(monkeypatch):
 def test_no_orb_from_the_altar_stops_before_the_arch(monkeypatch):
     _quick(monkeypatch)
     handle = FakeHandle({"get orb on altar": [[("", "What were you referring to?")]]})
-    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    favors.main(
+        handle, db=FakeMap(), walk=lambda s, db, goals, describe="", avoid=(): True
+    )
     assert "go arch" not in handle.sent
     assert any("no orb appeared" in echo for echo in handle.echoed)
 
@@ -729,7 +760,9 @@ def test_go_arch_going_nowhere_stops_for_capture(monkeypatch):
             "go arch": [[("", "What were you referring to?")]],
         }
     )
-    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    favors.main(
+        handle, db=FakeMap(), walk=lambda s, db, goals, describe="", avoid=(): True
+    )
     assert "rub my orb" not in handle.sent
     assert any("went nowhere" in echo for echo in handle.echoed)
 
@@ -743,7 +776,9 @@ def test_abort_mid_puzzles_stops_the_run(monkeypatch):
         }
     )
     handle.commands = ["abort"]
-    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    favors.main(
+        handle, db=FakeMap(), walk=lambda s, db, goals, describe="", avoid=(): True
+    )
     assert "rub my orb" not in handle.sent
     assert any("aborted" in echo for echo in handle.echoed)
 
@@ -758,7 +793,9 @@ def test_drained_pool_stops_with_guidance(monkeypatch):
             "rub my orb": [[("", "The orb glows faintly.")]],
         }
     )
-    favors.main(handle, db=FakeMap(), walk=lambda s, db, goals, describe: True)
+    favors.main(
+        handle, db=FakeMap(), walk=lambda s, db, goals, describe="", avoid=(): True
+    )
     assert "put my orb on altar" not in handle.sent
     assert any("pool drained" in echo for echo in handle.echoed)
 

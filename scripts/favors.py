@@ -40,7 +40,7 @@ attended run captures them (#82) — anything unclassified is echoed as
 fixtures. Stop with:  ;stop favors
 """
 
-from client.game import possessions, probe
+from client.game import possessions, probe, travel
 from client.game.probe import classify
 from client.game.walker import locate
 
@@ -513,7 +513,7 @@ def main(s, db=None, walk=None):
             return
         finish(s, db, walk)
         return
-    if not walk(s, db, [GROTTO], describe="the Stone Grotto"):
+    if not travel.go(s, [GROTTO], "the Stone Grotto", db=db, walk=walk):
         s.echo("favors: could not reach the grotto — stopping")
         return
     s.echo(f"favors: praying to {immortal} for an orb")
@@ -547,7 +547,7 @@ def main(s, db=None, walk=None):
 def finish(s, db, walk):
     """The orb in hand and the character on the map: to the creche,
     fill, offer, report."""
-    if not walk(s, db, [CRECHE], describe="the temple creche"):
+    if not travel.go(s, [CRECHE], "the temple creche", db=db, walk=walk):
         s.echo(
             "favors: could not reach the creche — walk there (;go2 5865), "
             "RUB MY ORB until 'properly prepared', then PUT MY ORB ON ALTAR"
