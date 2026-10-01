@@ -23,6 +23,7 @@ town (#342). Elanthipedia: Exchange command, Deposit command, Currency.
 
 import re
 
+from client.game import travel
 from client.game.money import CURRENCIES, phrase, split
 from client.game.soul import currency_for
 
@@ -55,7 +56,7 @@ def withdraw(s, mapdb, walk_fn, ask, prefix, copper, currency, retry="try again"
     if not tellers:
         s.echo(f"{prefix}: the map has no room tagged 'bank'")
         return False
-    if not walk_fn(s, mapdb, set(tellers), describe="the bank teller"):
+    if not travel.go(s, set(tellers), "the bank teller", db=mapdb, walk=walk_fn):
         s.echo(f"{prefix}: could not reach a teller — stopping")
         return False
     s.echo(f"{prefix}: withdrawing {phrase(copper, currency)}")
@@ -187,7 +188,7 @@ def deposit(s, mapdb, walk_fn, ask, prefix, tellers=None):
     if not tellers:
         s.echo(f"{prefix}: the map has no room tagged 'bank' — the coins stay with you")
         return False
-    if not walk_fn(s, mapdb, set(tellers), describe="the bank teller"):
+    if not travel.go(s, set(tellers), "the bank teller", db=mapdb, walk=walk_fn):
         s.echo(f"{prefix}: could not reach a teller — the coins stay with you")
         return False
     answer = ask(s, "deposit all")
