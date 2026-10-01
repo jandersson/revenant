@@ -20,6 +20,9 @@ dr-scripts' almanac.lic studies on a 600 s timer of its own.
 
 import re
 import time
+from types import SimpleNamespace
+
+from client.game import hands
 
 SECONDS = 600
 _LEARNED = re.compile(r"learned something significant about (?P<skill>[^!.]+)")
@@ -59,9 +62,11 @@ def ready(noun):
 
 
 def hand_free(state, noun):
-    """True when the book is in hand or a hand is free for it."""
-    hands = [getattr(state, side, None) for side in ("left_hand", "right_hand")]
-    return any((hand or {}).get("noun") == noun for hand in hands) or not all(hands)
+    """True when the book is in hand or a hand is free for it. Takes the
+    parser's state (;hunt and the interlude pass one); hands reads a
+    handle, so a shim carries it."""
+    shim = SimpleNamespace(state=state)
+    return hands.holding(shim, noun) or not hands.full(shim)
 
 
 def study(s, noun, ask, prefix):
@@ -73,10 +78,8 @@ def study(s, noun, ask, prefix):
     The skill learned, or None."""
     if not ready(noun) or getattr(s, "dead", False):
         return None
-    state = s.state
-    hands = [getattr(state, side, None) for side in ("left_hand", "right_hand")]
-    held = any((hand or {}).get("noun") == noun for hand in hands)
-    if not held and all(hands):
+    held = hands.holding(s, noun)
+    if not held and hands.full(s):
         return None  # no hand free: the next chance
     s.waitrt()
     got = "" if held else ask(s, f"get my {noun}").lower()
