@@ -34,13 +34,13 @@ How a stack behaves (an experiment on Cecil's dried red flowers,
 
 import re
 
+from client.game import act, hands
 from client.game.remedies import pieces
 
 STACK_CAP = 75
 MERGED = ("you combine the stacks",)
 LEFT_OVER = ("some was left over",)
 FULL = ("too large to add more to",)
-_MISSING = ("what were you referring", "could not find")
 ORDINALS = (
     "",
     "second",
@@ -76,20 +76,14 @@ def dried_herbs(listing):
     return [name for name, count in counts.items() if count > 1]
 
 
-def _missing(answer):
-    lowered = str(answer or "").lower()
-    return any(word in lowered for word in _MISSING)
-
-
 def held(s):
-    """{exist: name} for what the hands hold, off the parser's hand tags."""
-    state = getattr(s, "state", None)
-    found = {}
-    for side in ("left_hand", "right_hand"):
-        hand = getattr(state, side, None)
-        if isinstance(hand, dict) and hand.get("exist"):
-            found[str(hand["exist"])] = str(hand.get("name") or "").lower()
-    return found
+    """{exist: name} for what the hands hold, off the parser's hand tags
+    (hands.tags), left then right."""
+    return {
+        str(tag["exist"]): str(tag.get("name") or "").lower()
+        for tag in hands.tags(s).values()
+        if tag and tag.get("exist")
+    }
 
 
 def merge(s, ask, herb, container):
@@ -122,7 +116,7 @@ def merge(s, ask, herb, container):
     while skip < len(ORDINALS):
         which = f"{ORDINALS[skip]} " if skip else ""
         answer = ask(s, f"get my {which}{noun} from my {container}")
-        if _missing(answer):
+        if act.missing(answer):
             break
         fetched = [item for item in held(s) if item != short]
         if len(fetched) != 1:
