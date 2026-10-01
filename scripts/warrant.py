@@ -12,20 +12,16 @@ The wanted wording is uncaptured and is said as such when it comes.
 Stop with:  ;stop warrant (it ends on its own within seconds).
 """
 
-from client.game import probe
+from client.game.act import ask, unknown
 from client.game.justice import COMMAND, describe, parse_warrants
-
-COLLECT_SECONDS = 3
-TAIL_SECONDS = 1
 
 
 def check(s):
     """RECALL WARRANT asked; False clean, True wanted, None unknown."""
-    answer = probe.ask(s, COMMAND, COLLECT_SECONDS, TAIL_SECONDS)
+    answer = ask(s, COMMAND)
     wanted = parse_warrants(answer)
     if wanted is None:
-        first = (answer.strip().splitlines() or ["(silence)"])[0]
-        s.echo(f"warrant: unrecognized answer {first!r} — please report it")
+        unknown(s, "warrant", "", answer)
     return wanted
 
 

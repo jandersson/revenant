@@ -36,11 +36,11 @@ def test_the_script_asks_once_and_says_what_it_read():
     spec.loader.exec_module(script)
     sent, echoed = [], []
     fake = SimpleNamespace(echo=echoed.append, state=SimpleNamespace(name="Lanival"))
-    script.probe = SimpleNamespace(ask=lambda s, c, *_: sent.append(c) or CLEAN)
+    script.ask = lambda s, c: sent.append(c) or CLEAN
     script.main(fake)
     assert sent == ["recall warrant"]
     assert echoed == ["warrant: no outstanding warrants"]
-    script.probe = SimpleNamespace(ask=lambda s, c, *_: "Recall what?\n")
+    script.ask = lambda s, c: "Recall what?\n"
     echoed.clear()
     script.main(fake)
     assert "unrecognized answer 'Recall what?'" in echoed[0]
