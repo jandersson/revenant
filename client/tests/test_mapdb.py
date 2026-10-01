@@ -230,7 +230,11 @@ def test_a_recorded_edge_is_kept_in_the_overlay_and_taken_over_the_community_roo
     assert db.path(19242, [19241]) is None
     assert db.record_edge(19242, 19241, "out") == tmp_path / "local.json"
     assert db.path(19242, [19241]) == [(19241, "out")]
+    # A fresh parse (the cache dropped, #407): the overlay's copy of the
+    # room takes over the community one on the merge.
+    mapdb._LOADED.clear()
     again = mapdb.MapDB.load()
+    assert again is not db
     assert again.path(19242, [19241]) == [(19241, "out")]
     assert again.rooms_titled("[Shrine]") == [19242]  # the copy is no twin
     # A second edge out of the same room replaces the copy, never doubles it.
@@ -500,3 +504,77 @@ def test_from_fang_cove_the_exit_nearest_the_goal_is_planned_and_the_way_in_stay
     cove = MapDB(COVE)
     assert cove.path(8308, [1900]) == [(932, EXIT), (1900, "northwest")]
     assert cove.path(1900, [8308]) is None
+
+
+# --- one parse a process (#407) ---
+
+
+def _map_file(tmp_path, monkeypatch, rooms, stamp):
+    import json
+    import os
+
+    path = tmp_path / "mapdb.json"
+    path.write_text(json.dumps(rooms))
+    os.utime(path, (stamp, stamp))  # a rewrite within one tick is a new file
+    monkeypatch.setenv("REVENANT_MAPDB", str(path))
+    monkeypatch.setenv("REVENANT_MAPDB_LOCAL", str(tmp_path / "local.json"))
+    return path
+
+
+def test_load_hands_every_caller_the_one_map_until_the_file_changes(
+    monkeypatch, tmp_path
+):
+    # ;remedies re-read the 13 MB map for every room of a building on
+    # every lap, and each script start parsed its own copy (#407).
+    from client.game import mapdb
+
+    _map_file(tmp_path, monkeypatch, [{"id": 1, "title": ["[A]"], "wayto": {}}], 1000)
+    first = mapdb.MapDB.load()
+    assert mapdb.MapDB.load() is first
+    # ;go2 update rewrote the file: the next load is the new map.
+    _map_file(
+        tmp_path,
+        monkeypatch,
+        [{"id": 1, "title": ["[A]"], "wayto": {}}, {"id": 2, "title": ["[B]"]}],
+        2000,
+    )
+    second = mapdb.MapDB.load()
+    assert second is not first and 2 in second.rooms
+    assert mapdb.MapDB.load() is second
+
+
+def test_load_sees_a_local_overlay_written_since(monkeypatch, tmp_path):
+    # A ;survey in another session writes the overlay: this one's next
+    # load merges it, as every load did before the cache.
+    import json
+
+    from client.game import mapdb
+
+    _map_file(tmp_path, monkeypatch, [{"id": 1, "title": ["[A]"], "wayto": {}}], 1000)
+    first = mapdb.MapDB.load()
+    (tmp_path / "local.json").write_text(
+        json.dumps([{"id": 900001, "uid": [499002], "title": ["[Vault]"], "wayto": {}}])
+    )
+    merged = mapdb.MapDB.load()
+    assert merged is not first
+    assert merged.room_by_uid(499002) == 900001
+
+
+def test_an_edge_the_map_records_itself_keeps_the_cached_map(monkeypatch, tmp_path):
+    # record_edge writes the overlay, but the edge is in this instance
+    # already: the next load must not parse the map again for it.
+    from client.game import mapdb
+
+    _map_file(
+        tmp_path,
+        monkeypatch,
+        [
+            {"id": 1, "uid": [1], "title": ["[A]"], "wayto": {}},
+            {"id": 2, "uid": [2], "title": ["[B]"], "wayto": {"1": "south"}},
+        ],
+        1000,
+    )
+    db = mapdb.MapDB.load()
+    db.record_edge(1, 2, "north")
+    assert mapdb.MapDB.load() is db
+    assert db.path(1, [2]) == [(2, "north")]

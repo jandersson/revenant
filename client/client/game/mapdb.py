@@ -14,11 +14,18 @@ A timeto that is Ruby is a gate (gate_of, #214): the map prices an
 edge at nil — no edge — unless the character has the ranks, guild or
 circle the expression names, and the router honors that against the
 exp window's ranks instead of pricing every such edge at a free step.
+
+MapDB.load() parses the 13 MB file once a process and hands every
+caller the same map until the file or the local overlay changes on
+disk (#407): ;remedies re-read it for every room of a building on
+every lap, and each script start parsed its own copy. An edge an
+instance records is in it already and keeps the instance.
 """
 
 import json
 import os
 import re
+import threading
 import urllib.request
 from dataclasses import dataclass
 from functools import lru_cache
@@ -401,10 +408,37 @@ def walkable(command) -> bool:
     return True
 
 
+_LOADED = {}  # (map path, overlay path) -> ((map stamp, overlay stamp), MapDB)
+_LOAD_LOCK = threading.Lock()
+
+
+def _stamp(path):
+    """(mtime in ns, size) of a file, None when there is none: what a
+    cached load compares to know the file changed under it."""
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return (stat.st_mtime_ns, stat.st_size)
+
+
+def _restamp(db, overlay):
+    """After `db` wrote the overlay itself (record_edge): the cache's
+    stamp follows, so the next load keeps this instance — the edge is
+    in it — instead of parsing the map again."""
+    with _LOAD_LOCK:
+        for key, (stamps, cached) in list(_LOADED.items()):
+            if cached is db and key[1] == str(overlay):
+                _LOADED[key] = ((stamps[0], _stamp(overlay)), cached)
+
+
 class MapDB:
     def __init__(self, rooms):
         self.rooms = {int(room["id"]): room for room in rooms}
         self._graph = None
+        # One map is shared by every script of the session (#407): the
+        # graph is built, and an edge recorded, under this lock.
+        self._lock = threading.RLock()
         self._by_title = {}
         self._by_uid = {}
         for room in rooms:
@@ -417,16 +451,29 @@ class MapDB:
 
     @classmethod
     def load(cls, path=None):
+        """The map at `path` (mapdb_path() by default) with the local
+        overlay merged in — parsed once: the same instance comes back
+        until either file changes on disk (a ;go2 update, a ;survey
+        in another process), judged by mtime and size (#407). A map
+        file that is not there is downloaded first."""
         path = path or mapdb_path()
-        if not path.is_file():
-            download(destination=path)
-        with open(path) as stream:
-            rooms = json.load(stream)
         local = local_mapdb_path()
-        if local.is_file():
-            with open(local) as stream:
-                rooms = rooms + json.load(stream)
-        return cls(rooms)
+        with _LOAD_LOCK:
+            if not path.is_file():
+                download(destination=path)
+            key = (str(path), str(local))
+            stamps = (_stamp(path), _stamp(local))
+            cached = _LOADED.get(key)
+            if cached is not None and cached[0] == stamps:
+                return cached[1]
+            with open(path) as stream:
+                rooms = json.load(stream)
+            if local.is_file():
+                with open(local) as stream:
+                    rooms = rooms + json.load(stream)
+            db = cls(rooms)
+            _LOADED[key] = (stamps, db)
+            return db
 
     def record_edge(self, room_id, dest, command, path=None):
         """Remember a way the game showed and the map lacks or has wrong
@@ -438,29 +485,33 @@ class MapDB:
         which a later load's merge takes over the community room (the
         last copy of an id wins). The overlay's path."""
         path = path or local_mapdb_path()
-        room = self.rooms[room_id]
-        # One command leads one way: an entry the community map had
-        # under the same command (Glaysker Lane's `go shop` said the
-        # Shrine of Ushnish, #232) is the one this edge corrects.
-        wayto = {
-            other: known
-            for other, known in (room.get("wayto") or {}).items()
-            if known != command
-        }
-        wayto[str(dest)] = command
-        room["wayto"] = wayto
-        timeto = room.get("timeto")
-        if isinstance(timeto, dict):
-            room["timeto"] = {k: v for k, v in timeto.items() if k in wayto}
-        self._graph = None
-        overlay = []
-        if path.is_file():
-            with open(path) as stream:
-                overlay = json.load(stream)
-        overlay = [entry for entry in overlay if int(entry.get("id", -1)) != room_id]
-        overlay.append(room)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(overlay, indent=1))
+        with self._lock:
+            room = self.rooms[room_id]
+            # One command leads one way: an entry the community map had
+            # under the same command (Glaysker Lane's `go shop` said the
+            # Shrine of Ushnish, #232) is the one this edge corrects.
+            wayto = {
+                other: known
+                for other, known in (room.get("wayto") or {}).items()
+                if known != command
+            }
+            wayto[str(dest)] = command
+            room["wayto"] = wayto
+            timeto = room.get("timeto")
+            if isinstance(timeto, dict):
+                room["timeto"] = {k: v for k, v in timeto.items() if k in wayto}
+            self._graph = None
+            overlay = []
+            if path.is_file():
+                with open(path) as stream:
+                    overlay = json.load(stream)
+            overlay = [
+                entry for entry in overlay if int(entry.get("id", -1)) != room_id
+            ]
+            overlay.append(room)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(overlay, indent=1))
+        _restamp(self, path)
         return path
 
     def rooms_titled(self, title):
@@ -533,42 +584,47 @@ class MapDB:
         edges, and a graph that drops all ``;e`` partitions them away
         (#79). Built once, on first use."""
         if self._graph is None:
-            graph = nx.DiGraph()
-            graph.add_nodes_from(self.rooms)
-            for room_id, room in self.rooms.items():
-                edges = [
-                    (int(dest), command)
-                    for dest, command in (room.get("wayto") or {}).items()
-                    if str(dest).isdigit()
-                    and int(dest) in self.rooms
-                    and walkable(command)
-                ]
-                for dest, command in edges:
-                    # A room that names both twins of one place (684
-                    # → 670 and 13100, both "south") plans through the
-                    # one the game will report: the uid-bearing twin
-                    # (#137). The uid-less edge stays out of the graph.
-                    if not self.rooms[dest].get("uid") and any(
-                        other != dest
-                        and other_command == command
-                        and self.rooms[other].get("uid")
-                        and self.same_place(dest, other)
-                        for other, other_command in edges
-                    ):
-                        continue
-                    graph.add_edge(
-                        room_id,
-                        dest,
-                        command=command,
-                        seconds=RIDE_SECONDS
-                        if ride_of(command)
-                        else edge_seconds(room, str(dest)),
-                        # The gate a Ruby timeto puts on the edge
-                        # (#214), judged per walk against the character.
-                        gate=gate_of((room.get("timeto") or {}).get(str(dest))),
-                    )
-            self._graph = graph
+            with self._lock:
+                if self._graph is None:
+                    self._graph = self._build_graph()
         return self._graph
+
+    def _build_graph(self):
+        """The walkable DiGraph, built once per map (the `graph` property).
+        Twins (#137) are resolved as there, gates (#214) priced as there."""
+        graph = nx.DiGraph()
+        graph.add_nodes_from(self.rooms)
+        for room_id, room in self.rooms.items():
+            edges = [
+                (int(dest), command)
+                for dest, command in (room.get("wayto") or {}).items()
+                if str(dest).isdigit() and int(dest) in self.rooms and walkable(command)
+            ]
+            for dest, command in edges:
+                # A room that names both twins of one place (684
+                # → 670 and 13100, both "south") plans through the
+                # one the game will report: the uid-bearing twin
+                # (#137). The uid-less edge stays out of the graph.
+                if not self.rooms[dest].get("uid") and any(
+                    other != dest
+                    and other_command == command
+                    and self.rooms[other].get("uid")
+                    and self.same_place(dest, other)
+                    for other, other_command in edges
+                ):
+                    continue
+                graph.add_edge(
+                    room_id,
+                    dest,
+                    command=command,
+                    seconds=RIDE_SECONDS
+                    if ride_of(command)
+                    else edge_seconds(room, str(dest)),
+                    # The gate a Ruby timeto puts on the edge
+                    # (#214), judged per walk against the character.
+                    gate=gate_of((room.get("timeto") or {}).get(str(dest))),
+                )
+        return graph
 
     def path(
         self,
