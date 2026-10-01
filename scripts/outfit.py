@@ -24,7 +24,7 @@ knife; captured 2026-09-13), #341. Stops on death.
 Stop with:  ;stop outfit.
 """
 
-from client.game import bank
+from client.game import bank, travel
 from client.game.act import ask, said
 from client.game.mapdb import MapDB
 from client.game.money import CURRENCIES, parse_wealth, phrase
@@ -52,10 +52,8 @@ def exchange_in(s, mapdb, walk_fn, currency):
     others = [c for c in CURRENCIES if c != currency and purse.get(c, 0) > 0]
     if not others:
         return False
-    changers = mapdb.rooms_tagged("exchange")
-    if not changers or not walk_fn(
-        s, mapdb, set(changers), describe="the money-changer"
-    ):
+    changers = set(mapdb.rooms_tagged("exchange"))
+    if not travel.go(s, changers, "the money-changer", db=mapdb, walk=walk_fn):
         s.echo("outfit: could not reach a money-changer")
         return False
     for other in others:
@@ -95,16 +93,13 @@ def afford(s, mapdb, walk_fn, essential):
 def outfit_one(s, mapdb, walk_fn, essential):
     """One essential bought and worn; True when it went on."""
     shop = essential["shop"]
-    if shop not in mapdb.rooms:
-        s.echo(f"outfit: the map has no room {shop} for {essential['shop_name']}")
-        return False
-    if not walk_fn(s, mapdb, {shop}, describe=essential["shop_name"]):
+    if not travel.go(s, shop, essential["shop_name"], db=mapdb, walk=walk_fn):
         s.echo(f"outfit: could not reach {essential['shop_name']} — stopping")
         return False
     if not afford(s, mapdb, walk_fn, essential):
         return False
-    if locate(mapdb, s.state) != shop and not walk_fn(
-        s, mapdb, {shop}, describe=essential["shop_name"]
+    if locate(mapdb, s.state) != shop and not travel.go(
+        s, shop, essential["shop_name"], db=mapdb, walk=walk_fn
     ):
         s.echo(f"outfit: could not walk back to {essential['shop_name']} — stopping")
         return False
@@ -157,8 +152,8 @@ def run(s, words, mapdb, walk_fn=walk):
     s.echo(f"outfit: {done} of {len(todo)} bought and worn")
     if s.dead or not options["back"] or start is None:
         return
-    if locate(mapdb, s.state) != start and not walk_fn(
-        s, mapdb, {start}, describe="where you started"
+    if locate(mapdb, s.state) != start and not travel.go(
+        s, start, "where you started", db=mapdb, walk=walk_fn
     ):
         s.echo("outfit: could not walk back — you are where the errand ended")
 

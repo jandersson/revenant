@@ -82,12 +82,15 @@ class Map:
     def rooms_tagged(self, tag):
         return {"bank": [1900], "exchange": [1950]}.get(tag, [])
 
+    def resolve(self, query):
+        return []  # travel.go resolves settings' avoid_rooms here (#407)
+
 
 def run(fake, words=(), tmp_path=None, monkeypatch=None):
     script.ask = fake.ask  # act.ask, imported by name (#407)
     script.locate = lambda mapdb, state: state.room
 
-    def walk(s, mapdb, goals, describe=""):
+    def walk(s, mapdb, goals, describe="", avoid=()):
         s.walks.append(sorted(goals))
         s.state.room = sorted(goals)[0]
         return True
