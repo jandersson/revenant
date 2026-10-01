@@ -750,8 +750,6 @@ def test_the_award_timer_wait_casts_the_profiles_buffs(monkeypatch):
     from client.game import buffs
     from client.game.profile import DEFAULTS as PROFILE_DEFAULTS
 
-    monkeypatch.setattr(athletics, "COLLECT_SECONDS", 0.01)
-    monkeypatch.setattr(athletics, "TAIL_SECONDS", 0.01)
     monkeypatch.setattr(buffs, "PREPARE_SECONDS", 0.01)
     profile = dict(PROFILE_DEFAULTS) | {
         "buffs": ["heroic strength"],

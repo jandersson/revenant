@@ -46,8 +46,9 @@ in hand finished first, the mind-lock pause included)
 import re
 import time
 
-from client.game import buffs, climbs, probe
+from client.game import buffs, climbs
 from client.game import flight, loop
+from client.game.act import ask, unknown
 from client.game.status import counted
 
 MIND_LOCK = 34  # mindstate 34/34: nothing more fits
@@ -67,8 +68,6 @@ CLEAR_HOLD = 15  # breather after hostiles clear, before resuming
 CONTESTED_LIMIT = 3  # hostile break-offs inside the window = contested
 CONTESTED_WINDOW = 600  # seconds the break-off count looks back over
 CROWDED = 3  # creatures listed in the room on arrival = a crowd (dr-scripts' climb?)
-COLLECT_SECONDS = 3  # a cast's answer window (client/game/probe.py)
-TAIL_SECONDS = 1.5
 
 # The rank ladder and its advice rows live in client/game/climbs.py,
 # keyed to the community map (#87) — one table for every map-aware
@@ -616,10 +615,6 @@ def returned(s):
     return "return"
 
 
-def ask(s, command):
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
-
-
 def wait_filler(s):
     """What the award-timer wait does instead of idling: the profile's
     buffs kept up and its training casts (client/game/buffs.py, the
@@ -632,8 +627,7 @@ def wait_filler(s):
     state = buffs.BuffState()
 
     def report(what, answer):
-        first = (answer.strip().splitlines() or ["(silence)"])[0]
-        s.echo(f"ATHLETICS: unrecognized {what} answer {first!r} — please report it")
+        unknown(s, "ATHLETICS", what, answer)
 
     def fill(s):
         # DISCERN once before the first cast, as the hunt does: the
