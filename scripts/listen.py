@@ -26,7 +26,8 @@ shape. Elanthipedia: Listen command. Stop with:  ;stop listen, or
 ;listen return.
 """
 
-from client.game import flight, probe
+from client.game import flight
+from client.game.act import ask, said, unknown
 from client.game.loop import danger, ensure_mindstate, mindstate, pause
 from client.game.probe import classify
 from client.game.teaching import (
@@ -42,8 +43,6 @@ from client.game.teaching import (
     teacher_present,
 )
 
-COLLECT_SECONDS = 2
-TAIL_SECONDS = 1
 POLL = 10  # seconds between mindstate looks
 REJOIN_AFTER = 15  # seconds after the class ended before LISTENing again
 REFUSALS = 3  # LISTENs answered "no class" in a row before the run ends
@@ -51,28 +50,19 @@ RESUME_BELOW = 28
 LOCK_POLL = 30
 
 
-def ask(s, command):
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
-
-
 def join(s, options):
     """LISTEN once; ("listening", skill) when in the class, else
     (the failure, None)."""
     answer = ask(s, listen_command(options["teacher"], options["observe"]))
-    outcome = classify(answer.lower(), LISTEN_OUTCOMES)
+    outcome = classify(answer, LISTEN_OUTCOMES)
     if outcome in ("listening", "already"):
         return "listening", taught_skill(answer)
-    lines = answer.strip().splitlines() or ["(silence)"]
     if outcome is None:
-        s.echo(f"listen: LISTEN answered {lines[0]!r} — please report it")
+        unknown(s, "listen", "LISTEN", answer)
         return "unknown", None
     # The refusing line, not a bystander's that landed first in the
     # window ("Court Advisor Aaiyaah just arrived.", 2026-09-23).
-    said = next(
-        (line for line in lines if any(w in line.lower() for w in NO_CLASS)),
-        lines[0],
-    )
-    s.echo(f"listen: {said.strip()}")
+    s.echo(f"listen: {said(answer, NO_CLASS)}")
     return outcome, None
 
 
@@ -118,7 +108,7 @@ def run(s, options):
         s.echo("listen: no class — stopping")
         return
     skill = options["skill"] or skill or "Scholarship"
-    value = ensure_mindstate(s, skill, lambda h, c: ask(h, c))
+    value = ensure_mindstate(s, skill, ask)
     if value is None:
         s.echo(f"listen: EXP shows no {skill} — nothing to train")
         ask(s, "stop listening")
