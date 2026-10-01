@@ -25,7 +25,8 @@ command. Stop with:  ;stop teach (the class stays up — STOP TEACHING
 yourself), or ;teach return.
 """
 
-from client.game import flight, probe
+from client.game import flight
+from client.game.act import ask
 from client.game.loop import danger, pause, wants_stop
 from client.game.probe import classify
 from client.game.teaching import (
@@ -37,15 +38,9 @@ from client.game.teaching import (
     teach_command,
 )
 
-COLLECT_SECONDS = 2
-TAIL_SECONDS = 1
 POLL = 5  # seconds between looks at the flags
 REOFFER_AFTER = 20  # seconds after the students left before the next offer
 MAX_REOFFERS = 200  # the fuse under an evening of rests
-
-
-def ask(s, command):
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS).lower()
 
 
 def offer(s, options):

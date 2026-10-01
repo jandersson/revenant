@@ -223,11 +223,7 @@ class Fake:
 
 
 def run(script, fake, args):
-    if script is teach:
-        # ;teach still lower-cases through its own ask over probe's.
-        script.probe = SimpleNamespace(ask=fake.ask)
-    else:
-        script.ask = fake.ask  # act.ask, imported by name (#407)
+    script.ask = fake.ask  # act.ask, imported by name (#407)
     parse = teaching.parse_teach_args if script is teach else teaching.parse_listen_args
     script.run(fake, parse(args))
     return "\n".join(fake.echoed)
