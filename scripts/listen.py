@@ -17,8 +17,9 @@ mindstate polled, the lock held until it drains (`once` exits;
 client/game/trainer.py, the loop every trainer runs), the class
 joined again when it ended (the teacher moved and offered anew;
 `;teach` re-offers on its own), up to three refusals in a row. It
-ends on `return` or ;stop (STOP LISTENING either way), on death or
-hostiles (the shared escape), or when no class is offered. `;train` runs it as a
+ends on `return` (STOP LISTENING), on death or hostiles (the shared
+escape), or when no class is offered; `;stop listen` quits at once and
+the class goes on. `;train` runs it as a
 task: `{"skills": ["Scholarship"], "script": "listen", "args":
 ["masah"], "return_word": "return"}` — the rest's walk ends the
 class, the teacher's `;teach` offers it again on return. The wordings
@@ -131,10 +132,9 @@ def run(s, options):
         s.unflag("class ended")
         if why == no_class:
             return  # the last LISTEN was refused: no class to leave
-        if why is None:  # a ;stop (or a crash): the one put that still goes out
-            s.put("stop listening", cleanup=True)
-        else:
-            ask(s, "stop listening")
+        if why is None:
+            return  # a ;stop quits at once: the class goes on (the operator, 2026-10-02)
+        ask(s, "stop listening")
 
     return trainer.train(
         s,

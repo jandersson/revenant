@@ -304,14 +304,14 @@ def test_listen_reads_the_skill_holds_on_its_mindstate_and_rejoins():
     assert "Fallanor teaches Parry Ability here" in out
 
 
-def test_listen_ends_the_common_way_and_leaves_the_class_on_a_stop_too():
+def test_listen_ends_the_common_way_and_a_stop_leaves_the_class_going():
     # The trainer loop's words (#407): a typed return between polls.
     fake = Fake({"listen": [LISTENING]}, mindstates=[5] * 50, stop_at=5)
     out = run(listen, fake, ["masah"])
     assert out.endswith("listen: returning as asked")
     assert fake.sent[-1] == "stop listening" and not fake.flags
-    # ;stop quits at once: STOP LISTENING goes out with the one put a
-    # stopped script may still make (the cleanup put), the flag dropped.
+    # ;stop quits at once and the class goes on: no STOP LISTENING, not
+    # even as a cleanup put (the operator, 2026-10-02); the flag dropped.
     from client.engine.scripting import ScriptStopped
 
     class Stopped(Fake):
@@ -325,5 +325,5 @@ def test_listen_ends_the_common_way_and_leaves_the_class_on_a_stop_too():
         run(listen, stopped, ["masah"])
     except ScriptStopped:
         pass
-    assert stopped.sent[-1] == "stop listening" and stopped.cleanup
+    assert "stop listening" not in stopped.sent
     assert not stopped.flags
