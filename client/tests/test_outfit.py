@@ -145,8 +145,42 @@ def test_a_short_purse_is_topped_up_at_the_teller_before_the_buy(tmp_path, monke
     out = run(fake, ["stay"])
     assert fake.walks == [[6206], [1900], [6206]]  # shop, teller, shop; stays
     assert "withdraw 4 silver" in fake.sent
-    assert "4 silver Kronars short of the price" in out
+    assert "outfit: withdrawing 4 silver Kronars" in out  # shop.afford's shortfall
     assert "buy skinning knife" in fake.sent
+
+
+# The changer's refusal of 4 copper Dokoras, captured 2026-09-29 (#389).
+TOO_SMALL = (
+    "The money-changer says crossly, \"A transaction that small isn't worth my "
+    'time.  The minimum is one bronze or ten coppers."\n'
+)
+SMALL_CHANGE = (
+    "Wealth:\n  1 silver Kronars (100 copper Kronars).\n  No Lirums.\n"
+    "  4 copper Dokoras (4 copper Dokoras).\n"
+)
+
+
+def test_a_sum_under_the_changers_minimum_is_kept_not_counted_as_exchanged():
+    # The teller refuses, the 4 copper Dokoras go to the changer, and his
+    # refusal is a kept sum, not an exchange — ;outfit's own exchange loop
+    # lacked #389's minimum until it went through bank.exchange_each.
+    fake = Fake(
+        {
+            "inventory": WORN_WITHOUT,
+            "wealth": SMALL_CHANGE,
+            "withdraw": "You do not seem to have an account with us.\n",
+            "exchange": TOO_SMALL,
+        }
+    )
+    out = run(fake, ["stay"])
+    assert fake.walks == [[6206], [1900], [1950]]  # shop, teller, changer
+    assert "the teller refused" in out and "start ;outfit again" in out
+    assert fake.sent.count("exchange all dokoras to kronars") == 1
+    assert "outfit: the dokoras are under the changer's minimum — kept" in out
+    assert "exchanged your" not in out
+    assert "the purse still lacks 5 silver Kronars for the worn skinning knife" in out
+    assert "buy skinning knife" not in fake.sent
+    assert "0 of 1 bought and worn" in out
 
 
 def test_a_refused_purchase_ends_the_run_with_the_shops_line(tmp_path, monkeypatch):

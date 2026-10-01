@@ -11,9 +11,10 @@ After dr-scripts' new-character.lic, which buys a new character's
 knife at the same shop. Each
 missing one is an errand: walk to the shop's map room, count the purse
 (WEALTH), and when it is short of the price in the shop's coin WITHDRAW
-the difference at the nearest teller — the shop's own town, once
-there — or, when the teller refuses, EXCHANGE the purse's other coins
-at the nearest money-changer (client/game/bank.py, as ;bank does); then
+the difference at the nearest teller (client/game/shop.py's afford) —
+the shop's own town, once there — or, when the teller refuses, EXCHANGE
+the purse's other coins at the nearest money-changer (client/game/bank.py's
+exchange_each, as ;bank does: his minimum kept, his own line said); then
 BUY, WEAR ("You attach a small steel skinning knife with a
 leather-wrapped hilt to your wrist."), and the profile's keys the
 entry names are set (the knife clears `skin_knife`, so ;hunt stops
@@ -24,10 +25,10 @@ knife; captured 2026-09-13), #341. Stops on death.
 Stop with:  ;stop outfit.
 """
 
-from client.game import bank, travel
+from client.game import bank, money, shop, travel
 from client.game.act import ask, said
 from client.game.mapdb import MapDB
-from client.game.money import CURRENCIES, parse_wealth, phrase
+from client.game.money import CURRENCIES, phrase
 from client.game.outfit import (
     ESSENTIALS,
     bought,
@@ -40,15 +41,12 @@ from client.game.profile import load_profile, save_profile
 from client.game.walker import locate, walk
 
 
-def carried(s, currency):
-    return parse_wealth(ask(s, "wealth"))["carried"].get(currency, 0)
-
-
 def exchange_in(s, mapdb, walk_fn, currency):
     """Every other coin in the purse EXCHANGEd into `currency` at the
-    nearest money-changer; False when there is none to exchange or no
-    changer to reach."""
-    purse = parse_wealth(ask(s, "wealth"))["carried"]
+    nearest money-changer (bank.exchange_each: a sum under his minimum
+    is kept, his own line is the answer, #389); False when there is
+    none to exchange or no changer to reach."""
+    purse = money.purse(s, ask)
     others = [c for c in CURRENCIES if c != currency and purse.get(c, 0) > 0]
     if not others:
         return False
@@ -56,32 +54,29 @@ def exchange_in(s, mapdb, walk_fn, currency):
     if not travel.go(s, changers, "the money-changer", db=mapdb, walk=walk_fn):
         s.echo("outfit: could not reach a money-changer")
         return False
-    for other in others:
-        answer = ask(s, bank.exchange_command(other.lower(), currency.lower()))
-        got = bank.handed(answer)
-        s.echo(
-            f"outfit: exchanged your {other} for {got}"
-            if got
-            else f"outfit: the money-changer answered {said(answer)!r}"
-        )
+    bank.exchange_each(s, ask, "outfit", [c.lower() for c in others], currency.lower())
     return True
 
 
 def afford(s, mapdb, walk_fn, essential):
     """The price in the purse, in the shop's coin: the shortfall fetched
-    from the nearest teller, else exchanged from the purse's other
-    coins. True when the purse covers it after."""
+    from the nearest teller (shop.afford), else exchanged from the
+    purse's other coins. True when the purse covers it after."""
     price, currency = essential["price"], essential["currency"]
-    short = price - carried(s, currency)
-    if short <= 0:
-        return True
-    s.echo(f"outfit: {phrase(short, currency)} short of the price")
-    if bank.withdraw(
-        s, mapdb, walk_fn, ask, "outfit", short, currency, retry="start ;outfit again"
+    if shop.afford(
+        s,
+        ask,
+        "outfit",
+        price,
+        currency,
+        db=mapdb,
+        walk=walk_fn,
+        retry="start ;outfit again",
     ):
-        if carried(s, currency) >= price:
-            return True
-    if exchange_in(s, mapdb, walk_fn, currency) and carried(s, currency) >= price:
+        return True
+    if exchange_in(s, mapdb, walk_fn, currency) and (
+        money.carried(s, currency, ask) >= price
+    ):
         return True
     s.echo(
         f"outfit: the purse still lacks {phrase(price, currency)} for the "
@@ -92,14 +87,14 @@ def afford(s, mapdb, walk_fn, essential):
 
 def outfit_one(s, mapdb, walk_fn, essential):
     """One essential bought and worn; True when it went on."""
-    shop = essential["shop"]
-    if not travel.go(s, shop, essential["shop_name"], db=mapdb, walk=walk_fn):
+    room = essential["shop"]
+    if not travel.go(s, room, essential["shop_name"], db=mapdb, walk=walk_fn):
         s.echo(f"outfit: could not reach {essential['shop_name']} — stopping")
         return False
     if not afford(s, mapdb, walk_fn, essential):
         return False
-    if locate(mapdb, s.state) != shop and not travel.go(
-        s, shop, essential["shop_name"], db=mapdb, walk=walk_fn
+    if locate(mapdb, s.state) != room and not travel.go(
+        s, room, essential["shop_name"], db=mapdb, walk=walk_fn
     ):
         s.echo(f"outfit: could not walk back to {essential['shop_name']} — stopping")
         return False
