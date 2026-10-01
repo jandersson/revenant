@@ -31,6 +31,7 @@ docs/bibliography.md.
 import re
 from collections import Counter
 
+from client.game import items
 from client.game.creatures import noun_of
 
 CORPSE = "which appears dead"
@@ -81,7 +82,7 @@ METAL_FORMS = frozenset(
 # pickup here is GET, so the profile's loot container takes the item
 # (combat-trainer's STOW goes to the game's default).
 NOT_YOURS = ("is not yours",)
-NO_ROOM = ("isn't any more room", "push you over the item limit", "you just can't")
+NO_ROOM = items.NO_ROOM  # a full container's wordings, the one table
 GONE = (
     "stow what",
     "what were you referring",
