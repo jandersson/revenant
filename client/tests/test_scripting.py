@@ -719,8 +719,13 @@ def test_every_pure_game_module_the_scripts_import_is_reloadable():
         # profile binds COMMON_METALS from loot (#365): a stale loot
         # would fail profile's import in a running session.
         ("client.game.loot", "client.game.profile"),
-        # act is probe's ask with the windows every script shares (#407).
+        # act is probe's ask with the windows every script shares (#407);
+        # the trainer loop binds loop, flight and act; travel the walker.
         ("client.game.probe", "client.game.act"),
+        ("client.game.loop", "client.game.trainer"),
+        ("client.game.flight", "client.game.trainer"),
+        ("client.game.act", "client.game.trainer"),
+        ("client.game.walker", "client.game.travel"),
     ):
         assert order(data) < order(model)
 

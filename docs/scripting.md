@@ -59,6 +59,15 @@ def main(s):
 
 `probe.classify(answer, table)` names the first outcome whose wording the answer holds.
 
+## Training and walking
+
+| Call | Does |
+| --- | --- |
+| `trainer.train(s, prefix, skill, step)` | the trainer loop: `step(s)` until the skill locks (then holds until it drains, or ends with `once=True`), a typed return, death or hostiles (the shared escape); `finish(s, why)` at every end |
+| `trainer.hold_at_lock(s, prefix, skill, until)` | the hold alone, for a loop of the script's own |
+| `travel.go(s, target, describe)` | walk to a ;go2 target (an id, a tag, a title, or ids), `avoid_rooms` routed around; `db=` and `walk=` for a test's fakes |
+| `travel.here(s)` | the map id of the room, or `None` |
+
 ## Controlling scripts
 
 ```

@@ -45,6 +45,9 @@ def _isolated_login_defaults(tmp_path, monkeypatch):
     # The skills DISCERN named for each spell (#374): a test's fixture
     # never lands in the operator's ~/.revenant/spell_skills.json.
     monkeypatch.setenv("REVENANT_SPELL_SKILLS", str(tmp_path / "spell_skills.json"))
+    # settings.json: every walk reads avoid_rooms from it now (#407),
+    # and a test's walk must never resolve the operator's list.
+    monkeypatch.setenv("REVENANT_SETTINGS", str(tmp_path / "settings.json"))
     # The gates the walker remembers for the session (#394): one test's
     # refused trail must not reroute the next test's walk.
     from client.game import walker
@@ -58,10 +61,13 @@ def _short_ask_windows(monkeypatch):
     no prompts, so every window is waited out (#248), and a script
     moved onto act (#407) has no windows of its own for its test to
     shorten. A test of the windows themselves sets its own."""
-    from client.game import act
+    from client.game import act, trainer
 
     monkeypatch.setattr(act, "ASK_SECONDS", 0.01)
     monkeypatch.setattr(act, "TAIL_SECONDS", 0.01)
+    # And the trainer's poll while mind-locked: a fake's sleep advances
+    # its own clock, whatever the slice.
+    monkeypatch.setattr(trainer, "LOCK_POLL", 0.01)
 
 
 @pytest.fixture

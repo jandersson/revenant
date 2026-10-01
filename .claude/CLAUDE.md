@@ -75,7 +75,12 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   never a bystander's), `unknown` (the one "please report it" echo);
   `probe.py` ask-and-classify (reads the story and the `combat` stream:
   every swing and kill line arrives there); `loop.py` wants_stop /
-  danger / pause; `interlude.py` the chores any script does at a
+  danger / pause; `trainer.py` the loop every skill trainer runs
+  (`train(s, prefix, skills, step)`: danger → flight, the typed
+  return between steps, the lock gate and `hold_at_lock`, `finish`
+  at every end); `travel.py` the one way to walk (`go(s, target,
+  describe)`: the cached map, a ;go2 target resolved, `avoid_rooms`
+  always); `interlude.py` the chores any script does at a
   wants_stop (the almanac, the loot sweep, `;break`); `sweep.py`
   the loot sweep (`loot_ignore` out of the loot container, beside
   a bin); `status.py`; `flight.py` the
