@@ -32,8 +32,7 @@ Soul system page and dr-scripts' tithe.lic.
 
 import time
 
-from client.game import probe
-from client.game import flight
+from client.game import flight, probe, travel
 from client.game.act import ask, unknown
 from client.game.loop import danger, wants_stop
 from client.game.mapdb import MapDB
@@ -220,7 +219,9 @@ def read_arch(s, mapdb, walk_fn=walk):
         return None
     if too_far(s, mapdb, rooms, "soulstone arch"):
         return None
-    if not walk_fn(s, mapdb, rooms, describe="the soulstone arch", max_steps=MAX_STEPS):
+    if not travel.go(
+        s, rooms, "the soulstone arch", db=mapdb, walk=walk_fn, max_steps=MAX_STEPS
+    ):
         s.echo("soul: could not reach a soulstone arch")
         return None
     here = locate(mapdb, s.state)
@@ -305,7 +306,9 @@ def tithe(s, mapdb, timers, options, walk_fn=walk):
         wealth = parse_wealth(ask(s, "wealth"))
         if owes(s, timers, timers["tithe_debt"], wealth):
             return False
-    if not walk_fn(s, mapdb, rooms, describe="the almsbox", max_steps=MAX_STEPS):
+    if not travel.go(
+        s, rooms, "the almsbox", db=mapdb, walk=walk_fn, max_steps=MAX_STEPS
+    ):
         s.echo("soul: could not reach an almsbox")
         mark(timers, "tithe", False, clock())
         return False
@@ -360,7 +363,9 @@ def pray(s, mapdb, timers, options, walk_fn=walk):
     if too_far(s, mapdb, rooms, "altar"):
         mark(timers, "pray", False, clock())
         return False
-    if not walk_fn(s, mapdb, rooms, describe="Chadatru's altar", max_steps=MAX_STEPS):
+    if not travel.go(
+        s, rooms, "Chadatru's altar", db=mapdb, walk=walk_fn, max_steps=MAX_STEPS
+    ):
         s.echo("soul: could not reach an altar")
         mark(timers, "pray", False, clock())
         return False
@@ -456,7 +461,7 @@ def pray_badge(s, timers):
 
 def quest(s, mapdb, options, walk_fn=walk):
     """The Glyph of Warding scene at the orb. True when the gift came."""
-    if not walk_fn(s, mapdb, {ORB_ROOM}, describe="the Orb Room"):
+    if not travel.go(s, {ORB_ROOM}, "the Orb Room", db=mapdb, walk=walk_fn):
         s.echo("soul: could not reach the Orb Room")
         return False
     state, pool = read_soul(s)
