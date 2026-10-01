@@ -25,8 +25,6 @@ def _script():
 
 
 script = _script()
-script.COLLECT_SECONDS = 0.01
-script.TAIL_SECONDS = 0.01
 script.POLL = 0.01
 script.LOCK_POLL = 0.01
 buffs.PREPARE_SECONDS = 0.01

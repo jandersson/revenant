@@ -43,8 +43,9 @@ Stop with:  ;stop cast, or ;cast return.
 
 import time
 
-from client.game import buffs, probe
+from client.game import buffs
 from client.game import flight
+from client.game.act import ask, unknown
 from client.game.loop import danger, pause, wants_stop
 
 MIND_LOCK = 34
@@ -53,8 +54,6 @@ POLL = 5  # seconds between looks while waiting for the gap
 LOCK_POLL = 30
 POWER_GAP = 60  # seconds between POWERs: a room pays once a minute
 MANA_WAIT = 600  # seconds of mana under the floor before giving up
-COLLECT_SECONDS = 3
-TAIL_SECONDS = 1.5
 PERCEIVED = "reach out with your"  # captured 2026-09-12: "You reach out with your weak senses ..."
 # The game refuses spellwork while a song plays (captured 2026-09-20 on
 # the gondola with ;perform running): POWER "You are a bit too busy
@@ -84,10 +83,6 @@ def parse_args(args):
         elif key == "nopower":
             options["power"] = False
     return options
-
-
-def ask(s, command):
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
 
 
 def skills_watched(profile, options, state):
@@ -183,8 +178,7 @@ def loop(s, options, shaped):
         if performing(answer):
             busy["song"] = True
             return
-        first = (answer.strip().splitlines() or ["(silence)"])[0]
-        s.echo(f"cast: unrecognized {what} answer {first!r} — please report it")
+        unknown(s, "cast", what, answer)
 
     s.echo(
         f"cast: {', '.join(shaped['buffs'])} for "
