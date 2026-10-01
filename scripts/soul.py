@@ -32,7 +32,7 @@ Soul system page and dr-scripts' tithe.lic.
 
 import time
 
-from client.game import flight, probe, travel
+from client.game import flight, hands, probe, travel
 from client.game.act import ask, unknown
 from client.game.loop import danger, wants_stop
 from client.game.mapdb import MapDB
@@ -155,14 +155,6 @@ def echo_lines(s, text):
 
 def character(s):
     return getattr(s.state, "name", None) or "unknown"
-
-
-def stow_hands(s):
-    """Empty the hands with STOW (never DROP): the prayer wants them empty."""
-    for side in ("left_hand", "right_hand"):
-        held = getattr(s.state, side, None)
-        if held and held.get("noun"):
-            echo_lines(s, ask(s, f"stow my {held['noun']}"))
 
 
 def stand(s):
@@ -369,7 +361,7 @@ def pray(s, mapdb, timers, options, walk_fn=walk):
         s.echo("soul: could not reach an altar")
         mark(timers, "pray", False, clock())
         return False
-    stow_hands(s)
+    hands.free(s, ask=ask)  # the prayer wants them empty: STOW, never DROP
     answer = ask(s, "pray chadatru")
     echo_lines(s, answer)
     outcome = classify(
@@ -410,10 +402,7 @@ def pray_badge(s, timers):
     is not worn), PRAY on it, WEAR it again. True when the prayer gave
     the soul line; a missing badge turns the deed off for the run
     (timers["badge_off"]), an empty or unbonded one is said."""
-    held = any(
-        (getattr(s.state, side, None) or {}).get("noun") == "badge"
-        for side in ("left_hand", "right_hand")
-    )
+    held = hands.holding(s, "badge")
     if not held:
         answer = ask(s, "remove my badge")
         if classify(answer, ("none", BADGE_NONE)):
@@ -471,7 +460,7 @@ def quest(s, mapdb, options, walk_fn=walk):
             "keep the deeds running (;soul keep), or `quest force` to try anyway"
         )
         return False
-    stow_hands(s)
+    hands.free(s, ask=ask)
     answer = ask(s, "focus orb", FOCUS_SECONDS)
     echo_lines(s, answer)
     outcome = classify(
