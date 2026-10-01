@@ -277,7 +277,7 @@ def _run(arena, profile=PROFILE, travel_first=True):
             "gems": str(profile.get("gem_pouch") or "").lower(),
         },
     )
-    hunt.hunt(arena, dict(profile), GROUND, travel=travel_first)
+    hunt.hunt(arena, dict(profile), GROUND, travel_first=travel_first)
     return arena
 
 

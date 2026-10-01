@@ -49,6 +49,7 @@ from client.game import (
     loot,
     lootlog,
     probe,
+    travel,
 )
 from client.game.act import NOT_FOUND, ask, missing, said, unknown
 from client.game.creatures import aim, aim_corpse, noun_of, outgrown
@@ -1082,7 +1083,7 @@ def leave_ground(s, db, ground, avoid):
     ground, said so — never the ground itself (Cecil stood on it two
     and a half hours and died there, 2026-09-13, #185)."""
     goals = off_ground(db, ground)
-    if goals and walk(s, db, goals, describe="off the ground", avoid=avoid):
+    if goals and travel.go(s, goals, "off the ground", db=db, walk=walk, avoid=avoid):
         s.echo(
             f"hunt: no home in the profile — left the ground for "
             f"{s.state.room_title}; set home so a break-off walks somewhere safe"
@@ -1882,7 +1883,7 @@ def step_on(s, db, ground, avoid):
         return True
     later = [room for room in others if here is not None and room > here]
     target = (later or others)[0]
-    if not walk(s, db, {target}, describe=f"room {target}", avoid=avoid):
+    if not travel.go(s, {target}, f"room {target}", db=db, walk=walk, avoid=avoid):
         return False
     probe.collect(s, SETTLE_SECONDS)
     return True
@@ -2239,7 +2240,7 @@ def loop(s, profile, db, ground, avoid, tally):
     return "action budget spent"
 
 
-def hunt(s, profile, db, travel=True, avoid=()):
+def hunt(s, profile, db, travel_first=True, avoid=()):
     ground_name = profile["hunting_ground"]
     # A map tag, else a bestiary zone, else a ;go2 target (#340).
     ground = hunting.ground_rooms(db, ground_name)
@@ -2248,7 +2249,7 @@ def hunt(s, profile, db, travel=True, avoid=()):
         load_stores(getattr(s.state, "name", None)).get("turns") or {}
     )
     set_stores(s, profile)
-    if travel:
+    if travel_first:
         if not ground:
             s.echo(
                 f"hunt: nothing in the map matches ground {ground_name!r} — check the profile"
@@ -2271,11 +2272,13 @@ def hunt(s, profile, db, travel=True, avoid=()):
         # nine, so the walk costs it little. On arrival the Spells
         # window lists them and the second cast_buffs casts nothing.
         cast_buffs(s, profile, tally)
-        if not walk(s, db, set(ground), describe=repr(ground_name), avoid=avoid):
+        if not travel.go(
+            s, set(ground), repr(ground_name), db=db, walk=walk, avoid=avoid
+        ):
             s.echo("hunt: could not reach the ground — stopping")
             return
         probe.collect(s, SETTLE_SECONDS)
-    if travel and not settle(s, db, ground, avoid, tally):
+    if travel_first and not settle(s, db, ground, avoid, tally):
         # Home, as any end (2026-09-27: the ground given up ended the
         # hunt in a taken room, among its goblins).
         go_home(s, profile, db, ground, avoid, "ground taken")
@@ -2328,11 +2331,15 @@ def go_home(s, profile, db, ground, avoid, reason):
     # and nothing a hunt hands over to needs both hands. Its container
     # is only where the first swing fetches it from.
     if profile["home"]:
-        goals = db.resolve(profile["home"])
-        if goals and walk(s, db, goals, describe=repr(profile["home"]), avoid=avoid):
+        if travel.go(
+            s,
+            profile["home"],
+            f"home {profile['home']!r}",
+            db=db,
+            walk=walk,
+            avoid=avoid,
+        ):
             s.echo(f"hunt: home at {s.state.room_title}")
-        elif not goals:
-            s.echo(f"hunt: nothing in the map matches home {profile['home']!r}")
     elif any(word in reason for word in BROKE_OFF) and ground:
         leave_ground(s, db, ground, avoid)
     if hostiles(s.state) and not s.dead:
@@ -2388,8 +2395,6 @@ def show_grounds(s, profile, db, words, avoid=()):
 
 def main(s):
     from client.game.mapdb import MapDB, download, mapdb_path
-    from client.settings import setting
-    from client.game.walker import avoided_rooms
 
     from client.game.profile import styled, styles
 
@@ -2429,18 +2434,15 @@ def main(s):
     db = MapDB.load()
     words = [str(word).lower() for word in (s.args or [])]
     if words and words[0] == "grounds":
-        show_grounds(
-            s, profile, db, words[1:], avoided_rooms(db, setting("avoid_rooms"))
-        )
+        show_grounds(s, profile, db, words[1:], travel.avoided(db))
         return
-    travel = "here" not in words
     try:
         hunt(
             s,
             profile,
             db,
-            travel=travel,
-            avoid=avoided_rooms(db, setting("avoid_rooms")),
+            travel_first="here" not in words,
+            avoid=travel.avoided(db),
         )
     finally:
         # The weapon stays in hand by design; the cambrinth piece does
