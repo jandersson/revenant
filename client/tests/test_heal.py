@@ -28,8 +28,6 @@ def _heal():
 
 
 heal = _heal()
-heal.COLLECT_SECONDS = 0.01
-heal.TAIL_SECONDS = 0.01
 
 MAP = MapDB(
     [

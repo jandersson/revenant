@@ -33,6 +33,7 @@ Nothing walks back afterwards; death stops it. Herbs: client/game/herbs.py
 import re
 
 from client.game import helper, herbs, probe
+from client.game.act import NOT_FOUND, ask, said, unknown
 from client.game.loop import wants_stop
 from client.game.bank import exchange_each, foreign, room_currency
 from client.game.mapdb import MapDB
@@ -137,8 +138,6 @@ Stop with:  ;stop heal (at once), or ;heal return for a clean finish.
 
 TOWN = "Crossing"
 DEFAULT_FLOOR = "insignificant"
-COLLECT_SECONDS = 3
-TAIL_SECONDS = 1.0
 HEALTH_SECONDS = 2
 
 # Mauriga's Botanicals' catalog by the herb table's name: what she
@@ -173,16 +172,7 @@ FALLBACK_PRICE = 1000  # a herb the table does not price
 # EAT, captured 2026-09-14: "You eat a portion of a nemoih root." An
 # answer outside the tables counts as eaten and is reported.
 EAT_OUTCOMES = (
-    (
-        "missing",
-        (
-            "what were you referring",
-            "could not find",
-            "referring to",
-            "rub what",
-            "drink what",
-        ),
-    ),
+    ("missing", (*NOT_FOUND, "rub what", "drink what")),
     # "You rub a portion of some nilos salve on yourself." (captured
     # 2026-09-25); "you drink" is heal-remedy.lic's, not captured yet.
     (
@@ -244,10 +234,6 @@ DEMEANOR_SET = ("friendly demeanor",)
 HEALER_POLL = 5  # seconds per look at the stream while the healer works
 HEALER_WAIT = 90  # seconds for the first touch after LIE DOWN
 HEALER_QUIET = 20  # seconds without a touch that end the visit
-
-
-def ask(s, command):
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
 
 
 def parse_args(args):
@@ -387,10 +373,7 @@ def eat_and_stow(s, herb, eaten):
         s.echo(f"heal: {item} is not in hand to take")
         return
     if outcome is None:
-        first = (answer.strip().splitlines() or ["(silence)"])[0]
-        s.echo(
-            f"heal: unrecognized answer to {take_command(item)!r}: {first!r} — please report it"
-        )
+        unknown(s, "heal", take_command(item), answer)
     eaten.append(herb)
     s.echo(f"heal: took {item} for {herb}" if item != herb else f"heal: ate {herb}")
     ask(s, f"stow my {item}")
@@ -416,8 +399,7 @@ def withdraw(s, shortfall, mapdb, walk_fn, avoid=()):
     for count, denomination in split(shortfall):
         answer = ask(s, f"withdraw {count} {denomination}")
         if any(word in answer.lower() for word in WITHDRAW_REFUSALS):
-            first = (answer.strip().splitlines() or ["(silence)"])[0]
-            s.echo(f"heal: the teller refused — {first}")
+            s.echo(f"heal: the teller refused — {said(answer, WITHDRAW_REFUSALS)}")
             return False
     return True
 
@@ -455,13 +437,12 @@ def buy(s, wanted, mapdb, walk_fn, avoid=(), town=TOWN):
         if any(word in answer.lower() for word in OPEN_ORDER):
             ask(s, "refuse")  # a quote left open blocks every ORDER
             answer = ask(s, f"order {item}")
-        first = (answer.strip().splitlines() or ["(silence)"])[0]
         if any(word in answer.lower() for word in OUT_OF_STOCK):
             s.echo(f"heal: {herb} is not in stock here")
             continue
         match = _QUOTE.search(answer)
         if not match:
-            s.echo(f"heal: no quote for {item} — {first}")
+            s.echo(f"heal: no quote for {item} — {said(answer)}")
             continue
         price = int(match.group(1).replace(",", ""))
         if price > purse:
@@ -471,14 +452,13 @@ def buy(s, wanted, mapdb, walk_fn, avoid=(), town=TOWN):
             )
             continue
         answer = ask(s, f"offer {price}")
-        first = (answer.strip().splitlines() or ["(silence)"])[0]
         outcome = probe.classify(answer, SALE_OUTCOMES)
         if outcome == "refused":
             ask(s, "refuse")
-            s.echo(f"heal: the herbalist refused {price} for {item} — {first}")
+            s.echo(f"heal: the herbalist refused {price} for {item} — {said(answer)}")
             continue
         if outcome is None:
-            s.echo(f"heal: unrecognized sale answer {first!r} — please report it")
+            unknown(s, "heal", "sale", answer)
         purse -= price
         s.echo(f"heal: bought {item} for {price} Kronars")
         if outcome == "counter":
@@ -599,8 +579,7 @@ def visit_healer(s, mapdb, walk_fn=walk, avoid=(), healer=""):
 
     answer = ask(s, "demeanor friendly empath")
     if not any(word in answer.lower() for word in DEMEANOR_SET):
-        first = (answer.strip().splitlines() or ["(silence)"])[0]
-        s.echo(f"heal: unrecognized demeanor answer {first!r} — please report it")
+        unknown(s, "heal", "demeanor", answer)
     touched = absorb(answer)
     answer = ask(s, "lie down")
     refused = any(word in answer.lower() for word in HEALER_REFUSED)
@@ -732,8 +711,7 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
             missing.append(herb)
             continue
         if outcome is None:
-            first = (answer.strip().splitlines() or ["(silence)"])[0]
-            s.echo(f"heal: unrecognized eat answer {first!r} — please report it")
+            unknown(s, "heal", "eat", answer)
         eaten.append(herb)
         s.echo(f"heal: ate {herb}")
     if missing and options["mode"] == "buy" and mapdb is not None:
