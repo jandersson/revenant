@@ -29,7 +29,7 @@ Every ;hunt that fought ends with ;skins bank. The profile's `bundle` setting
 import re
 from collections import Counter
 
-from client.game import travel
+from client.game import hands, items, travel
 from client.game.act import ask, missing
 from client.game.mapdb import MapDB
 from client.game.profile import load_profile
@@ -65,8 +65,10 @@ sack with LOOK IN) until the operator ruled bundles only (2026-10-01,
 hunt could not bundle it — the 22 loose pelts #399's lead rope left
 were sold unseen that morning. They are named instead: a skin in a
 hand (a hunt whose sack had no room left it there, #262) and each skin
-noun LOOK IN the loot container lists (one answer, no roundtime). No
-bundle to sell, or a tanner who does not pay, stops it with the
+noun LOOK IN the loot container lists (one answer, no roundtime). The
+rope is put away by its whole name, `bundling rope` (ROPE, the hunt's):
+a bare ROPE takes the first rope of any kind, #399's lead rope first.
+No bundle to sell, or a tanner who does not pay, stops it with the
 answer echoed. `bank` then runs ;bank through the handle and
 waits for it — the banking lives there (#235: the money-changer for
 every foreign coin, DEPOSIT ALL, `keep=N` withdrawn back) and ;skins
@@ -84,6 +86,9 @@ Stop with:  ;stop skins
 _NO_BUNDLE = ("aren't wearing", "not wearing", "don't have")
 # The tanner's payment line, captured 2026-09-12.
 _PAID = re.compile(r"hands you (\d+) (\w+)")
+# The rope the tanner hands back, named whole: ;hunt's ROPE (#399, a
+# bare "rope" is the first rope of any kind — a looted lead rope).
+ROPE = "bundling rope"
 # Animal parts a hunt cuts — the tanner buys them one at a time too
 # ("sell my <bundle/skin/pelt/bones/animal part>", Elanthipedia:
 # Falken's Tannery), but only a bundle is sold (#401): a loose one is
@@ -112,35 +117,19 @@ SKIN_NOUNS = (
 # the canvas sack you see a round cambrinth flake, a nemoih root, ...,
 # a nuloe stem and a nuloe stem." — the skin nouns it lists are the
 # loose parts named.
-_LISTED = re.compile(r"you see (.+?)\.\s*$", re.IGNORECASE | re.DOTALL)
 
 
 def listed_nouns(answer):
-    """The nouns (each item's last word) a LOOK IN answer lists, repeats
-    kept; None when the answer is not a listing (the container could
-    not be read), [] for an empty one."""
-    match = _LISTED.search(answer or "")
-    if not match:
-        lowered = (answer or "").lower()
-        return [] if "nothing in" in lowered or "is empty" in lowered else None
-    items = re.split(r",\s*|\s+and\s+", match.group(1))
-    return [item.strip().split()[-1].lower() for item in items if item.strip()]
-
-
-def in_hand(s):
-    """True when the parser's hand tags show the bundle held already —
-    a run stopped between REMOVE and SELL left it there (2026-09-14)."""
-    for side in ("left", "right"):
-        held = getattr(s.state, f"{side}_hand", None)
-        if isinstance(held, dict) and held.get("noun") == "bundle":
-            return True
-    return False
+    """The nouns a LOOK IN answer lists, repeats kept; None when it is no
+    listing, [] for an empty container (items.listed_nouns)."""
+    return items.listed_nouns(answer)
 
 
 def take_bundle(s, container):
-    """The bundle into a hand — there already, off the body, or out of
+    """The bundle into a hand — there already (a run stopped between
+    REMOVE and SELL left it there, 2026-09-14), off the body, or out of
     the container; False when there is none any place."""
-    if in_hand(s):
+    if hands.holding(s, "bundle"):
         return True
     if not missing(ask(s, "remove my bundle"), _NO_BUNDLE):
         return True
@@ -179,7 +168,7 @@ def sell_bundle(s, container):
         s.echo(f"skins: the tanner did not pay — {last}")
         return False
     s.echo(f"skins: sold the bundle for {paid.group(1)} {paid.group(2)}")
-    ask(s, f"put my rope in my {container}" if container else "stow my rope")
+    ask(s, f"put my {ROPE} in my {container}" if container else f"stow my {ROPE}")
     return True
 
 
@@ -188,12 +177,7 @@ def name_loose(s, container):
     and each skin noun LOOK IN the loot container lists, one line. A
     hunt bundles every skin, so a loose one is kept on purpose or says
     something went wrong (the operator, 2026-10-01). The count."""
-    held = []
-    for side in ("left", "right"):
-        hand = getattr(s.state, f"{side}_hand", None)
-        noun = hand.get("noun") if isinstance(hand, dict) else None
-        if noun in SKIN_NOUNS:
-            held.append(noun)
+    held = [noun for noun in hands.nouns(s) if noun in SKIN_NOUNS]
     present = Counter()
     if container:
         listed = listed_nouns(ask(s, f"look in my {container}")) or []

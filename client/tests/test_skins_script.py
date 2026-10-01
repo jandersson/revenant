@@ -144,7 +144,7 @@ def test_sells_the_worn_bundle_keeps_the_rope_and_stays_at_the_tannery():
     assert commands(fake) == [
         "remove my bundle",
         "sell my bundle",
-        "put my rope in my sack",
+        "put my bundling rope in my sack",
     ]
     assert "skins: sold the bundle for 111 Kronars" in fake.echoed
 
@@ -160,7 +160,7 @@ def test_a_bundle_already_in_hand_is_sold_without_a_remove():
         "name": "oak-hafted handaxe",
     }
     script.run(fake, [], MAP, walk_fn=walk, profile=PROFILE)
-    assert commands(fake) == ["sell my bundle", "put my rope in my sack"]
+    assert commands(fake) == ["sell my bundle", "put my bundling rope in my sack"]
 
 
 def test_a_bundle_in_the_sack_is_fetched_when_none_is_worn():
@@ -207,7 +207,7 @@ def test_bank_runs_the_bank_script_and_waits_for_it():
     assert commands(fake) == [
         "remove my bundle",
         "sell my bundle",
-        "put my rope in my sack",
+        "put my bundling rope in my sack",
     ]
     assert fake.started == [("bank", ["keep=500"])]
     assert fake.polls == -1  # waited until ;bank was no longer running
@@ -251,10 +251,24 @@ def test_a_tanner_who_does_not_pay_is_quoted_and_the_rope_left_alone():
         }
     )
     script.run(fake, [], MAP, walk_fn=walk, profile=PROFILE)
-    assert not any(command.startswith("put my rope") for command in fake.sent)
+    assert not any("rope" in command for command in fake.sent)
     assert any(
         "did not pay" in text and "no use for that" in text for text in fake.echoed
     )
+
+
+def test_the_rope_is_put_away_by_its_whole_name_never_a_bare_rope():
+    # The #399 class: a bare ROPE is the first rope of any kind, and a
+    # looted lead rope sat beside the bundling rope that morning. The
+    # hunt's ROPE names it whole, into the loot container or STOWed.
+    fake = Fake({"remove": [REMOVED], "sell": [SOLD]})
+    script.run(fake, [], MAP, walk_fn=walk, profile=PROFILE)
+    assert "put my bundling rope in my sack" in fake.sent
+    assert "put my rope in my sack" not in fake.sent
+    fake = Fake({"remove": [REMOVED], "sell": [SOLD]})
+    script.run(fake, [], MAP, walk_fn=walk, profile={"loot_container": ""})
+    assert "stow my bundling rope" in fake.sent
+    assert "stow my rope" not in fake.sent
 
 
 LOOKED = (
