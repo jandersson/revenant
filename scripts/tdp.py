@@ -32,9 +32,9 @@ client/game/tdp.py is the model; docs/training.md lists the plan's `tdp` keys.
 
 import re
 
-from client.game import bank, probe, travel
+from client.game import bank, money, probe, travel
 from client.game.act import ask
-from client.game.money import parse_wealth, phrase
+from client.game.money import phrase
 from client.game.tdp import (
     STATS,
     TRAIN_OUTCOMES,
@@ -75,10 +75,10 @@ complete this training."); a character carrying no coins has it added
 to the provincial debt (captured 2026-09-12: 28 TDPs and 56 Kronars
 for Agility 8 → 9; 674 copper owed by the end of 2026-09-20, a day
 whose plan banked the purse right before the tdps task, #247). So the
-script reads the quoted fee, checks INFO's purse, and when it falls
-short WITHDRAWs the difference at the nearest teller and walks back
-before the confirming TRAIN — a teller that refuses stops the run,
-said. A stat below its race's starting value
+script reads the quoted fee, checks the purse (WEALTH, money.purse),
+and when it falls short WITHDRAWs the difference at the nearest
+teller and walks back before the confirming TRAIN — a teller that
+refuses stops the run, said. A stat below its race's starting value
 is flagged: DR3 recalculates TDPs assuming every character started at
 the racial values, so such a point comes back twice over at the next
 recalculation (a DR1 character's rolled stats, #165) — train those
@@ -200,12 +200,13 @@ def train_stat(s, stat, goal, mapdb, walk_fn, bought=None):
         return False
 
     def fetch_fee(copper, currency):
-        """The fee in the purse before the confirming TRAIN: INFO's carried
-        coins against it, the difference WITHDRAWn at the nearest teller
-        and the walk back to the trainer (#247). None when the purse
-        covers it or INFO shows no purse to read, True when fetched,
-        False when the teller refused or the walk failed."""
-        carried = parse_wealth(ask(s, "info"))["carried"]
+        """The fee in the purse before the confirming TRAIN: WEALTH's
+        carried coins (money.purse) against it, the difference WITHDRAWn
+        at the nearest teller and the walk back to the trainer (#247).
+        None when the purse covers it or WEALTH gave no purse to read,
+        True when fetched, False when the teller refused or the walk
+        failed."""
+        carried = money.purse(s, ask)
         if not carried:
             return None
         have = carried.get(currency, 0)

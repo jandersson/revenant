@@ -213,9 +213,10 @@ def test_plan_buys_where_the_training_plan_says_and_keeps_the_reserve(
     )
     fake = Fake(
         {
-            # The plan's INFO, the fee check's INFO (no purse to read in
-            # this fixture, #247), the plan's INFO for the second point.
-            "info": [PALADIN_INFO, PALADIN_INFO, PALADIN_INFO.replace("347", "317")],
+            # The plan's INFO, then the plan's INFO for the second point;
+            # the fee check reads WEALTH, unanswered here (no purse to
+            # read, #247).
+            "info": [PALADIN_INFO, PALADIN_INFO.replace("347", "317")],
             # The plan's quote, the trainer's, the pair's check, and the
             # plan's quote for the second point.
             "strength": [
@@ -304,7 +305,7 @@ BANKED_MAP = MapDB(
     ]
 )
 EMPTY_PURSE = "Wealth:\n  No Kronars.\n  No Lirums.\n  No Dokoras.\nDebt:\n  No debt.\n"
-FULL_PURSE = (  # INFO's shape for a purse with coins (client/game/money.py)
+FULL_PURSE = (  # WEALTH's shape for a purse with coins (client/game/money.py)
     "Wealth:\n  5 bronze, 6 copper Kronars (56 copper Kronars).\n  No Lirums.\n"
     "Debt:\n  No debt.\n"
 )
@@ -318,15 +319,15 @@ def test_the_fee_is_fetched_from_the_teller_before_the_confirming_train():
     # debt — "Since you aren't carrying any Kronars, the cost of the
     # training, 70 Kronars, is added to your debt." — because the plan
     # banked the purse right before the tdps task. The first TRAIN's quote
-    # names the fee; INFO's purse is checked against it, the difference
-    # withdrawn at the teller, and the trainer asked again on return.
+    # names the fee; WEALTH's purse (money.purse, #407) is checked against
+    # it, the difference withdrawn at the teller, and the trainer asked
+    # again on return.
     fake = Fake(
         {
-            "info": [
-                info() + EMPTY_PURSE,  # the run's own INFO
-                info() + EMPTY_PURSE,  # the purse check: nothing carried
-                info(agility=9, tdps=319) + FULL_PURSE,  # after the withdrawal
-                info(agility=10, tdps=288) + EMPTY_PURSE,
+            "info": [info(), info(agility=10, tdps=288)],
+            "wealth": [
+                EMPTY_PURSE,  # the purse check: nothing carried
+                FULL_PURSE,  # after the withdrawal
             ],
             "agility": [agility(8, 28, 347), agility(9, 31, 319), agility(10, 35, 288)],
             "train": [CONFIRM, CONFIRM, DONE, CONFIRM, DONE],
@@ -339,6 +340,13 @@ def test_the_fee_is_fetched_from_the_teller_before_the_confirming_train():
     script.run(fake, ["train", "agility", "10"], mapdb=BANKED_MAP, walk_fn=walk)
     # The trainer, the teller, the trainer again, then home.
     assert fake.walks == [{50986}, {1200}, {50986}, {100}]
+    # INFO for the stats at either end; the purse is WEALTH's, once a fee.
+    assert [c for c in fake.sent if c in ("info", "wealth")] == [
+        "info",
+        "wealth",
+        "wealth",
+        "info",
+    ]
     assert [c for c in fake.sent if c.startswith("withdraw")] == [
         "withdraw 5 bronze",
         "withdraw 6 copper",
