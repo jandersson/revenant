@@ -2,8 +2,8 @@
 
 Attack whatever engages you until state.hostiles empties, SEARCH each
 corpse away (captured: corpses keep their noun and soak swings), and
-break off with the burst-escape below the health floor
-(docs/combat.md).
+break off with the shared escape (client/game/flight.py) below the
+health floor.
 """
 
 import importlib.util
@@ -39,12 +39,13 @@ class FakeHandle:
             compass=list(compass),
         )
         self.pending = []
+        self.dead = False
 
     def put(self, command):
         self.sent.append(command)
         if command == "attack" and self.answers:
             answer, drop = self.answers.pop(0)
-            self.pending = [answer]
+            self.pending = [answer + "\n"]  # a whole line, as the engine marks it
             for exist in drop:
                 self.state.hostiles.pop(exist, None)
 
@@ -62,7 +63,6 @@ class FakeHandle:
 
 
 def test_fight_sweeps_until_no_hostiles_remain(monkeypatch):
-    monkeypatch.setattr(fight, "COLLECT_SECONDS", 0.02)
     handle = FakeHandle(
         answers=[
             ("The cougar slowly tips over and falls down.", ["1"]),
@@ -78,12 +78,20 @@ def test_fight_sweeps_until_no_hostiles_remain(monkeypatch):
 
 
 def test_fight_breaks_off_below_the_health_floor(monkeypatch):
-    monkeypatch.setattr(fight, "COLLECT_SECONDS", 0.02)
     handle = FakeHandle(answers=[], hostiles={"1": True}, health=45)
     fight.main(handle)
-    # The burst-escape, in order, with the room's first exit.
+    # The shared escape's burst, in order, with the room's first exit.
     assert handle.sent[:3] == ["retreat", "retreat", "north"]
     assert any("health 45%" in echo for echo in handle.echoed)
+    assert any("fight: hostiles here" in echo for echo in handle.echoed)
+
+
+def test_fight_stops_when_dead():
+    handle = FakeHandle(answers=[], hostiles={"1": True})
+    handle.dead = True
+    fight.main(handle)
+    assert handle.sent == []
+    assert any("you are dead" in echo for echo in handle.echoed)
 
 
 def test_fight_declines_a_quiet_room():
@@ -97,7 +105,6 @@ def test_fight_stops_on_the_all_dead_wording(monkeypatch):
     # Captured 2026-08-22: bare ATTACK with every attacker dead answers
     # "There is nothing else to face!  What are you trying to attack?"
     # — the game's own all-clear, ahead of the lagging hostile state.
-    monkeypatch.setattr(fight, "COLLECT_SECONDS", 0.02)
     handle = FakeHandle(
         answers=[
             ("The cougar slowly tips over and falls down.", []),
