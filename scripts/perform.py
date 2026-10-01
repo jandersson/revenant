@@ -33,7 +33,7 @@ import re
 import time
 
 from client.engine.xml_data import LEARNING_RATES
-from client.game import flight
+from client.game import flight, travel
 from client.game import probe
 from client.game.loop import danger, wants_stop
 from client.game.perform import (
@@ -308,15 +308,7 @@ def home_of(s):
 def walk_home(s, home):
     """Walk to the profile's home for a room that allows a song; False
     when the map has no such room or the walk failed."""
-    from client.game.mapdb import MapDB
-    from client.game.walker import walk
-
-    mapdb = MapDB.load()
-    goals = mapdb.resolve(home)
-    if not goals:
-        s.echo(f"perform: nothing in the map matches home {home!r}")
-        return False
-    return walk(s, mapdb, set(goals), describe=repr(home))
+    return travel.go(s, home, repr(home))
 
 
 def stop_song(s):
