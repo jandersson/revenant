@@ -47,7 +47,7 @@ import re
 import time
 
 from client.game import buffs, climbs
-from client.game import flight, loop
+from client.game import flight, loop, travel
 from client.game.act import ask, unknown
 from client.game.status import counted
 
@@ -553,8 +553,8 @@ def train(
                 continue
             if isinstance(command, dict):
                 # A rotation stop (#177): walk there, then climb.
-                if walk is None or not walk(
-                    s, db, [command["room"]], describe=command["command"]
+                if walk is None or not travel.go(
+                    s, [command["room"]], command["command"], db=db, walk=walk
                 ):
                     s.echo(
                         f"ATHLETICS: could not reach room {command['room']} — skipping it"
@@ -674,7 +674,7 @@ def auto_train(s, db=None, walk=None):
         if commands is None:
             s.echo(f"the map lost the climb edge for {rung['label']} — try ;go2 update")
             return
-        if not walk(s, db, [rung_goal(rung)], describe=rung["label"]):
+        if not travel.go(s, [rung_goal(rung)], rung["label"], db=db, walk=walk):
             s.echo(
                 "could not reach the spot — stopping (;go2 there and use manual mode?)"
             )

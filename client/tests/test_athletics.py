@@ -98,35 +98,52 @@ class FakeHandle:
 
 
 # The trellis and oak rungs, as the community map describes them.
+_RUNG_ROOMS = [
+    {
+        "id": 13527,
+        "title": ["[East Lawn]"],
+        "wayto": {"13529": "climb moonstone trellis"},
+    },
+    {
+        "id": 13529,
+        "title": ["[Garden]"],
+        "wayto": {"13527": "climb moonstone trellis"},
+    },
+    {"id": 1068, "title": ["[Greensward]"], "wayto": {"14134": "climb oak tree"}},
+    {"id": 14134, "title": ["[Tree House]"], "wayto": {"1068": "climb oak tree"}},
+    {
+        "id": 6153,
+        "title": ["[Deep Forest]"],
+        "wayto": {"5705": "climb felled tree"},
+    },
+    {
+        "id": 5705,
+        "title": ["[Deep Forest]"],
+        "wayto": {"6153": "climb felled tree"},
+    },
+    # The Arthe Dale swimming hole: a square, dr-scripts' 0-50 loop.
+    {"id": 19069, "title": ["[Swimming Hole]"], "wayto": {"19071": "west"}},
+    {"id": 19071, "title": ["[Swimming Hole]"], "wayto": {"19067": "south"}},
+    {"id": 19067, "title": ["[Swimming Hole]"], "wayto": {"19066": "east"}},
+    {"id": 19066, "title": ["[Swimming Hole]"], "wayto": {"19069": "north"}},
+]
+# Every other rung's room and the Crossing rotation's stops: a walk
+# resolves its room in the map first (travel.go, #407), so a rung the
+# ladder climbs to past the ones above is a room here, edges or not.
+_ROOM_IDS = {room["id"] for room in _RUNG_ROOMS}
 LADDER_MAP = MapDB(
     [
-        {
-            "id": 13527,
-            "title": ["[East Lawn]"],
-            "wayto": {"13529": "climb moonstone trellis"},
-        },
-        {
-            "id": 13529,
-            "title": ["[Garden]"],
-            "wayto": {"13527": "climb moonstone trellis"},
-        },
-        {"id": 1068, "title": ["[Greensward]"], "wayto": {"14134": "climb oak tree"}},
-        {"id": 14134, "title": ["[Tree House]"], "wayto": {"1068": "climb oak tree"}},
-        {
-            "id": 6153,
-            "title": ["[Deep Forest]"],
-            "wayto": {"5705": "climb felled tree"},
-        },
-        {
-            "id": 5705,
-            "title": ["[Deep Forest]"],
-            "wayto": {"6153": "climb felled tree"},
-        },
-        # The Arthe Dale swimming hole: a square, dr-scripts' 0-50 loop.
-        {"id": 19069, "title": ["[Swimming Hole]"], "wayto": {"19071": "west"}},
-        {"id": 19071, "title": ["[Swimming Hole]"], "wayto": {"19067": "south"}},
-        {"id": 19067, "title": ["[Swimming Hole]"], "wayto": {"19066": "east"}},
-        {"id": 19066, "title": ["[Swimming Hole]"], "wayto": {"19069": "north"}},
+        *_RUNG_ROOMS,
+        *(
+            {"id": room, "title": [f"[{rung['label']}]"], "wayto": {}}
+            for rung in athletics.AUTO_LADDER
+            for room in (
+                [stop[0] for stop in rung["stops"]]
+                if rung["kind"] == "rotation"
+                else [athletics.rung_goal(rung)]
+            )
+            if room not in _ROOM_IDS
+        ),
     ]
 )
 SWIM_MOVES = ["west", "south", "east", "north"]
@@ -289,7 +306,7 @@ def test_auto_mode_walks_to_the_rung_and_advances_when_stale(monkeypatch):
     handle.state.experience["Athletics"]["rank"] = 3
     walks = []
 
-    def fake_walk(s, db, goals, describe=""):
+    def fake_walk(s, db, goals, describe="", avoid=()):
         walks.append(list(goals))
         return True
 
@@ -310,7 +327,7 @@ def test_auto_mode_stops_cleanly_when_the_walk_fails():
     handle = FakeHandle(args=[], mindstates=[5])
     handle.state.experience["Athletics"]["rank"] = 3
 
-    def failing_walk(s, db, goals, describe=""):
+    def failing_walk(s, db, goals, describe="", avoid=()):
         return False
 
     athletics.auto_train(handle, db=LADDER_MAP, walk=failing_walk)
@@ -551,9 +568,9 @@ def test_auto_mode_abandons_a_contested_rung_for_the_next_best():
     handle.state.experience["Athletics"]["rank"] = 7
     walks = []
 
-    def fake_walk(s, db, goals, describe=""):
+    def fake_walk(s, db, goals, describe="", avoid=()):
         walks.append(list(goals))
-        s.state.room_uid = goals[0]
+        s.state.room_uid = min(goals)
         if hasattr(s, "_sync"):
             s._sync()
         return True
@@ -703,7 +720,7 @@ def test_a_rotation_walks_to_each_stop_before_climbing():
     handle = FakeHandle((), mindstates=(5,), sleeps=8)
     walks = []
 
-    def fake_walk(s, db, goals, describe=""):
+    def fake_walk(s, db, goals, describe="", avoid=()):
         walks.append(list(goals))
         return True
 
@@ -792,9 +809,9 @@ def test_a_player_at_the_rung_is_no_reason_to_leave_it():
     handle.state.experience["Athletics"]["rank"] = 7
     walks = []
 
-    def fake_walk(s, db, goals, describe=""):
+    def fake_walk(s, db, goals, describe="", avoid=()):
         walks.append(list(goals))
-        s.state.room_players = ["Bankismo"] if goals == [19069] else []
+        s.state.room_players = ["Bankismo"] if set(goals) == {19069} else []
         return True
 
     with pytest.raises(LoopDone):
@@ -812,10 +829,10 @@ def test_a_crowded_rung_is_left_like_an_occupied_one():
     handle.state.experience["Athletics"]["rank"] = 7
     walks = []
 
-    def fake_walk(s, db, goals, describe=""):
+    def fake_walk(s, db, goals, describe="", avoid=()):
         walks.append(list(goals))
         s.state.room_creatures = (
-            ["a musk hog", "a musk hog", "a musk hog"] if goals == [19069] else []
+            ["a musk hog", "a musk hog", "a musk hog"] if set(goals) == {19069} else []
         )
         return True
 
@@ -829,8 +846,8 @@ def test_a_crowded_rung_is_left_like_an_occupied_one():
 def test_a_crowded_rotation_stop_is_skipped():
     handle = FakeHandle((), mindstates=(5,), sleeps=8)
 
-    def fake_walk(s, db, goals, describe=""):
-        s.state.room_creatures = ["a rat"] * 3 if goals == [835] else ["a rat"]
+    def fake_walk(s, db, goals, describe="", avoid=()):
+        s.state.room_creatures = ["a rat"] * 3 if set(goals) == {835} else ["a rat"]
         return True
 
     steps = [
@@ -877,9 +894,9 @@ def test_a_player_at_a_rotation_stop_is_no_reason_to_skip_it():
     handle.state.experience["Athletics"]["rank"] = 70
     walks = []
 
-    def fake_walk(s, db, goals, describe=""):
+    def fake_walk(s, db, goals, describe="", avoid=()):
         walks.append(list(goals))
-        s.state.room_players = ["Lazaro"] if goals == [835] else []
+        s.state.room_players = ["Lazaro"] if set(goals) == {835} else []
         return True
 
     with pytest.raises(LoopDone):
