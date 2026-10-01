@@ -30,7 +30,8 @@ Shops and condition bands: client/game/repair.py (Elanthipedia: Repair; dr-scrip
 repair.lic and base-town.yaml).
 """
 
-from client.game import bank, probe
+from client.game import bank
+from client.game.act import ask, missing
 from client.game.loop import wants_stop
 from client.game.mapdb import MapDB
 from client.game.money import parse_wealth, phrase
@@ -106,23 +107,14 @@ tool that far gone is past field repair with a wire brush and oil
 Stop with:  ;stop repair, or ;repair return (keeps the tickets' pickup).
 """
 
-COLLECT_SECONDS = 3
-TAIL_SECONDS = 1
 ROISAEN_SECONDS = 60  # a roisaen is a real minute (client/game/eltime.py)
 ALMOST_SECONDS = 30  # "just give me a few more moments here"
 MAX_PICKUP_TRIES = 12  # per ticket: the fuse under the waits
 MAX_TICKETS = 20
 
-NOT_FOUND = ("what were you referring", "could not find", "don't have", "not wearing")
-
-
-def ask(s, command):
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
-
-
-def missing(answer):
-    lowered = (answer or "").lower()
-    return any(needle in lowered for needle in NOT_FOUND)
+# A piece that is not on you, beyond act.NOT_FOUND's two wordings: what
+# APPRAISE, REMOVE and WEAR answer for one you neither carry nor wear.
+NOT_ON_YOU = ("don't have", "not wearing")
 
 
 def hands(s):
@@ -154,7 +146,7 @@ def appraise(s, pieces, floor, echo_all=True):
             return due
         answer = ask(s, f"appraise my {noun} quick")
         s.waitrt()
-        if missing(answer):
+        if missing(answer, NOT_ON_YOU):
             s.echo(f"repair: no {noun} on you — skipped")
             continue
         reading = condition(answer)
@@ -186,7 +178,7 @@ def analyze(s, tools, floor):
                 return due
             answer = ask(s, f"get my {noun}")
             s.waitrt()
-            if missing(answer):
+            if missing(answer, NOT_ON_YOU):
                 s.echo(f"repair: no {noun} on you — skipped")
                 continue
         reading = condition(ask(s, f"analyze my {noun}"))
@@ -214,7 +206,11 @@ def free_hand(s):
     noun = left.get("noun") if isinstance(left, dict) else None
     answer = ask(s, f"stow my {noun}" if noun else "stow left")
     s.waitrt()
-    if missing(answer) or "no room" in answer.lower() or "can't" in answer.lower():
+    if (
+        missing(answer, NOT_ON_YOU)
+        or "no room" in answer.lower()
+        or "can't" in answer.lower()
+    ):
         s.echo(f"repair: both hands full and the {noun} would not stow — stopping")
         return False
     s.echo(f"repair: stowed the {noun} to free a hand")
@@ -233,11 +229,11 @@ def take(s, noun, place):
     if place != "stowed":
         answer = ask(s, f"remove my {noun}")
         s.waitrt()
-        if not missing(answer):
+        if not missing(answer, NOT_ON_YOU):
             return True
     answer = ask(s, f"get my {noun}")
     s.waitrt()
-    if missing(answer):
+    if missing(answer, NOT_ON_YOU):
         s.echo(f"repair: could not take the {noun} off or out — skipped")
         return False
     return True
@@ -252,7 +248,7 @@ def put_back(s, noun, place):
     elif place == "worn":
         answer = ask(s, f"wear my {noun}")
         s.waitrt()
-        if missing(answer) or "can't" in answer.lower():
+        if missing(answer, NOT_ON_YOU) or "can't" in answer.lower():
             ask(s, f"stow my {noun}")
             s.waitrt()
             s.echo(f"repair: the {noun} would not go on — stowed")
@@ -354,7 +350,7 @@ def collect(s, name, places, default="worn"):
             return returned
         if not free_hand(s):
             return returned
-        if missing(ask(s, f"get my {name} ticket")):
+        if missing(ask(s, f"get my {name} ticket"), NOT_ON_YOU):
             return returned
         s.waitrt()
         for _try in range(MAX_PICKUP_TRIES):
@@ -447,7 +443,7 @@ def pickup(s, mapdb, walk_fn):
     """Collect tickets from an earlier run: the ticket names the shop."""
     if not free_hand(s):
         return 0
-    if missing(ask(s, "get my ticket")):
+    if missing(ask(s, "get my ticket"), NOT_ON_YOU):
         s.echo("repair: no repair ticket on you")
         return 0
     ticket = read_ticket(ask(s, "look at my ticket"))
