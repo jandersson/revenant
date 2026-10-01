@@ -669,9 +669,14 @@ def test_escape_succeeds_when_the_room_changes_despite_hostiles():
     assert puts == ["retreat", "retreat", "climb ladder"]
 
 
-def test_held_items_are_stowed_before_the_first_climb_never_dropped():
+def test_held_items_are_stowed_before_the_first_climb_never_dropped(monkeypatch):
     # A hunt ends with the weapon in hand, and a held item makes every
     # climb harder; the operator's rule (2026-09-12): STOW, never DROP.
+    def ask(s, command, *_):
+        s.put(command)
+        return "You put your item in your canvas sack.\n"
+
+    monkeypatch.setattr(athletics, "ask", ask)  # act.ask, imported by name (#407)
     handle = FakeHandle(())
     handle.state.left_hand = {"noun": "pelt", "exist": "1", "name": "rat pelt"}
     handle.state.right_hand = {

@@ -48,7 +48,7 @@ import re
 import time
 
 from client.game import buffs, climbs
-from client.game import flight, loop, trainer, travel
+from client.game import flight, hands, loop, trainer, travel
 from client.game.act import ask, unknown
 from client.game.status import counted
 
@@ -135,14 +135,7 @@ def empty_hands(s):
     and a hunt now ends with the weapon in hand. STOW, never DROP — a
     dropped item is a lost item (the operator, 2026-09-12). A handle
     without hand state is left alone."""
-    stowed = []
-    for side in ("left", "right"):
-        held = getattr(s.state, f"{side}_hand", None)
-        noun = held.get("noun") if isinstance(held, dict) else None
-        if noun:
-            s.put(f"stow my {noun}")
-            s.waitrt()
-            stowed.append(noun)
+    stowed = hands.free(s, ask=ask)
     if stowed:
         s.echo(
             f"ATHLETICS: stowed your {' and '.join(stowed)} — a held item "
