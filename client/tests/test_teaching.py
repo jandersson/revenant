@@ -218,8 +218,9 @@ class Fake:
     def echo(self, text):
         self.echoed.append(text)
 
-    def put(self, command):
+    def put(self, command, cleanup=False):
         self.sent.append(command)
+        self.cleanup = cleanup
 
 
 def run(script, fake, args):
@@ -301,3 +302,28 @@ def test_listen_reads_the_skill_holds_on_its_mindstate_and_rejoins():
     out = run(listen, found, ["once"])
     assert found.sent[0] == "assess teach" and "listen to fallanor" in found.sent
     assert "Fallanor teaches Parry Ability here" in out
+
+
+def test_listen_ends_the_common_way_and_leaves_the_class_on_a_stop_too():
+    # The trainer loop's words (#407): a typed return between polls.
+    fake = Fake({"listen": [LISTENING]}, mindstates=[5] * 50, stop_at=5)
+    out = run(listen, fake, ["masah"])
+    assert out.endswith("listen: returning as asked")
+    assert fake.sent[-1] == "stop listening" and not fake.flags
+    # ;stop quits at once: STOP LISTENING goes out with the one put a
+    # stopped script may still make (the cleanup put), the flag dropped.
+    from client.engine.scripting import ScriptStopped
+
+    class Stopped(Fake):
+        def sleep(self, seconds):
+            if self.now >= 5:
+                raise ScriptStopped()
+            super().sleep(seconds)
+
+    stopped = Stopped({"listen": [LISTENING]}, mindstates=[5] * 50)
+    try:
+        run(listen, stopped, ["masah"])
+    except ScriptStopped:
+        pass
+    assert stopped.sent[-1] == "stop listening" and stopped.cleanup
+    assert not stopped.flags
