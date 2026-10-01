@@ -1,12 +1,17 @@
 """Train Mechanical Lore by braiding foraged grass:  ;mechlore
 
+    ;mechlore            forage grass and braid it until the skill locks, then hold
+    ;mechlore return     (typed while it runs) finish the piece in hand and end
+
 Stand outdoors somewhere grassy and run it: the script forages grass,
 braids it through its roundtimes until a rope forms (or the material
 is ruined), drops the result — grass and grass rope are the only
-things any script may drop (client/game/discard.py) — and repeats — pausing at mind-lock and
-resuming as the pool drains, like ;athletics. Braiding grass is the
-free entry method (Elanthipedia); vines come later (#71). Progress is
-echoed about every five minutes. Stop with:  ;stop mechlore
+things any script may drop (client/game/discard.py) — and repeats,
+holding at mind-lock until the pool drains (client/game/trainer.py,
+the loop every trainer runs). Braiding grass is the free entry method
+(Elanthipedia); vines come later (#71). Progress is echoed about
+every five minutes. Ends on death or hostiles (the shared escape).
+Stop with:  ;stop mechlore, or ;mechlore return.
 
 The forage/braid message patterns are assumptions until captures pin
 them — anything the script can't classify is echoed as
@@ -16,16 +21,14 @@ fixtures.
 
 import time
 
-from client.game import probe
+from client.game import trainer
+from client.game.act import NOT_FOUND, ask, unknown
 from client.game.discard import drop
+from client.game.loop import pause
 from client.game.probe import classify
 
-MIND_LOCK = 34  # mindstate 34/34: nothing more fits
-RESUME_BELOW = 28  # resume once enough has drained to be worth it
-LOCK_POLL = 30  # seconds between mindstate checks while locked
 PAUSE = 1  # breather between commands
-COLLECT_SECONDS = 3  # forage/braid answer in one quick burst
-RESULT_SECONDS = 2  # the tail that lands once the roundtime expires
+HANDS_FULL_WAIT = 30  # seconds before the next try with the hands full
 REPORT_EVERY_SECONDS = 300
 MAX_BRAIDS_PER_PIECE = 30  # a rope forms well before this; a fuse, not a plan
 FORAGE_FAILURES_BEFORE_GIVING_UP = 5
@@ -55,32 +58,8 @@ BRAID_OUTCOMES = (
     ("done", ("rope", "finish braiding", "you finish")),
     ("ruined", ("ruined", "too damaged", "falls apart", "unravel")),
     ("progress", ("braid", "twist", "weave")),
-    ("no_material", ("what were you referring", "you need", "nothing to braid")),
+    ("no_material", (*NOT_FOUND, "you need", "nothing to braid")),
 )
-
-
-def mindstate(state):
-    """Mechanical Lore mindstate 0-34, or None when it isn't in the
-    exp window yet."""
-    experience = getattr(state, "experience", None) or {}
-    entry = experience.get(SKILL)
-    return entry["mindstate"] if entry else None
-
-
-def wait_for_drain(s):
-    """Pause at mind-lock until the pool drains enough to be worth it."""
-    s.echo(f"mechlore: {SKILL} mind-locked — pausing until it drains")
-    while True:
-        s.sleep(LOCK_POLL)
-        current = mindstate(s.state)
-        if current is None or current <= RESUME_BELOW:
-            return
-
-
-def ask(s, command):
-    """The game's answer to a command, roundtime-delayed tail included
-    (client.game.probe.ask, with this script's collection windows)."""
-    return probe.ask(s, command, COLLECT_SECONDS, RESULT_SECONDS)
 
 
 def braid_piece(s):
@@ -98,54 +77,53 @@ def braid_piece(s):
         if outcome == "no_material":
             return braids
         if outcome is None:
-            for line in answer.splitlines():
-                if line.strip():
-                    s.echo(f"mechlore: unrecognized (braid): {line.strip()}")
-                    break
+            unknown(s, "mechlore", "braid", answer)
         s.sleep(PAUSE)
     # The fuse blew: stop feeding a piece that never resolves.
     drop(s, "grass", ask)
     return MAX_BRAIDS_PER_PIECE
 
 
-def main(s):
-    pieces, braids, failures = 0, 0, 0
-    last_report = time.monotonic()
-    s.echo("mechlore: braiding grass — stand outdoors somewhere grassy")
-    while True:
-        current = mindstate(s.state)
-        if current is not None and current >= MIND_LOCK:
-            wait_for_drain(s)
-            continue
+def run(s):
+    """The trainer loop with one step: FORAGE GRASS, and a find braided."""
+    counts = {"pieces": 0, "braids": 0, "failures": 0}
+    reported = {"at": time.monotonic()}
+
+    def step(s):
         answer = ask(s, "forage grass")
         outcome = classify(answer, FORAGE_OUTCOMES)
         if outcome == "ok":
-            failures = 0
-            pieces += 1
-            braids += braid_piece(s)
+            counts["failures"] = 0
+            counts["pieces"] += 1
+            counts["braids"] += braid_piece(s)
         elif outcome == "hands_full":
             s.echo("mechlore: hands full — empty them and I'll continue")
-            s.sleep(LOCK_POLL)
+            if not pause(s, HANDS_FULL_WAIT):
+                return None  # the loop says why
         else:
-            failures += 1
+            counts["failures"] += 1
             if outcome is None:
-                for line in answer.splitlines():
-                    if line.strip():
-                        s.echo(f"mechlore: unrecognized (forage): {line.strip()}")
-                        break
-            if failures >= FORAGE_FAILURES_BEFORE_GIVING_UP:
-                s.echo(
-                    "mechlore: can't forage grass here — move somewhere "
-                    "grassy (outdoors) and ;run mechlore again"
+                unknown(s, "mechlore", "forage", answer)
+            if counts["failures"] >= FORAGE_FAILURES_BEFORE_GIVING_UP:
+                return (
+                    "can't forage grass here — move somewhere grassy (outdoors) "
+                    "and ;run mechlore again"
                 )
-                return
             s.sleep(PAUSE)
         now = time.monotonic()
-        if now - last_report >= REPORT_EVERY_SECONDS:
-            last_report = now
-            shown = mindstate(s.state)
+        if now - reported["at"] >= REPORT_EVERY_SECONDS:
+            reported["at"] = now
+            shown = trainer.mindstates(s, SKILL).get(SKILL)
             s.echo(
-                f"mechlore: {pieces} pieces, {braids} braids — "
+                f"mechlore: {counts['pieces']} pieces, {counts['braids']} braids — "
                 f"{SKILL} mindstate {shown if shown is not None else '?'}"
             )
         s.sleep(PAUSE)
+        return None
+
+    s.echo("mechlore: braiding grass — stand outdoors somewhere grassy")
+    return trainer.train(s, "mechlore", SKILL, step, again="braiding again")
+
+
+def main(s):
+    run(s)

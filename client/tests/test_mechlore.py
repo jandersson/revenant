@@ -32,7 +32,21 @@ class FakeHandle:
         self.pending = []
         self.sent = []
         self.echoed = []
-        self.state = SimpleNamespace(experience={})
+        self.dead = False
+        self.state = SimpleNamespace(
+            experience={
+                mechlore.SKILL: {
+                    "rank": 5,
+                    "percent": 0,
+                    "mindstate": 3,
+                    "rate": "clear",
+                }
+            },
+            hostiles={},
+        )
+
+    def command(self, timeout=None):
+        return None
 
     def put(self, command):
         self.sent.append(command)
@@ -95,8 +109,6 @@ def test_classify_braid_outcomes():
 
 
 def test_braid_piece_braids_to_rope_and_drops_it(monkeypatch):
-    monkeypatch.setattr(mechlore, "COLLECT_SECONDS", 0.02)
-    monkeypatch.setattr(mechlore, "RESULT_SECONDS", 0.02)
     handle = FakeHandle(
         {
             "braid my grass": [
@@ -111,8 +123,6 @@ def test_braid_piece_braids_to_rope_and_drops_it(monkeypatch):
 
 
 def test_main_gives_up_somewhere_grassless(monkeypatch):
-    monkeypatch.setattr(mechlore, "COLLECT_SECONDS", 0.02)
-    monkeypatch.setattr(mechlore, "RESULT_SECONDS", 0.02)
     handle = FakeHandle(
         {
             "forage grass": [["You forage around but find nothing."]]
@@ -124,13 +134,11 @@ def test_main_gives_up_somewhere_grassless(monkeypatch):
 
 
 def test_unrecognized_answers_are_echoed_for_capture(monkeypatch):
-    monkeypatch.setattr(mechlore, "COLLECT_SECONDS", 0.02)
-    monkeypatch.setattr(mechlore, "RESULT_SECONDS", 0.02)
     monkeypatch.setattr(mechlore, "FORAGE_FAILURES_BEFORE_GIVING_UP", 1)
     handle = FakeHandle({"forage grass": [["Wholly novel game wording."]]})
     mechlore.main(handle)
     assert any(
-        "unrecognized (forage): Wholly novel game wording." in echo
+        "unrecognized forage answer 'Wholly novel game wording.'" in echo
         for echo in handle.echoed
     )
 
@@ -161,8 +169,6 @@ def test_find_nothing_is_not_a_find():
 def test_ask_collects_the_result_that_lands_after_the_roundtime(monkeypatch):
     # Captured 2026-08-22: a 6s blind forage delivered its result only
     # when the roundtime expired, after the old collect window closed.
-    monkeypatch.setattr(mechlore, "COLLECT_SECONDS", 0.02)
-    monkeypatch.setattr(mechlore, "RESULT_SECONDS", 0.02)
 
     class RoundtimeHandle(FakeHandle):
         after_rt = []
