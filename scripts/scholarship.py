@@ -41,7 +41,7 @@ import time
 
 from client.engine.xml_data import LEARNING_RATES
 from client.game import flight
-from client.game import probe
+from client.game.act import ask, unknown
 from client.game.loop import danger, pause, wants_stop
 from client.game.mapdb import MapDB
 from client.game.scholarship import (
@@ -65,8 +65,6 @@ RESUME_BELOW = 28
 LOCK_POLL = 30
 BLEED_POLL = 30
 MAX_PAGES = 200  # a book longer than this is a loop, not a book
-COLLECT_SECONDS = 2
-TAIL_SECONDS = 0.5
 wall = time.time  # the read times kept across runs (#255); tests replace it
 
 _EXP_ANSWER = re.compile(r"Scholarship:\s+(\d+)\s+[\d.]+%\s+.*?\((\d+)/34\)")
@@ -104,7 +102,7 @@ def ensure_mindstate(s):
     when the window does not list the skill (a clear pool is absent)."""
     value = mindstate(s)
     if value is None:
-        answer = probe.ask(s, "exp scholarship", COLLECT_SECONDS, TAIL_SECONDS)
+        answer = ask(s, "exp scholarship")
         value = mindstate(s)
         if value is None:
             match = _EXP_ANSWER.search(answer or "")
@@ -126,10 +124,6 @@ def ensure_mindstate(s):
 def bleeding(s):
     status = getattr(s, "status", None)
     return bool(getattr(status, "bleeding", False))
-
-
-def ask(s, command):
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
 
 
 def hold_at_lock(s, until):
@@ -167,13 +161,13 @@ def read_book(s, title, letters, options):
         s.echo(f"scholarship: no {letters!r} on the shelves — skipping {title!r}")
         return "missing"
     if not any(word in answer for word in GOT):
-        s.echo(f"scholarship: GET {letters} answered nothing known — please report it")
+        unknown(s, "scholarship", f"GET {letters}", answer)
         return "unknown"
     answer = ask(s, "read my book").lower()
     if any(word in answer for word in URGE):
         opened = ask(s, "open my book").lower()
         if not any(word in opened for word in OPENED):
-            s.echo("scholarship: OPEN answered nothing known — please report it")
+            unknown(s, "scholarship", "OPEN", opened)
             close_and_return(s, reading=False)
             return "unknown"
         ask(s, "read my book")  # the table of contents: the reader is open now
@@ -197,11 +191,7 @@ def read_book(s, title, letters, options):
                 answer = ask(s, str(number))
             if not page_ended(answer) and READING not in answer.lower():
                 close_and_return(s, reading=False)
-                s.echo(
-                    f"scholarship: {title!r} is not in the reader "
-                    f"({(answer.strip().splitlines() or [''])[0]!r}) — "
-                    "returned, please report it"
-                )
+                unknown(s, "scholarship", f"{title!r} page {number}", answer)
                 return "unknown"
         if page_ended(answer):
             break

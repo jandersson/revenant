@@ -172,7 +172,7 @@ def walk(s, db, goals, describe="", avoid=()):
 def run(fake, args=("books",), mapdb=None):
     script.clock = lambda: fake.now
     script.wall = lambda: fake.now
-    script.probe = SimpleNamespace(ask=fake.ask, collect=fake.collect)
+    script.ask = fake.ask  # act.ask, imported by name (#407)
     script.run(fake, script.parse_args(list(args)), mapdb=mapdb, walk_fn=walk)
     return "\n".join(fake.echoed)
 
@@ -294,7 +294,8 @@ def test_a_book_never_in_the_reader_is_returned_after_one_reopen_not_paged_blind
     assert len(pages_sent(fake)) <= 4  # two tries per book, never the fuse
     assert fake.sent.count("open my book") >= 1
     assert "stow my book" in fake.sent
-    assert "is not in the reader" in out and "please report" in out
+    assert "unrecognized 'Introduction to the Guild of Paladins' page 2 answer" in out
+    assert "please report" in out
 
 
 def test_the_bookcase_is_read_beside_the_shelves():
