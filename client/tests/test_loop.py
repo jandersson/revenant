@@ -160,3 +160,11 @@ def test_a_lowercase_seed_alone_is_no_entry():
     )
     assert stale.state.experience["Parry Ability"]["mindstate"] == 0
     assert loop.mindstate(stale, "Parry Ability") == 0
+
+
+def test_a_return_once_read_holds_for_the_run():
+    # A pause inside a trainer's step reads the word; the loop's own
+    # check after the step must still see it (#407).
+    handle = Handle(["return"])
+    assert loop.wants_stop(handle) is True
+    assert loop.wants_stop(handle) is True

@@ -33,10 +33,19 @@ def wants_stop(s):
     """True once "return" was typed at the script: finish the step in
     hand and end. (;stop <name> is the abrupt end for every script; a
     typed word is the graceful one, the operator's rule 2026-09-12.)
-    A safe point, so the interludes due run here first (#372)."""
+    A safe point, so the interludes due run here first (#372). The
+    word, once read, holds for the run: a pause inside a step read it
+    and the trainer loop's own check after the step found nothing
+    (#407), so it is kept on the handle and every later check sees it."""
     interlude.run_due(s)
+    if getattr(s, "_return_typed", False):
+        return True
     while (line := s.command(timeout=0)) is not None:
         if "return" in line.lower():
+            try:
+                s._return_typed = True
+            except AttributeError:  # a fake without attributes
+                pass
             return True
     return False
 
