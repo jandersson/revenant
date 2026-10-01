@@ -173,6 +173,22 @@ def containers_of(possessions):
     return nouns
 
 
+def containers_with(possessions, word):
+    """The container nouns whose INV LIST contents name `word` ("dried",
+    "flowers"), in listing order: where a herb may be. The gem pouch
+    was LOOKed IN for herbs until 2026-10-01 (#402)."""
+    by_exist = {entry.get("exist"): entry for entry in possessions or []}
+    nouns = []
+    for entry in possessions or []:
+        if word.lower() not in str(entry.get("name") or "").lower():
+            continue
+        holder = by_exist.get(entry.get("container_exist")) or {}
+        noun = str(holder.get("noun") or "").lower()
+        if noun and noun != "mortar" and noun not in nouns:
+            nouns.append(noun)
+    return nouns
+
+
 _IN_MORTAR = re.compile(
     r"not required to continue crafting (?:the |some |a |an )?(?P<name>[\w' -]+?)[,.]",
     re.IGNORECASE,

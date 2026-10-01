@@ -154,6 +154,23 @@ def test_an_answer_the_experiment_never_saw_puts_both_back_and_stops():
     assert shelf.stacks_of(DRIED) == [10, 20]
 
 
+def test_only_the_containers_holding_the_herb_are_searched():
+    # 2026-10-01: the merge LOOKed IN the gem pouch for dried herbs.
+    from client.game.remedies import containers_with
+
+    possessions = [
+        {"exist": "1", "name": "a rugged backpack", "noun": "backpack"},
+        {"exist": "2", "name": "some dried red flowers", "container_exist": "1"},
+        {"exist": "3", "name": "a black gem pouch", "noun": "pouch"},
+        {"exist": "4", "name": "a tiny ruby", "container_exist": "3"},
+        {"exist": "5", "name": "a canvas sack", "noun": "sack"},
+        {"exist": "6", "name": "some red flowers", "container_exist": "5"},
+    ]
+    assert containers_with(possessions, "dried") == ["backpack"]
+    assert containers_with(possessions, "flowers") == ["backpack", "sack"]
+    assert containers_with(None, "dried") == []
+
+
 def test_the_dried_herbs_a_listing_holds_more_than_once():
     listing = (
         "In the backpack you see an iron mortar, some dried red flowers, some "

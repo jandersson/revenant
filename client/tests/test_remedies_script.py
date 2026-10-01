@@ -1088,7 +1088,18 @@ def test_a_run_merges_the_herb_stacks_first_and_says_so(monkeypatch):
             "depth": 1,
         },
     ]
+    fake.state.possessions += [
+        {"exist": "3", "name": "a black gem pouch", "noun": "pouch", "depth": 0},
+        {
+            "exist": "4",
+            "name": "a tiny ruby",
+            "noun": "ruby",
+            "container_exist": "3",
+            "depth": 1,
+        },
+    ]
     out = run(fake, ["merge"])
+    assert "look in my pouch" not in fake.sent  # no herb there
     assert merged == [("dried red flowers", "backpack")]  # one nemoih: left alone
     assert (
         "remedies: 9 stacks of dried red flowers in the backpack merged into 4" in out

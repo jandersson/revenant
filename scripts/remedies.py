@@ -64,6 +64,7 @@ from client.game.remedies import (
     STACK_PIECES,
     WRONG_SIZE,
     containers_of,
+    containers_with,
     pieces,
     NO_MASTER,
     ORDER_EXPIRED,
@@ -338,7 +339,11 @@ def full_stack(s, noun):
     if held is None or held >= STACK_PIECES:
         return True
     ask(s, "stow my mortar")
-    for container in containers_of(getattr(s.state, "possessions", None)):
+    possessions = getattr(s.state, "possessions", None)
+    # Where INV LIST showed the herb, else every container (a stack
+    # bought since the login listing): never the gem pouch first.
+    places = containers_with(possessions, noun) or containers_of(possessions)
+    for container in places:
         while held < STACK_PIECES:
             if missing(ask(s, f"get {noun} from my {container}")):
                 break
@@ -1315,11 +1320,12 @@ def work(s, options, profile):
 
 def merge_herbs(s, quiet=False):
     """Every dried herb with two or more stacks in a container merged
-    into full stacks and one short one (#402), each container INV LIST
-    shows LOOKed IN once; said per herb that merged, or once when there
-    was nothing to merge (unless `quiet`)."""
+    into full stacks and one short one (#402), LOOKing IN only the
+    containers INV LIST showed holding a dried item (never the gem
+    pouch); said per herb that merged, or once when there was nothing
+    to merge (unless `quiet`)."""
     merged = False
-    for container in containers_of(getattr(s.state, "possessions", None)):
+    for container in containers_with(getattr(s.state, "possessions", None), "dried"):
         for herb in herbstacks.dried_herbs(ask(s, f"look in my {container}")):
             result = herbstacks.merge(s, ask, herb, container)
             if result is None:
