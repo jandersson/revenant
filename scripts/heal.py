@@ -14,7 +14,7 @@
 
 Herbs
   - One herb per wounded part, the first the town sells; salves rubbed on, potions drunk.
-  - buy ORDERs each by the herbalist's catalog name; a quote above the purse is skipped.
+  - buy ORDERs each by the herbalist's catalog name; a quote above the purse is refused.
   - A herb no shop sells to eat (the scar herbs) is said so before any walk.
   - Bleeding is reported, not treated: ;tend does that.
 
@@ -32,11 +32,10 @@ Nothing walks back afterwards; death stops it. Herbs: client/game/herbs.py
 
 import re
 
-from client.game import helper, herbs, probe, travel
-from client.game.act import NOT_FOUND, ask, said, unknown
+from client.game import bank, helper, herbs, money, probe, shop, travel
+from client.game.act import NOT_FOUND, ask, unknown
 from client.game.loop import wants_stop
 from client.game.bank import exchange_each, foreign, room_currency
-from client.game.money import parse_wealth, phrase, split
 from client.game.walker import locate, walk
 from client.game.wounds import SEVERITIES, level, parse_health
 
@@ -73,9 +72,11 @@ Mauriga's and ORDERed all four of them, 2026-09-20; scars mend under
 an Empath). A catalog merchant sells by
 ORDER, which quotes, then OFFER of the quoted sum (HELP SHOPS; Grek's
 knife 2026-09-14: "Well done! Here, take your knife."). `buy` reads
-INFO for the coins carried, WITHDRAWs the wiki-priced shortfall at the
-nearest teller (map tag `bank`), walks to the herbalist, ORDERs and
-OFFERs each missing herb by her catalog's whole name — READ PAGE 1 and
+WEALTH for the coins carried (money.carried), WITHDRAWs the
+wiki-priced shortfall at the nearest teller (bank.withdraw, map tag
+`bank`, the walk routed around settings' avoid_rooms), walks to the
+herbalist, and buys each missing herb through shop.buy (#407) by her
+catalog's whole name — READ PAGE 1 and
 2 at her pedestal, captured 2026-09-25: the table's nilos grass and
 georin grass are her Nilos Salve and Georin Salve, plovik leaves her
 Plovik Leaf, and "order jadice" alone is answered out of stock while
@@ -95,8 +96,8 @@ hands are full, and places it on the counter instead." (the script
 GETs it from the counter), "I'm so sorry to disappoint you, but I
 don't have that reagent in stock.", and EAT's "You eat a portion of
 a nemoih root." — a root has portions, and the rest goes in the sack.
-A herb the shop quotes above the purse is skipped, said so. Nothing
-walks back afterwards.
+A herb the shop quotes above the purse is REFUSEd, said so in shop's
+words. Nothing walks back afterwards.
 An Empath of your own (`;heal riphik`, any word that is not one of the
 above) is logged in the way ;train logs in a helper
 (client/game/helper.py): found in the registry or spawned off the
@@ -187,28 +188,8 @@ EAT_OUTCOMES = (
         ),
     ),
 )
-# ORDER's quote and OFFER's sale at a catalog merchant. Grek's
-# 2026-09-14: "I can let that go for a mere 375 kronars." / "Well
-# done! Here, take your knife."; Mauriga's the same day: "That is a
-# very wise selection.  I can give the root to you for 875 kronars.",
-# "Mauriga smiles as she hands you your purchase.", with both hands
-# full "Mauriga notices that your hands are full, and places it on
-# the counter instead.", and out of stock "I'm so sorry to disappoint
-# you, but I don't have that reagent in stock."
-_QUOTE = re.compile(r"(\d[\d,]*)\s*kronars?", re.IGNORECASE)
-OUT_OF_STOCK = ("don't have that reagent", "not in stock", "don't carry")
-# A quote still open blocks the next ORDER (captured 2026-09-25):
-# "Master Lanival, you've already ordered something else.  Let's deal
-# with one negotiation at a time, shall we?" REFUSE closes one: "Mauriga
-# nods to you.  "Perhaps another day.  In the meantime, make sure that
-# you eat a sicle fruit a day!"" (Elanthipedia: Offer command).
-OPEN_ORDER = ("one negotiation at a time", "already ordered something")
-SALE_OUTCOMES = (
-    ("refused", ("don't have enough", "not enough", "can't afford", "insufficient")),
-    ("counter", ("places it on the counter",)),
-    ("ok", ("hands you your purchase", "take your", "hands you", "here you go")),
-)
-WITHDRAW_REFUSALS = ("you do not have", "insufficient", "no account", "don't have that")
+# ORDER's quote and OFFER's sale at a catalog merchant are read by
+# client/game/shop.py (#407); Mauriga's wordings are in _NOTES.
 # The NPC healer (#218; Elanthipedia: Hospital): LIE DOWN starts the
 # touches, each "[72 Dokoras are taken from you.]"; Quentin refuses a
 # neutral demeanor with "The healer Quentin looks towards you, and you
@@ -377,44 +358,24 @@ def eat_and_stow(s, herb, eaten):
     ask(s, f"stow my {item}")
 
 
-def carried(s):
-    """INFO's carried Kronars in copper."""
-    info = parse_wealth(ask(s, "info"))
-    return info["carried"].get("Kronars", 0)
-
-
-def withdraw(s, shortfall, mapdb, walk_fn, avoid=()):
-    """Walk to the nearest teller and WITHDRAW the shortfall, one
-    denomination per command; False when refused or unreachable."""
-    tellers = set(mapdb.rooms_tagged("bank"))
-    if not travel.go(
-        s, tellers, "the bank teller", db=mapdb, walk=walk_fn, avoid=avoid
-    ):
-        s.echo("heal: could not reach a teller — stopping")
-        return False
-    s.echo(f"heal: withdrawing {phrase(shortfall, 'Kronars')}")
-    for count, denomination in split(shortfall):
-        answer = ask(s, f"withdraw {count} {denomination}")
-        if any(word in answer.lower() for word in WITHDRAW_REFUSALS):
-            s.echo(f"heal: the teller refused — {said(answer, WITHDRAW_REFUSALS)}")
-            return False
-    return True
-
-
 def buy(s, wanted, mapdb, walk_fn, avoid=(), town=TOWN):
-    """Coins for the wanted herbs, then each ORDERed by the catalog's name, paid
-    for and eaten at the store the table says sells it (STORE_TAGS),
-    one at a time so a hand stays free; the herbs eaten, in order. A
-    herb no known store sells to eat is said so, and walked for by no
-    one."""
+    """Coins for the wanted herbs (the wiki-priced shortfall from the
+    teller, bank.withdraw), then each bought by the catalog's name
+    through shop.buy and eaten at the store the table says sells it
+    (STORE_TAGS), one at a time so a hand stays free; the herbs eaten,
+    in order. A herb no known store sells to eat is said so, and walked
+    for by no one. `avoid` is the herbalist walk's; the teller walk
+    routes around settings' avoid_rooms, travel's default."""
     for herb in [herb for herb in wanted if store_tag(herb, town) is None]:
         s.echo(f"heal: {herb} is {UNSOLD.format(town=town)}")
     wanted = [herb for herb in wanted if store_tag(herb, town) is not None]
     if not wanted:
         return []
     estimate = sum(PRICES.get(herb, FALLBACK_PRICE) for herb in wanted)
-    purse = carried(s)
-    if purse < estimate and not withdraw(s, estimate - purse, mapdb, walk_fn, avoid):
+    purse = money.carried(s, "Kronars", ask)
+    if purse < estimate and not bank.withdraw(
+        s, mapdb, walk_fn, ask, "heal", estimate - purse, "Kronars"
+    ):
         return []
     purse = max(purse, estimate)
     shops = set(mapdb.rooms_tagged(store_tag(wanted[0], town)))
@@ -426,36 +387,11 @@ def buy(s, wanted, mapdb, walk_fn, avoid=(), town=TOWN):
         if s.dead:
             break
         item = product(herb)
-        answer = ask(s, f"order {item}")
-        if any(word in answer.lower() for word in OPEN_ORDER):
-            ask(s, "refuse")  # a quote left open blocks every ORDER
-            answer = ask(s, f"order {item}")
-        if any(word in answer.lower() for word in OUT_OF_STOCK):
-            s.echo(f"heal: {herb} is not in stock here")
-            continue
-        match = _QUOTE.search(answer)
-        if not match:
-            s.echo(f"heal: no quote for {item} — {said(answer)}")
-            continue
-        price = int(match.group(1).replace(",", ""))
-        if price > purse:
-            ask(s, "refuse")
-            s.echo(
-                f"heal: {item} is {price} Kronars, more than the {purse} carried — skipped"
-            )
-            continue
-        answer = ask(s, f"offer {price}")
-        outcome = probe.classify(answer, SALE_OUTCOMES)
-        if outcome == "refused":
-            ask(s, "refuse")
-            s.echo(f"heal: the herbalist refused {price} for {item} — {said(answer)}")
-            continue
-        if outcome is None:
-            unknown(s, "heal", "sale", answer)
+        price = shop.buy(s, ask, "heal", f"order {item}", purse=purse, noun=item)
+        if price is None:
+            continue  # out of stock, no quote, over the purse or refused: said
         purse -= price
         s.echo(f"heal: bought {item} for {price} Kronars")
-        if outcome == "counter":
-            ask(s, f"get {item} from counter")
         eat_and_stow(s, herb, eaten)
     return eaten
 
@@ -536,7 +472,7 @@ def visit_healer(s, mapdb, walk_fn=walk, avoid=(), healer=""):
         )
         s.echo(f"heal: the map has no room tagged {who}")
         return "no healer", []
-    purse = parse_wealth(ask(s, "info"))["carried"]
+    purse = money.purse(s, ask)
     if not any(purse.values()):
         s.echo(
             "heal: the purse is empty — the healer takes the province's coins per "

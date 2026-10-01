@@ -3,7 +3,8 @@
 HEALTH read into wounds, each answered by the herb table (client/game/
 herbs.py): the first herb the town sells, one EAT per herb; a herb not
 carried is named with its shop, and `buy` fetches coins from the
-teller, ORDERs and OFFERs at the herbalist, then eats. EAT's and the
+teller (bank.withdraw), ORDERs and OFFERs at the herbalist (shop.buy),
+then eats; the purse is read off WEALTH (money.purse, #407). EAT's and the
 herbalist's wordings are assumptions until the first run (#198).
 """
 
@@ -61,7 +62,7 @@ CLEAN = "Your body feels at full strength.\nYour spirit feels full of life.\nYou
 # Captured 2026-09-14 on the first ;heal buy at Mauriga's Botanicals.
 ATE = "You eat a portion of a nemoih root."
 MISSING = "What were you referring to?"
-INFO_BROKE = "Wealth:\n  No Kronars.\n  No Lirums.\n  No Dokoras.\n"
+WEALTH_BROKE = "Wealth:\n  No Kronars.\n  No Lirums.\n  No Dokoras.\n"
 QUOTE = (
     'Mauriga says, "That is a very wise selection.  I can give the root to you '
     'for 812 kronars."'
@@ -190,12 +191,12 @@ HOSPITALS = MapDB(
         },
     ]
 )
-INFO_KRONARS = "Wealth:\n  2 gold, 5 silver Kronars (2500 copper Kronars).\n  No Lirums.\n  No Dokoras.\n"
+WEALTH_KRONARS = "Wealth:\n  2 gold, 5 silver Kronars (2500 copper Kronars).\n  No Lirums.\n  No Dokoras.\n"
 CHANGED = (
     "You hand your money to the money-changer, who counts it and hands you "
     "1 gold, 7 silver, and 5 bronze Dokoras.\n"
 )
-INFO_DOKORAS = "Wealth:\n  No Kronars.\n  No Lirums.\n  8 silver, 2 bronze Dokoras (802 copper Dokoras).\n"
+WEALTH_DOKORAS = "Wealth:\n  No Kronars.\n  No Lirums.\n  8 silver, 2 bronze Dokoras (802 copper Dokoras).\n"
 FRIENDLY = "You now regard empaths with a friendly demeanor.\n"
 TOUCHES = (
     "You lie down.\n"
@@ -219,7 +220,7 @@ def test_npc_walks_to_the_healer_not_the_retired_one_and_pays_per_part(monkeypat
     monkeypatch.setattr(heal, "HEALER_QUIET", 0.02)
     s = Fake(
         {
-            "info": [INFO_DOKORAS],
+            "wealth": [WEALTH_DOKORAS],
             "demeanor": [FRIENDLY],
             "lie down": [TOUCHES],
             "stand": ["You stand back up.\n"],
@@ -231,7 +232,13 @@ def test_npc_walks_to_the_healer_not_the_retired_one_and_pays_per_part(monkeypat
     )
     assert (reason, eaten) == ("healed", [])
     assert s.walks == [{8908}]  # by name: not Dokt's kitchen, not Riverhaven
-    assert s.sent == ["info", "demeanor friendly empath", "lie down", "stand", "health"]
+    assert s.sent == [
+        "wealth",
+        "demeanor friendly empath",
+        "lie down",
+        "stand",
+        "health",
+    ]
     assert any(
         "took 126 Dokoras for 2 part(s)" in t and "HEALTH is clean" in t
         for t in s.echoed
@@ -248,7 +255,7 @@ def test_quentin_exchanges_a_kronar_purse_into_dokoras_by_him_first(monkeypatch)
     monkeypatch.setattr(heal, "HEALER_QUIET", 0.02)
     s = Fake(
         {
-            "info": [INFO_KRONARS],
+            "wealth": [WEALTH_KRONARS],
             "exchange": [CHANGED],
             "demeanor": [FRIENDLY],
             "lie down": [TOUCHES],
@@ -259,7 +266,7 @@ def test_quentin_exchanges_a_kronar_purse_into_dokoras_by_him_first(monkeypatch)
     reason, _ = heal.run(s, heal.parse_args(["quentin"]), mapdb=HOSPITALS, walk_fn=walk)
     assert reason == "healed"
     assert s.walks == [{19280}, {8908}]
-    assert s.sent[:2] == ["info", "exchange all kronars to dokoras"]
+    assert s.sent[:2] == ["wealth", "exchange all kronars to dokoras"]
     assert any(
         "exchanged your kronars for 1 gold, 7 silver, and 5 bronze Dokoras" in t
         for t in s.echoed
@@ -270,7 +277,7 @@ def test_small_change_alone_is_no_fee_and_walks_to_no_money_changer():
     # #389: the changer takes 10 copper or more; 4 copper Kronars by
     # Quentin are no fee, so no walk to him either.
     s = Fake(
-        {"info": ["Wealth:\n  4 copper Kronars (4 copper Kronars).\n  No Dokoras.\n"]}
+        {"wealth": ["Wealth:\n  4 copper Kronars (4 copper Kronars).\n  No Dokoras.\n"]}
     )
     reason, _ = heal.run(s, heal.parse_args(["quentin"]), mapdb=HOSPITALS, walk_fn=walk)
     assert reason == "no coins"
@@ -285,7 +292,7 @@ def test_a_healer_who_finds_no_wound_ends_the_visit_at_once(monkeypatch):
     monkeypatch.setattr(heal, "HEALER_WAIT", 5.0)  # never waited out
     s = Fake(
         {
-            "info": [INFO_KRONARS],
+            "wealth": [WEALTH_KRONARS],
             "demeanor": [FRIENDLY],
             "lie down": [
                 'You lie down.\nArthianna nudges you.  "What are you doing lying '
@@ -309,7 +316,13 @@ def test_a_healer_who_finds_no_wound_ends_the_visit_at_once(monkeypatch):
         s, heal.parse_args(["arthianna"]), mapdb=hospitals, walk_fn=walk
     )
     assert reason == "not healed"
-    assert s.sent == ["info", "demeanor friendly empath", "lie down", "stand", "health"]
+    assert s.sent == [
+        "wealth",
+        "demeanor friendly empath",
+        "lie down",
+        "stand",
+        "health",
+    ]
     assert any("the rest needs no healing" in t for t in s.echoed)
 
 
@@ -346,7 +359,7 @@ RIVERHAVEN = MapDB(
         },
     ]
 )
-INFO_LIRUMS = (
+WEALTH_LIRUMS = (
     "Wealth:\n  No Kronars.\n  1 bronze and 3 copper Lirums (13 copper Lirums).\n"
     "  No Dokoras.\n"
 )
@@ -371,7 +384,7 @@ def test_npc_goes_to_the_healer_nearest_and_pays_in_his_towns_coin(monkeypatch):
     monkeypatch.setattr(heal, "HEALER_QUIET", 0.02)
     s = Fake(
         {
-            "info": [INFO_LIRUMS],
+            "wealth": [WEALTH_LIRUMS],
             "demeanor": [FRIENDLY],
             "lie down": [ON_CREDIT],
             "stand": ["You stand back up.\n"],
@@ -392,13 +405,13 @@ def test_npc_goes_to_the_healer_nearest_and_pays_in_his_towns_coin(monkeypatch):
 def test_npc_stops_on_an_empty_purse_and_reports_a_refusal(monkeypatch):
     monkeypatch.setattr(heal, "HEALER_POLL", 0.01)
     monkeypatch.setattr(heal, "HEALER_WAIT", 0.02)
-    s = Fake({"info": [INFO_BROKE]})
+    s = Fake({"wealth": [WEALTH_BROKE]})
     reason, _ = heal.run(s, heal.parse_args(["npc"]), mapdb=HOSPITALS, walk_fn=walk)
     assert reason == "no coins" and s.walks == []
     assert any("purse is empty" in t for t in s.echoed)
     s = Fake(
         {
-            "info": [INFO_DOKORAS],
+            "wealth": [WEALTH_DOKORAS],
             "demeanor": ["Demeanor what?\n"],
             "lie down": [PULL_AWAY],
             "health": [HEALTH],
@@ -463,7 +476,7 @@ def test_buy_fetches_the_shortfall_orders_offers_and_eats(travel_map=MAP):
             # plovik leaves is looked for twice: as her "plovik leaf", then
             # as the table names it
             "eat": [MISSING] * 6 + [ATE] * 5,
-            "info": [INFO_BROKE],
+            "wealth": [WEALTH_BROKE],
             "withdraw": ["The clerk counts out some coins and hands them over."] * 6,
             "order": [QUOTE] * 5,
             "offer": [SOLD] * 5,
@@ -498,7 +511,7 @@ def test_a_purchase_set_on_the_counter_is_fetched_and_one_out_of_stock_is_said()
         {
             "health": [HEALTH],
             "eat": [MISSING] * 6 + [ATE] * 5,
-            "info": ["Wealth:\n  9 gold Kronars (9000 copper Kronars).\n"],
+            "wealth": ["Wealth:\n  9 gold Kronars (9000 copper Kronars).\n"],
             "order": [NO_STOCK, QUOTE, QUOTE, QUOTE, NO_STOCK],
             "offer": [SOLD, ON_COUNTER, SOLD],
         }
@@ -532,19 +545,21 @@ def test_a_herb_no_store_sells_to_eat_is_said_and_never_walked_for():
     assert heal.store_tag("genich stem") is None
 
 
-def test_a_quote_above_the_purse_is_skipped_and_said():
+def test_a_quote_above_the_purse_is_refused_and_said():
     s = Fake(
         {
             "health": [HEALTH],
             "eat": [MISSING] * 5,
-            "info": ["Wealth:\n  9 silver Kronars (900 copper Kronars).\n"],
+            "wealth": ["Wealth:\n  9 silver Kronars (900 copper Kronars).\n"],
             "withdraw": ["The clerk counts out some coins and hands them over."] * 6,
             "order": [QUOTE.replace("812", "5000")] * 5,
         }
     )
     heal.run(s, heal.parse_args(["buy"]), mapdb=MAP, walk_fn=walk)
     assert not any(c.startswith("offer") for c in s.sent)
-    assert sum("skipped" in t for t in s.echoed) == 4  # aloe never quoted
+    # shop.buy's line (#407): the quote REFUSEd, said with the purse.
+    assert sum("more than the 3436 carried — refused" in t for t in s.echoed) == 4
+    assert s.sent.count("refuse") == 4  # aloe never quoted
 
 
 def test_bleeding_is_pointed_at_tend_and_an_unknown_eat_answer_is_reported():
@@ -593,7 +608,7 @@ def test_an_order_left_open_is_refused_before_the_next():
     # REFUSE closes it.
     s = Fake(
         {
-            "info": ["Wealth:\n  9 gold Kronars (9000 copper Kronars).\n"],
+            "wealth": ["Wealth:\n  9 gold Kronars (9000 copper Kronars).\n"],
             "order": [OPEN_ORDER, QUOTE],
             "refuse": [REFUSED],
             "offer": [SOLD],
@@ -609,7 +624,7 @@ def test_an_order_left_open_is_refused_before_the_next():
 def test_a_quote_above_the_purse_is_refused_not_left_open():
     s = Fake(
         {
-            "info": ["Wealth:\n  9 gold Kronars (9000 copper Kronars).\n"],
+            "wealth": ["Wealth:\n  9 gold Kronars (9000 copper Kronars).\n"],
             "order": [QUOTE.replace("812", "9500")],
             "refuse": [REFUSED],
         }
