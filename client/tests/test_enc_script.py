@@ -17,8 +17,6 @@ def _script():
 
 
 script = _script()
-script.COLLECT_SECONDS = 0.01
-script.TAIL_SECONDS = 0.01
 
 INFO = "     Strength :  10              Reflex :  10\n      Stamina :  11\n         TDPs : 401\n"
 COUNTED = "The clerk counts out {} {} Kronars and hands them over, making a notation in her ledger.\n"

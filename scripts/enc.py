@@ -23,7 +23,7 @@ run with what was already drawn deposited. The formula is the wiki's
 and held its first test (docs/encumbrance.md). Stop with:  ;stop enc
 """
 
-from client.game import probe
+from client.game.act import ask, said
 from client.game.encumbrance import (
     LEVELS,
     band,
@@ -41,8 +41,6 @@ from client.game.mapdb import MapDB
 from client.game.tdp import parse_info
 from client.game.walker import walk
 
-COLLECT_SECONDS = 3
-TAIL_SECONDS = 1.5
 STEP_STONES = 50  # a ballast step: 250 coins
 MAX_BALLAST = 600  # stones; 3000 coins is the most a run will draw
 WITHDRAW_REFUSALS = (
@@ -51,10 +49,6 @@ WITHDRAW_REFUSALS = (
     "cannot",
     "can't",
 )
-
-
-def ask(s, command):
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
 
 
 def reading(s):
@@ -116,7 +110,7 @@ def ballast(s, step, mapdb=None, walk_fn=walk):
             count = coins_for(step)
             answer = ask(s, f"withdraw {count} copper")
             if any(needle in answer.lower() for needle in WITHDRAW_REFUSALS):
-                s.echo(f"enc: the teller refused — {answer.strip().splitlines()[0]}")
+                s.echo(f"enc: the teller refused — {said(answer, WITHDRAW_REFUSALS)}")
                 return
             drawn.append(count)
             ballast_stones += step
