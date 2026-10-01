@@ -26,8 +26,6 @@ def _script():
 
 
 script = _script()
-script.COLLECT_SECONDS = 0.01
-script.TAIL_SECONDS = 0.01
 script.FOCUS_SECONDS = 0.01
 script.GUARD_SECONDS = 0.01
 script.BADGE_SECONDS_ANSWER = 0.01

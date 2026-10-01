@@ -34,6 +34,7 @@ import time
 
 from client.game import probe
 from client.game import flight
+from client.game.act import ask, unknown
 from client.game.loop import danger, wants_stop
 from client.game.mapdb import MapDB
 from client.game.money import parse_wealth
@@ -135,8 +136,6 @@ paid, #304), never drops, and stops on death or hostiles.
 Stop with:  ;stop soul, or ;soul return.
 """
 
-COLLECT_SECONDS = 2
-TAIL_SECONDS = 0.5
 FOCUS_SECONDS = 4  # the orb's answer to FOCUS
 GUARD_SECONDS = 4  # the answer to GUARD GIRL
 BADGE_SECONDS_ANSWER = 4  # PRAY BADGE's answer past its 10 s roundtime
@@ -147,15 +146,6 @@ KEEP_POLL = 60  # seconds between looks at the timers while keeping
 # (2026-09-20).
 MAX_STEPS = 80
 clock = time.time  # tests replace it
-
-
-def ask(s, command, seconds=None):
-    # The window is read at call time, not bound as a default: the tests
-    # set COLLECT_SECONDS to a hundredth and every soul test still waited
-    # two real seconds per ask (2026-09-20, the suite's slowest file).
-    return probe.ask(
-        s, command, COLLECT_SECONDS if seconds is None else seconds, TAIL_SECONDS
-    )
 
 
 def echo_lines(s, text):
@@ -460,9 +450,7 @@ def pray_badge(s, timers):
         s.echo("soul: no pilgrim's badge on you — the badge deed is off for this run")
         timers["badge_off"] = True
     else:
-        s.echo(
-            "soul: PRAY BADGE answered nothing known — please report the lines above"
-        )
+        unknown(s, "soul", "PRAY BADGE", answer)
     return False
 
 
@@ -494,7 +482,7 @@ def quest(s, mapdb, options, walk_fn=walk):
         s.echo("soul: the orb refused — the requirements are not met")
         return False
     if outcome != "begun":
-        s.echo("soul: FOCUS answered nothing known — please report the lines above")
+        unknown(s, "soul", "FOCUS", answer)
         return False
     s.echo("soul: the vision has begun — waiting for the girl (this takes a while)")
     text = probe.collect(s, SCENE_SECONDS, until=GIRL)
