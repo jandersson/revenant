@@ -57,6 +57,17 @@ Scripts read these through `s.status` (`client/game/status.py`).
 
 Each frame is the full state, sent on change and restated to a late attacher.
 
+## Items by id
+
+Every item has an exist id, and a command can name an item by it: `count #136104233`, `put #136104233 in my backpack`, `combine #a with #b`.
+
+- **Where ids come from:** the hand tags (`<left exist="..." noun="flowers">`), and INV LIST's links (`get #id in #container`), kept in `possessions`. LOOK IN and the stow window list names only.
+- **Ids change:** a COMBINE gives its result a new id; an overflow gives two.
+- **A tag's name can drop an adjective:** pressed flowers tag as "red flowers" while GET and LOOK call them "dried red flowers". The GET's answer names an item; the tag's name may not.
+- **Ordinals:** `get my ninth flowers` reaches every "flowers" in the container; `get my fifth dried flowers` stops at the first item of another kind. A PUT puts the item first.
+
+These held their first test on 2026-10-01 (#402, `client/game/herbstacks.py`).
+
 ## Caveats
 
 - **Timers are end times.** Seconds left is `roundTime value` minus the prompt's `time`.

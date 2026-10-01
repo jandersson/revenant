@@ -182,6 +182,7 @@ def test_the_arguments():
         "work": False,
         "level": "easy",
         "ledger": False,
+        "merge": False,
     }
     assert remedies.parse_args(["chest", "count=2", "until=30", "once"]) == {
         "salve": "chest",
@@ -191,6 +192,7 @@ def test_the_arguments():
         "work": False,
         "level": "easy",
         "ledger": False,
+        "merge": False,
     }
     assert remedies.parse_args(["work", "hard", "count=3"]) == {
         "salve": "head",
@@ -200,9 +202,11 @@ def test_the_arguments():
         "work": True,
         "level": "hard",
         "ledger": False,
+        "merge": False,
     }
     assert remedies.parse_args(["ledger"])["ledger"] is True
     assert remedies.parse_args(["salve=bogus"])["salve"] == "head"
+    assert remedies.parse_args(["merge"])["merge"] is True
 
 
 def test_the_remedy_the_mortar_already_holds_is_read_off_the_refusal():

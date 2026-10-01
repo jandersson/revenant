@@ -1025,6 +1025,77 @@ def test_an_order_expiring_after_a_return_ends_the_run_there():
     assert "untie my logbook" not in fake.sent
 
 
+def test_a_full_stack_the_combine_refuses_is_the_one_used():
+    # 2026-10-01 10:22 (#402): 21 pieces in hand, the next stack full —
+    # "That stack of herbs is too large to add more to." — read as "would
+    # not join": the full stack was stowed and the run foraged 75 pieces.
+    fake = Fake(
+        {
+            "count my flowers": [
+                "You count out 21 pieces of material there.\n",
+                "You count out 75 pieces of material there.\n",
+            ],
+            "get flowers from my backpack": [
+                "You get some dried red flowers from inside your backpack.\n"
+            ],
+            "combine flowers with flowers": [
+                "That stack of herbs is too large to add more to.\n"
+            ],
+        }
+    )
+    fake.state.possessions = [
+        {"exist": "1", "name": "a rugged backpack", "noun": "backpack", "depth": 0},
+        {
+            "exist": "2",
+            "name": "some dried red flowers",
+            "noun": "flowers",
+            "container_exist": "1",
+            "depth": 1,
+        },
+    ]
+    script.probe = SimpleNamespace(ask=fake.ask)
+    assert script.full_stack(fake, "flowers") is True
+    assert "put my second flowers in my backpack" in fake.sent
+    assert "stow my flowers" not in fake.sent
+    assert fake.sent.count("get flowers from my backpack") == 1
+
+
+def test_a_run_merges_the_herb_stacks_first_and_says_so(monkeypatch):
+    # #402: fifteen stacks of dried red flowers sat in the backpack while
+    # the run foraged more. `;remedies merge` merges each dried herb a
+    # container lists twice or more (client/game/herbstacks.py) and ends.
+    merged = []
+    monkeypatch.setattr(
+        script.herbstacks,
+        "merge",
+        lambda s, ask, herb, container: merged.append((herb, container)) or (9, 4),
+    )
+    fake = Fake(
+        {
+            "look in my backpack": [
+                "In the backpack you see some dried red flowers, an iron mortar, "
+                "some dried nemoih and some dried red flowers.\n"
+            ],
+        }
+    )
+    fake.state.possessions = [
+        {"exist": "1", "name": "a rugged backpack", "noun": "backpack", "depth": 0},
+        {
+            "exist": "2",
+            "name": "some dried red flowers",
+            "noun": "flowers",
+            "container_exist": "1",
+            "depth": 1,
+        },
+    ]
+    out = run(fake, ["merge"])
+    assert merged == [("dried red flowers", "backpack")]  # one nemoih: left alone
+    assert (
+        "remedies: 9 stacks of dried red flowers in the backpack merged into 4" in out
+    )
+    assert not any(c.startswith(("crush", "study")) for c in fake.sent)
+
+
 def test_a_pestle_worn_past_use_stops_the_crushing_at_once():
     # Captured 2026-09-26: "The iron pestle is far too damaged to be used
     # for that." read as a bystander's line (no "you") and the crushes ran

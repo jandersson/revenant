@@ -308,7 +308,8 @@ def parse_args(args):
     until= the Alchemy mindstate to stop at (34), `once` to exit at the
     lock, count= remedies (or orders, with work) before ending,
     `work [easy|challenging|hard]` for the society's orders instead of
-    the training loop, `ledger` to print the orders' takings."""
+    the training loop, `ledger` to print the orders' takings, `merge` to
+    merge the dried herb stacks and end (#402)."""
     options = {
         "salve": "head",
         "until": 34,
@@ -317,6 +318,7 @@ def parse_args(args):
         "work": False,
         "level": "easy",
         "ledger": False,
+        "merge": False,
     }
     for arg in args:
         key, sep, value = str(arg).lower().partition("=")
@@ -334,6 +336,8 @@ def parse_args(args):
             options["work"] = True
         elif key == "ledger":
             options["ledger"] = True
+        elif key == "merge":
+            options["merge"] = True
         elif key in LEVELS:
             options["level"] = key
     return options

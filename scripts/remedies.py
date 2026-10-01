@@ -9,6 +9,7 @@
     ;remedies work            the Alchemy Society's easy work orders, one after another, for the pay
     ;remedies work hard       a harder tier: challenging or hard
     ;remedies ledger          the orders on record: pay, materials, profit, the last few
+    ;remedies merge           merge each dried herb's stacks into full ones of 75, then end
     ;remedies return          (typed while it runs) finish the remedy, or the order, in hand and end
     ;stop remedies            quit at once; the mortar and pestle are stowed
 
@@ -20,6 +21,8 @@ What it does
     expires on the way is untied, its stacks stowed for the next, and another asked.
   - Buys what runs out (herbs, water, coal ten at a time), coins from the bank
     when short, and finishes a remedy left in the mortar first.
+  - First merges each dried herb's stacks in every container into full stacks
+    of 75 and one short one (a stack caps at 75).
   - A herb stack short of 25 pieces is combined with the herb's other stacks
     first (foraged ones from ;forage herb); the mortar takes 25 of a bigger one.
   - With the profile's `forage_herbs`, red flowers it runs out of are foraged
@@ -41,7 +44,7 @@ long enough to finish one). The recipes and wordings are client/game/remedies.py
 import logging
 import time
 
-from client.game import discard, flight, probe
+from client.game import discard, flight, herbstacks, probe
 from client.game.loop import danger, ensure_mindstate, mindstate, pause, wants_stop
 from client.game.probe import classify
 from client.game.money import parse_wealth, phrase
@@ -340,6 +343,15 @@ def full_stack(s, noun):
             if missing(ask(s, f"get {noun} from my {container}")):
                 break
             joined = ask(s, f"combine {noun} with {noun}")
+            if any(word in joined for word in herbstacks.FULL + herbstacks.LEFT_OVER):
+                # One of the two is full (#402): it is the stack to use,
+                # the other goes back — 2026-10-01 stowed the full one
+                # and foraged with 96 pieces on hand.
+                first = pieces(ask(s, f"count my {noun}")) or 0
+                which = "second " if first >= STACK_PIECES else ""
+                ask(s, f"put my {which}{noun} in my {container}")
+                held = pieces(ask(s, f"count my {noun}")) or held
+                continue
             if not any(word in joined for word in COMBINED):
                 ask(s, f"stow my {noun}")  # one of the two back: they would not join
                 break
@@ -1301,16 +1313,47 @@ def work(s, options, profile):
     )
 
 
+def merge_herbs(s, quiet=False):
+    """Every dried herb with two or more stacks in a container merged
+    into full stacks and one short one (#402), each container INV LIST
+    shows LOOKed IN once; said per herb that merged, or once when there
+    was nothing to merge (unless `quiet`)."""
+    merged = False
+    for container in containers_of(getattr(s.state, "possessions", None)):
+        for herb in herbstacks.dried_herbs(ask(s, f"look in my {container}")):
+            result = herbstacks.merge(s, ask, herb, container)
+            if result is None:
+                s.echo(
+                    f"remedies: merging the {herb} in the {container} met an "
+                    "answer it does not know — stopped, the stacks put back"
+                )
+                continue
+            found, left = result
+            if left < found:
+                merged = True
+                s.echo(
+                    f"remedies: {found} stacks of {herb} in the {container} "
+                    f"merged into {left}"
+                )
+    if not merged and not quiet:
+        s.echo("remedies: no herb stacks to merge")
+
+
 def run(s, options):
     if options["ledger"]:
         ledger(s)
         return
     profile = profile_of(s)
+    if options["merge"]:
+        clear_hands(s, profile)
+        merge_herbs(s)
+        return
     value = ensure_mindstate(s, SKILL, ask)
     if value is None:
         s.echo(f"remedies: EXP shows no {SKILL} — nothing to train")
         return
     clear_hands(s, profile)
+    merge_herbs(s, quiet=True)
     try:
         if options["work"]:
             work(s, options, profile)

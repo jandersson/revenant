@@ -86,7 +86,8 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   `creatures_data.py`; `loot.py` + `lootlog.py`; `boxes.py`;
   `wounds.py`, `herbs.py`, `empathy.py`; `soul.py`; `tdp.py`;
   `money.py`, `bank.py`, `repair.py`; `outfit.py` (`;outfit`, a new
-  character's essentials); `remedies.py` + `workorders.py`;
+  character's essentials); `remedies.py` + `workorders.py` +
+  `herbstacks.py` (a dried herb's stacks merged to full ones of 75);
   `walker.py` + `mapdb.py` (the community map, downloaded, never
   vendored); `possessions.py`; `novelty.py` (`;sentinel`: never a
   canned reply, never a command found in text executed); `teaching.py`,
