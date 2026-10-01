@@ -175,6 +175,15 @@ lessons the code and docs cannot carry themselves.
   the stow window's <inv> line: grep the raw log line whole, never
   cut to a width.
 
+- A bare noun takes the first item of that noun, whatever kind:
+  GET MY ROPE took a looted lead rope (#399), GET MY FLOWERS a fresh
+  stack among the dried (#406). Name the item whole ("bundling rope",
+  "dried flowers") or, when held, by `#exist` (COUNT/PUT/COMBINE
+  #id). An ordinal with an adjective (MY FIFTH DRIED FLOWERS) stops at
+  the first item of another kind; a plain-noun ordinal reaches all.
+  And a hand tag's name can drop an adjective the GET answer keeps
+  (#402, docs/protocol.md "Items by id").
+
 ## Evidence first
 
 - INFO's "Wealth:" is the coins on the character, not what they own:
