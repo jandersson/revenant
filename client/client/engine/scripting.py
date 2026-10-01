@@ -494,11 +494,11 @@ RELOADABLE_MODULES = (
     "client.game.encumbrance",
     "client.game.status",
     "client.game.novelty",
-    "client.game.flight",  # binds status: after it
-    "client.game.trainer",  # binds act, loop and flight: after them
     "client.game.mapdb",
     "client.game.walker",
     "client.game.travel",  # binds walker and mapdb: after them
+    "client.game.flight",  # binds status and travel: after them
+    "client.game.trainer",  # binds act, loop and flight: after them
     "client.game.bank",  # binds money, soul and travel: after them
     "client.game.shop",  # binds bank, money, travel and act: after them
     "client.game.climblog",  # binds the refusals from walker: after it

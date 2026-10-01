@@ -731,9 +731,12 @@ def test_every_pure_game_module_the_scripts_import_is_reloadable():
         ("client.game.walker", "client.game.travel"),
         ("client.game.bank", "client.game.shop"),
         ("client.game.travel", "client.game.shop"),
-        # bank binds currency_for from soul and walks through travel.
+        # bank binds currency_for from soul and walks through travel;
+        # flight walks to safety through it.
         ("client.game.soul", "client.game.bank"),
         ("client.game.travel", "client.game.bank"),
+        ("client.game.travel", "client.game.flight"),
+        ("client.game.status", "client.game.flight"),
     ):
         assert order(data) < order(model)
 
