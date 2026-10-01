@@ -24,7 +24,7 @@ PAY answer names the right towns and the script echoes it.
 Stop with:  ;stop debt
 """
 
-from client.game import bank
+from client.game import bank, travel
 from client.game.act import ask
 from client.game.mapdb import MapDB
 from client.game.money import parse_wealth, phrase
@@ -105,11 +105,8 @@ def run(s, words, mapdb=None, walk_fn=walk):
                 f"against {phrase(owed, currency)} owed — stopping"
             )
             return
-    offices = mapdb.rooms_tagged("debt")
-    if not offices:
-        s.echo("debt: the map has no room tagged 'debt'")
-        return
-    if not walk_fn(s, mapdb, set(offices), describe="the debt office"):
+    offices = set(mapdb.rooms_tagged("debt"))
+    if not travel.go(s, offices, "the debt office", db=mapdb, walk=walk_fn):
         s.echo("debt: could not reach a debt office — stopping")
         return
     if s.dead:
@@ -125,7 +122,7 @@ def run(s, words, mapdb=None, walk_fn=walk):
     else:
         s.echo(f"debt: paid {phrase(owed, currency)}")
     if not stay and start is not None and locate(mapdb, s.state) != start:
-        if not walk_fn(s, mapdb, {start}, describe="where you started"):
+        if not travel.go(s, start, "where you started", db=mapdb, walk=walk_fn):
             s.echo("debt: could not walk back — you are at the debt office")
 
 
