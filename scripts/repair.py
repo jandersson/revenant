@@ -30,7 +30,7 @@ Shops and condition bands: client/game/repair.py (Elanthipedia: Repair; dr-scrip
 repair.lic and base-town.yaml).
 """
 
-from client.game import bank, travel
+from client.game import bank, hands, travel
 from client.game.act import ask, missing
 from client.game.loop import wants_stop
 from client.game.mapdb import MapDB
@@ -117,10 +117,6 @@ MAX_TICKETS = 20
 NOT_ON_YOU = ("don't have", "not wearing")
 
 
-def hands(s):
-    return [getattr(s.state, "right_hand", None), getattr(s.state, "left_hand", None)]
-
-
 def parse_words(words):
     """(mode, items, floor, back) from the words typed after ;repair."""
     mode, items, floor, back = "repair", [], None, False
@@ -168,11 +164,10 @@ def analyze(s, tools, floor):
     hand; the ones at or below the floor as [(noun, place, reading)],
     place "held" or "stowed". Every reading is echoed."""
     due = []
-    held = {h.get("noun") for h in hands(s) if isinstance(h, dict)}
     for noun in tools:
         if s.dead:
             return due
-        place = "held" if noun in held else "stowed"
+        place = "held" if hands.holding(s, noun) else "stowed"
         if place == "stowed":
             if not free_hand(s):
                 return due
@@ -199,18 +194,14 @@ def analyze(s, tools, floor):
 
 def free_hand(s):
     """A hand empty for a REMOVE or a ticket: the left hand's item STOWed
-    when both are full. False, said, when it would not go."""
-    right, left = hands(s)
-    if not right or not left:
+    when both are full (hands.free_one, the answer the judge). False,
+    said, when it would not go."""
+    if not hands.full(s):
         return True
-    noun = left.get("noun") if isinstance(left, dict) else None
-    answer = ask(s, f"stow my {noun}" if noun else "stow left")
+    noun = hands.held(s)["left"]
+    freed = hands.free_one(s, ask=ask)
     s.waitrt()
-    if (
-        missing(answer, NOT_ON_YOU)
-        or "no room" in answer.lower()
-        or "can't" in answer.lower()
-    ):
+    if not freed:
         s.echo(f"repair: both hands full and the {noun} would not stow — stopping")
         return False
     s.echo(f"repair: stowed the {noun} to free a hand")
@@ -220,9 +211,7 @@ def free_hand(s):
 def take(s, noun, place):
     """The piece into a hand: a worn one REMOVEd, a held one already
     there, anything else GOT. False, said, when it did not come."""
-    if place == "held" and any(
-        isinstance(h, dict) and h.get("noun") == noun for h in hands(s)
-    ):
+    if place == "held" and hands.holding(s, noun):
         return True
     if not free_hand(s):
         return False
@@ -499,7 +488,12 @@ def run(s, words, mapdb=None, walk_fn=walk, profile=None):
         walk_home(s, mapdb, walk_fn, start, back)
         return
     listed = items or profile.get("repair_items") or []
-    pieces = candidates(getattr(s.state, "possessions", None) or [], hands(s), listed)
+    tags = hands.tags(s)
+    pieces = candidates(
+        getattr(s.state, "possessions", None) or [],
+        [tags["right"], tags["left"]],
+        listed,
+    )
     if not pieces:
         s.echo("repair: nothing to look at — ;sheet inv lists what you wear")
         return

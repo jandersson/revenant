@@ -348,6 +348,29 @@ def test_pickup_without_a_ticket_goes_nowhere():
     assert "no repair ticket on you" in echoes(fake)
 
 
+def test_both_hands_full_stow_the_left_judged_by_the_answer():
+    # hands.free_one (#407): the left hand's item STOWed by its noun,
+    # never by side, and the answer is the judge — the tags lag it.
+    lantern = {"noun": "lantern", "exist": "7", "name": "a brass lantern"}
+    handaxe = {"noun": "handaxe", "exist": "8", "name": "a handaxe"}
+    fake = Fake({"stow my lantern": ["You put your lantern in your backpack."]})
+    fake.state.left_hand, fake.state.right_hand = lantern, handaxe
+    assert script.free_hand(fake) is True
+    assert fake.sent == ["stow my lantern"]
+    assert "repair: stowed the lantern to free a hand" in echoes(fake)
+    refused = Fake(
+        {"stow my lantern": ["There isn't any more room in the backpack for that."]}
+    )
+    refused.state.left_hand, refused.state.right_hand = lantern, handaxe
+    assert script.free_hand(refused) is False
+    assert "both hands full and the lantern would not stow — stopping" in echoes(
+        refused
+    )
+    one = Fake({})
+    one.state.left_hand = lantern
+    assert script.free_hand(one) is True and one.sent == []
+
+
 # --- ;repair tools: crafting tools to the Engineering Society's Rangu ---
 
 TOOLS = {**PROFILE, "repair_tools": ["mortar", "pestle"]}
