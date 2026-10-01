@@ -34,6 +34,12 @@ LOCK_POLL = 30  # seconds between looks while locked
 
 
 def _skills(skills):
+    """The skills as a list: one name, several, or a callable giving
+    the current set (;cast's watched skills grow after the first DISCERN
+    and shrink when a buff or POWER is dropped for the run; the gate
+    reads it afresh every round)."""
+    if callable(skills):
+        skills = skills()
     return [skills] if isinstance(skills, str) else list(skills)
 
 
@@ -123,29 +129,35 @@ def train(
     finish=None,
     tick=None,
     ask=None,
+    ensure=True,
 ):
     """Run `step(s)` until the skill locks (then hold, or end with
     `once`), a typed return, a death or hostiles, or the step returns a
-    reason; the reason returned, `finish(s, why)` run at every end."""
-    skills = _skills(skills)
+    reason; the reason returned, `finish(s, why)` run at every end.
+    `skills` may be a callable for a set that changes during the run
+    (read afresh every round); `ensure=False` skips the EXP check for a
+    script that trains a skill the window may not list yet (a
+    Barbarian's research teaches one he has no ranks in)."""
     ask = ask or act.ask
     why = None
     try:
-        for skill in skills:
-            if ensure_mindstate(s, skill, ask) is None:
-                s.echo(f"{prefix}: EXP shows no {skill} — nothing to train")
-                why = "no skill"
-                return why
+        if ensure:
+            for skill in _skills(skills):
+                if ensure_mindstate(s, skill, ask) is None:
+                    s.echo(f"{prefix}: EXP shows no {skill} — nothing to train")
+                    why = "no skill"
+                    return why
         while why is None:
             why = interrupted(s, prefix)
             if why:
                 break
-            if locked(s, skills, until):
+            current = _skills(skills)
+            if locked(s, current, until):
                 if once:
-                    s.echo(f"{prefix}: {', '.join(skills)} at {until}/34 — done")
+                    s.echo(f"{prefix}: {', '.join(current)} at {until}/34 — done")
                     why = "locked"
                     break
-                if not hold_at_lock(s, prefix, skills, until, again=again, tick=tick):
+                if not hold_at_lock(s, prefix, current, until, again=again, tick=tick):
                     why = interrupted(s, prefix, after_hold=True)
                 continue
             why = step(s)

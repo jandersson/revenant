@@ -190,3 +190,39 @@ def test_hold_at_lock_names_every_skill_and_the_one_that_drained():
 def test_hold_at_lock_is_false_when_interrupted():
     s = Fake(mindstates=[34, 34], commands=["return"])
     assert trainer.hold_at_lock(s, "mech", SKILL) is False
+
+
+def test_a_callable_skill_set_is_read_afresh_every_round():
+    # ;cast's watched skills shrink when POWER is dropped for the run: a
+    # frozen list would wait on a skill nothing trains any more.
+    s = Fake(mindstates=[34])
+    s.state.experience["Attunement"] = {
+        "rank": 5,
+        "percent": 0,
+        "mindstate": 10,
+        "rate": "clear",
+    }
+    watched = [SKILL, "Attunement"]
+    rounds = []
+
+    def step(handle):
+        rounds.append(1)
+        if len(rounds) == 1:
+            watched.remove("Attunement")  # POWER off: Attunement leaves the set
+            return None
+        return "spent"
+
+    why = trainer.train(s, "cast", lambda: list(watched), step, once=True)
+    # Round one: not locked (Attunement at 10); round two: the set is
+    # the one skill at 34 — locked, done.
+    assert why == "locked" and len(rounds) == 1
+
+
+def test_ensure_false_trains_a_skill_the_window_does_not_list():
+    s = Fake()
+    s.state.experience = {}
+    steps = []
+    why = trainer.train(
+        s, "research", "Warding", lambda h: steps.append(1) or "done", ensure=False
+    )
+    assert why == "done" and steps == [1]
