@@ -24,7 +24,8 @@ knife; captured 2026-09-13), #341. Stops on death.
 Stop with:  ;stop outfit.
 """
 
-from client.game import bank, probe
+from client.game import bank
+from client.game.act import ask, said
 from client.game.mapdb import MapDB
 from client.game.money import CURRENCIES, parse_wealth, phrase
 from client.game.outfit import (
@@ -37,17 +38,6 @@ from client.game.outfit import (
 )
 from client.game.profile import load_profile, save_profile
 from client.game.walker import locate, walk
-
-COLLECT_SECONDS = 3
-TAIL_SECONDS = 1.5
-
-
-def ask(s, command):
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
-
-
-def first_line(answer):
-    return (str(answer or "").strip().splitlines() or ["(silence)"])[0]
 
 
 def carried(s, currency):
@@ -74,7 +64,7 @@ def exchange_in(s, mapdb, walk_fn, currency):
         s.echo(
             f"outfit: exchanged your {other} for {got}"
             if got
-            else f"outfit: the money-changer answered {first_line(answer)!r}"
+            else f"outfit: the money-changer answered {said(answer)!r}"
         )
     return True
 
@@ -120,17 +110,17 @@ def outfit_one(s, mapdb, walk_fn, essential):
         return False
     answer = ask(s, essential["buy"])
     if not bought(answer):
-        s.echo(f"outfit: {essential['buy']} answered {first_line(answer)!r} — stopping")
+        s.echo(f"outfit: {essential['buy']} answered {said(answer)!r} — stopping")
         return False
     answer = ask(s, essential["wear"])
     s.waitrt()
     if not put_on(answer):
         s.echo(
             f"outfit: bought the {essential['name']}, but {essential['wear']} "
-            f"answered {first_line(answer)!r} — it is in hand"
+            f"answered {said(answer)!r} — it is in hand"
         )
         return False
-    s.echo(f"outfit: {first_line(answer)}")
+    s.echo(f"outfit: {said(answer)}")
     name = getattr(s.state, "name", None)
     if essential["profile"] and name:
         profile = load_profile(name)

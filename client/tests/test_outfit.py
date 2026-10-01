@@ -84,7 +84,7 @@ class Map:
 
 
 def run(fake, words=(), tmp_path=None, monkeypatch=None):
-    script.probe = SimpleNamespace(ask=fake.ask)
+    script.ask = fake.ask  # act.ask, imported by name (#407)
     script.locate = lambda mapdb, state: state.room
 
     def walk(s, mapdb, goals, describe=""):
