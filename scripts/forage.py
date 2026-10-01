@@ -33,7 +33,7 @@ When it stops
 
 import re
 
-from client.game import flight, travel
+from client.game import flight, hands, items, travel
 from client.game.act import ask, missing, said, unknown
 from client.game.loop import danger, wants_stop
 from client.game.buffs import locked
@@ -161,11 +161,9 @@ HERB_PIECES = 25  # a bought stack's size: five uses of a remedy
 HERB_MISSES = 40  # tries without a find before the run gives up
 PRESS_ROOMS = (8860,)  # the Crossing Alchemy Society's Tool Shop: a dry press
 _HERB_FOUND = re.compile(r"you manage to find (?:some |an? )?(?P<what>[^.!]+)", re.I)
-_PIECES = re.compile(r"count out (\d+) pieces?")
 _PRESSED = ("remove some dried",)
 _PREPARED = ("already appears prepared",)
 _COMBINED = ("you combine",)
-_STOWED_IN = re.compile(r"you put your .+? in your (?P<container>[^.]+)\.", re.I)
 _GOT = ("you get", "you pick up", "you are already holding")
 
 
@@ -215,16 +213,15 @@ def classify(answer):
 
 def free_a_hand(s):
     """STOW what the hands hold, left first — never a drop. True when a
-    hand was emptied (the parser's hand state lags, so the answer is
-    the judge: anything but a not-found answer, either wording, counts)."""
-    for side in ("left_hand", "right_hand"):
-        held = getattr(s.state, side, None)
-        noun = held.get("noun") if isinstance(held, dict) else None
-        if noun:
-            answer = ask(s, f"stow my {noun}")
-            s.echo(f"forage: both hands full — stowed the {noun}")
-            return not missing(answer)
-    return False
+    hand was emptied: hands.stow judges the answer (the parser's hand
+    state lags), so either not-found wording or a refusal — no room,
+    "can't" — is no freed hand. False with nothing in the tags to stow."""
+    nouns = hands.nouns(s)
+    if not nouns:
+        return False
+    freed = hands.stow(s, nouns[0], ask=ask)
+    s.echo(f"forage: both hands full — stowed the {nouns[0]}")
+    return freed
 
 
 def find_item(s, db, item, avoid=()):
@@ -287,10 +284,17 @@ def run(s, options, db=None, avoid=()):
     return "collect fuse spent", collected
 
 
+def held_name(s, noun):
+    """The stack in hand as a command names it: by its id when the hand
+    tag carries one (#402: COUNT #id, PUT #id, STOW #id — a bare noun
+    takes the first item of that noun, whatever kind, #406), else
+    `my <noun>`."""
+    return items.ref(s, noun) or f"my {noun}"
+
+
 def pieces_of(s, noun):
-    """COUNT MY <noun>: its pieces, 0 when the answer gives none."""
-    match = _PIECES.search(ask(s, f"count my {noun}").lower())
-    return int(match.group(1)) if match else 0
+    """COUNT the stack in hand: its pieces, 0 when the answer gives none."""
+    return items.count(ask(s, f"count {held_name(s, noun)}")) or 0
 
 
 def gather_herb(s, options, bag):
@@ -313,7 +317,7 @@ def gather_herb(s, options, bag):
             misses = 0
             noun = found.group("what").split()[-1].lower()
             pieces += pieces_of(s, noun)
-            ask(s, f"put my {noun} in my {bag}")
+            ask(s, f"put {held_name(s, noun)} in my {bag}")
             continue
         outcome = classify(answer)
         if precise and outcome is None:
@@ -339,20 +343,36 @@ def gather_herb(s, options, bag):
 
 def stow_herb_in_hands(s, noun):
     """Every stack of `noun` still in a hand stowed, by the parser's hand
-    state: a combine that "left some over" (a stack at its limit) keeps
-    two stacks, and one left in hand blocked ;remedies' mortar and pestle
-    (2026-09-30, #395). Never a drop."""
+    state and the stack's id: a combine that "left some over" (a stack
+    at its limit) keeps two stacks, and one left in hand blocked
+    ;remedies' mortar and pestle (2026-09-30, #395). Never a drop."""
     for _ in range(2):
-        hands = [getattr(s.state, side, None) for side in ("left_hand", "right_hand")]
-        if not any(isinstance(h, dict) and h.get("noun") == noun for h in hands):
+        if not hands.holding(s, noun):
             return
-        ask(s, f"stow my {noun}")
+        ask(s, f"stow {held_name(s, noun)}")
+
+
+def combine_held(s, noun):
+    """COMBINE the two stacks of `noun` in hand, by their ids when the tags
+    carry them (#402, the way herbstacks does), else by the noun twice.
+    The game's answer, lowered."""
+    wanted = noun.lower()
+    ids = [
+        f"#{tag['exist']}"
+        for tag in hands.tags(s).values()
+        if tag
+        and tag.get("exist")
+        and str(tag.get("noun") or "").lower().split()[-1:] == [wanted]
+    ]
+    pair = ids if len(ids) == 2 else [noun, noun]
+    return ask(s, f"combine {pair[0]} with {pair[1]}").lower()
 
 
 def press_herb(s, noun, bag):
     """At the dry press: each raw find out of `bag` pressed and combined
-    with the dried stack before it, the stack stowed. The dried stack's
-    pieces, or None when nothing came out of the bag."""
+    with the dried stack before it, the stack stowed — the stacks in
+    hand named by their ids (held_name). The dried stack's pieces, or
+    None when nothing came out of the bag."""
     home = ""  # where STOW puts the dried stack, read off its answer
     stacks = 0
     for _ in range(MAX_COLLECTS):
@@ -361,22 +381,20 @@ def press_herb(s, noun, bag):
         got = ask(s, f"get {noun} from my {bag}").lower()
         if not any(word in got for word in _GOT):
             break  # the bag holds no more
-        pressed = ask(s, f"put my {noun} in press").lower()
+        pressed = ask(s, f"put {held_name(s, noun)} in press").lower()
         if not any(word in pressed for word in _PRESSED + _PREPARED):
             s.echo(f"forage: the press answered {said(pressed)!r} — stopping")
-            ask(s, f"put my {noun} in my {bag}")
+            ask(s, f"put {held_name(s, noun)} in my {bag}")
             break
         stacks += 1
         if home:
             again = ask(s, f"get dried {noun} from my {home}").lower()
             if any(word in again for word in _GOT):
-                joined = ask(s, f"combine {noun} with {noun}").lower()
+                joined = combine_held(s, noun)
                 if not any(word in joined for word in _COMBINED):
                     s.echo(f"forage: the {noun} would not combine — two stacks kept")
-                    ask(s, "stow left")
-        stored = _STOWED_IN.search(ask(s, f"stow my {noun}"))
-        if stored:
-            home = stored.group("container").strip()
+                    ask(s, f"stow {held_name(s, noun)}")
+        home = items.stowed_in(ask(s, f"stow {held_name(s, noun)}")) or home
         stow_herb_in_hands(s, noun)  # the stack a full combine left over
         if any(word in pressed for word in _PREPARED) and home == bag:
             break  # the bag holds only the dried stack now: all pressed
@@ -385,7 +403,7 @@ def press_herb(s, noun, bag):
     if home:
         ask(s, f"get dried {noun} from my {home}")
         total = pieces_of(s, noun)
-        ask(s, f"stow my {noun}")
+        ask(s, f"stow {held_name(s, noun)}")
         stow_herb_in_hands(s, noun)
         return total
     stow_herb_in_hands(s, noun)

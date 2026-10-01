@@ -287,6 +287,20 @@ def test_a_stow_the_game_could_not_find_is_no_freed_hand(travel):
         assert s.sent == ["collect rock practice", "stow my pestle"]
 
 
+def test_a_stow_the_container_refused_is_no_freed_hand(travel):
+    # "There isn't any more room ..." counted as a freed hand until the
+    # STOW went through hands.stow, and COLLECT was retried (#407).
+    s = Fake(
+        [HANDS_FULL, "There isn't any more room in the backpack for that.", HANDS_FULL],
+        experience=_exp(10),
+    )
+    s.state.left_hand = {"noun": "pestle"}
+    s.state.right_hand = {"noun": "mortar"}
+    reason, _ = forage.run(s, forage.parse_args([]), db=MAP)
+    assert reason.startswith("no hand free")
+    assert s.sent == ["collect rock practice", "stow my pestle"]
+
+
 # The herb mode (#370), captured 2026-09-28 at Midton Circle and the
 # Alchemy Society's dry press.
 GARDEN = MapDB(
@@ -388,6 +402,72 @@ def test_a_stack_a_full_combine_left_over_is_stowed_not_kept_in_hand():
     assert s.sent == ["stow my flowers"]  # the knife is not the herb
     forage.stow_herb_in_hands(s, "flowers")
     assert s.sent == ["stow my flowers"]  # nothing left to stow
+
+
+def test_the_stacks_in_hand_are_named_by_their_ids_at_the_press():
+    # A bare noun takes the first item of that noun, whatever kind (#406):
+    # the stack in hand is COUNTed, PUT, COMBINEd and STOWed by the id its
+    # hand tag carries (#402, the way herbstacks does).
+    s = Fake(
+        [
+            FROM_SACK,
+            PRESSED,
+            INTO_PACK,  # the first pressed and stowed
+            FROM_SACK,
+            PRESSED,
+            FROM_PACK,
+            COMBINED,
+            INTO_PACK,  # the second joined to it
+            NOTHING,  # the sack is empty
+            FROM_PACK,
+            "You count out 12 pieces of material there.",
+            INTO_PACK,
+        ]
+    )
+    s.state.left_hand = s.state.right_hand = None
+    ids = iter(range(101, 120))
+
+    def hold(side):  # a new item, with the next id, in that hand
+        setattr(s.state, f"{side}_hand", {"noun": "flowers", "exist": str(next(ids))})
+
+    def play(command, put=s.put):
+        put(command)
+        state = s.state
+        if command.startswith("get ") and any("You get" in line for line in s.pending):
+            hold("right" if state.right_hand is None else "left")
+        elif command.endswith(" in press"):  # the press hands a new item back
+            right = state.right_hand
+            hold(
+                "right"
+                if right and command == f"put #{right['exist']} in press"
+                else "left"
+            )
+        elif command.startswith("combine"):  # the merged stack, a new item, left
+            hold("left")
+            state.right_hand = None
+        elif command.startswith("stow"):
+            for side in ("left_hand", "right_hand"):
+                tag = getattr(state, side)
+                if tag and command == f"stow #{tag['exist']}":
+                    setattr(state, side, None)
+
+    s.put = play
+    assert forage.press_herb(s, "flowers", "sack") == 12
+    assert s.sent == [
+        "get flowers from my sack",
+        "put #101 in press",
+        "stow #102",
+        "get flowers from my sack",
+        "put #103 in press",
+        "get dried flowers from my backpack",
+        "combine #105 with #104",
+        "stow #106",
+        "get flowers from my sack",
+        "get dried flowers from my backpack",
+        "count #107",
+        "stow #107",
+    ]
+    assert not any(" my flowers" in command for command in s.sent)
 
 
 def test_a_herb_never_found_ends_after_the_misses(travel, monkeypatch):
