@@ -737,6 +737,9 @@ def test_every_pure_game_module_the_scripts_import_is_reloadable():
         ("client.game.travel", "client.game.bank"),
         ("client.game.travel", "client.game.flight"),
         ("client.game.status", "client.game.flight"),
+        # remedies binds quote and BOUGHT from shop (#407, step 4).
+        ("client.game.shop", "client.game.remedies"),
+        ("client.game.remedies", "client.game.herbstacks"),
     ):
         assert order(data) < order(model)
 

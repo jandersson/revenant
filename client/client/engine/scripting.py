@@ -481,9 +481,6 @@ RELOADABLE_MODULES = (
     "client.game.appraisal",
     "client.game.research",
     "client.game.repair",
-    "client.game.remedies",
-    "client.game.workorders",  # binds the catalogs from remedies: after it
-    "client.game.herbstacks",  # binds pieces from remedies: after it
     "client.game.justice",
     "client.game.teaching",
     "client.game.helper",
@@ -501,6 +498,9 @@ RELOADABLE_MODULES = (
     "client.game.trainer",  # binds act, loop and flight: after them
     "client.game.bank",  # binds money, soul and travel: after them
     "client.game.shop",  # binds bank, money, travel and act: after them
+    "client.game.remedies",  # binds quote and BOUGHT from shop: after it
+    "client.game.workorders",  # binds the catalogs from remedies: after it
+    "client.game.herbstacks",  # binds pieces from remedies: after it
     "client.game.climblog",  # binds the refusals from walker: after it
     "client.game.wounds_data",
     "client.game.wounds",  # binds ROWS from wounds_data: after it
