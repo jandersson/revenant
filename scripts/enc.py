@@ -23,6 +23,7 @@ run with what was already drawn deposited. The formula is the wiki's
 and held its first test (docs/encumbrance.md). Stop with:  ;stop enc
 """
 
+from client.game import travel
 from client.game.act import ask, said
 from client.game.encumbrance import (
     LEVELS,
@@ -95,8 +96,10 @@ def ballast(s, step, mapdb=None, walk_fn=walk):
         s.echo("enc: no reading — stopping")
         return
     if mapdb is not None:
-        tellers = mapdb.rooms_tagged("bank")
-        if tellers and not walk_fn(s, mapdb, set(tellers), describe="the bank teller"):
+        tellers = set(mapdb.rooms_tagged("bank"))
+        if tellers and not travel.go(
+            s, tellers, "the bank teller", db=mapdb, walk=walk_fn
+        ):
             s.echo("enc: could not reach a teller — stopping")
             return
     db = open_history(database_path())
