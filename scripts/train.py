@@ -34,7 +34,7 @@ The plan is ~/.revenant/training/<name>.json; docs/training.md explains every ke
 import sqlite3
 import time
 
-from client.game import drain, flight, helper, interlude
+from client.game import drain, flight, helper, interlude, travel
 from client.game.history import database_path
 
 from client.game.training import (
@@ -369,7 +369,7 @@ def start_helper(s, task, db, walk):
     target = spec["room"]
     if db is not None and walk is not None:
         if target:
-            if not go_to(s, db, walk, target):
+            if not travel.go(s, target, repr(target), db=db, walk=walk):
                 s.echo(f"train: could not reach room {target} for the class")
         else:
             from client.game.walker import locate
@@ -522,15 +522,6 @@ def train_cycle(s, plan, db=None, walk=None):
     return "trained"
 
 
-def go_to(s, db, walk, target):
-    """Walk to a ;go2 target; True on arrival."""
-    goals = db.resolve(target)
-    if not goals:
-        s.echo(f"train: nothing in the map matches safe room {target!r}")
-        return False
-    return walk(s, db, goals, describe=repr(target))
-
-
 def soul_due(s, plan):
     """The soul deeds whose timers allow them now, in SOUL_DEEDS order —
     [] unless the plan's `soul` is on (#227). Reads the timers `;soul`
@@ -581,7 +572,7 @@ def soul_step(s, plan, db, walk, room):
             break
         s.sleep(min(5, plan["poll"]))
     if room is not None and deed != "badge":
-        go_to(s, db, walk, room)
+        travel.go(s, room, repr(room), db=db, walk=walk)
         send_each(s, plan["rest_commands"])
     return True
 
@@ -712,7 +703,7 @@ def rest(s, plan, db, walk, index):
     next rest's index, None on death, or RETURNED on a typed return."""
     room = safe_room(plan, index)
     if room is not None:
-        go_to(s, db, walk, room)
+        travel.go(s, room, repr(room), db=db, walk=walk)
         index += 1
     send_each(s, plan["rest_commands"])
     cap = plan["rest_minutes"]
@@ -759,7 +750,7 @@ def rest(s, plan, db, walk, index):
                 return index  # run() ends the run
             room = safe_room(plan, index)
             if room is not None:
-                go_to(s, db, walk, room)
+                travel.go(s, room, repr(room), db=db, walk=walk)
                 index += 1
             send_each(s, plan["rest_commands"])
             s.echo("train: back to the rest")
@@ -789,7 +780,7 @@ def rest(s, plan, db, walk, index):
             if len(plan["safe_rooms"]) > 1:
                 s.echo("train: hostiles at the safe room — moving to the next one")
                 flee(s)
-                go_to(s, db, walk, safe_room(plan, index))
+                travel.go(s, safe_room(plan, index), db=db, walk=walk)
                 index += 1
             else:
                 s.echo("train: hostiles here — leaving the room to rest next door")
