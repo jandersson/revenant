@@ -30,7 +30,9 @@ which the map tags (Crossing's Academy of Agility, 38 steps from the
 tree): TRAIN, then TRAIN again to confirm, per Elanthipedia's Time
 Development Points page; an answer the script cannot classify stops
 it before the confirming TRAIN, with the lines echoed. INFO before and
-after records the stat and the TDPs. Stop with:  ;stop climbexp
+after records the stat and the TDPs. Ends on death or hostiles.
+Stop with:  ;stop climbexp, or ;climbexp return (the attempt in hand
+finishes first).
 """
 
 import re
@@ -38,6 +40,7 @@ from time import monotonic
 
 from client.game import probe
 from client.game.act import ask
+from client.game.loop import danger, wants_stop
 from client.game.climblog import (
     hindering_line,
     open_history,
@@ -105,11 +108,11 @@ def context(s, obstacle):
 
 
 def unsafe(s, floor):
-    """Why the experiment must stop now, or None."""
-    if s.dead:
-        return "dead"
-    if getattr(s.state, "hostiles", None):
-        return "hostiles here"
+    """Why the experiment must stop now, or None: loop.danger's reasons,
+    then the experiment's own floors."""
+    reason = danger(s)
+    if reason:
+        return reason
     if indicator(s.state, "IconBLEEDING"):
         return "bleeding — ;tend first"
     current = health(s.state)
@@ -190,6 +193,9 @@ def attempts(s, db, experiment, phase, obstacle, facts, cap, floor):
         if reason:
             s.echo(f"climbexp: stopping — {reason}")
             return reason
+        if wants_stop(s):
+            s.echo("climbexp: returning as asked")
+            return "return"
         outcome, text = attempt(s, obstacle)
         s.waitrt()
         log_attempt(s, db, experiment, phase, number, obstacle, outcome, text, facts)

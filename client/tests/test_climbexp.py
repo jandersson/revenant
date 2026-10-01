@@ -77,6 +77,9 @@ class Fake:
             hostiles={},
         )
 
+    def command(self, timeout=None):
+        return None  # nothing typed at the script
+
     def put(self, command):
         self.sent.append(command)
         self.pending = []
