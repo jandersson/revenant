@@ -99,7 +99,7 @@ An empty ground is not an end: the hunt waits and laps it again.
 - `loot_ignore` holds phrases that end an item's name (`embroidery needle`) or a lone metal (`copper` for any copper nugget or bar). The default is the common metals (copper, covellite, iron, lead, nickel, oravir, silver, tin, zinc); rare ones are kept. `;boxes` puts these in the room's trash, or keeps them where there is none.
 - With `loot_sweep` on, whatever script is running puts those kept items in the trash at its next safe point beside a bin. Each is taken from the loot container only, checked in hand and named; anything else goes back. A one-word entry other than a metal (`needle`) is never swept. `;break sweep` lists what it would take and moves nothing: run it before turning `loot_sweep` on.
 - Gems go to `gem_pouch`; gems are kept for `;appraise`, never sold.
-- A full loot container stops skinning or box pickups for the run, and says so. `;skins` sells skins; `;boxes` opens boxes.
+- A full loot container stops skinning or box pickups for the run, and says so. `;skins` sells only the bundle and names any loose skin it finds; `;boxes` opens boxes.
 - With `bundle`, the first skin starts a bundle from the rope in the loot container and later skins go straight into it. `;skins` sells the bundle and keeps the rope.
 - Nothing is ever dropped.
 

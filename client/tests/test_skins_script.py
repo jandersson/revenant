@@ -103,7 +103,7 @@ class Fake:
                 self.pending = [line + "\n" for line in text.splitlines()]
                 return
         if command.startswith("get my "):
-            self.pending = [MISSING]  # a loose skin the sack does not hold (#261)
+            self.pending = [MISSING]  # nothing the test named
 
     def get(self, timeout=None, streams=("",)):
         if timeout == 0 or not self.pending:
@@ -121,9 +121,8 @@ class Fake:
 
 
 def commands(fake):
-    """The commands sent, minus the loose-skin sale's own reads — the LOOK
-    IN the container (#269) and a GET the sack answered with nothing
-    (#261) — the bundle sale's own shape."""
+    """The commands sent, minus the LOOK IN that names the loose skins
+    (#401) — the bundle sale's own shape."""
     return [
         c
         for c in fake.sent
@@ -250,18 +249,6 @@ def test_a_tanner_who_does_not_pay_is_quoted_and_the_rope_left_alone():
     )
 
 
-# The tanner's line for a single part is taken for the bundle's shape
-# until captured (#261).
-GOT_PELT = "You get a badger pelt from inside your canvas sack.\n"
-GOT_CLAW = "You get a curved claw from inside your canvas sack.\n"
-PAID_PELT = (
-    "The tanner Falken ponders over the pelt for a while, then hands you 30 Kronars.\n"
-)
-PAID_CLAW = (
-    "The tanner Falken ponders over the claw for a while, then hands you 12 Kronars.\n"
-)
-
-
 LOOKED = (
     "In the canvas sack you see a round cambrinth flake, a badger pelt, a "
     "curved claw, a badger pelt, some bundling rope and a cotton rag.\n"
@@ -281,53 +268,54 @@ def test_the_look_in_answer_names_the_nouns_present():
     assert script.listed_nouns("What were you referring to?\n") is None
 
 
-def test_loose_skins_in_the_sack_are_sold_one_at_a_time_after_the_bundle():
-    # #261: nine loose pelts and seven claws filled the sack while ;skins
-    # sold the bundle alone. #269: LOOK IN the sack names what to fetch;
-    # the other sixteen nouns are never asked for.
+def test_loose_skins_in_the_sack_are_named_and_left_there():
+    # #401 (the operator, 2026-10-01): only a bundle is sold. A loose skin
+    # is kept on purpose or says a hunt could not bundle it — the 22
+    # loose pelts #399 left were sold unseen that morning.
     fake = Fake(
         {
             "remove": [REMOVED],
             "sell my bundle": [SOLD],
             "look in my sack": [LOOKED],
-            "get my pelt": [GOT_PELT, GOT_PELT, MISSING],
-            "get my claw": [GOT_CLAW, MISSING],
-            "sell my pelt": [PAID_PELT, PAID_PELT],
-            "sell my claw": [PAID_CLAW],
         }
     )
     script.run(fake, [], MAP, walk_fn=walk, profile=PROFILE)
-    assert fake.sent.count("sell my pelt") == 2
-    assert fake.sent.count("sell my claw") == 1
-    assert fake.sent.index("put my rope in my sack") < fake.sent.index("sell my pelt")
-    assert "skins: sold 3 loose skin(s) for 72 Kronars" in fake.echoed
-    assert not any(c.startswith("get my hide") for c in fake.sent)
+    assert "sell my bundle" in fake.sent
+    assert not any(c.startswith(("sell my pelt", "sell my claw")) for c in fake.sent)
+    assert not any(c.startswith(("get my pelt", "get my claw")) for c in fake.sent)
+    assert (
+        "skins: 2 pelt(s), 1 claw(s) loose in the sack — left there; "
+        "only a bundle is sold"
+    ) in fake.echoed
     assert fake.sent.count("look in my sack") == 1
 
 
-def test_a_skin_left_in_hand_is_sold_first_and_an_unpaid_part_goes_back():
-    # #262 left a pelt in the hand; the tanner's silence on a claw puts
-    # it back and ends that noun.
+def test_a_skin_left_in_hand_is_named_not_sold():
+    # #262 left a pelt in the hand when no container had room.
     fake = Fake(
         {
             "remove": [MISSING],
             "get my bundle": [MISSING],
-            "sell my pelt": [PAID_PELT],
-            "get my claw": [GOT_CLAW],
-            "sell my claw": ["The tanner Falken shrugs.\n"],
+            "look in my sack": ["In the canvas sack you see a cotton rag.\n"],
         }
     )
     fake.state.left_hand = {"noun": "pelt", "exist": "3", "name": "badger pelt"}
     fake.state.right_hand = None
     script.run(fake, [], MAP, walk_fn=walk, profile=PROFILE)
-    assert commands(fake)[:3] == [
-        "remove my bundle",
-        "get my bundle from my sack",
-        "sell my pelt",
-    ]
-    assert "put my claw in my sack" in fake.sent
-    assert any("did not pay for a claw" in t for t in fake.echoed)
-    assert "skins: sold 1 loose skin(s) for 30 Kronars" in fake.echoed
+    assert "sell my pelt" not in fake.sent
+    assert "skins: a pelt in hand — left there; only a bundle is sold" in fake.echoed
+
+
+def test_no_loose_skins_says_nothing_about_them():
+    fake = Fake(
+        {
+            "remove": [REMOVED],
+            "sell my bundle": [SOLD],
+            "look in my sack": ["In the canvas sack you see some bundling rope.\n"],
+        }
+    )
+    script.run(fake, [], MAP, walk_fn=walk, profile=PROFILE)
+    assert not any("only a bundle is sold" in t for t in fake.echoed)
 
 
 def test_no_tannery_on_the_map_says_so():

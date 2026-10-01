@@ -1563,8 +1563,7 @@ def skin(s, profile, corpse, tally):
                 # are cut this run. Never a DROP.
                 s.echo(
                     f"hunt: no room for the {found[-1]} anywhere — it stays in "
-                    "hand and skinning is off for this run; ;skins sells the "
-                    "loose skins"
+                    "hand and skinning is off for this run"
                 )
                 profile["skin"] = False
         else:
