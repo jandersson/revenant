@@ -121,7 +121,8 @@ def run(fake, args=(), instrument="zills", mood="off-key"):
     """A run with the style fixed (off-key, the tests of everything but
     the style search); mood=None searches (#381)."""
     script.clock = lambda: fake.now
-    script.probe = SimpleNamespace(ask=fake.ask, collect=fake.collect)
+    script.ask = fake.ask  # act.ask, imported by name (#407)
+    script.probe = SimpleNamespace(collect=fake.collect)  # the watch's story reads
     extra = [f"instrument={instrument}"] if instrument else []
     if mood is not None:
         extra.append(f"mood={mood}")
@@ -262,7 +263,8 @@ def test_a_room_that_refuses_the_song_sends_it_home_once(monkeypatch, tmp_path):
 
     def drive(fake, walker):
         script.clock = lambda: fake.now
-        script.probe = SimpleNamespace(ask=fake.ask, collect=fake.collect)
+        script.ask = fake.ask
+        script.probe = SimpleNamespace(collect=fake.collect)
         script.run(
             fake,
             script.parse_args(["once", "instrument=zills", "mood=off-key"]),

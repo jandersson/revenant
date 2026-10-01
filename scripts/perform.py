@@ -33,8 +33,8 @@ import re
 import time
 
 from client.engine.xml_data import LEARNING_RATES
-from client.game import flight, travel
-from client.game import probe
+from client.game import flight, hands, probe, travel
+from client.game.act import ask
 from client.game.loop import danger, wants_stop
 from client.game.perform import (
     ALREADY,
@@ -118,8 +118,6 @@ RESUME_BELOW = 28  # resume once enough has drained to be worth a song
 CLEAN_PASSES = 3
 POLL = 15  # seconds between looks at the story and the mindstate
 LOCK_POLL = 30
-COLLECT_SECONDS = 2
-TAIL_SECONDS = 0.5
 clock = time.monotonic  # tests replace it
 
 _EXP_ANSWER = re.compile(r"Performance:\s+(\d+)\s+[\d.]+%\s+.*?\((\d+)/34\)")
@@ -144,22 +142,13 @@ def _profile_field(s, key):
     return str(load_profile(name).get(key) or "").strip()
 
 
-def ask(s, command):
-    """The game's answer to one command, lower-cased."""
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS).lower()
-
-
 def fetch_cloth(s, instrument, cloth):
     """The cleaning cloth into a hand: whatever else a hand holds is
     STOWed first (never dropped), then GET. False, said once, when the
     game finds no such cloth on you."""
-    for side in ("left", "right"):
-        held = getattr(s.state, f"{side}_hand", None)
-        noun = held.get("noun") if isinstance(held, dict) else None
-        if noun and noun.lower() not in (instrument.lower(), cloth.lower()):
-            ask(s, f"stow my {noun}")
+    hands.free(s, keep=(instrument, cloth), ask=ask)
     answer = ask(s, f"get my {cloth}")
-    if any(word in answer for word in NO_CLOTH):
+    if any(word in answer.lower() for word in NO_CLOTH):
         s.echo(f"perform: no {cloth} on you — the {instrument} plays dirty")
         return False
     return True
@@ -173,7 +162,8 @@ def clean_instrument(s, instrument, cloth):
     passes = 0
     for _ in range(4 + CLEAN_PASSES):
         answer = ask(s, f"clean my {instrument} with my {cloth}")
-        if any(word in answer for word in CLEANED):
+        lowered = answer.lower()
+        if any(word in lowered for word in CLEANED):
             # One pass took "a very large amount of dirt and grime" off
             # and the next PLAY still called the zills dirty (2026-09-20,
             # the operator's watch): CLEAN again while dirt comes off, up
@@ -188,10 +178,10 @@ def clean_instrument(s, instrument, cloth):
             first = (answer.strip().splitlines() or ["(silence)"])[0]
             s.echo(f"perform: CLEAN after {passes} pass(es) answered {first!r}")
             break
-        if any(word in answer for word in MUST_HOLD):
+        if any(word in lowered for word in MUST_HOLD):
             ask(s, f"remove my {instrument}")
             removed = True
-        elif any(word in answer for word in WET):
+        elif any(word in lowered for word in WET):
             ask(s, f"wipe my {instrument} with my {cloth}")
         else:
             s.echo("perform: CLEAN answered nothing known — please report it")
@@ -224,7 +214,7 @@ def ensure_mindstate(s):
     from it; a guild without the skill gets no line at all)."""
     value = mindstate(s)
     if value is None:
-        answer = probe.ask(s, "exp performance", COLLECT_SECONDS, TAIL_SECONDS)
+        answer = ask(s, "exp performance")
         value = mindstate(s)
         if value is None:
             match = _EXP_ANSWER.search(answer or "")
@@ -252,14 +242,15 @@ def start_song(s, options):
     ("unknown", False) otherwise."""
     song = options["song"] or song_for(rank(s))
     answer = ask(s, play_command(song, options["mood"], options["instrument"]))
-    dirty = any(word in answer for word in DIRTY)
-    if any(word in answer for word in STARTED + ALREADY):
+    lowered = answer.lower()
+    dirty = any(word in lowered for word in DIRTY)
+    if any(word in lowered for word in STARTED + ALREADY):
         return "playing", dirty
-    if any(word in answer for word in NO_INSTRUMENT):
+    if any(word in lowered for word in NO_INSTRUMENT):
         return "no instrument", False
-    if any(word in answer for word in NOT_HERE):
+    if any(word in lowered for word in NOT_HERE):
         return "not here", False
-    if any(word in answer for word in IN_COMBAT):
+    if any(word in lowered for word in IN_COMBAT):
         return "in combat", False
     return "unknown", False
 
@@ -276,13 +267,14 @@ def pick_style(s, options):
     seen = []
     for style in STYLES:
         answer = ask(s, play_command(song, style, options["instrument"]))
-        if any(word in answer for word in ALREADY):
+        if any(word in answer.lower() for word in ALREADY):
             stop_song(s)
             answer = ask(s, play_command(song, style, options["instrument"]))
-        if any(word in answer for word in NO_INSTRUMENT + NOT_HERE + IN_COMBAT):
+        lowered = answer.lower()
+        if any(word in lowered for word in NO_INSTRUMENT + NOT_HERE + IN_COMBAT):
             return None, None
         tier = difficulty(answer)
-        if any(word in answer for word in STARTED):
+        if any(word in lowered for word in STARTED):
             stop_song(s)
         seen.append(f"{style or 'plain'} {tier or '?'}")
         if tier is not None and (best is None or TIERS.index(tier) < best[0]):
@@ -312,7 +304,7 @@ def walk_home(s, home):
 
 
 def stop_song(s):
-    probe.ask(s, "stop play", COLLECT_SECONDS, TAIL_SECONDS)
+    ask(s, "stop play")
 
 
 def watch(s, seconds, until=None):
