@@ -228,7 +228,7 @@ def test_a_skill_the_game_shows_no_ranks_in_counts_as_empty_and_goes_first():
     out = run(fake, ["augmentation", "warding"])
     assert "EXP shows no Warding yet — its pool counts as empty" in out
     assert researches(fake) == ["meditate research turtle"]
-    assert "stopping as asked" in out
+    assert "returning as asked" in out
 
 
 def test_a_name_the_game_does_not_know_drops_its_skill_and_the_rest_go_on():
@@ -319,7 +319,7 @@ def test_it_holds_at_the_lock_and_researches_again_once_one_drains():
     )
     assert "Warding drained to 27/34 — researching again" in out
     assert researches(fake) == ["meditate research turtle"]
-    assert "stopping as asked" in out
+    assert "returning as asked" in out
 
 
 def test_danger_ends_the_run_before_any_research(monkeypatch):

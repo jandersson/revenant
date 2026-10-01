@@ -22,7 +22,8 @@ A caster (any guild but Barbarian, by the latest ;sheet or INFO):
 
 A Barbarian: MEDITATE RESEARCH <ability> teaches that ability's skill,
 about a minute apart (MONKEY Augmentation, TURTLE Warding, PREDICTION
-Utility).
+Utility), held at mind-lock until a pool drains (client/game/trainer.py,
+the loop every trainer runs).
 
 What stops it: death, hostiles in the room, an answer the tables do
 not know (echoed for a capture), Gauge Flow that will not cast.
@@ -117,44 +118,37 @@ def run(s, options):
         + f", {options['gap']} s apart, until {until}/34"
     )
     last = None
+    rounds = 0  # the fuse: steps taken
     researched = {}  # skill: the round it was last researched in
     silent = set()  # skills the exp window did not move after a research
-    for round_number in range(MAX_ROUNDS):
-        reason = danger(s)
-        if reason:
-            s.echo(f"research: {reason} — stopping")
-            if "hostiles" in reason:
-                flight.react(s, "research")
-            return
-        if wants_stop(s):
-            s.echo("research: stopping as asked")
-            return
+
+    def step(s):
+        """One research round: the emptiest skill, the gap waited, its
+        MEDITATE RESEARCH, the exp read. The skill set is the abilities
+        still in play (trainer.train reads it afresh), so a dropped
+        name leaves the lock gate; the window need not list a skill
+        (ensure=False — the pre-loop above said which it lacks)."""
+        nonlocal last, rounds
+        if rounds >= MAX_ROUNDS:
+            return f"{MAX_ROUNDS} rounds"
+        rounds += 1
         skill = next_skill(mindstates(s, abilities), until, researched)
         if skill is None:
-            if options["once"]:
-                s.echo(f"research: {', '.join(abilities)} at {until}/34 — done")
-                return
-            if not trainer.hold_at_lock(
-                s, "research", list(abilities), until, again="researching again"
-            ):
-                s.echo("research: stopping")
-                return
-            continue
+            return None  # every pool at the target: the loop's gate holds
         if last is not None:
             left = options["gap"] - (clock() - last)
             if left > 0 and not pause(s, left):
-                s.echo("research: stopping")
-                return
+                return None  # the loop says why
         last = clock()
-        researched[skill] = round_number
+        researched[skill] = rounds
         ability = abilities[skill]
         before = exp_entry(s, skill)
         outcome, answer = research(s, ability)
         if outcome == "not a barbarian":
-            s.echo(
-                f"research: the game answered {said(answer)!r} — only a Barbarian researches this way"
+            return (
+                f"the game answered {said(answer)!r} — only a Barbarian "
+                "researches this way"
             )
-            return
         if outcome == "unknown":
             del abilities[skill]
             s.echo(
@@ -162,9 +156,8 @@ def run(s, options):
                 f"the run ({skill.lower()}=<ability> names another)"
             )
             if not abilities:
-                s.echo("research: nothing left to research — stopping")
-                return
-            continue
+                return "nothing left to research"
+            return None
         if outcome is None:
             s.echo(f"research: {ability} answered {said(answer)!r}")
         if exp_entry(s, skill) == before:
@@ -176,7 +169,18 @@ def run(s, options):
                     f"research: the exp window did not move {skill} after its "
                     f"research — reading EXP {skill.upper()} whenever it stays silent"
                 )
-    s.echo(f"research: {MAX_ROUNDS} rounds — stopping")
+        return None
+
+    return trainer.train(
+        s,
+        "research",
+        lambda: list(abilities),
+        step,
+        until=until,
+        once=options["once"],
+        again="researching again",
+        ensure=False,
+    )
 
 
 # --- a caster's magical research (#385) ---
