@@ -39,9 +39,10 @@ from client.game.bank import (
     nearest,
     room_currency,
     small_change,
+    withdraw_here,
 )
 from client.game.mapdb import MapDB
-from client.game.money import parse_wealth, split
+from client.game.money import parse_wealth
 from client.game.walker import character_ranks, locate, walk
 
 
@@ -73,11 +74,15 @@ def exchange(s, mapdb, walk_fn, currencies, home):
 
 
 def withdraw_back(s, copper, home):
-    """WITHDRAW `copper` of the province's coin, one denomination per
-    command (Elanthipedia: Withdraw command)."""
-    for count, denomination in split(copper):
-        ask(s, f"withdraw {count} {denomination}")
+    """WITHDRAW `copper` of the province's coin at the teller here —
+    client/game/bank.py's loop, one denomination per command, the
+    teller's lines said (Elanthipedia: Withdraw command). False when
+    the teller refused, said by the loop: the purse kept nothing then
+    (#407; the script's own loop claimed the keep whatever she said)."""
+    if not withdraw_here(s, ask, "bank", copper, home):
+        return False
     s.echo(f"bank: kept {copper} copper {home} in the purse")
+    return True
 
 
 def refresh_wealth(s):

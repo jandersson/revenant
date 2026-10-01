@@ -252,7 +252,24 @@ def test_keep_withdraws_the_amount_back_and_back_walks_home():
         "withdraw 2 copper",
     ]
     assert fake.walks == [{1900}, {1}]
+    assert "bank: withdrawing 5 silver, 1 bronze and 2 copper kronars" in echoes(fake)
     assert "bank: kept 512 copper kronars in the purse" in echoes(fake)
+
+
+def test_a_refused_keep_is_said_and_never_claimed_kept():
+    # The keep drew through a loop of the script's own that read no
+    # answer: a refusal still said "kept" (#407, the shared loop stops).
+    fake = Fake(
+        {
+            "wealth": [WEALTH_HOME],
+            "deposit": [DEPOSITED],
+            "withdraw": ["You don't have enough coins in your account.\n"],
+        }
+    )
+    script.run(fake, ["keep=512"], MAP, walk_fn=walk)
+    assert fake.sent == ["wealth", "deposit all", "withdraw 5 silver"]
+    assert "bank: the teller refused" in echoes(fake)
+    assert "kept" not in echoes(fake)
 
 
 def test_an_empty_purse_with_a_keep_fetches_it_from_the_teller():
