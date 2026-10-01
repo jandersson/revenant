@@ -30,7 +30,7 @@ Shops and condition bands: client/game/repair.py (Elanthipedia: Repair; dr-scrip
 repair.lic and base-town.yaml).
 """
 
-from client.game import bank
+from client.game import bank, travel
 from client.game.act import ask, missing
 from client.game.loop import wants_stop
 from client.game.mapdb import MapDB
@@ -397,7 +397,7 @@ def walk_to_shop(s, mapdb, walk_fn, rooms=None, shops=SHOPS):
     if not goals:
         s.echo("repair: the map has no repair shop whose repairman is known")
         return None
-    if not walk_fn(s, mapdb, goals, describe="the repair shop"):
+    if not travel.go(s, goals, "the repair shop", db=mapdb, walk=walk_fn):
         s.echo("repair: could not reach a repair shop — stopping")
         return None
     here = locate(mapdb, s.state)
@@ -423,7 +423,7 @@ def repair(s, mapdb, walk_fn, due, shops=SHOPS):
         if need > 0 and bank.withdraw(
             s, mapdb, walk_fn, ask, "repair", need, currency, retry="run ;repair again"
         ):
-            if walk_fn(s, mapdb, {shop}, describe=f"{name}'s shop"):
+            if travel.go(s, {shop}, f"{name}'s shop", db=mapdb, walk=walk_fn):
                 more, _, _ = hand_in(
                     s, name, [(n, p, None) for n, p, *_ in short], purse_of(s)
                 )
@@ -523,7 +523,7 @@ def run(s, words, mapdb=None, walk_fn=walk, profile=None):
 
 def walk_home(s, mapdb, walk_fn, start, back):
     if back and start is not None and not s.dead and locate(mapdb, s.state) != start:
-        if not walk_fn(s, mapdb, {start}, describe="where you started"):
+        if not travel.go(s, {start}, "where you started", db=mapdb, walk=walk_fn):
             s.echo("repair: could not walk back — you are at the shop")
 
 
