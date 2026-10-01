@@ -24,16 +24,9 @@ A PUT the bin refuses puts the item back. Never a DROP.
 
 import re
 
-from client.game import discard
+from client.game import discard, hands, items
 from client.game.loot import METAL_FORMS, ignored, short_name
 
-# One line: the listing is the game's one line, and a bystander's line
-# after it is no item.
-_LISTED = re.compile(r"you see (.+?)\.?\s*$", re.IGNORECASE | re.MULTILINE)
-_EMPTY = ("nothing in", "is empty", "there is nothing")
-# An item listing splits on commas, and on "and" only before the next
-# item's article: "a salt and pepper shaker" stays whole.
-_SPLIT = re.compile(r",\s*(?:and\s+)?|\s+and\s+(?=(?:an?|some|the)\s)", re.IGNORECASE)
 _GOT = ("you get", "you pick", "you remove")
 
 # May the loot container hold an item the list names? Unknown at a
@@ -53,12 +46,8 @@ def dirty():
 
 def listed_items(answer):
     """The items a LOOK IN answer lists, repeats kept; [] for an empty
-    container; None when the answer is no listing."""
-    match = _LISTED.search(answer or "")
-    if not match:
-        lowered = (answer or "").lower()
-        return [] if any(word in lowered for word in _EMPTY) else None
-    return [item.strip() for item in _SPLIT.split(match.group(1)) if item.strip()]
+    container; None when the answer is no listing (items.listed)."""
+    return items.listed(answer)
 
 
 def broad(ignore):
@@ -86,11 +75,6 @@ def sweepable(name, ignore):
         return False
     singles = {str(e).strip().lower() for e in ignore or () if len(str(e).split()) == 1}
     return any(word in singles for word in words[:-1])
-
-
-def _hands(s):
-    state = getattr(s, "state", None)
-    return {side: getattr(state, f"{side}_hand", None) for side in ("left", "right")}
 
 
 def _arrived(before, after):
@@ -150,9 +134,9 @@ def sweep_one(s, item, container, ignore, ask, prefix):
     PUT it in the room's bin; the full name trashed, or None with the
     item back in the container, said."""
     wanted = short_name(item)
-    before = _hands(s)
+    before = hands.tags(s)
     answer = ask(s, f"get {wanted} from my {container}")
-    held = _arrived(before, _hands(s))
+    held = _arrived(before, hands.tags(s))
     if held is None:
         if any(word in answer.lower() for word in _GOT):
             # Taken, but the hands show nothing new: back it goes, unseen.
