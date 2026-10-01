@@ -377,8 +377,7 @@ def test_a_return_late_in_a_portion_finishes_it_first():
     assert portions(fake) == ["research stream 300"]
 
 
-def test_a_project_whose_skill_is_full_waits_for_the_drain(monkeypatch):
-    monkeypatch.setattr(script, "LOCK_POLL", 1)
+def test_a_project_whose_skill_is_full_waits_for_the_drain():
     fake = Fake(
         {"Attunement": 34, "Warding": 34},
         status="You have completed 60% of a project about Warding Patterns Research.\n",

@@ -32,7 +32,7 @@ Stop with:  ;stop research, or ;research return.
 import sqlite3
 from time import monotonic
 
-from client.game import buffs, flight, probe
+from client.game import buffs, flight, probe, trainer
 from client.game.act import ask, said, unknown
 from client.game.history import database_path
 from client.game.loop import (
@@ -86,8 +86,6 @@ portion wait therefore reads the typed return itself — wants_stop()
 runs the interludes, and the almanac's STUDY would lose the portion.
 """
 
-RESUME_BELOW = 28  # resume once enough has drained to be worth a round
-LOCK_POLL = 30
 MAX_ROUNDS = 2000  # the fuse under the loop
 RETURN_WAIT = 90  # a portion ending within this of a typed return is finished
 GAUGE_UNSEEN_MINUTES = 10  # recast after this without a Spells window to read
@@ -97,24 +95,6 @@ clock = monotonic
 def mindstates(s, skills):
     """{skill: mindstate or None} in the order given, from the exp window."""
     return {skill: mindstate(s, skill) for skill in skills}
-
-
-def hold_at_lock(s, skills, until):
-    """Wait with every skill at `until` until one drains below
-    RESUME_BELOW (or the target, when lower); False when the wait is
-    interrupted."""
-    s.echo(f"research: {', '.join(skills)} at {until}/34 — holding until one drains")
-    floor = min(RESUME_BELOW, until - 1)
-    while True:
-        if not pause(s, LOCK_POLL):
-            return False
-        values = mindstates(s, skills)
-        drained = [skill for skill, value in values.items() if (value or 0) <= floor]
-        if drained:
-            s.echo(
-                f"research: {drained[0]} drained to {values[drained[0]] or 0}/34 — researching again"
-            )
-            return True
 
 
 def research(s, ability):
@@ -154,7 +134,9 @@ def run(s, options):
             if options["once"]:
                 s.echo(f"research: {', '.join(abilities)} at {until}/34 — done")
                 return
-            if not hold_at_lock(s, list(abilities), until):
+            if not trainer.hold_at_lock(
+                s, "research", list(abilities), until, again="researching again"
+            ):
                 s.echo("research: stopping")
                 return
             continue
@@ -376,7 +358,9 @@ def run_caster(s, options):
                 if options["once"]:
                     s.echo(f"research: {', '.join(skills)} at {until}/34 — done")
                     return
-                if not hold_at_lock(s, skills, until):
+                if not trainer.hold_at_lock(
+                    s, "research", skills, until, again="researching again"
+                ):
                     s.echo("research: stopping")
                     return
                 continue
@@ -392,7 +376,9 @@ def run_caster(s, options):
             if options["once"]:
                 s.echo(f"research: {skill} at {until}/34 — done")
                 return
-            if not hold_at_lock(s, [skill], until):
+            if not trainer.hold_at_lock(
+                s, "research", [skill], until, again="researching again"
+            ):
                 s.echo("research: stopping")
                 return
             continue

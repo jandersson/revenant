@@ -306,15 +306,17 @@ def test_a_named_ability_replaces_the_default():
     assert researches(fake) == ["meditate research buffalo"]
 
 
-def test_it_holds_at_the_lock_and_researches_again_once_one_drains(monkeypatch):
-    monkeypatch.setattr(script, "LOCK_POLL", 1)
+def test_it_holds_at_the_lock_and_researches_again_once_one_drains():
     fake = Fake(
         {"Augmentation": 34, "Warding": 34},
         drain=[("Warding", 31), ("Warding", 27)],
         stop_after=1,
     )
     out = run(fake, ["augmentation", "warding"])
-    assert "Augmentation, Warding at 34/34 — holding until one drains" in out
+    assert (
+        "research: Augmentation, Warding mind-locked (34/34) — holding until one drains"
+        in out
+    )
     assert "Warding drained to 27/34 — researching again" in out
     assert researches(fake) == ["meditate research turtle"]
     assert "stopping as asked" in out
