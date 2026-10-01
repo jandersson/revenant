@@ -24,23 +24,17 @@ PAY answer names the right towns and the script echoes it.
 Stop with:  ;stop debt
 """
 
-from client.game import bank, probe
+from client.game import bank
+from client.game.act import ask
 from client.game.mapdb import MapDB
 from client.game.money import parse_wealth, phrase
 from client.game.walker import locate, walk
-
-COLLECT_SECONDS = 3  # a command's answer, opening window
-TAIL_SECONDS = 1.5  # ... and the tail past its roundtime
 
 # The teller's lines and refusals are client/game/bank.py's (shared with
 # ;tdp's fee, #247). Success is not classified: INFO afterwards is the
 # judge. Captured 2026-09-12: PAY ALL "The clerk nods and takes your
 # money, noting that your debt is now settled.", and INFO then reads
 # "Debt: / No debt."
-
-
-def ask(s, command):
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
 
 
 def echo_lines(s, text):
