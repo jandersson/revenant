@@ -40,7 +40,8 @@ attended run captures them (#82) — anything unclassified is echoed as
 fixtures. Stop with:  ;stop favors
 """
 
-from client.game import possessions, probe, travel
+from client.game import hands, items, possessions, travel
+from client.game.act import NOT_FOUND, ask, unknown
 from client.game.probe import classify
 from client.game.walker import locate
 
@@ -67,8 +68,6 @@ NEUTRAL_IMMORTALS = (
 )
 
 PAUSE = 1  # breather between ritual commands
-COLLECT_SECONDS = 3  # let a command's answer arrive in one burst
-RESULT_SECONDS = 2  # the tail that lands once the roundtime expires
 OFFER_SECONDS = 6  # the altar's light show is long and multi-line
 ARRIVAL_TIMEOUT = 10  # room change after GO ARCH
 PUZZLE_POLL = 5  # seconds between are-we-back checks while puzzling
@@ -154,37 +153,23 @@ RUB_REPORT_EVERY = 10
 # Keyword classification of the game's answers (assumptions until an
 # attended run captures them — #82). Checked in order; first hit wins.
 # "properly prepared" and the offer's light show are quoted on
-# Elanthipedia (docs/favors.md); the rest are guesses.
+# Elanthipedia (docs/favors.md); the rest are guesses. No orb is either
+# of the game's not-found wordings (act.NOT_FOUND).
 ORB_OUTCOMES = (
-    ("nothing_there", ("what were you referring",)),
+    ("nothing_there", NOT_FOUND),
     ("hands_full", ("free hand", "hands are full")),
     ("ok", ("orb",)),
 )
 RUB_OUTCOMES = (
     ("full", ("properly prepared",)),
-    ("no_orb", ("what were you referring",)),
+    ("no_orb", NOT_FOUND),
     ("progress", ("glow", "waver", "pale", "steady", "strong", "pulse", "swirl")),
 )
 OFFER_OUTCOMES = (
     ("granted", ("multicolored lights gather", "feel somehow changed")),
     ("refused", ("not full", "not ready", "not yet", "nothing happens")),
-    ("no_orb", ("what were you referring",)),
+    ("no_orb", NOT_FOUND),
 )
-
-
-def ask(s, command, seconds=None):
-    """The game's answer to a command, roundtime-delayed tail included
-    (client.game.probe.ask, with this script's collection windows)."""
-    return probe.ask(
-        s, command, COLLECT_SECONDS if seconds is None else seconds, RESULT_SECONDS
-    )
-
-
-def echo_unrecognized(s, step, answer):
-    for line in answer.splitlines():
-        if line.strip():
-            s.echo(f"favors: unrecognized ({step}): {line.strip()}")
-            break
 
 
 def resolve_immortal(args):
@@ -224,7 +209,7 @@ def ritual(s, immortal):
     answer = ask(s, "get orb on altar")
     outcome = classify(answer, ORB_OUTCOMES)
     if outcome is None:
-        echo_unrecognized(s, "get orb", answer)
+        unknown(s, "favors", "get orb", answer)
     return outcome
 
 
@@ -244,11 +229,10 @@ def enter_puzzles(s):
 
 
 def held_orb(s):
-    """The orb in a hand, from the parser's hand state, or None."""
-    for side in ("left_hand", "right_hand"):
-        held = getattr(s.state, side, None)
-        if isinstance(held, dict) and "orb" in str(held.get("noun") or ""):
-            return held
+    """The orb's hand tag, from the parser's hand tags, or None."""
+    for tag in hands.tags(s).values():
+        if tag and "orb" in str(tag.get("noun") or ""):
+            return tag
     return None
 
 
@@ -257,8 +241,7 @@ def fetch_orb(s):
     ask, 2026-09-13 — a run that already has an orb must not pray for
     another; beyond two, fed experience is wasted). With both hands
     full there is nothing to fetch into, so False without a send."""
-    hands = [getattr(s.state, side, None) for side in ("left_hand", "right_hand")]
-    if all(hands):
+    if hands.full(s):
         return False
     # The last INV LIST's ids (#184) name the orb exactly; without a
     # listing, GET MY ORB asks the game.
@@ -284,47 +267,30 @@ def on_the_map(s, db):
 _FREED = ("you put", "you sheathe", "you stow", "you slip", "you place")
 
 
-def worn_containers(state, skip=()):
-    """The nouns of worn or held containers (items something is listed
-    in, per the parser's possessions), in the listing's order."""
-    items = list(getattr(state, "possessions", None) or [])
-    holders = {item.get("container_exist") for item in items}
-    nouns = []
-    for item in items:
-        noun = str(item.get("noun") or "").strip()
-        if (
-            item.get("exist") in holders
-            and noun
-            and noun not in skip
-            and noun not in nouns
-        ):
-            nouns.append(noun)
-    return nouns
-
-
 def free_hand(s):
     """A puzzle that picks something up needs a hand, and the orb has
     one: with both full, put the item that is not the orb away — STOW,
     else SHEATHE (a weapon goes back to its sheath), else PUT it in a
-    worn container — and True once a hand is free (the answer says the
-    item went, or the parser's hands show one empty). False when nothing
-    freed one: the caller hands the room over rather than loop (#347)."""
-    hands = [getattr(s.state, side, None) for side in ("left_hand", "right_hand")]
-    if not all(hands):
+    worn container (the ones the last INV LIST showed holding something,
+    items.containers) — and True once a hand is free (the answer says
+    the item went, or the parser's hands show one empty). False when
+    nothing freed one: the caller hands the room over rather than loop
+    (#347)."""
+    if not hands.full(s):
         return True
-    other = next((h for h in hands if "orb" not in str(h.get("noun") or "")), None)
-    if not other or not other.get("noun"):
+    noun = next((held for held in hands.nouns(s) if "orb" not in held), None)
+    if not noun:
         return False
-    noun = other["noun"]
     tries = [f"stow my {noun}", f"sheathe {noun}"] + [
         f"put my {noun} in my {container}"
-        for container in worn_containers(s.state, skip=(noun, "orb"))
+        for container in items.containers(
+            getattr(s.state, "possessions", None), skip=(noun, "orb")
+        )
     ]
     for command in tries:
         answer = ask(s, command).lower()
         s.waitrt()
-        still = [getattr(s.state, side, None) for side in ("left_hand", "right_hand")]
-        if any(word in answer for word in _FREED) or not all(still):
+        if any(word in answer for word in _FREED) or not hands.full(s):
             return True
     return False
 
@@ -439,7 +405,7 @@ def fill(s):
             s.echo("favors: no orb in hand to rub — stopping")
             return "stopped"
         if outcome is None:
-            echo_unrecognized(s, "rub", answer)
+            unknown(s, "favors", "rub", answer)
         if not pool_active(s.state):
             return "drained"
         if rubs % RUB_REPORT_EVERY == 0:
@@ -458,7 +424,7 @@ def offer(s):
     if outcome == "granted":
         return True
     if outcome is None:
-        echo_unrecognized(s, "offer", answer)
+        unknown(s, "favors", "offer", answer)
     else:
         s.echo(f"favors: the altar refused the orb ({outcome})")
     return False

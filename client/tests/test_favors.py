@@ -103,8 +103,6 @@ class FakeMap:
 
 
 def _quick(monkeypatch):
-    monkeypatch.setattr(favors, "COLLECT_SECONDS", 0.01)
-    monkeypatch.setattr(favors, "RESULT_SECONDS", 0.01)
     monkeypatch.setattr(favors, "OFFER_SECONDS", 0.01)
 
 
@@ -166,6 +164,21 @@ def test_classify_rub_outcomes():
         favors.classify("What were you referring to?", favors.RUB_OUTCOMES) == "no_orb"
     )
     assert favors.classify("Wholly novel wording.", favors.RUB_OUTCOMES) is None
+
+
+def test_the_other_not_found_wording_is_no_orb_too(monkeypatch):
+    # The tables knew "What were you referring to?" alone: a rub answered
+    # the game's other wording read as an unrecognized rub and the rubbing
+    # went on; act.NOT_FOUND carries both (#407).
+    could_not_find = "I could not find what you were referring to."
+    assert favors.classify(could_not_find, favors.ORB_OUTCOMES) == "nothing_there"
+    assert favors.classify(could_not_find, favors.RUB_OUTCOMES) == "no_orb"
+    assert favors.classify(could_not_find, favors.OFFER_OUTCOMES) == "no_orb"
+    _quick(monkeypatch)
+    handle = FakeHandle({"rub my orb": [[("", could_not_find)]]})
+    assert favors.fill(handle) == "stopped"
+    assert handle.sent == ["rub my orb"]
+    assert any("no orb in hand to rub" in echo for echo in handle.echoed)
 
 
 def test_classify_offer_outcomes():
@@ -805,6 +818,6 @@ def test_unrecognized_rub_wordings_are_echoed_for_capture(monkeypatch):
     handle = DrainingHandle({"rub my orb": [[("", "A wholly novel orb wording.")]]})
     assert favors.fill(handle) == "drained"
     assert any(
-        "unrecognized (rub): A wholly novel orb wording." in echo
+        "favors: unrecognized rub answer 'A wholly novel orb wording.'" in echo
         for echo in handle.echoed
     )
