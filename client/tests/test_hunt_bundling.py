@@ -80,7 +80,9 @@ def test_the_first_skin_starts_the_bundle_and_wears_it(travel):
             "attack": [(KILL, kill)],
             "tap": [NOT_FOUND],
             "skin": [(PELT_LOOSE, skin_in_hand)],
-            "get my rope": ["You get a bundling rope from inside your canvas sack."],
+            "get my bundling rope": [
+                "You get a bundling rope from inside your canvas sack."
+            ],
             "bundle": [(BUNDLED, hand_empty)],
             "loot": [NOTHING],
         }
@@ -91,7 +93,7 @@ def test_the_first_skin_starts_the_bundle_and_wears_it(travel):
     assert arena.sent[first : first + 7] == [
         "skin rat",
         "sheathe my handaxe in my sack",
-        "get my rope from my sack",
+        "get my bundling rope from my sack",
         "bundle",
         "wear my bundle",
         "wield my handaxe",
@@ -163,7 +165,9 @@ def test_a_skin_the_bundle_will_not_take_leaves_the_next_one_to_start_it(travel)
             "attack": [(KILL, _stands), (KILL, kill)],
             "tap": [NOT_FOUND] * 2,
             "skin": [(PELT_LOOSE, skin_in_hand)] * 2,
-            "get my rope": ["You get a bundling rope from inside your canvas sack."]
+            "get my bundling rope": [
+                "You get a bundling rope from inside your canvas sack."
+            ]
             * 2,
             "bundle": [full, (BUNDLED, hand_empty)],
             "loot": [NOTHING] * 2,
@@ -171,10 +175,40 @@ def test_a_skin_the_bundle_will_not_take_leaves_the_next_one_to_start_it(travel)
     )
     _hands(arena)
     _run(arena, profile=BUNDLING | {"max_kills": 2}, travel_first=False)
-    assert arena.sent.count("get my rope from my sack") == 2
+    assert arena.sent.count("get my bundling rope from my sack") == 2
     assert any("would not take that skin" in t for t in arena.echoed)
     assert any("bundle started and worn" in t for t in arena.echoed)
     assert not any("unrecognized" in t for t in arena.echoed)
+
+
+def test_a_run_bundle_refuses_three_times_stows_its_skins_loose(travel):
+    # 2026-10-01: GET MY ROPE took a looted lead rope ("Only bundling
+    # ropes can be utilized, not lead ropes", BUNDLE HELP), and BUNDLE
+    # answered "full" for every one of 73 skins, each a sheathe, a GET,
+    # a BUNDLE and a wield in the fight. Three in a row end the tries.
+    full = (
+        "Where did you intend to put that?  You don't have any bundles or "
+        "they're all full or too tightly packed!  Type BUNDLE HELP for more details."
+    )
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands)] * 4 + [(KILL, kill)],
+            "tap": [NOT_FOUND] * 5,
+            "skin": [(PELT_LOOSE, skin_in_hand)] * 5,
+            "get my bundling rope": [
+                "You get some bundling rope from inside your canvas sack."
+            ]
+            * 5,
+            "bundle": [full] * 5,
+            "loot": [NOTHING] * 5,
+        }
+    )
+    _hands(arena)
+    _run(arena, profile=BUNDLING | {"max_kills": 5}, travel_first=False)
+    assert arena.sent.count("get my bundling rope from my sack") == 3
+    assert "get my rope from my sack" not in arena.sent
+    assert sum("refused 3 skins in a row" in t for t in arena.echoed) == 1
+    assert arena.sent.count("put my pelt in my sack") == 5
 
 
 def test_a_skin_no_container_will_take_stays_in_hand_and_ends_skinning(travel):
@@ -206,14 +240,14 @@ def test_without_a_rope_the_skin_is_stowed_and_the_run_says_so_once(travel):
             "attack": [(KILL, lambda arena: None), (KILL, kill)],
             "tap": [NOT_FOUND],
             "skin": [(PELT_LOOSE, skin_in_hand), (PELT_LOOSE, skin_in_hand)],
-            "get my rope": [MISSING],
+            "get my bundling rope": [MISSING],
             "loot": [NOTHING, NOTHING],
         }
     )
     _hands(arena)
     _run(arena, profile=BUNDLING | {"max_kills": 2}, travel_first=False)
-    assert "get my rope from my sack" in arena.sent
-    assert arena.sent.count("get my rope from my sack") == 1
+    assert "get my bundling rope from my sack" in arena.sent
+    assert arena.sent.count("get my bundling rope from my sack") == 1
     assert arena.sent.count("put my pelt in my sack") == 2
     assert sum("no bundling rope" in text for text in arena.echoed) == 1
 

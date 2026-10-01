@@ -112,6 +112,9 @@ the loot container): a bundle you already have is worn before the
 first swing, the first skin of a run starts one when there is none,
 and every later skin goes straight into it as it is cut — one item to
 sell with ;skins. No rope means skins are stowed loose, said once.
+The rope is fetched as GET MY BUNDLING ROPE: a looted lead rope
+answered GET MY ROPE first and no bundle started all day (2026-10-01),
+and three refusals in a row stow a run's skins loose without trying on.
 A room of the ground with another player already in it on arrival is
 theirs: the loop says so and moves on without a swing, and a ground
 with someone in every room is left to them (#178). A room full of
@@ -560,6 +563,14 @@ BUNDLE_OUTCOMES = (
     ("full", ("all full", "don't have any bundles")),
     ("ok", ("you bundle up", "into your bundle")),
 )
+# The rope is fetched by its whole name: "Only bundling ropes can be
+# utilized, not lead ropes, heavy ropes, or the like." (BUNDLE HELP,
+# captured 2026-09-28). A lead rope looted that day sat ahead of the
+# bundling rope in the sack, GET MY ROPE took it, and BUNDLE answered
+# the "full" wording for every one of 73 skins on 2026-10-01 — each
+# stowed loose until the sack was full and one went to the backpack.
+ROPE = "bundling rope"
+BUNDLE_REFUSALS = 3  # refusals in a row before a run stops trying
 _MISSING = ("what were you referring", "could not find")
 # SHEATHE with no container named and nothing remembered from a WIELD
 # (captured 2026-09-22): "Sheathe your steel scimitar where?"
@@ -581,6 +592,7 @@ class Tally:
         # None: no bundle yet, the first skin starts one; True: a bundle
         # is worn; False: no rope (or the bundle refused), skins stowed loose.
         self.bundle = None
+        self.bundle_refusals = 0  # skins in a row BUNDLE would not start on
         self.buffs = buffs.BuffState()  # the casts (client/game/buffs.py)
         self.barb = barbarian.BarbState()  # a Barbarian's pieces (#328)
         self.last_smite = None  # clock() of the last smite that struck (#183)
@@ -1274,7 +1286,9 @@ def make_bundle(s, profile, tally):
     skins are stowed loose."""
     free_hand(s, profile)
     container = profile["loot_container"]
-    answer = ask(s, f"get my rope from my {container}" if container else "get my rope")
+    answer = ask(
+        s, f"get my {ROPE} from my {container}" if container else f"get my {ROPE}"
+    )
     if any(word in answer.lower() for word in _MISSING):
         s.echo(
             "hunt: no bundling rope — ASK a tanner FOR ROPE (it is free); "
@@ -1294,16 +1308,26 @@ def make_bundle(s, profile, tally):
     if outcome == "full":
         # This skin will not start a bundle (a curved claw, captured
         # 2026-09-21, #260): stowed loose, the bundle left untried so
-        # the next skin starts it.
-        s.echo(
-            "hunt: BUNDLE would not take that skin — stowed; the next one starts the bundle"
-        )
-        stow(s, profile, "rope")
+        # the next skin starts it — up to BUNDLE_REFUSALS in a row,
+        # then the run's skins go loose without the rope's round trip.
+        tally.bundle_refusals += 1
+        stow(s, profile, ROPE)
+        if tally.bundle_refusals >= BUNDLE_REFUSALS:
+            tally.bundle = False
+            s.echo(
+                f"hunt: BUNDLE refused {BUNDLE_REFUSALS} skins in a row — "
+                "skins are stowed loose this run"
+            )
+        else:
+            s.echo(
+                "hunt: BUNDLE would not take that skin — stowed; "
+                "the next one starts the bundle"
+            )
         draw(s, profile)
         return False
     unrecognized(s, tally, "bundle", answer)
     tally.bundle = False
-    stow(s, profile, "rope")
+    stow(s, profile, ROPE)
     draw(s, profile)
     return False
 
