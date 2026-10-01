@@ -950,6 +950,22 @@ def test_a_stop_still_lifts_every_box_off_the_feet():
     assert runner.at_feet == []
 
 
+def test_the_other_hand_is_freed_by_a_stow_of_what_it_holds():
+    # PICK's "You'd better have an empty hand first": whatever the other
+    # hand holds goes by STOW MY <noun> (hands.free, #407), never by
+    # side; the box and the lockpick are kept, nothing is dropped.
+    fake = Fake([("stow my rag", "You put your rag in your backpack.\n")])
+    fake.state.left_hand = {"noun": "box", "exist": "10"}
+    fake.state.right_hand = {"noun": "rag", "exist": "11"}
+    script.ask = fake.ask
+    runner = script.Run(fake, PROFILE, script.parse_args([]))
+    script.free_other_hand(runner, "box")
+    assert fake.sent == ["stow my rag"]
+    fake.state.right_hand = {"noun": "lockpick", "exist": "12"}
+    script.free_other_hand(runner, "box")
+    assert fake.sent == ["stow my rag"]  # the pick stays in hand
+
+
 def nugget_box():
     """One easy box holding a common copper nugget, a rare damite one
     and an embroidery needle (#365)."""

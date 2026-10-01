@@ -44,7 +44,7 @@ docs/training.md has the profile keys. Report any "boxes: <command> answered ...
 """
 
 from client.engine.scripting import ScriptStopped
-from client.game import discard, flight, trainer, travel
+from client.game import discard, flight, hands, trainer, travel
 from client.game import boxes as boxes_model
 from client.game.act import ask, missing, said
 from client.game.boxes import (
@@ -264,14 +264,6 @@ def hindrance(run, answer):
         run.say(f"{' '.join(lines)} — remove it for better odds")
 
 
-def in_hand(s, noun):
-    """Whether the parser's hand state shows the noun in either hand."""
-    return any(
-        (getattr(s.state, side, None) or {}).get("noun") == noun
-        for side in ("left_hand", "right_hand")
-    )
-
-
 def doff(run):
     """The profile's hindering gear off and stowed before the first box:
     REMOVE MY <noun>, judged by the piece landing in a hand (REMOVE's
@@ -282,7 +274,7 @@ def doff(run):
         free_other_hand(run, "")
         answer = ask(s, f"remove my {noun}")
         s.waitrt()
-        if not in_hand(s, noun):
+        if not hands.holding(s, noun):
             run.say(f"the {noun} did not come off — {said(answer)!r}")
             continue
         ask(s, f"stow my {noun}")
@@ -322,12 +314,12 @@ def don_reading(run):
         answer = ask(s, f"get my {noun}")
         if is_toad(answer) and wait_toad(run):
             answer = ask(s, f"get my {noun}")
-        if not in_hand(s, noun):
+        if not hands.holding(s, noun):
             run.say(f"the {noun} is nowhere to be worn back — please look for it")
             continue
         answer = ask(s, f"wear my {noun}")
         s.waitrt()
-        if in_hand(s, noun):
+        if hands.holding(s, noun):
             run.say(
                 f"the {noun} would not go back on — {said(answer)!r} — stowed instead"
             )
@@ -396,7 +388,7 @@ def recover(run, noun):
     a cracked ironwood skippet", and the put-back that followed left it
     there) — and the character back off the floor."""
     s = run.s
-    if noun and not in_hand(s, noun):
+    if noun and not hands.holding(s, noun):
         objs = str(getattr(s.state, "room_objs", "") or "").lower()
         if noun.lower() in objs:
             ask(s, f"get {noun}")
@@ -569,14 +561,10 @@ def put_pick_away(run):
 def free_other_hand(run, noun):
     """PICK wants the box in one hand and the other empty (or the pick
     in it): whatever else a hand holds, as the parser knows it, is
-    stowed by side."""
-    s = run.s
+    STOWed by its noun (hands.free), the box and the pick kept."""
     pick_noun = run.profile.get("lockpick") or "lockpick"
-    for side in ("left", "right"):
-        held = getattr(s.state, f"{side}_hand", None)
-        thing = held.get("noun") if isinstance(held, dict) else None
-        if thing and thing not in (noun, pick_noun):
-            ask(s, f"stow {side}")
+    keep = tuple(kept for kept in (noun, pick_noun) if kept)
+    hands.free(run.s, keep=keep, ask=ask)
 
 
 def take_box(run, noun):
@@ -686,10 +674,8 @@ def stash_held(run):
     container, else any container INV LIST shows, else at the feet, so
     both hands are free to pick. Returns ({noun: container or FEET},
     [nouns still in hand]). Nothing is dropped."""
-    s = run.s
-    hands = (getattr(s.state, "left_hand", None), getattr(s.state, "right_hand", None))
     placed, stuck = {}, []
-    for noun in held_boxes(*hands):
+    for noun in held_boxes(*hands.tags(run.s).values()):
         container = into_a_container(run, noun)
         if container:
             placed[noun] = container

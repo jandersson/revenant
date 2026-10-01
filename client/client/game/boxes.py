@@ -55,6 +55,7 @@ fixtures. Sources: docs/bibliography.md.
 
 import re
 
+from client.game import items
 from client.game.creatures import noun_of
 from client.game.loot import BOX_NOUNS
 
@@ -418,43 +419,29 @@ TAKE_OUTCOMES = (
     ("taken", ("you get", "you remove")),
 )
 
-_LISTED = re.compile(r"you see (.+?)\.\s*$", re.IGNORECASE | re.DOTALL)
-_EMPTY = ("nothing in", "is empty", "there is nothing")
-
 
 def listed(answer):
-    """The items a LOOK IN or OPEN answer lists ("In the iron box you see
-    some coins, a ruby and a dagger." -> ["some coins", "a ruby", "a
-    dagger"]), repeats kept; [] for an empty container; None when the
-    answer is no listing at all."""
-    match = _LISTED.search(answer or "")
-    if not match:
-        lowered = (answer or "").lower()
-        return [] if any(word in lowered for word in _EMPTY) else None
-    items = re.split(r",\s*|\s+and\s+", match.group(1))
-    return [item.strip() for item in items if item.strip()]
+    """The items a LOOK IN or OPEN answer lists, [] for an empty
+    container, None for no listing at all (items.listed)."""
+    return items.listed(answer)
+
+
+def is_box(item):
+    """True for an INV LIST item ({name, noun, ...}) whose name's noun is
+    a box — a "(closed)" dropped, whatever an older listing stored as
+    the noun (#323)."""
+    name = re.sub(r"\s*\([^)]*\)\s*$", "", str(item.get("name") or ""))
+    return noun_of(name or item.get("noun") or "") in BOX_NOUNS
 
 
 def box_containers(possessions, primary):
     """The containers other than `primary` that hold a box, by the
-    parser's INV LIST items ({name, noun, exist, container_exist}), each
-    container's noun once in listing order (#323: a coffer in the
-    backpack was never picked, the loot container being the sack)."""
-    by_exist = {item.get("exist"): item for item in possessions or []}
-    found = []
-    for item in possessions or []:
-        # The name's noun, a "(closed)" dropped, whatever an older
-        # listing stored as the noun (#323).
-        name = re.sub(r"\s*\([^)]*\)\s*$", "", str(item.get("name") or ""))
-        if noun_of(name or item.get("noun") or "") not in BOX_NOUNS:
-            continue
-        holder = by_exist.get(item.get("container_exist"))
-        if not holder:
-            continue
-        noun = str(holder.get("noun") or noun_of(holder.get("name") or "")).lower()
-        if noun and noun != str(primary or "").lower() and noun not in found:
-            found.append(noun)
-    return found
+    parser's INV LIST items, each container's noun once in listing
+    order (#323: a coffer in the backpack was never picked, the loot
+    container being the sack) — items.containers."""
+    return items.containers(
+        possessions, holding=is_box, skip=(primary,) if primary else ()
+    )
 
 
 def held_boxes(*hands):
@@ -475,17 +462,9 @@ def held_boxes(*hands):
 
 def containers(possessions):
     """The containers the parser's INV LIST items show holding something,
-    each noun once in listing order — where a box in hand may still fit."""
-    by_exist = {item.get("exist"): item for item in possessions or []}
-    found = []
-    for item in possessions or []:
-        holder = by_exist.get(item.get("container_exist"))
-        if not holder:
-            continue
-        noun = str(holder.get("noun") or noun_of(holder.get("name") or "")).lower()
-        if noun and noun not in found:
-            found.append(noun)
-    return found
+    each noun once in listing order — where a box in hand may still fit
+    (items.containers)."""
+    return items.containers(possessions)
 
 
 def boxes_in(answer):
