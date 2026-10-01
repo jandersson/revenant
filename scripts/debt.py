@@ -24,7 +24,7 @@ PAY answer names the right towns and the script echoes it.
 Stop with:  ;stop debt
 """
 
-from client.game import bank, travel
+from client.game import bank, money, travel
 from client.game.act import ask
 from client.game.mapdb import MapDB
 from client.game.money import parse_wealth, phrase
@@ -97,8 +97,9 @@ def run(s, words, mapdb=None, walk_fn=walk):
     if carried < owed:
         if not fetch(s, owed - carried, currency, mapdb, walk_fn):
             return
-        info = parse_wealth(ask(s, "info"))
-        carried = info["carried"].get(currency, 0)
+        # The purse alone after the teller: WEALTH's (#407); INFO stays
+        # where the debt is read beside it.
+        carried = money.carried(s, currency, ask)
         if carried < owed:
             s.echo(
                 f"debt: still short — carrying {phrase(carried, currency)} "

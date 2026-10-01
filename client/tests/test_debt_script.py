@@ -72,6 +72,11 @@ COUNTED = "The clerk counts out {} Kronars and hands them over, making a notatio
 PAID = "The clerk nods and takes your money, noting that your debt is now settled.\n"
 
 
+def wealth(carried):
+    """WEALTH's purse after the teller (the shape of client/game/money.py)."""
+    return f"Wealth:\n  {carried} copper Kronars ({carried} copper Kronars).\n"
+
+
 class Fake:
     """A handle whose answers come from a queue per command prefix."""
 
@@ -131,7 +136,8 @@ def test_bare_debt_reports_carried_and_owed_and_sends_only_info():
 def test_paying_fetches_the_shortfall_then_pays_at_the_office_and_walks_back():
     fake = Fake(
         {
-            "info": [info(carried=300), info(carried=1510), info(carried=0, owed=0)],
+            "info": [info(carried=300), info(carried=0, owed=0)],
+            "wealth": [wealth(1510)],  # the purse re-read after the teller
             "withdraw": [
                 COUNTED.format("1 gold"),
                 COUNTED.format("2 silver"),
@@ -145,6 +151,8 @@ def test_paying_fetches_the_shortfall_then_pays_at_the_office_and_walks_back():
     withdrawals = [c for c in fake.sent if c.startswith("withdraw")]
     assert withdrawals == ["withdraw 1 gold", "withdraw 2 silver", "withdraw 1 bronze"]
     assert fake.sent[-2:] == ["pay all", "info"] or "pay all" in fake.sent
+    # INFO where the debt is read, WEALTH for the purse alone (#407).
+    assert fake.sent.count("info") == 2 and fake.sent.count("wealth") == 1
     assert "debt: paid 1 gold, 5 silver and 1 bronze Kronars" in echoes(fake)
     assert "you owe nothing" in echoes(fake)
     assert "debt: The clerk counts out 1 gold Kronars and hands them over" in echoes(
@@ -181,7 +189,8 @@ def test_a_teller_with_no_account_stops_the_run_with_advice():
 def test_a_withdrawal_that_left_you_short_stops_before_the_office():
     fake = Fake(
         {
-            "info": [info(carried=0), info(carried=1000)],
+            "info": [info(carried=0)],
+            "wealth": [wealth(1000)],
             "withdraw": ["ok", "ok", "ok"],
         }
     )
