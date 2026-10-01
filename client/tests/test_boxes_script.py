@@ -161,7 +161,7 @@ def disarmed(command):
 
 def run(fake, args=(), profile=None, droppable=("box",), bin_here=True):
     _DISARMS["count"] = 0
-    script.probe = SimpleNamespace(ask=fake.ask)
+    script.ask = fake.ask  # act.ask, imported by name (#407)
     # The script's own view of discard.py, never the shared module: a
     # patch on it leaked into test_discard and test_mechlore once.
     script.discard = SimpleNamespace(
@@ -683,7 +683,7 @@ def _refill_world(monkeypatch, carried=2000):
 
 
 def _refill_run(fake, profile):
-    script.probe = SimpleNamespace(ask=fake.ask)
+    script.ask = fake.ask
     run = script.Run(fake, dict(PROFILE, **profile), script.parse_args([]))
     run.ring_empty = True
     return run
@@ -936,7 +936,7 @@ def test_a_stop_still_lifts_every_box_off_the_feet():
         echo=lambda text: None,
         put=lambda cmd, cleanup=False: puts.append((cmd, cleanup)),
     )
-    script.probe = SimpleNamespace(ask=stopped)
+    script.ask = stopped
     runner = script.Run(handle, PROFILE, script.parse_args([]))
     runner.at_feet = ["chest", "casket"]
     try:

@@ -44,8 +44,9 @@ docs/training.md has the profile keys. Report any "boxes: <command> answered ...
 """
 
 from client.engine.scripting import ScriptStopped
-from client.game import discard, flight, probe
+from client.game import discard, flight
 from client.game import boxes as boxes_model
+from client.game.act import ask, missing, said
 from client.game.boxes import (
     DISARM_OUTCOMES,
     LOCK_CAUTION,
@@ -209,18 +210,10 @@ def hindering_gear(profile):
 MIND_LOCK = 34
 RESUME_BELOW = 28
 LOCK_POLL = 30
-COLLECT_SECONDS = 3
-TAIL_SECONDS = 0.5
 IDENTIFY_TRIES = 3
 WORK_TRIES = 5
 MAX_BOXES = 200  # the fuse under the loop
 DEFAULT_WOUND_FLOOR = "harmful"
-
-
-def ask(s, command):
-    """The game's answer to one command, raw (the parser cares about
-    case for HEALTH)."""
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
 
 
 class Run:
@@ -254,8 +247,7 @@ class Run:
         if kind in self.reported:
             return
         self.reported.add(kind)
-        first = (answer.strip().splitlines() or ["(silence)"])[0]
-        self.say(f"{command} answered {first!r}")
+        self.say(f"{command} answered {said(answer)!r}")
 
 
 def hindrance(run, answer):
@@ -293,8 +285,7 @@ def doff(run):
         answer = ask(s, f"remove my {noun}")
         s.waitrt()
         if not in_hand(s, noun):
-            first = (answer.strip().splitlines() or ["(silence)"])[0]
-            run.say(f"the {noun} did not come off — {first!r}")
+            run.say(f"the {noun} did not come off — {said(answer)!r}")
             continue
         ask(s, f"stow my {noun}")
         run.doffed.append(noun)
@@ -339,8 +330,9 @@ def don_reading(run):
         answer = ask(s, f"wear my {noun}")
         s.waitrt()
         if in_hand(s, noun):
-            first = (answer.strip().splitlines() or ["(silence)"])[0]
-            run.say(f"the {noun} would not go back on — {first!r} — stowed instead")
+            run.say(
+                f"the {noun} would not go back on — {said(answer)!r} — stowed instead"
+            )
             ask(s, f"stow my {noun}")
             continue
         if not any(word in answer.lower() for word in WORN):
@@ -447,8 +439,7 @@ def sprung(run, answer, noun=""):
     """A trap went off: said, the stun waited out, the roundtime too,
     a toad waited out, the box picked back up; the reason to stop, or
     None."""
-    first = (answer.strip().splitlines() or ["(silence)"])[0]
-    run.say(f"a trap sprung — {first!r}")
+    run.say(f"a trap sprung — {said(answer)!r}")
     run.s.waitrt()
     wait_stun(run)
     if is_toad(answer) and not wait_toad(run):
@@ -478,7 +469,7 @@ def ready_pick(run):
     noun = profile.get("lockpick") or "lockpick"
     answer = ask(run.s, f"get my {noun}")
     lowered = answer.lower()
-    if "referring" in lowered or "get what" in lowered:
+    if missing(answer) or "get what" in lowered:
         run.say(
             f"no {noun} to pick with — Ragge's Locksmithing in the Crossing sells them"
         )
@@ -545,20 +536,21 @@ def refill_ring(run):
         answer = ask(s, f"order {kind} lockpick")
         quoted = order_quote(answer)
         if quoted is None or quoted > price * 2:
-            first = (answer.strip().splitlines() or ["(silence)"])[0]
-            run.say(f"ORDER {kind} lockpick answered {first!r} — no more picks bought")
+            run.say(
+                f"ORDER {kind} lockpick answered {said(answer)!r} — no more picks bought"
+            )
             break
         answer = ask(s, f"offer {quoted}")
         if not any(word in answer.lower() for word in ORDER_BOUGHT):
-            first = (answer.strip().splitlines() or ["(silence)"])[0]
-            run.say(f"the purchase answered {first!r} — no more picks bought")
+            run.say(f"the purchase answered {said(answer)!r} — no more picks bought")
             break
         answer = ask(s, f"put my lockpick on my {ring}")
         if stacked == 0:
             run.report("ring", "put on ring", answer)
         if any(word in answer.lower() for word in RING_REFUSED):
-            first = (answer.strip().splitlines() or ["(silence)"])[0]
-            run.say(f"the {ring} refused the pick: {first!r} — stowed, no more bought")
+            run.say(
+                f"the {ring} refused the pick: {said(answer)!r} — stowed, no more bought"
+            )
             ask(s, "stow my lockpick")
             break
         stacked += 1
@@ -597,7 +589,9 @@ def take_box(run, noun):
     answer = ask(run.s, f"get {which} from my {run.container}")
     run.report("get", f"get {which}", answer)
     lowered = answer.lower()
-    return not any(word in lowered for word in ("referring", "get what", "can't"))
+    return not (
+        missing(answer) or any(word in lowered for word in ("get what", "can't"))
+    )
 
 
 FEET = "feet"
@@ -625,7 +619,9 @@ def lift(run, noun):
     answer = ask(run.s, f"lift {noun}")
     run.report("lift", f"lift {noun}", answer)
     lowered = answer.lower()
-    if any(word in lowered for word in ("referring", "lift what", "can't", "nothing")):
+    if missing(answer) or any(
+        word in lowered for word in ("lift what", "can't", "nothing")
+    ):
         return False
     if noun in run.at_feet:
         run.at_feet.remove(noun)
