@@ -45,13 +45,12 @@ import time
 
 from client.game import buffs
 from client.game import flight
+from client.game import trainer
 from client.game.act import ask, unknown
 from client.game.loop import danger, pause, wants_stop
 
 MIND_LOCK = 34
-RESUME_BELOW = 28  # resume once enough has drained to be worth a cast
 POLL = 5  # seconds between looks while waiting for the gap
-LOCK_POLL = 30
 POWER_GAP = 60  # seconds between POWERs: a room pays once a minute
 MANA_WAIT = 600  # seconds of mana under the floor before giving up
 PERCEIVED = "reach out with your"  # captured 2026-09-12: "You reach out with your weak senses ..."
@@ -116,11 +115,6 @@ def all_locked(s, skills, until):
     return bool(values) and all(value >= until for value in values.values())
 
 
-def any_drained(s, skills, floor):
-    values = mindstates(s, skills)
-    return any(value <= floor for value in values.values())
-
-
 def cast_profile(profile, options):
     """The profile as the cast loop sees it: spell= as the only buff,
     skill= as the only skill trained; with neither named, the profile's
@@ -139,17 +133,6 @@ def cast_profile(profile, options):
 def performing(answer):
     """True when the game refused because a song is playing."""
     return any(phrase in (answer or "").lower() for phrase in PERFORMING)
-
-
-def hold_at_lock(s, skills, until):
-    s.echo(f"cast: {', '.join(skills)} mind-locked — holding until one drains")
-    floor = min(RESUME_BELOW, until - 1)
-    while True:
-        if not pause(s, LOCK_POLL):
-            return False
-        if any_drained(s, skills, floor):
-            s.echo("cast: drained — casting again")
-            return True
 
 
 def run(s, words, profile):
@@ -204,7 +187,9 @@ def loop(s, options, shaped):
             if options["once"]:
                 s.echo(f"cast: {', '.join(skills)} at {options['until']}/34 — done")
                 return
-            if not hold_at_lock(s, skills, options["until"]):
+            if not trainer.hold_at_lock(
+                s, "cast", skills, options["until"], again="casting again"
+            ):
                 s.echo("cast: stopping")
                 return
             continue

@@ -26,7 +26,6 @@ def _script():
 
 script = _script()
 script.POLL = 0.01
-script.LOCK_POLL = 0.01
 buffs.PREPARE_SECONDS = 0.01
 
 # The hunt's captured wordings (client/game/buffs.py, 2026-09-12/14).
@@ -181,7 +180,10 @@ def test_the_lock_ends_a_once_run_and_holds_otherwise(monkeypatch):
     held = Fake(ANSWERS, learning(34))
     held.commands = [None, "return"]  # the second look lands inside the hold's pause
     script.run(held, [], PROFILE)
-    assert "mind-locked — holding" in echoes(held)
+    assert (
+        "cast: Augmentation, Arcana, Attunement mind-locked (34/34) — holding until one drains"
+        in echoes(held)
+    )
     assert held.sent == []
 
 
