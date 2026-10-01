@@ -141,7 +141,7 @@ def test_an_item_the_game_cannot_find_leaves_the_rotation_and_an_empty_one_ends(
     assert "appraise my sack quick" in fake.sent
     assert appraisals(fake).count("appraise my sack quick") == 1
     assert "the game finds no sack — out of the rotation (2 left)" in out
-    assert "stopping as asked" in out
+    assert "returning as asked" in out
 
     gone = Fake(mindstates=[1, 5], missing={"pouch", "scimitar", "sack"})
     out = run(gone)
@@ -168,7 +168,7 @@ def test_it_holds_at_the_lock_and_appraises_again_once_drained(monkeypatch):
     assert "drained to 27/34 — appraising again" in out
     assert appraisals(fake) == ["appraise my pouch quick", "appraise my scimitar quick"]
     assert fake.slept == 3
-    assert "stopping as asked" in out
+    assert "returning as asked" in out
 
 
 def test_no_appraisal_in_exp_and_nothing_on_you_are_said_and_end():

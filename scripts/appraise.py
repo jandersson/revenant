@@ -24,14 +24,16 @@ What it does
 
 When it stops
   - Appraisal at the mindstate with `once`; else it holds until below 28 and goes on
-  - death or hostiles in the room; ;appraise return; nothing left to appraise
+  - death or hostiles in the room (the shared escape); ;appraise return; nothing left
+    to appraise
 
-;train runs it as an Appraisal task. Model: client/game/appraisal.py; docs/training.md.
+;train runs it as an Appraisal task. The loop is every trainer's
+(client/game/trainer.py). Model: client/game/appraisal.py; docs/training.md.
 """
 
 import time
 
-from client.game import flight, hands, trainer
+from client.game import hands, trainer
 from client.game.act import ask
 from client.game.appraisal import (
     CLOSED,
@@ -52,14 +54,7 @@ from client.game.appraisal import (
     parse_args,
     targets,
 )
-from client.game.loop import (
-    danger,
-    ensure_mindstate,
-    exp_entry,
-    mindstate,
-    pause,
-    wants_stop,
-)
+from client.game.loop import ensure_mindstate, exp_entry, pause
 
 # The design notes the manual above leaves out: what each rule came
 # from, with its issue — read by people, never served as ;help.
@@ -316,86 +311,75 @@ def run(s, options):
     )
     held = {"back": None}  # a fetched item's PUT, until it is back
     focus = focus_setup(s, options.get("focus"))
-    try:
-        lap(s, options, items, held, focus)
-    finally:
-        if held["back"] and not getattr(s, "dead", False):
-            # A ;stop between the GET and the PUT: back it goes all the same.
-            hands.cleanup(s, held["back"])
-            s.echo("appraise: the item in hand went back where it came from")
+    return lap(s, options, items, held, focus)
 
 
 def lap(s, options, items, held, focus=None):
+    """The trainer loop (client/game/trainer.py) with one step: the next
+    item due of the lap appraised — a lap with none due waited out,
+    the focus ticked between items and through the hold — and the
+    item in hand put back at every end, a ;stop included."""
     last = {}  # target key -> clock() of its last appraisal
-    reported = False
+    due = []  # the items of this lap still to appraise
+    counts = {"laps": 0, "reported": False}
 
     def focus_step():
         focus_tick(s, focus, held)
 
     tick = focus_step if focus else None
-    for _ in range(MAX_LAPS):
-        due = [
-            t
-            for t in items
-            if t["key"] not in last or clock() - last[t["key"]] >= ITEM_WAIT
-        ]
+
+    def step(s):
         if not due:
-            if not wait_for_due(s, items, last, tick):
-                reason = danger(s)
-                s.echo(
-                    f"appraise: {reason} — stopping"
-                    if reason
-                    else "appraise: stopping as asked"
-                )
-                if reason and "hostiles" in reason:
-                    flight.react(s, "appraise")
-                return
-            continue
-        for target in due:
-            reason = danger(s)
-            if reason:
-                s.echo(f"appraise: {reason} — stopping")
-                if "hostiles" in reason:
-                    flight.react(s, "appraise")
-                return
-            if wants_stop(s):
-                s.echo("appraise: stopping as asked")
-                return
-            if tick:
-                tick()
-            value = mindstate(s, SKILL)
-            if value is not None and value >= options["until"]:
-                if options["once"]:
-                    s.echo(f"appraise: {SKILL} at {value}/34 — done")
-                    return
-                if not trainer.hold_at_lock(
-                    s,
-                    "appraise",
-                    SKILL,
-                    options["until"],
-                    again="appraising again",
-                    tick=tick,
-                ):
-                    s.echo("appraise: stopping")
-                    return
-            outcome, answer = appraise(s, target, options["careful"], held)
-            focus_note(s, focus, answer)
-            if outcome == "no hand":
-                continue  # both hands full: the next lap
-            last[target["key"]] = clock()
-            if outcome != "ok":
-                items.remove(target)
-                reason = DROPPED[outcome].format(label=target["label"])
-                s.echo(f"appraise: {reason} — out of the rotation ({len(items)} left)")
-                if not items:
-                    s.echo("appraise: nothing left to appraise — stopping")
-                    return
-                continue
-            if not reported:
-                reported = True
-                first = (answer.strip().splitlines() or ["(silence)"])[0]
-                s.echo(f"appraise: {target['label']} answered {first!r}")
-    s.echo(f"appraise: {MAX_LAPS} laps — stopping")
+            if counts["laps"] >= MAX_LAPS:
+                return f"{MAX_LAPS} laps"
+            counts["laps"] += 1
+            due.extend(
+                t
+                for t in items
+                if t["key"] not in last or clock() - last[t["key"]] >= ITEM_WAIT
+            )
+            if not due:
+                wait_for_due(s, items, last, tick)  # False: the loop says why
+                return None
+        target = due.pop(0)
+        if tick:
+            tick()
+        outcome, answer = appraise(s, target, options["careful"], held)
+        focus_note(s, focus, answer)
+        if outcome == "no hand":
+            return None  # both hands full: the next lap
+        last[target["key"]] = clock()
+        if outcome != "ok":
+            items.remove(target)
+            reason = DROPPED[outcome].format(label=target["label"])
+            s.echo(f"appraise: {reason} — out of the rotation ({len(items)} left)")
+            if not items:
+                return "nothing left to appraise"
+            return None
+        if not counts["reported"]:
+            counts["reported"] = True
+            first = (answer.strip().splitlines() or ["(silence)"])[0]
+            s.echo(f"appraise: {target['label']} answered {first!r}")
+        return None
+
+    def finish(s, why):
+        if held["back"] and not getattr(s, "dead", False):
+            # A ;stop between the GET and the PUT: back it goes all the same.
+            hands.cleanup(s, held["back"])
+            s.echo("appraise: the item in hand went back where it came from")
+
+    return trainer.train(
+        s,
+        "appraise",
+        SKILL,
+        step,
+        until=options["until"],
+        once=options["once"],
+        again="appraising again",
+        finish=finish,
+        tick=tick,
+        ask=ask,
+    )
 
 
 def main(s):
