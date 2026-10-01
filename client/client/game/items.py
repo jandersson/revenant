@@ -1,31 +1,31 @@
-"""Items (#407): a thing named by its id when a hand holds it and whole
-otherwise, the containers INV LIST showed, a LOOK IN listing parsed, a
-COUNT read, the game's "no room" wordings — one way each.
+"""Items: a thing named by its id when held and whole otherwise, the
+containers INV LIST showed, a listing or a COUNT parsed, "no room".
 
-    items.ref(s, "flowers")                 # "#136104233" when a hand holds that noun, else None
-    items.name(s, "dried red flowers")      # the ref when held, else the name as given: what a command takes
-    items.containers(possessions)           # the nouns of every container INV LIST shows holding something
-    items.containers(possessions, holding="dried", skip=("mortar",))   # ... whose contents name the word
-    items.listed(answer)                    # the items a LOOK IN or OPEN answer lists; [] empty; None no listing
-    items.listed_nouns(answer)              # their nouns
-    items.count(answer)                     # COUNT's pieces, None when it gives none
-    items.stowed_in(answer)                 # the container a STOW's "You put your X in your Y." names, or ""
-    items.NO_ROOM                           # what a full container answers
+    items.name(s, "dried red flowers")   # "#<exist>" when a hand holds it, else the name as given
+    items.ref(s, "flowers")              # the id, or None
+    items.containers(possessions, holding="dried", skip=("mortar",))   # listing order, each once
+    items.listed(answer)                 # a LOOK IN answer's items; [] empty, None no listing
+    items.listed_nouns(answer)           # their nouns
+    items.count(answer)                  # COUNT's pieces, or None
+    items.stowed_in(answer)              # the container a STOW answer names
+    items.no_room(answer)                # a full container (NO_ROOM, the one table)
 
-A bare noun takes the first item of that noun, whatever kind: GET MY
-ROPE took a looted lead rope (#399), GET MY FLOWERS a fresh stack among
-the dried (#406). So a command names an item whole ("bundling rope",
-"dried red flowers") or, when a hand holds it, by the id the hand tag
-carries (#402, docs/protocol.md "Items by id"): `put #136104233 in my
-backpack`, `combine #a with #b`. Six container listers, three LOOK IN
-parsers, two COUNT parsers and two "no room" tables said these things
-their own ways before.
+A bare noun takes the first item of that noun, whatever kind: name an
+item whole, or by its id when a hand holds it (docs/protocol.md
+"Items by id").
 """
 
 import re
 
 from client.game import hands
 from client.game.possessions import noun_of
+
+_NOTES = """
+GET MY ROPE took a looted lead rope (#399), GET MY FLOWERS a fresh stack
+among the dried (#406); a held item answers to the id its hand tag
+carries (#402). Six container listers, three LOOK IN parsers, two COUNT
+parsers and two "no room" tables said these their own way before #407.
+"""
 
 # A full container (captured 2026-09-21 #262, 2026-09-28 #283): "There
 # isn't any more room in the sack for that.", "...would push you over
@@ -68,11 +68,10 @@ def name(s, item):
 
 
 def containers(possessions, holding=None, skip=()):
-    """The nouns of the containers the parser's INV LIST shows holding
-    something, each once in listing order. `holding` narrows to the
-    containers of items whose name carries that word, or that a callable
-    on the item accepts; `skip` leaves nouns out (the mortar, the loot
-    container)."""
+    """The nouns of the containers INV LIST shows holding something, each
+    once in listing order; `holding` narrows to the containers of items
+    whose name carries that word (or that a callable accepts), `skip`
+    leaves nouns out."""
     by_exist = {item.get("exist"): item for item in possessions or []}
     skipped = {str(noun).lower() for noun in skip}
     found = []

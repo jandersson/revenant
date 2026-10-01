@@ -1,32 +1,30 @@
-"""The loop every skill trainer runs (#407): danger, a typed return that
-finishes the step in hand, the mind-lock gate and the hold — the script
-supplies its step and its words.
+"""The loop every skill trainer runs: the step until the lock, the hold
+until the drain, a typed return between steps, danger to the escape.
 
-    def step(s):                     # one unit of training
-        ...                          # None to go on, a reason (text) to end
+    def step(s): ...                   # one unit of training; None to go on, a reason to end
     why = trainer.train(s, "mechlore", "Mechanical Lore", step, again="braiding again")
+    trainer.hold_at_lock(s, "cast", skills, until, again="casting again")   # the hold alone
 
-train() ends with the reason, said once the common way: "you are dead"
-or "hostiles in the room" (loop.danger's words, flight.react first for
-the hostiles), "return" (a typed `;<name> return`: "returning as
-asked"), "locked" (`once=True` and the skill at `until`), "no skill"
-(EXP shows none), or whatever the step returned (said as "<prefix>:
-<reason> — stopping"). `finish(s, why)` runs at every end, a `;stop`
-included (a finally), for the stow or the walk home. The interludes
-run at every safe point, since loop.wants_stop is one.
-
-hold_at_lock() is the hold alone, for a loop not yet on train(): nine
-scripts (attune, cast, remedies, appraise, boxes, research,
-scholarship, listen, perform) said the same thing nine ways. At
-`until`, wait in LOCK_POLL slices until a skill drains to RESUME_BELOW
-(or under the target, when lower); False when a return or a danger
-interrupts. Several skills (a cast rotation) lock when every one the
-window lists is at `until`, and drain when any one is back under the
-floor.
+train() ends with the reason: "you are dead", "hostiles in the room"
+(flight.react first), "return", "locked" (once=True), "no skill", or
+the step's own, said as "<prefix>: <reason> — stopping". finish(s, why)
+runs at every end, a ;stop included. `skills` may be a callable for a
+set that changes mid-run; ensure=False skips the EXP check.
 """
 
 from client.game import act, flight
 from client.game.loop import danger, ensure_mindstate, mindstate, pause, wants_stop
+
+_NOTES = """
+Nine scripts carried the hold (attune, cast, remedies, appraise, boxes,
+research, scholarship, listen, perform), each with its own wording;
+several skills (a cast rotation) lock when every listed one is at the
+target and drain when any one is back under the floor. A frozen skill
+set broke ;cast (its watched skills grow after the first DISCERN and
+shrink when POWER is dropped) and ;research (an unknown ability leaves),
+hence the callable. loop.wants_stop keeps a typed return for the run,
+since a pause inside a step reads the word before the loop's own check.
+"""
 
 MIND_LOCK = 34  # mindstate 34/34: nothing more fits
 RESUME_BELOW = 28  # resume once enough has drained to be worth a round
@@ -132,12 +130,8 @@ def train(
     ensure=True,
 ):
     """Run `step(s)` until the skill locks (then hold, or end with
-    `once`), a typed return, a death or hostiles, or the step returns a
-    reason; the reason returned, `finish(s, why)` run at every end.
-    `skills` may be a callable for a set that changes during the run
-    (read afresh every round); `ensure=False` skips the EXP check for a
-    script that trains a skill the window may not list yet (a
-    Barbarian's research teaches one he has no ranks in)."""
+    `once`), a typed return, a danger, or a reason from the step; the
+    reason returned, `finish(s, why)` run at every end."""
     ask = ask or act.ask
     why = None
     try:

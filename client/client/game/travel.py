@@ -1,24 +1,24 @@
-"""One way to walk (#407): the map parsed once, the target resolved
-like a ;go2 target, settings.json's avoid_rooms routed around on every
-walk, the walker's own echoes.
+"""The one way to walk: a ;go2 target resolved, avoid_rooms routed around.
 
-    travel.go(s, "bank", "the bank teller")   # a tag, an id, a title, or ids outright
-    travel.go(s, profile["home"], "home")
+    travel.go(s, "bank", "the bank teller")   # a tag, an id, a title, or ids; True on arrival
     travel.here(s)                            # the map id of the room, or None
-    travel.mapdb()                            # the map (MapDB.load, cached)
+    travel.mapdb()                            # the map, parsed once
     travel.avoided(db)                        # settings.json's avoid_rooms as ids
 
-Seven of the twenty-two walking scripts honoured avoid_rooms before
-this; the rest resolved and walked their own way, each with its own
-"nothing in the map matches" line. A script that injects a walker for
-its tests passes it as `walk=` (it takes the walker's arguments, `avoid`
-included) and the map as `db=`; `avoid=()` walks through anything
-(;go2 direct).
+A test passes its fakes as db= and walk= (the walker's arguments, avoid
+included); avoid=() walks through anything. go() says "nothing in the
+map matches <describe>" and returns False when nothing does.
 """
 
 from client.game import walker
 from client.game.mapdb import MapDB
 from client.settings import setting
+
+_NOTES = """
+Seven of the twenty-two walking scripts honoured avoid_rooms before
+#407; the rest resolved and walked their own way, each with its own
+"nothing in the map matches" line.
+"""
 
 
 def mapdb():

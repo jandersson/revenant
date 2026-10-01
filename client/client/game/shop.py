@@ -1,25 +1,30 @@
-"""Buying (#407): the quote read, the sale closed the shop's way, the
-purse topped up first — one buy() and one afford() for the four
-scripts that each wrote them (;remedies, ;heal, ;boxes, ;outfit).
+"""Buying: the quote read, the sale closed the shop's way, the purse
+topped up first.
 
     if shop.afford(s, ask, "remedies", need, "Kronars", db=mapdb, walk=walk):
-        price = shop.buy(s, ask, "remedies", "order 7", expect="nugget")
+        price = shop.buy(s, ask, "remedies", "order 7", expect="nugget")   # the copper paid, or None said
 
-Shops close a sale three ways, and the quote's own line says which: a
-catalog merchant haggles — ORDER quotes ("I can let that go for...62
-kronars", "prepared to offer it to you for 125 kronars"), OFFER
-<amount> buys, and a second ORDER answers "We're still dealing" (#234);
-a society's shop sells by ORDER twice ("You can purchase a coal nugget
-for 120 Kronars. Just order it again and we'll see it done!"); a plain
-shop takes BUY (;outfit's Tobb's: outside buy(), its answer judged by
-client/game/outfit.py). A quote left open blocks every ORDER ("one
-negotiation at a time"): buy() REFUSEs it and asks again. A purchase
-the merchant "places on the counter" is taken from it.
+buy() ORDERs (an open quote REFUSEd first), reads the quote (shop.quote),
+checks the item (expect=) and the price (purse=, max_price=), closes
+the sale the way the quote says — a society's ORDER again, a haggler's
+OFFER — and takes a purchase left on the counter. It does not stow.
+afford() reads WEALTH and has bank.withdraw fetch the shortfall.
 """
 
 import re
 
 from client.game import act, bank, money, travel, walker
+
+_NOTES = """
+A catalog merchant haggles: ORDER quotes ("I can let that go for...62
+kronars", "prepared to offer it to you for 125 kronars"), OFFER buys,
+a second ORDER answers "We're still dealing" (#234). A society's shop
+sells by ORDER twice ("Just order it again and we'll see it done!").
+A plain shop takes BUY (;outfit's Tobb's, judged by client/game/outfit.py).
+A quote left open blocks every ORDER ("one negotiation at a time").
+Four scripts wrote this flow before #407 (;remedies, ;heal, ;boxes,
+;outfit).
+"""
 
 # The quote: the item (when the merchant names it) and the price, in
 # copper of the shop's coin, whatever the merchant's phrasing.
@@ -73,11 +78,9 @@ def quote(answer):
 
 
 def buy(s, ask, prefix, order, *, expect=None, purse=None, max_price=None, noun=None):
-    """ORDER (the `order` command), the quote checked — against `expect`
-    (a word the quoted item must carry), `purse` and `max_price` (copper)
-    — and the sale closed the shop's way; the price paid, or None said
-    when the shop kept the item. A purchase left on the counter is got
-    from it by `noun` (the quoted item's last word by default)."""
+    """ORDER with `order`, check the quote, close the sale; the price paid
+    in copper, or None said when the shop kept the item. A counter
+    purchase is got by `noun` (the quoted item's last word by default)."""
     answer = ask(s, order)
     lowered = answer.lower()
     if any(word in lowered for word in OPEN_ORDER):

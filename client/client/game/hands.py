@@ -1,26 +1,26 @@
-"""The hands (#407): what they hold off the parser's tags, a hand freed
-by STOW — never DROP — with the answer judged, a weapon sheathed, and
-the put-back a ;stop still sends.
+"""The hands: what they hold, a hand freed by STOW (never DROP), the
+put-back a ;stop still sends.
 
-    hands.held(s)                              # {"left": noun or None, "right": noun or None}
-    hands.nouns(s)                             # the nouns held, left then right
-    hands.holding(s, "bundle")                 # True when a hand holds that noun
-    hands.full(s) / hands.empty(s)
-    hands.free(s, keep=("mortar", "pestle"), ask=ask)   # STOW what is not kept; the nouns that went
-    hands.free_one(s, keep=(), ask=ask)        # both full: the first not kept STOWed; True once a hand is free
-    hands.stow(s, noun, ask=ask)               # one STOW, True unless the answer refused it
-    hands.sheathe(s, weapon, container, ask=ask)   # SHEATHE into the container; STOW when the game asks where
-    hands.at_end(s, ("pestle", "mortar"))      # a finally's put-backs: STOW each still held, as cleanup puts
+    hands.held(s)                                # {"left": noun, "right": noun}, None for empty
+    hands.holding(s, "bundle")                   # also full(s), empty(s), nouns(s), tags(s), side_of(s, noun)
+    hands.free(s, keep=("mortar",), ask=ask)     # STOW what is not kept; the nouns that went
+    hands.free_one(s, ask=ask)                   # both full: the first STOWed; True once a hand is free
+    hands.stow(s, noun, ask=ask)                 # one STOW, True unless the answer refused it
+    hands.sheathe(s, weapon, container, ask=ask) # STOW when the game asks where
+    hands.at_end(s, ("pestle", "mortar"))        # a finally's STOWs, as cleanup puts
 
-Twenty places read the hand tags their own way and a dozen freed a
-hand each its own way (a keep-list, the left only, a cascade), and
-five put things back at a `;stop` (#395 came from one that did not).
-A script passes its own `ask` so a test's fake answers the STOW; the
-parser's hand state lags the answer, so the answer is the judge of a
-stow, never the tags right after it.
+Pass the script's ask so a test's fake answers the STOW. The answer is
+the judge, never the tags right after it (they lag); an id ("#123")
+goes out bare.
 """
 
 from client.game import act
+
+_NOTES = """
+Twenty places read the hand tags their own way and a dozen freed a hand
+each its own way (a keep-list, the left only, a cascade) before #407;
+five put things back at a ;stop, and #395 came from one that did not.
+"""
 
 SIDES = ("left", "right")
 # What a refused STOW says beyond the not-found wordings: the container
