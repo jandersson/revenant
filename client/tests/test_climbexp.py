@@ -27,8 +27,6 @@ def _climbexp():
 
 
 climbexp = _climbexp()
-climbexp.COLLECT_SECONDS = 0.01
-climbexp.TAIL_SECONDS = 0.01
 climbexp.ARRIVAL_TIMEOUT = 0.05
 climbexp.BETWEEN = 0
 

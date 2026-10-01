@@ -37,6 +37,7 @@ import re
 from time import monotonic
 
 from client.game import probe
+from client.game.act import ask
 from client.game.climblog import (
     hindering_line,
     open_history,
@@ -54,8 +55,6 @@ CAP = 20  # attempts after the train, a fuse
 HEALTH_FLOOR = 70  # % — below it the experiment ends
 ARRIVAL_TIMEOUT = 15  # seconds for the compass frame after a climb
 BETWEEN = 2  # seconds between attempts, past the roundtime
-COLLECT_SECONDS = 3  # a command's answer, opening window
-TAIL_SECONDS = 1.5  # ... and the tail past its roundtime
 _STAT = re.compile(rf"({'|'.join(STATS)})\s*:\s*(\d+)")
 _TDPS = re.compile(r"TDPs\s*:\s*(\d+)")
 _ENC = re.compile(r"Encumbrance\s*:\s*(.+)")
@@ -72,10 +71,6 @@ def parse_args(args):
         else:
             words.append(arg)
     return " ".join(words), options
-
-
-def ask(s, command):
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
 
 
 def athletics(state):
