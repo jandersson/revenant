@@ -29,6 +29,7 @@ skills runs it once per cycle (client/game/bank.py is the model).
 Stops on death. Stop with:  ;stop bank.
 """
 
+from client.game import travel
 from client.game.act import ask
 from client.game.bank import (
     deposit,
@@ -64,10 +65,7 @@ def exchange(s, mapdb, walk_fn, currencies, home):
     changers = [room for room in changers if room_currency(mapdb, room) == home] or (
         changers
     )
-    if not changers:
-        s.echo("bank: the map has no room tagged 'exchange' — the foreign coins stay")
-        return False
-    if not walk_fn(s, mapdb, set(changers), describe="the money-changer"):
+    if not travel.go(s, set(changers), "the money-changer", db=mapdb, walk=walk_fn):
         s.echo("bank: could not reach a money-changer — the foreign coins stay")
         return False
     exchange_each(s, ask, "bank", currencies, home)
@@ -126,15 +124,13 @@ def run(s, words, mapdb, walk_fn=walk):
         # alchemy kit; an outside WITHDRAW the session refuses, #161 —
         # the script's own is the sanctioned one).
         s.echo(f"bank: {empty} — withdrawing the {options['keep']} copper keep")
-        if not tellers or not walk_fn(
-            s, mapdb, set(tellers), describe="the bank teller"
-        ):
+        if not travel.go(s, set(tellers), "the bank teller", db=mapdb, walk=walk_fn):
             s.echo("bank: could not reach a teller — nothing withdrawn")
             return
         withdraw_back(s, options["keep"], home)
         refresh_wealth(s)
         if options["back"] and start is not None and locate(mapdb, s.state) != start:
-            if not walk_fn(s, mapdb, {start}, describe="where you started"):
+            if not travel.go(s, start, "where you started", db=mapdb, walk=walk_fn):
                 s.echo("bank: could not walk back — you are at the bank")
         return
     if currencies:
@@ -149,7 +145,7 @@ def run(s, words, mapdb, walk_fn=walk):
         withdraw_back(s, options["keep"], home)
     refresh_wealth(s)
     if options["back"] and start is not None and locate(mapdb, s.state) != start:
-        if not walk_fn(s, mapdb, {start}, describe="where you started"):
+        if not travel.go(s, start, "where you started", db=mapdb, walk=walk_fn):
             s.echo("bank: could not walk back — you are at the bank")
 
 
