@@ -44,8 +44,10 @@ from client.game import (
     barbarian,
     buffs,
     flight,
+    hands,
     hunting,
     interlude,
+    items,
     loot,
     lootlog,
     probe,
@@ -348,11 +350,8 @@ _DEAD_NOUN = re.compile(r"The ((?:[\w'-]+ )*?)([\w'-]+) is already quite dead")
 CORPSE_SWINGS = 2
 # The game's two "no such thing" wordings are act.NOT_FOUND: a SEARCH
 # answered the second went unrecognized on 2026-09-20, so every table
-# that knows the first knows both.
-# A container with no room left (captured 2026-09-21, #262): "There
-# isn't any more room in the sack for that." — the bare STOW answered
-# the same, its default being that sack.
-_NO_ROOM = ("any more room", "no room for", "won't fit")
+# that knows the first knows both. A container with no room left
+# (#262) is items.no_room.
 # ATTACK from pole or missile range advances first (docs/combat.md;
 # captured 2026-09-12): "You aren't close enough to attack." / "You
 # begin to advance on a ship's rat." / "You are already advancing on a
@@ -442,9 +441,6 @@ TRACK_MISSES = 3  # unrecognized HUNT answers before the step goes off
 # stowed loose until the sack was full and one went to the backpack.
 ROPE = "bundling rope"
 BUNDLE_REFUSALS = 3  # refusals in a row before a run stops trying
-# SHEATHE with no container named and nothing remembered from a WIELD
-# (captured 2026-09-22): "Sheathe your steel scimitar where?"
-_SHEATHE_WHERE = ("where?",)
 
 
 def hostiles(state):
@@ -789,11 +785,8 @@ def clear_hands(s, profile):
     parry stick), and a tool left in hand from the last run would take
     the other hand the next one needs — PUNCH wants a free hand (the
     operator's parry stick, 2026-09-20). Never DROP."""
-    keep = (profile.get("weapon") or "").lower()
-    for side in ("left", "right"):
-        noun = hand(s, side)
-        if noun and noun.lower() != keep:
-            ask(s, f"stow my {noun}")
+    weapon = profile.get("weapon") or ""
+    hands.free(s, keep=(weapon,) if weapon else (), ask=ask)
 
 
 def ready(s, profile, tally=None, index=0):
@@ -813,29 +806,13 @@ def unready(s, profile):
     container, or — no container named — where WIELD drew it from; a
     "Sheathe your ... where?" (nothing remembered) falls back to STOW."""
     weapon = profile["weapon"]
-    if not weapon:
-        return
-    container = profile["weapon_container"]
-    command = (
-        f"sheathe my {weapon} in my {container}"
-        if container
-        else f"sheathe my {weapon}"
-    )
-    answer = ask(s, command).lower()
-    if any(word in answer for word in _SHEATHE_WHERE):
-        ask(s, f"stow my {weapon}")
+    if weapon:
+        hands.sheathe(s, weapon, profile["weapon_container"], ask=ask)
 
 
 def free_hand(s, profile):
     """The weapon out of the hand for a moment: sheathed, or stowed."""
     unready(s, profile)
-
-
-def hand(s, side):
-    """The noun in a hand as the parser knows it — None for an empty
-    hand, and None for a handle that has no hand state at all."""
-    held = getattr(s.state, f"{side}_hand", None)
-    return held.get("noun") if isinstance(held, dict) else None
 
 
 def held_skin(s, profile):
@@ -846,9 +823,8 @@ def held_skin(s, profile):
     Grek's, bought 2026-09-14, sat in the off hand after every cut and
     would have been taken for the skin.)"""
     tools = {profile["weapon"], profile.get("skin_knife") or ""}
-    for side in ("left", "right"):
-        noun = hand(s, side)
-        if noun and noun not in tools:
+    for noun in hands.nouns(s):
+        if noun not in tools:
             return noun
     return None
 
@@ -1012,11 +988,9 @@ def stow(s, profile, item):
     False when neither has room (#262), the item still in hand."""
     container = profile["loot_container"]
     if container:
-        answer = ask(s, f"put my {item} in my {container}").lower()
-        if not any(word in answer for word in _NO_ROOM):
+        if not items.no_room(ask(s, f"put my {item} in my {container}")):
             return True
-    answer = ask(s, f"stow my {item}").lower()
-    return not any(word in answer for word in _NO_ROOM)
+    return not items.no_room(ask(s, f"stow my {item}"))
 
 
 # STORE's option per loot kind and the profile key naming its
@@ -1116,7 +1090,7 @@ def pocket(s, profile, item):
         answer = ask(s, f"put my {item} in my {pouch}")
         if "you put" in answer.lower():
             return
-        if any(line in answer.lower() for line in _NO_ROOM):
+        if items.no_room(answer):
             s.echo(f"hunt: the {pouch} is full — the {item} goes with the loot (#283)")
     stow(s, profile, item)
 
@@ -1131,7 +1105,7 @@ def skin(s, profile, corpse, tally):
         # The last skin never left the off hand (2026-09-12: a rat
         # tail whose success line landed after the roundtime): stow
         # what the parser says is there, or the hand itself, and once more.
-        held = (getattr(s.state, "left_hand", None) or {}).get("noun")
+        held = hands.held(s)["left"]
         piece = profile.get("cambrinth") or ""
         if held and held == piece and profile.get("cambrinth_worn"):
             # The worn cambrinth piece, off for a charge when the kill

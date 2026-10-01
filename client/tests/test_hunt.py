@@ -285,6 +285,20 @@ def test_a_tool_left_in_hand_from_the_last_run_is_stowed_before_the_draw(travel)
     assert hunt.brawling(PROFILE) == []  # nothing to swing with none listed
 
 
+def test_the_weapon_in_hand_is_kept_by_its_noun_whatever_the_profile_calls_it(
+    travel,
+):
+    # The hand tag says "scimitar" for the profile's "steel scimitar":
+    # the clear before the draw keeps it (hands.free compares the last
+    # word, #407) instead of stowing it for WIELD to find again.
+    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
+    arena.state.left_hand = None
+    arena.state.right_hand = {"noun": "scimitar", "exist": "1"}
+    _run(arena, profile=PROFILE | {"weapon": "steel scimitar"})
+    assert arena.sent[:2] == ["wield my steel scimitar", "stance set 100 80 0"]
+    assert "stow my scimitar" not in arena.sent
+
+
 def test_a_kill_is_skinned_stowed_and_searched(travel):
     arena = _run(
         Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
