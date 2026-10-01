@@ -23,7 +23,8 @@ interrupted: "[perform] interlude: almanac studied — Bow".
 import threading
 import time
 
-from client.game import almanac, probe
+from client.game import almanac, hands
+from client.game.act import ask  # the chores' ask; a test patches the name here
 
 NEVER = {"favors"}
 # A box and a lockpick are not stowed and got back blind (GET MY BOX may
@@ -35,7 +36,6 @@ BACKGROUND = frozenset(
     ("deathwatch", "xp", "wealth", "sheet", "beholder", "lnet")
     + ("sentinel", "antiidle", "clock", "break")
 )
-ASK = 4  # seconds for a chore's answers
 PROFILE_TTL = 30  # seconds a profile read serves the safe points
 
 _NOTES = """
@@ -58,10 +58,6 @@ _PENDING = set()
 _LOCK = threading.Lock()
 _PROFILE = {}  # profile file -> (read at, profile)
 clock = time.monotonic  # tests replace it
-
-
-def ask(s, command):
-    return probe.ask(s, command, ASK, 0.5)
 
 
 def profile(character):
@@ -131,10 +127,7 @@ def _sweep(s, forced):
 def _sweep_hand(s):
     if "sweep" in _PENDING:
         return True  # the dry run takes nothing in hand
-    state = s.state
-    return not (
-        getattr(state, "left_hand", None) and getattr(state, "right_hand", None)
-    )
+    return not hands.full(s)
 
 
 # name -> (due(s), run(s, forced), fits(s): True when its needs are met)
@@ -168,16 +161,15 @@ def _safe(s):
 
 
 def _make_room(s):
-    """The left hand's item STOWed so a chore has a hand: its noun, to
-    get back, or None when the STOW did not take."""
-    held = (getattr(s.state, "left_hand", None) or {}).get("noun")
+    """The left hand's item STOWed so a chore has a hand (hands.stow, the
+    answer the judge): its noun, to get back, or None when the STOW was
+    refused."""
+    held = hands.held(s)["left"]
     if not held:
         return None
     s.waitrt()
-    answer = ask(s, f"stow my {held}").lower()
-    if "you put" not in answer:
-        first = (answer.strip().splitlines() or ["(silence)"])[0]
-        s.echo(f"interlude: could not stow the {held} ({first!r}) — the chore waits")
+    if not hands.stow(s, held, ask=ask):
+        s.echo(f"interlude: could not stow the {held} — the chore waits")
         return None
     return held
 
@@ -188,7 +180,7 @@ def _restore(s, noun):
         answer = ask(s, f"get my {noun}").lower()
     except Exception:
         # ;stop mid-chore: the item goes back to the hand all the same.
-        s.put(f"get my {noun}", cleanup=True)
+        hands.cleanup(s, f"get my {noun}")
         raise
     if not any(word in answer for word in ("you get", "you pick", "you remove")):
         first = (answer.strip().splitlines() or ["(silence)"])[0]
