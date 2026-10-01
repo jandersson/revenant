@@ -155,7 +155,7 @@ def profile(monkeypatch, tmp_path):
 
 
 def run(fake, args=()):
-    script.probe = SimpleNamespace(ask=fake.ask)
+    script.ask = fake.ask
     script.to_master = lambda s, profile: True  # the walks are the walker's
     script.find_master = lambda s, profile, master, **_: True
     script.walk_to = lambda s, target, describe: fake.walked.append(str(target)) or True
@@ -877,7 +877,7 @@ def test_an_ask_that_finds_him_gone_looks_again_once():
     # He shuffled away between the arrival and the ASK: one more search
     # and one more ASK, then the order.
     fake = Fake({"ask lanshado for easy remedies work": [NOT_HERE, ORDER]})
-    script.probe = SimpleNamespace(ask=fake.ask)
+    script.ask = fake.ask
     sought = []
     parsed = script.order(
         fake, "lanshado", "easy", seek=lambda: sought.append(1) or True
@@ -1061,7 +1061,7 @@ def test_a_full_stack_the_combine_refuses_is_the_one_used():
             "depth": 1,
         },
     ]
-    script.probe = SimpleNamespace(ask=fake.ask)
+    script.ask = fake.ask
     assert script.full_stack(fake, "dried flowers") is True
     assert "put my second dried flowers in my backpack" in fake.sent
     assert "stow my flowers" not in fake.sent
@@ -1303,7 +1303,7 @@ WRONG_SIZE = (
 def _fetching(answers):
     fake = Fake(answers)
     fake.state.possessions = PACK
-    script.probe = SimpleNamespace(ask=fake.ask)
+    script.ask = fake.ask
     return fake
 
 
@@ -1346,6 +1346,15 @@ def test_a_herb_stack_too_short_to_top_up_is_stowed_and_bought_for():
     assert "put my dried flowers in my mortar" not in fake.sent
     assert "stow my dried flowers" in fake.sent
     assert any("fewer than 25 pieces" in text for text in fake.echoed)
+
+
+def test_the_stack_in_hand_is_counted_by_its_id_when_the_tag_carries_one():
+    # #402: a bare COUNT MY FLOWERS names the first stack of that noun,
+    # whatever kind; the hand tag's id names the one held (items.name).
+    fake = _fetching({"count #77": ["You count out 25 pieces of material there.\n"]})
+    fake.state.left_hand = {"noun": "flowers", "name": "red flowers", "exist": "77"}
+    assert script.full_stack(fake, "dried flowers") is True
+    assert fake.sent == ["count #77"]
 
 
 def test_a_remedy_of_another_stack_size_is_kept_not_bundled_or_dropped():
@@ -1391,7 +1400,7 @@ def test_a_return_during_a_forage_lets_it_press_and_finishes_the_order(
     fake = Foraging({}, polls=3)
     words = iter(["return"])
     fake.command = lambda timeout=None: next(words, None)
-    script.probe = SimpleNamespace(ask=fake.ask)
+    script.ask = fake.ask
     bought = []
     monkeypatch.setattr(script, "buy", lambda *args: bought.append(args) or True)
     tally = {"spent": 0}
@@ -1417,7 +1426,7 @@ def test_the_herb_is_fetched_dried_never_a_fresh_stack_of_its_noun():
 
 def test_a_herb_run_out_is_foraged_once_an_order_before_any_is_bought(monkeypatch):
     fake = Foraging({})
-    script.probe = SimpleNamespace(ask=fake.ask)
+    script.ask = fake.ask
     bought = []
     monkeypatch.setattr(
         script,
@@ -1442,7 +1451,7 @@ def test_a_herb_run_out_is_foraged_once_an_order_before_any_is_bought(monkeypatc
 
 def test_without_forage_herbs_the_herb_is_bought(monkeypatch):
     fake = Foraging({})
-    script.probe = SimpleNamespace(ask=fake.ask)
+    script.ask = fake.ask
     bought = []
     monkeypatch.setattr(
         script,

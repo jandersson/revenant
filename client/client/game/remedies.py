@@ -81,6 +81,8 @@ herb list. Sources: docs/bibliography.md.
 
 import re
 
+from client.game import items
+
 # The apprentice book's recipes as its pages state them (2026-09-22):
 # chapter, page, the controlling herb (a 25-piece dried stack per 5-use
 # remedy), the second herb the page asks one piece of (or None), the
@@ -150,43 +152,27 @@ FORAGE_NAMES = {"flowers": "red flower"}
 STACK_PIECES = 25
 WRONG_SIZE = ("calls for stacks of",)
 COMBINED = ("you combine",)
-PIECES = re.compile(r"count out (\d+) pieces?")
 
 
 def pieces(answer):
-    """COUNT's pieces ("You count out 12 pieces of material there."), or
-    None for an answer that gives none."""
-    match = PIECES.search(str(answer or "").lower())
-    return int(match.group(1)) if match else None
+    """COUNT's pieces, or None when the answer gives none (items.count;
+    herbstacks imports it here)."""
+    return items.count(answer)
 
 
 def containers_of(possessions):
-    """The container nouns the parser's INV LIST shows holding anything,
-    in listing order — where another stack of a herb may be."""
-    by_exist = {entry.get("exist"): entry for entry in possessions or []}
-    nouns = []
-    for entry in possessions or []:
-        holder = by_exist.get(entry.get("container_exist")) or {}
-        noun = str(holder.get("noun") or "").lower()
-        if noun and noun != "mortar" and noun not in nouns:
-            nouns.append(noun)
-    return nouns
+    """The container nouns INV LIST shows holding anything, the mortar
+    left out, in listing order (items.containers) — where another stack
+    of a herb may be."""
+    return items.containers(possessions, skip=("mortar",))
 
 
 def containers_with(possessions, word):
     """The container nouns whose INV LIST contents name `word` ("dried",
-    "flowers"), in listing order: where a herb may be. The gem pouch
-    was LOOKed IN for herbs until 2026-10-01 (#402)."""
-    by_exist = {entry.get("exist"): entry for entry in possessions or []}
-    nouns = []
-    for entry in possessions or []:
-        if word.lower() not in str(entry.get("name") or "").lower():
-            continue
-        holder = by_exist.get(entry.get("container_exist")) or {}
-        noun = str(holder.get("noun") or "").lower()
-        if noun and noun != "mortar" and noun not in nouns:
-            nouns.append(noun)
-    return nouns
+    "flowers"), the mortar left out, in listing order (items.containers):
+    where a herb may be. The gem pouch was LOOKed IN for herbs until
+    2026-10-01 (#402)."""
+    return items.containers(possessions, holding=word, skip=("mortar",))
 
 
 _IN_MORTAR = re.compile(

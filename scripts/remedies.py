@@ -44,7 +44,8 @@ long enough to finish one). The recipes and wordings are client/game/remedies.py
 import logging
 import time
 
-from client.game import discard, flight, herbstacks, probe, trainer, travel
+from client.game import discard, flight, hands, herbstacks, items, trainer, travel
+from client.game.act import ask, missing
 from client.game.loop import danger, ensure_mindstate, mindstate, wants_stop
 from client.game.probe import classify
 from client.game.money import parse_wealth, phrase
@@ -210,8 +211,6 @@ Stop with:  ;stop remedies, or ;remedies return.
 """
 
 SKILL = "Alchemy"
-COLLECT_SECONDS = 3
-TAIL_SECONDS = 1.5
 MAX_CRUSHES = 400  # the fuse under the loop
 MISSES = 3  # unrecognized CRUSH answers before the run ends
 REFUSALS = 2  # "Crush what?" answers in a row before the run ends
@@ -219,10 +218,6 @@ STUDIES = 2  # STUDYs per remedy before the recipe is called wrong
 DEFAULT_MASTER = "lanshado"
 DEFAULT_HALL = "8860"  # the Crossing Alchemy Society's Tool Shop
 MASTER_LAPS = 2  # laps of the building's rooms looking for the master
-
-
-def ask(s, command):
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS).lower()
 
 
 def profile_of(s):
@@ -234,29 +229,16 @@ def profile_of(s):
     return load_profile(name)
 
 
-def hand_nouns(s):
-    nouns = []
-    for side in ("left", "right"):
-        held = getattr(s.state, f"{side}_hand", None)
-        if isinstance(held, dict) and held.get("noun"):
-            nouns.append(held["noun"].lower())
-    return nouns
-
-
 def clear_hands(s, profile):
     """The weapon SHEATHEd into its container, anything else STOWed:
     the mortar and the pestle want both hands. Never DROP."""
     weapon = (profile.get("weapon") or "").lower()
     container = profile.get("weapon_container") or ""
-    for noun in hand_nouns(s):
-        if noun == weapon and container:
-            ask(s, f"sheathe my {noun} in my {container}")
-        else:
-            ask(s, f"stow my {noun}")
-
-
-def missing(answer):
-    return "referring" in answer or "could not find" in answer
+    keep = ()
+    if weapon and container and hands.holding(s, weapon):
+        hands.sheathe(s, weapon, container, ask=ask)
+        keep = (weapon,)
+    hands.free(s, keep=keep, ask=ask)
 
 
 def study(s, chapter, page, what):
@@ -277,11 +259,12 @@ def study(s, chapter, page, what):
     s.waitrt()
     ask(s, "stow my book")
     ask(s, "get my pestle")
-    if any(word in answer for word in TOO_HARD):
+    lowered = answer.lower()
+    if any(word in lowered for word in TOO_HARD):
         s.echo(
             f"remedies: {what} is beyond the ranks — mishaps ahead, the crushes still teach"
         )
-    if not any(word in answer for word in STUDIED):
+    if not any(word in lowered for word in STUDIED):
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         s.echo(f"remedies: STUDY answered {first!r} — stopping")
         return False
@@ -313,9 +296,10 @@ def fetch_into_mortar(s, noun, what):
         return False
     verb = "pour" if what == "water" else "put"
     answer = ask(s, f"{verb} my {noun} in my mortar")
-    if what == "herb" and any(word in answer for word in MORTAR_FULL):
+    lowered = answer.lower()
+    if what == "herb" and any(word in lowered for word in MORTAR_FULL):
         ask(s, f"stow my {noun}")  # the mortar took its 25; the rest back
-    if any(word in answer for word in MORTAR_BUSY):
+    if any(word in lowered for word in MORTAR_BUSY):
         # Another remedy is in progress in the mortar (2026-09-23): the
         # herb stays in hand for the caller, the pestle comes back up.
         held = remedy_in_mortar(answer)
@@ -324,7 +308,7 @@ def fetch_into_mortar(s, noun, what):
         ask(s, f"stow my {noun}")
         ask(s, "get my pestle")
         return f"busy:{name}"
-    if what == "water" and not any(word in answer for word in POURED):
+    if what == "water" and not any(word in lowered for word in POURED):
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         s.echo(f"remedies: the pour answered {first!r}")
     if what != "herb":
@@ -338,7 +322,14 @@ def full_stack(s, noun):
     is short combine the herb's other stacks into it, container by
     container (the mortar set down meanwhile, for the hand). True when
     it holds enough — or COUNT says nothing, the old way (#370)."""
-    held = pieces(ask(s, f"count my {noun}"))
+
+    def in_hand():
+        # The stack held, by its id when the hand tag carries one (#402:
+        # a bare noun takes the first item of that noun), else MY <noun>
+        # — read afresh each time, a COMBINE gives its result a new id.
+        return items.name(s, f"my {noun}")
+
+    held = pieces(ask(s, f"count {in_hand()}"))
     if held is None or held >= STACK_PIECES:
         return True
     ask(s, "stow my mortar")
@@ -352,20 +343,22 @@ def full_stack(s, noun):
         while held < STACK_PIECES:
             if missing(ask(s, f"get {noun} from my {container}")):
                 break
-            joined = ask(s, f"combine {noun} with {noun}")
+            joined = ask(s, f"combine {noun} with {noun}").lower()
             if any(word in joined for word in herbstacks.FULL + herbstacks.LEFT_OVER):
                 # One of the two is full (#402): it is the stack to use,
                 # the other goes back — 2026-10-01 stowed the full one
-                # and foraged with 96 pieces on hand.
+                # and foraged with 96 pieces on hand. Two stacks of the
+                # noun in hand: this COUNT and the PUT go by the game's
+                # own order (first, second), so both name the noun bare.
                 first = pieces(ask(s, f"count my {noun}")) or 0
                 which = "second " if first >= STACK_PIECES else ""
                 ask(s, f"put my {which}{noun} in my {container}")
-                held = pieces(ask(s, f"count my {noun}")) or held
+                held = pieces(ask(s, f"count {in_hand()}")) or held
                 continue
             if not any(word in joined for word in COMBINED):
                 ask(s, f"stow my {noun}")  # one of the two back: they would not join
                 break
-            held = pieces(ask(s, f"count my {noun}")) or held
+            held = pieces(ask(s, f"count {in_hand()}")) or held
         if held >= STACK_PIECES:
             break
     ask(s, "get my mortar")
@@ -558,7 +551,7 @@ def mortar_holds(s):
     has no page for — said, once, so it can be looked at by hand."""
     answer = ask(s, "look in my mortar")
     held = unfinished_in_mortar(answer)
-    if held is None and "unfinished" in answer:
+    if held is None and "unfinished" in answer.lower():
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         s.echo(
             f"remedies: the mortar holds something the book has no page for: {first!r}"
@@ -653,11 +646,7 @@ def tools_in_hand(s):
     # The mortar and pestle fill both hands: anything else held — a herb
     # stack ;forage left behind (2026-09-30, #395) — is stowed first,
     # never dropped, or the pestle and the book find no hand.
-    for side in ("left_hand", "right_hand"):
-        held = getattr(s.state, side, None)
-        noun = held.get("noun") if isinstance(held, dict) else None
-        if noun and noun not in ("mortar", "pestle"):
-            ask(s, f"stow my {noun}")
+    hands.free(s, keep=("mortar", "pestle"), ask=ask)
     for tool in ("mortar", "pestle"):
         if missing(ask(s, f"get my {tool}")):
             s.echo(f"remedies: no {tool} on you — stopping")
@@ -789,11 +778,7 @@ def untie_expired(s):
             s.echo(f"remedies: UNTIE answered {first!r} — please report it")
         if any(word in lowered for word in UNTIED_NONE) or not lowered.strip():
             break
-        for side in ("right_hand", "left_hand"):
-            held = getattr(s.state, side, None)
-            noun = held.get("noun") if isinstance(held, dict) else None
-            if noun and noun != "logbook":
-                ask(s, f"stow my {noun}")
+        hands.free(s, keep=("logbook",), ask=ask)
     name = getattr(s.state, "name", None) or ""
     if name:
         clear_open(name)
@@ -829,12 +814,16 @@ def order(s, master, level, seek=None):
             "resumed": True,
         }
     answer = ask(s, f"ask {master} for {level} remedies work")
-    if any(word in answer for word in NO_MASTER) and seek is not None and seek():
+    if (
+        any(word in answer.lower() for word in NO_MASTER)
+        and seek is not None
+        and seek()
+    ):
         answer = ask(s, f"ask {master} for {level} remedies work")
     if any(word in answer.lower() for word in MASTER_UNTIE):
         untie_expired(s)
         answer = ask(s, f"ask {master} for {level} remedies work")
-    if any(word in answer for word in NO_MASTER):
+    if any(word in answer.lower() for word in NO_MASTER):
         s.echo(f"remedies: {master} is not here — stopping")
         ask(s, "stow my logbook")
         return None
@@ -864,19 +853,20 @@ def bundle(s, noun, expected):
     the remedy stowed for the next order."""
     ask(s, "get my logbook")
     answer = ask(s, f"bundle my {noun} with my logbook")
+    lowered = answer.lower()
     outcome = "bundled"
-    if any(word in answer for word in REJECTED):
+    if any(word in lowered for word in REJECTED):
         outcome = "rejected"
-    elif any(word in answer for word in WRONG_SIZE):
+    elif any(word in lowered for word in WRONG_SIZE):
         # A remedy of another size than the order's stacks (#370): kept.
         outcome = "size"
         s.echo(
             f"remedies: the {noun} is not a stack of the order's size — kept; "
             f"a herb stack short of {STACK_PIECES} pieces made it"
         )
-    elif any(word in answer.lower() for word in ORDER_EXPIRED):
+    elif any(word in lowered for word in ORDER_EXPIRED):
         outcome = "expired"
-    elif not any(word in answer for word in BUNDLED):
+    elif not any(word in lowered for word in BUNDLED):
         outcome = "unknown"
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         s.echo(f"remedies: BUNDLE answered {first!r} — please report it")
@@ -906,10 +896,9 @@ def walk_to(s, target, describe):
 
 
 def carried(s):
-    """INFO's carried Kronars in copper (the answer read as the game
-    cases it: parse_wealth wants "Wealth:" and "Kronars")."""
-    answer = probe.ask(s, "info", COLLECT_SECONDS, TAIL_SECONDS)
-    return parse_wealth(answer)["carried"].get("Kronars", 0)
+    """INFO's carried Kronars in copper (parse_wealth wants the game's
+    case, "Wealth:" and "Kronars", which ask keeps)."""
+    return parse_wealth(ask(s, "info"))["carried"].get("Kronars", 0)
 
 
 def withdraw_coins(s, copper):
@@ -948,7 +937,7 @@ def buy(s, noun, count, shop, catalog, tally):
             )
             return False
         answer = ask(s, f"order {number}")
-        if not any(word in answer for word in BOUGHT):
+        if not any(word in answer.lower() for word in BOUGHT):
             first = (answer.strip().splitlines() or ["(silence)"])[0]
             s.echo(f"remedies: the purchase of {noun} answered {first!r} — stopping")
             return False
@@ -1357,17 +1346,10 @@ def run(s, options):
 
 def put_tools_away(s):
     """The pestle and the mortar out of the hands at any end, a ;stop
-    too (the cleanup put that still goes out after one): a stopped run
-    left both in hand on 2026-09-26, and the next task, ;forage, could
-    not collect with no hand free."""
-    for side in ("left_hand", "right_hand"):
-        held = getattr(s.state, side, None)
-        noun = held.get("noun") if isinstance(held, dict) else None
-        if noun in ("pestle", "mortar"):
-            try:
-                s.put(f"stow my {noun}", cleanup=True)
-            except TypeError:  # a handle without the cleanup flag
-                s.put(f"stow my {noun}")
+    too (hands.at_end: the cleanup puts that still go out after one): a
+    stopped run left both in hand on 2026-09-26, and the next task,
+    ;forage, could not collect with no hand free."""
+    hands.at_end(s, ("pestle", "mortar"))
 
 
 def main(s):
