@@ -750,6 +750,11 @@ def test_an_order_ragge_refuses_buys_nothing(monkeypatch):
     assert not script.refill_ring(run)
     assert not any(command.startswith("offer") for command in fake.sent)
     assert run.ring_empty
+    # shop.buy's line (#407): no quote in his answer, his own words quoted.
+    assert any(
+        "no quote for ORDER ORDINARY LOCKPICK — Ragge scratches his ear." in line
+        for line in fake.echoed
+    )
 
 
 # --- the frog trap's toad, and DISMANTLE (captured 2026-09-26) ---

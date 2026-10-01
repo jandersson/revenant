@@ -357,22 +357,11 @@ RING_EMPTY = ("that was the last one",)
 #   OFFER 125                Ragge hands over your lockpick.
 #   PUT MY LOCKPICK ON MY RING  You put your lockpick on your lockpick ring.
 # ("I don't believe that I sell that." answers ORDER 1.) dr-scripts'
-# DRCT.buy_item makes the same OFFER after "prepared to offer it to you".
+# DRCT.buy_item makes the same OFFER after "prepared to offer it to you";
+# client/game/shop.py's buy() reads the quote and closes the sale (#407).
 LOCKPICK_SHOP = "locksmith"
 LOCKPICK_CATALOG = {"ordinary": 125, "stout": 250, "slim": 500}
-ORDER_QUOTE = re.compile(
-    r"offer it to you for (?P<price>[\d,]+) (?P<currency>kronars|lirums|dokoras)",
-    re.IGNORECASE,
-)
-ORDER_BOUGHT = ("hands over your",)
 RING_REFUSED = ("can't", "cannot", "won't", "only", "doesn't", "what were you")
-
-
-def order_quote(text):
-    """The price a merchant's ORDER quote names ("prepared to offer it to
-    you for 125 kronars"), or None."""
-    match = ORDER_QUOTE.search(text or "")
-    return int(match.group("price").replace(",", "")) if match else None
 
 
 FREE_HAND = ("better have an empty hand first",)
