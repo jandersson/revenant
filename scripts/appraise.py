@@ -33,6 +33,7 @@ import time
 
 from client.game import probe
 from client.game import flight
+from client.game import trainer
 from client.game.appraisal import (
     CLOSED,
     EMPTY,
@@ -97,8 +98,6 @@ The CHECK's idle answer and the start's are echoed once for fixtures.
 
 SKILL = "Appraisal"
 MIND_LOCK = 34
-RESUME_BELOW = 28  # resume once enough has drained to be worth a lap
-LOCK_POLL = 30
 COLLECT_SECONDS = 2
 TAIL_SECONDS = 0.5
 MAX_LAPS = 400  # the fuse under the loop
@@ -128,23 +127,6 @@ def profile_items(s):
     from client.game.profile import load_profile
 
     return list(load_profile(name).get("appraisal_items") or [])
-
-
-def hold_at_lock(s, until, tick=None):
-    """Wait at mind-lock until the mindstate drains below RESUME_BELOW
-    (or the target, when lower), running `tick` (the focus) between
-    polls; False when the wait is interrupted."""
-    s.echo(f"appraise: {SKILL} mind-locked ({until}/34) — holding until it drains")
-    floor = min(RESUME_BELOW, until - 1)
-    while True:
-        if not pause(s, LOCK_POLL):
-            return False
-        value = mindstate(s, SKILL)
-        if value is not None and value <= floor:
-            s.echo(f"appraise: drained to {value}/34 — appraising again")
-            return True
-        if tick:
-            tick()
 
 
 def first_line(answer):
@@ -409,7 +391,14 @@ def lap(s, options, items, held, focus=None):
                 if options["once"]:
                     s.echo(f"appraise: {SKILL} at {value}/34 — done")
                     return
-                if not hold_at_lock(s, options["until"], tick):
+                if not trainer.hold_at_lock(
+                    s,
+                    "appraise",
+                    SKILL,
+                    options["until"],
+                    again="appraising again",
+                    tick=tick,
+                ):
                     s.echo("appraise: stopping")
                     return
             outcome, answer = appraise(s, target, options["careful"], held)

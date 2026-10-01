@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from client.engine.scripting import ScriptStopped
+from client.game import trainer
 
 REPO = pathlib.Path(__file__).parents[2]
 
@@ -158,7 +159,8 @@ def test_the_items_argument_and_careful_replace_the_inventory_and_quick():
 def test_it_holds_at_the_lock_and_appraises_again_once_drained(monkeypatch):
     # Locked at the start; the hold's polls read 34, 30, then 27 — below
     # 28 — and a lap runs; a typed return after two appraisals ends it.
-    monkeypatch.setattr(script, "LOCK_POLL", 1)
+    # The poll is the trainer's (#407), a second here so the sleeps add up.
+    monkeypatch.setattr(trainer, "LOCK_POLL", 1)
     fake = Fake(mindstates=[34, 34, 30, 27, 5, 6], stop_after=2)
     out = run(fake, ["until=34"])
     assert "mind-locked (34/34) — holding until it drains" in out
