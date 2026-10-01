@@ -316,3 +316,16 @@ lessons the code and docs cannot carry themselves.
 - A log watch piped through `cut` (or any stage without line buffering) delivers nothing: `tail -F log | grep --line-buffered X | cut -c...` sat silent for 30 minutes while ;train changed tasks. End the pipe at `grep --line-buffered`, or use `awk '{print; fflush()}'` (2026-09-26).
 - Never park a character Claude is driving in a hunting ground, not even for a minute: no script fights for an idle character there. Two characters meeting for a GIVE meet in a safe room (a town square, a customs gate, a guild the visitor may enter). On 2026-09-26 a low-circle character walked to the goblin ground to take coin from the operator's other character, stood idle among three musk hogs and four goblins waiting for the GIVE, and died there in five minutes with 0 favors — the Northeast Customs one step away was the right room. Check a meeting room's `room_creatures` before sending anyone there.
 - A guild's ground can refuse another guild outright ("Barbarians are not allowed to go there." on the trail to the Paladins' Guild): a route to one character's guild room is no meeting point for a character of another guild.
+
+- Since #407 every script asks the game through `client/game/act.py`
+  (`from client.game.act import ask, ...` by name), walks through
+  `travel.go`, frees a hand through `hands`, and a trainer's loop is
+  `trainer.train(s, prefix, skills, step)`. A test intercepts with
+  `script.ask = fake.ask` (never `script.probe = SimpleNamespace(...)`),
+  injects the map and the walker as `db=`/`walk=` through the script's
+  `run()` parameters, and the conftest shortens act's windows and the
+  trainer's poll for every test: setting `script.COLLECT_SECONDS` or
+  `script.LOCK_POLL` does nothing now. A trainer whose skill set
+  changes mid-run passes `skills=` as a callable; a loop that reads the
+  typed line for words other than "return" (hunt, research's caster)
+  stays its own.
