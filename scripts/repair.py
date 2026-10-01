@@ -30,11 +30,11 @@ Shops and condition bands: client/game/repair.py (Elanthipedia: Repair; dr-scrip
 repair.lic and base-town.yaml).
 """
 
-from client.game import bank, hands, travel
+from client.game import bank, hands, money, travel
 from client.game.act import ask, missing
 from client.game.loop import wants_stop
 from client.game.mapdb import MapDB
-from client.game.money import parse_wealth, phrase
+from client.game.money import phrase
 from client.game.profile import load_profile
 from client.game.repair import (
     DEFAULT_FLOOR,
@@ -367,9 +367,9 @@ def collect(s, name, places, default="worn"):
 
 
 def purse_of(s):
-    """WEALTH's carried coin per currency, or None when unreadable."""
-    carried = parse_wealth(ask(s, "wealth"))["carried"]
-    return carried or None
+    """WEALTH's carried coin per currency (money.purse), or None when
+    unreadable."""
+    return money.purse(s, ask) or None
 
 
 def walk_to_shop(s, mapdb, walk_fn, rooms=None, shops=SHOPS):
