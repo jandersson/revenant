@@ -293,7 +293,12 @@ def study(s, chapter, page, what):
 def fetch_into_mortar(s, noun, what):
     """The pestle down, `noun` GOT and PUT (water POURed) in the mortar,
     what stays in hand stowed, the pestle back up. False when the game
-    finds no such thing on you."""
+    finds no such thing on you. A herb is named `dried <herb>`: a plain
+    GET MY FLOWERS took a fresh stack of red flowers, which neither
+    counts to 25 nor combines with the dried ones, and four stacks were
+    bought with five full ones on hand (2026-10-01, #406)."""
+    if what in ("herb", "second herb"):
+        noun = f"dried {noun}"
     ask(s, "stow my pestle")
     answer = ask(s, f"get my {noun}")
     if missing(answer):
@@ -342,7 +347,9 @@ def full_stack(s, noun):
     possessions = getattr(s.state, "possessions", None)
     # Where INV LIST showed the herb, else every container (a stack
     # bought since the login listing): never the gem pouch first.
-    places = containers_with(possessions, noun) or containers_of(possessions)
+    places = containers_with(possessions, noun.split()[-1]) or containers_of(
+        possessions
+    )
     for container in places:
         while held < STACK_PIECES:
             if missing(ask(s, f"get {noun} from my {container}")):
@@ -986,19 +993,26 @@ def buy(s, noun, count, shop, catalog, tally):
 FORAGE_POLL = 5  # seconds between looks at the ;forage run
 
 
-def forage_herb(s, noun, stacks):
+def forage_herb(s, noun, stacks, tally=None):
     """;forage herb for the stacks still owed, waited out (#370): True
-    when it ran to its end, False when it would not start or the run
-    was told to stop meanwhile (the forage stopped too)."""
+    when it ran to its end, False when it would not start or the
+    character died meanwhile (the forage stopped too). A `return`
+    meanwhile finishes the order, the operator's rule: the forage is let
+    finish and press its finds — killing it mid-press left 105 fresh
+    pieces unpressed and the run bought four stacks instead (2026-10-01,
+    #406)."""
     name = FORAGE_NAMES[noun]
     wanted = stacks * STACK_PIECES
     s.echo(f"remedies: foraging {wanted} pieces of {name} instead of buying")
     if not s.run("forage", ["herb", *name.split(), f"pieces={wanted}"]):
         return False
     while s.is_running("forage"):
-        if s.dead or wants_stop(s):
+        if s.dead:
             s.kill("forage")
             return False
+        if wants_stop(s) and tally is not None and not tally.get("ending"):
+            tally["ending"] = True
+            s.echo("remedies: return — finishing the order in hand first")
         s.sleep(FORAGE_POLL)
     return True
 
@@ -1020,7 +1034,7 @@ def restock(s, spec, catalyst, why, remaining, tally, profile=None):
         and not tally.get("foraged")
     ):
         tally["foraged"] = True  # once an order: a short forage is bought for
-        if forage_herb(s, noun, per_stack * remaining):
+        if forage_herb(s, noun, per_stack * remaining, tally):
             return True
         s.echo(f"remedies: no {noun} foraged — buying them")
     count = max(1, per_stack * remaining)
