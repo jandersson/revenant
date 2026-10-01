@@ -96,7 +96,8 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
 - `buffs.py` buffs, training and targeted casts; `barbarian.py` a
   Barbarian's instead (ANALYZE combos, abilities, roars); `hunting.py`
   the bestiary (a ground is a map tag, a dr-scripts zone or a ;go2
-  target; `;hunt grounds`); `creatures.py` +
+  target; `;hunt grounds`) and ;hunt's pure half (the Tally, the
+  outcome tables, the kill sentence, the weapon plan — #274); `creatures.py` +
   `creatures_data.py`; `loot.py` + `lootlog.py`; `boxes.py`;
   `wounds.py`, `herbs.py`, `empathy.py`; `soul.py`; `tdp.py`;
   `money.py` (`purse`/`carried`: the one purse reader, off WEALTH),

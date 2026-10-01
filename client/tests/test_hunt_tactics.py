@@ -2,6 +2,7 @@
 Tactics is unlocked (#190), and one HUNT for tracks per empty room while
 Perception is (#194). Arena and wordings: hunt_arena.py."""
 
+from client.game import hunting
 from hunt_arena import (
     Arena,
     ELBOWED,
@@ -42,7 +43,7 @@ TRACKING = PROFILE | {"perception": True}
 def _ticking(monkeypatch, seconds):
     """A clock that advances `seconds` per command sent."""
     now = {"t": 1000.0}
-    monkeypatch.setattr(hunt, "clock", lambda: now["t"])
+    monkeypatch.setattr(hunting, "clock", lambda: now["t"])
     original_ask = hunt.ask
 
     def ask(s, command):
@@ -308,7 +309,7 @@ def test_no_maneuver_once_tactics_locks_or_with_none_listed(travel):
 
 
 def test_a_smite_keeps_its_minute_ahead_of_the_maneuvers(travel, monkeypatch):
-    monkeypatch.setattr(hunt, "clock", lambda: 1000.0)  # one smite, never again
+    monkeypatch.setattr(hunting, "clock", lambda: 1000.0)  # one smite, never again
     arena = Arena(
         {
             "smite check": [SMITE_CHECK_THREE] * 3,

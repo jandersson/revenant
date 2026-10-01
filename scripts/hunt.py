@@ -58,6 +58,44 @@ from client.game.profile import describe, load_profile
 from client.game.walker import DIRECTIONS, locate, walk
 from client.game.wounds import SEVERITIES, level, parse_health
 
+# The pure half — the tables, the kill sentence, the weapon plan, the
+# Tally — lives in client/game/hunting.py (#274, #407) and keeps its
+# names here, so `hunt.X` still reads it; what a moved function reads
+# (hunting.clock, a fuse) it reads off that module, so a test patches
+# `hunting`, never the script.
+Tally = hunting.Tally
+MIND_LOCK = hunting.MIND_LOCK
+DEFAULT_WOUND_FLOOR = hunting.DEFAULT_WOUND_FLOOR
+DEFAULT_WEAPON_TARGET = hunting.DEFAULT_WEAPON_TARGET
+TURN_STALL_SWINGS = hunting.TURN_STALL_SWINGS
+SMITE_INTERVAL = hunting.SMITE_INTERVAL
+TACTICS_EVERY = hunting.TACTICS_EVERY
+FISTS = hunting.FISTS
+SKIN_OUTCOMES = hunting.SKIN_OUTCOMES
+SEARCH_OUTCOMES = hunting.SEARCH_OUTCOMES
+BUNDLE_OUTCOMES = hunting.BUNDLE_OUTCOMES
+TAP_OUTCOMES = hunting.TAP_OUTCOMES
+is_kill = hunting.is_kill
+kill_noun = hunting.kill_noun
+items_in = hunting.items_in
+named = hunting.named
+free_smites = hunting.free_smites
+wound_floor = hunting.wound_floor
+maneuvers = hunting.maneuvers
+brawling = hunting.brawling
+parse_weapon = hunting.parse_weapon
+weapon_plan = hunting.weapon_plan
+has_turns = hunting.has_turns
+fists_turn = hunting.fists_turn
+plain_swing = hunting.plain_swing
+turn_target = hunting.turn_target
+mindstate_of = hunting.mindstate_of
+rank_of = hunting.rank_of
+locked = hunting.locked
+stalled_turn = hunting.stalled_turn
+farming = hunting.farming
+swing_verb = hunting.swing_verb
+
 # The design notes the manual above leaves out: what each rule came
 # from, with its issue — read by people, never served as ;help.
 _NOTES = """Hunt a ground in a loop, the way your character does it:  ;hunt
@@ -241,7 +279,7 @@ skills past the room's most generous one are said — "the cougar
 teaches to rank 49 — Brawling 57, Small Edged 58 past it" — so a
 ground the character has outgrown shows at once, not after five
 hunts of 0/34 (#322).
-The game's answers are classified by keyword (the tables below, model
+The game's answers are classified by keyword (the tables in client/game/hunting.py, model
 in docs/hunting.md); a skin or search answer the script cannot place is
 echoed as "hunt: unrecognized ..." — report those and they become
 fixtures. The skinning and gem-pouch commands follow Elanthipedia's
@@ -277,7 +315,6 @@ MAX_ITERATIONS = 5000
 SETTLE_SECONDS = 1.0  # after arriving: the room's creature enumeration
 EMPTY_ROOM_WAIT = 20  # seconds between looks when the whole ground is empty
 EMPTY_LAPS = 2  # laps of the ground with nothing in it before the pause
-MIND_LOCK = 34
 # The ground-is-beyond-you fuses (#236): an hour of grass eels gave no
 # kill and nine stuns, the health bar never crossed the floor, and the
 # profile's wound floor was unset — nothing in the loop said stop while
@@ -299,51 +336,6 @@ _STUNNED = ("stunning you",)
 _STILL_STUNNED = ("you are still stunned",)
 STUN_WAIT = 20  # seconds a swing waits for a stun to pass
 STUN_POLL = 0.5
-DEFAULT_WOUND_FLOOR = "harmful"
-
-# The captured kill line: "The ship's rat falls to the ground and lies
-# still." (2026-09-05 — the first ;hunt missed it and kept swinging),
-# the badger's the same (2026-09-14). "The cougar slowly tips over and
-# falls down." (2026-08-22) was read as a kill until 2026-09-14: every
-# capture of it — the cougar, the rats, a badger — is a KNOCKDOWN, the
-# creature stunned and prone ("lying down", then "leaps to its feet"),
-# and the badger hunt skinned and searched one that stood back up
-# (#197). A knockdown is nothing to act on. "A striped badger screams
-# and falls to the ground grasping its mangled left leg!" (2026-09-20)
-# is a knockdown too — the badger "grimaces as it stands back up" — so
-# the needle is the whole phrase, "falls to the ground and lies
-# still", never "falls to the ground" alone (#240). "Twisting in
-# agony, the cougar falls to the ground lifeless." (2026-08-22, eight
-# times, "a cougar which appears dead" after it) is the other captured
-# kill. The rest are assumptions until captured. A kill phrase ends its
-# sentence: "The scimitar lands a very heavy hit that collapses the
-# ribcage and bursts the diaphragm ..." (2026-09-23, a bobcat) is the
-# swing, not the death — it read as a kill of "that" and the search
-# went at the room — so the phrase must be followed by the sentence's
-# end, and a pronoun is never the noun. The goblins' death runs on
-# past "collapses": "A dour forager goblin collapses to the ground,
-# shuddering and moaning until it ceases all movement." (2026-09-25,
-# the Crossing farmland) — missed, every kill uncounted, and the hunt
-# broke off on "60 swings without a kill" (#314).
-_KILL_PHRASE = (
-    r"(?:goes still|falls to the ground(?: and lies still| lifeless)|dies|"
-    r"collapses(?: to the ground,[^.!\n]*? ceases all movement)?|keels over)"
-    r"(?=[.!]|\s*$)"
-)
-_KILL_SENTENCE = re.compile(_KILL_PHRASE, re.IGNORECASE | re.MULTILINE)
-_KILL_NOUN = re.compile(
-    r"\b(?:the|a|an) ((?:[\w'-]+ )*?)([\w'-]+) (?:slowly |suddenly )?" + _KILL_PHRASE,
-    re.IGNORECASE | re.MULTILINE,
-)
-_PRONOUNS = frozenset({"that", "which", "it", "who", "this"})
-
-
-def is_kill(text):
-    """True when the answer holds a kill sentence — the phrase at its
-    sentence's end, never mid-sentence ("a hit that collapses the
-    ribcage")."""
-    return _KILL_SENTENCE.search(text or "") is not None
-
 
 # Bare ATTACK with every attacker dead (captured 2026-08-22).
 _ALL_DEAD = ("nothing else to face", "what are you trying to attack")
@@ -385,7 +377,6 @@ _NEED_MELEE = ("must be closer", "using a weapon would probably", "kick some dir
 # minute, Conviction experience once a minute (Elanthipedia: Smite
 # command), so the loop smites once a minute at most (#183).
 _SMITE_STRUCK = ("divinely inspired strike",)
-SMITE_INTERVAL = 60  # seconds between smites
 # A smite is fueled by Conviction's free blows first and the soul pool
 # after (Elanthipedia: Smite command): a free one says "Drawing
 # strength from your conviction, ...", a soul-pool one "Drawing upon
@@ -405,27 +396,6 @@ _SMITE_WRATH = ("upon holy wrath",)
 # went 19 refused smites a second apart and handed over "20 swings
 # without a kill" after one punch, every hunt (#396).
 _SMITE_NO_WEAPON = ("need an appropriate weapon",)
-_SMITE_CHECK_BLOWS = re.compile(r"enough to deliver (\w+) blows?", re.IGNORECASE)
-_NUMBER_WORDS = {
-    word: number
-    for number, word in enumerate(
-        (
-            "no",
-            "one",
-            "two",
-            "three",
-            "four",
-            "five",
-            "six",
-            "seven",
-            "eight",
-            "nine",
-            "ten",
-            "eleven",
-            "twelve",
-        )
-    )
-}
 # Tactical maneuvers (captured 2026-09-14 on a striped badger, #190):
 # BOB "You bob suddenly, lowering yourself into a smaller target.",
 # CIRCLE "You sidestep a striped badger suddenly, moving in a short
@@ -453,7 +423,6 @@ _MANEUVER_DONE = (
     "out maneuvers you",
     "change your mind",
 )
-TACTICS_EVERY = 3  # every third swing is a maneuver while Tactics is unlocked
 TACTIC_MISSES = 3  # unrecognized maneuver answers before tactics go off
 # HUNT for tracks (captured 2026-09-14 in a guild office, #194): "You
 # take note of all the tracks in the area, so that you can hunt
@@ -464,109 +433,7 @@ TACTIC_MISSES = 3  # unrecognized maneuver answers before tactics go off
 _TRACKS_READ = ("take note of all the tracks", "unable to locate any followable tracks")
 HUNT_INTERVAL = 75  # seconds between HUNTs: the skill's learning timer
 TRACK_MISSES = 3  # unrecognized HUNT answers before the step goes off
-clock = time.monotonic  # tests replace it
 
-# Failures before successes: a failure wording can contain a success
-# needle ("you skin" inside "you can't skin"). Assumptions pending
-# capture except where noted.
-SKIN_OUTCOMES = (
-    # "nothing to skin with" carries "nothing to skin": the knife
-    # wording is checked first.
-    (
-        "no_knife",
-        ("nothing to skin with", "bare hands", "need a knife", "need something sharp"),
-    ),
-    # Both hands full — the last skin still in the off hand (captured
-    # 2026-09-12, three kills running): stowed, then skinned again.
-    ("hands_full", ("one hand free",)),
-    # "is dead first" (a rat, 2026-09-12), "You can't skin something
-    # that's not dead!" (a badger, 2026-09-14) and "The striped badger
-    # grimaces as it stands back up. / Skin what?" (2026-09-20, #240):
-    # the corpse noun found a live one — the corpse is gone, the next
-    # swing gets the live one.
-    (
-        "gone",
-        (
-            *NOT_FOUND,
-            "nothing to skin",
-            "already been skinned",
-            "is dead first",
-            "not dead",
-            "stands back up",
-            "skin what",
-        ),
-    ),
-    ("ruined", ("ruin", "botch", "worthless", "useless")),
-    # Captured 2026-09-12: "you work loose a sterling example of a rat
-    # pelt from the rat carcass" and "you skillfully remove a rat tail
-    # from the remains of a ship's rat".
-    (
-        "ok",
-        (
-            "obtain",
-            "you skin",
-            "skinning",
-            "you manage to skin",
-            "work loose",
-            "you skillfully remove",
-            "from the remains",
-        ),
-    ),
-)
-SEARCH_OUTCOMES = (
-    # "already been searched" and "is dead first" captured 2026-09-12.
-    (
-        "gone",
-        (
-            *NOT_FOUND,
-            "already been searched",
-            "is dead first",
-        ),
-    ),
-    (
-        "nothing",
-        ("find nothing", "nothing of value", "nothing of interest", "nothing else"),
-    ),
-    ("found", ("you find", "you search", "you loot", "you get", "you pick up")),
-)
-# LOOT with no target loots the last creature fought with the goods
-# option, "the same effect as the SEARCH command" (Elanthipedia: Loot
-# command) — so the corpse noun the kill line yields is only SKIN's
-# concern. Its answers are read with SEARCH's table until captured.
-# The item a skin or a search produced: "... obtaining a rat pelt.",
-# "work loose a sterling example of a rat pelt from the rat carcass",
-# "remove a rat tail from the remains of a ship's rat" (the last two
-# captured 2026-09-12). The noun is the last word before the period
-# or the "from".
-# A search's yield: "You find a small ruby.", and the corpse's pockets —
-# "The grendel was carrying some waermodi stones, 7 copper coins
-# (Kronars), and 1 bronze coin (Dokora)!" (captured 2026-09-21; three
-# gems went unpicked before the wording was known, #292). The coins
-# carry no article and are not an item here (GET COINS is #291).
-_ITEM = re.compile(
-    r"(?:obtain(?:ing)?|yielding|you find|you get|you pick up|and get|was carrying) "
-    r"(?:a|an|some|the) ((?:[\w'-]+ )*?)([\w'-]+)[.,!]"
-    r"|(?:work loose|remove) (?:a|an|some|the) "
-    r"(?:[\w'-]+ example of (?:a|an|some|the) )?((?:[\w'-]+ )*?)([\w'-]+) from",
-    re.IGNORECASE,
-)
-
-
-# Bundling (Elanthipedia: Bundle command; captured 2026-09-12 at
-# Falken's Tannery): "You bundle up your rat pelt with your bundling
-# rope." starts a bundle, "You carefully fit a rat tail into your
-# bundle." adds to one. A worn lumpy bundle takes skins straight from
-# SKIN (BUNDLE help: auto-bundling, on by default), so the skinning
-# hand stays empty and the hand tags are the judge, not a wording.
-BUNDLE_OUTCOMES = (
-    ("none", NOT_FOUND),
-    # The worn bundle is full (captured 2026-09-20, the fourth badger
-    # skin): "Where did you intend to put that?  You don't have any
-    # bundles or they're all full or too tightly packed!" — the skin
-    # stays in hand and is stowed loose (bundled()).
-    ("full", ("all full", "don't have any bundles")),
-    ("ok", ("you bundle up", "into your bundle")),
-)
 # The rope is fetched by its whole name: "Only bundling ropes can be
 # utilized, not lead ropes, heavy ropes, or the like." (BUNDLE HELP,
 # captured 2026-09-28). A lead rope looted that day sat ahead of the
@@ -580,144 +447,8 @@ BUNDLE_REFUSALS = 3  # refusals in a row before a run stops trying
 _SHEATHE_WHERE = ("where?",)
 
 
-class Tally:
-    def __init__(self):
-        self.kills = 0
-        self.skins = 0
-        self.coins = 0  # coin piles STOWed after a search that left some
-        self.boxes = 0  # boxes into the loot container
-        self.unlootable = set()  # nouns the game found no room for this run
-        self.boxes_full = False  # the loot container refused a box: no more boxes
-        self.unrecognized = 0
-        self.empty_moves = 0
-        self.room_clear = False
-        self.corpse_swings = 0
-        # None: no bundle yet, the first skin starts one; True: a bundle
-        # is worn; False: no rope (or the bundle refused), skins stowed loose.
-        self.bundle = None
-        self.bundle_refusals = 0  # skins in a row BUNDLE would not start on
-        self.buffs = buffs.BuffState()  # the casts (client/game/buffs.py)
-        self.barb = barbarian.BarbState()  # a Barbarian's pieces (#328)
-        self.last_smite = None  # clock() of the last smite that struck (#183)
-        self.smite_off = False  # a smite drew on the soul pool: no more (#217)
-        self.smite_warned = False  # "no free smites" said once per run
-        self.maneuvers = 0  # tactical maneuvers the game answered (#190)
-        self.almanac_retry = 0.0  # a refused retreat puts the next study off
-        self.since_maneuver = 0  # plain swings since the last maneuver
-        self.tactic = 0  # the rotation index
-        self.tactic_misses = 0  # unrecognized maneuver answers in a row
-        self.tactics_off = False  # the maneuvers refused this run, said once
-        self.loot_reported = False  # LOOT's first answer echoed for the fixtures
-        self.caps_said = False  # the ground's teaching caps looked at once (#322)
-        self.last_track = None  # clock() of the last HUNT that read tracks (#194)
-        self.tracks = 0  # HUNTs the game answered
-        self.track_misses = 0  # unrecognized HUNT answers in a row
-        self.stuns = 0  # stuns taken since the last kill (#236)
-        self.stunned_swings = 0  # swings answered "You are still stunned." (#336)
-        self.swings_at_kill = 0  # tally.swings at the last kill (#236)
-        self.tracking_off = False  # HUNT refused this run, said once
-        self.swings = 0  # swings this run, against MAX_ACTIONS
-        self.check_wounds = False  # HEALTH before the next swing (a kill, a hit)
-        self.fists_warned = False  # "no brawling attacks" said once
-        self.armed = None  # the weapon the turn in hand drew ("" for the fists)
-        self.brawl = 0  # the brawling attacks' rotation index (#238)
-        self.weapon = 0  # the weapons' rotation index: the turn in hand (#238)
-        self.rotated_at = 0  # the kill count the weapon last turned on
-        self.turn_started = 0  # tally.swings when the turn in hand began
-        self.balances = {}  # balance word -> swings taken at it (#280)
-        # The corpses the room's listing marked when this room's fight
-        # began, by name: a kill is a corpse more than this (#315).
-        self.dead_room = None
-        self.dead_seen = Counter()
-
-
 def hostiles(state):
     return dict(getattr(state, "hostiles", None) or {})
-
-
-def maneuvers(profile):
-    """The profile's tactical maneuvers, lower-case, blanks dropped."""
-    return [m.strip().lower() for m in profile.get("tactics") or [] if m.strip()]
-
-
-def brawling(profile):
-    """The profile's brawling attacks, lower-case, blanks dropped."""
-    return [m.strip().lower() for m in profile.get("brawling") or [] if m.strip()]
-
-
-FISTS = (
-    "",
-    "fists",
-    "hands",
-    "brawl",
-    "brawling",
-)  # a weapons entry for the fists turn
-
-
-def parse_weapon(entry):
-    """A `weapons` entry — "handaxe:Small Edged:sack", "fists:Brawling"
-    — as {"weapon", "skill", "container"}; the fists turn has weapon ""."""
-    parts = [part.strip() for part in str(entry).split(":")]
-    weapon = parts[0].lower() if parts else ""
-    return {
-        "weapon": "" if weapon in FISTS else parts[0].strip(),
-        "skill": parts[1] if len(parts) > 1 else "",
-        "container": parts[2] if len(parts) > 2 else "",
-    }
-
-
-def weapon_plan(profile):
-    """The turns the hunt cycles through: the profile's `weapons`, or
-    the single `weapon` (and its container) with no skill to lock."""
-    entries = [parse_weapon(entry) for entry in profile.get("weapons") or []]
-    entries = [entry for entry in entries if entry["weapon"] or entry["skill"]]
-    if entries:
-        return entries
-    return [
-        {
-            "weapon": profile["weapon"],
-            "skill": "",
-            "container": profile["weapon_container"],
-        }
-    ]
-
-
-def has_turns(profile):
-    """True when the profile lists `weapons` turns at all — one counts
-    (a fists-only badger hunt, 2026-09-20: with a single turn the list
-    was ignored, the profile's scimitar stayed the weapon, and every
-    kill tried to sheathe a sword that sat in the sack)."""
-    return bool(weapon_plan(profile)) and bool(
-        [entry for entry in profile.get("weapons") or [] if str(entry).strip()]
-    )
-
-
-def fists_turn(profile):
-    """True while the turn in hand is the fists (profile `weapon` is "",
-    as `arm` sets it for that turn)."""
-    return not profile["weapon"] and bool(brawling(profile))
-
-
-def plain_swing(profile, verb):
-    """True for a swing that is not a tactical maneuver: ATTACK, SMITE,
-    or a brawling attack on the fists turn."""
-    return verb in ("attack", "smite") or (
-        fists_turn(profile) and verb in brawling(profile)
-    )
-
-
-DEFAULT_WEAPON_TARGET = 30
-
-
-def turn_target(profile):
-    """The mindstate a weapon is trained to before the next takes over:
-    the profile's `weapon_target` (30, the ;train plan's target), at
-    most mind lock; 0 or less trains each to lock."""
-    try:
-        value = int(profile.get("weapon_target", DEFAULT_WEAPON_TARGET))
-    except (TypeError, ValueError):
-        value = DEFAULT_WEAPON_TARGET
-    return MIND_LOCK if value <= 0 else min(value, MIND_LOCK)
 
 
 def next_turn(s, profile, tally, from_current=False, leave=False):
@@ -822,33 +553,6 @@ def arm(s, profile, tally, index):
         )
 
 
-def mindstate_of(state, skill):
-    experience = getattr(state, "experience", None) or {}
-    return (experience.get(skill) or {}).get("mindstate", 0)
-
-
-def rank_of(state, skill):
-    experience = getattr(state, "experience", None) or {}
-    return (experience.get(skill) or {}).get("rank", 0)
-
-
-# A turn that goes this many swings without a kill hands the hands to
-# the next: a new weapon at rank 3 cannot finish the ground's creatures
-# (2026-09-26: the mace, bought that night, swung sixty times at the
-# bobcats and broke the hunt off). The hunt's own KILL_LESS_SWINGS
-# still ends it when no turn kills — every turn stalled in its turn.
-TURN_STALL_SWINGS = 20
-
-
-def stalled_turn(tally, profile):
-    """True when the turn in hand has gone TURN_STALL_SWINGS swings
-    without a kill and the profile has another turn to pass to."""
-    if len(weapon_plan(profile)) < 2:
-        return False
-    since = max(tally.swings_at_kill, tally.turn_started)
-    return tally.swings - since >= TURN_STALL_SWINGS
-
-
 def pass_turn(s, profile, tally):
     """The next open turn takes the hands, said; False when there is none
     other than the one in hand."""
@@ -862,12 +566,6 @@ def pass_turn(s, profile, tally):
     )
     arm(s, profile, tally, index)
     return True
-
-
-def farming(profile):
-    """True for a hunt that ends on its haul, not on the skills: a
-    `until` of boxes (#299)."""
-    return str(profile.get("until") or "").lower() == "boxes"
 
 
 def rotate(s, profile, tally):
@@ -886,59 +584,9 @@ def rotate(s, profile, tally):
     return True
 
 
-def swing_verb(profile, tally, state=None):
-    """SMITE when the profile smites, a weapon is in hand (never on the
-    fists' turn, #396) and a minute has passed since the last one that
-    struck (#183); else the next tactical maneuver when the profile
-    lists them, Tactics is unlocked and TACTICS_EVERY - 1 plain swings
-    have gone since the last (#190); ATTACK otherwise."""
-    if profile.get("smite") and not fists_turn(profile):
-        last = tally.last_smite
-        if last is None or clock() - last >= SMITE_INTERVAL:
-            return "smite"
-    rotation = maneuvers(profile)
-    if (
-        rotation
-        and not tally.tactics_off
-        and tally.since_maneuver >= TACTICS_EVERY - 1
-        and not locked(state, ["Tactics"])
-    ):
-        verb = rotation[tally.tactic % len(rotation)]
-        tally.tactic += 1
-        return verb
-    if fists_turn(profile):
-        attacks = brawling(profile)
-        verb = attacks[tally.brawl % len(attacks)]
-        tally.brawl += 1
-        return verb
-    return "attack"
-
-
 def health(state):
     vitals = getattr(state, "vitals", None) or {}
     return vitals.get("health")
-
-
-def locked(state, skills):
-    """True when every named skill sits at mind-lock in the exp window.
-    A skill the window hasn't shown yet counts as unlocked."""
-    if not skills:
-        return False
-    experience = getattr(state, "experience", None) or {}
-    return all(
-        (experience.get(skill) or {}).get("mindstate", 0) >= MIND_LOCK
-        for skill in skills
-    )
-
-
-# Words that end the creature's noun phrase in a kill line: "A small
-# grendel grunts and collapses." read as a kill of "and" until
-# 2026-09-21 (#270) — the word before the verb is not always the noun.
-_NOUN_STOPS = {
-    "and", "then", "slowly", "suddenly", "grunts", "gives", "lets", "screams",
-    "shrieks", "howls", "gasps", "shudders", "staggers", "twitches", "sighs",
-    "moans", "groans", "wails", "hisses", "roars", "snarls", "whimpers",
-}  # fmt: skip
 
 
 # How long a swing whose answer reads as a kill waits for the room's
@@ -983,50 +631,8 @@ def new_corpses(s, tally):
     return list(gained.elements())
 
 
-def kill_noun(text):
-    """The corpse's noun from the kill sentence, or None: the first kill
-    sentence whose noun is a thing, not a pronoun."""
-    for match in _KILL_NOUN.finditer(text or ""):
-        phrase = (match.group(1) + match.group(2)).split()
-        for index, word in enumerate(phrase):
-            if word.lower() in _NOUN_STOPS:
-                phrase = phrase[:index]
-                break
-        noun = phrase[-1].lower() if phrase else match.group(2).lower()
-        if noun not in _PRONOUNS:
-            return noun
-    return None
-
-
-def items_in(text):
-    """The item nouns a skin or search answer names, in order."""
-    return [
-        (match.group(2) or match.group(4)).lower() for match in _ITEM.finditer(text)
-    ]
-
-
-def named(text, noun):
-    """The words the answer names the item with, article off: "embroidery
-    needle" out of "The scout was carrying an embroidery needle!" — the
-    noun alone when the answer has no article before it."""
-    match = re.search(
-        rf"\b(?:an?|some)\s+([^,!.]*?\b{re.escape(noun)})\b", text, re.IGNORECASE
-    )
-    return match.group(1) if match else noun
-
-
 def unrecognized(s, tally, what, answer):
     unknown(s, "hunt", what, answer, tally)
-
-
-def wound_floor(profile):
-    """The profile's wound floor as a severity name: an empty one is
-    DEFAULT_WOUND_FLOOR (#236: an unset floor guarded nothing through
-    an hour of eels), "off" is "" — never ask HEALTH."""
-    floor = str(profile.get("wound_floor") or "").strip().lower()
-    if floor == "off":
-        return ""
-    return floor or DEFAULT_WOUND_FLOOR
 
 
 def wound_at_floor(s, profile):
@@ -1245,16 +851,6 @@ def held_skin(s, profile):
         if noun and noun not in tools:
             return noun
     return None
-
-
-# TAP says where a thing is without moving it (captured 2026-09-12:
-# "You tap a lumpy bundle that you are wearing." and, for nothing by
-# that name, "I could not find what you were referring to."). Any other
-# answer — in a hand, in a container — means fetch it and wear it.
-TAP_OUTCOMES = (
-    ("worn", ("that you are wearing",)),
-    ("none", NOT_FOUND),
-)
 
 
 def wear_bundle(s, profile, tally):
@@ -1899,11 +1495,11 @@ def track(s, profile, tally):
     if locked(s.state, ["Perception"]):
         return
     last = tally.last_track
-    if last is not None and clock() - last < HUNT_INTERVAL:
+    if last is not None and hunting.clock() - last < HUNT_INTERVAL:
         return
     text = ask(s, "hunt")
     if any(word in text.lower() for word in _TRACKS_READ):
-        tally.last_track = clock()
+        tally.last_track = hunting.clock()
         tally.tracks += 1
         tally.track_misses = 0
         return
@@ -1917,20 +1513,6 @@ def track(s, profile, tally):
         )
 
 
-def free_smites(text):
-    """The free blows SMITE CHECK counts — "three blows" is 3, "a blow"
-    or "one blow" 1 — or None when the answer says nothing known."""
-    match = _SMITE_CHECK_BLOWS.search(text or "")
-    if not match:
-        return None
-    word = match.group(1).lower()
-    if word.isdigit():
-        return int(word)
-    if word in ("a", "an"):
-        return 1
-    return _NUMBER_WORDS.get(word)
-
-
 def smite_allowed(s, tally):
     """SMITE CHECK before a smite (#217): True while a free blow remains.
     No free blows, or an answer the table does not know, means the next
@@ -1939,7 +1521,7 @@ def smite_allowed(s, tally):
     blows = free_smites(ask(s, "smite check"))
     if blows:
         return True
-    tally.last_smite = clock()
+    tally.last_smite = hunting.clock()
     if not tally.smite_warned:
         tally.smite_warned = True
         s.echo(
@@ -2014,9 +1596,9 @@ def swing(s, profile, tally, prey):
         tally.smite_off = True
         s.echo("hunt: that SMITE drew on the soul pool — smiting off for this run")
     if verb == "smite" and any(word in lowered for word in _SMITE_STRUCK):
-        tally.last_smite = clock()  # spent only when it struck
+        tally.last_smite = hunting.clock()  # spent only when it struck
     if verb == "smite" and any(word in lowered for word in _SMITE_NO_WEAPON):
-        tally.last_smite = clock()  # refused: not again this minute (#396)
+        tally.last_smite = hunting.clock()  # refused: not again this minute (#396)
     if combo or plain_swing(profile, verb):
         tally.since_maneuver += 1
     else:

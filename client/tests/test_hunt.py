@@ -15,6 +15,7 @@ from types import SimpleNamespace
 import pytest
 
 from client.engine.scripting import ScriptStopped
+from client.game import hunting
 
 import hunt_arena
 from hunt_arena import (
@@ -210,7 +211,7 @@ def test_the_fists_turn_of_a_paladin_punches_and_never_smites(travel):
 def test_a_smite_refused_for_want_of_a_weapon_waits_its_minute(travel, monkeypatch):
     # Whatever the hands hold, the refusal costs no roundtime: one, then
     # the swings go on as attacks until the minute has passed.
-    monkeypatch.setattr(hunt, "clock", lambda: 1000.0)
+    monkeypatch.setattr(hunting, "clock", lambda: 1000.0)
     arena = _run(
         Arena(
             {
@@ -955,7 +956,7 @@ def test_a_paladin_smites_one_swing_a_minute_and_attacks_the_rest(travel, monkey
     # most once a minute; a smite the game answered from range (no
     # strike) is not spent.
     now = {"t": 1000.0}
-    monkeypatch.setattr(hunt, "clock", lambda: now["t"])
+    monkeypatch.setattr(hunting, "clock", lambda: now["t"])
     advancing = "You aren't close enough to attack.\nYou begin to advance on a rat."
     arena = Arena(
         {
@@ -1016,7 +1017,7 @@ def test_a_smite_goes_out_only_while_smite_check_counts_a_free_blow(
     travel, monkeypatch
 ):
     now = {"t": 1000.0}
-    monkeypatch.setattr(hunt, "clock", lambda: now["t"])
+    monkeypatch.setattr(hunting, "clock", lambda: now["t"])
     arena = Arena(
         {
             "smite check": [SMITE_CHECK_THREE, SMITE_CHECK_NONE],
@@ -1051,7 +1052,7 @@ def test_a_smite_that_drew_on_the_soul_pool_ends_smiting_for_the_run(
     travel, monkeypatch
 ):
     now = {"t": 1000.0}
-    monkeypatch.setattr(hunt, "clock", lambda: now["t"])
+    monkeypatch.setattr(hunting, "clock", lambda: now["t"])
     arena = Arena(
         {
             "smite check": [SMITE_CHECK_THREE] * 3,
