@@ -40,10 +40,9 @@ import re
 import time
 
 from client.engine.xml_data import LEARNING_RATES
-from client.game import flight
+from client.game import flight, trainer, travel
 from client.game.act import ask, unknown
 from client.game.loop import danger, pause, wants_stop
-from client.game.mapdb import MapDB
 from client.game.scholarship import (
     GOT,
     NO_SUCH,
@@ -57,12 +56,9 @@ from client.game.scholarship import (
     parse_shelves,
     save_reads,
 )
-from client.game.walker import avoided_rooms, walk
-from client.settings import load_settings
+from client.game.walker import walk
 
 MIND_LOCK = 34
-RESUME_BELOW = 28
-LOCK_POLL = 30
 BLEED_POLL = 30
 MAX_PAGES = 200  # a book longer than this is a loop, not a book
 wall = time.time  # the read times kept across runs (#255); tests replace it
@@ -124,18 +120,6 @@ def ensure_mindstate(s):
 def bleeding(s):
     status = getattr(s, "status", None)
     return bool(getattr(status, "bleeding", False))
-
-
-def hold_at_lock(s, until):
-    s.echo(f"scholarship: mind-locked ({until}/34) — holding until it drains")
-    floor = min(RESUME_BELOW, until - 1)
-    while True:
-        if not pause(s, LOCK_POLL):
-            return False
-        value = mindstate(s)
-        if value is not None and value <= floor:
-            s.echo(f"scholarship: drained to {value}/34 — reading again")
-            return True
 
 
 def close_and_return(s, reading):
@@ -221,11 +205,9 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
         if mapdb is None:
             s.echo("scholarship: the walk to the library needs the map — none loaded")
             return
-        goals = mapdb.resolve(target)
-        if not goals:
-            s.echo(f"scholarship: nothing in the map matches library {target!r}")
-            return
-        if not walk_fn(s, mapdb, goals, describe=f"library {target!r}", avoid=avoid):
+        if not travel.go(
+            s, target, f"library {target!r}", db=mapdb, walk=walk_fn, avoid=avoid
+        ):
             s.echo("scholarship: could not reach the library — stopping")
             return
     if ensure_mindstate(s) is None:
@@ -275,7 +257,13 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
                 if options["once"]:
                     s.echo(f"scholarship: Scholarship at {value}/34 — done")
                     return
-                if not hold_at_lock(s, options["until"]):
+                if not trainer.hold_at_lock(
+                    s,
+                    "scholarship",
+                    "Scholarship",
+                    options["until"],
+                    again="reading again",
+                ):
                     s.echo("scholarship: stopping")
                     return
             outcome = read_book(s, title, letters, options)
@@ -307,6 +295,6 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
 
 def main(s):
     options = parse_args(s.args or [])
-    mapdb = MapDB.load() if (options["library"] or library_of(s)) else None
-    avoid = avoided_rooms(mapdb, load_settings().get("avoid_rooms")) if mapdb else ()
+    mapdb = travel.mapdb() if (options["library"] or library_of(s)) else None
+    avoid = travel.avoided(mapdb) if mapdb else ()
     run(s, options, mapdb=mapdb, avoid=avoid)
