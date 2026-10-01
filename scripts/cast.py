@@ -29,7 +29,8 @@ naming no skill in `train_casting` trains every skill its buffs use.
 It watches the skills in the exp window — the skills trained, Arcana
 when a piece is named, Attunement when it POWERs — and at mind-lock of all
 of them holds until enough drains to be worth casting again; `once`
-exits at the lock. Stops on death, on hostiles in the room, when mana
+exits at the lock (client/game/trainer.py, the loop every trainer
+runs). Stops on death, on hostiles in the room, when mana
 sits under the floor for ten minutes, and when the profile names no
 buff and no spell= is given. Never a targeted spell: those want a prey
 (;hunt). Stopped between the GET and the stow, it puts the piece back
@@ -44,10 +45,9 @@ Stop with:  ;stop cast, or ;cast return.
 import time
 
 from client.game import buffs
-from client.game import flight
 from client.game import trainer
 from client.game.act import ask, unknown
-from client.game.loop import danger, pause, wants_stop
+from client.game.loop import pause
 
 MIND_LOCK = 34
 POLL = 5  # seconds between looks while waiting for the gap
@@ -99,22 +99,6 @@ def skills_watched(profile, options, state):
     return watched
 
 
-def mindstates(s, skills):
-    experience = getattr(s.state, "experience", None) or {}
-    return {
-        skill: experience[skill].get("mindstate")
-        for skill in skills
-        if isinstance(experience.get(skill), dict)
-    }
-
-
-def all_locked(s, skills, until):
-    """True when every watched skill the window lists sits at `until`
-    or above (a skill the window has not listed does not hold it up)."""
-    values = mindstates(s, skills)
-    return bool(values) and all(value >= until for value in values.values())
-
-
 def cast_profile(profile, options):
     """The profile as the cast loop sees it: spell= as the only buff,
     skill= as the only skill trained; with neither named, the profile's
@@ -143,19 +127,21 @@ def run(s, words, profile):
             "cast: the profile names no buff and no spell= was given — nothing to cast"
         )
         return
-    try:
-        loop(s, options, shaped)
-    finally:
-        # A ;stop between the GET and the stow left the anklet in hand
-        # (2026-09-20): the put-back goes out even after the stop.
-        buffs.put_back_if_held(s, shaped, "cast")
+    return loop(s, options, shaped)
 
 
 def loop(s, options, shaped):
+    """The trainer loop with one step: the casts due, then the POLL gap.
+    The watched skills are read afresh every round (they grow after the
+    first DISCERN and shrink when a buff or POWER is dropped for the
+    run), and the window need not list them yet (ensure=False): a
+    skill it has not listed never held the lock up."""
     state = buffs.BuffState()
     skills = skills_watched(shaped, options, state)
 
     busy = {"song": False}
+    last_power = None
+    low_since = None
 
     def report(what, answer):
         if performing(answer):
@@ -163,47 +149,15 @@ def loop(s, options, shaped):
             return
         unknown(s, "cast", what, answer)
 
-    s.echo(
-        f"cast: {', '.join(shaped['buffs'])} for "
-        f"{', '.join(buffs.training_skills(shaped))}"
-        + (f" with the {shaped['cambrinth']}" if shaped.get("cambrinth") else "")
-        + (", POWER between casts" if options["power"] else "")
-        + f" — watching {', '.join(skills) or 'nothing'}"
-    )
-    last_power = None
-    low_since = None
-    while True:
-        skills = skills_watched(shaped, options, state)
-        reason = danger(s)
-        if reason:
-            s.echo(f"cast: {reason} — stopping")
-            if "hostiles" in reason:
-                flight.react(s, "cast")
-            return
-        if wants_stop(s):
-            s.echo("cast: stopping as asked")
-            return
-        if all_locked(s, skills, options["until"]):
-            if options["once"]:
-                s.echo(f"cast: {', '.join(skills)} at {options['until']}/34 — done")
-                return
-            if not trainer.hold_at_lock(
-                s, "cast", skills, options["until"], again="casting again"
-            ):
-                s.echo("cast: stopping")
-                return
-            continue
+    def step(s):
+        nonlocal last_power, low_since
         if state.training_off:
-            s.echo("cast: the training casts are off for this run — stopping")
-            return
+            return "the training casts are off for this run"
         mana = (getattr(s.state, "vitals", None) or {}).get("mana")
         if mana is not None and mana < buffs.MANA_FLOOR:
             low_since = low_since or clock()
             if clock() - low_since >= MANA_WAIT:
-                s.echo(
-                    f"cast: mana under {buffs.MANA_FLOOR}% for ten minutes — stopping"
-                )
-                return
+                return f"mana under {buffs.MANA_FLOOR}% for ten minutes"
         else:
             low_since = None
         if options["power"] and (
@@ -224,14 +178,36 @@ def loop(s, options, shaped):
             buffs.discern_slots(s, shaped, state, ask, "cast", report)
             buffs.cast_buffs(s, shaped, state, ask, "cast", report, upkeep=False)
         if busy["song"]:
-            s.echo(
-                "cast: the game refuses spellwork while a song plays — "
-                "stop it first (;perform return) — stopping"
+            return (
+                "the game refuses spellwork while a song plays — "
+                "stop it first (;perform return)"
             )
-            return
-        if not pause(s, POLL):
-            s.echo("cast: stopping")
-            return
+        pause(s, POLL)  # a return or a danger in it: the loop says why
+        return None
+
+    def finish(s, why):
+        # A ;stop between the GET and the stow left the anklet in hand
+        # (2026-09-20): the put-back goes out even after the stop.
+        buffs.put_back_if_held(s, shaped, "cast")
+
+    s.echo(
+        f"cast: {', '.join(shaped['buffs'])} for "
+        f"{', '.join(buffs.training_skills(shaped))}"
+        + (f" with the {shaped['cambrinth']}" if shaped.get("cambrinth") else "")
+        + (", POWER between casts" if options["power"] else "")
+        + f" — watching {', '.join(skills) or 'nothing'}"
+    )
+    return trainer.train(
+        s,
+        "cast",
+        lambda: skills_watched(shaped, options, state),
+        step,
+        until=options["until"],
+        once=options["once"],
+        again="casting again",
+        finish=finish,
+        ensure=False,
+    )
 
 
 def main(s):

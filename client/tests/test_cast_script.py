@@ -154,7 +154,7 @@ def test_one_pass_powers_charges_and_casts_the_first_buff_then_returns(monkeypat
         fake
     )
     assert "watching Augmentation, Arcana, Attunement" in echoes(fake)
-    assert "cast: stopping" in echoes(fake)  # the return, noticed in the pause
+    assert "cast: returning as asked" in echoes(fake)  # noticed in the pause
 
 
 def test_nopower_and_a_spell_of_your_own_skip_the_perceive(monkeypatch):
