@@ -28,12 +28,11 @@ the map has no street to loop.
 Stop with:  ;stop seek (at once), or ;seek return to walk back to the start first.
 """
 
-from client.game import probe
+from client.game import probe, travel
 from client.game.loop import wants_stop
 from client.game.mapdb import MapDB
 from client.game.seek import loop, parse_args, present
-from client.game.walker import avoided_rooms, locate, walk
-from client.settings import load_settings
+from client.game.walker import locate, walk
 
 COLLECT_SECONDS = 2  # LOOK's listing, for a parser without room_objs
 TAIL_SECONDS = 0.5
@@ -55,12 +54,13 @@ def found_here(s, noun):
 def run(s, options, mapdb, walk_fn=walk, avoid=()):
     noun = options["noun"]
     if options["from"]:
-        goals = mapdb.resolve(options["from"])
-        if not goals:
-            s.echo(f"seek: nothing in the map matches start room {options['from']!r}")
-            return
-        if not walk_fn(
-            s, mapdb, goals, describe=f"start room {options['from']!r}", avoid=avoid
+        if not travel.go(
+            s,
+            options["from"],
+            f"start room {options['from']!r}",
+            db=mapdb,
+            walk=walk_fn,
+            avoid=avoid,
         ):
             s.echo("seek: could not reach the start room — stopping")
             return
@@ -87,10 +87,10 @@ def run(s, options, mapdb, walk_fn=walk, avoid=()):
                 return
             if wants_stop(s):
                 s.echo("seek: returning to the start as asked")
-                walk_fn(s, mapdb, {start}, describe="the start", avoid=avoid)
+                travel.go(s, start, "the start", db=mapdb, walk=walk_fn, avoid=avoid)
                 return
-            if room != locate(mapdb, s.state) and not walk_fn(
-                s, mapdb, {room}, describe="the next room", avoid=avoid
+            if room != locate(mapdb, s.state) and not travel.go(
+                s, room, "the next room", db=mapdb, walk=walk_fn, avoid=avoid
             ):
                 s.echo("seek: the walk failed — stopping")
                 return
@@ -107,5 +107,4 @@ def main(s):
         s.echo("seek: what to look for? ;seek <noun> — ;help seek for the options")
         return
     mapdb = MapDB.load()
-    avoid = avoided_rooms(mapdb, load_settings().get("avoid_rooms"))
-    run(s, options, mapdb, avoid=avoid)
+    run(s, options, mapdb, avoid=travel.avoided(mapdb))
