@@ -432,7 +432,7 @@ def test_a_stat_the_map_has_no_room_for_stops_without_walking():
 
     fake = Fake({"info": [info(), info()], "reflex": []})
     script.run(fake, ["train", "reflex"], mapdb=MAP, walk_fn=walk)
-    assert "no room tagged 'reflex'" in echoes(fake)
+    assert "nothing in the map matches the Reflex trainer" in echoes(fake)
     assert fake.walks == []
 
 

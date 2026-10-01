@@ -32,7 +32,7 @@ client/game/tdp.py is the model; docs/training.md lists the plan's `tdp` keys.
 
 import re
 
-from client.game import bank, probe
+from client.game import bank, probe, travel
 from client.game.act import ask
 from client.game.money import parse_wealth, phrase
 from client.game.tdp import (
@@ -194,11 +194,8 @@ def train_stat(s, stat, goal, mapdb, walk_fn, bought=None):
     """Walk to the stat's trainer and buy points up to the goal or the
     TDPs. True when every point up to the goal was bought; each point
     bought is appended to `bought` as (stat, value)."""
-    rooms = mapdb.rooms_tagged(stat.lower())
-    if not rooms:
-        s.echo(f"tdp: the map has no room tagged {stat.lower()!r}")
-        return False
-    if not walk_fn(s, mapdb, set(rooms), describe=f"the {stat} trainer"):
+    rooms = set(mapdb.rooms_tagged(stat.lower()))
+    if not travel.go(s, rooms, f"the {stat} trainer", db=mapdb, walk=walk_fn):
         s.echo(f"tdp: could not reach the {stat} trainer — stopping")
         return False
 
@@ -230,7 +227,7 @@ def train_stat(s, stat, goal, mapdb, walk_fn, bought=None):
             retry="run ;tdp again",
         ):
             return False
-        if not walk_fn(s, mapdb, set(rooms), describe=f"the {stat} trainer"):
+        if not travel.go(s, rooms, f"the {stat} trainer", db=mapdb, walk=walk_fn):
             s.echo(f"tdp: could not walk back to the {stat} trainer — stopping")
             return False
         return True
@@ -309,7 +306,7 @@ def plan_points(s, mapdb, walk_fn, points=PLAN_POINTS, bought_points=None):
             break
         bought += 1
     if start is not None and locate(mapdb, s.state) != start:
-        if not walk_fn(s, mapdb, {start}, describe="where you started"):
+        if not travel.go(s, start, "where you started", db=mapdb, walk=walk_fn):
             s.echo("tdp: could not walk back — you are at the trainer")
     s.echo(f"tdp: {bought} point(s) bought by the plan")
     return bought
@@ -389,7 +386,7 @@ def _run(s, words, mapdb, walk_fn, bought):
     else:
         s.echo("tdp: every goal reached")
     if not stay and start is not None and locate(mapdb, s.state) != start:
-        if not walk_fn(s, mapdb, {start}, describe="where you started"):
+        if not travel.go(s, start, "where you started", db=mapdb, walk=walk_fn):
             s.echo("tdp: could not walk back — you are at the trainer")
     show_info(s)
 
