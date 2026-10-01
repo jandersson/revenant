@@ -137,6 +137,11 @@ SMITE_KILL = (
     "Drawing strength from your conviction, you execute a divinely inspired "
     "strike!\n" + KILL
 )
+# Captured 2026-10-01 (#396): SMITE on the fists' turn, no roundtime.
+SMITE_NO_WEAPON = (
+    "You will need an appropriate weapon to channel a smite upon your foe.\n"
+    "Use SMITE HELP for more."
+)
 
 
 # Captured 2026-09-05, the first live ;hunt: the kill line the script

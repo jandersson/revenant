@@ -399,6 +399,13 @@ SMITE_INTERVAL = 60  # seconds between smites
 # counts a blow; a wrath strike, should one slip through, turns
 # smiting off for the run.
 _SMITE_WRATH = ("upon holy wrath",)
+# SMITE with no weapon in hand — the fists' turn, brass knuckles worn —
+# answers "You will need an appropriate weapon to channel a smite upon
+# your foe." with no roundtime (captured 2026-10-01). The fists' turn
+# never smites; the refusal spends the minute anyway, since the turn
+# went 19 refused smites a second apart and handed over "20 swings
+# without a kill" after one punch, every hunt (#396).
+_SMITE_NO_WEAPON = ("need an appropriate weapon",)
 _SMITE_CHECK_BLOWS = re.compile(r"enough to deliver (\w+) blows?", re.IGNORECASE)
 _NUMBER_WORDS = {
     word: number
@@ -884,11 +891,12 @@ def rotate(s, profile, tally):
 
 
 def swing_verb(profile, tally, state=None):
-    """SMITE when the profile smites and a minute has passed since the
-    last one that struck (#183); else the next tactical maneuver when
-    the profile lists them, Tactics is unlocked and TACTICS_EVERY - 1
-    plain swings have gone since the last (#190); ATTACK otherwise."""
-    if profile.get("smite"):
+    """SMITE when the profile smites, a weapon is in hand (never on the
+    fists' turn, #396) and a minute has passed since the last one that
+    struck (#183); else the next tactical maneuver when the profile
+    lists them, Tactics is unlocked and TACTICS_EVERY - 1 plain swings
+    have gone since the last (#190); ATTACK otherwise."""
+    if profile.get("smite") and not fists_turn(profile):
         last = tally.last_smite
         if last is None or clock() - last >= SMITE_INTERVAL:
             return "smite"
@@ -2019,6 +2027,8 @@ def swing(s, profile, tally, prey):
         s.echo("hunt: that SMITE drew on the soul pool — smiting off for this run")
     if verb == "smite" and any(word in lowered for word in _SMITE_STRUCK):
         tally.last_smite = clock()  # spent only when it struck
+    if verb == "smite" and any(word in lowered for word in _SMITE_NO_WEAPON):
+        tally.last_smite = clock()  # refused: not again this minute (#396)
     if combo or plain_swing(profile, verb):
         tally.since_maneuver += 1
     else:

@@ -38,6 +38,7 @@ from hunt_arena import (
     SKINNED,
     SMITE_CHECK_THREE,
     SMITE_KILL,
+    SMITE_NO_WEAPON,
     STOOD_UP,
     TAIL_REMOVED,
     _run,
@@ -183,6 +184,48 @@ def test_a_single_fists_turn_hunts_bare_handed_whatever_the_weapon_says(travel):
     assert "attack rat" not in arena.sent
     assert any("hunt: fists for Brawling (5/34)" in t for t in arena.echoed)
     assert not any("unrecognized" in t for t in arena.echoed)
+
+
+def test_the_fists_turn_of_a_paladin_punches_and_never_smites(travel):
+    # 2026-10-01 (#396): every fists turn at the blood wolves sent one
+    # PUNCH, then SMITE after SMITE — refused bare-handed, no roundtime,
+    # a second apart — and handed over "20 swings without a kill".
+    arena = _run(
+        Arena(
+            {
+                "punch": [PUNCHED + "\n", (KILL, kill)],
+                "smite": [SMITE_NO_WEAPON] * 5,
+                "skin": [SKINNED],
+                "loot": [NOTHING],
+            },
+            experience={"Brawling": {"rank": 68, "percent": 0, "mindstate": 0}},
+        ),
+        profile=ROTATING | {"weapons": ["fists:Brawling"], "smite": True},
+        travel_first=False,
+    )
+    assert not any(c.startswith("smite") for c in arena.sent)
+    assert arena.sent.count("punch rat") == 2
+
+
+def test_a_smite_refused_for_want_of_a_weapon_waits_its_minute(travel, monkeypatch):
+    # Whatever the hands hold, the refusal costs no roundtime: one, then
+    # the swings go on as attacks until the minute has passed.
+    monkeypatch.setattr(hunt, "clock", lambda: 1000.0)
+    arena = _run(
+        Arena(
+            {
+                "smite check": [SMITE_CHECK_THREE] * 3,
+                "smite": [SMITE_NO_WEAPON] * 3,
+                "attack": [(KILL, _stands), (KILL, kill)],
+                "skin": [SKINNED],
+                "loot": [NOTHING],
+            }
+        ),
+        profile=PROFILE | {"smite": True},
+        travel_first=False,
+    )
+    assert sum(c.startswith("smite rat") for c in arena.sent) == 1
+    assert arena.sent.count("attack rat") == 2
 
 
 def test_a_locked_weapon_skill_sits_out_and_all_locked_ends_the_hunt(travel):
