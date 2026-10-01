@@ -104,7 +104,7 @@ class Fake:
 
 
 def run(fake, args=()):
-    script.probe = SimpleNamespace(ask=fake.ask)
+    script.ask = fake.ask  # act.ask, imported by name (#407)
     script.clock = lambda: fake.slept  # the per-item wait runs on the fake's sleeps
     script.run(fake, script.parse_args(list(args)))
     return "\n".join(fake.echoed)
@@ -129,7 +129,8 @@ def test_it_appraises_the_inventory_in_rotation_pouch_first_until_mind_lock():
         "appraise: 3 item(s) in rotation (pouch, scimitar, sack) — Appraisal 1/34"
         in out
     )
-    assert "appraise: pouch answered 'you are certain that the pouch weighs" in out
+    # The answer is quoted as the game wrote it, its case kept (#407).
+    assert "appraise: pouch answered 'You are certain that the pouch weighs" in out
     assert out.count("answered") == 1  # the first answer only, for the capture
     assert "Appraisal at 34/34 — done" in out
 
@@ -413,7 +414,7 @@ def test_a_focus_starts_beside_the_rotation_and_is_checked_while_it_runs():
     assert fake.sent[:5] == FOCUS_START + ["appraise my pouch quick"]
     assert "APPRAISE FOCUS on coffer beside the rotation" in out
     assert "APPRAISE FOCUS on the coffer begun" in out
-    assert "APPRAISE FOCUS CHECK answered 'you feel ready for any sort" in out
+    assert "APPRAISE FOCUS CHECK answered 'You feel ready for any sort" in out
     assert fake.sent.count("appraise focus my coffer") == 1
     assert fake.sent.count("appraise focus check") >= 2  # every FOCUS_POLL
     assert "Appraisal at 34/34 — done" in out

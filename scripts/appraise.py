@@ -31,9 +31,8 @@ When it stops
 
 import time
 
-from client.game import probe
-from client.game import flight
-from client.game import trainer
+from client.game import flight, hands, trainer
+from client.game.act import ask
 from client.game.appraisal import (
     CLOSED,
     EMPTY,
@@ -98,8 +97,6 @@ The CHECK's idle answer and the start's are echoed once for fixtures.
 
 SKILL = "Appraisal"
 MIND_LOCK = 34
-COLLECT_SECONDS = 2
-TAIL_SECONDS = 0.5
 MAX_LAPS = 400  # the fuse under the loop
 FOCUS_POLL = 120  # seconds between APPRAISE FOCUS CHECKs while a project runs
 BOOST_POLL = 300  # ... while its boost runs (20 to 60 minutes)
@@ -114,11 +111,6 @@ DROPPED = {
 }
 
 
-def ask(s, command):
-    """The game's answer to one command, lower-cased."""
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS).lower()
-
-
 def profile_items(s):
     """The profile's `appraisal_items`, or []."""
     name = getattr(s.state, "name", None)
@@ -131,16 +123,6 @@ def profile_items(s):
 
 def first_line(answer):
     return ((answer or "").strip().splitlines() or ["(silence)"])[0]
-
-
-def in_hand(s, item):
-    """True when a hand holds `item` (its last word, the noun)."""
-    noun = str(item).split()[-1].lower()
-    for side in ("left_hand", "right_hand"):
-        held = getattr(s.state, side, None)
-        if isinstance(held, dict) and str(held.get("noun", "")).lower() == noun:
-            return True
-    return False
 
 
 def focus_setup(s, item):
@@ -205,16 +187,17 @@ def start_focus(s, focus, held):
     """GET the item (a concept needs none), APPRAISE FOCUS it, STOW it."""
     item = focus["item"]
     fetched = False
-    if item not in FOCUS_CONCEPTS and not in_hand(s, item):
-        if hands_full(s):
+    if item not in FOCUS_CONCEPTS and not hands.holding(s, item):
+        if hands.full(s):
             focus["next"] = clock() + FOCUS_POLL
             return
         got = ask(s, f"get my {item}")
         s.waitrt()
-        if any(word in got for word in NOT_FOUND):
+        lowered = got.lower()
+        if any(word in lowered for word in NOT_FOUND):
             focus_off(s, focus, f"no {item} to focus on ({first_line(got)!r})")
             return
-        fetched = any(word in got for word in TAKEN) and "already" not in got
+        fetched = any(word in lowered for word in TAKEN) and "already" not in lowered
         if fetched:
             held["back"] = f"stow my {item}"
     answer = ask(s, focus_command(item))
@@ -242,15 +225,9 @@ def start_focus(s, focus, held):
         focus_off(s, focus, f"APPRAISE FOCUS {item} answered {first_line(answer)!r}")
 
 
-def hands_full(s):
-    state = s.state
-    return bool(
-        getattr(state, "left_hand", None) and getattr(state, "right_hand", None)
-    )
-
-
 def classify(answer):
     """An APPRAISE answer: "ok", or why the item leaves the rotation."""
+    lowered = answer.lower()
     for outcome, words in (
         ("not found", NOT_FOUND),
         ("in container", IN_CONTAINER),
@@ -258,7 +235,7 @@ def classify(answer):
         ("closed", CLOSED),
         ("empty", EMPTY),
     ):
-        if any(word in answer for word in words):
+        if any(word in lowered for word in words):
             return outcome
     return "ok"
 
@@ -270,10 +247,10 @@ def appraise(s, target, careful, held):
     GOT into a hand first and put back after (#382); `held` keeps its
     PUT until it is back, for the way out on a ;stop."""
     if target["fetch"]:
-        if hands_full(s):
+        if hands.full(s):
             return "no hand", ""
         got = ask(s, target["fetch"])
-        if not any(word in got for word in TAKEN):
+        if not any(word in got.lower() for word in TAKEN):
             return "not found", got
         held["back"] = target["back"]
         s.waitrt()
@@ -281,7 +258,7 @@ def appraise(s, target, careful, held):
     s.waitrt()
     if target["back"]:
         back = ask(s, target["back"])
-        if not any(word in back for word in PUT_BACK):
+        if not any(word in back.lower() for word in PUT_BACK):
             # Never a DROP: a PUT refused (a full pack) stows it instead.
             first = (back.strip().splitlines() or ["(silence)"])[0]
             s.echo(
@@ -344,7 +321,7 @@ def run(s, options):
     finally:
         if held["back"] and not getattr(s, "dead", False):
             # A ;stop between the GET and the PUT: back it goes all the same.
-            s.put(held["back"], cleanup=True)
+            hands.cleanup(s, held["back"])
             s.echo("appraise: the item in hand went back where it came from")
 
 
