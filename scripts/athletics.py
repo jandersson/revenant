@@ -3,7 +3,8 @@
 With no arguments the script reads your rank (asking the game with EXP
 ATHLETICS when the exp window is empty), walks to the hardest ladder
 rung in reach — the community map knows the rooms — and trains it,
-pausing at mind-lock and moving up the ladder when gains go stale.
+holding at mind-lock (the trainers' common hold, client/game/trainer.py)
+and moving up the ladder when gains go stale.
 Below rank 50 the rung is a swim: the Arthe Dale swimming hole's four
 rooms looped by plain moves, no roll to lose (dr-scripts' athletics.lic
 and its base-athletics.yaml, whose Crossing rotation of walls,
@@ -47,13 +48,11 @@ import re
 import time
 
 from client.game import buffs, climbs
-from client.game import flight, loop, travel
+from client.game import flight, loop, trainer, travel
 from client.game.act import ask, unknown
 from client.game.status import counted
 
 MIND_LOCK = 34  # mindstate 34/34: nothing more fits
-RESUME_BELOW = 28  # resume once enough has drained to be worth the laps
-LOCK_POLL = 30  # seconds between mindstate checks while locked
 PAUSE = 1  # breather between commands (practice + manual loops)
 CLIMB_TIMER_PACE = 61  # travel-climb xp awards at most once per random
 # 45-60s; landing each climb just past the window makes every climb count
@@ -498,18 +497,14 @@ def train(
     while True:
         current = mindstate(s.state)
         if current is not None and current >= MIND_LOCK:
-            s.echo(
-                f"Athletics is mind-locked — pausing until it drains "
-                f"below {RESUME_BELOW}/34"
-            )
-            while current is not None and current > RESUME_BELOW:
-                s.sleep(LOCK_POLL)
+            # The common hold (client/game/trainer.py): back once the
+            # pool drains; a typed return ends; a danger falls through
+            # to the lap's own check, and the hold resumes after it.
+            if not trainer.hold_at_lock(
+                s, "ATHLETICS", "Athletics", again="climbing again"
+            ):
                 if loop.wants_stop(s):
                     return returned(s)
-                if danger(s.state):
-                    break  # dealt with below, before any climb
-                current = mindstate(s.state)
-            s.echo("resuming")
             reports.clear()  # a lock is the opposite of stale
         for command in commands:
             if loop.wants_stop(s):

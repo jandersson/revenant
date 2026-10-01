@@ -12,6 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from client.game import trainer
 from client.game.mapdb import MapDB
 
 REPO = pathlib.Path(__file__).parents[2]
@@ -51,6 +52,7 @@ class FakeHandle:
         self._mindstates = list(mindstates)
         self._sleeps = sleeps
         self._exp_response = exp_response  # the EXP ATHLETICS line, if any
+        self.dead = False  # the trainer's hold reads it (loop.danger)
         self.state = SimpleNamespace(experience={})
         self._apply_mindstate(rank=10)
 
@@ -200,12 +202,13 @@ def test_pauses_while_mind_locked_and_resumes_after_draining():
     handle = FakeHandle(args=["swim north"], mindstates=[34, 34, 20, 20, 20], sleeps=6)
     with pytest.raises(LoopDone):
         athletics.main(handle)
-    # Locked: two mindstate polls before anything is sent to the game.
-    assert handle.calls[0] == ("sleep", athletics.LOCK_POLL)
-    assert handle.calls[1] == ("sleep", athletics.LOCK_POLL)
+    # Locked: two polls of the trainer's hold (#407) before anything is
+    # sent to the game.
+    assert handle.calls[0] == ("sleep", trainer.LOCK_POLL)
+    assert handle.calls[1] == ("sleep", trainer.LOCK_POLL)
     assert handle.calls[2] == ("put", "swim north")
     assert any("mind-locked" in echo for echo in handle.echoes)
-    assert any("resuming" in echo for echo in handle.echoes)
+    assert any("climbing again" in echo for echo in handle.echoes)
 
 
 def test_return_typed_during_the_mind_lock_pause_ends_without_a_climb():
