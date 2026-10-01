@@ -44,15 +44,23 @@ long enough to finish one). The recipes and wordings are client/game/remedies.py
 import logging
 import time
 
-from client.game import discard, flight, hands, herbstacks, items, trainer, travel
+from client.game import (
+    discard,
+    flight,
+    hands,
+    herbstacks,
+    items,
+    shop,
+    trainer,
+    travel,
+)
 from client.game.act import ask, missing
 from client.game.loop import danger, ensure_mindstate, mindstate, wants_stop
 from client.game.probe import classify
-from client.game.money import parse_wealth, phrase
+from client.game.money import phrase
 from client.game.seek import present
 from client.game.remedies import (
     MASTER_UNTIE,
-    BOUGHT,
     BUNDLED,
     building_rooms,
     CATALOG,
@@ -84,7 +92,6 @@ from client.game.remedies import (
     parse_logbook,
     parse_order,
     payment,
-    quote,
     recipe,
     roundtime_of,
     sellable,
@@ -173,7 +180,9 @@ the bank's teller when the purse is short, the society's Supplies
 (map 8862; the controlling herb a stack per remedy still owed, the
 second herb one stack, water ten splashes) or the Forging Society's
 Supplies (8775, a coal nugget per remedy) walked to, ORDER # twice
-per item (the quote checked against the noun before the buy), each
+per item through client/game/shop.py (the purse read off WEALTH, the
+shortfall fetched at the teller, the quote checked against the noun
+before the second ORDER buys it, a wrong quote REFUSEd), each
 STOWed — and the walk back resumes the remedy left in the mortar. A
 remedy another run left unfinished in the mortar ("You realize the
 red flowers is not required to continue crafting the nemoih salve, so
@@ -895,53 +904,27 @@ def walk_to(s, target, describe):
     return travel.go(s, target, describe)
 
 
-def carried(s):
-    """INFO's carried Kronars in copper (parse_wealth wants the game's
-    case, "Wealth:" and "Kronars", which ask keeps)."""
-    return parse_wealth(ask(s, "info"))["carried"].get("Kronars", 0)
-
-
-def withdraw_coins(s, copper):
-    """The shortfall from the nearest teller (client/game/bank.py's
-    WITHDRAW, as ;debt and ;tdp take theirs); False when refused."""
-    from client.game.bank import withdraw
-    from client.game.mapdb import MapDB
-    from client.game.walker import walk
-
-    return withdraw(s, MapDB.load(), walk, ask, "remedies", copper, "Kronars")
-
-
-def buy(s, noun, count, shop, catalog, tally):
-    """`count` of `noun` ORDERed at `shop` — the coins fetched from the
-    bank first when the purse is short — each quote checked against
-    the noun before the second ORDER buys it, each purchase STOWed.
-    False, said, when the quote names something else, the shop keeps
-    the item, or the walk fails."""
+def buy(s, noun, count, store, catalog, tally):
+    """`count` of `noun` ORDERed at `store` — the coins fetched from the
+    bank first when the purse is short (shop.afford) — each bought the
+    shop's way (shop.buy: the quote checked against the noun before the
+    second ORDER buys it), each purchase STOWed. False, said, when the
+    quote names something else, the shop keeps the item, or the walk
+    fails."""
     # "coal nugget" is the catalog's "nugget": the profile names it
     # whole, since a looted lead nugget answered GET MY NUGGET first.
     number, price = catalog.get(noun) or catalog[noun.split()[-1]]
     need = price * count
-    purse = carried(s)
-    if purse < need and not withdraw_coins(s, need - purse):
+    if not shop.afford(s, ask, "remedies", need, "Kronars"):
         return False
-    if not walk_to(s, shop, "the Supplies"):
+    if not walk_to(s, store, "the Supplies"):
         s.echo("remedies: could not reach the Supplies — stopping")
         return False
     for _ in range(count):
-        answer = ask(s, f"order {number}")
-        quoted = quote(answer)
-        first = (answer.strip().splitlines() or ["(silence)"])[0]
-        if quoted is None or noun not in quoted[0]:
-            s.echo(
-                f"remedies: ORDER {number} answered {first!r}, not {noun} — stopping"
-            )
+        paid = shop.buy(s, ask, "remedies", f"order {number}", expect=noun)
+        if paid is None:
             return False
-        answer = ask(s, f"order {number}")
-        if not any(word in answer.lower() for word in BOUGHT):
-            first = (answer.strip().splitlines() or ["(silence)"])[0]
-            s.echo(f"remedies: the purchase of {noun} answered {first!r} — stopping")
-            return False
-        tally["spent"] += quoted[1]
+        tally["spent"] += paid
         ask(s, f"stow my {noun}")
     s.echo(f"remedies: bought {count} x {noun} for {phrase(need, 'Kronars')}")
     return True
@@ -983,7 +966,7 @@ def restock(s, spec, catalyst, why, remaining, tally, profile=None):
     short = shortage(why, spec, catalyst)
     if short is None:
         return None
-    noun, per_stack, shop, catalog = short
+    noun, per_stack, store, catalog = short
     if (
         per_stack
         and noun in FORAGE_NAMES
@@ -1000,7 +983,7 @@ def restock(s, spec, catalyst, why, remaining, tally, profile=None):
         # #288), and never under a stock that spares the next orders the
         # Forging Society's Supplies (#393).
         count = max(count + 1, CATALYST_STOCK)
-    return buy(s, noun, count, shop, catalog, tally)
+    return buy(s, noun, count, store, catalog, tally)
 
 
 def next_order(s, master, options, seek=None):

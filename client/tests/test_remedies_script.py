@@ -72,7 +72,7 @@ QUOTE_NUGGET = QUOTE.replace(
     "(25 pieces) dried red flowers", "a tiny coal nugget"
 ).replace("343", "31")
 BOUGHT_NUGGET = BOUGHT.replace("(25 pieces) dried red flowers", "a tiny coal nugget")
-INFO_POOR = "Wealth:\n  1 silver Kronars (100 copper Kronars).\n  No Lirums.\nDebt:\n  No debt.\n"
+WEALTH_POOR = "Wealth:\n  1 silver Kronars (100 copper Kronars).\n  No Lirums.\nDebt:\n  No debt.\n"
 
 
 class Fake:
@@ -154,12 +154,28 @@ def profile(monkeypatch, tmp_path):
     )
 
 
+@pytest.fixture(autouse=True)
+def teller(monkeypatch):
+    """The purse is read off WEALTH for real (shop.afford, #407); the
+    teller's walk and WITHDRAW are the fake's, the shortfall recorded in
+    its `withdrawn` — and the map is never loaded (it would download)."""
+    from client.game import bank, travel
+
+    monkeypatch.setattr(travel, "mapdb", lambda: SimpleNamespace())
+    monkeypatch.setattr(
+        bank,
+        "withdraw",
+        lambda s, db, walk, ask, prefix, copper, currency, retry="try again": (
+            s.withdrawn.append(copper) or True
+        ),
+    )
+
+
 def run(fake, args=()):
     script.ask = fake.ask
     script.to_master = lambda s, profile: True  # the walks are the walker's
     script.find_master = lambda s, profile, master, **_: True
     script.walk_to = lambda s, target, describe: fake.walked.append(str(target)) or True
-    script.withdraw_coins = lambda s, copper: fake.withdrawn.append(copper) or True
     script.run(fake, script.parse_args(list(args)))
     return "\n".join(fake.echoed)
 
@@ -525,7 +541,7 @@ def test_the_herbs_water_and_coal_are_bought_as_they_run_out():
     # again.
     fake = Fake(
         work_answers(
-            info=[INFO_POOR],
+            wealth=[WEALTH_POOR],
             **{
                 "get my dried flowers": [MISSING, "You get some dried red flowers."],
                 "get my water": [MISSING, "You get some water."],
@@ -671,7 +687,7 @@ def test_an_order_left_half_done_keeps_its_spend_for_the_run_that_finishes_it():
 
     first = Fake(
         work_answers(
-            info=[INFO_POOR],
+            wealth=[WEALTH_POOR],
             **{
                 "get my nugget": [MISSING, "You get a tiny coal nugget."],
                 "order 1": [QUOTE_NUGGET, BOUGHT_NUGGET] * CATALYST_STOCK,
@@ -701,14 +717,15 @@ def test_an_order_left_half_done_keeps_its_spend_for_the_run_that_finishes_it():
 def test_a_shop_that_quotes_something_else_ends_the_purchase():
     fake = Fake(
         work_answers(
-            info=[INFO_POOR],
+            wealth=[WEALTH_POOR],
             **{"get my dried flowers": [MISSING], "order 13": [QUOTE_WATER]},
         )
     )
     out = run(fake, ["work"])
-    assert "ORDER 13 answered" in out and "not flowers" in out
+    assert "ORDER 13 quoted '10 splashes of water', not flowers — refused" in out
     assert "out of dried flowers — the order waits in the logbook" in out
     assert fake.sent.count("order 13") == 1
+    assert fake.sent[fake.sent.index("order 13") + 1] == "refuse"  # the quote closed
     assert "0 order(s), 0 Kronars earned, 0 spent" in out
 
 
@@ -1255,7 +1272,7 @@ def test_a_catalyst_named_coal_nugget_is_bought_as_the_catalog_nugget():
     )
     fake = Fake(
         work_answers(
-            info=[INFO_POOR],
+            wealth=[WEALTH_POOR],
             **{
                 "get my coal nugget": [MISSING, "You get a tiny coal nugget."],
                 "put my coal nugget in my mortar": [SHAVINGS],

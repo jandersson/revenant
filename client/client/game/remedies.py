@@ -81,7 +81,7 @@ herb list. Sources: docs/bibliography.md.
 
 import re
 
-from client.game import items
+from client.game import items, shop
 
 # The apprentice book's recipes as its pages state them (2026-09-22):
 # chapter, page, the controlling herb (a 25-piece dried stack per 5-use
@@ -278,8 +278,9 @@ ORDER_TRIES = 3  # orders asked for before a run gives up on the master's picks
 # it done!"), the second buys ("The attendant takes some coins from you
 # and hands you (25 pieces) dried red flowers."), into a hand. Hulnik
 # and sufil are on no shelf there, so a back or eye salve order is
-# asked again. A refusal for want of coin is uncaptured: any answer
-# that is not the hand-over ends the purchase, said.
+# asked again. The purchase itself is shop.buy's (client/game/shop.py,
+# #407): a wrong quote REFUSEd, a refusal for want of coin said, a
+# closing answer it does not know reported and counted.
 SUPPLIES = "8862"
 CATALYST_SHOP = "8775"
 CATALOG = {  # noun: (catalog number, Kronars)
@@ -297,10 +298,10 @@ CATALYST_CATALOG = {"nugget": (1, 31)}
 # Society's Supplies walked to again at the next order, 22 steps each
 # way (twice in one 45-minute task, 2026-09-29). Ten is 310 Kronars.
 CATALYST_STOCK = 10
-QUOTE = re.compile(
-    r"you can purchase (?P<item>.+?) for (?P<price>[\d,]+) kronars", re.IGNORECASE
-)
-BOUGHT = ("takes some coins from you and hands you",)
+# The quote and the hand-over are shop's now (#407), kept under their
+# old names here for what reads them.
+BOUGHT = shop.BOUGHT
+quote = shop.quote
 ROUNDTIME = re.compile(r"roundtime:\s*(\d+)\s*sec", re.IGNORECASE)
 
 
@@ -477,16 +478,6 @@ def sellable(spec):
     Supplies shelves — an order for one that is not is asked again."""
     chapter, page, herb, extra, noun = spec
     return herb in CATALOG and (extra is None or extra in CATALOG)
-
-
-def quote(text):
-    """(item, Kronars) from the shop's ORDER quote, or None."""
-    match = QUOTE.search(text or "")
-    if not match:
-        return None
-    return match.group("item").strip().lower(), int(
-        match.group("price").replace(",", "")
-    )
 
 
 def shortage(why, spec, catalyst):
