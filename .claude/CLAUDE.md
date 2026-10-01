@@ -73,6 +73,11 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   (#407): `ask` (probe's, one pair of windows, the game's case kept),
   `missing` (both not-found wordings), `said` (the line to quote,
   never a bystander's), `unknown` (the one "please report it" echo);
+  `hands.py` the hands (`held`, `holding`, `free(keep=)`, `stow`,
+  `sheathe`, `at_end` — STOW, never DROP, the answer the judge);
+  `items.py` an item named by its id when held and whole otherwise
+  (`name`, `ref`), the one container lister, LOOK IN and COUNT
+  parsers, `NO_ROOM`;
   `probe.py` ask-and-classify (reads the story and the `combat` stream:
   every swing and kill line arrives there); `loop.py` wants_stop /
   danger / pause; `trainer.py` the loop every skill trainer runs

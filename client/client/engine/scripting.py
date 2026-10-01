@@ -456,6 +456,8 @@ RELOADABLE_MODULES = (
     "client.game.possessions",  # binds _depth from inventory: after it
     "client.game.probe",
     "client.game.act",  # binds probe: after it
+    "client.game.hands",  # binds act: after it
+    "client.game.items",  # binds hands and possessions: after them
     "client.game.creatures_data",
     "client.game.creatures",  # binds CAPS from creatures_data: after it
     "client.game.loot",  # binds noun_of from creatures: after it

@@ -59,6 +59,17 @@ def main(s):
 
 `probe.classify(answer, table)` names the first outcome whose wording the answer holds.
 
+## Hands and items
+
+| Call | Does |
+| --- | --- |
+| `hands.held(s)` / `hands.holding(s, noun)` / `hands.full(s)` | what the hands hold, off the parser's tags |
+| `hands.free(s, keep=(...), ask=ask)` | STOW what is not kept (never DROP); `free_one` frees a hand only when both are full |
+| `hands.at_end(s, nouns)` | a `finally`'s put-backs: STOW each still held, as cleanup puts |
+| `items.name(s, "dried red flowers")` | the held item's `#id`, else the name whole — what a command takes (a bare noun takes the first item of that noun) |
+| `items.containers(possessions, holding=word)` | the containers INV LIST shows, in listing order |
+| `items.listed(answer)` / `items.count(answer)` | a LOOK IN listing; COUNT's pieces |
+
 ## Training and walking
 
 | Call | Does |

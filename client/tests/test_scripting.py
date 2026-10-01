@@ -722,6 +722,9 @@ def test_every_pure_game_module_the_scripts_import_is_reloadable():
         # act is probe's ask with the windows every script shares (#407);
         # the trainer loop binds loop, flight and act; travel the walker.
         ("client.game.probe", "client.game.act"),
+        ("client.game.act", "client.game.hands"),
+        ("client.game.hands", "client.game.items"),
+        ("client.game.possessions", "client.game.items"),
         ("client.game.loop", "client.game.trainer"),
         ("client.game.flight", "client.game.trainer"),
         ("client.game.act", "client.game.trainer"),
