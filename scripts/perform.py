@@ -7,13 +7,14 @@
     ;perform until=30           stop at that mindstate instead of 34
     ;perform once               exit at mind-lock instead of holding for the drain
     ;perform return             (typed while it runs) stop the song and end
-    ;stop perform               quit at once; the song plays on (STOP PLAY yourself)
+    ;stop perform               quit at once, the song stopped
 
 What it does
   - Tries every style of the song for your rank band (PLAY, STOP PLAY: no roundtime) and keeps
     the one the game rates nearest "with only the slightest hint of difficulty"; again after each lock.
   - PLAYs it, starts it again when it ends, watches the mindstate.
-  - At mind-lock STOPs PLAY and holds until the pool drains, then plays again.
+  - At mind-lock STOPs PLAY and holds until the pool drains, then plays again
+    (client/game/trainer.py, the loop every trainer runs).
   - A room that refuses a song sends it to the profile's `home` once, to play there.
   - An instrument the game calls dirty is cleaned once a run with `instrument_cloth`
     (removed and worn again, wiped when wet); with no cloth it plays dirty.
@@ -29,11 +30,10 @@ When it stops
 (File > Character Profile...); the songs and wordings are client/game/perform.py's.
 """
 
-import re
 import time
+from types import SimpleNamespace
 
-from client.engine.xml_data import LEARNING_RATES
-from client.game import flight, hands, probe, travel
+from client.game import hands, probe, trainer, travel
 from client.game.act import ask
 from client.game.loop import danger, wants_stop
 from client.game.perform import (
@@ -108,19 +108,16 @@ again after; a wet one ("so wet that they are still dripping") is
 WIPEd with the cloth first; the cloth is stowed and the song starts
 over (#233). No cloth in the profile, or none on you, is said once
 and the song plays dirty; nothing is ever dropped.
-Stop with:  ;stop perform (the song plays on — STOP PLAY yourself), or ;perform return.
+Stop with:  ;stop perform (the song stopped, a cleanup put), or ;perform return.
 """
 
-MIND_LOCK = 34
-RESUME_BELOW = 28  # resume once enough has drained to be worth a song
 # CLEAN passes per cleaning: one took "a very large amount of dirt and
 # grime" off and the next PLAY still called the zills dirty (2026-09-20).
 CLEAN_PASSES = 3
 POLL = 15  # seconds between looks at the story and the mindstate
-LOCK_POLL = 30
 clock = time.monotonic  # tests replace it
 
-_EXP_ANSWER = re.compile(r"Performance:\s+(\d+)\s+[\d.]+%\s+.*?\((\d+)/34\)")
+SKILL = "Performance"
 
 
 def instrument_of(s):
@@ -206,32 +203,6 @@ def mindstate(s):
 def rank(s):
     value = entry(s)
     return value.get("rank") if value else None
-
-
-def ensure_mindstate(s):
-    """The mindstate: the exp window's, or EXP PERFORMANCE's own answer
-    when the window does not list the skill (a clear pool is absent
-    from it; a guild without the skill gets no line at all)."""
-    value = mindstate(s)
-    if value is None:
-        answer = ask(s, "exp performance")
-        value = mindstate(s)
-        if value is None:
-            match = _EXP_ANSWER.search(answer or "")
-            if match:
-                value = int(match.group(2))
-                # A whole entry, the parser's shape (rank, percent,
-                # mindstate, rate): the engine renders every entry of
-                # the state, and a seed without a rate took the session
-                # down (2026-09-20, #239).
-                s.state.experience = dict(getattr(s.state, "experience", None) or {})
-                s.state.experience["Performance"] = {
-                    "rank": int(match.group(1)),
-                    "percent": 0,
-                    "mindstate": value,
-                    "rate": LEARNING_RATES[min(value, 34)],
-                }
-    return value
 
 
 def start_song(s, options):
@@ -325,101 +296,57 @@ def watch(s, seconds, until=None):
     return None
 
 
-def hold_at_lock(s, until):
-    s.echo(f"perform: Performance mind-locked ({until}/34) — holding until it drains")
-    floor = min(RESUME_BELOW, until - 1)
-    while True:
-        if watch(s, LOCK_POLL) == "stop":
-            return False
-        value = mindstate(s)
-        if value is not None and value <= floor:
-            s.echo(f"perform: drained to {value}/34 — playing again")
-            return True
-
-
 def run(s, options, walker=walk_home):
+    """The trainer loop with one step: the song started when none plays,
+    then one POLL of the story and the mindstate; STOP PLAY at every end."""
     if not options["instrument"]:
         options["instrument"] = instrument_of(s)
     if not options["instrument"]:
         s.echo("perform: no instrument — instrument=<noun>, or the profile's")
         return
-    value = ensure_mindstate(s)
-    if value is None:
-        s.echo("perform: EXP shows no Performance — nothing to train")
-        return
-    playing = False
-    songs = 0
-    moved = False  # walked home once for a room that refuses a song
-    cleaned = False  # the instrument cleaned once for a dirt warning (#233)
     # No mood= given: every style tried after the first start (and the
     # cleaning it may call for), and again after each lock (#381).
     search = options["mood"] is None
-    search_due = search
     if search:
         options["mood"] = ""
-    while True:
-        reason = danger(s)
-        if reason:
-            if playing:
-                stop_song(s)
-            s.echo(f"perform: {reason} — stopping")
-            if "hostiles" in reason:
-                flight.react(s, "perform")
-            return
-        value = mindstate(s)
-        if value is not None and value >= options["until"]:
-            if playing:
-                stop_song(s)
-                playing = False
-            if options["once"]:
-                s.echo(f"perform: Performance at {value}/34 — done")
-                return
-            if not hold_at_lock(s, options["until"]):
-                s.echo("perform: stopping")
-                return
-            search_due = search  # the rank may have moved while held
-            continue
-        if not playing:
+    song = SimpleNamespace(
+        playing=False,
+        moved=False,  # walked home once for a room that refuses a song
+        cleaned=False,  # the instrument cleaned once for a dirt warning (#233)
+        search_due=search,
+    )
+
+    def step(s):
+        if not song.playing:
             outcome, dirty = start_song(s, options)
             if outcome == "no instrument":
-                s.echo(f"perform: no {options['instrument']} on you — stopping")
-                return
+                return f"no {options['instrument']} on you"
             if outcome == "not here":
                 # A bank's teller refused the song (2026-09-20): once,
                 # walk to the profile's home and play there.
                 home = home_of(s)
-                if moved or not home:
-                    s.echo(
-                        "perform: the game refuses a song here"
-                        + (
-                            " and at home too"
-                            if moved
-                            else " and the profile names no home"
-                        )
-                        + " — stopping"
+                if song.moved or not home:
+                    return "the game refuses a song here" + (
+                        " and at home too"
+                        if song.moved
+                        else " and the profile names no home"
                     )
-                    return
                 s.echo(f"perform: the game refuses a song here — walking home ({home})")
-                moved = True
+                song.moved = True
                 if not walker(s, home):
-                    s.echo("perform: could not walk home — stopping")
-                    return
-                continue
+                    return "could not walk home"
+                return None
             if outcome == "in combat":
                 # The game refused the song for a fight the parser had
                 # not shown yet (2026-09-20, right after a ;reexec, #243).
-                s.echo("perform: in combat — stopping")
-                return
+                return "in combat"
             if outcome == "unknown":
-                s.echo(
-                    "perform: PLAY answered nothing known — please report it — stopping"
-                )
-                return
-            if dirty and not cleaned:
+                return "PLAY answered nothing known — please report it"
+            if dirty and not song.cleaned:
                 # The game says the dirt weighs on the song (#233): once
                 # per run, the profile's cloth cleans the instrument and
                 # the song starts over; no cloth means playing dirty.
-                cleaned = True
+                song.cleaned = True
                 cloth = cloth_of(s)
                 if not cloth:
                     s.echo(
@@ -429,29 +356,54 @@ def run(s, options, walker=walk_home):
                 elif fetch_cloth(s, options["instrument"], cloth):
                     stop_song(s)
                     clean_instrument(s, options["instrument"], cloth)
-                    continue
-            if search_due:
-                search_due = False
+                    return None
+            if song.search_due:
+                song.search_due = False
                 stop_song(s)
                 style, tier = pick_style(s, options)
                 if style is not None:
                     options["mood"] = style
                     s.echo(f"perform: {style or 'the plain style'} plays {tier}")
-                continue
-            playing = True
-            songs += 1
+                return None
+            song.playing = True
             s.echo(
                 f"perform: playing {options['song'] or song_for(rank(s))} "
                 f"{options['mood'] or 'in the plain style'} on the "
-                f"{options['instrument']} (Performance {value}/34)"
+                f"{options['instrument']} (Performance {mindstate(s)}/34)"
             )
         outcome = watch(s, POLL, until=options["until"])
         if outcome == "stop":
-            stop_song(s)
-            s.echo("perform: stopping as asked")
-            return
+            return None  # the loop says why: the return, or the danger
         if outcome == "ended":
-            playing = False
+            song.playing = False
+        elif trainer.locked(s, SKILL, options["until"]):
+            # The watch's "target" (or a lock landed in its gap): the song
+            # stopped before the loop holds or ends at it, the styles
+            # tried again after the hold — the rank may have moved.
+            stop_song(s)
+            song.playing = False
+            song.search_due = search
+        return None
+
+    def finish(s, why):
+        if not song.playing:
+            return
+        if why is None:  # a ;stop (or a crash): the one put that still goes out
+            s.put("stop play", cleanup=True)
+        else:
+            stop_song(s)
+
+    return trainer.train(
+        s,
+        "perform",
+        SKILL,
+        step,
+        until=options["until"],
+        once=options["once"],
+        again="playing again",
+        finish=finish,
+        ask=ask,
+    )
 
 
 def main(s):

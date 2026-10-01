@@ -1,12 +1,13 @@
 """How ;perform trains — these tests are the manual. It PLAYs the
 rank's song off-key on the profile's instrument, keeps the song going,
-stops it and holds at mind-lock, and stops the song on a typed return
-(#208)."""
+stops it and holds at mind-lock (the trainer loop, #407), and stops the
+song on a typed return and on a ;stop (#208)."""
 
 import importlib.util
 import pathlib
 from types import SimpleNamespace
 
+from client.engine.scripting import ScriptStopped
 from client.game import perform
 
 REPO = pathlib.Path(__file__).parents[2]
@@ -94,8 +95,9 @@ class Fake:
         return CONTINUES if self.played_at is not None else ""
 
     # --- the handle ---
-    def put(self, command):
+    def put(self, command, cleanup=False):
         self.sent.append(command)
+        self.cleanup = cleanup
 
     def get(self, timeout=None, streams=("",)):
         return None
@@ -202,20 +204,39 @@ def test_a_song_that_ran_out_is_started_again():
 
 def test_it_holds_at_the_lock_and_resumes_when_drained():
     # Locked from the start; the pool drains to 27 while held; a song,
-    # the lock again, then a typed return ends the hold.
-    fake = Fake(mindstates=[34] + [27] * 35 + [34] * 200, stop_at=1000 + 120)
+    # the lock again (the song stopped first, at 1035 on the fake
+    # clock), then a typed return ends the second hold.
+    fake = Fake(mindstates=[34] + [27] * 35 + [34] * 200, stop_at=1000 + 40)
     out = run(fake)
     assert "mind-locked" in out
     assert "drained to 27/34 — playing again" in out
     assert plays(fake) == ["play scales off-key on my zills"]
-    assert out.endswith("perform: stopping")
+    assert fake.sent[-1] == "stop play"
+    assert out.endswith("perform: returning as asked")
 
 
 def test_a_typed_return_stops_the_song_and_ends():
     fake = Fake(mindstates=[5] * 50, stop_at=1000 + 10)
     out = run(fake)
     assert fake.sent[-1] == "stop play"
-    assert "stopping as asked" in out
+    assert "returning as asked" in out
+
+
+def test_a_stop_stops_the_song_too():
+    # ;stop quits at once: the song is stopped on the way out with the
+    # one put a stopped script may still make (the cleanup put).
+    class Stopped(Fake):
+        def collect(self, s, seconds, until=None):
+            if self.now >= 1000 + 5:
+                raise ScriptStopped()
+            return super().collect(s, seconds, until)
+
+    fake = Stopped(mindstates=[5] * 50)
+    try:
+        run(fake)
+    except ScriptStopped:
+        pass
+    assert fake.sent[-1] == "stop play" and fake.cleanup
 
 
 def test_hostiles_stop_it_before_a_song():
