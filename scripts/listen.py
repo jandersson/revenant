@@ -26,7 +26,7 @@ shape. Elanthipedia: Listen command. Stop with:  ;stop listen, or
 ;listen return.
 """
 
-from client.game import flight
+from client.game import flight, trainer
 from client.game.act import ask, said, unknown
 from client.game.loop import danger, ensure_mindstate, mindstate, pause
 from client.game.probe import classify
@@ -46,8 +46,6 @@ from client.game.teaching import (
 POLL = 10  # seconds between mindstate looks
 REJOIN_AFTER = 15  # seconds after the class ended before LISTENing again
 REFUSALS = 3  # LISTENs answered "no class" in a row before the run ends
-RESUME_BELOW = 28
-LOCK_POLL = 30
 
 
 def join(s, options):
@@ -64,18 +62,6 @@ def join(s, options):
     # window ("Court Advisor Aaiyaah just arrived.", 2026-09-23).
     s.echo(f"listen: {said(answer, NO_CLASS)}")
     return outcome, None
-
-
-def hold_at_lock(s, skill, until):
-    s.echo(f"listen: {skill} mind-locked ({until}/34) — holding until it drains")
-    floor = min(RESUME_BELOW, until - 1)
-    while True:
-        if not pause(s, LOCK_POLL):
-            return False
-        value = mindstate(s, skill)
-        if value is not None and value <= floor:
-            s.echo(f"listen: drained to {value}/34 — listening on")
-            return True
 
 
 def leave(s, why):
@@ -133,7 +119,9 @@ def run(s, options):
                 if options["once"]:
                     leave(s, f"{skill} at {value}/34 — done")
                     return
-                if not hold_at_lock(s, skill, options["until"]):
+                if not trainer.hold_at_lock(
+                    s, "listen", skill, options["until"], again="listening on"
+                ):
                     leave(s, "stopping as asked")
                     return
             gone = not teacher_present(s.state, options["teacher"])
