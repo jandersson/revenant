@@ -369,13 +369,12 @@ def test_a_typed_return_ends_after_the_box_in_hand():
     assert "stopping as asked" in out
 
 
-def test_mind_lock_holds_and_once_exits(monkeypatch):
+def test_mind_lock_holds_and_once_exits():
     fake = Fake(one_easy_box(), mindstates=[34])
     out = run(fake, ["once"])
     assert "Locksmithing at 34/34 — done" in out
     assert "get box from my sack" not in fake.sent
 
-    monkeypatch.setattr(script, "LOCK_POLL", 1)
     fake = Fake(one_easy_box(), mindstates=[34, 27, 5, 7, 9])
     fake.sleep = lambda seconds: (
         fake.state.experience["Locksmithing"].__setitem__(
@@ -665,7 +664,11 @@ def _refill_world(monkeypatch, carried=2000):
     import client.game.walker as walker
 
     walked, withdrawn = [], []
-    db = SimpleNamespace(rooms_tagged=lambda tag: [19125] if tag == "locksmith" else [])
+    db = SimpleNamespace(
+        rooms={19125: {}},
+        rooms_tagged=lambda tag: [19125] if tag == "locksmith" else [],
+        resolve=lambda target: set(),  # settings' avoid_rooms: none on this map
+    )
     monkeypatch.setattr(mapdb.MapDB, "load", classmethod(lambda cls, path=None: db))
     monkeypatch.setattr(
         walker,

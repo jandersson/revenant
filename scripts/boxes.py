@@ -44,7 +44,7 @@ docs/training.md has the profile keys. Report any "boxes: <command> answered ...
 """
 
 from client.engine.scripting import ScriptStopped
-from client.game import discard, flight
+from client.game import discard, flight, trainer, travel
 from client.game import boxes as boxes_model
 from client.game.act import ask, missing, said
 from client.game.boxes import (
@@ -76,7 +76,7 @@ from client.game.boxes import (
     reading,
 )
 from client.game.creatures import noun_of, phrase
-from client.game.loop import danger, ensure_mindstate, mindstate, pause, wants_stop
+from client.game.loop import danger, ensure_mindstate, mindstate, wants_stop
 from client.game.loot import GEM_NOUNS, ignored, short_name
 from client.game.probe import classify
 from client.game.wounds import level, parse_health
@@ -208,8 +208,6 @@ def hindering_gear(profile):
 
 
 MIND_LOCK = 34
-RESUME_BELOW = 28
-LOCK_POLL = 30
 IDENTIFY_TRIES = 3
 WORK_TRIES = 5
 MAX_BOXES = 200  # the fuse under the loop
@@ -515,11 +513,10 @@ def refill_ring(run):
         return False
     price = LOCKPICK_CATALOG[kind]
     from client.game.bank import withdraw
-    from client.game.mapdb import MapDB
     from client.game.money import parse_wealth, phrase
     from client.game.walker import walk
 
-    mapdb = MapDB.load()
+    mapdb = travel.mapdb()
     need = price * count
     carried = parse_wealth(ask(s, "wealth"))["carried"].get("Kronars", 0)
     if carried < need and not withdraw(
@@ -528,7 +525,7 @@ def refill_ring(run):
         run.say("no coins for lockpicks — no refill")
         return False
     shop = set(mapdb.rooms_tagged(LOCKPICK_SHOP))
-    if not shop or not walk(s, mapdb, shop, describe="Ragge's Locksmithing"):
+    if not travel.go(s, shop, "Ragge's Locksmithing", db=mapdb):
         run.say("could not reach a locksmith — no refill")
         return False
     stacked = 0
@@ -1016,19 +1013,6 @@ def dispose(run, noun):
     return False
 
 
-def hold_at_lock(run, until):
-    s = run.s
-    run.say(f"{SKILL} mind-locked ({until}/34) — holding until it drains")
-    floor = min(RESUME_BELOW, until - 1)
-    while True:
-        if not pause(s, LOCK_POLL):
-            return False
-        value = mindstate(s, SKILL)
-        if value is not None and value <= floor:
-            run.say(f"drained to {value}/34 — picking again")
-            return True
-
-
 def kept(run, noun):
     """A box past the reading, back into the container: "kept". No
     practising on it — an identify of a trap already read is free of
@@ -1054,18 +1038,10 @@ def move_home(run):
     if not home:
         run.say("the guards here forbid box work, and the profile names no home")
         return False
-    from client.game.mapdb import MapDB
-    from client.game.walker import walk
-
-    mapdb = MapDB.load()
-    goals = mapdb.resolve(home) if mapdb is not None else None
-    if not goals:
-        run.say(f"the guards here forbid box work, and home {home!r} is not on the map")
-        return False
     run.say(f"the guards here forbid box work — walking home ({home})")
     clear_feet(run)
     stand(run)
-    if not walk(run.s, mapdb, set(goals), describe="home"):
+    if not travel.go(run.s, home, "home"):
         run.say("could not reach home")
         return False
     sit(run)
@@ -1196,7 +1172,9 @@ def run_loop(s, profile, options):
                 if options["once"]:
                     run.say(f"{SKILL} at {value}/34 — done")
                     return
-                if not hold_at_lock(run, options["until"]):
+                if not trainer.hold_at_lock(
+                    s, "boxes", SKILL, options["until"], again="picking again"
+                ):
                     run.say("stopping")
                     return
             if run.ring_empty and not run.refilled:
