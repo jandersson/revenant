@@ -29,6 +29,7 @@ Every ;hunt that fought ends with ;skins bank. The profile's `bundle` setting
 import re
 from collections import Counter
 
+from client.game import travel
 from client.game.act import ask, missing
 from client.game.mapdb import MapDB
 from client.game.profile import load_profile
@@ -220,7 +221,7 @@ def run(s, words, mapdb, walk_fn=walk, profile=None):
         s.echo("skins: the map has no room tagged 'tannery'")
         return
     start = locate(mapdb, s.state)
-    if not walk_fn(s, mapdb, set(tanneries), describe="the tannery"):
+    if not travel.go(s, set(tanneries), "the tannery", db=mapdb, walk=walk_fn):
         s.echo("skins: could not reach a tannery — stopping")
         return
     if s.dead:
@@ -235,7 +236,7 @@ def run(s, words, mapdb, walk_fn=walk, profile=None):
     if not sold and not bank:
         return
     if back and start is not None and locate(mapdb, s.state) != start:
-        if not walk_fn(s, mapdb, {start}, describe="where you started"):
+        if not travel.go(s, {start}, "where you started", db=mapdb, walk=walk_fn):
             s.echo("skins: could not walk back — you are at the tannery")
 
 
