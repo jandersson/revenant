@@ -5,6 +5,9 @@ the compass exits, judged by the room changing."""
 from types import SimpleNamespace
 
 from client.game import flight
+from client.game.mapdb import MapDB
+
+SAFE_MAP = MapDB([{"id": 748, "title": ["[Town Green]"], "wayto": {}}])
 
 
 class Handle:
@@ -108,6 +111,6 @@ def test_to_safety_walks_with_the_invaded_rooms_avoided():
         walks.append((set(goals), set(avoid)))
         return True
 
-    assert flight.to_safety(Handle(), None, walk, [748], avoid=[6046]) is True
+    assert flight.to_safety(Handle(), SAFE_MAP, walk, [748], avoid=[6046]) is True
     assert walks == [({748}, {6046})]
-    assert flight.to_safety(Handle(), None, walk, []) is False
+    assert flight.to_safety(Handle(), SAFE_MAP, walk, []) is False

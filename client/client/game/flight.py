@@ -28,6 +28,7 @@ echoes and the bell; `flee` the burst loop; `to_safety` the walk.
 Nothing is ever dropped.
 """
 
+from client.game import travel
 from client.game.status import status
 
 ATTEMPTS = 8  # bursts before the caller is told it did not get clear
@@ -83,7 +84,7 @@ def to_safety(s, mapdb, walk, goals, avoid=()):
     no such room or the walk failed."""
     if not goals:
         return False
-    return bool(walk(s, mapdb, set(goals), describe="safety", avoid=avoid))
+    return travel.go(s, set(goals), "safety", db=mapdb, walk=walk, avoid=avoid)
 
 
 def react(s, prefix, preferred=(), attempts=ATTEMPTS):
