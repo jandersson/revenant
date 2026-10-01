@@ -190,6 +190,26 @@ def test_a_typed_return_walks_back_to_the_start():
     assert "returning to the start" in out
 
 
+def test_a_death_or_hostiles_end_the_search_hostiles_with_the_escape(monkeypatch):
+    # The loop's danger check (client/game/loop.py), not a bare s.dead:
+    # hostiles end it too, through the shared escape.
+    from client.game import flight
+
+    dead = Fake(listings={})
+    dead.dead = True
+    out = run(dead, ["peddler", "rooms=3"])
+    assert dead.walks == []
+    assert "seek: you are dead — stopping" in out
+    fled = []
+    monkeypatch.setattr(flight, "react", lambda s, prefix, **k: fled.append(prefix))
+    beset = Fake(listings={})
+    beset.state.hostiles = {"1": "a goblin"}
+    out = run(beset, ["peddler", "rooms=3"])
+    assert beset.walks == []
+    assert "seek: hostiles in the room — stopping" in out
+    assert fled == ["seek"]
+
+
 def test_a_parser_without_room_objs_looks_instead():
     fake = Fake(listings={2: [PEDDLER]}, parser_objs=False)
     out = run(fake, ["peddler", "rooms=2"])

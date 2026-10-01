@@ -23,13 +23,14 @@ peddler]"; ORDER 3 FROM PEDDLER bought the copper zills for 500
 Lirums, Lirums only; Elanthipedia: Tall Human Peddler). Not found
 after the laps: it says
 so and stops where the last lap ended, the start. Another player's
-room is passed through, never lingered in. It stops on death and when
-the map has no street to loop.
+room is passed through, never lingered in. It stops on death, on
+hostiles in the room (the shared escape, client/game/flight.py), and
+when the map has no street to loop.
 Stop with:  ;stop seek (at once), or ;seek return to walk back to the start first.
 """
 
-from client.game import probe, travel
-from client.game.loop import wants_stop
+from client.game import flight, probe, travel
+from client.game.loop import danger, wants_stop
 from client.game.mapdb import MapDB
 from client.game.seek import loop, parse_args, present
 from client.game.walker import locate, walk
@@ -82,8 +83,11 @@ def run(s, options, mapdb, walk_fn=walk, avoid=()):
     )
     for lap in range(1, options["laps"] + 1):
         for room in order:
-            if s.dead:
-                s.echo("seek: you are dead — stopping; deathwatch has it")
+            reason = danger(s)
+            if reason:
+                s.echo(f"seek: {reason} — stopping")
+                if "hostiles" in reason:
+                    flight.react(s, "seek")
                 return
             if wants_stop(s):
                 s.echo("seek: returning to the start as asked")
