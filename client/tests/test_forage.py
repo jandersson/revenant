@@ -29,8 +29,6 @@ def _forage():
 
 
 forage = _forage()
-forage.COLLECT_SECONDS = 0.01
-forage.TAIL_SECONDS = 0.01
 
 STREET = "[The Crossing, Hodierna Way]"
 MAP = MapDB(
@@ -272,6 +270,21 @@ def test_hands_that_will_not_free_end_the_run_instead_of_spinning(travel):
     reason, collected = forage.run(s, forage.parse_args([]), db=MAP)
     assert reason.startswith("no hand free")
     assert s.sent.count("collect rock practice") == 1  # no hand state to stow
+
+
+def test_a_stow_the_game_could_not_find_is_no_freed_hand(travel):
+    # Either not-found wording is a failed stow; the second was read as
+    # a stow until act.missing judged the answer (#407).
+    for refusal in (
+        "What were you referring to?",
+        "I could not find what you were referring to.",
+    ):
+        s = Fake([HANDS_FULL, refusal, HANDS_FULL], experience=_exp(10))
+        s.state.left_hand = {"noun": "pestle"}
+        s.state.right_hand = {"noun": "mortar"}
+        reason, collected = forage.run(s, forage.parse_args([]), db=MAP)
+        assert reason.startswith("no hand free")
+        assert s.sent == ["collect rock practice", "stow my pestle"]
 
 
 # The herb mode (#370), captured 2026-09-28 at Midton Circle and the

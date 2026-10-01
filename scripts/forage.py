@@ -33,7 +33,8 @@ When it stops
 
 import re
 
-from client.game import flight, probe
+from client.game import flight
+from client.game.act import ask, missing, said, unknown
 from client.game.loop import danger, wants_stop
 from client.game.buffs import locked
 from client.game.mapdb import MapDB
@@ -114,8 +115,6 @@ SKILL = "Outdoorsmanship"
 EMPTY_LIMIT = 3  # empty answers in a row before giving up, nothing found yet
 EMPTY_STREAK = 10  # ... once something was: a failed try answers the same
 MAX_COLLECTS = 2000  # the fuse
-COLLECT_SECONDS = 3  # the answer lands before the roundtime
-TAIL_SECONDS = 0.5
 
 # Captured 2026-09-14 (#193): the same empty answer in a room with
 # nothing to collect and on a failed try where there is; the practice
@@ -151,7 +150,8 @@ _TRIED = (
     # find a dragon's egg than what you were looking for."
     "dragon's egg",
 )
-_REFUSED = ("can't do that", "cannot do that", "not something you can", "what were you")
+# A refusal; either not-found wording (act.missing) counts as one too.
+_REFUSED = ("can't do that", "cannot do that", "not something you can")
 # Both hands full (captured 2026-09-26: a stopped ;remedies left the
 # pestle and the mortar in them): "You really need to have at least one
 # hand free to properly collect something." — 1263 times in nineteen
@@ -206,7 +206,7 @@ def classify(answer):
         return "hands full"
     if any(word in lowered for word in _EMPTY):
         return "empty"
-    if any(word in lowered for word in _REFUSED):
+    if missing(answer) or any(word in lowered for word in _REFUSED):
         return "refused"
     if any(word in lowered for word in _COLLECTED):
         return "ok"
@@ -215,21 +215,17 @@ def classify(answer):
     return None
 
 
-def first_line(answer):
-    return (answer.strip().splitlines() or ["(silence)"])[0]
-
-
 def free_a_hand(s):
     """STOW what the hands hold, left first — never a drop. True when a
     hand was emptied (the parser's hand state lags, so the answer is
-    the judge: anything but "What were you referring to?" counts)."""
+    the judge: anything but a not-found answer, either wording, counts)."""
     for side in ("left_hand", "right_hand"):
         held = getattr(s.state, side, None)
         noun = held.get("noun") if isinstance(held, dict) else None
         if noun:
-            answer = probe.ask(s, f"stow my {noun}", COLLECT_SECONDS, TAIL_SECONDS)
+            answer = ask(s, f"stow my {noun}")
             s.echo(f"forage: both hands full — stowed the {noun}")
-            return "what were you" not in answer.lower()
+            return not missing(answer)
     return False
 
 
@@ -263,12 +259,12 @@ def run(s, options, db=None, avoid=()):
             return f"{SKILL} mind-locked", collected
         if count and collected >= count:
             return f"{count} collect(s) done", collected
-        answer = probe.ask(s, f"collect {item} practice", COLLECT_SECONDS, TAIL_SECONDS)
+        answer = ask(s, f"collect {item} practice")
         outcome = classify(answer)
         if outcome == "hands full":
             freed += 1
             if freed > 2 or not free_a_hand(s):
-                return f"no hand free: {first_line(answer)}", collected
+                return f"no hand free: {said(answer)}", collected
             continue
         if outcome == "empty":
             empties += 1
@@ -280,23 +276,17 @@ def run(s, options, db=None, avoid=()):
                 )
             continue
         if outcome == "refused":
-            return f"refused: {first_line(answer)}", collected
+            return f"refused: {said(answer)}", collected
         empties = 0
         collected += 1
         if outcome == "ok":
             successes += 1
         elif outcome is None:
-            first = first_line(answer)
+            first = said(answer)
             if first not in seen:
                 seen.add(first)
-                s.echo(
-                    f"forage: unrecognized collect answer {first!r} — please report it"
-                )
+                unknown(s, "forage", "collect", answer)
     return "collect fuse spent", collected
-
-
-def ask(s, command):
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
 
 
 def pieces_of(s, noun):
@@ -333,16 +323,16 @@ def gather_herb(s, options, bag):
             # the technique (its refusal is uncaptured) — plain from here.
             precise = False
             s.echo(
-                f"forage: FORAGE PRECISE answered {first_line(answer)!r} — "
+                f"forage: FORAGE PRECISE answered {said(answer)!r} — "
                 "plain FORAGE from here"
             )
             continue
         if outcome == "hands full":
             if not free_a_hand(s):
-                return f"no hand free: {first_line(answer)}", pieces, noun
+                return f"no hand free: {said(answer)}", pieces, noun
             continue
         if outcome == "refused":
-            return f"refused: {first_line(answer)}", pieces, noun
+            return f"refused: {said(answer)}", pieces, noun
         misses += 1
         if misses >= HERB_MISSES:
             return f"no {item} found in {misses} tries", pieces, noun
@@ -375,7 +365,7 @@ def press_herb(s, noun, bag):
             break  # the bag holds no more
         pressed = ask(s, f"put my {noun} in press").lower()
         if not any(word in pressed for word in _PRESSED + _PREPARED):
-            s.echo(f"forage: the press answered {first_line(pressed)!r} — stopping")
+            s.echo(f"forage: the press answered {said(pressed)!r} — stopping")
             ask(s, f"put my {noun} in my {bag}")
             break
         stacks += 1
