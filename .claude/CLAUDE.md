@@ -69,7 +69,11 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
 - `launch.py` the `revenant` console script and picker; `guiboot.py`.
 
 `client/game/` — the Qt-free models scripts lean on:
-- `probe.py` ask-and-classify (reads the story and the `combat` stream:
+- `act.py` how every script asks the game and reads what it said
+  (#407): `ask` (probe's, one pair of windows, the game's case kept),
+  `missing` (both not-found wordings), `said` (the line to quote,
+  never a bystander's), `unknown` (the one "please report it" echo);
+  `probe.py` ask-and-classify (reads the story and the `combat` stream:
   every swing and kill line arrives there); `loop.py` wants_stop /
   danger / pause; `interlude.py` the chores any script does at a
   wants_stop (the almanac, the loot sweep, `;break`); `sweep.py`

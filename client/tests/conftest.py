@@ -52,6 +52,18 @@ def _isolated_login_defaults(tmp_path, monkeypatch):
     monkeypatch.setattr(walker, "_GATED", {})
 
 
+@pytest.fixture(autouse=True)
+def _short_ask_windows(monkeypatch):
+    """act.ask's windows a hundredth of a second: a fake handle counts
+    no prompts, so every window is waited out (#248), and a script
+    moved onto act (#407) has no windows of its own for its test to
+    shorten. A test of the windows themselves sets its own."""
+    from client.game import act
+
+    monkeypatch.setattr(act, "ASK_SECONDS", 0.01)
+    monkeypatch.setattr(act, "TAIL_SECONDS", 0.01)
+
+
 @pytest.fixture
 def travel(monkeypatch):
     """;hunt's walk() and locate() over a hunt Arena's own idea of where

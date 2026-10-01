@@ -46,6 +46,19 @@ def main(s):
 | `s.dead` | true while the character is dead |
 | `s.run(name, args)` / `s.is_running` / `s.tell` / `s.kill` / `s.crashed` | drive other scripts, as `;train` does |
 
+## Asking the game
+
+`client/game/act.py` is how a script asks and reads the answer; a script never writes its own copy of these.
+
+| Call | Does |
+| --- | --- |
+| `act.ask(s, cmd)` | the answer as the game wrote it, roundtime tail included (`probe.ask` with one pair of windows) |
+| `act.missing(answer)` | true for either not-found wording ("What were you referring to?", "I could not find...") |
+| `act.said(answer, needles)` | the line to quote: the one holding a needle, never a bystander's that landed first |
+| `act.unknown(s, prefix, what, answer)` | the one "please report it" echo, the line returned |
+
+`probe.classify(answer, table)` names the first outcome whose wording the answer holds.
+
 ## Controlling scripts
 
 ```

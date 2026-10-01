@@ -719,6 +719,8 @@ def test_every_pure_game_module_the_scripts_import_is_reloadable():
         # profile binds COMMON_METALS from loot (#365): a stale loot
         # would fail profile's import in a running session.
         ("client.game.loot", "client.game.profile"),
+        # act is probe's ask with the windows every script shares (#407).
+        ("client.game.probe", "client.game.act"),
     ):
         assert order(data) < order(model)
 
