@@ -29,7 +29,7 @@ skills runs it once per cycle (client/game/bank.py is the model).
 Stops on death. Stop with:  ;stop bank.
 """
 
-from client.game import probe
+from client.game.act import ask
 from client.game.bank import (
     deposit,
     exchange_each,
@@ -42,13 +42,6 @@ from client.game.bank import (
 from client.game.mapdb import MapDB
 from client.game.money import parse_wealth, split
 from client.game.walker import character_ranks, locate, walk
-
-COLLECT_SECONDS = 3
-TAIL_SECONDS = 1.5
-
-
-def ask(s, command):
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
 
 
 def parse_args(words):

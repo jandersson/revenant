@@ -24,8 +24,6 @@ def _script():
 
 
 script = _script()
-script.COLLECT_SECONDS = 0.01
-script.TAIL_SECONDS = 0.01
 
 MAP = MapDB(
     [
