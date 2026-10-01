@@ -14,19 +14,19 @@ What it does:
   out a room that paid within the minute.
 - A Moon Mage's POWER reads the moons: the run says so once and
   switches to PERCEIVE MANA in place, once a minute.
-- At mind-lock it holds until the pool drains, then resumes; ;train
-  runs it as a task and ends it at the plan's target.
+- At mind-lock it holds until the pool drains, then resumes
+  (client/game/trainer.py, the loop every trainer runs); ;train runs
+  it as a task and ends it at the plan's target.
 
 What stops it: death, hostiles in the room, eight perceives in a row
 without gain, no street to loop, a failed walk.
 Stop with:  ;stop attune (at once), or ;attune return for a clean finish.
 """
 
-import re
 import time
 
-from client.game import flight, probe, trainer, travel
-from client.game.loop import danger, pause, wants_stop
+from client.game import act, probe, trainer, travel
+from client.game.loop import ensure_mindstate, mindstate, pause
 from client.game.attune import (
     LUNAR_PERCEIVE,
     PERCEIVED,
@@ -53,6 +53,7 @@ word lands within a second, held or walking.
 """
 
 MIND_LOCK = 34
+SKILL = "Attunement"
 ROOMS = 8  # rooms beyond the start in the loop: a room pays once a minute,
 # and four out and back came round in ~35 s, so the loop waited out the
 # rest each lap (2026-09-13); eight puts every revisit past the minute
@@ -92,33 +93,6 @@ def start_room(s):
     return str(load_profile(name).get("attune_start") or "").strip()
 
 
-def mindstate(s):
-    entry = (getattr(s.state, "experience", None) or {}).get("Attunement")
-    return entry["mindstate"] if entry else None
-
-
-# EXP ATTUNEMENT answers in the story — "Attunement:     18 97.08% clear
-# (0/34)" (captured 2026-09-13) — while the exp window lists a skill
-# only while it has experience in it, so a clear pool is absent from
-# the window and read as "no such skill" until this line is parsed.
-_EXP_ANSWER = re.compile(r"Attunement:\s+\d+\s+[\d.]+%\s+.*?\((\d+)/34\)")
-
-
-def ensure_mindstate(s):
-    """The mindstate: the exp window's, or EXP ATTUNEMENT's own answer
-    when the window does not list the skill (a clear pool is 0/34, a
-    guild without the skill gets no such line)."""
-    value = mindstate(s)
-    if value is None:
-        answer = probe.ask(s, "exp attunement", COLLECT_SECONDS, TAIL_SECONDS)
-        value = mindstate(s)
-        if value is None:
-            match = _EXP_ANSWER.search(answer or "")
-            if match:
-                value = int(match.group(1))
-    return value
-
-
 def perceive(s, command="power"):
     """POWER (or a Moon Mage's PERCEIVE MANA), its roundtime waited
     out; the game's answer."""
@@ -126,8 +100,11 @@ def perceive(s, command="power"):
 
 
 def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
-    value = ensure_mindstate(s)
-    if value is None:
+    """The setup — the start room, the street chain — then the trainer
+    loop with one step: the next room of the circuit, a POWER there."""
+    # Asked before any walk: a guild without the skill is told so where
+    # it stands (the loop's own check finds the window seeded then).
+    if ensure_mindstate(s, SKILL, act.ask) is None:
         s.echo(
             "attune: EXP shows no Attunement — a guild without magic cannot train it"
         )
@@ -169,39 +146,19 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
     order = circuit(rooms)
     command = "power"
     last_seen, stale, count, position = {}, 0, 0, 0
-    while True:
-        if wants_stop(s):
-            s.echo("attune: stopping as asked")
-            return
-        reason = danger(s)
-        if reason:
-            s.echo(f"attune: {reason} — stopping")
-            if "hostiles" in reason:
-                flight.react(s, "attune")
-            return
-        value = mindstate(s)
-        if value is not None and value >= options["until"]:
-            if options["once"]:
-                s.echo(f"attune: Attunement at {value}/34 — done")
-                return
-            if not trainer.hold_at_lock(
-                s, "attune", "Attunement", options["until"], again="walking again"
-            ):
-                s.echo("attune: stopping")
-                return
-            continue
+
+    def step(s):
+        nonlocal command, here, order, position, stale, count
         room = order[position % len(order)]
         if not here and room != locate(mapdb, s.state):
             if not travel.go(
                 s, room, "the next room", db=mapdb, walk=walk_fn, avoid=avoid
             ):
-                s.echo("attune: the walk failed — stopping")
-                return
+                return "the walk failed"
         wait = wait_for(room, last_seen, clock())
         if wait and not pause(s, wait):
-            s.echo("attune: stopping")
-            return
-        before = mindstate(s)
+            return None  # the loop says why
+        before = mindstate(s, SKILL)
         answer = perceive(s, command)
         if PERCEIVED not in answer:
             if command == "power" and reads_moons(answer):
@@ -210,22 +167,31 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
                     "PERCEIVE MANA in place from here, once a minute"
                 )
                 command, here, order, position = LUNAR_PERCEIVE, True, [None], 0
-                continue
-            s.echo(f"attune: {command.upper()} gave no perceive line — stopping")
-            return
+                return None
+            return f"{command.upper()} gave no perceive line"
         last_seen[room] = clock()
         count += 1
-        after = mindstate(s)
+        after = mindstate(s, SKILL)
         if after is not None and before is not None and after > before:
             stale = 0
         else:
             stale += 1
         if stale >= STALE_LIMIT and (after or 0) < options["until"]:
-            s.echo(f"attune: {STALE_LIMIT} perceives without gain — stopping")
-            return
+            return f"{STALE_LIMIT} perceives without gain"
         if count % 5 == 0:
             s.echo(f"attune: Attunement {after}/34 after {count} perceives")
         position += 1
+        return None
+
+    return trainer.train(
+        s,
+        "attune",
+        SKILL,
+        step,
+        until=options["until"],
+        once=options["once"],
+        again="walking again",
+    )
 
 
 def main(s):

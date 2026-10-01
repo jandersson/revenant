@@ -1,8 +1,9 @@
 """How ;attune trains — these tests are the manual. It loops a chain
 of street rooms, POWERs on every arrival, waits out a room that paid
 within the minute, holds at mind-lock, and stops on danger, on a
-typed stop, or when perceives stop paying. A Moon Mage's POWER reads
-the moons, and the run perceives mana in place instead."""
+typed return, or when perceives stop paying — the trainer loop
+(client/game/trainer.py) with a walk-and-perceive step. A Moon Mage's
+POWER reads the moons, and the run perceives mana in place instead."""
 
 import importlib.util
 import pathlib
@@ -161,7 +162,8 @@ def test_it_loops_the_street_perceiving_on_every_arrival_until_mind_lock():
     assert fake.walks[:8] == [2, 3, 4, 5, 4, 3, 2, 1]  # out and back
     assert "looping 4 rooms out and back" in echoes(fake)
     assert "mind-locked (34/34)" in echoes(fake)
-    assert fake.echoed[-1] == "attune: stopping"  # the typed stop, while held
+    # the typed return, while held: the trainer loop's own wording
+    assert fake.echoed[-1] == "attune: returning as asked"
 
 
 def test_a_room_that_paid_within_the_minute_is_waited_out():
@@ -187,7 +189,7 @@ def test_a_stop_typed_during_the_hold_lands_within_a_second():
     fake = Fake(mindstates=[34], stop_at=1003)
     run(fake)
     assert "mind-locked" in echoes(fake)
-    assert fake.echoed[-1] == "attune: stopping"
+    assert fake.echoed[-1] == "attune: returning as asked"
     assert sum(fake.slept) <= 4  # not a 30-second poll
 
 
