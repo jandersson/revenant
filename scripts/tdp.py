@@ -33,6 +33,7 @@ client/game/tdp.py is the model; docs/training.md lists the plan's `tdp` keys.
 import re
 
 from client.game import bank, probe
+from client.game.act import ask
 from client.game.money import parse_wealth, phrase
 from client.game.tdp import (
     STATS,
@@ -103,16 +104,10 @@ snapshot (#303).
 Stop with:  ;stop tdp
 """
 
-COLLECT_SECONDS = 3  # a command's answer, opening window
 # The lines of a TRAIN pair worth showing when it worked: the fee
 # (2 Kronars per TDP) and where it went — a coinless character's goes
 # on the provincial debt (captured 2026-09-12).
 _NOTE = re.compile(r"fee of|debt", re.IGNORECASE)
-TAIL_SECONDS = 1.5  # ... and the tail past its roundtime
-
-
-def ask(s, command):
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
 
 
 def echo_lines(s, text):
