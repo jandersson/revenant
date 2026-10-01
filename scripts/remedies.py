@@ -44,8 +44,8 @@ long enough to finish one). The recipes and wordings are client/game/remedies.py
 import logging
 import time
 
-from client.game import discard, flight, herbstacks, probe
-from client.game.loop import danger, ensure_mindstate, mindstate, pause, wants_stop
+from client.game import discard, flight, herbstacks, probe, trainer, travel
+from client.game.loop import danger, ensure_mindstate, mindstate, wants_stop
 from client.game.probe import classify
 from client.game.money import parse_wealth, phrase
 from client.game.seek import present
@@ -210,8 +210,6 @@ Stop with:  ;stop remedies, or ;remedies return.
 """
 
 SKILL = "Alchemy"
-RESUME_BELOW = 28
-LOCK_POLL = 30
 COLLECT_SECONDS = 3
 TAIL_SECONDS = 1.5
 MAX_CRUSHES = 400  # the fuse under the loop
@@ -374,18 +372,6 @@ def full_stack(s, noun):
     return held >= STACK_PIECES
 
 
-def hold_at_lock(s, until):
-    s.echo(f"remedies: {SKILL} mind-locked ({until}/34) — holding until it drains")
-    floor = min(RESUME_BELOW, until - 1)
-    while True:
-        if not pause(s, LOCK_POLL):
-            return False
-        value = mindstate(s, SKILL)
-        if value is not None and value <= floor:
-            s.echo(f"remedies: drained to {value}/34 — crushing again")
-            return True
-
-
 def refused_ingredient(s, noun, what):
     """The game would not take what GET MY <noun> found for the remedy
     in progress ("...is not required to continue crafting the blister
@@ -472,7 +458,9 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
                     s.echo(
                         f"remedies: {SKILL} mind-locked ({value}/34) — the order goes on for the pay"
                     )
-            elif not hold_at_lock(s, options["until"]):
+            elif not trainer.hold_at_lock(
+                s, "remedies", SKILL, options["until"], again="crushing again"
+            ):
                 return "stopped"
         answer = ask(s, crush_command(herb, started, noun))
         s.waitrt()
@@ -711,18 +699,8 @@ def train(s, options, profile):
 def to_master(s, profile):
     """Walk to the crafting hall (the profile's `crafting_hall`, a ;go2
     target; the Crossing society's Tool Shop by default)."""
-    from client.game.mapdb import MapDB
-    from client.game.walker import locate, walk
-
-    mapdb = MapDB.load()
     target = str(profile.get("crafting_hall") or DEFAULT_HALL)
-    goals = mapdb.resolve(target)
-    if not goals:
-        s.echo(f"remedies: nothing in the map matches crafting_hall {target!r}")
-        return False
-    if locate(mapdb, s.state) in goals:
-        return True
-    return walk(s, mapdb, set(goals), describe="the crafting hall")
+    return travel.go(s, target, "the crafting hall")
 
 
 def master_here(s, master):
@@ -924,17 +902,7 @@ def bundle(s, noun, expected):
 
 def walk_to(s, target, describe):
     """Walk to a map id or tag; True when there (or already there)."""
-    from client.game.mapdb import MapDB
-    from client.game.walker import locate, walk
-
-    mapdb = MapDB.load()
-    goals = mapdb.resolve(str(target))
-    if not goals:
-        s.echo(f"remedies: nothing in the map matches {target!r}")
-        return False
-    if locate(mapdb, s.state) in goals:
-        return True
-    return walk(s, mapdb, set(goals), describe=describe)
+    return travel.go(s, target, describe)
 
 
 def carried(s):
