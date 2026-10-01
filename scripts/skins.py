@@ -29,7 +29,7 @@ Every ;hunt that fought ends with ;skins bank. The profile's `bundle` setting
 import re
 from collections import Counter
 
-from client.game import probe
+from client.game.act import ask, missing
 from client.game.mapdb import MapDB
 from client.game.profile import load_profile
 from client.game.walker import locate, walk
@@ -78,12 +78,9 @@ hunt. Stops on death.
 Stop with:  ;stop skins
 """
 
-COLLECT_SECONDS = 3
-TAIL_SECONDS = 1.5
-
-# A bundle that is not there: REMOVE and GET answer this (captured for
-# GET 2026-09-12; the REMOVE refusals are assumptions until captured).
-_NO_BUNDLE = ("what were you referring", "aren't wearing", "not wearing", "don't have")
+# A bundle that is not there, beyond act.NOT_FOUND's two wordings (GET's,
+# captured 2026-09-12): the REMOVE refusals, assumptions until captured.
+_NO_BUNDLE = ("aren't wearing", "not wearing", "don't have")
 # The tanner's payment line, captured 2026-09-12.
 _PAID = re.compile(r"hands you (\d+) (\w+)")
 # Animal parts a hunt cuts — the tanner buys them one at a time too
@@ -129,15 +126,6 @@ def listed_nouns(answer):
     return [item.strip().split()[-1].lower() for item in items if item.strip()]
 
 
-def ask(s, command):
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
-
-
-def _missing(answer):
-    lowered = answer.lower()
-    return any(needle in lowered for needle in _NO_BUNDLE)
-
-
 def in_hand(s):
     """True when the parser's hand tags show the bundle held already —
     a run stopped between REMOVE and SELL left it there (2026-09-14)."""
@@ -153,10 +141,10 @@ def take_bundle(s, container):
     the container; False when there is none any place."""
     if in_hand(s):
         return True
-    if not _missing(ask(s, "remove my bundle")):
+    if not missing(ask(s, "remove my bundle"), _NO_BUNDLE):
         return True
     command = f"get my bundle from my {container}" if container else "get my bundle"
-    return not _missing(ask(s, command))
+    return not missing(ask(s, command), _NO_BUNDLE)
 
 
 def hand_to_bank(s, args):

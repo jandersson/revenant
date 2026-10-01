@@ -25,8 +25,6 @@ def _script():
 
 
 script = _script()
-script.COLLECT_SECONDS = 0.01
-script.TAIL_SECONDS = 0.01
 
 MAP = MapDB(
     [
@@ -230,6 +228,16 @@ def test_bank_runs_the_bank_script_and_waits_for_it():
 
 def test_no_bundle_anywhere_stops_before_selling():
     fake = Fake({"remove": [MISSING], "get my bundle": [MISSING]})
+    script.run(fake, [], MAP, walk_fn=walk, profile=PROFILE)
+    assert "sell my bundle" not in fake.sent
+    assert any("nothing to sell" in text for text in fake.echoed)
+
+
+def test_the_other_not_found_wording_means_no_bundle_too():
+    # The script's own check knew "What were you referring to?" alone and
+    # would have SOLD on this answer; act.missing knows both (#407).
+    could_not_find = "I could not find what you were referring to.\n"
+    fake = Fake({"remove": [could_not_find], "get my bundle": [could_not_find]})
     script.run(fake, [], MAP, walk_fn=walk, profile=PROFILE)
     assert "sell my bundle" not in fake.sent
     assert any("nothing to sell" in text for text in fake.echoed)
