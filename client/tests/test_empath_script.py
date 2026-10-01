@@ -97,7 +97,7 @@ class Fake:
 
 
 def run(fake, words):
-    script.probe = SimpleNamespace(ask=fake.ask)
+    script.ask = fake.ask
     script.run(fake, words)
     return "\n".join(fake.echoed)
 

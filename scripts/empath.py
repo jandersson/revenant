@@ -31,7 +31,8 @@ client/game/empathy.py is the model; docs/healing.md covers healing.
 
 import time
 
-from client.game import buffs, probe
+from client.game import buffs
+from client.game.act import ask
 from client.game.empathy import (
     AVOIDED,
     CURES,
@@ -117,8 +118,6 @@ a TOUCH that finds nobody, or is avoided (a cold demeanor), ends it.
 Stop with:  ;stop empath, or ;empath return.
 """
 
-COLLECT_SECONDS = 4
-TAIL_SECONDS = 1
 TOUCH_SECONDS = 6  # the listing arrives on the familiar stream
 TAKE_SECONDS = 45  # a transfer runs while the wound moves
 PREPARE_SECONDS = 25
@@ -134,10 +133,6 @@ MAX_CASTS = 40
 MANA_FLOOR = 20  # percent
 DEFAULT_MANA = 15
 STREAMS = ("", "familiar", "combat")
-
-
-def ask(s, command):
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
 
 
 def exchange(s, command, until, seconds):
