@@ -25,8 +25,7 @@ Stop with:  ;stop attune (at once), or ;attune return for a clean finish.
 import re
 import time
 
-from client.game import probe
-from client.game import flight
+from client.game import flight, probe, trainer, travel
 from client.game.loop import danger, pause, wants_stop
 from client.game.attune import (
     LUNAR_PERCEIVE,
@@ -37,8 +36,7 @@ from client.game.attune import (
     wait_for,
 )
 from client.game.mapdb import MapDB
-from client.game.walker import avoided_rooms, locate, walk
-from client.settings import load_settings
+from client.game.walker import locate, walk
 
 _NOTES = """
 Perceiving mana trains Attunement once per room per sixty seconds
@@ -55,8 +53,6 @@ word lands within a second, held or walking.
 """
 
 MIND_LOCK = 34
-RESUME_BELOW = 28  # resume once enough has drained to be worth the laps
-LOCK_POLL = 30  # seconds between mindstate checks while locked
 ROOMS = 8  # rooms beyond the start in the loop: a room pays once a minute,
 # and four out and back came round in ~35 s, so the loop waited out the
 # rest each lap (2026-09-13); eight puts every revisit past the minute
@@ -129,20 +125,6 @@ def perceive(s, command="power"):
     return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS) or ""
 
 
-def hold_at_lock(s, until):
-    """Wait at mind-lock until the mindstate drains below RESUME_BELOW
-    (or the target, when lower); False when the wait is interrupted."""
-    s.echo(f"attune: Attunement mind-locked ({until}/34) — holding until it drains")
-    floor = min(RESUME_BELOW, until - 1)
-    while True:
-        if not pause(s, LOCK_POLL):
-            return False
-        value = mindstate(s)
-        if value is not None and value <= floor:
-            s.echo(f"attune: drained to {value}/34 — walking again")
-            return True
-
-
 def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
     value = ensure_mindstate(s)
     if value is None:
@@ -160,12 +142,13 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
             return
         target = options["from"] or start_room(s)
         if target:
-            goals = mapdb.resolve(target)
-            if not goals:
-                s.echo(f"attune: nothing in the map matches start room {target!r}")
-                return
-            if not walk_fn(
-                s, mapdb, goals, describe=f"start room {target!r}", avoid=avoid
+            if not travel.go(
+                s,
+                target,
+                f"start room {target!r}",
+                db=mapdb,
+                walk=walk_fn,
+                avoid=avoid,
             ):
                 s.echo("attune: could not reach the start room — stopping")
                 return
@@ -201,13 +184,17 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
             if options["once"]:
                 s.echo(f"attune: Attunement at {value}/34 — done")
                 return
-            if not hold_at_lock(s, options["until"]):
+            if not trainer.hold_at_lock(
+                s, "attune", "Attunement", options["until"], again="walking again"
+            ):
                 s.echo("attune: stopping")
                 return
             continue
         room = order[position % len(order)]
         if not here and room != locate(mapdb, s.state):
-            if not walk_fn(s, mapdb, {room}, describe="the next room"):
+            if not travel.go(
+                s, room, "the next room", db=mapdb, walk=walk_fn, avoid=avoid
+            ):
                 s.echo("attune: the walk failed — stopping")
                 return
         wait = wait_for(room, last_seen, clock())
@@ -244,5 +231,5 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
 def main(s):
     options = parse_args(s.args or [])
     mapdb = None if options["here"] else MapDB.load()
-    avoid = avoided_rooms(mapdb, load_settings().get("avoid_rooms")) if mapdb else ()
+    avoid = travel.avoided(mapdb) if mapdb else ()
     run(s, options, mapdb=mapdb, avoid=avoid)

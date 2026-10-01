@@ -292,8 +292,9 @@ def test_a_room_with_no_street_is_refused():
 
 
 def test_until_holds_at_a_lower_target_and_resumes_when_drained():
-    # to 30, hold (the pool drains to 20 while held), one more perceive, stop
-    fake = Fake(mindstates=[28, 30, 20], stop_at=1052)
+    # to 30, hold (the pool drains to 20 while held: the trainer's poll,
+    # a hundredth of a second here), one more perceive, stop
+    fake = Fake(mindstates=[28, 30, 20], stop_at=1020)
     run(fake, ["until=30"])
     assert "mind-locked (30/34)" in echoes(fake)
     assert "walking again" in echoes(fake)
