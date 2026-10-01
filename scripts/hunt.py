@@ -39,6 +39,7 @@ from pathlib import Path
 from collections import Counter
 
 from client.game import (
+    act,
     almanac,
     barbarian,
     buffs,
@@ -49,6 +50,7 @@ from client.game import (
     lootlog,
     probe,
 )
+from client.game.act import NOT_FOUND, ask, missing, said, unknown
 from client.game.creatures import aim, aim_corpse, noun_of, outgrown
 from client.game.probe import classify
 from client.game.profile import describe, load_profile
@@ -271,8 +273,6 @@ MAX_ACTIONS = 600  # swings per run, not forever — the fuse under the loop
 # The outer fuse, moves and waits included: an empty ground laps for
 # hours (a pause every EMPTY_LAPS laps), never for ever.
 MAX_ITERATIONS = 5000
-COLLECT_SECONDS = 3  # the swing's own lines
-TAIL_SECONDS = 1.5  # what lands once the roundtime runs out
 SETTLE_SECONDS = 1.0  # after arriving: the room's creature enumeration
 EMPTY_ROOM_WAIT = 20  # seconds between looks when the whole ground is empty
 EMPTY_LAPS = 2  # laps of the ground with nothing in it before the pause
@@ -353,11 +353,9 @@ _DEAD_NOUN = re.compile(r"The ((?:[\w'-]+ )*?)([\w'-]+) is already quite dead")
 # declared clear anyway — the hostile state lagged for a whole hunt
 # once (2026-09-05, before the parser learned dead="1").
 CORPSE_SWINGS = 2
-# The game has two "no such thing" wordings, "What were you referring
-# to?" and "I could not find what you were referring to." (70 and 80
-# times in the logs); a SEARCH answered the second went unrecognized on
-# 2026-09-20, so every table that knows the first knows both.
-_NOTHING_THERE = ("what were you referring", "could not find")
+# The game's two "no such thing" wordings are act.NOT_FOUND: a SEARCH
+# answered the second went unrecognized on 2026-09-20, so every table
+# that knows the first knows both.
 # A container with no room left (captured 2026-09-21, #262): "There
 # isn't any more room in the sack for that." — the bare STOW answered
 # the same, its default being that sack.
@@ -488,8 +486,7 @@ SKIN_OUTCOMES = (
     (
         "gone",
         (
-            "what were you referring",
-            "could not find",
+            *NOT_FOUND,
             "nothing to skin",
             "already been skinned",
             "is dead first",
@@ -520,8 +517,7 @@ SEARCH_OUTCOMES = (
     (
         "gone",
         (
-            "what were you referring",
-            "could not find",
+            *NOT_FOUND,
             "already been searched",
             "is dead first",
         ),
@@ -562,7 +558,7 @@ _ITEM = re.compile(
 # SKIN (BUNDLE help: auto-bundling, on by default), so the skinning
 # hand stays empty and the hand tags are the judge, not a wording.
 BUNDLE_OUTCOMES = (
-    ("none", ("what were you referring", "could not find")),
+    ("none", NOT_FOUND),
     # The worn bundle is full (captured 2026-09-20, the fourth badger
     # skin): "Where did you intend to put that?  You don't have any
     # bundles or they're all full or too tightly packed!" — the skin
@@ -578,7 +574,6 @@ BUNDLE_OUTCOMES = (
 # stowed loose until the sack was full and one went to the backpack.
 ROPE = "bundling rope"
 BUNDLE_REFUSALS = 3  # refusals in a row before a run stops trying
-_MISSING = ("what were you referring", "could not find")
 # SHEATHE with no container named and nothing remembered from a WIELD
 # (captured 2026-09-22): "Sheathe your steel scimitar where?"
 _SHEATHE_WHERE = ("where?",)
@@ -1019,14 +1014,8 @@ def named(text, noun):
     return match.group(1) if match else noun
 
 
-def ask(s, command):
-    return probe.ask(s, command, COLLECT_SECONDS, TAIL_SECONDS)
-
-
 def unrecognized(s, tally, what, answer):
-    tally.unrecognized += 1
-    first = (answer.strip().splitlines() or ["(silence)"])[0]
-    s.echo(f"hunt: unrecognized {what} answer {first!r} — please report it")
+    unknown(s, "hunt", what, answer, tally)
 
 
 def wound_floor(profile):
@@ -1181,7 +1170,7 @@ def draw(s, profile):
     if not weapon:
         return True
     answer = ask(s, f"wield my {weapon}").lower()
-    if any(word in answer for word in _NOTHING_THERE):
+    if missing(answer):
         s.echo(f"hunt: no {weapon} to draw — the game finds none on you")
         return False
     return True
@@ -1263,7 +1252,7 @@ def held_skin(s, profile):
 # answer — in a hand, in a container — means fetch it and wear it.
 TAP_OUTCOMES = (
     ("worn", ("that you are wearing",)),
-    ("none", ("could not find", "what were you referring")),
+    ("none", NOT_FOUND),
 )
 
 
@@ -1297,7 +1286,7 @@ def make_bundle(s, profile, tally):
     answer = ask(
         s, f"get my {ROPE} from my {container}" if container else f"get my {ROPE}"
     )
-    if any(word in answer.lower() for word in _MISSING):
+    if missing(answer):
         s.echo(
             "hunt: no bundling rope — ASK a tanner FOR ROPE (it is free); "
             "skins are stowed loose this run"
@@ -1506,9 +1495,8 @@ def set_stores(s, profile):
         if known.get(option) != container:
             answer = ask(s, f"store {option} in my {container}")
             if not any(word in answer.lower() for word in STORED):
-                first = (answer.strip().splitlines() or ["(silence)"])[0]
                 s.echo(
-                    f"hunt: STORE {option} answered {first!r} — {option} picked up by hand"
+                    f"hunt: STORE {option} answered {said(answer)!r} — {option} picked up by hand"
                 )
                 continue
             known[option] = container
@@ -1731,8 +1719,7 @@ def dispose(s, profile, corpse, tally):
     answer = ask(s, "loot")
     if not tally.loot_reported:
         tally.loot_reported = True
-        first = (answer.strip().splitlines() or ["(silence)"])[0]
-        s.echo(f"hunt: loot answered {first!r}")
+        s.echo(f"hunt: loot answered {said(answer)!r}")
     outcome = classify(answer, SEARCH_OUTCOMES)
     if outcome in ("found", "nothing"):
         # Every search a row in history.db's loot table: the box drop
@@ -2037,8 +2024,7 @@ def swing(s, profile, tally, prey):
             tally.maneuvers += 1
             tally.tactic_misses = 0
         elif not any(
-            word in lowered
-            for word in _ADVANCING + _NOTHING_THERE + _NEED_MELEE + _ALL_DEAD
+            word in lowered for word in _ADVANCING + NOT_FOUND + _NEED_MELEE + _ALL_DEAD
         ) and not _DEAD_NOUN.search(text):
             # A maneuver with no foe left ("There is nothing else to
             # face!", a BOB at the bobcats 2026-09-23) is the room
@@ -2089,9 +2075,9 @@ def swing(s, profile, tally, prey):
             tally.corpse_swings = 0
         else:
             dispose(s, profile, corpse.group(2), tally)
-    elif any(word in lowered for word in _NOTHING_THERE):
+    elif missing(lowered):
         s.put("face next")
-        probe.collect(s, TAIL_SECONDS)
+        probe.collect(s, act.TAIL_SECONDS)
     elif any(word in lowered for word in _ADVANCING):
         probe.collect(s, ADVANCE_WAIT, until="melee range")
     elif any(word in lowered for word in _NEED_MELEE):

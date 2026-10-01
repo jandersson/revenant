@@ -67,7 +67,7 @@ def test_the_hunt_grabs_what_the_search_left_by_the_listing():
             return "You search the small grendel.\nThe grendel was carrying some waermodi stones, 7 copper coins (Kronars), and 1 bronze coin (Dokora)!\n"
         return "You get it."
 
-    hunt.probe = SimpleNamespace(ask=ask)
+    hunt.ask = ask  # act.ask, imported by name (#407)
     handle = SimpleNamespace(state=state, echo=lambda t: None, sleep=lambda n: None)
     profile = {"skin": False, "loot_container": "sack", "gem_pouch": "pouch"}
     tally = hunt.Tally()
@@ -97,7 +97,7 @@ def test_the_hunt_grabs_what_the_search_left_by_the_listing():
             return "There isn't any more room in the pouch.\n"
         return "You get it."
 
-    hunt.probe = SimpleNamespace(ask=refusing)
+    hunt.ask = refusing
     said = []
     handle.echo = said.append
     tally = hunt.Tally()

@@ -354,7 +354,7 @@ def _pocketing(monkeypatch, answers):
                 return answer
         return "You put it away.\n"
 
-    monkeypatch.setattr(hunt, "probe", SimpleNamespace(ask=ask))
+    monkeypatch.setattr(hunt, "ask", ask)  # act.ask, imported by name (#407)
     handle = SimpleNamespace(echo=echoed.append)
     profile = {"gem_pouch": "pouch", "loot_container": "sack"}
     return handle, profile, sent, echoed
@@ -416,7 +416,8 @@ def _almanac_hunt(monkeypatch, retreat, ready=True):
         sent.append(command)
         return retreat
 
-    monkeypatch.setattr(hunt, "probe", SimpleNamespace(ask=ask, collect=ask))
+    monkeypatch.setattr(hunt, "ask", ask)  # act.ask, imported by name (#407)
+    monkeypatch.setattr(hunt, "probe", SimpleNamespace(collect=ask))
     state = SimpleNamespace(
         hostiles={"1": "a S'lai scout"},
         stunned=False,

@@ -31,12 +31,6 @@ def _hunt():
 hunt = _hunt()
 
 
-hunt.COLLECT_SECONDS = 0.01
-
-
-hunt.TAIL_SECONDS = 0.01
-
-
 hunt.SETTLE_SECONDS = 0.0
 
 
