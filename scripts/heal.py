@@ -32,15 +32,13 @@ Nothing walks back afterwards; death stops it. Herbs: client/game/herbs.py
 
 import re
 
-from client.game import helper, herbs, probe
+from client.game import helper, herbs, probe, travel
 from client.game.act import NOT_FOUND, ask, said, unknown
 from client.game.loop import wants_stop
 from client.game.bank import exchange_each, foreign, room_currency
-from client.game.mapdb import MapDB
 from client.game.money import parse_wealth, phrase, split
-from client.game.walker import avoided_rooms, locate, walk
+from client.game.walker import locate, walk
 from client.game.wounds import SEVERITIES, level, parse_health
-from client.settings import load_settings
 
 # The design notes the manual above leaves out: what each rule came
 # from, with its issue — read by people, never served as ;help.
@@ -388,11 +386,10 @@ def carried(s):
 def withdraw(s, shortfall, mapdb, walk_fn, avoid=()):
     """Walk to the nearest teller and WITHDRAW the shortfall, one
     denomination per command; False when refused or unreachable."""
-    tellers = mapdb.rooms_tagged("bank")
-    if not tellers:
-        s.echo("heal: the map has no room tagged 'bank'")
-        return False
-    if not walk_fn(s, mapdb, set(tellers), describe="the bank teller", avoid=avoid):
+    tellers = set(mapdb.rooms_tagged("bank"))
+    if not travel.go(
+        s, tellers, "the bank teller", db=mapdb, walk=walk_fn, avoid=avoid
+    ):
         s.echo("heal: could not reach a teller — stopping")
         return False
     s.echo(f"heal: withdrawing {phrase(shortfall, 'Kronars')}")
@@ -420,12 +417,8 @@ def buy(s, wanted, mapdb, walk_fn, avoid=(), town=TOWN):
     if purse < estimate and not withdraw(s, estimate - purse, mapdb, walk_fn, avoid):
         return []
     purse = max(purse, estimate)
-    tag = store_tag(wanted[0], town)
-    shops = mapdb.rooms_tagged(tag)
-    if not shops:
-        s.echo(f"heal: the map has no room tagged {tag!r}")
-        return []
-    if not walk_fn(s, mapdb, set(shops), describe="the herbalist", avoid=avoid):
+    shops = set(mapdb.rooms_tagged(store_tag(wanted[0], town)))
+    if not travel.go(s, shops, "the herbalist", db=mapdb, walk=walk_fn, avoid=avoid):
         s.echo("heal: could not reach the herbalist — stopping")
         return []
     eaten = []
@@ -492,7 +485,9 @@ def change_coins(s, mapdb, walk_fn, healer_room, purse, home, avoid=()):
         return False
     route = mapdb.path(healer_room, changers, avoid=avoid)
     goals = {route[-1][0]} if route else set(changers)
-    if not walk_fn(s, mapdb, goals, describe="the money-changer", avoid=avoid):
+    if not travel.go(
+        s, goals, "the money-changer", db=mapdb, walk=walk_fn, avoid=avoid
+    ):
         s.echo("heal: could not reach a money-changer — stopping")
         return False
     exchange_each(s, ask, "heal", currencies, home)
@@ -555,7 +550,9 @@ def visit_healer(s, mapdb, walk_fn=walk, avoid=(), healer=""):
         # Only foreign coins: the money-changer by the healer first.
         if not change_coins(s, mapdb, walk_fn, healer_room, purse, home, avoid):
             return "no coins", []
-    if not walk_fn(s, mapdb, {healer_room}, describe="the NPC healer", avoid=avoid):
+    if not travel.go(
+        s, {healer_room}, "the NPC healer", db=mapdb, walk=walk_fn, avoid=avoid
+    ):
         s.echo("heal: could not reach the healer — stopping")
         return "unreachable", []
     taken, parts, currency = 0, 0, ""
@@ -725,7 +722,7 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
 
 def main(s):
     options = parse_args(s.args or [])
-    db = MapDB.load() if options["mode"] in ("buy", "npc", "empath") else None
-    avoid = avoided_rooms(db, load_settings().get("avoid_rooms")) if db else ()
+    db = travel.mapdb() if options["mode"] in ("buy", "npc", "empath") else None
+    avoid = travel.avoided(db) if db else ()
     reason, eaten = run(s, options, mapdb=db, avoid=avoid)
     s.echo(f"heal: {reason} — {len(eaten)} herb(s) eaten")
