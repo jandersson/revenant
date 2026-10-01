@@ -86,9 +86,17 @@ def refused(answer):
     return act.missing(answer) or any(word in lowered for word in STOW_REFUSED)
 
 
+def _mine(noun):
+    """ "my <noun>", or the bare id when `noun` is one ("#136104233",
+    items.name's form for a held item: the game takes an id bare)."""
+    noun = str(noun)
+    return noun if noun.startswith("#") else f"my {noun}"
+
+
 def stow(s, noun, ask=None):
-    """STOW MY <noun>; True unless the answer refused it. Never a DROP."""
-    return not refused((ask or act.ask)(s, f"stow my {noun}"))
+    """STOW MY <noun> (STOW #id for an id); True unless the answer
+    refused it. Never a DROP."""
+    return not refused((ask or act.ask)(s, f"stow {_mine(noun)}"))
 
 
 def free(s, keep=(), ask=None):
@@ -147,6 +155,6 @@ def at_end(s, wanted):
     sent = []
     for noun in nouns(s):
         if any(_same(noun, want) for want in wanted):
-            cleanup(s, f"stow my {noun}")
+            cleanup(s, f"stow {_mine(noun)}")
             sent.append(noun)
     return sent

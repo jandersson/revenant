@@ -108,3 +108,11 @@ def test_cleanup_falls_back_to_a_plain_put_on_an_old_handle():
     old = SimpleNamespace(put=lambda command: sent.append(command))
     hands.cleanup(old, "stow my pestle")
     assert sent == ["stow my pestle"]
+
+
+def test_a_held_items_id_is_stowed_bare():
+    # items.name gives "#<exist>" for a held item, and the game takes an
+    # id without "my" (docs/protocol.md "Items by id").
+    s = Fake(left="flowers")
+    assert hands.stow(s, "#136104233", ask=s.ask) is True
+    assert s.sent == ["stow #136104233"]
