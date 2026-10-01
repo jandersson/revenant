@@ -66,21 +66,16 @@ def test_the_answers_read_as_learned_waiting_or_closed():
     assert almanac.answer("Something odd.") == (None, None, 0)
 
 
-def test_a_ready_almanac_is_got_opened_studied_and_stowed(fresh):
+def test_a_ready_almanac_is_got_studied_and_stowed(fresh):
     s = handle(right={"noun": "scimitar"})
     ask, sent = asker(
         {"get my almanac": "You get a diamond-hide almanac.", "study": STUDIED}
     )
     assert almanac.study(s, "almanac", ask, "hunt") == "Bow"
-    assert sent == [
-        "get my almanac",
-        "open my almanac",
-        "study my almanac",
-        "stow my almanac",
-    ]
+    assert sent == ["get my almanac", "study my almanac", "stow my almanac"]
     assert "hunt: almanac studied — Bow" in s.echoed
     # The timer is shared: nothing is sent until it runs out.
-    assert almanac.study(s, "almanac", ask, "train") is None and len(sent) == 4
+    assert almanac.study(s, "almanac", ask, "train") is None and len(sent) == 3
     fresh["t"] += 621
     assert almanac.ready("almanac")
 
@@ -89,8 +84,29 @@ def test_the_countdown_sets_the_next_try_and_a_book_in_hand_stays_there(fresh):
     s = handle(left={"noun": "almanac"})
     ask, sent = asker({"study": GLEANED})
     almanac.study(s, "almanac", ask, "train")
-    assert sent == ["open my almanac", "study my almanac"]  # no GET, no STOW
+    assert sent == ["study my almanac"]  # no GET, no STOW
     assert almanac._NEXT["almanac"] == 1000.0 + 600 + 20
+
+
+def test_a_closed_almanac_is_opened_and_studied_again(fresh):
+    # 2026-10-01: OPEN went out before every study and an open book
+    # answered "But the diamond-hide almanac isn't closed!" each time.
+    s = handle()
+    said = iter([CLOSED, STUDIED])
+    sent = []
+
+    def ask(s, command):
+        sent.append(command)
+        return next(said) if command.startswith("study") else ""
+
+    assert almanac.study(s, "almanac", ask, "train") == "Bow"
+    assert sent == [
+        "get my almanac",
+        "study my almanac",
+        "open my almanac",
+        "study my almanac",
+        "stow my almanac",
+    ]
 
 
 def test_no_almanac_on_you_is_off_and_full_hands_wait():

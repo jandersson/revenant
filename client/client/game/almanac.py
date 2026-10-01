@@ -66,8 +66,11 @@ def hand_free(state, noun):
 
 def study(s, noun, ask, prefix):
     """The almanac studied if ready and a hand is free: GOT (unless in
-    hand), OPENed, STUDIEd, stowed again unless it was in hand. `ask` is
-    the caller's (s, command) -> answer. The skill learned, or None."""
+    hand), STUDIEd — OPENed and STUDIEd again only when the answer says
+    it is closed, since an open one answers OPEN "But the diamond-hide
+    almanac isn't closed!" (the operator, 2026-10-01) — stowed again
+    unless it was in hand. `ask` is the caller's (s, command) -> answer.
+    The skill learned, or None."""
     if not ready(noun) or getattr(s, "dead", False):
         return None
     state = s.state
@@ -81,8 +84,10 @@ def study(s, noun, ask, prefix):
         s.echo(f"{prefix}: no {noun} on you — the almanac is off for this session")
         _OFF.add(noun)
         return None
-    ask(s, f"open my {noun}")
     said = ask(s, f"study my {noun}")
+    if answer(said)[0] == "closed":
+        ask(s, f"open my {noun}")
+        said = ask(s, f"study my {noun}")
     s.waitrt()
     if not held:
         ask(s, f"stow my {noun}")

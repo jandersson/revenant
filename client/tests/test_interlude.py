@@ -94,15 +94,10 @@ def test_a_due_almanac_is_studied_with_a_free_hand_and_named_under_the_script(
     with_almanac()
     s, game = handle(monkeypatch, right={"noun": "lute"})
     interlude.run_due(s)
-    assert game.sent == [
-        "get my almanac",
-        "open my almanac",
-        "study my almanac",
-        "stow my almanac",
-    ]
+    assert game.sent == ["get my almanac", "study my almanac", "stow my almanac"]
     assert s.echoed == ["interlude: almanac studied — Bow"]
     interlude.run_due(s)  # the timer: ten minutes before the next
-    assert len(game.sent) == 4
+    assert len(game.sent) == 3
 
 
 def test_full_hands_make_room_the_left_item_stowed_and_got_back(monkeypatch):
@@ -115,7 +110,6 @@ def test_full_hands_make_room_the_left_item_stowed_and_got_back(monkeypatch):
     assert game.sent == [
         "stow my mortar",
         "get my almanac",
-        "open my almanac",
         "study my almanac",
         "stow my almanac",
         "get my mortar",
