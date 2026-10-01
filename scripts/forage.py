@@ -33,13 +33,11 @@ When it stops
 
 import re
 
-from client.game import flight
+from client.game import flight, travel
 from client.game.act import ask, missing, said, unknown
 from client.game.loop import danger, wants_stop
 from client.game.buffs import locked
-from client.game.mapdb import MapDB
-from client.game.walker import avoided_rooms, locate, walk
-from client.settings import load_settings
+from client.game.walker import locate, walk
 
 # The design notes the manual above leaves out: what each rule came
 # from, with its issue — read by people, never served as ;help.
@@ -240,7 +238,7 @@ def find_item(s, db, item, avoid=()):
     if locate(db, s.state) in tagged:
         return True
     s.echo(f"forage: no {item} here on the map — walking to the nearest room with some")
-    return walk(s, db, tagged, describe=item, avoid=avoid)
+    return travel.go(s, tagged, item, db=db, walk=walk, avoid=avoid)
 
 
 def run(s, options, db=None, avoid=()):
@@ -405,7 +403,9 @@ def run_herb(s, options, db=None, avoid=(), bag="sack"):
     if not pieces:
         return reason
     s.echo(f"forage: {reason} — to the dry press")
-    if db is not None and not walk(s, db, set(PRESS_ROOMS), describe="the dry press"):
+    if db is not None and not travel.go(
+        s, PRESS_ROOMS, "the dry press", db=db, walk=walk, avoid=avoid
+    ):
         return f"{reason}; could not reach the dry press — the {noun} wait in the {bag}"
     total = press_herb(s, noun, bag)
     if total is None:
@@ -415,8 +415,8 @@ def run_herb(s, options, db=None, avoid=(), bag="sack"):
 
 def main(s):
     options = parse_args(s.args or [])
-    db = None if options["here"] else MapDB.load()
-    avoid = avoided_rooms(db, load_settings().get("avoid_rooms")) if db else ()
+    db = None if options["here"] else travel.mapdb()
+    avoid = travel.avoided(db) if db else ()
     if options.get("herb"):
         from client.game.profile import load_profile
 
