@@ -28,21 +28,21 @@ minutes is skipped — the read times are kept per character in
 and when every book is, the script waits for the first timer to run
 out if it is within `wait` minutes, and otherwise ends and says so,
 so `;train` moves on to the next task and comes back (#255: the
-reader idled 58 minutes of a 30-minute slot). It stops on death or hostiles
-(the book returned first), waits out bleeding (the sign's warning), and
-says so when the shelves are not a library's. ;train runs it as a task
-(skills: ["Scholarship"], return_word "return"). Measured 2026-09-18:
+reader idled 58 minutes of a 30-minute slot). The loop is every
+trainer's (client/game/trainer.py): it stops on death or hostiles (the
+book returned first, then the shared escape), waits out bleeding (the
+sign's warning), and says so when the shelves are not a library's.
+;train runs it as a task (skills: ["Scholarship"], return_word
+"return"). Measured 2026-09-18:
 four books, rank 2 to rank 4 in fifteen minutes; RECALL taught nothing.
 Stop with:  ;stop scholarship (the book stays in hand — STOW it), or ;scholarship return.
 """
 
-import re
 import time
 
-from client.engine.xml_data import LEARNING_RATES
-from client.game import flight, trainer, travel
+from client.game import trainer, travel
 from client.game.act import ask, unknown
-from client.game.loop import danger, pause, wants_stop
+from client.game.loop import danger, exp_entry, mindstate, pause, wants_stop
 from client.game.scholarship import (
     GOT,
     NO_SUCH,
@@ -63,8 +63,6 @@ BLEED_POLL = 30
 MAX_PAGES = 200  # a book longer than this is a loop, not a book
 wall = time.time  # the read times kept across runs (#255); tests replace it
 
-_EXP_ANSWER = re.compile(r"Scholarship:\s+(\d+)\s+[\d.]+%\s+.*?\((\d+)/34\)")
-
 
 def library_of(s):
     """The profile's library, a ;go2 target, or ""."""
@@ -76,45 +74,12 @@ def library_of(s):
     return str(load_profile(name).get("library") or "").strip()
 
 
-def entry(s):
-    return (getattr(s.state, "experience", None) or {}).get("Scholarship")
-
-
-def mindstate(s):
-    value = entry(s)
-    return value["mindstate"] if value else None
-
-
 def standing(s):
     """Scholarship as the exp window has it: "3 09% (1/34)", or "?"."""
-    value = entry(s)
+    value = exp_entry(s, "Scholarship")
     if not value:
         return "?"
     return f"{value.get('rank', '?')} {value.get('percent', 0):02d}% ({value['mindstate']}/34)"
-
-
-def ensure_mindstate(s):
-    """The mindstate: the exp window's, or EXP SCHOLARSHIP's own answer
-    when the window does not list the skill (a clear pool is absent)."""
-    value = mindstate(s)
-    if value is None:
-        answer = ask(s, "exp scholarship")
-        value = mindstate(s)
-        if value is None:
-            match = _EXP_ANSWER.search(answer or "")
-            if match:
-                value = int(match.group(2))
-                # A whole entry, the parser's shape: a seed without a
-                # rate took the session down at 04:30 on 2026-09-20,
-                # thirty-six seconds into this script (#239).
-                s.state.experience = dict(getattr(s.state, "experience", None) or {})
-                s.state.experience["Scholarship"] = {
-                    "rank": int(match.group(1)),
-                    "percent": 0,
-                    "mindstate": value,
-                    "rate": LEARNING_RATES[min(value, 34)],
-                }
-    return value
 
 
 def bleeding(s):
@@ -180,7 +145,7 @@ def read_book(s, title, letters, options):
         if page_ended(answer):
             break
         pages += 1
-        value = mindstate(s)
+        value = mindstate(s, "Scholarship")
         if value is not None and value >= options["until"]:
             close_and_return(s, reading)
             s.echo(
@@ -197,6 +162,9 @@ def read_book(s, title, letters, options):
 
 
 def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
+    """The trainer loop (client/game/trainer.py) with one step: the next
+    book of the lap, read cover to cover — a book inside its timer
+    passed over, a lap that taught nothing waited out or the end."""
     if options["mode"] != "books":
         s.echo("scholarship: only `books` is built — the classes plan is on #210")
         return
@@ -210,9 +178,6 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
         ):
             s.echo("scholarship: could not reach the library — stopping")
             return
-    if ensure_mindstate(s) is None:
-        s.echo("scholarship: EXP shows no Scholarship — nothing to train")
-        return
     books = parse_shelves(ask(s, "look shelves"))
     # A library may shelve on more than one piece (#256: the Asemath
     # Academy's 18 books on the shelf and 37 on the bookcase); a room
@@ -232,65 +197,55 @@ def run(s, options, mapdb=None, walk_fn=walk, avoid=()):
     name = getattr(s.state, "name", None) or "unknown"
     shelved = {letters for _, letters in books}
     read_at = {k: v for k, v in load_reads(name).items() if k in shelved}
-    while True:
-        read_any = False
-        for title, letters in books:
-            since = wall() - read_at.get(letters, -float("inf"))
-            if since < options["timer"] * 60:
-                continue  # its timer is not up: it would teach nothing
-            reason = danger(s)
-            if reason:
-                s.echo(f"scholarship: {reason} — stopping")
-                if "hostiles" in reason:
-                    flight.react(s, "scholarship")
-                return
-            if wants_stop(s):
-                s.echo("scholarship: stopping as asked")
-                return
-            while bleeding(s):
-                s.echo("scholarship: bleeding — no reading until it stops (the sign)")
-                if not pause(s, BLEED_POLL):
-                    s.echo("scholarship: stopping")
-                    return
-            value = mindstate(s)
-            if value is not None and value >= options["until"]:
-                if options["once"]:
-                    s.echo(f"scholarship: Scholarship at {value}/34 — done")
-                    return
-                if not trainer.hold_at_lock(
-                    s,
-                    "scholarship",
-                    "Scholarship",
-                    options["until"],
-                    again="reading again",
-                ):
-                    s.echo("scholarship: stopping")
-                    return
-            outcome = read_book(s, title, letters, options)
-            if outcome == "stop":
-                s.echo("scholarship: stopping")
-                return
-            if outcome in ("done", "target"):
-                read_at[letters] = wall()
-                save_reads(name, read_at)
-                read_any = True
-        if not read_any:
-            oldest = min(read_at.values(), default=wall())
-            wait = max(60.0, options["timer"] * 60 - (wall() - oldest))
-            if wait > options["wait"] * 60:
+    pending = []  # the books of this lap still to visit
+    lap = {"count": 0, "read_any": False}
+
+    def step(s):
+        if not pending:
+            if lap["count"] and not lap["read_any"]:
+                oldest = min(read_at.values(), default=wall())
+                wait = max(60.0, options["timer"] * 60 - (wall() - oldest))
+                if wait > options["wait"] * 60:
+                    return (
+                        f"every book read within the last {options['timer']} "
+                        f"minutes — the first timer is {wait / 60:.0f} minutes "
+                        f"off (wait={options['wait']})"
+                    )
                 s.echo(
                     f"scholarship: every book read within the last "
-                    f"{options['timer']} minutes — the first timer is "
-                    f"{wait / 60:.0f} minutes off, ending (wait={options['wait']})"
+                    f"{options['timer']} minutes — waiting {wait / 60:.0f} "
+                    "minutes for the first timer"
                 )
-                return
-            s.echo(
-                f"scholarship: every book read within the last {options['timer']} "
-                f"minutes — waiting {wait / 60:.0f} minutes for the first timer"
-            )
-            if not pause(s, wait):
-                s.echo("scholarship: stopping")
-                return
+                if not pause(s, wait):
+                    return None  # the loop says why
+            pending.extend(books)
+            lap["count"] += 1
+            lap["read_any"] = False
+        title, letters = pending.pop(0)
+        since = wall() - read_at.get(letters, -float("inf"))
+        if since < options["timer"] * 60:
+            return None  # its timer is not up: it would teach nothing
+        while bleeding(s):
+            s.echo("scholarship: bleeding — no reading until it stops (the sign)")
+            if not pause(s, BLEED_POLL):
+                return None  # the loop says why
+        outcome = read_book(s, title, letters, options)
+        if outcome in ("done", "target"):
+            read_at[letters] = wall()
+            save_reads(name, read_at)
+            lap["read_any"] = True
+        return None  # "stop": the book is back, and the loop says why
+
+    return trainer.train(
+        s,
+        "scholarship",
+        "Scholarship",
+        step,
+        until=options["until"],
+        once=options["once"],
+        again="reading again",
+        ask=ask,
+    )
 
 
 def main(s):
