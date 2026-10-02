@@ -3,8 +3,10 @@
 Eight arrows on a ring around OUT, up/down beside, lit amber when the
 room's compass frame offers the exit and dimmed to the ring otherwise;
 a click sends the direction. The rose lays itself out for whatever
-space the dock grants — a fixed-size rose in an elastic wrapper
-painted over the neighboring docks whenever the column got crowded.
+space the dock grants up to its natural size, centered — a
+fixed-size rose in an elastic wrapper painted over the neighboring
+docks whenever the column got crowded, and a rose that grew with the
+dock drew a huge compass (#349).
 Split out of client_gui.py, which wraps it in the "Compass" dock.
 """
 
@@ -23,6 +25,8 @@ COMPASS_POINTS = {
     "w": (-1.0, 0.0),
     "nw": (-0.707, -0.707),
 }
+# The rose's natural size: it grows no bigger, whatever the dock (#349).
+ROSE_WIDTH, ROSE_HEIGHT = 190, 150
 COMPASS_ARROWS = {
     "n": "↑",
     "ne": "↗",
@@ -54,7 +58,7 @@ class CompassRose(QWidget):
         self._add_button("down", "dn", send)
 
     def sizeHint(self):
-        return QSize(190, 150)
+        return QSize(ROSE_WIDTH, ROSE_HEIGHT)
 
     def minimumSizeHint(self):
         return QSize(140, 104)
@@ -63,6 +67,15 @@ class CompassRose(QWidget):
         self._layout(self.width(), self.height())
         super().resizeEvent(event)
 
+    def _layout(self, width, height):
+        """The rose laid out at no more than its natural size, centered:
+        a dock with spare room leaves it empty rather than spreading
+        the ring across it (#349, "the compass is hilariously large")."""
+        box_width, box_height = min(width, ROSE_WIDTH), min(height, ROSE_HEIGHT)
+        self._layout_box(
+            (width - box_width) // 2, (height - box_height) // 2, box_width, box_height
+        )
+
     def _add_button(self, name, label, send):
         button = QPushButton(label, self)
         button.setEnabled(False)
@@ -70,9 +83,9 @@ class CompassRose(QWidget):
         button.clicked.connect(lambda checked=False, d=name: send(d))
         self.buttons[name] = button
 
-    def _layout(self, width, height):
-        """Fit the rose to the dock's current size: the ring and the
-        buttons scale down before anything can spill onto a neighbor."""
+    def _layout_box(self, left, top, width, height):
+        """Fit the rose to a box of the dock: the ring and the buttons
+        scale down before anything can spill onto a neighbor."""
         side = max(22, min(36, height * 24 // 100))
         updn = max(18, side * 5 // 6)
         right_column = updn + 8
@@ -85,7 +98,9 @@ class CompassRose(QWidget):
 
         def place(name, x, y, size):
             button = self.buttons[name]
-            button.setGeometry(int(x - size / 2), int(y - size / 2), size, size)
+            button.setGeometry(
+                left + int(x - size / 2), top + int(y - size / 2), size, size
+            )
             button.setStyleSheet(f"border-radius: {size // 2}px;")
 
         for direction, (dx, dy) in COMPASS_POINTS.items():

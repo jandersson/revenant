@@ -73,6 +73,29 @@ def test_a_compass_click_sends_the_direction(qapp):
     assert sent == ["n", "up"]
 
 
+def test_a_tall_dock_centers_the_rose_at_its_natural_size(qapp):
+    # #349 (2026-09-26): a dock with spare height spread the ring across
+    # it — "the compass is hilariously large". Past its natural size the
+    # rose keeps its shape, centered; the spare room stays empty.
+    def geometries(width, height):
+        rose = CompassRose(send=lambda direction: None)
+        rose.resize(width, height)
+        rose._layout(width, height)  # offscreen: no resize event before a show
+        found = {name: button.geometry() for name, button in rose.buttons.items()}
+        rose.deleteLater()
+        return found
+
+    natural = geometries(190, 150)
+    tall = geometries(600, 900)
+    dx, dy = (600 - 190) // 2, (900 - 150) // 2
+    for name, rect in natural.items():
+        assert tall[name] == rect.translated(dx, dy), name
+        assert rect.width() <= 36
+    # The ring at its natural size: north above center, south below.
+    assert natural["n"].center().y() < natural["out"].center().y()
+    assert natural["s"].center().y() > natural["out"].center().y()
+
+
 def test_a_link_click_hands_the_command_to_the_window(qapp):
     commands = []
     view = GameTextView(commands.append, QWidget())
