@@ -16,8 +16,10 @@ What it does
     Perception trains alongside.
   - herb: FORAGE <herb> PRECISE (Remedial Herb Gathering; plain FORAGE without it),
     finds into the loot container; then, at the Crossing Alchemy
-    Society's dry press, each is pressed and all are combined into one dried stack.
-  - Both hands full: STOWs what they hold, never a drop, and goes on.
+    Society's dry press, each is pressed and all are combined into one dried stack
+    — the finds a STOW sent to the backpack too, past the dried stacks there.
+  - Both hands full: a find in hand goes in the sack, anything else is STOWed,
+    never a drop, and it goes on.
 
 When it stops
   - Outdoorsmanship mind-locks, or the <n> collects are done (herb: the pieces)
@@ -34,6 +36,7 @@ When it stops
 import re
 
 from client.game import flight, hands, items, travel
+from client.game import herbstacks
 from client.game.act import ask, missing, said, unknown
 from client.game.loop import danger, wants_stop
 from client.game.buffs import locked
@@ -337,6 +340,13 @@ def gather_herb(s, options, bag):
             )
             continue
         if outcome == "hands full":
+            # A find in hand goes to the bag, where the press looks (#403:
+            # six fresh stacks sat in the backpack unpressed); anything
+            # else, or a bag that will not take it, is STOWed.
+            if noun and hands.holding(s, noun):
+                put = ask(s, f"put {held_name(s, noun)} in my {bag}")
+                if not items.no_room(put) and not missing(put):
+                    continue
             if not free_a_hand(s):
                 return f"no hand free: {said(answer)}", pieces, noun
             continue
@@ -375,11 +385,62 @@ def combine_held(s, noun):
     return ask(s, f"combine {pair[0]} with {pair[1]}").lower()
 
 
+def _combine_and_stow(s, noun, home):
+    """The dried stack just pressed combined with the one at `home` (when
+    one is there) and stowed; where the stow put it."""
+    if home:
+        again = ask(s, f"get dried {noun} from my {home}").lower()
+        if any(word in again for word in _GOT):
+            joined = combine_held(s, noun)
+            if not any(word in joined for word in _COMBINED):
+                s.echo(f"forage: the {noun} would not combine — two stacks kept")
+                ask(s, f"stow {held_name(s, noun)}")
+    home = items.stowed_in(ask(s, f"stow {held_name(s, noun)}")) or home
+    stow_herb_in_hands(s, noun)  # the stack a full combine left over
+    return home
+
+
+def press_from(s, noun, container, home):
+    """The fresh stacks of `noun` in `container` pressed — the finds a
+    STOW sent there instead of the bag (#403) — each reached by the
+    plain noun's ordinals past the dried stacks, which go back to the
+    front (a bought dried stack answers to the noun alone, #420).
+    (stacks pressed, where the dried stack lives now)."""
+    pressed_count = 0
+    skip = 0
+    while skip < len(herbstacks.ORDINALS):
+        if s.dead or danger(s):
+            break
+        which = f"{herbstacks.ORDINALS[skip]} " if skip else ""
+        got = ask(s, f"get my {which}{noun} from my {container}").lower()
+        if not any(word in got for word in _GOT):
+            break
+        if "dried" in got:
+            ask(s, f"put {held_name(s, noun)} in my {container}")
+            skip += 1
+            continue
+        pressed = ask(s, f"put {held_name(s, noun)} in press").lower()
+        if any(word in pressed for word in _PREPARED):
+            ask(s, f"put {held_name(s, noun)} in my {container}")  # dried after all
+            skip += 1
+            continue
+        if not any(word in pressed for word in _PRESSED):
+            s.echo(f"forage: the press answered {said(pressed)!r} — stopping")
+            ask(s, f"put {held_name(s, noun)} in my {container}")
+            break
+        pressed_count += 1
+        home = _combine_and_stow(s, noun, home)
+        if home == container:
+            skip += 1  # the dried stack went to the container's front
+    return pressed_count, home
+
+
 def press_herb(s, noun, bag):
     """At the dry press: each raw find out of `bag` pressed and combined
     with the dried stack before it, the stack stowed — the stacks in
-    hand named by their ids (held_name). The dried stack's pieces, or
-    None when nothing came out of the bag."""
+    hand named by their ids (held_name) — then the finds a STOW sent to
+    the default container instead (#403), the same way. The dried
+    stack's pieces, or None when nothing came out of either."""
     home = ""  # where STOW puts the dried stack, read off its answer
     stacks = 0
     for _ in range(MAX_COLLECTS):
@@ -394,17 +455,13 @@ def press_herb(s, noun, bag):
             ask(s, f"put {held_name(s, noun)} in my {bag}")
             break
         stacks += 1
-        if home:
-            again = ask(s, f"get dried {noun} from my {home}").lower()
-            if any(word in again for word in _GOT):
-                joined = combine_held(s, noun)
-                if not any(word in joined for word in _COMBINED):
-                    s.echo(f"forage: the {noun} would not combine — two stacks kept")
-                    ask(s, f"stow {held_name(s, noun)}")
-        home = items.stowed_in(ask(s, f"stow {held_name(s, noun)}")) or home
-        stow_herb_in_hands(s, noun)  # the stack a full combine left over
+        home = _combine_and_stow(s, noun, home)
         if any(word in pressed for word in _PREPARED) and home == bag:
             break  # the bag holds only the dried stack now: all pressed
+    store = home or hands.default_container(s, ask) or ""
+    if store and store != bag:
+        more, home = press_from(s, noun, store, home)
+        stacks += more
     if not stacks:
         return None
     if home:

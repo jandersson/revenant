@@ -372,6 +372,9 @@ def test_a_herb_is_foraged_to_the_pieces_then_pressed_and_combined(travel):
             COMBINED,
             INTO_PACK,  # joined
             NOTHING,  # the sack is empty
+            FROM_PACK,  # the backpack pass (#403): the dried stack, put back
+            INTO_PACK,
+            NOTHING,  # nothing past it
             FROM_PACK,
             "You count out 12 pieces of material there.",
             INTO_PACK,
@@ -391,7 +394,71 @@ def test_a_herb_is_foraged_to_the_pieces_then_pressed_and_combined(travel):
     assert s.sent.count("put my flowers in press") == 2
     assert "get dried flowers from my backpack" in s.sent
     assert "combine flowers with flowers" in s.sent
+    # The STOW container is swept for finds too (#403): the dried stack
+    # there goes back to the front and the next ordinal looks past it.
+    assert s.sent.index("get my flowers from my backpack") > s.sent.index(
+        "put my flowers in press"
+    )
+    assert "get my second flowers from my backpack" in s.sent
     assert reason.endswith("pressed and combined — 12 dried piece(s) stowed")
+
+
+def test_fresh_finds_a_stow_sent_to_the_backpack_are_pressed_too(travel):
+    # #403 (2026-10-01): six fresh stacks sat in the backpack unpressed
+    # because the press only took finds out of the sack. The backpack's
+    # fresh stacks are pressed past the dried ones by the plain noun's
+    # ordinals (#420: a bought dried stack answers to the noun alone).
+    s = Fake(
+        [
+            HERB_FOUND,
+            SIX,
+            INTO_SACK,
+            HERB_FOUND,
+            SIX,
+            INTO_SACK,
+            FROM_SACK,
+            PRESSED,
+            INTO_PACK,
+            FROM_SACK,
+            PRESSED,
+            FROM_PACK,
+            COMBINED,
+            INTO_PACK,
+            NOTHING,  # the sack is empty
+            FROM_PACK,  # the backpack: the dried stack first, put back
+            INTO_PACK,
+            "You get some red flowers from inside your backpack.",  # a fresh find
+            PRESSED,
+            FROM_PACK,
+            COMBINED,
+            INTO_PACK,
+            NOTHING,  # the third: nothing
+            FROM_PACK,
+            "You count out 18 pieces of material there.",
+            INTO_PACK,
+        ],
+        room=19343,
+    )
+    options = forage.parse_args(["herb", "red", "flower", "pieces=12"])
+    reason = forage.run_herb(s, options, db=GARDEN, bag="sack")
+    assert s.sent.count("put my flowers in press") == 3
+    assert "get my second flowers from my backpack" in s.sent
+    assert "get my third flowers from my backpack" in s.sent
+    assert reason.endswith("pressed and combined — 18 dried piece(s) stowed")
+
+
+def test_a_find_in_hand_goes_to_the_sack_when_the_hands_fill():
+    # #403: a STOW sent the find to the backpack, out of the press's
+    # reach; a find in hand goes in the bag instead.
+    s = Fake(
+        [HERB_FOUND, SIX, INTO_SACK, HANDS_FULL, INTO_SACK, HERB_FOUND, SIX, INTO_SACK]
+    )
+    s.state.left_hand = {"noun": "flowers", "exist": "9"}
+    options = forage.parse_args(["herb", "red", "flower", "pieces=12"])
+    reason, pieces, noun = forage.gather_herb(s, options, "sack")
+    assert "put #9 in my sack" in s.sent
+    assert not any(c.startswith("stow") for c in s.sent)
+    assert (reason, pieces, noun) == ("12 piece(s) of red flower found", 12, "flowers")
 
 
 def test_a_stack_a_full_combine_left_over_is_stowed_not_kept_in_hand():
@@ -428,6 +495,9 @@ def test_the_stacks_in_hand_are_named_by_their_ids_at_the_press():
             COMBINED,
             INTO_PACK,  # the second joined to it
             NOTHING,  # the sack is empty
+            FROM_PACK,  # the backpack pass (#403): the dried stack, put back
+            INTO_PACK,
+            NOTHING,
             FROM_PACK,
             "You count out 12 pieces of material there.",
             INTO_PACK,
@@ -454,10 +524,13 @@ def test_the_stacks_in_hand_are_named_by_their_ids_at_the_press():
         elif command.startswith("combine"):  # the merged stack, a new item, left
             hold("left")
             state.right_hand = None
-        elif command.startswith("stow"):
+        elif command.startswith("stow") or command.endswith(" in my backpack"):
             for side in ("left_hand", "right_hand"):
                 tag = getattr(state, side)
-                if tag and command == f"stow #{tag['exist']}":
+                if tag and command in (
+                    f"stow #{tag['exist']}",
+                    f"put #{tag['exist']} in my backpack",
+                ):
                     setattr(state, side, None)
 
     s.put = play
@@ -472,11 +545,18 @@ def test_the_stacks_in_hand_are_named_by_their_ids_at_the_press():
         "combine #105 with #104",
         "stow #106",
         "get flowers from my sack",
+        "get my flowers from my backpack",  # the backpack pass (#403)
+        "put #107 in my backpack",  # the dried stack, back by its id
+        "get my second flowers from my backpack",
         "get dried flowers from my backpack",
-        "count #107",
-        "stow #107",
+        "count #108",
+        "stow #108",
     ]
-    assert not any(" my flowers" in command for command in s.sent)
+    # A held stack is never named by the bare noun; a GET from a
+    # container names the noun by design.
+    assert not any(
+        " my flowers" in command for command in s.sent if not command.startswith("get ")
+    )
 
 
 def test_a_herb_never_found_ends_after_the_misses(travel, monkeypatch):
