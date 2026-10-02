@@ -145,6 +145,7 @@ def test_the_default_loot_ignore_is_the_common_metals_and_keeps_the_rare():
         "a medium lead nugget",
         "a small silver fragment",
         "an iron ingot",
+        "a tiny pewter bar",  # the common alloy (the operator, 2026-10-02)
     ):
         assert loot.ignored(item, common), item
     for item in ("a large damite nugget", "a kertig nugget", "a tiny coal nugget"):

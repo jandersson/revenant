@@ -60,7 +60,9 @@ GEM_NOUNS = frozenset(
 
 # Elanthipedia's Mining page (2026-09-28): the common metals, the
 # profile's default `loot_ignore` — the rare, very rare and quest-only
-# ones are kept. METAL_FORMS are the page's and Category:Crafting
+# ones are kept — and pewter, the common alloy of tin and lead
+# (Elanthipedia: Pewter; a tiny pewter bar out of a box, the operator,
+# 2026-10-02). METAL_FORMS are the page's and Category:Crafting
 # materials' names for a piece of metal, mined or dropped.
 COMMON_METALS = (
     "copper",
@@ -69,6 +71,7 @@ COMMON_METALS = (
     "lead",
     "nickel",
     "oravir",
+    "pewter",
     "silver",
     "tin",
     "zinc",
