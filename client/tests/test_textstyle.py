@@ -5,7 +5,14 @@ base style, and the status line folded from the state frames.
 
 import re
 
-from client.ui.textstyle import STYLES, Status, base_style, render
+from client.ui.textstyle import (
+    STYLES,
+    Status,
+    base_style,
+    prepared_of,
+    prepared_text,
+    render,
+)
 
 GLOW = {"pattern": "gleaming|glowing", "color": "#e0c95e", "bold": False}
 GLOW["regex"] = re.compile(GLOW["pattern"])
@@ -91,3 +98,26 @@ def test_the_status_line_says_what_the_hands_hold():
     assert status.line() == "— | L - R steel scimitar | connecting"
     status.feed("\t", "hands")
     assert status.line() == "— | connecting"  # nothing held: nothing said
+
+
+# A "spells" frame (#175): the prepared spell first, then the running ones.
+PREPARING = "prepared\tHeroic Strength\nGauge Flow\t12\nShift Moonbeam\t"
+RUNNING = "Gauge Flow\t12"
+
+
+def test_the_prepared_spell_is_read_off_the_spells_frame():
+    # #326: the bar under the command line names it while it is held.
+    assert prepared_of(PREPARING) == "Heroic Strength"
+    assert prepared_text(PREPARING) == "Prep: Heroic Strength"
+    assert prepared_of(RUNNING) is None and prepared_text(RUNNING) == ""
+    assert prepared_text("") == ""  # nothing runs or is prepared
+
+
+def test_the_status_line_says_the_prepared_spell_and_the_frame_still_prints():
+    status = Status()
+    assert status.note_spells(PREPARING)  # changed
+    assert not status.note_spells(PREPARING)  # the same spell again
+    assert not status.feed(PREPARING, "spells")  # not swallowed: it prints
+    assert status.line() == "— | prep Heroic Strength | connecting"
+    assert status.note_spells(RUNNING)  # cast: no longer prepared
+    assert status.line() == "— | connecting"

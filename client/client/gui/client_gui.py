@@ -787,6 +787,7 @@ class ClientGUI(QMainWindow, ClientLogger):
             return
         if stream == "spells":
             self.spells.show_frame(text)
+            self.input_strip.update_spells(text)  # the prepared spell (#326)
             return
         if stream == "room":
             # uid\ttitle per room change — the map dock follows it.

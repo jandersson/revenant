@@ -9,7 +9,8 @@ hex color) — the same table the PyQt6 GUI keeps in client_gui.py; keep
 them in step. render() turns one segment plus the user's highlight
 rules into runs of (text, bold, color, link) a frontend paints in
 order; status_line() folds the state frames (character, vitals,
-indicators, room, roundtime) into one line for a status bar.
+indicators, room, hands, the prepared spell, roundtime) into one line
+for a status bar; prepared_text() is the same spell for the GUI's bar.
 """
 
 from client.ui.highlights import spans
@@ -76,6 +77,23 @@ def render(text, style, rules=()):
     return runs
 
 
+def prepared_of(frame):
+    """The spell a "spells" frame says is prepared — its first line,
+    "prepared<TAB>name", while a pattern is held (#175) — or None."""
+    for line in str(frame or "").splitlines():
+        name, _, value = line.partition("\t")
+        if name == "prepared":
+            return value.strip() or None
+    return None
+
+
+def prepared_text(frame):
+    """ "Prep: Heroic Strength" for the bar under the command line, ""
+    when nothing is prepared (#326)."""
+    name = prepared_of(frame)
+    return f"Prep: {name}" if name else ""
+
+
 class Status:
     """The state a status bar shows, fed one frame at a time."""
 
@@ -85,6 +103,7 @@ class Status:
         self.vitals = {}
         self.indicators = set()
         self.hands = ("", "")
+        self.prepared = None
         self.connection = "connecting"
 
     def feed(self, text, stream):
@@ -108,9 +127,18 @@ class Status:
             return False
         return True
 
+    def note_spells(self, text):
+        """A "spells" frame's prepared spell, kept for the line; True
+        when it changed. The frame itself still prints (its running
+        spells have no other place in a terminal)."""
+        prepared = prepared_of(text)
+        changed = prepared != self.prepared
+        self.prepared = prepared
+        return changed
+
     def line(self, roundtime=0):
-        """One line: name, room, vitals, posture and badges, hands,
-        roundtime."""
+        """One line: name, room, vitals, posture and badges, hands, the
+        prepared spell, roundtime."""
         parts = [self.character or "—"]
         if self.room:
             parts.append(self.room)
@@ -135,6 +163,8 @@ class Status:
         if any(self.hands):
             left, right = self.hands
             parts.append(f"L {left or '-'} R {right or '-'}")
+        if self.prepared:
+            parts.append(f"prep {self.prepared}")
         if roundtime > 0:
             parts.append(f"RT {roundtime}")
         parts.append(self.connection)

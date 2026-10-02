@@ -125,3 +125,14 @@ def test_a_hands_frame_shows_what_each_hand_holds(window):
     window.dispatch_game_text("\tsteel scimitar", "hands", "")
     assert strip.hands_label.text() == "L: —  R: steel scimitar"
     assert "scimitar" not in window.main_window.toPlainText()  # never story text
+
+
+def test_a_spells_frame_puts_the_prepared_spell_beside_the_hands(window):
+    # #326: the Spells dock can be folded away; the bar under the command
+    # line is where the eye already is. A cast clears it.
+    strip = window.input_strip
+    window.dispatch_game_text("prepared\tHeroic Strength\nGauge Flow\t12", "spells", "")
+    assert strip.prepared_label.text() == "Prep: Heroic Strength"
+    window.dispatch_game_text("Gauge Flow\t12\nHeroic Strength\t9", "spells", "")
+    assert strip.prepared_label.text() == ""
+    assert "Heroic Strength" not in window.main_window.toPlainText()

@@ -5,7 +5,9 @@ countdowns beside it, the status strip (posture, stunned, bleeding,
 hidden, a red DEAD) that the scrolling text buries (#75), and the
 vitals bars above — one per vital, created as the game first mentions
 each. Split out of client_gui.py, which docks it at the bottom and
-feeds it the "roundtime"/"casttime", "indicators" and "vitals" frames.
+feeds it the "roundtime"/"casttime", "indicators", "vitals", "hands"
+and "spells" frames — the last for the prepared spell beside the
+hands, "Prep: Heroic Strength", where the eye already is (#326).
 """
 
 from math import ceil
@@ -23,6 +25,7 @@ from PyQt6.QtWidgets import (
 )
 
 from client.ui.command_history import CommandHistory
+from client.ui.textstyle import prepared_text
 
 # The status strip's badge colors: alarming states loud, sneaky
 # states purple, posture plain. IconDEAD overrides everything.
@@ -166,6 +169,10 @@ class InputStrip(QWidget):
         # What the hands hold, from the "hands" frame (2026-09-25).
         self.hands_label = QLabel("")
         self.hands_label.setStyleSheet("color: #a0a0b0;")
+        # The spell prepared, from the "spells" frame (#326), in the
+        # Spells dock's prepared colour; empty when none is held.
+        self.prepared_label = QLabel("")
+        self.prepared_label.setStyleSheet("color: #d8b465; font-weight: bold;")
         # The maintenance countdown (#277): "shutdown in N min" in the
         # alert red, ticking with the roundtime timer.
         self.shutdown_label = QLabel("")
@@ -176,6 +183,7 @@ class InputStrip(QWidget):
         row_layout.setContentsMargins(4, 0, 4, 0)
         row_layout.addWidget(self.status_strip)
         row_layout.addWidget(self.hands_label)
+        row_layout.addWidget(self.prepared_label)
         row_layout.addWidget(self.shutdown_label)
         row_layout.addWidget(self.rt_label)
         row_layout.addWidget(self.ct_label)
@@ -255,6 +263,11 @@ class InputStrip(QWidget):
     def update_hands(self, text: str):
         """A "hands" frame: "left<TAB>right", a half "" when empty."""
         self.hands_label.setText(hands_text(text))
+
+    def update_spells(self, text: str):
+        """A "spells" frame: the prepared spell beside the hands, blank
+        once it is cast or released (#326)."""
+        self.prepared_label.setText(prepared_text(text))
 
     def update_vitals(self, text: str):
         """A "vitals" frame: "health 100 stamina 95 ..." — the full

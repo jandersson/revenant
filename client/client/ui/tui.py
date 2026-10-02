@@ -125,6 +125,8 @@ class RevenantTUI(ClientLogger):
                 if outer.status.feed(text, stream):
                     self.refresh_status()
                     return
+                if stream == "spells" and outer.status.note_spells(text):
+                    self.refresh_status()  # the prepared spell (#326); it still prints
                 if stream in ("roundtime", "casttime"):
                     outer.note_roundtime(text)
                     self.refresh_status()
