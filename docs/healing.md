@@ -35,6 +35,7 @@ It trains First Aid as it goes and leaves internal bleeders alone.
 
 - One herb per wound area and kind, one use per run; it heals over time.
 - In the Crossing the herbalist is Mauriga's Botanicals, 812–1000 Kronars a herb. The Alchemy Society's herbs are crafting stock, not remedies.
+- A herb bag (Berolt's Dry Goods, 81 Kronars, worn on the belt) keeps herbs and remedies out of the backpack: `STORE HERBS IN BAG` sends every stowed herb or remedy there. STORE takes the container as one or two words (`bag`, `my bag`, `herb bag`); `my herb bag` is refused.
 - A bleeder is reported, not treated: run `;tend`.
 
 ## ;heal npc: the hospital
