@@ -90,3 +90,12 @@ def test_nothing_carried_and_no_debt_are_zeros_not_silence():
         "debt": {"Kronars": 0},
     }
     assert money.parse_wealth("") == {"carried": {}, "debt": {}}  # unanswered
+
+
+def test_a_coin_line_names_its_amount_and_currency():
+    # ;boxes taking coins out of a box (captured 2026-09-28, #423).
+    line = "You pick up 5 silver Kronars."
+    assert money.to_copper(line) == 500
+    assert money.currency_of(line) == "Kronars"
+    assert money.currency_of("You pick up 1 bronze Kronar.") == "Kronars"
+    assert money.currency_of("You get a ruby.") == ""

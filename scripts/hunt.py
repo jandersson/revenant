@@ -6,7 +6,7 @@
     ;hunt styles            list the profile's hunt styles
     ;hunt profile [style]   print the profile the hunt would use
     ;hunt grounds [rank]    hunting zones for your weakest weapon's rank (or <rank>), nearest first,
-                            with the box rate you measured on each
+                            with the boxes and copper you measured on each
     ;hunt return            (typed while it runs) finish the kill and end as below
     ;stop hunt              quit where you stand
 
@@ -21,7 +21,7 @@ What it does
   - The profile's `almanac` studied whenever its timer allows: in a clear room,
     or mid-fight after a RETREAT to pole range.
   - At the end, says each creature's searches, boxes and coins; history.db keeps
-    every search (`loot`) and every hunt (`hunts`).
+    every search (`loot`), every hunt (`hunts`) and every box picked up (`box_drops`).
 
 When it stops — then walks home, and runs ;skins bank (skins sold, purse banked)
   - health below `health_floor`, or a wound at `wound_floor` (also checked before setting out)
@@ -46,6 +46,7 @@ from client.game import (
     act,
     almanac,
     barbarian,
+    boxlog,
     buffs,
     flight,
     hands,
@@ -117,7 +118,10 @@ creature, #329; counted per creature for the end's "searched by
 creature" line, and the run's totals with its minutes on the ground a
 `hunts` row, so ;hunt grounds says each zone's measured boxes per
 search and boxes an hour — the wiki leaves most drop rates blank and
-the box-farm question of 2026-10-02 had one 29-minute figure, #419), pouch
+the box-farm question of 2026-10-02 had one 29-minute figure, #419;
+every box picked up a `box_drops` row with its item id, which STOW BOX
+shows in a hand tag and clears on the same line, read off the parser's
+last_held, so ;boxes can tell a box's contents to its creature, #423), pouch
 any gems (STOW GEM, and a box STOW BOX, straight off the ground into the
 containers STORE names — STORE GEMS IN <gem_pouch> and STORE BOXES
 IN <loot_container> sent only when the profile's container changes,
@@ -1225,6 +1229,7 @@ def grab(s, profile, before, tally):
             # straight into its STORE container, no hand needed (the
             # operator, 2026-09-26); anything but a stow falls through
             # to the GET below.
+            since = hands.mark(s)
             answer = ask(s, f"stow {what}").lower()
             outcome = classify(answer, loot.STOW_OUTCOMES)
             if any(line in answer for line in loot.POUCH_FULL):
@@ -1232,6 +1237,7 @@ def grab(s, profile, before, tally):
             if outcome == "stowed":
                 if what == "box":
                     tally.boxes += 1
+                    note_box(s, profile, tally, since, noun, entry)
                 taken.append(noun)
                 continue
             if outcome == "not yours":
@@ -1258,10 +1264,12 @@ def grab(s, profile, before, tally):
             pocket(s, profile, noun)
             taken.append(noun)
             continue
+        since = hands.mark(s)
         answer = ask(s, f"get {noun}").lower()
         outcome = classify(answer, loot.STOW_OUTCOMES)
         if outcome == "free hand":
             free_hand(s, profile)
+            since = hands.mark(s)
             answer = ask(s, f"get {noun}").lower()
             outcome = classify(answer, loot.STOW_OUTCOMES)
         if outcome == "not yours":
@@ -1282,6 +1290,9 @@ def grab(s, profile, before, tally):
         if what == "coins":
             tally.coins += 1  # coins go to the purse on GET
             continue
+        # The box in hand: its tag even where the parser keeps no
+        # last_held (a session started before #423).
+        held = hands.tag_of(s, noun) if what == "box" else None
         if not stow(s, profile, noun):
             tally.unlootable.add(noun)
             taken.append(noun)
@@ -1292,8 +1303,29 @@ def grab(s, profile, before, tally):
             continue
         if what == "box":
             tally.boxes += 1
+            note_box(s, profile, tally, since, noun, entry, held)
         taken.append(noun)
     return taken
+
+
+def note_box(s, profile, tally, since, noun, description, held=None):
+    """A box picked up, as a history.db `box_drops` row (#423): its item
+    id — off the hand tag that showed it, though a STOW straight off the
+    ground empties the hand on the same line — beside the creature and
+    the search that found it, so ;boxes can tell what it held to the
+    creature and the ground."""
+    tag = hands.passed_through(s, since, noun) or held
+    search = tally.search or {}
+    boxlog.log_drop(
+        s,
+        box_id=(tag or {}).get("exist"),
+        noun=noun,
+        description=str(description or noun),
+        creature=search.get("creature"),
+        ground=profile.get("hunting_ground") or "",
+        room=getattr(s.state, "room_uid", None),
+        loot_seq=search.get("seq"),
+    )
 
 
 def dispose(s, profile, corpse, tally):
@@ -1321,12 +1353,19 @@ def dispose(s, profile, corpse, tally):
         tally.loot_reported = True
         s.echo(f"hunt: loot answered {said(answer)!r}")
     outcome = classify(answer, SEARCH_OUTCOMES)
+    tally.search = None
     if outcome in ("found", "nothing"):
         # Every search a row in history.db's loot table: the box drop
         # rate per creature and ground, read off data (#329); and a
-        # count against its creature for the hunt's end (#419).
-        hunting.note_search(tally, lootlog.parse(answer), corpse)
-        lootlog.log(s, answer, profile.get("hunting_ground") or "")
+        # count against its creature for the hunt's end (#419). The
+        # creature and the row ride along to a box picked up (#423).
+        parsed = lootlog.parse(answer)
+        hunting.note_search(tally, parsed, corpse)
+        seq = lootlog.log(s, answer, profile.get("hunting_ground") or "")
+        tally.search = {
+            "creature": (parsed or {}).get("creature") or corpse,
+            "seq": seq,
+        }
     taken = grab(s, profile, before, tally) if outcome is not None else []
     if outcome == "found":
         ignore = profile.get("loot_ignore") or ()
@@ -1337,7 +1376,10 @@ def dispose(s, profile, corpse, tally):
                 continue  # no room for it, and a GET would free a hand for it
             if loot.ignored(named(answer, item), ignore):
                 continue  # "an embroidery needle" off a scout (#365)
+            since = hands.mark(s)
             pocket(s, profile, item)
+            if item in loot.BOX_NOUNS:
+                note_box(s, profile, tally, since, item, named(answer, item))
     elif outcome is None:
         unrecognized(s, tally, "loot", answer)
 
@@ -1981,11 +2023,15 @@ def show_grounds(s, profile, db, words, avoid=()):
     s.echo(f"hunt: hunting zones for rank {rank}, nearest first:")
     current = str(profile.get("hunting_ground") or "").strip().lower()
     # The yield this character measured on each zone (#419): boxes per
-    # search off the loot table, boxes an hour off the hunts table.
-    measured = lootlog.measured(getattr(s.state, "name", None))
+    # search off the loot table, boxes an hour off the hunts table, the
+    # copper a box held off the box_contents table (#423).
+    name = getattr(s.state, "name", None)
+    measured = lootlog.measured(name)
+    worth = boxlog.measured(name)
     for row in rows:
         mark = "  (your ground)" if row[0] == current else ""
-        s.echo(f"  {hunting.describe(row, measured.get(row[0]))}{mark}")
+        found = {**measured.get(row[0], {}), **worth.get(row[0], {})}
+        s.echo(f"  {hunting.describe(row, found)}{mark}")
 
 
 def record_hunt(s, profile, tally, minutes, reason):

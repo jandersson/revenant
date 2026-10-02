@@ -552,6 +552,26 @@ def test_hand_tags_never_reach_the_story(xml_data):
     assert "handaxe" not in "".join(text for _, text, _ in segments)
 
 
+def test_an_item_that_passes_through_a_hand_is_remembered_with_its_id(xml_data):
+    # #423, captured 2026-10-02: STOW BOX took a scout's box straight off
+    # the ground into the sack; the box showed in the left hand and the
+    # hand emptied on the same line, so left_hand never held it.
+    _feed_one(xml_data, '<right exist="7" noun="mace">steel mace</right>')
+    _feed_one(
+        xml_data,
+        '<left exist="139883771" noun="box">copper box</left><left>Empty</left>',
+    )
+    assert xml_data.left_hand is None
+    assert xml_data.hand_events == 2
+    assert xml_data.last_held["left"] == {
+        "noun": "box",
+        "exist": "139883771",
+        "name": "copper box",
+        "seq": 2,
+    }
+    assert xml_data.last_held["right"]["exist"] == "7"
+
+
 # -- the injuries panel: one <image> per body part -----------------------
 
 

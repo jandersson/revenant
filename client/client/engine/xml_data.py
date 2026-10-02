@@ -377,6 +377,14 @@ class XMLData:
         self.right_hand = None
         self.hands_updated = False
         self._hand = None  # (side, attributes, text) while inside the tag
+        # The last item each hand named, with the count of item tags at
+        # that moment (hand_events): a STOW BOX straight off the ground
+        # shows the box's id in a hand tag and empties the hand on the
+        # same line — "<left exist="139883771" noun="box">copper box
+        # </left><left>Empty</left>", 2026-10-02 — so left_hand never
+        # holds it; hands.passed_through reads it here (#423).
+        self.last_held = {"left": None, "right": None}
+        self.hand_events = 0
 
         # Internal memo pad for stripping multi line tags
         self._strip_xml_multiline = ""
@@ -673,6 +681,9 @@ class XMLData:
                     "name": text,
                 }
             )
+            if held is not None:
+                self.hand_events += 1
+                self.last_held[side] = dict(held, seq=self.hand_events)
             if held != getattr(self, f"{side}_hand"):
                 setattr(self, f"{side}_hand", held)
                 self.hands_updated = True

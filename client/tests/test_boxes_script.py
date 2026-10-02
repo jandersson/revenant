@@ -1189,3 +1189,59 @@ def test_an_answer_report_quotes_the_games_line_not_a_bystanders():
     for kind in ("look in", "get", "take", "open", "disarm", "pick", "ring", "wear"):
         assert script.REPORT_NEEDLES[kind]
     assert "disarm?" not in script.REPORT_NEEDLES
+
+
+def test_an_opened_box_is_a_contents_row_told_to_its_creature_by_its_id(
+    monkeypatch, tmp_path
+):
+    # #423: the box's item id off the hand that holds it, matched to the
+    # box_drops row ;hunt wrote when it picked the box up; the trap and
+    # lock readings, the coins in copper and the items kept go with it.
+    import sqlite3
+
+    from client.game import boxlog
+
+    db = tmp_path / "history.db"
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(db))
+    boxlog.log_drop(
+        SimpleNamespace(state=SimpleNamespace(name="Lanival")),
+        box_id="139883771",
+        noun="box",
+        description="a dented iron box",
+        creature="s'lai scout",
+        ground="scouts",
+    )
+    answers = one_easy_box()
+    fake = Fake(answers, mindstates=[1, 3, 5, 7])
+
+    def in_hand(command):
+        fake.state.right_hand = {
+            "noun": "box",
+            "exist": "139883771",
+            "name": "iron box",
+        }
+        return "You get a dented iron box from inside your canvas sack.\n"
+
+    answers[1] = ("get box from my sack", in_hand)
+    out = run(fake)
+    with sqlite3.connect(str(db)) as connection:
+        rows = connection.execute(
+            "SELECT box_id, noun, trap, lock, coins, currency, items, ground,"
+            " creature, source FROM box_contents"
+        ).fetchall()
+    assert rows == [
+        (
+            "139883771",
+            "box",
+            4,
+            3,
+            12,
+            "Kronars",
+            "a ruby",
+            "scouts",
+            "s'lai scout",
+            "id",
+        )
+    ]
+    assert "the box came from s'lai scout at scouts (by its id)" in out
+    # The crate went back for a better locksmith: no row for it.

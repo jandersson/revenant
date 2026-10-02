@@ -24,6 +24,8 @@ What it does
   - What `loot_ignore` names (the common metals by default) goes in the room's
     trash; with no trash in the room it is kept.
   - At the lock it holds until Locksmithing drains, then goes on.
+  - Logs each opened box to history.db (`box_contents`): trap, lock, coins, items,
+    and the creature and ground it came from, by the id ;hunt logged at pickup.
 
 Never a drop
   - An undismantled box goes in the room's bucket only if settings.json's
@@ -47,6 +49,7 @@ docs/training.md has the profile keys. Report any "boxes: <command> answered ...
 
 from client.engine.scripting import ScriptStopped
 from client.game import (
+    boxlog,
     discard,
     encumbrance,
     flight,
@@ -195,6 +198,14 @@ The wordings are pick.lic's and the wiki's until captured (2026-09-23):
 the first answer of each kind in a run is echoed as
 "boxes: <command> answered ..." so they become fixtures — report them.
 Stop with:  ;stop boxes, or ;boxes return.
+
+Each opened box is a history.db `box_contents` row (#423, the operator
+asked what a ground's boxes are worth, 2026-10-02): its item id off the
+hand that holds it, the hardest trap and lock readings, the coins in
+copper ("You pick up 5 silver Kronars.", 2026-09-28) and the items,
+told to the creature and ground of the `box_drops` row ;hunt wrote at
+pickup — by the id, which holds within a login; else the batch of
+boxes found since the last run (client/game/boxlog.py).
 """
 
 # A session started before client/game/boxes.py joined RELOADABLE_MODULES
@@ -294,6 +305,10 @@ class Run:
         self.doffed = []  # the hindering gear taken off, in order
         self.at_feet = []  # box nouns LOWERed to the feet, not yet lifted
         self.targets = [self.container]  # where a box may go, loot container first
+        # The box in hand, for its box_contents row (#423): its item id,
+        # the trap and lock readings, the coins and the items out of it.
+        self.box = None
+        self.started = boxlog.now()  # the run's start: the batch attribution's mark
 
     def say(self, text):
         self.s.echo(f"boxes: {text}")
@@ -804,6 +819,7 @@ def disarm(run, noun):
             if outcome == "lost":
                 return "lost"
             if outcome == "no trap":
+                note_reading(run, "trap", 0)
                 return "clear"
             if already_disarmed(answer):
                 # The look with a roundtime and no reading (#418): the
@@ -813,6 +829,7 @@ def disarm(run, noun):
                 return "clear"
             rank = reading(answer, TRAP_READINGS)
             if rank is not None:
+                note_reading(run, "trap", rank)
                 break
             if outcome != "identify failed":
                 run.report("disarm identify?", "disarm identify (unrecognized)", answer)
@@ -891,6 +908,7 @@ def pick(run, noun):
             if outcome == "lost":
                 return "lost"
             if outcome == "not locked":
+                note_reading(run, "lock", 0)
                 return "open"
             if outcome == "wrong pick":
                 if ring_ran_out(run):
@@ -904,6 +922,7 @@ def pick(run, noun):
                 continue
             rank = reading(answer, LOCK_READINGS)
             if rank is not None:
+                note_reading(run, "lock", rank)
                 break
         if rank is None:
             run.say(f"the {noun}'s lock would not identify — treating it as careful")
@@ -1026,7 +1045,11 @@ def empty(run, noun):
             put_pick_away(run)
             answer = ask(s, f"get {thing} from my {noun}")
             outcome = classify(answer, TAKE_OUTCOMES)
+        box = run.box if run.box is not None else {"items": [], "trashed": []}
         if outcome == "coins":
+            # "You pick up 5 silver Kronars." (captured 2026-09-28)
+            box["coins"] = box.get("coins", 0) + money.to_copper(answer)
+            box["currency"] = box.get("currency") or money.currency_of(answer)
             taken += 1
             continue
         if outcome == "taken" and ignore:
@@ -1034,12 +1057,15 @@ def empty(run, noun):
             if trashed is None:
                 run.say(f"no trash here for the {thing} (loot_ignore) — kept")
                 stow_loot(run, item)
+                box["items"].append(item)
             else:
                 run.say(f"the {thing} is on loot_ignore — in the trash")
+                box["trashed"].append(item)
             taken += 1
             continue
         if outcome == "taken":
             stow_loot(run, item)
+            box["items"].append(item)
             taken += 1
             continue
         if outcome == "no room":
@@ -1113,6 +1139,7 @@ def one_box(run, noun, source="container"):
             return "lost"
     elif source != "hand" and not take_box(run, noun):
         return "lost"
+    run.box = new_box(run, noun)
     outcome = disarm(run, noun)
     if outcome.startswith("stop:"):
         put_back(run, noun, "the run ends")
@@ -1136,8 +1163,50 @@ def one_box(run, noun, source="container"):
         return "kept"
     run.opened += 1
     run.say(f"the {noun} opened — {taken} item(s) out ({run.opened} box(es) so far)")
+    record_box(run)
     dispose(run, noun)
     return "done"
+
+
+def new_box(run, noun):
+    """The record of the box now in hand (#423): its item id off the
+    hand tag, the readings and the contents filled in as it is worked."""
+    tag = hands.tag_of(run.s, noun) or {}
+    return {
+        "box_id": tag.get("exist"),
+        "noun": noun,
+        "trap": None,
+        "lock": None,
+        "coins": 0,
+        "currency": "",
+        "items": [],
+        "trashed": [],
+    }
+
+
+def note_reading(run, key, rank):
+    """The hardest trap or lock reading of the box in hand: rank 1-17,
+    0 for none found."""
+    if run.box is not None and rank is not None:
+        run.box[key] = max(run.box[key] or 0, rank)
+
+
+def record_box(run):
+    """The opened box as a history.db `box_contents` row, told to the
+    creature and ground that dropped it (boxlog, #423); said when it
+    could be."""
+    box, run.box = run.box, None
+    if box is None:
+        return
+    origin = boxlog.log_opened(run.s, run_started=run.started, **box)
+    if origin and origin.get("ground"):
+        what = origin.get("creature") or "a creature"
+        how = (
+            "by its id"
+            if origin["source"] == "id"
+            else "by the batch since the last run"
+        )
+        run.say(f"the {box['noun']} came from {what} at {origin['ground']} ({how})")
 
 
 def run_loop(s, profile, options):

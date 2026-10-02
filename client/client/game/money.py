@@ -45,6 +45,16 @@ def to_copper(text):
     return total
 
 
+_CURRENCY = re.compile(r"\b(Kronar|Lirum|Dokora)s?\b", re.IGNORECASE)
+
+
+def currency_of(text):
+    """The currency a coin line names, plural ("You pick up 1 bronze
+    Kronar." → "Kronars"), "" when it names none."""
+    found = _CURRENCY.search(str(text or ""))
+    return found.group(1).capitalize() + "s" if found else ""
+
+
 def split(copper):
     """[(count, denomination)] for a copper total, largest coins first,
     zero counts left out: 1510 → [(1, "gold"), (5, "silver"), (1, "bronze")].

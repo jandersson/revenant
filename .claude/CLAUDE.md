@@ -88,7 +88,8 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   Barbarian's instead (ANALYZE combos, abilities, roars); `hunting.py`
   the bestiary (a ground is a map tag, a dr-scripts zone or a ;go2
   target; `;hunt grounds`) and ;hunt's pure half; `creatures.py` +
-  `creatures_data.py`; `loot.py` + `lootlog.py`; `boxes.py`;
+  `creatures_data.py`; `loot.py` + `lootlog.py`; `boxes.py` + `boxlog.py`
+  (each box's contents, told to its creature by its item id);
   `wounds.py`, `herbs.py`, `empathy.py`; `soul.py`; `tdp.py`;
   `money.py` (the purse), `bank.py` (the teller and the money-changer),
   `shop.py` (`buy`, `afford`: one purchase, the quote checked, the sale

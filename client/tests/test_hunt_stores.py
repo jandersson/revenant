@@ -190,3 +190,77 @@ def test_a_box_farm_fights_on_when_its_weapon_skill_locks(monkeypatch):
     _run(arena, profile=farm, travel_first=False)
     assert not any("mind-locked" in e for e in arena.echoed)
     assert any("1 box(es) in the sack — the farm is done" in e for e in arena.echoed)
+
+
+# #423: a box picked up is a box_drops row — its item id beside the
+# creature the search named — for ;boxes to tell its contents to.
+SCOUT_SEARCH = (
+    "You search the S'lai scout.\nThe scout was carrying a salt-stained copper box!\n"
+)
+COPPER_BOX = {"noun": "box", "exist": "139883771", "name": "copper box"}
+
+
+def _drops(monkeypatch, tmp_path, answers):
+    import sqlite3
+
+    db = tmp_path / "history.db"
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(db))
+    found = iter([["a salt-stained copper box"], []])
+    monkeypatch.setattr(
+        hunt.loot, "new_items", lambda before, after, creatures=(): next(found, [])
+    )
+    arena = Arena({"attack": [(KILL, kill)], "loot": [SCOUT_SEARCH], **answers})
+    farm = PROFILE | {"skin": False, "box_limit": 1, "until": "boxes"}
+    _run(arena, profile=farm, travel_first=False)
+    with sqlite3.connect(str(db)) as connection:
+        return connection.execute(
+            "SELECT box_id, noun, description, creature, ground, loot_seq"
+            " FROM box_drops"
+        ).fetchall()
+
+
+def test_a_stowed_box_is_logged_with_the_id_its_hand_tag_showed(monkeypatch, tmp_path):
+    # Captured 2026-10-02: STOW BOX showed the box in the left hand and
+    # emptied it on the same line; the parser's last_held keeps it.
+    def flashed(arena):
+        arena.state.hand_events = getattr(arena.state, "hand_events", 0) + 1
+        arena.state.last_held = {
+            "left": dict(COPPER_BOX, seq=arena.state.hand_events),
+            "right": None,
+        }
+
+    stowed = (
+        "You pick up a salt-stained copper box.\n"
+        "You put your box in your canvas sack.\n",
+        flashed,
+    )
+    rows = _drops(monkeypatch, tmp_path, {"stow box": [stowed]})
+    assert rows == [
+        (
+            "139883771",
+            "box",
+            "a salt-stained copper box",
+            "s'lai scout",
+            PROFILE["hunting_ground"],
+            1,
+        )
+    ]
+
+
+def test_a_box_picked_up_by_hand_is_logged_with_the_id_it_held(monkeypatch, tmp_path):
+    # The GET path (STOW BOX answered nothing known): the box's tag is
+    # read while it is in hand, before the PUT — in a session whose
+    # parser keeps no last_held as well.
+    def in_hand(arena):
+        arena.state.right_hand = dict(COPPER_BOX)
+
+    rows = _drops(
+        monkeypatch,
+        tmp_path,
+        {
+            "stow box": ["You glance around.\n"],
+            "get box": [("You pick up a salt-stained copper box.\n", in_hand)],
+            "put my box": ["You put your box in your canvas sack.\n"],
+        },
+    )
+    assert [row[0] for row in rows] == ["139883771"]

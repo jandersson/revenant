@@ -2,7 +2,9 @@
 put-back a ;stop still sends.
 
     hands.held(s)                                # {"left": noun, "right": noun}, None for empty
-    hands.holding(s, "bundle")                   # also full(s), empty(s), nouns(s), tags(s), side_of(s, noun)
+    hands.holding(s, "bundle")                   # also full(s), empty(s), nouns(s), tags(s), side_of(s, noun), tag_of(s, noun)
+    since = hands.mark(s)                        # before a STOW straight off the ground, then
+    hands.passed_through(s, since, "box")        # the box's tag, though the hand emptied (#423)
     hands.free(s, keep=("mortar",), ask=ask)     # STOW what is not kept; the nouns that went
     hands.free_one(s, ask=ask)                   # both full: the first STOWed; True once a hand is free
     hands.stow(s, noun, ask=ask)                 # one STOW, True unless refused; no room → PUT into the default container
@@ -86,6 +88,36 @@ def side_of(s, noun):
         if held_noun and _same(held_noun, noun):
             return side
     return None
+
+
+def tag_of(s, noun):
+    """The hand tag ({noun, name, exist}) of the hand holding `noun`, else None."""
+    side = side_of(s, noun)
+    return tags(s)[side] if side else None
+
+
+def mark(s):
+    """The parser's count of hand tags that named an item, now: the
+    mark passed_through reads from (0 for a session without it)."""
+    return getattr(getattr(s, "state", None), "hand_events", 0) or 0
+
+
+def passed_through(s, since, noun):
+    """The tag ({noun, name, exist}) of the last `noun` a hand named
+    after the mark `since`, else None — the item a STOW took straight
+    off the ground, which shows in a hand tag and empties it on the same
+    line (#423). A session started before the parser kept them (an
+    engine edit: relaunch) answers None."""
+    last = getattr(getattr(s, "state", None), "last_held", None) or {}
+    found = [
+        tag
+        for tag in last.values()
+        if isinstance(tag, dict)
+        and (tag.get("seq") or 0) > since
+        and tag.get("noun")
+        and _same(tag["noun"], noun)
+    ]
+    return max(found, key=lambda tag: tag["seq"]) if found else None
 
 
 def full(s):

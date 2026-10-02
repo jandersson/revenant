@@ -90,3 +90,13 @@ def test_grounds_says_the_box_rate_measured_on_a_zone(monkeypatch, tmp_path):
         "  yard_rats (0-30: Rat) — 1 step(s); measured 1 box(es) in 4 search(es), "
         "25%; 2.0 box(es) an hour over 1 hunt(s)"
     )
+    # #423: a box opened and told to the zone adds the copper it held.
+    from client.game import boxlog
+
+    later = "2999-01-01T00:00:00+00:00"  # after every search above
+    boxlog.log_opened(s, run_started=later, noun="box", coins=450)
+    s.echoed.clear()
+    hunt.show_grounds(s, PROFILE, GROUND, ["10"])
+    assert s.echoed[1].endswith(
+        "2.0 box(es) an hour over 1 hunt(s), ~900 copper; 450 copper a box over 1 opened"
+    )

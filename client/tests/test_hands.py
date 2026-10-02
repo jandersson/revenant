@@ -191,3 +191,22 @@ def test_stow_said_returns_the_line_that_decided_it(monkeypatch):
         True,
         "You put your book in your satchel.",
     )
+
+
+def test_an_item_that_passed_through_a_hand_is_found_after_the_mark():
+    # #423: STOW BOX shows the box in a hand and empties it on one line;
+    # the parser's last_held keeps it, numbered by hand_events.
+    s = Fake(right="mace")
+    box = {"noun": "box", "exist": "139883771", "name": "copper box", "seq": 5}
+    s.state.last_held = {"left": box, "right": None}
+    s.state.hand_events = 5
+    assert hands.passed_through(s, 4, "box") == box
+    assert hands.passed_through(s, 5, "box") is None  # seen before the mark
+    assert hands.passed_through(s, 4, "coffer") is None
+    assert hands.mark(s) == 5
+    assert hands.tag_of(s, "mace")["exist"] == "2"
+    assert hands.tag_of(s, "box") is None
+    # A session started before the parser kept them: nothing, never a raise.
+    old = Fake()
+    assert hands.mark(old) == 0
+    assert hands.passed_through(old, 0, "box") is None

@@ -105,7 +105,18 @@ An empty ground is not an end: the hunt waits and laps it again.
 
 ## Box yield
 
-The hunt's end says what each kind of creature carried: `searched by creature — s'lai scout x15: 1 box(es), 6 with coins`. History.db keeps every search (`loot`) and every hunt (`hunts`: minutes on the ground, kills, boxes, coins). `;hunt grounds` adds what you measured on each zone, e.g. `measured 26 box(es) in 180 search(es), 14%; 2.1 box(es) an hour over 6 hunt(s)`. The hour appears once a hunt there has been logged.
+The hunt's end says what each kind of creature carried: `searched by creature — s'lai scout x15: 1 box(es), 6 with coins`. `;hunt grounds` adds what you measured on each zone, e.g. `measured 26 box(es) in 180 search(es), 14%; 2.1 box(es) an hour over 6 hunt(s), ~2,604 copper; 1,240 copper a box over 12 opened`. Each part appears once there is data for it.
+
+History.db keeps:
+
+| Table | One row per |
+| --- | --- |
+| `loot` | search: creature, ground, box or treasure or nothing |
+| `hunts` | hunt: minutes on the ground, kills, boxes, coins |
+| `box_drops` | box picked up: its item id, creature, ground |
+| `box_contents` | box opened by `;boxes`: trap, lock, coins, items, and where it came from |
+
+A box is matched to its creature by its item id, which holds within one login. A box with no match goes to the ground of the boxes found since the last `;boxes` run, when they were all on one ground.
 
 ## Spells and abilities
 

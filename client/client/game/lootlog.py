@@ -118,7 +118,7 @@ def ensure_schema(connection):
     connection.commit()
 
 
-def _path(path):
+def db_path(path):
     if path is not None:
         return path
     from client.game.history import database_path
@@ -149,7 +149,7 @@ def log(s, answer, ground="", path=None):
         return None
     try:
         state = getattr(s, "state", None)
-        connection = sqlite3.connect(str(_path(path)))
+        connection = sqlite3.connect(str(db_path(path)))
         try:
             ensure_schema(connection)
             return record(
@@ -189,7 +189,7 @@ def log_hunt(s, path=None, **fields):
     never raised)."""
     try:
         state = getattr(s, "state", None)
-        connection = sqlite3.connect(str(_path(path)))
+        connection = sqlite3.connect(str(db_path(path)))
         try:
             ensure_schema(connection)
             return record_hunt(
@@ -237,7 +237,7 @@ def measured(character=None, path=None):
     """yields() off history.db; {} when there is none or it cannot be
     read (logged, never raised)."""
     try:
-        path = _path(path)
+        path = db_path(path)
         if not Path(path).is_file():
             return {}
         connection = sqlite3.connect(str(path))

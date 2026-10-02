@@ -64,6 +64,7 @@ def main(s):
 | Call | Does |
 | --- | --- |
 | `hands.held(s)` / `hands.holding(s, noun)` / `hands.full(s)` | what the hands hold, off the parser's tags |
+| `hands.mark(s)`, then `hands.passed_through(s, since, noun)` | an item's tag after a STOW that took it straight off the ground, though the hand emptied on the same line |
 | `hands.free(s, keep=(...), ask=ask)` | STOW what is not kept (never DROP); `free_one` frees a hand only when both are full |
 | `hands.stow(s, noun, ask=ask)` | one STOW, the answer judged; a STORE container with no room refuses and the game does not fall back, so the item goes into the default container (STORE DEFAULT) by PUT instead |
 | `hands.at_end(s, nouns)` | a `finally`'s put-backs: STOW each still held, as cleanup puts |
