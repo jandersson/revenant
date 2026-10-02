@@ -47,7 +47,10 @@ def test_a_handle_without_hand_state_holds_nothing():
     assert hands.tags(SimpleNamespace(state=None)) == {"left": None, "right": None}
 
 
-def test_stow_is_judged_by_the_answer_either_not_found_wording_a_refusal():
+def test_stow_is_judged_by_the_answer_either_not_found_wording_a_refusal(
+    monkeypatch,
+):
+    monkeypatch.setattr(hands, "_DEFAULTS", {})
     s = Fake(
         left="pestle",
         answers={
@@ -57,9 +60,11 @@ def test_stow_is_judged_by_the_answer_either_not_found_wording_a_refusal():
         },
     )
     assert hands.stow(s, "pestle", ask=s.ask) is False
+    # No room asks STORE DEFAULT for the fallback (#416); an answer that
+    # names no container leaves the refusal standing.
     assert hands.stow(s, "sack", ask=s.ask) is False
     assert hands.stow(s, "book", ask=s.ask) is True
-    assert s.sent == ["stow my pestle", "stow my sack", "stow my book"]
+    assert s.sent == ["stow my pestle", "stow my sack", "store default", "stow my book"]
 
 
 def test_free_stows_what_is_not_kept_left_first():
@@ -116,3 +121,53 @@ def test_a_held_items_id_is_stowed_bare():
     s = Fake(left="flowers")
     assert hands.stow(s, "#136104233", ask=s.ask) is True
     assert s.sent == ["stow #136104233"]
+
+
+# --- a full STORE container falls back to the default one (#416) ---------------
+
+
+def test_a_stow_the_store_container_has_no_room_for_goes_to_the_default(monkeypatch):
+    # 2026-10-02: a herb bag set as STORE HERBS refused the twentieth
+    # stack — "There isn't any more room in the bag for that." — and the
+    # leaves stayed in hand; the game does not fall back. The script does.
+    monkeypatch.setattr(hands, "_DEFAULTS", {})
+    s = Fake(
+        left="leaves",
+        answers={
+            "stow my leaves": "There isn't any more room in the bag for that.",
+            "store default": "         Default:  a rugged backpack\n",
+            "put my leaves in my backpack": "You put your leaves in your backpack.",
+        },
+    )
+    s.echoed = []
+    s.echo = s.echoed.append
+    assert hands.stow(s, "leaves", ask=s.ask) is True
+    assert s.sent == ["stow my leaves", "store default", "put my leaves in my backpack"]
+    assert s.echoed == ["the leaves went in the backpack — no room where STOW puts it"]
+    # The default is read once a run: the next refusal goes straight to the PUT.
+    s.sent.clear()
+    assert hands.stow(s, "leaves", ask=s.ask) is True
+    assert s.sent == ["stow my leaves", "put my leaves in my backpack"]
+
+
+def test_a_refusal_that_is_not_about_room_gets_no_fallback(monkeypatch):
+    monkeypatch.setattr(hands, "_DEFAULTS", {})
+    s = Fake(
+        left="pestle", answers={"stow my pestle": "You can't do that while sitting!"}
+    )
+    assert hands.stow(s, "pestle", ask=s.ask) is False
+    assert s.sent == ["stow my pestle"]
+
+
+def test_the_fallback_put_can_be_refused_too(monkeypatch):
+    monkeypatch.setattr(hands, "_DEFAULTS", {"": "backpack"})
+    s = Fake(
+        left="leaves",
+        answers={
+            "stow my leaves": "There isn't any more room in the bag for that.",
+            "put my leaves in my backpack": (
+                "There isn't any more room in the backpack for that."
+            ),
+        },
+    )
+    assert hands.stow(s, "leaves", ask=s.ask) is False

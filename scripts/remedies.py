@@ -320,28 +320,28 @@ def fetch_into_mortar(s, noun, what):
             f"remedies: the {noun} on you come to fewer than {STACK_PIECES} pieces "
             f"— the {what} is missing"
         )
-        ask(s, f"stow my {noun}")
+        hands.stow(s, noun, ask=ask)
         ask(s, "get my pestle")
         return False
     verb = "pour" if what == "water" else "put"
     answer = ask(s, f"{verb} my {noun} in my mortar")
     lowered = answer.lower()
     if what == "herb" and any(word in lowered for word in MORTAR_FULL):
-        ask(s, f"stow my {noun}")  # the mortar took its 25; the rest back
+        hands.stow(s, noun, ask=ask)  # the mortar took its 25; the rest back
     if any(word in lowered for word in MORTAR_BUSY):
         # Another remedy is in progress in the mortar (2026-09-23): the
         # herb stays in hand for the caller, the pestle comes back up.
         held = remedy_in_mortar(answer)
         name = held[0] if held else "remedy"
         s.echo(f"remedies: the mortar already holds an unfinished {name}")
-        ask(s, f"stow my {noun}")
+        hands.stow(s, noun, ask=ask)
         ask(s, "get my pestle")
         return f"busy:{name}"
     if what == "water" and not any(word in lowered for word in POURED):
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         s.echo(f"remedies: the pour answered {first!r}")
     if what != "herb":
-        ask(s, f"stow my {noun}")  # the flask, the second herb's stack, a nugget
+        hands.stow(s, noun, ask=ask)  # the flask, the second herb's stack, a nugget
     ask(s, "get my pestle")
     return True
 
@@ -385,7 +385,7 @@ def full_stack(s, noun):
                 held = pieces(ask(s, f"count {in_hand()}")) or held
                 continue
             if not any(word in joined for word in COMBINED):
-                ask(s, f"stow my {noun}")  # one of the two back: they would not join
+                hands.stow(s, noun, ask=ask)  # one of the two back: they would not join
                 break
             held = pieces(ask(s, f"count {in_hand()}")) or held
         if held >= STACK_PIECES:
@@ -606,7 +606,7 @@ def finish_in_mortar(s, name, catalyst, options, tally):
     if why is not None:
         return why
     take_out(s, spec[4])
-    ask(s, f"stow my {spec[4]}")
+    hands.stow(s, spec[4], ask=ask)
     if not tools_in_hand(s):
         return "mortar"
     s.echo(f"remedies: the {name} is done and stowed — the mortar is free")
@@ -701,7 +701,7 @@ def train(s, options, profile):
             salves += 1
             s.echo(f"remedies: {salve} salve finished ({salves})")
             take_out(s, spec[4])
-            ask(s, f"stow my {spec[4]}")
+            hands.stow(s, spec[4], ask=ask)
             if options["count"] and salves >= options["count"]:
                 why = f"{salves} salve(s) made"
                 break
@@ -913,9 +913,9 @@ def bundle(s, noun, expected):
         # settings.json's `droppable` naming the remedy noun — and
         # stowed when the list refuses it.
         if discard.drop(s, noun, ask) is None:
-            ask(s, f"stow my {noun}")
+            hands.stow(s, noun, ask=ask)
     elif outcome != "bundled":
-        ask(s, f"stow my {noun}")
+        hands.stow(s, noun, ask=ask)
     return outcome, remaining, due
 
 
@@ -945,7 +945,7 @@ def buy(s, noun, count, store, catalog, tally):
         if paid is None:
             return False
         tally["spent"] += paid
-        ask(s, f"stow my {noun}")
+        hands.stow(s, noun, ask=ask)
     s.echo(f"remedies: bought {count} x {noun} for {phrase(need, 'Kronars')}")
     return not overloaded(s, noun, tally)
 

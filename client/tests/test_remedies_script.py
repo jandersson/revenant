@@ -1602,3 +1602,35 @@ def test_twenty_buys_in_a_run_end_it():
     assert script.restock(fake, SPEC, "nugget", "dried flowers", 1, tally) is False
     assert tally["why"] == f"{script.RESTOCKS_PER_RUN} buys this run"
     assert not any(c.startswith("order") for c in fake.sent)
+
+
+# --- a herb STOW the STORE container refuses (#416) -----------------------------
+
+
+def test_a_herb_stow_the_store_container_refuses_goes_to_the_backpack(monkeypatch):
+    # #416 (2026-10-02): a herb bag set as STORE HERBS refused a stack and
+    # the game left it in hand, so the next GET had no hand for the pestle.
+    # hands.stow falls back to the default container and the craft goes on.
+    monkeypatch.setattr(script.hands, "_DEFAULTS", {})
+    fake = _fetching(
+        {
+            "get my dried flowers": ["You get some dried red flowers."],
+            "count my dried flowers": [THIRTY_SEVEN],
+            "put my dried flowers in my mortar": [MEASURED],
+            "stow my dried flowers": ["There isn't any more room in the bag for that."],
+            "store default": ["         Default:  a rugged backpack\n"],
+            "put my dried flowers in my backpack": [
+                "You put your flowers in your backpack."
+            ],
+        }
+    )
+    assert script.fetch_into_mortar(fake, "flowers", "herb") is True
+    assert fake.sent[-4:] == [
+        "stow my dried flowers",
+        "store default",
+        "put my dried flowers in my backpack",
+        "get my pestle",
+    ]
+    assert "the dried flowers went in the backpack — no room where STOW puts it" in (
+        fake.echoed
+    )

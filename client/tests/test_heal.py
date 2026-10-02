@@ -621,6 +621,35 @@ def test_an_order_left_open_is_refused_before_the_next():
     assert eaten == ["jadice flower"]
 
 
+def test_a_bought_herbs_rest_the_store_container_refuses_goes_to_the_backpack(
+    monkeypatch,
+):
+    # #416 (2026-10-02): with STORE HERBS set to a herb bag with no room,
+    # the STOW of what is left after the eat is refused and the game
+    # leaves it in hand; hands.stow puts it in the default container.
+    monkeypatch.setattr(heal.hands, "_DEFAULTS", {})
+    s = Fake(
+        {
+            "wealth": ["Wealth:\n  9 gold Kronars (9000 copper Kronars).\n"],
+            "order": [QUOTE],
+            "offer": [SOLD],
+            "eat": [ATE],
+            "stow": ["There isn't any more room in the bag for that."],
+            "store": ["         Default:  a rugged backpack\n"],
+            "put": ["You put your flower in your backpack."],
+        }
+    )
+    assert heal.buy(s, ["jadice flower"], MAP, walk) == ["jadice flower"]
+    assert s.sent[-3:] == [
+        "stow my jadice flower",
+        "store default",
+        "put my jadice flower in my backpack",
+    ]
+    assert "the jadice flower went in the backpack — no room where STOW puts it" in (
+        s.echoed
+    )
+
+
 def test_a_quote_above_the_purse_is_refused_not_left_open():
     s = Fake(
         {

@@ -32,7 +32,7 @@ Nothing walks back afterwards; death stops it. Herbs: client/game/herbs.py
 
 import re
 
-from client.game import bank, helper, herbs, money, probe, shop, travel
+from client.game import bank, hands, helper, herbs, money, probe, shop, travel
 from client.game.act import NOT_FOUND, ask, unknown
 from client.game.loop import wants_stop
 from client.game.bank import exchange_each, foreign, room_currency
@@ -355,7 +355,7 @@ def eat_and_stow(s, herb, eaten):
         unknown(s, "heal", take_command(item), answer)
     eaten.append(herb)
     s.echo(f"heal: took {item} for {herb}" if item != herb else f"heal: ate {herb}")
-    ask(s, f"stow my {item}")
+    hands.stow(s, item, ask=ask)
 
 
 def buy(s, wanted, mapdb, walk_fn, avoid=(), town=TOWN):

@@ -153,6 +153,9 @@ def test_never_with_a_hostile_a_stun_or_a_dead_character(monkeypatch):
 
 
 def test_a_stow_refused_leaves_the_hands_and_the_chore_waits(monkeypatch):
+    # Since #416 a no-room refusal asks STORE DEFAULT for a fallback
+    # container; an answer naming none leaves the mortar in hand.
+    monkeypatch.setattr(interlude.hands, "_DEFAULTS", {})
     with_almanac()
     s, game = handle(
         monkeypatch,
@@ -162,7 +165,7 @@ def test_a_stow_refused_leaves_the_hands_and_the_chore_waits(monkeypatch):
         answers={"stow my mortar": "There isn't any more room in the backpack.\n"},
     )
     interlude.run_due(s)
-    assert game.sent == ["stow my mortar"]
+    assert game.sent == ["stow my mortar", "store default"]
     assert "the chore waits" in s.echoed[0]
 
 

@@ -5,7 +5,7 @@ put-back a ;stop still sends.
     hands.holding(s, "bundle")                   # also full(s), empty(s), nouns(s), tags(s), side_of(s, noun)
     hands.free(s, keep=("mortar",), ask=ask)     # STOW what is not kept; the nouns that went
     hands.free_one(s, ask=ask)                   # both full: the first STOWed; True once a hand is free
-    hands.stow(s, noun, ask=ask)                 # one STOW, True unless the answer refused it
+    hands.stow(s, noun, ask=ask)                 # one STOW, True unless refused; no room → PUT into the default container
     hands.sheathe(s, weapon, container, ask=ask) # STOW when the game asks where
     hands.at_end(s, ("pestle", "mortar"))        # a finally's STOWs, as cleanup puts
 
@@ -20,6 +20,17 @@ _NOTES = """
 Twenty places read the hand tags their own way and a dozen freed a hand
 each its own way (a keep-list, the left only, a cascade) before #407;
 five put things back at a ;stop, and #395 came from one that did not.
+
+A STORE container with no room refuses the STOW and the item stays in
+hand — the game does not fall back (captured 2026-09-26 with STORE
+BOXES, "You pick up a reinforced oaken chest. There isn't any more room
+in the sack for that.", and 2026-10-02 with STORE HERBS set to a herb
+bag, "There isn't any more room in the bag for that.", the leaves still
+held). Eight herb STOWs in ;remedies and one in ;heal read no answer,
+so a full bag left the stack in hand and the next GET had no hand for
+the pestle (#416). The operator, 2026-10-02: scripts must not fail on
+it — so stow() PUTs into the default container, read once a run from
+STORE DEFAULT ("         Default:  a rugged backpack").
 """
 
 SIDES = ("left", "right")
@@ -27,6 +38,10 @@ SIDES = ("left", "right")
 # is full, the game will not ("You can't do that while ..."), or it
 # asks what ("Stow what?").
 STOW_REFUSED = ("no room", "any more room", "won't fit", "can't", "cannot", "stow what")
+# The refusals that mean the STORE container is full — the item then
+# goes into the default container (#416).
+STOW_FULL = ("no room", "any more room", "won't fit")
+_DEFAULTS = {}  # character -> the default container's noun, off STORE DEFAULT
 # SHEATHE with no container named and nothing remembered from a WIELD
 # (captured 2026-09-22): "Sheathe your steel scimitar where?"
 SHEATHE_WHERE = ("where?",)
@@ -93,10 +108,46 @@ def _mine(noun):
     return noun if noun.startswith("#") else f"my {noun}"
 
 
+def default_container(s, ask=None):
+    """The noun of the game's default container ("backpack"), off STORE
+    DEFAULT's "Default:  a rugged backpack" line, read once a run per
+    character; None when the answer names none."""
+    character = str(getattr(getattr(s, "state", None), "name", "") or "")
+    if character in _DEFAULTS:
+        return _DEFAULTS[character]
+    answer = (ask or act.ask)(s, "store default")
+    noun = None
+    for line in str(answer or "").splitlines():
+        if "default" in line.lower() and ":" in line:
+            words = line.split(":", 1)[1].split()
+            if words and "not set" not in line.lower():
+                noun = words[-1].lower().rstrip(".")
+            break
+    if noun:
+        _DEFAULTS[character] = noun
+    return noun
+
+
 def stow(s, noun, ask=None):
     """STOW MY <noun> (STOW #id for an id); True unless the answer
-    refused it. Never a DROP."""
-    return not refused((ask or act.ask)(s, f"stow {_mine(noun)}"))
+    refused it. A STORE container with no room refuses and leaves the
+    item in hand — the game does not fall back — so the item then goes
+    into the default container by PUT, said once (#416). Never a DROP."""
+    answer = (ask or act.ask)(s, f"stow {_mine(noun)}")
+    if not refused(answer):
+        return True
+    lowered = str(answer or "").lower()
+    if not any(word in lowered for word in STOW_FULL):
+        return False
+    default = default_container(s, ask)
+    if not default:
+        return False
+    if refused((ask or act.ask)(s, f"put {_mine(noun)} in my {default}")):
+        return False
+    echo = getattr(s, "echo", None)
+    if echo:
+        echo(f"the {noun} went in the {default} — no room where STOW puts it")
+    return True
 
 
 def free(s, keep=(), ask=None):

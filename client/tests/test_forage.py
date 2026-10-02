@@ -287,9 +287,12 @@ def test_a_stow_the_game_could_not_find_is_no_freed_hand(travel):
         assert s.sent == ["collect rock practice", "stow my pestle"]
 
 
-def test_a_stow_the_container_refused_is_no_freed_hand(travel):
+def test_a_stow_the_container_refused_is_no_freed_hand(travel, monkeypatch):
     # "There isn't any more room ..." counted as a freed hand until the
-    # STOW went through hands.stow, and COLLECT was retried (#407).
+    # STOW went through hands.stow, and COLLECT was retried (#407). Since
+    # #416 the refusal asks STORE DEFAULT for a fallback container; an
+    # answer naming none leaves the hand full.
+    monkeypatch.setattr(forage.hands, "_DEFAULTS", {})
     s = Fake(
         [HANDS_FULL, "There isn't any more room in the backpack for that.", HANDS_FULL],
         experience=_exp(10),
@@ -298,7 +301,7 @@ def test_a_stow_the_container_refused_is_no_freed_hand(travel):
     s.state.right_hand = {"noun": "mortar"}
     reason, _ = forage.run(s, forage.parse_args([]), db=MAP)
     assert reason.startswith("no hand free")
-    assert s.sent == ["collect rock practice", "stow my pestle"]
+    assert s.sent == ["collect rock practice", "stow my pestle", "store default"]
 
 
 # The herb mode (#370), captured 2026-09-28 at Midton Circle and the
