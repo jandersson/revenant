@@ -15,7 +15,9 @@ Standard travel climbs award xp at most once per random 45–60s window
 of spammed; `climb practice` rungs are timer-exempt continuous
 activities — started once and watched, never spammed (#89) — and
 ended with STOP CLIMB at every end of the rung, a ;stop included, so
-no command after is refused for a practice still running (#409).
+no command after is refused for a practice still running (#409); a due
+interlude (the almanac) gets the same STOP CLIMB first and the practice
+starts again after it (#417).
 The ladder is Zoluren spots per Elanthipedia, encoded with their
 map rooms, rank bands, and conditions in client/game/climbs.py; rank 100+
 trains in town on the Crossing battlements. Before the first climb the
@@ -51,7 +53,7 @@ import sys
 import time
 
 from client.game import buffs, climbs
-from client.game import flight, hands, loop, trainer, travel
+from client.game import flight, hands, interlude, loop, trainer, travel
 from client.game.act import ask, unknown
 from client.game.status import counted
 
@@ -538,6 +540,13 @@ def _train(s, commands, stop_when_stale, pace, practice, db, walk, filler, statu
                     return returned(s)
             reports.clear()  # a lock is the opposite of stale
         for command in commands:
+            if practice and status["practicing"] and interlude.due(s):
+                # A due chore with the practice running is refused line by
+                # line — "You should stop practicing your Athletics skill
+                # before you do that." to GET, STUDY and STOW (#417): STOP
+                # CLIMB first; the loop re-asserts the practice after.
+                end_practice(s)
+                status["practicing"] = False
             if loop.wants_stop(s):
                 return returned(s)
             reason = danger(s.state)

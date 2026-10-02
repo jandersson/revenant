@@ -13,7 +13,10 @@ the insight you can from the diamond-hide almanac, for now. /
 under a minute "[Please try again in about a roisan.]"; closed — "...you would learn
 something significant about a random skill if you were to OPEN the
 diamond-hide almanac and STUDY its contents." (no study; the same once
-the timer ran out, so the skill is not rolled ahead). Elanthipedia:
+the timer ran out, so the skill is not rolled ahead); mid-practice
+(#417, 2026-10-02) GET, STUDY and STOW alike answer "You should stop
+practicing your Athletics skill before you do that." — a busy answer,
+the next try in half a minute, the timer untouched. Elanthipedia:
 Almanac — ten minutes, shared by every almanac and whoever studied;
 dr-scripts' almanac.lic studies on a 600 s timer of its own.
 """
@@ -29,6 +32,9 @@ _LEARNED = re.compile(r"learned something significant about (?P<skill>[^!.]+)")
 _WAIT = re.compile(r"try again in (?:about )?(?P<n>\d+|an?) roisa")
 _CLOSED = "if you were to open"
 _MISSING = ("what were you", "could not find")
+# A continuous activity holds the character (a climb practice, #417).
+_BUSY = ("should stop practicing",)
+BUSY_WAIT = 30  # seconds before the next try after a busy answer
 
 # The next moment a study is worth trying, per noun; shared by every
 # script in the session (a reload starts it over — the game's countdown
@@ -46,6 +52,8 @@ def answer(text):
     ("waiting", None, seconds), ("closed", None, 0), or (None, None, 0)
     for an answer outside the table."""
     text = str(text or "")
+    if any(word in text.lower() for word in _BUSY):
+        return "busy", None, BUSY_WAIT
     learned = _LEARNED.search(text)
     if learned:
         return "learned", learned.group("skill").strip(), SECONDS
@@ -85,10 +93,16 @@ def study(s, noun, ask, prefix):
     if not held and hands.full(s):
         return None  # no hand free: the next chance
     s.waitrt()
-    got = "" if held else ask(s, f"get my {noun}").lower()
+    raw = "" if held else ask(s, f"get my {noun}")
+    got = raw.lower()
     if any(word in got for word in _MISSING):
         s.echo(f"{prefix}: no {noun} on you — the almanac is off for this session")
         _OFF.add(noun)
+        return None
+    if answer(got)[0] == "busy":
+        first = (raw.strip().splitlines() or ["(silence)"])[0]
+        s.echo(f"{prefix}: the almanac waits — {first!r}")
+        _NEXT[noun] = clock() + BUSY_WAIT
         return None
     said = ask(s, f"study my {noun}")
     if answer(said)[0] == "closed":
@@ -101,6 +115,9 @@ def study(s, noun, ask, prefix):
     if outcome == "learned":
         STUDIED.append(skill)
         s.echo(f"{prefix}: almanac studied — {skill}")
+    elif outcome == "busy":
+        first = (said.strip().splitlines() or ["(silence)"])[0]
+        s.echo(f"{prefix}: the almanac waits — {first!r}")
     elif outcome is None:
         first = (said.strip().splitlines() or ["(silence)"])[0]
         s.echo(f"{prefix}: the almanac answered {first!r} — trying again in 10 minutes")

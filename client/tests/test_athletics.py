@@ -1000,3 +1000,53 @@ def test_hostiles_end_the_practice_before_the_escape():
     assert puts[:stop] == ["climb practice embrasure"]  # the practice ran
     assert any(cmd.startswith("retreat") for cmd in puts[stop + 1 :])  # then the escape
     assert any("hostiles here" in echo for echo in handle.echoes)
+
+
+def test_a_due_interlude_ends_the_practice_first_and_the_loop_restarts_it(
+    monkeypatch,
+):
+    # #417 (2026-10-02, 15:10): the almanac interlude ran between two laps
+    # of a practice rung and its GET, STUDY and STOW were each refused for
+    # the practice; the study was lost. STOP CLIMB first, the chore, the
+    # practice again.
+    state = {"calls": 0, "ready": False}
+
+    def due(s):
+        state["calls"] += 1
+        state["ready"] = state["calls"] == 2  # due once, on the second lap
+        return ["almanac"] if state["ready"] else []
+
+    def run_due(s, make_room=True):
+        if state["ready"]:
+            state["ready"] = False
+            s.put("study my almanac")
+
+    monkeypatch.setattr(athletics.interlude, "due", due)
+    monkeypatch.setattr(athletics.interlude, "run_due", run_due)
+
+    class Chored(PracticeHandle):
+        """The practice answers its command; STOP CLIMB answers the
+        wiki's line; the chore's command answers nothing."""
+
+        def put(self, command):
+            FakeHandle.put(self, command)
+            if command.startswith("climb practice"):
+                self.lines.append(self.response)
+            elif command == "stop climb":
+                self.lines.append("You stop practicing your climbing skills.")
+
+    handle = Chored(
+        (),
+        mindstates=(5,),
+        sleeps=5,
+        response="You begin to practice your climbing skills.",
+    )
+    with pytest.raises(LoopDone):
+        athletics.train(handle, ["climb practice embrasure"], practice=True)
+    puts = [call[1] for call in handle.calls if call[0] == "put"]
+    assert puts[:4] == [
+        "climb practice embrasure",
+        "stop climb",
+        "study my almanac",
+        "climb practice embrasure",
+    ]

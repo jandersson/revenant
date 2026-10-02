@@ -120,3 +120,21 @@ def test_no_almanac_on_you_is_off_and_full_hands_wait():
     ask, sent = asker({})
     almanac.study(busy, "book", ask, "train")
     assert sent == []
+
+
+# Captured 2026-10-02 mid-practice, to GET, STUDY and STOW alike (#417).
+BUSY = "You should stop practicing your Athletics skill before you do that.\n"
+
+
+def test_a_busy_answer_backs_off_half_a_minute_and_leaves_the_timer(fresh):
+    assert almanac.answer(BUSY) == ("busy", None, almanac.BUSY_WAIT)
+    s = handle(right={"noun": "scimitar"})
+    ask, sent = asker({"get my almanac": BUSY})
+    assert almanac.study(s, "almanac", ask, "athletics") is None
+    assert sent == ["get my almanac"]  # no STUDY, no STOW to be refused too
+    assert s.echoed == [
+        "athletics: the almanac waits — 'You should stop practicing your Athletics "
+        "skill before you do that.'"
+    ]
+    assert almanac._NEXT["almanac"] == 1000.0 + almanac.BUSY_WAIT  # not ten minutes
+    assert "almanac" not in almanac._OFF

@@ -88,6 +88,19 @@ def test_nothing_is_due_without_an_almanac_in_the_profile(monkeypatch):
     assert game.sent == []
 
 
+def test_due_names_the_chores_without_sending(monkeypatch):
+    # #417: a climb practice asks first, so STOP CLIMB goes out only for
+    # a chore that will run; never for ;favors, never past the timer.
+    with_almanac()
+    s, game = handle(monkeypatch, right={"noun": "lute"})
+    assert interlude.due(s) == ["almanac"]
+    assert game.sent == []
+    interlude.run_due(s)
+    assert interlude.due(s) == []  # the timer
+    favors, _ = handle(monkeypatch, "favors")
+    assert interlude.due(favors) == []
+
+
 def test_a_due_almanac_is_studied_with_a_free_hand_and_named_under_the_script(
     monkeypatch,
 ):

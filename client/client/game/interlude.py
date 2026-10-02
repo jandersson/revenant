@@ -5,6 +5,8 @@ calls it between steps) and `pause()`'s slices run them, so every
 script with a safe point gives them time without code of its own;
 ;train runs them between tasks and in rests, ;hunt in a clear room.
 
+due(s)          the names run_due would run now, nothing sent — a climb
+                practice sends STOP CLIMB first for one (#417)
 run_due(s)      every interlude due now, run on `s`'s thread; quiet when
                 none is. A hand is made for it when both are full: the
                 left hand's item STOWed, the chore run, the item got back.
@@ -201,18 +203,27 @@ def _child_acting(s):
     return any(other not in BACKGROUND for other in younger())
 
 
+def due(s):
+    """The interludes due at this safe point, in registry order — what
+    run_due would run now, nothing sent; [] when none is, or the moment
+    is not safe. A climb practice ends the activity first only for a
+    chore that will run (#417)."""
+    name = str(getattr(s, "name", "") or "")
+    if name in NEVER or not _safe(s) or _child_acting(s):
+        return []
+    return [n for n in REGISTRY if n in _PENDING or REGISTRY[n][0](s)]
+
+
 def run_due(s, make_room=True):
     """Every interlude due now, run on this script's thread. `make_room`
     False: only when a hand is already free (;hunt's clear room keeps
     its weapon and shield)."""
     name = str(getattr(s, "name", "") or "")
-    if name in NEVER or not _safe(s) or _child_acting(s):
-        return
-    due = [n for n in REGISTRY if n in _PENDING or REGISTRY[n][0](s)]
-    if not due or not _LOCK.acquire(blocking=False):
+    chores = due(s)
+    if not chores or not _LOCK.acquire(blocking=False):
         return  # another script's thread is in one
     try:
-        for chore in due:
+        for chore in chores:
             if not _safe(s):
                 return
             _due, run, fits = REGISTRY[chore]

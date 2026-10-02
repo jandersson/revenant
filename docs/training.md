@@ -102,7 +102,7 @@ Each is a script with its own manual (`;help <name>`). Under `;train`, give each
 
 ## The almanac, in any trainer
 
-The profile's `almanac` is studied whenever its ten-minute timer allows, at the next safe point of whatever script is running: between two of a trainer's steps, between `;train`'s tasks and in its rests, in a `;hunt`'s clear room. With both hands full, the left hand's item is stowed for the study and taken back after; `;boxes` and `;perform` wait for a free hand instead. `;break almanac` asks for a study sooner.
+The profile's `almanac` is studied whenever its ten-minute timer allows, at the next safe point of whatever script is running: between two of a trainer's steps (a `climb practice` is ended with STOP CLIMB for it and started again after), between `;train`'s tasks and in its rests, in a `;hunt`'s clear room. With both hands full, the left hand's item is stowed for the study and taken back after; `;boxes` and `;perform` wait for a free hand instead. `;break almanac` asks for a study sooner.
 
 ## Plan well
 
