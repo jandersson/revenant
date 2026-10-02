@@ -61,6 +61,7 @@ from client.game import boxes as boxes_model
 from client.game.act import ask, missing, said
 from client.game.boxes import (
     DISARM_OUTCOMES,
+    already_disarmed,
     LOCK_CAUTION,
     LOCK_READINGS,
     OPEN_OUTCOMES,
@@ -758,6 +759,12 @@ def disarm(run, noun):
             if outcome == "lost":
                 return "lost"
             if outcome == "no trap":
+                return "clear"
+            if already_disarmed(answer):
+                # The look with a roundtime and no reading (#418): the
+                # trap is down already — thirty boxes were "would not
+                # identify", re-asked and disarmed again for nothing.
+                run.say(f"the {noun}'s trap is already down — on to the lock")
                 return "clear"
             rank = reading(answer, TRAP_READINGS)
             if rank is not None:

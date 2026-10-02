@@ -1110,3 +1110,51 @@ def test_the_box_work_stays_standing_when_the_load_could_not_be_stood_up_from():
     script.ask = light.ask
     script.sit(script.Run(light, PROFILE, script.parse_args([])))
     assert light.sent == ["encumbrance", "sit"]
+
+
+# --- an identify of a trap already disarmed (#418) --------------------------------
+
+# Captured 2026-10-01: the look, a roundtime, no reading.
+ALREADY_DOWN = (
+    "Examining the box for traps reveals a tiny glass tube filled with a black "
+    "gaseous substance of some sort and a tiny hammer at the ready to do what it "
+    "was designed for.\nRoundtime: 7 sec.\n"
+)
+
+
+def test_an_identify_that_only_shows_the_trap_with_a_roundtime_means_it_is_down():
+    from client.game.boxes import TRAP_READINGS, already_disarmed, reading
+
+    assert already_disarmed(ALREADY_DOWN)
+    assert reading(ALREADY_DOWN, TRAP_READINGS) is None
+    # A live trap's identify carries a reading; a known trap's look comes
+    # with its reading and no roundtime; a failed identify says so.
+    assert not already_disarmed(SIMPLE_TRAP)
+    assert not already_disarmed(
+        "Somebody has already located and identified the current trap on the "
+        "ironwood skippet.\nExamining the box for traps reveals a lumpy green rune.\n"
+        "The trap has the edge on you, but you've got a good shot at disarming it.\n"
+    )
+    assert not already_disarmed(
+        "Examining the box for traps reveals a tiny glass tube and a tiny hammer.\n"
+    )
+    assert not already_disarmed(
+        "Careful probing of the oaken crate fails to reveal to you what type of "
+        "trap protects it.\n"
+    )
+
+
+def test_a_box_whose_trap_is_already_down_goes_straight_to_the_lock():
+    # #418 (2026-09-29 to 10-01): thirty trunks and strongboxes read "would
+    # not identify — treating it as careful", the identify was re-asked (96
+    # sends in one run) and a disarmed trap disarmed again.
+    answers = one_easy_box()
+    answers[3] = ("disarm my box identify", ALREADY_DOWN)
+    fake = Fake(answers, mindstates=[1, 3, 5, 7])
+    out = run(fake)
+    assert fake.sent.count("disarm my box identify") == 1
+    assert "disarm my box" not in fake.sent and "disarm my box careful" not in fake.sent
+    assert "the box's trap is already down — on to the lock" in out
+    assert "would not identify" not in out
+    assert "pick my box identify" in fake.sent
+    assert "the box opened" in out

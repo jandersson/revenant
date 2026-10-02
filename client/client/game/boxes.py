@@ -48,7 +48,12 @@ at once, with no roundtime, and no experience: an identify teaches
 only the first time — and the shift after a failed attempt ("your
 manipulation caused something to shift inside the trap mechanism"),
 which moved the skippet's reading from 10/17 to 11/17, past the
-threshold. The rest stay pick.lic's until the ranks reach a box, and
+threshold; and the identify of a trap already down (2026-10-01, #418):
+the look alone — "Examining the box for traps reveals a tiny glass
+tube ... and a tiny hammer at the ready ..." — with a roundtime and no
+reading, the wiki's "small roundtime letting you know what the
+disarmed trap looks like", which `already_disarmed` reads as clear.
+The rest stay pick.lic's until the ranks reach a box, and
 the script echoes every first-of-a-kind answer so they become
 fixtures. Sources: docs/bibliography.md.
 """
@@ -125,6 +130,27 @@ NUISANCE_TRAPS = (
 # 1-based ranks: (last rank of the band, the word after the box).
 TRAP_CAUTION = ((2, "quick"), (5, ""), (TOO_HARD - 1, "careful"))
 LOCK_CAUTION = ((4, "quick"), (7, ""), (TOO_HARD - 1, "careful"))
+
+
+# An identify of a trap already disarmed (Elanthipedia, Locksmithing
+# skill: "If the last trap on the box has already been disarmed you
+# will incur a small roundtime letting you know what the disarmed trap
+# looks like"): the look alone, then "Roundtime: 7 sec.", no reading
+# (captured 2026-10-01, #418). A live trap's identify carries a reading
+# and no roundtime; a failed one says so (IDENTIFY_FAILED).
+DISARMED_LOOK = ("examining the box for traps reveals",)
+_ROUNDTIME = re.compile(r"roundtime:\s*\d+", re.IGNORECASE)
+
+
+def already_disarmed(answer):
+    """True for a DISARM IDENTIFY that shows the trap's look with a
+    roundtime and no reading: the trap is already down (#418)."""
+    lowered = str(answer or "").lower()
+    return (
+        any(fragment in lowered for fragment in DISARMED_LOOK)
+        and _ROUNDTIME.search(lowered) is not None
+        and reading(answer, TRAP_READINGS) is None
+    )
 
 
 def reading(answer, readings):
