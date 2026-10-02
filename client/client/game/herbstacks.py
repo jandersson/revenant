@@ -36,6 +36,12 @@ How a stack behaves (an experiment on Cecil's dried red flowers,
   resolving them, INV SEARCH listing two); the dry press's stacks do.
   `get_dried` reaches a stack by whichever name works: "dried <herb>"
   first, then the plain noun's ordinals with the GET's answer judging.
+- The ordinals run out at twenty, and every full stack or other kind
+  put back to the container's front spends one: 57 stacks, 39 found
+  (#414, 2026-10-02). INV LIST names every stack by its id, which no
+  put-back moves, so `merge` walks the ids a listing gives
+  (`dried_stacks`) and keeps the ordinal walk only for a run with no
+  listing.
 """
 
 import re
@@ -140,6 +146,28 @@ def dried_herbs(listing):
     return [name for name, count in counts.items() if count > 1]
 
 
+_ARTICLE = re.compile(r"^(?:some|an?|the)\s+", re.IGNORECASE)
+
+
+def dried_stacks(possessions):
+    """{(container noun, herb): [ids]} for every dried herb a container
+    holds two or more stacks of, off INV LIST's possessions (#414): the
+    herb named whole without its article ("dried red flowers"), the gem
+    pouch left out, the ids in listing order."""
+    by_exist = {str(p.get("exist")): p for p in possessions or []}
+    groups = {}
+    for p in possessions or []:
+        name = _ARTICLE.sub("", str(p.get("name") or "").strip().lower())
+        if not name.startswith("dried "):
+            continue
+        holder = by_exist.get(str(p.get("container_exist")))
+        container = str((holder or {}).get("noun") or "").lower()
+        if not container or container == "pouch":
+            continue
+        groups.setdefault((container, name), []).append(str(p.get("exist")))
+    return {key: ids for key, ids in groups.items() if len(ids) > 1}
+
+
 def held(s):
     """{exist: name} for what the hands hold, off the parser's hand tags
     (hands.tags), left then right."""
@@ -150,14 +178,18 @@ def held(s):
     }
 
 
-def merge(s, ask, herb, container):
+def merge(s, ask, herb, container, ids=None):
     """Every stack of `herb` ("dried red flowers") in `container` merged,
     both hands free on entry and on return: full stacks and other kinds
-    of the same noun go back to the front, the next GET reaches past
-    them by ordinal, and the short stack held takes the next one into it.
-    (stacks found, stacks left), or None when an answer or a hand was not
-    what the experiment saw — what is in hand put back, nothing lost."""
+    of the same noun go back to the front, and the short stack held
+    takes the next one into it. With `ids` (the herb's stacks by INV
+    LIST's ids, dried_stacks) each is GOT by its id, which no put-back
+    moves (#414); without, the next GET reaches past the front by
+    ordinal, twenty at most. (stacks found, stacks left), or None when
+    an answer or a hand was not what the experiment saw — what is in
+    hand put back, nothing lost."""
     noun = herb.split()[-1]
+    queue = [str(item) for item in ids] if ids else None
     skip = 0  # items put back at the container's front
     found = 0
     kept = 0  # the herb's own stacks among them
@@ -177,11 +209,20 @@ def merge(s, ask, herb, container):
             ask(s, f"put #{item} in my {container}")
         return None
 
-    while skip < len(ORDINALS):
-        which = f"{ORDINALS[skip]} " if skip else ""
-        answer = ask(s, f"get my {which}{noun} from my {container}")
-        if act.missing(answer):
-            break
+    while True:
+        if queue is not None:
+            if not queue:
+                break
+            answer = ask(s, f"get #{queue.pop(0)}")
+            if act.missing(answer):
+                continue  # gone since the listing
+        else:
+            if skip >= len(ORDINALS):
+                break
+            which = f"{ORDINALS[skip]} " if skip else ""
+            answer = ask(s, f"get my {which}{noun} from my {container}")
+            if act.missing(answer):
+                break
         fetched = [item for item in held(s) if item != short]
         if len(fetched) != 1:
             return give_up()

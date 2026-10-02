@@ -1085,7 +1085,9 @@ def test_a_run_merges_the_herb_stacks_first_and_says_so(monkeypatch):
     monkeypatch.setattr(
         script.herbstacks,
         "merge",
-        lambda s, ask, herb, container: merged.append((herb, container)) or (9, 4),
+        lambda s, ask, herb, container, ids=None: (
+            merged.append((herb, container, ids)) or (9, 4)
+        ),
     )
     fake = Fake(
         {
@@ -1114,10 +1116,21 @@ def test_a_run_merges_the_herb_stacks_first_and_says_so(monkeypatch):
             "container_exist": "3",
             "depth": 1,
         },
+        {
+            "exist": "5",
+            "name": "some dried red flowers",
+            "noun": "flowers",
+            "container_exist": "1",
+            "depth": 1,
+        },
     ]
     out = run(fake, ["merge"])
+    # INV LIST first, the stacks by their ids (#414); no LOOK IN needed.
+    assert "inv list" in fake.sent
     assert "look in my pouch" not in fake.sent  # no herb there
-    assert merged == [("dried red flowers", "backpack")]  # one nemoih: left alone
+    assert merged == [
+        ("dried red flowers", "backpack", ["2", "5"])
+    ]  # one nemoih: left alone
     assert (
         "remedies: 9 stacks of dried red flowers in the backpack merged into 4" in out
     )

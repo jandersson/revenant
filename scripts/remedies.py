@@ -1357,22 +1357,36 @@ def merge_herbs(s, quiet=False):
     pouch); said per herb that merged, or once when there was nothing
     to merge (unless `quiet`)."""
     merged = False
-    for container in containers_with(getattr(s.state, "possessions", None), "dried"):
-        for herb in herbstacks.dried_herbs(ask(s, f"look in my {container}")):
-            result = herbstacks.merge(s, ask, herb, container)
-            if result is None:
-                s.echo(
-                    f"remedies: merging the {herb} in the {container} met an "
-                    "answer it does not know — stopped, the stacks put back"
-                )
-                continue
-            found, left = result
-            if left < found:
-                merged = True
-                s.echo(
-                    f"remedies: {found} stacks of {herb} in the {container} "
-                    f"merged into {left}"
-                )
+
+    def report(herb, container, result):
+        nonlocal merged
+        if result is None:
+            s.echo(
+                f"remedies: merging the {herb} in the {container} met an "
+                "answer it does not know — stopped, the stacks put back"
+            )
+            return
+        found, left = result
+        if left < found:
+            merged = True
+            s.echo(
+                f"remedies: {found} stacks of {herb} in the {container} merged into {left}"
+            )
+
+    # INV LIST first (one roundtime): every stack by its id, which no
+    # put-back moves — the ordinal walk found 39 of 57 (#414). The LOOK
+    # IN walk stays for a run the listing gave nothing.
+    ask(s, "inv list")
+    s.waitrt()
+    groups = herbstacks.dried_stacks(getattr(s.state, "possessions", None))
+    for (container, herb), ids in groups.items():
+        report(herb, container, herbstacks.merge(s, ask, herb, container, ids=ids))
+    if not groups:
+        for container in containers_with(
+            getattr(s.state, "possessions", None), "dried"
+        ):
+            for herb in herbstacks.dried_herbs(ask(s, f"look in my {container}")):
+                report(herb, container, herbstacks.merge(s, ask, herb, container))
     if not merged and not quiet:
         s.echo("remedies: no herb stacks to merge")
 

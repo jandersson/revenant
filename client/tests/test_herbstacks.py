@@ -61,6 +61,16 @@ class Shelf:
             item, name, n = self.backpack.pop(index)
             self.hold(side, item, name, n)
             return f"You get some {name} from inside your backpack.\n"
+        got_id = re.fullmatch(r"get #(\d+)", command)
+        if got_id:  # by INV LIST's id (#414): wherever it sits
+            wanted = int(got_id.group(1))
+            for index, (item, name, n) in enumerate(self.backpack):
+                if item == wanted:
+                    self.backpack.pop(index)
+                    side = "right" if self.state.right_hand is None else "left"
+                    self.hold(side, item, name, n)
+                    return f"You get some {name} from inside your backpack.\n"
+            return MISSING
         counted = re.fullmatch(r"count #(\d+)", command)
         if counted:
             name, n = self.pieces[int(counted.group(1))]
@@ -123,6 +133,78 @@ def test_a_pressed_stack_tagged_without_dried_is_merged_all_the_same():
     result = stacks.merge(shelf, shelf.ask, DRIED, "backpack")
     assert shelf.stacks_of(DRIED) == [25, 75]
     assert result == (3, 2)
+
+
+def test_the_id_walk_reaches_past_the_twenty_ordinals():
+    # #414 (2026-10-02): 57 stacks, 39 found — every full stack or other
+    # kind put back to the front spent one of the twenty ordinals. By
+    # INV LIST's ids there is no ceiling, and nothing walks ordinals.
+    backpack = (
+        [(DRIED, 75)] * 22
+        + [(DRIED, 30), (DRIED, 20)]
+        + [("red flowers", 5)] * 3
+        + [(DRIED, 10)]
+    )
+    shelf = Shelf(backpack)
+    ids = [item for item, name, _ in shelf.backpack if name == DRIED]
+    result = stacks.merge(shelf, shelf.ask, DRIED, "backpack", ids=ids)
+    assert result == (25, 23)
+    assert shelf.stacks_of(DRIED) == [60] + [75] * 22
+    assert shelf.stacks_of("red flowers") == [5, 5, 5]
+    assert not any(" from my backpack" in c for c in shelf.sent)
+    assert shelf.state.left_hand is None and shelf.state.right_hand is None
+    # The ordinal walk stops short of the same backpack.
+    again = Shelf(backpack)
+    found, _ = stacks.merge(again, again.ask, DRIED, "backpack")
+    assert found < 25
+
+
+def test_dried_stacks_groups_a_listing_by_container_and_herb():
+    possessions = [
+        {"exist": "1", "name": "a rugged backpack", "noun": "backpack", "depth": 0},
+        {
+            "exist": "2",
+            "name": "some dried red flowers",
+            "noun": "flowers",
+            "container_exist": "1",
+        },
+        {
+            "exist": "3",
+            "name": "some dried red flowers",
+            "noun": "flowers",
+            "container_exist": "1",
+        },
+        {
+            "exist": "4",
+            "name": "some dried nemoih",
+            "noun": "nemoih",
+            "container_exist": "1",
+        },
+        {"exist": "5", "name": "a large canvas sack", "noun": "sack", "depth": 0},
+        {
+            "exist": "6",
+            "name": "some dried red flowers",
+            "noun": "flowers",
+            "container_exist": "5",
+        },
+        {"exist": "7", "name": "a black gem pouch", "noun": "pouch", "depth": 0},
+        {
+            "exist": "8",
+            "name": "some dried nemoih",
+            "noun": "nemoih",
+            "container_exist": "7",
+        },
+        {
+            "exist": "9",
+            "name": "some dried nemoih",
+            "noun": "nemoih",
+            "container_exist": "7",
+        },
+    ]
+    assert stacks.dried_stacks(possessions) == {
+        ("backpack", "dried red flowers"): ["2", "3"]
+    }
+    assert stacks.dried_stacks([]) == {}
 
 
 def test_full_stacks_alone_are_left_as_they_are():
