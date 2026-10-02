@@ -544,6 +544,19 @@ def test_hands_start_empty_in_the_login_sample(xml_data, login_strings):
     assert xml_data.left_hand is None and xml_data.right_hand is None
 
 
+def test_the_conviction_returned_line_is_counted_and_a_quote_is_not(xml_data):
+    # #191, captured 715 times to 2026-10-02: the free smite's return,
+    # a story line of its own. ;hunt smites when the count moves.
+    assert xml_data.conviction_returns == 0
+    _feed_one(xml_data, "The strength of your conviction has fully returned.")
+    assert xml_data.conviction_returns == 1
+    _feed_one(
+        xml_data,
+        'Sable says, "The strength of your conviction has fully returned."',
+    )
+    assert xml_data.conviction_returns == 1
+
+
 def test_hand_tags_never_reach_the_story(xml_data):
     # route() strips the element; the text is state, not a story line.
     segments = xml_data.route(

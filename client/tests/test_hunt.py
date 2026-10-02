@@ -1047,6 +1047,46 @@ def test_a_paladin_smites_one_swing_a_minute_and_attacks_the_rest(travel, monkey
     )
 
 
+def test_a_smite_goes_out_when_the_game_says_the_conviction_is_back(
+    travel, monkeypatch
+):
+    # #191: "The strength of your conviction has fully returned." comes
+    # 50-61 s after a smite that struck (711 in the logs); the parser
+    # counts it and the next swing smites, the minute's timer only the
+    # fallback. Here the clock never moves, so only the line can do it.
+    monkeypatch.setattr(hunting, "clock", lambda: 1000.0)
+
+    def returned(arena):
+        arena.state.conviction_returns += 1
+
+    arena = Arena(
+        {
+            "smite check": [SMITE_CHECK_THREE] * 9,
+            "smite": [(SMITE_KILL, kill), (SMITE_KILL, kill)],
+            "attack": [("You swing at a rat and miss.", returned)] * 3,
+            "skin": [SKINNED] * 9,
+            "loot": [NOTHING] * 9,
+        }
+    )
+    arena.state.conviction_returns = 0
+    arena.arrivals = {6046: {"1": True}, 6047: {"1": True}}
+    _run(arena, profile=PROFILE | {"smite": True, "max_kills": 2}, travel_first=False)
+    swings = [c for c in arena.sent if c.startswith(("smite rat", "attack"))]
+    assert swings[:3] == ["smite rat", "attack rat", "smite rat"]
+
+
+def test_without_the_parser_count_the_minute_still_decides(monkeypatch):
+    # A session whose parser predates #191 has no conviction_returns.
+    now = {"t": 1000.0}
+    monkeypatch.setattr(hunting, "clock", lambda: now["t"])
+    tally, old = hunting.Tally(), SimpleNamespace()
+    profile = PROFILE | {"smite": True, "tactics": []}
+    hunting.note_smite(tally, old)
+    assert hunting.swing_verb(profile, tally, old) == "attack"
+    now["t"] += hunting.SMITE_INTERVAL
+    assert hunting.swing_verb(profile, tally, old) == "smite"
+
+
 # --- the soul pool gate on SMITE (#217) --------------------------------------
 
 

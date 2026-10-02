@@ -484,6 +484,9 @@ class Tally:
         self.buffs = buffs.BuffState()  # the casts (client/game/buffs.py)
         self.barb = barbarian.BarbState()  # a Barbarian's pieces (#328)
         self.last_smite = None  # clock() of the last smite that struck (#183)
+        # The parser's conviction_returns at that smite: the game's own
+        # "fully returned" line moves it (#191).
+        self.conviction_mark = None
         self.smite_off = False  # a smite drew on the soul pool: no more (#217)
         self.smite_warned = False  # "no free smites" said once per run
         self.maneuvers = 0  # tactical maneuvers the game answered (#190)
@@ -711,20 +714,43 @@ def farming(profile):
     return str(profile.get("until") or "").lower() == "boxes"
 
 
-SMITE_INTERVAL = 60  # seconds between smites
+SMITE_INTERVAL = 60  # seconds between smites: the fallback (#191)
 TACTICS_EVERY = 3  # every third swing is a maneuver while Tactics is unlocked
 clock = time.monotonic  # tests replace it
 
 
+def note_smite(tally, state=None):
+    """A smite spent (struck, refused, or the free blows gone): the
+    minute starts now, and the parser's conviction count is marked so
+    the game's "fully returned" line can end it sooner (#191)."""
+    tally.last_smite = clock()
+    tally.conviction_mark = getattr(state, "conviction_returns", None)
+
+
+def conviction_back(tally, state):
+    """True once the game has said "The strength of your conviction has
+    fully returned." since the smite marked — 50-61 s in the logs, the
+    minute's timer a few seconds late (#191). False on a session whose
+    parser does not count it."""
+    count = getattr(state, "conviction_returns", None)
+    mark = tally.conviction_mark
+    return count is not None and mark is not None and count > mark
+
+
 def swing_verb(profile, tally, state=None):
     """SMITE when the profile smites, a weapon is in hand (never on the
-    fists' turn, #396) and a minute has passed since the last one that
-    struck (#183); else the next tactical maneuver when the profile
-    lists them, Tactics is unlocked and TACTICS_EVERY - 1 plain swings
-    have gone since the last (#190); ATTACK otherwise."""
+    fists' turn, #396) and the game has said the conviction is back
+    since the last one (#191), or a minute has passed (#183); else the
+    next tactical maneuver when the profile lists them, Tactics is
+    unlocked and TACTICS_EVERY - 1 plain swings have gone since the
+    last (#190); ATTACK otherwise."""
     if profile.get("smite") and not fists_turn(profile):
         last = tally.last_smite
-        if last is None or clock() - last >= SMITE_INTERVAL:
+        if (
+            last is None
+            or clock() - last >= SMITE_INTERVAL
+            or conviction_back(tally, state)
+        ):
             return "smite"
     rotation = maneuvers(profile)
     if (

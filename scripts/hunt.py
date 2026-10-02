@@ -180,7 +180,11 @@ one at a time (the health and wound floors are the guard).
 With `smite` on (a Paladin), one swing a minute is SMITE instead of
 ATTACK: it is what trains Conviction, a free smite regenerates every
 minute and the experience comes at most once a minute (Elanthipedia:
-Smite command), so the rest of the swings stay ATTACK. A SMITE the
+Smite command), so the rest of the swings stay ATTACK. The game says
+when the free smite is back — "The strength of your conviction has
+fully returned.", 50-61 s after the strike in 711 logged pairs — and
+the parser counts the line, so the next swing smites then; the minute
+is the fallback for a session that missed it (#191). A SMITE the
 game answered with the advance from range or a roundtime is not
 spent; the next swing tries again. SMITE CHECK goes out before each
 smite, and with no free blow left ("Your conviction is enough to
@@ -1568,7 +1572,7 @@ def smite_allowed(s, tally):
     blows = free_smites(ask(s, "smite check"))
     if blows:
         return True
-    tally.last_smite = hunting.clock()
+    hunting.note_smite(tally, s.state)
     if not tally.smite_warned:
         tally.smite_warned = True
         s.echo(
@@ -1643,9 +1647,9 @@ def swing(s, profile, tally, prey):
         tally.smite_off = True
         s.echo("hunt: that SMITE drew on the soul pool — smiting off for this run")
     if verb == "smite" and any(word in lowered for word in _SMITE_STRUCK):
-        tally.last_smite = hunting.clock()  # spent only when it struck
+        hunting.note_smite(tally, s.state)  # spent only when it struck
     if verb == "smite" and any(word in lowered for word in _SMITE_NO_WEAPON):
-        tally.last_smite = hunting.clock()  # refused: not again this minute (#396)
+        hunting.note_smite(tally, s.state)  # refused: not again this minute (#396)
     if combo or plain_swing(profile, verb):
         tally.since_maneuver += 1
     else:

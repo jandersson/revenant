@@ -162,6 +162,10 @@ _EXP_MOD = re.compile(
 _SHUTDOWN = re.compile(
     r"^(?:Announcement:\s+)?DragonRealms will be shutting down in (\d+) minutes?\b"
 )
+# A Paladin's free smite back (#191): a story line of its own, 50-61 s
+# after the smite that struck (711 pairs in the logs to 2026-10-02,
+# most at 55-59). Matched whole, so a quoted copy never counts.
+CONVICTION_RETURNED = "The strength of your conviction has fully returned."
 # The balance word (#280): Elanthipedia's Combat page lists twelve levels,
 # low to high; the game states it as "You are solidly balanced", the
 # combat status line "[You're solidly balanced and in good position.]"
@@ -364,6 +368,9 @@ class XMLData:
         # The balance word as the game last stated it (#280), one of
         # BALANCE_LEVELS, or None before the first combat line.
         self.balance = None
+        # How many times the game has said a Paladin's conviction is
+        # back (CONVICTION_RETURNED): ;hunt smites when it moves (#191).
+        self.conviction_returns = 0
         self.balance_updated = False
         self._exp_skill = None
         self._exp_text = ""
@@ -452,6 +459,8 @@ class XMLData:
                 if match.group(1) != self.balance:
                     self.balance = match.group(1)
                     self.balance_updated = True
+            elif stripped == CONVICTION_RETURNED:
+                self.conviction_returns += 1
             elif self._rested_text is None and "Rested EXP Stored" in stripped:
                 # An EXP answer's footer, the story's copy of the window's.
                 rested = parse_rested(stripped)

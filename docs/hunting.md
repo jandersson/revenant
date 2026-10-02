@@ -44,7 +44,7 @@ File → Character Profile, or `~/.revenant/profiles/<name>.json`. The keys a hu
 | `max_kills` | end after this many kills (0: no limit) |
 | `weapons`, `weapon_target`, `weapon_minutes`, `brawling` | the weapon rotation, below |
 | `buffs`, `train_casting`, `cambrinth*`, `cast_gap`, `debilitation`, `targeted` | spells, below |
-| `smite` | Paladin: one swing a minute is SMITE, for Conviction |
+| `smite` | Paladin: a swing is SMITE each time the game says "The strength of your conviction has fully returned." (about a minute; the minute itself if the line is missed), for Conviction |
 | `tactics` | maneuvers (`bob`, `circle`, `weave`) every third swing, for Tactics |
 | `perception` | HUNT for tracks when a room empties, for Perception |
 | `analyze`, `abilities`, `roar` | Barbarian: a self-combo, berserks/forms, a roar at the prey |
