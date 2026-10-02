@@ -171,3 +171,23 @@ def test_the_fallback_put_can_be_refused_too(monkeypatch):
         },
     )
     assert hands.stow(s, "leaves", ask=s.ask) is False
+
+
+def test_stow_said_returns_the_line_that_decided_it(monkeypatch):
+    # #408: a caller that says what happened quotes the refusal's line.
+    monkeypatch.setattr(hands, "_DEFAULTS", {})
+    s = Fake(
+        left="pestle",
+        answers={
+            "stow my pestle": "I could not find what you were referring to.",
+            "stow my book": "You put your book in your satchel.",
+        },
+    )
+    assert hands.stow_said(s, "pestle", ask=s.ask) == (
+        False,
+        "I could not find what you were referring to.",
+    )
+    assert hands.stow_said(s, "book", ask=s.ask) == (
+        True,
+        "You put your book in your satchel.",
+    )

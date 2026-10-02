@@ -6,6 +6,7 @@ put-back a ;stop still sends.
     hands.free(s, keep=("mortar",), ask=ask)     # STOW what is not kept; the nouns that went
     hands.free_one(s, ask=ask)                   # both full: the first STOWed; True once a hand is free
     hands.stow(s, noun, ask=ask)                 # one STOW, True unless refused; no room → PUT into the default container
+    hands.stow_said(s, noun, ask=ask)            # the same, with the line that decided it (a refusal to quote)
     hands.sheathe(s, weapon, container, ask=ask) # STOW when the game asks where
     hands.at_end(s, ("pestle", "mortar"))        # a finally's STOWs, as cleanup puts
 
@@ -128,26 +129,35 @@ def default_container(s, ask=None):
     return noun
 
 
-def stow(s, noun, ask=None):
-    """STOW MY <noun> (STOW #id for an id); True unless the answer
-    refused it. A STORE container with no room refuses and leaves the
-    item in hand — the game does not fall back — so the item then goes
-    into the default container by PUT, said once (#416). Never a DROP."""
+def stow_said(s, noun, ask=None):
+    """STOW MY <noun> (STOW #id for an id): (True, the answer) unless
+    the answer refused it, then (False, the refusal) — for a caller
+    that quotes it (#408). A STORE container with no room refuses and
+    leaves the item in hand — the game does not fall back — so the item
+    then goes into the default container by PUT, said once (#416), and
+    the PUT's answer is the one returned. Never a DROP."""
     answer = (ask or act.ask)(s, f"stow {_mine(noun)}")
     if not refused(answer):
-        return True
+        return True, answer
     lowered = str(answer or "").lower()
     if not any(word in lowered for word in STOW_FULL):
-        return False
+        return False, answer
     default = default_container(s, ask)
     if not default:
-        return False
-    if refused((ask or act.ask)(s, f"put {_mine(noun)} in my {default}")):
-        return False
+        return False, answer
+    put = (ask or act.ask)(s, f"put {_mine(noun)} in my {default}")
+    if refused(put):
+        return False, put
     echo = getattr(s, "echo", None)
     if echo:
         echo(f"the {noun} went in the {default} — no room where STOW puts it")
-    return True
+    return True, put
+
+
+def stow(s, noun, ask=None):
+    """stow_said's verdict alone: True unless the STOW (and the fallback
+    PUT) was refused."""
+    return stow_said(s, noun, ask)[0]
 
 
 def free(s, keep=(), ask=None):

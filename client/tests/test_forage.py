@@ -285,6 +285,12 @@ def test_a_stow_the_game_could_not_find_is_no_freed_hand(travel):
         reason, collected = forage.run(s, forage.parse_args([]), db=MAP)
         assert reason.startswith("no hand free")
         assert s.sent == ["collect rock practice", "stow my pestle"]
+        # Judged before it is said (#408): no "stowed the pestle" ahead
+        # of "no hand free"; the refusal's own line is quoted.
+        assert not any("stowed the pestle" in e for e in s.echoed)
+        assert f"forage: both hands full — the pestle would not stow ({refusal!r})" in (
+            s.echoed
+        )
 
 
 def test_a_stow_the_container_refused_is_no_freed_hand(travel, monkeypatch):

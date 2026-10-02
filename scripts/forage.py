@@ -219,8 +219,15 @@ def free_a_hand(s):
     nouns = hands.nouns(s)
     if not nouns:
         return False
-    freed = hands.stow(s, nouns[0], ask=ask)
-    s.echo(f"forage: both hands full — stowed the {nouns[0]}")
+    freed, answer = hands.stow_said(s, nouns[0], ask=ask)
+    if freed:
+        s.echo(f"forage: both hands full — stowed the {nouns[0]}")
+    else:
+        # Judged first (#408): a refused stow used to be announced as a
+        # stow, and "no hand free" followed on the next line.
+        s.echo(
+            f"forage: both hands full — the {nouns[0]} would not stow ({said(answer)!r})"
+        )
     return freed
 
 
