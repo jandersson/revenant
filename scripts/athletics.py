@@ -13,7 +13,9 @@ walked to and climbed once per pass, no timer wait between rooms).
 Standard travel climbs award xp at most once per random 45–60s window
 (docs/experience.md), so climb loops are paced to that timer instead
 of spammed; `climb practice` rungs are timer-exempt continuous
-activities — started once and watched, never spammed (#89).
+activities — started once and watched, never spammed (#89) — and
+ended with STOP CLIMB at every end of the rung, a ;stop included, so
+no command after is refused for a practice still running (#409).
 The ladder is Zoluren spots per Elanthipedia, encoded with their
 map rooms, rank bands, and conditions in client/game/climbs.py; rank 100+
 trains in town on the Crossing battlements. Before the first climb the
@@ -45,6 +47,7 @@ in hand finished first, the mind-lock pause included)
 """
 
 import re
+import sys
 import time
 
 from client.game import buffs, climbs
@@ -406,14 +409,19 @@ def report_cadence(commands, pace):
 # Practice-activity wordings: climb practice is a CONTINUOUS activity,
 # not a per-command action — captured 2026-08-22 at the NE gate
 # embrasure (#89), where the old per-second re-send earned a refusal
-# per second. The refusal means it is already running; the end
-# wordings are assumptions until captured.
+# per second. The refusal means it is already running. The ends: "You
+# finish practicing your climbing skill and take a well-earned break."
+# is the game's own (captured 31 times by 2026-10-02), "You stop
+# practicing your climbing skills." answers STOP CLIMB (Elanthipedia,
+# Climb command, #409).
 PRACTICE_ACTIVE = (
     "begin to practice",  # captured
     "continue to practice",  # captured
     "should stop practicing",  # captured: refused — already running
 )
-PRACTICE_ENDED = ("you stop practicing", "no longer practicing")
+PRACTICE_ENDED = ("you stop practicing", "finish practicing", "no longer practicing")
+PRACTICE_STOP = "stop climb"  # ends the activity (#409)
+PRACTICE_STOP_WAIT = 3  # seconds for its answer before moving on
 PRACTICE_REASSERT = 120  # seconds between re-sends while it looks active
 # The game's own verdict on a practice obstacle (dr-scripts' flags,
 # #177; wordings as its Flags name them, unobserved here): too hard
@@ -457,6 +465,23 @@ def stale_result(s, reports, stop_when_stale):
     return None
 
 
+def end_practice(s, stopping=False):
+    """STOP CLIMB at the end of a practice rung (#409): the activity
+    outlives the script otherwise, and every cast and walk after
+    answers "You should stop practicing your Athletics skill before
+    you do that." A cleanup put, so it goes out after a ;stop too; the
+    answer is waited for unless the script is stopping (every read
+    raises then)."""
+    hands.cleanup(s, PRACTICE_STOP)
+    if stopping:
+        return
+    if s.waitfor(r"practicing", timeout=PRACTICE_STOP_WAIT) is None:
+        s.echo(
+            "ATHLETICS: STOP CLIMB got no answer — if the next command is "
+            "refused for practicing, send it by hand"
+        )
+
+
 def train(
     s,
     commands,
@@ -467,6 +492,20 @@ def train(
     walk=None,
     filler=None,
 ):
+    """The loop below, and at every end of a practice rung — the target,
+    a typed return, a danger, the rung outgrown, a ;stop — STOP CLIMB
+    while the activity is believed running (#409)."""
+    status = {"practicing": False}
+    try:
+        return _train(
+            s, commands, stop_when_stale, pace, practice, db, walk, filler, status
+        )
+    finally:
+        if practice and status["practicing"] and not getattr(s, "dead", False):
+            end_practice(s, stopping=sys.exc_info()[0] is not None)
+
+
+def _train(s, commands, stop_when_stale, pace, practice, db, walk, filler, status):
     """Cycle the movement commands, pausing at mind-lock. Returns
     "contested" when hostiles keep breaking the training (#86); with
     stop_when_stale, returns "stale" so auto mode can advance; manual
@@ -483,7 +522,6 @@ def train(
     laps = 0
     reports = []
     breaks = []  # monotonic stamps of hostile break-offs (#86)
-    practicing = False
     last_assert = 0.0
     started = last_report = time.monotonic()
     report_every = report_cadence(commands, pace)
@@ -504,6 +542,11 @@ def train(
                 return returned(s)
             reason = danger(s.state)
             if reason:
+                if practice and status["practicing"] and reason != "dead":
+                    # The escape's STAND, RETREATs and move would be
+                    # refused for the practice still running (#409).
+                    end_practice(s)
+                    status["practicing"] = False
                 if handle_danger(s, reason, commands) == "stop":
                     return "danger"
                 if reason == "hostiles":
@@ -518,10 +561,10 @@ def train(
                             "areas never empty on their own"
                         )
                         return "contested"
-                practicing = False  # the escape moved us; practice ended
+                status["practicing"] = False  # the escape moved us; practice ended
                 break  # start the lap over with fresh state
             if practice:
-                practicing, verdict = practice_seen(s, practicing)
+                status["practicing"], verdict = practice_seen(s, status["practicing"])
                 if verdict == "too_hard":
                     s.echo("ATHLETICS: the game calls this climb too difficult")
                     return "too_hard"
@@ -532,10 +575,10 @@ def train(
                     for line in recommendations(current_rank(s.state)):
                         s.echo(line)
                 now = time.monotonic()
-                if not practicing or now - last_assert >= PRACTICE_REASSERT:
+                if not status["practicing"] or now - last_assert >= PRACTICE_REASSERT:
                     s.put(command)
                     last_assert = now
-                    practicing = True  # optimistic; the next scan corrects
+                    status["practicing"] = True  # optimistic; the next scan corrects
                 s.waitrt()
                 s.sleep(PAUSE)
                 continue

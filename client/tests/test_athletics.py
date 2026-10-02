@@ -371,7 +371,8 @@ def test_practice_is_started_once_and_watched_not_spammed():
     with pytest.raises(LoopDone):
         athletics.train(handle, ["climb practice embrasure"], practice=True)
     puts = [call for call in handle.calls if call[0] == "put"]
-    assert puts == [("put", "climb practice embrasure")]
+    # One start, and the ;stop's cleanup STOP CLIMB (#409).
+    assert puts == [("put", "climb practice embrasure"), ("put", "stop climb")]
 
 
 def test_practice_refusal_counts_as_already_running():
@@ -385,17 +386,20 @@ def test_practice_refusal_counts_as_already_running():
     )
     with pytest.raises(LoopDone):
         athletics.train(handle, ["climb practice embrasure"], practice=True)
-    puts = [call for call in handle.calls if call[0] == "put"]
+    puts = [c for c in handle.calls if c[0] == "put" and c[1] != "stop climb"]
     assert len(puts) == 1
 
 
 def test_practice_restarts_when_the_activity_ends():
-    # The end wording is an assumption until captured (#89).
+    # The game's own end, captured 31 times by 2026-10-02 (#409): a
+    # finished practice is started again at once, not at the re-assert.
     handle = PracticeHandle(
         (),
         mindstates=(5,),
         sleeps=8,
-        response="You stop practicing your climbing.",
+        response=(
+            "You finish practicing your climbing skill and take a well-earned break."
+        ),
     )
     with pytest.raises(LoopDone):
         athletics.train(handle, ["climb practice embrasure"], practice=True)
@@ -915,3 +919,84 @@ def test_a_player_at_a_rotation_stop_is_no_reason_to_skip_it():
     assert not any("skipping it" in echo for echo in handle.echoes)
     assert "climb embrasure" in puts  # climbed there all the same
     assert not any("mine ladder" in echo for echo in handle.echoes)
+
+
+# --- STOP CLIMB at every end of a practice rung (#409) -------------------------
+
+
+def test_a_practice_rung_ends_with_stop_climb_waited_for():
+    # #409 (2026-10-02): the practice outlived the script, and the next
+    # task's casts and first step answered "You should stop practicing
+    # your Athletics skill before you do that." STOP CLIMB at every end,
+    # its answer waited for.
+    handle = PracticeHandle(
+        (),
+        mindstates=(5,),
+        sleeps=20,
+        return_after=3,
+        response="You begin to practice your climbing skills.",
+    )
+    result = athletics.train(handle, ["climb practice embrasure"], practice=True)
+    assert result == "return"
+    puts = [call[1] for call in handle.calls if call[0] == "put"]
+    assert puts == ["climb practice embrasure", "stop climb"]
+    after = handle.calls[handle.calls.index(("put", "stop climb")) :]
+    assert ("waitfor", "practicing") in after
+
+
+def test_a_stop_mid_practice_still_sends_stop_climb_as_a_cleanup_put():
+    handle = PracticeHandle(
+        (),
+        mindstates=(5,),
+        sleeps=4,
+        response="You begin to practice your climbing skills.",
+    )
+    with pytest.raises(LoopDone):
+        athletics.train(handle, ["climb practice embrasure"], practice=True)
+    assert handle.calls[-1] == ("put", "stop climb")  # and nothing read after it
+
+
+class LateHostiles(PracticeHandle):
+    """Hostiles arrive once the practice runs, and the escape's first
+    move clears the room (the room changes with it)."""
+
+    def __init__(self, *args, arrive_after, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.state.hostiles = {}
+        self.state.room_uid = 100
+        self._arrive_after = arrive_after
+
+    def sleep(self, seconds):
+        super().sleep(seconds)
+        self._arrive_after -= 1
+        if self._arrive_after == 0:
+            self.state.hostiles = {"1": True}
+
+    def put(self, command):
+        super().put(command)
+        if self.state.hostiles and command not in (
+            "stop climb",
+            "climb practice embrasure",
+            "stand",
+        ):
+            self.state.hostiles = {}
+            self.state.room_uid += 1
+
+
+def test_hostiles_end_the_practice_before_the_escape():
+    # The escape's STAND, RETREATs and move would be refused for a
+    # practice still running (#409): STOP CLIMB goes first.
+    handle = LateHostiles(
+        (),
+        mindstates=(5,),
+        sleeps=12,
+        arrive_after=2,
+        response="You begin to practice your climbing skills.",
+    )
+    with pytest.raises(LoopDone):
+        athletics.train(handle, ["climb practice embrasure"], practice=True)
+    puts = [call[1] for call in handle.calls if call[0] == "put"]
+    stop = puts.index("stop climb")
+    assert puts[:stop] == ["climb practice embrasure"]  # the practice ran
+    assert any(cmd.startswith("retreat") for cmd in puts[stop + 1 :])  # then the escape
+    assert any("hostiles here" in echo for echo in handle.echoes)
