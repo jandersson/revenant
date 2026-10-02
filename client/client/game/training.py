@@ -19,7 +19,8 @@ A plan, with every key the loop reads:
      "rest_commands": ["sit"],      sent on arrival at the safe room
      "target": 30,                  a task's skills are trained at this mindstate
      "rest_until": 10,              rest until every trained skill drained to this
-     "rest_minutes": 0,             cap on a rest; 0 = until drained
+     "rest_minutes": 0,             cap on a rest; 0 = REST_CAP, an hour
+     "rest_mode": "online",         or "logout": log out for the rest (#412)
      "task_minutes": 30,            per-task time budget; 0 = until the target
      "order": "listed",             or "lowest": the least-trained task first
      "poll": 30,                    seconds between mindstate checks
@@ -53,6 +54,13 @@ from pathlib import Path
 from client.game.profile import load_profile, slug
 
 MIND_LOCK = 34
+# A rest online burns the rested-experience bank for nothing new (#412):
+# a plan's rest_minutes 0 is this cap, not "until drained".
+REST_CAP = 60
+# "online" rests in the game; "logout" logs out once the rest's top-ups
+# are done or the cap hits — the bank refills offline and the pools
+# drain either way — and ;train resumes at the next login.
+REST_MODES = ("online", "logout")
 
 DEFAULTS = {
     "safe_rooms": [],
@@ -60,6 +68,7 @@ DEFAULTS = {
     "target": 30,
     "rest_until": 10,
     "rest_minutes": 0,
+    "rest_mode": "online",
     "task_minutes": 30,
     "order": "listed",
     "poll": 30,
@@ -79,6 +88,7 @@ SOUL = ("off", "on")
 # The choices behind each "choice" plan field, for the dialog.
 CHOICES = {
     "order": None,
+    "rest_mode": REST_MODES,
     "soul": SOUL,
     "top_up": SOUL,
 }  # order's are ORDERS, defined below
@@ -131,7 +141,8 @@ PLAN_FIELDS = (
     ("rest_commands", "Sent on arrival at the safe room", "list", "sit"),
     ("target", "Train each task's skills to mindstate", "int", "0-34"),
     ("rest_until", "Rest until every skill drains to", "int", "0-33"),
-    ("rest_minutes", "Cap on a rest, minutes", "int", "0: until drained"),
+    ("rest_minutes", "Cap on a rest, minutes", "int", "0: an hour"),
+    ("rest_mode", "Rest in the game, or log out for it", "choice", "online or logout"),
     ("task_minutes", "Time budget per task, minutes", "int", "0: until the target"),
     ("order", "Task order", "choice", "listed, or the least-trained first"),
     ("poll", "Seconds between mindstate checks", "int", ""),
@@ -260,7 +271,7 @@ def normalize(values: dict) -> dict:
             clean[key] = _list(value)
         elif key in _INTS:
             clean[key] = _int(value, DEFAULTS[key])
-        elif key in ("order", "soul", "top_up"):
+        elif key in ("order", "soul", "top_up", "rest_mode"):
             clean[key] = str(value or "").strip().lower() or DEFAULTS[key]
         elif key == "tasks":
             tasks = value if isinstance(value, list) else []
@@ -341,6 +352,10 @@ def validate(plan: dict) -> list:
         problems.append(f"order {plan['order']!r} is not one of {', '.join(ORDERS)}")
     if plan.get("soul", "off") not in SOUL:
         problems.append(f"soul {plan['soul']!r} is not one of {', '.join(SOUL)}")
+    if plan.get("rest_mode", "online") not in REST_MODES:
+        problems.append(
+            f"rest_mode {plan['rest_mode']!r} is not one of {', '.join(REST_MODES)}"
+        )
     for entry in plan.get("tdp") or []:
         words = str(entry).split()
         if words == ["auto"]:
@@ -453,13 +468,22 @@ def tracked_skills(plan) -> list:
     return seen
 
 
-def rested(plan, experience) -> bool:
+def rest_cap(plan) -> int:
+    """Minutes a rest runs at most: the plan's rest_minutes, REST_CAP
+    when it says 0 (#412)."""
+    return plan.get("rest_minutes") or REST_CAP
+
+
+def rested(plan, experience, ignore=()) -> bool:
     """True once every tracked skill has drained to rest_until or
     below — the rest is over. A plan tracking no skills is always
-    rested."""
+    rested. `ignore` names skills the rest does not wait for, in any
+    case: the ones the almanac refilled since it began (#412)."""
+    skip = {str(skill).lower() for skill in ignore}
     return all(
         mindstate(experience, skill) <= plan["rest_until"]
         for skill in tracked_skills(plan)
+        if skill.lower() not in skip
     )
 
 
@@ -531,7 +555,8 @@ def describe(plan: dict) -> list:
         f"safe rooms: {', '.join(plan['safe_rooms']) or '(rest in place)'}",
         f"rest commands: {', '.join(plan['rest_commands']) or '(none)'}",
         f"target {plan['target']}/34, rest until {plan['rest_until']}/34"
-        + (f" or {plan['rest_minutes']} min" if plan["rest_minutes"] else ""),
+        f" or {rest_cap(plan)} min"
+        + (", logged out" if plan.get("rest_mode") == "logout" else ""),
         f"order {plan['order']}, {plan['task_minutes'] or 'no'} min per task, "
         f"poll {plan['poll']}s, "
         + (f"{plan['cycles']} cycle(s)" if plan["cycles"] else "until stopped"),

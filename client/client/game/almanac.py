@@ -35,6 +35,9 @@ _MISSING = ("what were you", "could not find")
 # corrects it at the next try).
 _NEXT = {}
 _OFF = set()
+# Every skill a study filled this session, in order: ;train's rest reads
+# the tail from where it began and does not wait for those (#412).
+STUDIED = []
 clock = time.monotonic  # tests replace it
 
 
@@ -96,6 +99,7 @@ def study(s, noun, ask, prefix):
         ask(s, f"stow my {noun}")
     outcome, skill, wait = answer(said)
     if outcome == "learned":
+        STUDIED.append(skill)
         s.echo(f"{prefix}: almanac studied — {skill}")
     elif outcome is None:
         first = (said.strip().splitlines() or ["(silence)"])[0]

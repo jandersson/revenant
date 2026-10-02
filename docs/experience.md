@@ -18,6 +18,7 @@ Rested experience (REXP) triples the ranks each pulse buys while it burns.
 - **Caps:** Standard 4 h, Premium 6 h, Platinum 8 h, per 23:30 h cycle.
 - **Burn:** 20 s per skill group that pulses with experience; train fewer groups to stretch it.
 - **Sleep:** SLEEP once still drains and burns; SLEEP twice banks.
+- **Online rests burn it:** a rest in the game spends the bank while the pools only drain; `;train`'s `rest_mode` `logout` logs out for the rest instead ([training.md](training.md)).
 
 The EXP footer states it; the Experience dock shows it. Some accounts get
 the exp window's footer empty: then only EXP answers carry it (`;sheet`'s

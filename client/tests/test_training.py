@@ -301,3 +301,37 @@ def test_a_lowercase_seed_alone_counts_for_nothing():
 
     assert mindstate({"parry ability": {"mindstate": 11}}, "Parry Ability") == 0
     assert mindstate({"Parry Ability": {"mindstate": 3}}, "parry ability") == 3
+
+
+# --- the rest's cap and mode (#412) --------------------------------------------
+
+
+def test_an_uncapped_plan_rests_an_hour_at_most():
+    # #412 (2026-10-02): a rest online burns the rested bank for nothing
+    # new, and one left uncapped ran from 06:15 to 12:49.
+    from client.game.training import REST_CAP, rest_cap
+
+    assert REST_CAP == 60
+    assert rest_cap(plan()) == 60  # rest_minutes 0
+    assert rest_cap(plan(rest_minutes=15)) == 15
+
+
+def test_rested_does_not_wait_for_a_skill_the_almanac_refilled():
+    current = plan(rest_until=10)
+    refilled = exp(Athletics=32, Small_Edged=2, Evasion=0, Performance=0)
+    assert not rested(current, refilled)
+    assert rested(current, refilled, ignore=["athletics"])  # any case
+    assert not rested(current, refilled, ignore=["Performance"])
+
+
+def test_the_rest_mode_is_a_plan_setting():
+    from client.game.training import REST_MODES
+
+    assert DEFAULTS["rest_mode"] == "online"
+    assert REST_MODES == ("online", "logout")
+    assert normalize({"rest_mode": " Logout "})["rest_mode"] == "logout"
+    assert any("rest_mode" in line for line in validate(plan(rest_mode="offline")))
+    assert validate(plan(rest_mode="logout")) == []
+    assert any(
+        "or 60 min, logged out" in line for line in describe(plan(rest_mode="logout"))
+    )

@@ -16,7 +16,10 @@ What it does
   - Runs each task whose skills sit below the target mindstate, until they reach
     it or its time budget runs out: a bundled script, a command loop, or a helper's.
   - Rests in a safe room (several rotate) until every trained skill has drained
-    to `rest_until`, when the pool converts to ranks; the drain model guesses how long.
+    to `rest_until`, when the pool converts to ranks, or `rest_minutes` pass (an
+    hour by default); a skill the almanac refills meanwhile is not waited for.
+  - `rest_mode: logout` logs out for the rest once its top-ups are done (or the
+    cap hits); start ;train again at the next login.
   - Keeps the most skills moving: a task whose skills drain first trains again
     during the rest (`top_up`, once a rest).
   - In the rests: soul deeds when `soul` is on, stat points from the plan's `tdp` list.
@@ -27,6 +30,7 @@ When it stops
   - death, or a cycle in which no task trained
   - the game's maintenance shutdown within `shutdown_minutes`
   - the plan's `cycles` done, ;train return, or ;stop train
+  - a logout rest's QUIT (`rest_mode: logout`)
 
 The plan is ~/.revenant/training/<name>.json; docs/training.md explains every key.
 """
@@ -34,7 +38,7 @@ The plan is ~/.revenant/training/<name>.json; docs/training.md explains every ke
 import sqlite3
 import time
 
-from client.game import drain, flight, helper, interlude, travel
+from client.game import almanac, drain, flight, helper, interlude, travel
 from client.game.history import database_path
 
 from client.game.training import (
@@ -44,6 +48,7 @@ from client.game.training import (
     load_plan,
     next_task,
     plan_path,
+    rest_cap,
     rested,
     safe_room,
     top_up_tasks,
@@ -118,6 +123,19 @@ the link drops (#277, after lich-5's DRParser.shutting_down?): once
 it is within the plan's `shutdown_minutes` (3), the task in hand gets
 its return word — the hunt finishes the kill and walks home — a rest
 ends, and ;train stops with a word to start it again after.
+The rest's cap and the logout rest (#412, the operator, 2026-10-02): a
+rest online burns the rested-experience bank (docs/experience.md) for
+nothing new — the bank refills only offline, and the pools drain
+either way — and the rest of 06:15 that day ran to 12:49 because the
+almanac kept refilling Attunement, a skill the plan trained, before
+it drained. So rest_minutes 0 is an hour (training.REST_CAP), a skill
+the almanac fills during a rest (almanac.STUDIED from the rest's
+start) is not waited for, and rest_mode "logout" sends QUIT once every
+task with skills has had its top-up or the cap hits, never among
+hostiles; the next login starts the plan from its first task, so the
+resume is starting ;train (or autostarting it). Later a per-skill
+scheduler replaces the cycle: a task runs when its own skills are
+low, no global rest.
 """
 
 clock = time.monotonic  # tests replace it
@@ -133,6 +151,8 @@ INFO_TAIL = 0.5
 WORDS = ("skip", "rest", "return", "status")
 # rest()'s answer to a typed return: the run ends, no next cycle (#338).
 RETURNED = "return"
+# rest()'s answer after a logout rest's QUIT (#412): the link ends with it.
+LOGGED_OUT = "logout"
 
 
 def experience(s):
@@ -696,23 +716,65 @@ def top_up(s, plan, tasks, db, walk):
     return "done"
 
 
+def refilled_since(plan, mark):
+    """The plan's skills the almanac has filled since `mark` (a length
+    of almanac.STUDIED taken when the rest began), in the plan's
+    spelling: the rest does not wait for those (#412)."""
+    tracked = {skill.lower(): skill for skill in tracked_skills(plan)}
+    return [
+        tracked[skill.lower()]
+        for skill in almanac.STUDIED[mark:]
+        if skill.lower() in tracked
+    ]
+
+
+def rounds_done(plan, topped):
+    """True once a rest has nothing left to do online: top_up off, or
+    every task with skills has had its one top-up (#412)."""
+    if plan.get("top_up", "on") != "on":
+        return True
+    return all(task["name"] in topped for task in plan["tasks"] if task["skills"])
+
+
+def log_out(s, why):
+    """The rest taken offline (#412): the rested bank refills only
+    offline, and the pools drain either way. Said first — the link ends
+    with the QUIT — then QUIT, as ;logout and ;deathwatch do (a script's
+    own QUIT passes the session's policy; an outsider's is refused)."""
+    s.echo(
+        f"train: {why} — logging out for the rest (QUIT); "
+        "start me again at the next login"
+    )
+    s.waitrt()
+    s.put("quit")
+    return LOGGED_OUT
+
+
 def rest(s, plan, db, walk, index):
     """The rest: to the index-th safe room, the rest commands, then hold
-    until every trained skill has drained (or the cap); a task whose own
-    skills drain first is trained in the meantime (top_up). Returns the
-    next rest's index, None on death, or RETURNED on a typed return."""
+    until every trained skill has drained or the cap passes; a task whose
+    own skills drain first is trained in the meantime (top_up), and a
+    skill the almanac refilled is not waited for. Returns the next rest's
+    index, None on death, RETURNED on a typed return, or LOGGED_OUT once
+    a logout rest has sent its QUIT (#412)."""
     room = safe_room(plan, index)
     if room is not None:
         travel.go(s, room, repr(room), db=db, walk=walk)
         index += 1
     send_each(s, plan["rest_commands"])
-    cap = plan["rest_minutes"]
+    cap = rest_cap(plan)
+    logout = plan.get("rest_mode", "online") == "logout"
     until = f"every trained skill is at {plan['rest_until']}/34 or below"
-    s.echo(f"train: resting until {until}" + (f" (at most {cap} min)" if cap else ""))
+    s.echo(
+        f"train: resting until {until} (at most {cap} min)"
+        + (" — logging out once the top-ups are done" if logout else "")
+    )
     estimate = drain_note(s, plan)
     if estimate:
         s.echo(estimate)
     started = clock()
+    mark = len(almanac.STUDIED)
+    refilled = set()  # the plan's skills the almanac filled this rest (#412)
     moves = 0
     bought = 0
     quote = {}  # the rest's TDP pricing (#282)
@@ -731,7 +793,13 @@ def rest(s, plan, db, walk, index):
         if bought < TDP_POINTS_PER_REST and tdp_step(s, plan, quote):
             bought += 1
             continue
-        if rested(plan, experience(s)):
+        for skill in refilled_since(plan, mark):
+            if skill not in refilled:
+                refilled.add(skill)
+                s.echo(
+                    f"train: the almanac refilled {skill} — the rest will not wait for it"
+                )
+        if rested(plan, experience(s), ignore=refilled):
             s.echo("train: rested — the pool has drained")
             return index
         ready = [
@@ -757,7 +825,15 @@ def rest(s, plan, db, walk, index):
             continue
         if shutdown_soon(s, plan):
             return index  # run() ends the run
-        if cap and clock() - started >= cap * 60:
+        capped = clock() - started >= cap * 60
+        if logout:
+            # Never a QUIT among hostiles: the moves below come first.
+            if not hostiles_present(s.state):
+                if rounds_done(plan, topped):
+                    return log_out(s, "the top-ups are done")
+                if capped:
+                    return log_out(s, f"{cap} minutes of rest")
+        elif capped:
             s.echo(f"train: {cap} minutes of rest — moving on")
             return index
         word = user_word(s, plan)
@@ -825,6 +901,8 @@ def run(s, plan, cycles, db=None, walk=None):
         if index is None:
             s.echo("train: you are dead — stopping; deathwatch has it")
             return
+        if index == LOGGED_OUT:
+            return  # said before the QUIT; the link ends with it
         if index == RETURNED:
             s.echo("train: returned on request — the rest and the run end here")
             return

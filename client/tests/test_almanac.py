@@ -32,6 +32,7 @@ def fresh(monkeypatch):
     monkeypatch.setattr(almanac, "clock", lambda: now["t"])
     monkeypatch.setattr(almanac, "_NEXT", {})
     monkeypatch.setattr(almanac, "_OFF", set())
+    monkeypatch.setattr(almanac, "STUDIED", [])
     return now
 
 
@@ -74,6 +75,7 @@ def test_a_ready_almanac_is_got_studied_and_stowed(fresh):
     assert almanac.study(s, "almanac", ask, "hunt") == "Bow"
     assert sent == ["get my almanac", "study my almanac", "stow my almanac"]
     assert "hunt: almanac studied — Bow" in s.echoed
+    assert almanac.STUDIED == ["Bow"]  # the session's record, for ;train's rest (#412)
     # The timer is shared: nothing is sent until it runs out.
     assert almanac.study(s, "almanac", ask, "train") is None and len(sent) == 3
     fresh["t"] += 621

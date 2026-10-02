@@ -5,7 +5,7 @@
 ## The loop
 
 1. **Train.** Run each task in order, skipping any whose skills already sit at the target. A task ends at the target, at its time budget, or when its script exits.
-2. **Rest.** Walk to the next safe room, send the rest commands (`sit`), and wait until every trained skill has drained to the rest floor. The rest opens with a guess at how long that takes.
+2. **Rest.** Walk to the next safe room, send the rest commands (`sit`), and wait until every trained skill has drained to the rest floor, or an hour has passed. The rest opens with a guess at how long the drain takes. With `rest_mode` `logout` the character logs out instead once the rest's top-ups are done, and `;train` resumes at the next login.
 3. **Repeat** until the plan's cycles run out or you end it.
 
 Death ends the loop. Each trainer handles its own danger; hostiles at a rest move it to the next safe room or next door.
@@ -38,7 +38,8 @@ Edit it in File → Training Plan…, or by hand in `~/.revenant/training/<name>
 | --- | --- |
 | `target` | train each task's skills to this mindstate, 0-34 (30) |
 | `rest_until` | rest until every trained skill drains to this (10) |
-| `rest_minutes` | cap on a rest; 0 waits for the drain |
+| `rest_minutes` | cap on a rest; 0 is the default of 60 |
+| `rest_mode` | `online` (default), or `logout`: log out once the rest's top-ups are done or the cap hits; start `;train` again at the next login, or autostart it in Settings |
 | `task_minutes` | time budget per task; 0 is none (30) |
 | `order` | `listed`, or `lowest` (least-trained task first) |
 | `safe_rooms` | where to rest, rotated; empty rests where training ended |
@@ -106,7 +107,8 @@ The profile's `almanac` is studied whenever its ten-minute timer allows, at the 
 ## Plan well
 
 - **Count the skills moving.** More pools above 0/34 learn more than one pool held full; a full pool wastes what it would have learned.
-- **The slowest skill sets the rest's length.** Lower `rest_until` means longer rests; `rest_minutes` caps them. With `top_up` on, the tasks that drained first train again in the meantime.
+- **The slowest skill sets the rest's length.** Lower `rest_until` means longer rests; `rest_minutes` caps them at an hour unless you say otherwise, and a skill the almanac refills during a rest is not waited for. With `top_up` on, the tasks that drained first train again in the meantime.
+- **A rest online burns rested experience for nothing new** ([experience.md](experience.md)); `rest_mode` `logout` takes it offline.
 - **A task killed without a return word leaves the character where it stood.** Use `teardown` for what must be undone, such as a held instrument.
 
 How fast pools drain is in [experience.md](experience.md).

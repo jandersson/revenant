@@ -1171,3 +1171,135 @@ def test_a_hunt_told_to_return_gets_minutes_to_sell_and_bank(monkeypatch):
         foraging, {"script": "forage", "return_word": "return", "return_grace": 120}
     )
     assert foraging.killed == ["forage"]
+
+
+# --- the rest's cap, the almanac's refills and the logout rest (#412) ---------
+
+
+def test_an_uncapped_rest_ends_at_the_default_cap(clock):
+    # #412 (2026-10-02): a rest online burns the rested bank for nothing
+    # new, and one left uncapped ran from 06:15 to 12:49. rest_minutes 0
+    # is an hour now.
+    fake = Fake([{"Athletics": 30, "Small Edged": 30}] * 3, sleeps=100)
+    run(clock, fake, plan(rest_minutes=0, poll=60))
+    assert (
+        "train: resting until every trained skill is at 10/34 or below (at most 60 min)"
+        in fake.echoed
+    )
+    assert "train: 60 minutes of rest — moving on" in fake.echoed
+
+
+def test_a_skill_the_almanac_refills_during_the_rest_is_not_waited_for(
+    clock, monkeypatch
+):
+    # #412: the almanac studied Attunement three times during a rest, each
+    # time before it had drained, and the rest waited on it for hours
+    # while every other trained skill sat empty.
+    monkeypatch.setattr(train.almanac, "STUDIED", [])
+
+    def studied(fake):
+        train.almanac.STUDIED.append("Athletics")
+        fake.state.experience = {
+            "Athletics": {"rank": 1, "percent": 0, "mindstate": 32},
+            "Small Edged": {"rank": 1, "percent": 0, "mindstate": 15},
+        }
+
+    fake = run(
+        clock,
+        Fake(
+            [
+                {"Athletics": 30, "Small Edged": 30},
+                {"Athletics": 20, "Small Edged": 20},
+                studied,
+                {"Athletics": 32, "Small Edged": 8},
+            ]
+        ),
+        plan(safe_rooms=["home"]),
+    )
+    assert (
+        "train: the almanac refilled Athletics — the rest will not wait for it"
+        in fake.echoed
+    )
+    assert fake.echoed[-2:] == [
+        "train: rested — the pool has drained",
+        "train: 1 cycle(s) done",
+    ]
+
+
+def test_a_study_from_before_the_rest_is_still_waited_for(clock, monkeypatch):
+    monkeypatch.setattr(train.almanac, "STUDIED", ["Athletics"])
+    fake = Fake(
+        [{"Athletics": 30, "Small Edged": 30}, {"Athletics": 32, "Small Edged": 8}],
+        sleeps=100,
+    )
+    run(clock, fake, plan(poll=60))
+    assert not any("refilled" in text for text in fake.echoed)
+    assert "train: 60 minutes of rest — moving on" in fake.echoed
+
+
+def test_a_logout_rest_logs_out_once_the_top_ups_are_done(clock):
+    # #412, the operator (2026-10-02): the rest itself is the loss — the
+    # rested bank refills only offline, and the pools drain either way.
+    # Each task gets its top-up, then QUIT; ;train resumes at the next login.
+    fake = run(
+        clock,
+        Fake(
+            [
+                {"Athletics": 30, "Small Edged": 30},  # both at target: rest
+                {"Athletics": 5, "Small Edged": 25},  # climbs drained: its top-up
+                {"Athletics": 30, "Small Edged": 20},  # climbs trained again
+                {"Athletics": 28, "Small Edged": 5},  # rats drained: its top-up
+                {"Athletics": 25, "Small Edged": 30},  # rats trained again
+            ]
+        ),
+        plan(rest_mode="logout", top_up="on", safe_rooms=["home"]),
+    )
+    assert fake.started == [("athletics", []), ("hunt", [])]
+    assert fake.walks == [{1}, {1}, {1}]  # the rest, and back to it after each top-up
+    assert fake.sent[-1] == "quit"
+    assert fake.echoed[-1] == (
+        "train: the top-ups are done — logging out for the rest (QUIT); "
+        "start me again at the next login"
+    )
+
+
+def test_a_logout_rest_with_no_top_ups_logs_out_at_once(clock):
+    fake = run(
+        clock,
+        Fake(
+            [{"Athletics": 30, "Small Edged": 30}, {"Athletics": 20, "Small Edged": 20}]
+        ),
+        plan(rest_mode="logout", safe_rooms=["home"], rest_commands=["sit"]),
+    )
+    assert fake.walks == [{1}]
+    assert fake.sent == ["sit", "quit"]
+    assert any("logging out once the top-ups are done" in text for text in fake.echoed)
+
+
+def test_a_logout_rest_at_the_cap_logs_out_rather_than_training_on(clock):
+    fake = Fake([{"Athletics": 30, "Small Edged": 30}] * 3, sleeps=100)
+    run(clock, fake, plan(rest_mode="logout", top_up="on", poll=60))
+    assert fake.sent[-1] == "quit"
+    assert (
+        "train: 60 minutes of rest — logging out for the rest (QUIT); "
+        "start me again at the next login"
+    ) in fake.echoed
+
+
+def test_a_logout_rest_leaves_hostiles_before_it_logs_out(clock):
+    def rats(fake):
+        fake.state.hostiles = {"1": "a rat"}
+        fake.state.experience = {
+            "Athletics": {"rank": 1, "percent": 0, "mindstate": 30},
+            "Small Edged": {"rank": 1, "percent": 0, "mindstate": 30},
+        }
+
+    def gone(fake):
+        fake.state.hostiles = {}
+
+    fake = run(
+        clock, Fake([rats, gone]), plan(rest_mode="logout", safe_rooms=["home", "bank"])
+    )
+    assert "train: hostiles at the safe room — moving to the next one" in fake.echoed
+    assert fake.walks == [{1}, {2}]
+    assert fake.sent[-1] == "quit"
