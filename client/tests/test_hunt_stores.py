@@ -41,12 +41,12 @@ def test_store_is_sent_once_and_not_again_until_the_container_changes(monkeypatc
     monkeypatch.setattr(hunt, "ask", _ask(asker))
     profile = {"loot_container": "sack", "gem_pouch": "pouch"}
     assert hunt.set_stores(asker, dict(profile)) == ["box", "gem"]
-    assert asker.sent == ["store boxes in my sack", "store gems in my pouch"]
+    assert asker.sent == ["store boxes in sack", "store gems in pouch"]
     asker.sent.clear()
     assert hunt.set_stores(asker, dict(profile)) == ["box", "gem"]
     assert asker.sent == []  # the game keeps STORE: nothing to send
     hunt.set_stores(asker, profile | {"loot_container": "backpack"})
-    assert asker.sent == ["store boxes in my backpack"]
+    assert asker.sent == ["store boxes in backpack"]
 
 
 def test_a_store_the_game_refuses_is_said_and_that_kind_goes_by_hand(monkeypatch):
@@ -60,7 +60,18 @@ def test_a_store_the_game_refuses_is_said_and_that_kind_goes_by_hand(monkeypatch
     assert any("boxes picked up by hand" in e for e in asker.echoed)
     asker.sent.clear()
     hunt.set_stores(asker, {"loot_container": "sack"})
-    assert asker.sent == ["store boxes in my sack"]  # not remembered: tried again
+    assert asker.sent == ["store boxes in sack"]  # not remembered: tried again
+
+
+def test_a_two_word_container_is_named_bare_as_store_takes_it(monkeypatch):
+    # #415 (2026-10-02): STORE takes its container as one or two words —
+    # "store herbs in my herb bag" answered "I could not find that
+    # container." while "store herbs in herb bag" set it. No MY, so a
+    # two-word profile container still fits.
+    asker = Asker({"store gems": STORED_GEMS})
+    monkeypatch.setattr(hunt, "ask", _ask(asker))
+    assert hunt.set_stores(asker, {"gem_pouch": "gem pouch"}) == ["gem"]
+    assert asker.sent == ["store gems in gem pouch"]
 
 
 def test_a_box_on_the_ground_goes_in_with_stow_box(monkeypatch):

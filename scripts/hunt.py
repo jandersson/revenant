@@ -112,8 +112,8 @@ bare LOOT, the last creature fought — no corpse noun needed — its
 outcome a row in history.db's `loot` table, the box drop rate per
 creature, #329), pouch
 any gems (STOW GEM, and a box STOW BOX, straight off the ground into the
-containers STORE names — STORE GEMS IN MY <gem_pouch> and STORE BOXES
-IN MY <loot_container> sent only when the profile's container changes,
+containers STORE names — STORE GEMS IN <gem_pouch> and STORE BOXES
+IN <loot_container> sent only when the profile's container changes,
 remembered in ~/.revenant/stores/<name>.json; STOW HELP / STORE HELP,
 2026-09-26), and move on to the next room of the ground when
 this one runs empty — and when the whole ground is empty, wait a
@@ -1014,8 +1014,10 @@ def stow(s, profile, item):
 
 
 # STORE's option per loot kind and the profile key naming its
-# container: STORE BOXES IN MY <loot_container>, STORE GEMS IN MY
-# <gem_pouch>, sent when the container changes (STORE HELP, 2026-09-26: "You can only store things in
+# container: STORE BOXES IN <loot_container>, STORE GEMS IN
+# <gem_pouch> — bare, STORE HELP's own form: STORE takes one or two
+# words and refused "in my herb bag" (#415, 2026-10-02) — sent when
+# the container changes (STORE HELP, 2026-09-26: "You can only store things in
 # containers that you are wearing"; STORE LIST showed boxes "--Not
 # Set--", so a STOWed box went to the default container, the backpack,
 # where ;boxes never looked, #323).
@@ -1084,7 +1086,7 @@ def set_stores(s, profile):
         if not container:
             continue
         if known.get(option) != container:
-            answer = ask(s, f"store {option} in my {container}")
+            answer = ask(s, f"store {option} in {container}")
             if not any(word in answer.lower() for word in STORED):
                 s.echo(
                     f"hunt: STORE {option} answered {said(answer)!r} — {option} picked up by hand"
