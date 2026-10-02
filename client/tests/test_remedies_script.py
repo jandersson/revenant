@@ -1630,15 +1630,19 @@ def test_a_herb_stow_the_store_container_refuses_goes_to_the_backpack(monkeypatc
 def test_a_bought_dried_stack_is_reached_by_the_plain_nouns_ordinals():
     # #420 (2026-10-02): the Society's "dried red flowers" answer to
     # "flowers" but not to "dried"; a fresh stack taken on the way goes
-    # back where it came from and the next ordinal reaches past it.
+    # back where it came from and the next ordinal reaches past it. The
+    # containers INV LIST shows are walked in turn by FROM MY <container>:
+    # a bare MY SECOND <herb> missed a stack the backpack held (17:36).
     fake = _fetching(
         {
             "get my dried flowers": [MISSING],
-            "get my flowers": ["You get some red flowers from inside your backpack.\n"],
+            "get flowers from my backpack": [
+                "You get some red flowers from inside your backpack.\n"
+            ],
             "put my flowers in my backpack": [
                 "You put your flowers in your backpack.\n"
             ],
-            "get my second flowers": [
+            "get second flowers from my backpack": [
                 "You get some dried red flowers from inside your backpack.\n"
             ],
             "count my flowers": [THIRTY_SEVEN],
@@ -1648,9 +1652,9 @@ def test_a_bought_dried_stack_is_reached_by_the_plain_nouns_ordinals():
     assert script.fetch_into_mortar(fake, "flowers", "herb") is True
     assert fake.sent[1:5] == [
         "get my dried flowers",
-        "get my flowers",
+        "get flowers from my backpack",
         "put my flowers in my backpack",
-        "get my second flowers",
+        "get second flowers from my backpack",
     ]
     assert "put my flowers in my mortar" in fake.sent
     assert not any("missing" in text for text in fake.echoed)
@@ -1660,11 +1664,13 @@ def test_no_dried_stack_among_the_nouns_items_is_the_herb_missing():
     fake = _fetching(
         {
             "get my dried flowers": [MISSING],
-            "get my flowers": ["You get some red flowers from inside your backpack.\n"],
+            "get flowers from my backpack": [
+                "You get some red flowers from inside your backpack.\n"
+            ],
             "put my flowers in my backpack": [
                 "You put your flowers in your backpack.\n"
             ],
-            "get my second flowers": [MISSING],
+            "get second flowers from my backpack": [MISSING],
         }
     )
     assert script.fetch_into_mortar(fake, "flowers", "herb") is False

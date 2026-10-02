@@ -40,7 +40,7 @@ How a stack behaves (an experiment on Cecil's dried red flowers,
 
 import re
 
-from client.game import act, hands
+from client.game import act, hands, items
 from client.game.remedies import pieces
 
 STACK_CAP = 75
@@ -78,16 +78,38 @@ _SOURCE = re.compile(r"from (?:inside )?your ([a-z' -]+?)[.,]", re.IGNORECASE)
 def get_dried(s, ask, herb, container=None):
     """GET a dried stack of `herb` ("flowers") into a hand by the name
     that reaches it: MY DRIED <herb> first (the dry press's stacks answer
-    to it), then the plain noun's ordinals, the GET's own answer judging
-    — a stack whose answer lacks "dried" (a fresh one, jadice flowers)
-    goes back where it came from, to the container's front, and the next
-    ordinal reaches past it (#420). `container` makes it GET ... FROM MY
-    <container>. The GET's answer, or None when no dried stack came."""
+    to it), then the plain noun's ordinals container by container, the
+    GET's own answer judging — a stack whose answer lacks "dried" (a
+    fresh one, jadice flowers) goes back where it came from, to the
+    container's front, and the next ordinal reaches past it (#420).
+    `container` names the one to walk; without it every container INV
+    LIST shows is walked in turn, the gem pouch left out — a bare MY
+    SECOND <herb> took nothing while a bought stack sat in the backpack
+    (2026-10-02, 17:36), the merge's FROM MY <container> form reaches it
+    (#402). The GET's answer, or None when no dried stack came."""
     where = f" from my {container}" if container else ""
     mine = "" if container else "my "
     answer = ask(s, f"get {mine}dried {herb}{where}")
     if not act.missing(answer):
         return answer  # silence passes, as the plain GET's did before
+    if container is None:
+        possessions = getattr(getattr(s, "state", None), "possessions", None)
+        places = items.containers(possessions, skip=("pouch",)) if possessions else []
+        for place in places:
+            found = _walk(s, ask, herb, place)
+            if found is not None:
+                return found
+        if places:
+            return None
+    return _walk(s, ask, herb, container)
+
+
+def _walk(s, ask, herb, container):
+    """The plain noun's ordinals in `container` (none: the bare form),
+    a stack that is not dried put back to the front; the GET's answer
+    for the first dried one, else None."""
+    where = f" from my {container}" if container else ""
+    mine = "" if container else "my "
     for skip, ordinal in enumerate(ORDINALS):
         before = set(held(s))
         which = f"{ordinal} " if ordinal else ""
