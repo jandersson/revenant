@@ -158,6 +158,11 @@ DEFAULTS = {
     # over (the ;train plan's target by default); once every weapon is
     # past it, the emptiest unlocked one fights on toward lock.
     "weapon_target": 30,
+    # The fallback under it: a weapon hands on after this many minutes
+    # even below the target — a hunt whose casts did the killing left
+    # one sword at 4/34 and three weapons untouched in thirty minutes
+    # (the operator, 2026-10-02). 0 leaves it to the target alone.
+    "weapon_minutes": 10,
     # The brawling attacks in rotation for the fists turn ("punch",
     # "kick", "elbow" — Elanthipedia: Brawling skill; punch wants a
     # free hand, elbow and kick none), which is what trains Brawling.
@@ -334,6 +339,12 @@ FIELDS = (
         "Train each weapon to mindstate, then the next",
         "int",
         "0-34 (30)",
+    ),
+    (
+        "weapon_minutes",
+        "Minutes a weapon keeps the hands at most",
+        "int",
+        "10; 0: until its target",
     ),
     (
         "brawling",

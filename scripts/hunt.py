@@ -13,7 +13,8 @@ What it does
   - Walks to the ground (a map tag, a bestiary zone or a ;go2 target) with the buffs up.
   - Fights one creature at a time: attack, skin, loot, gems and boxes stowed.
   - Moves room to room; a room another player hunts is theirs and is skipped.
-  - Trains the `weapons` in turn: the emptiest pool first, each to `weapon_target`.
+  - Trains the `weapons` in turn: the emptiest pool first, each to `weapon_target`,
+    or for `weapon_minutes` at most when a pool will not fill.
   - Between swings, as the profile says: maneuvers, SMITE, training casts,
     HUNT for Perception; a Barbarian's combos, abilities and roars instead.
   - The profile's `almanac` studied whenever its timer allows: in a clear room,
@@ -91,6 +92,8 @@ has_turns = hunting.has_turns
 fists_turn = hunting.fists_turn
 plain_swing = hunting.plain_swing
 turn_target = hunting.turn_target
+turn_minutes = hunting.turn_minutes
+turn_expired = hunting.turn_expired
 mindstate_of = hunting.mindstate_of
 rank_of = hunting.rank_of
 locked = hunting.locked
@@ -449,7 +452,9 @@ def hostiles(state):
 
 def next_turn(s, profile, tally, from_current=False, leave=False):
     """The weapons entry to fight with. The one in hand while its skill
-    sits below `turn_target` — a kill does not hand it on; else the open
+    sits below `turn_target` and its `weapon_minutes` have not run out
+    (the fallback: a pool the casts' kills never fill hands on all the
+    same, 2026-10-02) — a kill does not hand it on; else the open
     turn whose skill has the emptiest pool (the lowest mindstate; the
     lowest rank, then the plan's order after the one in hand, breaking
     ties — after a rest every pool reads 0, and the order alone gave the
@@ -496,7 +501,10 @@ def next_turn(s, profile, tally, from_current=False, leave=False):
     target = turn_target(profile)
     held = tally.weapon
     if not from_current and held in open_turns and pool(held) < target:
-        return held
+        others = [index for index in open_turns if index != held]
+        if not others or not turn_expired(profile, tally):
+            return held
+        open_turns = others  # its minutes are up: the emptiest other turn
     below = [index for index in open_turns if pool(index) < target]
     candidates = below or open_turns
 
@@ -537,6 +545,7 @@ def arm(s, profile, tally, index):
         unready(s, profile)  # the last turn's weapon back where it lives
     tally.weapon = index
     tally.turn_started = tally.swings
+    tally.turn_clock = hunting.clock()
     tally.armed = entry["weapon"]
     profile["weapon"] = entry["weapon"]
     profile["weapon_container"] = entry["container"]
@@ -576,6 +585,17 @@ def rotate(s, profile, tally):
     if index is None:
         return farming(profile)
     if index != tally.weapon:
+        entry = weapon_plan(profile)[tally.weapon]
+        if (
+            entry["skill"]
+            and mindstate_of(s.state, entry["skill"]) < turn_target(profile)
+            and turn_expired(profile, tally)
+        ):
+            s.echo(
+                f"hunt: {entry['weapon'] or 'fists'} has had its "
+                f"{turn_minutes(profile)} minutes ({entry['skill']} "
+                f"{mindstate_of(s.state, entry['skill'])}/34) — the next turn"
+            )
         arm(s, profile, tally, index)
     return True
 

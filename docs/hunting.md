@@ -42,7 +42,7 @@ File → Character Profile, or `~/.revenant/profiles/<name>.json`. The keys a hu
 | `wound_floor` | break off at a wound this bad; empty is `harmful`, `off` never checks |
 | `train_skills` | end when all of these mind-lock |
 | `max_kills` | end after this many kills (0: no limit) |
-| `weapons`, `weapon_target`, `brawling` | the weapon rotation, below |
+| `weapons`, `weapon_target`, `weapon_minutes`, `brawling` | the weapon rotation, below |
 | `buffs`, `train_casting`, `cambrinth*`, `cast_gap`, `debilitation`, `targeted` | spells, below |
 | `smite` | Paladin: one swing a minute is SMITE, for Conviction |
 | `tactics` | maneuvers (`bob`, `circle`, `weave`) every third swing, for Tactics |
@@ -76,7 +76,7 @@ A `;train` task passes the style in its args: `"script": "hunt", "args": ["boxes
 
 `weapons` lists `noun:Skill[:container]` entries, e.g. `handaxe:Small Edged:sack`, `fists:Brawling`.
 
-- The weapon whose skill has the emptiest pool fights first, and keeps fighting until its skill reaches `weapon_target` (30). Then the next emptiest takes over. Equally empty pools go to the skill trained longest ago, then the lowest rank.
+- The weapon whose skill has the emptiest pool fights first, and keeps fighting until its skill reaches `weapon_target` (30). Then the next emptiest takes over. Equally empty pools go to the skill trained longest ago, then the lowest rank. `weapon_minutes` (10) is the fallback: a weapon hands on after that long even below the target, for a ground where the casts do the killing and a pool never fills; 0 turns it off.
 - Once every weapon is past the target, the emptiest unlocked one fights on to lock.
 - A locked skill's weapon sits out until it drains. All locked ends the hunt.
 - A weapon that goes 20 swings without a kill hands over to the next.

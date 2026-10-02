@@ -82,7 +82,7 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   a bin); `status.py`; `flight.py` the
   escape on hostiles.
 - `profile.py` per-character profiles (FIELDS is the schema the GUI
-  dialog builds from; `hunts` styles; `weapons` + `weapon_target`);
+  dialog builds from; `hunts` styles; `weapons` + `weapon_target`, `weapon_minutes` the fallback);
   `training.py` + `drain.py` the `;train` plan and the drain model.
 - `buffs.py` buffs, training and targeted casts; `barbarian.py` a
   Barbarian's instead (ANALYZE combos, abilities, roars); `hunting.py`

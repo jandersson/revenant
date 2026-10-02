@@ -437,6 +437,7 @@ class Tally:
         self.weapon = 0  # the weapons' rotation index: the turn in hand (#238)
         self.rotated_at = 0  # the kill count the weapon last turned on
         self.turn_started = 0  # tally.swings when the turn in hand began
+        self.turn_clock = 0.0  # clock() when it began (weapon_minutes)
         self.balances = {}  # balance word -> swings taken at it (#280)
         # The corpses the room's listing marked when this room's fight
         # began, by name: a kill is a corpse more than this (#315).
@@ -530,6 +531,30 @@ def turn_target(profile):
     except (TypeError, ValueError):
         value = DEFAULT_WEAPON_TARGET
     return MIND_LOCK if value <= 0 else min(value, MIND_LOCK)
+
+
+DEFAULT_WEAPON_MINUTES = 10
+
+
+def turn_minutes(profile):
+    """Minutes a weapon keeps the hands at most, its target reached or
+    not — the fallback under the target rule: the profile's
+    `weapon_minutes` (10); 0 leaves it to the target alone. The
+    operator, 2026-10-02: a hunt whose casts did the killing left one
+    sword at 4/34 and three weapons untouched in thirty minutes."""
+    try:
+        value = int(profile.get("weapon_minutes", DEFAULT_WEAPON_MINUTES))
+    except (TypeError, ValueError):
+        value = DEFAULT_WEAPON_MINUTES
+    return max(0, value)
+
+
+def turn_expired(profile, tally):
+    """True once the turn in hand has had its `weapon_minutes` — never
+    with 0, never for a tally with no stamp."""
+    minutes = turn_minutes(profile)
+    started = getattr(tally, "turn_clock", None)
+    return bool(minutes) and started is not None and clock() - started >= minutes * 60
 
 
 def mindstate_of(state, skill):

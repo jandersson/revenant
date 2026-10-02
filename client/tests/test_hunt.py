@@ -114,9 +114,13 @@ def test_the_emptiest_weapon_fills_to_the_target_then_the_next_takes_over(
     assert not any("unrecognized" in text for text in arena.echoed)
 
 
-def _turns(experience, profile_extra=None, held=0, turn_times=None, **kwargs):
+def _turns(
+    experience, profile_extra=None, held=0, turn_times=None, turn_clock=None, **kwargs
+):
     arena = Arena({}, experience=experience)
-    tally = SimpleNamespace(weapon=held, fists_warned=False, turn_times=turn_times)
+    tally = SimpleNamespace(
+        weapon=held, fists_warned=False, turn_times=turn_times, turn_clock=turn_clock
+    )
     profile = ROTATING | {
         "weapons": ["handaxe:Small Edged:sack", "fists:Brawling", "mace:Small Blunt"]
     }
@@ -142,6 +146,35 @@ def test_the_turn_in_hand_stays_below_the_target_and_the_emptiest_follows_it():
     ms["Small Edged"]["mindstate"] = 34
     ms["Brawling"]["mindstate"] = 34
     assert _turns(ms, held=1) is None  # every skill locked
+
+
+def test_a_turns_minutes_are_the_fallback_under_the_target(monkeypatch):
+    # The operator, 2026-10-02: seventeen wolves died to the casts and two
+    # swings each, Small Edged sat at 4/34 after thirty minutes and three
+    # weapons never got a turn. The target rule stays; the minutes are the
+    # fallback for a pool that will not fill.
+    now = {"t": 1000.0}
+    monkeypatch.setattr(hunting, "clock", lambda: now["t"])
+    ms = {
+        "Small Edged": {"rank": 77, "mindstate": 4},
+        "Brawling": {"rank": 69, "mindstate": 0},
+        "Small Blunt": {"rank": 57, "mindstate": 0},
+    }
+    minutes = {"weapon_minutes": 5}
+    now["t"] = 1000.0 + 4 * 60  # four minutes in, below the target: kept
+    assert _turns(ms, minutes, held=0, turn_clock=1000.0) == 0
+    now["t"] = 1000.0 + 5 * 60  # five: the emptiest other turn, the mace (rank 57)
+    assert _turns(ms, minutes, held=0, turn_clock=1000.0) == 2
+    assert _turns(ms, {"weapon_minutes": 0}, held=0, turn_clock=1000.0) == 0  # off
+    assert _turns(ms, minutes, held=0) == 0  # no stamp on the tally: never
+    # The only open turn keeps the hands whatever the clock says.
+    ms["Brawling"]["mindstate"] = 34
+    ms["Small Blunt"]["mindstate"] = 34
+    assert _turns(ms, minutes, held=0, turn_clock=1000.0) == 0
+    # The fallback's default, and a value the dialog could not coerce.
+    assert hunting.turn_minutes({}) == 10
+    assert hunting.turn_minutes({"weapon_minutes": "x"}) == 10
+    assert hunting.turn_minutes({"weapon_minutes": -3}) == 0
 
 
 def test_equally_empty_pools_go_to_the_weakest_weapon_first():
