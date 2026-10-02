@@ -30,6 +30,12 @@ How a stack behaves (an experiment on Cecil's dried red flowers,
   with an adjective (MY FIFTH DRIED FLOWERS) stops at the first other
   kind — fresh red flowers and jadice flowers are "flowers" too — so the
   merge counts plain nouns and reads the GET's answer for the herb.
+- The Society's bought "(25 pieces) dried red flowers" do not answer to
+  the word "dried" at all (#420, 2026-10-02: GET MY DRIED FLOWERS and
+  LOOK AT MY DRIED FLOWERS not found, MY RED FLOWERS and MY FLOWERS
+  resolving them, INV SEARCH listing two); the dry press's stacks do.
+  `get_dried` reaches a stack by whichever name works: "dried <herb>"
+  first, then the plain noun's ordinals with the GET's answer judging.
 """
 
 import re
@@ -64,6 +70,42 @@ ORDINALS = (
     "twentieth",
 )
 _DRIED = re.compile(r"\b(?:some|an?) (dried [a-z' -]+?)(?=,| and |\.|$)", re.IGNORECASE)
+
+
+_SOURCE = re.compile(r"from (?:inside )?your ([a-z' -]+?)[.,]", re.IGNORECASE)
+
+
+def get_dried(s, ask, herb, container=None):
+    """GET a dried stack of `herb` ("flowers") into a hand by the name
+    that reaches it: MY DRIED <herb> first (the dry press's stacks answer
+    to it), then the plain noun's ordinals, the GET's own answer judging
+    — a stack whose answer lacks "dried" (a fresh one, jadice flowers)
+    goes back where it came from, to the container's front, and the next
+    ordinal reaches past it (#420). `container` makes it GET ... FROM MY
+    <container>. The GET's answer, or None when no dried stack came."""
+    where = f" from my {container}" if container else ""
+    mine = "" if container else "my "
+    answer = ask(s, f"get {mine}dried {herb}{where}")
+    if not act.missing(answer):
+        return answer  # silence passes, as the plain GET's did before
+    for skip, ordinal in enumerate(ORDINALS):
+        before = set(held(s))
+        which = f"{ordinal} " if ordinal else ""
+        answer = ask(s, f"get {mine}{which}{herb}{where}")
+        if not answer.strip() or act.missing(answer):
+            return None
+        if "dried" in answer.lower():
+            return answer
+        # Another kind of the same noun: back to where it came from.
+        new = [item for item in held(s) if item not in before]
+        token = f"#{new[0]}" if len(new) == 1 else f"my {herb}"
+        source = _SOURCE.search(answer)
+        back = (source.group(1).split()[-1] if source else None) or container
+        if back:
+            ask(s, f"put {token} in my {back}")
+        else:
+            hands.stow(s, token if token.startswith("#") else herb, ask=ask)
+    return None
 
 
 def dried_herbs(listing):

@@ -303,60 +303,82 @@ def study(s, chapter, page, what):
 def fetch_into_mortar(s, noun, what):
     """The pestle down, `noun` GOT and PUT (water POURed) in the mortar,
     what stays in hand stowed, the pestle back up. False when the game
-    finds no such thing on you. A herb is named `dried <herb>`: a plain
-    GET MY FLOWERS took a fresh stack of red flowers, which neither
-    counts to 25 nor combines with the dried ones, and four stacks were
-    bought with five full ones on hand (2026-10-01, #406)."""
-    if what in ("herb", "second herb"):
-        noun = f"dried {noun}"
+    finds no such thing on you. A herb's dried stack is reached by
+    herbstacks.get_dried — "dried <herb>" first, then the plain noun's
+    ordinals with the GET's answer judging: a plain GET MY FLOWERS took
+    a fresh stack (2026-10-01, #406), and the Society's bought stacks
+    answer to "flowers" but not to "dried" (#420). In hand it goes by
+    its id, else the plain noun — never "dried <herb>" again."""
+    dried = what in ("herb", "second herb")
     ask(s, "stow my pestle")
-    answer = ask(s, f"get my {noun}")
-    if missing(answer):
-        s.echo(f"remedies: no {noun} on you — the {what} is missing")
+    if dried:
+        answer = herbstacks.get_dried(s, ask, noun)
+    else:
+        answer = ask(s, f"get my {noun}")
+    if answer is None or (not dried and missing(answer)):
+        shown = f"dried {noun}" if dried else noun
+        s.echo(f"remedies: no {shown} on you — the {what} is missing")
         ask(s, "get my pestle")
         return False
+
+    def held():
+        return items.name(s, f"my {noun}")
+
+    def token():
+        return items.ref(s, f"my {noun}") or noun
+
     if what == "herb" and not full_stack(s, noun):
         s.echo(
-            f"remedies: the {noun} on you come to fewer than {STACK_PIECES} pieces "
-            f"— the {what} is missing"
+            f"remedies: the dried {noun} on you come to fewer than {STACK_PIECES} "
+            f"pieces — the {what} is missing"
         )
-        hands.stow(s, noun, ask=ask)
+        hands.stow(s, token(), ask=ask)
         ask(s, "get my pestle")
         return False
     verb = "pour" if what == "water" else "put"
-    answer = ask(s, f"{verb} my {noun} in my mortar")
+    answer = ask(s, f"{verb} {held()} in my mortar")
     lowered = answer.lower()
     if what == "herb" and any(word in lowered for word in MORTAR_FULL):
-        hands.stow(s, noun, ask=ask)  # the mortar took its 25; the rest back
+        hands.stow(s, token(), ask=ask)  # the mortar took its 25; the rest back
     if any(word in lowered for word in MORTAR_BUSY):
         # Another remedy is in progress in the mortar (2026-09-23): the
         # herb stays in hand for the caller, the pestle comes back up.
         held = remedy_in_mortar(answer)
         name = held[0] if held else "remedy"
         s.echo(f"remedies: the mortar already holds an unfinished {name}")
-        hands.stow(s, noun, ask=ask)
+        hands.stow(s, token(), ask=ask)
         ask(s, "get my pestle")
         return f"busy:{name}"
     if what == "water" and not any(word in lowered for word in POURED):
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         s.echo(f"remedies: the pour answered {first!r}")
     if what != "herb":
-        hands.stow(s, noun, ask=ask)  # the flask, the second herb's stack, a nugget
+        hands.stow(s, token(), ask=ask)  # the flask, the second herb's stack, a nugget
     ask(s, "get my pestle")
     return True
 
 
 def full_stack(s, noun):
-    """The herb in hand brought to STACK_PIECES: COUNT it, and while it
-    is short combine the herb's other stacks into it, container by
-    container (the mortar set down meanwhile, for the hand). True when
-    it holds enough — or COUNT says nothing, the old way (#370)."""
+    """The herb in hand (its plain noun, "flowers") brought to
+    STACK_PIECES: COUNT it, and while it is short combine the herb's
+    other dried stacks into it, container by container (the mortar set
+    down meanwhile, for the hand), each reached by herbstacks.get_dried
+    (#420). True when it holds enough — or COUNT says nothing, the old
+    way (#370)."""
 
     def in_hand():
         # The stack held, by its id when the hand tag carries one (#402:
         # a bare noun takes the first item of that noun), else MY <noun>
         # — read afresh each time, a COMBINE gives its result a new id.
         return items.name(s, f"my {noun}")
+
+    def pair():
+        # Both held stacks by their ids when the tags carry them (#402),
+        # else the plain noun twice: the two in hand are the two.
+        ids = list(herbstacks.held(s))
+        if len(ids) == 2:
+            return f"#{ids[0]}", f"#{ids[1]}"
+        return noun, noun
 
     held = pieces(ask(s, f"count {in_hand()}"))
     if held is None or held >= STACK_PIECES:
@@ -365,14 +387,13 @@ def full_stack(s, noun):
     possessions = getattr(s.state, "possessions", None)
     # Where INV LIST showed the herb, else every container (a stack
     # bought since the login listing): never the gem pouch first.
-    places = containers_with(possessions, noun.split()[-1]) or containers_of(
-        possessions
-    )
+    places = containers_with(possessions, noun) or containers_of(possessions)
     for container in places:
         while held < STACK_PIECES:
-            if missing(ask(s, f"get {noun} from my {container}")):
+            if herbstacks.get_dried(s, ask, noun, container=container) is None:
                 break
-            joined = ask(s, f"combine {noun} with {noun}").lower()
+            first_stack, second_stack = pair()
+            joined = ask(s, f"combine {first_stack} with {second_stack}").lower()
             if any(word in joined for word in herbstacks.FULL + herbstacks.LEFT_OVER):
                 # One of the two is full (#402): it is the stack to use,
                 # the other goes back — 2026-10-01 stowed the full one

@@ -200,9 +200,7 @@ def test_the_head_salve_is_studied_crushed_watered_catalysed_and_stowed():
         {
             "study my book": [TOO_HARD],
             "get my dried nemoih": ["You get some dried nemoih."],
-            "put my dried nemoih in my mortar": [
-                "You put your nemoih in your iron mortar."
-            ],
+            "put my nemoih in my mortar": ["You put your nemoih in your iron mortar."],
             "get my water": ["You get some water."],
             "pour my water in my mortar": [POURED],
             "get my nugget": ["You get a tiny coal nugget."],
@@ -220,7 +218,7 @@ def test_the_head_salve_is_studied_crushed_watered_catalysed_and_stowed():
     out = run(fake, ["count=1"])
     assert "sheathe my scimitar in my scabbard" in fake.sent
     assert fake.sent.index("study my book") < fake.sent.index(
-        "put my dried nemoih in my mortar"
+        "put my nemoih in my mortar"
     )
     assert (
         "turn my book to chapter 3" in fake.sent
@@ -278,7 +276,7 @@ def test_a_remedy_left_in_the_mortar_is_finished_first_and_the_mortar_freed():
         {
             "study my book": [TOO_HARD],
             "get my dried nemoih": ["You get some dried nemoih."],
-            "put my dried nemoih in my mortar": [
+            "put my nemoih in my mortar": [
                 BUSY_MORTAR,
                 "You put your nemoih in your iron mortar.",
             ],
@@ -300,7 +298,7 @@ def test_a_remedy_left_in_the_mortar_is_finished_first_and_the_mortar_freed():
     assert fake.sent.index("turn my book to page 1") < fake.sent.index(
         "get my salve from my mortar"
     )
-    assert fake.sent.count("put my dried nemoih in my mortar") == 2
+    assert fake.sent.count("put my nemoih in my mortar") == 2
     assert crushes(fake) == [
         "crush my salve in my mortar with my pestle",
         "crush my nemoih in my mortar with my pestle",
@@ -323,9 +321,7 @@ def test_the_mortar_is_looked_in_first_and_a_leftover_finished_before_the_study(
             ],
             "study my book": [TOO_HARD],
             "get my dried nemoih": ["You get some dried nemoih."],
-            "put my dried nemoih in my mortar": [
-                "You put your nemoih in your iron mortar."
-            ],
+            "put my nemoih in my mortar": ["You put your nemoih in your iron mortar."],
             "crush my nemoih in my mortar with my pestle": [CRUSHED],
             "crush my salve in my mortar with my pestle": [FINISHED, FINISHED],
         },
@@ -340,7 +336,7 @@ def test_the_mortar_is_looked_in_first_and_a_leftover_finished_before_the_study(
         "turn my book to page 4"
     )
     assert fake.sent.index("get my salve from my mortar") < fake.sent.index(
-        "put my dried nemoih in my mortar"
+        "put my nemoih in my mortar"
     )
     assert crushes(fake) == [
         "crush my salve in my mortar with my pestle",
@@ -354,9 +350,7 @@ def test_a_crush_refused_again_and_again_ends_the_run_instead_of_spinning():
         {
             "study my book": [TOO_HARD],
             "get my dried nemoih": ["You get some dried nemoih."],
-            "put my dried nemoih in my mortar": [
-                "You put your nemoih in your iron mortar."
-            ],
+            "put my nemoih in my mortar": ["You put your nemoih in your iron mortar."],
             "crush my nemoih in my mortar with my pestle": ["Crush what?\n"],
         },
         mindstates=[0, 1, 2, 3, 4, 5],
@@ -437,13 +431,13 @@ def test_a_work_order_is_asked_crafted_bundled_and_handed_in():
             "ask lanshado for easy remedies work": [ORDER],
             "study my book": [STUDIED],
             "get my dried flowers": ["You get some dried red flowers."],
-            "put my dried flowers in my mortar": [
+            "put my flowers in my mortar": [
                 "You put your flowers in your iron mortar."
             ],
             "get my water": ["You get some water."],
             "pour my water in my mortar": [POURED],
             "get my dried nemoih": ["You get some dried nemoih."],
-            "put my dried nemoih in my mortar": [SHAVINGS.replace("nugget", "nemoih")],
+            "put my nemoih in my mortar": [SHAVINGS.replace("nugget", "nemoih")],
             "get my nugget": ["You get a tiny coal nugget."],
             "put my nugget in my mortar": [SHAVINGS],
             "crush my flowers in my mortar with my pestle": [NEED_WATER],
@@ -475,7 +469,7 @@ def test_a_work_order_is_asked_crafted_bundled_and_handed_in():
     )
     assert fake.sent.count("study my book") == 2  # once per stack
     assert fake.sent.count("bundle my cream with my logbook") == 2
-    assert "stow my dried nemoih" in fake.sent  # the second herb's stack goes back
+    assert "stow my nemoih" in fake.sent  # the second herb's stack goes back
     assert fake.sent.index("stow my mortar") < fake.sent.index(
         "bundle my cream with my logbook"
     )
@@ -509,13 +503,11 @@ def work_answers(**extra):
         "read my logbook": [LOGBOOK_NONE, LOGBOOK_OPEN, LOGBOOK_DONE],
         "study my book": [STUDIED],
         "get my dried flowers": ["You get some dried red flowers."],
-        "put my dried flowers in my mortar": [
-            "You put your flowers in your iron mortar."
-        ],
+        "put my flowers in my mortar": ["You put your flowers in your iron mortar."],
         "get my water": ["You get some water."],
         "pour my water in my mortar": [POURED],
         "get my dried nemoih": ["You get some dried nemoih."],
-        "put my dried nemoih in my mortar": [SHAVINGS.replace("nugget", "nemoih")],
+        "put my nemoih in my mortar": [SHAVINGS.replace("nugget", "nemoih")],
         "get my nugget": ["You get a tiny coal nugget."],
         "put my nugget in my mortar": [SHAVINGS],
         "crush my flowers in my mortar with my pestle": [NEED_WATER],
@@ -1056,14 +1048,14 @@ def test_a_full_stack_the_combine_refuses_is_the_one_used():
     # not join": the full stack was stowed and the run foraged 75 pieces.
     fake = Fake(
         {
-            "count my dried flowers": [
+            "count my flowers": [
                 "You count out 21 pieces of material there.\n",
                 "You count out 75 pieces of material there.\n",
             ],
             "get dried flowers from my backpack": [
                 "You get some dried red flowers from inside your backpack.\n"
             ],
-            "combine dried flowers with dried flowers": [
+            "combine flowers with flowers": [
                 "That stack of herbs is too large to add more to.\n"
             ],
         }
@@ -1079,8 +1071,8 @@ def test_a_full_stack_the_combine_refuses_is_the_one_used():
         },
     ]
     script.ask = fake.ask
-    assert script.full_stack(fake, "dried flowers") is True
-    assert "put my second dried flowers in my backpack" in fake.sent
+    assert script.full_stack(fake, "flowers") is True
+    assert "put my second flowers in my backpack" in fake.sent
     assert "stow my flowers" not in fake.sent
     assert fake.sent.count("get dried flowers from my backpack") == 1
 
@@ -1242,9 +1234,7 @@ def test_a_catalyst_the_remedy_refuses_stops_the_craft_not_a_loop():
         {
             "study my book": [TOO_HARD],
             "get my dried nemoih": ["You get some dried nemoih."],
-            "put my dried nemoih in my mortar": [
-                "You put your nemoih in your iron mortar."
-            ],
+            "put my nemoih in my mortar": ["You put your nemoih in your iron mortar."],
             "get my nugget": ["You get a medium lead nugget."],
             "put my nugget in my mortar": [LEAD_REFUSED],
             "crush my nemoih in my mortar with my pestle": [CRUSHED],
@@ -1328,25 +1318,25 @@ def test_a_short_herb_stack_is_combined_with_another_before_the_mortar():
     fake = _fetching(
         {
             "get my dried flowers": ["You get some dried red flowers."],
-            "count my dried flowers": [TWELVE, THIRTY_SEVEN],
+            "count my flowers": [TWELVE, THIRTY_SEVEN],
             "get dried flowers from my backpack": [FROM_PACK],
-            "combine dried flowers with dried flowers": [JOINED],
-            "put my dried flowers in my mortar": [MEASURED],
+            "combine flowers with flowers": [JOINED],
+            "put my flowers in my mortar": [MEASURED],
         }
     )
     assert script.fetch_into_mortar(fake, "flowers", "herb") is True
     sent = fake.sent
-    assert sent.index("combine dried flowers with dried flowers") < sent.index(
-        "put my dried flowers in my mortar"
+    assert sent.index("combine flowers with flowers") < sent.index(
+        "put my flowers in my mortar"
     )
     assert sent.index("stow my mortar") < sent.index(
         "get dried flowers from my backpack"
     )
     # The mortar took its 25; the other 12 go back, then the pestle.
-    after = sent[sent.index("put my dried flowers in my mortar") :]
+    after = sent[sent.index("put my flowers in my mortar") :]
     assert after[:3] == [
-        "put my dried flowers in my mortar",
-        "stow my dried flowers",
+        "put my flowers in my mortar",
+        "stow my flowers",
         "get my pestle",
     ]
 
@@ -1355,13 +1345,13 @@ def test_a_herb_stack_too_short_to_top_up_is_stowed_and_bought_for():
     fake = _fetching(
         {
             "get my dried flowers": ["You get some dried red flowers."],
-            "count my dried flowers": [TWELVE],
+            "count my flowers": [TWELVE],
             "get dried flowers from my backpack": [MISSING],
         }
     )
     assert script.fetch_into_mortar(fake, "flowers", "herb") is False
-    assert "put my dried flowers in my mortar" not in fake.sent
-    assert "stow my dried flowers" in fake.sent
+    assert "put my flowers in my mortar" not in fake.sent
+    assert "stow my flowers" in fake.sent
     assert any("fewer than 25 pieces" in text for text in fake.echoed)
 
 
@@ -1370,7 +1360,7 @@ def test_the_stack_in_hand_is_counted_by_its_id_when_the_tag_carries_one():
     # whatever kind; the hand tag's id names the one held (items.name).
     fake = _fetching({"count #77": ["You count out 25 pieces of material there.\n"]})
     fake.state.left_hand = {"noun": "flowers", "name": "red flowers", "exist": "77"}
-    assert script.full_stack(fake, "dried flowers") is True
+    assert script.full_stack(fake, "flowers") is True
     assert fake.sent == ["count #77"]
 
 
@@ -1527,7 +1517,7 @@ def test_a_shortage_found_again_right_after_its_buy_ends_the_order():
         work_answers(
             **{
                 "get my dried flowers": [MISSING, "You get some dried red flowers."],
-                "count my dried flowers": [TWELVE],
+                "count my flowers": [TWELVE],
                 "get dried flowers from my backpack": [MISSING],
                 "order 13": [QUOTE, BOUGHT, QUOTE, BOUGHT],
             }
@@ -1615,22 +1605,89 @@ def test_a_herb_stow_the_store_container_refuses_goes_to_the_backpack(monkeypatc
     fake = _fetching(
         {
             "get my dried flowers": ["You get some dried red flowers."],
-            "count my dried flowers": [THIRTY_SEVEN],
-            "put my dried flowers in my mortar": [MEASURED],
-            "stow my dried flowers": ["There isn't any more room in the bag for that."],
+            "count my flowers": [THIRTY_SEVEN],
+            "put my flowers in my mortar": [MEASURED],
+            "stow my flowers": ["There isn't any more room in the bag for that."],
             "store default": ["         Default:  a rugged backpack\n"],
-            "put my dried flowers in my backpack": [
-                "You put your flowers in your backpack."
-            ],
+            "put my flowers in my backpack": ["You put your flowers in your backpack."],
         }
     )
     assert script.fetch_into_mortar(fake, "flowers", "herb") is True
     assert fake.sent[-4:] == [
-        "stow my dried flowers",
+        "stow my flowers",
         "store default",
-        "put my dried flowers in my backpack",
+        "put my flowers in my backpack",
         "get my pestle",
     ]
-    assert "the dried flowers went in the backpack — no room where STOW puts it" in (
+    assert "the flowers went in the backpack — no room where STOW puts it" in (
         fake.echoed
+    )
+
+
+# --- a bought stack that does not answer to "dried" (#420) ------------------------
+
+
+def test_a_bought_dried_stack_is_reached_by_the_plain_nouns_ordinals():
+    # #420 (2026-10-02): the Society's "dried red flowers" answer to
+    # "flowers" but not to "dried"; a fresh stack taken on the way goes
+    # back where it came from and the next ordinal reaches past it.
+    fake = _fetching(
+        {
+            "get my dried flowers": [MISSING],
+            "get my flowers": ["You get some red flowers from inside your backpack.\n"],
+            "put my flowers in my backpack": [
+                "You put your flowers in your backpack.\n"
+            ],
+            "get my second flowers": [
+                "You get some dried red flowers from inside your backpack.\n"
+            ],
+            "count my flowers": [THIRTY_SEVEN],
+            "put my flowers in my mortar": [MEASURED],
+        }
+    )
+    assert script.fetch_into_mortar(fake, "flowers", "herb") is True
+    assert fake.sent[1:5] == [
+        "get my dried flowers",
+        "get my flowers",
+        "put my flowers in my backpack",
+        "get my second flowers",
+    ]
+    assert "put my flowers in my mortar" in fake.sent
+    assert not any("missing" in text for text in fake.echoed)
+
+
+def test_no_dried_stack_among_the_nouns_items_is_the_herb_missing():
+    fake = _fetching(
+        {
+            "get my dried flowers": [MISSING],
+            "get my flowers": ["You get some red flowers from inside your backpack.\n"],
+            "put my flowers in my backpack": [
+                "You put your flowers in your backpack.\n"
+            ],
+            "get my second flowers": [MISSING],
+        }
+    )
+    assert script.fetch_into_mortar(fake, "flowers", "herb") is False
+    assert "remedies: no dried flowers on you — the herb is missing" in fake.echoed
+    assert fake.sent[-1] == "get my pestle"
+
+
+def test_a_bought_stack_in_a_container_joins_by_the_plain_nouns_ordinals():
+    # full_stack's container walk reaches the bought stacks the same way.
+    fake = _fetching(
+        {
+            "get my dried flowers": ["You get some dried red flowers."],
+            "count my flowers": [TWELVE, THIRTY_SEVEN],
+            "get dried flowers from my backpack": [MISSING],
+            "get flowers from my backpack": [
+                "You get some dried red flowers from inside your backpack.\n"
+            ],
+            "combine flowers with flowers": [JOINED],
+            "put my flowers in my mortar": [MEASURED],
+        }
+    )
+    assert script.fetch_into_mortar(fake, "flowers", "herb") is True
+    sent = fake.sent
+    assert sent.index("get flowers from my backpack") < sent.index(
+        "combine flowers with flowers"
     )
