@@ -5,7 +5,8 @@
     ;hunt <style>           a hunt style from the profile's `hunts` (its ground, prey, weapons, `until`)
     ;hunt styles            list the profile's hunt styles
     ;hunt profile [style]   print the profile the hunt would use
-    ;hunt grounds [rank]    hunting zones for your weakest weapon's rank (or <rank>), nearest first
+    ;hunt grounds [rank]    hunting zones for your weakest weapon's rank (or <rank>), nearest first,
+                            with the box rate you measured on each
     ;hunt return            (typed while it runs) finish the kill and end as below
     ;stop hunt              quit where you stand
 
@@ -19,6 +20,8 @@ What it does
     HUNT for Perception; a Barbarian's combos, abilities and roars instead.
   - The profile's `almanac` studied whenever its timer allows: in a clear room,
     or mid-fight after a RETREAT to pole range.
+  - At the end, says each creature's searches, boxes and coins; history.db keeps
+    every search (`loot`) and every hunt (`hunts`).
 
 When it stops — then walks home, and runs ;skins bank (skins sold, purse banked)
   - health below `health_floor`, or a wound at `wound_floor` (also checked before setting out)
@@ -110,7 +113,11 @@ and stance, and fights whatever engages you until you say stop: attack,
 retarget past corpses, skin the kill if the profile says so, LOOT it (a
 bare LOOT, the last creature fought — no corpse noun needed — its
 outcome a row in history.db's `loot` table, the box drop rate per
-creature, #329), pouch
+creature, #329; counted per creature for the end's "searched by
+creature" line, and the run's totals with its minutes on the ground a
+`hunts` row, so ;hunt grounds says each zone's measured boxes per
+search and boxes an hour — the wiki leaves most drop rates blank and
+the box-farm question of 2026-10-02 had one 29-minute figure, #419), pouch
 any gems (STOW GEM, and a box STOW BOX, straight off the ground into the
 containers STORE names — STORE GEMS IN <gem_pouch> and STORE BOXES
 IN <loot_container> sent only when the profile's container changes,
@@ -1316,7 +1323,9 @@ def dispose(s, profile, corpse, tally):
     outcome = classify(answer, SEARCH_OUTCOMES)
     if outcome in ("found", "nothing"):
         # Every search a row in history.db's loot table: the box drop
-        # rate per creature and ground, read off data (#329).
+        # rate per creature and ground, read off data (#329); and a
+        # count against its creature for the hunt's end (#419).
+        hunting.note_search(tally, lootlog.parse(answer), corpse)
         lootlog.log(s, answer, profile.get("hunting_ground") or "")
     taken = grab(s, profile, before, tally) if outcome is not None else []
     if outcome == "found":
@@ -1875,7 +1884,9 @@ def hunt(s, profile, db, travel_first=True, avoid=()):
             "(profile wound_floor; off never asks HEALTH)"
         )
     ready(s, profile, tally, first)
+    started = hunting.clock()
     reason = loop(s, profile, db, ground, avoid, tally)
+    minutes = (hunting.clock() - started) / 60
     s.echo(
         f"hunt: {reason} — {tally.kills} kill(s), {tally.skins} skin(s)"
         + (f", {tally.maneuvers} maneuver(s)" if tally.maneuvers else "")
@@ -1894,6 +1905,9 @@ def hunt(s, profile, db, travel_first=True, avoid=()):
             else ""
         )
     )
+    if tally.kinds:
+        s.echo(f"hunt: searched by creature — {hunting.kinds_said(tally.kinds)}")
+    record_hunt(s, profile, tally, minutes, reason)
     if s.dead:
         return
     go_home(s, profile, db, ground, avoid, reason)
@@ -1966,9 +1980,30 @@ def show_grounds(s, profile, db, words, avoid=()):
         return
     s.echo(f"hunt: hunting zones for rank {rank}, nearest first:")
     current = str(profile.get("hunting_ground") or "").strip().lower()
+    # The yield this character measured on each zone (#419): boxes per
+    # search off the loot table, boxes an hour off the hunts table.
+    measured = lootlog.measured(getattr(s.state, "name", None))
     for row in rows:
         mark = "  (your ground)" if row[0] == current else ""
-        s.echo(f"  {hunting.describe(row)}{mark}")
+        s.echo(f"  {hunting.describe(row, measured.get(row[0]))}{mark}")
+
+
+def record_hunt(s, profile, tally, minutes, reason):
+    """The run's totals as a history.db `hunts` row (#419): the minutes
+    on the ground beside the kills and what the searches found, so a
+    ground's boxes an hour is measured, not guessed."""
+    lootlog.log_hunt(
+        s,
+        ground=profile.get("hunting_ground") or "",
+        style=profile.get("hunt_style") or "",
+        minutes=round(minutes, 2),
+        kills=tally.kills,
+        searched=hunting.kinds_total(tally.kinds, "searched"),
+        boxes=hunting.kinds_total(tally.kinds, "boxes"),
+        coins=hunting.kinds_total(tally.kinds, "coins"),
+        boxes_taken=tally.boxes,
+        reason=reason,
+    )
 
 
 def main(s):

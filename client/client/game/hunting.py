@@ -19,6 +19,9 @@ as before. grounds() lists the zones whose rank range holds a rank,
 nearest first by the map's travel time from a room; weapon_rank() is
 the rank to ask with: the lowest of the profile's weapon skills, so a
 listing never suggests what the weakest weapon cannot handle.
+describe() adds the box yield measured on a zone (lootlog.yields:
+boxes per search, boxes an hour), since the wiki leaves most drop
+rates blank (#419).
 
 ;hunt's pure half lives here too (#274, #407): what the script reads
 and never sends — the kill sentence (is_kill, kill_noun), the answer
@@ -141,13 +144,36 @@ def _seconds(db, room, dest):
     return value if isinstance(value, (int, float)) else 0.2
 
 
-def describe(entry):
-    """One line for a listed zone: name, range, creatures, steps."""
+def describe(entry, measured=None):
+    """One line for a listed zone: name, range, creatures, steps, and
+    the yield measured there when there is one (lootlog.yields)."""
     name, span, creatures, steps = entry
     low, high = span
     where = "here" if steps == 0 else f"{steps} step(s)"
     who = ", ".join(creature for creature, _, _ in creatures)
-    return f"{name} ({low if low is not None else '?'}-{high if high is not None else '?'}: {who}) — {where}"
+    line = f"{name} ({low if low is not None else '?'}-{high if high is not None else '?'}: {who}) — {where}"
+    clause = yield_said(measured)
+    return f"{line}; measured {clause}" if clause else line
+
+
+def yield_said(measured):
+    """A ground's measured yield in words, "" with nothing measured:
+    "26 box(es) in 180 search(es), 14%; 2.1 box(es) an hour over 6
+    hunt(s)" — the hour only once a minute of hunting is logged (#419)."""
+    measured = measured or {}
+    parts = []
+    searched, boxes = measured.get("searched") or 0, measured.get("boxes") or 0
+    if searched:
+        parts.append(
+            f"{boxes} box(es) in {searched} search(es), {round(100 * boxes / searched)}%"
+        )
+    minutes = measured.get("minutes") or 0
+    if minutes >= 1:
+        hourly = (measured.get("hunt_boxes") or 0) * 60 / minutes
+        parts.append(
+            f"{hourly:.1f} box(es) an hour over {measured.get('hunts') or 0} hunt(s)"
+        )
+    return "; ".join(parts)
 
 
 # --- ;hunt's pure half (#274, #407) ----------------------------------------
@@ -443,6 +469,40 @@ class Tally:
         # began, by name: a kill is a corpse more than this (#315).
         self.dead_room = None
         self.dead_seen = Counter()
+        # creature -> Counter(searched, boxes, coins): every LOOT of the
+        # run against the creature it searched (#419).
+        self.kinds = {}
+
+
+def note_search(tally, parsed, corpse):
+    """One LOOT counted against its creature in tally.kinds: the name
+    the answer gives ("You search the s'lai scout."), else the corpse's
+    noun; a box it carried, and coins among what it carried (#419).
+    `parsed` is lootlog.parse's reading, None when it read nothing."""
+    parsed = parsed or {}
+    creature = parsed.get("creature") or corpse or "creature"
+    kind = tally.kinds.setdefault(creature, Counter())
+    kind["searched"] += 1
+    if parsed.get("outcome") == "box":
+        kind["boxes"] += 1
+    if "coin" in str(parsed.get("carried") or "").lower():
+        kind["coins"] += 1
+
+
+def kinds_said(kinds):
+    """The run's searches by creature, most searched first: "s'lai scout
+    x15: 1 box(es), 6 with coins; musk hog x2: 0 box(es), 0 with coins"."""
+    ordered = sorted(kinds.items(), key=lambda item: (-item[1]["searched"], item[0]))
+    return "; ".join(
+        f"{creature} x{kind['searched']}: {kind['boxes']} box(es), "
+        f"{kind['coins']} with coins"
+        for creature, kind in ordered
+    )
+
+
+def kinds_total(kinds, key):
+    """One count summed over every creature of the run."""
+    return sum(kind[key] for kind in kinds.values())
 
 
 MIND_LOCK = 34

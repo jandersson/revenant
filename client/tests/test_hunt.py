@@ -347,12 +347,22 @@ def test_every_search_is_a_row_in_the_loot_table(travel, tmp_path, monkeypatch):
 
     db = tmp_path / "history.db"
     monkeypatch.setenv("REVENANT_HISTORY_DB", str(db))
-    _run(Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]}))
+    arena = _run(
+        Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
+    )
     with sqlite3.connect(str(db)) as connection:
         rows = connection.execute(
             "SELECT creature, ground, outcome FROM loot"
         ).fetchall()
+        hunts = connection.execute(
+            "SELECT character_name, ground, style, kills, searched, boxes FROM hunts"
+        ).fetchall()
     assert rows == [("rat", PROFILE["hunting_ground"], "nothing")]
+    # #419: the end says each creature's searches, and the run is a row.
+    assert "hunt: searched by creature — rat x1: 0 box(es), 0 with coins" in (
+        arena.echoed
+    )
+    assert hunts == [("Lanival", PROFILE["hunting_ground"], "", 1, 1, 0)]
 
 
 def test_a_held_skinning_knife_is_fetched_stowed_and_never_taken_for_the_skin(travel):

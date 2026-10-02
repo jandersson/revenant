@@ -8,7 +8,7 @@
 ;hunt                 # hunt with the profile
 ;hunt <style>         # hunt one of the profile's hunt styles
 ;hunt here            # skip the walk; hunt where you stand
-;hunt grounds [rank]  # hunting zones that suit your weakest weapon, nearest first
+;hunt grounds [rank]  # hunting zones that suit your weakest weapon, nearest first, with your measured box rate
 ;hunt profile [style] # print the profile it would use
 ;hunt styles          # list the hunt styles
 ;hunt return          # finish the kill, then end as any hunt does
@@ -102,6 +102,10 @@ An empty ground is not an end: the hunt waits and laps it again.
 - A full loot container stops skinning or box pickups for the run, and says so. `;skins` sells only the bundle and names any loose skin it finds; `;boxes` opens boxes.
 - With `bundle`, the first skin starts a bundle from the rope in the loot container and later skins go straight into it. `;skins` sells the bundle and keeps the rope.
 - Nothing is ever dropped.
+
+## Box yield
+
+The hunt's end says what each kind of creature carried: `searched by creature — s'lai scout x15: 1 box(es), 6 with coins`. History.db keeps every search (`loot`) and every hunt (`hunts`: minutes on the ground, kills, boxes, coins). `;hunt grounds` adds what you measured on each zone, e.g. `measured 26 box(es) in 180 search(es), 14%; 2.1 box(es) an hour over 6 hunt(s)`. The hour appears once a hunt there has been logged.
 
 ## Spells and abilities
 

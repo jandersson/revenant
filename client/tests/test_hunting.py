@@ -158,3 +158,49 @@ def test_the_rank_to_ask_with_is_the_weakest_weapons():
     assert hunting.weapon_rank(profile, experience) == 4
     assert hunting.weapon_rank({"weapons": []}, experience) is None
     assert hunting.fits("rats", 30) and not hunting.fits("rats", 31)
+
+
+# Captured 2026-09-26, the goblins north of the Crossing (test_lootlog.py).
+GOBLIN_BOX = (
+    "You search the scavenger goblin.\nThe goblin was carrying a poorly made iron box!"
+)
+GOBLIN_COINS = (
+    "You search the scavenger goblin.\n"
+    "The goblin was carrying 9 copper coins (Kronars) and 1 bronze coin (Kronar)!"
+)
+HOG_EMPTY = "You search the large musk hog.\nYou find nothing of interest."
+
+
+def test_each_search_counts_against_the_creature_it_names():
+    # #419: the hunt's end says what each kind of creature carried.
+    from client.game import lootlog
+
+    tally = hunting.Tally()
+    for answer in (GOBLIN_BOX, GOBLIN_COINS, GOBLIN_COINS, HOG_EMPTY):
+        hunting.note_search(tally, lootlog.parse(answer), "goblin")
+    # An answer the parser could not read counts against the corpse's noun.
+    hunting.note_search(tally, None, "wolf")
+    assert hunting.kinds_said(tally.kinds) == (
+        "scavenger goblin x3: 1 box(es), 2 with coins; "
+        "large musk hog x1: 0 box(es), 0 with coins; "
+        "wolf x1: 0 box(es), 0 with coins"
+    )
+    assert hunting.kinds_total(tally.kinds, "searched") == 5
+    assert hunting.kinds_total(tally.kinds, "boxes") == 1
+
+
+def test_a_zone_line_carries_the_yield_measured_there():
+    entry = ("scouts", (36, 49), (("S'lai Scout", 36, 49),), 12)
+    plain = "scouts (36-49: S'lai Scout) — 12 step(s)"
+    assert hunting.describe(entry) == plain
+    assert hunting.describe(entry, {}) == plain
+    # Searches alone: the rate per search, no hour yet.
+    searches = {"searched": 180, "boxes": 26, "hunts": 0, "minutes": 0.0}
+    assert hunting.describe(entry, searches) == (
+        plain + "; measured 26 box(es) in 180 search(es), 14%"
+    )
+    # A logged hunt adds the hour: 3 boxes in 90 minutes.
+    hunted = searches | {"hunts": 2, "minutes": 90.0, "hunt_boxes": 3}
+    assert hunting.describe(entry, hunted).endswith(
+        "14%; 2.0 box(es) an hour over 2 hunt(s)"
+    )

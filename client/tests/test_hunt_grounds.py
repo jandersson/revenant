@@ -38,13 +38,17 @@ def test_a_map_tag_keeps_its_rooms_over_a_zone_of_the_same_name(travel, monkeypa
 class Echoes:
     def __init__(self, experience):
         self.echoed = []
-        self.state = SimpleNamespace(experience=experience, room=6046)
+        self.state = SimpleNamespace(
+            experience=experience, room=6046, name="Lanival", room_uid=1
+        )
 
     def echo(self, text):
         self.echoed.append(text)
 
 
-def test_grounds_lists_the_zones_the_weakest_weapon_suits(monkeypatch):
+def test_grounds_lists_the_zones_the_weakest_weapon_suits(monkeypatch, tmp_path):
+    # Nothing measured: the arena hunts above logged to the shared test db.
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "history.db"))
     monkeypatch.setattr(hunting, "ZONES", YARD_ZONE)
     monkeypatch.setattr(hunt, "locate", lambda db, state: state.room)
     s = Echoes({"Small Edged": {"rank": 12}, "Brawling": {"rank": 4}})
@@ -63,3 +67,26 @@ def test_grounds_lists_the_zones_the_weakest_weapon_suits(monkeypatch):
     s = Echoes({})
     hunt.show_grounds(s, PROFILE, GROUND, [])
     assert s.echoed == ["hunt: no weapon skill to go by — ;hunt grounds <rank>"]
+
+
+def test_grounds_says_the_box_rate_measured_on_a_zone(monkeypatch, tmp_path):
+    # #419: the character's own searches and hunts on the zone, beside
+    # the bestiary's band; another character's are not theirs.
+    from client.game import lootlog
+
+    path = tmp_path / "history.db"
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(path))
+    monkeypatch.setattr(hunting, "ZONES", YARD_ZONE)
+    monkeypatch.setattr(hunt, "locate", lambda db, state: state.room)
+    s = Echoes({})
+    box = "You search the rat.\nThe rat was carrying a poorly made iron box!"
+    for answer in (box, NOTHING, NOTHING, NOTHING):
+        lootlog.log(s, answer, "yard_rats")
+    sable = SimpleNamespace(state=SimpleNamespace(name="Sable", room_uid=1))
+    lootlog.log(sable, box, "yard_rats")
+    lootlog.log_hunt(s, ground="yard_rats", minutes=30.0, kills=4, boxes=1)
+    hunt.show_grounds(s, PROFILE, GROUND, ["10"])
+    assert s.echoed[1] == (
+        "  yard_rats (0-30: Rat) — 1 step(s); measured 1 box(es) in 4 search(es), "
+        "25%; 2.0 box(es) an hour over 1 hunt(s)"
+    )

@@ -83,3 +83,54 @@ def test_rows_read_back_as_rates_per_creature(tmp_path):
 def test_a_failed_write_never_raises(tmp_path):
     s = SimpleNamespace(state=SimpleNamespace(name="Lanival", room_uid=None))
     assert lootlog.log(s, BOX, path=tmp_path / "no-such-dir" / "history.db") is None
+    assert lootlog.log_hunt(s, path=tmp_path / "no-such-dir" / "history.db") is None
+
+
+def test_a_hunt_is_a_row_and_yields_read_both_tables_per_ground(tmp_path):
+    # #419: boxes per search off the loot rows, boxes an hour off the
+    # hunts rows, per ground (any case) and per character.
+    path = tmp_path / "history.db"
+    me = SimpleNamespace(state=SimpleNamespace(name="Lanival", room_uid=1))
+    twin = SimpleNamespace(state=SimpleNamespace(name="Sable", room_uid=1))
+    for answer in (BOX, COINS, EMPTY):
+        lootlog.log(me, answer, "Goblins", path=path)
+    lootlog.log(twin, BOX, "goblins", path=path)
+    seq = lootlog.log_hunt(
+        me,
+        path=path,
+        ground="goblins",
+        style="boxes",
+        minutes=30.0,
+        kills=3,
+        searched=3,
+        boxes=1,
+        coins=1,
+        boxes_taken=1,
+        reason="ground taken",
+    )
+    assert seq == 1
+    with sqlite3.connect(str(path)) as connection:
+        row = connection.execute(
+            "SELECT character_name, ground, style, minutes, kills, boxes, reason"
+            " FROM hunts"
+        ).fetchone()
+        mine = lootlog.yields(connection, "Lanival")
+        everyone = lootlog.yields(connection)
+    assert row == ("Lanival", "goblins", "boxes", 30.0, 3, 1, "ground taken")
+    assert mine == {
+        "goblins": {
+            "searched": 3,
+            "boxes": 1,
+            "hunts": 1,
+            "minutes": 30.0,
+            "hunt_boxes": 1,
+        }
+    }
+    assert everyone["goblins"]["searched"] == 4  # the twin's search too
+    assert lootlog.measured("Lanival", path=path) == mine
+
+
+def test_no_database_measures_nothing_and_creates_none(tmp_path):
+    path = tmp_path / "history.db"
+    assert lootlog.measured("Lanival", path=path) == {}
+    assert not path.exists()
