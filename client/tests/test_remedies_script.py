@@ -1513,3 +1513,92 @@ def test_a_stray_stack_in_hand_is_stowed_before_the_tools(monkeypatch):
     )
     assert script.tools_in_hand(handle)
     assert sent == ["stow my flowers", "get my mortar", "get my pestle"]
+
+
+# --- the restock guard (#413) ------------------------------------------------
+
+
+def test_a_shortage_found_again_right_after_its_buy_ends_the_order():
+    # #413 (2026-10-01): a bare COUNT that read another stack than the one
+    # bought kept the flowers "short", and the restock bought 31 times in
+    # 20 minutes. One buy per shortage: the same want with no crush since
+    # ends the order, the reason said.
+    fake = Fake(
+        work_answers(
+            **{
+                "get my dried flowers": [MISSING, "You get some dried red flowers."],
+                "count my dried flowers": [TWELVE],
+                "get dried flowers from my backpack": [MISSING],
+                "order 13": [QUOTE, BOUGHT, QUOTE, BOUGHT],
+            }
+        ),
+        mindstates=[3] + [5] * 30,
+    )
+    fake.state.possessions = PACK
+    out = run(fake, ["work", "count=1"])
+    assert fake.sent.count("order 13") == 4  # two stacks, bought once
+    assert "bought 2 x flowers" in out
+    assert (
+        "flowers bought for this shortage already and the craft still finds none" in out
+    )
+    assert "the flowers bought are not found — the order waits in the logbook" in out
+
+
+def test_water_short_again_after_crushing_is_bought_again():
+    # The guard is for a want repeated with no crush since its buy; the
+    # second stack's water, gone after real crushing, is bought as before.
+    # (A resumed craft crushes on without fetching water again, so each
+    # stack asks for water once: two misses, then the third stack's find.)
+    fake = Fake(
+        work_answers(
+            **{
+                "get my water": [MISSING, MISSING, "You get some water."],
+                "order 1": [QUOTE_WATER, BOUGHT_WATER, QUOTE_WATER, BOUGHT_WATER],
+            }
+        ),
+        mindstates=[3] + [5] * 30,
+    )
+    out = run(fake, ["work", "count=1"])
+    assert fake.sent.count("order 1") == 4
+    assert out.count("bought 1 x water") == 2
+    assert "order 1 paid 1146 Kronars" in out
+
+
+def test_a_buy_that_leaves_the_load_overburdened_stops_the_run():
+    # #413 and #411: five full stacks already read overburdened at the
+    # clerk, and the walk after failed sitting. ENCUMBRANCE after each buy.
+    fake = Fake(
+        work_answers(
+            **{
+                "get my dried flowers": [MISSING, "You get some dried red flowers."],
+                "order 13": [QUOTE, BOUGHT, QUOTE, BOUGHT],
+                "encumbrance": ["  Encumbrance : Overburdened\n"],
+            }
+        ),
+        mindstates=[3] + [5] * 30,
+    )
+    out = run(fake, ["work", "count=1"])
+    assert "encumbrance" in fake.sent
+    assert (
+        "the load reads Overburdened after buying flowers — stopping before a walk fails"
+        in out
+    )
+    assert "Overburdened after buying flowers — the order waits in the logbook" in out
+    assert "study my book" not in fake.sent[fake.sent.index("encumbrance") :]
+
+
+def test_a_load_short_of_the_limit_passes_the_buy():
+    fake = _fetching({"encumbrance": ["  Encumbrance : Very Heavy Burden\n"]})
+    assert script.overloaded(fake, "flowers", {}) is False
+    fake = _fetching({"encumbrance": ["  Encumbrance : Tottering Under Burden\n"]})
+    tally = {}
+    assert script.overloaded(fake, "flowers", tally) is True
+    assert tally["why"] == "Tottering Under Burden after buying flowers"
+
+
+def test_twenty_buys_in_a_run_end_it():
+    fake = _fetching({})
+    tally = {"crushes": 3, "spent": 0, "restocks": script.RESTOCKS_PER_RUN}
+    assert script.restock(fake, SPEC, "nugget", "dried flowers", 1, tally) is False
+    assert tally["why"] == f"{script.RESTOCKS_PER_RUN} buys this run"
+    assert not any(c.startswith("order") for c in fake.sent)

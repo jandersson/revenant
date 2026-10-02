@@ -20,7 +20,8 @@ What it does
     crafts and bundles each stack, hands the logbook in for the pay. An order that
     expires on the way is untied, its stacks stowed for the next, and another asked.
   - Buys what runs out (herbs, water, coal ten at a time), coins from the bank
-    when short, and finishes a remedy left in the mortar first.
+    when short, and finishes a remedy left in the mortar first; one buy per
+    shortage, and ENCUMBRANCE read after each.
   - First merges each dried herb's stacks in every container into full stacks
     of 75 and one short one (a stack caps at 75).
   - A herb stack short of 25 pieces is combined with the herb's other stacks
@@ -35,6 +36,8 @@ When it stops
   - `count` reached, or ;remedies return
   - death or hostiles (the shared escape)
   - the herb, water, catalyst or book not on you, or CRUSH answers it cannot read
+  - a shortage the craft still finds right after its buy, 20 buys in a run, or a
+    load reading Overburdened after one
 
 Profile keys: `catalyst` (coal nugget), `forage_herbs`, `crafting_master`, `crafting_hall`. ;train runs
 it as an Alchemy task (`"args": ["work"]` for orders, with `return_grace` and `minutes`
@@ -46,6 +49,7 @@ import time
 
 from client.game import (
     discard,
+    encumbrance,
     flight,
     hands,
     herbstacks,
@@ -217,6 +221,18 @@ for the orders, with `return_grace` long enough for the order in hand
 — an easy order of four stacks runs half an hour — and `minutes` to
 match, since the return word finishes the order before it ends).
 Stop with:  ;stop remedies, or ;remedies return.
+The restock guard (#413, 2026-10-01/02): ;remedies work bought dried
+red flowers 31 times in 20 minutes — about 24,700 Kronars, 39 stacks
+by morning — because a bare COUNT MY FLOWERS read another stack than
+the one just bought, the shortage repeated, and nothing bounded it;
+five full stacks already read overburdened at the clerk (#406) and
+the walk then failed sitting (#411). The stack in hand is counted by
+its id since #407 step 3; the guard here is the bound: a shortage the
+craft finds again with no crush since its buy ends the order with the
+reason said, RESTOCKS_PER_RUN buys end a run, and ENCUMBRANCE is read
+after every buy — LOAD_LIMIT or past it stops the run where the
+operator can lighten the load (Elanthipedia's Encumbrance page: the
+heavier the load, the less able to stand).
 """
 
 SKILL = "Alchemy"
@@ -227,6 +243,10 @@ STUDIES = 2  # STUDYs per remedy before the recipe is called wrong
 DEFAULT_MASTER = "lanshado"
 DEFAULT_HALL = "8860"  # the Crossing Alchemy Society's Tool Shop
 MASTER_LAPS = 2  # laps of the building's rooms looking for the master
+RESTOCKS_PER_RUN = 20  # buys in one run at most (#413)
+LOAD_LIMIT = (
+    "Overburdened"  # a buy leaving the load here or past it stops the run (#413)
+)
 
 
 def profile_of(s):
@@ -927,6 +947,24 @@ def buy(s, noun, count, store, catalog, tally):
         tally["spent"] += paid
         ask(s, f"stow my {noun}")
     s.echo(f"remedies: bought {count} x {noun} for {phrase(need, 'Kronars')}")
+    return not overloaded(s, noun, tally)
+
+
+def overloaded(s, noun, tally):
+    """ENCUMBRANCE after a buy (#413): True, said, when the load reads
+    LOAD_LIMIT or past it — the walk from here would fail sitting
+    (#411), so the run stops where the operator can lighten the load.
+    A reading the parser does not know passes."""
+    level = encumbrance.parse_level(ask(s, "encumbrance"))
+    if not level or encumbrance.level_index(level) < encumbrance.level_index(
+        LOAD_LIMIT
+    ):
+        return False
+    s.echo(
+        f"remedies: the load reads {level} after buying {noun} — "
+        "stopping before a walk fails"
+    )
+    tally["why"] = f"{level} after buying {noun}"
     return True
 
 
@@ -967,6 +1005,22 @@ def restock(s, spec, catalyst, why, remaining, tally, profile=None):
     if short is None:
         return None
     noun, per_stack, store, catalog = short
+    # One buy per shortage (#413): the same want again with no crush
+    # since its buy means the craft cannot find what was bought — a
+    # bare COUNT that read another stack bought flowers 31 times in 20
+    # minutes — and a second buy would only add to the load.
+    last = tally.setdefault("restocked", {})
+    if last.get(noun) == tally.get("crushes", 0):
+        s.echo(
+            f"remedies: {noun} bought for this shortage already and the craft "
+            "still finds none — stopping rather than buying again"
+        )
+        tally["why"] = f"the {noun} bought are not found"
+        return False
+    if tally.get("restocks", 0) >= RESTOCKS_PER_RUN:
+        s.echo(f"remedies: {RESTOCKS_PER_RUN} buys this run — stopping")
+        tally["why"] = f"{RESTOCKS_PER_RUN} buys this run"
+        return False
     if (
         per_stack
         and noun in FORAGE_NAMES
@@ -977,6 +1031,8 @@ def restock(s, spec, catalyst, why, remaining, tally, profile=None):
         if forage_herb(s, noun, per_stack * remaining, tally):
             return True
         s.echo(f"remedies: no {noun} foraged — buying them")
+    last[noun] = tally.get("crushes", 0)
+    tally["restocks"] = tally.get("restocks", 0) + 1
     count = max(1, per_stack * remaining)
     if catalyst and noun == catalyst:
         # A spare past the order (a rejected stack cost a 44-room walk,
@@ -1163,6 +1219,7 @@ def work(s, options, profile):
         snapshot = {key: tally.get(key, 0) for key in COUNTERS}
         state = open_order(s, parsed, options["level"])
         tally.pop("foraged", None)  # each order may forage its herb once
+        tally.pop("restocked", None)  # and buys for each shortage once (#413)
         remaining = parsed["count"]
         if remaining and spec:
             remaining = bundle_on_hand(s, parsed["item"], spec[4], remaining)
@@ -1214,7 +1271,7 @@ def work(s, options, profile):
             bought = restock(s, spec, catalyst, why, remaining, tally, profile)
             if not bought:
                 if bought is False:
-                    why = f"out of {why}"
+                    why = tally.pop("why", None) or f"out of {why}"
                 break
             if not to_master(s, profile):
                 why = "could not walk back to the crafting hall"
