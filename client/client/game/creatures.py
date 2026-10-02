@@ -17,9 +17,16 @@ fully below its MinCap, less up to its MaxCap, and nothing past it
 (Elanthipedia's Critter template, generated into creatures_data.py by
 tools/creature_tables.py); on 2026-09-26 cougars (MaxCap 49) had
 taught Small Edged 58 and Brawling 57 nothing for five hunts (#322).
+
+`has_boxes` and `box_locks` say what the wiki knows of a creature's
+boxes: the Critter page's Has Boxes (creatures_data.py's BOXES), and
+the Locksmithing page's ranks, cap and drop rate (boxes_data.py,
+tools/box_tables.py) — `;hunt grounds`' fallback where no box rate
+is measured (#422).
 """
 
-from client.game.creatures_data import CAPS
+from client.game.boxes_data import LOCKS
+from client.game.creatures_data import BOXES, CAPS
 
 _ARTICLES = ("a", "an", "the", "some")
 
@@ -75,19 +82,40 @@ def ordinals(names):
     return phrases
 
 
-def caps_of(name):
-    """(creature, (level, MinCap, MaxCap)) for a listing name, or None:
-    the longest run of its last words the table knows, so the game's
-    random adjectives drop away ("a dour forager goblin" -> "forager
-    goblin")."""
+def _lookup(name, table):
+    """(key, value) for the longest run of the name's last words the
+    table knows, or None."""
     words = str(name or "").lower().split()
     if words and words[0] in _ARTICLES:
         words = words[1:]
     for start in range(len(words)):
         key = " ".join(words[start:])
-        if key in CAPS:
-            return key, CAPS[key]
+        if key in table:
+            return key, table[key]
     return None
+
+
+def caps_of(name):
+    """(creature, (level, MinCap, MaxCap)) for a listing name, or None:
+    the longest run of its last words the table knows, so the game's
+    random adjectives drop away ("a dour forager goblin" -> "forager
+    goblin")."""
+    return _lookup(name, CAPS)
+
+
+def has_boxes(name):
+    """The creature page's Has Boxes (True, False), None when no page
+    of the name says (#422)."""
+    found = _lookup(name, BOXES)
+    return found[1] if found else None
+
+
+def box_locks(name):
+    """(ranks, cap, drop) from the wiki's Locksmithing table for the
+    creature or the nearest name it lists ("forager goblin" -> "goblin"),
+    the wiki's words; None when it lists none (#422)."""
+    found = _lookup(name, LOCKS)
+    return found[1] if found else None
 
 
 def outgrown(names, ranks):

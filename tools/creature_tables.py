@@ -115,6 +115,18 @@ def parse(title, text):
     )
 
 
+def boxes_row(title, text):
+    """(name, True/False) for a Critter page's Has Boxes ("yes", "no"),
+    or None when it says neither (#422)."""
+    fields = {key.strip().lower(): value for key, value in _FIELD.findall(text)}
+    said = (fields.get("has boxes") or "").strip().lower()
+    if said.startswith("yes"):
+        return name_of(title, fields), True
+    if said.startswith("no"):
+        return name_of(title, fields), False
+    return None
+
+
 def merge(rows):
     """One entry per name: variants of one creature ("blood wolf (1)",
     "(2)") share a name, and the most generous caps are kept — the
@@ -127,7 +139,15 @@ def merge(rows):
     return dict(sorted(table.items()))
 
 
-def render(table):
+def merge_boxes(rows):
+    """One entry per name: True when any variant has boxes."""
+    table = {}
+    for name, has in rows:
+        table[name] = table.get(name, False) or has
+    return dict(sorted(table.items()))
+
+
+def render(table, boxes=None):
     lines = [
         '"""Creatures and the ranks they teach to — generated, do not edit.',
         "",
@@ -136,6 +156,8 @@ def render(table):
         "creature's name, lowercased, to (level, MinCap, MaxCap): full",
         "learning below MinCap, none past MaxCap; variants of one name keep",
         "the highest MaxCap. level or MinCap is None where the page has none.",
+        "BOXES maps a name to the page's Has Boxes, True when any variant",
+        "has them; a page that says neither is left out.",
         '"""',
         "",
         "# fmt: off",
@@ -143,16 +165,23 @@ def render(table):
     ]
     for name, (level, mincap, maxcap) in table.items():
         lines.append(f"    {name!r}: ({level!r}, {mincap!r}, {maxcap!r}),")
+    lines += ["}", "", "BOXES = {"]
+    for name, has in (boxes or {}).items():
+        lines.append(f"    {name!r}: {has!r},")
     lines += ["}", "# fmt: on", ""]
     return "\n".join(lines)
 
 
 def main():
     titles = critter_titles()
-    rows = [row for title, text in wikitexts(titles) if (row := parse(title, text))]
-    table = merge(rows)
-    OUT.write_text(render(table), encoding="utf-8")
-    print(f"{len(titles)} pages, {len(table)} creatures with caps -> {OUT}")
+    pages = list(wikitexts(titles))
+    table = merge(row for title, text in pages if (row := parse(title, text)))
+    boxes = merge_boxes(row for title, text in pages if (row := boxes_row(title, text)))
+    OUT.write_text(render(table, boxes), encoding="utf-8")
+    print(
+        f"{len(titles)} pages, {len(table)} creatures with caps, "
+        f"{len(boxes)} with Has Boxes -> {OUT}"
+    )
 
 
 if __name__ == "__main__":

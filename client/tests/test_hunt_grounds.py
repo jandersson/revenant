@@ -58,7 +58,10 @@ def test_grounds_lists_the_zones_the_weakest_weapon_suits(monkeypatch, tmp_path)
     }
     hunt.show_grounds(s, profile, GROUND, [])
     assert s.echoed[0] == "hunt: hunting zones for rank 4, nearest first:"
-    assert s.echoed[1] == "  yard_rats (0-30: Rat) — 1 step(s)  (your ground)"
+    # Nothing measured, so the wiki's word: the rat's page says no boxes (#422).
+    assert s.echoed[1] == (
+        "  yard_rats (0-30: Rat) — 1 step(s); wiki: no boxes  (your ground)"
+    )
     assert not any("far_trolls" in line for line in s.echoed)
     # A rank given; and none to go by.
     s = Echoes({})

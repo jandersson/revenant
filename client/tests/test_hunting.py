@@ -143,8 +143,9 @@ def test_the_zones_that_suit_a_rank_are_listed_nearest_first():
     assert names[0] == "heggarangi_frog_riverhaven"  # 5 s away
     assert "rats" in names  # the ferry's 300 s, after it
     assert "grass_eels_riverhaven" not in names  # 25-50 does not hold rank 4
+    # Nothing measured: the frog's page says it has no boxes (#422).
     assert hunting.describe(rows[0]) == (
-        "heggarangi_frog_riverhaven (0-26: Heggarangi frog) — 1 step(s)"
+        "heggarangi_frog_riverhaven (0-26: Heggarangi frog) — 1 step(s); wiki: no boxes"
     )
 
 
@@ -189,7 +190,11 @@ def test_each_search_counts_against_the_creature_it_names():
     assert hunting.kinds_total(tally.kinds, "boxes") == 1
 
 
-def test_a_zone_line_carries_the_yield_measured_there():
+def test_a_zone_line_carries_the_yield_measured_there(monkeypatch):
+    from client.game import creatures
+
+    monkeypatch.setattr(creatures, "BOXES", {})  # no wiki fallback here
+    monkeypatch.setattr(creatures, "LOCKS", {})
     entry = ("scouts", (36, 49), (("S'lai Scout", 36, 49),), 12)
     plain = "scouts (36-49: S'lai Scout) — 12 step(s)"
     assert hunting.describe(entry) == plain
@@ -210,4 +215,45 @@ def test_a_zone_line_carries_the_yield_measured_there():
     assert hunting.describe(entry, worth).endswith(
         "14%; 2.0 box(es) an hour over 2 hunt(s), ~2,480 copper; "
         "1,240 copper a box over 4 opened"
+    )
+
+
+def test_where_nothing_is_measured_the_wiki_says_what_it_knows(monkeypatch):
+    # #422: the Critter pages' Has Boxes and the Locksmithing page's
+    # table, creatures sharing a reading named together; a measured
+    # yield always wins over it.
+    from client.game import creatures
+
+    monkeypatch.setattr(
+        creatures,
+        "BOXES",
+        {"forager goblin": True, "scavenger goblin": True, "musk hog": False},
+    )
+    monkeypatch.setattr(
+        creatures,
+        "LOCKS",
+        {"goblin": ("0", "40+", "High"), "wood troll": ("30", "55", "")},
+    )
+    goblins = (("Forager goblin", 12, 34), ("Scavenger goblin", 18, 36))
+    assert hunting.wiki_boxes(goblins) == (
+        "wiki: boxes from Forager goblin, Scavenger goblin "
+        "(Locksmithing 0-40+, drop high)"
+    )
+    # Listed in the table alone (no page says), and a mixed zone.
+    assert hunting.wiki_boxes((("Wood Troll", 36, 53),)) == (
+        "wiki: boxes from Wood Troll (Locksmithing 30-55)"
+    )
+    mixed = (("Musk Hog", 10, 35), ("Wood Troll", 36, 53), ("Kelpie", 35, 50))
+    assert hunting.wiki_boxes(mixed) == (
+        "wiki: boxes from Wood Troll (Locksmithing 30-55)"
+    )
+    assert hunting.wiki_boxes((("Musk Hog", 10, 35),)) == "wiki: no boxes"
+    assert hunting.wiki_boxes((("Kelpie", 35, 50),)) == ""  # the wiki is silent
+    entry = ("hogs", (10, 35), (("Musk Hog", 10, 35),), 3)
+    assert (
+        hunting.describe(entry) == "hogs (10-35: Musk Hog) — 3 step(s); wiki: no boxes"
+    )
+    measured = {"searched": 13, "boxes": 0}
+    assert hunting.describe(entry, measured).endswith(
+        "; measured 0 box(es) in 13 search(es), 0%"
     )

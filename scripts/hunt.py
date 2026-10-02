@@ -6,7 +6,7 @@
     ;hunt styles            list the profile's hunt styles
     ;hunt profile [style]   print the profile the hunt would use
     ;hunt grounds [rank]    hunting zones for your weakest weapon's rank (or <rank>), nearest first,
-                            with the boxes and copper you measured on each
+                            with the boxes and copper you measured on each, else the wiki's word
     ;hunt return            (typed while it runs) finish the kill and end as below
     ;stop hunt              quit where you stand
 

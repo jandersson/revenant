@@ -21,7 +21,9 @@ the rank to ask with: the lowest of the profile's weapon skills, so a
 listing never suggests what the weakest weapon cannot handle.
 describe() adds the box yield measured on a zone (lootlog.yields:
 boxes per search, boxes an hour; boxlog.measured: copper per box),
-since the wiki leaves most drop rates blank (#419, #423).
+since the wiki leaves most drop rates blank (#419, #423); where
+nothing is measured, what the wiki does say (wiki_boxes: the Critter
+pages' Has Boxes, the Locksmithing page's ranks and drop rate, #422).
 
 ;hunt's pure half lives here too (#274, #407): what the script reads
 and never sends — the kill sentence (is_kill, kill_noun), the answer
@@ -41,7 +43,7 @@ import re
 import time
 from collections import Counter
 
-from client.game import barbarian, buffs, hunting_data
+from client.game import barbarian, buffs, creatures, hunting_data
 from client.game.act import NOT_FOUND
 
 ZONES = hunting_data.ZONES
@@ -146,14 +148,50 @@ def _seconds(db, room, dest):
 
 def describe(entry, measured=None):
     """One line for a listed zone: name, range, creatures, steps, and
-    the yield measured there when there is one (lootlog.yields)."""
-    name, span, creatures, steps = entry
+    the yield measured there when there is one (lootlog.yields), else
+    what the wiki says of its creatures' boxes (wiki_boxes, #422)."""
+    name, span, zone_creatures, steps = entry
     low, high = span
     where = "here" if steps == 0 else f"{steps} step(s)"
-    who = ", ".join(creature for creature, _, _ in creatures)
+    who = ", ".join(creature for creature, _, _ in zone_creatures)
     line = f"{name} ({low if low is not None else '?'}-{high if high is not None else '?'}: {who}) — {where}"
     clause = yield_said(measured)
-    return f"{line}; measured {clause}" if clause else line
+    if clause:
+        return f"{line}; measured {clause}"
+    wiki = wiki_boxes(zone_creatures)
+    return f"{line}; {wiki}" if wiki else line
+
+
+def wiki_boxes(zone_creatures):
+    """What the wiki says of a zone's creatures and boxes, "" when it
+    says nothing: "wiki: boxes from Forager goblin, Scavenger goblin
+    (Locksmithing 0-40+, drop high)" — each creature whose page has
+    boxes or whose name the Locksmithing table lists, those sharing the
+    table's ranks, cap and drop rate named together (" / " between
+    groups) — else "wiki: no boxes" when every page that says says no
+    (#422)."""
+    groups, without = {}, 0
+    for creature, _low, _high in zone_creatures:
+        has = creatures.has_boxes(creature)
+        locks = creatures.box_locks(creature)
+        if has is False:
+            without += 1
+            continue
+        if not (has or locks):
+            continue
+        detail = []
+        if locks:
+            ranks, cap, drop = locks
+            detail.append(f"Locksmithing {ranks or '?'}-{cap or '?'}")
+            if drop:
+                detail.append(f"drop {drop.lower()}")
+        groups.setdefault(", ".join(detail), []).append(creature)
+    if groups:
+        return "wiki: boxes from " + " / ".join(
+            ", ".join(names) + (f" ({detail})" if detail else "")
+            for detail, names in groups.items()
+        )
+    return "wiki: no boxes" if without else ""
 
 
 def yield_said(measured):

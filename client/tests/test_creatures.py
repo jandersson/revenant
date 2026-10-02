@@ -41,6 +41,17 @@ def test_a_listing_name_finds_its_creature_past_the_article_and_adjectives():
     assert creatures.caps_of("a rise in the cliff") is None
 
 
+def test_the_wiki_says_which_creatures_have_boxes_and_for_what_ranks():
+    # #422, the generated tables: the Critter pages' Has Boxes, and the
+    # Locksmithing page's table by the nearest name it lists.
+    assert creatures.has_boxes("a dour forager goblin") is True
+    assert creatures.has_boxes("a blood wolf") is False  # 0 boxes in 331 searches
+    assert creatures.has_boxes("a rise in the cliff") is None
+    assert creatures.box_locks("forager goblin") == ("0", "40+", "High")
+    assert creatures.box_locks("wood troll") == ("30", "55", "")
+    assert creatures.box_locks("blood wolf") is None
+
+
 def test_cougars_have_nothing_left_for_rank_58_and_wolves_do():
     # 2026-09-26: five hunts on the bobcats ground — mostly cougars,
     # MaxCap 49 — left Small Edged 58 and Brawling 57 at 0-3/34.

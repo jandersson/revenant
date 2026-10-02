@@ -459,7 +459,8 @@ RELOADABLE_MODULES = (
     "client.game.hands",  # binds act: after it
     "client.game.items",  # binds hands and possessions: after them
     "client.game.creatures_data",
-    "client.game.creatures",  # binds CAPS from creatures_data: after it
+    "client.game.boxes_data",
+    "client.game.creatures",  # binds CAPS/BOXES and LOCKS from both: after them
     "client.game.loot",  # binds noun_of from creatures: after it
     "client.game.almanac",
     "client.game.interlude",  # binds almanac and probe: after them
