@@ -72,6 +72,8 @@ A task with no `skills` runs once per cycle for its `minutes`: selling skins, ba
 
 A task with a helper and no `script` or `commands` lasts while the helper's script runs: an Empath healing you after a hunt.
 
+A teacher running `;teach` logs itself out after 5 minutes with no student in the class, so a helper whose student's `;train` stopped does not teach an empty room.
+
 A few tasks:
 
 ```json

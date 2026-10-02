@@ -4,6 +4,9 @@
     ;teach scholarship open        TEACH ... OPEN — a class anyone may LISTEN to
     ;teach return                  (typed while it runs) STOP TEACHING and end
 
+With no student in the class for 5 minutes it stops teaching and logs
+the teacher out (QUIT).
+
 A class is TEACH <skill> TO <student> on the teacher's side — "You
 begin to lecture Cecil on the proper use of the Scholarship skill." —
 and LISTEN TO <teacher> on the student's (`;listen`); both learn until
@@ -25,6 +28,8 @@ command. Stop with:  ;stop teach (the class stays up — STOP TEACHING
 yourself), or ;teach return.
 """
 
+import time
+
 from client.game import flight
 from client.game.act import ask
 from client.game.loop import danger, pause, wants_stop
@@ -41,6 +46,20 @@ from client.game.teaching import (
 POLL = 5  # seconds between looks at the flags
 REOFFER_AFTER = 20  # seconds after the students left before the next offer
 MAX_REOFFERS = 200  # the fuse under an evening of rests
+# Minutes with no student in the class before the teacher stops and
+# logs out (the operator, 2026-10-02: "he should log out if he has no
+# teachees" — a helper whose student's ;train died taught an empty
+# room until told).
+ALONE_MINUTES = 5
+clock = time.monotonic  # tests replace it
+
+
+def log_out(s, why):
+    """STOP TEACHING, said, then QUIT — a script's own QUIT passes the
+    session's policy, as ;logout's does."""
+    ask(s, "stop teaching")
+    s.echo(f"teach: {why} — logging out")
+    s.put("quit")
 
 
 def offer(s, options):
@@ -73,6 +92,7 @@ def run(s, options):
     s.flag("offer expired", *OFFER_EXPIRED)
     s.flag("student joined", *STUDENT_JOINED)
     offers = 1
+    alone_since = clock()  # no student yet; None while one listens
     try:
         while True:
             if not pause(s, POLL):
@@ -88,8 +108,15 @@ def run(s, options):
                 break
             if s.flagged("student joined"):
                 s.echo("teach: a student joined the class")
+                alone_since = None
+            left = s.flagged("students left")
             expired = s.flagged("offer expired")
-            if s.flagged("students left") or expired:
+            if (left or expired) and alone_since is None:
+                alone_since = clock()
+            if alone_since is not None and clock() - alone_since >= ALONE_MINUTES * 60:
+                log_out(s, f"no student for {ALONE_MINUTES} min")
+                return
+            if left or expired:
                 why = "the offer expired untaken" if expired else "the students left"
                 wait = 0 if expired else REOFFER_AFTER
                 s.echo(

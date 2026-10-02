@@ -225,6 +225,8 @@ class Fake:
 
 def run(script, fake, args):
     script.ask = fake.ask  # act.ask, imported by name (#407)
+    if script is teach:
+        teach.clock = lambda: fake.now  # the fake's clock, advanced by sleep
     parse = teaching.parse_teach_args if script is teach else teaching.parse_listen_args
     script.run(fake, parse(args))
     return "\n".join(fake.echoed)
@@ -249,6 +251,25 @@ def test_teach_offers_again_when_the_students_leave_and_stops_on_return():
     refused = Fake({"teach": ["You are not skilled enough to teach that.\n"]})
     out = run(teach, refused, ["scholarship", "to", "cecil"])
     assert "not skilled enough" in out and "no class — stopping" in out
+
+
+def test_a_teacher_with_no_student_for_five_minutes_logs_out():
+    # The operator, 2026-10-02: "he should log out if he has no
+    # teachees". A helper whose student's ;train died with its session
+    # taught an empty room from 21:15 until told: the students left,
+    # and every re-offer expired untaken.
+    fake = Fake({"teach": [TEACHING]}, ends_at=10)
+    out = run(teach, fake, ["scholarship", "to", "cecil"])
+    assert fake.sent[-2:] == ["stop teaching", "quit"]
+    assert "teach: no student for 5 min — logging out" in out
+    assert fake.now >= teach.ALONE_MINUTES * 60
+    # A student who joins resets the clock: the class runs on until return.
+    joined = Fake({"teach": [TEACHING]}, stop_at=900, ends_at=200)
+    joined.fires = ("student joined",)
+    out = run(teach, joined, ["scholarship", "to", "cecil"])
+    assert "quit" not in joined.sent
+    assert "teach: a student joined the class" in out
+    assert "stopping as asked" in out
 
 
 def test_listen_reads_the_skill_holds_on_its_mindstate_and_rejoins():
