@@ -130,6 +130,9 @@ class FakeHandle:
     def echo(self, text):
         self.echoes.append(text)
 
+    def sleep(self, seconds):
+        self.calls.append(("sleep", seconds))
+
 
 TREE = MapDB(
     [
@@ -195,15 +198,30 @@ class ClimbHandle(FakeHandle):
     # Captured 2026-09-19 in the Tower of Honor's chapel, kneeling after
     # PRAY CHADATRU (#220).
     KNEELING = "You can't do that while kneeling!\n"
+    # A plain move sent sitting (captured 2026-10-02, #411).
+    SEATED = "You can't do that while sitting!\n"
+    # STAND's answers (#411): each STAND takes the next of `stands`, "ok"
+    # once the list is spent.
+    STANDS = {
+        "ok": "You stand back up.\n",
+        "overburdened": (
+            "You are overburdened and cannot manage to stand.\nRoundtime: 9 sec.\n"
+        ),
+        "unbalanced": "You are so unbalanced you cannot manage to stand.\n",
+    }
 
-    def __init__(self, uids, answers):
+    def __init__(self, uids, answers, stands=()):
         super().__init__(uids)
         self.answers = list(answers)
+        self.stands = list(stands)
         self.pending = []
 
     def put(self, command):
         super().put(command)
-        if command.startswith("climb"):
+        if command == "stand":
+            kind = self.stands.pop(0) if self.stands else "ok"
+            self.pending = [("", self.STANDS[kind])]
+        elif command.startswith("climb"):
             answer = self.answers.pop(0)
             if answer == "ok":
                 self.state.room_uid = self._uids.pop(0)
@@ -212,6 +230,8 @@ class ClimbHandle(FakeHandle):
                 self.pending = [("", self.SITTING)]  # no hindering line
             elif answer == "kneeling":
                 self.pending = [("", self.KNEELING)]  # a plain move's refusal (#220)
+            elif answer == "seated":
+                self.pending = [("", self.SEATED)]
             else:
                 self.pending = [("", HINDER), ("", self.ANSWERS[answer])]
 
@@ -472,6 +492,48 @@ def test_a_walk_stands_first_when_the_parser_says_you_are_not_standing():
     standing.status = SimpleNamespace(posture="standing")
     assert walker.walk(standing, TREE, [5705]) is True
     assert puts_of(standing) == ["climb felled tree"]
+
+
+def test_an_overburdened_stand_ends_the_walk_with_the_reason():
+    # #411 (2026-10-02, the ;train boxes task): the move answered "You
+    # can't do that while sitting!", the STAND "You are overburdened and
+    # cannot manage to stand.", and the walker said "stood up first",
+    # sent the step again and gave up with "still cannot move".
+    handle = ClimbHandle(uids=[224006], answers=["seated"], stands=["overburdened"])
+    handle.state.room_uid = 224005
+    assert walker.walk(handle, TREE, [5705]) is False
+    assert puts_of(handle) == ["climb felled tree", "stand"]  # no second step
+    assert any(
+        "cannot stand ('You are overburdened and cannot manage to stand.') — "
+        "bank or stow the load first; stopping here" in echo
+        for echo in handle.echoes
+    )
+    assert not any("stood up first" in echo for echo in handle.echoes)
+
+
+def test_the_stand_before_the_walk_is_read_too():
+    handle = ClimbHandle(uids=[224006], answers=["ok"], stands=["overburdened"])
+    handle.state.room_uid = 224005
+    handle.status = SimpleNamespace(posture="sitting")
+    assert walker.walk(handle, TREE, [5705]) is False
+    assert puts_of(handle) == ["stand"]
+    assert any(
+        "cannot stand to walk ('You are overburdened and cannot manage to stand.')"
+        " — bank or stow the load first" in echo
+        for echo in handle.echoes
+    )
+
+
+def test_an_unbalanced_stand_waits_and_stands_once_more():
+    # "You are so unbalanced you cannot manage to stand." (five captures):
+    # balance comes back in seconds, so one retry after a short wait.
+    handle = ClimbHandle(uids=[224006], answers=["ok"], stands=["unbalanced", "ok"])
+    handle.state.room_uid = 224005
+    handle.status = SimpleNamespace(posture="sitting")
+    assert walker.walk(handle, TREE, [5705]) is True
+    assert puts_of(handle) == ["stand", "stand", "climb felled tree"]
+    assert ("sleep", walker.BALANCE_WAIT) in handle.calls
+    assert any("stood up first (you were sitting)" in echo for echo in handle.echoes)
 
 
 def test_vertigo_is_a_refusal_too():

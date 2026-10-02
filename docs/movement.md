@@ -21,7 +21,7 @@
 
 ## What the walk does for you
 
-- **Stands up first** if you are sitting or kneeling.
+- **Stands up first** if you are sitting or kneeling, and reads the answer: overburdened, it stops with "bank or stow the load first" instead of walking on seated; unbalanced, it waits a moment and stands again.
 - **Waits out roundtime** before every step; a step the game answers "...wait N seconds." is sent again once that roundtime is over.
 - **Searches for hidden ways:** a map edge that SEARCHes first repeats the SEARCH (15 at most) until something is found — one often finds nothing.
 - **Escapes an engagement:** a step that stalls gets RETREAT, RETREAT and the step again, once.

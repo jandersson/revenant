@@ -19,6 +19,8 @@ What it does
   - Picks with the `lockpick` or the worn `lockpick_ring`, refilled once a run at
     Ragge's (`lockpick_refill` of `lockpick_kind`; 0 never buys).
   - Coins to the purse, gems to `gem_pouch`, the rest to the loot container.
+  - Sits for the work, but stays standing when the load reads Overburdened:
+    a sitter that heavy cannot stand again.
   - What `loot_ignore` names (the common metals by default) goes in the room's
     trash; with no trash in the room it is kept.
   - At the lock it holds until Locksmithing drains, then goes on.
@@ -44,7 +46,17 @@ docs/training.md has the profile keys. Report any "boxes: <command> answered ...
 """
 
 from client.engine.scripting import ScriptStopped
-from client.game import discard, flight, hands, money, shop, trainer, travel, walker
+from client.game import (
+    discard,
+    encumbrance,
+    flight,
+    hands,
+    money,
+    shop,
+    trainer,
+    travel,
+    walker,
+)
 from client.game import boxes as boxes_model
 from client.game.act import ask, missing, said
 from client.game.boxes import (
@@ -210,6 +222,9 @@ MIND_LOCK = 34
 IDENTIFY_TRIES = 3
 WORK_TRIES = 5
 MAX_BOXES = 200  # the fuse under the loop
+# No SIT at this burden or past it: "You are overburdened and cannot
+# manage to stand." (#411, 2026-10-02 — the walk home failed seated).
+LOAD_LIMIT = "Overburdened"
 DEFAULT_WOUND_FLOOR = "harmful"
 
 
@@ -395,7 +410,7 @@ def recover(run, noun):
             run.say(f"the {noun} was knocked to the floor — picked back up")
     posture = getattr(getattr(s, "status", None), "posture", None)
     if posture == "prone":
-        ask(s, "stand" if run.options.get("stand") else "sit")
+        ask(s, "stand" if run.options.get("stand") or too_heavy_to_sit(run) else "sit")
         s.waitrt()
 
 
@@ -437,8 +452,25 @@ def sprung(run, answer, noun=""):
     return hurt(run)
 
 
+def too_heavy_to_sit(run):
+    """ENCUMBRANCE read: True at LOAD_LIMIT or past it, said once a run
+    — a sitter that heavy cannot stand again (#411)."""
+    level = encumbrance.parse_level(ask(run.s, "encumbrance"))
+    heavy = bool(level) and encumbrance.level_index(level) >= encumbrance.level_index(
+        LOAD_LIMIT
+    )
+    if heavy and "load" not in run.reported:
+        run.reported.add("load")
+        run.say(f"the load reads {level} — working standing, a sit could not be undone")
+    return heavy
+
+
 def sit(run):
+    """SIT for the box work, unless `stand` was asked or the load is too
+    heavy to stand up from again."""
     if run.options["stand"]:
+        return
+    if too_heavy_to_sit(run):
         return
     ask(run.s, "sit")
 

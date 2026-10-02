@@ -156,6 +156,15 @@ POSTURE_REFUSALS = ("You must be standing", "You must stand first")
 # Honor's chapel, #220); the sitting and lying wordings are assumed.
 # STAND and one retry, not the engaged-stall burst.
 KNEELING_REFUSALS = ("while kneeling", "while sitting", "while lying down")
+# STAND's answers, captured: "You stand back up.", "You are already
+# standing.", and two refusals — "You are overburdened and cannot
+# manage to stand." (Roundtime 9-10 s; #411, a box run that sat on
+# overburdened) and "You are so unbalanced you cannot manage to
+# stand." Balance comes back in seconds; a load does not.
+STAND_ANSWERS = ("You stand back up", "already standing", "cannot manage to stand")
+STAND_REFUSED = ("cannot manage to stand",)
+STAND_SECONDS = 2.0  # the answer window
+BALANCE_WAIT = 3  # seconds before the one retry an unbalanced STAND gets
 # An exit the map has and the game has not: the Riverbank Mudflats'
 # "go panel" answered "I could not find what you were referring to."
 # (2026-09-18) — a hidden way, or a map edge that is wrong. Closed for
@@ -504,6 +513,36 @@ def note_climb(s, command, outcome, wording, room):
     climblog.log_walk(s, command, kind, wording, room=room)
 
 
+def stand(s):
+    """STAND with the answer read (#411): (True, "") once standing —
+    "You stand back up.", "You are already standing.", or nothing in
+    the window — else (False, the refusal's line). An unbalanced
+    refusal gets one retry after BALANCE_WAIT; an overburdened one
+    does not, the load has to go first."""
+    line = ""
+    for attempt in range(2):
+        s.put("stand")
+        wording = read_story(s, STAND_SECONDS, until=STAND_ANSWERS)
+        s.waitrt()
+        if not any(needle in wording for needle in STAND_REFUSED):
+            return True, ""
+        line = answer_line(wording, STAND_REFUSED)
+        if "unbalanced" in wording and attempt == 0:
+            s.sleep(BALANCE_WAIT)
+            continue
+        break
+    return False, line
+
+
+def stand_advice(refusal):
+    """What to do about a STAND the game refused."""
+    if "overburdened" in refusal:
+        return "bank or stow the load first"
+    if "unbalanced" in refusal:
+        return "your balance has to come back first"
+    return "the walk cannot start"
+
+
 def retry_climb(s, command, hindering):
     """The one retry a turned-back climb gets: the refusal's roundtime
     waited out, STAND (a failed climb sits you down, and the posture
@@ -513,9 +552,8 @@ def retry_climb(s, command, hindering):
     hindering items stowed (a worn piece answers STOW with a refusal,
     harmless), the climb again. Returns await_arrival's answer."""
     s.waitrt()
-    s.put("stand")
-    s.waitrt()
-    steps = ["stood up"]
+    stood, _ = stand(s)
+    steps = ["stood up" if stood else "could not stand"]
     for noun in hindering:
         s.put(f"stow my {noun}")
         s.waitrt()
@@ -629,8 +667,12 @@ def walk(s, db, goals, describe="destination", avoid=(), max_steps=None):
     # state has not caught up with.
     posture = getattr(getattr(s, "status", None), "posture", None)
     if posture and posture != "standing":
-        s.put("stand")
-        s.waitrt()
+        stood, refusal = stand(s)
+        if not stood:
+            # #411: "You are overburdened and cannot manage to stand." —
+            # the walk used to say "stood up first" and fail seated.
+            s.echo(f"cannot stand to walk ({refusal!r}) — {stand_advice(refusal)}")
+            return False
         s.echo(f"stood up first (you were {posture})")
     avoid = frozenset(avoid)
     # (room, dest) edges the game refused this walk (#209), and those a
@@ -731,8 +773,13 @@ def _follow(s, db, route, here, closed):
             # (#220); the engaged-stall burst below would not help.
             first = answer_line(wording, KNEELING_REFUSALS)
             s.waitrt()
-            s.put("stand")
-            s.waitrt()
+            stood, refusal = stand(s)
+            if not stood:
+                s.echo(
+                    f"step {number}: cannot stand ({refusal!r}) — "
+                    f"{stand_advice(refusal)}; stopping here"
+                )
+                return False
             s.echo(f"step {number}: stood up first ({first!r})")
             s.put(move)
             outcome, hindering, wording = await_arrival(s)

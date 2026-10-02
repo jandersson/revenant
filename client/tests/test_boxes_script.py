@@ -180,7 +180,14 @@ def run(fake, args=(), profile=None, droppable=("box",), bin_here=True):
 def test_a_box_is_taken_disarmed_picked_opened_emptied_and_binned():
     fake = Fake(one_easy_box(), mindstates=[1, 3, 5, 7])
     out = run(fake)
-    assert fake.sent[:3] == ["look in my sack", "sit", "get box from my sack"]
+    # The load is read before the SIT (#411): a sitter too heavy to stand
+    # again works standing instead.
+    assert fake.sent[:4] == [
+        "look in my sack",
+        "encumbrance",
+        "sit",
+        "get box from my sack",
+    ]
     assert "disarm my box identify" in fake.sent
     assert "disarm my box" in fake.sent  # a simple trap: plain caution (4/17)
     assert "get my lockpick" in fake.sent
@@ -1081,3 +1088,25 @@ def test_guards_and_no_home_end_the_run_saying_so(monkeypatch):
     assert "the guards here forbid box work, and the profile names no home" in out
     assert "guards forbid box work here — stopping" in out
     assert fake.sent.count("disarm my box identify") == 1  # never tried again
+
+
+# --- no SIT on a load that could not be stood up from (#411) --------------------
+
+
+def test_the_box_work_stays_standing_when_the_load_could_not_be_stood_up_from():
+    # #411 (2026-10-02): ;boxes sat on overburdened after a hunt, STAND
+    # answered "You are overburdened and cannot manage to stand.", and the
+    # walk home failed seated. ENCUMBRANCE is read before every SIT.
+    fake = Fake([("encumbrance", "  Encumbrance : Overburdened\n")])
+    script.ask = fake.ask
+    runner = script.Run(fake, PROFILE, script.parse_args([]))
+    script.sit(runner)
+    script.sit(runner)
+    assert "sit" not in fake.sent
+    assert fake.echoed == [
+        "boxes: the load reads Overburdened — working standing, a sit could not be undone"
+    ]  # said once a run
+    light = Fake([("encumbrance", "  Encumbrance : Burdened\n")])
+    script.ask = light.ask
+    script.sit(script.Run(light, PROFILE, script.parse_args([])))
+    assert light.sent == ["encumbrance", "sit"]
