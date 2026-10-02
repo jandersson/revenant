@@ -1158,3 +1158,34 @@ def test_a_box_whose_trap_is_already_down_goes_straight_to_the_lock():
     assert "would not identify" not in out
     assert "pick my box identify" in fake.sent
     assert "the box opened" in out
+
+
+# --- the answer reports quote the game's line (#410) ----------------------------
+
+
+def test_an_answer_report_quotes_the_games_line_not_a_bystanders():
+    # #410 (2026-10-02): "look in my sack answered 'Name: Lanival … Guild:
+    # Paladin'" (another script's INFO landed first) and "get coffer
+    # answered '<a passer-by> goes out.'" — the report is for the
+    # fixtures, so it quotes the line the kind's wordings name.
+    answers = one_easy_box()
+    answers[0] = (
+        "look in my sack",
+        "Name: Lanival  Race: Dwarf  Guild: Paladin\n" + SACK,
+    )
+    answers[1] = (
+        "get box from my sack",
+        "Sarleyth goes out.\nYou get a dented iron box from inside your canvas sack.\n",
+    )
+    fake = Fake(answers, mindstates=[1, 3, 5, 7])
+    out = run(fake)
+    assert "boxes: look in my sack answered 'In the canvas sack you see" in out
+    assert (
+        "boxes: get box answered 'You get a dented iron box from inside your canvas "
+        "sack.'" in out
+    )
+    assert "Sarleyth" not in out and "Name: Lanival" not in out
+    # Every report kind names its wordings but the unrecognized ones.
+    for kind in ("look in", "get", "take", "open", "disarm", "pick", "ring", "wear"):
+        assert script.REPORT_NEEDLES[kind]
+    assert "disarm?" not in script.REPORT_NEEDLES

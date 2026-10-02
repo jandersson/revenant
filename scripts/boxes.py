@@ -61,6 +61,7 @@ from client.game import boxes as boxes_model
 from client.game.act import ask, missing, said
 from client.game.boxes import (
     DISARM_OUTCOMES,
+    DISARMED_LOOK,
     already_disarmed,
     LOCK_CAUTION,
     LOCK_READINGS,
@@ -226,6 +227,48 @@ MAX_BOXES = 200  # the fuse under the loop
 # No SIT at this burden or past it: "You are overburdened and cannot
 # manage to stand." (#411, 2026-10-02 — the walk home failed seated).
 LOAD_LIMIT = "Overburdened"
+
+
+def _wordings(*tables):
+    """Every wording in the tables given — an outcomes table's rows
+    (name, wordings) or a plain tuple of wordings — flattened."""
+    found = []
+    for table in tables:
+        for entry in table:
+            if (
+                isinstance(entry, tuple)
+                and len(entry) == 2
+                and isinstance(entry[1], tuple)
+            ):
+                found.extend(entry[1])
+            else:
+                found.append(entry)
+    return tuple(found)
+
+
+_NOT_FOUND = ("what were you referring", "could not find")
+# The wordings each answer report's kind expects of the game (#410):
+# act.said quotes the line holding one, never a bystander's line or
+# another script's output that landed first in the window — "look in
+# my sack answered 'Name: Lanival ...'" and "get coffer answered
+# '<a passer-by> goes out.'" (2026-10-02). The "(unrecognized)" kinds
+# have no known wording by definition and keep the first line.
+REPORT_NEEDLES = {
+    "look in": ("you see", "nothing in", "is empty", "there is nothing", *_NOT_FOUND),
+    "look in container": ("you see", "nothing in", "is empty", "there is nothing"),
+    "get": ("you get", "you remove", "you pick up", "need a free hand", *_NOT_FOUND),
+    "take": _wordings(TAKE_OUTCOMES),
+    "open": _wordings(OPEN_OUTCOMES),
+    "disarm identify": _wordings(TRAP_READINGS, DISARM_OUTCOMES, DISARMED_LOOK),
+    "disarm": _wordings(DISARM_OUTCOMES),
+    "pick identify": _wordings(LOCK_READINGS, PICK_OUTCOMES),
+    "pick": _wordings(PICK_OUTCOMES),
+    "ring": ("you put", "you slide", "onto", "you add", *RING_EMPTY, *RING_REFUSED),
+    "wear": WORN,
+    "lower": ("you lower", "you set", "lower what", *_NOT_FOUND),
+    "lift": ("you lift", "you pick up", "lift what", *_NOT_FOUND),
+    "dismantle": (*DISMANTLED, *TOAD, "dismantle what", *_NOT_FOUND),
+}
 DEFAULT_WOUND_FLOOR = "harmful"
 
 
@@ -256,11 +299,13 @@ class Run:
         self.s.echo(f"boxes: {text}")
 
     def report(self, kind, command, answer):
-        """Echo a run's first answer of each kind, for the fixtures."""
+        """Echo a run's first answer of each kind, for the fixtures: the
+        game's own line, found by the wordings the kind expects
+        (REPORT_NEEDLES), never a bystander's that landed first (#410)."""
         if kind in self.reported:
             return
         self.reported.add(kind)
-        self.say(f"{command} answered {said(answer)!r}")
+        self.say(f"{command} answered {said(answer, REPORT_NEEDLES.get(kind, ()))!r}")
 
 
 def hindrance(run, answer):
