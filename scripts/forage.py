@@ -16,8 +16,9 @@ What it does
     Perception trains alongside.
   - herb: FORAGE <herb> PRECISE (Remedial Herb Gathering; plain FORAGE without it),
     finds into the loot container; then, at the Crossing Alchemy
-    Society's dry press, each is pressed and all are combined into one dried stack
-    — the finds a STOW sent to the backpack too, past the dried stacks there.
+    Society's dry press, each is pressed and combined into the dried stack (a full
+    one holds 75; the rest starts another) — the finds a STOW sent to the backpack
+    too, past the dried stacks there. The end line says how many were pressed.
   - Both hands full: a find in hand goes in the sack, anything else is STOWed,
     never a drop, and it goes on.
 
@@ -439,8 +440,11 @@ def press_herb(s, noun, bag):
     """At the dry press: each raw find out of `bag` pressed and combined
     with the dried stack before it, the stack stowed — the stacks in
     hand named by their ids (held_name) — then the finds a STOW sent to
-    the default container instead (#403), the same way. The dried
-    stack's pieces, or None when nothing came out of either."""
+    the default container instead (#403), the same way. (stacks
+    pressed, where the dried stack went), or None when nothing came out
+    of either. No closing COUNT: with more than one dried stack there,
+    GET DRIED reached an older one and the end line said "6 dried
+    piece(s)" after 76 were pressed (#421)."""
     home = ""  # where STOW puts the dried stack, read off its answer
     stacks = 0
     for _ in range(MAX_COLLECTS):
@@ -464,14 +468,8 @@ def press_herb(s, noun, bag):
         stacks += more
     if not stacks:
         return None
-    if home:
-        ask(s, f"get dried {noun} from my {home}")
-        total = pieces_of(s, noun)
-        ask(s, f"stow {held_name(s, noun)}")
-        stow_herb_in_hands(s, noun)
-        return total
     stow_herb_in_hands(s, noun)
-    return 0
+    return stacks, home
 
 
 def run_herb(s, options, db=None, avoid=(), bag="sack"):
@@ -489,10 +487,12 @@ def run_herb(s, options, db=None, avoid=(), bag="sack"):
         s, PRESS_ROOMS, "the dry press", db=db, walk=walk, avoid=avoid
     ):
         return f"{reason}; could not reach the dry press — the {noun} wait in the {bag}"
-    total = press_herb(s, noun, bag)
-    if total is None:
+    pressed = press_herb(s, noun, bag)
+    if pressed is None:
         return f"{reason}; nothing to press"
-    return f"{reason}; pressed and combined — {total} dried piece(s) stowed"
+    stacks, home = pressed
+    where = f" in the {home}" if home else ""
+    return f"{reason}; {stacks} fresh stack(s) pressed and combined{where}"
 
 
 def main(s):

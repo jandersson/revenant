@@ -375,9 +375,6 @@ def test_a_herb_is_foraged_to_the_pieces_then_pressed_and_combined(travel):
             FROM_PACK,  # the backpack pass (#403): the dried stack, put back
             INTO_PACK,
             NOTHING,  # nothing past it
-            FROM_PACK,
-            "You count out 12 pieces of material there.",
-            INTO_PACK,
         ],
         room=19343,
     )
@@ -400,7 +397,7 @@ def test_a_herb_is_foraged_to_the_pieces_then_pressed_and_combined(travel):
         "put my flowers in press"
     )
     assert "get my second flowers from my backpack" in s.sent
-    assert reason.endswith("pressed and combined — 12 dried piece(s) stowed")
+    assert reason.endswith("; 2 fresh stack(s) pressed and combined in the backpack")
 
 
 def test_fresh_finds_a_stow_sent_to_the_backpack_are_pressed_too(travel):
@@ -433,9 +430,6 @@ def test_fresh_finds_a_stow_sent_to_the_backpack_are_pressed_too(travel):
             COMBINED,
             INTO_PACK,
             NOTHING,  # the third: nothing
-            FROM_PACK,
-            "You count out 18 pieces of material there.",
-            INTO_PACK,
         ],
         room=19343,
     )
@@ -444,7 +438,52 @@ def test_fresh_finds_a_stow_sent_to_the_backpack_are_pressed_too(travel):
     assert s.sent.count("put my flowers in press") == 3
     assert "get my second flowers from my backpack" in s.sent
     assert "get my third flowers from my backpack" in s.sent
-    assert reason.endswith("pressed and combined — 18 dried piece(s) stowed")
+    assert reason.endswith("; 3 fresh stack(s) pressed and combined in the backpack")
+
+
+def test_the_end_line_says_what_was_pressed_never_a_stack_it_reaches(travel):
+    # #421 (2026-10-02, 18:01): a combine left some over, the backpack
+    # held three dried stacks — two new, an older one of 6 — and the end
+    # line's closing GET DRIED + COUNT reached the old one: "76 piece(s)
+    # of red flower found; pressed and combined — 6 dried piece(s)
+    # stowed". The line says the presses now, and nothing is counted.
+    s = Fake(
+        [
+            HERB_FOUND,
+            SIX,
+            INTO_SACK,
+            HERB_FOUND,
+            SIX,
+            INTO_SACK,
+            FROM_SACK,
+            PRESSED,
+            INTO_PACK,
+            FROM_SACK,
+            PRESSED,
+            FROM_PACK,
+            # Captured 2026-10-02, 18:01.
+            "You combine the stacks of herbs together, but some was left over.",
+            INTO_PACK,
+            NOTHING,  # the sack is empty
+            FROM_PACK,  # the backpack: three dried stacks, each put back
+            INTO_PACK,
+            FROM_PACK,
+            INTO_PACK,
+            FROM_PACK,
+            INTO_PACK,
+            NOTHING,
+        ],
+        room=19343,
+    )
+    options = forage.parse_args(["herb", "red", "flower", "pieces=12"])
+    reason = forage.run_herb(s, options, db=GARDEN, bag="sack")
+    pressing = s.sent[s.sent.index("put my flowers in press") :]
+    assert not any(command.startswith("count") for command in pressing)
+    assert "get my fourth flowers from my backpack" in s.sent
+    assert reason == (
+        "12 piece(s) of red flower found; "
+        "2 fresh stack(s) pressed and combined in the backpack"
+    )
 
 
 def test_a_find_in_hand_goes_to_the_sack_when_the_hands_fill():
@@ -498,9 +537,6 @@ def test_the_stacks_in_hand_are_named_by_their_ids_at_the_press():
             FROM_PACK,  # the backpack pass (#403): the dried stack, put back
             INTO_PACK,
             NOTHING,
-            FROM_PACK,
-            "You count out 12 pieces of material there.",
-            INTO_PACK,
         ]
     )
     s.state.left_hand = s.state.right_hand = None
@@ -534,7 +570,7 @@ def test_the_stacks_in_hand_are_named_by_their_ids_at_the_press():
                     setattr(state, side, None)
 
     s.put = play
-    assert forage.press_herb(s, "flowers", "sack") == 12
+    assert forage.press_herb(s, "flowers", "sack") == (2, "backpack")
     assert s.sent == [
         "get flowers from my sack",
         "put #101 in press",
@@ -548,9 +584,6 @@ def test_the_stacks_in_hand_are_named_by_their_ids_at_the_press():
         "get my flowers from my backpack",  # the backpack pass (#403)
         "put #107 in my backpack",  # the dried stack, back by its id
         "get my second flowers from my backpack",
-        "get dried flowers from my backpack",
-        "count #108",
-        "stow #108",
     ]
     # A held stack is never named by the bare noun; a GET from a
     # container names the noun by design.
