@@ -69,23 +69,14 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
 - `launch.py` the `revenant` console script and picker; `guiboot.py`.
 
 `client/game/` — the Qt-free models scripts lean on:
-- `act.py` how every script asks the game and reads what it said
-  (#407): `ask` (probe's, one pair of windows, the game's case kept),
-  `missing` (both not-found wordings), `said` (the line to quote,
-  never a bystander's), `unknown` (the one "please report it" echo);
-  `hands.py` the hands (`held`, `holding`, `free(keep=)`, `stow`,
-  `sheathe`, `at_end` — STOW, never DROP, the answer the judge);
-  `items.py` an item named by its id when held and whole otherwise
-  (`name`, `ref`), the one container lister, LOOK IN and COUNT
-  parsers, `NO_ROOM`;
+- `act.py` ask the game and read the answer (`ask`, `missing`, `said`, `unknown`);
+  `trainer.py` the loop every skill trainer runs (`train`, `hold_at_lock`);
+  `travel.py` the one way to walk (`go`: a ;go2 target, `avoid_rooms` always);
+  `hands.py` the hands (STOW never DROP, the answer the judge);
+  `items.py` an item by its id when held, else whole; the container lister, LOOK IN, COUNT;
   `probe.py` ask-and-classify (reads the story and the `combat` stream:
   every swing and kill line arrives there); `loop.py` wants_stop /
-  danger / pause; `trainer.py` the loop every skill trainer runs
-  (`train(s, prefix, skills, step)`: danger → flight, the typed
-  return between steps, the lock gate and `hold_at_lock`, `finish`
-  at every end); `travel.py` the one way to walk (`go(s, target,
-  describe)`: the cached map, a ;go2 target resolved, `avoid_rooms`
-  always); `interlude.py` the chores any script does at a
+  danger / pause; `interlude.py` the chores any script does at a
   wants_stop (the almanac, the loot sweep, `;break`); `sweep.py`
   the loot sweep (`loot_ignore` out of the loot container, beside
   a bin); `status.py`; `flight.py` the
@@ -96,15 +87,12 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
 - `buffs.py` buffs, training and targeted casts; `barbarian.py` a
   Barbarian's instead (ANALYZE combos, abilities, roars); `hunting.py`
   the bestiary (a ground is a map tag, a dr-scripts zone or a ;go2
-  target; `;hunt grounds`) and ;hunt's pure half (the Tally, the
-  outcome tables, the kill sentence, the weapon plan — #274); `creatures.py` +
+  target; `;hunt grounds`) and ;hunt's pure half; `creatures.py` +
   `creatures_data.py`; `loot.py` + `lootlog.py`; `boxes.py`;
   `wounds.py`, `herbs.py`, `empathy.py`; `soul.py`; `tdp.py`;
-  `money.py` (`purse`/`carried`: the one purse reader, off WEALTH),
-  `bank.py` (the teller and the money-changer), `shop.py` (`buy`: the
-  quote read and the sale closed the shop's way — ORDER twice,
-  OFFER, the counter; `afford`: the purse topped up at the teller),
-  `repair.py`; `outfit.py` (`;outfit`, a new
+  `money.py` (the purse), `bank.py` (the teller and the money-changer),
+  `shop.py` (`buy`, `afford`: one purchase, the quote checked, the sale
+  closed the shop's way); `repair.py`; `outfit.py` (`;outfit`, a new
   character's essentials); `remedies.py` + `workorders.py` +
   `herbstacks.py` (a dried herb's stacks merged to full ones of 75);
   `walker.py` + `mapdb.py` (the community map, downloaded, never
