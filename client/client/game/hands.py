@@ -45,6 +45,9 @@ STOW_REFUSED = (
     "any more room",
     "won't fit",
     "wealth of gems",
+    # A container too short for the item (captured 2026-10-03): "The
+    # narrow-headed spear is too long to fit in the backpack."
+    "too long to fit",
     "can't",
     "cannot",
     "stow what",
@@ -229,11 +232,15 @@ def sheathe(s, weapon, container="", ask=None):
     """SHEATHE the weapon where WIELD drew it from — the game remembers
     (the operator, 2026-10-03: "just do sheathe and wield"; a STOW had
     sent the spear to the backpack, "too long to fit", #439). Asked
-    where ("Sheathe your ... where?": nothing remembered), into the
-    `container` named, else STOW. True unless the answer refused it."""
+    where ("Sheathe your ... where?": nothing remembered) or refused —
+    the game remembered the backpack for the spear, and the bare SHEATHE
+    answered "The narrow-headed spear is too long to fit in the
+    backpack." (2026-10-03, #449) — into the `container` named; still
+    asked where, STOW. True unless the last answer refused it."""
     ask = ask or act.ask
     answer = ask(s, f"sheathe my {weapon}")
-    if any(word in answer.lower() for word in SHEATHE_WHERE) and container:
+    where = any(word in answer.lower() for word in SHEATHE_WHERE)
+    if container and (where or refused(answer)):
         answer = ask(s, f"sheathe my {weapon} in my {container}")
     if any(word in answer.lower() for word in SHEATHE_WHERE):
         return stow(s, weapon, ask)

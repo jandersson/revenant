@@ -112,6 +112,25 @@ def test_sheathe_goes_where_wield_drew_it_then_the_container_then_a_stow():
     assert s.sent == ["sheathe my scimitar", "sheathe my scimitar in my harness"]
 
 
+def test_a_remembered_place_that_refuses_sends_it_to_the_named_container():
+    # 2026-10-03 (#449): the game remembered the backpack for the spear.
+    s = Fake(
+        right="spear",
+        answers={
+            "sheathe my spear": "The narrow-headed spear is too long to fit in "
+            "the backpack.",
+            "sheathe my spear in my baldric": "You sheathe the narrow-headed "
+            "spear in your palladium baldric.",
+        },
+    )
+    assert hands.sheathe(s, "spear", "baldric", ask=s.ask) is True
+    assert s.sent == ["sheathe my spear", "sheathe my spear in my baldric"]
+    # With no container named the refusal stands.
+    s.sent.clear()
+    assert hands.sheathe(s, "spear", ask=s.ask) is False
+    assert s.sent == ["sheathe my spear"]
+
+
 def test_at_end_sends_cleanup_stows_for_what_is_still_held():
     s = Fake(left="pestle", right="flowers")
     assert hands.at_end(s, ("pestle", "mortar")) == ["pestle"]
