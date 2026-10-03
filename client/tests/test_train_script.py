@@ -553,6 +553,9 @@ def test_train_init_writes_the_starter_and_refuses_to_overwrite(clock, tmp_path)
         "tdp",
         "forage",
     ]
+    # The operator, 2026-10-03: "i have no idea what any of the things
+    # do" — init says where each setting is explained.
+    assert any("File > Training Plan..." in text for text in fake.echoed)
     train.main(Fake(args=["init"]))
     fake = Fake(args=["init"])
     train.main(fake)
@@ -560,6 +563,16 @@ def test_train_init_writes_the_starter_and_refuses_to_overwrite(clock, tmp_path)
     path.write_text("{}")
     train.main(Fake(args=["init", "force"]))
     assert json.loads(path.read_text())["tasks"]
+
+
+def test_train_init_writes_no_hunt_for_an_empath(clock, tmp_path, monkeypatch):
+    monkeypatch.setattr(train, "drain_inputs", lambda name: ("Empath", None))
+    fake = Fake(args=["init"])
+    clock["fake"] = fake
+    train.main(fake)
+    written = json.loads((tmp_path / "training" / "lanival.json").read_text())
+    assert "hunt" not in [task["script"] for task in written["tasks"]]
+    assert any("empathic shock" in text for text in fake.echoed)
 
 
 def test_train_plan_prints_the_plan_and_a_broken_one_refuses_to_run(clock, tmp_path):

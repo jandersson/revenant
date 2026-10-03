@@ -305,7 +305,7 @@ def save_plan(character, plan: dict) -> Path:
     return path
 
 
-def starter_plan(character) -> dict:
+def starter_plan(character, guild=None) -> dict:
     """The plan ;train init writes: the bundled trainers — climbs, the
     hunt (its skills from the character's profile; it sells its skins
     and banks as it ends, so its return has ten minutes), the gear it
@@ -313,15 +313,14 @@ def starter_plan(character) -> dict:
     below the profile's repair_floor, 2026-09-26), the purse banked (the foreign coins exchanged,
     everything deposited, #235), the TDPs spent where the plan's `tdp`
     list says (`;tdp plan`, a task in the order, the operator
-    2026-09-20), and foraging for Outdoorsmanship. Edit from there
-    — every key is documented in this module's docstring."""
+    2026-09-20), and foraging for Outdoorsmanship. No hunt for an
+    Empath: harming a living creature is empathic shock (Elanthipedia:
+    Empathic shock; Riphik's starter had one, 2026-10-03, #444). Edit
+    from there — every key is documented in this module's docstring."""
     profile = load_profile(character)
     plan = dict(DEFAULTS)
     plan["safe_rooms"] = [profile["home"]] if profile["home"] else []
-    plan["tasks"] = [
-        normalize_task(
-            {"name": "climbs", "script": "athletics", "skills": ["Athletics"]}
-        ),
+    hunt = [
         normalize_task(
             {
                 "name": "hunt",
@@ -330,7 +329,15 @@ def starter_plan(character) -> dict:
                 "return_word": "return",
                 "return_grace": HUNT_RETURN_GRACE,
             }
+        )
+    ]
+    if str(guild or "").strip().lower() == "empath":
+        hunt = []
+    plan["tasks"] = [
+        normalize_task(
+            {"name": "climbs", "script": "athletics", "skills": ["Athletics"]}
         ),
+        *hunt,
         # The gear mended after the hunt that wore it down, before the
         # bank takes the purse that pays for it (;repair, #307; the
         # operator, 2026-09-26: otherwise the gear gets obliterated).

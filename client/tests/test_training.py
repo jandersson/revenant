@@ -134,6 +134,20 @@ def test_the_starter_plan_takes_home_and_skills_from_the_profile(monkeypatch):
     assert validate(starter) == []
 
 
+def test_an_empaths_starter_plan_has_no_hunt():
+    # #444: harming a living creature is empathic shock — Riphik's
+    # starter had a hunt (2026-10-03).
+    starter = starter_plan("Lanival", "Empath")
+    assert [task["script"] for task in starter["tasks"]] == [
+        "athletics",
+        "repair",
+        "bank",
+        "tdp",
+        "forage",
+    ]
+    assert validate(starter) == []
+
+
 def test_validate_names_what_would_break_the_loop():
     broken = plan(
         order="random",

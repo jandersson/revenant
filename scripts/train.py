@@ -973,8 +973,17 @@ def init(s, name, force):
     if path.is_file() and not force:
         s.echo(f"train: {path} exists — edit it, or ;train init force to overwrite")
         return
-    save_plan(name, starter_plan(name))
-    s.echo(f"train: starter plan written to {path} — edit it, then ;train plan")
+    guild, _ = drain_inputs(name)
+    save_plan(name, starter_plan(name, guild))
+    s.echo(f"train: starter plan written to {path}")
+    if str(guild or "").lower() == "empath":
+        s.echo("train: no hunt in it — an Empath's attack is empathic shock (#444)")
+    # The operator, 2026-10-03: "i have no idea what any of the things
+    # do" — the file alone explains nothing; the dialog labels each.
+    s.echo(
+        "train: File > Training Plan... shows each setting with what it does; "
+        ";train plan prints the plan in words; docs/training.md has the tables"
+    )
 
 
 def main(s):
