@@ -53,7 +53,7 @@ import sys
 import time
 
 from client.game import buffs, climbs
-from client.game import flight, hands, interlude, loop, trainer, travel
+from client.game import flight, hands, interlude, loop, probe, trainer, travel
 from client.game.act import ask, unknown
 from client.game.status import counted
 
@@ -424,6 +424,9 @@ PRACTICE_ACTIVE = (
 PRACTICE_ENDED = ("you stop practicing", "finish practicing", "no longer practicing")
 PRACTICE_STOP = "stop climb"  # ends the activity (#409)
 PRACTICE_STOP_WAIT = 3  # seconds for its answer before moving on
+# STOP CLIMB's answer (captured 2026-10-03: "You stop practicing your
+# climbing skills."), and the forms a stop with no practice may take.
+PRACTICE_STOPPED = r"(?i)you stop practicing|no longer practicing|n't practicing"
 PRACTICE_REASSERT = 120  # seconds between re-sends while it looks active
 # The game's own verdict on a practice obstacle (dr-scripts' flags,
 # #177; wordings as its Flags name them, unobserved here): too hard
@@ -473,11 +476,17 @@ def end_practice(s, stopping=False):
     answers "You should stop practicing your Athletics skill before
     you do that." A cleanup put, so it goes out after a ;stop too; the
     answer is waited for unless the script is stopping (every read
-    raises then)."""
+    raises then). The queue is cleared first and the wait is for the
+    stop's own words: a practice that had ended on its own left "You
+    finish practicing your climbing skill..." queued, the wait took it,
+    and the STOP's "You stop practicing your climbing skills." became
+    the next task's first answer — ;hunt's DISCERN (2026-10-03, #447)."""
+    if not stopping:
+        probe.clear(s)
     hands.cleanup(s, PRACTICE_STOP)
     if stopping:
         return
-    if s.waitfor(r"practicing", timeout=PRACTICE_STOP_WAIT) is None:
+    if s.waitfor(PRACTICE_STOPPED, timeout=PRACTICE_STOP_WAIT) is None:
         s.echo(
             "ATHLETICS: STOP CLIMB got no answer — if the next command is "
             "refused for practicing, send it by hand"

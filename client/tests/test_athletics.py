@@ -941,7 +941,28 @@ def test_a_practice_rung_ends_with_stop_climb_waited_for():
     puts = [call[1] for call in handle.calls if call[0] == "put"]
     assert puts == ["climb practice embrasure", "stop climb"]
     after = handle.calls[handle.calls.index(("put", "stop climb")) :]
-    assert ("waitfor", "practicing") in after
+    assert ("waitfor", athletics.PRACTICE_STOPPED) in after
+
+
+def test_the_stop_climb_wait_is_for_its_own_answer_not_a_queued_line():
+    # 2026-10-03 (#447): the practice had ended on its own, its line was
+    # still queued, the old wait for any "practicing" took it, and the
+    # STOP's answer became ;hunt's first DISCERN answer.
+    import re
+
+    queued = "You finish practicing your climbing skill and take a well-earned break."
+    stop = "You stop practicing your climbing skills."
+    pattern = re.compile(athletics.PRACTICE_STOPPED)
+    assert not pattern.search(queued)
+    assert pattern.search(stop)
+
+    class Queued(FakeHandle):
+        def clear(self):
+            self.calls.append(("clear",))
+
+    handle = Queued(())
+    athletics.end_practice(handle)
+    assert handle.calls[:2] == [("clear",), ("put", "stop climb")]
 
 
 def test_a_stop_mid_practice_still_sends_stop_climb_as_a_cleanup_put():
