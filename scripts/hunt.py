@@ -1107,7 +1107,7 @@ def pocket(s, profile, item):
     pouch = profile["gem_pouch"]
     if pouch and noun_of(item) in loot.GEM_NOUNS:
         answer = ask(s, f"put my {item} in my {pouch}")
-        if "you put" in answer.lower():
+        if any(word in answer.lower() for word in loot.POUCHED):
             return
         if items.no_room(answer):
             s.echo(f"hunt: the {pouch} is full — the {item} goes with the loot (#283)")

@@ -386,6 +386,19 @@ def test_a_gem_the_pouch_takes_stays_there(monkeypatch):
     )
     hunt.pocket(handle, profile, "stones")
     assert sent == ["get stones", "put my stones in my pouch"]
+    # A tied pouch answers its own way (captured 2026-10-03).
+    handle, profile, sent, _ = _pocketing(
+        monkeypatch,
+        [
+            (
+                "put my chrysoprase in my pouch",
+                "You open your pouch and put the sea-green chrysoprase inside, "
+                "closing it once more.\n",
+            )
+        ],
+    )
+    hunt.pocket(handle, profile, "chrysoprase")
+    assert sent == ["get chrysoprase", "put my chrysoprase in my pouch"]
 
 
 def test_a_searched_item_on_loot_ignore_is_left_where_it_fell():

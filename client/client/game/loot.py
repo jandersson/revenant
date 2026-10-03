@@ -115,6 +115,11 @@ STOW_OUTCOMES = (
 # gems in there!  You'd better tie it up before putting more gems
 # inside." — the gem goes with the loot (hunt.pocket).
 POUCH_FULL = ("too full to fit another gem", "wealth of gems")
+# A gem put in the pouch: "You put your stones in your gem pouch." and,
+# once the pouch is TIEd (holding 500, never opened again by hand;
+# captured 2026-10-03), "You open your pouch and put the sea-green
+# chrysoprase inside, closing it once more."
+POUCHED = ("you put", "and put the")
 
 
 def entries(listing):
