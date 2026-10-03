@@ -15,7 +15,9 @@ ferry edge
 the ferry is at the dock, the wait for it when not, the crossing, then
 GO DOCK as the step's move — after dr-scripts' bescort take_rh_ferry,
 the wordings captured on the first ride (2026-09-18): the fare is 30
-lirums, put on the Therengian debt when there are none on you.
+lirums, put on the Therengian debt when there are none on you. A
+captain who turns you away for the fare has ;bank keep=200 fetch it
+and the walk planned again from the teller, once a walk (#455).
 """
 
 import re
@@ -353,6 +355,30 @@ def ride_gondola(s, direction=""):
     return "no gondola"
 
 
+# The copper of the province's coin a refused fare fetches: ;bank
+# keep=N withdraws it to an empty purse at the nearest teller, and the
+# walk is planned again from there (#455, after #454's travel purse).
+FARE_PURSE = 200
+
+
+def fetch_fare(s):
+    """;bank keep=FARE_PURSE, run through the handle and waited for: the
+    fare a ferry refused for coin (#455). True when ;bank ran to its
+    end; False, said, when the handle cannot start it (a ;bank already
+    running is the operator's)."""
+    run = getattr(s, "run", None)
+    running = getattr(s, "is_running", None)
+    if run is None or running is None:
+        return False
+    if not run("bank", [f"keep={FARE_PURSE}"]):
+        s.echo("could not start ;bank for the fare — fetch coins by hand")
+        return False
+    s.echo(f"fetching the fare: ;bank keep={FARE_PURSE}, then the way again")
+    while running("bank"):
+        s.sleep(1)
+    return True
+
+
 def ride_ferry(s, direction=""):
     """Board the ferry at this dock and cross (#205): "landed" when the
     far dock is reached (GO DOCK is still the caller's to send, with
@@ -402,7 +428,7 @@ def ride_ferry(s, direction=""):
                 "the ferry refused the fare"
                 + (f" of {fee.group(1)}" if fee else "")
                 + fare_purse(s, fee.group(1) if fee else "")
-                + f": {answer_line(answer, FERRY_NO_FARE)!r} — stopping here"
+                + f": {answer_line(answer, FERRY_NO_FARE)!r}"
             )
             return "fare"
         if any(needle in answer for needle in FERRY_AWAY):
@@ -680,6 +706,7 @@ def walk(s, db, goals, describe="destination", avoid=(), max_steps=None):
     closed = set(gated(s))
     ranks = character_ranks(s.state)
     goals = set(goals)
+    fetched = False  # a refused fare's coins fetched this walk (#455)
     for _ in range(REROUTES + 1):
         route = db.path(here, goals, avoid=avoid, closed=closed, ranks=ranks)
         if route is None:
@@ -712,8 +739,10 @@ def walk(s, db, goals, describe="destination", avoid=(), max_steps=None):
                 f"{len(crossed)} avoided room(s), first {titles[0]}"
             )
         s.echo(f"walking {len(route)} steps to {describe}")
-        outcome = _follow(s, db, route, here, closed)
-        if outcome != "closed":
+        outcome = _follow(s, db, route, here, closed, fetched)
+        if outcome == "fetched":
+            fetched = True
+        elif outcome != "closed":
             return outcome
         here = locate(db, s.state)
         if here is None:
@@ -723,10 +752,12 @@ def walk(s, db, goals, describe="destination", avoid=(), max_steps=None):
     return False
 
 
-def _follow(s, db, route, here, closed):
+def _follow(s, db, route, here, closed, fetched=True):
     """Walk one planned route from `here`: True on arrival, False on a
     stop, "closed" when the game refused an edge — added to `closed`
-    for the caller to plan again without it (#209)."""
+    for the caller to plan again without it (#209) — and "fetched" when
+    a ferry refused the fare and ;bank fetched it (#455), unless one
+    was `fetched` already this walk."""
     for number, (dest, command) in enumerate(route, 1):
         if s.dead:
             s.echo(f"died en route at step {number} — stopping; deathwatch takes it")
@@ -740,7 +771,10 @@ def _follow(s, db, route, here, closed):
             # A ride edge (#205, #211): the ride first, then the move
             # off it is the step's own, with the compass sync and check.
             handler, leave = RIDE_HANDLERS[ride]
-            if handler(s, ride_args(command)) != "landed":
+            ridden = handler(s, ride_args(command))
+            if ridden == "fare" and not fetched and fetch_fare(s):
+                return "fetched"  # planned again from where ;bank left you
+            if ridden != "landed":
                 return False
             commands = [leave]
         before, move, after = split_move(commands)

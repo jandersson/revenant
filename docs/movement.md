@@ -37,7 +37,7 @@
 | Alfren's Ferry | the Crossing and the Segoltha's south bank (the way to Leth Deriel and Shard) | 35 Kronars |
 | Obsidian Pass gondola | the two platforms over the Chasm | free |
 
-The walker boards, waits for a ferry that is out (up to fifteen minutes), and steps off at the far side. A ride costs five minutes in the planner, so a land route wins where one exists. The other escort routes (airships, barges) are not walkable.
+The walker boards, waits for a ferry that is out (up to fifteen minutes), and steps off at the far side. Turned away for the fare, it runs `;bank keep=200` (the fare from the nearest teller) and plans the walk again, once a walk. A ride costs five minutes in the planner, so a land route wins where one exists. The other escort routes (airships, barges) are not walkable.
 
 ## Rooms to avoid
 
