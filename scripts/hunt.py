@@ -1157,10 +1157,30 @@ def pocket(s, profile, item):
     pouch refuses — stowed like loot. Only "You put" is a pouching: a
     S'lai scout's plovik leaves went at a full pouch, "There isn't any
     more room in the pouch for that.", and stayed in hand through the
-    fight (2026-09-28)."""
-    ask(s, f"get {item}")
+    fight (2026-09-28). With STORE GEMS set this run a gem goes by STOW
+    GEM, which wants no free hand: the GET answered "You need a free
+    hand to pick that up." with a weapon and a held bundle and the
+    crystal stayed on the ground, where the operator's STOW GEM answered
+    "You pick up a small laced clear crystal." / "You open your pouch
+    and put the clear crystal inside, closing it once more." (2026-10-03)."""
     pouch = profile["gem_pouch"]
-    if pouch and noun_of(item) in loot.GEM_NOUNS:
+    gem = pouch and noun_of(item) in loot.GEM_NOUNS
+    if gem and stores_set(profile, "gem"):
+        answer = ask(s, "stow gem").lower()
+        outcome = classify(answer, loot.STOW_OUTCOMES)
+        if outcome == "stowed":
+            gems.room()
+            return
+        if outcome in ("gone", "not yours"):
+            return
+        if outcome == "no room" and "you pick up" in answer:
+            # Picked up, and the pouch full: in hand, it goes with the loot.
+            s.echo(f"hunt: the {pouch} is full — the {item} goes with the loot (#283)")
+            gems.mark()
+            stow(s, profile, item)
+            return
+    ask(s, f"get {item}")
+    if gem:
         answer = ask(s, f"put my {item} in my {pouch}")
         if any(word in answer.lower() for word in loot.POUCHED):
             gems.room()

@@ -473,6 +473,43 @@ def test_a_gem_the_pouch_takes_stays_there(monkeypatch):
     assert sent == ["get chrysoprase", "put my chrysoprase in my pouch"]
 
 
+# The operator's STOW GEM, 2026-10-03: picked up and pouched with no hand
+# free, where the hunt's GET had answered "You need a free hand to pick
+# that up." (a weapon and a held bundle).
+STOWED_GEM = (
+    "You pick up a small laced clear crystal.\n"
+    "You open your pouch and put the clear crystal inside, closing it once more.\n"
+)
+FULL_GEM = (
+    "You pick up a small laced clear crystal.\n"
+    "You've already got a wealth of gems in there!  You'd better tie it up "
+    "before putting more gems inside.\n"
+)
+
+
+def test_with_store_gems_set_a_searched_gem_goes_by_stow_gem_no_hand_needed(
+    monkeypatch,
+):
+    monkeypatch.setattr(hunt.gems, "_STATE", {"dirty": False, "full": True})
+    handle, profile, sent, _ = _pocketing(monkeypatch, [("stow gem", STOWED_GEM)])
+    hunt.pocket(handle, profile | {"_stores": ("gem",)}, "crystal")
+    assert sent == ["stow gem"]
+    assert not hunt.gems._STATE["full"]
+    # STORE GEMS not set this run: the GET and PUT as before.
+    handle, profile, sent, _ = _pocketing(monkeypatch, [])
+    hunt.pocket(handle, profile, "crystal")
+    assert sent == ["get crystal", "put my crystal in my pouch"]
+
+
+def test_a_stow_gem_the_full_pouch_refuses_goes_with_the_loot(monkeypatch):
+    monkeypatch.setattr(hunt.gems, "_STATE", {"dirty": False, "full": False})
+    handle, profile, sent, echoed = _pocketing(monkeypatch, [("stow gem", FULL_GEM)])
+    hunt.pocket(handle, profile | {"_stores": ("gem",)}, "crystal")
+    assert sent == ["stow gem", "put my crystal in my sack"]
+    assert any("pouch is full" in line for line in echoed)
+    assert hunt.gems._STATE["dirty"]
+
+
 def test_a_searched_item_on_loot_ignore_is_left_where_it_fell():
     # 2026-09-28: "The scout was carrying an embroidery needle!" — the
     # wording path pocketed it though the profile's loot_ignore names it.
