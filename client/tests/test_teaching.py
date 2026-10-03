@@ -272,6 +272,41 @@ def test_a_teacher_with_no_student_for_five_minutes_logs_out():
     assert "stopping as asked" in out
 
 
+NOT_IN_ROOM = "I could not find who you were referring to.\n"  # captured 2026-10-03
+
+
+def test_a_student_gone_from_the_room_is_offered_again_until_the_teacher_logs_out():
+    # 12:46 on 2026-10-03 (#433): Cecil's ;train was stopped and he walked
+    # off; Fallanor's re-offer answered "I could not find who you were
+    # referring to.", ;teach stopped at once, and he stayed logged in.
+    fake = Fake({"teach": [TEACHING, NOT_IN_ROOM]}, ends_at=10)
+    out = run(teach, fake, ["parry", "ability", "to", "cecil"])
+    assert fake.sent[-2:] == ["stop teaching", "quit"]
+    assert "teach: no student for 5 min — logging out" in out
+    assert out.count("could not find who you were referring") == 1  # said once
+    assert "cecil is not here — offering again every 20 s" in out
+    assert fake.sent.count("teach parry ability to cecil") > 5  # every 20 s
+    # Back in the room within the five minutes: the class goes on.
+    back = Fake(
+        {"teach": [TEACHING, NOT_IN_ROOM, NOT_IN_ROOM, TEACHING]},
+        stop_at=200,
+        ends_at=10,
+    )
+    out = run(teach, back, ["parry", "ability", "to", "cecil"])
+    assert "quit" not in back.sent
+    assert "stopping as asked" in out
+
+
+def test_a_class_teach_can_no_longer_offer_logs_the_teacher_out():
+    fake = Fake(
+        {"teach": [TEACHING, "You are not skilled enough to teach that.\n"]},
+        ends_at=10,
+    )
+    out = run(teach, fake, ["scholarship", "to", "cecil"])
+    assert fake.sent[-2:] == ["stop teaching", "quit"]
+    assert "the class could not be offered again — logging out" in out
+
+
 def test_listen_reads_the_skill_holds_on_its_mindstate_and_rejoins():
     fake = Fake(
         {"listen": [LISTENING]}, mindstates=[5, 10, 20, 34, 34, 34, 34], stop_at=None

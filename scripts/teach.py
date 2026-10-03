@@ -5,7 +5,9 @@
     ;teach return                  (typed while it runs) STOP TEACHING and end
 
 With no student in the class for 5 minutes it stops teaching and logs
-the teacher out (QUIT).
+the teacher out (QUIT); a student not in the room is offered the class
+again every 20 s meanwhile. A class TEACH can no longer offer, or the
+re-offer cap reached, logs out too.
 
 A class is TEACH <skill> TO <student> on the teacher's side — "You
 begin to lecture Cecil on the proper use of the Scholarship skill." —
@@ -62,9 +64,9 @@ def log_out(s, why):
     s.put("quit")
 
 
-def offer(s, options):
+def offer(s, options, quiet=False):
     """TEACH once; "teaching" when the class is up (or was already),
-    else the failure named."""
+    else the failure named (said, unless `quiet`)."""
     answer = ask(s, teach_command(options["skill"], options["student"]))
     outcome = classify(answer, TEACH_OUTCOMES)
     if outcome in ("teaching", "already"):
@@ -73,7 +75,8 @@ def offer(s, options):
     if outcome is None:
         s.echo(f"teach: TEACH answered {first!r} — please report it")
         return "unknown"
-    s.echo(f"teach: {first}")
+    if not quiet:
+        s.echo(f"teach: {first}")
     return outcome
 
 
@@ -93,6 +96,8 @@ def run(s, options):
     s.flag("student joined", *STUDENT_JOINED)
     offers = 1
     alone_since = clock()  # no student yet; None while one listens
+    retry_at = None  # when the next re-offer goes out, None when none is due
+    absent = False  # the student was not in the room at the last re-offer
     try:
         while True:
             if not pause(s, POLL):
@@ -124,12 +129,31 @@ def run(s, options):
                 )
                 if wait and not pause(s, wait):
                     break
-                if offer(s, options) != "teaching":
-                    s.echo("teach: the class could not be offered again — stopping")
+                retry_at = clock()
+            if retry_at is not None and clock() >= retry_at:
+                outcome = offer(s, options, quiet=absent)
+                if outcome == "no student":
+                    # Not in the room — walked off mid-class, its ;train
+                    # stopped (#433: Fallanor taught on to nobody, then
+                    # stayed logged in): offered again every
+                    # REOFFER_AFTER until the alone timer logs out.
+                    if not absent:
+                        s.echo(
+                            f"teach: {options['student'] or 'the student'} is not "
+                            f"here — offering again every {REOFFER_AFTER} s, out after "
+                            f"{ALONE_MINUTES} min alone"
+                        )
+                    absent = True
+                    retry_at = clock() + REOFFER_AFTER
+                    continue
+                if outcome != "teaching":
+                    log_out(s, "the class could not be offered again")
                     return
+                absent = False
+                retry_at = None
                 offers += 1
                 if offers > MAX_REOFFERS:
-                    s.echo("teach: offered enough for one evening — stopping")
+                    log_out(s, "offered enough for one evening")
                     return
     finally:
         s.unflag("students left")
