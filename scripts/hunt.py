@@ -878,9 +878,61 @@ def wear_bundle(s, profile, tally):
     if where != "worn":
         container = profile["loot_container"]
         ask(s, f"get my bundle from my {container}" if container else "get my bundle")
-        ask(s, "wear my bundle")
+        if not put_on_bundle(s):
+            bundle_unworn(s, profile, tally)
+            return
     tally.bundle = True
     s.echo("hunt: bundle worn — skins go straight into it")
+
+
+# WEAR MY BUNDLE where the TOGGLE setting puts bundles can find that
+# place taken (captured 2026-10-03, #438, after a baldric and a tote
+# went on): "You can't wear any more items like that." — and the hunt
+# fought on with the bundle in hand, every SKIN "You must have one hand
+# free to skin." TOGGLE BUNDLE alone moves the setting to the next place
+# ("From now on, your bundles will be draped around your shoulder."; a
+# word after it is ignored), and WEAR then matches it: "[Matching your
+# bundle to your TOGGLE setting.  See TOGGLE LIST to change this.]" /
+# "You drape a lumpy bundle around your shoulders." — the second place
+# tried. Elanthipedia's Bundle command names six: shoulder, waist,
+# back, around shoulders, belt, and clear.
+WEAR_TAKEN = ("can't wear any more",)
+TOGGLE_PLACES = 6
+
+
+def put_on_bundle(s):
+    """WEAR MY BUNDLE; a place already taken moves the TOGGLE setting on
+    and wears again, up to TOGGLE_PLACES. True when it went on."""
+    answer = ask(s, "wear my bundle")
+    moved = None
+    for _ in range(TOGGLE_PLACES):
+        if not any(word in answer.lower() for word in WEAR_TAKEN):
+            break
+        moved = said(ask(s, "toggle bundle"))
+        answer = ask(s, "wear my bundle")
+    if any(word in answer.lower() for word in WEAR_TAKEN) or missing(answer):
+        return False
+    if moved:
+        s.echo(f"hunt: the bundle's place was taken — TOGGLE BUNDLE: {moved}")
+    return True
+
+
+def bundle_unworn(s, profile, tally):
+    """A bundle that goes on nowhere: stowed, and the run's skins go
+    loose; with no room for it either it stays in hand, and skinning is
+    off for the run — a held bundle leaves no hand to skin with (#438)."""
+    tally.bundle = False
+    if stow(s, profile, "bundle"):
+        s.echo(
+            "hunt: the bundle goes on nowhere (TOGGLE LIST) — stowed; "
+            "skins are stowed loose this run"
+        )
+        return
+    s.echo(
+        "hunt: the bundle goes on nowhere and there is no room for it — "
+        "it stays in hand and skinning is off for this run"
+    )
+    profile["skin"] = False
 
 
 def make_bundle(s, profile, tally):
@@ -904,7 +956,10 @@ def make_bundle(s, profile, tally):
     answer = ask(s, "bundle")
     outcome = classify(answer, BUNDLE_OUTCOMES)
     if outcome == "ok":
-        ask(s, "wear my bundle")
+        if not put_on_bundle(s):
+            bundle_unworn(s, profile, tally)  # the skin is in it, stowed too
+            draw(s, profile)
+            return True
         tally.bundle = True
         s.echo("hunt: bundle started and worn — skins go straight into it")
         draw(s, profile)

@@ -104,6 +104,73 @@ def test_the_first_skin_starts_the_bundle_and_wears_it(travel):
     assert any("bundle started and worn" in text for text in arena.echoed)
 
 
+# Captured 2026-10-03 (#438): the bundle's place taken, TOGGLE BUNDLE
+# moving it on, and the WEAR that matched the new place.
+WEAR_TAKEN = "You can't wear any more items like that."
+TOGGLED = "From now on, your bundles will be draped around your shoulders."
+WORN = (
+    "[Matching your bundle to your TOGGLE setting.  See TOGGLE LIST to change this.]\n"
+    "You drape a lumpy bundle around your shoulders."
+)
+
+
+def test_a_bundle_whose_place_is_taken_moves_on_with_toggle_and_goes_on(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "tap": [NOT_FOUND],
+            "skin": [(PELT_LOOSE, skin_in_hand)],
+            "get my bundling rope": ["You get a bundling rope from inside your tote."],
+            "bundle": [(BUNDLED, hand_empty)],
+            "wear my bundle": [WEAR_TAKEN, WEAR_TAKEN, WORN],
+            "toggle bundle": [
+                "From now on, your bundles will be draped around your shoulder.",
+                TOGGLED,
+            ],
+            "loot": [NOTHING],
+        }
+    )
+    _hands(arena)
+    _run(arena, profile=BUNDLING, travel_first=False)
+    first = arena.sent.index("bundle")
+    assert arena.sent[first : first + 6] == [
+        "bundle",
+        "wear my bundle",
+        "toggle bundle",
+        "wear my bundle",
+        "toggle bundle",
+        "wear my bundle",
+    ]
+    assert any(
+        "TOGGLE BUNDLE: From now on, your bundles will be draped around your shoulders."
+        in text
+        for text in arena.echoed
+    )
+    assert any("bundle started and worn" in text for text in arena.echoed)
+
+
+def test_a_bundle_that_goes_on_nowhere_is_stowed_and_the_skins_go_loose(travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, lambda arena: None), (KILL, kill)],
+            "tap": [NOT_FOUND],
+            "skin": [(PELT_LOOSE, skin_in_hand), (PELT_LOOSE, skin_in_hand)],
+            "get my bundling rope": ["You get a bundling rope from inside your sack."],
+            "bundle": [(BUNDLED, hand_empty)],
+            "wear my bundle": [WEAR_TAKEN] * 7,
+            "toggle bundle": [TOGGLED] * 6,
+            "loot": [NOTHING, NOTHING],
+        }
+    )
+    _hands(arena)
+    _run(arena, profile=BUNDLING | {"max_kills": 2}, travel_first=False)
+    assert arena.sent.count("toggle bundle") == 6
+    assert "put my bundle in my sack" in arena.sent
+    assert any("goes on nowhere" in text for text in arena.echoed)
+    assert arena.sent.count("bundle") == 1  # the second pelt is stowed loose
+    assert arena.sent.count("put my pelt in my sack") == 1
+
+
 def test_a_full_bundle_is_known_and_the_skin_is_stowed_loose(travel):
     # Captured 2026-09-20 on the fourth badger skin of a run (#254): the
     # worn bundle takes no more, BUNDLE says so, the skin stays in hand.

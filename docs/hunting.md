@@ -100,7 +100,7 @@ An empty ground is not an end: the hunt waits and laps it again.
 - With `loot_sweep` on, whatever script is running puts those kept items in the trash at its next safe point beside a bin. Each is taken from the loot container only, checked in hand and named; anything else goes back. A one-word entry other than a metal (`needle`) is never swept. `;break sweep` lists what it would take and moves nothing: run it before turning `loot_sweep` on.
 - Gems go to `gem_pouch`; gems are kept for `;appraise`, never sold. A gem the pouch refuses (full) goes with the loot. Whatever script is running moves loose gems from the loot and default containers into the pouch at its next safe point, once a session and after each one goes loose; a full pouch stops it until the pouch takes a gem again. `;break gems` asks now.
 - A full loot container stops skinning or box pickups for the run, and says so. `;skins` sells only the bundle and names any loose skin it finds; `;boxes` opens boxes.
-- With `bundle`, the first skin starts a bundle from the bundling rope, wherever it is carried, and later skins go straight into it. `;skins` sells the bundle and keeps the rope.
+- With `bundle`, the first skin starts a bundle from the bundling rope, wherever it is carried, and later skins go straight into it. A place already taken ("can't wear any more items like that") moves TOGGLE BUNDLE on to the next; a bundle that goes on nowhere is stowed and the skins go loose. `;skins` sells the bundle and keeps the rope.
 - Nothing is ever dropped.
 
 ## Box yield
