@@ -191,6 +191,15 @@ lessons the code and docs cannot carry themselves.
   learns one and spends its slots. ASK ... ABOUT SPELLS, ABOUT <spell
   name> and ABOUT <abbrev> only answer "I didn't catch that". A spell
   whose prerequisite was just learned appears in the next listing.
+- A ritual spell with a focus is cast right after the focus's
+  roundtime (Riphik's Embrace of the Vela'Tohr, 2026-10-03): PREPARE EV
+  300 warns of "intense strain"; INVOKE MY PHIAL kneels and draws the
+  pattern (20 s); "Your ritual directs the energy up into your spell
+  pattern" says it took; CAST then works ("an ethereal vela'tohr plant
+  forms"). No "fully prepared" line comes for a ritual: waiting for one
+  let the attar burn away and "Your concentration slips for a moment,
+  and your spell is lost." about 50 s after the INVOKE (one of the
+  phial's 40 uses gone, no mana).
 
 ## Evidence first
 
