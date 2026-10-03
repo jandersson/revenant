@@ -77,9 +77,9 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   `probe.py` ask-and-classify (reads the story and the `combat` stream:
   every swing and kill line arrives there); `loop.py` wants_stop /
   danger / pause; `interlude.py` the chores any script does at a
-  wants_stop (the almanac, the loot sweep, `;break`); `sweep.py`
-  the loot sweep (`loot_ignore` out of the loot container, beside
-  a bin); `status.py`; `flight.py` the
+  wants_stop (the almanac, the loot sweep, the loose gems, `;break`);
+  `sweep.py` the loot sweep (`loot_ignore` out of the loot container,
+  beside a bin); `gems.py` loose gems into the gem pouch; `status.py`; `flight.py` the
   escape on hostiles.
 - `profile.py` per-character profiles (FIELDS is the schema the GUI
   dialog builds from; `hunts` styles; `weapons` + `weapon_target`, `weapon_minutes` the fallback);

@@ -368,6 +368,7 @@ def test_a_searched_herb_is_stowed_with_the_loot_not_pouched(monkeypatch):
 
 
 def test_a_gem_the_full_pouch_refuses_is_stowed_and_said(monkeypatch):
+    monkeypatch.setattr(hunt.gems, "_STATE", {"dirty": False, "full": False})
     handle, profile, sent, echoed = _pocketing(
         monkeypatch, [("put my stones in my pouch", POUCH_FULL_ANSWER)]
     )
@@ -378,15 +379,18 @@ def test_a_gem_the_full_pouch_refuses_is_stowed_and_said(monkeypatch):
         "put my stones in my sack",
     ]
     assert any("pouch is full" in line for line in echoed)
+    assert hunt.gems._STATE["dirty"]  # loose: the gems chore looks (#437)
 
 
 def test_a_gem_the_pouch_takes_stays_there(monkeypatch):
+    monkeypatch.setattr(hunt.gems, "_STATE", {"dirty": False, "full": True})
     handle, profile, sent, _ = _pocketing(
         monkeypatch,
         [("put my stones in my pouch", "You put your stones in your gem pouch.\n")],
     )
     hunt.pocket(handle, profile, "stones")
     assert sent == ["get stones", "put my stones in my pouch"]
+    assert not hunt.gems._STATE["full"]  # it took one: room again (#437)
     # A tied pouch answers its own way (captured 2026-10-03).
     handle, profile, sent, _ = _pocketing(
         monkeypatch,

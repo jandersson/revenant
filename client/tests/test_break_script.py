@@ -61,9 +61,9 @@ def test_an_unknown_chore_and_the_bare_listing(fresh):
     s = handle(["nap"])
     script.main(s)
     assert (
-        s.echoed == ["break: no chore 'nap' — almanac, sweep"]
+        s.echoed == ["break: no chore 'nap' — almanac, gems, sweep"]
         and interlude.pending() == []
     )
     s = handle([])
     script.main(s)
-    assert s.echoed == ["break: chores almanac, sweep; requested none"]
+    assert s.echoed == ["break: chores almanac, gems, sweep; requested none"]

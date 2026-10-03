@@ -1,6 +1,7 @@
 """Interludes — short chores any running script does at its next safe
-point: the almanac on its timer, and the loot sweep beside a bin
-(client/game/sweep.py; `;break sweep` is its dry run). `loop.wants_stop()` (every trainer
+point: the almanac on its timer, the loot sweep beside a bin
+(client/game/sweep.py; `;break sweep` is its dry run), and loose gems
+into the gem pouch (client/game/gems.py). `loop.wants_stop()` (every trainer
 calls it between steps) and `pause()`'s slices run them, so every
 script with a safe point gives them time without code of its own;
 ;train runs them between tasks and in rests, ;hunt in a clear room.
@@ -140,10 +141,28 @@ def _sweep_hand(s):
     return not hands.full(s)
 
 
+def _gems_due(s):
+    """Loose gems into the gem pouch (client/game/gems.py, #437)."""
+    from client.game import gems
+
+    return gems.due(_loot_profile(s))
+
+
+def _gems(s, forced):
+    from client.game import gems
+
+    return gems.run(s, _loot_profile(s), ask, "gems")
+
+
+def _free_hand(s):
+    return not hands.full(s)
+
+
 # name -> (due(s), run(s, forced), fits(s): True when its needs are met)
 REGISTRY = {
     "almanac": (_almanac_due, _study, _almanac_in_hand),
     "sweep": (_sweep_due, _sweep, _sweep_hand),
+    "gems": (_gems_due, _gems, _free_hand),
 }
 
 

@@ -47,6 +47,7 @@ from client.game import (
     boxlog,
     buffs,
     flight,
+    gems,
     hands,
     hunting,
     interlude,
@@ -1107,9 +1108,11 @@ def pocket(s, profile, item):
     if pouch and noun_of(item) in loot.GEM_NOUNS:
         answer = ask(s, f"put my {item} in my {pouch}")
         if any(word in answer.lower() for word in loot.POUCHED):
+            gems.room()
             return
         if items.no_room(answer):
             s.echo(f"hunt: the {pouch} is full — the {item} goes with the loot (#283)")
+        gems.mark()  # loose with the loot: the gems chore pouches it later (#437)
     stow(s, profile, item)
 
 
@@ -1223,6 +1226,8 @@ def grab(s, profile, before, tally):
                 if what == "box":
                     tally.boxes += 1
                     note_box(s, profile, tally, since, noun, entry)
+                else:
+                    gems.room()  # the pouch took one: it has room (#437)
                 taken.append(noun)
                 continue
             if outcome == "not yours":

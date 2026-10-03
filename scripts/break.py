@@ -3,6 +3,7 @@
   ;break            the chores and the requests not yet honored
   ;break almanac    study the almanac at the next safe point
   ;break sweep      the loot sweep's dry run: name what it would trash, move nothing
+  ;break gems       loose gems from the loot and default containers into the gem pouch
 
 - The request is honored by the first running script to reach a safe
   point (between two of its steps): ;perform, ;remedies, ;athletics,
@@ -16,6 +17,8 @@
 - The sweep itself runs on its own once the profile's `loot_sweep` is
   on: beside a bin, the `loot_ignore` items out of the loot container
   and into the trash, each named.
+- The gems chore runs on its own once a session and after a gem goes
+  loose (a full pouch); a full pouch stops it until the pouch takes one.
 
 Model: client/game/interlude.py. Doc: docs/training.md.
 """
