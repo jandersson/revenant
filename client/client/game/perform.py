@@ -22,8 +22,9 @@ reached rank 3 on the second start; a second PLAY while playing:
 first."; STOP PLAY: "You stop playing your song." A song survives
 GO DOCK and a walk of a hundred rooms (it was still going after 95
 seconds), but the walker's RETREAT burst ended it: "You stop your
-performance." Whether a song ends on its own, and its wording, is
-uncaptured (ENDED is a guess), as is a PLAY without the instrument.
+performance." A song ends on its own about two minutes in: "You
+finish playing a forceful lament on your copper zills." (124 in the
+logs by 2026-10-03). A PLAY without the instrument is uncaptured.
 An instrument gathers dirt as it plays and the game says so at PLAY;
 CLEAN with a cloth takes it off (Elanthipedia: Clean command; the
 wordings below, #233). Model: docs/training.md.
@@ -93,7 +94,10 @@ STARTED = ("as you begin", "you begin", "effortlessly begin")
 CONTINUES = ("you continue",)
 ALREADY = ("already playing a song",)
 STOPPED = ("you stop playing", "you stop your performance")
-# Uncaptured: the wording of a song that ran out on its own.
+# A song that ran out on its own (captured, 124 times by 2026-10-03):
+# "You finish playing a forceful lament on your copper zills." Played
+# FOR CHADATRU at his shrine, the next line is the soul's: "A warm,
+# soothing sensation washes over your soul." (docs/soul.md, #435).
 ENDED = ("you finish", "finish playing", "finish your song", "song ends")
 # Uncaptured: a PLAY with the instrument not on you.
 NO_INSTRUMENT = ("what were you referring", "could not find", "don't have")

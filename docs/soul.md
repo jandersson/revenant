@@ -21,8 +21,10 @@ A Paladin's soul has a state and a pool. `;soul` reads them and runs the deeds t
 | Pilgrim's badge | `;soul badge` | 31 min | anywhere |
 | Tithe | `;soul tithe` | 4 h | nearest almsbox, 5 silver |
 | Prayer | `;soul pray` | 2 h | nearest Chadatru altar, knelt ~75 s |
+| Song | by hand: `play <song> <style> on <instrument> for chadatru` | over 2 min, not yet measured | the Crossing temple's Chadatru shrine |
 
 - The badge needs attuned altars pushed onto it (PUSH <altar> WITH BADGE).
+- The song needs "only the slightest hint of difficulty", not off-key or halting; any song counts (a lament did, 2026-10-03). The soul line comes after "You finish playing ...": "A warm, soothing sensation washes over your soul." The same song again at once ended without it.
 - A refused deed backs off 20 minutes; a room over 80 rooms away is skipped.
 - A debt to the province blocks the tithe; `;debt` pays it. `;soul` never withdraws coins.
 - Timers live in `~/.revenant/soul/<name>.json`, shared with `;train`.

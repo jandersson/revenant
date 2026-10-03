@@ -183,6 +183,9 @@ def test_every_captured_start_counts_as_playing():
 def test_a_retreat_ends_the_song_for_the_watch():
     assert any(word in RETREATED.lower() for word in perform.STOPPED)
     assert any(word in STOPPED.lower() for word in perform.STOPPED)
+    # A song that ran out on its own (captured 2026-10-03).
+    finished = "You finish playing a forceful lament on your copper zills.\n"
+    assert any(word in finished.lower() for word in perform.ENDED)
 
 
 def test_it_plays_once_and_lets_the_song_run_until_mind_lock():
