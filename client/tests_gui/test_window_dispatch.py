@@ -99,6 +99,23 @@ def test_a_said_line_shows_in_the_story_and_in_the_talk_dock(window):
     assert story.count("Kailisa") == 1 and story.count("over here") == 1
 
 
+def test_a_docks_right_click_menu_clears_that_dock_alone(window):
+    # The operator, 2026-10-04 (#452): a Clear for the Thoughts window.
+    from PyQt6.QtCore import QPoint
+
+    window.dispatch_game_text("A troll lumbers in.\n", "", "")
+    window.dispatch_game_text("[LNet] Sable: hi\n", "thoughts", "")
+    thoughts = window.stream_windows["thoughts"]
+    menu = thoughts.context_menu(QPoint(0, 0))
+    labels = [action.text() for action in menu.actions() if action.text()]
+    assert labels[-1] == "Clear"
+    assert any("Copy" in label for label in labels)  # the standard menu stays
+    next(action for action in menu.actions() if action.text() == "Clear").trigger()
+    menu.deleteLater()
+    assert thoughts.toPlainText() == ""
+    assert "troll" in window.main_window.toPlainText()  # the story untouched
+
+
 def test_an_undocked_streams_text_still_reaches_the_story(window):
     window.dispatch_game_text("a backpack\n", "inv", "")
     assert "a backpack" in window.main_window.toPlainText()

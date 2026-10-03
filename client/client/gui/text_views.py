@@ -25,6 +25,20 @@ class GameTextView(QTextBrowser):
         self.anchorClicked.connect(lambda url: on_link(url.toString().strip()))
         self.installEventFilter(event_filter)
 
+    def context_menu(self, pos):
+        """The right-click menu: the standard one (Copy, Select All) and
+        Clear, which empties this view (the operator, 2026-10-04: a
+        Clear for the Thoughts window, #452)."""
+        menu = self.createStandardContextMenu(pos)
+        menu.addSeparator()
+        menu.addAction("Clear").triggered.connect(self.clear)
+        return menu
+
+    def contextMenuEvent(self, event):
+        menu = self.context_menu(event.pos())
+        menu.exec(event.globalPos())
+        menu.deleteLater()
+
 
 def fixed_pitch_font():
     return QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
