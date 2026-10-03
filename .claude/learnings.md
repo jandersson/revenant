@@ -184,6 +184,14 @@ lessons the code and docs cannot carry themselves.
   And a hand tag's name can drop an adjective the GET answer keeps
   (#402, docs/protocol.md "Items by id").
 
+- A guildleader teaches a spell in three asks, not one (Riphik,
+  2026-10-03): ASK <LEADER> ABOUT MAGIC lists the books and the spells
+  the character may learn now; ASK <LEADER> ABOUT <BOOK> BOOK
+  ("mental preparation book") offers them; CHOOSE <spell name> SPELL
+  learns one and spends its slots. ASK ... ABOUT SPELLS, ABOUT <spell
+  name> and ABOUT <abbrev> only answer "I didn't catch that". A spell
+  whose prerequisite was just learned appears in the next listing.
+
 ## Evidence first
 
 - The debug log (`revenant_client-<Name>-...-<pid>.log`) records the
