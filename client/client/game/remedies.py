@@ -528,18 +528,20 @@ def unsold(spec):
 
 def shortage(why, spec, catalyst):
     """What a craft that ended on `why` ran out of, as (noun, per
-    stack, shop, catalog) — the controlling herb a stack per remedy,
-    the second herb one stack for many, water or alcohol ten splashes
-    at a time, the catalyst one per remedy — or None when `why` is not
-    a shortage."""
+    stack, shop, catalog) — the order's controlling herb a stack per
+    remedy, any other herb the Supplies sells one stack for many,
+    water or alcohol ten splashes at a time, the catalyst one per
+    remedy — or None when `why` is not a shortage the shops answer."""
     chapter, page, herb, extra, noun, liquid = spec
     if why == f"dried {herb}":
         return herb, 1, SUPPLIES, CATALOG
-    if extra and why == f"dried {extra}":
-        return extra, 0, SUPPLIES, CATALOG
+    # The game's word, not the order's recipe: a remedy another run left
+    # in the mortar asks for its own second herb (#431: a leftover
+    # ointment's plovik during an itch salve order) and its own liquid.
+    wanted = why[len("dried ") :] if why.startswith("dried ") else ""
+    if wanted and wanted in CATALOG:
+        return wanted, 0, SUPPLIES, CATALOG
     if why in LIQUIDS:
-        # The game's word, not the recipe's: a remedy another run left
-        # in the mortar asks for its own liquid.
         return why, 0, SUPPLIES, CATALOG
     if catalyst and why == catalyst:
         return catalyst, 1, CATALYST_SHOP, CATALYST_CATALOG

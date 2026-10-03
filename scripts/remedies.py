@@ -1144,6 +1144,8 @@ def restock(s, spec, catalyst, why, remaining, tally, profile=None):
     shortage, else whether it was had."""
     short = shortage(why, spec, catalyst)
     if short is None:
+        if str(why or "").startswith("dried "):
+            s.echo(f"remedies: the Supplies sells no {why} — it cannot be bought")
         return None
     noun, per_stack, store, catalog = short
     # One buy per shortage (#413): the same want again with no crush

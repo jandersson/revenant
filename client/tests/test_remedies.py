@@ -188,6 +188,16 @@ def test_the_shops_quote_and_the_shortages_are_read():
         remedies.CATALOG,
     )
     assert remedies.shortage("dried nemoih", cream, "nugget")[:2] == ("nemoih", 0)
+    # Another recipe's herb is the game's word too (#431): a leftover
+    # ointment's plovik during a cream order is one stack; a herb the
+    # Supplies does not sell is no shortage it can answer.
+    assert remedies.shortage("dried plovik", cream, "nugget") == (
+        "plovik",
+        0,
+        remedies.SUPPLIES,
+        remedies.CATALOG,
+    )
+    assert remedies.shortage("dried sufil", cream, "nugget") is None
     assert remedies.shortage("water", cream, "nugget")[:2] == ("water", 0)
     # Alcohol is the Supplies' ORDER 2 (#427), whatever the recipe: a
     # leftover ointment asks for it during a cream order.

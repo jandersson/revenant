@@ -686,6 +686,47 @@ def test_an_ointment_left_in_the_mortar_is_finished_with_alcohol_first():
     assert "order 1 paid 1146 Kronars" in out
 
 
+QUOTE_PLOVIK = QUOTE.replace(
+    "(25 pieces) dried red flowers", "(25 pieces) dried plovik"
+).replace("343", "312")
+BOUGHT_PLOVIK = BOUGHT.replace(
+    "(25 pieces) dried red flowers", "(25 pieces) dried plovik"
+)
+
+
+def test_a_leftover_remedys_second_herb_is_bought_whatever_the_order():
+    # 12:36 on 2026-10-03 (#431): an itch salve order finished the
+    # leftover ointment's alcohol, then its plovik ran out, and the
+    # restock read "dried plovik" against the salve's recipe — no
+    # shortage, nothing bought, the order waited in the logbook.
+    leftover = "In the iron mortar you see some unfinished moisturizing ointment.\n"
+    fake = Fake(
+        work_answers(
+            wealth=[WEALTH_POOR],
+            **{
+                "look in my mortar": [leftover] * 4 + ["There is nothing in there.\n"],
+                "get my dried plovik": [MISSING, "You get some dried plovik."],
+                "put my plovik in my mortar": [SHAVINGS.replace("nugget", "plovik")],
+                "order 4": [QUOTE_PLOVIK, BOUGHT_PLOVIK],
+                "crush my ointment in my mortar with my pestle": [
+                    NEED_HERB,
+                    NEED_HERB,
+                    NEED_CATALYST,
+                    FINISHED_OINTMENT,
+                ],
+            },
+        ),
+        mindstates=[3] + [5] * 40,
+    )
+    out = run(fake, ["work", "count=1"])
+    assert fake.walked == ["8862"]
+    assert fake.sent.count("order 4") == 2
+    assert "bought 1 x plovik" in out
+    assert "the moisturizing ointment is done and stowed — the mortar is free" in out
+    assert "the order waits in the logbook" not in out
+    assert "order 1 paid 1146 Kronars" in out
+
+
 def test_a_bystanders_line_in_a_crush_window_is_not_a_miss():
     # Three passers-by in a row used to end the run as three
     # unrecognized answers (2026-09-22); the crush is sent again.
