@@ -86,7 +86,7 @@ def roundtime_open(s):
     return (getattr(state, "roundtime", 0) or 0) > seen
 
 
-def collect(s, seconds, until=None, prompts_from=None, quiet=QUIET_SECONDS):
+def collect(s, seconds, until=None, prompts_from=None, quiet=None):
     """Every main-stream line that arrives within the window, joined
     with newlines ("" when nothing does). A line containing `until`
     ends the wait early — the recognizable last line of an answer.
@@ -100,8 +100,10 @@ def collect(s, seconds, until=None, prompts_from=None, quiet=QUIET_SECONDS):
     engine marks the last piece of each line: a styled or linked line
     reaches a script in several pieces, and joining those with newlines
     tore INV LIST's indented items apart (#123). A piece left open when
-    the window closes is kept as a line of its own.
+    the window closes is kept as a line of its own. `quiet` defaults to
+    QUIET_SECONDS as it stands at the call, so a test can widen it.
     """
+    quiet = QUIET_SECONDS if quiet is None else quiet
     lines = []
     partial = ""
     deadline = time.monotonic() + seconds

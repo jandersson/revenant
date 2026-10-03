@@ -159,9 +159,14 @@ def test_ask_with_a_roundtime_still_collects_what_lands_at_its_end():
     assert time.monotonic() - started < 1.5  # two quiet stretches, not 4.5 s
 
 
-def test_an_unrelated_prompt_right_after_the_send_does_not_cut_the_answer():
+def test_an_unrelated_prompt_right_after_the_send_does_not_cut_the_answer(
+    monkeypatch,
+):
     # A bite or another player's arrival comes with a prompt too; the
     # quiet stretch after it is broken by the answer, so both are read.
+    # The quiet window is widened here: at 0.25 s a macOS runner's stall
+    # past the 0.1 s beat cut the answer off once (2026-10-03).
+    monkeypatch.setattr(probe, "QUIET_SECONDS", 1.0)
     handle = PromptedHandle(
         ["The clerk counts out 6 silver Kronars and hands them over.\n"],
         intruder="Rikkie just arrived.\n",
