@@ -51,6 +51,7 @@ Edit it in File → Training Plan…, or by hand in `~/.revenant/training/<name>
 | `tdp` | TDPs spent in the rests: stat targets (`stamina 30`) or `auto` for the guild's order |
 | `tdp_reserve` | TDPs never spent |
 | `shutdown_minutes` | wind down this close to a game shutdown (3) |
+| `plant_room` | where an Empath's vela'tohr plant stands: a wounded rest goes there, TOUCHes it and rests beside it |
 
 A task:
 

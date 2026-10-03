@@ -22,7 +22,8 @@ What it does
     cap hits); start ;train again at the next login.
   - Keeps the most skills moving: a task whose skills drain first trains again
     during the rest (`top_up`, once a rest).
-  - In the rests: soul deeds when `soul` is on, stat points from the plan's `tdp` list.
+  - In the rests: soul deeds when `soul` is on, stat points from the plan's `tdp` list,
+    and, wounded, the vela'tohr plant in `plant_room` touched and rested beside.
   - The interludes (the profile's `almanac`, a typed `;break`) between tasks and in rests.
   - Hostiles at the rest send it to the next safe room, or next door.
 
@@ -38,7 +39,7 @@ The plan is ~/.revenant/training/<name>.json; docs/training.md explains every ke
 import sqlite3
 import time
 
-from client.game import almanac, drain, flight, helper, interlude, travel
+from client.game import act, almanac, drain, flight, helper, interlude, travel
 from client.game.history import database_path
 
 from client.game.training import (
@@ -454,6 +455,43 @@ def wounded(s):
     return bool(getattr(s.state, "injuries", None))
 
 
+# Embrace of the Vela'Tohr (#443): an Empath's ethereal plant heals a
+# non-Empath who TOUCHes it, slowly, while they stay in its room out of
+# combat; it never heals another Empath and is gone when its Empath logs
+# out (Elanthipedia: Embrace of the Vela'tohr). Riphik cast one in the
+# Paladins' Guild Chambers, 2026-10-03: "You also see an ethereal
+# vela'tohr plant". The touch's wordings are the wiki's until captured.
+PLANT = "vela'tohr plant"
+PLANT_TOUCHED = (
+    "empathic connection forming",
+    "your wounds tingle",
+    "wounds knit shut",
+)
+
+
+def plant_step(s, plan, db, walk, room):
+    """A wounded rest at the plan's `plant_room`: walked there, TOUCH
+    PLANT, and the rest stays beside it while it heals (#443). The room
+    the rest keeps: the plant's when one stands there, else `room`,
+    walked back to."""
+    target = str(plan.get("plant_room") or "").strip()
+    if not target or not wounded(s):
+        return room
+    travel.go(s, target, repr(target), db=db, walk=walk)
+    if PLANT not in (getattr(s.state, "room_objs", "") or "").lower():
+        s.echo(f"train: no vela'tohr plant at {target} — resting as usual")
+        if room is not None and str(room) != target:
+            travel.go(s, room, repr(room), db=db, walk=walk)
+        return room
+    answer = act.ask(s, "touch plant")
+    if any(word in answer.lower() for word in PLANT_TOUCHED):
+        s.echo("train: touched the vela'tohr plant — resting beside it while it heals")
+    else:
+        first = (answer.strip().splitlines() or ["(silence)"])[0]
+        s.echo(f"train: TOUCH PLANT answered {first!r} — resting beside it anyway")
+    return target
+
+
 def task_named(plan, wanted):
     """The plan's task called `wanted` (case ignored), or None."""
     wanted = str(wanted or "").strip().lower()
@@ -761,6 +799,7 @@ def rest(s, plan, db, walk, index):
     if room is not None:
         travel.go(s, room, repr(room), db=db, walk=walk)
         index += 1
+    room = plant_step(s, plan, db, walk, room)
     send_each(s, plan["rest_commands"])
     cap = rest_cap(plan)
     logout = plan.get("rest_mode", "online") == "logout"
@@ -820,6 +859,7 @@ def rest(s, plan, db, walk, index):
             if room is not None:
                 travel.go(s, room, repr(room), db=db, walk=walk)
                 index += 1
+            room = plant_step(s, plan, db, walk, room)
             send_each(s, plan["rest_commands"])
             s.echo("train: back to the rest")
             continue

@@ -82,6 +82,9 @@ DEFAULTS = {
     # The run ends, the task in hand wound down first, once the game's
     # announced shutdown is this close (#277).
     "shutdown_minutes": 3,
+    # Where an Empath's vela'tohr plant stands (a ;go2 target): a
+    # wounded rest goes there and TOUCHes it (#443). Empty: none.
+    "plant_room": "",
     "tasks": [],
 }
 SOUL = ("off", "on")
@@ -157,6 +160,7 @@ PLAN_FIELDS = (
     ),
     ("tdp_reserve", "TDPs kept unspent", "int", "0"),
     ("shutdown_minutes", "Wind down when the shutdown is within, minutes", "int", "3"),
+    ("plant_room", "A vela'tohr plant's room, touched when wounded", "str", "7890"),
 )
 TASK_FIELDS = (
     ("name", "Name", "str", "how the task is reported"),

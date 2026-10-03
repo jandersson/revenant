@@ -887,6 +887,48 @@ def test_a_task_only_when_wounded_is_skipped_while_the_panel_is_clean(
     assert "train: heal — not wounded, skipped" in fake.echoed
 
 
+# --- the vela'tohr plant in the rests (#443) --------------------------------
+# The wiki's patient line (Elanthipedia: Embrace of the Vela'tohr).
+PLANT_TOUCHED = (
+    "You reach out to touch an ethereal vela'tohr plant and it extends a green "
+    "branch, soft leaves curling against your flesh with a cool tingle.  You feel "
+    "an empathic connection forming between you and the vela'tohr plant."
+)
+RESTED = [{"Athletics": 30, "Small Edged": 30}, {"Athletics": 20}, {"Athletics": 10}]
+
+
+def test_a_wounded_rest_touches_the_plant_and_stays_beside_it(clock):
+    # Riphik's plant in the Paladins' Guild Chambers (2026-10-03), the
+    # operator: "make cecil touch the plant when he rests".
+    fake = Fake(RESTED)
+    fake.state.injuries = {"chest": ("wound", 2)}
+    fake.state.room_objs = "You also see an ethereal vela'tohr plant and a waste bin."
+    fake.answers = {"touch plant": [PLANT_TOUCHED]}
+    run(clock, fake, plan(safe_rooms=["home"], plant_room="bank"))
+    assert fake.walks[:2] == [{1}, {2}]  # the rest's room, then the plant's
+    assert fake.sent.count("touch plant") == 1
+    assert any("resting beside it while it heals" in text for text in fake.echoed)
+
+
+def test_no_plant_in_its_room_walks_back_and_rests_as_usual(clock):
+    fake = Fake(RESTED)
+    fake.state.injuries = {"chest": ("wound", 2)}
+    fake.state.room_objs = "You also see a waste bin."  # Riphik logged out
+    run(clock, fake, plan(safe_rooms=["home"], plant_room="bank"))
+    assert fake.walks[:3] == [{1}, {2}, {1}]
+    assert "touch plant" not in fake.sent
+    assert "train: no vela'tohr plant at bank — resting as usual" in fake.echoed
+
+
+def test_an_unhurt_rest_never_goes_to_the_plant(clock):
+    fake = Fake(RESTED)
+    fake.state.injuries = {}
+    fake.state.room_objs = "You also see an ethereal vela'tohr plant."
+    run(clock, fake, plan(safe_rooms=["home"], plant_room="bank"))
+    assert fake.walks == [{1}]
+    assert "touch plant" not in fake.sent
+
+
 def test_a_helper_alone_is_a_valid_task():
     # 2026-09-27: the heal task (Riphik's ;empath) was refused as naming
     # "no script and no commands" before it ever ran.
