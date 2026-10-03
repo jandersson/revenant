@@ -403,13 +403,13 @@ def test_the_guild_picks_the_mode(monkeypatch):
     monkeypatch.setattr(script, "run", lambda s, o: calls.append(("barbarian", o)))
     monkeypatch.setattr(script, "run_caster", lambda s, o: calls.append(("caster", o)))
     handle = SimpleNamespace(args=[], state=SimpleNamespace(name="Sable"))
-    for guild, mode in (("Moon Mage", "caster"), ("Barbarian", "barbarian")):
-        monkeypatch.setattr(script, "snapshot_guild", lambda name, g=guild: g)
+    for name, mode in (("Moon Mage", "caster"), ("Barbarian", "barbarian")):
+        monkeypatch.setattr(script.guild, "snapshot_guild", lambda n, g=name: g)
         script.main(handle)
         assert calls[-1][0] == mode
     # A caster's own word needs no guild at all.
-    monkeypatch.setattr(script, "snapshot_guild", lambda name: None)
-    monkeypatch.setattr(script, "ask", lambda s, c: calls.append(c) or "")
+    monkeypatch.setattr(script.guild, "snapshot_guild", lambda n: None)
+    monkeypatch.setattr(script.guild, "ask", lambda s, c: calls.append(c) or "")
     handle.args = ["stream"]
     script.main(handle)
     assert calls[-1][0] == "caster" and "info" not in calls

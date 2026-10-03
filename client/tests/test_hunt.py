@@ -1795,3 +1795,43 @@ def test_a_turn_taken_is_remembered_for_the_next_hunt(travel):
     _run(arena, profile=ROTATING, travel_first=False)
     turns = hunt.load_stores("Lanival").get("turns") or {}
     assert set(turns) <= {"Small Edged", "Brawling"} and turns
+
+
+# --- an Empath (#444) ---
+
+
+def test_an_empath_never_sets_out(monkeypatch):
+    """Attacking a living creature brings an Empath empathic shock: the
+    hunt stops before the map, the walk or a swing, and says why."""
+    started = []
+    echoes = []
+    monkeypatch.setattr(hunt_arena.hunt.guild, "snapshot_guild", lambda name: "Empath")
+    monkeypatch.setattr(hunt_arena.hunt, "hunt", lambda *a, **k: started.append(a))
+    handle = SimpleNamespace(
+        args=[], state=SimpleNamespace(name="Sable"), echo=echoes.append
+    )
+    hunt_arena.hunt.main(handle)
+    assert started == []
+    assert echoes == [
+        "hunt: an Empath does not hunt — attacking a living creature "
+        "brings empathic shock"
+    ]
+
+
+def test_the_guild_comes_from_info_without_a_snapshot(monkeypatch):
+    """No ;sheet snapshot yet: INFO (read-only) names the guild."""
+    asked = []
+    echoes = []
+    monkeypatch.setattr(hunt_arena.hunt.guild, "snapshot_guild", lambda name: None)
+    monkeypatch.setattr(
+        hunt_arena.hunt.guild,
+        "ask",
+        lambda s, command: asked.append(command) or "Guild: Empath\nCircle: 86",
+    )
+    monkeypatch.setattr(hunt_arena.hunt, "hunt", lambda *a, **k: None)
+    handle = SimpleNamespace(
+        args=[], state=SimpleNamespace(name="Sable"), echo=echoes.append
+    )
+    hunt_arena.hunt.main(handle)
+    assert asked == ["info"]
+    assert echoes[-1].startswith("hunt: an Empath does not hunt")

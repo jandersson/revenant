@@ -30,12 +30,10 @@ not know (echoed for a capture), Gauge Flow that will not cast.
 Stop with:  ;stop research, or ;research return.
 """
 
-import sqlite3
 from time import monotonic
 
-from client.game import buffs, flight, probe, trainer
+from client.game import buffs, flight, guild, probe, trainer
 from client.game.act import ask, said, unknown
-from client.game.history import database_path
 from client.game.loop import (
     danger,
     ensure_mindstate,
@@ -61,7 +59,6 @@ from client.game.research import (
     start_outcome,
     wants_caster,
 )
-from client.game.tdp import parse_info
 
 _NOTES = """
 The Barbarian's mode: MEDITATE RESEARCH <ability> teaches the skill
@@ -184,33 +181,6 @@ def run(s, options):
 
 
 # --- a caster's magical research (#385) ---
-
-
-def snapshot_guild(name):
-    """The guild of the latest ;sheet snapshot in history.db, or None."""
-    try:
-        connection = sqlite3.connect(database_path())
-    except sqlite3.Error:
-        return None
-    try:
-        row = connection.execute(
-            "SELECT guild FROM character WHERE character_name = ?"
-            " AND guild IS NOT NULL ORDER BY logged_at DESC LIMIT 1",
-            (name,),
-        ).fetchone()
-    except sqlite3.Error:
-        row = None  # no table yet: ;sheet has never run here
-    finally:
-        connection.close()
-    return row[0] if row else None
-
-
-def character_guild(s):
-    """The character's guild: the latest ;sheet snapshot's, else INFO's
-    (read-only, no roundtime); None when neither says."""
-    name = getattr(s.state, "name", None)
-    guild = snapshot_guild(name) if name else None
-    return guild or parse_info(ask(s, "info") or "").get("guild")
 
 
 def gauge_minutes(s):
@@ -451,7 +421,7 @@ def run_caster(s, options):
 
 def main(s):
     args = list(s.args or [])
-    if wants_caster(args) or character_guild(s) not in (None, "Barbarian"):
+    if wants_caster(args) or guild.character_guild(s) not in (None, "Barbarian"):
         run_caster(s, parse_caster_args(args))
     else:
         run(s, parse_args(args))

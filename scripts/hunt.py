@@ -30,6 +30,7 @@ When it stops — then walks home, and runs ;skins bank (skins sold, purse banke
   - every room of the ground taken by other players
   - ;hunt return
   - a hunt that never reached the fight (no ground, a wound at the floor) ends without selling
+  - an Empath never sets out: attacking a living creature brings empathic shock
 
 The profile is ~/.revenant/profiles/<name>.json (File > Character Profile...);
 docs/hunting.md explains every key. Report any "hunt: unrecognized ..." line.
@@ -48,6 +49,7 @@ from client.game import (
     buffs,
     flight,
     gems,
+    guild,
     hands,
     hunting,
     interlude,
@@ -2213,6 +2215,15 @@ def main(s):
                 "hunt: home is empty — a break-off leaves you just off the ground; "
                 "set it in the profile"
             )
+        return
+    if guild.is_empath(guild.character_guild(s)):
+        # Harming a living creature brings an Empath empathic shock
+        # (Elanthipedia, #444). A creature that is not living (a construct)
+        # is the exception; ;hunt cannot tell one apart yet, so no hunt at all.
+        s.echo(
+            "hunt: an Empath does not hunt — attacking a living creature "
+            "brings empathic shock"
+        )
         return
     if not mapdb_path().is_file():
         s.echo("downloading map database (first use, ~13MB) ...")

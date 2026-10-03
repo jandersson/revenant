@@ -477,6 +477,7 @@ RELOADABLE_MODULES = (
     "client.game.training",  # binds names from profile: after it
     "client.game.drain",
     "client.game.tdp",
+    "client.game.guild",  # binds act and parse_info from tdp: after them
     "client.game.money",
     "client.game.attune",
     "client.game.seek",  # binds chain/circuit from attune: after it

@@ -91,7 +91,8 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   `creatures_data.py`; `loot.py` + `lootlog.py`; `stores.py` (the
   STORE containers ;hunt last set, which ;boxes reads too); `boxes.py` + `boxlog.py`
   (each box's contents, told to its creature by its item id);
-  `wounds.py`, `herbs.py`, `empathy.py`; `soul.py`; `tdp.py`;
+  `wounds.py`, `herbs.py`, `empathy.py`; `soul.py`; `tdp.py`; `guild.py`
+  (;sheet's snapshot, else INFO);
   `money.py` (the purse), `bank.py` (the teller and the money-changer),
   `shop.py` (`buy`, `afford`: one purchase, the quote checked, the sale
   closed the shop's way); `repair.py`; `outfit.py` (`;outfit`, a new
