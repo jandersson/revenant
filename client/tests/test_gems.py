@@ -39,6 +39,7 @@ PROFILE = {"loot_container": "tote", "gem_pouch": "pouch"}
 @pytest.fixture(autouse=True)
 def fresh(monkeypatch):
     monkeypatch.setattr(gems, "_STATE", {"dirty": True, "full": False})
+    monkeypatch.setattr(gems, "_FULL", set())
     monkeypatch.setattr(hands, "_DEFAULTS", {})
     monkeypatch.setattr(interlude, "_PENDING", set())
     monkeypatch.setattr(interlude, "_DEFERRED", {})
@@ -187,3 +188,88 @@ def test_with_both_hands_full_the_chore_waits_in_a_hunts_clear_room(monkeypatch)
     interlude.run_due(s, make_room=False)
     assert game.sent == []
     assert gems.due(PROFILE)
+
+
+# --- the pouch by its id (#456) ---
+
+# INV LIST's two gem pouches, as Lanival's possessions hold them: the
+# worn tied one, and the spare in the backpack (Cecil's, 2026-10-04).
+POUCHES = [
+    {"exist": "900", "name": "a rugged backpack", "noun": "backpack", "worn": True},
+    {"exist": "901", "name": "a leather coin pouch", "noun": "pouch", "worn": True},
+    {
+        "exist": "902",
+        "name": "a black gem pouch (closed)",
+        "noun": "pouch",
+        "worn": False,
+        "container_exist": "900",
+    },
+    {
+        "exist": "903",
+        "name": "a black gem pouch (closed)",
+        "noun": "pouch",
+        "worn": True,
+    },
+]
+NOT_FOUND = "What were you referring to?\n"
+
+
+def pouch_game(answers):
+    """A PUT's answer by its target; every PUT recorded."""
+    sent = []
+
+    def ask(s, command):
+        sent.append(command)
+        target = command.rsplit(" in ", 1)[1]
+        return answers.get(target, POUCHED.format("diopside"))
+
+    return sent, ask
+
+
+def with_pouches(possessions=POUCHES):
+    s, _ = handle()
+    s.state.possessions = possessions
+    return s
+
+
+def test_the_gem_goes_in_the_worn_gem_pouch_by_its_id_not_my_pouch():
+    # MY POUCH is whichever the game finds first: the spare in the
+    # backpack, or the coin pouch. The worn gem pouch is named by id.
+    s = with_pouches()
+    assert gems.pouches(s, PROFILE) == ["#903", "#902"]
+    sent, ask = pouch_game({})
+    assert gems.put(s, PROFILE, "#100", ask)[0]
+    assert sent == ["put #100 in #903"]
+
+
+def test_a_full_pouch_is_remembered_and_the_next_one_takes_the_gem():
+    # #283: the tied pouch at 500 refuses; the spare takes it, and the
+    # next gem goes straight to the spare.
+    s = with_pouches()
+    sent, ask = pouch_game({"#903": "The pouch is too full to fit another gem.\n"})
+    assert gems.put(s, PROFILE, "#100", ask)[0]
+    assert gems.put(s, PROFILE, "#101", ask)[0]
+    assert sent == ["put #100 in #903", "put #100 in #902", "put #101 in #902"]
+
+
+def test_every_pouch_full_is_no_pouching_and_says_full():
+    s = with_pouches()
+    sent, ask = pouch_game({"#903": FULL, "#902": FULL})
+    ok, answer = gems.put(s, PROFILE, "#100", ask)
+    assert not ok and gems.full(answer)
+    assert gems.pouches(s, PROFILE) == []
+    assert not gems.by_id(s, PROFILE)  # the hunt stows it with the loot then
+
+
+def test_a_pouch_the_game_no_longer_knows_falls_back_to_my_pouch():
+    # The listing is from login: a pouch since moved or sold is gone.
+    s = with_pouches()
+    sent, ask = pouch_game({"#903": NOT_FOUND, "#902": NOT_FOUND})
+    assert gems.put(s, PROFILE, "#100", ask)[0]
+    assert sent == ["put #100 in #903", "put #100 in #902", "put #100 in my pouch"]
+
+
+def test_without_a_listing_the_pouch_is_my_pouch():
+    s, _ = handle()
+    assert gems.pouches(s, PROFILE) == ["my pouch"]
+    assert not gems.by_id(s, PROFILE)

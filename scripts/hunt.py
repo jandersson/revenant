@@ -1215,7 +1215,9 @@ def pocket(s, profile, item):
     small laced clear crystal." / "You open your pouch and put the clear
     crystal inside, closing it once more." (2026-10-03). It picks up
     first, so it wants a free hand like the GET: both answered "You
-    need a free hand to pick that up." with a lockpick in the off hand."""
+    need a free hand to pick that up." with a lockpick in the off hand.
+    A gem in hand goes to the pouches by id (gems.put, #456): the STORE
+    pouch full, the next one with room takes it."""
     pouch = profile["gem_pouch"]
     gem = pouch and noun_of(item) in loot.GEM_NOUNS
     if gem and stores_set(profile, "gem"):
@@ -1227,21 +1229,34 @@ def pocket(s, profile, item):
         if outcome in ("gone", "not yours"):
             return
         if outcome == "no room" and "you pick up" in answer:
-            # Picked up, and the pouch full: in hand, it goes with the loot.
+            # Picked up, and the STORE pouch full: in hand, another
+            # pouch INV LIST showed takes it, or it goes with the loot.
+            if (
+                gems.by_id(s, profile)
+                and gems.put(s, profile, gem_ref(s, item), ask)[0]
+            ):
+                gems.room()
+                return
             s.echo(f"hunt: the {pouch} is full — the {item} goes with the loot (#283)")
             gems.mark()
             stow(s, profile, item)
             return
     ask(s, f"get {item}")
     if gem:
-        answer = ask(s, f"put my {item} in my {pouch}")
-        if any(word in answer.lower() for word in loot.POUCHED):
+        ok, answer = gems.put(s, profile, gem_ref(s, item), ask)
+        if ok:
             gems.room()
             return
-        if items.no_room(answer):
+        if gems.full(answer):
             s.echo(f"hunt: the {pouch} is full — the {item} goes with the loot (#283)")
         gems.mark()  # loose with the loot: the gems chore pouches it later (#437)
     stow(s, profile, item)
+
+
+def gem_ref(s, item):
+    """The picked-up gem as a PUT names it: its id from the hand, else
+    MY <item>."""
+    return items.ref(s, noun_of(item)) or f"my {item}"
 
 
 def skin(s, profile, corpse, tally):

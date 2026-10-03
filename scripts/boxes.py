@@ -56,6 +56,7 @@ from client.game import (
     flight,
     gems,
     hands,
+    items,
     money,
     shop,
     stores,
@@ -1005,11 +1006,11 @@ def stow_loot(run, item):
     noun = noun_of(item)
     pouch = run.profile.get("gem_pouch")
     if pouch and noun in GEM_NOUNS:
-        answer = ask(s, f"put my {noun} in my {pouch}")
-        # A full pouch is a refusal too (#436: "You've already got a
-        # wealth of gems in there!"): the gem goes with the loot, and
-        # the gems chore pouches it once the pouch has room (#437).
-        if not hands.refused(answer):
+        # Into the first pouch with room, by id (#456). Every pouch full
+        # (#436: "You've already got a wealth of gems in there!"), the gem
+        # goes with the loot, and the gems chore pouches it later (#437).
+        ref = items.ref(s, noun) or f"my {noun}"
+        if gems.put(s, run.profile, ref, ask)[0]:
             gems.room()
             return
         gems.mark()
