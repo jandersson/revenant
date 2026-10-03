@@ -1004,7 +1004,9 @@ def stow_loot(run, item):
     pouch = run.profile.get("gem_pouch")
     if pouch and noun in GEM_NOUNS:
         answer = ask(s, f"put my {noun} in my {pouch}")
-        if "can't" not in answer.lower() and "cannot" not in answer.lower():
+        # A full pouch is a refusal too (#436: "You've already got a
+        # wealth of gems in there!"): the gem goes with the loot.
+        if not hands.refused(answer):
             return
     if run.container:
         answer = ask(s, f"put my {noun} in my {run.container}")

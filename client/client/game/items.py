@@ -36,6 +36,10 @@ NO_ROOM = (
     "won't fit",
     "push you over the item limit",
     "you just can't",
+    # A full gem pouch (captured 2026-10-03, #436): "You've already got
+    # a wealth of gems in there!  You'd better tie it up before putting
+    # more gems inside." — never TIEd (#283).
+    "wealth of gems",
 )
 # A LOOK IN or OPEN answer: "In the iron box you see some coins, a ruby
 # and a dagger." — and the empty forms.

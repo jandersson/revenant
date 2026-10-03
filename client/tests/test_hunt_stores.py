@@ -137,6 +137,43 @@ def test_a_full_sack_ends_the_farm_with_the_box_in_hand(monkeypatch):
     assert arena.sent.count("loot") == 1  # the farm ended on the refusal
 
 
+def test_a_gem_a_full_pouch_refuses_goes_with_the_loot(monkeypatch):
+    # 2026-10-03 (#436): STOW GEM at a full pouch picked the gem up and
+    # kept it in hand, and "You pick up" read as stowed — two gems sat in
+    # Cecil's hands into ;athletics. Now the pouch is full and the gem
+    # goes into the loot container.
+    found = iter([["a tiny green diopside"], []])
+    monkeypatch.setattr(
+        hunt.loot, "new_items", lambda before, after, creatures=(): next(found, [])
+    )
+    full = (
+        "You've already got a wealth of gems in there!  You'd better tie it up "
+        "before putting more gems inside.\n"
+    )
+    arena = Arena(
+        {
+            "attack": [(KILL, kill), (KILL, _no_kill)],
+            "loot": [NOTHING] * 2,
+            "stow gem": ["You pick up a tiny green diopside.\n" + full],
+            "put my diopside in my pouch": [full],
+            "put my diopside in my sack": [
+                "You put your diopside in your canvas sack.\n"
+            ],
+        }
+    )
+    _run(
+        arena,
+        profile=PROFILE | {"skin": False, "gem_pouch": "pouch"},
+        travel_first=False,
+    )
+    assert "stow gem" in arena.sent
+    assert "put my diopside in my sack" in arena.sent
+    assert any(
+        "the pouch is full — the diopside goes with the loot (#283)" in e
+        for e in arena.echoed
+    )
+
+
 def _no_kill(arena):
     """The first swing's line, the rat still up (test_hunt's _stands)."""
 

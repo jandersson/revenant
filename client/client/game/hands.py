@@ -40,10 +40,21 @@ SIDES = ("left", "right")
 # What a refused STOW says beyond the not-found wordings: the container
 # is full, the game will not ("You can't do that while ..."), or it
 # asks what ("Stow what?").
-STOW_REFUSED = ("no room", "any more room", "won't fit", "can't", "cannot", "stow what")
+STOW_REFUSED = (
+    "no room",
+    "any more room",
+    "won't fit",
+    "wealth of gems",
+    "can't",
+    "cannot",
+    "stow what",
+)
 # The refusals that mean the STORE container is full — the item then
-# goes into the default container (#416).
-STOW_FULL = ("no room", "any more room", "won't fit")
+# goes into the default container (#416). A full gem pouch says it its
+# own way (captured 2026-10-03, #436): "You've already got a wealth of
+# gems in there!  You'd better tie it up before putting more gems
+# inside." — never TIEd here (#283), the gem goes to the default.
+STOW_FULL = ("no room", "any more room", "won't fit", "wealth of gems")
 _DEFAULTS = {}  # character -> the default container's noun, off STORE DEFAULT
 # SHEATHE with no container named and nothing remembered from a WIELD
 # (captured 2026-09-22): "Sheathe your steel scimitar where?"

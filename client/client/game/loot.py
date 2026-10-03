@@ -109,8 +109,12 @@ STOW_OUTCOMES = (
     ("stowed", STOWED),
 )
 # A gem pouch answers a STOW of a gem when it is full (combat-trainer's
-# 'pouch-full' flag): the spare pouch is #283.
-POUCH_FULL = ("too full to fit another gem",)
+# 'pouch-full' flag): the spare pouch is #283. STOW GEM at a full pouch
+# picks the gem up and keeps it in hand (captured 2026-10-03, #436): "You
+# pick up a tiny green diopside." then "You've already got a wealth of
+# gems in there!  You'd better tie it up before putting more gems
+# inside." — the gem goes with the loot (hunt.pocket).
+POUCH_FULL = ("too full to fit another gem", "wealth of gems")
 
 
 def entries(listing):

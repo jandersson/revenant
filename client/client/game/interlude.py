@@ -10,6 +10,8 @@ due(s)          the names run_due would run now, nothing sent — a climb
 run_due(s)      every interlude due now, run on `s`'s thread; quiet when
                 none is. A hand is made for it when both are full: the
                 left hand's item STOWed, the chore run, the item got back.
+                A chore that gets no hand, or runs and is still due,
+                waits DEFER_SECONDS (#436).
 post(name)      a one-shot request — `;break almanac` — honored at the
                 next safe point of whichever script reaches one.
 pending()       the requests not yet honored.
@@ -39,6 +41,11 @@ BACKGROUND = frozenset(
     + ("sentinel", "antiidle", "clock", "break")
 )
 PROFILE_TTL = 30  # seconds a profile read serves the safe points
+# A chore that could not get a hand, or ran and is still due, waits this
+# long before the next safe point tries it again (#436: the almanac,
+# both hands full and a full gem pouch refusing the gem, was tried at
+# every safe point — 58 STOWs in three minutes from ;athletics).
+DEFER_SECONDS = 300
 
 _NOTES = """
 The operator, 2026-09-28 (#372): the almanac starts a skill every ten
@@ -57,6 +64,7 @@ almanac's own timer has the same caveat).
 """
 
 _PENDING = set()
+_DEFERRED = {}  # chore -> clock() before which no safe point tries it
 _LOCK = threading.Lock()
 _PROFILE = {}  # profile file -> (read at, profile)
 clock = time.monotonic  # tests replace it
@@ -211,7 +219,12 @@ def due(s):
     name = str(getattr(s, "name", "") or "")
     if name in NEVER or not _safe(s) or _child_acting(s):
         return []
-    return [n for n in REGISTRY if n in _PENDING or REGISTRY[n][0](s)]
+    now = clock()
+    return [
+        n
+        for n in REGISTRY
+        if n in _PENDING or (_DEFERRED.get(n, 0) <= now and REGISTRY[n][0](s))
+    ]
 
 
 def run_due(s, make_room=True):
@@ -226,7 +239,7 @@ def run_due(s, make_room=True):
         for chore in chores:
             if not _safe(s):
                 return
-            _due, run, fits = REGISTRY[chore]
+            is_due, run, fits = REGISTRY[chore]
             forced = chore in _PENDING
             stowed = None
             if not fits(s):
@@ -234,6 +247,7 @@ def run_due(s, make_room=True):
                     continue  # the next safe point
                 stowed = _make_room(s)
                 if stowed is None:
+                    _DEFERRED[chore] = clock() + DEFER_SECONDS
                     continue
             try:
                 _PENDING.discard(chore)
@@ -241,5 +255,9 @@ def run_due(s, make_room=True):
             finally:
                 if stowed:
                     _restore(s, stowed)
+            if is_due(s):
+                # It ran and is due still: it could not act (a hand that
+                # did not free, #436). Not again at every safe point.
+                _DEFERRED[chore] = clock() + DEFER_SECONDS
     finally:
         _LOCK.release()

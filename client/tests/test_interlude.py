@@ -28,6 +28,8 @@ def fresh(monkeypatch):
     monkeypatch.setattr(almanac, "_NEXT", {})
     monkeypatch.setattr(almanac, "_OFF", set())
     monkeypatch.setattr(interlude, "_PENDING", set())
+    monkeypatch.setattr(interlude, "_DEFERRED", {})
+    monkeypatch.setattr(interlude, "clock", lambda: now["t"])
     monkeypatch.setattr(interlude, "_PROFILE", {})
     return now
 
@@ -47,7 +49,8 @@ class Game:
         for prefix, text in self.answers.items():
             if command.startswith(prefix):
                 return text
-        if verb == "stow":
+        if verb in ("stow", "put"):
+            noun = noun.split(" in ")[0]
             for side in ("left_hand", "right_hand"):
                 if (getattr(state, side) or {}).get("noun") == noun:
                     setattr(state, side, None)
@@ -180,6 +183,75 @@ def test_a_stow_refused_leaves_the_hands_and_the_chore_waits(monkeypatch):
     interlude.run_due(s)
     assert game.sent == ["stow my mortar", "store default"]
     assert "the chore waits" in s.echoed[0]
+
+
+WEALTH_OF_GEMS = (
+    "You've already got a wealth of gems in there!  You'd better tie it up "
+    "before putting more gems inside.\n"
+)  # a full gem pouch, captured 2026-10-03 (#436)
+
+
+def test_a_full_gem_pouch_sends_the_gem_to_the_default_container(monkeypatch):
+    # 20:19 on 2026-10-03: the pouch's answer read as stowed, the gem
+    # stayed in hand, and the almanac was tried at every safe point.
+    monkeypatch.setattr(interlude.hands, "_DEFAULTS", {})
+    with_almanac()
+    s, game = handle(
+        monkeypatch,
+        "athletics",
+        left={"noun": "chrysoprase"},
+        right={"noun": "rope"},
+        answers={
+            "stow my chrysoprase": WEALTH_OF_GEMS,
+            "store default": "         Default:  a rugged backpack\n",
+        },
+    )
+    interlude.run_due(s)
+    assert game.sent == [
+        "stow my chrysoprase",
+        "store default",
+        "put my chrysoprase in my backpack",
+        "get my almanac",
+        "study my almanac",
+        "stow my almanac",
+        "get my chrysoprase",
+    ]
+    assert "the chrysoprase went in the backpack" in s.echoed[0]
+
+
+def test_a_chore_that_cannot_act_waits_five_minutes_not_every_safe_point(
+    monkeypatch, fresh
+):
+    # The shape of #436: a STOW the game answered without freeing the
+    # hand, the almanac silent for want of one, and the next safe point
+    # three seconds on doing it all again.
+    with_almanac()
+    s, game = handle(
+        monkeypatch,
+        "athletics",
+        left={"noun": "chrysoprase"},
+        right={"noun": "rope"},
+        answers={"stow my chrysoprase": "You fiddle with the chrysoprase.\n"},
+    )
+    interlude.run_due(s)
+    assert game.sent == ["stow my chrysoprase", "get my chrysoprase"]
+    fresh["t"] += 3
+    assert interlude.due(s) == []  # no STOP CLIMB for it either (#417)
+    interlude.run_due(s)
+    assert len(game.sent) == 2
+    fresh["t"] += interlude.DEFER_SECONDS
+    assert interlude.due(s) == ["almanac"]
+    # A STOW refused outright waits the same.
+    refused, game = handle(
+        monkeypatch,
+        "remedies",
+        left={"noun": "mortar"},
+        right={"noun": "pestle"},
+        answers={"stow my mortar": "You can't do that right now.\n"},
+    )
+    interlude._DEFERRED.clear()
+    interlude.run_due(refused)
+    assert interlude.due(refused) == []
 
 
 def test_an_item_that_does_not_come_back_is_said(monkeypatch):

@@ -1315,3 +1315,27 @@ def test_a_box_of_two_currencies_keeps_the_copper_of_each(monkeypatch, tmp_path)
             "SELECT kronars, lirums, dokoras, coins, currency FROM box_contents"
         ).fetchall()
     assert rows == [(38, 0, 400, 38 + 554, "Kronars")]
+
+
+def test_a_gem_a_full_pouch_refuses_goes_in_the_loot_container():
+    # #436: "You've already got a wealth of gems in there!" read as put
+    # away, and the gem stayed in hand.
+    sent = []
+    answers = {
+        "put my diopside in my pouch": (
+            "You've already got a wealth of gems in there!  You'd better tie it "
+            "up before putting more gems inside.\n"
+        ),
+        "put my diopside in my sack": "You put your diopside in your canvas sack.\n",
+    }
+
+    def ask(s, command, *_):
+        sent.append(command)
+        return answers.get(command, "")
+
+    script.ask = ask
+    run_state = SimpleNamespace(
+        s=SimpleNamespace(), profile={"gem_pouch": "pouch"}, container="sack"
+    )
+    script.stow_loot(run_state, "a tiny green diopside")
+    assert sent == ["put my diopside in my pouch", "put my diopside in my sack"]
