@@ -497,6 +497,18 @@ def test_a_searched_item_the_profile_ignores_is_never_picked_up(travel):
     assert "get needle" not in arena.sent
 
 
+def test_a_searched_item_on_never_pick_up_is_left_where_it_fell(travel):
+    # 2026-10-03 (#442), the operator: runestones go to the vault, and
+    # no more are looted — loot_subtractions held only the room's
+    # listing to it, never the search's wording.
+    found = "You search the rat.\nThe rat was carrying a sunstone runestone!"
+    arena = _run(
+        Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [found]}),
+        profile=PROFILE | {"loot_subtractions": ["runestone"]},
+    )
+    assert "get runestone" not in arena.sent
+
+
 def test_an_empty_ground_is_waited_out_not_left(travel):
     # 2026-09-13, the operator: an empty ground is not a reason to go
     # home — pause after every empty lap and lap again until told.

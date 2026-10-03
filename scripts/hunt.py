@@ -1443,6 +1443,7 @@ def dispose(s, profile, corpse, tally):
     taken = grab(s, profile, before, tally) if outcome is not None else []
     if outcome == "found":
         ignore = profile.get("loot_ignore") or ()
+        never = {str(n).strip().lower() for n in profile.get("loot_subtractions") or ()}
         for item in items_in(answer):
             if item in taken or item in tally.unlootable:
                 continue
@@ -1450,6 +1451,8 @@ def dispose(s, profile, corpse, tally):
                 continue  # no room for it, and a GET would free a hand for it
             if loot.ignored(named(answer, item), ignore):
                 continue  # "an embroidery needle" off a scout (#365)
+            if noun_of(item) in never:
+                continue  # "Never pick up": the runestones (#442)
             since = hands.mark(s)
             pocket(s, profile, item)
             if item in loot.BOX_NOUNS:

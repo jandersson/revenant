@@ -1062,6 +1062,35 @@ def test_loot_ignore_items_go_in_the_trash_and_a_rare_nugget_is_kept():
     assert "the copper nugget is on loot_ignore — in the trash" in out
 
 
+def test_a_never_pick_up_item_comes_out_of_the_box_into_the_trash():
+    # 2026-10-03 (#442): runestones on loot_subtractions, the operator's
+    # "I dont want them looted" — out of the box so it dismantles empty,
+    # then the bin, as loot_ignore's items go.
+    table = one_easy_box()
+    table[table.index(("open my box", OPENED))] = (
+        "open my box",
+        "In the iron box you see a sunstone runestone.\n",
+    )
+    fake = Fake(
+        [
+            (
+                "get sunstone runestone from my box",
+                "You get a sunstone runestone from inside your iron box.\n",
+            ),
+            (
+                "put my sunstone runestone in bucket",
+                "You drop a sunstone runestone in a bucket.\n",
+            ),
+        ]
+        + table,
+        mindstates=[1, 3, 5, 7],
+    )
+    out = run(fake, profile={"loot_subtractions": ["runestone"]})
+    assert "put my sunstone runestone in bucket" in fake.sent
+    assert not any("runestone in my sack" in command for command in fake.sent)
+    assert "the sunstone runestone is on loot_subtractions — in the trash" in out
+
+
 def test_with_no_trash_in_the_room_an_ignored_item_is_kept():
     fake = Fake(nugget_box(), mindstates=[1, 3, 5, 7])
     out = run(fake, profile=IGNORE, bin_here=False)

@@ -21,8 +21,9 @@ What it does
   - Coins to the purse, gems to `gem_pouch`, the rest to the loot container.
   - Sits for the work, but stays standing when the load reads Overburdened:
     a sitter that heavy cannot stand again.
-  - What `loot_ignore` names (the common metals by default) goes in the room's
-    trash; with no trash in the room it is kept.
+  - What `loot_ignore` names (the common metals by default) and a
+    `loot_subtractions` noun (never picked up) go in the room's trash;
+    with no trash in the room they are kept.
   - At the lock it holds until Locksmithing drains, then goes on.
   - Logs each opened box to history.db (`box_contents`): trap, lock, coins, items,
     and the creature and ground it came from, by the id ;hunt logged at pickup.
@@ -1041,8 +1042,19 @@ def empty(run, noun):
         if thing in ("stuff",):
             continue
         # An ignored item comes out by its short name, so GET takes it
-        # and not a kept one of the same noun (#365).
-        ignore = ignored(item, run.profile.get("loot_ignore") or ())
+        # and not a kept one of the same noun (#365). A "never pick up"
+        # noun (loot_subtractions, the runestones, #442) comes out too —
+        # the box is dismantled empty — and goes the same way.
+        never = {
+            str(n).strip().lower() for n in run.profile.get("loot_subtractions") or ()
+        }
+        ignore = (
+            "loot_ignore"
+            if ignored(item, run.profile.get("loot_ignore") or ())
+            else "loot_subtractions"
+            if thing in never
+            else ""
+        )
         if ignore:
             thing = short_name(item)
         answer = ask(s, f"get {thing} from my {noun}")
@@ -1064,11 +1076,11 @@ def empty(run, noun):
         if outcome == "taken" and ignore:
             trashed = discard.trash(s, thing, ask)
             if trashed is None:
-                run.say(f"no trash here for the {thing} (loot_ignore) — kept")
+                run.say(f"no trash here for the {thing} ({ignore}) — kept")
                 stow_loot(run, item)
                 box["items"].append(item)
             else:
-                run.say(f"the {thing} is on loot_ignore — in the trash")
+                run.say(f"the {thing} is on {ignore} — in the trash")
                 box["trashed"].append(item)
             taken += 1
             continue

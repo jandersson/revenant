@@ -33,7 +33,7 @@ File → Character Profile, or `~/.revenant/profiles/<name>.json`. The keys a hu
 | `skin`, `skin_knife` | skin each kill; a knife noun, or empty for a worn knife or the weapon |
 | `bundle` | put skins on a worn bundling rope (free at any tannery) |
 | `loot_container`, `gem_pouch` | where loot and skins go; where gems go |
-| `loot_additions`, `loot_subtractions` | nouns also picked up; nouns never picked up |
+| `loot_additions`, `loot_subtractions` | nouns also picked up; nouns never picked up (out of a box, into the trash) |
 | `loot_ignore` | loot not worth keeping: never picked up, trashed from boxes (default: the common metals) |
 | `loot_sweep` | beside a bin, trash what `loot_ignore` names from the loot container (off) |
 | `box_limit` | boxes carried at most (0: no limit) |
