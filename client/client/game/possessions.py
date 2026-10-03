@@ -23,13 +23,58 @@ from client.game.inventory import _depth
 # A state the listing appends to a container's name: "a plain steel
 # coffer (closed)" (2026-09-26) — not part of the noun.
 _STATE_SUFFIX = re.compile(r"\s*\([^)]*\)\s*$")
+# A name's descriptive tail, which the noun comes before (#430, Cecil's
+# INV LIST 2026-10-02): "a woven straw tote with cream canvas handles"
+# is a tote, "an elegant diamond-hide almanac bearing a platinum Estate
+# Holder's crest" an almanac. Never " of ": "a pair of copper zills"
+# and "a stick of fragrant incense" end in their noun.
+_TAIL = re.compile(
+    r"\s+(?:with|bearing|depicting|displaying|featuring|showing|that|which"
+    r"|made\s+(?:of|from))\s",
+    re.IGNORECASE,
+)
+# What leads into the tail is part of it, not the noun: a participle
+# ("a marigold beach towel woven with ...", "an ornate platinum brooch
+# set with ..."), the adverb before one ("badly stained with"), a
+# particle ("woven through with"). Short participles are named; any
+# word of six letters or more ending in -ed is taken for one (sealed,
+# embellished, reinforced, surmounted) — a noun that long ending in -ed
+# is rare enough to name (seabed, linseed).
+_PARTICIPLES = frozenset(
+    "set inset fit woven sewn spun inlaid wrought hung strung bound wound "
+    "lined edged tied dyed made through over".split()
+)
+_ED_NOUNS = frozenset(
+    "seabed hotbed flatbed linseed aniseed birdseed watershed".split()
+)
+
+
+def _leads_in(word):
+    word = word.lower()
+    return word in _PARTICIPLES or (
+        len(word) >= 6 and word.endswith("ed") and word not in _ED_NOUNS
+    )
 
 
 def noun_of(name):
-    """The item's noun: the name's last word, a trailing "(closed)" or
-    "(open)" dropped (#323: both of Cecil's boxes read as "(closed)", and
-    ;boxes never found the coffer in the backpack)."""
-    words = _STATE_SUFFIX.sub("", str(name or "")).split()
+    """The item's noun: the last word before a descriptive tail ("with
+    ...", "bearing ...", "made of ...", and what leads into it), a
+    trailing "(closed)" or "(open)" dropped (#323: both of Cecil's boxes
+    read as "(closed)", and ;boxes never found the coffer in the
+    backpack; #430: his tote read as "handles", his skinning knife as
+    "hilt")."""
+    text = _STATE_SUFFIX.sub("", str(name or ""))
+    head, tail = (_TAIL.split(text, maxsplit=1) + [""])[:2]
+    words = head.split()
+    if tail:
+        dropped = False
+        while len(words) > 1 and (
+            _leads_in(words[-1]) or (dropped and words[-1].lower().endswith("ly"))
+        ):
+            words = words[:-1]
+            dropped = True
+    if not words:
+        words = text.split()
     return words[-1] if words else ""
 
 

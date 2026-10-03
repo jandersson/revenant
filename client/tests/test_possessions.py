@@ -55,6 +55,47 @@ def test_a_closed_containers_state_is_not_its_noun():
     assert items[1]["name"] == "a plain steel coffer (closed)"
 
 
+def test_a_names_descriptive_tail_is_not_its_noun():
+    # Cecil's INV LIST, 2026-10-02 (#430): the tote read as "handles",
+    # so a container lookup said "from my handles"; the knife as "hilt".
+    names = {
+        "a woven straw tote with cream canvas handles": "tote",
+        "a small steel skinning knife with a leather-wrapped hilt": "knife",
+        "a marigold beach towel woven with bands of teal and cream": "towel",
+        "a pair of amber-tinted glasses with bronze frames": "glasses",
+        "an elegant diamond-hide almanac bearing a platinum Estate Holder's crest": (
+            "almanac"
+        ),
+        "an ornate platinum brooch set with an orichalcum icosahedron": "brooch",
+    }
+    for name, noun in names.items():
+        assert possessions.noun_of(name) == noun, name
+    # More from the game logs' listings: a participle of any length, the
+    # adverb before it, "woven through with", "made of ... and covered".
+    for name, noun in {
+        "a small gryphon-pelt shield sealed with protective wax": "shield",
+        "a bourde alchemist's belt badly stained with black dye": "belt",
+        "a wide silk belt woven through with thin silver chain": "belt",
+        "a double nestled armband made of cambrinth and covered with tiny gems": (
+            "armband"
+        ),
+        "a small aubergine telescope fit with an eyepiece of electrum": "telescope",
+        "a dozen long-stemmed flame roses which glisten with tiny dewdrops": "roses",
+    }.items():
+        assert possessions.noun_of(name) == noun, name
+    # What already ended in its noun still does, " of " included.
+    for name, noun in {
+        "a pair of copper zills": "zills",
+        "a stick of fragrant incense": "incense",
+        "a plain steel coffer (closed)": "coffer",
+        "some light full plate": "plate",
+        "a metal target shield": "shield",
+        "a sled": "sled",
+    }.items():
+        assert possessions.noun_of(name) == noun, name
+    assert possessions.noun_of("") == ""
+
+
 def test_a_noun_finds_its_items_in_order():
     items = possessions.build(LINKS)
     assert [item["exist"] for item in possessions.find(items, "tail")] == [
