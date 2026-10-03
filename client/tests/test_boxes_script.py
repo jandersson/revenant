@@ -643,6 +643,44 @@ def test_a_box_in_another_container_is_worked_and_put_back_there():
     assert "1 kept for a better locksmith" in out
 
 
+def test_a_box_stowed_since_the_listing_is_found_in_the_store_container():
+    # 2026-10-03 (#432): the box farm STOWed three boxes into the STORE
+    # BOXES container while the login INV LIST showed none there, and
+    # ;boxes looked in the loot container alone. The hunt's stores file
+    # names where STOW BOX puts them.
+    from client.game import stores
+
+    stores.remember("Lanival", {"boxes": "backpack", "gems": "pouch"})
+    stale = [item for item in POSSESSIONS_WITH_A_COFFER if item["noun"] != "coffer"]
+    fake = Fake(
+        [
+            ("look in my sack", "In the canvas sack you see a cotton rag.\n"),
+            ("look in my backpack", BACKPACK),
+            (
+                "get coffer from my backpack",
+                "You get a plain steel coffer from inside your rugged backpack.\n",
+            ),
+            ("disarm my coffer identify", COFFER_LONGSHOT),
+            ("put my coffer in my backpack", "You put your coffer in your backpack.\n"),
+        ],
+        mindstates=[1, 3],
+    )
+    fake.state.possessions = stale
+    out = run(fake)
+    assert "look in my backpack" in fake.sent
+    assert "1 box(es) in the backpack" in out
+    # The same container once, and not at all when it is the loot one.
+    assert fake.sent.count("look in my backpack") == 1
+    stores.remember("Lanival", {"boxes": "sack"})
+    again = Fake(
+        [("look in my sack", "In the canvas sack you see a cotton rag.\n")],
+        mindstates=[1],
+    )
+    again.state.possessions = stale
+    assert "no boxes in the sack — nothing to pick" in run(again)
+    assert again.sent.count("look in my sack") == 1
+
+
 def test_a_named_source_works_that_container_alone():
     fake = Fake(
         [("look in my sack", "In the canvas sack you see a cotton rag.\n")],

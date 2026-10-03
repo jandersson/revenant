@@ -56,6 +56,7 @@ from client.game import (
     hands,
     money,
     shop,
+    stores,
     trainer,
     travel,
     walker,
@@ -1252,6 +1253,13 @@ def run_loop(s, profile, options):
         extra += [
             c for c in placed.values() if c not in (primary, FEET) and c not in extra
         ]
+        # Where STOW BOX put the boxes since that listing: the STORE
+        # container ;hunt last set, which can differ from the loot
+        # container the profile names now (#432: three boxes in the sack
+        # after the profile moved to the tote mid-farm).
+        stored = stores.boxes_container(getattr(s.state, "name", None))
+        if stored and stored != primary and stored not in extra:
+            extra.append(stored)
         for container in extra:
             found = boxes_in(ask(s, f"look in my {container}")) or []
             if found:

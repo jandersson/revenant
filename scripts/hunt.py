@@ -35,11 +35,9 @@ The profile is ~/.revenant/profiles/<name>.json (File > Character Profile...);
 docs/hunting.md explains every key. Report any "hunt: unrecognized ..." line.
 """
 
-import json
 import logging
 import re
 import time
-from pathlib import Path
 from collections import Counter
 
 from client.game import (
@@ -56,6 +54,7 @@ from client.game import (
     loot,
     lootlog,
     probe,
+    stores,
     travel,
 )
 from client.game.act import NOT_FOUND, ask, missing, said, unknown
@@ -1049,28 +1048,11 @@ STORED = (
 )  # captured 2026-09-26: "You will now store boxes in your canvas sack."
 
 
-def stores_path(character):
-    """Where the STORE containers ;hunt last set are remembered, per
-    character (REVENANT_STORES_DIR moves the directory)."""
-    import os
-
-    base = os.environ.get("REVENANT_STORES_DIR") or str(
-        Path.home() / ".revenant" / "stores"
-    )
-    return Path(base) / f"{character or 'unknown'}.json"
-
-
-def load_stores(character):
-    try:
-        return json.loads(stores_path(character).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
-
-
-def remember_stores(character, stores):
-    path = stores_path(character)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(stores, indent=1), encoding="utf-8")
+# Where the STORE containers ;hunt last set are remembered, per
+# character: client/game/stores.py, which ;boxes reads too (#432).
+stores_path = stores.path
+load_stores = stores.load
+remember_stores = stores.remember
 
 
 def note_turn(s, tally, skill):
