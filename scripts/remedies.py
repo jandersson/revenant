@@ -30,6 +30,8 @@ What it does
   - With the profile's `forage_herbs`, red flowers it runs out of are foraged
     (;forage herb, once an order) before any are bought.
   - A remedy too poor for the order is discarded if `droppable` names it, else stowed.
+  - A remedy not of the order's 5 uses is cut to 5 (MARK, BREAK) or topped up from
+    another stack of it (COMBINE); what is broken off is stowed for the next order.
   - Every order handed in is a row in history.db, summed by `;remedies ledger`.
 
 When it stops
@@ -73,9 +75,12 @@ from client.game.remedies import (
     COMBINED,
     CRUSH_OUTCOMES,
     FORAGE_NAMES,
+    BROKEN,
+    MARKED,
     MORTAR_BUSY,
     MORTAR_FULL,
     STACK_PIECES,
+    STACK_USES,
     WRONG_SIZE,
     containers_of,
     containers_with,
@@ -102,6 +107,7 @@ from client.game.remedies import (
     sellable,
     shortage,
     unsold,
+    uses,
 )
 from client.game.workorders import (
     clear_open,
@@ -683,7 +689,7 @@ def bundle_on_hand(s, item, noun, remaining):
             break
         if missing(ask(s, f"get my {item} from my {container}")):
             break
-        outcome, left, due = bundle(s, noun, remaining)
+        outcome, left, due = bundle(s, noun, remaining, item)
         if outcome == "expired":
             return None
         if outcome in ("unknown", "size"):
@@ -896,35 +902,141 @@ def order(s, master, level, seek=None):
     return parsed
 
 
-def bundle(s, noun, expected):
+FIT_JOINS = 3  # other stacks combined into a short remedy at most (#428)
+
+
+def other_in_hand(s, noun, mine):
+    """The id ("#141087237") of the held `noun` that is not `mine`, or
+    None."""
+    for tag in hands.tags(s).values():
+        if (
+            tag
+            and tag.get("exist")
+            and f"#{tag['exist']}" != mine
+            and hands._same(tag.get("noun") or "", noun)
+        ):
+            return f"#{tag['exist']}"
+    return None
+
+
+def other_stack(s, item, noun, mine, places):
+    """Another stack of `item` GOT from the first of `places` that has
+    one into the free hand, by its id; None when none has (a place that
+    has none is dropped from the list)."""
+    while places:
+        if missing(ask(s, f"get my {item} from my {places[0]}")):
+            places.pop(0)
+            continue
+        other = other_in_hand(s, noun, mine)
+        if other is None:
+            s.echo(f"remedies: the {item} got has no id to combine by")
+        return other
+    return None
+
+
+def fit(s, item, noun):
+    """The remedy in hand brought to the order's STACK_USES (#428),
+    one hand free on entry: COUNTed; short, another stack of `item`
+    COMBINEd into it, FIT_JOINS at most; over, MARKed AT the size and
+    BROKEn, the rest stowed for a later order. True when the hand holds
+    a stack of that size; False, said, when it cannot be had."""
+    mine = items.ref(s, f"my {noun}")
+    if mine is None:
+        s.echo(f"remedies: the {noun} in hand has no id to size it by — kept")
+        return False
+    held = uses(ask(s, f"count {mine}"))
+    if held is None:
+        s.echo(f"remedies: COUNT gave no uses for the {noun} — kept")
+        return False
+    if held == STACK_USES:
+        s.echo(
+            f"remedies: the order refused the {noun} for its size at {held} uses "
+            "— kept, please report it"
+        )
+        return False
+    possessions = getattr(s.state, "possessions", None)
+    places = list(dict.fromkeys(stacks_on_hand(possessions, item))) if item else []
+    for _ in range(FIT_JOINS):
+        if held >= STACK_USES:
+            break
+        other = other_stack(s, item, noun, mine, places)
+        if other is None:
+            break
+        joined = ask(s, f"combine {other} with {mine}").lower()
+        if not any(word in joined for word in COMBINED):
+            hands.stow(s, other, ask=ask)
+            break
+        mine = items.ref(s, f"my {noun}") or mine  # the result has a new id
+        held = uses(ask(s, f"count {mine}")) or held
+    if held < STACK_USES:
+        s.echo(
+            f"remedies: the {noun} holds {held} use(s) and no other {item or noun} "
+            f"tops it up to the order's {STACK_USES} — kept"
+        )
+        return False
+    if held > STACK_USES:
+        marked = ask(s, f"mark {mine} at {STACK_USES}")
+        if not any(word in marked.lower() for word in MARKED):
+            first = (marked.strip().splitlines() or ["(silence)"])[0]
+            s.echo(f"remedies: MARK answered {first!r} — the {noun} kept")
+            return False
+        broken = ask(s, f"break {mine}")
+        if not any(word in broken.lower() for word in BROKEN):
+            first = (broken.strip().splitlines() or ["(silence)"])[0]
+            s.echo(f"remedies: BREAK answered {first!r} — the {noun} kept")
+            return False
+        rest = other_in_hand(s, noun, mine)
+        if rest is None or not hands.stow(s, rest, ask=ask):
+            s.echo(f"remedies: the {noun} broken off could not be stowed — kept")
+            return False
+        s.echo(
+            f"remedies: the {noun} cut from {held} uses to {STACK_USES}, "
+            "the rest stowed for a later order"
+        )
+    return True
+
+
+def bundled_as(s, answer):
+    """BUNDLE's answer read: "bundled", "rejected" (the order's
+    quality), "size" (not a stack of the order's size), "expired", or
+    "unknown" (said, for the report)."""
+    lowered = answer.lower()
+    if any(word in lowered for word in REJECTED):
+        return "rejected"
+    if any(word in lowered for word in WRONG_SIZE):
+        return "size"
+    if any(word in lowered for word in ORDER_EXPIRED):
+        return "expired"
+    if not any(word in lowered for word in BUNDLED):
+        first = (answer.strip().splitlines() or ["(silence)"])[0]
+        s.echo(f"remedies: BUNDLE answered {first!r} — please report it")
+        return "unknown"
+    return "bundled"
+
+
+def bundle(s, noun, expected, item=None):
     """The remedy in one hand, the logbook in the other, BUNDLEd; the
-    logbook's count read back. ("bundled" | "rejected" | "unknown" |
-    "expired", remaining, roisaen): rejected is the order's quality
-    unmet — the remedy disposed of through discard.drop (stowed when the
-    list refuses it), the order still owed its stack;
+    logbook's count read back. ("bundled" | "rejected" | "size" |
+    "unknown" | "expired", remaining, roisaen): rejected is the order's
+    quality unmet — the remedy disposed of through discard.drop (stowed
+    when the list refuses it), the order still owed its stack; size is
+    a remedy fit() could not bring to the order's stack (#428), stowed;
     unknown is an answer the table lacks whose logbook count did not
     move from `expected`, the remedy stowed likewise; expired is an
     order past its due time (#397: the BUNDLE's answer or the READ's),
-    the remedy stowed for the next order."""
+    the remedy stowed for the next order. `item` ("blister cream") names
+    the other stacks a short remedy is topped up from."""
     ask(s, "get my logbook")
-    answer = ask(s, f"bundle my {noun} with my logbook")
-    lowered = answer.lower()
-    outcome = "bundled"
-    if any(word in lowered for word in REJECTED):
-        outcome = "rejected"
-    elif any(word in lowered for word in WRONG_SIZE):
-        # A remedy of another size than the order's stacks (#370): kept.
-        outcome = "size"
-        s.echo(
-            f"remedies: the {noun} is not a stack of the order's size — kept; "
-            f"a herb stack short of {STACK_PIECES} pieces made it"
-        )
-    elif any(word in lowered for word in ORDER_EXPIRED):
-        outcome = "expired"
-    elif not any(word in lowered for word in BUNDLED):
-        outcome = "unknown"
-        first = (answer.strip().splitlines() or ["(silence)"])[0]
-        s.echo(f"remedies: BUNDLE answered {first!r} — please report it")
+    outcome = bundled_as(s, ask(s, f"bundle my {noun} with my logbook"))
+    if outcome == "size":
+        # Short or over, the same line (#428): the logbook away for the
+        # hand MARK/BREAK and COMBINE want, the remedy brought to size,
+        # and bundled again.
+        ask(s, "stow my logbook")
+        fitted = fit(s, item, noun)
+        ask(s, "get my logbook")
+        if fitted:
+            outcome = bundled_as(s, ask(s, f"bundle my {noun} with my logbook"))
     state, remaining, due = parse_logbook(ask(s, "read my logbook"))
     ask(s, "stow my logbook")
     if state == "expired":
@@ -1263,7 +1375,7 @@ def work(s, options, profile):
             sync_order(s, state, tally, snapshot)
             if why is None:
                 take_out(s, spec[4])
-                outcome, remaining, due = bundle(s, spec[4], remaining)
+                outcome, remaining, due = bundle(s, spec[4], remaining, parsed["item"])
                 if outcome == "rejected":
                     rejected += 1
                     tally["rejected"] = tally.get("rejected", 0) + 1

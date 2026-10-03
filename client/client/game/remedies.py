@@ -148,7 +148,7 @@ MORTAR_BUSY = ("not required to continue crafting",)
 # stack makes a smaller remedy (6 pieces made a 1-use cream), which the
 # order refuses: "...you notice the workorder calls for stacks of 5 for
 # each remedy, and think it best to mark and cut the remedy down to the
-# required size before bundling." So a stack short of STACK_PIECES is
+# required size before bundling." (below). So a stack short of STACK_PIECES is
 # combined with the herb's other stacks first ("You combine the stacks
 # of herbs together."), and bought when they are not enough.
 MORTAR_FULL = ("can only hold",)
@@ -159,12 +159,36 @@ FORAGE_NAMES = {"flowers": "red flower"}
 STACK_PIECES = 25
 WRONG_SIZE = ("calls for stacks of",)
 COMBINED = ("you combine",)
+# A remedy of any size but the order's is refused with that same line,
+# short or over (#428), and is brought to size (captured 2026-10-03 on
+# blister creams): COUNT "You count out 5 uses remaining."; MARK <it>
+# AT 3 "You measure out 3 usable portions from the stack and mark it
+# for cutting." (AT its whole size: "There is not enough remedy material
+# present to do that."); BREAK, a hand free, "You carefully break off 3
+# pieces from the stack." — the original keeps the 3 marked, a new item
+# in the free hand the rest ("You can't break it with both hands full!",
+# and unmarked "You can't break that."); COMBINE #a WITH #b "You combine
+# the stacks of remedies together.", the result a new id. CUT cuts
+# nothing. A STOW merges a remedy into a like stack in the container,
+# and refuses past its limit: "You just can't make that stack any
+# larger." (dr-scripts issue #938, where MARK and BREAK come from).
+STACK_USES = 5  # the order's stack: "I need 2 stacks (5 uses each)"
+MARKED = ("mark it for cutting",)
+BROKEN = ("break off",)
+_USES = re.compile(r"count out (\d+) uses? remaining", re.IGNORECASE)
 
 
 def pieces(answer):
     """COUNT's pieces, or None when the answer gives none (items.count;
     herbstacks imports it here)."""
     return items.count(answer)
+
+
+def uses(answer):
+    """COUNT's uses of a remedy ("You count out 5 uses remaining."), or
+    None when the answer gives none."""
+    match = _USES.search(str(answer or ""))
+    return int(match.group(1)) if match else None
 
 
 def containers_of(possessions):

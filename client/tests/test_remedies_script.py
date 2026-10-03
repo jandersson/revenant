@@ -1495,16 +1495,150 @@ def test_the_stack_in_hand_is_counted_by_its_id_when_the_tag_carries_one():
     assert fake.sent == ["count #77"]
 
 
-def test_a_remedy_of_another_stack_size_is_kept_not_bundled_or_dropped():
-    fake = _fetching(
-        {
-            "bundle my cream with my logbook": [WRONG_SIZE],
-            "read my logbook": [LOGBOOK_OPEN],
-        }
+class Sizing(Fake):
+    """Hands that hold what the commands put in them, for the stack
+    size (#428): each blister cream by its id with its uses, the
+    backpack's creams front first (a STOW puts one in front), and
+    COUNT, COMBINE, MARK and BREAK answering as captured 2026-10-03.
+    BUNDLE takes a cream of 5 uses and refuses any other size."""
+
+    def __init__(self, held, pack=()):
+        super().__init__({"read my logbook": [LOGBOOK_OPEN]})
+        self.uses, self.pack, self.bundled = {}, list(pack), []
+        self.next_id, self.marked = 100, None
+        self.state.right_hand, self.state.left_hand = self.cream(held), None
+        self.state.possessions = CREAMS_ON_HAND
+
+    def cream(self, uses):
+        self.next_id += 1
+        self.uses[str(self.next_id)] = uses
+        return {"noun": "cream", "name": "blister cream", "exist": str(self.next_id)}
+
+    def place(self, tag):
+        side = "left_hand" if self.state.left_hand is None else "right_hand"
+        setattr(self.state, side, tag)
+
+    def take(self, noun=None, exist=None):
+        for side in ("left_hand", "right_hand"):
+            tag = getattr(self.state, side)
+            if tag and (
+                tag["exist"] == exist or (exist is None and tag["noun"] == noun)
+            ):
+                setattr(self.state, side, None)
+                return tag
+        return None
+
+    def ask(self, s, command, *_):
+        words = command.split()
+        if words[0] in ("count", "combine", "mark", "break", "stow", "bundle"):
+            self.sent.append(command)
+        if command == "get my logbook":
+            self.sent.append(command)
+            self.place({"noun": "logbook", "name": "alchemy logbook", "exist": "90"})
+            return "You get an alchemy work order logbook from inside your backpack.\n"
+        if command.startswith("get my blister cream from"):
+            self.sent.append(command)
+            if not self.pack:
+                return MISSING
+            self.place(self.cream(self.pack.pop(0)))
+            return "You get some blister cream from inside your backpack.\n"
+        if words[0] == "count":
+            return f"You count out {self.uses[words[1][1:]]} uses remaining.\n"
+        if words[0] == "combine":
+            first, second = words[1][1:], words[3][1:]
+            self.take(exist=first), self.take(exist=second)
+            self.place(self.cream(self.uses[first] + self.uses[second]))
+            return "You combine the stacks of remedies together.\n"
+        if words[0] == "mark":
+            exist, size = words[1][1:], int(words[3])
+            if self.uses[exist] <= size:
+                return "There is not enough remedy material present to do that.\n"
+            self.marked = (exist, size)
+            return (
+                f"You measure out {size} usable portions from the stack and mark it "
+                "for cutting.\n"
+            )
+        if words[0] == "break":
+            exist, size = self.marked
+            rest, self.uses[exist] = self.uses[exist] - size, size
+            self.place(self.cream(rest))
+            return f"You carefully break off {size} pieces from the stack.\n"
+        if words[0] == "stow":
+            what = words[-1]
+            tag = self.take(exist=what[1:]) if what.startswith("#") else self.take(what)
+            if tag and tag["noun"] == "cream":
+                self.pack.insert(0, self.uses[tag["exist"]])
+            return f"You put your {tag['noun'] if tag else what} in your backpack.\n"
+        if command == "bundle my cream with my logbook":
+            tag = next(
+                t
+                for t in (self.state.left_hand, self.state.right_hand)
+                if t and t["noun"] == "cream"
+            )
+            if self.uses[tag["exist"]] != 5:
+                return WRONG_SIZE
+            self.take(exist=tag["exist"])
+            self.bundled.append(self.uses[tag["exist"]])
+            return BUNDLED
+        return super().ask(s, command)
+
+
+def test_a_remedy_over_the_orders_size_is_cut_to_five_and_the_rest_stowed():
+    # The game's refusal says "mark and cut the remedy down": MARK AT 5,
+    # BREAK with the logbook put away for the hand, the rest stowed.
+    fake = Sizing(held=8)
+    script.ask = fake.ask
+    outcome, _, _ = script.bundle(fake, "cream", 2, "blister cream")
+    assert outcome == "bundled" and fake.bundled == [5]
+    assert fake.sent[:6] == [
+        "get my logbook",
+        "bundle my cream with my logbook",
+        "stow my logbook",
+        "count #101",
+        "mark #101 at 5",
+        "break #101",
+    ]
+    assert "stow #102" in fake.sent and fake.pack == [3]
+    assert "the cream cut from 8 uses to 5, the rest stowed" in "\n".join(fake.echoed)
+
+
+def test_a_short_remedy_is_topped_up_from_another_stack_then_cut():
+    # A 1-use cream (a 6-piece herb stack made one, 2026-09-28) was
+    # tried and kept at every cream order for days: now another stack
+    # is combined into it and the 5 bundled, the 1 left over stowed.
+    fake = Sizing(held=1, pack=[5, 5])
+    script.ask = fake.ask
+    outcome, _, _ = script.bundle(fake, "cream", 2, "blister cream")
+    assert outcome == "bundled" and fake.bundled == [5]
+    assert "get my blister cream from my backpack" in fake.sent
+    assert "combine #102 with #101" in fake.sent
+    assert "mark #103 at 5" in fake.sent
+    assert fake.pack == [1, 5]
+    assert not any(c.startswith("drop") for c in fake.sent)
+
+
+def test_a_remedy_of_the_orders_size_refused_anyway_is_kept_with_its_count():
+    # Not seen yet: said with the count for the report, not bundled again.
+    fake = Sizing(held=5)
+    fake.ask = lambda s, command, *_: (
+        WRONG_SIZE if command.startswith("bundle") else Sizing.ask(fake, s, command)
     )
-    outcome, remaining, _ = script.bundle(fake, "cream", 4)
-    assert outcome == "size"
-    assert "stow my cream" in fake.sent
+    script.ask = fake.ask
+    outcome, _, _ = script.bundle(fake, "cream", 2, "blister cream")
+    assert outcome == "size" and fake.pack == [5]
+    assert "refused the cream for its size at 5 uses" in "\n".join(fake.echoed)
+
+
+def test_a_short_remedy_with_no_other_stack_is_kept_and_said():
+    fake = Sizing(held=1)
+    script.ask = fake.ask
+    outcome, _, _ = script.bundle(fake, "cream", 2, "blister cream")
+    assert outcome == "size" and fake.bundled == []
+    assert fake.pack == [1]  # stowed, never dropped
+    assert (
+        "the cream holds 1 use(s) and no other blister cream tops it up to the "
+        "order's 5 — kept" in "\n".join(fake.echoed)
+    )
     assert not any(c.startswith("drop") for c in fake.sent)
 
 
