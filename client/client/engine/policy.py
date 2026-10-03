@@ -5,12 +5,14 @@ Every line that reaches the session tagged with an origin — revenant-send,
 an agent driving through it — passes `decide()` before the game sees
 it; the player's own typing never does. Three tiers. Read-only verbs
 always pass (the sendcmd allowlist). Verbs that give something away,
-drop it, spend, leave or quit — DROP and DISCARD of anything but the
+drop it, spend or leave — DROP and DISCARD of anything but the
 junk list, GIVE, HAND, OFFER of an item, SELL, TRADE, EXCHANGE, ACCEPT,
 WITHDRAW, TRAIN and STUDY of a stat (TDPs; STUDY MY BOOK reads crafting
-instructions and passes, 2026-09-22), DEPART, QUIT and EXIT, PUT into
+instructions and passes, 2026-09-22), DEPART, PUT into
 anything but the character's own container, and `;reexec` — are
-refused with a one-line reason the session echoes to every window. An
+refused with a one-line reason the session echoes to every window.
+QUIT and EXIT pass, behind the gate like any acting line (the
+operator, 2026-10-03: "Global quit commands are allowed", #434). An
 OFFER of an amount alone ("offer 62", "offer 62 kronars") is a catalog
 merchant's bid, the line that closes an ORDER (HELP SHOPS), not a
 hand-over, and passes (#234: the True Bard D'Or's apprentice gave up
@@ -87,8 +89,6 @@ DENIED = {
     "train": "TRAIN spends TDPs",
     "study": "STUDY of a stat spends TDPs",
     "depart": "DEPART is the character's own call",
-    "quit": "QUIT is the character's own call",
-    "exit": "EXIT is the character's own call",
     "discard": "DISCARD throws an item away",
     ";reexec": ";reexec stops every script",
 }

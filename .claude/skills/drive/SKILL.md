@@ -33,7 +33,7 @@ the operator's window as `>> [claude] ...`.
    HAND, OFFER of an item (an OFFER of an amount alone is a catalog
    merchant's bid and passes, #234), SELL, TRADE, EXCHANGE, ACCEPT,
    WITHDRAW, TRAIN, STUDY of a stat (STUDY MY BOOK, a crafting page, passes),
-   DEPART, QUIT, EXIT, DISCARD, DROP of anything but the junk list,
+   DEPART, DISCARD, DROP of anything but the junk list,
    PUT into anything but the character's own container, `;reexec`,
    and any noun in the character's `~/.revenant/policy/<name>.json`
    valuables. A refusal echoes "session: refused [claude] ... — <why>"

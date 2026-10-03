@@ -43,7 +43,7 @@ REVENANT_ALLOW_SEND=1 revenant-send "stance set 100 80 0"
 
 - Read-only commands (INFO, EXP, WEALTH, HEALTH, LOOK...) always pass.
 - Anything else needs `REVENANT_ALLOW_SEND=1` or the setting in File → Settings.
-- The session refuses GIVE, SELL, WITHDRAW, TRAIN, QUIT, DROP and similar from outside regardless. `~/.revenant/policy/<name>.json` can allow one (`{"allow": ["exchange"]}`).
+- The session refuses GIVE, SELL, WITHDRAW, TRAIN, DROP and similar from outside regardless; QUIT passes, behind the gate. `~/.revenant/policy/<name>.json` can allow one (`{"allow": ["exchange"]}`).
 
 ## Unattended: `;sentinel`
 

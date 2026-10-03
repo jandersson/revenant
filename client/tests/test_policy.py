@@ -30,7 +30,6 @@ def test_the_giving_spending_and_leaving_verbs_are_refused_with_a_reason():
         ("sell my bundle", "SELL"),
         ("withdraw 10 gold", "WITHDRAW"),
         ("train agility", "TRAIN"),
-        ("quit", "QUIT"),
         ("depart", "DEPART"),
         ("exchange 1 gold for lirums", "EXCHANGE"),
         ("discard my armet", "DISCARD"),
@@ -39,6 +38,19 @@ def test_the_giving_spending_and_leaving_verbs_are_refused_with_a_reason():
         verdict = policy.decide(line)
         assert not verdict.allowed and verdict.tier == "denied", line
         assert word in verdict.reason, line
+
+
+def test_quit_and_exit_pass_behind_the_gate(monkeypatch, tmp_path):
+    # The operator, 2026-10-03 (#434): "Global quit commands are
+    # allowed." They pass as acting lines, not read-only ones, so the
+    # client-side gate still stands in front of them.
+    for line in ("quit", "exit"):
+        verdict = policy.decide(line)
+        assert verdict.allowed and verdict.tier == "allowed", line
+    # A character's own file can still refuse it.
+    monkeypatch.setenv("REVENANT_POLICIES", str(tmp_path))
+    (tmp_path / "lanival.json").write_text('{"deny": ["quit"]}')
+    assert not policy.decide("quit", policy.load_policy("Lanival")).allowed
 
 
 def test_study_of_a_book_passes_and_study_of_a_stat_does_not():
@@ -133,7 +145,7 @@ def test_the_characters_file_adjusts_the_built_ins(monkeypatch, tmp_path):
     assert not refused.allowed and "policy file" in refused.reason
     assert not policy.decide("give my armet to Sable", pol).allowed
     # No file, a broken file: the built-ins stand.
-    assert not policy.decide("quit", policy.load_policy("Uthmor")).allowed
+    assert not policy.decide("depart", policy.load_policy("Uthmor")).allowed
     (tmp_path / "sable.json").write_text("{not json")
     assert policy.load_policy("Sable").denied == policy.DENIED
 
