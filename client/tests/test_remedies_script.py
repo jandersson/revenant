@@ -461,6 +461,10 @@ def test_a_work_order_is_asked_crafted_bundled_and_handed_in():
     assert fake.sent.index("read my logbook") < fake.sent.index(
         "ask lanshado for easy remedies work"
     )  # an order left in the logbook would be resumed instead
+    # Read where it sits, then held for the ASK (Elanthipedia: Work orders).
+    asked = fake.sent.index("ask lanshado for easy remedies work")
+    assert fake.sent[asked - 1] == "get my logbook"
+    assert "get my logbook" not in fake.sent[: fake.sent.index("read my logbook")]
     assert (
         "order — 2 stack(s) of blister cream, finely-crafted, due in 65 roisaen" in out
     )
@@ -888,6 +892,11 @@ def test_the_logbooks_open_order_is_resumed_and_a_complete_one_handed_in():
     out = run(fake, ["work", "count=1"])
     assert "resuming the logbook's order — 1 more blister cream, 33 roisaen" in out
     assert "ask lanshado for easy remedies work" not in fake.sent
+    # READ wants no hand (the operator, 2026-10-03): the logbook is read
+    # where it sits and first taken out for the BUNDLE.
+    first_read = fake.sent.index("read my logbook")
+    assert "get my logbook" not in fake.sent[:first_read]
+    assert fake.sent[first_read + 1] != "stow my logbook"
     assert fake.sent.count("bundle my cream with my logbook") == 1
     assert "order 1 paid 1146 Kronars" in out
     done = Fake(work_answers(**{"read my logbook": [LOGBOOK_DONE]}))

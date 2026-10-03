@@ -849,23 +849,22 @@ def untie_expired(s):
 
 
 def order(s, master, level, seek=None):
-    """The logbook in hand and read — an order it still tracks is
-    resumed, a complete one goes straight to the master — else the
-    order asked and read back; the parsed order or None (said). `seek`
-    finds the master again when the ask says he is gone."""
-    if missing(ask(s, "get my logbook")):
+    """The logbook read where it is — an order it still tracks is
+    resumed, a complete one goes straight to the master — else, the
+    logbook in hand, the order asked and read back; the parsed order or
+    None (said). READ wants no hand (the operator, 2026-10-03: "You can
+    read the logbook if its in a container"); the ASK wants it held
+    (Elanthipedia: Work orders). `seek` finds the master again when the
+    ask says he is gone."""
+    text = ask(s, "read my logbook")
+    if missing(text):
         s.echo("remedies: no work order logbook on you — stopping")
         return None
-    text = ask(s, "read my logbook")
     state, remaining, due = parse_logbook(text)
-    if state == "expired":
-        untie_expired(s)
     if state == "done":
-        ask(s, "stow my logbook")
         s.echo("remedies: the logbook holds a complete order — handing it in")
         return {"item": "", "count": 0, "quality": "", "due": due}
     if state == "open" and logbook_item(text):
-        ask(s, "stow my logbook")
         s.echo(
             f"remedies: resuming the logbook's order — {remaining} more "
             f"{logbook_item(text)}, {due} roisaen"
@@ -877,6 +876,9 @@ def order(s, master, level, seek=None):
             "due": due,
             "resumed": True,
         }
+    ask(s, "get my logbook")
+    if state == "expired":
+        untie_expired(s)
     answer = ask(s, f"ask {master} for {level} remedies work")
     if (
         any(word in answer.lower() for word in NO_MASTER)
