@@ -971,9 +971,31 @@ def make_bundle(s, profile, tally):
     missed a rope left in the old one, and 49 skins went loose), BUNDLE
     ties the skin to it, the bundle goes on, the weapon comes back.
     True with the bundle worn. No rope: said once, and the run's skins
-    are stowed loose."""
+    are stowed loose. A fists turn has no weapon to put back, and the
+    cambrinth piece held for a charged cast can fill the other hand:
+    "You need a free hand to pick that up.", then BUNDLE with no rope
+    ("You don't have any bundles ...") read as a refusal, and the fang
+    went loose (2026-10-03, #451). The piece goes back on (its charge
+    stays in it) and the rope is fetched again; with still no hand the
+    skin is stowed and the next one tries."""
     free_hand(s, profile)
     answer = ask(s, f"get my {ROPE}")
+    piece = profile.get("cambrinth") or ""
+    if any(word in answer.lower() for word in loot.FREE_HAND):
+        if piece and hands.holding(s, piece):
+            ask(
+                s,
+                f"wear my {piece}"
+                if profile.get("cambrinth_worn")
+                else f"stow my {piece}",
+            )
+            answer = ask(s, f"get my {ROPE}")
+        if any(word in answer.lower() for word in loot.FREE_HAND):
+            s.echo(
+                "hunt: no free hand for the bundling rope — this skin is stowed loose"
+            )
+            draw(s, profile)
+            return False
     if missing(answer):
         s.echo(
             "hunt: no bundling rope — ASK a tanner FOR ROPE (it is free); "

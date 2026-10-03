@@ -104,6 +104,50 @@ def test_the_first_skin_starts_the_bundle_and_wears_it(travel):
     assert any("bundle started and worn" in text for text in arena.echoed)
 
 
+def test_a_cambrinth_held_for_a_cast_goes_back_on_for_the_rope(travel):
+    # 2026-10-03 23:14 (#451): a fists turn, the anklet off for a charge,
+    # the fang in the other hand: "You need a free hand to pick that up.",
+    # BUNDLE with no rope read as a refusal, and the fang went loose.
+    def kill_with_anklet_held(arena):
+        kill(arena)
+        arena.state.right_hand = {"noun": "anklet", "exist": "9"}
+
+    def anklet_worn(arena):
+        arena.state.right_hand = None
+
+    arena = Arena(
+        {
+            "punch": [(KILL, kill_with_anklet_held)],
+            "tap": ["I could not find what you were referring to."],
+            "skin": [(PELT_LOOSE, skin_in_hand)],
+            "get my bundling rope": [
+                "You need a free hand to pick that up.",
+                "You get some bundling rope from inside your straw tote.",
+            ],
+            "wear my anklet": [("You slide a cambrinth anklet on.", anklet_worn)],
+            "bundle": [(BUNDLED, hand_empty)],
+            "loot": [NOTHING],
+        }
+    )
+    _hands(arena, right=None)
+    fists = BUNDLING | {
+        "weapon": "",
+        "brawling": ["punch"],
+        "cambrinth": "anklet",
+        "cambrinth_worn": True,
+    }
+    _run(arena, profile=fists, travel_first=False)
+    first = arena.sent.index("get my bundling rope")
+    assert arena.sent[first : first + 4] == [
+        "get my bundling rope",
+        "wear my anklet",
+        "get my bundling rope",
+        "bundle",
+    ]
+    assert any("bundle started and worn" in text for text in arena.echoed)
+    assert not any("would not take that skin" in text for text in arena.echoed)
+
+
 # Captured 2026-10-03 (#438): the bundle's place taken, TOGGLE BUNDLE
 # moving it on, and the WEAR that matched the new place.
 WEAR_TAKEN = "You can't wear any more items like that."
