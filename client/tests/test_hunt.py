@@ -1587,7 +1587,7 @@ def test_a_hunt_returned_by_hand_sells_the_skins_and_banks(travel):
     arena = _Runner({"attack": []})
     arena.commands = ["return"]
     _run(arena, travel_first=False)
-    assert arena.started == [("skins", ["bank"])]
+    assert arena.started == [("skins", ["bank", "keep=200"])]
 
 
 def test_every_end_that_fought_sells_and_banks_under_train_too(travel):
@@ -1598,7 +1598,8 @@ def test_every_end_that_fought_sells_and_banks_under_train_too(travel):
         running=("train",),
     )
     _run(arena, profile=PROFILE | {"max_kills": 1}, travel_first=False)
-    assert arena.started == [("skins", ["bank"])]
+    # A travel purse is kept (#454): the next hunt's ferry fare.
+    assert arena.started == [("skins", ["bank", "keep=200"])]
     assert "hunt: selling the skins and banking (;skins bank)" in arena.echoed
 
 

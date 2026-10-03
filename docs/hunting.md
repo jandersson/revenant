@@ -15,7 +15,7 @@
 ;stop hunt            # quit where you stand
 ```
 
-- Every hunt that fought ends with `;skins bank`, under `;train` too; `;stop hunt` stops the selling with it.
+- Every hunt that fought ends with `;skins bank`, under `;train` too, keeping 200 copper for the next trip's ferry fare; `;stop hunt` stops the selling with it.
 - The weapon stays in hand when the hunt ends.
 - A room another player is already in is theirs: the hunt moves on without a swing, whatever creatures are in it. With every room taken, it goes home. A room full of creatures is fought, one at a time.
 

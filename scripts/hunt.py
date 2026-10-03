@@ -23,7 +23,7 @@ What it does
   - At the end, says each creature's searches, boxes and coins; history.db keeps
     every search (`loot`), every hunt (`hunts`) and every box picked up (`box_drops`).
 
-When it stops — then walks home, and runs ;skins bank (skins sold, purse banked)
+When it stops — then walks home, and runs ;skins bank (skins sold, purse banked but 200 copper kept for a ferry fare)
   - health below `health_floor`, or a wound at `wound_floor` (also checked before setting out)
   - 60 swings without a kill, or three stuns in one fight
   - every trained skill mind-locked, or the style's `until` (boxes, kills)
@@ -2101,6 +2101,14 @@ def go_home(s, profile, db, ground, avoid, reason):
         flight.react(s, "hunt")
 
 
+# Copper of the province's coin the closing ;bank leaves in the purse:
+# a hunt that banked everything sent the next one to the Faldesu ferry
+# with nothing for its 35-Kronar fare, "You haven't got enough kronars
+# to pay for your trip." (Cecil, 2026-10-04, #454) — two crossings and
+# change.
+TRAVEL_PURSE = 200
+
+
 def sell_and_bank(s):
     """Every hunt that fought ends by selling the skins and banking the
     purse — ;skins bank, waited for — under ;train too (the operator,
@@ -2113,7 +2121,7 @@ def sell_and_bank(s):
     if running is None or start is None:
         return
     s.echo("hunt: selling the skins and banking (;skins bank)")
-    if not start("skins", ["bank"]):
+    if not start("skins", ["bank", f"keep={TRAVEL_PURSE}"]):
         s.echo("hunt: could not start ;skins — sell and bank by hand")
         return
     try:
