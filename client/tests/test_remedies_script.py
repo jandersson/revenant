@@ -867,6 +867,38 @@ def test_a_return_mid_order_finishes_the_order_before_ending():
     assert "stopping as asked — the order is handed in" in out
 
 
+def test_the_hand_in_after_a_return_looks_for_the_master_to_the_end():
+    # 02:21 on 2026-10-03 (#426): four salves bundled after a return, the
+    # master away from the hall, and the search ended before its first
+    # step ("could not reach the master with the logbook"). The hand-in
+    # searches as `finishing`; the search before a new order does not.
+    fake = Fake(work_answers(), mindstates=[3] + [5] * 30, stop_after=2)
+    searches = []
+    script.ask = fake.ask
+    script.to_master = lambda s, profile: True
+    script.walk_to = lambda s, target, describe: True
+    script.find_master = lambda s, profile, master, **kw: searches.append(kw) or True
+    script.run(fake, script.parse_args(["work"]))
+    assert searches == [{}, {"finishing": True}]  # the order's ask, the hand-in
+    assert "give my logbook to lanshado" in fake.sent
+
+    # The search itself: a return typed, the master two rooms on.
+    lost = Fake({}, stop_after=0)
+    lost.state.room_objs = "You also see a clerk."
+
+    def walk_to(s, target, describe):
+        lost.walked.append(str(target))
+        if str(target) == "8862":
+            lost.state.room_objs = MASTER_LISTING
+        return True
+
+    script.walk_to = walk_to
+    assert not find_master(lost, {}, "lanshado", mapdb=Society(), here=8860)
+    assert lost.walked == []  # a new order is not looked for after a return
+    assert find_master(lost, {}, "lanshado", mapdb=Society(), here=8860, finishing=True)
+    assert lost.walked == ["8859", "8861", "8862"]
+
+
 def test_orders_follow_one_another_until_return_and_the_lock_only_says_so():
     # Eight crushes fill the first order; the typed return after the pay
     # ends the run before a second is asked. Mind-locked from the

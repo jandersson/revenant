@@ -765,7 +765,7 @@ def master_here(s, master):
     )
 
 
-def find_master(s, profile, master, mapdb=None, here=None):
+def find_master(s, profile, master, mapdb=None, here=None, finishing=False):
     """The master where he stands: the crafting hall first, then the
     building's other rooms, MASTER_LAPS laps, until a listing names
     him. Lanshado wanders the society ("steadies himself and shuffles
@@ -775,7 +775,10 @@ def find_master(s, profile, master, mapdb=None, here=None):
     reach, the map shows no building, or he is nowhere in it. A room
     that already lists him is the answer, no walk (the hand-in used to
     walk back to the hall from the room he was found in, 12:10 on
-    2026-09-23)."""
+    2026-09-23). A typed return ends the search, except when
+    `finishing`: the hand-in of a finished order is part of the
+    graceful end, and only danger cuts it (#426: a return's finished
+    salves were never delivered, the master two rooms away)."""
     if master_here(s, master):
         return True
     if not to_master(s, profile):
@@ -804,7 +807,7 @@ def find_master(s, profile, master, mapdb=None, here=None):
     )
     for _lap in range(MASTER_LAPS):
         for room in rooms:
-            if wants_stop(s) or danger(s):
+            if danger(s) or (not finishing and wants_stop(s)):
                 return False
             if not walk_to(s, room, f"the building's room {room}"):
                 continue
@@ -1430,7 +1433,7 @@ def work(s, options, profile):
         if why is not None:
             s.echo(f"remedies: {why} — the order waits in the logbook")
             break
-        if not find_master(s, profile, master):
+        if not find_master(s, profile, master, finishing=True):
             s.echo("remedies: could not reach the master with the logbook — stopping")
             break
         ask(s, "get my logbook")
