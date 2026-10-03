@@ -414,7 +414,11 @@ def end_helper(s, task, active, following, db, ended=False):
     if task.get("helper_after") == "stay" and not keep:
         keep = True
         s.echo(f"train: {active.name} stays logged in")
-    if task.get("helper_after") == "after" and not keep and ended:
+    # A helper the operator logged in (not this loop's spawn) is never
+    # logged out (helper.finish), so it never lingers to be: the echo
+    # "Riphik logs out once ;empath is done" came for an operator's
+    # Riphik who stayed (2026-10-03, #448).
+    if task.get("helper_after") == "after" and not keep and ended and active.spawned:
         io = HelperIO(s, db)
         if helper.running(io, active, spec["script"]) is not False:
             # Still at it (healing himself): out once the script ends.

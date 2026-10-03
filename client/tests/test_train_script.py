@@ -1118,6 +1118,34 @@ def test_a_healer_told_after_logs_out_once_his_own_heal_is_done(clock, monkeypat
     assert train.LINGERING == {}
 
 
+def test_a_healer_the_operator_logged_in_is_not_said_to_log_out(clock, monkeypatch):
+    # 2026-10-03 (#448): "train: Riphik logs out once ;empath is done" for
+    # the operator's own Riphik, who stayed logged in — helper.finish
+    # logs out only a session the loop spawned.
+    from client.game import helper
+
+    world = HelperWorld([["empath"]])
+
+    def heal(s):
+        s.state.injuries = {}
+
+    monkeypatch.setattr(train, "HelperIO", world)
+    monkeypatch.setattr(train, "LINGERING", {})
+    monkeypatch.setattr(
+        train,
+        "start_helper",
+        lambda s, task, db, walk: helper.Helper("Riphik", 4260, False),
+    )
+    fake = Fake([lambda s: None, heal])
+    fake.state.injuries = {"chest": ("wound", 2)}
+    clock["fake"] = fake
+    task = normalize({"tasks": [HEAL | {"helper_after": "after"}]})["tasks"][0]
+    assert train.run_task(fake, plan(poll=10), task, db=MAP, walk=walk) == "healed"
+    assert not any("logs out" in text for text in fake.echoed)
+    assert train.LINGERING == {}
+    assert ";logout" not in world.sent
+
+
 def test_a_lingering_healer_wanted_again_is_not_logged_out(monkeypatch):
     from client.game import helper
 
