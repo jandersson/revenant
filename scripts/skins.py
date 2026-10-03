@@ -83,7 +83,9 @@ Stop with:  ;stop skins
 
 # A bundle that is not there, beyond act.NOT_FOUND's two wordings (GET's,
 # captured 2026-09-12): the REMOVE refusals, assumptions until captured.
-_NO_BUNDLE = ("aren't wearing", "not wearing", "don't have")
+# REMOVE with nothing of the name worn (captured 2026-10-03, #450): "Remove
+# what?" — read as a bundle taken off, it led to "Sell what?".
+_NO_BUNDLE = ("aren't wearing", "not wearing", "don't have", "remove what")
 # The tanner's payment line, captured 2026-09-12.
 _PAID = re.compile(r"hands you (\d+) (\w+)")
 # The rope the tanner hands back, named whole: ;hunt's ROPE (#399, a

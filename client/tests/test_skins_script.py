@@ -243,6 +243,16 @@ def test_the_other_not_found_wording_means_no_bundle_too():
     assert any("nothing to sell" in text for text in fake.echoed)
 
 
+def test_remove_what_means_no_bundle_worn_not_a_bundle_taken_off():
+    # Captured 2026-10-03 (#450): with no bundle, REMOVE answered "Remove
+    # what?", the script SOLD anyway and said "the tanner did not pay —
+    # Sell what?" after every box farm with no kills.
+    fake = Fake({"remove": ["Remove what?\n"], "get my bundle": [MISSING]})
+    script.run(fake, [], MAP, walk_fn=walk, profile=PROFILE)
+    assert "sell my bundle" not in fake.sent
+    assert any("nothing to sell" in text for text in fake.echoed)
+
+
 def test_a_tanner_who_does_not_pay_is_quoted_and_the_rope_left_alone():
     fake = Fake(
         {
