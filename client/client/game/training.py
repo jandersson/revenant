@@ -1,40 +1,49 @@
 """Training plans: what a character trains, with what, and when to rest.
 
-A plan is ~/.revenant/training/<character>.json — one file per
+A plan is ~/.revenant/training/<character>.yaml — one file per
 character, read by ;train (scripts/train.py), edited from the GUI's
 File → Training Plan… dialog (client/gui/plan_dialog.py, built from
-PLAN_FIELDS and TASK_FIELDS below) or by hand. It names the tasks — each a skill list tied to the
-script (or plain command loop) that trains it — the mindstate the
-skills must reach, where to rest and until what mindstate they must
-drain. This module is the Qt-free half: the schema with its defaults,
-the file, and the decisions the loop makes (which task next, is a
-task done, is the rest over, which safe room). REVENANT_TRAINING
-overrides the directory (tests point it at a temp dir). Model and
-assumptions: docs/training.md.
+PLAN_FIELDS and TASK_FIELDS below) or by hand. Every save writes a
+comment above each setting saying what it does (dump_plan, the
+dialog's own labels), and a task names only what differs from its
+defaults; a plan still in the old <character>.json is converted on
+first read, the JSON kept as .json.bak (#445). It names the tasks —
+each a skill list tied to the script (or plain command loop) that
+trains it — the mindstate the skills must reach, where to rest and
+until what mindstate they must drain. This module is the Qt-free
+half: the schema with its defaults, the file, and the decisions the
+loop makes (which task next, is a task done, is the rest over, which
+safe room). REVENANT_TRAINING overrides the directory (tests point it
+at a temp dir). Model and assumptions: docs/training.md.
 
-A plan, with every key the loop reads:
+A plan, its comments left out:
 
-    {
-     "safe_rooms": ["home"],        ;go2 targets, rotated rest by rest
-     "rest_commands": ["sit"],      sent on arrival at the safe room
-     "target": 30,                  a task's skills are trained at this mindstate
-     "rest_until": 10,              rest until every trained skill drained to this
-     "rest_minutes": 0,             cap on a rest; 0 = REST_CAP, an hour
-     "rest_mode": "online",         or "logout": log out for the rest (#412)
-     "task_minutes": 30,            per-task time budget; 0 = until the target
-     "order": "listed",             or "lowest": the least-trained task first
-     "poll": 30,                    seconds between mindstate checks
-     "cycles": 0,                   train-rest cycles; 0 = until stopped
-     "shutdown_minutes": 3,         end the run this close to an announced shutdown
-     "tasks": [
-      {"name": "climbs", "script": "athletics", "skills": ["Athletics"]},
-      {"name": "rats", "script": "hunt", "skills": ["Small Edged", "Evasion"],
-       "return_word": "return", "minutes": 45},
-      {"name": "music", "commands": ["play my flute"], "pace": 8,
-       "skills": ["Performance"], "setup": ["get my flute"],
-       "teardown": ["stow my flute"]}
-     ]
-    }
+    safe_rooms: [home]          # ;go2 targets, rotated rest by rest
+    rest_commands: [sit]        # sent on arrival at the safe room
+    target: 30                  # a task's skills are trained at this mindstate
+    rest_until: 10              # rest until every trained skill drained to this
+    rest_minutes: 0             # cap on a rest; 0 = REST_CAP, an hour
+    rest_mode: online           # or logout: log out for the rest (#412)
+    task_minutes: 30            # per-task time budget; 0 = until the target
+    order: listed               # or lowest: the least-trained task first
+    poll: 30                    # seconds between mindstate checks
+    cycles: 0                   # train-rest cycles; 0 = until stopped
+    shutdown_minutes: 3         # end the run this close to an announced shutdown
+    tasks:
+      - name: climbs
+        script: athletics
+        skills: [Athletics]
+      - name: rats
+        script: hunt
+        skills: [Small Edged, Evasion]
+        return_word: return
+        minutes: 45
+      - name: music
+        commands: [play my flute]
+        pace: 8
+        skills: [Performance]
+        setup: [get my flute]
+        teardown: [stow my flute]
 
 A task has either a script (started as ;<script> <args>, watched, and
 stopped once its skills reach the target — with return_word first,
@@ -50,6 +59,8 @@ import json
 import os
 import re
 from pathlib import Path
+
+import yaml
 
 from client.game.profile import load_profile, slug
 
@@ -211,7 +222,75 @@ def training_dir() -> Path:
 
 
 def plan_path(character) -> Path:
-    return training_dir() / f"{slug(character)}.json"
+    """~/.revenant/training/<character>.yaml — a plan still in the old
+    JSON file converted to it first, the JSON kept as .json.bak (the
+    operator, 2026-10-03: "can we convert the json to YAML?", #445)."""
+    path = training_dir() / f"{slug(character)}.yaml"
+    legacy = path.with_suffix(".json")
+    if not path.exists() and legacy.is_file():
+        try:
+            stored = json.loads(legacy.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return path  # unreadable: left for a person to look at
+        if isinstance(stored, dict):
+            merged = dict(DEFAULTS) | normalize(stored)
+            path.write_text(dump_plan(merged, character), encoding="utf-8")
+            legacy.replace(legacy.with_suffix(".json.bak"))
+    return path
+
+
+def _flow(value) -> str:
+    """One YAML value on one line: a list in brackets, a string quoted
+    when it would read as something else ('7890')."""
+    text = yaml.safe_dump(
+        value, default_flow_style=True, allow_unicode=True, width=10**6
+    )
+    return text.replace("\n...\n", "\n").strip()
+
+
+def _hint(label, help_text) -> str:
+    return f"{label} — {help_text}" if help_text else label
+
+
+def dump_plan(plan: dict, character="") -> str:
+    """The plan as commented YAML: each setting under a line saying what
+    it does (the dialog's own labels, PLAN_FIELDS), the tasks with only
+    what differs from TASK_DEFAULTS, the task settings explained once
+    above them. Comments are written fresh on every save."""
+    who = f" for {character}" if character else ""
+    lines = [
+        f"# ;train's plan{who}. The line above each setting says what it does;",
+        "# File > Training Plan... edits this same file. docs/training.md has more.",
+        "",
+    ]
+    known = set()
+    for key, label, _kind, help_text in PLAN_FIELDS:
+        known.add(key)
+        lines.append(f"# {_hint(label, help_text)}")
+        lines.append(f"{key}: {_flow(plan.get(key, DEFAULTS.get(key)))}")
+    for key, value in plan.items():
+        if key not in known and key != "tasks":
+            lines.append(f"{key}: {_flow(value)}")  # a key this build doesn't know
+    lines += [
+        "",
+        "# The tasks, run in order; each names only what differs from the defaults:",
+    ]
+    lines += [
+        f"#   {key}: {_hint(label, help_text)}"
+        for key, label, _k, help_text in TASK_FIELDS
+    ]
+    lines.append("tasks:" if plan.get("tasks") else "tasks: []")
+    for task in plan.get("tasks") or []:
+        lead = "  - "
+        for key in [key for key, *_ in TASK_FIELDS] + [
+            key for key in task if key not in TASK_DEFAULTS
+        ]:
+            value = task.get(key, TASK_DEFAULTS.get(key))
+            if key != "name" and value == TASK_DEFAULTS.get(key):
+                continue
+            lines.append(f"{lead}{key}: {_flow(value)}")
+            lead = "    "
+    return "\n".join(lines) + "\n"
 
 
 def _int(value, default):
@@ -258,7 +337,16 @@ def normalize_task(values, index=0) -> dict:
             task[key] = _int(value, TASK_DEFAULTS[key])
         elif key in _TASK_OPTIONAL_INTS:
             task[key] = None if value in (None, "") else _int(value, None)
-        elif key in ("name", "script", "return_word", "when", "helper_after"):
+        elif key in (
+            "name",
+            "script",
+            "return_word",
+            "when",
+            "helper",
+            "helper_script",
+            "helper_room",
+            "helper_after",
+        ):
             task[key] = str(value or "").strip()
         else:
             task[key] = value  # a key this build doesn't know: kept as is
@@ -276,7 +364,11 @@ def normalize(values: dict) -> dict:
         elif key in _INTS:
             clean[key] = _int(value, DEFAULTS[key])
         elif key in ("order", "soul", "top_up", "rest_mode"):
+            if isinstance(value, bool):
+                value = "on" if value else "off"  # YAML reads a bare on as true
             clean[key] = str(value or "").strip().lower() or DEFAULTS[key]
+        elif key == "plant_room":
+            clean[key] = str(value or "").strip()  # a bare 7890 reads as a number
         elif key == "tasks":
             tasks = value if isinstance(value, list) else []
             clean[key] = [normalize_task(task, i) for i, task in enumerate(tasks)]
@@ -289,9 +381,8 @@ def load_plan(character) -> dict:
     """Defaults merged with whatever the character's file holds."""
     merged = dict(DEFAULTS)
     try:
-        with open(plan_path(character), encoding="utf-8") as stream:
-            stored = json.load(stream)
-    except (OSError, ValueError):
+        stored = yaml.safe_load(plan_path(character).read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
         return merged
     if isinstance(stored, dict):
         merged.update(normalize(stored))
@@ -301,7 +392,7 @@ def load_plan(character) -> dict:
 def save_plan(character, plan: dict) -> Path:
     path = plan_path(character)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(plan, indent=1), encoding="utf-8")
+    path.write_text(dump_plan(plan, character), encoding="utf-8")
     return path
 
 

@@ -9,6 +9,8 @@ the safe room, and goes again. Death stops everything, child included.
 
 import importlib.util
 import json
+
+import yaml
 import pathlib
 from types import SimpleNamespace
 
@@ -542,9 +544,9 @@ def test_train_init_writes_the_starter_and_refuses_to_overwrite(clock, tmp_path)
     fake = Fake(args=["init"])
     clock["fake"] = fake
     train.main(fake)
-    path = tmp_path / "training" / "lanival.json"
+    path = tmp_path / "training" / "lanival.yaml"
     assert path.is_file()
-    written = json.loads(path.read_text())
+    written = yaml.safe_load(path.read_text(encoding="utf-8"))
     assert [task["script"] for task in written["tasks"]] == [
         "athletics",
         "hunt",  # it sells its skins and banks as it ends
@@ -562,7 +564,7 @@ def test_train_init_writes_the_starter_and_refuses_to_overwrite(clock, tmp_path)
     assert any("exists" in text for text in fake.echoed)
     path.write_text("{}")
     train.main(Fake(args=["init", "force"]))
-    assert json.loads(path.read_text())["tasks"]
+    assert yaml.safe_load(path.read_text(encoding="utf-8"))["tasks"]
 
 
 def test_train_init_writes_no_hunt_for_an_empath(clock, tmp_path, monkeypatch):
@@ -570,7 +572,9 @@ def test_train_init_writes_no_hunt_for_an_empath(clock, tmp_path, monkeypatch):
     fake = Fake(args=["init"])
     clock["fake"] = fake
     train.main(fake)
-    written = json.loads((tmp_path / "training" / "lanival.json").read_text())
+    written = yaml.safe_load(
+        (tmp_path / "training" / "lanival.yaml").read_text(encoding="utf-8")
+    )
     assert "hunt" not in [task["script"] for task in written["tasks"]]
     assert any("empathic shock" in text for text in fake.echoed)
 

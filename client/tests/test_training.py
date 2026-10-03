@@ -8,6 +8,8 @@ skill has drained, and the safe rooms rotate.
 
 import json
 
+import yaml
+
 import pytest
 
 from client.game import training
@@ -63,8 +65,8 @@ def exp(**mindstates):
 
 
 def test_the_plan_file_is_per_character_under_the_training_dir(plans_dir):
-    assert plan_path("Lanival") == plans_dir / "lanival.json"
-    assert plan_path("Sable's Twin!") == plans_dir / "sablestwin.json"
+    assert plan_path("Lanival") == plans_dir / "lanival.yaml"
+    assert plan_path("Sable's Twin!") == plans_dir / "sablestwin.yaml"
 
 
 def test_a_missing_plan_is_the_defaults():
@@ -74,12 +76,12 @@ def test_a_missing_plan_is_the_defaults():
 def test_a_saved_plan_round_trips_and_a_hand_edit_is_coerced(plans_dir):
     save_plan("Lanival", plan(target=32))
     assert load_plan("Lanival")["target"] == 32
-    text = json.loads((plans_dir / "lanival.json").read_text())
+    text = yaml.safe_load((plans_dir / "lanival.yaml").read_text(encoding="utf-8"))
     text["target"] = "31"  # a string from a hand edit
     text["safe_rooms"] = "home, bank"  # comma-separated shorthand
     text["tasks"][0]["skills"] = "Athletics"
     text["tasks"][0]["minutes"] = ""
-    (plans_dir / "lanival.json").write_text(json.dumps(text))
+    (plans_dir / "lanival.yaml").write_text(yaml.safe_dump(text), encoding="utf-8")
     loaded = load_plan("Lanival")
     assert loaded["target"] == 31
     assert loaded["safe_rooms"] == ["home", "bank"]
@@ -87,10 +89,70 @@ def test_a_saved_plan_round_trips_and_a_hand_edit_is_coerced(plans_dir):
     assert loaded["tasks"][0]["minutes"] is None
 
 
+def test_the_saved_plan_says_what_each_setting_does(plans_dir):
+    # The operator, 2026-10-03: "i have no idea what any of the things
+    # do" — then "can we convert the json to YAML?" (#445).
+    save_plan("Lanival", plan(plant_room="7890"))
+    text = (plans_dir / "lanival.yaml").read_text(encoding="utf-8")
+    lines = text.splitlines()
+    above = lines[lines.index("target: 30") - 1]
+    assert above == "# Train each task's skills to mindstate — 0-34"
+    assert "plant_room: '7890'" in lines  # quoted: it reads back as text
+    assert "#   when: Only when — wounded, favors<10 — blank: always" in lines
+    # A task names only what differs from the defaults.
+    climbs = lines.index("  - name: climbs")
+    assert lines[climbs + 1 : climbs + 3] == [
+        "    skills: [Athletics]",
+        "    script: athletics",
+    ]
+    assert "    pace: 5" not in lines
+    assert load_plan("Lanival") == plan(plant_room="7890")
+
+
+def test_an_old_json_plan_is_converted_on_first_read_and_kept(plans_dir):
+    plans_dir.mkdir()
+    (plans_dir / "lanival.json").write_text(json.dumps({"target": 28, "tasks": []}))
+    assert load_plan("Lanival")["target"] == 28
+    assert (plans_dir / "lanival.yaml").is_file()
+    assert (plans_dir / "lanival.json.bak").is_file()
+    assert not (plans_dir / "lanival.json").exists()
+    assert "target: 28" in (plans_dir / "lanival.yaml").read_text(encoding="utf-8")
+
+
+def test_a_bare_on_and_a_bare_room_number_read_as_the_plan_means(plans_dir):
+    # YAML reads `on` as true and `7890` as a number.
+    plans_dir.mkdir()
+    (plans_dir / "lanival.yaml").write_text(
+        "\n".join(
+            [
+                "soul: on",
+                "top_up: off",
+                "plant_room: 7890",
+                "safe_rooms: [11716, 7890]",
+                "tasks:",
+                "  - name: heal",
+                "    helper: Riphik",
+                "    helper_room: 7890",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    loaded = load_plan("Lanival")
+    assert loaded["soul"] == "on" and loaded["top_up"] == "off"
+    assert loaded["plant_room"] == "7890"
+    assert loaded["safe_rooms"] == ["11716", "7890"]
+    assert loaded["tasks"][0]["helper_room"] == "7890"
+    assert validate(loaded) == []
+
+
 def test_a_broken_plan_file_is_the_defaults(plans_dir):
     plans_dir.mkdir()
     (plans_dir / "lanival.json").write_text("{not json")
     assert load_plan("Lanival") == DEFAULTS
+    assert (plans_dir / "lanival.json").is_file()  # left for a person to look at
+    (plans_dir / "sable.yaml").write_text("tasks: [unclosed", encoding="utf-8")
+    assert load_plan("Sable") == DEFAULTS
 
 
 def test_tasks_get_every_key_and_a_name():

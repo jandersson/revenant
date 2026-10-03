@@ -365,7 +365,7 @@ class ClientGUI(QMainWindow, ClientLogger):
 
         plan_action = QAction("Training Pla&n…", self)
         plan_action.setStatusTip(
-            "What ;train runs for this character (~/.revenant/training/<name>.json)"
+            "What ;train runs for this character (~/.revenant/training/<name>.yaml)"
         )
         plan_action.triggered.connect(self.edit_plan)
 
@@ -633,7 +633,7 @@ class ClientGUI(QMainWindow, ClientLogger):
 
     def edit_plan(self):
         """File → Training Plan…: the ;train plan for the character this
-        window plays, over training/<name>.json — the starter plan
+        window plays, over training/<name>.yaml — the starter plan
         (;train init's) when there is none yet; the next ;train start
         reads it."""
         from client.gui.plan_dialog import PlanDialog

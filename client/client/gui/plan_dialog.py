@@ -1,7 +1,7 @@
 """The training plan editor: File → Training Plan… in the client.
 
 The plan ;train runs for the character this window plays
-(~/.revenant/training/<name>.json, client/game/training.py): the
+(~/.revenant/training/<name>.yaml, client/game/training.py): the
 plan-level settings as a form, the tasks as an ordered list with add,
 remove, up and down, and the selected task as a form of its own —
 every row built from training.PLAN_FIELDS and TASK_FIELDS, the schema

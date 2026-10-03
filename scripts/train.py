@@ -33,7 +33,7 @@ When it stops
   - the plan's `cycles` done, ;train return, or ;stop train
   - a logout rest's QUIT (`rest_mode: logout`)
 
-The plan is ~/.revenant/training/<name>.json; docs/training.md explains every key.
+The plan is ~/.revenant/training/<name>.yaml; docs/training.md explains every key.
 """
 
 import sqlite3
@@ -70,7 +70,7 @@ from client.game.training import (
 _NOTES = """Train a character by plan — tasks until their skills fill, then rest:  ;train
 
 The orchestrator: a loop over your training plan
-(~/.revenant/training/<name>.json — ;train init writes a starter,
+(~/.revenant/training/<name>.yaml — ;train init writes a starter,
 ;train plan shows it, docs/training.md explains every key). Each task ties skills to what trains them — a bundled
 script (;athletics, ;hunt) started and watched, a plain command
 loop (play my flute) run in place, or a helper's script alone (an
