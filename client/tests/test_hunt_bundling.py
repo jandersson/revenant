@@ -93,7 +93,9 @@ def test_the_first_skin_starts_the_bundle_and_wears_it(travel):
     assert arena.sent[first : first + 7] == [
         "skin rat",
         "sheathe my handaxe in my sack",
-        "get my bundling rope from my sack",
+        # No FROM: the rope is wherever it was left (#437, 49 skins
+        # loose while it sat in the old loot container).
+        "get my bundling rope",
         "bundle",
         "wear my bundle",
         "wield my handaxe",
@@ -175,7 +177,7 @@ def test_a_skin_the_bundle_will_not_take_leaves_the_next_one_to_start_it(travel)
     )
     _hands(arena)
     _run(arena, profile=BUNDLING | {"max_kills": 2}, travel_first=False)
-    assert arena.sent.count("get my bundling rope from my sack") == 2
+    assert arena.sent.count("get my bundling rope") == 2
     assert any("would not take that skin" in t for t in arena.echoed)
     assert any("bundle started and worn" in t for t in arena.echoed)
     assert not any("unrecognized" in t for t in arena.echoed)
@@ -205,8 +207,8 @@ def test_a_run_bundle_refuses_three_times_stows_its_skins_loose(travel):
     )
     _hands(arena)
     _run(arena, profile=BUNDLING | {"max_kills": 5}, travel_first=False)
-    assert arena.sent.count("get my bundling rope from my sack") == 3
-    assert "get my rope from my sack" not in arena.sent
+    assert arena.sent.count("get my bundling rope") == 3
+    assert "get my rope" not in arena.sent
     assert sum("refused 3 skins in a row" in t for t in arena.echoed) == 1
     assert arena.sent.count("put my pelt in my sack") == 5
 
@@ -246,8 +248,7 @@ def test_without_a_rope_the_skin_is_stowed_and_the_run_says_so_once(travel):
     )
     _hands(arena)
     _run(arena, profile=BUNDLING | {"max_kills": 2}, travel_first=False)
-    assert "get my bundling rope from my sack" in arena.sent
-    assert arena.sent.count("get my bundling rope from my sack") == 1
+    assert arena.sent.count("get my bundling rope") == 1
     assert arena.sent.count("put my pelt in my sack") == 2
     assert sum("no bundling rope" in text for text in arena.echoed) == 1
 

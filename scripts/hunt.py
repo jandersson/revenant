@@ -164,7 +164,7 @@ GUI): weapon and its container, stance, skin or not and with what,
 loot container, gem pouch, bundle or not, health floor, ground, home,
 skills to train. With `bundle` on, skins go onto a bundling rope worn
 as a lumpy bundle (free at any tannery: ASK <tanner> FOR ROPE, kept in
-the loot container): a bundle you already have is worn before the
+any container): a bundle you already have is worn before the
 first swing, the first skin of a run starts one when there is none,
 and every later skin goes straight into it as it is cut — one item to
 sell with ;skins. No rope means skins are stowed loose, said once.
@@ -884,15 +884,14 @@ def wear_bundle(s, profile, tally):
 
 def make_bundle(s, profile, tally):
     """The first skin of the run, in hand, starts the bundle: the weapon
-    goes back to free a hand, the rope comes out of the loot container,
-    BUNDLE ties the skin to it, the bundle goes on, the weapon comes
-    back. True with the bundle worn. No rope: said once, and the run's
-    skins are stowed loose."""
+    goes back to free a hand, GET MY BUNDLING ROPE takes the rope from
+    whatever container holds it (#437: GET FROM the loot container
+    missed a rope left in the old one, and 49 skins went loose), BUNDLE
+    ties the skin to it, the bundle goes on, the weapon comes back.
+    True with the bundle worn. No rope: said once, and the run's skins
+    are stowed loose."""
     free_hand(s, profile)
-    container = profile["loot_container"]
-    answer = ask(
-        s, f"get my {ROPE} from my {container}" if container else f"get my {ROPE}"
-    )
+    answer = ask(s, f"get my {ROPE}")
     if missing(answer):
         s.echo(
             "hunt: no bundling rope — ASK a tanner FOR ROPE (it is free); "
