@@ -69,3 +69,48 @@ def test_game_text_reaches_the_log_and_typed_commands_reach_the_game(fake_sessio
             assert any(line.startswith("> look") for line in lines)
 
     _run(scenario())
+
+
+# Captured 2026-10-02: a yell on the talk stream, then the same line on
+# main. The talk copy is the GUI's Talk dock's; the terminal prints the
+# story's alone.
+TALK = (
+    b'<pushStream id="talk"/><b>You hear a female voice yell from the '
+    b'somewhere nearby,</b> "Kailisa!"\r\n'
+    b"<popStream/><b>You hear a female voice yell from the somewhere "
+    b'nearby,</b> "Kailisa!"\r\n'
+    b"<prompt time='1788577396'>&gt;</prompt>\r\n"
+)
+
+
+def test_a_said_line_shows_once_the_talk_copy_is_left_to_the_gui(fake_session):
+    game, server, port = fake_session
+    frontend = RevenantTUI("127.0.0.1", port)
+    frontend.rules = []
+    app = frontend.build()
+
+    async def scenario():
+        from textual.widgets import RichLog
+
+        def log_lines():
+            return [
+                "".join(segment.text for segment in strip)
+                for strip in app.query_one("#log", RichLog).lines
+            ]
+
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.5)
+            assert _await(lambda: server.clients), "the TUI never attached"
+            game.pending.append(TALK)
+            for _ in range(40):
+                await pilot.pause(0.1)
+                if any("Kailisa" in line for line in log_lines()):
+                    break
+            else:
+                raise AssertionError(f"the yell never rendered: {log_lines()}")
+            await pilot.pause(0.5)  # time for a second copy, were there one
+            lines = log_lines()
+            assert sum("Kailisa" in line for line in lines) == 1
+            assert not any("[talk]" in line for line in lines)
+
+    _run(scenario())

@@ -83,6 +83,22 @@ def test_text_goes_to_its_dock_and_a_clear_wipes_only_that_dock(window):
     assert "troll" in window.main_window.toPlainText()
 
 
+def test_a_said_line_shows_in_the_story_and_in_the_talk_dock(window):
+    # The parser routes the talk stream's copy and the main stream's
+    # (captured 2026-10-02); the dock is for seeing at a glance that
+    # someone spoke, the story keeps the line where it happened.
+    yell = 'You hear a female voice yell from the somewhere nearby, "Kailisa!"\n'
+    window.dispatch_game_text(yell, "talk", "")
+    window.dispatch_game_text(yell, "", "")
+    whisper = 'Uthmor whispers, "over here"\n'
+    window.dispatch_game_text(whisper, "whispers", "")
+    window.dispatch_game_text(whisper, "", "")
+    talk = window.stream_docks["Talk"].widget().toPlainText()
+    story = window.main_window.toPlainText()
+    assert "Kailisa" in talk and "over here" in talk
+    assert story.count("Kailisa") == 1 and story.count("over here") == 1
+
+
 def test_an_undocked_streams_text_still_reaches_the_story(window):
     window.dispatch_game_text("a backpack\n", "inv", "")
     assert "a backpack" in window.main_window.toPlainText()

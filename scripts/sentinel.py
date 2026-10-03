@@ -43,6 +43,7 @@ from client.game.novelty import (
     hidden_command,
     newcomers,
 )
+from client.ui.streamroute import MIRROR_STREAMS
 
 # The design notes the manual above leaves out: what each rule came
 # from, with its issue — read by people, never served as ;help.
@@ -122,8 +123,10 @@ BACKGROUND = frozenset(
     + ("sentinel", "antiidle", "clock")
 )
 # Streams a script never learns anything from: the game's windows and
-# the engine's synthetic frames.
-NOISE_STREAMS = frozenset(
+# the engine's synthetic frames — and the talk and whispers mirrors,
+# whose every line comes again on the main stream (one whisper, one
+# alert).
+NOISE_STREAMS = MIRROR_STREAMS | frozenset(
     {
         "combat",
         "percWindow",

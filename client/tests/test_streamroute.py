@@ -8,7 +8,12 @@ fall back to the main window, or handling any item erases the story.
 
 import pytest
 
-from client.ui.streamroute import STREAM_WINDOWS, clears_window, window_title
+from client.ui.streamroute import (
+    MIRROR_STREAMS,
+    STREAM_WINDOWS,
+    clears_window,
+    window_title,
+)
 
 
 class TestWindowTitle:
@@ -25,10 +30,18 @@ class TestWindowTitle:
             ("exp", "Experience"),
             ("group", "Group"),  # GROUP's listing, rewritten on every change
             ("attention", "Attention"),  # ;sentinel's new and addressed lines
+            ("talk", "Talk"),  # says, asks and yells, the story's copy too
+            ("whispers", "Talk"),
         ],
     )
     def test_docked_streams_name_their_dock(self, stream, title):
         assert window_title(stream) == title
+
+    def test_the_talk_streams_are_mirrors_of_the_story(self):
+        # Every line on them comes again on main: a reader with no dock
+        # for them, or one of every stream, skips them.
+        assert MIRROR_STREAMS == {"talk", "whispers"}
+        assert all(window_title(stream) == "Talk" for stream in MIRROR_STREAMS)
 
     @pytest.mark.parametrize("stream", ["inv", "experience", "room", "main", ""])
     def test_undocked_streams_have_no_dock(self, stream):

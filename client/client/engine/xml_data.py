@@ -14,12 +14,13 @@ DISCARD_STREAMS = {
     "bounty",
     "society",
     "speech",
-    "talk",
-    "whispers",
 }
 # `talk` and `whispers` carry a second copy of every "says" and whisper
 # for the game's own Conversation window; the main stream has the line
-# too, so a whisper showed twice until 2026-09-21 (#267).
+# too. They were dropped here from 2026-09-21 (#267, a whisper showed
+# twice in the story); now they reach the GUI's Talk dock, and the
+# readers that would count them twice skip them
+# (client/ui/streamroute.py, MIRROR_STREAMS).
 
 # <pushStream id="thoughts"/> opens a routed block, <popStream/> returns
 # to the main stream. The capture group carries the stream id; popStream

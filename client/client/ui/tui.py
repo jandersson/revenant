@@ -7,7 +7,8 @@ attaches to the session (the launcher's registry finds the character's
 port, or --attach names one), renders every stream into one scrolling
 log with the game's styles and your highlight rules, and sends what
 you type. Docked streams (thoughts, spells, arrivals, deaths, the exp
-dashboard) appear inline with a [stream] prefix. The status bar shows
+dashboard) appear inline with a [stream] prefix; talk and whispers, which
+repeat a story line, are left to the story. The status bar shows
 the character, the room, the vitals, posture and badges, and the
 roundtime counting down. Up/Down browse the command history. Ctrl+Q
 detaches - the session and the character stay in the game, exactly
@@ -30,7 +31,7 @@ from client.ui.highlights import load_rules
 from client.engine.sendcmd import resolve_port
 from client.engine.session import AttachedEngine
 from client.engine.wire import DEFAULT_HOST
-from client.ui.streamroute import clears_window, window_title
+from client.ui.streamroute import MIRROR_STREAMS, clears_window, window_title
 from client.ui.textstyle import Status, render
 
 
@@ -118,6 +119,8 @@ class RevenantTUI(ClientLogger):
                 event.prevent_default()
 
             def append(self, text, stream, style):
+                if stream in MIRROR_STREAMS:
+                    return  # the story has the line already; a clear is not ours
                 if style == "clear":
                     if clears_window(stream):
                         self.query_one("#log", RichLog).clear()

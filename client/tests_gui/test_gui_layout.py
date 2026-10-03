@@ -15,6 +15,7 @@ DOCK_NAMES = {
     "Experience",
     "Compass",
     "Clocks",
+    "Talk",
     "Map",
     "Input",
 }

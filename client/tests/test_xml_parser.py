@@ -335,17 +335,36 @@ def test_route_buffers_multiline_stream(xml_data):
 
 
 def test_route_discards_duplicate_streams(xml_data):
-    line = '<pushStream id="talk"/>You say, "hi"<popStream/>'
+    line = '<pushStream id="speech"/>You say, "hi"<popStream/>'
     assert xml_data.route(line) == []
 
 
-def test_a_whisper_shows_once(xml_data):
+def test_talk_reaches_its_dock_and_the_story_keeps_its_own_copy(xml_data):
+    # Captured 2026-10-02: the talk stream's line, then the same line on
+    # main — the Talk dock's copy and the story's (MIRROR_STREAMS).
+    yell = '<b>You hear a female voice yell from the somewhere nearby,</b> "Kailisa!"'
+    said = 'You hear a female voice yell from the somewhere nearby, "Kailisa!"'
+    assert xml_data.route(f'<pushStream id="talk"/>{yell}\r\n') == []  # until the pop
+    segments = xml_data.route(f"<popStream/>{yell}\r\n")
+
+    def text_of(wanted):
+        return "".join(text for stream, text, _ in segments if stream == wanted)
+
+    assert text_of("talk").strip() == said
+    assert text_of("").strip() == said
+
+
+def test_a_whisper_shows_once_in_the_story(xml_data):
     # Captured 2026-09-21 (#267): the game sends a whisper inside the
     # whispers stream and again in the main stream; the first copy is
-    # the Conversation window's and is dropped, as talk's is.
+    # the Conversation window's and goes to the Talk dock, the story
+    # shows the second.
     whisper = 'Yeandra whispers, "good to go thought"'
     assert xml_data.route(f'<pushStream id="whispers"/>{whisper}') == []
-    assert xml_data.route("<popStream/>" + whisper) == [("", whisper, "")]
+    assert xml_data.route("<popStream/>" + whisper) == [
+        ("whispers", whisper, ""),
+        ("", whisper, ""),
+    ]
 
 
 def test_route_unescapes_entities(xml_data):

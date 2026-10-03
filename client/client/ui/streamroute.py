@@ -31,7 +31,17 @@ STREAM_WINDOWS = {
     "exp": "Experience",
     "group": "Group",
     "attention": "Attention",  # ;sentinel's new and addressed lines (#276)
+    "talk": "Talk",
+    "whispers": "Talk",
 }
+# The streams that repeat a main-stream line for the game's own
+# Conversation window: every say and whisper comes once on its stream
+# and again on main (captured 2026-09-21, #267; "You hear a female voice
+# yell from the somewhere nearby," 2026-10-02). The GUI's Talk dock
+# shows them; a reader with no dock for them (the TUI, which prints a
+# docked stream inline) or one that reads every stream (;sentinel)
+# skips them, or each line counts twice.
+MIRROR_STREAMS = frozenset({"talk", "whispers"})
 
 
 def window_title(stream):

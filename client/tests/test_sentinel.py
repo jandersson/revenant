@@ -105,7 +105,11 @@ def test_a_strangers_whisper_rings_three_bells_and_starts_the_grace():
     s = Handle()
     s.running.add("hunt")  # a script acting: the case the grace is for
     watch = _watch(s, {"sentinel_grace_minutes": 2})
+    # The whispers stream's copy is the Talk dock's and is skipped; the
+    # main stream's alerts, once.
     watch.handle("whispers", 'Uthmor whispers to you, "you there?"', 100.0)
+    assert s.bells == 0
+    watch.handle("", 'Uthmor whispers to you, "you there?"', 100.0)
     assert s.bells == 3
     assert any("SENTINEL: whisper: Uthmor whispers" in text for text in s.echoed)
     assert any(";sentinel ok within 2 min" in text for text in s.echoed)
