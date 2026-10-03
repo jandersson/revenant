@@ -610,3 +610,158 @@ def test_a_deed_room_across_the_world_is_skipped_not_walked_to(monkeypatch, tmp_
     lost = Fake({"wealth": [WEALTH_RICH]}, room_uid=1)
     script.run(lost, ["tithe"], mapdb=cut, walk_fn=walk)
     assert "unreachable" in echoes(lost) and lost.walks == []
+
+
+# --- the song FOR CHADATRU (#435, captured 2026-10-03 at the Crossing
+# temple's Chadatru shrine, Performance 110, copper zills worn) ----------
+SONG_SLIGHTEST = (
+    "You begin a forceful lament on your copper zills with only the slightest "
+    "hint of difficulty.\n"
+)
+SONG_FUMBLE = (
+    "You fumble slightly as you begin a forceful lament on your copper zills.\n"
+)
+SONG_PLAIN = "You begin a forceful lament on your copper zills.\n"
+SONG_EFFORTLESS = (
+    "You effortlessly begin a forceful lament on your copper zills, your heart "
+    "swelling in pride at your hard-earned skill.\n"
+)
+SONG_END = "You finish playing a forceful lament on your copper zills.\n"
+SONG_SOUL = "A warm, soothing sensation washes over your soul.\n"
+script.SONG_WAIT = 1.0
+script.SOUL_LINE_SECONDS = 0.1
+
+
+def singer(answers, rank=110):
+    """A Fake on Xibar's Crescent Road with Performance at `rank`; the
+    Tower of Honor's chapel (13430) is the map's Chadatru shrine."""
+    fake = Fake(answers)
+    fake.state.experience = {"Performance": {"rank": rank, "mindstate": 0}}
+    return fake
+
+
+def zills():
+    from client.game.profile import save_profile
+
+    save_profile("Lanival", {"instrument": "zills"})
+
+
+def soul_styles():
+    return [style for style in script.STYLES if style not in soul.SONG_BARRED]
+
+
+def test_the_song_plays_for_chadatru_in_the_first_slightest_style_and_hears_it_out(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    monkeypatch.setattr(script, "clock", lambda: 7000.0)
+    zills()
+    fake = singer(
+        {
+            "play": [
+                SONG_FUMBLE,
+                SONG_FUMBLE,
+                SONG_PLAIN,
+                (SONG_SLIGHTEST, SONG_END + SONG_SOUL),
+            ],
+            "stop": ["You stop playing your song.\n"] * 3,
+        }
+    )
+    script.run(fake, ["song"], mapdb=MAP, walk_fn=walk)
+    assert fake.walks == [{13430}]
+    assert fake.sent == [
+        "play lament masterful on my zills for chadatru",
+        "stop play",
+        "play lament confident on my zills for chadatru",
+        "stop play",
+        "play lament fierce on my zills for chadatru",
+        "stop play",
+        "play lament flashy on my zills for chadatru",
+    ]
+    assert "a lament flashy for Chadatru (slightest)" in echoes(fake)
+    assert "soul: sang for Chadatru (the first)" in echoes(fake)
+    assert soul.load_timers("Lanival") == {"song": 7000.0, "song_style": "flashy"}
+
+
+def test_the_remembered_style_goes_first_and_a_song_without_the_soul_line_backs_off(
+    monkeypatch, tmp_path
+):
+    # The same song again at once ended without the soul's line
+    # (2026-10-03): a refusal, the minutes since the last one said.
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    monkeypatch.setattr(script, "clock", lambda: 7000.0)
+    zills()
+    soul.save_timers("Lanival", {"song": 7000.0 - 30 * 60, "song_style": "flashy"})
+    fake = singer({"play": [(SONG_SLIGHTEST, SONG_END)]})
+    script.run(fake, ["song"], mapdb=MAP, walk_fn=walk)
+    assert fake.sent == ["play lament flashy on my zills for chadatru"]
+    assert "without the soul's line (slightest; 30 min since the last)" in echoes(fake)
+    timers = soul.load_timers("Lanival")
+    assert timers["song_refused"] == 7000.0
+    # The hour since the last accepted song outlasts the backoff here.
+    assert soul.due(timers, "song", 7000.0) == 30 * 60
+
+
+def test_no_style_at_slightest_plays_the_best_and_never_off_key_or_halting(
+    monkeypatch, tmp_path
+):
+    # The wiki: a song played off-key or halting never counts.
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    monkeypatch.setattr(script, "clock", lambda: 7000.0)
+    zills()
+    tried = len(soul_styles())
+    fake = singer(
+        {
+            "play": [SONG_EFFORTLESS] * 3
+            + [SONG_PLAIN]
+            + [SONG_EFFORTLESS] * (tried - 4)
+            + [(SONG_PLAIN, SONG_END + SONG_SOUL)],
+            "stop": [""] * tried,
+        }
+    )
+    script.run(fake, ["song"], mapdb=MAP, walk_fn=walk)
+    plays = [command for command in fake.sent if command.startswith("play")]
+    assert len(plays) == tried + 1
+    assert not any("off-key" in play or "halting" in play for play in plays)
+    assert plays[-1] == "play lament flashy on my zills for chadatru"  # the plain one
+    assert "a lament flashy for Chadatru (plain)" in echoes(fake)
+    assert "song_style" not in soul.load_timers("Lanival")
+    assert soul.load_timers("Lanival")["song"] == 7000.0
+
+
+def test_no_instrument_turns_the_song_off_until_typed_and_never_walks(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    fake = singer({})
+    script.run(fake, ["song"], mapdb=MAP, walk_fn=walk)
+    assert fake.walks == [] and fake.sent == []
+    assert "no instrument" in echoes(fake)
+    assert soul.load_timers("Lanival")["song_off"] is True
+    # The game finding none on you turns it off the same way.
+    zills()
+    gone = singer({"play": ["What were you referring to?\n"]})
+    script.run(gone, ["song"], mapdb=MAP, walk_fn=walk)
+    assert gone.sent == ["play lament masterful on my zills for chadatru"]
+    assert "no zills on you" in echoes(gone)
+    assert soul.load_timers("Lanival")["song_off"] is True
+
+
+def test_keep_sings_when_the_songs_timer_allows(monkeypatch, tmp_path):
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    zills()
+    soul.save_timers(  # only the song due, the soul read below pristine
+        "Lanival",
+        soul.mark_state(
+            {"tithe": 5000.0, "pray": 5000.0, "badge": 5000.0, "song_style": "flashy"},
+            5,
+            5000.0,
+        ),
+    )
+    monkeypatch.setattr(script, "clock", lambda: 5000.0 + 60)
+    fake = singer({"play": [(SONG_SLIGHTEST, SONG_END + SONG_SOUL)]})
+    fake.commands = [None, "return"]
+    script.run(fake, ["keep"], mapdb=MAP, walk_fn=walk)
+    assert fake.sent == ["play lament flashy on my zills for chadatru"]
+    assert "song in 60 min" in echoes(fake)
+    assert soul.load_timers("Lanival")["song"] == 5060.0

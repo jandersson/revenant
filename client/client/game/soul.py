@@ -54,8 +54,14 @@ every thirty-one minutes — "As you feel your connection to them grow,
 you sense the eyes of the gods upon you." / "A warm, soothing
 sensation washes over your soul." / "You feel a strengthening of your
 faith and bolstering of your soul."; with nothing on it "You think
-really hard about your badge.  It doesn't do anything though." Model:
-docs/soul.md.
+really hard about your badge.  It doesn't do anything though." The
+song is the fourth (#435, 2026-10-03, the Crossing temple's Chadatru
+shrine): PLAY <song> <style> ON <instrument> FOR CHADATRU at "only the
+slightest hint of difficulty", never off-key or halting (Elanthipedia:
+Performance skill), and about two minutes later "You finish playing a
+forceful lament on your copper zills." / "A warm, soothing sensation
+washes over your soul."; the same song again at once ended without
+the second line. Model: docs/soul.md.
 """
 
 import json
@@ -112,6 +118,11 @@ POOL_FULL = 11
 TITHE_SECONDS = 4 * 3600
 PRAY_SECONDS = 2 * 3600
 BADGE_SECONDS = 31 * 60  # PRAY BADGE (Elanthipedia: Pilgrim's badge)
+# The song's timer is unmeasured (#435): the wiki gives none, most of
+# its deeds' are an hour, and a song that ends without the soul's line
+# backs off REFUSED_BACKOFF like any refusal — each ;soul song says the
+# minutes since the last accepted one, so the logs bound it.
+SONG_SECONDS = 3600
 REFUSED_BACKOFF = 20 * 60
 TITHE_SILVER = 5
 PRAYER_WAIT = 150  # seconds knelt for the prayer to complete (about 75)
@@ -146,6 +157,12 @@ PRAYER_BEGUN = ("head is not cleared enough",)
 PRAYER_GENERIC = ("you kneel down and begin to pray",)
 PRAYER_DONE = ("soothing sensation washes over your soul",)
 PRAYER_SOON = ("inappropriate so soon",)
+# The song (#435): played FOR the Immortal, the soul's line follows
+# the song's end — the prayer's own words.
+SONG_FOR = "chadatru"
+SONG_DONE = PRAYER_DONE
+SONG_BARRED = ("off-key", "halting")  # the wiki's two styles that never count
+SONG_WAIT = 240  # seconds for the song to end (about two minutes)
 # The quest's orb (FOCUS ORB): the refusals and the vision's lines.
 FOCUS_REST = ("rest and contemplate",)
 FOCUS_REFUSED = ("you focus your magical senses",)  # dr-scripts' requirements line
@@ -329,6 +346,7 @@ def due(timers, deed, now=None):
         "tithe": TITHE_SECONDS,
         "pray": PRAY_SECONDS,
         "badge": BADGE_SECONDS,
+        "song": SONG_SECONDS,
         "read": STATE_FRESH_SECONDS,  # the state reading, a deed for the timers
     }[deed]
     waits = []
@@ -377,13 +395,14 @@ _OPTION = re.compile(r"^(\w+)=(.*)$")
 
 def parse_args(words):
     """;soul's words: the verb ("read" by default, "keep", "tithe",
-    "pray", "badge", "quest") and the options almsbox=ID, altar=ID,
-    currency=X, force."""
+    "pray", "badge", "song", "quest") and the options almsbox=ID,
+    altar=ID, currency=X, instrument=X, force."""
     options = {
         "verb": "read",
         "almsbox": None,
         "altar": None,
         "currency": "",
+        "instrument": "",
         "force": False,
     }
     for word in words or []:
@@ -392,12 +411,12 @@ def parse_args(words):
             key, value = match.group(1).lower(), match.group(2).strip()
             if key in ("almsbox", "altar"):
                 options[key] = int(value) if value.isdigit() else None
-            elif key == "currency":
+            elif key in ("currency", "instrument"):
                 options[key] = value.lower()
             continue
         lowered = word.lower()
         if lowered == "force":
             options["force"] = True
-        elif lowered in ("read", "keep", "tithe", "pray", "badge", "quest"):
+        elif lowered in ("read", "keep", "tithe", "pray", "badge", "song", "quest"):
             options["verb"] = lowered
     return options

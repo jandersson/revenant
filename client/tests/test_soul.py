@@ -176,3 +176,11 @@ def test_parse_args_reads_the_verb_and_the_options():
     assert options["verb"] == "quest" and options["force"]
     assert options["almsbox"] == 13143 and options["currency"] == "lirums"
     assert soul.parse_args(["altar=x"])["altar"] is None
+
+
+def test_the_song_is_a_deed_with_its_own_timer_and_verb():
+    # #435: unmeasured, an hour until the misses say otherwise.
+    timers = soul.mark({}, "song", True, now=1000)
+    assert soul.due(timers, "song", now=1000 + 1800) == soul.SONG_SECONDS - 1800
+    options = soul.parse_args(["song", "instrument=Zills"])
+    assert options["verb"] == "song" and options["instrument"] == "zills"

@@ -5,19 +5,24 @@
     ;soul tithe             one tithe of 5 silver at the nearest almsbox, then back
     ;soul pray              one prayer at the nearest Chadatru altar, knelt until it completes
     ;soul badge             one PRAY BADGE on the pilgrim's badge, wherever you stand
+    ;soul song              one song FOR CHADATRU at the nearest Chadatru shrine
     ;soul quest             the Glyph of Warding scene at the guild orb, once the readings say ready
     ;soul quest force       FOCUS the orb whatever the readings say
     ;soul ... almsbox=<id>  an almsbox room the map has not tagged (altar=<id> likewise)
     ;soul ... currency=<c>  tithe in another coin than the town's (lirums, ...)
+    ;soul ... instrument=<noun>  sing on another instrument than the profile's
     ;soul return            (typed during keep) finish the deed in hand and end
     ;stop soul              quit at once
 
 What it does
   - Reads the state (RUB, or the arch) and the pool (EXHALE, at an orb); a reading holds 4 hours.
   - Runs no deed while the soul reads pristine: the deeds restore a soul, not keep one.
-  - keep: the badge every 31 min, the tithe every 4 h, the prayer every 2 h; a refusal
-    backs off 20 min; an altar that answers with the plain prayer turns praying off
-    until ;soul pray is typed. The timers live in ~/.revenant/soul/<name>.json.
+  - keep: the badge every 31 min, the tithe every 4 h, the prayer every 2 h, the song
+    every hour (unmeasured); a refusal backs off 20 min; an altar that answers with the
+    plain prayer turns praying off until ;soul pray is typed. The timers live in
+    ~/.revenant/soul/<name>.json.
+  - song: the rank's song in the first style that plays "with only the slightest hint
+    of difficulty" (never off-key or halting), heard out to its end.
   - quest: FOCUS ORB, GUARD GIRL, every line of the scene echoed.
 
 What it never does
@@ -37,6 +42,20 @@ from client.game.act import ask, unknown
 from client.game.loop import danger, wants_stop
 from client.game.mapdb import MapDB
 from client.game.money import parse_wealth
+from client.game.perform import (
+    ALREADY,
+    ENDED,
+    IN_COMBAT,
+    NO_INSTRUMENT,
+    NOT_HERE,
+    STARTED,
+    STOPPED,
+    STYLES,
+    TIERS,
+    difficulty,
+    play_command,
+    song_for,
+)
 from client.game.soul import (
     ALMSBOXES,
     ALTARS,
@@ -59,6 +78,10 @@ from client.game.soul import (
     PRAYER_WAIT,
     QUEST_DONE,
     SCENE_SECONDS,
+    SONG_BARRED,
+    SONG_DONE,
+    SONG_FOR,
+    SONG_WAIT,
     TITHE_DEBT,
     TITHE_REFUSED,
     TITHE_SHORT,
@@ -132,12 +155,21 @@ It never withdraws coins (a short purse is reported, ;debt and the
 teller are yours; a debt to the province, which the box refuses a
 tithe for, is said once and costs no walk until WEALTH shows it
 paid, #304), never drops, and stops on death or hostiles.
+The song (#435, 2026-10-03): a lament played FOR CHADATRU at the
+Crossing temple's shrine, "with only the slightest hint of
+difficulty", ended with the prayer's soul line; Elanthipedia's
+Performance skill page bars off-key and halting. `song` plays the
+rank's song in every other style until one starts "slightest" and
+keeps that one (remembered as `song_style`), hears it out to "You
+finish playing", and reads the soul line after it. The timer is
+unmeasured: an hour until the misses' minutes say otherwise.
 Stop with:  ;stop soul, or ;soul return.
 """
 
 FOCUS_SECONDS = 4  # the orb's answer to FOCUS
 GUARD_SECONDS = 4  # the answer to GUARD GIRL
 BADGE_SECONDS_ANSWER = 4  # PRAY BADGE's answer past its 10 s roundtime
+SOUL_LINE_SECONDS = 3  # the soul's line after the song's end (the same prompt)
 KEEP_POLL = 60  # seconds between looks at the timers while keeping
 # A deed's room farther than this is skipped, not walked to: the map
 # tags Shard's and Ratha's almsboxes, ALMSBOXES adds the Crossing's
@@ -448,6 +480,147 @@ def pray_badge(s, timers):
     return False
 
 
+def instrument_of(s):
+    """The profile's `instrument`, or ""."""
+    name = getattr(s.state, "name", None)
+    if not name:
+        return ""
+    from client.game.profile import load_profile
+
+    return str(load_profile(name).get("instrument") or "").strip()
+
+
+def performance_rank(s):
+    entry = (getattr(s.state, "experience", None) or {}).get("Performance")
+    return entry.get("rank") if entry else None
+
+
+def song_command(song, style, instrument):
+    return f"{play_command(song, style, instrument)} for {SONG_FOR}"
+
+
+def start_song(s, song, instrument, timers):
+    """PLAY the song FOR CHADATRU in every style but off-key and halting,
+    the one that last played "slightest" first; the first that plays
+    "slightest" plays on, the rest are STOPped. (style, tier) of the
+    song left playing — the best tier seen when none reached slightest
+    — or (None, why): "no instrument", "not here", "in combat",
+    "unknown"."""
+    styles = [style for style in STYLES if style not in SONG_BARRED]
+    remembered = timers.get("song_style")
+    if remembered in styles:
+        styles.remove(remembered)
+        styles.insert(0, remembered)
+    best = None  # (tier index, style)
+    for style in styles:
+        answer = ask(s, song_command(song, style, instrument))
+        if any(word in answer.lower() for word in ALREADY):
+            ask(s, "stop play")
+            answer = ask(s, song_command(song, style, instrument))
+        lowered = answer.lower()
+        for why, words in (
+            ("no instrument", NO_INSTRUMENT),
+            ("not here", NOT_HERE),
+            ("in combat", IN_COMBAT),
+        ):
+            if any(word in lowered for word in words):
+                return None, why
+        tier = difficulty(answer)
+        if tier == "slightest":
+            timers["song_style"] = style
+            return style, tier
+        if any(word in lowered for word in STARTED):
+            ask(s, "stop play")
+        if tier is not None and (best is None or TIERS.index(tier) < best[0]):
+            best = (TIERS.index(tier), style)
+    if best is None:
+        return None, "unknown"
+    ask(s, song_command(song, best[1], instrument))
+    return best[1], TIERS[best[0]]
+
+
+def hear_out(s):
+    """The story until the song ends, the soul's line after it
+    included: (text, ended). Danger ends the wait (ended False)."""
+    deadline = time.monotonic() + SONG_WAIT
+    heard = []
+    while time.monotonic() < deadline:
+        text = probe.collect(s, 1)
+        heard.append(text)
+        if any(word in text.lower() for word in ENDED + STOPPED):
+            if SONG_DONE[0] not in text.lower():
+                heard.append(probe.collect(s, SOUL_LINE_SECONDS, until=SONG_DONE[0]))
+            return "\n".join(heard), True
+        if danger(s):
+            break
+    return "\n".join(heard), False
+
+
+def sing(s, mapdb, timers, options, walk_fn=walk):
+    """Walk to a Chadatru shrine and play the rank's song FOR CHADATRU
+    to its end (#435). True when the soul's line followed it; no
+    instrument, or a shrine that refuses a song, turns the deed off
+    (timers["song_off"]) until ;soul song is typed."""
+    instrument = options["instrument"] or instrument_of(s)
+    if not instrument:
+        s.echo(
+            "soul: no instrument — the profile's `instrument`, or instrument=<noun>; "
+            "the song deed is off until ;soul song"
+        )
+        timers["song_off"] = True
+        return False
+    rooms = rooms_for(mapdb, "chadatru", ALTARS, options["altar"])
+    if not rooms:
+        s.echo("soul: no Chadatru shrine known on the map — altar=<room id>")
+        mark(timers, "song", False, clock())
+        return False
+    if too_far(s, mapdb, rooms, "altar"):
+        mark(timers, "song", False, clock())
+        return False
+    if not travel.go(
+        s, rooms, "Chadatru's shrine", db=mapdb, walk=walk_fn, max_steps=MAX_STEPS
+    ):
+        s.echo("soul: could not reach a Chadatru shrine")
+        mark(timers, "song", False, clock())
+        return False
+    song = song_for(performance_rank(s))
+    style, tier = start_song(s, song, instrument, timers)
+    last = timers.get("song")
+    since = f"{(clock() - last) / 60:.0f} min since the last" if last else "the first"
+    if style is None:
+        mark(timers, "song", False, clock())
+        if tier in ("no instrument", "not here"):
+            timers["song_off"] = True
+            s.echo(
+                f"soul: {'no ' + instrument + ' on you' if tier == 'no instrument' else 'the shrine refuses a song'}"
+                " — the song deed is off until ;soul song"
+            )
+        elif tier == "in combat":
+            s.echo("soul: in combat — no song")
+        else:
+            s.echo(
+                f"soul: no style of the {song} started — PLAY answered nothing known"
+            )
+        return False
+    s.echo(
+        f"soul: a {song} {style or 'in the plain style'} for Chadatru ({tier}) — "
+        "heard out to its end"
+    )
+    text, ended = hear_out(s)
+    if not ended:
+        ask(s, "stop play")
+    if classify(text, ("done", SONG_DONE)):
+        mark(timers, "song", True, clock())
+        s.echo(f"soul: sang for Chadatru ({since})")
+        return True
+    mark(timers, "song", False, clock())
+    s.echo(
+        f"soul: the song {'ended' if ended else 'was cut short'} without the soul's "
+        f"line ({tier}; {since}) — backing off twenty minutes"
+    )
+    return False
+
+
 def quest(s, mapdb, options, walk_fn=walk):
     """The Glyph of Warding scene at the orb. True when the gift came."""
     if not travel.go(s, {ORB_ROOM}, "the Orb Room", db=mapdb, walk=walk_fn):
@@ -539,9 +712,17 @@ def keep(s, mapdb, timers, options, walk_fn=walk):
             pray(s, mapdb, timers, options, walk_fn)
             save_timers(character(s), timers)
             did = True
+        if not timers.get("song_off") and due(timers, "song", clock()) == 0:
+            sing(s, mapdb, timers, options, walk_fn)
+            save_timers(character(s), timers)
+            did = True
         if did and locate(mapdb, s.state) == ORB_ROOM:
             read_soul(s, mapdb, walk_fn, timers)
-        deeds = ("tithe", "pray") + (() if timers.get("badge_off") else ("badge",))
+        deeds = (
+            ("tithe", "pray")
+            + (() if timers.get("badge_off") else ("badge",))
+            + (() if timers.get("song_off") else ("song",))
+        )
         waits = {deed: due(timers, deed, clock()) for deed in deeds}
         soonest = min(waits.values())
         if did:
@@ -567,6 +748,8 @@ def run(s, words, mapdb=None, walk_fn=walk):
     timers.pop("badge_off", None)  # a new run looks for the badge again
     if verb == "pray":
         timers.pop("pray_off", None)  # typed by hand: try the altar again
+    if verb in ("song", "keep"):
+        timers.pop("song_off", None)  # look for the instrument again
     if verb == "badge":
         pray_badge(s, timers)
         save_timers(character(s), timers)
@@ -578,6 +761,8 @@ def run(s, words, mapdb=None, walk_fn=walk):
         tithe(s, mapdb, timers, options, walk_fn)
     elif verb == "pray":
         pray(s, mapdb, timers, options, walk_fn)
+    elif verb == "song":
+        sing(s, mapdb, timers, options, walk_fn)
     elif verb == "quest":
         quest(s, mapdb, options, walk_fn)
         return

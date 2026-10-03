@@ -142,7 +142,7 @@ clock = time.monotonic  # tests replace it
 EXIT_WAIT = 10  # seconds a killed task script gets to wind down
 QUICK_EXIT = 5  # a task script gone this soon after starting never got going
 LEAVE_ATTEMPTS = 5  # rooms left for hostiles before a rest is given up (#182)
-SOUL_DEEDS = ("badge", "tithe", "pray")  # the order ;train runs them in a rest
+SOUL_DEEDS = ("badge", "tithe", "pray", "song")  # the order ;train runs them in a rest
 SOUL_MINUTES = 12  # a deed's run, walk included, before train stops waiting
 TDP_POINTS_PER_REST = 3  # stat points bought in one rest at most (#230)
 TDP_MINUTES = 12  # one ;tdp run, the walk there and back included
@@ -569,7 +569,7 @@ def soul_due(s, plan):
 def soul_step(s, plan, db, walk, room):
     """One due soul deed, run as `;soul <deed>` and waited for, then the
     walk back to the rest's room when the deed moved the character
-    (the tithe, the prayer); the badge prays where it stands. True
+    (the tithe, the prayer, the song); the badge prays where it stands. True
     when a deed ran (#227)."""
     due = soul_due(s, plan)
     if not due:

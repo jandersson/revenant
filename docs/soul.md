@@ -21,10 +21,10 @@ A Paladin's soul has a state and a pool. `;soul` reads them and runs the deeds t
 | Pilgrim's badge | `;soul badge` | 31 min | anywhere |
 | Tithe | `;soul tithe` | 4 h | nearest almsbox, 5 silver |
 | Prayer | `;soul pray` | 2 h | nearest Chadatru altar, knelt ~75 s |
-| Song | by hand: `play <song> <style> on <instrument> for chadatru` | over 2 min, not yet measured | the Crossing temple's Chadatru shrine |
+| Song | `;soul song` | 1 h, not yet measured | nearest Chadatru shrine, the profile's `instrument` |
 
 - The badge needs attuned altars pushed onto it (PUSH <altar> WITH BADGE).
-- The song needs "only the slightest hint of difficulty", not off-key or halting; any song counts (a lament did, 2026-10-03). The soul line comes after "You finish playing ...": "A warm, soothing sensation washes over your soul." The same song again at once ended without it.
+- The song is the rank's, played FOR CHADATRU in the first style that starts "only the slightest hint of difficulty" (never off-key or halting) and heard out; the soul line follows "You finish playing ...". A song without it backs off and says the minutes since the last.
 - A refused deed backs off 20 minutes; a room over 80 rooms away is skipped.
 - A debt to the province blocks the tithe; `;debt` pays it. `;soul` never withdraws coins.
 - Timers live in `~/.revenant/soul/<name>.json`, shared with `;train`.
@@ -36,12 +36,12 @@ A Paladin's soul has a state and a pool. `;soul` reads them and runs the deeds t
 ```
 ;soul                        read the state (and the pool at an orb)
 ;soul keep                   run the deeds on their timers while below pristine
-;soul badge | tithe | pray   one deed
+;soul badge | tithe | pray | song   one deed
 ;soul quest [force]          the Glyph of Warding scene at the orb
 ;soul return                 finish the deed in hand and end
 ```
 
-`almsbox=ID`, `altar=ID` and `currency=lirums` override the map's rooms and the coin.
+`almsbox=ID`, `altar=ID`, `currency=lirums` and `instrument=zills` override the map's rooms, the coin and the profile's instrument.
 
 With the plan's `soul: on`, `;train` does the same in its rests, never mid-task, and stops a hand-started `;soul keep`.
 
