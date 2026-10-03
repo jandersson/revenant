@@ -349,6 +349,41 @@ def test_another_turns_weapon_left_in_hand_is_sheathed_where_it_lives(travel):
     assert "stow my spear" not in arena.sent
 
 
+def test_a_weapon_only_the_base_profile_names_is_sheathed_by_a_styled_hunt(travel):
+    # 2026-10-03 (#439): the box farm's style turns (no spear) replaced
+    # the base list, and its clear STOWed the spear the hunt before left
+    # in hand — refused by the backpack — then drew the broadsword.
+    from client.game.profile import save_profile
+
+    save_profile(
+        "Lanival",
+        {"weapons": ["sledgehammer:Large Blunt:backpack", "spear:Polearms:baldric"]},
+    )
+
+    def sheathed(arena):
+        arena.state.right_hand = None
+
+    arena = Arena(
+        {
+            "sheathe my spear": [
+                (
+                    "You sheathe the narrow-headed spear in your palladium baldric.",
+                    sheathed,
+                )
+            ],
+            "attack": [(KILL, kill)],
+            "skin": [SKINNED],
+            "loot": [NOTHING],
+        }
+    )
+    arena.state.left_hand = None
+    arena.state.right_hand = {"noun": "spear", "exist": "1"}
+    _run(arena, profile=PROFILE | {"weapons": ["sledgehammer:Large Blunt:backpack"]})
+    first = arena.sent.index("sheathe my spear")
+    assert arena.sent[first + 1] == "wield my sledgehammer"
+    assert "stow my spear" not in arena.sent
+
+
 def test_the_weapon_in_hand_is_kept_by_its_noun_whatever_the_profile_calls_it(
     travel,
 ):

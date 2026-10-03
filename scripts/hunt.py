@@ -62,6 +62,7 @@ from client.game.act import NOT_FOUND, ask, missing, said, unknown
 from client.game.creatures import aim, aim_corpse, noun_of, outgrown
 from client.game.probe import classify
 from client.game.profile import describe, load_profile
+from client.game.profile import styles as profile_styles
 from client.game.walker import DIRECTIONS, locate, walk
 from client.game.wounds import SEVERITIES, level, parse_health
 
@@ -826,11 +827,30 @@ def clear_hands(s, profile):
     fit in the backpack." — and the box farm's sledgehammer came out
     into the other hand beside it (2026-10-03, #439). Never DROP."""
     weapon = profile.get("weapon") or ""
-    for entry in weapon_plan(profile):
-        other = entry["weapon"]
-        if other and other != weapon and hands.holding(s, other):
-            hands.sheathe(s, other, entry["container"], ask=ask)
+    for other, container in known_weapons(s, profile).items():
+        if other != weapon and hands.holding(s, other):
+            hands.sheathe(s, other, container, ask=ask)
     hands.free(s, keep=(weapon,) if weapon else (), ask=ask)
+
+
+def known_weapons(s, profile):
+    """{weapon: container} for every weapon the character's profile
+    names: this run's turns, then the base list and every hunt style's.
+    A style's turns replace the base list, so the box farm's (mace,
+    broadsword, sledgehammer) knew nothing of the spear the hunt before
+    left in hand, and STOWed it into the backpack's refusal again
+    (2026-10-03, #439)."""
+    base = load_profile(getattr(s.state, "name", None) or "")
+    lists = [weapon_plan(profile)] + [
+        [parse_weapon(entry) for entry in source.get("weapons") or []]
+        for source in [base, *profile_styles(base).values()]
+    ]
+    found = {}
+    for entries in lists:
+        for entry in entries:
+            if entry["weapon"] and entry["weapon"] not in found:
+                found[entry["weapon"]] = entry["container"]
+    return found
 
 
 def ready(s, profile, tally=None, index=0):
