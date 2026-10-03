@@ -105,7 +105,7 @@ An empty ground is not an end: the hunt waits and laps it again.
 
 ## Box yield
 
-The hunt's end says what each kind of creature carried: `searched by creature — s'lai scout x15: 1 box(es), 6 with coins`. `;hunt grounds` adds what you measured on each zone, e.g. `measured 26 box(es) in 180 search(es), 14%; 2.1 box(es) an hour over 6 hunt(s), ~2,604 copper; 1,240 copper a box over 12 opened`. Each part appears once there is data for it. A zone with nothing measured shows what the wiki says instead: `wiki: boxes from Wood Troll (Locksmithing 30-55)`, or `wiki: no boxes`.
+The hunt's end says what each kind of creature carried: `searched by creature — s'lai scout x15: 1 box(es), 6 with coins`. `;hunt grounds` adds what you measured on each zone, e.g. `measured 26 box(es) in 180 search(es), 14%; 2.1 box(es) an hour over 6 hunt(s), ~2,604 copper Kronars; 1,240 copper Kronars a box over 12 opened`. Each part appears once there is data for it. A zone with nothing measured shows what the wiki says instead: `wiki: boxes from Wood Troll (Locksmithing 30-55)`, or `wiki: no boxes`.
 
 History.db keeps:
 

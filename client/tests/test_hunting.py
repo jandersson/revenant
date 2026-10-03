@@ -213,8 +213,8 @@ def test_a_zone_line_carries_the_yield_measured_there(monkeypatch):
     # held 4,960 copper, 1,240 a box, ~2,480 an hour at 2.0 an hour.
     worth = hunted | {"opened": 4, "coins": 4960}
     assert hunting.describe(entry, worth).endswith(
-        "14%; 2.0 box(es) an hour over 2 hunt(s), ~2,480 copper; "
-        "1,240 copper a box over 4 opened"
+        "14%; 2.0 box(es) an hour over 2 hunt(s), ~2,480 copper Kronars; "
+        "1,240 copper Kronars a box over 4 opened"
     )
 
 

@@ -22,6 +22,10 @@ COPPER_PER = {
 }
 DENOMINATIONS = tuple(COPPER_PER)  # largest first
 CURRENCIES = ("Kronars", "Lirums", "Dokoras")
+# A coin of each currency in Kronars, before any money-changer's fee
+# (Elanthipedia: Currency, its exchange table — "1000 Lirums is
+# equivalent to 1250 Kronars"): what a box's mixed coins are worth (#425).
+KRONAR_RATES = {"Kronars": 1.0, "Lirums": 1.25, "Dokoras": 1.385808991}
 
 _AMOUNT = re.compile(
     r"(?P<count>[\d,]+)\s+(?P<denomination>platinum|gold|silver|bronze|copper)"
@@ -53,6 +57,16 @@ def currency_of(text):
     Kronar." → "Kronars"), "" when it names none."""
     found = _CURRENCY.search(str(text or ""))
     return found.group(1).capitalize() + "s" if found else ""
+
+
+def in_kronars(copper, currency="Kronars"):
+    """`copper` of `currency` ("Dokoras", "dokoras", "Dokora") as copper
+    Kronars at KRONAR_RATES, rounded; an unnamed or unknown currency
+    counts as Kronars."""
+    key = str(currency or "").strip().capitalize()
+    if key and not key.endswith("s"):
+        key += "s"
+    return round((copper or 0) * KRONAR_RATES.get(key, 1.0))
 
 
 def split(copper):

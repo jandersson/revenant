@@ -20,7 +20,7 @@ nearest first by the map's travel time from a room; weapon_rank() is
 the rank to ask with: the lowest of the profile's weapon skills, so a
 listing never suggests what the weakest weapon cannot handle.
 describe() adds the box yield measured on a zone (lootlog.yields:
-boxes per search, boxes an hour; boxlog.measured: copper per box),
+boxes per search, boxes an hour; boxlog.measured: copper Kronars per box),
 since the wiki leaves most drop rates blank (#419, #423); where
 nothing is measured, what the wiki does say (wiki_boxes: the Critter
 pages' Has Boxes, the Locksmithing page's ranks and drop rate, #422).
@@ -197,7 +197,8 @@ def wiki_boxes(zone_creatures):
 def yield_said(measured):
     """A ground's measured yield in words, "" with nothing measured:
     "26 box(es) in 180 search(es), 14%; 2.1 box(es) an hour over 6
-    hunt(s), ~2,604 copper; 1,240 copper a box over 12 opened" — the
+    hunt(s), ~2,604 copper Kronars; 1,240 copper Kronars a box over 12
+    opened" — the
     hour only once a minute of hunting is logged (#419), the copper
     once a box told to the ground is opened (boxlog, #423)."""
     measured = measured or {}
@@ -212,13 +213,17 @@ def yield_said(measured):
     minutes = measured.get("minutes") or 0
     if minutes >= 1:
         hourly = (measured.get("hunt_boxes") or 0) * 60 / minutes
-        worth = f", ~{round(hourly * per_box):,} copper" if per_box is not None else ""
+        worth = (
+            f", ~{round(hourly * per_box):,} copper Kronars"
+            if per_box is not None
+            else ""
+        )
         parts.append(
             f"{hourly:.1f} box(es) an hour over {measured.get('hunts') or 0} hunt(s)"
             + worth
         )
     if per_box is not None:
-        parts.append(f"{round(per_box):,} copper a box over {opened} opened")
+        parts.append(f"{round(per_box):,} copper Kronars a box over {opened} opened")
     return "; ".join(parts)
 
 

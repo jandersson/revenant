@@ -92,6 +92,16 @@ def test_nothing_carried_and_no_debt_are_zeros_not_silence():
     assert money.parse_wealth("") == {"carried": {}, "debt": {}}  # unanswered
 
 
+def test_a_currency_is_worth_its_rate_in_kronars():
+    # Elanthipedia's Currency table: 1000 Lirums are 1250 Kronars, a
+    # Dokora 1.3858 Kronars; an unnamed currency counts as Kronars.
+    assert money.in_kronars(1000, "Lirums") == 1250
+    assert money.in_kronars(400, "dokoras") == 554
+    assert money.in_kronars(60, "Dokora") == 83
+    assert money.in_kronars(38, "Kronars") == 38
+    assert money.in_kronars(7, "") == 7 and money.in_kronars(None, "Lirums") == 0
+
+
 def test_a_coin_line_names_its_amount_and_currency():
     # ;boxes taking coins out of a box (captured 2026-09-28, #423).
     line = "You pick up 5 silver Kronars."

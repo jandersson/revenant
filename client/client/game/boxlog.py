@@ -5,9 +5,12 @@ Two tables in history.db. `box_drops`: one row per box ;hunt picks up —
 the box's item id, its noun and description, the creature searched, the
 ground, the room and the `loot` row of that search. `box_contents`: one
 row per box ;boxes opens — the id, the trap and lock readings (1-17, 0
-for none, NULL unread), the coins in copper and their currency, the
-items kept and the items trashed, and the ground and creature it came
-from with how that was decided:
+for none, NULL unread), the coins in copper per currency (`kronars`,
+`lirums`, `dokoras`: one box held Kronars and Dokoras, #425) and their
+worth in copper Kronars at money.KRONAR_RATES (`coins`, `currency`
+"Kronars"; a row from before #425 has one currency for all its coins),
+the items kept and the items trashed, and the ground and creature it
+came from with how that was decided:
 
 - "id": a `box_drops` row of the same character, id and noun. The id is
   the game's item id; a box keeps it from pickup to opening within one
@@ -20,8 +23,8 @@ from with how that was decided:
   the ground is that one, and the creature too when it was one kind.
 - "": neither.
 
-`measured` reads the coins per box back per ground, for ;hunt grounds.
-A logging failure is logged and never stops a script.
+`measured` reads the copper Kronars per box back per ground, for ;hunt
+grounds. A logging failure is logged and never stops a script.
 """
 
 import logging
@@ -29,7 +32,7 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
-from client.game import lootlog
+from client.game import lootlog, money
 
 DROPS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS box_drops (
@@ -63,9 +66,14 @@ CREATE TABLE IF NOT EXISTS box_contents (
     ground TEXT NOT NULL,
     creature TEXT NOT NULL,
     source TEXT NOT NULL,
-    drop_seq INTEGER
+    drop_seq INTEGER,
+    kronars INTEGER,
+    lirums INTEGER,
+    dokoras INTEGER
 )
 """
+# The copper per currency (#425), added to a table from before it.
+CURRENCY_COLUMNS = ("kronars", "lirums", "dokoras")
 
 DROP_COLUMNS = (
     "logged_at",
@@ -94,6 +102,7 @@ CONTENT_COLUMNS = (
     "creature",
     "source",
     "drop_seq",
+    *CURRENCY_COLUMNS,
 )
 _TEXT = ("noun", "description", "creature", "ground", "currency", "source")
 
@@ -106,6 +115,10 @@ def ensure_schema(connection):
     lootlog.ensure_schema(connection)  # the batch attribution reads `loot`
     connection.execute(DROPS_SCHEMA)
     connection.execute(CONTENTS_SCHEMA)
+    present = {row[1] for row in connection.execute("PRAGMA table_info(box_contents)")}
+    for column in CURRENCY_COLUMNS:
+        if column not in present:
+            connection.execute(f"ALTER TABLE box_contents ADD COLUMN {column} INTEGER")
     connection.commit()
 
 
@@ -199,7 +212,14 @@ def attribute(connection, character, box_id, noun, run_started):
 
 def record_opened(connection, **fields):
     """One `box_contents` row, its origin decided by attribute(); returns
-    the attribution."""
+    the attribution. Coins given per currency (`kronars`, `lirums`,
+    `dokoras`) make `coins` their worth in copper Kronars."""
+    if any(fields.get(column) is not None for column in CURRENCY_COLUMNS):
+        fields["coins"] = sum(
+            money.in_kronars(fields.get(column) or 0, column)
+            for column in CURRENCY_COLUMNS
+        )
+        fields["currency"] = "Kronars"
     fields["opened_at"] = fields.get("opened_at") or now()
     fields["run_started"] = fields.get("run_started") or fields["opened_at"]
     if fields.get("box_id") is not None:
@@ -233,16 +253,19 @@ def log_opened(s, path=None, **fields):
 
 def values(connection, character=None):
     """{ground lower-cased: {"opened", "coins"}}: the boxes opened that
-    were told to a ground and the copper they held."""
+    were told to a ground and what they held in copper Kronars, each
+    row's coins converted from its currency (#425)."""
     mine, args = (" AND character_name = ?", [character]) if character else ("", [])
-    return {
-        ground: {"opened": opened, "coins": coins or 0}
-        for ground, opened, coins in connection.execute(
-            "SELECT lower(ground), COUNT(*), SUM(coins) FROM box_contents"
-            f" WHERE ground != ''{mine} GROUP BY lower(ground)",
-            args,
-        )
-    }
+    found = {}
+    for ground, coins, currency in connection.execute(
+        "SELECT lower(ground), coins, currency FROM box_contents"
+        f" WHERE ground != ''{mine}",
+        args,
+    ):
+        entry = found.setdefault(ground, {"opened": 0, "coins": 0})
+        entry["opened"] += 1
+        entry["coins"] += money.in_kronars(coins or 0, currency)
+    return found
 
 
 def measured(character=None, path=None):

@@ -1047,9 +1047,11 @@ def empty(run, noun):
             outcome = classify(answer, TAKE_OUTCOMES)
         box = run.box if run.box is not None else {"items": [], "trashed": []}
         if outcome == "coins":
-            # "You pick up 5 silver Kronars." (captured 2026-09-28)
-            box["coins"] = box.get("coins", 0) + money.to_copper(answer)
-            box["currency"] = box.get("currency") or money.currency_of(answer)
+            # "You pick up 5 silver Kronars." (captured 2026-09-28); one
+            # box can hold two currencies, each pickup naming its own
+            # ("You pick up 4 silver Dokoras.", 2026-10-02, #425).
+            currency = (money.currency_of(answer) or "Kronars").lower()
+            box[currency] = box.get(currency, 0) + money.to_copper(answer)
             taken += 1
             continue
         if outcome == "taken" and ignore:
@@ -1177,8 +1179,9 @@ def new_box(run, noun):
         "noun": noun,
         "trap": None,
         "lock": None,
-        "coins": 0,
-        "currency": "",
+        "kronars": 0,  # copper per currency: boxlog sums their worth (#425)
+        "lirums": 0,
+        "dokoras": 0,
         "items": [],
         "trashed": [],
     }

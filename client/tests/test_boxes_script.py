@@ -1245,3 +1245,35 @@ def test_an_opened_box_is_a_contents_row_told_to_its_creature_by_its_id(
     ]
     assert "the box came from s'lai scout at scouts (by its id)" in out
     # The crate went back for a better locksmith: no row for it.
+
+
+def test_a_box_of_two_currencies_keeps_the_copper_of_each(monkeypatch, tmp_path):
+    # Captured 2026-09-28, a wooden skippet: "some copper coins, some
+    # bronze coins, and some silver coins", picked up as 8 copper
+    # Kronars, 3 bronze Kronars and 4 silver Dokoras (#425): 38 copper
+    # Kronars and 400 copper Dokoras, worth 38 + 554 copper Kronars.
+    import sqlite3
+
+    db = tmp_path / "history.db"
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(db))
+    answers = one_easy_box()
+    pickups = [
+        "You pick up 8 copper Kronars.\n",
+        "You pick up 3 bronze Kronars.\n",
+        "You pick up 4 silver Dokoras.\n",
+    ]
+    for index, (prefix, _) in enumerate(answers):
+        if prefix == "open my box":
+            answers[index] = (
+                prefix,
+                "In the iron box you see some copper coins, some bronze coins, "
+                "and some silver coins.\n",
+            )
+        if prefix == "get coins from my box":
+            answers[index] = (prefix, lambda command: pickups.pop(0))
+    run(Fake(answers, mindstates=[1, 3, 5, 7]))
+    with sqlite3.connect(str(db)) as connection:
+        rows = connection.execute(
+            "SELECT kronars, lirums, dokoras, coins, currency FROM box_contents"
+        ).fetchall()
+    assert rows == [(38, 0, 400, 38 + 554, "Kronars")]

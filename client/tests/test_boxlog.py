@@ -142,6 +142,56 @@ def test_copper_per_box_reads_back_per_ground(tmp_path):
     assert boxlog.measured("Sable", path=path) == {}
 
 
+def test_a_boxs_coins_are_kept_per_currency_and_measured_in_kronars(tmp_path):
+    # The vineyard's casket, 2026-10-02 (#425): 8 copper Kronars, 6
+    # bronze Dokoras and 6 silver Kronars — 608 copper Kronars and 60
+    # copper Dokoras, worth 608 + 83 copper Kronars (Elanthipedia's
+    # Currency table: a Dokora is 1.3858 Kronars).
+    path = tmp_path / "history.db"
+    found(path, GOBLIN_BOX, "vineyard", "10:00")
+    boxlog.log_opened(
+        ME,
+        path=path,
+        run_started=at("11:00"),
+        noun="casket",
+        kronars=608,
+        lirums=0,
+        dokoras=60,
+    )
+    with sqlite3.connect(str(path)) as connection:
+        row = connection.execute(
+            "SELECT kronars, lirums, dokoras, coins, currency FROM box_contents"
+        ).fetchone()
+    assert row == (608, 0, 60, 691, "Kronars")
+    # A row from before #425 is read in its one currency's worth.
+    boxlog.log_opened(
+        ME,
+        path=path,
+        run_started=at("11:00"),
+        noun="caddy",
+        coins=100,
+        currency="Lirums",
+    )
+    assert boxlog.measured("Lanival", path=path) == {
+        "vineyard": {"opened": 2, "coins": 691 + 125}
+    }
+
+
+def test_a_table_from_before_the_currencies_grows_their_columns(tmp_path):
+    path = tmp_path / "history.db"
+    old = boxlog.CONTENTS_SCHEMA.replace(
+        ",\n    kronars INTEGER,\n    lirums INTEGER,\n    dokoras INTEGER", ""
+    )
+    assert "kronars" not in old
+    with sqlite3.connect(str(path)) as connection:
+        connection.execute(old)
+    boxlog.log_opened(ME, path=path, run_started=at("11:00"), noun="box", kronars=5)
+    with sqlite3.connect(str(path)) as connection:
+        assert connection.execute(
+            "SELECT kronars, coins FROM box_contents"
+        ).fetchall() == [(5, 5)]
+
+
 def test_no_database_measures_nothing_and_a_failed_write_never_raises(tmp_path):
     path = tmp_path / "history.db"
     assert boxlog.measured("Lanival", path=path) == {}

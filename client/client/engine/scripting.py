@@ -487,7 +487,7 @@ RELOADABLE_MODULES = (
     "client.game.helper",
     "client.game.boxes",  # binds BOX_NOUNS from loot: after it
     "client.game.lootlog",  # binds BOX_NOUNS from loot: after it
-    "client.game.boxlog",  # binds lootlog: after it
+    "client.game.boxlog",  # binds lootlog and money: after them
     "client.game.scholarship",
     "client.game.soul",
     "client.game.encumbrance",

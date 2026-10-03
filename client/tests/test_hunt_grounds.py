@@ -101,5 +101,5 @@ def test_grounds_says_the_box_rate_measured_on_a_zone(monkeypatch, tmp_path):
     s.echoed.clear()
     hunt.show_grounds(s, PROFILE, GROUND, ["10"])
     assert s.echoed[1].endswith(
-        "2.0 box(es) an hour over 1 hunt(s), ~900 copper; 450 copper a box over 1 opened"
+        "2.0 box(es) an hour over 1 hunt(s), ~900 copper Kronars; 450 copper Kronars a box over 1 opened"
     )

@@ -2028,7 +2028,7 @@ def show_grounds(s, profile, db, words, avoid=()):
     current = str(profile.get("hunting_ground") or "").strip().lower()
     # The yield this character measured on each zone (#419): boxes per
     # search off the loot table, boxes an hour off the hunts table, the
-    # copper a box held off the box_contents table (#423).
+    # copper Kronars a box held off the box_contents table (#423, #425).
     name = getattr(s.state, "name", None)
     measured = lootlog.measured(name)
     worth = boxlog.measured(name)
