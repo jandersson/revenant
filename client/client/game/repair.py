@@ -181,6 +181,52 @@ def condition(text):
     return None
 
 
+# A piece in a sheath or a container is appraised only in hand
+# (captured 2026-10-03, Cecil's scimitar in its scabbard, #429): "It's
+# hard to appraise the steel scimitar when it's inside something."
+INSIDE = ("when it's inside something",)
+
+
+def inside(text):
+    """True when APPRAISE refused a piece for being in a container."""
+    lowered = (text or "").lower()
+    return any(needle in lowered for needle in INSIDE)
+
+
+def weapon_homes(profile):
+    """{weapon noun: its container} off the profile's `weapons` entries
+    ("scimitar:Small Edged:scabbard") and its `weapon` with
+    `weapon_container`: where the hunt sheathes each one."""
+    homes = {}
+    for entry in profile.get("weapons") or []:
+        parts = [part.strip() for part in str(entry).split(":")]
+        if len(parts) > 2 and parts[0] and parts[2]:
+            homes[noun_of(parts[0])] = parts[2].lower()
+    weapon, container = profile.get("weapon"), profile.get("weapon_container")
+    if weapon and container:
+        homes.setdefault(noun_of(str(weapon)), str(container).lower())
+    return homes
+
+
+def home_of(noun, possessions=(), homes=None):
+    """Where a piece found inside something goes back, as a place:
+    "sheathed:<container>" for a weapon the profile keeps there (`homes`,
+    weapon_homes), "in:<container>" for the container INV LIST shows
+    holding it, else "stowed"."""
+    noun = (noun or "").strip().lower()
+    container = (homes or {}).get(noun)
+    if container:
+        return f"sheathed:{container}"
+    by_exist = {item.get("exist"): item for item in possessions or []}
+    for item in possessions or []:
+        if str(item.get("noun") or "").lower() != noun or not item.get("depth"):
+            continue
+        holder = by_exist.get(item.get("container_exist")) or {}
+        if holder.get("noun"):
+            return f"in:{str(holder['noun']).lower()}"
+    return "stowed"
+
+
 def needs_repair(reading, floor=DEFAULT_FLOOR):
     """True when the condition's band tops out at or below `floor` %."""
     return reading is not None and reading[2] <= floor

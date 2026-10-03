@@ -482,3 +482,94 @@ def test_the_gear_run_never_walks_to_the_tool_shop():
     )
     script.run(fake, [], mapdb=MAP, walk_fn=walk, profile=PROFILE)
     assert fake.walks == [{19093}]
+
+
+# A sheathed weapon (#429): APPRAISE refuses it inside the scabbard.
+APPRAISE_INSIDE = "It's hard to appraise the steel scimitar when it's inside something."
+WIELDED = "You draw out your steel scimitar from the leather scabbard."
+SHEATHED = "You sheathe the steel scimitar in your leather scabbard."
+SCIMITAR_PROFILE = {
+    "repair_floor": 80,
+    "repair_items": ["scimitar"],
+    "weapons": ["scimitar:Small Edged:scabbard"],
+}
+
+
+class Wielding(Fake):
+    """The hands follow WIELD (the scimitar in hand) and SHEATHE (gone)."""
+
+    def put(self, command):
+        super().put(command)
+        if command.startswith("wield my scimitar"):
+            self.state.right_hand = {
+                "noun": "scimitar",
+                "exist": "7",
+                "name": "steel scimitar",
+            }
+        if command.startswith("sheathe my scimitar"):
+            self.state.right_hand = None
+
+
+def test_a_sheathed_weapon_is_wielded_appraised_and_sheathed_back():
+    # Every ;repair since 2026-09-28 skipped Cecil's scimitar without a
+    # word: "It's hard to appraise ... when it's inside something."
+    fake = Wielding(
+        {
+            "appraise my scimitar": [APPRAISE_INSIDE, APPRAISE_DENTED],
+            "wield my scimitar": [WIELDED],
+            "sheathe my scimitar": [SHEATHED],
+        }
+    )
+    script.run(fake, ["check"], mapdb=None, walk_fn=walk, profile=SCIMITAR_PROFILE)
+    assert fake.sent == [
+        "appraise my scimitar quick",
+        "wield my scimitar",
+        "appraise my scimitar quick",
+        "sheathe my scimitar in my scabbard",
+    ]
+    assert "scimitar is a few dents and dings (51-60 %) — to repair" in echoes(fake)
+    assert "repair: 1 to repair at a floor of 80 %" in echoes(fake)
+
+
+def test_a_sheathed_weapon_is_repaired_and_sheathed_back_not_worn():
+    fake = Wielding(
+        {
+            "appraise my scimitar": [APPRAISE_INSIDE, APPRAISE_DENTED],
+            "wield my scimitar": [WIELDED, WIELDED],
+            "sheathe my scimitar": [SHEATHED, SHEATHED],
+            "wealth": [wealth(200)],
+            "give my scimitar": [QUOTE, TICKET],
+            "give my ticket": [
+                "You hand Catrox your ticket and are handed back a watered steel "
+                "scimitar."
+            ],
+            "get my Catrox ticket": list(GOT_THEN_NONE),
+        }
+    )
+    script.run(fake, [], mapdb=MAP, walk_fn=walk, profile=SCIMITAR_PROFILE)
+    assert fake.sent.count("give my scimitar to Catrox") == 2
+    assert fake.sent[-2:] == [
+        "sheathe my scimitar in my scabbard",
+        "get my Catrox ticket",
+    ]
+    assert not any(command.startswith("wear my scimitar") for command in fake.sent)
+    assert "repair: 1 of 1 repaired" in echoes(fake)
+
+
+def test_a_named_piece_without_a_condition_is_said_a_worn_sack_is_not():
+    boots = "It appears that the boots can be worn on the feet.\nRoundtime: 5 sec."
+    fake = Fake({"appraise my boots": [boots]})
+    script.run(
+        fake,
+        ["check"],
+        mapdb=None,
+        walk_fn=walk,
+        profile={"repair_floor": 80, "repair_items": ["boots"]},
+    )
+    assert "APPRAISE named no condition for the boots — skipped" in echoes(fake)
+    sack = Fake(
+        {"appraise my sack": ["The sack is made with cloth."]},
+        possessions=[{"noun": "sack", "depth": 0, "worn": True}],
+    )
+    script.run(sack, ["check"], mapdb=None, walk_fn=walk, profile=PROFILE)
+    assert "named no condition" not in echoes(sack)

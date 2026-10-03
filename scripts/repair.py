@@ -16,6 +16,8 @@ What it does
   - Reads each condition (APPRAISE QUICK; ANALYZE for a tool) and takes in the pieces
     whose band tops out at or below the floor.
   - The pieces: the profile's `repair_items`, else the hands and everything worn.
+  - A piece in a sheath or container is taken out to appraise and put back where it
+    was; a weapon of the profile's `weapons` goes back in with SHEATHE.
   - GIVEs each to the nearest known repairman for the estimate, again to pay; stows the ticket.
   - A price the purse cannot cover: coins from the nearest teller, then a second round.
   - Waits out the longest estimate (a roisaen is a minute), hands the tickets back and
@@ -44,9 +46,12 @@ from client.game.repair import (
     classify_give,
     classify_pickup,
     condition,
+    home_of,
+    inside,
     needs_repair,
     read_ticket,
     shop_room,
+    weapon_homes,
 )
 from client.game.walker import locate, walk
 
@@ -133,9 +138,14 @@ def parse_words(words):
     return mode, items, floor, back
 
 
-def appraise(s, pieces, floor, echo_all=True):
+def appraise(s, pieces, floor, echo_all=True, named=False, homes=None):
     """APPRAISE QUICK each (noun, place); the ones at or below the floor,
-    as [(noun, place, reading)]. Every reading is echoed."""
+    as [(noun, place, reading)]. Every reading is echoed. A piece the
+    game will not appraise inside something (a sheathed weapon, #429) is
+    taken out, appraised in hand and put back where it was — its place
+    then home_of's, a weapon of the profile's (`homes`) sheathed again.
+    A `named` piece (the profile's list, or typed) whose answer names no
+    condition is said; a worn sack's silence is not."""
     due = []
     for noun, place in pieces:
         if s.dead:
@@ -145,8 +155,17 @@ def appraise(s, pieces, floor, echo_all=True):
         if missing(answer, NOT_ON_YOU):
             s.echo(f"repair: no {noun} on you — skipped")
             continue
+        if inside(answer):
+            place = home_of(noun, getattr(s.state, "possessions", None), homes)
+            if not take(s, noun, place):
+                continue
+            answer = ask(s, f"appraise my {noun} quick")
+            s.waitrt()
+            put_back(s, noun, place)
         reading = condition(answer)
         if reading is None:
+            if named:
+                s.echo(f"repair: APPRAISE named no condition for the {noun} — skipped")
             continue
         verdict = needs_repair(reading, floor)
         if echo_all or verdict:
@@ -210,15 +229,22 @@ def free_hand(s):
 
 def take(s, noun, place):
     """The piece into a hand: a worn one REMOVEd, a held one already
-    there, anything else GOT. False, said, when it did not come."""
+    there, a sheathed weapon WIELDed, anything else GOT. False, said,
+    when it did not come."""
     if place == "held" and hands.holding(s, noun):
         return True
     if not free_hand(s):
         return False
-    if place != "stowed":
+    if place in ("worn", "held"):
         answer = ask(s, f"remove my {noun}")
         s.waitrt()
         if not missing(answer, NOT_ON_YOU):
+            return True
+    if place.startswith("sheathed:"):
+        # WIELD is how a weapon leaves its sheath (DRAW is an attack).
+        answer = ask(s, f"wield my {noun}")
+        s.waitrt()
+        if not missing(answer, NOT_ON_YOU) and hands.holding(s, noun):
             return True
     answer = ask(s, f"get my {noun}")
     s.waitrt()
@@ -230,10 +256,25 @@ def take(s, noun, place):
 
 def put_back(s, noun, place):
     """The piece where it was: worn ones WORN back, a stowed tool
-    STOWed, a held one left in the hand."""
+    STOWed, a weapon SHEATHEd into its container, anything else PUT in
+    the container it came from (STOWed when that is refused), a held
+    one left in the hand."""
     if place == "stowed":
         ask(s, f"stow my {noun}")
         s.waitrt()
+    elif place.startswith("sheathed:"):
+        container = place.split(":", 1)[1]
+        if not hands.sheathe(s, noun, container, ask=ask):
+            hands.stow(s, noun, ask=ask)
+            s.echo(f"repair: the {noun} would not go in the {container} — stowed")
+        s.waitrt()
+    elif place.startswith("in:"):
+        container = place.split(":", 1)[1]
+        answer = ask(s, f"put my {noun} in my {container}")
+        s.waitrt()
+        if hands.refused(answer):
+            hands.stow(s, noun, ask=ask)
+            s.echo(f"repair: the {noun} would not go in the {container} — stowed")
     elif place == "worn":
         answer = ask(s, f"wear my {noun}")
         s.waitrt()
@@ -499,7 +540,13 @@ def run(s, words, mapdb=None, walk_fn=walk, profile=None):
         return
     # Named pieces go in whatever their condition: the floor is 100 —
     # but a check reads them against the floor it reports (#363).
-    due = appraise(s, pieces, 100 if items and mode != "check" else floor)
+    due = appraise(
+        s,
+        pieces,
+        100 if items and mode != "check" else floor,
+        named=bool(listed),
+        homes=weapon_homes(profile),
+    )
     if mode == "check":
         s.echo(f"repair: {len(due)} to repair at a floor of {floor} %")
         return

@@ -207,3 +207,34 @@ def test_named_pieces_replace_the_inventory():
         ("plate", "worn"),
         ("scimitar", "held"),
     ]
+
+
+# Captured 2026-10-03: Cecil's scimitar, sheathed in its scabbard (#429).
+APPRAISE_INSIDE = (
+    "It's hard to appraise the steel scimitar when it's inside something.\n"
+)
+
+
+def test_a_piece_inside_something_goes_back_where_it_lives():
+    assert repair.inside(APPRAISE_INSIDE)
+    assert not repair.inside(APPRAISE_DENTED)
+    profile = {
+        "weapons": [
+            "scimitar:Small Edged:scabbard",
+            "fists:Brawling",
+            "mace:Small Blunt",
+        ],
+        "weapon": "steel scimitar",
+        "weapon_container": "Scabbard",
+    }
+    assert repair.weapon_homes(profile) == {"scimitar": "scabbard"}
+    possessions = [
+        {"exist": "1", "noun": "backpack", "depth": 0, "worn": True},
+        {"exist": "2", "noun": "mace", "depth": 1, "container_exist": "1"},
+        {"exist": "3", "noun": "scabbard", "depth": 0, "worn": True},
+        {"exist": "4", "noun": "scimitar", "depth": 1, "container_exist": "3"},
+    ]
+    homes = repair.weapon_homes(profile)
+    assert repair.home_of("scimitar", possessions, homes) == "sheathed:scabbard"
+    assert repair.home_of("mace", possessions, homes) == "in:backpack"
+    assert repair.home_of("ring", possessions, homes) == "stowed"
