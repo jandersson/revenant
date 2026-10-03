@@ -6,7 +6,7 @@ One row per order in history.db's `work_orders` table (beside `;xp`'s
 mindstates and `;climbexp`'s climbs): the discipline and level, the
 item and the stacks, the pay, and two costs. `cost` is what the order
 consumed at the society's catalog prices — a stack of the controlling
-herb per remedy, a piece of the second herb, a splash of water and a
+herb per remedy, a piece of the second herb, a splash of liquid and a
 catalyst each — the same whoever paid for it; `spent` is the coin that
 left the purse while the order was open, which lands a ten-splash
 water or a spare stack on the order that bought it. Profit is pay less
@@ -82,7 +82,7 @@ COLUMNS = (
 ADDED = (("crush_seconds", "INTEGER"),)
 
 STACK = 25  # pieces in a dried stack, one remedy
-SPLASHES = 10  # splashes of water in a purchase
+SPLASHES = 10  # splashes of water or alcohol in a purchase
 SHOWN = 5  # the last orders ;remedies ledger lists
 
 
@@ -133,13 +133,13 @@ def open_ledger(path):
 def material_cost(spec, catalyst, catalog=CATALOG, catalyst_catalog=CATALYST_CATALOG):
     """What one remedy of `spec` consumes at the catalog's prices: the
     controlling herb's stack, one piece of the second herb, one splash
-    of water and one catalyst — 390 Kronars for blister cream with a
-    coal nugget. An unpriced herb or catalyst counts nothing."""
-    chapter, page, herb, extra, noun = spec
+    of its liquid and one catalyst — 390 Kronars for blister cream with
+    a coal nugget. An unpriced herb or catalyst counts nothing."""
+    chapter, page, herb, extra, noun, liquid = spec
     cost = catalog.get(herb, (0, 0))[1]
     if extra:
         cost += catalog.get(extra, (0, 0))[1] / STACK
-    cost += catalog.get("water", (0, 0))[1] / SPLASHES
+    cost += catalog.get(liquid, (0, 0))[1] / SPLASHES
     cost += catalyst_catalog.get(catalyst or "", (0, 0))[1]
     return round(cost)
 

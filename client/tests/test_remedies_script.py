@@ -20,6 +20,7 @@ from test_remedies import (
     LOGBOOK_DONE,
     LOGBOOK_NONE,
     LOGBOOK_OPEN,
+    NEED_ALCOHOL,
     NEED_CATALYST,
     NEED_HERB,
     NEED_WATER,
@@ -566,6 +567,123 @@ def test_the_herbs_water_and_coal_are_bought_as_they_run_out():
     assert "order 1 paid 1146 Kronars (88 clear of 1058 spent so far)" in out
     assert "1 order(s), 1146 Kronars earned, 1058 spent" in out
     assert ledger_rows()[-1]["spent"] == 1058
+
+
+# The ointment order and its alcohol (#427). The CRUSH answer and LOOK
+# IN MY MORTAR are captured (2026-10-03); the alcohol's POUR answer is
+# not yet, so the water's line stands in for it.
+ORDER_OINTMENT = ORDER.replace("blister cream", "moisturizing ointment")
+FINISHED_OINTMENT = FINISHED.replace("blister cream", "moisturizing ointment")
+POURED_ALCOHOL = POURED.replace("water", "alcohol")
+QUOTE_ALCOHOL = QUOTE.replace(
+    "(25 pieces) dried red flowers", "10 splashes of grain alcohol"
+).replace("343", "81")
+BOUGHT_ALCOHOL = BOUGHT.replace(
+    "(25 pieces) dried red flowers", "10 splashes of grain alcohol"
+)
+
+
+def ointment_answers(**extra):
+    """A two-stack moisturizing ointment order with everything on you,
+    `extra` laid over it."""
+    return {
+        "ask lanshado for easy remedies work": [ORDER_OINTMENT],
+        "read my logbook": [LOGBOOK_NONE, LOGBOOK_OPEN, LOGBOOK_DONE],
+        "study my book": [STUDIED],
+        "get my dried flowers": ["You get some dried red flowers."],
+        "put my flowers in my mortar": ["You put your flowers in your iron mortar."],
+        "get my alcohol": ["You get some grain alcohol."],
+        "pour my alcohol in my mortar": [POURED_ALCOHOL],
+        "get my dried plovik": ["You get some dried plovik."],
+        "put my plovik in my mortar": [SHAVINGS.replace("nugget", "plovik")],
+        "get my nugget": ["You get a tiny coal nugget."],
+        "put my nugget in my mortar": [SHAVINGS],
+        "crush my flowers in my mortar with my pestle": [NEED_ALCOHOL],
+        "crush my ointment in my mortar with my pestle": [
+            NEED_HERB,
+            NEED_CATALYST,
+            FINISHED_OINTMENT,
+        ],
+        "bundle my ointment with my logbook": [BUNDLED.replace("cream", "ointment")],
+        "give my logbook to lanshado": [PAID],
+    } | extra
+
+
+def test_an_ointment_is_crushed_with_alcohol_not_water():
+    # 2026-10-03: three of five orders were moisturizing ointment, and
+    # each stopped at its first crush: "You need another splash of
+    # alcohol" was an answer the table lacked (#427).
+    fake = Fake(ointment_answers(), mindstates=[3] + [5] * 20)
+    out = run(fake, ["work", "count=1"])
+    assert "turn my book to page 2" in fake.sent
+    assert fake.sent.count("pour my alcohol in my mortar") == 2  # once a stack
+    assert "get my water" not in fake.sent
+    assert "stow my alcohol" in fake.sent
+    assert "unrecognized" not in out
+    assert fake.sent.count("bundle my ointment with my logbook") == 2
+    assert "order 1 paid 1146 Kronars" in out
+    assert not fake.walked  # nothing ran out
+
+
+def test_alcohol_run_out_is_bought_at_the_supplies():
+    # No alcohol on you: ORDER 2 at the Society's Supplies, ten splashes
+    # for 81 Kronars, and the ointment begun goes on.
+    fake = Fake(
+        ointment_answers(
+            wealth=[WEALTH_POOR],
+            **{
+                "get my alcohol": [MISSING, "You get some grain alcohol."],
+                "order 2": [QUOTE_ALCOHOL, BOUGHT_ALCOHOL],
+            },
+        ),
+        mindstates=[3] + [5] * 30,
+    )
+    out = run(fake, ["work", "count=1"])
+    assert "no alcohol on you — the alcohol is missing" in out
+    assert fake.walked == ["8862"]
+    assert fake.sent.count("order 2") == 2
+    assert "bought 1 x alcohol for 8 bronze and 1 copper Kronars" in out
+    # The flowers went in once per stack: the restock resumed the first.
+    assert crushes(fake).count("crush my flowers in my mortar with my pestle") == 2
+    assert "order 1 paid 1146 Kronars (1065 clear of 81 spent so far)" in out
+
+
+def test_an_ointment_left_in_the_mortar_is_finished_with_alcohol_first():
+    # Cecil's mortar since 04:32 on 2026-10-03: an unfinished ointment
+    # (captured LOOK). A blister cream order finishes it first, its
+    # alcohol bought, and only then puts the cream's flowers in. The
+    # mortar is looked in twice before the restock (the order's craft,
+    # then the leftover's own) and twice after.
+    leftover = "In the iron mortar you see some unfinished moisturizing ointment.\n"
+    fake = Fake(
+        work_answers(
+            wealth=[WEALTH_POOR],
+            **{
+                "look in my mortar": [leftover] * 4 + ["There is nothing in there.\n"],
+                "get my alcohol": [MISSING, "You get some grain alcohol."],
+                "pour my alcohol in my mortar": [POURED_ALCOHOL],
+                "order 2": [QUOTE_ALCOHOL, BOUGHT_ALCOHOL],
+                "get my dried plovik": ["You get some dried plovik."],
+                "put my plovik in my mortar": [SHAVINGS.replace("nugget", "plovik")],
+                "crush my ointment in my mortar with my pestle": [
+                    NEED_ALCOHOL,
+                    NEED_ALCOHOL,
+                    NEED_HERB,
+                    NEED_CATALYST,
+                    FINISHED_OINTMENT,
+                ],
+            },
+        ),
+        mindstates=[3] + [5] * 40,
+    )
+    out = run(fake, ["work", "count=1"])
+    assert "the mortar holds an unfinished moisturizing ointment — finishing it" in out
+    assert "bought 1 x alcohol" in out
+    assert "the moisturizing ointment is done and stowed — the mortar is free" in out
+    assert fake.sent.index("get my ointment from my mortar") < fake.sent.index(
+        "put my flowers in my mortar"
+    )
+    assert "order 1 paid 1146 Kronars" in out
 
 
 def test_a_bystanders_line_in_a_crush_window_is_not_a_miss():
@@ -1409,7 +1527,7 @@ class Foraging(Fake):
         self.killed.append(name)
 
 
-SPEC = ("2", "1", "flowers", "nemoih", "cream")
+SPEC = ("2", "1", "flowers", "nemoih", "cream", "water")
 
 
 def test_a_return_during_a_forage_lets_it_press_and_finishes_the_order(

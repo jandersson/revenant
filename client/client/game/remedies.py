@@ -38,7 +38,9 @@ live remedies; docs/training.md):
   crushing the unfinished remedy inside.": "You need another splash
   of water to continue crafting some unfinished blister cream." (POUR
   MY WATER IN MY MORTAR: "You toss the water into the mortar and mix
-  it in thoroughly."), "You need another prepared herb to continue
+  it in thoroughly."; the moisturizing ointment asks "another splash
+  of alcohol" instead, 2026-10-03, and the grain alcohol is POURed
+  alike), "You need another prepared herb to continue
   crafting ..." (PUT MY NEMOIH IN MY MORTAR: "You vigorously rub the
   nemoih alongside the mortar to scrape some shavings into the
   mixture." — one piece, the stack stays in hand), "You need another
@@ -86,20 +88,24 @@ from client.game import items, shop
 # The apprentice book's recipes as its pages state them (2026-09-22):
 # chapter, page, the controlling herb (a 25-piece dried stack per 5-use
 # remedy), the second herb the page asks one piece of (or None), the
-# finished item's noun. Chapter 2 from the pages read; chapter 3 from
-# Remedies products (one herb each).
+# finished item's noun, the liquid. Chapter 2 from the pages read;
+# chapter 3 from Remedies products (one herb each). The moisturizing
+# ointment wants alcohol, not water (#427): "You need another splash
+# of alcohol to continue crafting some unfinished moisturizing
+# ointment." (captured 2026-10-03), as Remedies products lists it.
 RECIPES = {
-    "blister cream": (2, 1, "flowers", "nemoih", "cream"),
-    "moisturizing ointment": (2, 2, "flowers", "plovik", "ointment"),
-    "itch salve": (2, 3, "flowers", "jadice", "salve"),
-    "wart salve": (2, 4, "flowers", "sufil", "salve"),
-    "neck salve": (3, 1, "georin", None, "salve"),
-    "abdominal salve": (3, 2, "nilos", None, "salve"),
-    "chest salve": (3, 3, "plovik", None, "salve"),
-    "head salve": (3, 4, "nemoih", None, "salve"),
-    "back salve": (3, 5, "hulnik", None, "salve"),
-    "eye salve": (3, 6, "sufil", None, "salve"),
+    "blister cream": (2, 1, "flowers", "nemoih", "cream", "water"),
+    "moisturizing ointment": (2, 2, "flowers", "plovik", "ointment", "alcohol"),
+    "itch salve": (2, 3, "flowers", "jadice", "salve", "water"),
+    "wart salve": (2, 4, "flowers", "sufil", "salve", "water"),
+    "neck salve": (3, 1, "georin", None, "salve", "water"),
+    "abdominal salve": (3, 2, "nilos", None, "salve", "water"),
+    "chest salve": (3, 3, "plovik", None, "salve", "water"),
+    "head salve": (3, 4, "nemoih", None, "salve", "water"),
+    "back salve": (3, 5, "hulnik", None, "salve", "water"),
+    "eye salve": (3, 6, "sufil", None, "salve", "water"),
 }
+LIQUIDS = ("water", "alcohol")
 # The training default: a chapter-3 salve, one herb the society sells.
 SALVES = {name.split()[0]: RECIPES[name] for name in RECIPES if RECIPES[name][0] == 3}
 CHAPTER = 3
@@ -109,6 +115,7 @@ HERB_SALVE = {spec[2]: salve for salve, spec in SALVES.items()}
 # before successes as probe.classify wants.
 NO_INSTRUCTIONS = ("cannot figure out how to do that",)
 NEED_WATER = ("need another splash of water", "splash of water to continue")
+NEED_ALCOHOL = ("need another splash of alcohol", "splash of alcohol to continue")
 NEED_HERB = ("need another prepared herb",)
 NEED_CATALYST = ("need another catalyst", "catalyst material to continue")
 ADDED = ("scrape some shavings",)
@@ -236,6 +243,7 @@ CRUSH_OUTCOMES = (
     ("as crushed", AS_CRUSHED),
     ("done already", DONE_ALREADY),
     ("need water", NEED_WATER),
+    ("need alcohol", NEED_ALCOHOL),
     ("need herb", NEED_HERB),
     ("need catalyst", NEED_CATALYST),
     ("finished", FINISHED),
@@ -271,8 +279,10 @@ ORDER_TRIES = 3  # orders asked for before a run gives up on the master's picks
 
 # The shops that keep an order going (captured 2026-09-22): the Crossing
 # Alchemy Society's Supplies (map 8862) sells the dried herbs by the
-# 25-piece stack and water by ten splashes, and the Crossing Forging
-# Society's Supplies (8775) the coal nugget that is the catalyst — ORDER
+# 25-piece stack and water by ten splashes (grain alcohol too, ORDER 2,
+# from Elanthipedia's Alchemy Society (Crossing) shop list), and the
+# Crossing Forging Society's Supplies (8775) the coal nugget that is the
+# catalyst — ORDER
 # # twice at either, the first quotes ("You can purchase (25 pieces)
 # dried red flowers for 343 Kronars.  Just order it again and we'll see
 # it done!"), the second buys ("The attendant takes some coins from you
@@ -285,6 +295,7 @@ SUPPLIES = "8862"
 CATALYST_SHOP = "8775"
 CATALOG = {  # noun: (catalog number, Kronars)
     "water": (1, 62),
+    "alcohol": (2, 81),
     "nemoih": (3, 250),
     "plovik": (4, 312),
     "jadice": (5, 375),
@@ -347,9 +358,9 @@ def parse_args(args):
 
 
 def recipe(name):
-    """(chapter, page, herb, extra herb or None, noun) for an item as
-    the master or the book names it ("some blister cream"), None for
-    one the book has no page for."""
+    """(chapter, page, herb, extra herb or None, noun, liquid) for an
+    item as the master or the book names it ("some blister cream"),
+    None for one the book has no page for."""
     key = re.sub(r"^(?:some|a|an)\s+", "", str(name or "").strip().lower())
     return RECIPES.get(key)
 
@@ -474,25 +485,38 @@ def building_rooms(rooms, room_id):
 
 
 def sellable(spec):
-    """True when every herb the recipe wants is on the society's
-    Supplies shelves — an order for one that is not is asked again."""
-    chapter, page, herb, extra, noun = spec
-    return herb in CATALOG and (extra is None or extra in CATALOG)
+    """True when every herb and the liquid the recipe wants are on the
+    society's Supplies shelves — an order for one that is not is asked
+    again."""
+    chapter, page, herb, extra, noun, liquid = spec
+    return herb in CATALOG and (extra is None or extra in CATALOG) and liquid in CATALOG
+
+
+def unsold(spec):
+    """What of the recipe the Supplies does not sell, as the echo names
+    it ("dried sufil", "brine"), or None."""
+    chapter, page, herb, extra, noun, liquid = spec
+    for wanted in (herb, extra):
+        if wanted and wanted not in CATALOG:
+            return f"dried {wanted}"
+    return None if liquid in CATALOG else liquid
 
 
 def shortage(why, spec, catalyst):
     """What a craft that ended on `why` ran out of, as (noun, per
     stack, shop, catalog) — the controlling herb a stack per remedy,
-    the second herb one stack for many, water ten splashes at a time,
-    the catalyst one per remedy — or None when `why` is not a
-    shortage."""
-    chapter, page, herb, extra, noun = spec
+    the second herb one stack for many, water or alcohol ten splashes
+    at a time, the catalyst one per remedy — or None when `why` is not
+    a shortage."""
+    chapter, page, herb, extra, noun, liquid = spec
     if why == f"dried {herb}":
         return herb, 1, SUPPLIES, CATALOG
     if extra and why == f"dried {extra}":
         return extra, 0, SUPPLIES, CATALOG
-    if why == "water":
-        return "water", 0, SUPPLIES, CATALOG
+    if why in LIQUIDS:
+        # The game's word, not the recipe's: a remedy another run left
+        # in the mortar asks for its own liquid.
+        return why, 0, SUPPLIES, CATALOG
     if catalyst and why == catalyst:
         return catalyst, 1, CATALYST_SHOP, CATALYST_CATALOG
     return None

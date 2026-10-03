@@ -26,6 +26,10 @@ def test_a_remedy_costs_its_materials_at_the_catalog():
     # An unpriced catalyst or herb counts nothing rather than guessing.
     assert workorders.material_cost(cream, "") == 359
     assert workorders.material_cost(remedies.recipe("back salve"), "nugget") == 37
+    # The ointment's splash is alcohol (81/10), its second herb plovik
+    # (312/25): 343 + 12.48 + 8.1 + 31.
+    ointment = remedies.recipe("moisturizing ointment")
+    assert workorders.material_cost(ointment, "nugget") == 395
 
 
 def test_rows_round_trip_with_extras_as_json(tmp_path):

@@ -23,6 +23,15 @@ NEED_HERB = (
     "cream.  You believe you can just pour or put it inside the mortar and continue "
     "crushing the unfinished remedy inside.\n"
 )
+# Captured 2026-10-03 on a moisturizing ointment's first crush (#427).
+NEED_ALCOHOL = (
+    "With short strokes you crush some unfinished moisturizing ointment with your "
+    "pestle.  Peering at the mixture reveals an even distribution of materials.\n"
+    "Roundtime: 20 sec.\n\n"
+    "You need another splash of alcohol to continue crafting some unfinished "
+    "moisturizing ointment.  You believe you can just pour or put it inside the "
+    "mortar and continue crushing the unfinished remedy inside.\n"
+)
 NEED_CATALYST = (
     CRUSHED + "You need another catalyst material to continue crafting some "
     "unfinished nemoih salve.  You believe you can just pour or put it inside the "
@@ -64,9 +73,25 @@ PAID = (
 
 
 def test_the_recipes_are_the_books_pages():
-    assert remedies.recipe("some blister cream") == (2, 1, "flowers", "nemoih", "cream")
-    assert remedies.recipe("head salve") == (3, 4, "nemoih", None, "salve")
+    assert remedies.recipe("some blister cream") == (
+        2,
+        1,
+        "flowers",
+        "nemoih",
+        "cream",
+        "water",
+    )
+    assert remedies.recipe("head salve") == (3, 4, "nemoih", None, "salve", "water")
     assert remedies.recipe("a stomach tonic") is None
+    # The ointment's liquid is alcohol (#427, Remedies products).
+    assert remedies.recipe("moisturizing ointment") == (
+        2,
+        2,
+        "flowers",
+        "plovik",
+        "ointment",
+        "alcohol",
+    )
     assert remedies.herb_for("head") == "nemoih" and remedies.page_for("head") == 4
     assert remedies.herb_for("neck") == "georin" and remedies.page_for("neck") == 1
     assert remedies.HERB_SALVE["plovik"] == "chest"
@@ -76,6 +101,7 @@ def test_the_recipes_are_the_books_pages():
 def test_crush_answers_are_classified_failures_first():
     outcomes = remedies.CRUSH_OUTCOMES
     assert classify(NEED_WATER.lower(), outcomes) == "need water"
+    assert classify(NEED_ALCOHOL.lower(), outcomes) == "need alcohol"
     assert classify(NEED_HERB.lower(), outcomes) == "need herb"
     assert classify(NEED_CATALYST.lower(), outcomes) == "need catalyst"
     assert classify(FINISHED.lower(), outcomes) == "finished"
@@ -163,6 +189,20 @@ def test_the_shops_quote_and_the_shortages_are_read():
     )
     assert remedies.shortage("dried nemoih", cream, "nugget")[:2] == ("nemoih", 0)
     assert remedies.shortage("water", cream, "nugget")[:2] == ("water", 0)
+    # Alcohol is the Supplies' ORDER 2 (#427), whatever the recipe: a
+    # leftover ointment asks for it during a cream order.
+    assert remedies.shortage("alcohol", cream, "nugget") == (
+        "alcohol",
+        0,
+        remedies.SUPPLIES,
+        remedies.CATALOG,
+    )
+    assert remedies.CATALOG["alcohol"] == (2, 81)
+    assert remedies.sellable(remedies.recipe("moisturizing ointment"))
+    brine = (2, 9, "flowers", None, "tonic", "brine")
+    assert not remedies.sellable(brine) and remedies.unsold(brine) == "brine"
+    assert remedies.unsold(remedies.recipe("back salve")) == "dried hulnik"
+    assert remedies.unsold(cream) is None
     assert remedies.shortage("nugget", cream, "nugget") == (
         "nugget",
         1,
@@ -219,11 +259,14 @@ def test_the_remedy_the_mortar_already_holds_is_read_off_the_refusal():
         "nemoih salve, so you stop.\n"
     )
     assert any(word in line for word in MORTAR_BUSY)
-    assert remedy_in_mortar(line) == ("head salve", (3, 4, "nemoih", None, "salve"))
+    assert remedy_in_mortar(line) == (
+        "head salve",
+        (3, 4, "nemoih", None, "salve", "water"),
+    )
     cream = "You realize the dried nemoih is not required to continue crafting some blister cream, so you stop."
     assert remedy_in_mortar(cream) == (
         "blister cream",
-        (2, 1, "flowers", "nemoih", "cream"),
+        (2, 1, "flowers", "nemoih", "cream", "water"),
     )
     assert remedy_in_mortar("You put your flowers in your iron mortar.") is None
     assert (
@@ -233,11 +276,14 @@ def test_the_remedy_the_mortar_already_holds_is_read_off_the_refusal():
     from client.game.remedies import unfinished_in_mortar
 
     look = "In the iron mortar you see some unfinished nemoih salve.\n"
-    assert unfinished_in_mortar(look) == ("head salve", (3, 4, "nemoih", None, "salve"))
+    assert unfinished_in_mortar(look) == (
+        "head salve",
+        (3, 4, "nemoih", None, "salve", "water"),
+    )
     cream = "In the iron mortar you see some unfinished blister cream."
     assert unfinished_in_mortar(cream) == (
         "blister cream",
-        (2, 1, "flowers", "nemoih", "cream"),
+        (2, 1, "flowers", "nemoih", "cream", "water"),
     )
     assert unfinished_in_mortar("There is nothing in there.") is None
     assert (

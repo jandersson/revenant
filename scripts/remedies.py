@@ -15,11 +15,12 @@
 
 What it does
   - STUDies the book page, puts the herb's dried stack in the mortar and CRUSHes,
-    adding water, the second herb and the catalyst as the game asks.
+    adding water (alcohol for an ointment), the second herb and the catalyst as
+    the game asks.
   - Work: reads the logbook (resumes, hands in or clears an order), finds the master,
     crafts and bundles each stack, hands the logbook in for the pay. An order that
     expires on the way is untied, its stacks stowed for the next, and another asked.
-  - Buys what runs out (herbs, water, coal ten at a time), coins from the bank
+  - Buys what runs out (herbs, water, alcohol, coal ten at a time), coins from the bank
     when short, and finishes a remedy left in the mortar first; one buy per
     shortage, and ENCUMBRANCE read after each.
   - First merges each dried herb's stacks in every container into full stacks
@@ -35,7 +36,7 @@ When it stops
   - mind-lock with `once` (else it holds for the drain, or works on under `work`)
   - `count` reached, or ;remedies return
   - death or hostiles (the shared escape)
-  - the herb, water, catalyst or book not on you, or CRUSH answers it cannot read
+  - the herb, liquid, catalyst or book not on you, or CRUSH answers it cannot read
   - a shortage the craft still finds right after its buy, 20 buys in a run, or a
     load reading Overburdened after one
 
@@ -67,8 +68,8 @@ from client.game.remedies import (
     MASTER_UNTIE,
     BUNDLED,
     building_rooms,
-    CATALOG,
     CATALYST_STOCK,
+    LIQUIDS,
     COMBINED,
     CRUSH_OUTCOMES,
     FORAGE_NAMES,
@@ -100,6 +101,7 @@ from client.game.remedies import (
     roundtime_of,
     sellable,
     shortage,
+    unsold,
 )
 from client.game.workorders import (
     clear_open,
@@ -335,7 +337,7 @@ def fetch_into_mortar(s, noun, what):
         hands.stow(s, token(), ask=ask)
         ask(s, "get my pestle")
         return False
-    verb = "pour" if what == "water" else "put"
+    verb = "pour" if what in LIQUIDS else "put"
     answer = ask(s, f"{verb} {held()} in my mortar")
     lowered = answer.lower()
     if what == "herb" and any(word in lowered for word in MORTAR_FULL):
@@ -349,11 +351,11 @@ def fetch_into_mortar(s, noun, what):
         hands.stow(s, token(), ask=ask)
         ask(s, "get my pestle")
         return f"busy:{name}"
-    if what == "water" and not any(word in lowered for word in POURED):
+    if what in LIQUIDS and not any(word in lowered for word in POURED):
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         s.echo(f"remedies: the pour answered {first!r}")
     if what != "herb":
-        hands.stow(s, token(), ask=ask)  # the flask, the second herb's stack, a nugget
+        hands.stow(s, token(), ask=ask)  # the liquid, the second herb's stack, a nugget
     ask(s, "get my pestle")
     return True
 
@@ -441,7 +443,7 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
     in, the crushes go on. `tally` counts crushes and unrecognized
     answers across the run; the mortar and pestle are in hand on
     entry and on exit."""
-    chapter, page, herb, extra, noun = spec
+    chapter, page, herb, extra, noun, liquid = spec
     # What the mortar holds decides where this craft starts (no
     # roundtime): another remedy in progress is finished first (a run
     # that ran out of nuggets left a nemoih salve, and a restock's
@@ -521,13 +523,16 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
             started = True
             misses = 0
             refused = 0
-        elif outcome == "need water":
+        elif outcome in ("need water", "need alcohol"):
+            # The liquid the game names (#427: the ointment's alcohol),
+            # bought at the Supplies like the water when none is on you.
             started = True
-            fetched = fetch_into_mortar(s, "water", "water")
+            wanted = outcome.split()[-1]
+            fetched = fetch_into_mortar(s, wanted, wanted)
             if isinstance(fetched, str):
-                return refused_ingredient(s, "water", "water")
+                return refused_ingredient(s, wanted, wanted)
             if not fetched:
-                return "water"
+                return wanted
         elif outcome == "need herb":
             started = True
             if not extra:
@@ -1080,8 +1085,7 @@ def next_order(s, master, options, seek=None):
         if spec is None:
             lack = f"the book has no page for {parsed['item']}"
         else:
-            unsold = [herb for herb in spec[2:4] if herb and herb not in CATALOG][0]
-            lack = f"the Supplies sells no dried {unsold}"
+            lack = f"the Supplies sells no {unsold(spec)}"
         if attempt < ORDER_TRIES:
             s.echo(f"remedies: {lack} — asking for another order")
         else:
