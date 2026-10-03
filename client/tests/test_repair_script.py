@@ -321,6 +321,27 @@ def test_pickup_walks_to_the_shop_the_ticket_names():
     assert "repair: 1 piece collected" in echoes(fake)
 
 
+def test_a_weapon_picked_up_later_is_sheathed_back_not_worn():
+    # #429: a ticket from an earlier run, for the scimitar the profile
+    # keeps in its scabbard.
+    fake = Fake(
+        {
+            "look at my ticket": [LOOK_WAITING],
+            "give my ticket": [
+                "You hand Catrox your ticket and are handed back a watered steel "
+                "scimitar."
+            ],
+            "get my Catrox ticket": list(GOT_THEN_NONE),
+            "sheathe my scimitar": [
+                "You sheathe the steel scimitar in your leather scabbard."
+            ],
+        }
+    )
+    script.run(fake, ["pickup"], mapdb=MAP, walk_fn=walk, profile=SCIMITAR_PROFILE)
+    assert "sheathe my scimitar in my scabbard" in fake.sent
+    assert "wear my scimitar" not in fake.sent
+
+
 def test_a_rangu_ticket_is_waited_out_and_the_tool_stowed_not_worn():
     # 2026-09-26: the pestle's pickup tried WEAR MY PESTLE before stowing.
     fake = Fake(

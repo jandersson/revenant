@@ -469,8 +469,9 @@ def repair(s, mapdb, walk_fn, due, shops=SHOPS):
     return collect(s, name, {noun: place for noun, place, _ in given})
 
 
-def pickup(s, mapdb, walk_fn):
-    """Collect tickets from an earlier run: the ticket names the shop."""
+def pickup(s, mapdb, walk_fn, homes=None):
+    """Collect tickets from an earlier run: the ticket names the shop. A
+    weapon of the profile's (`homes`, weapon_homes) is sheathed back."""
     if not free_hand(s):
         return 0
     if missing(ask(s, "get my ticket"), NOT_ON_YOU):
@@ -490,7 +491,12 @@ def pickup(s, mapdb, walk_fn):
         return 0
     # A tool shop's ticket is a tool, never worn: STOWed (2026-09-26,
     # the pestle's pickup tried WEAR first).
-    return collect(s, name, {}, "stowed" if name in TOOL_SHOPS.values() else "worn")
+    if name in TOOL_SHOPS.values():
+        return collect(s, name, {}, "stowed")
+    places = {
+        noun: f"sheathed:{container}" for noun, container in (homes or {}).items()
+    }
+    return collect(s, name, places, "worn")
 
 
 def run(s, words, mapdb=None, walk_fn=walk, profile=None):
@@ -503,7 +509,7 @@ def run(s, words, mapdb=None, walk_fn=walk, profile=None):
             s.echo("repair: pickup needs the map — none loaded")
             return
         start = locate(mapdb, s.state)
-        count = pickup(s, mapdb, walk_fn)
+        count = pickup(s, mapdb, walk_fn, homes=weapon_homes(profile))
         s.echo(f"repair: {count} piece{'s' if count != 1 else ''} collected")
         walk_home(s, mapdb, walk_fn, start, back)
         return
