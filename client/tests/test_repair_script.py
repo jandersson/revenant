@@ -338,7 +338,7 @@ def test_a_weapon_picked_up_later_is_sheathed_back_not_worn():
         }
     )
     script.run(fake, ["pickup"], mapdb=MAP, walk_fn=walk, profile=SCIMITAR_PROFILE)
-    assert "sheathe my scimitar in my scabbard" in fake.sent
+    assert "sheathe my scimitar" in fake.sent
     assert "wear my scimitar" not in fake.sent
 
 
@@ -546,7 +546,7 @@ def test_a_sheathed_weapon_is_wielded_appraised_and_sheathed_back():
         "appraise my scimitar quick",
         "wield my scimitar",
         "appraise my scimitar quick",
-        "sheathe my scimitar in my scabbard",
+        "sheathe my scimitar",
     ]
     assert "scimitar is a few dents and dings (51-60 %) — to repair" in echoes(fake)
     assert "repair: 1 to repair at a floor of 80 %" in echoes(fake)
@@ -570,7 +570,7 @@ def test_a_sheathed_weapon_is_repaired_and_sheathed_back_not_worn():
     script.run(fake, [], mapdb=MAP, walk_fn=walk, profile=SCIMITAR_PROFILE)
     assert fake.sent.count("give my scimitar to Catrox") == 2
     assert fake.sent[-2:] == [
-        "sheathe my scimitar in my scabbard",
+        "sheathe my scimitar",
         "get my Catrox ticket",
     ]
     assert not any(command.startswith("wear my scimitar") for command in fake.sent)

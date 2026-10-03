@@ -217,7 +217,7 @@ def test_the_head_salve_is_studied_crushed_watered_catalysed_and_stowed():
         mindstates=[0, 1, 2, 3, 4, 5],
     )
     out = run(fake, ["count=1"])
-    assert "sheathe my scimitar in my scabbard" in fake.sent
+    assert "sheathe my scimitar" in fake.sent
     assert fake.sent.index("study my book") < fake.sent.index(
         "put my nemoih in my mortar"
     )

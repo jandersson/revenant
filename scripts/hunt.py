@@ -257,7 +257,7 @@ one more skill is moving at every hand-over (the operator,
 2026-09-26: skills moving is the measure; it was one turn per kill).
 With every weapon past the target, the emptiest unlocked one fights
 on toward lock. A
-turn's weapon is WIELDed after the last one is SHEATHEd into its
+turn's weapon is WIELDed after the last one is SHEATHEd back into its
 container — WIELD finds it wherever it sits and remembers the place
 (#259: the scimitar in the sack, the profile naming the scabbard, and
 the turn swung bare-handed, before WIELD did the searching;
@@ -819,8 +819,17 @@ def clear_hands(s, profile):
     drawn: the hunt and the brawl take turns (the handaxe, then the
     parry stick), and a tool left in hand from the last run would take
     the other hand the next one needs — PUNCH wants a free hand (the
-    operator's parry stick, 2026-09-20). Never DROP."""
+    operator's parry stick, 2026-09-20). Another turn's weapon still in
+    hand (every hunt ends with its weapon in hand, go_home) is SHEATHEd
+    into its own container first: a STOW sends it to the default one,
+    which refused the spear — "The narrow-headed spear is too long to
+    fit in the backpack." — and the box farm's sledgehammer came out
+    into the other hand beside it (2026-10-03, #439). Never DROP."""
     weapon = profile.get("weapon") or ""
+    for entry in weapon_plan(profile):
+        other = entry["weapon"]
+        if other and other != weapon and hands.holding(s, other):
+            hands.sheathe(s, other, entry["container"], ask=ask)
     hands.free(s, keep=(weapon,) if weapon else (), ask=ask)
 
 
@@ -837,9 +846,9 @@ def ready(s, profile, tally=None, index=0):
 
 
 def unready(s, profile):
-    """The weapon back where it lives: SHEATHE into the profile's
-    container, or — no container named — where WIELD drew it from; a
-    "Sheathe your ... where?" (nothing remembered) falls back to STOW."""
+    """The weapon back where it lives: SHEATHE, where WIELD drew it from
+    (the game remembers); asked "Sheathe your ... where?" (nothing
+    remembered), into the profile's container, else STOW (hands.sheathe)."""
     weapon = profile["weapon"]
     if weapon:
         hands.sheathe(s, weapon, profile["weapon_container"], ask=ask)

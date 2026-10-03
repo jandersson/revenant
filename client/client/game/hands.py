@@ -9,7 +9,7 @@ put-back a ;stop still sends.
     hands.free_one(s, ask=ask)                   # both full: the first STOWed; True once a hand is free
     hands.stow(s, noun, ask=ask)                 # one STOW, True unless refused; no room → PUT into the default container
     hands.stow_said(s, noun, ask=ask)            # the same, with the line that decided it (a refusal to quote)
-    hands.sheathe(s, weapon, container, ask=ask) # STOW when the game asks where
+    hands.sheathe(s, weapon, container, ask=ask) # where WIELD drew it from; asked where, the container, else STOW
     hands.at_end(s, ("pestle", "mortar"))        # a finally's STOWs, as cleanup puts
 
 Pass the script's ask so a test's fake answers the STOW. The answer is
@@ -226,16 +226,15 @@ def free_one(s, keep=(), ask=None):
 
 
 def sheathe(s, weapon, container="", ask=None):
-    """SHEATHE the weapon into its container, or — none named — where
-    WIELD drew it from; "Sheathe your ... where?" (nothing remembered)
-    falls back to STOW. True unless the answer refused it."""
+    """SHEATHE the weapon where WIELD drew it from — the game remembers
+    (the operator, 2026-10-03: "just do sheathe and wield"; a STOW had
+    sent the spear to the backpack, "too long to fit", #439). Asked
+    where ("Sheathe your ... where?": nothing remembered), into the
+    `container` named, else STOW. True unless the answer refused it."""
     ask = ask or act.ask
-    command = (
-        f"sheathe my {weapon} in my {container}"
-        if container
-        else f"sheathe my {weapon}"
-    )
-    answer = ask(s, command)
+    answer = ask(s, f"sheathe my {weapon}")
+    if any(word in answer.lower() for word in SHEATHE_WHERE) and container:
+        answer = ask(s, f"sheathe my {weapon} in my {container}")
     if any(word in answer.lower() for word in SHEATHE_WHERE):
         return stow(s, weapon, ask)
     return not refused(answer)

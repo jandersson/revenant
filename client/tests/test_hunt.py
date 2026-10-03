@@ -318,6 +318,37 @@ def test_a_tool_left_in_hand_from_the_last_run_is_stowed_before_the_draw(travel)
     assert hunt.brawling(PROFILE) == []  # nothing to swing with none listed
 
 
+def test_another_turns_weapon_left_in_hand_is_sheathed_where_it_lives(travel):
+    # 2026-10-03 (#439): the last hunt ended with the spear in hand, the
+    # box farm's first turn was the sledgehammer, and the clear's STOW
+    # sent the spear to the backpack — "The narrow-headed spear is too
+    # long to fit in the backpack." — so both came to be held.
+    turns = ["sledgehammer:Large Blunt:backpack", "spear:Polearms:baldric"]
+
+    def sheathed(arena):
+        arena.state.right_hand = None
+
+    arena = Arena(
+        {
+            "sheathe my spear": [
+                (
+                    "You sheathe the narrow-headed spear in your palladium baldric.",
+                    sheathed,
+                )
+            ],
+            "attack": [(KILL, kill)],
+            "skin": [SKINNED],
+            "loot": [NOTHING],
+        }
+    )
+    arena.state.left_hand = None
+    arena.state.right_hand = {"noun": "spear", "exist": "1"}
+    _run(arena, profile=PROFILE | {"weapons": turns})
+    first = arena.sent.index("sheathe my spear")
+    assert arena.sent[first + 1] == "wield my sledgehammer"
+    assert "stow my spear" not in arena.sent
+
+
 def test_the_weapon_in_hand_is_kept_by_its_noun_whatever_the_profile_calls_it(
     travel,
 ):
@@ -586,7 +617,7 @@ def test_a_wound_at_the_floor_breaks_the_hunt_off_after_a_kill(travel):
     assert any(
         "neck external harmful — at the wound floor" in text for text in arena.echoed
     )
-    assert "sheathe my handaxe in my sack" not in arena.sent  # walked home, still armed
+    assert "sheathe my handaxe" not in arena.sent  # walked home, still armed
 
 
 def test_a_wound_already_at_the_floor_keeps_the_hunt_home(travel):

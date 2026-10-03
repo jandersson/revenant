@@ -256,7 +256,7 @@ def take(s, noun, place):
 
 def put_back(s, noun, place):
     """The piece where it was: worn ones WORN back, a stowed tool
-    STOWed, a weapon SHEATHEd into its container, anything else PUT in
+    STOWed, a weapon SHEATHEd where WIELD drew it from, anything else PUT in
     the container it came from (STOWed when that is refused), a held
     one left in the hand."""
     if place == "stowed":

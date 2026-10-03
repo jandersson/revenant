@@ -267,7 +267,7 @@ def profile_of(s):
 
 
 def clear_hands(s, profile):
-    """The weapon SHEATHEd into its container, anything else STOWed:
+    """The weapon SHEATHEd where WIELD drew it from, anything else STOWed:
     the mortar and the pestle want both hands. Never DROP."""
     weapon = (profile.get("weapon") or "").lower()
     container = profile.get("weapon_container") or ""

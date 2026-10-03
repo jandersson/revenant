@@ -92,7 +92,7 @@ def test_the_first_skin_starts_the_bundle_and_wears_it(travel):
     first = arena.sent.index("skin rat")
     assert arena.sent[first : first + 7] == [
         "skin rat",
-        "sheathe my handaxe in my sack",
+        "sheathe my handaxe",
         # No FROM: the rope is wherever it was left (#437, 49 skins
         # loose while it sat in the old loot container).
         "get my bundling rope",

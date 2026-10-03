@@ -85,7 +85,19 @@ def test_free_one_only_when_both_hands_are_full():
     assert hands.free_one(kept, keep=("pestle", "mortar"), ask=kept.ask) is False
 
 
-def test_sheathe_into_the_container_or_a_stow_when_the_game_asks_where():
+def test_sheathe_goes_where_wield_drew_it_then_the_container_then_a_stow():
+    # The game remembers where WIELD drew a weapon from: a bare SHEATHE
+    # (the operator, 2026-10-03, #439; captured that day).
+    s = Fake(
+        right="spear",
+        answers={
+            "sheathe my spear": "You sheathe the narrow-headed spear in your "
+            "palladium baldric."
+        },
+    )
+    assert hands.sheathe(s, "spear", "backpack", ask=s.ask) is True
+    assert s.sent == ["sheathe my spear"]
+    # Nothing remembered (captured 2026-09-22): the container named, else STOW.
     s = Fake(
         right="scimitar",
         answers={
@@ -97,7 +109,7 @@ def test_sheathe_into_the_container_or_a_stow_when_the_game_asks_where():
     assert s.sent == ["sheathe my scimitar", "stow my scimitar"]
     s.sent.clear()
     assert hands.sheathe(s, "scimitar", "harness", ask=s.ask) is True
-    assert s.sent == ["sheathe my scimitar in my harness"]
+    assert s.sent == ["sheathe my scimitar", "sheathe my scimitar in my harness"]
 
 
 def test_at_end_sends_cleanup_stows_for_what_is_still_held():
