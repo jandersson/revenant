@@ -264,6 +264,27 @@ def test_prose_only_room_objs_pulses_never_wipe_hostiles(xml_data):
     assert xml_data.hostiles == {"79912449": False}
 
 
+def test_a_listing_with_no_creature_left_clears_the_hostiles(xml_data):
+    # Captured 2026-10-04 aboard the Crossing ferry (#453): an Empath's
+    # alfar warrior, flagged hostile by the game itself, strode off with
+    # him; the new listing named no creature and no crtrStatus came.
+    XMLParser(target=xml_data).feed(
+        "<r><component id='room objs'>You also see <pushBold/>a wiry alfar "
+        "warrior<popBold/>, a news stand with a grinning imp on it, the ferry "
+        "Hodierna's Grace and Lemicus Square.</component>"
+        '<crtrStatus exist="146516037" hostile="1" disengaged="1"/>'
+        '<prompt time="1791066198">&gt;</prompt></r>'
+    )
+    assert xml_data.hostiles == {"146516037": False}
+    XMLParser(target=xml_data).feed(
+        "<r>A wiry alfar warrior strides off.\n"
+        "<component id='room objs'>You also see a news stand with a grinning "
+        "imp on it, the ferry Hodierna's Grace and Lemicus Square.</component>"
+        '<prompt time="1791066210">&gt;</prompt></r>'
+    )
+    assert xml_data.hostiles == {}
+
+
 def test_a_harmless_reannouncement_drops_the_creature(xml_data):
     # A crtrStatus burst IS the enumeration: a creature re-announced
     # non-hostile (a kill) drops out at the swap.

@@ -668,6 +668,15 @@ class XMLData:
             dead, self._objs_dead = list(self._objs_dead or []), None
             self._objs_after_bold = False
             dead += [False] * (len(creatures) - len(dead))
+            if not creatures and self.room_objs:
+                # A listing that names things but no creature: whatever
+                # was hostile has gone. No crtrStatus burst comes when
+                # the last creature leaves, so an Empath's alfar warrior
+                # that "strides off" stayed hostile and ;train fled from
+                # nothing eight times aboard the ferry (2026-10-04,
+                # #453). An empty pulse is no listing (#85): it keeps them.
+                self.hostiles = {}
+                self._staged_hostiles = None
             if creatures != self.room_creatures or dead != self.room_creatures_dead:
                 self.room_creatures = creatures
                 self.room_creatures_dead = dead
