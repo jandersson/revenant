@@ -186,6 +186,13 @@ lessons the code and docs cannot carry themselves.
 
 ## Evidence first
 
+- The debug log (`revenant_client-<Name>-...-<pid>.log`) records the
+  scripts' sends (`[hunt]> stow gem`), never the operator's typed
+  ones. A game-log line with no script send beside it was typed by
+  hand: a "You drop an ordinary lockpick." was the operator's, and two
+  "You need a free hand to pick that up." on a spear turn came from the
+  lockpick they held, not the spear (2026-10-03, #437). Match both logs
+  by the second before blaming a script or a weapon.
 - INFO's "Wealth:" is the coins on the character, not what they own:
   Crannach showed 300 copper there and had 57.6 million copper Kronars
   in the Crossing bank alone (2026-09-28). Before calling a character
