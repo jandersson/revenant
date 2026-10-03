@@ -1167,11 +1167,11 @@ def pocket(s, profile, item):
     S'lai scout's plovik leaves went at a full pouch, "There isn't any
     more room in the pouch for that.", and stayed in hand through the
     fight (2026-09-28). With STORE GEMS set this run a gem goes by STOW
-    GEM, which wants no free hand: the GET answered "You need a free
-    hand to pick that up." with a weapon and a held bundle and the
-    crystal stayed on the ground, where the operator's STOW GEM answered
-    "You pick up a small laced clear crystal." / "You open your pouch
-    and put the clear crystal inside, closing it once more." (2026-10-03)."""
+    GEM, one command to the pouch, as the operator's did: "You pick up a
+    small laced clear crystal." / "You open your pouch and put the clear
+    crystal inside, closing it once more." (2026-10-03). It picks up
+    first, so it wants a free hand like the GET: both answered "You
+    need a free hand to pick that up." with a lockpick in the off hand."""
     pouch = profile["gem_pouch"]
     gem = pouch and noun_of(item) in loot.GEM_NOUNS
     if gem and stores_set(profile, "gem"):

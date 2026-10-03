@@ -473,9 +473,8 @@ def test_a_gem_the_pouch_takes_stays_there(monkeypatch):
     assert sent == ["get chrysoprase", "put my chrysoprase in my pouch"]
 
 
-# The operator's STOW GEM, 2026-10-03: picked up and pouched with no hand
-# free, where the hunt's GET had answered "You need a free hand to pick
-# that up." (a weapon and a held bundle).
+# The operator's STOW GEM, 2026-10-03: picked up and pouched in one
+# command (it still wants a free hand, as the GET does).
 STOWED_GEM = (
     "You pick up a small laced clear crystal.\n"
     "You open your pouch and put the clear crystal inside, closing it once more.\n"
@@ -487,7 +486,7 @@ FULL_GEM = (
 )
 
 
-def test_with_store_gems_set_a_searched_gem_goes_by_stow_gem_no_hand_needed(
+def test_with_store_gems_set_a_searched_gem_goes_by_stow_gem(
     monkeypatch,
 ):
     monkeypatch.setattr(hunt.gems, "_STATE", {"dirty": False, "full": True})
