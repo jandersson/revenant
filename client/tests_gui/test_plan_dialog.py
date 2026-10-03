@@ -102,6 +102,25 @@ def test_an_empty_plan_starts_with_the_task_form_disabled(qapp):
     assert dialog.values()["tasks"][0]["return_grace"] == TASK_DEFAULTS["return_grace"]
 
 
+def test_the_task_list_shows_many_rows_beside_the_selected_tasks_form(qapp):
+    # The operator, 2026-10-03 (#446): Riphik's list showed two rows,
+    # squeezed under the selected task's eighteen settings.
+    plan = dict(DEFAULTS) | {
+        "tasks": [normalize_task({"name": f"task {n}"}, n) for n in range(16)]
+    }
+    dialog = PlanDialog("Lanival", plan)
+    dialog.show()
+    qapp.processEvents()
+    row = dialog.task_list.sizeHintForRow(0)
+    assert dialog.task_list.viewport().height() >= 8 * row
+    name_box = dialog.task_widgets["name"][1]
+    assert name_box.mapTo(dialog, name_box.rect().topLeft()).x() > (
+        dialog.task_list.mapTo(dialog, dialog.task_list.rect().topRight()).x()
+    )  # the form is a column to the list's right, not under it
+    dialog.close()
+    dialog.deleteLater()
+
+
 def test_values_round_trip_through_the_plan_file(qapp, isolated_files):
     dialog = PlanDialog("Lanival", _plan())
     dialog.plan_widgets["cycles"][1].setValue(2)

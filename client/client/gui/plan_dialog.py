@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -39,6 +40,7 @@ from client.game.training import (
 )
 
 NO_VALUE = -1  # an "optint" spinner at this reads as blank: the plan's value
+LIST_ROWS = 10  # the task list's least height, in rows of about 20 px (#446)
 
 
 def _make_widget(kind, value, help_text, choices=()):
@@ -112,31 +114,41 @@ class PlanDialog(QDialog):
             self.plan_widgets[key] = (kind, widget)
         columns.addLayout(plan_form, 1)
 
+        # The task list has a column of its own, its full height: under
+        # it the selected task's eighteen settings squeezed it to two
+        # rows (the operator, 2026-10-03, Riphik's plan, #446).
         tasks_box = QVBoxLayout()
         columns.addLayout(tasks_box, 1)
         tasks_box.addWidget(QLabel("Tasks, in order:"))
         self.task_list = QListWidget()
+        self.task_list.setMinimumHeight(LIST_ROWS * 20)
         for task in self.tasks:
             self.task_list.addItem(task["name"])
-        tasks_box.addWidget(self.task_list)
-        row = QHBoxLayout()
-        for text, slot in (
-            ("Add", self.add_task),
-            ("Remove", self.remove_task),
-            ("Up", lambda: self.move_task(-1)),
-            ("Down", lambda: self.move_task(1)),
+        tasks_box.addWidget(self.task_list, 1)
+        buttons_grid = QGridLayout()
+        for place, (text, slot) in enumerate(
+            (
+                ("Add", self.add_task),
+                ("Remove", self.remove_task),
+                ("Up", lambda: self.move_task(-1)),
+                ("Down", lambda: self.move_task(1)),
+            )
         ):
             button = QPushButton(text)
             button.clicked.connect(slot)
-            row.addWidget(button)
-        tasks_box.addLayout(row)
+            buttons_grid.addWidget(button, place // 2, place % 2)
+        tasks_box.addLayout(buttons_grid)
+        task_box = QVBoxLayout()
+        columns.addLayout(task_box, 1)
+        task_box.addWidget(QLabel("The selected task:"))
         task_form = QFormLayout()
         self.task_widgets = {}
         for key, label, kind, help_text in TASK_FIELDS:
             widget = _make_widget(kind, TASK_DEFAULTS[key], help_text)
             task_form.addRow(f"{label}:", widget)
             self.task_widgets[key] = (kind, widget)
-        tasks_box.addLayout(task_form)
+        task_box.addLayout(task_form)
+        task_box.addStretch(1)
         self.task_widgets["name"][1].textEdited.connect(self._rename)
         self.task_list.currentRowChanged.connect(self._show_task)
         if self.tasks:
