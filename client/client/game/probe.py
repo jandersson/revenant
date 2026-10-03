@@ -38,6 +38,19 @@ QUIET_SECONDS = 0.25
 # prompt closed a CIRCLE's window 2026-09-30 before "You fake a blood
 # wolf..." arrived, and ;hunt read the claw as the answer (#398).
 ATTACKED = "* "
+# Another player's doing, a line that opens with the name of someone in
+# the room (the parser's room_players), is never the answer either: a
+# crafter beside Cecil put her pestle away with a prompt of its own
+# right after his BUNDLE, the window closed on it, and ;remedies
+# reported "Khaelyn puts her pestle in her farmer's haversack." as
+# BUNDLE's answer (2026-10-03, #441). A command whose own answer opens
+# with a player's name waits its window out instead.
+
+
+def _bystander(line, names):
+    """True when the line opens with the name of a player in the room."""
+    return any(line.startswith((f"{name} ", f"{name}'s ")) for name in names)
+
 
 # The game's refusal of a command sent inside a roundtime; the command
 # did not run and ask() sends it again after the seconds named (#251).
@@ -92,9 +105,9 @@ def collect(s, seconds, until=None, prompts_from=None, quiet=None):
     ends the wait early — the recognizable last line of an answer.
     With `prompts_from` (the prompt count before the command) the window
     also ends once a prompt past it has been seen, a line that is not a
-    creature's attack has come (ATTACKED, #398), and no piece has come
-    for `quiet` seconds — the answer is complete (#248); nothing at all
-    arriving still waits the window out.
+    creature's attack (ATTACKED, #398) or another player's (#441) has
+    come, and no piece has come for `quiet` seconds — the answer is
+    complete (#248); nothing at all arriving still waits the window out.
 
     Pieces are glued until one ends in a newline, which is how the
     engine marks the last piece of each line: a styled or linked line
@@ -108,8 +121,10 @@ def collect(s, seconds, until=None, prompts_from=None, quiet=None):
     partial = ""
     deadline = time.monotonic() + seconds
     last_piece = None
-    answered = False  # a line past the creatures' attacks
+    answered = False  # a line past the creatures' attacks and the players'
     watching = prompts_from is not None
+    state = getattr(s, "state", None)
+    names = tuple(getattr(state, "room_players", None) or ()) if watching else ()
     while time.monotonic() < deadline:
         piece = s.get(timeout=0.1 if watching else 0.5, streams=STORY_STREAMS)
         if piece is None:
@@ -127,7 +142,9 @@ def collect(s, seconds, until=None, prompts_from=None, quiet=None):
             continue
         line, partial = partial.rstrip("\r\n"), ""
         lines.append(line)
-        answered = answered or not line.startswith(ATTACKED)
+        answered = answered or not (
+            line.startswith(ATTACKED) or _bystander(line, names)
+        )
         if until is not None and until in line:
             break
     if partial:

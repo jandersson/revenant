@@ -178,6 +178,21 @@ def test_an_unrelated_prompt_right_after_the_send_does_not_cut_the_answer(
     ]
 
 
+def test_another_players_line_and_its_prompt_never_end_the_answer_window():
+    # Captured 2026-10-03 22:21 (#441): a crafter beside Cecil put her
+    # pestle away right after his BUNDLE; the window closed on her line
+    # and ;remedies reported it as BUNDLE's answer.
+    handle = PromptedHandle(
+        ["You notate the ointment in the logbook then bundle it up for delivery.\n"],
+        intruder="Khaelyn puts her pestle in her farmer's haversack.\n",
+        delay=probe.QUIET_SECONDS * 3,
+    )
+    handle.state.room_players = ["Khaelyn"]
+    answer = probe.ask(handle, "bundle my ointment with my logbook", 3.0, 1.5)
+    assert answer.splitlines()[0].startswith("Khaelyn puts")
+    assert "bundle it up for delivery" in answer
+
+
 def test_a_creatures_attack_and_its_prompt_never_end_the_answer_window():
     # Captured 2026-09-30 03:50:51 (#398): a CIRCLE at the blood wolves;
     # the wolf's claw and its prompt came first, the maneuver's answer
