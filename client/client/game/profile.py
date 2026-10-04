@@ -33,6 +33,9 @@ DEFAULTS = {
     "hunting_ground": "rats",
     "prey": "",  # noun to ATTACK; "" swings at whatever engages you
     "home": "",  # a ;go2 target to walk back to when the hunt ends
+    # The account has Premium: the walker takes the towns' meeting
+    # portals into Fang Cove (lich's UserVars.premium, #467).
+    "premium": False,
     # The weapon: GET <weapon> [FROM <container>] before the first
     # swing. "" fights barehanded (brawling).
     "weapon": "",
@@ -248,6 +251,7 @@ FIELDS = (
         "str",
         "empty: a break-off leaves you just off the ground",
     ),
+    ("premium", "Account has Premium (walks through Fang Cove's portals)", "bool", ""),
     ("weapon", "Weapon noun", "str", "empty: barehanded"),
     ("weapon_container", "Weapon is kept in", "str", "sack, sheath — empty: in hand"),
     ("stance", "STANCE SET arguments", "str", "e.g. 100 80 0 — empty: leave it"),

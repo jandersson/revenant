@@ -496,14 +496,24 @@ def test_a_fang_cove_portal_edge_is_its_go_portal_and_its_gate_names_the_town():
     gate = gate_of(back_to("Crossing"))
     assert gate == Gate(seconds=0.2, portal="Crossing")
     assert gate.met({}) and gate.describe() == "entered Fang Cove from Crossing"
-    # The way in asks for a premium account: never assumed.
-    assert not gate_of(PREMIUM).met({})
+    # The way in asks for a Premium account: never assumed, opened by
+    # the profile's premium (#467).
+    premium = gate_of(PREMIUM)
+    assert premium == Gate(seconds=0.2, premium=True)
+    assert not premium.met({})
+    assert premium.met({}, premium=True)
+    assert "Premium" in premium.describe()
 
 
 def test_from_fang_cove_the_exit_nearest_the_goal_is_planned_and_the_way_in_stays_closed():
     cove = MapDB(COVE)
     assert cove.path(8308, [1900]) == [(932, EXIT), (1900, "northwest")]
     assert cove.path(1900, [8308]) is None
+    # A Premium account walks in through the meeting portal (#467).
+    assert cove.path(1900, [8308], premium=True) == [
+        (932, "southeast"),
+        (8308, ENTRY),
+    ]
 
 
 # --- one parse a process (#407) ---

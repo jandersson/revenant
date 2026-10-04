@@ -787,6 +787,120 @@ def test_walk_bursts_once_then_stops_on_a_persistent_stall():
     assert any("stalled" in echo for echo in handle.echoes)
 
 
+# Fang Cove's lane and the Advanced Anatomy tent off it, from the
+# community map (2026-10-04, #466): the game reports the lane's uid
+# 9792004 inside the tent, whose rooms carry none.
+FANG_COVE = MapDB(
+    [
+        {
+            "id": 8308,
+            "uid": [9792003],
+            "title": ["[[Fang Cove, Fate's Fortune Lane]]"],
+            "wayto": {"8311": "east"},
+        },
+        {
+            "id": 8311,
+            "uid": [9792004],
+            "title": ["[[Fang Cove, Fate's Fortune Lane]]"],
+            "wayto": {"8308": "west", "9095": "go second canvas tent"},
+        },
+        {
+            "id": 9095,
+            "title": ["[[Advanced Anatomy, Atrium]]"],
+            "wayto": {"8311": "go exit flap", "9094": "east"},
+        },
+        {
+            "id": 9094,
+            "title": ["[[Advanced Anatomy, Addendum]]"],
+            "wayto": {"9095": "west"},
+        },
+    ]
+)
+
+
+def test_inside_a_tent_the_title_places_the_character_not_the_lanes_uid():
+    state = SimpleNamespace(room_uid=9792004, compass=["e"])
+    state.room_title = "[Advanced Anatomy, Atrium]"
+    assert walker.locate(FANG_COVE, state) == 9095
+    state.room_title = "[Advanced Anatomy, Addendum]"
+    assert walker.locate(FANG_COVE, state) == 9094
+    state.room_title = "[Fang Cove, Fate's Fortune Lane]"
+    assert walker.locate(FANG_COVE, state) == 8311  # the uid's own room
+    # A title the map has nowhere near: the uid stands.
+    state.room_title = "[Fang Cove, Somewhere New]"
+    assert walker.locate(FANG_COVE, state) == 8311
+
+
+def test_a_walk_into_the_tent_and_out_again_arrives():
+    class Tent(FakeHandle):
+        """Each move lands a (uid, title) pair."""
+
+        def get(self, timeout=None, streams=("",)):
+            if timeout == 0 or not self._uids:
+                return None
+            self.state.room_uid, self.state.room_title = self._uids.pop(0)
+            return ("compass", "e") if streams is None else "compass frame"
+
+    lane = (9792004, "[Fang Cove, Fate's Fortune Lane]")
+    atrium = (9792004, "[Advanced Anatomy, Atrium]")
+    addendum = (9792004, "[Advanced Anatomy, Addendum]")
+    handle = Tent([atrium, addendum])
+    handle.state.room_uid, handle.state.room_title = lane
+    assert walker.walk(handle, FANG_COVE, [9094], describe="the Addendum") is True
+    puts = [call[1] for call in handle.calls if call[0] == "put"]
+    assert puts == ["go second canvas tent", "east"]
+    handle = Tent([atrium, lane, (9792003, "[Fang Cove, Fate's Fortune Lane]")])
+    handle.state.room_uid, handle.state.room_title = addendum
+    assert walker.walk(handle, FANG_COVE, [8308], describe="the portal") is True
+    puts = [call[1] for call in handle.calls if call[0] == "put"]
+    assert puts == ["west", "go exit flap", "west"]
+
+
+PORTAL_GATE = (
+    ";e unless (Account.subscription == 'PREMIUM' || UserVars.premium || "
+    "['DRF', 'DRX'].include?(XMLData.game)) then nil else 10 end"
+)
+STRAND = MapDB(
+    [
+        {
+            "id": 932,
+            "uid": [9320],
+            "title": ["[The Strand, Sandy Path]"],
+            "wayto": {
+                "8308": ";e UserVars.premiumPortal = 'Crossing';"
+                "move 'go meeting portal'"
+            },
+            "timeto": {"8308": PORTAL_GATE},
+        },
+        {
+            "id": 8308,
+            "uid": [9792003],
+            "title": ["[Fang Cove, Fate's Fortune Lane]"],
+            "wayto": {},
+        },
+    ]
+)
+
+
+def test_a_premium_profile_walks_through_the_meeting_portal(monkeypatch):
+    # Cecil, 2026-10-04 (#467): "The usher nods at you and waves you
+    # through the portal." — the profile's premium opens the way in.
+    from client.game import profile
+
+    monkeypatch.setattr(profile, "load_profile", lambda name: {"premium": True})
+    handle = FakeHandle([9792003])
+    handle.state.room_uid, handle.state.name = 9320, "Lanival"
+    assert walker.walk(handle, STRAND, [8308], describe="Fang Cove") is True
+    puts = [call[1] for call in handle.calls if call[0] == "put"]
+    assert puts == ["go meeting portal"]
+    # Without it the walk says what the way needs.
+    monkeypatch.setattr(profile, "load_profile", lambda name: {"premium": False})
+    handle = FakeHandle([9792003])
+    handle.state.room_uid, handle.state.name = 9320, "Lanival"
+    assert walker.walk(handle, STRAND, [8308], describe="Fang Cove") is False
+    assert any("Premium" in echo for echo in handle.echoes)
+
+
 def test_walk_refuses_a_dead_character():
     # The cougar lesson (#91): ;go2 bank on a corpse announced a
     # 47-step walk. Dead means no travel — deathwatch owns death.

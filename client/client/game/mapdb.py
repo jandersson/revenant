@@ -184,6 +184,14 @@ _ATOM_CIRCLE = re.compile(
 # came in by: the map gates each of its 13 `go portal` edges on the town
 # lich remembers in UserVars.premiumPortal (#289).
 _ATOM_PORTAL = re.compile(r"^UserVars\.premiumPortal\s*==\s*'(?P<town>[^']+)'$")
+# The 13 town meeting portals into Fang Cove open to a Premium account:
+# lich asks the login's subscription or the player's UserVars.premium;
+# here the profile's `premium` says so (the usher's "nods at you and
+# waves you through the portal", Cecil, 2026-10-04).
+_ATOM_PREMIUM = re.compile(
+    r"^Account\.subscription\s*==\s*'PREMIUM'\s*\|\|\s*UserVars\.premium"
+    r"\s*\|\|\s*\['DRF',\s*'DRX'\]\.include\?\(XMLData\.game\)$"
+)
 # Atoms whose truth is fixed for this client.
 _STATIC_ATOMS = {
     "Script.exists?('bescort')": True,
@@ -200,8 +208,9 @@ class Gate:
     modified rank the skill must reach (0 ranks for a skill the exp
     window does not list), `guild` the guild the character must be in,
     `circle` the least circle; `portal` the town a Fang Cove exit
-    returns to; `needs` names a condition the walker cannot judge, and
-    such a gate never opens."""
+    returns to; `premium` a Premium account (a meeting portal); `needs`
+    names a condition the walker cannot judge, and such a gate never
+    opens."""
 
     seconds: float = DEFAULT_STEP_SECONDS
     skill: str | None = None
@@ -210,15 +219,19 @@ class Gate:
     circle: int = 0
     needs: str = ""
     portal: str = ""
+    premium: bool = False
 
-    def met(self, ranks=None, guild=None, circle=None) -> bool:
+    def met(self, ranks=None, guild=None, circle=None, premium=False) -> bool:
         """True when this character passes: `ranks` is {skill: rank}
         (the exp window's), `guild` and `circle` None when unknown —
         and unknown never passes a gate that asks for them. A `portal`
         gate always passes: the game lands the character in the town
         they entered Fang Cove from, and a walk that lands elsewhere
-        than planned plans again from there (#232, #289)."""
+        than planned plans again from there (#232, #289). A `premium`
+        gate passes for a Premium account only."""
         if self.needs:
+            return False
+        if self.premium and not premium:
             return False
         if self.skill and (ranks or {}).get(self.skill, 0) < self.ranks:
             return False
@@ -242,6 +255,8 @@ class Gate:
             parts.append(f"{self.skill} {self.ranks}")
         if self.portal:
             parts.append(f"entered Fang Cove from {self.portal}")
+        if self.premium:
+            parts.append("Premium (the profile's premium)")
         return " ".join(parts) or "open"
 
 
@@ -293,6 +308,8 @@ def gate_of(timeto):
             fields["circle"] = int(circle.group("circle")) + (circle.group("op") == ">")
         elif portal := _ATOM_PORTAL.match(atom):
             fields["portal"] = portal.group("town")
+        elif _ATOM_PREMIUM.match(atom):
+            fields["premium"] = True
         else:
             return Gate(
                 seconds=seconds, needs=f"a condition the walker cannot judge ({atom})"
@@ -636,6 +653,7 @@ class MapDB:
         guild=None,
         circle=None,
         gates=True,
+        premium=False,
     ):
         """Fastest walkable path from start to the nearest goal —
         weighted by the map's timeto travel times, so a route optimizes
@@ -649,7 +667,8 @@ class MapDB:
         (#214) the character does not pass: `ranks` is the exp window's
         {skill: rank}, `guild` and `circle` the character's when known
         — a skill the window does not list counts as rank 0, and an
-        unknown guild or circle passes no gate that asks for one.
+        unknown guild or circle passes no gate that asks for one;
+        `premium` opens the meeting portals into Fang Cove.
         `gates=False` prices gated edges as if every gate were open —
         for a caller that wants to say which gate shut the only way.
 
@@ -669,7 +688,11 @@ class MapDB:
                 if (here, dest) in closed:
                     return None  # not an edge, for this walk
                 gate = data.get("gate")
-                if gates and gate is not None and not gate.met(ranks, guild, circle):
+                if (
+                    gates
+                    and gate is not None
+                    and not gate.met(ranks, guild, circle, premium)
+                ):
                     return None  # the map prices it nil for this character
                 penalty = AVOID_PENALTY_SECONDS if dest in avoid else 0.0
                 return data["seconds"] + penalty

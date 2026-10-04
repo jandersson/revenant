@@ -31,6 +31,7 @@ File → Character Profile, or `~/.revenant/profiles/<name>.json`. The keys a hu
 | `hunting_ground` | a map tag, a bestiary zone (`;hunt grounds`) or a `;go2` target |
 | `prey` | the noun to attack; empty fights whatever engages you |
 | `home` | a `;go2` target walked to when the hunt ends |
+| `premium` | the account has Premium: walks take the meeting portals into Fang Cove |
 | `weapon`, `weapon_container` | the weapon WIELDed at the start, and where it is kept |
 | `stance` | `STANCE SET` arguments, sent once |
 | `skin`, `skin_knife` | skin each kill; a knife noun, or empty for a worn knife or the weapon |

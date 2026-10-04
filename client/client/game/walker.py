@@ -260,16 +260,15 @@ def locate(db, state):
     """The map id of the current room.
 
     The game's <nav rm> uid is the exact fix and wins whenever the map
-    knows it; titles collide (roads repeat the same title), so the
+    knows it, bar a sub-room that reports its enclosing room's uid
+    (uid_room); titles collide (roads repeat the same title), so the
     title+exits guess is only the fallback. None when position is
     unknown."""
     if state is None:
         return None
-    uid = getattr(state, "room_uid", None)
-    if uid:
-        by_uid = db.room_by_uid(uid)
-        if by_uid is not None:
-            return by_uid
+    by_uid = uid_room(db, state)
+    if by_uid is not None:
+        return by_uid
     title = getattr(state, "room_title", None)
     if not title:
         return None
@@ -277,6 +276,53 @@ def locate(db, state):
     if not candidates:
         return None
     return _disambiguate(db, candidates, state.compass)
+
+
+NEAR_STEPS = 3  # how far from the uid's room a sub-room is looked for
+
+
+def uid_room(db, state):
+    """The map room the game's <nav rm> uid names, the title permitting;
+    None when the map does not know the uid. Inside a sub-room the game
+    reports the enclosing room's uid — Fang Cove's Advanced Anatomy tent
+    shows the lane's (2026-10-04, #466) — so when the uid's room is
+    titled otherwise, the nearest room carrying the game's title, a few
+    steps out, is where the character stands. Titles only: descriptions
+    change with the time of day and with events."""
+    uid = getattr(state, "room_uid", None)
+    mapped = db.room_by_uid(uid) if uid else None
+    title = getattr(state, "room_title", None)
+    if mapped is None or not title or _titled(db, mapped, title):
+        return mapped
+    near = _titled_near(db, mapped, title)
+    return near if near is not None else mapped
+
+
+def _titled(db, room_id, title):
+    titles = db.rooms.get(room_id, {}).get("title") or []
+    return normalize_title(title) in {normalize_title(t) for t in titles}
+
+
+def _titled_near(db, start, title):
+    """The room nearest `start`, within NEAR_STEPS of its exits, titled
+    `title`; None without one."""
+    seen, frontier = {start}, [start]
+    for _ in range(NEAR_STEPS):
+        following = []
+        for room_id in frontier:
+            for dest in db.rooms.get(room_id, {}).get("wayto") or {}:
+                try:
+                    dest = int(dest)
+                except ValueError:
+                    continue
+                if dest in seen or dest not in db.rooms:
+                    continue
+                if _titled(db, dest, title):
+                    return dest
+                seen.add(dest)
+                following.append(dest)
+        frontier = following
+    return None
 
 
 def _disambiguate(db, candidates, compass):
@@ -616,13 +662,26 @@ def character_ranks(state):
     }
 
 
-def _explain_no_path(s, db, here, goals, avoid, closed, ranks, describe):
+def character_premium(state):
+    """True when the character's profile says the account has Premium
+    (`premium`): the meeting portals into Fang Cove are open to it."""
+    name = getattr(state, "name", None)
+    if not name:
+        return False
+    from client.game.profile import load_profile
+
+    return bool(load_profile(name).get("premium"))
+
+
+def _explain_no_path(s, db, here, goals, avoid, closed, ranks, describe, premium=False):
     """Say why no route exists: the gate the character does not pass on
     the only way (#214), else the scripted-edge answer of old."""
     ungated = db.path(here, goals, avoid=avoid, closed=closed, gates=False)
     if ungated:
         shut = [
-            gate for _, _, gate in db.route_gates(here, ungated) if not gate.met(ranks)
+            gate
+            for _, _, gate in db.route_gates(here, ungated)
+            if not gate.met(ranks, premium=premium)
         ]
         if shut:
             asks = ", ".join(gate.describe() for gate in shut)
@@ -717,10 +776,13 @@ def walk(s, db, goals, describe="destination", avoid=(), max_steps=None):
     # gate refused the character before in the session (#394).
     closed = set(gated(s))
     ranks = character_ranks(s.state)
+    premium = character_premium(s.state)  # the meeting portals into Fang Cove
     goals = set(goals)
     fetched = False  # a refused fare's coins fetched this walk (#455)
     for _ in range(REROUTES + 1):
-        route = db.path(here, goals, avoid=avoid, closed=closed, ranks=ranks)
+        route = db.path(
+            here, goals, avoid=avoid, closed=closed, ranks=ranks, premium=premium
+        )
         if route is None:
             if _dead_end(db, here, closed):
                 # A room the map lists without exits (#229): out by the
@@ -729,7 +791,9 @@ def walk(s, db, goals, describe="destination", avoid=(), max_steps=None):
                 if left is not None:
                     here = left
                     continue
-            _explain_no_path(s, db, here, goals, avoid, closed, ranks, describe)
+            _explain_no_path(
+                s, db, here, goals, avoid, closed, ranks, describe, premium
+            )
             return False
         if not route:
             return True
@@ -907,8 +971,7 @@ def _follow(s, db, route, here, closed, fetched=True):
         previous, here = here, dest  # the planned room, or its twin: the same place
         # Arrival check: the nav uid is exact when the map knows it;
         # title comparison is the fallback for unmapped-uid rooms.
-        uid = getattr(s.state, "room_uid", None)
-        mapped = db.room_by_uid(uid) if uid else None
+        mapped = uid_room(db, s.state)  # a tent's uid is its lane's (#466)
         if mapped is not None:
             # A twin of the planned room is the planned room: the map
             # lists some places twice, only one entry carrying the
