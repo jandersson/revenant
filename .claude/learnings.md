@@ -149,6 +149,13 @@ lessons the code and docs cannot carry themselves.
   whole stack; the mortar and pestle fill both hands, so a fetch
   means STOW the pestle first ("You need a free hand to pick that
   up.").
+- A plain shop's BUY of a display item buys at once and can take the
+  first item of the noun whatever the adjectives say: BUY SIMPLE RED
+  COMPENDIUM at Emmiline's Cottage bought the grey snakeskin one, first
+  on the shelf, for 6,250 Kronars instead of 2,500 (2026-10-04). LOOK
+  ON the display first, and carry no more than the wanted item's price
+  when the wanted one is not first: a wrong pick is then refused for
+  coin, with its price named, instead of bought.
 - A wet instrument (a river crossing, rain) refuses CLEAN until WIPEd
   with the cloth ("so wet that they are still dripping"); DRY is not a
   verb. CLEAN wants the instrument in hand (REMOVE a worn one).
