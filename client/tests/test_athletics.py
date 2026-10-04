@@ -268,8 +268,8 @@ def test_optimal_rung_is_the_hardest_in_reach():
     assert athletics.optimal_rung(60)["kind"] == "rotation"
     # The #87 extension: rank 100+ trains in town, on the battlements.
     assert athletics.optimal_rung(144)["label"].startswith("NE gate embrasure")
-    # At the 150 tie the later (NE gate, deeper band) entry wins.
-    assert athletics.optimal_rung(150)["label"].startswith("NE gate wall")
+    # From 150 the W gate walls; the NE gate walls have no room (#471).
+    assert athletics.optimal_rung(150)["label"].startswith("W gate wall")
 
 
 def test_climb_loop_reads_the_maps_own_edges():
@@ -586,7 +586,7 @@ def test_auto_mode_abandons_a_contested_rung_for_the_next_best():
         athletics.auto_train(handle, db=LADDER_MAP, walk=fake_walk)
     assert walks[0] == [19069]  # the swimming hole first
     assert any("contested" in echo for echo in handle.echoes)
-    assert any("abandoning" in echo for echo in handle.echoes)
+    assert any("leaving this spot" in echo for echo in handle.echoes)
     assert walks[1] == [1068]  # the oak, next-best
     assert ("put", "climb oak tree") in handle.calls
 
@@ -773,6 +773,29 @@ def test_the_games_practice_verdict_moves_the_ladder_at_once():
         easy, ["climb practice embrasure"], practice=True, stop_when_stale=True
     )
     assert result == "stale"
+
+
+def test_climbs_help_means_no_such_obstacle_and_leaves_the_rung_at_once():
+    # #471: room 833 has no wall; the game answered `climb practice
+    # wall` with CLIMB's help, and the script waited on a practice that
+    # never started.
+    handle = PracticeHandle(
+        (),
+        mindstates=(0,),
+        sleeps=8,
+        response=(
+            "CLIMB:  Allows you to climb various things like a tree, ladder, or "
+            "stairs.\n  CLIMB PRACTICE (target)         Enter practice mode to "
+            "learn climbing."
+        ),
+    )
+    result = athletics.train(
+        handle, ["climb practice wall"], practice=True, stop_when_stale=True
+    )
+    assert result == "missing"
+    puts = [call for call in handle.calls if call[0] == "put"]
+    assert puts == [("put", "climb practice wall")]  # no STOP CLIMB after
+    assert any("no such obstacle here" in echo for echo in handle.echoes)
 
 
 def test_the_award_timer_wait_casts_the_profiles_buffs(monkeypatch):

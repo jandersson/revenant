@@ -17,7 +17,9 @@ activities — started once and watched, never spammed (#89) — and
 ended with STOP CLIMB at every end of the rung, a ;stop included, so
 no command after is refused for a practice still running (#409); a due
 interlude (the almanac) gets the same STOP CLIMB first and the practice
-starts again after it (#417).
+starts again after it (#417). A practice answered with CLIMB's help
+names no obstacle in the room: the rung is left at once for the
+next-best (#471).
 The ladder is Zoluren spots per Elanthipedia, encoded with their
 map rooms, rank bands, and conditions in client/game/climbs.py; rank 100+
 trains in town on the Crossing battlements. Before the first climb the
@@ -387,7 +389,7 @@ def fall_back(s, rank, contested):
             "yourself or train manually (;help athletics)"
         )
         return None
-    s.echo("abandoning the contested spot for the next-best rung")
+    s.echo("leaving this spot for the next-best rung")
     return rung
 
 
@@ -434,12 +436,17 @@ PRACTICE_REASSERT = 120  # seconds between re-sends while it looks active
 # not after minutes of stale reports.
 PRACTICE_TOO_HARD = ("climb is too difficult",)
 PRACTICE_TOO_EASY = ("no challenge at all",)
+# CLIMB's help is the answer when the room has no such obstacle
+# (captured 2026-10-04, `climb practice wall` at the NE gate
+# battlements, #471): the rung is left at once.
+PRACTICE_MISSING = ("climb practice (target)",)
 
 
 def practice_seen(s, practicing):
     """Scan queued game lines for the practice activity's state (#89):
     (practicing, verdict) — the verdict "too_hard" or "too_easy" when
-    the game passed one on the obstacle, else None."""
+    the game passed one on the obstacle, "missing" when the room has
+    no such obstacle, else None."""
     verdict = None
     while True:
         line = s.get(timeout=0)
@@ -450,6 +457,9 @@ def practice_seen(s, practicing):
             verdict = "too_hard"
         elif any(needle in lowered for needle in PRACTICE_TOO_EASY):
             verdict = "too_easy"
+        elif any(needle in lowered for needle in PRACTICE_MISSING):
+            verdict = "missing"
+            practicing = False  # nothing started
         if any(needle in lowered for needle in PRACTICE_ACTIVE):
             practicing = True
         elif any(needle in lowered for needle in PRACTICE_ENDED):
@@ -586,6 +596,12 @@ def _train(s, commands, stop_when_stale, pace, practice, db, walk, filler, statu
                 if verdict == "too_hard":
                     s.echo("ATHLETICS: the game calls this climb too difficult")
                     return "too_hard"
+                if verdict == "missing":
+                    s.echo(
+                        f"ATHLETICS: no such obstacle here — {command!r} "
+                        "got CLIMB's help"
+                    )
+                    return "missing"
                 if verdict == "too_easy":
                     s.echo("ATHLETICS: the game calls this climb no challenge")
                     if stop_when_stale:
@@ -767,7 +783,7 @@ def auto_train(s, db=None, walk=None):
         if result in ("danger", "return"):
             return
         rank = current_rank(s.state) or rank
-        if result in ("contested", "too_hard"):
+        if result in ("contested", "too_hard", "missing"):
             contested.add(rung["label"])
             rung = fall_back(s, rank, contested)
             if rung is None:

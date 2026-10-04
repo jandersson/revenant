@@ -138,15 +138,13 @@ CLIMBS = [
         "notes": "3 walls",
     },
     {
-        # Wiki: 150? to 400; listed after the W gate so the deeper
-        # band wins the tie at rank 150+.
-        "kind": "practice",
+        # Wiki: 150? to 400, 2 walls, no room given. Not room 833: the
+        # NE gate battlements answered `climb practice wall` with
+        # CLIMB's help (2026-10-04, #471).
+        "kind": "advice",
         "low": 150,
         "high": 400,
-        "label": "NE gate wall, Crossing Battlements (in town)",
-        "room": 833,
-        "practice": "wall",
-        "notes": "2 walls",
+        "where": "Crossing NE gate walls (2 walls; room unknown)",
     },
     {
         # dr-scripts' Crossing list for 50-290 (base-athletics.yaml,
