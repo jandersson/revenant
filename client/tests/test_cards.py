@@ -1,9 +1,10 @@
 """Trading cards into the card collector's case — these tests are the
-manual. At a safe point with both hands empty the worn case is
-REMOVEd into the right hand and OPENed, each card — INV LIST's by id,
-then those a LOOK IN of the loot and default containers lists — is got
-into the left hand and ADDed, and the case is CLOSEd and worn again;
-an item the case will not take goes back (client/game/cards.py, #457).
+manual. At a safe point with both hands empty the cards are looked
+for — INV LIST's by id, then those a LOOK IN of the loot and default
+containers lists — and with one found the worn case is REMOVEd into
+the right hand and OPENed, each card is got into the left hand and
+ADDed, and the case is CLOSEd and worn again; an item the case will
+not take goes back (client/game/cards.py, #457).
 """
 
 from types import SimpleNamespace
@@ -140,15 +141,15 @@ def test_each_card_goes_into_the_case_and_the_case_back_on_the_belt():
     added = cards.run(s, PROFILE, game)
     assert added == ["a Guildleader Kalika card", "a Guildleader Lomtaun card"]
     assert game.sent == [
+        "store default",
+        "look in my tote",
+        "look in my backpack",
         "remove #800",
         "open #800",
         "get #501",  # INV LIST's card in the sack, by id
         "cards add",
-        "store default",
-        "look in my tote",
         "get lomtaun card from my tote",
         "cards add",
-        "look in my backpack",
         "get playing card from my backpack",
         "cards add",
         "put #602 in my backpack",  # no collectible: back where it was
@@ -159,6 +160,24 @@ def test_each_card_goes_into_the_case_and_the_case_back_on_the_belt():
     assert "2 card(s) into the collector's case" in s.echoed[-1]
     assert any("would not take a playing card" in text for text in s.echoed)
     assert not cards.due(PROFILE)  # clean until the hunt pockets a card
+
+
+def test_with_no_card_anywhere_the_case_stays_on_the_belt():
+    # A session's first safe point looks for cards it may never have:
+    # on 2026-10-04 both cases came off, opened, closed and went back
+    # on with nothing to add.
+    s, game = handle(possessions=POSSESSIONS[:2])
+    game_look = game.__call__
+
+    def ask(s, command):
+        if command.startswith("look in my "):
+            game.sent.append(command)
+            return "In the straw tote you see a wax label.\n"
+        return game_look(s, command)
+
+    assert cards.run(s, PROFILE, ask) == []
+    assert game.sent == ["store default", "look in my tote", "look in my backpack"]
+    assert not cards.due(PROFILE)  # looked: not due until the hunt pockets one
 
 
 def test_a_card_from_the_login_listing_is_not_got_again_the_same_session():
@@ -257,7 +276,7 @@ def test_a_looted_dira_goes_into_the_worn_coin_case():
         return ""
 
     assert cards.run(s, DIRA_PROFILE, ask, "dira", kind="dira") == ["Imperial dira"]
-    assert sent[:4] == ["remove #810", "open #810", "get #520", "dira add"]
+    assert sent[3:7] == ["remove #810", "open #810", "get #520", "dira add"]
     assert sent[-2:] == ["close #810", "wear #810"]
     assert "1 dira(s) into the coin case" in s.echoed[-1]
     assert not cards.due(DIRA_PROFILE, "dira")

@@ -12,7 +12,8 @@ it ("You attach a coin case to your belt.").
 
 The items: INV LIST's (`s.state.possessions`, by id, any container
 but the case) and those a LOOK IN of the loot and default containers
-lists since. Anything with the kind's noun is tried — the 150 card
+lists since — looked for first, so the case stays on the belt when
+there is none. Anything with the kind's noun is tried — the 150 card
 names follow no one pattern ("The Kitchen card", "a Famous Faces ...
 card") — and the game is the judge: an item the case does not take goes
 back where it came from. Every one goes in, duplicates too (CARDS
@@ -121,6 +122,10 @@ def run(s, profile, ask, prefix="cards", kind="card"):
         s.echo(f"{prefix}: both hands must be empty for the case — it waits")
         return []
     case = case_ref(s, profile, kind)
+    gets = found(s, profile, ask, case, kind)
+    if not gets:
+        _STATE[kind] = False  # nothing to add: the case stays on the belt
+        return []
     answer = ask(s, f"remove {case}")
     if not _said(answer, REMOVED):
         s.echo(f"{prefix}: the {word} did not come off ({_first(answer)!r})")
@@ -131,23 +136,12 @@ def run(s, profile, ask, prefix="cards", kind="card"):
         if not _said(answer, OPENED):
             s.echo(f"{prefix}: the {word} did not open ({_first(answer)!r})")
             return []
-        for ref in listed(s, case, kind):
-            _TRIED.add(ref[1:])
-            name = _add(s, ask, prefix, f"get {ref}", None, kind)
+        for get, container in gets:
+            if get.startswith("get #"):
+                _TRIED.add(get[5:])
+            name = _add(s, ask, prefix, get, container, kind)
             if name:
                 added.append(name)
-        for container in containers(s, profile, ask):
-            answer = ask(s, f"look in my {container}")
-            for item in [it for it in items.listed(answer) or [] if is_item(it, kind)]:
-                words = item.split()
-                noun = (
-                    " ".join(words[-2:]) if len(words) > 2 else noun_of(item)
-                ).lower()
-                name = _add(
-                    s, ask, prefix, f"get {noun} from my {container}", container, kind
-                )
-                if name:
-                    added.append(name)
         _STATE[kind] = False
     finally:
         _put_on(s, case, word, ask, prefix)
@@ -155,6 +149,21 @@ def run(s, profile, ask, prefix="cards", kind="card"):
         label = KINDS[kind]["label"]
         s.echo(f"{prefix}: {len(added)} {label} into the {word}: {', '.join(added)}")
     return added
+
+
+def found(s, profile, ask, case, kind="card"):
+    """The GETs that fetch each item of the kind outside the case, with
+    the container it goes back to (None: STOW): INV LIST's by id, then
+    those a LOOK IN of the loot and default containers lists. Nothing
+    leaves a container yet."""
+    gets = [(f"get {ref}", None) for ref in listed(s, case, kind)]
+    for container in containers(s, profile, ask):
+        answer = ask(s, f"look in my {container}")
+        for item in [it for it in items.listed(answer) or [] if is_item(it, kind)]:
+            words = item.split()
+            noun = (" ".join(words[-2:]) if len(words) > 2 else noun_of(item)).lower()
+            gets.append((f"get {noun} from my {container}", container))
+    return gets
 
 
 def containers(s, profile, ask):
