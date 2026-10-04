@@ -39,6 +39,9 @@ DEFAULTS = {
     # The anatomy-chart book ;compendium studies for First Aid; "" is
     # the noun "compendium".
     "compendium": "",
+    # Where ;vault walks: the Carousel the character's vault is at (a
+    # ;go2 target); "" is the nearest town's.
+    "vault": "",
     # The weapon: GET <weapon> [FROM <container>] before the first
     # swing. "" fights barehanded (brawling).
     "weapon": "",
@@ -256,6 +259,7 @@ FIELDS = (
     ),
     ("premium", "Account has Premium (walks through Fang Cove's portals)", "bool", ""),
     ("compendium", "Anatomy chart book", "str", "empty: compendium — ;compendium"),
+    ("vault", "Vault's Carousel (;go2 target)", "str", "8285 — empty: the nearest"),
     ("weapon", "Weapon noun", "str", "empty: barehanded"),
     ("weapon_container", "Weapon is kept in", "str", "sack, sheath — empty: in hand"),
     ("stance", "STANCE SET arguments", "str", "e.g. 100 80 0 — empty: leave it"),
