@@ -642,8 +642,9 @@ def soul_step(s, plan, db, walk, room):
 def tdp_step(s, plan, quote):
     """One stat point bought in a rest when the plan says where the
     TDPs go (#230): INFO for the stats and the points, the plan's goals
-    or the guild's tiers for the stat (client/game/tdp.py), the wiki's
-    cost against the points past the reserve, then `;tdp train <stat>
+    or the guild's tiers for the stat (client/game/tdp.py), the cost the
+    stat's own command quotes (the wiki's formula without one) against
+    the points past the reserve, then `;tdp train <stat>
     +1` — which walks to the trainer, buys the one point the game
     quotes and walks back — waited for. True when a point was bought.
 
@@ -679,7 +680,14 @@ def tdp_step(s, plan, quote):
         quote["done"] = True  # every goal reached: nothing more this rest
         return False
     stat, value = choice
-    cost = tdp_model.point_cost(value)
+    # The stat's own command quotes the next point with the race's
+    # modifier in it (read-only, no roundtime): the wiki's bare formula
+    # priced Cecil's Stamina 18 at 54 where the game said "It will cost
+    # you 45 TDPs to raise your Stamina from 18 to 19." (2026-10-04).
+    quoted = tdp_model.parse_stat_answer(
+        probe.ask(s, stat.lower(), INFO_SECONDS, INFO_TAIL) or ""
+    )["next_cost"]
+    cost = quoted if quoted is not None else tdp_model.point_cost(value)
     quote.update(tdps=info["tdps"], cost=cost)
     if info["tdps"] - reserve < cost:
         if not quote.get("said"):

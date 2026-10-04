@@ -717,6 +717,28 @@ def test_auto_buys_the_guilds_tier_and_the_reserve_holds_points_back(
     assert held.started == []  # 347 - 340 covers no 30-TDP point
 
 
+def test_the_point_is_priced_by_the_stats_own_quote_with_the_race_in_it(
+    clock, monkeypatch
+):
+    # 2026-10-04: the wiki's bare formula priced Stamina 18 at 54; the
+    # game, the race's modifier in it, at 45. With 50 on hand the point
+    # is bought on the game's word.
+    monkeypatch.setattr(train, "INFO_SECONDS", 0.01)
+    monkeypatch.setattr(train, "INFO_TAIL", 0.01)
+    fake = _tdp_fake()
+    info = INFO_TEXT.replace("Stamina :  12", "Stamina :  18").replace(
+        "TDPs : 347", "TDPs : 50"
+    )
+    fake.answers = {
+        "info": [info] * 4,
+        "stamina": ["It will cost you 45 TDPs to raise your Stamina from 18 to 19."]
+        * 4,
+    }
+    run(clock, fake, plan(tdp=["stamina 30"]))
+    assert fake.started[0] == ("tdp", ["train", "stamina", "+1"])
+    assert "stamina" in fake.sent
+
+
 def test_no_tdp_plan_asks_no_info(clock):
     fake = _tdp_fake()
     run(clock, fake, plan())
