@@ -191,6 +191,30 @@ def test_the_old_plants_wounds_are_taken_and_healed_first(tmp_path, monkeypatch)
     assert clean.started == []
 
 
+def test_an_unrelated_line_first_does_not_lose_the_prepare(tmp_path, monkeypatch):
+    # 2026-10-05 00:05: "You feel fully rested." closed PREPARE's window,
+    # the spell's lines came after it, and the cast was given up held.
+    monkeypatch.setenv("REVENANT_TRAINING", str(tmp_path))
+    script = _script()
+    s = handle()
+    s.state.prepared_spell = "Embrace of the Vela'Tohr"  # held from that run
+
+    class Late(Game):
+        def __call__(self, s, command, *rest):
+            if command == "prepare ev 500":
+                self.sent.append(command)
+                s.lines.extend(PREPARED.splitlines())
+                return "You feel fully rested."
+            return super().__call__(s, command, *rest)
+
+    game = Late(s, CAST)
+    script.ask = game
+    assert (
+        script.run(s, script.parse_args(["7890"]), db=CHAMBERS, walk=arrive) == "cast"
+    )
+    assert game.sent[:3] == ["get my phial", "release spell", "prepare ev 500"]
+
+
 def test_low_mana_waits_and_records_nothing(tmp_path, monkeypatch):
     monkeypatch.setenv("REVENANT_TRAINING", str(tmp_path))
     script = _script()

@@ -42,6 +42,7 @@ severe wounds page the Empath, lighter ones wait for this plant.
 
 EMPATH_MINUTES = 15  # ;empath self after taking the plant's wounds
 READY_POLLS = 30  # one-second looks for the ritual's lines after the INVOKE
+ANSWER_POLLS = 4  # one-second looks past an answer that lacks its own line
 PERCEIVE_SECONDS = 4
 
 
@@ -92,6 +93,23 @@ def touch(s):
     return "clean"
 
 
+def read_answer(s, command, needles):
+    """The game's answer to `command`, read on past the ask's window, up
+    to ANSWER_POLLS quiet seconds, until a line holds one of `needles`:
+    "You feel fully rested." closed PREPARE's window before the spell's
+    own lines came, and the cast was given up with the spell held
+    (2026-10-05 00:05)."""
+    text = ask(s, command)
+    quiet = 0
+    while not plant.said(text, needles) and quiet < ANSWER_POLLS:
+        line = s.get(timeout=1)
+        if line is None:
+            quiet += 1
+            continue
+        text = f"{text}\n{line}"
+    return text
+
+
 def ritual_done(s, answer):
     """True once the ritual's energy reached the pattern — in the INVOKE's
     own answer or the lines after its roundtime; False when the spell
@@ -129,25 +147,30 @@ def cast(s, options):
         s.echo(f"plant: no {focus} on you — the ritual needs its focus")
         return None
     formed = False
+    if getattr(s.state, "prepared_spell", None):
+        ask(s, "release spell")  # a spell left held would refuse the PREPARE
     try:
-        answer = ask(s, f"prepare {plant.SPELL} {options['mana']}")
-        if not plant.said(answer, plant.PREPARED):
-            s.echo(f"plant: PREPARE answered {said(answer)!r}")
+        text = read_answer(
+            s, f"prepare {plant.SPELL} {options['mana']}", plant.PREPARED
+        )
+        if not plant.said(text, plant.PREPARED):
+            s.echo(f"plant: PREPARE answered {said(text)!r}")
+            ask(s, "release spell")
             return None
-        answer = ask(s, f"invoke my {focus}")
-        if not plant.said(answer, plant.INVOKED):
-            s.echo(f"plant: INVOKE answered {said(answer)!r}")
+        text = read_answer(s, f"invoke my {focus}", plant.INVOKED + plant.LOST)
+        if not plant.said(text, plant.INVOKED):
+            s.echo(f"plant: INVOKE answered {said(text)!r}")
             ask(s, "release spell")
             return None
         s.waitrt()
-        if not ritual_done(s, answer):
+        if not ritual_done(s, text):
             s.echo("plant: the ritual never reached the pattern — the spell is lost")
             ask(s, "release spell")
             return None
-        answer = ask(s, "cast")
-        formed = plant.said(answer, plant.FORMED)
+        text = read_answer(s, "cast", plant.FORMED + plant.CAST_FAILED)
+        formed = plant.said(text, plant.FORMED)
         if not formed:
-            s.echo(f"plant: CAST answered {said(answer)!r}")
+            s.echo(f"plant: CAST answered {said(text)!r}")
             return None
     finally:
         ask(s, f"stow my {focus}")

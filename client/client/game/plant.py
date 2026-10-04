@@ -33,6 +33,7 @@ INVOKED = ("draw the spell pattern's shadow",)
 RITUAL = ("your ritual directs the energy", "fully prepared to cast")
 LOST = ("your concentration slips", "your spell is lost")
 FORMED = ("vela'tohr plant forms",)
+CAST_FAILED = ("too mentally fatigued", "slips away", "don't have a spell prepared")
 STRAIN = ("will disrupt about half your current attunement",)
 # The creator's TOUCH, the wiki's wordings until captured.
 NO_NEED = ("no need of healing",)
