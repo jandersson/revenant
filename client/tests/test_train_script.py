@@ -1229,6 +1229,65 @@ def test_no_plant_in_its_room_ends_the_task(clock):
     assert "touch plant" not in fake.sent
 
 
+GET_HEALED = PAGED_HEAL | {"name": "get healed", "plant": "on"}
+
+
+def get_healed(clock, monkeypatch, world, health):
+    from client.game import helper
+
+    monkeypatch.setattr(train, "HelperIO", world)
+    started = []
+    monkeypatch.setattr(
+        train,
+        "start_helper",
+        lambda s, task, db, walk: (
+            started.append(task["name"]) or helper.Helper("Uthmor", 4243, False)
+        ),
+    )
+
+    def healed(fake):
+        fake.state.injuries = {}
+
+    fake = Fake([{}, healed])
+    fake.state.injuries = {"chest": ("wound", 3)}
+    fake.state.room_objs = "You also see an ethereal vela'tohr plant."
+    fake.answers = {"health": [health], "touch plant": [PLANT_TOUCHED]}
+    clock["fake"] = fake
+    task = normalize({"tasks": [GET_HEALED]})["tasks"][0]
+    reason = train.run_task(fake, plan(plant_room="bank", poll=10), task, MAP, walk)
+    return fake, started, reason
+
+
+def test_get_healed_takes_a_light_wound_to_the_plant(clock, monkeypatch):
+    # The operator, 2026-10-04: a "get healed" task first in the order —
+    # severe wounds get the Empath, anything lighter the plant.
+    world = PagedWorld([[]])
+    fake, started, reason = get_healed(clock, monkeypatch, world, HEALTH_LIGHT)
+    assert reason == "plant healed"
+    assert started == [] and world.sent == []
+    assert "train: get healed — no wound is severe or worse: the plant" in fake.echoed
+
+
+def test_get_healed_takes_a_severe_wound_to_the_helper(clock, monkeypatch):
+    world = PagedWorld([[], ["empath"], []])  # the Empath free: no page
+    fake, started, reason = get_healed(clock, monkeypatch, world, HEALTH_SEVERE)
+    assert reason == "helper done"
+    assert started == ["get healed"]
+    assert "touch plant" not in fake.sent
+    assert fake.sent.count("health") == 1
+
+
+def test_get_healed_falls_back_to_the_plant_when_the_page_goes_unanswered(
+    clock, monkeypatch
+):
+    world = PagedWorld([["train"]], answers=False)
+    fake, started, reason = get_healed(clock, monkeypatch, world, HEALTH_SEVERE)
+    assert reason == "plant healed"
+    assert started == []
+    assert world.sent == [";train page lanival", ";train release"]
+    assert "train: get healed — the plant instead" in fake.echoed
+
+
 def test_a_plant_task_needs_the_plans_plant_room():
     from client.game.training import validate
 

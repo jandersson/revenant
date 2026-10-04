@@ -27,7 +27,8 @@ What it does
   - In the rests: soul deeds when `soul` is on, stat points from the plan's `tdp` list,
     and, wounded, the vela'tohr plant in `plant_room` touched and rested beside.
   - An Empath's `keep_plant`: between tasks and in rests, ;plant recasts the plant there
-    before it ends. A task with `plant: on` is spent beside that plant until healed.
+    before it ends. A task with `plant: on` is spent beside that plant until healed;
+    with a `helper` and `helper_page` too, a wound that bad gets the helper instead.
   - The interludes (the profile's `almanac`, a typed `;break`) between tasks and in rests.
   - A helper busy on its own ;train: its task is skipped, or, with `helper_page` and a wound
     that bad, its ;train is paged for the task and handed back after.
@@ -603,13 +604,26 @@ def run_task(s, plan, task, db=None, walk=None):
             return "unneeded"
     spec = helper.spec_of(task)
     io = HelperIO(s, db)
+    floor = str(task.get("helper_page") or "").strip().lower()
+    plant_too = task.get("plant") == "on"
+    bad = None  # HEALTH not asked yet
+    if spec and floor and plant_too:
+        # Get healed (the operator, 2026-10-04): the helper for a wound
+        # at helper_page or worse, the plant for anything lighter.
+        bad = severe(s, floor)
+        if not bad:
+            s.echo(f"train: {task['name']} — no wound is {floor} or worse: the plant")
+            return work_task(s, plan, task, db, walk, use_helper=False)
     busy_with = spec and helper.busy(io, spec["name"])
     paged = None
     if busy_with:
         # Two loops would drive one character (#470): the helper's own
         # ;train keeps it, unless a bad enough wound pages it (#472).
-        paged = page_helper(s, task, spec["name"], busy_with, io)
+        paged = page_helper(s, task, spec["name"], busy_with, io, bad)
         if paged is None:
+            if plant_too:
+                s.echo(f"train: {task['name']} — the plant instead")
+                return work_task(s, plan, task, db, walk, use_helper=False)
             return "busy"
     try:
         return work_task(s, plan, task, db, walk, paged is not None)
@@ -619,18 +633,25 @@ def run_task(s, plan, task, db=None, walk=None):
             s.echo(f"train: {spec['name']} handed back to ;train")
 
 
-def page_helper(s, task, name, busy_with, io):
+def severe(s, floor):
+    """True when HEALTH shows a wound at `floor` (a severity) or worse."""
+    return bool(parse_health(act.ask(s, "health")).at_least(floor))
+
+
+def page_helper(s, task, name, busy_with, io, bad=None):
     """The busy helper paged for this task (#472), its port: the task
     pages (`helper_page`), the helper is on its own ;train, and HEALTH
     shows a wound that bad or worse. None, said, otherwise — the task is
     skipped (#470), and the rests' vela'tohr plant heals the rest (the
     operator, 2026-10-04: "emergencies with severe wounds, then page,
-    else use the plant")."""
+    else use the plant"). `bad`: HEALTH already read, None to ask."""
     floor = str(task.get("helper_page") or "").strip().lower()
     if busy_with != "train" or not floor:
         s.echo(f"train: {task['name']} — {name} is running ;{busy_with}, skipped")
         return None
-    if not parse_health(act.ask(s, "health")).at_least(floor):
+    if bad is None:
+        bad = severe(s, floor)
+    if not bad:
         s.echo(
             f"train: {task['name']} — {name} is running ;train and no wound is "
             f"{floor} or worse, skipped"
@@ -641,15 +662,16 @@ def page_helper(s, task, name, busy_with, io):
     return helper.page(io, name, student, s.echo)
 
 
-def work_task(s, plan, task, db, walk, paged=False):
+def work_task(s, plan, task, db, walk, paged=False, use_helper=True):
     """run_task past its gates: the helper started, the task worked, the
     helper ended. A paged helper (#472) is never logged out here: its
-    own ;train gets it back."""
+    own ;train gets it back. Without `use_helper`, or with a helper that
+    could not be had, a `plant` task heals at the plant instead."""
     budget = task_minutes(plan, task)
     deadline = clock() + budget * 60 if budget else None
     limit = f"up to {budget} min" if budget else "no time limit"
     s.echo(f"train: {task['name']} — {progress(plan, task, experience(s))} ({limit})")
-    active = start_helper(s, task, db, walk)
+    active = start_helper(s, task, db, walk) if use_helper else None
     if paged and active is not None:
         active.spawned = False  # lent, not this loop's to log out
     send_each(s, task["setup"])

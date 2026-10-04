@@ -67,7 +67,7 @@ A task:
 | `setup`, `teardown` | sent before and after the task (`get my flute` / `stow my flute`) |
 | `target`, `minutes` | this task's own target and budget |
 | `helper`, `helper_script`, `helper_args`, `helper_room` | a second character of yours logged in for the task, such as a teacher for `;listen`; one sharing its account with a logged-in character logs that one out first |
-| `plant` | `on`: the task is spent beside the plant in `plant_room`, touched, until the injuries panel is clean (with `when: wounded`, the heal after a hunt) |
+| `plant` | `on`: the task is spent beside the plant in `plant_room`, touched, until the injuries panel is clean (with `when: wounded`, the heal after a hunt). With a `helper` and `helper_page` too, a wound that bad gets the helper and a lighter one the plant |
 | `helper_page` | a wound severity (`severe`): a helper busy on its own `;train` is paged for the task when HEALTH shows a wound that bad or worse; blank skips the task |
 | `helper_after` | `stay`: the helper stays logged in after the task, ready for the next; `after`: the helper logs out once its script ends. With either, a `when: wounded` task ends once you are clean, the helper finishing on its own |
 | `when` | `wounded`: skipped while the injuries panel is clean; `favors<10`: skipped once you hold 10 favors (a `;favors` task keeps you at that cap) |
