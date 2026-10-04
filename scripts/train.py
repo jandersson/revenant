@@ -537,7 +537,12 @@ def wounded(s):
 # combat; it never heals another Empath and is gone when its Empath logs
 # out (Elanthipedia: Embrace of the Vela'tohr). Riphik cast one in the
 # Paladins' Guild Chambers, 2026-10-03: "You also see an ethereal
-# vela'tohr plant". The touch's wordings are the wiki's until captured.
+# vela'tohr plant". Captured on Cecil, 2026-10-04 23:28: the touch's
+# "You feel an empathic connection forming between you and the
+# vela'tohr plant.", then "Your wounds tingle in cool relief and the
+# vela'tohr plant rustles in apparent pain."; leaving the room ends it
+# with "You no longer feel the warmth from the touch of the vela'tohr
+# plant." A light wound healed in 30 seconds.
 PLANT = "vela'tohr plant"
 PLANT_TOUCHED = (
     "empathic connection forming",

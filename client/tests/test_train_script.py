@@ -1117,7 +1117,7 @@ def test_a_task_only_when_wounded_is_skipped_while_the_panel_is_clean(
 
 
 # --- the vela'tohr plant in the rests (#443) --------------------------------
-# The wiki's patient line (Elanthipedia: Embrace of the Vela'tohr).
+# The patient's touch: the wiki's line, the game's own on Cecil, 2026-10-04.
 PLANT_TOUCHED = (
     "You reach out to touch an ethereal vela'tohr plant and it extends a green "
     "branch, soft leaves curling against your flesh with a cool tingle.  You feel "
