@@ -54,6 +54,7 @@ STUDY_OUTCOMES = (
     ("done", ("discerned all you can",)),
     ("studying", ("gradually absorbing", "difficult time comprehending")),
 )
+DIFFICULT = ("difficult time comprehending",)  # a slow study, see level()
 # GET MY COMPENDIUM: "You get a grey leather compendium ... from inside
 # your backpack." (2026-10-04).
 GOT = ("you get", "you pick up", "already holding")
@@ -102,6 +103,72 @@ def plan(names, scholarship):
     ]
     known.sort(key=lambda name: -CHARTS[name][1])
     return known + [name for name in names if name not in CHARTS]
+
+
+def level(name):
+    """The chart's rank on the wiki's scale, which is the Scholarship it
+    is studied smoothly at: dr-scripts' table halves the wiki's numbers
+    up to the race charts (Blood Nyad 35, the wiki's 70) and matches
+    them past those (Snow Goblin 120 both). At Scholarship 77 the wiki's
+    70s went smoothly and its 80s and 90s answered "having a difficult
+    time comprehending" (2026-10-04). None for a chart the table lacks."""
+    if name not in CHARTS:
+        return None
+    need = CHARTS[name][1]
+    return need * 2 if need <= 50 else need
+
+
+# What the studies showed this session, past the table's guess: a chart
+# that answered "difficult time" is slow, one that went to clarity
+# without it is at level.
+_SLOW = set()
+_EASY = set()
+
+
+def mark(name, slow):
+    """What a study showed: slow wins for the session — a slow chart
+    resumed later can finish without a "difficult" answer."""
+    if slow:
+        _SLOW.add(name)
+        _EASY.discard(name)
+    elif name not in _SLOW:
+        _EASY.add(name)
+
+
+def slow(name, scholarship):
+    """True when the chart is slow at this Scholarship: seen so this
+    session, else its level past the rank."""
+    if name in _SLOW:
+        return True
+    if name in _EASY or scholarship is None:
+        return False
+    rank = level(name)
+    return rank is not None and rank > scholarship
+
+
+def choose(names, now, scholarship, first_aid_room, scholarship_room):
+    """The chart to study next among `names` (the plan's order, hardest
+    first), or None with every one resting or no skill with room. First
+    Aid is paid per clarity, Scholarship per study (Elanthipedia:
+    Anatomy charts), so an at-level chart goes first while First Aid has
+    room, and a slow one fills the time otherwise: its every study
+    teaches Scholarship (the Boggle, 39 studies to clarity, took
+    Scholarship 15/34 -> 25/34)."""
+    open_ = [name for name in names if not locked(name, now)]
+    easy = [name for name in open_ if not slow(name, scholarship)]
+    hard = sorted(
+        (name for name in open_ if slow(name, scholarship)),
+        key=lambda name: level(name) or 0,
+    )
+    for room, pool in (
+        (first_aid_room, easy),
+        (scholarship_room, hard),
+        (first_aid_room, hard),
+        (scholarship_room, easy),
+    ):
+        if room and pool:
+            return pool[0]
+    return None
 
 
 def index(name):

@@ -68,6 +68,8 @@ STOWED = "You put your compendium in your backpack.\n"
 @pytest.fixture(autouse=True)
 def fresh(monkeypatch):
     monkeypatch.setattr(compendium, "_LOCKED", {})
+    monkeypatch.setattr(compendium, "_SLOW", set())
+    monkeypatch.setattr(compendium, "_EASY", set())
 
 
 def test_the_look_lists_the_charts():
@@ -170,7 +172,8 @@ class Game:
             state.right_hand = None
             return STOWED
         if command == "look my compendium":
-            return LOOK.split("\n   ")[0] + "\n   Blood Nyad\n   Silver Leucro\n"
+            head = LOOK.split("\n   ")[0]
+            return head + "\n" + "".join(f"   {name}\n" for name in self.studies)
         if command.startswith("turn my compendium to "):
             word = command.removeprefix("turn my compendium to ")
             for name in self.studies:
@@ -288,3 +291,77 @@ def test_until_and_once_parse():
     script = _script()
     assert script.parse_args(["until=30", "once"]) == {"until": 30, "once": True}
     assert script.parse_args([]) == {"until": 34, "once": False}
+
+
+# --- at your level first, the slow ones for Scholarship ---
+
+
+def test_a_charts_level_is_the_wikis_rank():
+    assert compendium.level("Blood Nyad") == 70  # dr-scripts' 35
+    assert compendium.level("Boggle") == 90
+    assert compendium.level("Human") == 100
+    assert compendium.level("Snow Goblin") == 120  # the scales meet past the races
+    assert compendium.level("Mystery Beast") is None
+
+
+def test_at_level_charts_go_first_while_first_aid_has_room():
+    names = ["Boggle", "Blood Nyad", "Equine"]
+    # Scholarship 77: the Boggle (90) is slow, the Nyad (70) and Equine (60) at level.
+    assert compendium.choose(names, 0, 77, True, True) == "Blood Nyad"
+    # First Aid locked, Scholarship not: the slow chart, every study pays.
+    assert compendium.choose(names, 0, 77, False, True) == "Boggle"
+    # The at-level ones resting: the slow one fills the time.
+    compendium.lock("Blood Nyad", 0)
+    compendium.lock("Equine", 0)
+    assert compendium.choose(names, 60, 77, True, True) == "Boggle"
+    compendium.lock("Boggle", 0)
+    assert compendium.choose(names, 60, 77, True, True) is None
+    # Neither skill with room: nothing to study.
+    assert compendium.choose(["Equine"], 2000, 77, False, False) is None
+
+
+def test_a_slow_chart_fills_the_time_after_the_at_level_ones():
+    script = _script()
+    s = handle()
+    game = Game(
+        s,
+        {
+            "Boggle": [DIFFICULT, CONTINUE, DIFFICULT_ON, CLARITY],
+            "Blood Nyad": [BEGIN, CLARITY],
+        },
+    )
+    script.ask = game
+    script.clock = lambda: 5000.0
+    script.run(s, {"until": 34, "once": True}, {})
+    turns = [command for command in game.sent if command.startswith("turn")]
+    assert turns == ["turn my compendium to blood nyad", "turn my compendium to boggle"]
+    assert any("Boggle at clarity" in text for text in s.echoed)
+    assert any("slow, for the time between: Boggle" in text for text in s.echoed)
+
+
+def test_a_chart_that_proves_slow_gives_way_to_an_at_level_one():
+    # The Glutinous Lipopod looks at level (70 under 77) and goes first,
+    # the harder of the two; its first answer is "difficult time", so it
+    # is set aside while Equine is open, and finished once Equine rests.
+    script = _script()
+    s = handle()
+    game = Game(
+        s,
+        {
+            "Glutinous Lipopod": [DIFFICULT, CONTINUE, CLARITY],
+            "Equine": [BEGIN, CLARITY],
+        },
+    )
+    script.ask = game
+    script.clock = lambda: 5000.0
+    script.run(s, {"until": 34, "once": True}, {})
+    turns = [command for command in game.sent if command.startswith("turn")]
+    assert turns == [
+        "turn my compendium to glutinous",
+        "turn my compendium to equine",
+        "turn my compendium to glutinous",
+    ]
+    assert any("Glutinous Lipopod is slow" in text for text in s.echoed)
+    assert any("Glutinous Lipopod at clarity" in text for text in s.echoed)
+    assert "Glutinous Lipopod" in compendium._SLOW
+    assert "Equine" in compendium._EASY

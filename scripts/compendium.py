@@ -1,25 +1,27 @@
-"""Train First Aid from a compendium of anatomy charts:  ;compendium
+"""Train First Aid and Scholarship from a compendium of anatomy charts:  ;compendium
 
-    ;compendium              study its charts, hardest first, until First Aid mind-locks, then hold
+    ;compendium              study its charts until First Aid and Scholarship mind-lock, then hold
     ;compendium until=30     stop at that mindstate instead of 34
-    ;compendium once         end at mind-lock, or when every chart is resting
+    ;compendium once         end at the lock, or when every chart is resting
     ;compendium return       (typed while it runs) finish the chart in hand and end
     ;stop compendium         quit at once; the compendium is stowed
 
 What it does
   - Gets the compendium (the profile's `compendium`) into a hand and LOOKs at it for its charts.
-  - The hardest chart Scholarship reads goes first: TURN to its page, STUDY until clarity, then the next.
-  - A chart at clarity rests twenty minutes; with every chart resting it waits for the first to open.
-  - Scholarship learns on every study, First Aid on the first and at clarity.
+  - First Aid is paid per chart at clarity, Scholarship per study. So while First Aid
+    has room, the charts at your level go first, hardest first: a few studies each.
+  - A slow chart (past your level: "having a difficult time comprehending") fills the
+    time when the others rest or First Aid is locked; every study still teaches Scholarship.
+  - A chart at clarity rests twenty minutes; with every chart resting it waits for the first.
   - Stows the compendium at every end.
 
 When it stops
-  - First Aid at the mindstate (with `once`), or ;compendium return
+  - both skills at the mindstate (with `once`), or ;compendium return
   - death or hostiles (the shared escape)
   - no compendium on you or a hand to hold it, no chart in it, none Scholarship reads
 
-;train runs it as a First Aid task. The model and the game's wordings are
-client/game/compendium.py's; docs/firstaid.md.
+;train runs it as a First Aid and Scholarship task. The model and the game's
+wordings are client/game/compendium.py's; docs/firstaid.md.
 """
 
 import time
@@ -39,11 +41,17 @@ pinned the wordings and the pace: a chart well inside the reach (a
 Silver Leucro at Scholarship 77) reached clarity at the first study and
 taught next to nothing; one nearer the reach (Blood Nyad, Glutinous
 Lipopod) took seven to nine studies of 14 s and moved First Aid about
-one mindstate, Scholarship alongside. So the hardest goes first.
+one mindstate, Scholarship alongside. A chart past the level (the
+Boggle, the wiki's 90) took 39 studies of 18 s to clarity: one First
+Aid award in 14 minutes against an at-level chart's in under one, but
+Scholarship 15/34 -> 25/34 on the way (the operator: lock both from
+the compendium). Hence at-level charts while First Aid has room, the
+slow ones for Scholarship and the time between.
 """
 
 SKILL = "First Aid"
 SCHOLARSHIP = "Scholarship"
+SKILLS = [SKILL, SCHOLARSHIP]  # the run holds or ends when both lock
 STUDY_FUSE = 60  # studies of one chart before giving it up: the Boggle took 39
 clock = time.monotonic  # tests replace it
 
@@ -81,10 +89,13 @@ def hold(s, noun):
     return True
 
 
-def study(s, noun, name, tally):
+def study(s, noun, name, tally, give_way=lambda: False):
     """TURN to the chart and STUDY it until clarity; what came of it:
-    "clarity", "locked", "too hard", "missing", "unheld", "danger", or
-    "unknown" (said)."""
+    "clarity", "locked", "too hard", "missing", "unheld", "danger",
+    "slow" (it answered "difficult time" and `give_way()` says an
+    at-level chart is waiting), or "unknown" (said). A chart that
+    answered "difficult time" is marked slow, one that went to clarity
+    without it at level."""
     for attempt in range(2):
         answer = ask(s, f"turn my {noun} to {compendium.index(name)}")
         outcome = classify(answer, compendium.TURN_OUTCOMES)
@@ -96,6 +107,7 @@ def study(s, noun, name, tally):
             unknown(s, "compendium", "turn", answer)
             return "unknown"
         return outcome
+    struggled = False
     for _ in range(STUDY_FUSE):
         if danger(s):
             return "danger"
@@ -103,9 +115,17 @@ def study(s, noun, name, tally):
         outcome = classify(answer, compendium.STUDY_OUTCOMES)
         if outcome == "studying":
             tally["studies"] += 1
+            if any(word in answer.lower() for word in compendium.DIFFICULT):
+                if not struggled:
+                    struggled = True
+                    compendium.mark(name, slow=True)
+                if give_way():
+                    return "slow"
             continue
         if outcome in ("clarity", "done"):
             tally["studies"] += 1
+            if not struggled:
+                compendium.mark(name, slow=False)
             return "clarity"
         if outcome == "unheld":
             if not hold(s, noun):
@@ -139,20 +159,29 @@ def run(s, options, profile):
             order.extend(compendium.plan(listed, scholarship))
             if not order:
                 return f"no chart in the {noun} that Scholarship {scholarship} reads"
+            easy = [name for name in order if not compendium.slow(name, scholarship)]
+            hard = [name for name in order if compendium.slow(name, scholarship)]
             s.echo(
-                f"compendium: {len(order)} chart(s), hardest first — "
-                + ", ".join(order)
+                f"compendium: {len(order)} chart(s) — at your level, hardest "
+                f"first: {', '.join(easy) or 'none'}"
+                + (f"; slow, for the time between: {', '.join(hard)}" if hard else "")
             )
         now = clock()
-        open_ = [
-            name
-            for name in order
-            if name not in shut and not compendium.locked(name, now)
-        ]
-        if not open_:
-            usable = [name for name in order if name not in shut]
-            if not usable:
-                return f"no chart in the {noun} that can be studied"
+        usable = [name for name in order if name not in shut]
+        if not usable:
+            return f"no chart in the {noun} that can be studied"
+        scholarship = rank_of(s, SCHOLARSHIP)
+        until = options["until"]
+        values = trainer.mindstates(s, SKILLS)
+
+        def room(skill):
+            value = values.get(skill)
+            return value is None or value < until
+
+        name = compendium.choose(
+            usable, now, scholarship, room(SKILL), room(SCHOLARSHIP)
+        )
+        if name is None:
             wait = compendium.next_unlock(usable, now)
             seconds, first = wait if wait else (0, usable[0])
             minutes = max(1, round(seconds / 60))
@@ -164,17 +193,39 @@ def run(s, options, profile):
             )
             pause(s, seconds)
             return None
-        name = open_[0]
-        outcome = study(s, noun, name, tally)
+
+        def give_way():
+            """An at-level chart opened while First Aid has room: a slow
+            chart is set aside for it."""
+            if not room(SKILL):
+                return False
+            current = trainer.mindstates(s, [SKILL]).get(SKILL)
+            if current is not None and current >= until:
+                return False
+            return any(
+                other != name
+                and not compendium.slow(other, scholarship)
+                and not compendium.locked(other, clock())
+                for other in usable
+            )
+
+        outcome = study(s, noun, name, tally, give_way)
         if outcome in ("clarity", "locked"):
             compendium.lock(name, clock())
             if outcome == "clarity":
                 tally["charts"] += 1
-                shown = trainer.mindstates(s, SKILL).get(SKILL)
+                shown = trainer.mindstates(s, SKILLS)
                 s.echo(
-                    f"compendium: {name} at clarity — {SKILL} "
-                    f"{shown if shown is not None else '?'}/34"
+                    f"compendium: {name} at clarity — "
+                    + ", ".join(
+                        f"{skill} {shown.get(skill, '?')}/34" for skill in SKILLS
+                    )
                 )
+        elif outcome == "slow":
+            s.echo(
+                f"compendium: the {name} is slow at your Scholarship — "
+                "back to it when the others rest"
+            )
         elif outcome == "too hard":
             shut.add(name)
             s.echo(f"compendium: the {name} is past your Scholarship — skipped")
@@ -187,7 +238,7 @@ def run(s, options, profile):
     why = trainer.train(
         s,
         "compendium",
-        SKILL,
+        SKILLS,
         step,
         until=options["until"],
         once=options["once"],

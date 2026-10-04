@@ -1,16 +1,17 @@
 # First Aid from anatomy charts
 
-`;compendium` studies the anatomy charts in a compendium, hardest first, until First Aid mind-locks. Scholarship learns on every study, First Aid on the first and at each chart's clarity, so it trains both without a teacher.
+`;compendium` trains First Aid and Scholarship from the anatomy charts in a compendium until both mind-lock. First Aid is paid per chart at clarity, Scholarship per study, so it studies the charts at your level while First Aid has room and the slow ones in the time between.
 
 ```
-;compendium            study until First Aid mind-locks, then hold for the drain
+;compendium            study until both mind-lock, then hold for the drain
 ;compendium until=30   stop at that mindstate
-;compendium once       end at mind-lock, or when every chart is resting
+;compendium once       end at the lock, or when every chart is resting
 ```
 
-- A chart at clarity rests twenty minutes. Several charts keep the study going.
-- A chart near the top of your reach is slow, not refused: "having a difficult time comprehending the advanced text" is studied on (a Boggle took 39 studies at Scholarship 77, Scholarship rising all the way). Only "almost impossible" skips a chart.
-- The order comes from dr-scripts' chart table (`client/game/anatomy_data.py`, regenerated with `uv run python tools/anatomy_tables.py`): the hardest chart your Scholarship reads first. Up to rank 100 that is the rank itself; past it, the rank over 1.6.
+- A chart is at your level when its wiki rank is at or under your Scholarship: a few studies to clarity. Past it, the game answers "having a difficult time comprehending the advanced text" and the chart is slow (a Boggle, wiki 90, took 39 studies at Scholarship 77), but every study still teaches Scholarship. Only "almost impossible" skips a chart.
+- At-level charts go first, hardest first; a chart that proves slow is set aside while one is open. The slow ones fill the time when the others rest or First Aid is locked.
+- A chart at clarity rests twenty minutes. Several at-level charts keep First Aid moving.
+- The chart table is dr-scripts' (`client/game/anatomy_data.py`, regenerated with `uv run python tools/anatomy_tables.py`); its numbers are half the wiki's up to the race charts.
 - The profile's `compendium` names the book when its noun is not "compendium".
 
 ## Charts and where to buy them
