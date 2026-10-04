@@ -1197,6 +1197,38 @@ def test_a_plant_run_that_cast_nothing_waits_before_the_next(clock, monkeypatch)
     assert train.keep_plant(fake, plan()) is False  # no keep_plant: never
 
 
+def test_a_recast_due_mid_task_sets_the_task_aside_and_runs_it_again(
+    clock, monkeypatch
+):
+    # 2026-10-04: Riphik's plant came due at 23:54 inside a 30-minute
+    # research task and would have lapsed before the task ended.
+    import os
+    import time
+
+    from client.game import plant
+
+    monkeypatch.setattr(train, "KEPT", {})
+    plant.record("Lanival", "7890", 62, os.getpid(), now=time.time())
+
+    def lapse(fake):
+        plant.record("Lanival", "7890", 62, os.getpid(), now=time.time() - 3600)
+
+    fake = Fake([{"Athletics": 3}, lapse])
+    plain = fake.run
+
+    def run_script(name, args=()):
+        if name == "plant":
+            plant.record("Lanival", "7890", 62, os.getpid(), now=time.time())
+        return plain(name, args)
+
+    fake.run = run_script
+    fake.exits = {"plant": 5}
+    run(clock, fake, plan(keep_plant="7890", tasks=[plan()["tasks"][0]]))
+    started = [name for name, _ in fake.started]
+    assert started[:3] == ["athletics", "plant", "athletics"]
+    assert any("climbs set aside for the plant's recast" in t for t in fake.echoed)
+
+
 def plant_task(clock, room_objs):
     def healed(fake):
         fake.state.injuries = {}

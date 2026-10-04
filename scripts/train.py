@@ -282,6 +282,11 @@ def watch(s, plan, task, deadline, running=None):
         return "target"
     if deadline is not None and clock() >= deadline:
         return "timeout"
+    if plant_due(s, plan):
+        # The plant's recast came due mid-task: the task is set aside for
+        # it and runs again (a 30-minute task outlasted the 10-minute
+        # margin, 2026-10-04 23:54).
+        return "plant"
     return user_word(s, plan)
 
 
@@ -354,6 +359,7 @@ ENDINGS = {
     "unneeded": "not needed",
     "busy": "skipped — its helper is busy",
     "page": "set aside for a page",
+    "plant": "set aside for the plant's recast",
     "plant healed": "healed at the plant",
     "no plant": "found no plant",
 }
@@ -380,19 +386,31 @@ def study_almanac(s, plan=None):
     interlude.run_due(s)
 
 
-def keep_plant(s, plan):
-    """The plan's `keep_plant` room kept in a vela'tohr plant (#473):
-    `;plant <room>` run and waited for when the cast's record says one is
-    due — none yet, another session, or its end near. True when it ran;
-    a run that cast nothing waits PLANT_RETRY_MINUTES before the next."""
+def plant_due(s, plan):
+    """The plan's `keep_plant` room when its plant wants a cast now: the
+    record says none yet, another session or its end near, nothing stands
+    in the way (death, hostiles, a ;plant running), and no failed run in
+    the last PLANT_RETRY_MINUTES. Else None."""
     room = str(plan.get("keep_plant") or "").strip()
     if not room or s.dead or s.is_running("plant") or hostiles_present(s.state):
-        return False
+        return None
     name = getattr(s.state, "name", None) or ""
     if not plant.due(name, room, os.getpid()):
-        return False
+        return None
     if "failed" in KEPT and clock() - KEPT["failed"] < PLANT_RETRY_MINUTES * 60:
+        return None
+    return room
+
+
+def keep_plant(s, plan):
+    """The plan's `keep_plant` room kept in a vela'tohr plant (#473):
+    `;plant <room>` run and waited for when plant_due says so. True when
+    it ran; a run that cast nothing waits PLANT_RETRY_MINUTES before the
+    next."""
+    room = plant_due(s, plan)
+    if room is None:
         return False
+    name = getattr(s.state, "name", None) or ""
     if not s.run("plant", [room]):
         return False
     s.echo(f"train: the vela'tohr plant at {room} is due — ;plant {room}")
@@ -709,6 +727,8 @@ def work_task(s, plan, task, db, walk, paged=False, use_helper=True):
         held = lend(s, plan, db, walk)
         if held is not None:
             return held
+    if reason == "plant":
+        keep_plant(s, plan)
     return reason
 
 
@@ -792,8 +812,8 @@ def train_cycle(s, plan, db=None, walk=None):
         reason = run_task(s, plan, task, db, walk)
         if reason in ("dead", "shutdown", "return"):
             return reason
-        if reason == "page":
-            continue  # set aside for a page, not spent: it runs again
+        if reason in ("page", "plant"):
+            continue  # set aside, not spent: it runs again
         spent.add(task["name"])
         outcomes.append(reason)
         if reason == "rest":
