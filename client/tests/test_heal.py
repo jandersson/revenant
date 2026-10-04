@@ -746,6 +746,17 @@ def test_an_empath_of_your_own_is_logged_in_brought_and_logged_out(monkeypatch):
     assert (4260, ";empath return") not in world.sent
 
 
+def test_an_empath_running_its_own_train_is_left_to_it(monkeypatch):
+    # #470: two loops would drive one character.
+    world = EmpathWorld(
+        sessions=[{"port": 4261, "character": "Uthmor"}], scripts=[["xp", "train"]]
+    )
+    fake = patient([HEALTH, CLEAN])
+    reason = empath_call(fake, world, monkeypatch=monkeypatch)
+    assert reason == "Uthmor is running ;train — ;stop it there first"
+    assert world.sent == []
+
+
 def test_an_empath_told_to_stay_or_already_in_stays_logged_in(monkeypatch):
     world = EmpathWorld(scripts=[["empath"], []])
     fake = patient([HEALTH, CLEAN])

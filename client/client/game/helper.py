@@ -26,6 +26,8 @@ student's own lasts while the helper's script runs (the session's
 without a return word that would start the script again. A task whose
 `helper_after` is "stay" leaves the helper logged in for the next one
 (Riphik between heals; the session answers the idle warning itself).
+A helper running its own `;train` is busy (#470): its task is
+skipped, said, rather than two loops driving one character.
 Every line to the helper goes through the wire tagged "train", so its
 window reads `>> [train] ...`. A helper that cannot be had — no
 account cached for the name, no password in the keychain, a session
@@ -46,6 +48,9 @@ ARRIVAL_SECONDS = 180  # the helper's walk to the room
 KNOWN_SECONDS = 30  # a fresh login's parser learning its room before ;go2
 SETTLE_SECONDS = 3  # after a script start or return, before the next line
 LOGOUT_SECONDS = 90  # the account's other character's ;logout
+# A helper running one of these drives itself: a task wanting it is
+# skipped (#470, the operator's option 1, 2026-10-04).
+BUSY_SCRIPTS = ("train",)
 
 
 class Helper:
@@ -122,6 +127,17 @@ def running(io, helper, script):
     if names is None:
         return None
     return script.lower() in {str(n).lower() for n in names}
+
+
+def busy(io, name):
+    """The script that keeps the logged-in helper `name` busy — its own
+    `;train` (#470) — or None when it is free, logged out, or its
+    session does not say."""
+    port = find_session(io.sessions(), name)
+    if not port:
+        return None
+    names = {str(n).lower() for n in io.scripts_of(port) or []}
+    return next((script for script in BUSY_SCRIPTS if script in names), None)
 
 
 def ensure(io, name, echo, spawned_before=(), own_port=None):

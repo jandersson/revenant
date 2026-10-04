@@ -869,12 +869,16 @@ class HelperWorld:
     """The helper's session as ;train sees it: the scripts it runs, poll
     by poll (the last repeating), and every line sent to it."""
 
-    def __init__(self, polls):
+    def __init__(self, polls, registry=()):
         self.polls = list(polls)
         self.sent = []
+        self.registry = list(registry)
 
     def __call__(self, s, db=None):
         return self  # stands in for the HelperIO class
+
+    def sessions(self):
+        return self.registry
 
     def scripts_of(self, port):
         return self.polls.pop(0) if len(self.polls) > 1 else self.polls[0]
@@ -908,6 +912,48 @@ def test_a_helper_task_lasts_while_the_helpers_script_runs(clock, monkeypatch):
     assert reason == "helper done"
     assert world.sent == [";logout"]
     assert any("heal its helper's script ended" in text for text in fake.echoed)
+
+
+def test_a_helper_running_its_own_train_has_the_task_skipped(clock, monkeypatch):
+    # #470, the operator's option 1 (2026-10-04): Riphik trains himself
+    # too, and a class or a heal wanting him is skipped meanwhile rather
+    # than two loops driving one character.
+    world = HelperWorld(
+        [["xp", "train", "appraise"]],
+        registry=[{"port": 4243, "character": "Riphik"}],
+    )
+    monkeypatch.setattr(train, "HelperIO", world)
+    called = []
+    monkeypatch.setattr(
+        train, "start_helper", lambda *args: called.append(args) or None
+    )
+    fake = Fake()
+    fake.state.injuries = {"chest": ("wound", 2)}
+    clock["fake"] = fake
+    task = normalize({"tasks": [HEAL]})["tasks"][0]
+    assert train.run_task(fake, plan(), task, db=MAP, walk=walk) == "busy"
+    assert called == [] and world.sent == []
+    assert "train: heal — Riphik is running ;train, skipped" in fake.echoed
+
+
+def test_a_helper_logged_in_without_train_is_used(clock, monkeypatch):
+    from client.game import helper
+
+    world = HelperWorld(
+        [["xp", "sheet"], ["empath"], []],
+        registry=[{"port": 4243, "character": "Riphik"}],
+    )
+    monkeypatch.setattr(train, "HelperIO", world)
+    monkeypatch.setattr(
+        train,
+        "start_helper",
+        lambda s, task, db, walk: helper.Helper("Riphik", 4243, False),
+    )
+    fake = Fake()
+    fake.state.injuries = {"chest": ("wound", 2)}
+    clock["fake"] = fake
+    task = normalize({"tasks": [HEAL]})["tasks"][0]
+    assert train.run_task(fake, plan(poll=10), task, db=MAP, walk=walk) == "helper done"
 
 
 def test_a_task_only_when_wounded_is_skipped_while_the_panel_is_clean(

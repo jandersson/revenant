@@ -25,6 +25,7 @@ NPC healer
 
 Your own Empath
   - Found logged in, or logged in off the keychain; ;empath takes every wound and scar.
+  - One running its own ;train is left to it: ;stop train there first.
 
 Nothing walks back afterwards; death stops it. Herbs: client/game/herbs.py
 (Elanthipedia's Healing herbs); docs/healing.md.
@@ -578,6 +579,9 @@ def call_empath(s, name, stay, mapdb, io=None):
     if not patient or here is None:
         return f"your room is not on the map — {name} cannot be walked to you"
     io = io or helper.SessionIO(s, mapdb)
+    if busy_with := helper.busy(io, name):
+        # Two loops would drive one character (#470).
+        return f"{name} is running ;{busy_with} — ;stop it there first"
     active = helper.ensure(io, name, s.echo, own_port=io.own_port())
     if active is None:
         return f"{name} could not be had"

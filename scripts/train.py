@@ -330,6 +330,7 @@ ENDINGS = {
     "helper done": "its helper's script ended",
     "healed": "healed — the helper finishes on its own",
     "unneeded": "not needed",
+    "busy": "skipped — its helper is busy",
 }
 UNTRAINED = ("skipped", "failed", "crashed")  # a task that never trained
 
@@ -528,6 +529,15 @@ def run_task(s, plan, task, db=None, walk=None):
             held = "not read yet" if have is None else f"{have}"
             s.echo(f"train: {task['name']} — favors {held} (cap {cap}), skipped")
             return "unneeded"
+    spec = helper.spec_of(task)
+    busy_with = spec and helper.busy(HelperIO(s, db), spec["name"])
+    if busy_with:
+        # Two loops would drive one character (#470): the helper's own
+        # ;train keeps it; the student's other tasks train meanwhile.
+        s.echo(
+            f"train: {task['name']} — {spec['name']} is running ;{busy_with}, skipped"
+        )
+        return "busy"
     budget = task_minutes(plan, task)
     deadline = clock() + budget * 60 if budget else None
     limit = f"up to {budget} min" if budget else "no time limit"
