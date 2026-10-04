@@ -455,6 +455,7 @@ RELOADABLE_MODULES = (
     "client.game.history",
     "client.game.rested",
     "client.game.climbs",
+    "client.game.plant",
     "client.game.circles",
     "client.game.inventory",
     "client.game.stores",

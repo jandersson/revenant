@@ -589,7 +589,9 @@ def test_train_plan_prints_the_plan_and_a_broken_one_refuses_to_run(clock, tmp_p
     assert any("neither: no skills" in text for text in fake.echoed)
     fake = Fake(args=[])
     train.main(fake)
-    assert any("names no script, commands or helper" in text for text in fake.echoed)
+    assert any(
+        "names no script, commands, helper or plant" in text for text in fake.echoed
+    )
     assert fake.started == []
 
 
@@ -1156,6 +1158,87 @@ def test_an_unhurt_rest_never_goes_to_the_plant(clock):
     assert "touch plant" not in fake.sent
 
 
+# --- the plant kept up, and the heal after a hunt beside it (#473) -----------
+
+
+def test_an_empaths_plan_keeps_the_plant_up_with_plant(clock, monkeypatch):
+    # The operator, 2026-10-04: "else use the plant" — the Empath's own
+    # loop recasts it; a fresh record means no walk until near its end.
+    import os
+    import time
+
+    from client.game import plant
+
+    monkeypatch.setattr(train, "KEPT", {})
+    fake = Fake(exits={"plant": 10})
+    clock["fake"] = fake
+
+    def cast(name, args=()):
+        fake.started.append((name, list(args)))
+        fake.children.add(name)
+        plant.record("Lanival", "7890", 62, os.getpid(), now=time.time())
+        return True
+
+    fake.run = cast
+    assert train.keep_plant(fake, plan(keep_plant="7890")) is True
+    assert fake.started == [("plant", ["7890"])]
+    assert "train: the vela'tohr plant at 7890 is due — ;plant 7890" in fake.echoed
+    assert train.keep_plant(fake, plan(keep_plant="7890")) is False
+
+
+def test_a_plant_run_that_cast_nothing_waits_before_the_next(clock, monkeypatch):
+    monkeypatch.setattr(train, "KEPT", {})
+    fake = Fake(exits={"plant": 10})
+    clock["fake"] = fake
+    assert train.keep_plant(fake, plan(keep_plant="7890")) is True  # low mana, say
+    assert train.keep_plant(fake, plan(keep_plant="7890")) is False
+    fake.now += train.PLANT_RETRY_MINUTES * 60
+    assert train.keep_plant(fake, plan(keep_plant="7890")) is True
+    assert train.keep_plant(fake, plan()) is False  # no keep_plant: never
+
+
+def plant_task(clock, room_objs):
+    def healed(fake):
+        fake.state.injuries = {}
+
+    fake = Fake([{}, healed])
+    fake.state.injuries = {"chest": ("wound", 1)}
+    fake.state.room_objs = room_objs
+    fake.answers = {"touch plant": [PLANT_TOUCHED]}
+    clock["fake"] = fake
+    current = plan(plant_room="bank", poll=10)
+    task = normalize(
+        {"tasks": [{"name": "plant", "plant": True, "when": "wounded", "minutes": 30}]}
+    )["tasks"][0]
+    return fake, train.run_task(fake, current, task, db=MAP, walk=walk)
+
+
+def test_the_heal_after_a_hunt_is_spent_beside_the_plant(clock):
+    # The operator, 2026-10-04: "do not heal cecil on his return from
+    # hunting - make him use the plant".
+    fake, reason = plant_task(clock, "You also see an ethereal vela'tohr plant.")
+    assert reason == "plant healed"
+    assert fake.walks == [{2}]
+    assert fake.sent.count("touch plant") == 1
+    assert any("plant healed at the plant" in text for text in fake.echoed)
+
+
+def test_no_plant_in_its_room_ends_the_task(clock):
+    fake, reason = plant_task(clock, "You also see a waste bin.")
+    assert reason == "no plant"
+    assert "touch plant" not in fake.sent
+
+
+def test_a_plant_task_needs_the_plans_plant_room():
+    from client.game.training import validate
+
+    task = {"name": "plant", "plant": "on", "when": "wounded"}
+    assert validate(normalize(DEFAULTS | {"tasks": [task]})) == [
+        "task plant: plant needs the plan's plant_room"
+    ]
+    assert validate(normalize(DEFAULTS | {"plant_room": "7890", "tasks": [task]})) == []
+
+
 def test_a_helper_alone_is_a_valid_task():
     # 2026-09-27: the heal task (Riphik's ;empath) was refused as naming
     # "no script and no commands" before it ever ran.
@@ -1163,7 +1246,7 @@ def test_a_helper_alone_is_a_valid_task():
 
     assert validate(normalize(DEFAULTS | {"tasks": [HEAL]})) == []
     assert validate(normalize(DEFAULTS | {"tasks": [{"name": "neither"}]})) == [
-        "task neither: names no script, commands or helper"
+        "task neither: names no script, commands, helper or plant"
     ]
 
 

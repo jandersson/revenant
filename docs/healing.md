@@ -84,4 +84,17 @@ Ask aloud in the Empaths' Guild courtyard (`;go2 5713` in the Crossing). An Empa
 - A patient below 80% vitality gets some of yours (TAKE VITALITY) when you know Vitality Healing and stand at 70% or more; the self-heal restores yours after.
 - It stops when mana drops below a fifth, or the patient is gone or refuses the touch.
 
-`;stop <name>` ends any of these at once; `;heal return` and `;empath return` finish the step in hand first.
+## ;plant: a vela'tohr plant
+
+An Empath's plant heals a non-Empath who touches it and stays in its room. `;train` keeps one up with an Empath plan's `keep_plant`, and a student's task with `plant: on` heals beside it (see [training.md](training.md)).
+
+```
+;plant 7890          walk there, take the old plant's wounds (;empath self heals them), cast a new plant
+;plant mana=500      mana prepared (default 500, about an hour of plant)
+;plant focus=phial   the ritual focus (default phial: 40 uses)
+```
+
+- Below 50% mana the cast waits.
+- The plant ends when its Empath logs out.
+
+`;stop <name>` ends any of these at once; `;heal return`, `;empath return` and `;plant return` finish the step in hand first.

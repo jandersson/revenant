@@ -97,6 +97,9 @@ DEFAULTS = {
     # Where an Empath's vela'tohr plant stands (a ;go2 target): a
     # wounded rest goes there and TOUCHes it (#443). Empty: none.
     "plant_room": "",
+    # An Empath's own plan: the room (a ;go2 target) where its ;train
+    # keeps a vela'tohr plant up with ;plant (#473). Empty: none.
+    "keep_plant": "",
     "tasks": [],
 }
 SOUL = ("off", "on")
@@ -133,6 +136,10 @@ TASK_DEFAULTS = {
     # paged for the task when HEALTH shows a wound that bad or worse
     # (#472); blank, or a lighter wound, skips the task (#470).
     "helper_page": "",
+    # "on": the task is spent beside the vela'tohr plant in the plan's
+    # plant_room, TOUCHed, until the injuries panel is clean (#473) —
+    # the heal after a hunt, the operator's rule of 2026-10-04.
+    "plant": "",
     # "wounded": the task is skipped while the injuries panel is clean;
     # "favors<10": skipped once the exp window's favors reach 10 — the
     # ;favors task, a cap the operator keeps (2026-09-28).
@@ -177,6 +184,12 @@ PLAN_FIELDS = (
     ("tdp_reserve", "TDPs kept unspent", "int", "0"),
     ("shutdown_minutes", "Wind down when the shutdown is within, minutes", "int", "3"),
     ("plant_room", "A vela'tohr plant's room, touched when wounded", "str", "7890"),
+    (
+        "keep_plant",
+        "An Empath keeps a vela'tohr plant up in",
+        "str",
+        "7890 — ;plant recasts it before it ends",
+    ),
 )
 TASK_FIELDS = (
     ("name", "Name", "str", "how the task is reported"),
@@ -204,6 +217,12 @@ TASK_FIELDS = (
         "Page a busy helper at",
         "str",
         "severe — a wound that bad pages its ;train; blank: skipped",
+    ),
+    (
+        "plant",
+        "Heal at the plant",
+        "str",
+        "on — beside the plant_room plant until healed; blank: no",
     ),
     ("when", "Only when", "str", "wounded, favors<10 — blank: always"),
     ("target", "Own target mindstate", "optint", "blank: the plan's"),
@@ -360,6 +379,10 @@ def normalize_task(values, index=0) -> dict:
             "helper_page",
         ):
             task[key] = str(value or "").strip()
+        elif key == "plant":
+            if isinstance(value, bool):
+                value = "on" if value else ""  # YAML reads a bare on as true
+            task[key] = str(value or "").strip().lower()
         else:
             task[key] = value  # a key this build doesn't know: kept as is
     task["name"] = task["name"] or task["script"] or f"task{index + 1}"
@@ -379,7 +402,7 @@ def normalize(values: dict) -> dict:
             if isinstance(value, bool):
                 value = "on" if value else "off"  # YAML reads a bare on as true
             clean[key] = str(value or "").strip().lower() or DEFAULTS[key]
-        elif key == "plant_room":
+        elif key in ("plant_room", "keep_plant"):
             clean[key] = str(value or "").strip()  # a bare 7890 reads as a number
         elif key == "tasks":
             tasks = value if isinstance(value, list) else []
@@ -500,10 +523,22 @@ def validate(plan: dict) -> list:
     for task in plan["tasks"]:
         if task["script"] and task["commands"]:
             problems.append(f"task {task['name']}: a script or commands, not both")
-        elif not task["script"] and not task["commands"] and not task["helper"]:
+        elif (
+            not task["script"]
+            and not task["commands"]
+            and not task["helper"]
+            and task.get("plant") != "on"
+        ):
             # A helper alone is a task: it lasts while the helper's
-            # script runs (Riphik's ;empath, scripts/train.py).
-            problems.append(f"task {task['name']}: names no script, commands or helper")
+            # script runs (Riphik's ;empath, scripts/train.py); so is a
+            # rest at the plant (#473).
+            problems.append(
+                f"task {task['name']}: names no script, commands, helper or plant"
+            )
+        if task.get("plant") not in ("", "on", None):
+            problems.append(f"task {task['name']}: plant {task['plant']!r} is not on")
+        elif task.get("plant") == "on" and not str(plan.get("plant_room") or ""):
+            problems.append(f"task {task['name']}: plant needs the plan's plant_room")
         if task["name"] in names:
             problems.append(f"task {task['name']}: the name is used twice")
         names.add(task["name"])

@@ -26,6 +26,8 @@ What it does
     during the rest (`top_up`, once a rest).
   - In the rests: soul deeds when `soul` is on, stat points from the plan's `tdp` list,
     and, wounded, the vela'tohr plant in `plant_room` touched and rested beside.
+  - An Empath's `keep_plant`: between tasks and in rests, ;plant recasts the plant there
+    before it ends. A task with `plant: on` is spent beside that plant until healed.
   - The interludes (the profile's `almanac`, a typed `;break`) between tasks and in rests.
   - A helper busy on its own ;train: its task is skipped, or, with `helper_page` and a wound
     that bad, its ;train is paged for the task and handed back after.
@@ -40,10 +42,11 @@ When it stops
 The plan is ~/.revenant/training/<name>.yaml; docs/training.md explains every key.
 """
 
+import os
 import sqlite3
 import time
 
-from client.game import act, almanac, drain, flight, helper, interlude, travel
+from client.game import act, almanac, drain, flight, helper, interlude, plant, travel
 from client.game.history import database_path
 from client.game.wounds import parse_health
 
@@ -152,6 +155,9 @@ SOUL_DEEDS = ("badge", "tithe", "pray", "song")  # the order ;train runs them in
 SOUL_MINUTES = 12  # a deed's run, walk included, before train stops waiting
 TDP_POINTS_PER_REST = 3  # stat points bought in one rest at most (#230)
 TDP_MINUTES = 12  # one ;tdp run, the walk there and back included
+PLANT_MINUTES = 20  # one ;plant run: the walk, the old plant's wounds, the cast
+PLANT_RETRY_MINUTES = 15  # a ;plant that cast nothing is not run again sooner
+KEPT = {}  # when ;plant last ran without a cast (#473)
 INFO_SECONDS = 2  # INFO's answer window in the rest
 INFO_TAIL = 0.5
 WORDS = ("skip", "rest", "return", "status")
@@ -347,6 +353,8 @@ ENDINGS = {
     "unneeded": "not needed",
     "busy": "skipped — its helper is busy",
     "page": "set aside for a page",
+    "plant healed": "healed at the plant",
+    "no plant": "found no plant",
 }
 UNTRAINED = ("skipped", "failed", "crashed")  # a task that never trained
 
@@ -369,6 +377,35 @@ def study_almanac(s, plan=None):
     if s.dead or hostiles_present(s.state):
         return
     interlude.run_due(s)
+
+
+def keep_plant(s, plan):
+    """The plan's `keep_plant` room kept in a vela'tohr plant (#473):
+    `;plant <room>` run and waited for when the cast's record says one is
+    due — none yet, another session, or its end near. True when it ran;
+    a run that cast nothing waits PLANT_RETRY_MINUTES before the next."""
+    room = str(plan.get("keep_plant") or "").strip()
+    if not room or s.dead or s.is_running("plant") or hostiles_present(s.state):
+        return False
+    name = getattr(s.state, "name", None) or ""
+    if not plant.due(name, room, os.getpid()):
+        return False
+    if "failed" in KEPT and clock() - KEPT["failed"] < PLANT_RETRY_MINUTES * 60:
+        return False
+    if not s.run("plant", [room]):
+        return False
+    s.echo(f"train: the vela'tohr plant at {room} is due — ;plant {room}")
+    started = clock()
+    while s.is_running("plant"):
+        if s.dead or clock() - started >= PLANT_MINUTES * 60:
+            s.kill("plant")
+            break
+        s.sleep(min(5, plan["poll"]))
+    if plant.due(name, room, os.getpid()):
+        KEPT["failed"] = clock()
+    else:
+        KEPT.pop("failed", None)
+    return True
 
 
 def profile_of(s):
@@ -471,6 +508,24 @@ def run_helper_task(s, plan, task, deadline, active, db):
         s.sleep(plan["poll"])
 
 
+def run_plant_task(s, plan, task, deadline, db, walk):
+    """A task spent beside the vela'tohr plant in the plan's plant_room
+    (#473): walked to and TOUCHed (plant_step), then stood by until the
+    injuries panel is clean — "plant healed" — or watch ends it; "no
+    plant" when none stands there. The heal after a hunt (the operator,
+    2026-10-04: "do not heal cecil on his return from hunting - make
+    him use the plant")."""
+    if plant_step(s, plan, db, walk, None) is None:
+        return "no plant"
+    while True:
+        reason = watch(s, plan, task, deadline)
+        if reason is not None:
+            return reason
+        if not wounded(s):
+            return "plant healed"
+        s.sleep(plan["poll"])
+
+
 def wounded(s):
     """True when the injuries panel shows a wound or a scar."""
     return bool(getattr(s.state, "injuries", None))
@@ -535,6 +590,7 @@ def run_task(s, plan, task, db=None, walk=None):
     before the setup, and returned and logged out after the teardown
     (client/game/helper.py)."""
     study_almanac(s, plan)  # between tasks: the hands are the loop's
+    keep_plant(s, plan)
     if task.get("when") == "wounded" and not wounded(s):
         s.echo(f"train: {task['name']} — not wounded, skipped")
         return "unneeded"
@@ -603,6 +659,8 @@ def work_task(s, plan, task, db, walk, paged=False):
         reason = run_command_task(s, plan, task, deadline)
     elif active is not None:
         reason = run_helper_task(s, plan, task, deadline, active, db)
+    elif task.get("plant") == "on":
+        reason = run_plant_task(s, plan, task, deadline, db, walk)
     else:
         s.echo(f"train: {task['name']} has no script, commands or helper — skipped")
         reason = "skipped"
@@ -973,6 +1031,9 @@ def rest(s, plan, db, walk, index):
         settle_helpers(s)
         study_almanac(s, plan)
         soul_step(s, plan, db, walk, room)
+        if keep_plant(s, plan) and room is not None:
+            travel.go(s, room, repr(room), db=db, walk=walk)
+            send_each(s, plan["rest_commands"])
         if s.dead:
             return None
         if bought < TDP_POINTS_PER_REST and tdp_step(s, plan, quote):
