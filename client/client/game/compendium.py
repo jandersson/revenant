@@ -39,15 +39,20 @@ TURN_OUTCOMES = (
 # knowledge ...", "In a sudden moment of clarity, the information on the
 # chart suddenly makes sense to you." (on a first study: "With a sudden
 # moment of clarity, ..."), "Why do you need to study this chart
-# again?", "You need to be holding your compendium to study it." The
-# too-hard and done wordings are dr-scripts' first-aid.lic's.
+# again?", "You need to be holding your compendium to study it." A
+# chart near the top of the reach is slow, not refused: "You begin to
+# study the Boggle chart, having a difficult time comprehending the
+# advanced text." (18 s), mixed with "gradually absorbing" ones, and
+# the Boggle reached clarity at the 39th study, Scholarship 15/34 ->
+# 25/34 on the way. The too-hard and done wordings are dr-scripts'
+# first-aid.lic's.
 STUDY_OUTCOMES = (
     ("clarity", ("suddenly makes sense to you",)),
     ("locked", ("why do you need to study",)),
     ("unheld", ("need to be holding",)),
-    ("too hard", ("almost impossible", "difficult time comprehending")),
+    ("too hard", ("almost impossible",)),
     ("done", ("discerned all you can",)),
-    ("studying", ("gradually absorbing",)),
+    ("studying", ("gradually absorbing", "difficult time comprehending")),
 )
 # GET MY COMPENDIUM: "You get a grey leather compendium ... from inside
 # your backpack." (2026-10-04).

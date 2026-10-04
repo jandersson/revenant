@@ -9,6 +9,7 @@
 ```
 
 - A chart at clarity rests twenty minutes. Several charts keep the study going.
+- A chart near the top of your reach is slow, not refused: "having a difficult time comprehending the advanced text" is studied on (a Boggle took 39 studies at Scholarship 77, Scholarship rising all the way). Only "almost impossible" skips a chart.
 - The order comes from dr-scripts' chart table (`client/game/anatomy_data.py`, regenerated with `uv run python tools/anatomy_tables.py`): the hardest chart your Scholarship reads first. Up to rank 100 that is the rank itself; past it, the rank over 1.6.
 - The profile's `compendium` names the book when its noun is not "compendium".
 

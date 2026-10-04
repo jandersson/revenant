@@ -47,6 +47,15 @@ FIRST_CLARITY = (
     "sense to you.\nRoundtime: 10 seconds.\n"
 )
 RESTING = "Why do you need to study this chart again?\n"
+# A chart near the top of the reach (the Boggle at Scholarship 77).
+DIFFICULT = (
+    "You begin to study the Boggle chart, having a difficult time comprehending "
+    "the advanced text.\nRoundtime: 18 seconds.\n"
+)
+DIFFICULT_ON = (
+    "You continue to study the Boggle chart, having a difficult time "
+    "comprehending the advanced text.\nRoundtime: 18 seconds.\n"
+)
 MISSING = "That section does not exist within your compendium.\n"
 UNHELD = "You need to be holding your compendium to study it.\n"
 GOT = (
@@ -113,6 +122,9 @@ def test_the_answers_are_classified():
     assert classify(CLARITY, compendium.STUDY_OUTCOMES) == "clarity"
     assert classify(FIRST_CLARITY, compendium.STUDY_OUTCOMES) == "clarity"
     assert classify(RESTING, compendium.STUDY_OUTCOMES) == "locked"
+    # Slow, not refused: the Boggle reached clarity at the 39th study.
+    assert classify(DIFFICULT, compendium.STUDY_OUTCOMES) == "studying"
+    assert classify(DIFFICULT_ON, compendium.STUDY_OUTCOMES) == "studying"
     assert classify(UNHELD, compendium.STUDY_OUTCOMES) == "unheld"
     assert classify(TURNED.format("Equine"), compendium.TURN_OUTCOMES) == "turned"
     assert classify(MISSING, compendium.TURN_OUTCOMES) == "missing"
@@ -224,6 +236,27 @@ def test_each_chart_is_studied_to_clarity_hardest_first_then_the_book_stowed():
     assert any("Blood Nyad at clarity" in text for text in s.echoed)
     assert "1 chart(s) to clarity in 3 studies" in s.echoed[-1]
     assert s.state.right_hand is None  # stowed at the end
+
+
+def test_a_chart_studied_with_difficulty_is_studied_on_to_clarity():
+    # 2026-10-04: the Boggle, Cougar and Kelpie were skipped as "past your
+    # Scholarship" on their first "difficult time" answer; the Boggle
+    # then reached clarity at the 39th study by hand.
+    script = _script()
+    s = handle()
+    game = Game(
+        s,
+        {
+            "Blood Nyad": [DIFFICULT, DIFFICULT_ON, CONTINUE, DIFFICULT_ON, CLARITY],
+            "Silver Leucro": [RESTING],
+        },
+    )
+    script.ask = game
+    script.clock = lambda: 5000.0
+    script.run(s, {"until": 34, "once": True}, {})
+    assert game.sent.count("study my compendium") == 6  # five on the Nyad, one rest
+    assert any("Blood Nyad at clarity" in text for text in s.echoed)
+    assert not any("past your Scholarship" in text for text in s.echoed)
 
 
 def test_a_chart_resting_from_an_earlier_run_is_not_studied_again():

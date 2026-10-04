@@ -44,7 +44,7 @@ one mindstate, Scholarship alongside. So the hardest goes first.
 
 SKILL = "First Aid"
 SCHOLARSHIP = "Scholarship"
-STUDY_FUSE = 20  # studies of one chart before giving it up: nine was the most seen
+STUDY_FUSE = 60  # studies of one chart before giving it up: the Boggle took 39
 clock = time.monotonic  # tests replace it
 
 
