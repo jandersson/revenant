@@ -681,6 +681,17 @@ def cast_left(s):
     return casttime - seen + 1 if casttime >= seen else 0
 
 
+def foe_ref(s):
+    """The foe as a command names it, by its crtrStatus id
+    ("#146989491"): an engaged hostile first, else any; None with none
+    (#456)."""
+    hostiles = getattr(getattr(s, "state", None), "hostiles", None) or {}
+    engaged = [exist for exist, on in hostiles.items() if on and exist]
+    others = [exist for exist in hostiles if exist]
+    pick = (engaged or others)[:1]
+    return f"#{pick[0]}" if pick else None
+
+
 def cast_once(
     s,
     spell,
@@ -741,7 +752,13 @@ def cast_once(
     started = monotonic()
     ready = "fully prepared"
     if targeted:
-        answer = ask(s, f"target {target}" if target else "target")
+        # With no prey noun, the engaged foe by its crtrStatus id (#456):
+        # a bare TARGET once answered nothing and formed the pattern
+        # untargeted (#458). The id gone, a bare TARGET after all.
+        foe = "" if target else foe_ref(s)
+        answer = ask(s, f"target {target or foe}" if target or foe else "target")
+        if foe and classify(answer, TARGET_OUTCOMES) == "missing":
+            answer = ask(s, "target")
         aim = classify(answer, TARGET_OUTCOMES)
         if aim == "missing":
             ask(s, "release")

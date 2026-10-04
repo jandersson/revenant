@@ -812,3 +812,38 @@ def test_a_target_already_dead_releases_the_pattern_quietly(travel):
     _run(arena, profile=STRIKING | {"max_kills": 1}, travel_first=False)
     assert "release" in arena.sent
     assert not any("unrecognized target" in text for text in arena.echoed)
+
+
+# --- the foe by its id (#456, #458) ---
+
+
+def test_with_no_prey_noun_the_pattern_is_aimed_at_the_engaged_foe_by_its_id(travel):
+    # A bare TARGET once answered nothing and the pattern formed
+    # untargeted (#458): the engaged hostile's crtrStatus id instead.
+    arena = Arena(
+        {
+            "attack": [(KILL, _stands), (KILL, kill)],
+            "prepare": [FS_PREPARED] * 2,
+            "target": [TARGETING] * 2,
+            "cast": [FS_CAST] * 2,
+            "skin": [SKINNED] * 2,
+            "loot": [NOTHING] * 2,
+            "discern": [DISCERN_FS_MIN],
+        },
+        experience=TM_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STRIKING | {"max_kills": 1, "prey": ""}, travel_first=False)
+    targets = [c for c in arena.sent if c.split()[0] == "target"]
+    assert targets and set(targets) == {"target #1"}
+
+
+def test_a_foe_gone_by_its_id_is_targeted_bare():
+    from types import SimpleNamespace
+
+    s = SimpleNamespace(state=SimpleNamespace(hostiles={"7": False, "9": True}))
+    assert buffs.foe_ref(s) == "#9"  # the engaged one first
+    s.state.hostiles = {"7": False}
+    assert buffs.foe_ref(s) == "#7"
+    s.state.hostiles = {}
+    assert buffs.foe_ref(s) is None
