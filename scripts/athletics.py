@@ -203,11 +203,14 @@ def optimal_rung(rank, exclude=()):
     return [rung for rung in candidates if rung["low"] == best_low][-1]
 
 
-def next_rung(rung, rank):
-    """The next ladder entry above a rung that the rank can attempt."""
+def next_rung(rung, rank, exclude=()):
+    """The next ladder entry above a rung that the rank can attempt;
+    exclude names rungs (by label) already left this run — a missing
+    obstacle sent the ladder back down, and moving up again would have
+    walked to it once more (two rooms in turn every 30 s, 2026-10-04)."""
     index = AUTO_LADDER.index(rung)
     for candidate in AUTO_LADDER[index + 1 :]:
-        if in_band(candidate, rank or 0):
+        if in_band(candidate, rank or 0) and candidate["label"] not in exclude:
             return candidate
     return None
 
@@ -789,7 +792,7 @@ def auto_train(s, db=None, walk=None):
             if rung is None:
                 return
             continue
-        advanced = next_rung(rung, rank)
+        advanced = next_rung(rung, rank, exclude=contested)
         if advanced is None:
             s.echo("gains are stale but no harder rung is in reach yet — carrying on")
             if (
@@ -808,6 +811,7 @@ def auto_train(s, db=None, walk=None):
                     continue
             return
         s.echo("this rung is outgrown — moving up the ladder")
+        contested.add(rung["label"])  # outgrown: never fallen back to
         rung = advanced
 
 

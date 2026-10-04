@@ -268,8 +268,19 @@ def test_optimal_rung_is_the_hardest_in_reach():
     assert athletics.optimal_rung(60)["kind"] == "rotation"
     # The #87 extension: rank 100+ trains in town, on the battlements.
     assert athletics.optimal_rung(144)["label"].startswith("NE gate embrasure")
-    # From 150 the W gate walls; the NE gate walls have no room (#471).
-    assert athletics.optimal_rung(150)["label"].startswith("W gate wall")
+    # The gate walls have no room (#471): the embrasure to 280, then
+    # the Segoltha bank (dr-scripts' practice spot, 280-700).
+    assert athletics.optimal_rung(150)["label"].startswith("NE gate embrasure")
+    assert athletics.optimal_rung(340)["label"].startswith("Segoltha bank")
+
+
+def test_moving_up_skips_a_rung_already_left():
+    # 2026-10-04: a missing wall sent the ladder down to the embrasure,
+    # "no challenge" sent it up to the same missing wall, and round again.
+    embrasure = athletics.optimal_rung(150)
+    above = athletics.next_rung(embrasure, 340)
+    assert above["label"].startswith("Segoltha bank")
+    assert athletics.next_rung(embrasure, 340, exclude={above["label"]}) is None
 
 
 def test_climb_loop_reads_the_maps_own_edges():

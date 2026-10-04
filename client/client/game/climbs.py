@@ -128,14 +128,24 @@ CLIMBS = [
         "notes": "1 embrasure",
     },
     {
-        # Wiki: 150? to 350?; one of three walls.
+        # dr-scripts' practice_options segoltha_bank (base-athletics.yaml:
+        # "Segoltha Riverbank in Crossing (280 - 700+)"); the wiki's list
+        # has no row for it. The in-town rung past the battlements.
         "kind": "practice",
+        "low": 280,
+        "high": 700,
+        "label": "Segoltha bank, The Crossing, Haven's End (in town)",
+        "room": 922,
+        "practice": "bank",
+    },
+    {
+        # Wiki: 150? to 350?, 3 walls, no room given. Not room 938: the W
+        # gate battlements answered `climb practice wall` with CLIMB's
+        # help (2026-10-04 22:39, #471); dr-scripts climbs its embrasure.
+        "kind": "advice",
         "low": 150,
         "high": 350,
-        "label": "W gate wall, Crossing Battlements (in town)",
-        "room": 938,
-        "practice": "wall",
-        "notes": "3 walls",
+        "where": "Crossing W gate walls (3 walls; room unknown)",
     },
     {
         # Wiki: 150? to 400, 2 walls, no room given. Not room 833: the
