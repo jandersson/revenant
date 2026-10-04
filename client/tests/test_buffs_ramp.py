@@ -114,6 +114,39 @@ def test_the_invoked_anklet_counts_against_the_estimate(monkeypatch):
     assert "charge my anklet 12" not in handle.sent
 
 
+def test_a_piece_worn_again_before_the_invoke_comes_off_for_it(monkeypatch):
+    # 2026-10-04 15:12 (Cecil's ;hunt): a kill mid-cast, the SKIN found
+    # both hands full and wore the anklet back on, and the INVOKE was
+    # refused — the cast went without the charge.
+    monkeypatch.setattr(buffs, "PREPARE_SECONDS", 0)
+    handle = Handle()
+    state = buffs.BuffState()
+    buffs.discern_slots(handle, PROFILE, state, ask, "hunt", _report)
+    handle.sent.clear()
+    invokes = iter(
+        [
+            "Try though you may, you find it too clumsy to invoke the cambrinth "
+            "anklet while wearing it.\n",
+            ANSWERS["invoke my anklet"],
+        ]
+    )
+
+    def worn_once(s, command):
+        if command == "invoke my anklet":
+            s.sent.append(command)
+            return next(invokes)
+        return ask(s, command)
+
+    buffs.cast_buffs(handle, PROFILE, state, worn_once, "hunt", _report)
+    at = handle.sent.index("remove my anklet")
+    assert handle.sent[at - 1 : at + 3] == [
+        "invoke my anklet",
+        "remove my anklet",
+        "invoke my anklet",
+        "cast",
+    ]
+
+
 def test_a_collapse_at_the_estimate_holds_a_step_under(monkeypatch):
     monkeypatch.setattr(buffs, "PREPARE_SECONDS", 0)
     handle = Handle(arcana=34)

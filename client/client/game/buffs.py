@@ -51,7 +51,9 @@ that outranks the skill (the 32-capacity armband at Arcana 1) "You
 fail to channel any of the energy into the armband."; a worn piece
 "Try though you may, you find it too clumsy to charge the cambrinth
 armband while wearing it."; INVOKE "You reach for its center and forge
-a magical link to it, readying all of its mana for your use."; the cast
+a magical link to it, readying all of its mana for your use." (a piece
+worn again since the charge refuses it the same way and comes off for
+it); the cast
 "Your cambrinth flake emits a loud *snap* as it discharges all its
 power to aid your spell." Herilo's Artifacts sells the pieces by
 capacity; only the 1- and 5-mana ones work at 0 ranks.
@@ -237,6 +239,10 @@ GET_OUTCOMES = (
 # what?" — so the piece is GOT instead, and worn back afterwards as
 # the profile says.
 NOT_WORN = ("remove what",)
+# An INVOKE of a worn piece (captured 2026-10-04 on Cecil's anklet): "Try
+# though you may, you find it too clumsy to invoke the cambrinth anklet
+# while wearing it."
+INVOKE_WORN = ("too clumsy to invoke",)
 CHARGE_OUTCOMES = (
     # The same room (captured 2026-10-04 in the Paladins' guild library):
     # "Something in the area is interfering with your magical senses."
@@ -834,7 +840,13 @@ def cast_once(
     if remaining > 0:
         probe.collect(s, remaining, until=ready)
     if invoke:
-        ask(s, f"invoke my {invoke}")
+        answer = ask(s, f"invoke my {invoke}")
+        if any(word in answer.lower() for word in INVOKE_WORN):
+            # Worn again since the CHARGE: the hunt's SKIN puts a held
+            # piece back on for a free hand, and the cast went without
+            # its charge (2026-10-04). Off again for the INVOKE.
+            ask(s, f"remove my {invoke}")
+            ask(s, f"invoke my {invoke}")
     answer = ask(s, f"cast {target}" if target and not targeted else "cast")
     cast = classify(answer, CAST_OUTCOMES)
     if cast is None:
