@@ -173,14 +173,44 @@ def test_the_abbreviation_that_prepared_is_used_first_for_the_rest_of_the_run(
     assert prepares == ["prepare hands of justice", "prepare hoj", "prepare hoj"]
 
 
-def test_a_room_that_blocks_magic_is_a_failed_prepare():
-    # Captured 2026-09-26 in the Paladins' guild library.
+def test_a_room_that_blocks_magic_is_blocked_not_a_failed_prepare():
+    # Captured 2026-09-26 and 2026-10-04 in the Paladins' guild library.
     from client.game.probe import classify
 
     blocked = "Something in the area interferes with your spell preparations.\n"
-    assert classify(blocked, buffs.PREPARE_OUTCOMES) == "failed"
+    assert classify(blocked, buffs.PREPARE_OUTCOMES) == "blocked"
+    charge = "Something in the area is interfering with your magical senses.\n"
+    assert classify(charge, buffs.CHARGE_OUTCOMES) == "blocked"
     unknown = "You have no idea how to cast that spell.\n"
     assert classify(unknown, buffs.PREPARE_OUTCOMES) == "failed"
+
+
+def test_a_blocked_room_turns_no_buff_off_and_is_tried_again_elsewhere():
+    # 2026-10-04: the hunt buffed in the library and Heroic Strength went
+    # off for the whole run. The room is remembered; the spell is not.
+    handle = Handle([])
+    handle.state.room_uid = 11716
+    answers = {
+        "prepare heroic strength": "Something in the area interferes with your "
+        "spell preparations.\n"
+    }
+
+    def ask(s, command):
+        s.sent.append(command)
+        return answers.get(command, "")
+
+    state = buffs.BuffState()
+    spell = "heroic strength"
+    assert buffs.cast_once(handle, spell, 0, state, ask, lambda *a: None) == "blocked"
+    assert spell not in state.buffs_off and state.blocked_room == 11716
+    # Still in the library: nothing is sent at all.
+    handle.sent.clear()
+    assert buffs.cast_once(handle, spell, 0, state, ask, lambda *a: None) == "blocked"
+    assert handle.sent == []
+    # Elsewhere: prepared again.
+    handle.state.room_uid = 11717
+    buffs.cast_once(handle, spell, 0, state, ask, lambda *a: None)
+    assert handle.sent[0] == "prepare heroic strength"
 
 
 def test_the_hands_of_justice_cast_is_a_cast():

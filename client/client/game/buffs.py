@@ -149,6 +149,12 @@ PREPARE_SECONDS = 8  # from "begin chanting" to a castable pattern
 SWING_SECONDS = 4
 BUFF_MINUTES = 10  # the wiki's shortest duration for the intro buffs
 PREPARE_OUTCOMES = (
+    # A room where magic will not form (the Paladins' guild library,
+    # captured 2026-09-26 and 2026-10-04): "Something in the area
+    # interferes with your spell preparations." The room's doing, not the
+    # spell's — never off for the run (2026-10-04: Heroic Strength went
+    # off for a whole hunt because the hunt buffed in the library).
+    ("blocked", ("interferes with your spell",)),
     (
         "failed",
         (
@@ -158,11 +164,8 @@ PREPARE_OUTCOMES = (
             "cannot prepare",
             "no such",
             # Captured 2026-09-26: a name the game does not parse ("prepare
-            # hands of justice" — the abbreviation, hoj, prepares), and a
-            # room where magic will not form (the Paladins' guild library),
-            # which "prepar" below read as a pattern begun.
+            # hands of justice" — the abbreviation, hoj, prepares).
             "no idea how to cast",
-            "interferes with your spell",
         ),
     ),
     # Too much mana asked for (the wiki's Prepare page wording; not
@@ -235,6 +238,9 @@ GET_OUTCOMES = (
 # the profile says.
 NOT_WORN = ("remove what",)
 CHARGE_OUTCOMES = (
+    # The same room (captured 2026-10-04 in the Paladins' guild library):
+    # "Something in the area is interfering with your magical senses."
+    ("blocked", ("interfering with your magical senses",)),
     ("worn", ("too clumsy",)),
     # The piece is neither held nor worn — in a container (captured
     # 2026-09-20): "You'll have to hold it, set it on the ground, or
@@ -326,6 +332,9 @@ class BuffState:
         self.discerned = set()
         self.last_training = None  # "buff" or a targeted slot: whose turn it was
         self.short_names = {}  # spell -> the abbreviation that prepared it (#320)
+        # The room (its uid) where magic would not form: no PREPARE or
+        # CHARGE is tried there again; anywhere else, they are.
+        self.blocked_room = None
 
 
 def locked(state, skills):
@@ -585,6 +594,17 @@ def put_back_if_held(s, profile, prefix):
     return True
 
 
+def room_of(s):
+    """The room's uid off the parser, or None."""
+    return getattr(getattr(s, "state", None), "room_uid", None)
+
+
+def blocked_here(s, state):
+    """True in the room where magic would not form this run."""
+    blocked = getattr(state, "blocked_room", None)
+    return blocked is not None and blocked == room_of(s)
+
+
 def charge_cambrinth(s, profile, state, ask, prefix, report):
     """Bring the profile's cambrinth piece to hand (GET, or REMOVE when
     it is worn) and CHARGE it for Arcana; True when it holds mana for
@@ -594,6 +614,8 @@ def charge_cambrinth(s, profile, state, ask, prefix, report):
     piece stays in hand for INVOKE."""
     noun = profile.get("cambrinth") or ""
     if not noun or state.cambrinth_off or locked(s.state, ["Arcana"]):
+        return False
+    if blocked_here(s, state):
         return False
     answer = ask(s, fetch_command(profile))
     if profile.get("cambrinth_worn") and any(
@@ -633,6 +655,12 @@ def charge_cambrinth(s, profile, state, ask, prefix, report):
     elif outcome == "ok":
         s.echo(f"{prefix}: charged the {noun} with {mana} mana for Arcana")
         return True
+    elif outcome == "blocked":
+        # The room's doing: the piece is put back by the caller, and the
+        # charge is tried again once the character has moved on.
+        state.blocked_room = room_of(s)
+        s.echo(f"{prefix}: magic will not form here — no charge until elsewhere")
+        return False
     else:
         report("charge", answer)
         return True
@@ -712,7 +740,8 @@ def cast_once(
     time, INVOKE the cambrinth piece when one is charged (`invoke`,
     its noun), CAST (at `target` when one is named and the spell is not
     targeted — a targeted one casts at its pattern), and stow the
-    piece. "refused" (the spell cannot be prepared), "lacking" (the
+    piece. "refused" (the spell cannot be prepared), "blocked" (magic will
+    not form in this room — tried again elsewhere), "lacking" (the
     character's ranks cannot carry the spell at all, #202), "released"
     (the target was gone before the cast, or died under it — the
     pattern is let go, #203, #252), "held" (the pattern held was
@@ -722,12 +751,21 @@ def cast_once(
     # A spell that prepared by its abbreviation earlier in the run is
     # prepared by it at once: the name's refusal cost a command every
     # cast (the operator, 2026-09-26).
+    if blocked_here(s, state):
+        if invoke:
+            ask(s, put_back or f"stow my {invoke}")
+        return "blocked"
     short_names = getattr(state, "short_names", None)
     known = (short_names or {}).get(str(spell).lower())
     name = known or spell
     prepare = f"prepare {name} {mana}" if mana else f"prepare {name}"
     answer = ask(s, prepare)
     outcome = classify(answer, PREPARE_OUTCOMES)
+    if outcome == "blocked":
+        state.blocked_room = room_of(s)
+        if invoke:
+            ask(s, put_back or f"stow my {invoke}")
+        return "blocked"
     if not known and "no idea how to cast" in answer.lower():
         # The name did not parse: the spell's own abbreviation, as ;sheet
         # recorded it off SPELLS, prepares where "hands of justice" did
@@ -1068,6 +1106,8 @@ def cast_targeted(s, profile, state, ask, prefix, report, slot, target="", fille
         aimed=True,
     )
     state.last_training = slot
+    if result == "blocked":
+        return  # magic will not form in this room: tried again elsewhere
     if result == "released":
         s.echo(f"{prefix}: {spell} released — the foe was down before the cast")
     elif result == "held":
@@ -1144,6 +1184,8 @@ def cast_buffs(
     cast = False
     dropped = False
     for spell in profile["buffs"]:
+        if blocked_here(s, state):
+            break  # magic will not form in this room: every buff waits
         if spell in state.buffs_off:
             continue
         training = pick is not None and spell == pick[1]
@@ -1177,6 +1219,11 @@ def cast_buffs(
             filler=filler,
             put_back=put_back_command(profile) if invoke else None,
         )
+        if result == "blocked":
+            s.echo(
+                f"{prefix}: magic will not form here — the buffs wait until elsewhere"
+            )
+            break
         cast = True
         if training:
             state.last_training = "buff"
