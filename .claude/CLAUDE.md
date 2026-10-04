@@ -79,7 +79,8 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   danger / pause; `interlude.py` the chores any script does at a
   wants_stop (the almanac, the loot sweep, the loose gems, `;break`);
   `sweep.py` the loot sweep (`loot_ignore` out of the loot container,
-  beside a bin); `gems.py` loose gems into the gem pouch; `status.py`; `flight.py` the
+  beside a bin); `gems.py` loose gems into the gem pouch; `cards.py` trading
+  cards into the card case; `status.py`; `flight.py` the
   escape on hostiles.
 - `profile.py` per-character profiles (FIELDS is the schema the GUI
   dialog builds from; `hunts` styles; `weapons` + `weapon_target`, `weapon_minutes` the fallback);

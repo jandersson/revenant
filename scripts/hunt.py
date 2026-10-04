@@ -47,6 +47,7 @@ from client.game import (
     barbarian,
     boxlog,
     buffs,
+    cards,
     flight,
     gems,
     guild,
@@ -1250,6 +1251,8 @@ def pocket(s, profile, item):
         if gems.full(answer):
             s.echo(f"hunt: the {pouch} is full — the {item} goes with the loot (#283)")
         gems.mark()  # loose with the loot: the gems chore pouches it later (#437)
+    if noun_of(item) == "card":
+        cards.mark()  # into the card case at the next safe point (#457)
     stow(s, profile, item)
 
 
@@ -1437,6 +1440,8 @@ def grab(s, profile, before, tally):
         if what == "box":
             tally.boxes += 1
             note_box(s, profile, tally, since, noun, entry, held)
+        if noun == "card":
+            cards.mark()  # into the card case at the next safe point (#457)
         taken.append(noun)
     return taken
 

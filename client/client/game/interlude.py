@@ -1,7 +1,8 @@
 """Interludes — short chores any running script does at its next safe
 point: the almanac on its timer, the loot sweep beside a bin
-(client/game/sweep.py; `;break sweep` is its dry run), and loose gems
-into the gem pouch (client/game/gems.py). `loop.wants_stop()` (every trainer
+(client/game/sweep.py; `;break sweep` is its dry run), loose gems
+into the gem pouch (client/game/gems.py), and trading cards into the
+card case (client/game/cards.py). `loop.wants_stop()` (every trainer
 calls it between steps) and `pause()`'s slices run them, so every
 script with a safe point gives them time without code of its own;
 ;train runs them between tasks and in rests, ;hunt in a clear room.
@@ -35,6 +36,10 @@ NEVER = {"favors"}
 # A box and a lockpick are not stowed and got back blind (GET MY BOX may
 # fetch another box); a two-handed instrument stowed ends the song.
 NO_MAKE_ROOM = {"boxes", "perform"}
+# The chores that need both hands empty and never make room: the card
+# case goes in the right hand and the card in the left, and a weapon is
+# not stowed blind (#439) — they wait for a safe point with both free.
+BOTH_HANDS = {"cards"}
 # The monitors never reach a safe point: with only these running, ;break
 # runs the chore itself (the same set ;sentinel reads as idle).
 BACKGROUND = frozenset(
@@ -158,11 +163,29 @@ def _free_hand(s):
     return not hands.full(s)
 
 
+def _cards_due(s):
+    """Trading cards into the card case (client/game/cards.py, #457)."""
+    from client.game import cards
+
+    return cards.due(_loot_profile(s))
+
+
+def _cards(s, forced):
+    from client.game import cards
+
+    return cards.run(s, _loot_profile(s), ask, "cards")
+
+
+def _both_hands_free(s):
+    return hands.empty(s)
+
+
 # name -> (due(s), run(s, forced), fits(s): True when its needs are met)
 REGISTRY = {
     "almanac": (_almanac_due, _study, _almanac_in_hand),
     "sweep": (_sweep_due, _sweep, _sweep_hand),
     "gems": (_gems_due, _gems, _free_hand),
+    "cards": (_cards_due, _cards, _both_hands_free),
 }
 
 
@@ -262,7 +285,7 @@ def run_due(s, make_room=True):
             forced = chore in _PENDING
             stowed = None
             if not fits(s):
-                if not make_room or name in NO_MAKE_ROOM:
+                if not make_room or name in NO_MAKE_ROOM or chore in BOTH_HANDS:
                     continue  # the next safe point
                 stowed = _make_room(s)
                 if stowed is None:

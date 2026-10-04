@@ -48,6 +48,9 @@ DEFAULTS = {
     "loot_container": "",  # "" stows with the game's STOW default
     # Gems found on a corpse go into this pouch; "" leaves them stowed.
     "gem_pouch": "",
+    # The trading cards a hunt loots go into this worn case ("collector's
+    # case"); "" leaves them stowed (client/game/cards.py, #457).
+    "card_case": "",
     # What a hunt picks up after a search, beyond coins, gems and
     # boxes (client/game/loot.py, combat-trainer's loot_additions /
     # loot_subtractions / box_loot_limit): nouns added, nouns left,
@@ -249,6 +252,12 @@ FIELDS = (
     ("skin_knife", "Skinning knife noun", "str", "empty: the wielded weapon"),
     ("loot_container", "Stow loot and skins in", "str", "empty: the STOW default"),
     ("gem_pouch", "Gem pouch noun", "str", "empty: gems are stowed like loot"),
+    (
+        "card_case",
+        "Card case",
+        "str",
+        "collector's case — empty: cards stowed like loot",
+    ),
     ("loot_additions", "Also pick up after a search", "list", "club, dagger"),
     ("loot_subtractions", "Never pick up", "list", "runestone"),
     (
