@@ -343,6 +343,13 @@ class XMLData:
         # self-heals at the next room change.
         self.hostiles = {}
         self._staged_hostiles = None
+        # The corpses in the room, by id: the creatures a crtrStatus
+        # burst marks dead="1", in its order — staged and swapped with
+        # the hostiles. SKIN #id and LOOT #id act on exactly that body
+        # (dr-scripts' combat-trainer loots and skins by it), where a
+        # noun took the first of its kind, live or dead (#278, #325, #456).
+        self.corpses = []
+        self._staged_corpses = None
         # Bracketed room title, e.g. "[The Crossing, Herald Street]"
         self.room_title = None
         # The game's unique room id from <nav rm='...'/>, sent on every
@@ -495,6 +502,8 @@ class XMLData:
             if self._staged_hostiles is not None:
                 self.hostiles = self._staged_hostiles
                 self._staged_hostiles = None
+                self.corpses = self._staged_corpses or []
+                self._staged_corpses = None
         elif name == "settingsInfo":
             if "instance" in attributes:
                 self.game = attributes["instance"]
@@ -519,6 +528,8 @@ class XMLData:
             # enumeration arrives.
             self.hostiles = {}
             self._staged_hostiles = None
+            self.corpses = []
+            self._staged_corpses = None
             self.room_creatures = []
             self.room_creatures_dead = []
             self.room_objs = ""
@@ -591,6 +602,9 @@ class XMLData:
             # a creature re-announced harmless drops out at the swap.
             if self._staged_hostiles is None:
                 self._staged_hostiles = {}
+                self._staged_corpses = []
+            if attributes.get("dead") == "1" and attributes.get("exist"):
+                self._staged_corpses.append(attributes["exist"])
             # A corpse keeps hostile="1" and adds dead="1" (captured
             # 2026-09-05: a hunter that counted it swung at it five
             # times, "The ship's rat is already quite dead."). Dead is
@@ -677,6 +691,8 @@ class XMLData:
                 # #453). An empty pulse is no listing (#85): it keeps them.
                 self.hostiles = {}
                 self._staged_hostiles = None
+                self.corpses = []
+                self._staged_corpses = None
             if creatures != self.room_creatures or dead != self.room_creatures_dead:
                 self.room_creatures = creatures
                 self.room_creatures_dead = dead

@@ -1835,3 +1835,21 @@ def test_the_guild_comes_from_info_without_a_snapshot(monkeypatch):
     hunt_arena.hunt.main(handle)
     assert asked == ["info"]
     assert echoes[-1].startswith("hunt: an Empath does not hunt")
+
+
+# --- the corpse by its id (#456) ---
+
+
+def test_the_next_corpse_is_the_first_dead_id_not_yet_disposed_of():
+    from client.game.hunting import Tally
+
+    tally = Tally()
+    s = SimpleNamespace(state=SimpleNamespace(corpses=["146982746", "146982750"]))
+    assert hunt_arena.hunt.next_corpse(s, tally) == "#146982746"
+    tally.disposed.add("146982746")
+    assert hunt_arena.hunt.next_corpse(s, tally) == "#146982750"
+    # A session started before the parser kept corpses: the noun follows.
+    assert (
+        hunt_arena.hunt.next_corpse(SimpleNamespace(state=SimpleNamespace()), tally)
+        is None
+    )

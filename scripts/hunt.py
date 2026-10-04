@@ -1503,17 +1503,26 @@ def dispose(s, profile, corpse, tally):
     the ground is grabbed off the room's listing, the answer's own
     wording second (the operator, 2026-09-23: a hunt grabs its loot
     whatever the game called it). LOOT's own lines are uncaptured: the
-    run's first answer is echoed for the fixtures."""
+    run's first answer is echoed for the fixtures.
+
+    By the corpse's id when the parser has it (#456): SKIN #id and LOOT
+    #id act on exactly that body, as dr-scripts' combat-trainer does;
+    a corpse gone by its id is looted bare."""
+    body = next_corpse(s, tally)
     if profile["skin"]:
         # By ordinal past a live one of the noun listed first (#325).
-        target = aim_corpse(
+        target = body or aim_corpse(
             corpse,
             getattr(s.state, "room_creatures", None),
             getattr(s.state, "room_creatures_dead", None),
         )
         skin(s, profile, target, tally)
     before = listing(s)
-    answer = ask(s, "loot")
+    answer = ask(s, f"loot {body}" if body else "loot")
+    if body:
+        tally.disposed.add(body[1:])
+        if missing(answer):
+            answer = ask(s, "loot")
     if not tally.loot_reported:
         tally.loot_reported = True
         s.echo(f"hunt: loot answered {said(answer)!r}")
@@ -1550,6 +1559,17 @@ def dispose(s, profile, corpse, tally):
                 note_box(s, profile, tally, since, item, named(answer, item))
     elif outcome is None:
         unrecognized(s, tally, "loot", answer)
+
+
+def next_corpse(s, tally):
+    """The corpse to skin and loot, by its id ("#146989491"): the first
+    the parser's crtrStatus burst marks dead that this hunt has not
+    disposed of; None without one — a session started before #456 keeps
+    no corpses, and the noun follows."""
+    for exist in getattr(s.state, "corpses", None) or []:
+        if str(exist) not in tally.disposed:
+            return f"#{exist}"
+    return None
 
 
 def own_characters():

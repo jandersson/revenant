@@ -48,7 +48,7 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   launch key over stdin, never argv or env).
 - `xml_data.py` the parser: state + `route(line)` → `(stream, text,
   style)`; hands, injuries, spells, room players/creatures (and the
-  dead marks), rested, possessions, balance, exp mods, TDPs, favors,
+  dead marks), hostiles and corpses by id, rested, possessions, balance, exp mods, TDPs, favors,
   shutdown — `s.status` (`client/game/status.py`) exposes each in words.
 - `core.py` `Engine`: feeds lines, emits the synthetic streams; it
   appends "\n" only to the last piece of a line per stream, and

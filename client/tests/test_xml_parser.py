@@ -1038,3 +1038,28 @@ def test_the_exp_windows_tdp_and_favor_counts_are_kept(xml_data):
     _feed_one(xml_data, "<component id='exp tdp'>            TDPs:  30</component>")
     assert xml_data.tdps == 30 and xml_data.exp_updated
     assert "tdp" not in xml_data.experience and "favor" not in xml_data.experience
+
+
+# Captured 2026-10-04 at Endrus (#456): a serpent's corpse beside a live
+# one, then the room's next burst once the corpse was looted away.
+CRTR_CORPSE = (
+    '<crtrStatus exist="146982746" hostile="1" disengaged="1" dead="1" sleeping="1"/>'
+    '<crtrStatus exist="146982749" hostile="1"/><prompt time="1791073940">&gt;</prompt>'
+)
+CRTR_LOOTED = (
+    '<crtrStatus exist="146982749" hostile="1"/><prompt time="1791073960">&gt;</prompt>'
+)
+
+
+def test_the_corpses_are_the_dead_creatures_ids_swapped_with_the_hostiles(xml_data):
+    XMLParser(target=xml_data).feed(f"<r>{CRTR_CORPSE}</r>")
+    assert xml_data.corpses == ["146982746"]
+    assert xml_data.hostiles == {"146982749": True}  # the corpse is not hostile
+    XMLParser(target=xml_data).feed(f"<r>{CRTR_LOOTED}</r>")
+    assert xml_data.corpses == []
+
+
+def test_a_new_room_clears_the_corpses(xml_data):
+    XMLParser(target=xml_data).feed(f"<r>{CRTR_CORPSE}</r>")
+    XMLParser(target=xml_data).feed('<r><nav rm="12345"/></r>')
+    assert xml_data.corpses == []

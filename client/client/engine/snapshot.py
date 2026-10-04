@@ -34,6 +34,7 @@ FIELDS = (
     "room_creatures_dead",
     "room_objs",
     "hostiles",
+    "corpses",
     "rested",
     "possessions",
     "exp_mods",
@@ -126,6 +127,9 @@ def snapshot(xml_data, fields=None, scripts=None) -> dict:
             str(exist): engaged
             for exist, engaged in (getattr(xml_data, "hostiles", None) or {}).items()
         },
+        "corpses": lambda: [
+            str(exist) for exist in getattr(xml_data, "corpses", None) or []
+        ],
         "rested": lambda: getattr(xml_data, "rested", None),
         "possessions": lambda: [
             dict(item) for item in (getattr(xml_data, "possessions", None) or [])
