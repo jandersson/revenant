@@ -66,6 +66,7 @@ A task:
 | `setup`, `teardown` | sent before and after the task (`get my flute` / `stow my flute`) |
 | `target`, `minutes` | this task's own target and budget |
 | `helper`, `helper_script`, `helper_args`, `helper_room` | a second character of yours logged in for the task, such as a teacher for `;listen`; one sharing its account with a logged-in character logs that one out first |
+| `helper_page` | a wound severity (`severe`): a helper busy on its own `;train` is paged for the task when HEALTH shows a wound that bad or worse; blank skips the task |
 | `helper_after` | `stay`: the helper stays logged in after the task, ready for the next; `after`: the helper logs out once its script ends. With either, a `when: wounded` task ends once you are clean, the helper finishing on its own |
 | `when` | `wounded`: skipped while the injuries panel is clean; `favors<10`: skipped once you hold 10 favors (a `;favors` task keeps you at that cap) |
 
@@ -73,7 +74,7 @@ A task with no `skills` runs once per cycle for its `minutes`: selling skins, ba
 
 A task with a helper and no `script` or `commands` lasts while the helper's script runs: an Empath healing you after a hunt.
 
-A task whose helper is running its own `;train` is skipped, said: two loops would drive one character.
+A task whose helper is running its own `;train` is skipped, said: two loops would drive one character. With `helper_page: severe`, a wound that bad pages the helper's `;train` instead: it sets its task aside, lends the character, and carries on after the task. Lighter wounds wait for the plant (`plant_room`).
 
 A teacher running `;teach` logs itself out after 5 minutes with no student in the class, so a helper whose student's `;train` stopped does not teach an empty room.
 

@@ -956,6 +956,148 @@ def test_a_helper_logged_in_without_train_is_used(clock, monkeypatch):
     assert train.run_task(fake, plan(poll=10), task, db=MAP, walk=walk) == "helper done"
 
 
+# --- paging a busy helper for a bad wound (#472) -----------------------------
+# The operator, 2026-10-04: "emergencies with severe wounds, then page,
+# else use the plant". Wordings from client/game/wounds_data.py.
+HEALTH_SEVERE = (
+    "Your body feels battered.\nYou have gaping holes in the chest area, some "
+    "minor abrasions to the head."
+)
+HEALTH_LIGHT = (
+    "Your body feels at full strength.\nYou have some minor abrasions to the head."
+)
+PAGED_HEAL = HEAL | {
+    "helper": "Uthmor",
+    "helper_args": ["lanival"],
+    "helper_page": "severe",
+}
+
+
+class PagedWorld(HelperWorld):
+    """A helper busy on its own ;train: its lent mark appears once the
+    page is sent, unless it never answers."""
+
+    def __init__(self, polls, answers=True):
+        super().__init__(polls, registry=[{"port": 4243, "character": "Uthmor"}])
+        self.answers = answers
+        self.mark = None
+        self.clock = 0.0
+
+    def send(self, port, line):
+        super().send(port, line)
+        if self.answers and self.sent[-1] == ";train page lanival":
+            self.mark = ("Lanival", 100.0)
+
+    def lent_to(self, name):
+        return self.mark
+
+    def wall(self):
+        return 100.0
+
+    def now(self):
+        return self.clock
+
+    def sleep(self, seconds):
+        self.clock += seconds
+
+
+def paged_task(clock, monkeypatch, world, health):
+    from client.game import helper
+
+    monkeypatch.setattr(train, "HelperIO", world)
+    monkeypatch.setattr(
+        train,
+        "start_helper",
+        lambda s, task, db, walk: helper.Helper("Uthmor", 4243, True),
+    )
+    fake = Fake()
+    fake.state.injuries = {"chest": ("wound", 3)}
+    fake.answers = {"health": [health]}
+    clock["fake"] = fake
+    task = normalize({"tasks": [PAGED_HEAL]})["tasks"][0]
+    return fake, train.run_task(fake, plan(poll=10), task, db=MAP, walk=walk)
+
+
+def test_a_severe_wound_pages_the_busy_helper_and_hands_it_back(clock, monkeypatch):
+    world = PagedWorld([["train"], ["train", "empath"], ["train"]])
+    fake, reason = paged_task(clock, monkeypatch, world, HEALTH_SEVERE)
+    assert reason == "helper done"
+    # Lent, not logged out, though the session looked like a loop's spawn.
+    assert world.sent == [";train page lanival", ";train release"]
+    assert "train: heal — a wound is severe or worse: paging Uthmor" in fake.echoed
+    assert "train: Uthmor's ;train set its task aside — Uthmor is lent" in fake.echoed
+    assert "train: Uthmor handed back to ;train" in fake.echoed
+
+
+def test_a_lighter_wound_leaves_the_busy_helper_to_its_train(clock, monkeypatch):
+    world = PagedWorld([["train"]])
+    fake, reason = paged_task(clock, monkeypatch, world, HEALTH_LIGHT)
+    assert reason == "busy"
+    assert world.sent == []
+    assert (
+        "train: heal — Uthmor is running ;train and no wound is severe or worse, "
+        "skipped"
+    ) in fake.echoed
+
+
+def test_a_page_never_answered_is_released_and_the_task_skipped(clock, monkeypatch):
+    world = PagedWorld([["train"]], answers=False)
+    fake, reason = paged_task(clock, monkeypatch, world, HEALTH_SEVERE)
+    assert reason == "busy"
+    assert world.sent == [";train page lanival", ";train release"]
+    assert "train: Uthmor's ;train did not answer the page in 180 s" in fake.echoed
+
+
+def test_helper_page_must_name_a_wound_severity():
+    from client.game.training import validate
+
+    bad = normalize(DEFAULTS | {"tasks": [PAGED_HEAL | {"helper_page": "bad"}]})
+    assert validate(bad) == [
+        "task heal: helper_page 'bad' is not a wound severity (severe, harmful, ...)"
+    ]
+    assert validate(normalize(DEFAULTS | {"tasks": [PAGED_HEAL]})) == []
+
+
+def test_a_page_sets_the_task_aside_lends_the_character_and_runs_it_again(clock):
+    # #472, the helper's side: Sable's loop pages this one for a heal.
+    # The lent mark stands while the pager's ;empath runs here, even
+    # after the release, and goes once the character is given back.
+    from client.game import helper
+
+    seen = {}
+
+    def paged(fake):
+        fake.commands.append("page sable")
+
+    def released(fake):
+        seen["mark"] = helper.lent_to("Lanival")
+        fake.commands.append("release")
+
+    def healed(fake):
+        seen["held for empath"] = helper.lent_to("Lanival") is not None
+        fake.younger = ["xp"]
+
+    fake = Fake([{"Athletics": 3}, paged, {"Athletics": 3}, released, healed])
+    fake.younger = ["xp", "empath"]
+    fake.younger_scripts = lambda: list(fake.younger)
+    run(clock, fake, plan(tasks=[plan()["tasks"][0]]))
+    assert [name for name, _ in fake.started][:2] == ["athletics", "athletics"]
+    assert any("climbs set aside for a page" in text for text in fake.echoed)
+    assert "train: paged by Sable — lent until released (at most 30 min)" in fake.echoed
+    assert seen["mark"][0] == "Sable"
+    assert seen["held for empath"] is True
+    assert "train: released by Sable — back to training" in fake.echoed
+    assert helper.lent_to("Lanival") is None
+
+
+def test_a_page_reaching_an_ended_train_starts_nothing(clock):
+    fake = Fake(args=["page", "sable"])
+    clock["fake"] = fake
+    train.main(fake)
+    assert fake.started == []
+    assert fake.echoed == ["train: not running — nothing to page"]
+
+
 def test_a_task_only_when_wounded_is_skipped_while_the_panel_is_clean(
     clock, monkeypatch
 ):

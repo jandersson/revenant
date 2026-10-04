@@ -10,6 +10,8 @@
     ;train rest          (typed while it runs) stop training and rest now
     ;train return        (typed while it runs) the task's script gets its own return
                          word (;hunt finishes the kill, walks home); no task or rest follows
+    ;train page <name>   (another character's ;train sends it) set the task aside and lend this
+                         character until ;train release, then walk back and carry on
     ;stop train          quit at once; a task's script stops with it
 
 What it does
@@ -25,6 +27,8 @@ What it does
   - In the rests: soul deeds when `soul` is on, stat points from the plan's `tdp` list,
     and, wounded, the vela'tohr plant in `plant_room` touched and rested beside.
   - The interludes (the profile's `almanac`, a typed `;break`) between tasks and in rests.
+  - A helper busy on its own ;train: its task is skipped, or, with `helper_page` and a wound
+    that bad, its ;train is paged for the task and handed back after.
   - Hostiles at the rest send it to the next safe room, or next door.
 
 When it stops
@@ -41,6 +45,7 @@ import time
 
 from client.game import act, almanac, drain, flight, helper, interlude, travel
 from client.game.history import database_path
+from client.game.wounds import parse_health
 
 from client.game.training import (
     HUNT_RETURN_GRACE,
@@ -150,6 +155,9 @@ TDP_MINUTES = 12  # one ;tdp run, the walk there and back included
 INFO_SECONDS = 2  # INFO's answer window in the rest
 INFO_TAIL = 0.5
 WORDS = ("skip", "rest", "return", "status")
+LEND_POLL = 2  # seconds between looks while lent to a paging loop (#472)
+# Who paged this loop (#472), between the typed word and the lend.
+PAGE = {}
 # rest()'s answer to a typed return: the run ends, no next cycle (#338).
 RETURNED = "return"
 # rest()'s answer after a logout rest's QUIT (#412): the link ends with it.
@@ -177,9 +185,16 @@ def user_word(s, plan):
     word = None
     while (line := s.command(timeout=0)) is not None:
         candidate = line.strip().lower()
+        verb, _, rest_of = candidate.partition(" ")
         if candidate == "status":
             for text in status_lines(plan, experience(s)):
                 s.echo(text)
+        elif verb == "page" and rest_of.strip():
+            # Another character's loop wants this one for a heal (#472).
+            PAGE["by"] = rest_of.strip().title()
+            word = "page"
+        elif candidate == "release":
+            pass  # a page's release when no page holds: nothing to give back
         elif candidate in WORDS:
             word = candidate
         else:
@@ -331,6 +346,7 @@ ENDINGS = {
     "healed": "healed — the helper finishes on its own",
     "unneeded": "not needed",
     "busy": "skipped — its helper is busy",
+    "page": "set aside for a page",
 }
 UNTRAINED = ("skipped", "failed", "crashed")  # a task that never trained
 
@@ -530,19 +546,56 @@ def run_task(s, plan, task, db=None, walk=None):
             s.echo(f"train: {task['name']} — favors {held} (cap {cap}), skipped")
             return "unneeded"
     spec = helper.spec_of(task)
-    busy_with = spec and helper.busy(HelperIO(s, db), spec["name"])
+    io = HelperIO(s, db)
+    busy_with = spec and helper.busy(io, spec["name"])
+    paged = None
     if busy_with:
         # Two loops would drive one character (#470): the helper's own
-        # ;train keeps it; the student's other tasks train meanwhile.
+        # ;train keeps it, unless a bad enough wound pages it (#472).
+        paged = page_helper(s, task, spec["name"], busy_with, io)
+        if paged is None:
+            return "busy"
+    try:
+        return work_task(s, plan, task, db, walk, paged is not None)
+    finally:
+        if paged is not None:
+            helper.release(io, paged)
+            s.echo(f"train: {spec['name']} handed back to ;train")
+
+
+def page_helper(s, task, name, busy_with, io):
+    """The busy helper paged for this task (#472), its port: the task
+    pages (`helper_page`), the helper is on its own ;train, and HEALTH
+    shows a wound that bad or worse. None, said, otherwise — the task is
+    skipped (#470), and the rests' vela'tohr plant heals the rest (the
+    operator, 2026-10-04: "emergencies with severe wounds, then page,
+    else use the plant")."""
+    floor = str(task.get("helper_page") or "").strip().lower()
+    if busy_with != "train" or not floor:
+        s.echo(f"train: {task['name']} — {name} is running ;{busy_with}, skipped")
+        return None
+    if not parse_health(act.ask(s, "health")).at_least(floor):
         s.echo(
-            f"train: {task['name']} — {spec['name']} is running ;{busy_with}, skipped"
+            f"train: {task['name']} — {name} is running ;train and no wound is "
+            f"{floor} or worse, skipped"
         )
-        return "busy"
+        return None
+    s.echo(f"train: {task['name']} — a wound is {floor} or worse: paging {name}")
+    student = getattr(s.state, "name", None) or ""
+    return helper.page(io, name, student, s.echo)
+
+
+def work_task(s, plan, task, db, walk, paged=False):
+    """run_task past its gates: the helper started, the task worked, the
+    helper ended. A paged helper (#472) is never logged out here: its
+    own ;train gets it back."""
     budget = task_minutes(plan, task)
     deadline = clock() + budget * 60 if budget else None
     limit = f"up to {budget} min" if budget else "no time limit"
     s.echo(f"train: {task['name']} — {progress(plan, task, experience(s))} ({limit})")
     active = start_helper(s, task, db, walk)
+    if paged and active is not None:
+        active.spawned = False  # lent, not this loop's to log out
     send_each(s, task["setup"])
     if task["script"]:
         reason = run_script_task(s, plan, task, deadline)
@@ -567,7 +620,76 @@ def run_task(s, plan, task, db=None, walk=None):
             f"train: {task['name']} {ENDINGS.get(reason, reason)} — "
             f"{progress(plan, task, experience(s))}"
         )
+    if reason == "page":
+        held = lend(s, plan, db, walk)
+        if held is not None:
+            return held
     return reason
+
+
+def borrowed(s):
+    """The scripts the paging loop started here — its ;go2, its
+    ;empath — still running: every script younger than this loop but
+    the background monitors."""
+    from client.engine.scripting import ScriptManager
+
+    younger = getattr(s, "younger_scripts", None)
+    names = younger() if callable(younger) else []
+    return [name for name in names if name not in ScriptManager.KEEP_ON_STOP_ALL]
+
+
+def lend(s, plan, db, walk):
+    """The character lent to the loop that paged it (#472): the lent
+    mark written (client/game/helper.py), then held — no task, no rest
+    step — until `;train release` has come and the scripts that loop
+    started here have ended, or LEND_MINUTES pass with no release; then
+    walked back to where the page found it. "dead", "return" (a typed
+    return ends the run), or None."""
+    name = getattr(s.state, "name", None) or ""
+    by = PAGE.pop("by", "") or "another character"
+    here = None
+    if db is not None:
+        from client.game.walker import locate
+
+        here = locate(db, s.state)
+    helper.mark_lent(name, by)
+    s.echo(
+        f"train: paged by {by} — lent until released "
+        f"(at most {helper.LEND_MINUTES} min)"
+    )
+    deadline = clock() + helper.LEND_MINUTES * 60
+    released = False
+    try:
+        while True:
+            if s.dead:
+                return "dead"
+            while (line := s.command(timeout=0)) is not None:
+                word = line.strip().lower()
+                if word == "release":
+                    released = True
+                elif word == "return":
+                    s.echo("train: returned while lent — the run ends here")
+                    return "return"
+                elif word == "status":
+                    for text in status_lines(plan, experience(s)):
+                        s.echo(text)
+                else:
+                    s.echo(f"train: lent to {by} — ;train return ends the run")
+            if not released and clock() >= deadline:
+                s.echo(
+                    f"train: no release from {by} in {helper.LEND_MINUTES} min "
+                    "— taking the character back"
+                )
+                released = True
+            if released and not borrowed(s):
+                break
+            s.sleep(LEND_POLL)
+    finally:
+        helper.clear_lent(name)
+    s.echo(f"train: released by {by} — back to training")
+    if here is not None and walk is not None:
+        travel.go(s, here, repr(here), db=db, walk=walk)
+    return None
 
 
 def train_cycle(s, plan, db=None, walk=None):
@@ -585,6 +707,8 @@ def train_cycle(s, plan, db=None, walk=None):
         reason = run_task(s, plan, task, db, walk)
         if reason in ("dead", "shutdown", "return"):
             return reason
+        if reason == "page":
+            continue  # set aside for a page, not spent: it runs again
         spent.add(task["name"])
         outcomes.append(reason)
         if reason == "rest":
@@ -899,6 +1023,14 @@ def rest(s, plan, db, walk, index):
             s.echo(f"train: {cap} minutes of rest — moving on")
             return index
         word = user_word(s, plan)
+        if word == "page":
+            held = lend(s, plan, db, walk)
+            if held == "dead":
+                return None
+            if held == "return":
+                return RETURNED
+            send_each(s, plan["rest_commands"])
+            continue
         if word == "skip":
             s.echo("train: rest skipped")
             return index
@@ -1014,6 +1146,12 @@ def main(s):
     if word == "init":
         init(s, name, force=len(s.args) > 1 and s.args[1].lower() == "force")
         return
+    if word in ("page", "release"):
+        # Another loop's page or release reaching a ;train that has
+        # ended (#472): nothing to set aside or give back.
+        s.echo(f"train: not running — nothing to {word}")
+        return
+    helper.clear_lent(name)  # a mark a killed run left behind
     plan = load_plan(name)
     if word == "plan":
         s.echo(f"train: plan for {name or 'an unnamed character'} ({plan_path(name)})")

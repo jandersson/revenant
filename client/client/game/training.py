@@ -63,6 +63,7 @@ from pathlib import Path
 import yaml
 
 from client.game.profile import load_profile, slug
+from client.game.wounds import SEVERITIES
 
 MIND_LOCK = 34
 # A rest online burns the rested-experience bank for nothing new (#412):
@@ -128,6 +129,10 @@ TASK_DEFAULTS = {
     # waiting for the next heal); "after": logged out once its script
     # ends, the student gone on meanwhile; blank logs a spawned one out.
     "helper_after": "",
+    # A wound severity ("severe"): a helper busy on its own ;train is
+    # paged for the task when HEALTH shows a wound that bad or worse
+    # (#472); blank, or a lighter wound, skips the task (#470).
+    "helper_page": "",
     # "wounded": the task is skipped while the injuries panel is clean;
     # "favors<10": skipped once the exp window's favors reach 10 — the
     # ;favors task, a cap the operator keeps (2026-09-28).
@@ -193,6 +198,12 @@ TASK_FIELDS = (
         "Helper afterwards",
         "str",
         "stay, after (out once its script ends) — blank: logged out",
+    ),
+    (
+        "helper_page",
+        "Page a busy helper at",
+        "str",
+        "severe — a wound that bad pages its ;train; blank: skipped",
     ),
     ("when", "Only when", "str", "wounded, favors<10 — blank: always"),
     ("target", "Own target mindstate", "optint", "blank: the plan's"),
@@ -346,6 +357,7 @@ def normalize_task(values, index=0) -> dict:
             "helper_script",
             "helper_room",
             "helper_after",
+            "helper_page",
         ):
             task[key] = str(value or "").strip()
         else:
@@ -497,6 +509,12 @@ def validate(plan: dict) -> list:
         names.add(task["name"])
         if task["pace"] < 0:
             problems.append(f"task {task['name']}: pace must be 0 or more")
+        page = str(task.get("helper_page") or "").strip().lower()
+        if page and page not in SEVERITIES:
+            problems.append(
+                f"task {task['name']}: helper_page {task['helper_page']!r} is not "
+                "a wound severity (severe, harmful, ...)"
+            )
         when = str(task.get("when") or "").strip().lower()
         if when not in ("", "wounded") and favors_cap(when) is None:
             problems.append(

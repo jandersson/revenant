@@ -27,7 +27,11 @@ without a return word that would start the script again. A task whose
 `helper_after` is "stay" leaves the helper logged in for the next one
 (Riphik between heals; the session answers the idle warning itself).
 A helper running its own `;train` is busy (#470): its task is
-skipped, said, rather than two loops driving one character.
+skipped, said, rather than two loops driving one character — unless
+the task pages it (#472): `;train page <student>` asks that loop to
+set its task aside, the lent mark it writes
+(~/.revenant/training/<name>.lent.json) says it holds, the task runs
+as usual, and `;train release` hands the character back.
 Every line to the helper goes through the wire tagged "train", so its
 window reads `>> [train] ...`. A helper that cannot be had — no
 account cached for the name, no password in the keychain, a session
@@ -38,6 +42,8 @@ through the `io` object `scripts/train.py` provides, so the decisions
 here are tested dry.
 """
 
+import json
+import time
 from time import monotonic
 
 from client.engine.wire import EXTERNAL_MARK
@@ -51,6 +57,8 @@ LOGOUT_SECONDS = 90  # the account's other character's ;logout
 # A helper running one of these drives itself: a task wanting it is
 # skipped (#470, the operator's option 1, 2026-10-04).
 BUSY_SCRIPTS = ("train",)
+PAGE_SECONDS = 180  # a paged ;train winding its task down before it lends
+LEND_MINUTES = 30  # the longest a lent ;train holds with no release
 
 
 class Helper:
@@ -138,6 +146,65 @@ def busy(io, name):
         return None
     names = {str(n).lower() for n in io.scripts_of(port) or []}
     return next((script for script in BUSY_SCRIPTS if script in names), None)
+
+
+def lent_path(name):
+    """The lent mark of `name`'s ;train while a page holds it (#472)."""
+    from client.game.training import training_dir
+
+    return training_dir() / f"{name.lower()}.lent.json"
+
+
+def mark_lent(name, to):
+    """`name`'s ;train lent to `to`'s loop, said where that loop reads."""
+    path = lent_path(name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"to": to, "since": time.time()}), encoding="utf-8")
+
+
+def clear_lent(name):
+    """The lent mark gone: `name`'s ;train has its character back."""
+    try:
+        lent_path(name).unlink()
+    except FileNotFoundError:
+        pass
+
+
+def lent_to(name):
+    """(to, since) of `name`'s lent mark, or None."""
+    try:
+        mark = json.loads(lent_path(name).read_text(encoding="utf-8"))
+        return str(mark["to"]), float(mark["since"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def page(io, name, student, echo, seconds=PAGE_SECONDS):
+    """The busy helper's ;train asked to lend `name` to `student`'s loop
+    (#472): `;train page <student>` sent, the lent mark waited for. The
+    helper's port once it holds; None, said, when it did not answer in
+    time — a `;train release` follows then, so a late answer does not
+    hold it for nothing."""
+    port = find_session(io.sessions(), name)
+    if not port:
+        return None
+    asked = io.wall()
+    io.send(port, tagged(f";train page {student.lower()}"))
+    deadline = io.now() + seconds
+    while io.now() < deadline:
+        mark = io.lent_to(name)
+        if mark and mark[0].lower() == student.lower() and mark[1] >= asked - 5:
+            echo(f"train: {name}'s ;train set its task aside — {name} is lent")
+            return port
+        io.sleep(2)
+    echo(f"train: {name}'s ;train did not answer the page in {seconds} s")
+    release(io, port)
+    return None
+
+
+def release(io, port):
+    """The paged ;train given its character back: `;train release`."""
+    io.send(port, tagged(";train release"))
 
 
 def ensure(io, name, echo, spawned_before=(), own_port=None):
@@ -316,6 +383,12 @@ class SessionIO:
             return None
         names = state.get("scripts") if isinstance(state, dict) else None
         return list(names) if isinstance(names, list) else None
+
+    def lent_to(self, name):
+        return lent_to(name)
+
+    def wall(self):
+        return time.time()
 
     def now(self):
         return monotonic()
