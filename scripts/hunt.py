@@ -811,8 +811,10 @@ def draw(s, profile):
     weapon = profile["weapon"]
     if not weapon:
         return True
-    answer = ask(s, f"wield my {weapon}").lower()
-    if missing(answer):
+    # By its INV LIST id when listed (#456): the exact weapon, not the
+    # first the game matches.
+    answer = hands.wield(s, weapon, profile.get("weapon_container") or "", ask=ask)
+    if missing(answer.lower()):
         s.echo(f"hunt: no {weapon} to draw — the game finds none on you")
         return False
     return True

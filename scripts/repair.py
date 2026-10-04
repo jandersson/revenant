@@ -241,8 +241,9 @@ def take(s, noun, place):
         if not missing(answer, NOT_ON_YOU):
             return True
     if place.startswith("sheathed:"):
-        # WIELD is how a weapon leaves its sheath (DRAW is an attack).
-        answer = ask(s, f"wield my {noun}")
+        # WIELD is how a weapon leaves its sheath (DRAW is an attack),
+        # by its INV LIST id when listed (#456).
+        answer = hands.wield(s, noun, ask=ask)
         s.waitrt()
         if not missing(answer, NOT_ON_YOU) and hands.holding(s, noun):
             return True

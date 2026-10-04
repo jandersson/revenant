@@ -9,7 +9,8 @@ put-back a ;stop still sends.
     hands.free_one(s, ask=ask)                   # both full: the first STOWed; True once a hand is free
     hands.stow(s, noun, ask=ask)                 # one STOW, True unless refused; no room → PUT into the default container
     hands.stow_said(s, noun, ask=ask)            # the same, with the line that decided it (a refusal to quote)
-    hands.sheathe(s, weapon, container, ask=ask) # where WIELD drew it from; asked where, the container, else STOW
+    hands.wield(s, weapon, container, ask=ask)   # by its INV LIST id when listed, else MY <weapon>
+    hands.sheathe(s, weapon, container, ask=ask) # its INV LIST home by id; else where WIELD drew it from, the container, STOW
     hands.at_end(s, ("pestle", "mortar"))        # a finally's STOWs, as cleanup puts
 
 Pass the script's ask so a test's fake answers the STOW. The answer is
@@ -17,7 +18,7 @@ the judge, never the tags right after it (they lag); an id ("#123")
 goes out bare.
 """
 
-from client.game import act
+from client.game import act, possessions
 
 _NOTES = """
 Twenty places read the hand tags their own way and a dozen freed a hand
@@ -228,8 +229,60 @@ def free_one(s, keep=(), ask=None):
     return False
 
 
+def listed(s, noun, container=""):
+    """INV LIST's entry for the weapon `noun` (s.state.possessions), not
+    a worn one: among several, the one in a container whose name has
+    `container`; None without a listing that shows one (#456)."""
+    found = [
+        item
+        for item in possessions.find(
+            getattr(getattr(s, "state", None), "possessions", None) or [], noun
+        )
+        if item.get("exist") and not item.get("worn")
+    ]
+    if not found:
+        return None
+    names = {
+        item.get("exist"): str(item.get("name") or "").lower()
+        for item in getattr(s.state, "possessions", None) or []
+    }
+    wanted = str(container or "").strip().lower()
+    for item in found:
+        if wanted and wanted in names.get(item.get("container_exist"), ""):
+            return item
+    return found[0]
+
+
+def home(s, exist):
+    """The container INV LIST found the item `exist` in, as a command
+    names it ("#146870206"), or None — not listed, or listed in no
+    container."""
+    for item in getattr(getattr(s, "state", None), "possessions", None) or []:
+        if str(item.get("exist")) == str(exist) and item.get("container_exist"):
+            return f"#{item['container_exist']}"
+    return None
+
+
+def wield(s, weapon, container="", ask=None):
+    """WIELD the weapon (DRAW is an attack): by its INV LIST id when the
+    listing shows it — the exact one, wherever it sits, not the first
+    the game matches — else WIELD MY <weapon>; an id the game no longer
+    knows (the listing is from login) falls back to the noun (#456).
+    The answer."""
+    ask = ask or act.ask
+    item = listed(s, weapon, container)
+    if item:
+        answer = ask(s, f"wield #{item['exist']}")
+        if not act.missing(answer):
+            return answer
+    return ask(s, f"wield my {weapon}")
+
+
 def sheathe(s, weapon, container="", ask=None):
-    """SHEATHE the weapon where WIELD drew it from — the game remembers
+    """Into the container INV LIST found the held weapon in, both by id
+    (#456): the game's remembered place was the backpack for the spear
+    (#449), the listing's is its baldric. Unlisted, or that refused:
+    SHEATHE the weapon where WIELD drew it from — the game remembers
     (the operator, 2026-10-03: "just do sheathe and wield"; a STOW had
     sent the spear to the backpack, "too long to fit", #439). Asked
     where ("Sheathe your ... where?": nothing remembered) or refused —
@@ -238,6 +291,14 @@ def sheathe(s, weapon, container="", ask=None):
     backpack." (2026-10-03, #449) — into the `container` named; still
     asked where, STOW. True unless the last answer refused it."""
     ask = ask or act.ask
+    tag = tag_of(s, weapon)
+    place = home(s, tag.get("exist")) if tag and tag.get("exist") else None
+    if place:
+        answer = ask(s, f"sheathe #{tag['exist']} in {place}")
+        if not refused(answer) and not any(
+            word in answer.lower() for word in SHEATHE_WHERE
+        ):
+            return True
     answer = ask(s, f"sheathe my {weapon}")
     where = any(word in answer.lower() for word in SHEATHE_WHERE)
     if container and (where or refused(answer)):

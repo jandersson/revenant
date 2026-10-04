@@ -17,6 +17,7 @@
 
 - Every hunt that fought ends with `;skins bank`, under `;train` too, keeping 200 copper for the next trip's ferry fare; `;stop hunt` stops the selling with it.
 - The weapon stays in hand when the hunt ends.
+- Weapons are drawn and put away by their ids from INV LIST (taken at login): the exact weapon, back into the container it was listed in.
 - An Empath never hunts: attacking a living creature brings empathic shock.
 - A room another player is already in is theirs: the hunt moves on without a swing, whatever creatures are in it. With every room taken, it goes home. A room full of creatures is fought, one at a time.
 
@@ -34,6 +35,7 @@ File → Character Profile, or `~/.revenant/profiles/<name>.json`. The keys a hu
 | `skin`, `skin_knife` | skin each kill; a knife noun, or empty for a worn knife or the weapon |
 | `bundle` | put skins on a worn bundling rope (free at any tannery) |
 | `loot_container`, `gem_pouch` | where loot and skins go; where gems go |
+| `card_case` | the worn case trading cards go into (a collector's case) |
 | `loot_additions`, `loot_subtractions` | nouns also picked up; nouns never picked up (out of a box, into the trash) |
 | `loot_ignore` | loot not worth keeping: never picked up, trashed from boxes (default: the common metals) |
 | `loot_sweep` | beside a bin, trash what `loot_ignore` names from the loot container (off) |

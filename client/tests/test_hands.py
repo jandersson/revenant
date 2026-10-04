@@ -241,3 +241,95 @@ def test_an_item_that_passed_through_a_hand_is_found_after_the_mark():
     old = Fake()
     assert hands.mark(old) == 0
     assert hands.passed_through(old, 0, "box") is None
+
+
+# --- weapons by their INV LIST ids (#456) ---
+
+# INV LIST's weapons (Cecil's, 2026-10-04): the spear on the baldric,
+# the scimitar in the scabbard, a second scimitar in the backpack.
+ARMORY = [
+    {"exist": "241", "name": "a palladium baldric", "noun": "baldric", "worn": True},
+    {
+        "exist": "242",
+        "name": "a narrow-headed spear",
+        "noun": "spear",
+        "container_exist": "241",
+    },
+    {
+        "exist": "206",
+        "name": "a tooled leather scabbard",
+        "noun": "scabbard",
+        "worn": True,
+    },
+    {"exist": "173", "name": "a rugged backpack", "noun": "backpack", "worn": True},
+    {
+        "exist": "190",
+        "name": "a dull scimitar",
+        "noun": "scimitar",
+        "container_exist": "173",
+    },
+    {
+        "exist": "207",
+        "name": "a watered steel scimitar",
+        "noun": "scimitar",
+        "container_exist": "206",
+    },
+]
+DRAWN = (
+    "You draw out your steel scimitar from the leather scabbard, gripping it "
+    "firmly in your right hand."
+)
+
+
+def armed(right=None, exist="2"):
+    s = Fake(right=right)
+    if right:
+        s.state.right_hand["exist"] = exist
+    s.state.possessions = ARMORY
+    return s
+
+
+def test_a_listed_weapon_is_wielded_by_its_id_the_one_in_the_named_container():
+    s = armed()
+    s.answers = {"wield #207": DRAWN}
+    assert hands.wield(s, "scimitar", "scabbard", ask=s.ask) == DRAWN
+    assert s.sent == ["wield #207"]
+    s.sent.clear()
+    hands.wield(s, "scimitar", ask=s.ask)  # no container named: the first listed
+    assert s.sent == ["wield #190"]
+
+
+def test_an_id_the_game_no_longer_knows_falls_back_to_the_noun():
+    s = armed()
+    s.answers = {
+        "wield #242": "What were you referring to?",
+        "wield my spear": "You draw",
+    }
+    hands.wield(s, "spear", "baldric", ask=s.ask)
+    assert s.sent == ["wield #242", "wield my spear"]
+    unlisted = Fake()
+    hands.wield(unlisted, "spear", ask=unlisted.ask)
+    assert unlisted.sent == ["wield my spear"]
+
+
+def test_a_held_weapon_is_sheathed_in_its_listed_home_by_id():
+    # #449: the game remembered the backpack for the spear; INV LIST
+    # found it on the baldric, and that is where it goes.
+    s = armed(right="spear", exist="242")
+    s.answers = {
+        "sheathe #242 in #241": "You sheathe the narrow-headed spear in "
+        "your palladium baldric."
+    }
+    assert hands.sheathe(s, "spear", "backpack", ask=s.ask) is True
+    assert s.sent == ["sheathe #242 in #241"]
+
+
+def test_a_listed_home_that_refuses_falls_back_to_the_remembered_place():
+    s = armed(right="spear", exist="242")
+    s.answers = {
+        "sheathe #242 in #241": "The narrow-headed spear is too long to fit in the "
+        "baldric.",
+        "sheathe my spear": "You sheathe the narrow-headed spear in your sling.",
+    }
+    assert hands.sheathe(s, "spear", ask=s.ask) is True
+    assert s.sent == ["sheathe #242 in #241", "sheathe my spear"]

@@ -132,7 +132,8 @@ def find(items, noun):
     return [
         item
         for item in items or []
-        if item["noun"].lower() == wanted or wanted in item["name"].lower().split()
+        if str(item.get("noun") or "").lower() == wanted
+        or wanted in str(item.get("name") or "").lower().split()
     ]
 
 
