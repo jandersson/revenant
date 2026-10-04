@@ -58,6 +58,14 @@ _WAIT = re.compile(r"^\.\.\.wait (\d+) seconds?\.", re.MULTILINE)
 WAIT_RETRIES = 3
 WAIT_PAD = 0.2
 
+
+def wait_seconds(answer):
+    """The seconds a "...wait N seconds." refusal names, or None when
+    the game ran the command."""
+    held = _WAIT.search(answer or "")
+    return int(held.group(1)) if held else None
+
+
 # What the main window shows: the story, and the combat stream the
 # game pushes every swing and kill line through (<pushStream
 # id="combat"/>). The engine routes that block as its own stream and a
@@ -204,10 +212,10 @@ def ask(s, command, seconds, tail_seconds):
         before = _prompts(s)
         s.put(command)
         opening = collect(s, seconds, prompts_from=before)
-        held = _WAIT.search(opening)
+        held = wait_seconds(opening)
         if held is None or attempt == WAIT_RETRIES:
             break
-        s.sleep(int(held.group(1)) + WAIT_PAD)
+        s.sleep(held + WAIT_PAD)
     if before is not None and roundtime_open(s) is False:
         return opening
     s.waitrt()

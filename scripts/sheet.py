@@ -51,7 +51,7 @@ from client.game.inventory import FOOTER as INV_END
 from client.game.money import parse_wealth  # noqa: F401 — the sheet's wealth parser
 from client.game.inventory import parse_inventory
 from client.game import possessions
-from client.game.probe import collect
+from client.game.probe import WAIT_PAD, WAIT_RETRIES, collect, wait_seconds
 from client.game.rested import parse_duration, parse_rested  # noqa: F401 — the footer parser, shared with the parser and ;xp (#176)
 from client.game.history import database_path as history_database_path
 
@@ -520,8 +520,7 @@ def ask(s, command, parse, until, answered, attempts=ATTEMPTS):
     for attempt in range(attempts):
         if attempt:
             s.sleep(RETRY_SLEEP)
-        s.put(command)
-        answer = collect(s, COLLECT_SECONDS, until)
+        answer = send(s, command, until)
         if refused(answer):
             return result, True
         result = parse(answer)
@@ -532,6 +531,22 @@ def ask(s, command, parse, until, answered, attempts=ATTEMPTS):
         if answered(result) or (until is not None and until in answer):
             break
     return result, False
+
+
+def send(s, command, until):
+    """The command's answer, sent again after the seconds a "...wait N
+    seconds." names: the game did not run it. A login INV LIST six
+    seconds after ;train's almanac got the refusal with the listing's
+    own footer, and was stored as an empty inventory (2026-10-04,
+    #460)."""
+    for attempt in range(WAIT_RETRIES + 1):
+        s.put(command)
+        answer = collect(s, COLLECT_SECONDS, until)
+        held = wait_seconds(answer)
+        if held is None or attempt == WAIT_RETRIES:
+            break
+        s.sleep(held + WAIT_PAD)
+    return answer
 
 
 def snapshot(s, inventory=False):

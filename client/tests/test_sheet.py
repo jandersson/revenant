@@ -562,6 +562,36 @@ def test_the_snapshot_stores_the_exist_ids_the_parser_saw(monkeypatch, tmp_path)
     ]
 
 
+# The game's answer to an INV LIST sent inside a roundtime, captured on
+# 2026-10-04 (#460): the refusal comes with the listing's own footer.
+INV_LIST_HELD = """...wait 4 seconds.
+
+[Use INVENTORY HELP for more options.]
+"""
+
+
+def test_an_inv_list_refused_for_roundtime_is_sent_again(monkeypatch, tmp_path):
+    # The login ;sheet's INV LIST six seconds after ;train's almanac
+    # was stored as an empty inventory, and the session had no ids.
+    handle, connection = snapshot_into(
+        monkeypatch,
+        tmp_path,
+        {
+            "info": [INFO_TEXT.splitlines(keepends=True)],
+            "exp all": [EXP_ALL_TEXT.splitlines(keepends=True)],
+            "inv list": [
+                INV_LIST_HELD.splitlines(keepends=True),
+                INV_LIST_TEXT.splitlines(keepends=True),
+            ],
+        },
+        inventory=True,
+    )
+    assert handle.sent.count("inv list") == 2
+    assert handle.slept == pytest.approx(4 + sheet.WAIT_PAD)
+    rows = connection.execute("SELECT item FROM inventory").fetchall()
+    assert ("a broadsword",) in rows
+
+
 def test_an_unanswered_inv_full_stores_no_inventory(monkeypatch, tmp_path):
     # Nothing is not the same as owning nothing: a command the game ate
     # must leave the table untouched.
