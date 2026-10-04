@@ -36,6 +36,9 @@ DEFAULTS = {
     # The account has Premium: the walker takes the towns' meeting
     # portals into Fang Cove (lich's UserVars.premium, #467).
     "premium": False,
+    # The anatomy-chart book ;compendium studies for First Aid; "" is
+    # the noun "compendium".
+    "compendium": "",
     # The weapon: GET <weapon> [FROM <container>] before the first
     # swing. "" fights barehanded (brawling).
     "weapon": "",
@@ -252,6 +255,7 @@ FIELDS = (
         "empty: a break-off leaves you just off the ground",
     ),
     ("premium", "Account has Premium (walks through Fang Cove's portals)", "bool", ""),
+    ("compendium", "Anatomy chart book", "str", "empty: compendium — ;compendium"),
     ("weapon", "Weapon noun", "str", "empty: barehanded"),
     ("weapon_container", "Weapon is kept in", "str", "sack, sheath — empty: in hand"),
     ("stance", "STANCE SET arguments", "str", "e.g. 100 80 0 — empty: leave it"),

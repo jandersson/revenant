@@ -1,0 +1,257 @@
+"""First Aid from a compendium of anatomy charts — these tests are the
+manual. LOOK lists the charts; the hardest one Scholarship reads goes
+first; TURN opens its page and STUDY runs until clarity, after which
+the chart rests twenty minutes; the compendium is stowed at the end
+(client/game/compendium.py, scripts/compendium.py). The answers are
+Cecil's, captured 2026-10-04.
+"""
+
+import importlib.util
+import pathlib
+from types import SimpleNamespace
+
+import pytest
+
+from client.game import compendium
+
+REPO = pathlib.Path(__file__).parents[2]
+
+LOOK = (
+    "The compendium lies open to the section on Blood Dryad physiology.  A "
+    "drawing of a blood dryad with all four limbs extended covers this chart.  "
+    "Flipping through the pages, you realize that the compendium contains the "
+    "following charts:\n"
+    "   Blood Dryad\n"
+    "   Blood Nyad\n"
+    "   Equine\n"
+    "   Glutinous Lipopod\n"
+    "   Grass Eel\n"
+    "   Silver Leucro\n"
+    "   Striped Badger\n"
+)
+TURNED = "You turn to the section on {} physiology.\n"
+BEGIN = (
+    "You begin studying the Blood Nyad chart, gradually absorbing the knowledge "
+    "contained within.\nRoundtime: 14 seconds.\n"
+)
+CONTINUE = (
+    "You continue studying the Blood Nyad chart, gradually absorbing more of the "
+    "knowledge contained within.\nRoundtime: 14 seconds.\n"
+)
+CLARITY = (
+    "In a sudden moment of clarity, the information on the chart suddenly makes "
+    "sense to you.\nRoundtime: 14 seconds.\n"
+)
+FIRST_CLARITY = (
+    "With a sudden moment of clarity, the information on the chart suddenly makes "
+    "sense to you.\nRoundtime: 10 seconds.\n"
+)
+RESTING = "Why do you need to study this chart again?\n"
+MISSING = "That section does not exist within your compendium.\n"
+UNHELD = "You need to be holding your compendium to study it.\n"
+GOT = (
+    "You get a grey leather compendium embossed with a snakeskin pattern from "
+    "inside your backpack.\n"
+)
+STOWED = "You put your compendium in your backpack.\n"
+
+
+@pytest.fixture(autouse=True)
+def fresh(monkeypatch):
+    monkeypatch.setattr(compendium, "_LOCKED", {})
+
+
+def test_the_look_lists_the_charts():
+    assert compendium.charts(LOOK) == [
+        "Blood Dryad",
+        "Blood Nyad",
+        "Equine",
+        "Glutinous Lipopod",
+        "Grass Eel",
+        "Silver Leucro",
+        "Striped Badger",
+    ]
+    assert compendium.charts("You see nothing unusual.") == []
+
+
+def test_the_hardest_chart_scholarship_reads_goes_first():
+    names = compendium.charts(LOOK)
+    assert compendium.plan(names, 77) == [
+        "Blood Nyad",
+        "Glutinous Lipopod",
+        "Blood Dryad",
+        "Equine",
+        "Grass Eel",
+        "Striped Badger",
+        "Silver Leucro",
+    ]
+    # Scholarship 25 reads the 25s and the Silver Leucro (20), no more.
+    assert compendium.plan(names, 25) == [
+        "Grass Eel",
+        "Striped Badger",
+        "Silver Leucro",
+    ]
+    # A chart the table does not know comes last, never left out.
+    assert compendium.plan(["Mystery Beast", "Equine"], 77) == [
+        "Equine",
+        "Mystery Beast",
+    ]
+    # Past rank 100 the reach is the rank over 1.6 (dr-scripts' first-aid).
+    assert compendium.reach(160) == 100 and compendium.reach(77) == 77
+
+
+def test_turn_finds_a_chart_by_its_tables_word():
+    assert compendium.index("Glutinous Lipopod") == "glutinous"
+    assert compendium.index("Blood Nyad") == "blood nyad"
+    assert compendium.index("Mystery Beast") == "mystery beast"
+
+
+def test_the_answers_are_classified():
+    classify = __import__("client.game.probe", fromlist=["classify"]).classify
+    assert classify(BEGIN, compendium.STUDY_OUTCOMES) == "studying"
+    assert classify(CONTINUE, compendium.STUDY_OUTCOMES) == "studying"
+    assert classify(CLARITY, compendium.STUDY_OUTCOMES) == "clarity"
+    assert classify(FIRST_CLARITY, compendium.STUDY_OUTCOMES) == "clarity"
+    assert classify(RESTING, compendium.STUDY_OUTCOMES) == "locked"
+    assert classify(UNHELD, compendium.STUDY_OUTCOMES) == "unheld"
+    assert classify(TURNED.format("Equine"), compendium.TURN_OUTCOMES) == "turned"
+    assert classify(MISSING, compendium.TURN_OUTCOMES) == "missing"
+
+
+def test_a_chart_rests_twenty_minutes_after_clarity():
+    compendium.lock("Equine", 1000)
+    assert compendium.locked("Equine", 1000 + 19 * 60)
+    assert not compendium.locked("Equine", 1000 + 20 * 60)
+    assert compendium.next_unlock(["Equine"], 1000 + 5 * 60) == (15 * 60, "Equine")
+    assert compendium.next_unlock(["Equine", "Kelpie"], 1000) is None  # one is open
+
+
+def _script():
+    spec = importlib.util.spec_from_file_location(
+        "compendium_script", REPO / "scripts/compendium.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class Game:
+    """The compendium in Cecil's backpack, two charts in it."""
+
+    def __init__(self, s, studies):
+        self.s = s
+        self.sent = []
+        self.studies = {name: list(answers) for name, answers in studies.items()}
+        self.page = None
+
+    def __call__(self, s, command):
+        self.sent.append(command)
+        state = s.state
+        if command == "get my compendium":
+            state.right_hand = {
+                "noun": "compendium",
+                "exist": "9",
+                "name": "compendium",
+            }
+            return GOT
+        if command == "stow my compendium":
+            state.right_hand = None
+            return STOWED
+        if command == "look my compendium":
+            return LOOK.split("\n   ")[0] + "\n   Blood Nyad\n   Silver Leucro\n"
+        if command.startswith("turn my compendium to "):
+            word = command.removeprefix("turn my compendium to ")
+            for name in self.studies:
+                if compendium.index(name) == word:
+                    self.page = name
+                    return TURNED.format(name)
+            return MISSING
+        if command == "study my compendium":
+            return self.studies[self.page].pop(0)
+        return ""
+
+
+def handle(mindstate=10):
+    echoed = []
+    state = SimpleNamespace(
+        name="Lanival",
+        left_hand=None,
+        right_hand=None,
+        hostiles={},
+        experience={
+            "First Aid": {"rank": 37, "percent": 0, "mindstate": mindstate},
+            "Scholarship": {"rank": 77, "percent": 0, "mindstate": 1},
+        },
+    )
+    return SimpleNamespace(
+        name="compendium",
+        args=[],
+        state=state,
+        dead=False,
+        echo=echoed.append,
+        echoed=echoed,
+        sleep=lambda seconds: None,
+        waitrt=lambda: None,
+        command=lambda timeout=None: None,
+    )
+
+
+def test_each_chart_is_studied_to_clarity_hardest_first_then_the_book_stowed():
+    script = _script()
+    s = handle()
+    game = Game(
+        s,
+        {
+            "Blood Nyad": [BEGIN, CONTINUE, CLARITY],
+            "Silver Leucro": [RESTING],  # studied within the last twenty minutes
+        },
+    )
+    script.ask = game
+    script.clock = lambda: 5000.0
+    why = script.run(s, {"until": 34, "once": True}, {})
+    assert game.sent == [
+        "get my compendium",
+        "look my compendium",
+        "turn my compendium to blood nyad",
+        "study my compendium",
+        "study my compendium",
+        "study my compendium",
+        "turn my compendium to silver leucro",
+        "study my compendium",
+        "stow my compendium",
+    ]
+    assert why.startswith("every chart is resting")
+    assert any("Blood Nyad at clarity" in text for text in s.echoed)
+    assert "1 chart(s) to clarity in 3 studies" in s.echoed[-1]
+    assert s.state.right_hand is None  # stowed at the end
+
+
+def test_a_chart_resting_from_an_earlier_run_is_not_studied_again():
+    script = _script()
+    compendium.lock("Blood Nyad", 4900.0)  # ten minutes' rest still to go
+    s = handle()
+    game = Game(s, {"Blood Nyad": [], "Silver Leucro": [FIRST_CLARITY]})
+    script.ask = game
+    script.clock = lambda: 5000.0
+    script.run(s, {"until": 34, "once": True}, {})
+    assert "turn my compendium to blood nyad" not in game.sent
+    assert "turn my compendium to silver leucro" in game.sent
+
+
+def test_with_both_hands_full_nothing_is_stowed_to_make_room():
+    script = _script()
+    s = handle()
+    s.state.left_hand = {"noun": "scimitar", "exist": "1", "name": "steel scimitar"}
+    s.state.right_hand = {"noun": "shield", "exist": "2", "name": "target shield"}
+    game = Game(s, {})
+    script.ask = game
+    why = script.run(s, {"until": 34, "once": True}, {})
+    assert why == "no compendium in hand"
+    assert game.sent == []
+    assert any("both hands are full" in text for text in s.echoed)
+
+
+def test_until_and_once_parse():
+    script = _script()
+    assert script.parse_args(["until=30", "once"]) == {"until": 30, "once": True}
+    assert script.parse_args([]) == {"until": 34, "once": False}

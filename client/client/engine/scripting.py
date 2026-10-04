@@ -518,6 +518,8 @@ RELOADABLE_MODULES = (
     "client.game.herbs_data",
     "client.game.herbs",  # binds HERBS/SHOPS from herbs_data: after it
     "client.game.outfit",
+    "client.game.anatomy_data",
+    "client.game.compendium",  # binds CHARTS from anatomy_data: after it
 )
 
 # The session's manager also reloads any imported module of this package
