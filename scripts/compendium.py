@@ -3,6 +3,7 @@
     ;compendium              study its charts until First Aid and Scholarship mind-lock, then hold
     ;compendium until=30     stop at that mindstate instead of 34
     ;compendium once         end at the lock, or when every chart is resting
+    ;compendium minutes=20   end after that long
     ;compendium return       (typed while it runs) finish the chart in hand and end
     ;stop compendium         quit at once; the compendium is stowed
 
@@ -11,7 +12,7 @@ What it does
   - First Aid is paid per chart at clarity, Scholarship per study. So while First Aid
     has room, the charts at your level go first, hardest first: a few studies each.
   - A slow chart (past your level: "having a difficult time comprehending") fills the
-    time when the others rest or First Aid is locked; every study still teaches Scholarship.
+    time while Scholarship has room, five minutes a turn; it keeps its progress.
   - A chart at clarity rests twenty minutes; with every chart resting it waits for the first.
   - Stows the compendium at every end.
 
@@ -28,7 +29,7 @@ import time
 
 from client.game import compendium, hands, trainer
 from client.game.act import ask, missing, unknown
-from client.game.loop import danger, pause
+from client.game.loop import danger, pause, wants_stop
 from client.game.probe import classify
 from client.game.profile import load_profile
 
@@ -53,15 +54,22 @@ SKILL = "First Aid"
 SCHOLARSHIP = "Scholarship"
 SKILLS = [SKILL, SCHOLARSHIP]  # the run holds or ends when both lock
 STUDY_FUSE = 60  # studies of one chart before giving it up: the Boggle took 39
+# A slow chart's turn: then the next choice. A chart keeps its progress
+# across pages ("You continue to study the Cougar chart" after a Boggle
+# study, 2026-10-04), so a slice loses nothing, and a typed return or
+# ;train's budget never waits out a 14-minute chart.
+SLOW_SLICE = 300
 clock = time.monotonic  # tests replace it
 
 
 def parse_args(args):
-    options = {"until": trainer.MIND_LOCK, "once": False}
+    options = {"until": trainer.MIND_LOCK, "once": False, "minutes": 0}
     for arg in args:
         key, sep, value = str(arg).lower().partition("=")
         if sep and key == "until" and value.isdigit():
             options["until"] = min(int(value), trainer.MIND_LOCK)
+        elif sep and key == "minutes" and value.isdigit():
+            options["minutes"] = int(value)
         elif key == "once":
             options["once"] = True
     return options
@@ -89,13 +97,15 @@ def hold(s, noun):
     return True
 
 
-def study(s, noun, name, tally, give_way=lambda: False):
+def study(s, noun, name, tally, give_way=lambda: False, slow=False, until=None):
     """TURN to the chart and STUDY it until clarity; what came of it:
     "clarity", "locked", "too hard", "missing", "unheld", "danger",
     "slow" (it answered "difficult time" and `give_way()` says an
-    at-level chart is waiting), or "unknown" (said). A chart that
-    answered "difficult time" is marked slow, one that went to clarity
-    without it at level."""
+    at-level chart is waiting), "slice" (a slow chart's SLOW_SLICE is
+    up), "stop" (a slow chart, and a typed return or the run's `until`
+    deadline came), or "unknown" (said). A chart that answered
+    "difficult time" is marked slow, one that went to clarity without
+    it at level."""
     for attempt in range(2):
         answer = ask(s, f"turn my {noun} to {compendium.index(name)}")
         outcome = classify(answer, compendium.TURN_OUTCOMES)
@@ -108,9 +118,15 @@ def study(s, noun, name, tally, give_way=lambda: False):
             return "unknown"
         return outcome
     struggled = False
+    started = clock()
     for _ in range(STUDY_FUSE):
         if danger(s):
             return "danger"
+        if slow or struggled:
+            if wants_stop(s) or (until is not None and clock() >= until):
+                return "stop"
+            if clock() - started >= SLOW_SLICE:
+                return "slice"
         answer = ask(s, f"study my {noun}")
         outcome = classify(answer, compendium.STUDY_OUTCOMES)
         if outcome == "studying":
@@ -144,11 +160,18 @@ def run(s, options, profile):
     order = []
     shut = set()  # charts this run cannot study: missing, too hard, failing
 
+    budget = options.get("minutes") or 0
+    deadline = clock() + budget * 60 if budget else None
+
     def finish(s, why):
+        # A cleanup put: it goes out after a ;stop too, which an ask
+        # does not (the book stayed in hand, 2026-10-04).
         if hands.holding(s, noun):
-            hands.stow(s, noun, ask)
+            hands.cleanup(s, f"stow my {noun}")
 
     def step(s):
+        if deadline is not None and clock() >= deadline:
+            return f"{budget} minutes up"
         if not hold(s, noun):
             return "no compendium in hand"
         if not order:
@@ -182,8 +205,17 @@ def run(s, options, profile):
             usable, now, scholarship, room(SKILL), room(SCHOLARSHIP)
         )
         if name is None:
-            wait = compendium.next_unlock(usable, now)
-            seconds, first = wait if wait else (0, usable[0])
+            # What could be chosen once it opens: the at-level charts for
+            # First Aid, every chart while Scholarship has room.
+            resting = [
+                other
+                for other in usable
+                if compendium.locked(other, now)
+                and (room(SCHOLARSHIP) or not compendium.slow(other, scholarship))
+            ]
+            if not resting:
+                return "no chart left that teaches a skill with room"
+            seconds, first = compendium.next_unlock(resting, now)
             minutes = max(1, round(seconds / 60))
             if options["once"]:
                 return f"every chart is resting — the {first} opens in {minutes} min"
@@ -209,7 +241,15 @@ def run(s, options, profile):
                 for other in usable
             )
 
-        outcome = study(s, noun, name, tally, give_way)
+        outcome = study(
+            s,
+            noun,
+            name,
+            tally,
+            give_way,
+            slow=compendium.slow(name, scholarship),
+            until=deadline,
+        )
         if outcome in ("clarity", "locked"):
             compendium.lock(name, clock())
             if outcome == "clarity":
@@ -225,6 +265,11 @@ def run(s, options, profile):
             s.echo(
                 f"compendium: the {name} is slow at your Scholarship — "
                 "back to it when the others rest"
+            )
+        elif outcome == "slice":
+            s.echo(
+                f"compendium: {SLOW_SLICE // 60} minutes on the {name} — "
+                "its progress keeps for the next turn"
             )
         elif outcome == "too hard":
             shut.add(name)

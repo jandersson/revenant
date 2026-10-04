@@ -157,6 +157,8 @@ class Game:
         self.sent = []
         self.studies = {name: list(answers) for name, answers in studies.items()}
         self.page = None
+        # The end's stow is a cleanup put (it outlives a ;stop): the same game.
+        s.put = lambda command, cleanup=False: self(s, command)
 
     def __call__(self, s, command):
         self.sent.append(command)
@@ -186,7 +188,7 @@ class Game:
         return ""
 
 
-def handle(mindstate=10):
+def handle(mindstate=10, scholarship=1):
     echoed = []
     state = SimpleNamespace(
         name="Lanival",
@@ -195,7 +197,7 @@ def handle(mindstate=10):
         hostiles={},
         experience={
             "First Aid": {"rank": 37, "percent": 0, "mindstate": mindstate},
-            "Scholarship": {"rank": 77, "percent": 0, "mindstate": 1},
+            "Scholarship": {"rank": 77, "percent": 0, "mindstate": scholarship},
         },
     )
     return SimpleNamespace(
@@ -289,8 +291,12 @@ def test_with_both_hands_full_nothing_is_stowed_to_make_room():
 
 def test_until_and_once_parse():
     script = _script()
-    assert script.parse_args(["until=30", "once"]) == {"until": 30, "once": True}
-    assert script.parse_args([]) == {"until": 34, "once": False}
+    assert script.parse_args(["until=30", "once", "minutes=20"]) == {
+        "until": 30,
+        "once": True,
+        "minutes": 20,
+    }
+    assert script.parse_args([]) == {"until": 34, "once": False, "minutes": 0}
 
 
 # --- at your level first, the slow ones for Scholarship ---
@@ -365,3 +371,62 @@ def test_a_chart_that_proves_slow_gives_way_to_an_at_level_one():
     assert any("Glutinous Lipopod at clarity" in text for text in s.echoed)
     assert "Glutinous Lipopod" in compendium._SLOW
     assert "Equine" in compendium._EASY
+
+
+# --- time limits on the slow charts ---
+
+
+def _ticking(start=5000.0, step=30.0):
+    """A clock that moves `step` seconds on every look."""
+    now = [start - step]
+
+    def clock():
+        now[0] += step
+        return now[0]
+
+    return clock
+
+
+def test_a_slow_chart_gets_five_minutes_a_turn_and_minutes_ends_the_run():
+    # First Aid locked, Scholarship with room: the Boggle, a slow chart,
+    # is studied in five-minute turns (its progress keeps across pages,
+    # 2026-10-04), and minutes=12 ends the run.
+    script = _script()
+    s = handle(mindstate=34)
+    game = Game(s, {"Boggle": [DIFFICULT] + [DIFFICULT_ON] * 80})
+    script.ask = game
+    script.clock = _ticking()
+    why = script.run(s, {"until": 34, "once": True, "minutes": 12}, {})
+    assert why == "12 minutes up"
+    assert any("5 minutes on the Boggle" in text for text in s.echoed)
+    assert game.sent.count("study my compendium") < 30
+    assert game.sent[-1] == "stow my compendium"
+
+
+def test_with_scholarship_locked_no_slow_chart_is_studied():
+    # The Trollkin's clarity (8 minutes) left First Aid where the drain
+    # had it; with Scholarship locked a slow chart teaches nothing worth
+    # its time, so the run waits for an at-level chart instead.
+    script = _script()
+    compendium.lock("Blood Nyad", 4900.0)
+    s = handle(mindstate=30, scholarship=34)
+    game = Game(s, {"Boggle": [DIFFICULT_ON], "Blood Nyad": []})
+    script.ask = game
+    script.clock = lambda: 5000.0
+    why = script.run(s, {"until": 34, "once": True}, {})
+    assert "turn my compendium to boggle" not in game.sent
+    assert why.startswith("every chart is resting — the Blood Nyad opens")
+
+
+def test_a_typed_return_ends_a_slow_chart_between_studies():
+    script = _script()
+    s = handle(mindstate=34)
+    typed = iter([None, None, None, None, "return"])
+    s.command = lambda timeout=None: next(typed, None)
+    game = Game(s, {"Boggle": [DIFFICULT] + [DIFFICULT_ON] * 40})
+    script.ask = game
+    script.clock = lambda: 5000.0
+    why = script.run(s, {"until": 34, "once": True}, {})
+    assert why == "return"
+    assert game.sent.count("study my compendium") < 10
+    assert game.sent[-1] == "stow my compendium"

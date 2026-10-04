@@ -148,12 +148,14 @@ def slow(name, scholarship):
 
 def choose(names, now, scholarship, first_aid_room, scholarship_room):
     """The chart to study next among `names` (the plan's order, hardest
-    first), or None with every one resting or no skill with room. First
-    Aid is paid per clarity, Scholarship per study (Elanthipedia:
-    Anatomy charts), so an at-level chart goes first while First Aid has
-    room, and a slow one fills the time otherwise: its every study
-    teaches Scholarship (the Boggle, 39 studies to clarity, took
-    Scholarship 15/34 -> 25/34)."""
+    first), or None when nothing open is worth a study. First Aid is
+    paid per clarity, Scholarship per study (Elanthipedia: Anatomy
+    charts), so an at-level chart goes first while First Aid has room,
+    and a slow one only while Scholarship has room: its every study
+    teaches Scholarship (the Boggle, 39 studies to clarity, took it
+    15/34 -> 25/34), but its one clarity in 8 to 14 minutes does not
+    keep up with First Aid's drain (the Trollkin's, 2026-10-04: 33/34
+    before, 32/34 after)."""
     open_ = [name for name in names if not locked(name, now)]
     easy = [name for name in open_ if not slow(name, scholarship)]
     hard = sorted(
@@ -163,7 +165,6 @@ def choose(names, now, scholarship, first_aid_room, scholarship_room):
     for room, pool in (
         (first_aid_room, easy),
         (scholarship_room, hard),
-        (first_aid_room, hard),
         (scholarship_room, easy),
     ):
         if room and pool:
