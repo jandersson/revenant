@@ -48,11 +48,6 @@ def _isolated_login_defaults(tmp_path, monkeypatch):
     # settings.json: every walk reads avoid_rooms from it now (#407),
     # and a test's walk must never resolve the operator's list.
     monkeypatch.setenv("REVENANT_SETTINGS", str(tmp_path / "settings.json"))
-    # The gates the walker remembers for the session (#394): one test's
-    # refused trail must not reroute the next test's walk.
-    from client.game import walker
-
-    monkeypatch.setattr(walker, "_GATED", {})
 
 
 @pytest.fixture(autouse=True)

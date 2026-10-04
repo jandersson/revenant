@@ -184,19 +184,31 @@ WAY_REFUSALS = ("could not find what you were referring", "You can't go there")
 GATE_REFUSALS = ("not experienced enough to go there", "not allowed to go there")
 # A gate's refusal outlives its walk (#394): ;train's walks to Cecil's
 # rest room tried the Promenade twice an evening, each answered "not
-# experienced enough" (2026-09-29). The edges live here per character
-# name, planned around by every walk after the refusal, until a
-# relaunch (or an edit of this module) forgets them — a circle gained
-# mid-session included. A climb refused for Athletics and a way the
-# map has wrong stay closed for their walk alone.
-_GATED = {}
+# experienced enough" (2026-09-29). The edges are planned around by
+# every walk after the refusal until a relaunch forgets them — a circle
+# gained mid-session included. They live on the session's parser state,
+# not in this module: one edit to any reloadable module reloads them all
+# as fresh copies, and the walk home tried the Promenade again after
+# every code change (2026-10-04). A climb refused for Athletics and a
+# way the map has wrong stay closed for their walk alone.
 
 
 def gated(s):
     """The (room, dest) edges a gate has refused this character in the
-    session: the set itself, for the walk to add to."""
-    name = getattr(getattr(s, "state", None), "name", None) or ""
-    return _GATED.setdefault(name, set())
+    session: the set itself, for the walk to add to — kept on the
+    session's parser state (`gated_edges`), which every script shares
+    and no module reload replaces."""
+    state = getattr(s, "state", None)
+    if state is None:
+        return set()
+    edges = getattr(state, "gated_edges", None)
+    if edges is None:
+        edges = set()
+        try:
+            state.gated_edges = edges
+        except AttributeError:
+            pass  # a state that takes no new attribute: this walk alone
+    return edges
 
 
 # A move sent into roundtime — a hidden path's SEARCH still running —

@@ -990,11 +990,23 @@ def test_a_gate_that_refused_once_is_planned_around_for_the_session():
     first.state.room_uid = 10818
     assert walker.walk(first, GATED, [11716], describe="the library") is True
     assert any("on every walk this session" in echo for echo in first.echoes)
+    # The next walk of the session: every script shares the parser
+    # state, which keeps the refused edge through any module reload.
     again = GateHandle(uids=[10817, 10816, 11716])
+    again.state = first.state
     again.state.room_uid = 10818
     assert walker.walk(again, GATED, [11716], describe="the library") is True
     assert puts_of(again) == ["west", "west", "north"]
-    # Another character's walk still tries it: the memory is per name.
+    # A reload of the walker (a fresh module copy) forgets nothing.
+    import importlib
+
+    fresh = importlib.reload(walker)
+    third = GateHandle(uids=[10817, 10816, 11716])
+    third.state = first.state
+    third.state.room_uid = 10818
+    assert fresh.walk(third, GATED, [11716], describe="the library") is True
+    assert puts_of(third) == ["west", "west", "north"]
+    # Another character's walk still tries it: the memory is per session.
     other = GateHandle(uids=[10817, 10816, 11716])
     other.state.room_uid = 10818
     other.state.name = "Sable"
