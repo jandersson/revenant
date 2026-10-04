@@ -33,7 +33,10 @@ Every start loads the script file fresh from disk, and reloads the
 client/ helper modules scripts lean on (RELOADABLE_MODULES: probe,
 walker, mapdb, inventory, profile, ...) when their files changed since they were
 imported — so a fix in the walker reaches a running session through
-;stop go2 and ;go2, the way lich's common scripts do (#138). A reload
+;stop go2 and ;go2, the way lich's common scripts do (#138). The
+session's manager reloads every other imported client.game module too,
+after the list, so a module listed after the session started still
+reloads there (#462); client.game.balance stays pinned. A reload
 is a fresh copy of the module, never a re-execution in place: a
 script already running keeps every function it imported, with the
 globals those functions were written against, and the next start gets
@@ -449,6 +452,7 @@ RELOADABLE_MODULES = (
     "client.settings",
     "client.ui.textfont",
     "client.game.eltime",
+    "client.game.history",
     "client.game.rested",
     "client.game.climbs",
     "client.game.circles",
@@ -513,7 +517,19 @@ RELOADABLE_MODULES = (
     "client.game.empathy",  # binds level from wounds: after it
     "client.game.herbs_data",
     "client.game.herbs",  # binds HERBS/SHOPS from herbs_data: after it
+    "client.game.outfit",
 )
+
+# The session's manager also reloads any imported module of this package
+# the list does not name, after the listed ones: the list is engine code,
+# so a module added to it after a session started was never reloaded
+# there, and a fresh interlude called the old cards.due — ";train
+# crashed" at its first chore (2026-10-04, #462). New modules bind the
+# older ones, so after them is their order.
+RELOADABLE_PACKAGE = "client.game."
+# Never reloaded: the parser binds BALANCE_LEVELS, and a status.py
+# reading a fresh copy must agree with the parser's old one.
+PINNED_MODULES = ("client.game.balance",)
 
 
 # A stopped script's cleanup puts wait out a stun or roundtime this
@@ -567,6 +583,7 @@ class ScriptManager(ClientLogger):
         clock=None,
         emit_stream=None,
         reloadable=RELOADABLE_MODULES,
+        package=None,
     ):
         self.send = send  # (str) -> None: command to the game
         self.emit = emit  # (str) -> None: text to the front ends
@@ -583,6 +600,9 @@ class ScriptManager(ClientLogger):
         # File stamps of the reloadable modules as last imported/reloaded;
         # a module is stamped when first seen imported (#138).
         self.reloadable = tuple(reloadable)
+        # The session passes RELOADABLE_PACKAGE: its unlisted modules
+        # reload too (#462). Tests name their own helpers alone.
+        self.package = package
         self._module_stamps = {}
         self._moved_warned = False  # the "restart the session" line, once (#155)
         # Stopped scripts' cleanup puts held for a stun or roundtime (#318).
@@ -638,8 +658,22 @@ class ScriptManager(ClientLogger):
 
     # -- helper-module reload (#138) ------------------------------------
 
+    def _reloadable_now(self):
+        """The listed modules, then the package's imported modules the
+        list does not name (#462), pinned ones left out."""
+        if not self.package:
+            return self.reloadable
+        extra = sorted(
+            name
+            for name in list(sys.modules)
+            if name.startswith(self.package)
+            and name not in self.reloadable
+            and name not in PINNED_MODULES
+        )
+        return self.reloadable + tuple(extra)
+
     def _stamp_modules(self):
-        for name in self.reloadable:
+        for name in self._reloadable_now():
             module = sys.modules.get(name)
             if module is not None and name not in self._module_stamps:
                 self._module_stamps[name] = _mtime(module)
@@ -677,7 +711,7 @@ class ScriptManager(ClientLogger):
                 f"keep the code they imported: {', '.join(keepers)}"
             )
         moved = []
-        for name in self.reloadable:
+        for name in self._reloadable_now():
             module = sys.modules.get(name)
             if module is None:
                 continue

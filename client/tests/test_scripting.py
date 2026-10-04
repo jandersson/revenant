@@ -705,6 +705,67 @@ def test_the_reloadable_list_never_names_the_sessions_plumbing():
     )
 
 
+def test_every_game_module_is_listed_reloadable_or_pinned():
+    # outfit and history sat on no list: an edit to either never reached
+    # a running session (#462).
+    import pathlib
+
+    from client.engine.scripting import PINNED_MODULES, RELOADABLE_MODULES
+
+    game = pathlib.Path(__file__).parents[1] / "client" / "game"
+    for path in game.glob("*.py"):
+        if path.stem == "__init__":
+            continue
+        name = f"client.game.{path.stem}"
+        assert name in RELOADABLE_MODULES or name in PINNED_MODULES, name
+
+
+def test_a_package_module_off_the_list_reloads_after_the_listed_ones(
+    tmp_path, monkeypatch
+):
+    # 2026-10-04 (#462): cards joined the list after the session
+    # started, so the session never reloaded it; a fresh interlude
+    # called the old cards.due, and ;train crashed at its first chore.
+    import sys
+
+    monkeypatch.syspath_prepend(str(tmp_path))
+    pkg = tmp_path / "hotpkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("")
+    listed = pkg / "listed.py"
+    newer = pkg / "newer.py"
+    pinned = pkg / "pinned.py"
+    for path in (listed, newer, pinned):
+        _write_helper(path, 1, 1_000_000)
+    for name in ("hotpkg", "hotpkg.listed", "hotpkg.newer", "hotpkg.pinned"):
+        sys.modules.pop(name, None)
+    (tmp_path / "probe_it.py").write_text(
+        "from hotpkg import listed, newer, pinned\n\n"
+        "def main(s):\n"
+        "    s.echo(f'{listed.VALUE} {newer.VALUE} {pinned.VALUE}')\n"
+    )
+    import client.engine.scripting as scripting
+
+    monkeypatch.setattr(scripting, "PINNED_MODULES", ("hotpkg.pinned",))
+    recorder = Recorder()
+    manager = ScriptManager(
+        send=recorder.sent.append,
+        emit=recorder.emitted.append,
+        scripts_dir=tmp_path,
+        reloadable=("hotpkg.listed",),
+        package="hotpkg.",
+    )
+    assert "[probe_it] 1 1 1" in _run_and_wait(manager, recorder)
+    assert manager._reloadable_now() == ("hotpkg.listed", "hotpkg.newer")
+    for path in (newer, pinned):
+        _write_helper(path, 2, 2_000_000)
+    second = _run_and_wait(manager, recorder)
+    assert "[probe_it] 1 2 1" in second  # the unlisted one fresh, the pinned kept
+    assert any(e.startswith("reloaded hotpkg.newer (edited since") for e in second)
+    for name in ("hotpkg", "hotpkg.listed", "hotpkg.newer", "hotpkg.pinned"):
+        sys.modules.pop(name, None)
+
+
 def test_every_pure_game_module_the_scripts_import_is_reloadable():
     # 2026-09-26: a HEALTH wording fix in wounds.py never reached the
     # running session — wounds was not on the list, so ;hunt kept

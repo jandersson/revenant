@@ -41,7 +41,7 @@ from client.engine.snapshot import snapshot
 from client.engine.login import connect_game, simu_login
 from client.engine.netsock import SocketClient
 from client.engine.procspawn import command_for
-from client.engine.scripting import ScriptManager
+from client.engine.scripting import RELOADABLE_PACKAGE, ScriptManager
 
 from client.engine.registry import (
     HEARTBEAT_SECONDS,
@@ -147,6 +147,7 @@ class SessionServer(ClientLogger):
             emit=lambda text: self.broadcast(as_line(text), "script"),
             emit_stream=lambda text, stream: self.broadcast(as_line(text), stream),
             state=self.engine.xml_data,
+            package=RELOADABLE_PACKAGE,
         )
 
     def serve(self):
