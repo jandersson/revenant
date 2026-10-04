@@ -242,6 +242,24 @@ def test_a_stop_stops_the_song_too():
     assert fake.sent[-1] == "stop play" and fake.cleanup
 
 
+def test_a_stop_right_after_the_first_play_still_stops_the_song():
+    # 2026-10-05 00:10: ;train killed ;perform in the second its first PLAY
+    # went out; the song played on and refused the plant's PREPARE.
+    class Killed(Fake):
+        def ask(self, s, command, *rest):
+            answer = super().ask(s, command, *rest)
+            if command.startswith("play "):
+                raise ScriptStopped()
+            return answer
+
+    fake = Killed(mindstates=[5] * 50)
+    try:
+        run(fake)
+    except ScriptStopped:
+        pass
+    assert fake.sent[-1] == "stop play" and fake.cleanup
+
+
 def test_hostiles_stop_it_before_a_song():
     fake = Fake(mindstates=[5] * 50, hostiles={"1": True})
     out = run(fake)

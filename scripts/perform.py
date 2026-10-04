@@ -314,11 +314,14 @@ def run(s, options, walker=walk_home):
         moved=False,  # walked home once for a room that refuses a song
         cleaned=False,  # the instrument cleaned once for a dirt warning (#233)
         search_due=search,
+        sent=False,  # a PLAY went out: the end stops it, whatever came after
     )
 
     def step(s):
         if not song.playing:
+            song.sent = True
             outcome, dirty = start_song(s, options)
+            song.sent = outcome == "playing"  # a refused PLAY plays nothing
             if outcome == "no instrument":
                 return f"no {options['instrument']} on you"
             if outcome == "not here":
@@ -386,7 +389,10 @@ def run(s, options, walker=walk_home):
         return None
 
     def finish(s, why):
-        if not song.playing:
+        # A PLAY sent and the run ended before it was counted playing —
+        # ;train killed ;perform in the same second (2026-10-05 00:10) —
+        # left the song going and refused the next PREPARE.
+        if not (song.playing or song.sent):
             return
         if why is None:  # a ;stop (or a crash): the one put that still goes out
             s.put("stop play", cleanup=True)

@@ -150,9 +150,15 @@ def cast(s, options):
     if getattr(s.state, "prepared_spell", None):
         ask(s, "release spell")  # a spell left held would refuse the PREPARE
     try:
-        text = read_answer(
-            s, f"prepare {plant.SPELL} {options['mana']}", plant.PREPARED
-        )
+        prepare = f"prepare {plant.SPELL} {options['mana']}"
+        text = read_answer(s, prepare, plant.PREPARED)
+        for refusal, ender in plant.IN_THE_WAY:
+            if refusal in text.lower():
+                # A song or a climb left going (2026-10-05 00:10: "You
+                # should stop playing before you do that."): ended, once.
+                ask(s, ender)
+                text = read_answer(s, prepare, plant.PREPARED)
+                break
         if not plant.said(text, plant.PREPARED):
             s.echo(f"plant: PREPARE answered {said(text)!r}")
             ask(s, "release spell")

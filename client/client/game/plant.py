@@ -30,10 +30,24 @@ PLANT = "vela'tohr plant"
 # Captured 2026-10-04, Riphik in the Paladins' Guild Chambers.
 PREPARED = ("prepare your body for the embrace",)
 INVOKED = ("draw the spell pattern's shadow",)
-RITUAL = ("your ritual directs the energy", "fully prepared to cast")
+# The CAST waits for "fully prepared": the ritual's own lines ("Your
+# ritual directs the energy...", "...burns away") come first, and a CAST
+# after them but before it backfired (2026-10-05 00:11); the casts that
+# formed a plant came after it (2026-10-04 01:5x and 23:01).
+RITUAL = ("fully prepared to cast",)
 LOST = ("your concentration slips", "your spell is lost")
 FORMED = ("vela'tohr plant forms",)
-CAST_FAILED = ("too mentally fatigued", "slips away", "don't have a spell prepared")
+CAST_FAILED = (
+    "too mentally fatigued",
+    "slips away",
+    "don't have a spell prepared",
+    "backfires",  # "Your spell badly backfires." (2026-10-05 00:12)
+)
+# A PREPARE refused for something still running, and what ends it.
+IN_THE_WAY = (
+    ("stop playing before", "stop play"),
+    ("stop practicing", "stop climb"),
+)
 STRAIN = ("will disrupt about half your current attunement",)
 # The creator's TOUCH, the wiki's wordings until captured.
 NO_NEED = ("no need of healing",)

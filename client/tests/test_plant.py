@@ -31,6 +31,8 @@ RITUAL_LINES = [
     "The mana-reactive phofe attar burns with carefully arranged power.  Your ritual "
     "directs the energy up into your spell pattern, removing much of the strain of "
     "empowering it off you.",
+    "Your glowing green ritual burns away, leaving no sign of its former presence.",
+    "You feel fully prepared to cast your spell.",
 ]
 FORMED = (
     "The mental strain of this pattern is considerably eased by your ritual focus.\n"
@@ -213,6 +215,45 @@ def test_an_unrelated_line_first_does_not_lose_the_prepare(tmp_path, monkeypatch
         script.run(s, script.parse_args(["7890"]), db=CHAMBERS, walk=arrive) == "cast"
     )
     assert game.sent[:3] == ["get my phial", "release spell", "prepare ev 500"]
+
+
+def test_the_cast_waits_for_fully_prepared_after_the_rituals_lines():
+    # 2026-10-05 00:11: CAST after "...burns away" but before "fully
+    # prepared" — "Your spell badly backfires."
+    script = _script()
+    s = handle()
+    s.lines.extend(RITUAL_LINES[:3])
+    assert script.ritual_done(s, INVOKED) is False
+    s.lines.extend(RITUAL_LINES)
+    assert script.ritual_done(s, INVOKED) is True
+    assert s.lines == []
+
+
+def test_a_song_left_playing_is_stopped_before_the_prepare(tmp_path, monkeypatch):
+    # 2026-10-05 00:10: "You should stop playing before you do that."
+    monkeypatch.setenv("REVENANT_TRAINING", str(tmp_path))
+    script = _script()
+    s = handle()
+    answers = ["You should stop playing before you do that.", PREPARED]
+
+    class Song(Game):
+        def __call__(self, s, command, *rest):
+            if command == "prepare ev 500":
+                self.sent.append(command)
+                return answers.pop(0)
+            return super().__call__(s, command, *rest)
+
+    game = Song(s, CAST)
+    script.ask = game
+    assert (
+        script.run(s, script.parse_args(["7890"]), db=CHAMBERS, walk=arrive) == "cast"
+    )
+    assert game.sent[:4] == [
+        "get my phial",
+        "prepare ev 500",
+        "stop play",
+        "prepare ev 500",
+    ]
 
 
 def test_low_mana_waits_and_records_nothing(tmp_path, monkeypatch):
