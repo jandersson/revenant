@@ -641,3 +641,50 @@ def test_no_mid_fight_study_stunned_hands_full_or_not_ready(monkeypatch):
     s, studied, sent = _almanac_hunt(monkeypatch, "", ready=False)
     assert not hunt.study_in_fight(s, {"almanac": "almanac"}, hunt.Tally())
     assert sent == [] and studied == []
+
+
+# --- the bundle and the rope by their ids (#456) ---
+
+GEAR = [
+    {"exist": "300", "name": "a woven straw tote", "noun": "tote", "worn": True},
+    {
+        "exist": "301",
+        "name": "some bundling rope",
+        "noun": "rope",
+        "worn": False,
+        "container_exist": "300",
+    },
+    {"exist": "302", "name": "a lumpy bundle", "noun": "bundle", "worn": True},
+    {
+        "exist": "303",
+        "name": "a lumpy bundle",
+        "noun": "bundle",
+        "worn": False,
+        "container_exist": "300",
+    },
+]
+
+
+def test_the_rope_is_got_by_its_id_and_the_bundle_in_hand_worn_by_its_id(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(hunt.items, "_STALE", set())
+    sent = []
+    answers = {"get #301": "What were you referring to?"}
+
+    def ask(s, command):
+        sent.append(command)
+        return answers.get(command, "You get some bundling rope from inside your tote.")
+
+    monkeypatch.setattr(hunt, "ask", ask)
+    s = SimpleNamespace(
+        state=SimpleNamespace(possessions=GEAR, left_hand=None, right_hand=None)
+    )
+    hunt.get_rope(s)
+    hunt.get_rope(s)
+    # Tied into a bundle since login: forgotten after the first miss.
+    assert sent == ["get #301", "get my bundling rope", "get my bundling rope"]
+    sent.clear()
+    s.state.right_hand = {"noun": "bundle", "exist": "777", "name": "lumpy bundle"}
+    assert hunt.put_on_bundle(s)
+    assert sent == ["wear #777"]

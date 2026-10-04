@@ -106,3 +106,36 @@ def test_a_full_container_is_known_by_every_wording():
     assert items.no_room("That would push you over the item limit.")
     assert items.no_room("You just can't fit that in there.")
     assert not items.no_room("You put your ruby in your pouch.")
+
+
+# --- an item by its INV LIST id (#456) ---
+
+GEAR = [
+    {"exist": "300", "name": "a woven straw tote", "noun": "tote", "worn": True},
+    {
+        "exist": "301",
+        "name": "some bundling rope",
+        "noun": "rope",
+        "worn": False,
+        "container_exist": "300",
+    },
+    {"exist": "302", "name": "a lumpy bundle", "noun": "bundle", "worn": True},
+    {
+        "exist": "303",
+        "name": "a lumpy bundle",
+        "noun": "bundle",
+        "worn": False,
+        "container_exist": "300",
+    },
+]
+
+
+def test_listed_ref_finds_the_item_by_its_name_worn_or_carried(monkeypatch):
+    monkeypatch.setattr(items, "_STALE", set())
+    s = SimpleNamespace(state=SimpleNamespace(possessions=GEAR))
+    assert items.listed_ref(s, "bundling rope") == "#301"
+    assert items.listed_ref(s, "bundle", worn=True) == "#302"
+    assert items.listed_ref(s, "bundle", worn=False) == "#303"  # never the rope
+    items.forget("#303")  # the game no longer knows it
+    assert items.listed_ref(s, "bundle", worn=False) is None
+    assert items.listed_ref(SimpleNamespace(state=SimpleNamespace()), "bundle") is None

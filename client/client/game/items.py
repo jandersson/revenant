@@ -3,6 +3,8 @@ containers INV LIST showed, a listing or a COUNT parsed, "no room".
 
     items.name(s, "dried red flowers")   # "#<exist>" when a hand holds it, else the name as given
     items.ref(s, "flowers")              # the id, or None
+    items.listed_ref(s, "bundling rope", worn=False)   # INV LIST's id, "#<exist>", or None
+    items.forget(ref)                    # an INV LIST id the game no longer knows: not offered again
     items.containers(possessions, holding="dried", skip=("mortar",))   # listing order, each once
     items.listed(answer)                 # a LOOK IN answer's items; [] empty, None no listing
     items.listed_nouns(answer)           # their nouns
@@ -63,6 +65,35 @@ def ref(s, noun):
         if tag and hands._same(tag.get("noun") or "", noun) and tag.get("exist"):
             return f"#{tag['exist']}"
     return None
+
+
+# The INV LIST ids the game answered "What were you referring to?" for
+# this session: the listing is from login, and a bundling rope tied into
+# a bundle, or a bundle sold, is gone by its id (#456).
+_STALE = set()
+
+
+def listed_ref(s, name, worn=None):
+    """INV LIST's id for the item whose name holds `name` as words
+    ("bundling rope", "bundle"), as a command names it ("#146870160");
+    `worn` True or False narrows to worn or carried ones. None without a
+    listing that shows one, or for an id forgotten (#456)."""
+    pattern = re.compile(rf"\b{re.escape(str(name).strip().lower())}\b")
+    for item in getattr(getattr(s, "state", None), "possessions", None) or []:
+        exist = str(item.get("exist") or "")
+        if not exist or exist in _STALE:
+            continue
+        if worn is not None and bool(item.get("worn")) != worn:
+            continue
+        if pattern.search(str(item.get("name") or "").lower()):
+            return f"#{exist}"
+    return None
+
+
+def forget(ref):
+    """An id the game no longer knows: listed_ref passes it over."""
+    if ref and str(ref).startswith("#"):
+        _STALE.add(str(ref)[1:])
 
 
 def name(s, item):

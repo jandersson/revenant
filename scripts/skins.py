@@ -133,8 +133,20 @@ def take_bundle(s, container):
     the container; False when there is none any place."""
     if hands.holding(s, "bundle"):
         return True
+    # By its INV LIST id first (#456): the listing is from login, so an
+    # id the game no longer knows is forgotten and the noun follows.
+    worn = items.listed_ref(s, "bundle", worn=True)
+    if worn:
+        if not missing(ask(s, f"remove {worn}"), _NO_BUNDLE):
+            return True
+        items.forget(worn)
     if not missing(ask(s, "remove my bundle"), _NO_BUNDLE):
         return True
+    carried = items.listed_ref(s, "bundle", worn=False)
+    if carried:
+        if not missing(ask(s, f"get {carried}"), _NO_BUNDLE):
+            return True
+        items.forget(carried)
     command = f"get my bundle from my {container}" if container else "get my bundle"
     return not missing(ask(s, command), _NO_BUNDLE)
 
@@ -170,7 +182,8 @@ def sell_bundle(s, container):
         s.echo(f"skins: the tanner did not pay — {last}")
         return False
     s.echo(f"skins: sold the bundle for {paid.group(1)} {paid.group(2)}")
-    ask(s, f"put my {ROPE} in my {container}" if container else f"stow my {ROPE}")
+    rope = items.ref(s, "rope") or f"my {ROPE}"  # back in hand: its id (#456)
+    ask(s, f"put {rope} in my {container}" if container else f"stow {rope}")
     return True
 
 

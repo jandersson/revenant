@@ -361,3 +361,49 @@ def test_no_tannery_on_the_map_says_so():
     )
     assert commands(fake) == []
     assert any("no room tagged 'tannery'" in text for text in fake.echoed)
+
+
+# --- the bundle and the rope by their ids (#456) ---
+
+GEAR = [
+    {"exist": "300", "name": "a woven straw tote", "noun": "tote", "worn": True},
+    {
+        "exist": "301",
+        "name": "some bundling rope",
+        "noun": "rope",
+        "worn": False,
+        "container_exist": "300",
+    },
+    {"exist": "302", "name": "a lumpy bundle", "noun": "bundle", "worn": True},
+    {
+        "exist": "303",
+        "name": "a lumpy bundle",
+        "noun": "bundle",
+        "worn": False,
+        "container_exist": "300",
+    },
+]
+
+
+def test_the_worn_bundle_is_removed_by_its_id_and_a_stale_id_falls_back(monkeypatch):
+    from client.game import items
+
+    monkeypatch.setattr(items, "_STALE", set())
+    sent = []
+    answers = {"remove #302": "Remove what?", "remove my bundle": "Remove what?"}
+
+    def ask(s, command):
+        sent.append(command)
+        return answers.get(command, "You get a lumpy bundle from inside your tote.")
+
+    monkeypatch.setattr(script, "ask", ask)
+    s = SimpleNamespace(
+        state=SimpleNamespace(possessions=GEAR, left_hand=None, right_hand=None)
+    )
+    assert script.take_bundle(s, "tote")
+    # The worn one sold since login: forgotten, the noun, then the carried one.
+    assert sent == ["remove #302", "remove my bundle", "get #303"]
+    sent.clear()
+    answers["remove my bundle"] = "You remove a lumpy bundle."
+    script.take_bundle(s, "tote")
+    assert sent == ["remove my bundle"]  # #302 is not tried again

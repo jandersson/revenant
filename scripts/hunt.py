@@ -911,7 +911,12 @@ def wear_bundle(s, profile, tally):
         return
     if where != "worn":
         container = profile["loot_container"]
-        ask(s, f"get my bundle from my {container}" if container else "get my bundle")
+        by_id(
+            s,
+            "get",
+            items.listed_ref(s, "bundle", worn=False),
+            f"get my bundle from my {container}" if container else "get my bundle",
+        )
         if not put_on_bundle(s):
             bundle_unworn(s, profile, tally)
             return
@@ -934,16 +939,30 @@ WEAR_TAKEN = ("can't wear any more",)
 TOGGLE_PLACES = 6
 
 
+def by_id(s, verb, ref, command):
+    """VERB the item by its INV LIST id when there is one, else (or
+    when the game no longer knows the id, forgotten for the session)
+    the noun `command`; the answer (#456)."""
+    if ref:
+        answer = ask(s, f"{verb} {ref}")
+        if not missing(answer):
+            return answer
+        items.forget(ref)
+    return ask(s, command)
+
+
 def put_on_bundle(s):
-    """WEAR MY BUNDLE; a place already taken moves the TOGGLE setting on
-    and wears again, up to TOGGLE_PLACES. True when it went on."""
-    answer = ask(s, "wear my bundle")
+    """WEAR the bundle in hand, by its id (#456); a place already taken
+    moves the TOGGLE setting on and wears again, up to TOGGLE_PLACES.
+    True when it went on."""
+    bundle = items.ref(s, "bundle") or "my bundle"
+    answer = ask(s, f"wear {bundle}")
     moved = None
     for _ in range(TOGGLE_PLACES):
         if not any(word in answer.lower() for word in WEAR_TAKEN):
             break
         moved = said(ask(s, "toggle bundle"))
-        answer = ask(s, "wear my bundle")
+        answer = ask(s, f"wear {bundle}")
     if any(word in answer.lower() for word in WEAR_TAKEN) or missing(answer):
         return False
     if moved:
@@ -969,6 +988,12 @@ def bundle_unworn(s, profile, tally):
     profile["skin"] = False
 
 
+def get_rope(s):
+    """The bundling rope into a hand: by its INV LIST id, else GET MY
+    BUNDLING ROPE from whatever container holds it (#437, #456)."""
+    return by_id(s, "get", items.listed_ref(s, ROPE, worn=False), f"get my {ROPE}")
+
+
 def make_bundle(s, profile, tally):
     """The first skin of the run, in hand, starts the bundle: the weapon
     goes back to free a hand, GET MY BUNDLING ROPE takes the rope from
@@ -984,7 +1009,7 @@ def make_bundle(s, profile, tally):
     stays in it) and the rope is fetched again; with still no hand the
     skin is stowed and the next one tries."""
     free_hand(s, profile)
-    answer = ask(s, f"get my {ROPE}")
+    answer = get_rope(s)
     piece = profile.get("cambrinth") or ""
     if any(word in answer.lower() for word in loot.FREE_HAND):
         if piece and hands.holding(s, piece):
@@ -994,7 +1019,7 @@ def make_bundle(s, profile, tally):
                 if profile.get("cambrinth_worn")
                 else f"stow my {piece}",
             )
-            answer = ask(s, f"get my {ROPE}")
+            answer = get_rope(s)
         if any(word in answer.lower() for word in loot.FREE_HAND):
             s.echo(
                 "hunt: no free hand for the bundling rope — this skin is stowed loose"
