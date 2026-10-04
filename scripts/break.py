@@ -5,6 +5,7 @@
   ;break sweep      the loot sweep's dry run: name what it would trash, move nothing
   ;break gems       loose gems from the loot and default containers into the gem pouch
   ;break cards      trading cards into the worn card case (both hands empty)
+  ;break dira       Imperial diras into the worn coin case (both hands empty)
 
 - The request is honored by the first running script to reach a safe
   point (between two of its steps): ;perform, ;remedies, ;athletics,
@@ -20,8 +21,8 @@
   and into the trash, each named.
 - The gems chore runs on its own once a session and after a gem goes
   loose (a full pouch); a full pouch stops it until the pouch takes one.
-- The cards chore runs on its own once a session and after a hunt pockets
-  a card, at a safe point with both hands empty (it never stows a weapon).
+- The cards and dira chores run on their own once a session and after a
+  hunt pockets one, at a safe point with both hands empty (never a weapon stowed).
 
 Model: client/game/interlude.py. Doc: docs/training.md.
 """

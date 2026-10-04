@@ -1,76 +1,100 @@
-"""Trading cards into the card collector's case — an interlude chore (#457).
+"""Collectibles into their worn cases — trading cards (#457) and Imperial
+diras (#459) — an interlude chore each.
 
-The hunt picks a searched card up and stows it like loot; this chore
-moves each one into the worn case. CARDS works only with the case open
-in the right hand and the card in the left (Elanthipedia: Trading
-cards; captured on 2026-10-04): REMOVE the case ("You remove a card
-collector's case from your belt."), OPEN it, GET the card, CARDS ADD
-("You slide a Guildleader Kalika card into your case."), then CLOSE
-and WEAR it ("You attach a card collector's case to your belt.").
+The hunt picks a searched card or dira up and stows it like loot; this
+chore moves each one into its case. The case works only open in the
+right hand with the item in the left (Elanthipedia: Trading cards, Dira
+command; captured on 2026-10-04): REMOVE the case ("You remove a card
+collector's case from your belt."), OPEN it, GET the item, CARDS ADD or
+DIRA ADD ("You slide a Guildleader Kalika card into your case.", "You
+slide an Imperial dira into your case at slot 59."), then CLOSE and WEAR
+it ("You attach a coin case to your belt.").
 
-The cards: INV LIST's (`s.state.possessions`, by id, any container
+The items: INV LIST's (`s.state.possessions`, by id, any container
 but the case) and those a LOOK IN of the loot and default containers
-lists since. Anything whose noun is "card" is tried — the 150 names
-follow no one pattern ("The Kitchen card", "a Famous Faces ... card")
-— and the game is the judge: an item CARDS ADD does not take goes
-back where it came from. Every card goes in, duplicates too (CARDS
-DUPLICATES lists them). It needs both hands empty and never stows a
-weapon to make them so (#439): it waits for a safe point with both
-free. A ;stop mid-chore wears the case again.
+lists since. Anything with the kind's noun is tried — the 150 card
+names follow no one pattern ("The Kitchen card", "a Famous Faces ...
+card") — and the game is the judge: an item the case does not take goes
+back where it came from. Every one goes in, duplicates too (CARDS
+DUPLICATES, DIRA DUPLICATE list them). It needs both hands empty and
+never stows a weapon to make them so (#439): it waits for a safe point
+with both free. A ;stop mid-chore wears the case again.
 
-Due: the profile names a `card_case` and a container may hold a card
-(`dirty`: at a session's start and whenever the hunt pockets one,
-`mark()`). `;break cards` runs it now.
+Due: the profile names the kind's case (`card_case`, `dira_case`) and a
+container may hold one (`dirty`: at a session's start and whenever the
+hunt pockets one, `mark(noun)`). `;break cards` / `;break dira` runs it
+now.
 """
 
 from client.game import hands, items
 from client.game.creatures import noun_of
 
-# The case's answers (captured 2026-10-04).
+# The collections, by the item's noun: the profile key naming the worn
+# case, the command that adds the item held in the left hand, and the
+# word the echoes count with.
+KINDS = {
+    "card": {"case": "card_case", "add": "cards add", "label": "card(s)"},
+    "dira": {"case": "dira_case", "add": "dira add", "label": "dira(s)"},
+}
+
+# The cases' answers (captured 2026-10-04, both cases alike).
 REMOVED = ("you remove",)
 OPENED = ("you open", "is already open")
 ADDED = ("you slide",)
 WORN = ("you attach",)
 _GOT = ("you get", "you pick", "you remove")
 
-_STATE = {"dirty": True}
-# The INV LIST ids tried this session: the listing is from login, and a
-# card added since is not got again.
+# May a container hold one, per kind? Unknown at a session's start; set
+# when the hunt pockets one, cleared by a run that moved them all.
+_STATE = {kind: True for kind in KINDS}
+# The INV LIST ids tried this session: the listing is from login, and an
+# item added since is not got again.
 _TRIED = set()
 
 
-def mark():
-    """A card went with the loot: the next safe point looks."""
-    _STATE["dirty"] = True
+def mark(noun=None):
+    """An item went with the loot: the next safe point looks — for its
+    kind, or every kind with no noun."""
+    for kind in KINDS:
+        if noun is None or noun == kind:
+            _STATE[kind] = True
 
 
-def due(profile):
-    """True when the chore should run on its own now."""
-    return bool(str(profile.get("card_case") or "").strip()) and _STATE["dirty"]
+def case_word(profile, kind="card"):
+    return str(profile.get(KINDS[kind]["case"]) or "").strip()
+
+
+def due(profile, kind="card"):
+    """True when the kind's chore should run on its own now."""
+    return bool(case_word(profile, kind)) and _STATE[kind]
+
+
+def is_item(name, kind="card"):
+    return noun_of(name) == kind
 
 
 def is_card(name):
-    return noun_of(name) == "card"
+    return is_item(name, "card")
 
 
-def case_ref(s, profile):
+def case_ref(s, profile, kind="card"):
     """The case as a command names it: its INV LIST id when the listing
-    shows it, else MY <card_case>."""
-    word = str(profile.get("card_case") or "").strip().lower()
+    shows it, else MY <case>."""
+    word = case_word(profile, kind).lower()
     for item in getattr(getattr(s, "state", None), "possessions", None) or []:
         if item.get("exist") and word in str(item.get("name") or "").lower():
             return f"#{item['exist']}"
     return f"my {word}"
 
 
-def listed_cards(s, case):
-    """The ids of the cards INV LIST shows outside the case: "#id"s."""
+def listed(s, case, kind="card"):
+    """The ids of the kind's items INV LIST shows outside the case."""
     exist = case[1:] if case.startswith("#") else None
     return [
         f"#{item['exist']}"
         for item in getattr(getattr(s, "state", None), "possessions", None) or []
         if item.get("exist")
-        and is_card(str(item.get("name") or ""))
+        and is_item(str(item.get("name") or ""), kind)
         and (exist is None or str(item.get("container_exist")) != exist)
         and str(item["exist"]) not in _TRIED
     ]
@@ -85,17 +109,18 @@ def _said(answer, words):
     return any(word in lowered for word in words)
 
 
-def run(s, profile, ask, prefix="cards"):
-    """Every card on the character into the case; the names added. Waits
-    (says so, stays due) unless both hands are empty."""
-    word = str(profile.get("card_case") or "").strip()
+def run(s, profile, ask, prefix="cards", kind="card"):
+    """Every item of the kind on the character into its case; the names
+    added. Waits (says so, stays due) unless both hands are empty."""
+    word = case_word(profile, kind)
+    key = KINDS[kind]["case"]
     if not word:
-        s.echo(f"{prefix}: no card_case in the profile — nothing to do")
+        s.echo(f"{prefix}: no {key} in the profile — nothing to do")
         return []
     if not hands.empty(s):
-        s.echo(f"{prefix}: both hands must be empty for the case — the cards wait")
+        s.echo(f"{prefix}: both hands must be empty for the case — it waits")
         return []
-    case = case_ref(s, profile)
+    case = case_ref(s, profile, kind)
     answer = ask(s, f"remove {case}")
     if not _said(answer, REMOVED):
         s.echo(f"{prefix}: the {word} did not come off ({_first(answer)!r})")
@@ -106,28 +131,29 @@ def run(s, profile, ask, prefix="cards"):
         if not _said(answer, OPENED):
             s.echo(f"{prefix}: the {word} did not open ({_first(answer)!r})")
             return []
-        for ref in listed_cards(s, case):
+        for ref in listed(s, case, kind):
             _TRIED.add(ref[1:])
-            name = _add(s, ask, prefix, f"get {ref}", None)
+            name = _add(s, ask, prefix, f"get {ref}", None, kind)
             if name:
                 added.append(name)
         for container in containers(s, profile, ask):
             answer = ask(s, f"look in my {container}")
-            for item in [item for item in items.listed(answer) or [] if is_card(item)]:
+            for item in [it for it in items.listed(answer) or [] if is_item(it, kind)]:
                 words = item.split()
                 noun = (
                     " ".join(words[-2:]) if len(words) > 2 else noun_of(item)
                 ).lower()
                 name = _add(
-                    s, ask, prefix, f"get {noun} from my {container}", container
+                    s, ask, prefix, f"get {noun} from my {container}", container, kind
                 )
                 if name:
                     added.append(name)
-        _STATE["dirty"] = False
+        _STATE[kind] = False
     finally:
         _put_on(s, case, word, ask, prefix)
     if added:
-        s.echo(f"{prefix}: {len(added)} card(s) into the {word}: {', '.join(added)}")
+        label = KINDS[kind]["label"]
+        s.echo(f"{prefix}: {len(added)} {label} into the {word}: {', '.join(added)}")
     return added
 
 
@@ -144,18 +170,18 @@ def containers(s, profile, ask):
     return found
 
 
-def _add(s, ask, prefix, get, container):
-    """GET a card into the left hand and CARDS ADD it: its name when it
-    went into the case, else None — the item put back, said."""
+def _add(s, ask, prefix, get, container, kind="card"):
+    """GET an item into the left hand and ADD it: its name when it went
+    into the case, else None — the item put back, said."""
     before = hands.tags(s)
     answer = ask(s, get)
     held = _arrived(before, hands.tags(s))
     if held is None:
         if _said(answer, _GOT):
-            s.echo(f"{prefix}: could not see the card in hand ({_first(answer)!r})")
+            s.echo(f"{prefix}: could not see the {kind} in hand ({_first(answer)!r})")
         return None
-    name = str(held.get("name") or held.get("noun") or "card")
-    answer = ask(s, "cards add")
+    name = str(held.get("name") or held.get("noun") or kind)
+    answer = ask(s, KINDS[kind]["add"])
     if _said(answer, ADDED):
         return name
     ref = f"#{held['exist']}" if held.get("exist") else f"my {held.get('noun')}"

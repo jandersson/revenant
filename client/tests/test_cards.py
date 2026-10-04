@@ -46,7 +46,7 @@ POSSESSIONS = [
 
 @pytest.fixture(autouse=True)
 def fresh(monkeypatch):
-    monkeypatch.setattr(cards, "_STATE", {"dirty": True})
+    monkeypatch.setattr(cards, "_STATE", {"card": True, "dira": True})
     monkeypatch.setattr(cards, "_TRIED", set())
     monkeypatch.setattr(hands, "_DEFAULTS", {})
     monkeypatch.setattr(interlude, "_PENDING", set())
@@ -205,3 +205,68 @@ def test_the_interlude_never_stows_a_weapon_to_make_room_for_the_cards(monkeypat
     interlude.run_due(s)
     assert game.sent == []
     assert cards.due(PROFILE)
+
+
+# --- Imperial diras into the coin case (#459) ---
+
+# The coin case's answers, captured on 2026-10-04 in Shard.
+DIRA_OPENED = "You open your coin case.\n"
+DIRA_ADDED = "You slide an Imperial dira into your case at slot 59.\n"
+DIRA_WORN = "You attach a coin case to your belt.\n"
+DIRA_PROFILE = {"loot_container": "tote", "dira_case": "coin case"}
+COINS = [
+    {"exist": "810", "name": "a coin case", "noun": "case", "worn": True},
+    {"exist": "700", "name": "a large canvas sack", "noun": "sack", "worn": True},
+    {
+        "exist": "520",
+        "name": "an Imperial dira",
+        "noun": "dira",
+        "container_exist": "700",
+    },
+]
+
+
+def test_a_looted_dira_goes_into_the_worn_coin_case():
+    s, _ = handle(possessions=COINS)
+    sent = []
+
+    def ask(s, command):
+        sent.append(command)
+        if command == "remove #810":
+            s.state.right_hand = {"noun": "case", "exist": "810", "name": "coin case"}
+            return "You remove a coin case from your belt.\n"
+        if command == "open #810":
+            return DIRA_OPENED
+        if command == "get #520":
+            s.state.left_hand = {
+                "noun": "dira",
+                "exist": "520",
+                "name": "Imperial dira",
+            }
+            return "You get an Imperial dira from inside your canvas sack.\n"
+        if command == "dira add":
+            s.state.left_hand = None
+            return DIRA_ADDED
+        if command == "wear #810":
+            s.state.right_hand = None
+            return DIRA_WORN
+        if command == "store default":
+            return STORE_DEFAULT
+        if command.startswith("look in my "):
+            return "In the straw tote you see a wax label.\n"
+        return ""
+
+    assert cards.run(s, DIRA_PROFILE, ask, "dira", kind="dira") == ["Imperial dira"]
+    assert sent[:4] == ["remove #810", "open #810", "get #520", "dira add"]
+    assert sent[-2:] == ["close #810", "wear #810"]
+    assert "1 dira(s) into the coin case" in s.echoed[-1]
+    assert not cards.due(DIRA_PROFILE, "dira")
+    assert not cards.due(DIRA_PROFILE, "card")  # no card_case: the cards are off
+
+
+def test_the_hunt_marks_only_the_kind_it_pocketed():
+    cards._STATE.update(card=False, dira=False)
+    cards.mark("dira")
+    assert cards._STATE == {"card": False, "dira": True}
+    cards.mark()
+    assert cards._STATE == {"card": True, "dira": True}

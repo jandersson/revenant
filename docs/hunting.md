@@ -36,7 +36,7 @@ File → Character Profile, or `~/.revenant/profiles/<name>.json`. The keys a hu
 | `skin`, `skin_knife` | skin each kill; a knife noun, or empty for a worn knife or the weapon |
 | `bundle` | put skins on a worn bundling rope (free at any tannery) |
 | `loot_container`, `gem_pouch` | where loot and skins go; where gems go |
-| `card_case` | the worn case trading cards go into (a collector's case) |
+| `card_case`, `dira_case` | the worn cases trading cards and Imperial diras go into (a collector's case, a coin case) |
 | `loot_additions`, `loot_subtractions` | nouns also picked up; nouns never picked up (out of a box, into the trash) |
 | `loot_ignore` | loot not worth keeping: never picked up, trashed from boxes (default: the common metals) |
 | `loot_sweep` | beside a bin, trash what `loot_ignore` names from the loot container (off) |
@@ -103,7 +103,7 @@ An empty ground is not an end: the hunt waits and laps it again.
 - `loot_ignore` holds phrases that end an item's name (`embroidery needle`) or a lone metal (`copper` for any copper nugget or bar). The default is the common metals (brass, bronze, copper, covellite, iron, lead, nickel, oravir, pewter, silver, tin, zinc); rare ones are kept. `;boxes` puts these in the room's trash, or keeps them where there is none.
 - With `loot_sweep` on, whatever script is running puts those kept items in the trash at its next safe point beside a bin. Each is taken from the loot container only, checked in hand and named; anything else goes back. A one-word entry other than a metal (`needle`) is never swept. `;break sweep` lists what it would take and moves nothing: run it before turning `loot_sweep` on.
 - Gems go to `gem_pouch`; gems are kept for `;appraise`, never sold. Each pouch is named by its id from INV LIST, the worn one first; one that is full is passed over for the next. With every pouch full a gem goes with the loot. Whatever script is running moves loose gems from the loot and default containers into the pouch at its next safe point, once a session and after each one goes loose; every pouch full stops it until one takes a gem again. `;break gems` asks now.
-- Trading cards go into the worn case `card_case` names (a collector's case), at a safe point with both hands empty; duplicates too. `;break cards` asks now.
+- Trading cards go into the worn case `card_case` names (a collector's case), Imperial diras into `dira_case` (a coin case, bought in Shard), at a safe point with both hands empty; duplicates too. `;break cards` / `;break dira` asks now.
 - A full loot container stops skinning or box pickups for the run, and says so. `;skins` sells only the bundle and names any loose skin it finds; `;boxes` opens boxes.
 - With `bundle`, the first skin starts a bundle from the bundling rope, wherever it is carried, and later skins go straight into it. A place already taken ("can't wear any more items like that") moves TOGGLE BUNDLE on to the next; a bundle that goes on nowhere is stowed and the skins go loose. `;skins` sells the bundle and keeps the rope.
 - Nothing is ever dropped.

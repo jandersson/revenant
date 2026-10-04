@@ -1278,8 +1278,8 @@ def pocket(s, profile, item):
         if gems.full(answer):
             s.echo(f"hunt: the {pouch} is full — the {item} goes with the loot (#283)")
         gems.mark()  # loose with the loot: the gems chore pouches it later (#437)
-    if noun_of(item) == "card":
-        cards.mark()  # into the card case at the next safe point (#457)
+    if noun_of(item) in cards.KINDS:
+        cards.mark(noun_of(item))  # into its case at the next safe point (#457, #459)
     stow(s, profile, item)
 
 
@@ -1467,8 +1467,8 @@ def grab(s, profile, before, tally):
         if what == "box":
             tally.boxes += 1
             note_box(s, profile, tally, since, noun, entry, held)
-        if noun == "card":
-            cards.mark()  # into the card case at the next safe point (#457)
+        if noun in cards.KINDS:
+            cards.mark(noun)  # into its case at the next safe point (#457, #459)
         taken.append(noun)
     return taken
 

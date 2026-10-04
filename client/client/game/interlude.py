@@ -1,8 +1,8 @@
 """Interludes — short chores any running script does at its next safe
 point: the almanac on its timer, the loot sweep beside a bin
 (client/game/sweep.py; `;break sweep` is its dry run), loose gems
-into the gem pouch (client/game/gems.py), and trading cards into the
-card case (client/game/cards.py). `loop.wants_stop()` (every trainer
+into the gem pouch (client/game/gems.py), and trading cards and
+Imperial diras into their cases (client/game/cards.py). `loop.wants_stop()` (every trainer
 calls it between steps) and `pause()`'s slices run them, so every
 script with a safe point gives them time without code of its own;
 ;train runs them between tasks and in rests, ;hunt in a clear room.
@@ -39,7 +39,7 @@ NO_MAKE_ROOM = {"boxes", "perform"}
 # The chores that need both hands empty and never make room: the card
 # case goes in the right hand and the card in the left, and a weapon is
 # not stowed blind (#439) — they wait for a safe point with both free.
-BOTH_HANDS = {"cards"}
+BOTH_HANDS = {"cards", "dira"}
 # The monitors never reach a safe point: with only these running, ;break
 # runs the chore itself (the same set ;sentinel reads as idle).
 BACKGROUND = frozenset(
@@ -176,6 +176,19 @@ def _cards(s, forced):
     return cards.run(s, _loot_profile(s), ask, "cards")
 
 
+def _dira_due(s):
+    """Imperial diras into the coin case (client/game/cards.py, #459)."""
+    from client.game import cards
+
+    return cards.due(_loot_profile(s), "dira")
+
+
+def _dira(s, forced):
+    from client.game import cards
+
+    return cards.run(s, _loot_profile(s), ask, "dira", kind="dira")
+
+
 def _both_hands_free(s):
     return hands.empty(s)
 
@@ -186,6 +199,7 @@ REGISTRY = {
     "sweep": (_sweep_due, _sweep, _sweep_hand),
     "gems": (_gems_due, _gems, _free_hand),
     "cards": (_cards_due, _cards, _both_hands_free),
+    "dira": (_dira_due, _dira, _both_hands_free),
 }
 
 

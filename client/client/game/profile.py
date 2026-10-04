@@ -51,6 +51,9 @@ DEFAULTS = {
     # The trading cards a hunt loots go into this worn case ("collector's
     # case"); "" leaves them stowed (client/game/cards.py, #457).
     "card_case": "",
+    # The Imperial diras a hunt loots go into this worn case ("coin
+    # case", bought in Shard); "" leaves them stowed (#459).
+    "dira_case": "",
     # What a hunt picks up after a search, beyond coins, gems and
     # boxes (client/game/loot.py, combat-trainer's loot_additions /
     # loot_subtractions / box_loot_limit): nouns added, nouns left,
@@ -258,6 +261,7 @@ FIELDS = (
         "str",
         "collector's case — empty: cards stowed like loot",
     ),
+    ("dira_case", "Dira case", "str", "coin case — empty: diras stowed like loot"),
     ("loot_additions", "Also pick up after a search", "list", "club, dagger"),
     ("loot_subtractions", "Never pick up", "list", "runestone"),
     (
