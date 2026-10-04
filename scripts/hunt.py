@@ -1507,7 +1507,9 @@ def dispose(s, profile, corpse, tally):
 
     By the corpse's id when the parser has it (#456): SKIN #id and LOOT
     #id act on exactly that body, as dr-scripts' combat-trainer does;
-    a corpse gone by its id is looted bare."""
+    a corpse gone by its id is looted bare. With both hands full and the
+    weapon in one, the weapon is sheathed for the pickups and drawn
+    again (hand_for_loot, #461)."""
     body = next_corpse(s, tally)
     if profile["skin"]:
         # By ordinal past a live one of the noun listed first (#325).
@@ -1540,6 +1542,7 @@ def dispose(s, profile, corpse, tally):
             "creature": (parsed or {}).get("creature") or corpse,
             "seq": seq,
         }
+    freed = outcome == "found" and hand_for_loot(s, profile)
     taken = grab(s, profile, before, tally) if outcome is not None else []
     if outcome == "found":
         ignore = profile.get("loot_ignore") or ()
@@ -1559,6 +1562,23 @@ def dispose(s, profile, corpse, tally):
                 note_box(s, profile, tally, since, item, named(answer, item))
     elif outcome is None:
         unrecognized(s, tally, "loot", answer)
+    if freed:
+        draw(s, profile)
+
+
+def hand_for_loot(s, profile):
+    """A hand for the search's pickups: True when the weapon was
+    sheathed for them, to be drawn again after. A kill mid-cast — the
+    weapon in one hand, the cambrinth piece held between its CHARGE and
+    INVOKE in the other — answered every GET and STOW GEM with "You need
+    a free hand to pick that up.", and a trading card, coins and a jade
+    stayed on the ground (2026-10-04, #461). The piece stays in hand
+    for the cast."""
+    weapon = profile.get("weapon")
+    if not (weapon and hands.full(s) and hands.holding(s, weapon)):
+        return False
+    free_hand(s, profile)
+    return True
 
 
 def next_corpse(s, tally):

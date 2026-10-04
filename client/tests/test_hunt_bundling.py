@@ -553,6 +553,74 @@ def test_a_stow_gem_the_full_pouch_refuses_goes_with_the_loot(monkeypatch):
     assert hunt.gems._STATE["dirty"]
 
 
+def test_a_kill_mid_cast_sheathes_the_weapon_for_the_loot_and_draws_it_again(
+    monkeypatch,
+):
+    # 2026-10-04 (#461): the sledgehammer in the right hand, the anklet
+    # held for a charged cast in the left, and every pickup answered
+    # "You need a free hand to pick that up." — coins, a trading card
+    # and a jade stayed on the ground.
+    from types import SimpleNamespace
+
+    hammer = {"noun": "sledgehammer", "exist": "188", "name": "sledgehammer"}
+    anklet = {"noun": "anklet", "exist": "77", "name": "cambrinth anklet"}
+    state = SimpleNamespace(
+        room_objs="You also see a wood troll which appears dead.",
+        room_creatures=["a wood troll"],
+        room_creatures_dead=[True],
+        right_hand=dict(hammer),
+        left_hand=dict(anklet),
+        possessions=[],
+        corpses=[],
+    )
+    sent = []
+
+    def ask(s, command, *_):
+        sent.append(command)
+        if command == "loot":
+            state.room_objs = (
+                "You also see some copper coins and a wood troll which appears dead."
+            )
+            return "You search the wood troll.\nThe troll was carrying 7 copper coins (Kronars)!\n"
+        if command == "sheathe my sledgehammer":
+            state.right_hand = None
+            return "You sheathe the sledgehammer in your harness.\n"
+        if command == "wield my sledgehammer":
+            state.right_hand = dict(hammer)
+            return "You draw out your sledgehammer from the harness.\n"
+        if command.startswith("get "):
+            if state.left_hand and state.right_hand:
+                return "You need a free hand to pick that up.\n"
+            return "You pick up 7 copper Kronars.\n"
+        return ""
+
+    monkeypatch.setattr(hunt, "ask", ask)
+    handle = SimpleNamespace(state=state, echo=lambda t: None, sleep=lambda n: None)
+    profile = {
+        "skin": False,
+        "weapon": "sledgehammer",
+        "weapon_container": "",
+        "loot_container": "tote",
+        "gem_pouch": "pouch",
+    }
+    tally = hunt.Tally()
+    hunt.dispose(handle, profile, "troll", tally)
+    assert sent == [
+        "loot",
+        "sheathe my sledgehammer",
+        "get coins",
+        "wield my sledgehammer",
+    ]
+    assert tally.coins == 1
+    assert state.left_hand == anklet  # still in hand for the cast's INVOKE
+    # A hand free (no cast under way): the weapon stays out.
+    sent.clear()
+    state.left_hand = None
+    state.room_objs = "You also see a wood troll which appears dead."
+    hunt.dispose(handle, profile, "troll", hunt.Tally())
+    assert sent == ["loot", "get coins"]
+
+
 def test_a_searched_item_on_loot_ignore_is_left_where_it_fell():
     # 2026-09-28: "The scout was carrying an embroidery needle!" — the
     # wording path pocketed it though the profile's loot_ignore names it.
