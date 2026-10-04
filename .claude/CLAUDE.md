@@ -118,7 +118,8 @@ window and its docks, which only draw. `chat/` LNet (stdlib only);
 
 Traps that cost time before:
 - A running session does not see edits to `client/` modules outside
-  `RELOADABLE_MODULES` until it re-execs or restarts. On Windows only a new
+  `RELOADABLE_MODULES` and `client.game` (`balance` pinned) until it
+  re-execs or restarts. On Windows only a new
   session does it: close the window (quit) and relaunch. Detach leaves the
   old process running.
 - Restoring a saved dock layout onto a shown window can abort inside Qt;

@@ -292,6 +292,10 @@ lessons the code and docs cannot carry themselves.
   copy for good, and a script that later imports a new name from it
   fails to load ("cannot import name ...") until the session is
   restarted. Say so when landing a new game/ module (2026-09-12, tdp).
+  It bit again on 2026-10-04 (cards: ;train crashed on a fresh
+  interlude calling the old cards.due), so since #462 a session also
+  reloads every client.game module its list does not name, balance
+  excepted; only sessions started before 3619045 still keep the trap.
 - Every command Claude sends into a session goes through revenant-send
   with `--origin claude`, so the window shows `>> [claude] ...`. The
   flag is the only thing that sets the tag; without it a line reads
