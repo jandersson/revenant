@@ -1587,7 +1587,8 @@ def test_a_hunt_returned_by_hand_sells_the_skins_and_banks(travel):
     arena = _Runner({"attack": []})
     arena.commands = ["return"]
     _run(arena, travel_first=False)
-    assert arena.started == [("skins", ["bank", "keep=200"])]
+    # No skin cut before the return: ;bank alone, no walk to the tannery.
+    assert arena.started == [("bank", ["keep=200"])]
 
 
 def test_every_end_that_fought_sells_and_banks_under_train_too(travel):
@@ -1601,6 +1602,18 @@ def test_every_end_that_fought_sells_and_banks_under_train_too(travel):
     # A travel purse is kept (#454): the next hunt's ferry fare.
     assert arena.started == [("skins", ["bank", "keep=200"])]
     assert "hunt: selling the skins and banking (;skins bank)" in arena.echoed
+
+
+def test_a_run_that_cut_no_skin_banks_without_the_tannery(travel):
+    # 2026-10-04: the box farm skins nothing, and ;skins walked 18 steps
+    # to the tannery to say there was no bundle to sell.
+    arena = _Runner(
+        {"attack": [(KILL, kill)], "loot": [NOTHING]},
+        running=("train",),
+    )
+    _run(arena, profile=PROFILE | {"max_kills": 1, "skin": False}, travel_first=False)
+    assert arena.started == [("bank", ["keep=200"])]
+    assert "hunt: no skins this run — banking (;bank)" in arena.echoed
 
 
 def test_a_stop_while_selling_stops_the_skins_it_started(travel):

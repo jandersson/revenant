@@ -23,7 +23,7 @@ What it does
   - At the end, says each creature's searches, boxes and coins; history.db keeps
     every search (`loot`), every hunt (`hunts`) and every box picked up (`box_drops`).
 
-When it stops — then walks home, and runs ;skins bank (skins sold, purse banked but 200 copper kept for a ferry fare)
+When it stops — then walks home, and runs ;skins bank (skins sold, purse banked but 200 copper kept for a ferry fare; ;bank alone when no skin was cut)
   - health below `health_floor`, or a wound at `wound_floor` (also checked before setting out)
   - 60 swings without a kill, or three stuns in one fight
   - every trained skill mind-locked, or the style's `until` (boxes, kills)
@@ -2142,7 +2142,7 @@ def hunt(s, profile, db, travel_first=True, avoid=()):
         return
     go_home(s, profile, db, ground, avoid, reason)
     if not s.dead:
-        sell_and_bank(s)
+        sell_and_bank(s, skinned=bool(tally.skins or tally.bundle))
 
 
 def go_home(s, profile, db, ground, avoid, reason):
@@ -2178,26 +2178,34 @@ def go_home(s, profile, db, ground, avoid, reason):
 TRAVEL_PURSE = 200
 
 
-def sell_and_bank(s):
+def sell_and_bank(s, skinned=True):
     """Every hunt that fought ends by selling the skins and banking the
     purse — ;skins bank, waited for — under ;train too (the operator,
     2026-09-28: the box farm ended at 20:59 with fifteen skins, and the
     plan went on to ;boxes; 2026-09-26 it was only after ;hunt return).
-    A ;stop of the hunt meanwhile stops the ;skins it started (and
-    ;skins its ;bank)."""
+    A run that cut no skin and saw no bundle (the box farm skins
+    nothing) banks with ;bank alone: ;skins walked to the tannery and
+    back to say "no bundle worn or in your tote — nothing to sell"
+    (2026-10-04). A ;stop of the hunt meanwhile stops the script it
+    started (and ;skins its ;bank)."""
     running = getattr(s, "is_running", None)
     start = getattr(s, "run", None)
     if running is None or start is None:
         return
-    s.echo("hunt: selling the skins and banking (;skins bank)")
-    if not start("skins", ["bank", f"keep={TRAVEL_PURSE}"]):
-        s.echo("hunt: could not start ;skins — sell and bank by hand")
+    if skinned:
+        name, args = "skins", ["bank", f"keep={TRAVEL_PURSE}"]
+        s.echo("hunt: selling the skins and banking (;skins bank)")
+    else:
+        name, args = "bank", [f"keep={TRAVEL_PURSE}"]
+        s.echo("hunt: no skins this run — banking (;bank)")
+    if not start(name, args):
+        s.echo(f"hunt: could not start ;{name} — sell and bank by hand")
         return
     try:
-        while running("skins"):
+        while running(name):
             s.sleep(1)
     except BaseException:
-        s.kill("skins")
+        s.kill(name)
         raise
 
 

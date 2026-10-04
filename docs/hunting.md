@@ -15,7 +15,7 @@
 ;stop hunt            # quit where you stand
 ```
 
-- Every hunt that fought ends with `;skins bank`, under `;train` too, keeping 200 copper for the next trip's ferry fare; `;stop hunt` stops the selling with it.
+- Every hunt that fought ends with `;skins bank`, under `;train` too, keeping 200 copper for the next trip's ferry fare (`;bank` alone when no skin was cut); `;stop hunt` stops the selling with it.
 - The weapon stays in hand when the hunt ends.
 - Weapons are drawn and put away by their ids from INV LIST (taken at login): the exact weapon, back into the container it was listed in.
 - Each kill is skinned and looted by its corpse's id, never a live creature of the same noun.
