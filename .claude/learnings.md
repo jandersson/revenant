@@ -80,6 +80,15 @@ lessons the code and docs cannot carry themselves.
   scripts and the reloadable helpers reach it through `;stop <name>`
   and running it again. Detach is not a restart.
 - PowerShell `Stop-Process` kills what `taskkill` silently does not.
+- Relaunching a character from a shell: close its window with
+  `(Get-Process -Id <gui pid>).CloseMainWindow()` (the close handler
+  saves the layout and sends QUIT), then start the base interpreter's
+  `pythonw.exe tools/desktop.py <Name>` through `Invoke-CimMethod
+  Win32_Process Create`, as the Start Menu shortcut does, so the new
+  processes outlive the tool's shell. The venv's `.venv\Scripts\pythonw.exe`
+  is a uv trampoline that hops through python.exe: it opened a console
+  holding the session and the GUI, which closing would have killed
+  (2026-10-04).
 - A bound-but-not-listening socket refuses a connection on Linux and
   Windows but not on macOS: XNU's tcp_input drops a SYN to a pcb still
   in CLOSED without a reset, so the connect times out. A test that
