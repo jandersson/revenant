@@ -12,7 +12,8 @@
 
 A caster (any guild but Barbarian, by the latest ;sheet or INFO):
 - Casts Gauge Flow when it is down or under 20 minutes left, at one
-  step under DISCERN's mana (more mana, a shorter project).
+  step under DISCERN's mana (more mana, a shorter project), a quarter
+  less at a time while PREPARE warns of strain (the attunement is short).
 - RESEARCH <project> in portions until the breakthrough locks its
   skill: STREAM Attunement, AUGMENTATION, UTILITY, WARDING their own,
   FUNDAMENTAL Arcana and the magic skill at 17/34.
@@ -34,6 +35,7 @@ from time import monotonic
 
 from client.game import buffs, flight, guild, probe, trainer
 from client.game.act import ask, said, unknown
+from client.game.probe import classify as classify_answer
 from client.game.loop import (
     danger,
     ensure_mindstate,
@@ -87,6 +89,7 @@ runs the interludes, and the almanac's STUDY would lose the portion.
 MAX_ROUNDS = 2000  # the fuse under the loop
 RETURN_WAIT = 90  # a portion ending within this of a typed return is finished
 GAUGE_UNSEEN_MINUTES = 10  # recast after this without a Spells window to read
+FIT_TRIES = 4  # PREPAREs a quarter lower each while the attunement is short
 clock = monotonic
 
 
@@ -206,6 +209,27 @@ def report(s):
     return answered
 
 
+def fit_mana(s, mana):
+    """The most mana up to `mana` the caster's attunement holds (#474):
+    a PREPARE the game warns of strain at ("You feel intense strain ...",
+    Elanthipedia's Prepare command: insufficient attunement) is released
+    and tried a quarter lower. DISCERN's figure is the spell's range, not
+    the pool: Riphik (Attunement 482) strained at 90 and 98, read "most of
+    your current attunement" at 75, and the cast at 75 left 7% mana
+    (2026-10-04). A release costs no mana."""
+    for _ in range(FIT_TRIES):
+        if mana <= 0:
+            return 0
+        answer = ask(s, f"prepare {GAUGE_FLOW} {mana}")
+        ask(s, "release spell")
+        if classify_answer(answer, buffs.PREPARE_OUTCOMES) != "strain":
+            return mana
+        lower = mana * 3 // 4
+        s.echo(f"research: Gauge Flow at {mana} mana strains — trying {lower}")
+        mana = lower
+    return mana
+
+
 def ensure_gauge(s, gauge):
     """Gauge Flow up for a portion: cast when the Spells window lacks it
     or shows under GAUGE_MINUTES left (without the window, once per
@@ -222,7 +246,9 @@ def ensure_gauge(s, gauge):
     if gauge.get("mana") is None:
         answer = ask(s, "discern gauge flow")
         s.waitrt()
-        gauge["mana"] = gauge_mana(buffs.mana_limit(answer or ""), buffs.MANA_STEP)
+        gauge["mana"] = fit_mana(
+            s, gauge_mana(buffs.mana_limit(answer or ""), buffs.MANA_STEP)
+        )
     why = "not up" if not minutes else f"{minutes} min left"
     for attempt in range(2):
         mana = gauge["mana"]

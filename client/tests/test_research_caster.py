@@ -251,6 +251,7 @@ def run(fake, args=()):
         cast_once=fake.cast_once,
         mana_limit=buffs.mana_limit,
         MANA_STEP=buffs.MANA_STEP,
+        PREPARE_OUTCOMES=buffs.PREPARE_OUTCOMES,
         BuffState=buffs.BuffState,
     )
     script.clock = lambda: fake.now
@@ -268,9 +269,12 @@ def test_it_casts_gauge_flow_then_researches_the_emptiest_project_to_its_breakth
         ends=["portion", "breakthrough", "breakthrough"],
     )
     out = run(fake, ["stream", "augmentation", "once"])
-    assert fake.sent[:3] == [
+    # The PREPARE that checks the attunement holds 98, released (#474).
+    assert fake.sent[:5] == [
         "research status",
         "discern gauge flow",
+        "prepare Gauge Flow 98",
+        "release spell",
         "cast gauge flow 98",
     ]
     assert portions(fake) == [
@@ -304,6 +308,39 @@ def test_a_gauge_flow_that_fails_at_discerns_mana_is_tried_at_the_minimum():
     out = run(fake, ["stream", "once"])
     assert fake.cast_mana == [98, 0]
     assert "Gauge Flow failed at 98 mana — the minimum from here" in out
+    assert portions(fake) == ["research stream 300"]
+
+
+# Riphik's PREPAREs of 2026-10-04 (Attunement 482, mana 100%), #474.
+STRAINED = (
+    "You feel intense strain as you try to manipulate the mana streams to form "
+    "this pattern, and you are not certain that you will have enough mental "
+    "stamina to complete it.\nWith meditative movements you prepare your body for "
+    "the Gauge Flow spell."
+)
+MOST = (
+    "That will disrupt most of your current attunement!\nWith meditative movements "
+    "you prepare your body for the Gauge Flow spell."
+)
+
+
+def test_gauge_flow_past_the_casters_attunement_steps_down_before_the_cast():
+    # DISCERN said 100 streams; Riphik's attunement held about 80, so the
+    # cast at 98 failed "too mentally fatigued" and RESEARCH refused.
+    fake = Fake({"Attunement": 0}, ends=["breakthrough"])
+    plain = fake.ask
+
+    def ask(s, command, *rest):
+        if command in ("prepare Gauge Flow 98", "prepare Gauge Flow 73"):
+            fake.sent.append(command)
+            return STRAINED if command.endswith("98") else MOST
+        return plain(s, command, *rest)
+
+    fake.ask = ask
+    out = run(fake, ["stream", "once"])
+    assert fake.cast_mana == [73]
+    assert fake.sent.count("release spell") == 2
+    assert "research: Gauge Flow at 98 mana strains — trying 73" in out
     assert portions(fake) == ["research stream 300"]
 
 
