@@ -170,9 +170,16 @@ PREPARE_OUTCOMES = (
             "no idea how to cast",
         ),
     ),
-    # Too much mana asked for (the wiki's Prepare page wording; not
-    # yet observed here): the pattern is prepared but may not cast.
-    ("strain", ("have to strain",)),
+    # Too much mana asked for: the pattern is prepared but may not cast.
+    # "have to strain" is the wiki's Prepare page wording; the game's,
+    # captured 2026-10-04 (Riphik's Gauge Flow at 98, #474): "You feel
+    # intense strain as you try to manipulate the mana streams to form
+    # this pattern, and you are not certain that you will have enough
+    # mental stamina to complete it."
+    (
+        "strain",
+        ("have to strain", "intense strain", "enough mental stamina to complete"),
+    ),
     # A pattern from an earlier PREPARE is still held ("You have already
     # fully prepared the Stun Foe spell!", captured 2026-09-20 after a
     # cast at a corpse, #252): RELEASE it and prepare again.
@@ -206,6 +213,10 @@ CAST_OUTCOMES = (
             "not enough mana",
             "nothing to cast",
             "don't have a spell prepared",
+            # After "You gesture." (captured 2026-10-04, #474): "You
+            # strain, but are too mentally fatigued to finish the
+            # pattern, and it slips away." — read as a cast until then.
+            "too mentally fatigued",
         ),
     ),
     (

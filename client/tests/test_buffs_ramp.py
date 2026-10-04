@@ -241,3 +241,23 @@ def test_a_backfire_at_minimum_with_the_charge_keeps_the_buff_training(monkeypat
     buffs.cast_buffs(handle, HOJ_PROFILE, state, ask, "hunt", _report)
     assert "invoke my anklet" not in handle.sent
     assert _prepares(handle) == ["prepare hands of justice 10"]
+
+
+def test_the_games_strain_warning_and_a_fatigued_cast_are_read_as_such():
+    # Riphik's Gauge Flow at 98 mana, 2026-10-04 (#474): the warning
+    # read as a plain prepare and the failed cast as "You gesture.", so
+    # ;research took Gauge Flow for up and RESEARCH refused.
+    from client.game import buffs
+
+    prepared = (
+        "You feel intense strain as you try to manipulate the mana streams to form "
+        "this pattern, and you are not certain that you will have enough mental "
+        "stamina to complete it.\nWith meditative movements you prepare your body "
+        "for the Gauge Flow spell."
+    )
+    cast = (
+        "You gesture.\nYou strain, but are too mentally fatigued to finish the "
+        "pattern, and it slips away."
+    )
+    assert buffs.classify(prepared, buffs.PREPARE_OUTCOMES) == "strain"
+    assert buffs.classify(cast, buffs.CAST_OUTCOMES) == "failed"
