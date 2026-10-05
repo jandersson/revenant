@@ -359,6 +359,11 @@ lessons the code and docs cannot carry themselves.
   running scripts kept theirs.
 - Heredoc Python edits in Bash turn \b into a real backspace (0x08) in the file: a regex that looks right in grep matches nothing. Write the edit script with the Write tool; check with od -c when a pattern mysteriously fails (2026-09-26). It bit three more times the same day after this line was written, so a PreToolUse hook in the operator's ~/.claude/settings.json (hooks/no_heredoc_escapes.py) now refuses Python fed from a heredoc whose body holds a backslash escape.
 - A log watch piped through `cut` (or any stage without line buffering) delivers nothing: `tail -F log | grep --line-buffered X | cut -c...` sat silent for 30 minutes while ;train changed tasks. End the pipe at `grep --line-buffered`, or use `awk '{print; fflush()}'` (2026-09-26).
+- Even line-buffered, `tail -F` on two session logs missed an appended line on
+  Windows: the 14:29 plant recast (2026-10-05) never reached a watch whose filter
+  matched it, and the quiet hours before it could not be trusted. Watch a session
+  by polling its state over the wire and reading each debug log from its last
+  byte offset in a small Python loop.
 - Never park a character Claude is driving in a hunting ground, not even for a minute: no script fights for an idle character there. Two characters meeting for a GIVE meet in a safe room (a town square, a customs gate, a guild the visitor may enter). On 2026-09-26 a low-circle character walked to the goblin ground to take coin from the operator's other character, stood idle among three musk hogs and four goblins waiting for the GIVE, and died there in five minutes with 0 favors — the Northeast Customs one step away was the right room. Check a meeting room's `room_creatures` before sending anyone there.
 - A guild's ground can refuse another guild outright ("Barbarians are not allowed to go there." on the trail to the Paladins' Guild): a route to one character's guild room is no meeting point for a character of another guild.
 
