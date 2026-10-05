@@ -567,6 +567,10 @@ PLANT_TOUCHED = (
     "your wounds tingle",
     "wounds knit shut",
 )
+# A touch while the connection still holds (Cecil, 2026-10-05 12:25,
+# touched at 11:56): "You feel a brief flare of warmth where your skin
+# previously made contact with a healing plant." The healing goes on.
+PLANT_CONNECTED = ("brief flare of warmth",)
 
 
 def plant_step(s, plan, db, walk, room):
@@ -586,6 +590,8 @@ def plant_step(s, plan, db, walk, room):
     answer = act.ask(s, "touch plant")
     if any(word in answer.lower() for word in PLANT_TOUCHED):
         s.echo("train: touched the vela'tohr plant — resting beside it while it heals")
+    elif any(word in answer.lower() for word in PLANT_CONNECTED):
+        s.echo("train: already connected to the vela'tohr plant — resting beside it")
     else:
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         s.echo(f"train: TOUCH PLANT answered {first!r} — resting beside it anyway")

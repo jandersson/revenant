@@ -1139,6 +1139,25 @@ def test_a_wounded_rest_touches_the_plant_and_stays_beside_it(clock):
     assert any("resting beside it while it heals" in text for text in fake.echoed)
 
 
+def test_a_touch_still_connected_is_recognised(clock):
+    # Cecil, 2026-10-05 12:25: touched at 11:56, the connection still held.
+    fake = Fake(RESTED)
+    fake.state.injuries = {"chest": ("wound", 2)}
+    fake.state.room_objs = "You also see an ethereal vela'tohr plant."
+    fake.answers = {
+        "touch plant": [
+            "You feel a brief flare of warmth where your skin previously made "
+            "contact with a healing plant."
+        ]
+    }
+    run(clock, fake, plan(safe_rooms=["home"], plant_room="bank"))
+    assert (
+        "train: already connected to the vela'tohr plant — resting beside it"
+        in fake.echoed
+    )
+    assert not any("TOUCH PLANT answered" in text for text in fake.echoed)
+
+
 def test_no_plant_in_its_room_walks_back_and_rests_as_usual(clock):
     fake = Fake(RESTED)
     fake.state.injuries = {"chest": ("wound", 2)}

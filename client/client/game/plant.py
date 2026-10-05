@@ -49,7 +49,9 @@ IN_THE_WAY = (
     ("stop practicing", "stop climb"),
 )
 STRAIN = ("will disrupt about half your current attunement",)
-# The creator's TOUCH, the wiki's wordings until captured.
+# The creator's TOUCH, the wiki's wordings, captured as such on Riphik
+# (2026-10-05): "...erupt in agony and blossom with wounds!  Your
+# vela'tohr plant looks healthier!"
 NO_NEED = ("no need of healing",)
 TOOK = ("looks healthier", "blossom with wounds", "erupt in agony")
 
