@@ -44,9 +44,14 @@ CAST_FAILED = (
     "backfires",  # "Your spell badly backfires." (2026-10-05 00:12)
 )
 # A PREPARE refused for something still running, and what ends it.
+# An empty ender: the PREPARE sent again is the confirmation the game
+# asks for ("Are you sure you want to do that?  You'll interrupt your
+# research!", 2026-10-05 14:12 — a research portion still running after
+# ;research's return); the portion is lost, the plant kept up.
 IN_THE_WAY = (
     ("stop playing before", "stop play"),
     ("stop practicing", "stop climb"),
+    ("interrupt your research", ""),
 )
 STRAIN = ("will disrupt about half your current attunement",)
 # The creator's TOUCH, the wiki's wordings, captured as such on Riphik

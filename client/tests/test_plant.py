@@ -256,6 +256,31 @@ def test_a_song_left_playing_is_stopped_before_the_prepare(tmp_path, monkeypatch
     ]
 
 
+def test_a_research_portion_running_is_confirmed_away(tmp_path, monkeypatch):
+    # 2026-10-05 14:12: the recast came due while a research portion ran.
+    monkeypatch.setenv("REVENANT_TRAINING", str(tmp_path))
+    script = _script()
+    s = handle()
+    answers = [
+        "Are you sure you want to do that?  You'll interrupt your research!",
+        PREPARED,
+    ]
+
+    class Research(Game):
+        def __call__(self, s, command, *rest):
+            if command == "prepare ev 500":
+                self.sent.append(command)
+                return answers.pop(0)
+            return super().__call__(s, command, *rest)
+
+    game = Research(s, CAST)
+    script.ask = game
+    assert (
+        script.run(s, script.parse_args(["7890"]), db=CHAMBERS, walk=arrive) == "cast"
+    )
+    assert game.sent[:3] == ["get my phial", "prepare ev 500", "prepare ev 500"]
+
+
 def test_low_mana_waits_and_records_nothing(tmp_path, monkeypatch):
     monkeypatch.setenv("REVENANT_TRAINING", str(tmp_path))
     script = _script()

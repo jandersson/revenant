@@ -155,8 +155,10 @@ def cast(s, options):
         for refusal, ender in plant.IN_THE_WAY:
             if refusal in text.lower():
                 # A song or a climb left going (2026-10-05 00:10: "You
-                # should stop playing before you do that."): ended, once.
-                ask(s, ender)
+                # should stop playing before you do that."): ended, once;
+                # a research portion: the PREPARE again confirms it.
+                if ender:
+                    ask(s, ender)
                 text = read_answer(s, prepare, plant.PREPARED)
                 break
         if not plant.said(text, plant.PREPARED):
