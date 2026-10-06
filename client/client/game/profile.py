@@ -206,6 +206,11 @@ DEFAULTS = {
     # "nugget" also answers for a looted lead one); "" leaves
     # the salve unfinished in the mortar when the game asks (#284).
     "catalyst": "",
+    # The mortar and pestle ;remedies crushes in and ;repair tools
+    # takes to Rangu, named whole ("iron mortar"): a looted stone
+    # mortar in the same pack answered MY MORTAR until #478.
+    "mortar": "mortar",
+    "pestle": "pestle",
     # The almanac's noun (client/game/almanac.py): ;train and ;hunt
     # study it whenever its ten-minute timer allows; "" for none.
     "almanac": "",
@@ -475,10 +480,22 @@ FIELDS = (
         "80: rather scuffed up and worse",
     ),
     (
+        "mortar",
+        "Mortar ;remedies crushes in (named whole)",
+        "str",
+        "iron mortar — a looted stone mortar is never taken",
+    ),
+    (
+        "pestle",
+        "Pestle ;remedies crushes with (named whole)",
+        "str",
+        "iron pestle — like the mortar",
+    ),
+    (
         "repair_tools",
         "Crafting tools ;repair tools takes to Rangu",
         "list",
-        "mortar, pestle",
+        "mortar, pestle — a bare one is the mortar or pestle above",
     ),
 )
 

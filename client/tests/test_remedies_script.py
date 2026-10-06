@@ -2044,3 +2044,34 @@ def test_a_bought_stack_in_a_container_joins_by_the_plain_nouns_ordinals():
     assert sent.index("get flowers from my backpack") < sent.index(
         "combine flowers with flowers"
     )
+
+
+def test_the_tools_are_named_whole_from_the_profile():
+    # #478: Cecil's remedies went into a looted stone mortar and ;repair
+    # paid for a looted grimy marble pestle, both taken by bare noun.
+    from client.game.profile import DEFAULTS, save_profile
+
+    save_profile(
+        "Lanival",
+        DEFAULTS
+        | {
+            "weapon": "scimitar",
+            "weapon_container": "scabbard",
+            "mortar": "iron mortar",
+            "pestle": "iron pestle",
+        },
+    )
+    fake = Fake(
+        {
+            "study my book": [TOO_HARD],
+            "crush my nemoih in my iron mortar with my iron pestle": [CRUSHED],
+            "crush my salve in my iron mortar with my iron pestle": [NEED_CATALYST],
+        },
+        mindstates=[0, 1, 2],
+    )
+    out = run(fake)
+    assert "wants a catalyst and the profile names none" in out
+    assert "get my iron pestle" in fake.sent
+    assert "put my nemoih in my iron mortar" in fake.sent
+    assert fake.sent[-2:] == ["stow my iron pestle", "stow my iron mortar"]
+    assert not any("my mortar" in c or "my pestle" in c for c in fake.sent)

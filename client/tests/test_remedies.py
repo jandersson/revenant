@@ -317,3 +317,10 @@ def test_the_buildings_rooms_share_the_title_before_the_comma():
     assert building_rooms(rooms, "9140") == ["9140"]
     assert building_rooms(rooms, "1") == []
     assert building_rooms(rooms, "none") == []
+
+
+def test_the_crush_names_the_mortar_and_pestle_the_profile_spells():
+    # #478: a looted stone mortar in the same pack answered MY MORTAR.
+    assert remedies.crush_command(
+        "nemoih", False, "salve", "iron mortar", "iron pestle"
+    ) == ("crush my nemoih in my iron mortar with my iron pestle")

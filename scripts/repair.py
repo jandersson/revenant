@@ -63,7 +63,8 @@ _NOTES = """Repair your gear at the nearest repair shop:  ;repair
     ;repair check        appraise only: each piece's condition, nothing moves
     ;repair plate shield those pieces, whatever their condition (worn, held, or GOT from a container)
     ;repair floor=70     repair pieces whose condition tops out at or below 70 % (the profile's `repair_floor`, else 80)
-    ;repair tools        ANALYZE the profile's `repair_tools` (mortar, pestle...) and take every one at or below the floor to Rangu
+    ;repair tools        ANALYZE the profile's `repair_tools` (mortar, pestle...) and take every one at or below the floor to Rangu;
+                         a bare mortar or pestle is the profile's `mortar` or `pestle`, named whole (iron pestle)
     ;repair tools pestle that tool, whatever its condition
     ;repair pickup       walk to the shop your tickets name and collect what is ready
     ;repair ... back     walk back to where you started when done
@@ -522,7 +523,7 @@ def run(s, words, mapdb=None, walk_fn=walk, profile=None):
                 "profile's repair_tools"
             )
             return
-        tools = [str(tool).strip().lower() for tool in tools]
+        tools = [tool_name(profile, tool) for tool in tools]
         due = analyze(s, tools, 100 if items else floor)
         if not due:
             s.echo(f"repair: no tool at or below {floor} % — all good")
@@ -567,6 +568,16 @@ def run(s, words, mapdb=None, walk_fn=walk, profile=None):
     count = repair(s, mapdb, walk_fn, due)
     s.echo(f"repair: {count} of {len(due)} repaired")
     walk_home(s, mapdb, walk_fn, start, back)
+
+
+def tool_name(profile, tool):
+    """A bare "mortar" or "pestle" as the profile spells the tool whole
+    ("iron pestle"), so a looted one is not the one analyzed and paid
+    for (#478); any other tool as given."""
+    tool = str(tool).strip().lower()
+    if tool in ("mortar", "pestle"):
+        return str(profile.get(tool) or tool).strip().lower() or tool
+    return tool
 
 
 def walk_home(s, mapdb, walk_fn, start, back):

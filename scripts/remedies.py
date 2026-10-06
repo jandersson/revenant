@@ -29,6 +29,8 @@ What it does
     first (foraged ones from ;forage herb); the mortar takes 25 of a bigger one.
   - With the profile's `forage_herbs`, red flowers it runs out of are foraged
     (;forage herb, once an order) before any are bought.
+  - The mortar and pestle are the profile's `mortar` and `pestle`, named whole
+    ("iron mortar"): a looted stone mortar in the same pack is never taken.
   - A remedy too poor for the order is discarded if `droppable` names it, else stowed.
   - A remedy not of the order's 5 uses is cut to 5 (MARK, BREAK) or topped up from
     another stack of it (COMBINE); what is broken off is stowed for the next order.
@@ -257,6 +259,23 @@ LOAD_LIMIT = (
 )
 
 
+# The mortar and pestle as the profile spells them (`mortar`, `pestle`:
+# "iron mortar", "iron pestle"), set by run() for every send below: a
+# bare MY MORTAR took a looted stone mortar out of the same pack and
+# the remedies went into it (#478).
+TOOLS = {"mortar": "mortar", "pestle": "pestle"}
+
+
+def name_tools(profile):
+    for tool in TOOLS:
+        TOOLS[tool] = str((profile or {}).get(tool) or tool).strip().lower() or tool
+
+
+def my(tool):
+    """The tool as the profile spells it: "my iron pestle"."""
+    return f"my {TOOLS[tool]}"
+
+
 def profile_of(s):
     name = getattr(s.state, "name", None)
     if not name:
@@ -284,18 +303,18 @@ def study(s, chapter, page, what):
     when the book is not on you or the game did not say it is ready."""
     # The mortar and pestle fill both hands ("You need a free hand to
     # pick that up.", 2026-09-22): the pestle down for the book, up after.
-    ask(s, "stow my pestle")
+    ask(s, f"stow {my('pestle')}")
     answer = ask(s, "get my book")
     if missing(answer):
         s.echo("remedies: no remedies book on you — stopping")
-        ask(s, "get my pestle")
+        ask(s, f"get {my('pestle')}")
         return False
     ask(s, f"turn my book to chapter {chapter}")
     ask(s, f"turn my book to page {page}")
     answer = ask(s, "study my book")
     s.waitrt()
     ask(s, "stow my book")
-    ask(s, "get my pestle")
+    ask(s, f"get {my('pestle')}")
     lowered = answer.lower()
     if any(word in lowered for word in TOO_HARD):
         s.echo(
@@ -318,7 +337,7 @@ def fetch_into_mortar(s, noun, what):
     answer to "flowers" but not to "dried" (#420). In hand it goes by
     its id, else the plain noun — never "dried <herb>" again."""
     dried = what in ("herb", "second herb")
-    ask(s, "stow my pestle")
+    ask(s, f"stow {my('pestle')}")
     if dried:
         answer = herbstacks.get_dried(s, ask, noun)
     else:
@@ -326,7 +345,7 @@ def fetch_into_mortar(s, noun, what):
     if answer is None or (not dried and missing(answer)):
         shown = f"dried {noun}" if dried else noun
         s.echo(f"remedies: no {shown} on you — the {what} is missing")
-        ask(s, "get my pestle")
+        ask(s, f"get {my('pestle')}")
         return False
 
     def held():
@@ -341,10 +360,10 @@ def fetch_into_mortar(s, noun, what):
             f"pieces — the {what} is missing"
         )
         hands.stow(s, token(), ask=ask)
-        ask(s, "get my pestle")
+        ask(s, f"get {my('pestle')}")
         return False
     verb = "pour" if what in LIQUIDS else "put"
-    answer = ask(s, f"{verb} {held()} in my mortar")
+    answer = ask(s, f"{verb} {held()} in {my('mortar')}")
     lowered = answer.lower()
     if what == "herb" and any(word in lowered for word in MORTAR_FULL):
         hands.stow(s, token(), ask=ask)  # the mortar took its 25; the rest back
@@ -355,14 +374,14 @@ def fetch_into_mortar(s, noun, what):
         name = held[0] if held else "remedy"
         s.echo(f"remedies: the mortar already holds an unfinished {name}")
         hands.stow(s, token(), ask=ask)
-        ask(s, "get my pestle")
+        ask(s, f"get {my('pestle')}")
         return f"busy:{name}"
     if what in LIQUIDS and not any(word in lowered for word in POURED):
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         s.echo(f"remedies: the pour answered {first!r}")
     if what != "herb":
         hands.stow(s, token(), ask=ask)  # the liquid, the second herb's stack, a nugget
-    ask(s, "get my pestle")
+    ask(s, f"get {my('pestle')}")
     return True
 
 
@@ -391,7 +410,7 @@ def full_stack(s, noun):
     held = pieces(ask(s, f"count {in_hand()}"))
     if held is None or held >= STACK_PIECES:
         return True
-    ask(s, "stow my mortar")
+    ask(s, f"stow {my('mortar')}")
     possessions = getattr(s.state, "possessions", None)
     # Where INV LIST showed the herb, else every container (a stack
     # bought since the login listing): never the gem pouch first.
@@ -419,7 +438,7 @@ def full_stack(s, noun):
             held = pieces(ask(s, f"count {in_hand()}")) or held
         if held >= STACK_PIECES:
             break
-    ask(s, "get my mortar")
+    ask(s, f"get {my('mortar')}")
     return held >= STACK_PIECES
 
 
@@ -513,7 +532,9 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
                 s, "remedies", SKILL, options["until"], again="crushing again"
             ):
                 return "stopped"
-        answer = ask(s, crush_command(herb, started, noun))
+        answer = ask(
+            s, crush_command(herb, started, noun, TOOLS["mortar"], TOOLS["pestle"])
+        )
         s.waitrt()
         tally["crushes"] += 1
         tally["crush_seconds"] = tally.get("crush_seconds", 0) + roundtime_of(answer)
@@ -576,8 +597,8 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
             if not study(s, chapter, page, what):
                 return "book"
         elif outcome == "free hand":
-            ask(s, "stow my pestle")
-            ask(s, "get my pestle")
+            ask(s, f"stow {my('pestle')}")
+            ask(s, f"get {my('pestle')}")
         elif outcome == "missing" and not started:
             # "Crush what?" with nothing in the mortar: the herb fetched
             # again, but not for ever — the first evening's spin was
@@ -610,7 +631,7 @@ def mortar_holds(s):
     """LOOK IN MY MORTAR (no roundtime): the remedy in progress there as
     (name, recipe), or None for an empty mortar or a remedy the book
     has no page for — said, once, so it can be looked at by hand."""
-    answer = ask(s, "look in my mortar")
+    answer = ask(s, f"look in {my('mortar')}")
     held = unfinished_in_mortar(answer)
     if held is None and "unfinished" in answer.lower():
         first = (answer.strip().splitlines() or ["(silence)"])[0]
@@ -648,9 +669,9 @@ def finish_in_mortar(s, name, catalyst, options, tally):
 def take_out(s, noun):
     """The finished remedy out of the mortar into a hand: the pestle
     stowed first, then the mortar (a free hand for whatever is next)."""
-    ask(s, "stow my pestle")
-    ask(s, f"get my {noun} from my mortar")
-    ask(s, "stow my mortar")
+    ask(s, f"stow {my('pestle')}")
+    ask(s, f"get my {noun} from {my('mortar')}")
+    ask(s, f"stow {my('mortar')}")
 
 
 def stacks_on_hand(possessions, item):
@@ -707,10 +728,10 @@ def tools_in_hand(s):
     # The mortar and pestle fill both hands: anything else held — a herb
     # stack ;forage left behind (2026-09-30, #395) — is stowed first,
     # never dropped, or the pestle and the book find no hand.
-    hands.free(s, keep=("mortar", "pestle"), ask=ask)
+    hands.free(s, keep=tuple(TOOLS.values()), ask=ask)
     for tool in ("mortar", "pestle"):
-        if missing(ask(s, f"get my {tool}")):
-            s.echo(f"remedies: no {tool} on you — stopping")
+        if missing(ask(s, f"get {my(tool)}")):
+            s.echo(f"remedies: no {TOOLS[tool]} on you — stopping")
             return False
     return True
 
@@ -742,8 +763,8 @@ def train(s, options, profile):
             continue
         break
     s.echo(f"remedies: {why} — {salves} salve(s), {SKILL} {mindstate(s, SKILL)}/34")
-    ask(s, "stow my pestle")
-    ask(s, "stow my mortar")
+    ask(s, f"stow {my('pestle')}")
+    ask(s, f"stow {my('mortar')}")
 
 
 def to_master(s, profile):
@@ -1410,8 +1431,8 @@ def work(s, options, profile):
                     why = "tools"
                     break
                 continue
-            ask(s, "stow my pestle")
-            ask(s, "stow my mortar")
+            ask(s, f"stow {my('pestle')}")
+            ask(s, f"stow {my('mortar')}")
             bought = restock(s, spec, catalyst, why, remaining, tally, profile)
             if not bought:
                 if bought is False:
@@ -1427,8 +1448,8 @@ def work(s, options, profile):
             # controlling herb, put in first, starts the stack over.
             started = why != f"dried {spec[2]}"
             why = None
-        ask(s, "stow my pestle")
-        ask(s, "stow my mortar")
+        ask(s, f"stow {my('pestle')}")
+        ask(s, f"stow {my('mortar')}")
         sync_order(s, state, tally, snapshot)
         if why == LAPSED:
             if lapsed(s, tally):
@@ -1519,6 +1540,7 @@ def run(s, options):
         ledger(s)
         return
     profile = profile_of(s)
+    name_tools(profile)
     if options["merge"]:
         clear_hands(s, profile)
         merge_herbs(s)

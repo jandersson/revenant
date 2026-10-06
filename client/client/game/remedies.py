@@ -398,11 +398,12 @@ def page_for(salve):
     return SALVES[salve][1]
 
 
-def crush_command(herb, started, noun="salve"):
+def crush_command(herb, started, noun="salve", mortar="mortar", pestle="pestle"):
     """CRUSH the herb the first time, the unfinished remedy — by its
-    noun, "salve" or "cream" — after."""
+    noun, "salve" or "cream" — after, in the mortar and pestle as the
+    profile spells them ("iron mortar", #478)."""
     what = noun if started else herb
-    return f"crush my {what} in my mortar with my pestle"
+    return f"crush my {what} in my {mortar} with my {pestle}"
 
 
 def parse_order(text):

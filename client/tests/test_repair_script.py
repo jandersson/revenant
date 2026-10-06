@@ -594,3 +594,28 @@ def test_a_named_piece_without_a_condition_is_said_a_worn_sack_is_not():
     )
     script.run(sack, ["check"], mapdb=None, walk_fn=walk, profile=PROFILE)
     assert "named no condition" not in echoes(sack)
+
+
+def test_a_bare_mortar_or_pestle_is_the_profile_s_whole_name():
+    # #478: "give my pestle to Rangu" repaired a looted grimy marble
+    # pestle; the profile's `mortar` and `pestle` name the tools whole.
+    named = {**TOOLS, "mortar": "iron mortar", "pestle": "iron pestle"}
+    fake = Fake(
+        {
+            "analyze my iron mortar": [ANALYZE_GOOD],
+            "analyze my iron pestle": [ANALYZE_GOOD],
+        },
+        possessions=[],
+    )
+    script.run(fake, ["tools"], mapdb=MAP, walk_fn=walk, profile=named)
+    assert fake.sent == [
+        "get my iron mortar",
+        "analyze my iron mortar",
+        "stow my iron mortar",
+        "get my iron pestle",
+        "analyze my iron pestle",
+        "stow my iron pestle",
+    ]
+    assert "no tool at or below 80 % — all good" in echoes(fake)
+    assert script.tool_name(named, "sieve") == "sieve"
+    assert script.tool_name({}, "pestle") == "pestle"
