@@ -379,3 +379,4 @@ lessons the code and docs cannot carry themselves.
   changes mid-run passes `skills=` as a callable; a loop that reads the
   typed line for words other than "return" (hunt, research's caster)
   stays its own.
+- The Faldesu swim to Riverhaven (map 1375 → 473: DIVE RIVER, swims n/nw/ne, CLIMB BRIDGE) is beyond Athletics 119 with Strength 20 even with every piece of armor stowed: eight "You slap at the water in a sad failure to swim north sideways to the strong current." in a row, 11–14 s roundtime each, no progress, no damage (2026-10-06, #479). The way back out of the first water room is CLIMB BRIDGE; CLIMB BANK is not a thing there. Wiki figures (100–120) do not describe that first room.
