@@ -260,9 +260,11 @@ LOAD_LIMIT = (
 
 
 # The mortar and pestle as the profile spells them (`mortar`, `pestle`:
-# "iron mortar", "iron pestle"), set by run() for every send below: a
-# bare MY MORTAR took a looted stone mortar out of the same pack and
-# the remedies went into it (#478).
+# "iron mortar", "iron pestle"), set by run() for every GET, STOW, PUT
+# and LOOK below: a bare MY MORTAR took a looted stone mortar out of the
+# same pack and the remedies went into it (#478). The CRUSH alone keeps
+# the bare nouns — its WITH clause refuses the whole name, and the tools
+# are in hand by then (crush_command).
 TOOLS = {"mortar": "mortar", "pestle": "pestle"}
 
 
@@ -532,9 +534,8 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
                 s, "remedies", SKILL, options["until"], again="crushing again"
             ):
                 return "stopped"
-        answer = ask(
-            s, crush_command(herb, started, noun, TOOLS["mortar"], TOOLS["pestle"])
-        )
+        # Bare nouns on purpose: the held tools (crush_command's docstring).
+        answer = ask(s, crush_command(herb, started, noun))
         s.waitrt()
         tally["crushes"] += 1
         tally["crush_seconds"] = tally.get("crush_seconds", 0) + roundtime_of(answer)

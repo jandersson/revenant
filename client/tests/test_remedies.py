@@ -319,8 +319,9 @@ def test_the_buildings_rooms_share_the_title_before_the_comma():
     assert building_rooms(rooms, "none") == []
 
 
-def test_the_crush_names_the_mortar_and_pestle_the_profile_spells():
-    # #478: a looted stone mortar in the same pack answered MY MORTAR.
-    assert remedies.crush_command(
-        "nemoih", False, "salve", "iron mortar", "iron pestle"
-    ) == ("crush my nemoih in my iron mortar with my iron pestle")
+def test_the_crush_keeps_the_bare_nouns_whatever_the_profile_spells():
+    # 2026-10-06 23:43: CRUSH ... WITH MY IRON PESTLE answered "With what,
+    # your hand?  Huh uh." three times; the held tools answer to the noun.
+    assert remedies.crush_command("nemoih", False) == (
+        "crush my nemoih in my mortar with my pestle"
+    )

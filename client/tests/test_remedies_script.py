@@ -2064,8 +2064,8 @@ def test_the_tools_are_named_whole_from_the_profile():
     fake = Fake(
         {
             "study my book": [TOO_HARD],
-            "crush my nemoih in my iron mortar with my iron pestle": [CRUSHED],
-            "crush my salve in my iron mortar with my iron pestle": [NEED_CATALYST],
+            "crush my nemoih in my mortar with my pestle": [CRUSHED],
+            "crush my salve in my mortar with my pestle": [NEED_CATALYST],
         },
         mindstates=[0, 1, 2],
     )
@@ -2074,4 +2074,7 @@ def test_the_tools_are_named_whole_from_the_profile():
     assert "get my iron pestle" in fake.sent
     assert "put my nemoih in my iron mortar" in fake.sent
     assert fake.sent[-2:] == ["stow my iron pestle", "stow my iron mortar"]
-    assert not any("my mortar" in c or "my pestle" in c for c in fake.sent)
+    # Only the CRUSH keeps the bare nouns (its WITH clause refuses the
+    # whole name, 2026-10-06); every GET, STOW, PUT and LOOK names the tool.
+    bare = [c for c in fake.sent if "my mortar" in c or "my pestle" in c]
+    assert bare and all(c.startswith("crush ") for c in bare)

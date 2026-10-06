@@ -398,12 +398,15 @@ def page_for(salve):
     return SALVES[salve][1]
 
 
-def crush_command(herb, started, noun="salve", mortar="mortar", pestle="pestle"):
+def crush_command(herb, started, noun="salve"):
     """CRUSH the herb the first time, the unfinished remedy — by its
-    noun, "salve" or "cream" — after, in the mortar and pestle as the
-    profile spells them ("iron mortar", #478)."""
+    noun, "salve" or "cream" — after. The mortar and pestle go by their
+    bare nouns here: CRUSH's WITH clause refuses the profile's whole
+    name ("with my iron pestle": "With what, your hand?  Huh uh.",
+    2026-10-06), and by the CRUSH the tools fetched by that name are
+    the ones in hand, which MY <noun> reaches first (#478)."""
     what = noun if started else herb
-    return f"crush my {what} in my {mortar} with my {pestle}"
+    return f"crush my {what} in my mortar with my pestle"
 
 
 def parse_order(text):
