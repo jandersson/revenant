@@ -40,6 +40,7 @@ PROFILE = {"loot_container": "tote", "gem_pouch": "pouch"}
 def fresh(monkeypatch):
     monkeypatch.setattr(gems, "_STATE", {"dirty": True, "full": False})
     monkeypatch.setattr(gems, "_FULL", set())
+    monkeypatch.setattr(gems, "_UNTIED", set())
     monkeypatch.setattr(hands, "_DEFAULTS", {})
     monkeypatch.setattr(interlude, "_PENDING", set())
     monkeypatch.setattr(interlude, "_DEFERRED", {})
@@ -322,10 +323,10 @@ def test_a_full_worn_pouch_is_swapped_for_the_spare_and_the_chore_goes_on():
         "put #100 in #41",  # the spare takes it
     ]
     assert game.sent[5:10] == [
-        "remove #40",
-        "stow #40",
         "get #41",
         "wear #41",
+        "remove #40",
+        "stow #40",
         "store gems in pouch",
     ]
     assert game.sent[10:12] == ["get ivory from my tote", "put #101 in #41"]
@@ -351,3 +352,139 @@ def test_without_a_spare_the_full_pouch_is_said_and_nothing_is_swapped():
     assert gems.run(s, PROFILE, ask) == []
     assert not any(c.startswith(("remove", "wear", "store gems")) for c in game.sent)
     assert any("the pouch is full" in text for text in s.echoed)
+
+
+def test_an_untied_full_spare_is_tied_before_it_is_worn():
+    # 2026-10-07 20:08, ;break gems: the worn pouch tied and full, the spare
+    # in the backpack full too but untied ("wealth of gems") — the
+    # operator's rule: a full untied pouch is TIEd (#283).
+    s, game = handle()
+    s.state.possessions = [
+        {"exist": "40", "name": "a black gem pouch", "noun": "pouch", "worn": True},
+        {
+            "exist": "41",
+            "name": "a black gem pouch",
+            "noun": "pouch",
+            "container_exist": "9",
+        },
+    ]
+    FULL_TIED = "You think the black gem pouch is too full to fit another gem into.\n"
+    tied = {"41": False}
+
+    def ask(s, command):
+        if command.startswith("put ") and " in #" in command:
+            game.sent.append(command)
+            target = command.rsplit(" in #", 1)[1]
+            if target == "40" or (target == "41" and not tied["41"]):
+                return FULL_TIED if target == "40" else FULL
+            held = s.state.left_hand
+            s.state.left_hand = None
+            game.pouched.append(held["name"])
+            return POUCHED.format(held["noun"])
+        scripted = {
+            "get #41": "You get a black gem pouch from inside your backpack.\n",
+            "tie #41": "You tie the black gem pouch closed.\n",
+            "wear #41": "You attach a black gem pouch to your belt.\n",
+            "remove #40": "You remove a black gem pouch from your belt.\n",
+            "stow #40": "You put your pouch in your backpack.\n",
+            "store gems in pouch": "You will now store gems in your black gem pouch.\n",
+        }
+        if command in scripted:
+            if command == "tie #41":
+                tied["41"] = True
+            game.sent.append(command)
+            return scripted[command]
+        return game(s, command)
+
+    moved = gems.run(s, PROFILE, ask)
+    assert game.sent[:6] == [
+        "store default",
+        "look in my tote",
+        "get diopside from my tote",
+        "put #100 in #40",  # tied, full
+        "put #100 in #41",  # untied, full
+        "put #100 in my tote",
+    ]
+    assert game.sent[6:12] == [
+        "get #41",
+        "tie #41",
+        "wear #41",
+        "remove #40",
+        "stow #40",
+        "store gems in pouch",
+    ]
+    assert game.sent[12:14] == ["get diopside from my tote", "put #101 in #41"]
+    assert len(moved) == 5
+    assert any("tied off" in text for text in s.echoed)
+    assert any("swapped for the spare" in text for text in s.echoed)
+
+
+def test_an_untied_full_worn_pouch_is_tied_in_place():
+    s, game = handle()
+    s.state.possessions = [
+        {"exist": "40", "name": "a black gem pouch", "noun": "pouch", "worn": True},
+    ]
+    tied = {"40": False}
+
+    def ask(s, command):
+        if command.startswith("put ") and " in #40" in command:
+            game.sent.append(command)
+            if not tied["40"]:
+                return FULL
+            held = s.state.left_hand
+            s.state.left_hand = None
+            game.pouched.append(held["name"])
+            return POUCHED.format(held["noun"])
+        scripted = {
+            "remove #40": "You remove a black gem pouch from your belt.\n",
+            "tie #40": "You tie the black gem pouch closed.\n",
+            "wear #40": "You attach a black gem pouch to your belt.\n",
+        }
+        if command in scripted:
+            if command == "tie #40":
+                tied["40"] = True
+            game.sent.append(command)
+            return scripted[command]
+        return game(s, command)
+
+    moved = gems.run(s, PROFILE, ask)
+    assert game.sent[3:9] == [
+        "put #100 in #40",
+        "put #100 in my tote",
+        "remove #40",
+        "tie #40",
+        "wear #40",
+        "get diopside from my tote",
+    ]
+    assert game.sent[9] == "put #101 in #40"
+    assert len(moved) == 5
+    assert not any(c.startswith("store gems") for c in game.sent)
+
+
+def test_a_held_gem_is_stowed_first_when_store_gems_points_at_the_pouch():
+    # The operator, 2026-10-07: "doesn't STOW GEM work better than PUT MY X
+    # IN MY Y?" — one command through the game's own STORE, no listing
+    # needed; the by-id PUT is the fallback for a full STORE pouch.
+    from client.game import stores
+
+    stores.remember("Lanival", {"gems": "pouch"})
+    s = with_pouches()
+    sent = []
+
+    def ask(s, command):
+        sent.append(command)
+        if command == "stow #100":
+            return POUCHED.format("diopside")
+        if command == "stow #101":
+            return (
+                "You think the black gem pouch is too full to fit another gem into.\n"
+            )
+        return POUCHED.format("diopside")
+
+    assert gems.put(s, PROFILE, "#100", ask)[0]
+    assert sent == ["stow #100"]
+    # The STORE pouch (the worn #903) full: the spare by id, and the worn
+    # one is remembered full for the swap.
+    assert gems.put(s, PROFILE, "#101", ask)[0]
+    assert sent[1:] == ["stow #101", "put #101 in #902"]
+    assert "903" in gems._FULL
