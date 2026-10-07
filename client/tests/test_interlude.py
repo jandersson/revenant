@@ -214,9 +214,11 @@ def test_a_full_gem_pouch_sends_the_gem_to_the_default_container(monkeypatch):
         "get my almanac",
         "study my almanac",
         "stow my almanac",
-        "get my chrysoprase",
     ]
     assert "the chrysoprase went in the backpack" in s.echoed[0]
+    # A gem is never put back in the hand (#484): it was held only
+    # because the pouch refused it, and holding it cost the badge deed.
+    assert "the chrysoprase stays stowed" in s.echoed[-1]
 
 
 def test_a_chore_that_cannot_act_waits_five_minutes_not_every_safe_point(
@@ -234,11 +236,11 @@ def test_a_chore_that_cannot_act_waits_five_minutes_not_every_safe_point(
         answers={"stow my chrysoprase": "You fiddle with the chrysoprase.\n"},
     )
     interlude.run_due(s)
-    assert game.sent == ["stow my chrysoprase", "get my chrysoprase"]
+    assert game.sent == ["stow my chrysoprase"]  # a gem is not got back (#484)
     fresh["t"] += 3
     assert interlude.due(s) == []  # no STOP CLIMB for it either (#417)
     interlude.run_due(s)
-    assert len(game.sent) == 2
+    assert len(game.sent) == 1
     fresh["t"] += interlude.DEFER_SECONDS
     assert interlude.due(s) == ["almanac"]
     # A STOW refused outright waits the same.
@@ -326,3 +328,18 @@ def test_every_safe_point_runs_the_interludes(monkeypatch):
     s, game = handle(monkeypatch, "athletics")
     assert loop.wants_stop(s) is False
     assert "study my almanac" in game.sent
+
+
+def test_the_item_stowed_for_a_chore_comes_back_by_its_id(monkeypatch):
+    # 2026-10-07: GET MY JADE after the almanac took another jade out of
+    # the tote; the hand tag's id names the one that went (#484).
+    with_almanac()
+    s, game = handle(
+        monkeypatch,
+        "remedies",
+        left={"noun": "mortar", "exist": "77"},
+        right={"noun": "pestle", "exist": "78"},
+    )
+    interlude.run_due(s)
+    assert game.sent[0] == "stow my mortar"
+    assert game.sent[-1] == "get #77"

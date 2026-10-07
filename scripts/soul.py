@@ -436,6 +436,9 @@ def pray_badge(s, timers):
     (timers["badge_off"]), an empty or unbonded one is said."""
     held = hands.holding(s, "badge")
     if not held:
+        # REMOVE wants a hand: a hunt ends armed and the interlude put a
+        # gem back — "You need a free hand for that." (2026-10-07, #484).
+        hands.free_one(s, ask=ask)
         answer = ask(s, "remove my badge")
         if classify(answer, ("none", BADGE_NONE)):
             answer = ask(s, "get my badge")

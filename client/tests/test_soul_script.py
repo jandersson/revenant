@@ -765,3 +765,30 @@ def test_keep_sings_when_the_songs_timer_allows(monkeypatch, tmp_path):
     assert fake.sent == ["play lament flashy on my zills for chadatru"]
     assert "song in 60 min" in echoes(fake)
     assert soul.load_timers("Lanival")["song"] == 5060.0
+
+
+def test_the_badge_deed_frees_a_hand_first_when_both_are_full(monkeypatch, tmp_path):
+    # 2026-10-07 15:56: the hunt's mace in one hand, a jade the interlude
+    # put back in the other — REMOVE MY BADGE answered "You need a free
+    # hand for that." and the PRAY "You should be holding your badge
+    # first." (#484).
+    monkeypatch.setenv("REVENANT_SOUL_DIR", str(tmp_path))
+    monkeypatch.setattr(script, "clock", lambda: 7000.0)
+    fake = Fake(
+        {
+            "stow": ["You put your jade in your backpack.\n"],
+            "remove": ["You remove a pilgrim's badge.\n"],
+            "pray": [BADGE_DONE],
+            "wear": [""],
+        }
+    )
+    fake.state.left_hand = {"noun": "jade", "name": "grey jade", "exist": "5"}
+    fake.state.right_hand = {"noun": "mace", "name": "flanged mace", "exist": "6"}
+    script.run(fake, ["badge"], mapdb=MAP, walk_fn=walk)
+    assert fake.sent == [
+        "stow my jade",
+        "remove my badge",
+        "pray badge",
+        "wear my badge",
+    ]
+    assert "soul: prayed on the badge" in echoes(fake)

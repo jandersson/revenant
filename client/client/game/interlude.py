@@ -31,6 +31,7 @@ import time
 
 from client.game import almanac, hands
 from client.game.act import ask  # the chores' ask; a test patches the name here
+from client.game.loot import GEM_NOUNS
 
 NEVER = {"favors"}
 # A box and a lockpick are not stowed and got back blind (GET MY BOX may
@@ -228,25 +229,37 @@ def _safe(s):
 
 def _make_room(s):
     """The left hand's item STOWed so a chore has a hand (hands.stow, the
-    answer the judge): its noun, to get back, or None when the STOW was
-    refused."""
-    held = hands.held(s)["left"]
-    if not held:
+    answer the judge): its hand tag, to get back, or None when the STOW
+    was refused."""
+    held = hands.tags(s)["left"]
+    noun = str((held or {}).get("noun") or "")
+    if not noun:
         return None
     s.waitrt()
-    if not hands.stow(s, held, ask=ask):
-        s.echo(f"interlude: could not stow the {held} — the chore waits")
+    if not hands.stow(s, noun, ask=ask):
+        s.echo(f"interlude: could not stow the {noun} — the chore waits")
         return None
     return held
 
 
-def _restore(s, noun):
+def _restore(s, held):
+    """The item _make_room stowed back in the hand, by its id when the
+    tag carried one (a bare GET MY JADE took another jade out of the
+    tote, 2026-10-07) — never a gem: one in hand was only there because
+    the pouch refused it, and holding it cost ;soul badge its hand
+    (#484)."""
+    noun = str(held.get("noun") or "")
+    if noun.lower() in GEM_NOUNS:
+        s.echo(f"interlude: the {noun} stays stowed — a gem is nothing to hold")
+        return
+    exist = held.get("exist")
+    target = f"#{exist}" if exist else f"my {noun}"
     try:
         s.waitrt()
-        answer = ask(s, f"get my {noun}").lower()
+        answer = ask(s, f"get {target}").lower()
     except Exception:
         # ;stop mid-chore: the item goes back to the hand all the same.
-        hands.cleanup(s, f"get my {noun}")
+        hands.cleanup(s, f"get {target}")
         raise
     if not any(word in answer for word in ("you get", "you pick", "you remove")):
         first = (answer.strip().splitlines() or ["(silence)"])[0]
