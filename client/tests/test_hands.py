@@ -333,3 +333,32 @@ def test_a_listed_home_that_refuses_falls_back_to_the_remembered_place():
     }
     assert hands.sheathe(s, "spear", ask=s.ask) is True
     assert s.sent == ["sheathe #242 in #241", "sheathe my spear"]
+
+
+def test_a_gem_the_full_tied_pouch_refuses_goes_to_the_default(monkeypatch):
+    # 2026-10-07 07:12: STORE GEMS sent a STOW to a tied pouch at its 500 —
+    # "You think the black gem pouch is too full to fit another gem into." —
+    # a wording the fallback did not know, and the diopside stayed in hand
+    # through five scripts until put in the tote by hand (#481).
+    monkeypatch.setattr(hands, "_DEFAULTS", {})
+    s = Fake(
+        left="diopside",
+        answers={
+            "stow my diopside": (
+                "You think the black gem pouch is too full to fit another gem into."
+            ),
+            "store default": "         Default:  a rugged backpack\n",
+            "put my diopside in my backpack": "You put your diopside in your backpack.",
+        },
+    )
+    s.echoed = []
+    s.echo = s.echoed.append
+    assert hands.stow(s, "diopside", ask=s.ask) is True
+    assert s.sent == [
+        "stow my diopside",
+        "store default",
+        "put my diopside in my backpack",
+    ]
+    assert s.echoed == [
+        "the diopside went in the backpack — no room where STOW puts it"
+    ]

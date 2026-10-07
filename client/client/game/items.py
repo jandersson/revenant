@@ -42,6 +42,10 @@ NO_ROOM = (
     # a wealth of gems in there!  You'd better tie it up before putting
     # more gems inside." — never TIEd (#283).
     "wealth of gems",
+    # The same pouch once TIEd, holding its 500 (captured 2026-10-07,
+    # #481): "You think the black gem pouch is too full to fit another
+    # gem into." — a gem STOWed at it stayed in hand for 40 minutes.
+    "too full to fit another gem",
 )
 # A LOOK IN or OPEN answer: "In the iron box you see some coins, a ruby
 # and a dagger." — and the empty forms.

@@ -46,6 +46,9 @@ STOW_REFUSED = (
     "any more room",
     "won't fit",
     "wealth of gems",
+    # A tied pouch at its 500 (2026-10-07, #481) — unknown here, the
+    # STOW read as a success and the gem stayed in hand.
+    "too full to fit another gem",
     # A container too short for the item (captured 2026-10-03): "The
     # narrow-headed spear is too long to fit in the backpack."
     "too long to fit",
@@ -58,7 +61,13 @@ STOW_REFUSED = (
 # own way (captured 2026-10-03, #436): "You've already got a wealth of
 # gems in there!  You'd better tie it up before putting more gems
 # inside." — never TIEd here (#283), the gem goes to the default.
-STOW_FULL = ("no room", "any more room", "won't fit", "wealth of gems")
+STOW_FULL = (
+    "no room",
+    "any more room",
+    "won't fit",
+    "wealth of gems",
+    "too full to fit another gem",  # a tied pouch at 500 (#481)
+)
 _DEFAULTS = {}  # character -> the default container's noun, off STORE DEFAULT
 # SHEATHE with no container named and nothing remembered from a WIELD
 # (captured 2026-09-22): "Sheathe your steel scimitar where?"

@@ -105,6 +105,10 @@ def test_a_full_container_is_known_by_every_wording():
     assert items.no_room("There isn't any more room in the sack for that.")
     assert items.no_room("That would push you over the item limit.")
     assert items.no_room("You just can't fit that in there.")
+    # A tied gem pouch at its 500 (2026-10-07, #481).
+    assert items.no_room(
+        "You think the black gem pouch is too full to fit another gem into."
+    )
     assert not items.no_room("You put your ruby in your pouch.")
 
 
