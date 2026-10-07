@@ -14,7 +14,8 @@ What it does
     (settings.json's `avoid_rooms` are walked around).
   - COLLECT <item> PRACTICE again and again: experience without items;
     Perception trains alongside.
-  - herb: FORAGE <herb> PRECISE (Remedial Herb Gathering; plain FORAGE without it),
+  - herb: FORAGE <herb> PRECISE (Remedial Herb Gathering; plain FORAGE without it,
+    and after 8 misses in a row — PRECISE is the harder roll — until a find),
     finds into the loot container; then, at the Crossing Alchemy
     Society's dry press, each is pressed and combined into the dried stack (a full
     one holds 75; the rest starts another) — the finds a STOW sent to the backpack
@@ -163,6 +164,14 @@ _HANDS_FULL = ("at least one hand free",)
 # The herb mode (#370, captured 2026-09-28; the wordings in _NOTES).
 HERB_PIECES = 25  # a bought stack's size: five uses of a remedy
 HERB_MISSES = 40  # tries without a find before the run gives up
+# PRECISE is the harder roll (Elanthipedia: Forage command — CAREFUL "a
+# slightly higher level of difficulty", PRECISE "similarly more difficult"):
+# after this many misses in a row a plain FORAGE takes over until a find,
+# then PRECISE gets PRECISE_RETRY tries for its potency before plain again
+# (the operator, 2026-10-07: plovik at rank 90 against Outdoorsmanship 102
+# missed 25 PRECISE tries at the Water Lily Pool).
+PLAIN_AFTER = 8
+PRECISE_RETRY = 3
 PRESS_ROOMS = (8860,)  # the Crossing Alchemy Society's Tool Shop: a dry press
 _HERB_FOUND = re.compile(r"you manage to find (?:some |an? )?(?P<what>[^.!]+)", re.I)
 _PRESSED = ("remove some dried",)
@@ -314,6 +323,7 @@ def gather_herb(s, options, bag):
     item, target = options["item"], options["pieces"]
     pieces, misses, noun = 0, 0, ""
     precise = True  # Remedial Herb Gathering's PRECISE; plain FORAGE without it
+    streak, dropped = 0, False  # PRECISE misses in a row; plain taken over once
     for _ in range(MAX_COLLECTS):
         if reason := danger(s):
             return reason, pieces, noun
@@ -325,7 +335,9 @@ def gather_herb(s, options, bag):
         s.waitrt()  # the forage's roundtime before COUNT and PUT
         found = _HERB_FOUND.search(answer)
         if found:
-            misses = 0
+            misses = streak = 0
+            if dropped:
+                precise = True  # the potency bonus again, PRECISE_RETRY tries
             noun = found.group("what").split()[-1].lower()
             pieces += pieces_of(s, noun)
             ask(s, f"put {held_name(s, noun)} in my {bag}")
@@ -356,6 +368,16 @@ def gather_herb(s, options, bag):
         misses += 1
         if misses >= HERB_MISSES:
             return f"no {item} found in {misses} tries", pieces, noun
+        streak += 1
+        if precise and streak >= (PRECISE_RETRY if dropped else PLAIN_AFTER):
+            precise = False
+            if not dropped:
+                s.echo(
+                    f"forage: {streak} misses with PRECISE — plain FORAGE until a "
+                    "find, PRECISE again after one"
+                )
+            dropped = True
+            streak = 0
     return "forage fuse spent", pieces, noun
 
 

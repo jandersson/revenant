@@ -614,3 +614,31 @@ def test_an_answer_precise_does_not_know_falls_back_to_plain_forage(travel):
     assert s.sent[:2] == ["forage red flower precise", "forage red flower"]
     assert (pieces, noun) == (6, "flowers")
     assert any("plain FORAGE from here" in text for text in s.echoed)
+
+
+def test_a_run_of_precise_misses_falls_back_to_plain_until_a_find(travel, monkeypatch):
+    # 2026-10-07, plovik at the Water Lily Pool: PRECISE is the harder roll
+    # and missed 25 times at Outdoorsmanship 102 against the herb's 90. After
+    # PLAIN_AFTER misses a plain FORAGE takes over; a find earns PRECISE
+    # PRECISE_RETRY tries for its potency, then plain again.
+    monkeypatch.setattr(forage, "PLAIN_AFTER", 2)
+    monkeypatch.setattr(forage, "PRECISE_RETRY", 1)
+    s = Fake(
+        [EMPTY, EMPTY, HERB_FOUND, SIX, INTO_SACK, EMPTY, HERB_FOUND, SIX, INTO_SACK],
+        room=19343,
+    )
+    options = forage.parse_args(["herb", "red", "flower", "pieces=12", "here"])
+    reason, pieces, noun = forage.gather_herb(s, options, "sack")
+    assert s.sent == [
+        "forage red flower precise",
+        "forage red flower precise",
+        "forage red flower",  # plain after the run of misses
+        "count my flowers",
+        "put my flowers in my sack",
+        "forage red flower precise",  # a find: PRECISE again
+        "forage red flower",  # one miss: plain again
+        "count my flowers",
+        "put my flowers in my sack",
+    ]
+    assert (pieces, noun) == (12, "flowers")
+    assert sum("plain FORAGE until a find" in text for text in s.echoed) == 1
