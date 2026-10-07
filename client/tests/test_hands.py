@@ -362,3 +362,26 @@ def test_a_gem_the_full_tied_pouch_refuses_goes_to_the_default(monkeypatch):
     assert s.echoed == [
         "the diopside went in the backpack — no room where STOW puts it"
     ]
+
+
+def test_clear_sheathes_the_profile_s_weapons_and_stows_the_rest(monkeypatch):
+    # 2026-10-07: the hunt ended armed with its spear (by design), and the
+    # next scripts' STOW of it was refused — "too long to fit in the
+    # backpack" — so it climbed the battlements in hand and cost two
+    # remedies orders a free hand (#482).
+    monkeypatch.setattr(hands, "_DEFAULTS", {})
+    profile = {
+        "weapon": "scimitar",
+        "weapon_container": "scabbard",
+        "weapons": [
+            "scimitar:Small Edged:scabbard",
+            "fists:Brawling",
+            "spear:Polearms:baldric",
+        ],
+    }
+    s = Fake(left="morganite", right="spear")
+    gone = hands.clear(s, profile, ask=s.ask)
+    assert s.sent == ["stow my morganite", "sheathe my spear"]
+    assert gone == ["morganite", "spear"]
+    # Nothing named, nothing held: nothing sent.
+    assert hands.clear(Fake(), profile, ask=Fake().ask) == []

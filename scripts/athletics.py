@@ -141,8 +141,13 @@ def empty_hands(s):
     handaxe makes the climb more difficult", client/game/walker.py),
     and a hunt now ends with the weapon in hand. STOW, never DROP — a
     dropped item is a lost item (the operator, 2026-09-12). A handle
-    without hand state is left alone."""
-    stowed = hands.free(s, ask=ask)
+    without hand state is left alone. A weapon the profile names is
+    SHEATHEd where it lives — the spear a hunt ended armed with is no
+    STOW, and climbed the battlements in hand (2026-10-07, #482)."""
+    from client.game.profile import load_profile
+
+    profile = load_profile(getattr(getattr(s, "state", None), "name", "") or "")
+    stowed = hands.clear(s, profile, ask=ask)
     if stowed:
         s.echo(
             f"ATHLETICS: stowed your {' and '.join(stowed)} — a held item "

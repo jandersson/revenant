@@ -503,6 +503,25 @@ _KINDS = {key: kind for key, _, kind, _ in FIELDS}
 _UNSAFE = re.compile(r"[^a-z0-9_-]")
 
 
+def weapon_homes(profile) -> dict:
+    """{weapon: container} for every weapon the profile names: `weapon`
+    with `weapon_container`, then each `weapons` entry ("spear:Polearms:
+    baldric", the form hunting.parse_weapon reads), the fists turn left
+    out. What hands.clear sheathes before a crafter's or a climber's work:
+    a hunt ends armed with its last turn's weapon, and a spear is no STOW
+    ("too long to fit in the backpack", 2026-10-07, #482)."""
+    homes = {}
+    weapon = str(profile.get("weapon") or "").strip().lower()
+    if weapon:
+        homes[weapon] = str(profile.get("weapon_container") or "").strip().lower()
+    for entry in profile.get("weapons") or []:
+        parts = [part.strip() for part in str(entry).split(":")]
+        noun = parts[0].lower() if parts else ""
+        if noun and noun not in ("fists", "fist") and noun not in homes:
+            homes[noun] = parts[2].lower() if len(parts) > 2 else ""
+    return homes
+
+
 def profiles_dir() -> Path:
     return Path(
         os.environ.get("REVENANT_PROFILES", "~/.revenant/profiles")

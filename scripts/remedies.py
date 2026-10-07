@@ -288,15 +288,10 @@ def profile_of(s):
 
 
 def clear_hands(s, profile):
-    """The weapon SHEATHEd where WIELD drew it from, anything else STOWed:
-    the mortar and the pestle want both hands. Never DROP."""
-    weapon = (profile.get("weapon") or "").lower()
-    container = profile.get("weapon_container") or ""
-    keep = ()
-    if weapon and container and hands.holding(s, weapon):
-        hands.sheathe(s, weapon, container, ask=ask)
-        keep = (weapon,)
-    hands.free(s, keep=keep, ask=ask)
+    """Every weapon the profile names SHEATHEd where it lives, anything
+    else STOWed (hands.clear): the mortar and the pestle want both hands,
+    and the spear a hunt ended armed with is no STOW (#482). Never DROP."""
+    hands.clear(s, profile, ask=ask)
 
 
 def study(s, chapter, page, what):

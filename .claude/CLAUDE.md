@@ -74,7 +74,7 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
 - `act.py` ask the game and read the answer (`ask`, `missing`, `said`, `unknown`);
   `trainer.py` the loop every skill trainer runs (`train`, `hold_at_lock`);
   `travel.py` the one way to walk (`go`: a ;go2 target, `avoid_rooms` always);
-  `hands.py` the hands (STOW never DROP, the answer the judge);
+  `hands.py` the hands (STOW never DROP, the answer the judge; `clear` sheathes the profile's weapons and stows the rest before work);
   `items.py` an item by its id when held, else whole; the container lister, LOOK IN, COUNT;
   `probe.py` ask-and-classify (reads the story and the `combat` stream:
   every swing and kill line arrives there); `loop.py` wants_stop /

@@ -226,6 +226,32 @@ def free(s, keep=(), ask=None):
     return stowed
 
 
+def clear(s, profile, ask=None, keep=()):
+    """Both hands emptied for work: a held weapon the profile names
+    (profile.weapon_homes) SHEATHEd into its container, anything else
+    STOWed, `keep` left alone; the nouns that went. A hunt ends armed
+    with its last turn's weapon, and the spear is no STOW — "too long
+    to fit in the backpack" — so it stayed in hand through ;athletics'
+    climbs and two ;remedies orders until this (2026-10-07, #482).
+    Never a DROP."""
+    from client.game.profile import weapon_homes
+
+    homes = weapon_homes(profile or {})
+    gone = []
+    for noun in nouns(s):
+        if any(_same(noun, kept) for kept in keep):
+            continue
+        container = next(
+            (place for weapon, place in homes.items() if _same(noun, weapon)), None
+        )
+        if container is not None:
+            if sheathe(s, noun, container, ask=ask):
+                gone.append(noun)
+        elif stow(s, noun, ask):
+            gone.append(noun)
+    return gone
+
+
 def free_one(s, keep=(), ask=None):
     """A hand for something: True at once when one is empty; with both
     full, the first held noun not in `keep` (left first) STOWed, and

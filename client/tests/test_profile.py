@@ -123,3 +123,23 @@ def test_describe_reads_like_the_dialog():
     assert "Skin each kill: yes" in lines
     assert "Stop when these skills lock: Evasion" in lines
     assert "Weapon noun: (empty)" in lines
+
+
+def test_weapon_homes_names_every_weapon_s_container_the_fists_left_out():
+    from client.game.profile import weapon_homes
+
+    profile = {
+        "weapon": "scimitar",
+        "weapon_container": "scabbard",
+        "weapons": [
+            "mace:Small Blunt:backpack",
+            "fists:Brawling",
+            "spear:Polearms:baldric",
+        ],
+    }
+    assert weapon_homes(profile) == {
+        "scimitar": "scabbard",
+        "mace": "backpack",
+        "spear": "baldric",
+    }
+    assert weapon_homes({}) == {}
