@@ -273,3 +273,81 @@ def test_without_a_listing_the_pouch_is_my_pouch():
     s, _ = handle()
     assert gems.pouches(s, PROFILE) == ["my pouch"]
     assert not gems.by_id(s, PROFILE)
+
+
+def test_a_full_worn_pouch_is_swapped_for_the_spare_and_the_chore_goes_on():
+    # 2026-10-07: Cecil's worn pouch, tied and at its 500, refused every
+    # gem while a second black gem pouch sat in his backpack; the operator:
+    # "the logic should be to swap with the spare" (#283).
+    s, game = handle()
+    s.state.possessions = [
+        {"exist": "40", "name": "a black gem pouch", "noun": "pouch", "worn": True},
+        {
+            "exist": "41",
+            "name": "a black gem pouch",
+            "noun": "pouch",
+            "container_exist": "9",
+        },
+    ]
+    FULL_TIED = "You think the black gem pouch is too full to fit another gem into.\n"
+
+    def ask(s, command):
+        if command.startswith("put ") and " in #" in command:
+            game.sent.append(command)
+            target = command.rsplit(" in #", 1)[1]
+            if target == "40":
+                return FULL_TIED
+            held = s.state.left_hand
+            s.state.left_hand = None
+            game.pouched.append(held["name"])
+            return POUCHED.format(held["noun"])
+        scripted = {
+            "remove #40": "You remove a black gem pouch from your belt.\n",
+            "stow #40": "You put your pouch in your backpack.\n",
+            "get #41": "You get a black gem pouch from inside your backpack.\n",
+            "wear #41": "You attach a black gem pouch to your belt.\n",
+            "store gems in pouch": "You will now store gems in your black gem pouch.\n",
+        }
+        if command in scripted:
+            game.sent.append(command)
+            return scripted[command]
+        return game(s, command)
+
+    moved = gems.run(s, PROFILE, ask)
+    assert game.sent[:5] == [
+        "store default",
+        "look in my tote",
+        "get diopside from my tote",
+        "put #100 in #40",  # the worn one: full
+        "put #100 in #41",  # the spare takes it
+    ]
+    assert game.sent[5:10] == [
+        "remove #40",
+        "stow #40",
+        "get #41",
+        "wear #41",
+        "store gems in pouch",
+    ]
+    assert game.sent[10:12] == ["get ivory from my tote", "put #101 in #41"]
+    assert len(moved) == 5 and "#40" not in " ".join(game.sent[10:])
+    assert any("swapped for the spare — worn now" in text for text in s.echoed)
+    assert s.state.possessions[1]["worn"] and not s.state.possessions[0]["worn"]
+
+
+def test_without_a_spare_the_full_pouch_is_said_and_nothing_is_swapped():
+    s, game = handle()
+    s.state.possessions = [
+        {"exist": "40", "name": "a black gem pouch", "noun": "pouch", "worn": True},
+    ]
+
+    def ask(s, command):
+        if command.startswith("put ") and " in #40" in command:
+            game.sent.append(command)
+            return (
+                "You think the black gem pouch is too full to fit another gem into.\n"
+            )
+        return game(s, command)
+
+    assert gems.run(s, PROFILE, ask) == []
+    assert not any(c.startswith(("remove", "wear", "store gems")) for c in game.sent)
+    assert any("the pouch is full" in text for text in s.echoed)
