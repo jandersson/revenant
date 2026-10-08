@@ -61,15 +61,24 @@ def missing(answer, more=()):
 
 # Lines that answer no command and can close an answer window before
 # the command's own lines land (#483): a creature's arrival, the rested
-# line, a player's coming and going, the parser's balance line. A LOOT
-# answered "You feel fully rested." and its box went uncounted; a BOB
-# answered with an earlier swing's line (2026-10-07/08).
+# line, a player's coming and going, the parser's balance line, and a
+# creature's spell at the character. A LOOT answered "You feel fully
+# rested." and its box went uncounted; a BOB answered with an earlier
+# swing's line (2026-10-07/08); a CIRCLE answered with an ossein
+# amalgam's Heighten Pain, cast every twenty seconds or so — its prep
+# ("seems to exhale"), the cast ("runnels of arcane light", "pierce your
+# flesh") and the resist ("fights off the attempted curse"), 2026-10-08.
+# A curse that lands has not been captured yet.
 NOISE = (
     "heralding the arrival",
     "just arrived",
     "joins the adventure",
     "you feel fully rested",
     "you feel rested",
+    "seems to exhale",
+    "runnels of arcane light",
+    "pierce your flesh",
+    "fights off the attempted curse",
 )
 _COMINGS = re.compile(
     r"\b(arrives|arrived|leaves|left|goes|went|runs|walks|wanders)\b.*\.$", re.I

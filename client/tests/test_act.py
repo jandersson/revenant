@@ -158,3 +158,24 @@ def test_noise_only_knows_a_window_that_answers_nothing():
         "You search the Endrus serpent.\nYou find nothing of interest."
     )
     assert not act.noise_only("You feel fully rested.\nYou search the Endrus serpent.")
+
+
+def test_noise_only_knows_a_creatures_spell_at_the_character():
+    # 2026-10-08: an ossein amalgam's Heighten Pain, cast every twenty
+    # seconds or so, closed a CIRCLE's window and was read as its answer
+    # — one more and tactics would have gone off for the run.
+    curse = (
+        "An ichorous ossein amalgam shudders as runnels of arcane light ripple over"
+        " its surface, causing its mosaic of crystalline plates to rattle.\n"
+        "Writhing black and red particles form around you and pierce your flesh!\n"
+        "You feel feverish for a moment, but your body fights off the attempted curse.\n"
+    )
+    assert act.noise_only(curse)
+    assert act.noise_only(
+        "The ossein amalgam seems to exhale, the matrix of ichor and bone within"
+        " shifting in a slow-moving vortex."
+    )
+    assert not act.noise_only(
+        curse + "You sidestep an ichorous ossein amalgam suddenly, moving in a short"
+        " circle around it."
+    )
