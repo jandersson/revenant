@@ -1258,6 +1258,47 @@ def test_an_answer_report_quotes_the_games_line_not_a_bystanders():
     assert "disarm?" not in script.REPORT_NEEDLES
 
 
+def test_every_disarm_and_pick_is_an_attempt_row_with_the_rank_at_the_time(
+    monkeypatch, tmp_path
+):
+    # #493: the easy box's every send, and the crate kept as too hard,
+    # each a box_attempts row — the reading, the answer's class, the
+    # Locksmithing mindstate as the exp window had it.
+    import sqlite3
+
+    db = tmp_path / "history.db"
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(db))
+    fake = Fake(one_easy_box(), mindstates=[1, 3, 5, 7])
+    run(fake)
+    with sqlite3.connect(str(db)) as connection:
+        rows = connection.execute(
+            "SELECT noun, verb, reading, outcome, lockpick, rank, mindstate, seconds"
+            " FROM box_attempts ORDER BY seq"
+        ).fetchall()
+    steps = [
+        (noun, verb, reading, outcome) for noun, verb, reading, outcome, *_ in rows
+    ]
+    assert steps == [
+        ("box", "identify", 4, "read"),  # "a simple matter"
+        ("box", "disarm", 4, "disarmed"),
+        ("box", "identify", None, "no trap"),
+        ("box", "identify", 3, "read"),  # "a trivially constructed piece of junk"
+        ("box", "pick", 3, "unlocked"),
+        ("box", "open", None, "open"),
+        ("crate", "identify", 11, "read"),  # "a longshot"
+        ("crate", "disarm", 11, "too hard"),
+    ]
+    assert {row[4] for row in rows} == {"ordinary"}
+    assert [row[5] for row in rows] == [1] * 8  # the rank, off the exp window
+    # The mindstate as the exp window had it when the answer came: the
+    # DISARM moved it from 1 to 3, the PICK on to 5.
+    assert [row[6] for row in rows] == [1, 3, 3, 3, 5, 5, 5, 5]
+    assert all(isinstance(row[7], float) for row in rows)
+    with sqlite3.connect(str(db)) as connection:
+        runs = connection.execute("SELECT DISTINCT run_started FROM box_attempts")
+        assert len(runs.fetchall()) == 1  # one run, the box_contents row's mark
+
+
 def test_an_opened_box_is_a_contents_row_told_to_its_creature_by_its_id(
     monkeypatch, tmp_path
 ):

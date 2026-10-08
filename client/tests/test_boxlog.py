@@ -43,6 +43,59 @@ def contents(path):
         ).fetchall()
 
 
+def test_an_attempt_is_a_row_with_its_reading_outcome_and_the_rank_at_the_time(
+    tmp_path,
+):
+    # #493: a ground's boxes judged by the attempts that failed too.
+    db = tmp_path / "history.db"
+    seq = boxlog.log_attempt(
+        ME,
+        path=db,
+        run_started=at("21:00"),
+        box_id="139883771",
+        noun="box",
+        verb="disarm",
+        reading=11,
+        outcome="retry",
+        lockpick="ordinary",
+        rank=52,
+        mindstate=17,
+        seconds=4.2,
+    )
+    assert seq == 1
+    boxlog.log_attempt(ME, path=db, noun="box", verb="open", outcome=None, seconds=1.0)
+    with sqlite3.connect(str(db)) as connection:
+        rows = connection.execute(
+            "SELECT character_name, box_id, noun, verb, reading, outcome, lockpick,"
+            " rank, mindstate, seconds, run_started FROM box_attempts ORDER BY seq"
+        ).fetchall()
+    assert rows[0] == (
+        "Lanival",
+        "139883771",
+        "box",
+        "disarm",
+        11,
+        "retry",
+        "ordinary",
+        52,
+        17,
+        4.2,
+        at("21:00"),
+    )
+    name, box_id, noun, verb, reading, outcome, lockpick, rank, mind, secs, run = rows[
+        1
+    ]
+    assert (box_id, verb, reading, outcome, lockpick, rank) == (
+        None,
+        "open",
+        None,
+        "unknown",
+        "",
+        None,
+    )
+    assert run  # a run not named is the attempt's own time
+
+
 def test_a_box_is_told_to_its_creature_by_the_id_logged_at_pickup(tmp_path):
     path = tmp_path / "history.db"
     seq = lootlog.log(ME, SCOUT_BOX, "scouts", path=path)

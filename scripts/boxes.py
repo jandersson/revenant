@@ -26,7 +26,8 @@ What it does
     with no trash in the room they are kept.
   - At the lock it holds until Locksmithing drains, then goes on.
   - Logs each opened box to history.db (`box_contents`): trap, lock, coins, items,
-    and the creature and ground it came from, by the id ;hunt logged at pickup.
+    and the creature and ground it came from, by the id ;hunt logged at pickup;
+    and every DISARM and PICK sent (`box_attempts`): reading, outcome, rank at the time.
 
 Never a drop
   - An undismantled box goes in the room's bucket only if settings.json's
@@ -47,6 +48,8 @@ When it stops
 client/game/boxes.py is the model, after dr-scripts' pick.lic and Elanthipedia;
 docs/training.md has the profile keys. Report any "boxes: <command> answered ..." line.
 """
+
+import time
 
 from client.engine.scripting import ScriptStopped
 from client.game import (
@@ -795,6 +798,30 @@ def risk_trap(run, noun, rank, answer):
     return "careful"
 
 
+def log_attempt(run, verb, noun, reading, outcome, since):
+    """The attempt as a history.db `box_attempts` row (#493): the verb,
+    the reading it was made at, the class its answer got, the lockpick
+    kind, Locksmithing's rank and mindstate now, and its seconds. Never
+    raises."""
+    box = run.box or {}
+    skills = getattr(run.s.state, "experience", None) or {}
+    skill = skills.get(SKILL) if isinstance(skills, dict) else None
+    skill = skill if isinstance(skill, dict) else {}
+    boxlog.log_attempt(
+        run.s,
+        run_started=run.started,
+        box_id=box.get("box_id"),
+        noun=noun,
+        verb=verb,
+        reading=reading,
+        outcome=outcome or "unknown",
+        lockpick=str(run.profile.get("lockpick_kind") or "ordinary").lower(),
+        rank=skill.get("rank"),
+        mindstate=skill.get("mindstate"),
+        seconds=round(time.monotonic() - since, 1),
+    )
+
+
 def disarm(run, noun):
     """The traps off a box: "clear", "too hard", "stop:<why>" or
     "lost"."""
@@ -802,11 +829,23 @@ def disarm(run, noun):
     for _round in range(run.options.get("tries") or WORK_TRIES):
         rank = None
         for _ in range(IDENTIFY_TRIES):
+            since = time.monotonic()
             answer = ask(s, f"disarm my {noun} identify")
             s.waitrt()
             run.report("disarm identify", "disarm identify", answer)
             hindrance(run, answer)
             outcome = classify(answer, DISARM_OUTCOMES)
+            seen = reading(answer, TRAP_READINGS)
+            log_attempt(
+                run,
+                "identify",
+                noun,
+                seen,
+                outcome
+                or ("read" if seen is not None else None)
+                or ("already disarmed" if already_disarmed(answer) else None),
+                since,
+            )
             if outcome == "forbidden":
                 return "stop:forbidden"
             if outcome == "sprung":
@@ -849,11 +888,13 @@ def disarm(run, noun):
         if run.options["careful"]:
             word = "careful"
         command = f"disarm my {noun} {word}".strip()
+        since = time.monotonic()
         answer = ask(s, command)
         s.waitrt()
         run.report("disarm", "disarm", answer)
         hindrance(run, answer)
         outcome = classify(answer, DISARM_OUTCOMES)
+        log_attempt(run, "disarm", noun, rank, outcome, since)
         if outcome == "forbidden":
             return "stop:forbidden"
         if outcome == "sprung":
@@ -891,11 +932,21 @@ def pick(run, noun):
             return "stop:no lockpick"
         rank = None
         for _ in range(IDENTIFY_TRIES):
+            since = time.monotonic()
             answer = ask(s, f"pick my {noun} identify")
             s.waitrt()
             run.report("pick identify", "pick identify", answer)
             hindrance(run, answer)
             outcome = classify(answer, PICK_OUTCOMES)
+            seen = reading(answer, LOCK_READINGS)
+            log_attempt(
+                run,
+                "identify",
+                noun,
+                seen,
+                outcome or ("read" if seen is not None else None),
+                since,
+            )
             if outcome == "forbidden":
                 return "stop:forbidden"
             if outcome == "sprung":
@@ -949,11 +1000,13 @@ def pick(run, noun):
         if run.options["careful"]:
             word = "careful"
         command = f"pick my {noun} {word}".strip()
+        since = time.monotonic()
         answer = ask(s, command)
         s.waitrt()
         run.report("pick", "pick", answer)
         hindrance(run, answer)
         outcome = classify(answer, PICK_OUTCOMES)
+        log_attempt(run, "pick", noun, rank, outcome, since)
         if outcome == "forbidden":
             return "stop:forbidden"
         if outcome == "sprung":
@@ -1024,9 +1077,11 @@ def stow_loot(run, item):
 def empty(run, noun):
     """OPEN the box, LOOK IN it, GET everything out; the count taken."""
     s = run.s
+    since = time.monotonic()
     answer = ask(s, f"open my {noun}")
     run.report("open", "open", answer)
     outcome = classify(answer, OPEN_OUTCOMES)
+    log_attempt(run, "open", noun, None, outcome, since)  # "open", "locked", "lost"
     if outcome == "locked":
         run.say(f"the {noun} is still locked — left as it is")
         return None
@@ -1169,6 +1224,9 @@ def one_box(run, noun, source="container"):
     if outcome == "lost":
         return "lost"
     if outcome == "too hard":
+        log_attempt(
+            run, "disarm", noun, run.box.get("trap"), "too hard", time.monotonic()
+        )
         return kept(run, noun)
     outcome = pick(run, noun)
     if outcome.startswith("stop:"):
@@ -1177,6 +1235,9 @@ def one_box(run, noun, source="container"):
     if outcome == "lost":
         return "lost"
     if outcome == "too hard":
+        log_attempt(
+            run, "pick", noun, run.box.get("lock"), "too hard", time.monotonic()
+        )
         return kept(run, noun)
     put_pick_away(run)
     taken = empty(run, noun)

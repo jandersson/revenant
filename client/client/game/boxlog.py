@@ -23,6 +23,13 @@ came from with how that was decided:
   the ground is that one, and the creature too when it was one kind.
 - "": neither.
 
+A third table, `box_attempts` (#493): one row per DISARM or PICK
+;boxes sends — the verb, the reading it was made at, the class the
+answer got, the lockpick, Locksmithing's rank and mindstate at the
+time, the seconds it took — so a ground's boxes are judged by the
+attempts that failed as well as the boxes that opened, and the
+readings calibrate against rank.
+
 `measured` reads the copper Kronars per box back per ground, for ;hunt
 grounds. A logging failure is logged and never stops a script.
 """
@@ -75,6 +82,46 @@ CREATE TABLE IF NOT EXISTS box_contents (
 # The copper per currency (#425), added to a table from before it.
 CURRENCY_COLUMNS = ("kronars", "lirums", "dokoras")
 
+# One row per DISARM or PICK ;boxes sends (#493): the verb ("identify",
+# "disarm", "pick", "open"), the reading of 1-17 the attempt was made at
+# (NULL unread), the class ;boxes gave the answer ("disarmed",
+# "unlocked", "retry", "sprung", "broken pick", "too hard", ... or
+# "unknown"), the lockpick kind, Locksmithing's rank and mindstate off
+# the exp window at the time, and the seconds from the send to the
+# answer. Joins box_drops and box_contents by box_id, and the run by
+# run_started.
+ATTEMPTS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS box_attempts (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    logged_at TEXT NOT NULL,
+    run_started TEXT NOT NULL,
+    character_name TEXT NOT NULL,
+    box_id TEXT,
+    noun TEXT NOT NULL,
+    verb TEXT NOT NULL,
+    reading INTEGER,
+    outcome TEXT NOT NULL,
+    lockpick TEXT NOT NULL,
+    rank INTEGER,
+    mindstate INTEGER,
+    seconds REAL
+)
+"""
+ATTEMPT_COLUMNS = (
+    "logged_at",
+    "run_started",
+    "character_name",
+    "box_id",
+    "noun",
+    "verb",
+    "reading",
+    "outcome",
+    "lockpick",
+    "rank",
+    "mindstate",
+    "seconds",
+)
+
 DROP_COLUMNS = (
     "logged_at",
     "character_name",
@@ -104,7 +151,17 @@ CONTENT_COLUMNS = (
     "drop_seq",
     *CURRENCY_COLUMNS,
 )
-_TEXT = ("noun", "description", "creature", "ground", "currency", "source")
+_TEXT = (
+    "noun",
+    "description",
+    "creature",
+    "ground",
+    "currency",
+    "source",
+    "verb",
+    "outcome",
+    "lockpick",
+)
 
 
 def now():
@@ -115,6 +172,7 @@ def ensure_schema(connection):
     lootlog.ensure_schema(connection)  # the batch attribution reads `loot`
     connection.execute(DROPS_SCHEMA)
     connection.execute(CONTENTS_SCHEMA)
+    connection.execute(ATTEMPTS_SCHEMA)
     present = {row[1] for row in connection.execute("PRAGMA table_info(box_contents)")}
     for column in CURRENCY_COLUMNS:
         if column not in present:
@@ -165,6 +223,31 @@ def log_drop(s, path=None, **fields):
             connection.close()
     except Exception:
         logging.getLogger(__name__).exception("box drop log failed")
+        return None
+
+
+def record_attempt(connection, **fields):
+    """One `box_attempts` row (#493); returns the seq."""
+    fields["logged_at"] = fields.get("logged_at") or now()
+    fields["run_started"] = fields.get("run_started") or fields["logged_at"]
+    if fields.get("box_id") is not None:
+        fields["box_id"] = str(fields["box_id"])
+    fields["outcome"] = fields.get("outcome") or "unknown"
+    return _insert(connection, "box_attempts", ATTEMPT_COLUMNS, fields)
+
+
+def log_attempt(s, path=None, **fields):
+    """A DISARM or PICK sent, as a `box_attempts` row; the seq, or None
+    when the write failed (logged, never raised)."""
+    try:
+        connection = sqlite3.connect(str(lootlog.db_path(path)))
+        try:
+            ensure_schema(connection)
+            return record_attempt(connection, character_name=_character(s), **fields)
+        finally:
+            connection.close()
+    except Exception:
+        logging.getLogger(__name__).exception("box attempt log failed")
         return None
 
 

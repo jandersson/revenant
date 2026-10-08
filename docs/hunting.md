@@ -121,6 +121,7 @@ History.db keeps:
 | `hunts` | hunt: minutes on the ground, kills, boxes, coins |
 | `box_drops` | box picked up: its item id, creature, ground |
 | `box_contents` | box opened by `;boxes`: trap, lock, coins, items, and where it came from |
+| `box_attempts` | every DISARM and PICK `;boxes` sent: the reading, the answer's class, the lockpick, the Locksmithing rank and mindstate at the time, the seconds |
 
 A box is matched to its creature by its item id, which holds within one login. A box with no match goes to the ground of the boxes found since the last `;boxes` run, when they were all on one ground.
 
