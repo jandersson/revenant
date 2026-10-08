@@ -193,6 +193,50 @@ def test_the_old_plants_wounds_are_taken_and_healed_first(tmp_path, monkeypatch)
     assert clean.started == []
 
 
+def test_plant_tend_takes_the_wounds_and_heals_without_a_cast(tmp_path, monkeypatch):
+    # #491, 2026-10-08: Cecil's seven wounds went into the plant and only
+    # Riphik's TOUCH, sent by hand, took them back out.
+    import os
+
+    monkeypatch.setenv("REVENANT_TRAINING", str(tmp_path))
+    plant.record("Lanival", "7890", 62, os.getpid(), now=1000.0)
+    script = _script()
+    s = handle(room_objs="You also see an ethereal vela'tohr plant.")
+    game = Game(s, CAST | {"touch plant": TOOK})
+    script.ask = game
+    options = script.parse_args(["tend", "7890"])
+    assert options["tend"] and options["room"] == "7890"
+    assert script.run(s, options, db=CHAMBERS, walk=arrive) == "tended"
+    assert game.sent == ["touch plant"]  # no GET, PREPARE, INVOKE or CAST
+    assert s.started == [("empath", ["self"])]
+    mark = plant.load("Lanival")
+    assert mark["room"] == "7890" and mark["tended"] > 1000.0
+    clean = handle(room_objs="You also see an ethereal vela'tohr plant.")
+    script.ask = Game(clean, CAST | {"touch plant": NO_NEED})
+    assert script.run(clean, script.parse_args(["tend"]), db=CHAMBERS) == "clean"
+    assert clean.started == []
+    assert "plant: the plant has no need of healing" in clean.echoed
+    bare = handle()
+    script.ask = Game(bare, {})
+    assert script.run(bare, script.parse_args(["tend"]), db=CHAMBERS) == "no plant"
+
+
+def test_a_tend_is_due_twenty_minutes_after_the_cast_or_the_last_tend(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("REVENANT_TRAINING", str(tmp_path))
+    assert not plant.tend_due("Lanival", "7890", 1, now=5000.0)  # no plant recorded
+    plant.record("Lanival", "7890", 62, 1, now=1000.0)
+    assert not plant.tend_due("Lanival", "7890", 1, now=1000.0 + 19 * 60)
+    assert plant.tend_due("Lanival", "7890", 1, now=1000.0 + 20 * 60)
+    assert not plant.tend_due("Lanival", "7890", 2, now=1000.0 + 20 * 60)  # a logout
+    assert not plant.tend_due("Lanival", "1234", 1, now=1000.0 + 20 * 60)  # elsewhere
+    plant.note_tend("Lanival", now=1000.0 + 20 * 60)
+    assert not plant.tend_due("Lanival", "7890", 1, now=1000.0 + 39 * 60)
+    assert plant.tend_due("Lanival", "7890", 1, now=1000.0 + 40 * 60)
+    assert plant.load("Lanival")["minutes"] == 62  # the cast's record kept
+
+
 def test_an_unrelated_line_first_does_not_lose_the_prepare(tmp_path, monkeypatch):
     # 2026-10-05 00:05: "You feel fully rested." closed PREPARE's window,
     # the spell's lines came after it, and the cast was given up held.

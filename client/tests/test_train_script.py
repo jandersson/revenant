@@ -1205,6 +1205,34 @@ def test_an_empaths_plan_keeps_the_plant_up_with_plant(clock, monkeypatch):
     assert train.keep_plant(fake, plan(keep_plant="7890")) is False
 
 
+def test_between_tasks_the_plant_is_tended_twenty_minutes_after_its_cast(
+    clock, monkeypatch
+):
+    # #491: the plant keeps the wounds it heals; the Empath's loop takes
+    # them back between tasks instead of once an hour at the recast.
+    import os
+    import time
+
+    from client.game import plant
+
+    monkeypatch.setattr(train, "KEPT", {})
+    fake = Fake(exits={"plant": 10})
+    clock["fake"] = fake
+    fake.now = time.time()  # the recast check reads the wall clock
+    plant.record("Lanival", "7890", 62, os.getpid(), now=fake.now)
+    assert train.keep_plant(fake, plan(keep_plant="7890")) is False  # fresh
+    fake.now += plant.TEND_MINUTES * 60
+    assert train.keep_plant(fake, plan(keep_plant="7890")) is True
+    assert fake.started == [("plant", ["tend", "7890"])]
+    assert (
+        "train: the vela'tohr plant at 7890 is tended — ;plant tend 7890" in fake.echoed
+    )
+    assert train.keep_plant(fake, plan(keep_plant="7890")) is False  # just tended
+    fake.now += plant.TEND_MINUTES * 60
+    assert train.keep_plant(fake, plan(keep_plant="7890")) is True
+    assert len(fake.started) == 2
+
+
 def test_a_plant_run_that_cast_nothing_waits_before_the_next(clock, monkeypatch):
     monkeypatch.setattr(train, "KEPT", {})
     fake = Fake(exits={"plant": 10})

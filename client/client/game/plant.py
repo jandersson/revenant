@@ -12,7 +12,9 @@ teaches Empathy (Elanthipedia: Embrace of the Vela'tohr; Time).
 
 The record is ~/.revenant/training/<name>.plant.json: the room, the
 cast's time, its minutes, and the session's pid, since a new session
-means a logout ended the plant.
+means a logout ended the plant — and the last tend, the TOUCH that
+takes back the wounds patients left in it (#491): the plant keeps every
+wound it heals, through recasts, and despawns at its healing limit.
 """
 
 import json
@@ -24,6 +26,7 @@ MANA = 500  # Riphik's cast of 2026-10-04: sixty-two roisaen
 FOCUS = "phial"
 MANA_FLOOR = 50  # % of mana below which the cast waits
 MARGIN_MINUTES = 10  # recast this long before the recorded end
+TEND_MINUTES = 20  # tend (TOUCH for the wounds left in it) this long after the cast or the last tend
 DEFAULT_MINUTES = 30  # the spell's least, for a cast PERCEIVE did not time
 PLANT = "vela'tohr plant"
 
@@ -129,6 +132,36 @@ def load(name):
         return json.loads(record_path(name).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
+
+
+def note_tend(name, now=None):
+    """The tend written into the record: when the plant was last TOUCHed
+    for the wounds patients left in it (#491)."""
+    mark = load(name)
+    if not isinstance(mark, dict):
+        mark = {}
+    mark["tended"] = time.time() if now is None else now
+    path = record_path(name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(mark), encoding="utf-8")
+
+
+def tend_due(name, room, session, now=None, minutes=TEND_MINUTES):
+    """True when the plant in `room` wants a tend: the record says it
+    stands there in this session and `minutes` have passed since its cast
+    or its last tend (#491). A plant due a recast is not tended — the
+    recast TOUCHes it first."""
+    mark = load(name)
+    if not isinstance(mark, dict):
+        return False
+    if str(mark.get("room")) != str(room) or mark.get("session") != session:
+        return False
+    try:
+        last = float(mark.get("tended") or mark["cast"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    now = time.time() if now is None else now
+    return now >= last + 60 * minutes
 
 
 def due(name, room, session, now=None, margin=MARGIN_MINUTES):

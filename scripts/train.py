@@ -27,7 +27,7 @@ What it does
   - In the rests: soul deeds when `soul` is on, stat points from the plan's `tdp` list,
     and, wounded, the vela'tohr plant in `plant_room` touched and rested beside.
   - An Empath's `keep_plant`: between tasks and in rests, ;plant recasts the plant there
-    before it ends. A task with `plant: on` is spent beside that plant until healed;
+    before it ends, and tends it every 20 minutes (;plant tend: the wounds it took, healed). A task with `plant: on` is spent beside that plant until healed;
     with a `helper` and `helper_page` too, a wound that bad gets the helper instead.
   - The interludes (the profile's `almanac`, a typed `;break`) between tasks and in rests.
   - A helper busy on its own ;train: its task is skipped, or, with `helper_page` and a wound
@@ -402,24 +402,54 @@ def plant_due(s, plan):
     return room
 
 
-def keep_plant(s, plan):
-    """The plan's `keep_plant` room kept in a vela'tohr plant (#473):
-    `;plant <room>` run and waited for when plant_due says so. True when
-    it ran; a run that cast nothing waits PLANT_RETRY_MINUTES before the
-    next."""
-    room = plant_due(s, plan)
-    if room is None:
-        return False
+def tend_due(s, plan):
+    """The plan's `keep_plant` room when its plant wants a tend (#491):
+    it stands there in this session, TEND_MINUTES have passed since its
+    cast or its last tend, and nothing stands in the way. Else None."""
+    room = str(plan.get("keep_plant") or "").strip()
+    if not room or s.dead or s.is_running("plant") or hostiles_present(s.state):
+        return None
     name = getattr(s.state, "name", None) or ""
-    if not s.run("plant", [room]):
-        return False
-    s.echo(f"train: the vela'tohr plant at {room} is due — ;plant {room}")
+    if not plant.tend_due(name, room, os.getpid(), now=clock()):
+        return None
+    if "tended" in KEPT and clock() - KEPT["tended"] < plant.TEND_MINUTES * 60:
+        return None
+    return room
+
+
+def wait_for_plant(s, plan):
+    """The ;plant run waited for, PLANT_MINUTES at most."""
     started = clock()
     while s.is_running("plant"):
         if s.dead or clock() - started >= PLANT_MINUTES * 60:
             s.kill("plant")
             break
         s.sleep(min(5, plan["poll"]))
+
+
+def keep_plant(s, plan):
+    """The plan's `keep_plant` room kept in a vela'tohr plant (#473):
+    `;plant <room>` run and waited for when plant_due says so, and
+    between the casts `;plant tend <room>` when tend_due says so — the
+    wounds patients left in it taken back and healed (#491). True when
+    either ran; a run that cast nothing waits PLANT_RETRY_MINUTES before
+    the next."""
+    room = plant_due(s, plan)
+    if room is None:
+        room = tend_due(s, plan)
+        if room is None:
+            return False
+        if not s.run("plant", ["tend", room]):
+            return False
+        s.echo(f"train: the vela'tohr plant at {room} is tended — ;plant tend {room}")
+        KEPT["tended"] = clock()
+        wait_for_plant(s, plan)
+        return True
+    name = getattr(s.state, "name", None) or ""
+    if not s.run("plant", [room]):
+        return False
+    s.echo(f"train: the vela'tohr plant at {room} is due — ;plant {room}")
+    wait_for_plant(s, plan)
     if plant.due(name, room, os.getpid()):
         KEPT["failed"] = clock()
     else:

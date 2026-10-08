@@ -90,11 +90,13 @@ An Empath's plant heals a non-Empath who touches it and stays in its room. `;tra
 
 ```
 ;plant 7890          walk there, take the old plant's wounds (;empath self heals them), cast a new plant
+;plant tend 7890     the touch and the self-heal only, no cast
 ;plant mana=500      mana prepared (default 500, about an hour of plant)
 ;plant focus=phial   the ritual focus (default phial: 40 uses)
 ```
 
 - Below 50% mana the cast waits.
 - The plant ends when its Empath logs out.
+- The plant keeps every wound it heals, through recasts, and despawns at its limit; only its Empath's TOUCH takes them back. `;train`'s `keep_plant` tends it every 20 minutes.
 
 `;stop <name>` ends any of these at once; `;heal return`, `;empath return` and `;plant return` finish the step in hand first.

@@ -2,6 +2,7 @@
 
     ;plant <room>        walk there (a ;go2 target), take the old plant's wounds, cast a new one
     ;plant               the same where you stand
+    ;plant tend [room]   the touch and the self-heal only, no cast: the wounds patients left in it
     ;plant mana=500      the mana prepared (500 by default)
     ;plant focus=phial   the ritual focus (phial by default)
     ;plant return        (typed while it runs) end before the next step; a cast in hand finishes
@@ -9,11 +10,11 @@
 
 What it does
   - An old plant in the room is TOUCHed: its wounds move to you (Empathy), and ;empath self
-    heals them.
+    heals them. The plant keeps every wound it heals and despawns at its limit.
   - Casts Embrace of the Vela'Tohr: GET the focus, PREPARE EV, INVOKE the focus, CAST, STOW
     the focus, STAND.
   - PERCEIVE reads how long the plant lasts; ;train's `keep_plant` recasts 10 minutes before
-    it ends.
+    it ends and tends it between tasks every 20 minutes (;plant tend).
 
 When it stops
   - the cast done, or any guild but Empath
@@ -47,7 +48,7 @@ PERCEIVE_SECONDS = 4
 
 
 def parse_args(args):
-    options = {"room": "", "mana": plant.MANA, "focus": plant.FOCUS}
+    options = {"room": "", "mana": plant.MANA, "focus": plant.FOCUS, "tend": False}
     words = []
     for arg in args or []:
         key, sep, value = str(arg).partition("=")
@@ -55,6 +56,8 @@ def parse_args(args):
             options["mana"] = int(value)
         elif sep and key.lower() == "focus" and value:
             options["focus"] = value.lower()
+        elif not words and str(arg).lower() == "tend":
+            options["tend"] = True
         else:
             words.append(str(arg))
     options["room"] = " ".join(words).strip()
@@ -193,9 +196,25 @@ def cast(s, options):
     return minutes
 
 
+def tend(s, room):
+    """The plant TOUCHed for the wounds patients left in it and those
+    healed with ;empath self, no cast (#491): "tended", "clean" or "no
+    plant", said, the tend noted in the record either way it stood."""
+    result = touch(s)
+    if result == "none":
+        s.echo(f"plant: no vela'tohr plant at {room or 'here'} to tend")
+        return "no plant"
+    plant.note_tend(getattr(s.state, "name", None) or "")
+    if result == "clean":
+        s.echo("plant: the plant has no need of healing")
+        return "clean"
+    s.echo("plant: the plant's wounds taken and healed — tended")
+    return "tended"
+
+
 def run(s, options, db=None, walk=None):
-    """Why the run ended: "cast", "not an empath", "no walk", "return",
-    "dead" or "failed"."""
+    """Why the run ended: "cast", "tended", "clean", "no plant", "not an
+    empath", "no walk", "return", "dead" or "failed"."""
     if not guild.is_empath(guild.character_guild(s)):
         s.echo("plant: Embrace of the Vela'Tohr is an Empath's spell")
         return "not an empath"
@@ -204,6 +223,8 @@ def run(s, options, db=None, walk=None):
         return "no walk"
     if wants_stop(s):
         return "return"
+    if options.get("tend"):
+        return tend(s, room)
     touch(s)
     if s.dead:
         return "dead"
