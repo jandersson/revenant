@@ -169,3 +169,29 @@ def test_a_spells_frame_puts_the_prepared_spell_beside_the_hands(window):
     window.dispatch_game_text("Gauge Flow\t12\nHeroic Strength\t9", "spells", "")
     assert strip.prepared_label.text() == ""
     assert "Heroic Strength" not in window.main_window.toPlainText()
+
+
+def test_a_dock_rewritten_by_a_clear_keeps_its_scroll_position(window):
+    # The exp stream is cleared and refilled on every change; a reader
+    # scrolled up to the top skills was yanked to the bottom each time
+    # (the operator, 2026-10-08). Scrolled up: the refill lands where the
+    # reader was. At the bottom: the refill follows to the bottom.
+    view = window.stream_windows["thoughts"]
+    view.resize(240, 80)
+    view.show()
+    lines = [f"Skill {i:03d}   {i} 10%  pondering\n" for i in range(120)]
+
+    def refill():
+        window.dispatch_game_text("", "thoughts", "clear")
+        for line in lines:
+            window.dispatch_game_text(line, "thoughts", "")
+
+    refill()
+    bar = view.verticalScrollBar()
+    assert bar.maximum() > 0
+    bar.setValue(0)  # reading the top
+    refill()
+    assert bar.value() == 0
+    bar.setValue(bar.maximum())  # following the bottom
+    refill()
+    assert bar.value() == bar.maximum()

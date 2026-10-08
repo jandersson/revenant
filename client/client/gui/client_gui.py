@@ -12,6 +12,7 @@ text, and owns the connection (reader thread, reconnect, detach, quit).
 import argparse
 import os
 import sys
+import time
 from pathlib import Path
 from threading import Thread
 
@@ -94,6 +95,11 @@ def claim_taskbar_identity():
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
 
 
+# A dock cleared for a rewrite holds its scroll position for this long:
+# the exp stream refill arrives in one burst, a later append is new text.
+HOLD_SECONDS = 1.0
+
+
 class ClientGUI(QMainWindow, ClientLogger):
     # Game text arrives on the reader thread, but Qt widgets may only be
     # touched from the GUI thread — hand it over via a queued signal.
@@ -152,6 +158,11 @@ class ClientGUI(QMainWindow, ClientLogger):
         # when the Map dock has resolved the room, if Settings say so.
         self._room_ids = RoomIdTracker()
         self._title_cursor = None
+        # A dock's scroll position across a clear-and-refill: the exp
+        # stream is rewritten whole on every change, and a reader
+        # scrolled up to the top skills was yanked to the bottom each
+        # time (the operator, 2026-10-08). {view: (value, following, when)}.
+        self._held_scroll = {}
         self._show_room_ids = bool(setting("show_room_ids"))
         self.client = engine if engine is not None else Engine()
         self.__init_ui()
@@ -743,7 +754,14 @@ class ClientGUI(QMainWindow, ClientLogger):
             # main window is not a stand-in, or every GET/PUT would
             # blank the story (#109).
             if clears_window(stream):
-                self.stream_windows[stream].clear()
+                view = self.stream_windows[stream]
+                bar = view.verticalScrollBar()
+                self._held_scroll[view] = (
+                    bar.value(),
+                    bar.value() >= bar.maximum() - 4,
+                    time.monotonic(),
+                )
+                view.clear()
             return
         if stream == "bell":
             # The game rang its bell (the idle warning): sound it, as
@@ -812,8 +830,16 @@ class ClientGUI(QMainWindow, ClientLogger):
         # styled pieces, and only the last one ends with "\n".
         scrollbar = view.verticalScrollBar()
         # Follow the text only when the user is already at the bottom;
-        # scrolled-up reading must not be yanked back down.
-        follow = scrollbar.value() >= scrollbar.maximum() - 4
+        # scrolled-up reading must not be yanked back down. A view just
+        # cleared for a rewrite (the exp dock) keeps the position it had:
+        # the lines of the refill arrive within the hold window.
+        held = self._held_scroll.get(view)
+        if held and time.monotonic() - held[2] > HOLD_SECONDS:
+            held = self._held_scroll.pop(view, None) and None
+        if held:
+            follow = held[1]
+        else:
+            follow = scrollbar.value() >= scrollbar.maximum() - 4
         cursor = QTextCursor(view.document())
         cursor.movePosition(QTextCursor.MoveOperation.End)
         text_format = QTextCharFormat()
@@ -824,8 +850,7 @@ class ClientGUI(QMainWindow, ClientLogger):
             text_format.setForeground(QColor("#6db3f2"))
             text_format.setFontUnderline(True)
             cursor.insertText(text, text_format)
-            if follow:
-                scrollbar.setValue(scrollbar.maximum())
+            self._settle(scrollbar, follow, held)
             return
         bold, color = self.STYLE_FORMATS.get(style, (False, None))
         if bold:
@@ -846,8 +871,7 @@ class ClientGUI(QMainWindow, ClientLogger):
             cursor.insertText(text[start:end], highlight_format)
             position = end
         cursor.insertText(text[position:], text_format)
-        if follow:
-            scrollbar.setValue(scrollbar.maximum())
+        self._settle(scrollbar, follow, held)
         if view is self.main_window and style == "roomName":
             # Park a cursor before the title's newline; the map id lands
             # there once the room is resolved (or now, if it already is).
@@ -855,6 +879,16 @@ class ClientGUI(QMainWindow, ClientLogger):
             anchor.setPosition(cursor.position() - (1 if text.endswith("\n") else 0))
             self._title_cursor = anchor
             self._annotate_title(self._room_ids.title_shown(text))
+
+    @staticmethod
+    def _settle(scrollbar, follow, held):
+        """The bar after an append: at the bottom when following, else
+        back where a cleared view's reader was (clamped: the refill is
+        still growing), else untouched."""
+        if follow:
+            scrollbar.setValue(scrollbar.maximum())
+        elif held:
+            scrollbar.setValue(min(held[0], scrollbar.maximum()))
 
     def _annotate_title(self, room_id):
         """Append " (1420)" to the last room title, once, when Settings
