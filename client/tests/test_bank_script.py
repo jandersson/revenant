@@ -272,6 +272,16 @@ def test_a_refused_keep_is_said_and_never_claimed_kept():
     assert "kept" not in echoes(fake)
 
 
+def test_a_wealth_the_game_never_answered_is_no_reading_and_banks_nothing():
+    # #465 (2026-10-04, a server stall): WEALTH went unanswered, the purse
+    # read as empty and the 8000 copper keep was withdrawn over 1,444 held.
+    fake = Fake({"wealth": [""], "withdraw": [""] * 2})
+    script.run(fake, ["keep=8000"], MAP, walk_fn=walk)
+    assert fake.sent == ["wealth"] and fake.walks == []
+    assert "bank: WEALTH went unanswered — no reading, nothing banked" in echoes(fake)
+    assert "purse is empty" not in echoes(fake)
+
+
 def test_an_empty_purse_with_a_keep_fetches_it_from_the_teller():
     # 2026-09-22: the alchemy kit to buy with nothing in the purse; the
     # session refuses an outside WITHDRAW, so the script's own is the way.

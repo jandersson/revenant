@@ -26,7 +26,8 @@ started for one report when not. `keep=N` withdraws N copper back after the depo
 so a tithe or a trainer's fee is still in the purse (Elanthipedia:
 Withdraw command). In ;train a task `{"script": "bank"}` with no
 skills runs it once per cycle (client/game/bank.py is the model).
-Stops on death. Stop with:  ;stop bank.
+Stops on death, and on a WEALTH the game never answered — no reading
+is not an empty purse. Stop with:  ;stop bank.
 """
 
 from client.game import travel
@@ -42,7 +43,7 @@ from client.game.bank import (
     withdraw_here,
 )
 from client.game.mapdb import MapDB
-from client.game.money import parse_wealth
+from client.game.money import parse_wealth, unanswered
 from client.game.walker import character_ranks, locate, walk
 
 
@@ -110,6 +111,11 @@ def run(s, words, mapdb, walk_fn=walk):
     else:
         home = home_currency(getattr(s.state, "room_title", "") or "")
     wealth = parse_wealth(ask(s, "wealth"))
+    if unanswered(wealth):
+        # A server stall (2026-10-04, #465): no reading is not an empty
+        # purse, and the keep was withdrawn on one.
+        s.echo("bank: WEALTH went unanswered — no reading, nothing banked")
+        return
     carried = wealth["carried"]
     small = small_change(wealth, home)
     for currency, copper in small:

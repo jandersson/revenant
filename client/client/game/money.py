@@ -127,6 +127,14 @@ def parse_wealth(text):
     return wealth
 
 
+def unanswered(wealth):
+    """True when parse_wealth read nothing at all — a WEALTH or INFO the
+    game never answered (#465): an empty purse still reads "No Kronars."
+    and so carries a zero, silence carries no currency. No reading is
+    not an empty purse: ;bank withdrew its keep on one (2026-10-04)."""
+    return not wealth.get("carried") and not wealth.get("debt")
+
+
 def purse(s, ask=None):
     """WEALTH's carried coin per currency ({currency: copper}), {} when
     the answer could not be read — the one purse reader (#407): nine

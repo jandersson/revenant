@@ -90,6 +90,9 @@ def test_nothing_carried_and_no_debt_are_zeros_not_silence():
         "debt": {"Kronars": 0},
     }
     assert money.parse_wealth("") == {"carried": {}, "debt": {}}  # unanswered
+    # #465: silence is no reading; an empty purse is a reading of zero.
+    assert money.unanswered(money.parse_wealth(""))
+    assert not money.unanswered(money.parse_wealth("Wealth:\n  No Kronars.\n"))
 
 
 def test_a_currency_is_worth_its_rate_in_kronars():
