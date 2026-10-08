@@ -10,6 +10,7 @@ read at call time) and never lower-cases. NOT_FOUND is the pair of
 not-found wordings, for a classify table.
 """
 
+import re
 from client.game import probe
 
 _NOTES = """
@@ -56,6 +57,49 @@ def missing(answer, more=()):
     ("don't have", "not wearing" for a thing that must be on you)."""
     lowered = str(answer or "").lower()
     return any(needle in lowered for needle in (*NOT_FOUND, *more))
+
+
+# Lines that answer no command and can close an answer window before
+# the command's own lines land (#483): a creature's arrival, the rested
+# line, a player's coming and going, the parser's balance line. A LOOT
+# answered "You feel fully rested." and its box went uncounted; a BOB
+# answered with an earlier swing's line (2026-10-07/08).
+NOISE = (
+    "heralding the arrival",
+    "just arrived",
+    "joins the adventure",
+    "you feel fully rested",
+    "you feel rested",
+)
+_COMINGS = re.compile(
+    r"\b(arrives|arrived|leaves|left|goes|went|runs|walks|wanders)\b.*\.$", re.I
+)
+
+
+def noise_only(answer, swings=False):
+    """True when every line of the window is noise (NOISE, a coming or
+    going without a 'you', a [You're ...] balance line, and with `swings`
+    a combat stream's `<` swing line) — or the window is empty. Then the
+    command's own answer is still to come: rest_of_answer()."""
+    found = [line.strip() for line in str(answer or "").splitlines() if line.strip()]
+    for line in found:
+        lowered = line.lower()
+        if any(word in lowered for word in NOISE):
+            continue
+        if line.startswith("[You're") or line.startswith("[You are"):
+            continue
+        if swings and line.startswith(("<", "&lt;")):
+            continue
+        if _COMINGS.search(line) and not re.search(r"\byou\b|\byour\b", lowered):
+            continue
+        return False
+    return True
+
+
+def rest_of_answer(s, seconds=None):
+    """The lines that follow a window a stray line closed early: one more
+    collect of TAIL_SECONDS (a test patches this name on the script)."""
+    return probe.collect(s, TAIL_SECONDS if seconds is None else seconds)
 
 
 def lines(answer):

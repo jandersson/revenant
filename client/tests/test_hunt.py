@@ -1866,3 +1866,27 @@ def test_the_next_corpse_is_the_first_dead_id_not_yet_disposed_of():
         hunt_arena.hunt.next_corpse(SimpleNamespace(state=SimpleNamespace()), tally)
         is None
     )
+
+
+def test_a_loot_window_closed_by_a_stray_line_is_read_on(travel, tmp_path, monkeypatch):
+    # 2026-10-08 18:52 (#483): the first amalgam's LOOT answered "You feel
+    # fully rested." — the rested line closed the window — and the box the
+    # search turned up was stowed but never counted. The hunt reads on.
+    import sqlite3
+
+    db = tmp_path / "history.db"
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(db))
+    monkeypatch.setattr(hunt, "rest_of_answer", lambda s, seconds=None: NOTHING)
+    arena = _run(
+        Arena(
+            {
+                "attack": [(KILL, kill)],
+                "skin": [SKINNED],
+                "loot": ["You feel fully rested.\n"],
+            }
+        )
+    )
+    with sqlite3.connect(str(db)) as connection:
+        rows = connection.execute("SELECT creature, outcome FROM loot").fetchall()
+    assert rows == [("rat", "nothing")]
+    assert not any("unrecognized loot answer" in text for text in arena.echoed)

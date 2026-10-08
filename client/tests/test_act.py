@@ -135,3 +135,26 @@ def test_missing_knows_the_parsers_refusal_of_a_three_word_name():
     # massive coal nugget` answered this, and a script read it as a GET
     # that worked (#488).
     assert act.missing("Please rephrase that command.")
+
+
+def test_noise_only_knows_a_window_that_answers_nothing():
+    # #483: these closed a LOOT's and a BOB's windows before their own lines.
+    assert act.noise_only(
+        "Some nearby vegetation rustles, heralding the arrival of an Endrus serpent."
+    )
+    assert act.noise_only("You feel fully rested.\n")
+    assert act.noise_only(
+        "Hssah goes north.\n[You're nimbly balanced and in good position.]"
+    )
+    assert act.noise_only("")
+    assert act.noise_only(
+        "< Driving in with exacting precision, you draw a sledgehammer at a wood troll.",
+        swings=True,
+    )
+    assert not act.noise_only(
+        "< Driving in with exacting precision, you draw a sledgehammer at a wood troll."
+    )
+    assert not act.noise_only(
+        "You search the Endrus serpent.\nYou find nothing of interest."
+    )
+    assert not act.noise_only("You feel fully rested.\nYou search the Endrus serpent.")

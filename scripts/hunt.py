@@ -61,7 +61,15 @@ from client.game import (
     stores,
     travel,
 )
-from client.game.act import NOT_FOUND, ask, missing, said, unknown
+from client.game.act import (
+    NOT_FOUND,
+    ask,
+    missing,
+    noise_only,
+    rest_of_answer,
+    said,
+    unknown,
+)
 from client.game.creatures import aim, aim_corpse, noun_of, outgrown
 from client.game.probe import classify
 from client.game.profile import describe, load_profile
@@ -1525,6 +1533,10 @@ def dispose(s, profile, corpse, tally):
         tally.disposed.add(body[1:])
         if missing(answer):
             answer = ask(s, "loot")
+    if noise_only(answer):
+        # A stray line closed the window before the search's own lines
+        # (#483: "You feel fully rested." and a box uncounted): read on.
+        answer = (answer + "\n" + rest_of_answer(s)).strip()
     if not tally.loot_reported:
         tally.loot_reported = True
         s.echo(f"hunt: loot answered {said(answer)!r}")
@@ -1830,6 +1842,10 @@ def swing(s, profile, tally, prey):
             verb, combo = attack, True
     mark_room(s, tally)
     text = ask(s, f"{verb} {prey}" if prey else verb)
+    if verb != "attack" and noise_only(text, swings=True):
+        # A maneuver's window closed on an earlier swing's line or an
+        # arrival (#483): its own answer follows.
+        text = (text + "\n" + rest_of_answer(s)).strip()
     lowered = text.lower()
     if word := getattr(s.state, "balance", None):
         tally.balances[word] = tally.balances.get(word, 0) + 1
