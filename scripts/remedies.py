@@ -72,6 +72,7 @@ from client.game.remedies import (
     MASTER_UNTIE,
     BUNDLED,
     building_rooms,
+    CATALYST_RUBS,
     CATALYST_STOCK,
     LIQUIDS,
     COMBINED,
@@ -1212,10 +1213,11 @@ def restock(s, spec, catalyst, why, remaining, tally, profile=None):
     tally["restocks"] = tally.get("restocks", 0) + 1
     count = max(1, per_stack * remaining)
     if catalyst and noun == catalyst:
-        # A spare past the order (a rejected stack cost a 44-room walk,
-        # #288), and never under a stock that spares the next orders the
+        # Nuggets for the stacks owed plus a spare rub (a rejected stack
+        # cost a 44-room walk, #288), a nugget being CATALYST_RUBS rubs,
+        # and never under the stock that spares the next orders the
         # Forging Society's Supplies (#393).
-        count = max(count + 1, CATALYST_STOCK)
+        count = max(CATALYST_STOCK, -(-(remaining + 1) // CATALYST_RUBS))
     return buy(s, noun, count, store, catalog, tally)
 
 

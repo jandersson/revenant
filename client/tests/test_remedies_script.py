@@ -69,10 +69,12 @@ QUOTE_WATER = QUOTE.replace(
     "(25 pieces) dried red flowers", "10 splashes of water"
 ).replace("343", "62")
 BOUGHT_WATER = BOUGHT.replace("(25 pieces) dried red flowers", "10 splashes of water")
+# The massive coal nugget, item 2 at the Forging Society's Supplies: 212
+# Kronars for ten rubs (2026-10-08).
 QUOTE_NUGGET = QUOTE.replace(
-    "(25 pieces) dried red flowers", "a tiny coal nugget"
-).replace("343", "31")
-BOUGHT_NUGGET = BOUGHT.replace("(25 pieces) dried red flowers", "a tiny coal nugget")
+    "(25 pieces) dried red flowers", "a massive coal nugget"
+).replace("343", "212")
+BOUGHT_NUGGET = BOUGHT.replace("(25 pieces) dried red flowers", "a massive coal nugget")
 WEALTH_POOR = "Wealth:\n  1 silver Kronars (100 copper Kronars).\n  No Lirums.\nDebt:\n  No debt.\n"
 
 
@@ -491,7 +493,7 @@ def test_a_work_order_is_asked_crafted_bundled_and_handed_in():
     row = ledger_rows()[-1]
     assert row["item"] == "blister cream" and row["stacks"] == 2
     assert row["level"] == "easy" and row["quality"] == "finely-crafted"
-    assert (row["earned"], row["cost"], row["spent"]) == (1146, 780, 0)
+    assert (row["earned"], row["cost"], row["spent"]) == (1146, 760, 0)
     assert row["crushes"] == 9 and row["rank_before"] == 2 and row["rank_after"] == 2
     assert row["crush_seconds"] == 159  # the fixtures' "Roundtime: N sec." summed
     out = run(Fake({}), ["ledger"])
@@ -544,18 +546,19 @@ def test_the_herbs_water_and_coal_are_bought_as_they_run_out():
                 "get my water": [MISSING, "You get some water."],
                 "get my nugget": [MISSING, "You get a tiny coal nugget."],
                 "order 13": [QUOTE, BOUGHT, QUOTE, BOUGHT],
-                "order 1": [QUOTE_WATER, BOUGHT_WATER]
-                + [QUOTE_NUGGET, BOUGHT_NUGGET] * CATALYST_STOCK,
+                "order 1": [QUOTE_WATER, BOUGHT_WATER],
+                "order 2": [QUOTE_NUGGET, BOUGHT_NUGGET] * CATALYST_STOCK,
             },
         ),
         mindstates=[3] + [5] * 30,
     )
     out = run(fake, ["work", "count=1"])
     assert fake.walked == ["8862", "8862", "8775"]
-    # 686 for the flowers and 310 for the nuggets, 100 in the purse.
-    assert fake.withdrawn == [586, 210]
+    # 686 for the flowers and 212 for the massive nugget, 100 in the purse.
+    assert fake.withdrawn == [586, 112]
     assert fake.sent.count("order 13") == 4
-    assert fake.sent.count("order 1") == 2 + 2 * CATALYST_STOCK
+    assert fake.sent.count("order 1") == 2
+    assert fake.sent.count("order 2") == 2 * CATALYST_STOCK
     assert fake.sent.count("stow my flowers") == 2
     # The stock stowed as bought, one more after the second stack's put.
     assert fake.sent.count("stow my nugget") == CATALYST_STOCK + 1
@@ -567,10 +570,11 @@ def test_the_herbs_water_and_coal_are_bought_as_they_run_out():
     # per stack, and the page is studied again before the crushes resume.
     assert crushes(fake).count("crush my flowers in my mortar with my pestle") == 2
     assert fake.sent.count("study my book") == 5  # three restocks, two stacks
-    # 686 flowers, 62 water, 310 nuggets: the stock is spent in this order.
-    assert "order 1 paid 1146 Kronars (88 clear of 1058 spent so far)" in out
-    assert "1 order(s), 1146 Kronars earned, 1058 spent" in out
-    assert ledger_rows()[-1]["spent"] == 1058
+    # 686 flowers, 62 water, 212 the massive nugget: the stock is spent in
+    # this order.
+    assert "order 1 paid 1146 Kronars (186 clear of 960 spent so far)" in out
+    assert "1 order(s), 1146 Kronars earned, 960 spent" in out
+    assert ledger_rows()[-1]["spent"] == 960
 
 
 # The ointment order and its alcohol (#427). The CRUSH answer and LOOK
@@ -802,7 +806,7 @@ def test_a_remedy_below_the_orders_quality_is_disposed_of_and_another_made(
     assert "stow my cream" not in fake.sent
     assert "order 1 paid 1146 Kronars" in out
     row = ledger_rows()[-1]
-    assert row["stacks"] == 2 and row["cost"] == 3 * 390
+    assert row["stacks"] == 2 and row["cost"] == 3 * 380
     assert '"rejected": 1' in row["extra"]
     assert "x2+1 rejected" in run(Fake({}), ["ledger"])
     # Three rejections in one order give it up; the order waits.
@@ -844,8 +848,8 @@ def test_an_order_left_half_done_keeps_its_spend_for_the_run_that_finishes_it():
         work_answers(
             wealth=[WEALTH_POOR],
             **{
-                "get my nugget": [MISSING, "You get a tiny coal nugget."],
-                "order 1": [QUOTE_NUGGET, BOUGHT_NUGGET] * CATALYST_STOCK,
+                "get my nugget": [MISSING, "You get a massive coal nugget."],
+                "order 2": [QUOTE_NUGGET, BOUGHT_NUGGET] * CATALYST_STOCK,
                 "get my dried flowers": ["You get some dried red flowers.", MISSING],
                 "order 13": [QUOTE_WATER],
             },
@@ -857,15 +861,15 @@ def test_an_order_left_half_done_keeps_its_spend_for_the_run_that_finishes_it():
     assert "the order waits in the logbook" in out
     kept = load_open("Lanival")
     assert kept["item"] == "blister cream" and kept["count"] == 2
-    assert kept["spent"] == 310 and kept["crushes"] == 4
+    assert kept["spent"] == 212 and kept["crushes"] == 4
     second = Fake(
         work_answers(**{"read my logbook": [LOGBOOK_OPEN, LOGBOOK_DONE]}),
         mindstates=[5] * 30,
     )
     out = run(second, ["work", "count=1"])
-    assert "310 Kronars and 4 crushes so far carried over" in out
+    assert "212 Kronars and 4 crushes so far carried over" in out
     row = ledger_rows()[-1]
-    assert (row["stacks"], row["spent"], row["crushes"]) == (2, 310, 8)
+    assert (row["stacks"], row["spent"], row["crushes"]) == (2, 212, 8)
     assert load_open("Lanival") is None
 
 
@@ -1477,9 +1481,9 @@ def test_a_catalyst_named_coal_nugget_is_bought_as_the_catalog_nugget():
         work_answers(
             wealth=[WEALTH_POOR],
             **{
-                "get my coal nugget": [MISSING, "You get a tiny coal nugget."],
+                "get my coal nugget": [MISSING, "You get a massive coal nugget."],
                 "put my coal nugget in my mortar": [SHAVINGS],
-                "order 1": [QUOTE_NUGGET, BOUGHT_NUGGET] * CATALYST_STOCK,
+                "order 2": [QUOTE_NUGGET, BOUGHT_NUGGET] * CATALYST_STOCK,
             },
         ),
         mindstates=[3] + [5] * 30,
@@ -1830,9 +1834,11 @@ def test_the_catalyst_is_bought_as_a_stock_not_an_orders_worth(monkeypatch):
             bought.append((noun, count)) or True
         ),
     )
+    # A massive nugget is ten rubs (2026-10-08): one covers two stacks and
+    # the spare; twelve owed and the spare want two.
     script.restock(fake, SPEC, "nugget", "nugget", 2, {"spent": 0}, {})
     script.restock(fake, SPEC, "nugget", "nugget", 12, {"spent": 0}, {})
-    assert bought == [("nugget", CATALYST_STOCK), ("nugget", 13)]
+    assert bought == [("nugget", CATALYST_STOCK), ("nugget", 2)]
 
 
 def test_a_stray_stack_in_hand_is_stowed_before_the_tools(monkeypatch):

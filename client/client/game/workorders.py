@@ -35,7 +35,7 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime, timezone
 
-from client.game.remedies import CATALOG, CATALYST_CATALOG
+from client.game.remedies import CATALOG, CATALYST_CATALOG, CATALYST_RUBS
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS work_orders (
@@ -133,14 +133,15 @@ def open_ledger(path):
 def material_cost(spec, catalyst, catalog=CATALOG, catalyst_catalog=CATALYST_CATALOG):
     """What one remedy of `spec` consumes at the catalog's prices: the
     controlling herb's stack, one piece of the second herb, one splash
-    of its liquid and one catalyst — 390 Kronars for blister cream with
-    a coal nugget. An unpriced herb or catalyst counts nothing."""
+    of its liquid and one rub of the catalyst (a nugget is CATALYST_RUBS
+    rubs) — 380 Kronars for blister cream with the massive coal nugget
+    (2026-10-08). An unpriced herb or catalyst counts nothing."""
     chapter, page, herb, extra, noun, liquid = spec
     cost = catalog.get(herb, (0, 0))[1]
     if extra:
         cost += catalog.get(extra, (0, 0))[1] / STACK
     cost += catalog.get(liquid, (0, 0))[1] / SPLASHES
-    cost += catalyst_catalog.get(catalyst or "", (0, 0))[1]
+    cost += catalyst_catalog.get(catalyst or "", (0, 0))[1] / CATALYST_RUBS
     return round(cost)
 
 

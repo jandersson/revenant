@@ -45,8 +45,9 @@ live remedies; docs/training.md):
   nemoih alongside the mortar to scrape some shavings into the
   mixture." — one piece, the stack stays in hand), "You need another
   catalyst material to continue crafting ..." (PUT MY NUGGET IN MY
-  MORTAR: the same rub line; a tiny coal nugget is one use and is
-  gone). The finish: "Applying the final touches, you complete
+  MORTAR: the same rub line; a rub takes one volume of the nugget —
+  a tiny one is gone, a massive one (10) lasts ten, COUNT MY NUGGET
+  says how many are left). The finish: "Applying the final touches, you complete
   working on some blister cream." ("some dirty nemoih salve" at rank
   2). A CRUSH at a finished remedy: "Interesting thought really...
   but no." A 25-piece stack of the controlling herb is one 5-use
@@ -70,8 +71,10 @@ live remedies; docs/training.md):
   LANSHADO: "You hand Lanshado your logbook and bundled items, and
   are given 1146 Kronars in return." — 686 of dried red flowers and
   two 31-copper nuggets in, at Alchemy 6; asked while an order is
-  open, a new one replaces it without penalty. A tiny coal nugget is
-  31 Kronars at the Crossing Forging Society's Supplies (map 8775).
+  open, a new one replaces it without penalty. The catalyst is a
+  massive coal nugget, 212 Kronars for ten rubs at the Crossing Forging
+  Society's Supplies (map 8775, item 2); the tiny one there is 31 for
+  one rub (item 1).
 - Both hands are the tools': PUT and GET want a free hand ("You need a
   free hand to pick that up."), so the pestle is stowed for every
   fetch, and the mortar before the logbook comes out.
@@ -327,12 +330,17 @@ CATALOG = {  # noun: (catalog number, Kronars)
     "georin": (7, 437),
     "flowers": (13, 343),
 }
-CATALYST_CATALOG = {"nugget": (1, 31)}
-# The catalyst is bought as a stock, not an order's worth (#393): one
-# nugget a remedy, three bought for a two-stack order and the Forging
-# Society's Supplies walked to again at the next order, 22 steps each
-# way (twice in one 45-minute task, 2026-09-29). Ten is 310 Kronars.
-CATALYST_STOCK = 10
+# The massive coal nugget, item 2: a rub takes one volume and it has
+# ten (COUNT MY NUGGET read "About 8 volumes" after two rubs,
+# 2026-10-08), so 212 Kronars buys ten rubs where ten tiny nuggets
+# (item 1, 31 each) cost 310 — the operator: buy massive from now on.
+CATALYST_CATALOG = {"nugget": (2, 212)}
+CATALYST_RUBS = 10  # rubs a nugget gives: one a volume
+# The catalyst is bought as a stock, not an order's worth (#393): the
+# Forging Society's Supplies are 22 steps each way, and a two-stack
+# order sent the next one there again (2026-09-29). One massive nugget
+# is the stock; restock() buys more only when an order owes more rubs.
+CATALYST_STOCK = 1
 # The quote and the hand-over are shop's now (#407), kept under their
 # old names here for what reads them.
 BOUGHT = shop.BOUGHT
