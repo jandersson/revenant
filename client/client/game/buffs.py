@@ -142,6 +142,7 @@ from pathlib import Path
 from time import monotonic
 
 from client.game import probe
+from client.game.act import whole_answer
 from client.game.probe import classify
 
 MIND_LOCK = 34
@@ -812,8 +813,11 @@ def cast_once(
         # untargeted (#458). The id gone, a bare TARGET after all.
         foe = "" if target else foe_ref(s)
         answer = ask(s, f"target {target or foe}" if target or foe else "target")
+        # A creature's own line closed the window before TARGET's (#477):
+        # the serpents' "weaves about drunkenly" came first. Read on.
+        answer = whole_answer(s, answer, swings=True)
         if foe and classify(answer, TARGET_OUTCOMES) == "missing":
-            answer = ask(s, "target")
+            answer = whole_answer(s, ask(s, "target"), swings=True)
         aim = classify(answer, TARGET_OUTCOMES)
         if aim == "missing":
             ask(s, "release")

@@ -1893,8 +1893,10 @@ def test_a_loot_window_closed_by_a_stray_line_is_read_on(travel, tmp_path, monke
     import sqlite3
 
     db = tmp_path / "history.db"
+    from client.game import act
+
     monkeypatch.setenv("REVENANT_HISTORY_DB", str(db))
-    monkeypatch.setattr(hunt, "rest_of_answer", lambda s, seconds=None: NOTHING)
+    monkeypatch.setattr(act, "rest_of_answer", lambda s, seconds=None: NOTHING)
     arena = _run(
         Arena(
             {

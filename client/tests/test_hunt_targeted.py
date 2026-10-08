@@ -793,6 +793,33 @@ def test_a_cast_refused_at_yourself_releases_the_held_spell(travel):
     assert not any("unrecognized cast answer" in text for text in arena.echoed)
 
 
+def test_a_creatures_own_line_in_targets_window_is_read_past(travel, monkeypatch):
+    # #477 (2026-10-05 21:41): an Endrus serpent's "weaves about drunkenly"
+    # closed TARGET's window and was reported as an unknown answer.
+    from client.game import act
+
+    serpent = "An Endrus serpent weaves about drunkenly, its form losing coherence.\n"
+    monkeypatch.setattr(act, "rest_of_answer", lambda s, seconds=None: TARGETING)
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "prepare": [FS_PREPARED],
+            "target": [serpent],
+            "cast": [STRUCK],
+            "skin": [SKINNED],
+            "loot": [NOTHING],
+            "discern": [DISCERNED],
+        },
+        experience=TM_OPEN,
+    )
+    arena.state.room_creatures = ["an Endrus serpent", "a rat"]
+    arena.state.room_creatures_dead = [False, False]
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=STRIKING | {"max_kills": 1}, travel_first=False)
+    assert not any("unrecognized target" in text for text in arena.echoed)
+    assert "release" not in _casting(arena)[:3]
+
+
 def test_a_target_already_dead_releases_the_pattern_quietly(travel):
     # #325, captured 2026-09-26 at the goblins: the TARGET went to a
     # corpse and was reported as an unknown answer.

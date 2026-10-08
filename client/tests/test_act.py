@@ -160,6 +160,32 @@ def test_noise_only_knows_a_window_that_answers_nothing():
     assert not act.noise_only("You feel fully rested.\nYou search the Endrus serpent.")
 
 
+def test_a_listed_creatures_own_line_is_noise_and_the_answer_is_read_on(monkeypatch):
+    # #477 (2026-10-05): "An Endrus serpent weaves about drunkenly, its
+    # form losing coherence." 393 times a session, once in TARGET's window.
+    serpent = "An Endrus serpent weaves about drunkenly, its form losing coherence."
+    room = ["an Endrus serpent", "an Endrus serpent", "a rat"]
+    assert act.creature_line(serpent, room)
+    # The game drops the adjectives in a creature's own lines.
+    assert act.creature_line(
+        "The ossein amalgam seems to exhale.", ["an ichorous ossein amalgam"]
+    )
+    assert act.creature_line("The rat squeaks.", room)
+    assert not act.creature_line("The ratling squeaks.", room)  # a whole word only
+    assert not act.creature_line(
+        "An Endrus serpent bites you!", room
+    )  # at you: an answer's kin
+    assert not act.creature_line(serpent, [])  # no listing: nothing is assumed
+    assert act.noise_only(serpent, creatures=room)
+    assert not act.noise_only(serpent)
+    s = SimpleNamespace(state=SimpleNamespace(room_creatures=room))
+    target = "You begin to weave mana lines into a target pattern around a rat."
+    tail = [target]
+    monkeypatch.setattr(act, "rest_of_answer", lambda s, seconds=None: tail.pop(0))
+    assert act.whole_answer(s, serpent) == f"{serpent}\n{target}"
+    assert act.whole_answer(s, target) == target  # an answer as it came: no read-on
+
+
 def test_noise_only_knows_a_creatures_spell_at_the_character():
     # 2026-10-08: an ossein amalgam's Heighten Pain, cast every twenty
     # seconds or so, closed a CIRCLE's window and was read as its answer

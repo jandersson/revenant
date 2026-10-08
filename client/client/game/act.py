@@ -4,10 +4,12 @@
     act.missing(answer)                           # True for either not-found wording
     act.said(answer, NO_BUNDLE)                   # the line to quote: one holding a wording, else the first
     act.unknown(s, "skins", "SELL", answer)       # the one "please report it" echo
+    act.whole_answer(s, answer, swings=True)      # read on past a window a stray line closed
 
 ask() is probe.ask with one pair of windows (ASK_SECONDS, TAIL_SECONDS,
 read at call time) and never lower-cases. NOT_FOUND is the pair of
-not-found wordings, for a classify table.
+not-found wordings, for a classify table. NOISE and the room's
+creatures' own lines are what whole_answer reads past (#483, #477).
 """
 
 import re
@@ -85,11 +87,44 @@ _COMINGS = re.compile(
 )
 
 
-def noise_only(answer, swings=False):
+_ARTICLES = ("a", "an", "the", "some")
+
+
+def _subject(text):
+    """The words of a line or a listing name past its article, lowered."""
+    words = str(text or "").lower().split()
+    if words and words[0] in _ARTICLES:
+        words = words[1:]
+    return " ".join(words)
+
+
+def creature_line(line, creatures):
+    """True when the line's subject is one of the room's creatures and it
+    says nothing of you: a creature's own action — an Endrus serpent
+    "weaves about drunkenly, its form losing coherence" 393 times a
+    session (#477), "The ossein amalgam seems to exhale" — answers no
+    command. The game drops a listing name's adjectives in such lines,
+    so any tail of the name past its article is the subject looked for."""
+    lowered = str(line or "").lower()
+    if not creatures or re.search(r"\byou\b|\byour\b", lowered):
+        return False
+    subject = _subject(lowered)
+    for creature in creatures:
+        words = _subject(creature).split()
+        for start in range(len(words)):
+            tail = " ".join(words[start:])
+            if subject == tail or subject.startswith(tail + " "):
+                return True
+    return False
+
+
+def noise_only(answer, swings=False, creatures=()):
     """True when every line of the window is noise (NOISE, a coming or
-    going without a 'you', a [You're ...] balance line, and with `swings`
-    a combat stream's `<` swing line) — or the window is empty. Then the
-    command's own answer is still to come: rest_of_answer()."""
+    going without a 'you', a [You're ...] balance line, a listed
+    creature's own action line (`creatures`, the room's listing names),
+    and with `swings` a combat stream's `<` swing line) — or the window
+    is empty. Then the command's own answer is still to come:
+    rest_of_answer(), or whole_answer() for both at once."""
     found = [line.strip() for line in str(answer or "").splitlines() if line.strip()]
     for line in found:
         lowered = line.lower()
@@ -101,6 +136,8 @@ def noise_only(answer, swings=False):
             continue
         if _COMINGS.search(line) and not re.search(r"\byou\b|\byour\b", lowered):
             continue
+        if creature_line(line, creatures):
+            continue
         return False
     return True
 
@@ -109,6 +146,16 @@ def rest_of_answer(s, seconds=None):
     """The lines that follow a window a stray line closed early: one more
     collect of TAIL_SECONDS (a test patches this name on the script)."""
     return probe.collect(s, TAIL_SECONDS if seconds is None else seconds)
+
+
+def whole_answer(s, answer, swings=False):
+    """`answer` read on past a window that held only noise — the room's
+    creatures' own lines included, off the parser's listing (#483,
+    #477); the answer as it came otherwise."""
+    creatures = getattr(getattr(s, "state", None), "room_creatures", None) or ()
+    if noise_only(answer, swings, creatures):
+        return (str(answer or "") + "\n" + rest_of_answer(s)).strip()
+    return answer
 
 
 def lines(answer):
