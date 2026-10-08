@@ -522,6 +522,46 @@ def weapon_homes(profile) -> dict:
     return homes
 
 
+# The profile's item names a script sends as MY <name>: an item is
+# ADJECTIVE NOUN, never three words (the operator, 2026-10-08) — the
+# game answers "Please rephrase that command." to a third word, and
+# ;remedies looped on a catalyst named "massive coal nugget" (#488).
+ITEM_FIELDS = (
+    "catalyst",
+    "mortar",
+    "pestle",
+    "lockpick",
+    "lockpick_ring",
+    "almanac",
+    "instrument",
+    "instrument_cloth",
+    "gem_pouch",
+    "loot_container",
+    "skin_knife",
+    "weapon",
+    "weapon_container",
+    "compendium",
+    "card_case",
+    "dira_case",
+    "cambrinth",
+)
+
+
+def item_name_problems(profile) -> list:
+    """One line per item field whose name the game cannot read: three
+    words or more (ADJECTIVE NOUN is the most a reference takes). For a
+    script to say at its start, before the name goes out."""
+    problems = []
+    for key in ITEM_FIELDS:
+        name = str((profile or {}).get(key) or "").strip()
+        if len(name.split()) > 2:
+            problems.append(
+                f"{key} {name!r} is three words — the game reads ADJECTIVE NOUN at "
+                'most ("Please rephrase that command."); use its last two, or the id'
+            )
+    return problems
+
+
 def profiles_dir() -> Path:
     return Path(
         os.environ.get("REVENANT_PROFILES", "~/.revenant/profiles")

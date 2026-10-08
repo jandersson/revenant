@@ -30,7 +30,11 @@ TAIL_SECONDS = 2  # the window after a roundtime the command opened
 
 # The game's two wordings for a thing that is not there; "could not
 # find" alone also covers "I could not find a ..." forms.
-NOT_FOUND = ("what were you referring", "could not find")
+# The two not-found answers, and the parser's refusal of a name it
+# cannot read at all: an item is ADJECTIVE NOUN, never three words
+# (the operator, 2026-10-08) — `get my massive coal nugget` answered
+# "Please rephrase that command." and ;remedies looped on it (#488).
+NOT_FOUND = ("what were you referring", "could not find", "please rephrase")
 
 SILENCE = "(silence)"
 

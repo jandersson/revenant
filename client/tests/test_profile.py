@@ -143,3 +143,14 @@ def test_weapon_homes_names_every_weapon_s_container_the_fists_left_out():
         "spear": "baldric",
     }
     assert weapon_homes({}) == {}
+
+
+def test_a_three_word_item_name_is_a_problem_said_before_it_goes_out():
+    from client.game.profile import item_name_problems
+
+    problems = item_name_problems(
+        {"catalyst": "massive coal nugget", "mortar": "iron mortar"}
+    )
+    assert len(problems) == 1
+    assert problems[0].startswith("catalyst 'massive coal nugget' is three words")
+    assert item_name_problems({"catalyst": "coal nugget", "pestle": ""}) == []

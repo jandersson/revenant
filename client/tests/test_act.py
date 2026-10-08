@@ -128,3 +128,10 @@ def test_unknown_steps_a_tally_when_one_is_passed():
     act.unknown(s, "hunt", "bob", "Something new.", tally)
     act.unknown(s, "hunt", "bob", "Something newer.")
     assert tally.unrecognized == 3
+
+
+def test_missing_knows_the_parsers_refusal_of_a_three_word_name():
+    # 2026-10-08: an item is ADJECTIVE NOUN, never three words — `get my
+    # massive coal nugget` answered this, and a script read it as a GET
+    # that worked (#488).
+    assert act.missing("Please rephrase that command.")

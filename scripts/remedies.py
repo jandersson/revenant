@@ -111,6 +111,7 @@ from client.game.remedies import (
     unsold,
     uses,
 )
+from client.game.profile import item_name_problems
 from client.game.workorders import (
     clear_open,
     ledger_lines,
@@ -249,6 +250,10 @@ SKILL = "Alchemy"
 MAX_CRUSHES = 400  # the fuse under the loop
 MISSES = 3  # unrecognized CRUSH answers before the run ends
 REFUSALS = 2  # "Crush what?" answers in a row before the run ends
+# "You need another catalyst" answers in a row after a fetch that put
+# nothing in: a catalyst the game cannot GET looped for seven minutes
+# on 2026-10-08 (#488).
+CATALYST_TRIES = 2
 STUDIES = 2  # STUDYs per remedy before the recipe is called wrong
 DEFAULT_MASTER = "lanshado"
 DEFAULT_HALL = "8860"  # the Crossing Alchemy Society's Tool Shop
@@ -485,6 +490,7 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
     misses = 0
     studies = 1
     refused = 0
+    catalyst_tries = 0
     if not started:
         fetched = fetch_into_mortar(s, herb, "herb")
         if isinstance(fetched, str):
@@ -535,6 +541,8 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
         tally["crushes"] += 1
         tally["crush_seconds"] = tally.get("crush_seconds", 0) + roundtime_of(answer)
         outcome = classify(answer, CRUSH_OUTCOMES)
+        if outcome != "need catalyst":
+            catalyst_tries = 0
         if outcome == "tool worn":
             first = (answer.strip().splitlines() or ["(silence)"])[0]
             s.echo(
@@ -568,6 +576,13 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
                 return f"dried {extra}"
         elif outcome == "need catalyst":
             started = True
+            catalyst_tries += 1
+            if catalyst_tries > CATALYST_TRIES:
+                s.echo(
+                    f"remedies: the {catalyst} does not go in — CRUSH asks for a "
+                    f"catalyst {catalyst_tries} times over; stopping (#488)"
+                )
+                return "catalyst"
             if not catalyst:
                 s.echo(
                     "remedies: the remedy wants a catalyst and the profile names none "
@@ -1537,6 +1552,8 @@ def run(s, options):
         return
     profile = profile_of(s)
     name_tools(profile)
+    for problem in item_name_problems(profile):
+        s.echo(f"remedies: {problem}")
     if options["merge"]:
         clear_hands(s, profile)
         merge_herbs(s)

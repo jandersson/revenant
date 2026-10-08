@@ -2078,3 +2078,36 @@ def test_the_tools_are_named_whole_from_the_profile():
     # whole name, 2026-10-06); every GET, STOW, PUT and LOOK names the tool.
     bare = [c for c in fake.sent if "my mortar" in c or "my pestle" in c]
     assert bare and all(c.startswith("crush ") for c in bare)
+
+
+def test_a_catalyst_the_game_cannot_get_stops_the_craft_not_a_loop():
+    # 2026-10-08 18:07–18:14 (#488): the profile named "massive coal
+    # nugget", the GET answered "Please rephrase that command.", the PUT
+    # and STOW failed, CRUSH asked for a catalyst again — every three
+    # seconds until stopped by hand. The name is said at the start, the
+    # GET reads as a miss, and the craft stops instead of asking again.
+    from client.game.profile import DEFAULTS, save_profile
+
+    save_profile(
+        "Lanival",
+        DEFAULTS
+        | {
+            "weapon": "scimitar",
+            "weapon_container": "scabbard",
+            "catalyst": "massive coal nugget",
+        },
+    )
+    fake = Fake(
+        {
+            "study my book": [TOO_HARD],
+            "get my massive coal nugget": ["Please rephrase that command."] * 5,
+            "crush my nemoih in my mortar with my pestle": [CRUSHED],
+            "crush my salve in my mortar with my pestle": [NEED_CATALYST] * 6,
+        },
+        mindstates=[0] * 12,
+    )
+    out = run(fake)
+    assert "catalyst 'massive coal nugget' is three words" in out
+    assert "no massive coal nugget on you" in out
+    assert fake.sent.count("get my massive coal nugget") == 1
+    assert len(crushes(fake)) == 2
