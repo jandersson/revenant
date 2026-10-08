@@ -55,8 +55,11 @@ GEM_NOUNS = frozenset(
     pearl chryso lazuli turquoise bloodstone hematite morganite sapphire agate
     carnelian diamond crystal emerald ruby tourmaline tanzanite jade ivory sunstone
     iolite beryl garnet alexandrite amethyst citrine aquamarine star-stone kunzite
-    stones spinel opal peridot andalusite chrysoprase chrysoberyl""".split()
+    stones spinel opal peridot andalusite chrysoprase chrysoberyl ichor""".split()
 )
+# `ichor`: a droplet of crystallized ichor, the ossein amalgams' gem
+# (Elanthipedia's announcement post of 2026-01-20); newer than the
+# yaml list, it went in the straw tote with the boxes (2026-10-08).
 
 # Elanthipedia's Mining page (2026-09-28): the common metals, the
 # profile's default `loot_ignore` — the rare, very rare and quest-only

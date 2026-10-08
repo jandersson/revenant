@@ -114,6 +114,9 @@ def test_each_entry_is_coins_a_box_or_an_item():
     assert loot.kind("a mud-stained iron chest") == "box"
     assert loot.kind("some waermodi stones") == "gem"
     assert loot.kind("a tiny blue moonstone") == "gem"
+    # The ossein amalgams' gem, newer than the yaml list: it went in the
+    # straw tote with the boxes (2026-10-08, #490).
+    assert loot.kind("a droplet of crystallized ichor") == "gem"
     assert loot.kind("an ilmenite runestone") == "item"
     assert loot.kind("a war club") == "item"
     # What a hunt takes: coins, gems, boxes, the profile's additions,
