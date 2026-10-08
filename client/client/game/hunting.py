@@ -486,6 +486,9 @@ class Tally:
         # is worn; False: no rope (or the bundle refused), skins stowed loose.
         self.bundle = None
         self.bundle_refusals = 0  # skins in a row BUNDLE would not start on
+        self.unskinnable = (
+            set()
+        )  # creature nouns the wiki says have no skin, said once (#494)
         self.buffs = buffs.BuffState()  # the casts (client/game/buffs.py)
         self.barb = barbarian.BarbState()  # a Barbarian's pieces (#328)
         self.last_smite = None  # clock() of the last smite that struck (#183)

@@ -485,6 +485,24 @@ def test_a_skin_the_game_fits_into_the_bundle_is_bundled_whatever_the_hands_say(
     assert not any("took no more" in text for text in arena.echoed)
 
 
+def test_a_creature_the_wiki_says_has_no_skin_is_not_skinned():
+    # #494 (2026-10-08): Cecil's hunt moves to young ogres, Skinnable=No
+    # on their page; a SKIN there answers nothing the table knows.
+    echoed = []
+    s = SimpleNamespace(
+        state=SimpleNamespace(room_creatures=["a young ogre", "a young ogre"]),
+        echo=echoed.append,
+    )
+    tally = hunting.Tally()
+    assert hunt.has_skin(s, "ogre", tally) is False
+    assert hunt.has_skin(s, "ogre", tally) is False
+    assert echoed == ["hunt: the ogre has no skin — not skinning"]  # said once
+    s.state.room_creatures = ["a rat"]
+    assert hunt.has_skin(s, "rat", tally) is True
+    s.state.room_creatures = []
+    assert hunt.has_skin(s, "thing", tally) is True  # unknown: skin as before
+
+
 def test_skinning_off_in_the_profile_skips_the_knife(travel):
     arena = _run(
         Arena({"attack": [(KILL, kill)], "loot": [NOTHING]}),

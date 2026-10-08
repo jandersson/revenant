@@ -84,3 +84,14 @@ def test_a_critter_page_says_whether_it_has_boxes():
     ) == {"blood wolf": False, "wood troll": True}
     rendered = creature_tables.render({}, {"blood wolf": False})
     assert "BOXES = {" in rendered and "'blood wolf': False," in rendered
+
+
+def test_a_critter_page_says_whether_it_can_be_skinned():
+    # #494: young ogres have no skin; the hunt reads it off the page.
+    ogre = "|Critter Name=Young Ogre\n|Skinnable=No\n|hasskin=No\n"
+    rat = "|level=1\n|Skinnable=yes\n"
+    assert creature_tables.skinnable_row("Young ogre", ogre) == ("young ogre", False)
+    assert creature_tables.skinnable_row("Rat", rat) == ("rat", True)
+    assert creature_tables.skinnable_row("Rat", "|level=1\n") is None
+    rendered = creature_tables.render({}, {}, {"young ogre": False})
+    assert "SKINNABLE = {" in rendered and "'young ogre': False," in rendered

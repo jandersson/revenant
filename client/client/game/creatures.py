@@ -18,7 +18,9 @@ fully below its MinCap, less up to its MaxCap, and nothing past it
 tools/creature_tables.py); on 2026-09-26 cougars (MaxCap 49) had
 taught Small Edged 58 and Brawling 57 nothing for five hunts (#322).
 
-`has_boxes` and `box_locks` say what the wiki knows of a creature's
+`skinnable` says whether the Critter page allows a skin (SKINNABLE),
+so ;hunt never SKINs a young ogre (#494). `has_boxes` and `box_locks`
+say what the wiki knows of a creature's
 boxes: the Critter page's Has Boxes (creatures_data.py's BOXES), and
 the Locksmithing page's ranks, cap and drop rate (boxes_data.py,
 tools/box_tables.py) — `;hunt grounds`' fallback where no box rate
@@ -26,7 +28,7 @@ is measured (#422).
 """
 
 from client.game.boxes_data import LOCKS
-from client.game.creatures_data import BOXES, CAPS
+from client.game.creatures_data import BOXES, CAPS, SKINNABLE
 
 _ARTICLES = ("a", "an", "the", "some")
 
@@ -107,6 +109,14 @@ def has_boxes(name):
     """The creature page's Has Boxes (True, False), None when no page
     of the name says (#422)."""
     found = _lookup(name, BOXES)
+    return found[1] if found else None
+
+
+def skinnable(name):
+    """The creature page's Skinnable (True, False), None when no page of
+    the name says (#494): a young ogre has no skin, and a SKIN of one
+    answers nothing the skin table knows."""
+    found = _lookup(name, SKINNABLE)
     return found[1] if found else None
 
 

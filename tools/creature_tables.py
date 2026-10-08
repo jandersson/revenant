@@ -1,6 +1,7 @@
 """Regenerate client/client/game/creatures_data.py from Elanthipedia's
 creature pages: every page that uses the Critter template, its level
-and the ranks it teaches to (MinCap, MaxCap).
+and the ranks it teaches to (MinCap, MaxCap), whether it has boxes and
+whether it can be skinned.
 
     uv run python tools/creature_tables.py
 
@@ -127,6 +128,18 @@ def boxes_row(title, text):
     return None
 
 
+def skinnable_row(title, text):
+    """(name, True/False) for a Critter page's Skinnable ("yes", "no"),
+    or None when it says neither (#494)."""
+    fields = {key.strip().lower(): value for key, value in _FIELD.findall(text)}
+    said = (fields.get("skinnable") or "").strip().lower()
+    if said.startswith("yes"):
+        return name_of(title, fields), True
+    if said.startswith("no"):
+        return name_of(title, fields), False
+    return None
+
+
 def merge(rows):
     """One entry per name: variants of one creature ("blood wolf (1)",
     "(2)") share a name, and the most generous caps are kept — the
@@ -147,7 +160,7 @@ def merge_boxes(rows):
     return dict(sorted(table.items()))
 
 
-def render(table, boxes=None):
+def render(table, boxes=None, skinnable=None):
     lines = [
         '"""Creatures and the ranks they teach to — generated, do not edit.',
         "",
@@ -157,7 +170,8 @@ def render(table, boxes=None):
         "learning below MinCap, none past MaxCap; variants of one name keep",
         "the highest MaxCap. level or MinCap is None where the page has none.",
         "BOXES maps a name to the page's Has Boxes, True when any variant",
-        "has them; a page that says neither is left out.",
+        "has them; a page that says neither is left out. SKINNABLE maps a",
+        "name to the page's Skinnable the same way (#494).",
         '"""',
         "",
         "# fmt: off",
@@ -168,6 +182,9 @@ def render(table, boxes=None):
     lines += ["}", "", "BOXES = {"]
     for name, has in (boxes or {}).items():
         lines.append(f"    {name!r}: {has!r},")
+    lines += ["}", "", "SKINNABLE = {"]
+    for name, can in (skinnable or {}).items():
+        lines.append(f"    {name!r}: {can!r},")
     lines += ["}", "# fmt: on", ""]
     return "\n".join(lines)
 
@@ -177,10 +194,13 @@ def main():
     pages = list(wikitexts(titles))
     table = merge(row for title, text in pages if (row := parse(title, text)))
     boxes = merge_boxes(row for title, text in pages if (row := boxes_row(title, text)))
-    OUT.write_text(render(table, boxes), encoding="utf-8")
+    skinnable = merge_boxes(
+        row for title, text in pages if (row := skinnable_row(title, text))
+    )
+    OUT.write_text(render(table, boxes, skinnable), encoding="utf-8")
     print(
         f"{len(titles)} pages, {len(table)} creatures with caps, "
-        f"{len(boxes)} with Has Boxes -> {OUT}"
+        f"{len(boxes)} with Has Boxes, {len(skinnable)} with Skinnable -> {OUT}"
     )
 
 

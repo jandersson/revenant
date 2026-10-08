@@ -12,7 +12,8 @@
 
 What it does
   - Walks to the ground (a map tag, a bestiary zone or a ;go2 target) with the buffs up.
-  - Fights one creature at a time: attack, skin, loot, gems and boxes stowed.
+  - Fights one creature at a time: attack, skin (never a creature the wiki says has
+    no skin), loot, gems and boxes stowed.
   - Moves room to room; a room another player hunts is theirs and is skipped.
   - Trains the `weapons` in turn: the emptiest pool first, each to `weapon_target`,
     or for `weapon_minutes` at most when a pool will not fill.
@@ -70,7 +71,7 @@ from client.game.act import (
     said,
     unknown,
 )
-from client.game.creatures import aim, aim_corpse, noun_of, outgrown
+from client.game.creatures import aim, aim_corpse, noun_of, outgrown, skinnable
 from client.game.probe import classify
 from client.game.profile import describe, load_profile
 from client.game.profile import styles as profile_styles
@@ -1297,6 +1298,23 @@ def gem_ref(s, item):
     return items.ref(s, noun_of(item)) or f"my {item}"
 
 
+def has_skin(s, corpse, tally):
+    """False when the wiki says the creature behind `corpse` (a noun)
+    cannot be skinned — its listing name looked up in SKINNABLE — said
+    once a run; True otherwise, the unknown included (#494)."""
+    names = [
+        name
+        for name in (getattr(s.state, "room_creatures", None) or [])
+        if noun_of(name) == corpse
+    ] or [corpse]
+    if not any(skinnable(name) is False for name in names):
+        return True
+    if corpse not in tally.unskinnable:
+        tally.unskinnable.add(corpse)
+        s.echo(f"hunt: the {corpse} has no skin — not skinning")
+    return False
+
+
 def skin(s, profile, corpse, tally):
     knife = profile["skin_knife"]
     if knife:
@@ -1519,7 +1537,7 @@ def dispose(s, profile, corpse, tally):
     weapon in one, the weapon is sheathed for the pickups and drawn
     again (hand_for_loot, #461)."""
     body = next_corpse(s, tally)
-    if profile["skin"]:
+    if profile["skin"] and has_skin(s, corpse, tally):
         # By ordinal past a live one of the noun listed first (#325).
         target = body or aim_corpse(
             corpse,

@@ -47,6 +47,10 @@ def test_the_wiki_says_which_creatures_have_boxes_and_for_what_ranks():
     assert creatures.has_boxes("a dour forager goblin") is True
     assert creatures.has_boxes("a blood wolf") is False  # 0 boxes in 331 searches
     assert creatures.has_boxes("a rise in the cliff") is None
+    # #494: the page's Skinnable — a young ogre has no skin, a rat does.
+    assert creatures.skinnable("a young ogre") is False
+    assert creatures.skinnable("a rat") is True
+    assert creatures.skinnable("a rise in the cliff") is None
     assert creatures.box_locks("forager goblin") == ("0", "40+", "High")
     assert creatures.box_locks("wood troll") == ("30", "55", "")
     assert creatures.box_locks("blood wolf") is None
