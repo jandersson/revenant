@@ -66,6 +66,21 @@ def _short_ask_windows(monkeypatch):
 
 
 @pytest.fixture
+def fast_clock(monkeypatch):
+    """probe's and buffs' clocks on the arena's fake clock (#501): a fake
+    handle's get and sleep advance it, so an answer window or a pattern's
+    seconds pass in no real time. Opt in per module (pytestmark) — a fake
+    whose get never advances the clock would spin forever on it."""
+    import hunt_arena
+    from client.game import buffs, probe
+
+    hunt_arena.CLOCK["now"] = 1000.0
+    monkeypatch.setattr(probe, "clock", lambda: hunt_arena.CLOCK["now"])
+    monkeypatch.setattr(buffs, "clock", lambda: hunt_arena.CLOCK["now"])
+    return hunt_arena.CLOCK
+
+
+@pytest.fixture
 def travel(monkeypatch):
     """;hunt's walk() and locate() over a hunt Arena's own idea of where
     it is (hunt_arena.py, the test_hunt*.py files): a walk lands in the

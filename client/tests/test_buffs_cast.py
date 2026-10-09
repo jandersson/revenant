@@ -3,7 +3,9 @@ into a second window before it is called unrecognized (#294)."""
 
 from types import SimpleNamespace
 
-from client.game import buffs
+import pytest
+
+from client.game import buffs, probe
 
 READY = "You feel fully prepared to cast your spell.\n"
 PREPARED = "You begin chanting a prayer to invoke the Footman's Strike spell.\n"
@@ -12,6 +14,16 @@ PREPARED = "You begin chanting a prayer to invoke the Footman's Strike spell.\n"
 # stream went quiet, and the spell's own line landed after the window.
 APPROACH = "The cougar closes to melee range on you!\n"
 STRUCK = "Your spell slams into the cougar!\n"
+
+
+NOW = {"now": 1000.0}  # the fake clock probe and buffs read here (#501)
+
+
+@pytest.fixture(autouse=True)
+def _fast_clock(monkeypatch):
+    NOW["now"] = 1000.0
+    monkeypatch.setattr(probe, "clock", lambda: NOW["now"])
+    monkeypatch.setattr(buffs, "clock", lambda: NOW["now"])
 
 
 class Handle:
@@ -24,10 +36,13 @@ class Handle:
         self.sent.append(command)
 
     def get(self, timeout=None, streams=("",)):
-        return self.pending.pop(0) if self.pending else None
+        if self.pending:
+            return self.pending.pop(0)
+        NOW["now"] += timeout or 0.5
+        return None
 
     def sleep(self, seconds):
-        pass
+        NOW["now"] += seconds
 
     def waitrt(self):
         pass

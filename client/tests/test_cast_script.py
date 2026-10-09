@@ -136,7 +136,7 @@ def learning(mindstate):
 def test_one_pass_powers_charges_and_casts_the_first_buff_then_returns(monkeypatch):
     now = [1000.0]
     monkeypatch.setattr(script, "clock", lambda: now[0])
-    monkeypatch.setattr(buffs, "monotonic", lambda: now[0])
+    monkeypatch.setattr(buffs, "clock", lambda: now[0])
     fake = Fake(ANSWERS, learning(10))
     fake.commands = [None, "return"]
     script.run(fake, [], PROFILE)
@@ -160,7 +160,7 @@ def test_one_pass_powers_charges_and_casts_the_first_buff_then_returns(monkeypat
 def test_nopower_and_a_spell_of_your_own_skip_the_perceive(monkeypatch):
     now = [1000.0]
     monkeypatch.setattr(script, "clock", lambda: now[0])
-    monkeypatch.setattr(buffs, "monotonic", lambda: now[0])
+    monkeypatch.setattr(buffs, "clock", lambda: now[0])
     fake = Fake(ANSWERS, learning(10))
     fake.commands = [None, "return"]
     script.run(fake, ["nopower", "spell=aspirant's aegis", "skill=Warding"], PROFILE)
@@ -172,7 +172,7 @@ def test_nopower_and_a_spell_of_your_own_skip_the_perceive(monkeypatch):
 def test_the_lock_ends_a_once_run_and_holds_otherwise(monkeypatch):
     now = [1000.0]
     monkeypatch.setattr(script, "clock", lambda: now[0])
-    monkeypatch.setattr(buffs, "monotonic", lambda: now[0])
+    monkeypatch.setattr(buffs, "clock", lambda: now[0])
     locked = Fake(ANSWERS, learning(34))
     script.run(locked, ["once"], PROFILE)
     assert locked.sent == []
@@ -209,7 +209,7 @@ def test_a_stop_mid_cycle_puts_the_piece_back_on_the_way_out(monkeypatch):
     # worn piece, STOW otherwise.
     now = [1000.0]
     monkeypatch.setattr(script, "clock", lambda: now[0])
-    monkeypatch.setattr(buffs, "monotonic", lambda: now[0])
+    monkeypatch.setattr(buffs, "clock", lambda: now[0])
     fake = StopAfterCharge(ANSWERS, learning(10))
     with pytest.raises(ScriptStopped):
         script.run(fake, ["nopower"], PROFILE)
@@ -273,7 +273,7 @@ def test_a_song_playing_stops_the_run_with_the_reason(monkeypatch):
     # Captured 2026-09-20 on the gondola with ;perform running.
     now = [1000.0]
     monkeypatch.setattr(script, "clock", lambda: now[0])
-    monkeypatch.setattr(buffs, "monotonic", lambda: now[0])
+    monkeypatch.setattr(buffs, "clock", lambda: now[0])
     busy = dict(ANSWERS, power=["You are a bit too busy performing to do that.\n"])
     fake = Fake(busy, learning(10))
     script.run(fake, [], PROFILE)
@@ -292,7 +292,7 @@ def test_with_no_skill_named_every_skill_of_the_buffs_takes_its_turn(monkeypatch
     # not kept up — only training casts go out standing still.
     now = [1000.0]
     monkeypatch.setattr(script, "clock", lambda: now[0])
-    monkeypatch.setattr(buffs, "monotonic", lambda: now[0])
+    monkeypatch.setattr(buffs, "clock", lambda: now[0])
     fake = Fake(ANSWERS, learning(10))
     fake.commands = [None, "return"]
     profile = {

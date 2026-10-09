@@ -236,7 +236,10 @@ class Arena:
                 return
 
     def get(self, timeout=None, streams=("",)):
-        return self.pending.pop(0) if self.pending else None
+        if self.pending:
+            return self.pending.pop(0)
+        CLOCK["now"] += timeout or 0.5  # the wait a real socket would have cost
+        return None
 
     def echo(self, text):
         self.echoed.append(text)
@@ -248,7 +251,13 @@ class Arena:
         pass
 
     def sleep(self, seconds):
-        pass
+        CLOCK["now"] += seconds
+
+
+# The arena's clock (#501): a test that takes the `fast_clock` fixture
+# has probe and buffs read it, so a window or a pattern's seconds pass
+# as the fake's get and sleep advance it, in no real time.
+CLOCK = {"now": 1000.0}
 
 
 def kill(arena):

@@ -107,6 +107,9 @@ def roundtime_open(s):
     return (getattr(state, "roundtime", 0) or 0) > seen
 
 
+clock = time.monotonic  # tests replace it (#501)
+
+
 def collect(s, seconds, until=None, prompts_from=None, quiet=None):
     """Every main-stream line that arrives within the window, joined
     with newlines ("" when nothing does). A line containing `until`
@@ -127,24 +130,24 @@ def collect(s, seconds, until=None, prompts_from=None, quiet=None):
     quiet = QUIET_SECONDS if quiet is None else quiet
     lines = []
     partial = ""
-    deadline = time.monotonic() + seconds
+    deadline = clock() + seconds
     last_piece = None
     answered = False  # a line past the creatures' attacks and the players'
     watching = prompts_from is not None
     state = getattr(s, "state", None)
     names = tuple(getattr(state, "room_players", None) or ()) if watching else ()
-    while time.monotonic() < deadline:
+    while clock() < deadline:
         piece = s.get(timeout=0.1 if watching else 0.5, streams=STORY_STREAMS)
         if piece is None:
             if (
                 watching
                 and answered
                 and (_prompts(s) or 0) > prompts_from
-                and time.monotonic() - last_piece >= quiet
+                and clock() - last_piece >= quiet
             ):
                 break
             continue
-        last_piece = time.monotonic()
+        last_piece = clock()
         partial += piece
         if not partial.endswith("\n"):
             continue

@@ -3,6 +3,8 @@ mana ramp with the cambrinth, and the debilitation cast at the prey —
 one cast per swing at most, never idling for a pattern. Arena and
 wordings: hunt_arena.py; the targeted attack spell is test_hunt_targeted.py."""
 
+import pytest
+
 from client.game import buffs
 
 from hunt_arena import (
@@ -30,6 +32,10 @@ from hunt_arena import (
     kill,
     prepares,
 )
+
+pytestmark = pytest.mark.usefixtures(
+    "fast_clock"
+)  # the windows pass on a fake clock (#501)
 
 
 # --- buffs -------------------------------------------------------------------
@@ -344,7 +350,7 @@ def test_the_profile_cast_gap_paces_the_training_casts(travel, monkeypatch):
     # profile's cast_gap (60 s by default) spaces the casts; 0 casts
     # before every swing.
     now = {"t": 1000.0}
-    monkeypatch.setattr(buffs, "monotonic", lambda: now["t"])
+    monkeypatch.setattr(buffs, "clock", lambda: now["t"])
     original_ask = hunt.ask
 
     def ask(s, command):

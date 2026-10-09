@@ -5,6 +5,9 @@ for the run when the ranks cannot carry it. Arena and wordings:
 hunt_arena.py."""
 
 from types import SimpleNamespace
+
+import pytest
+
 from client.game import buffs
 
 from hunt_arena import (
@@ -31,6 +34,10 @@ from hunt_arena import (
     kill,
     prepares,
 )
+
+# The pattern's seconds and the answer windows pass on the arena's fake
+# clock (#501): the 20 s test became milliseconds.
+pytestmark = pytest.mark.usefixtures("fast_clock")
 
 
 # --- targeted magic ----------------------------------------------------------

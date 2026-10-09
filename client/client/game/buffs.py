@@ -141,9 +141,12 @@ import re
 from pathlib import Path
 from time import monotonic
 
+
 from client.game import probe
 from client.game.act import whole_answer
 from client.game.probe import classify
+
+clock = monotonic  # tests replace it (#501)
 
 MIND_LOCK = 34
 PREPARE_SECONDS = 8  # from "begin chanting" to a castable pattern
@@ -332,7 +335,7 @@ class BuffState:
     """What one run remembers about its casts."""
 
     def __init__(self):
-        self.cast_at = {}  # buff -> monotonic() of its last cast
+        self.cast_at = {}  # buff -> clock() of its last cast
         self.buffs_off = set()  # buffs that refused this run
         # The training ramps, one per buff (#374): the next training
         # cast's mana (0 is the minimum), one step under the strain once
@@ -346,7 +349,7 @@ class BuffState:
         self.cambrinth_skip = set()
         self.training_spells_off = set()  # buffs whose minimum failed this run
         self.training_off = False  # no buff is left to train with this run
-        self.trained_at = None  # monotonic() of the last training cast
+        self.trained_at = None  # clock() of the last training cast
         self.spell_skills = None  # spell -> its skills, loaded on first use
         self.unmatched = set()  # named skills no buff trains, said once
         self.cambrinth_off = False  # the piece refused this run, said once
@@ -570,7 +573,7 @@ def buff_running(s, spell, state):
     if isinstance(active, dict):
         return spell.lower() in {name.lower() for name in active}
     cast = state.cast_at.get(spell)
-    return cast is not None and monotonic() - cast < BUFF_MINUTES * 60
+    return cast is not None and clock() - cast < BUFF_MINUTES * 60
 
 
 def fetch_command(profile):
@@ -825,7 +828,7 @@ def cast_once(
         if invoke:
             ask(s, put_back or f"stow my {invoke}")
         return "refused"
-    started = monotonic()
+    started = clock()
     ready = "fully prepared"
     if targeted:
         # With no prey noun, the engaged foe by its crtrStatus id (#456):
@@ -871,7 +874,7 @@ def cast_once(
     # The pattern's own time, read off the state the PREPARE set, is the
     # ceiling — far past PREPARE_SECONDS — and the ready line ends the
     # wait early.
-    remaining = max(PREPARE_SECONDS - (monotonic() - started), cast_left(s))
+    remaining = max(PREPARE_SECONDS - (clock() - started), cast_left(s))
     if remaining > 0:
         probe.collect(s, remaining, until=ready)
     if invoke:
@@ -915,7 +918,7 @@ def cast_once(
         return "collapsed"
     if cast is None:
         report("cast", answer)
-    state.cast_at[spell] = monotonic()
+    state.cast_at[spell] = clock()
     return "strained" if outcome == "strain" else "ok"
 
 
@@ -933,7 +936,7 @@ def training_cast_due(s, profile, state):
     if mana is not None and mana < MANA_FLOOR:
         return False
     last = state.trained_at
-    return last is None or monotonic() - last >= cast_gap(profile)
+    return last is None or clock() - last >= cast_gap(profile)
 
 
 def cast_gap(profile):
@@ -958,7 +961,7 @@ def targeted_due(s, profile, state, slot):
     if mana is not None and mana < MANA_FLOOR:
         return False
     last = state.cast_at.get(spell)
-    return last is None or monotonic() - last >= cast_gap(profile)
+    return last is None or clock() - last >= cast_gap(profile)
 
 
 def next_cast(s, profile, state):
@@ -1280,7 +1283,7 @@ def cast_buffs(
         cast = True
         if training:
             state.last_training = "buff"
-            state.trained_at = monotonic()
+            state.trained_at = clock()
         if result == "refused":
             s.echo(f"{prefix}: cannot prepare {spell} — off for this run")
             state.buffs_off.add(spell)
