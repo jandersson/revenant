@@ -425,7 +425,10 @@ def tend_due(s, plan):
     if not room or s.dead or s.is_running("plant") or hostiles_present(s.state):
         return None
     name = getattr(s.state, "name", None) or ""
-    if not plant.tend_due(name, room, os.getpid(), now=clock()):
+    # plant reads its own wall clock: this loop's clock() is monotonic
+    # and the record is wall-clock time, so passing it here meant the
+    # tend was never due (three sessions, no tend; #491).
+    if not plant.tend_due(name, room, os.getpid()):
         return None
     if "tended" in KEPT and clock() - KEPT["tended"] < plant.TEND_MINUTES * 60:
         return None

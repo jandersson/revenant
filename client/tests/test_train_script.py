@@ -1218,17 +1218,28 @@ def test_between_tasks_the_plant_is_tended_twenty_minutes_after_its_cast(
     monkeypatch.setattr(train, "KEPT", {})
     fake = Fake(exits={"plant": 10})
     clock["fake"] = fake
-    fake.now = time.time()  # the recast check reads the wall clock
-    plant.record("Lanival", "7890", 62, os.getpid(), now=fake.now)
+    # Two clocks, as in a session: the loop's is monotonic (seconds since
+    # boot), the plant record's is wall-clock time. With one fake for
+    # both, the loop passing its clock into the record's check went
+    # unnoticed and the tend was never due live (#491).
+    fake.now = 1000.0
+    wall = {"now": time.time()}
+    monkeypatch.setattr(plant, "clock", lambda: wall["now"])
+
+    def pass_minutes(minutes):
+        fake.now += minutes * 60
+        wall["now"] += minutes * 60
+
+    plant.record("Lanival", "7890", 62, os.getpid())
     assert train.keep_plant(fake, plan(keep_plant="7890")) is False  # fresh
-    fake.now += plant.TEND_MINUTES * 60
+    pass_minutes(plant.TEND_MINUTES)
     assert train.keep_plant(fake, plan(keep_plant="7890")) is True
     assert fake.started == [("plant", ["tend", "7890"])]
     assert (
         "train: the vela'tohr plant at 7890 is tended — ;plant tend 7890" in fake.echoed
     )
     assert train.keep_plant(fake, plan(keep_plant="7890")) is False  # just tended
-    fake.now += plant.TEND_MINUTES * 60
+    pass_minutes(plant.TEND_MINUTES)
     assert train.keep_plant(fake, plan(keep_plant="7890")) is True
     assert len(fake.started) == 2
 

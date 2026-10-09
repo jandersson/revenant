@@ -21,6 +21,11 @@ import json
 import re
 import time
 
+# The record's times are wall-clock seconds, so every check against it
+# reads this clock, never a loop's monotonic one: ;train passed its
+# monotonic clock to tend_due and the tend was never due (#491).
+clock = time.time  # tests replace it
+
 SPELL = "ev"
 MANA = 500  # Riphik's cast of 2026-10-04: sixty-two roisaen
 FOCUS = "phial"
@@ -122,7 +127,7 @@ def record(name, room, minutes, session, now=None):
         json.dumps(
             {
                 "room": str(room),
-                "cast": time.time() if now is None else now,
+                "cast": clock() if now is None else now,
                 "minutes": int(minutes),
                 "session": session,
             }
@@ -145,7 +150,7 @@ def note_tend(name, now=None):
     mark = load(name)
     if not isinstance(mark, dict):
         mark = {}
-    mark["tended"] = time.time() if now is None else now
+    mark["tended"] = clock() if now is None else now
     path = record_path(name)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(mark), encoding="utf-8")
@@ -157,7 +162,7 @@ def note_no_focus(name, now=None):
     mark = load(name)
     if not isinstance(mark, dict):
         mark = {}
-    mark["no_focus"] = time.time() if now is None else now
+    mark["no_focus"] = clock() if now is None else now
     path = record_path(name)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(mark), encoding="utf-8")
@@ -183,7 +188,7 @@ def tend_due(name, room, session, now=None, minutes=TEND_MINUTES):
         last = float(mark.get("tended") or mark["cast"])
     except (KeyError, TypeError, ValueError):
         return False
-    now = time.time() if now is None else now
+    now = clock() if now is None else now
     return now >= last + 60 * minutes
 
 
@@ -200,5 +205,5 @@ def due(name, room, session, now=None, margin=MARGIN_MINUTES):
         ends = float(mark["cast"]) + 60 * int(mark["minutes"])
     except (KeyError, TypeError, ValueError):
         return True
-    now = time.time() if now is None else now
+    now = clock() if now is None else now
     return now >= ends - 60 * margin
