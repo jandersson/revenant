@@ -84,6 +84,42 @@ def test_a_recognized_answer_opens_no_second_window(monkeypatch):
 NOT_PREPARED = "You don't have a spell prepared!\n"
 
 
+def test_a_cast_while_stunned_waits_the_stun_out_and_casts_again(monkeypatch):
+    # #498 (Cecil at the young ogres, 2026-10-09 10:26 and 12:31): the
+    # swarm's stun; the CAST answered nothing the table knew.
+    monkeypatch.setattr(buffs, "CAST_TAIL_SECONDS", 0.6)
+    handle = Handle([READY])
+    handle.status = SimpleNamespace(stunned=True)
+    casts = ["You are still stunned.\n", STRUCK]
+    reported = []
+    slept = []
+
+    def ask(s, command):
+        s.sent.append(command)
+        if command == "cast":
+            return casts.pop(0)
+        return PREPARED if command.startswith("prepare") else ""
+
+    def sleep(seconds):
+        slept.append(seconds)
+        if len(slept) >= 3:
+            handle.status.stunned = False
+
+    handle.sleep = sleep
+    outcome = buffs.cast_once(
+        handle,
+        "footman's strike",
+        5,
+        SimpleNamespace(cast_at={}),
+        ask,
+        lambda kind, answer: reported.append((kind, answer)),
+    )
+    assert outcome == "ok"
+    assert reported == []
+    assert handle.sent.count("cast") == 2
+    assert len(slept) == 3  # waited until the indicator cleared, then cast
+
+
 def test_a_cast_with_nothing_prepared_is_a_failed_cast_not_a_mystery(monkeypatch):
     monkeypatch.setattr(buffs, "CAST_TAIL_SECONDS", 0.6)
     handle = Handle([READY])

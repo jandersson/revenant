@@ -187,7 +187,15 @@ PREPARE_OUTCOMES = (
     ("held", ("already fully prepared",)),
     ("ok", ("you begin", "gathering energy", "prepar")),
 )
+# A CAST sent while stunned (the ogres' swarm, 2026-10-09, #498): nothing
+# went out and the pattern is still held — the stun is waited out and
+# the CAST sent again, as the hunt's swing reader does since #336.
+STILL_STUNNED = ("you are still stunned",)
+STUN_WAIT = 20  # seconds a cast waits for a stun to pass
+STUN_POLL = 0.5
+
 CAST_OUTCOMES = (
+    ("stunned", STILL_STUNNED),
     # The foe died under the filler swing ("The striped badger is already
     # dead, so that's a bit pointless.", captured 2026-09-20, #252; "Your
     # target pattern dissipates because the small grendel is dead, but
@@ -738,6 +746,18 @@ def foe_ref(s):
     return f"#{pick[0]}" if pick else None
 
 
+def wait_stun(s):
+    """Sleep while the status indicator says stunned, STUN_WAIT seconds at
+    most (#498). A handle without the status (a test's) waits none."""
+    waited = 0.0
+    while waited < STUN_WAIT and not getattr(s, "dead", False):
+        status = getattr(s, "status", None)
+        if not getattr(status, "stunned", False):
+            return
+        s.sleep(STUN_POLL)
+        waited += STUN_POLL
+
+
 def cast_once(
     s,
     spell,
@@ -862,8 +882,14 @@ def cast_once(
             # its charge (2026-10-04). Off again for the INVOKE.
             ask(s, f"remove my {invoke}")
             ask(s, f"invoke my {invoke}")
-    answer = ask(s, f"cast {target}" if target and not targeted else "cast")
+    command = f"cast {target}" if target and not targeted else "cast"
+    answer = ask(s, command)
     cast = classify(answer, CAST_OUTCOMES)
+    if cast == "stunned":
+        # Nothing went out (#498): the stun waited out, the CAST again.
+        wait_stun(s)
+        answer = ask(s, command)
+        cast = classify(answer, CAST_OUTCOMES)
     if cast is None:
         # A bystander's line closed the window before the cast's own
         # ("The cougar closes to melee range on you!" with its prompt,
