@@ -12,6 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import hunt_arena
 from client.game import trainer
 from client.game.mapdb import MapDB
 
@@ -28,6 +29,9 @@ def _athletics():
 
 
 athletics = _athletics()
+
+
+pytestmark = pytest.mark.usefixtures("fast_clock")  # the arena's clock (#501)
 
 
 class LoopDone(Exception):
@@ -70,7 +74,10 @@ class FakeHandle:
         self.calls.append(("put", command))
 
     def get(self, timeout=None, streams=("",)):
-        return self.lines.pop(0) if getattr(self, "lines", None) else None
+        if getattr(self, "lines", None):
+            return self.lines.pop(0)
+        hunt_arena.CLOCK["now"] += timeout or 0.5  # the wait a socket would cost
+        return None
 
     def waitrt(self):
         self.calls.append(("waitrt",))

@@ -7,9 +7,11 @@ dr-scripts' lines; the timers survive a restart."""
 
 import importlib.util
 import pathlib
-import time
 from types import SimpleNamespace
 
+import pytest
+
+import hunt_arena
 from client.game import soul
 from client.game.mapdb import MapDB
 
@@ -30,11 +32,15 @@ script.FOCUS_SECONDS = 0.01
 script.GUARD_SECONDS = 0.01
 script.BADGE_SECONDS_ANSWER = 0.01
 # The waits end on their `until` line, and the fake's second answer
-# comes LATER (0.3 s) after the first, so a second is a ceiling only the
-# negative cases reach; at 3 s it was the suite's wall (2026-09-20).
-script.SCENE_SECONDS = 1.0
-script.PRAYER_WAIT = 1.0
-LATER = 0.3  # seconds before an answer's second part arrives
+# comes LATER after the first. The windows pass on the arena's fake
+# clock (#501), which every empty get advances by half a second, so
+# a negative case costs no real time; LATER sits past the ask's two
+# empty gets (its window and its tail) and inside the scene's.
+script.SCENE_SECONDS = 4.0
+script.PRAYER_WAIT = 4.0
+LATER = 1.5  # fake seconds before an answer's second part arrives
+
+pytestmark = pytest.mark.usefixtures("fast_clock")  # the arena's clock (#501)
 
 MAP = MapDB(
     [
@@ -124,7 +130,7 @@ class Fake:
         self.echoed = []
         self.walks = []
         self.pending = []
-        self.later = None  # (monotonic time, lines)
+        self.later = None  # (arena clock time, lines)
         self.dead = False
         self.args = []
         self.commands = []
@@ -151,7 +157,7 @@ class Fake:
                 self.pending = [line + "\n" for line in now.splitlines()]
                 if later:
                     self.later = (
-                        time.monotonic() + LATER,
+                        hunt_arena.CLOCK["now"] + LATER,
                         [line + "\n" for line in later.splitlines()],
                     )
                 return
@@ -159,11 +165,10 @@ class Fake:
     def get(self, timeout=None, streams=("",)):
         if timeout == 0:
             return None
-        if not self.pending and self.later and time.monotonic() >= self.later[0]:
+        if not self.pending and self.later and hunt_arena.CLOCK["now"] >= self.later[0]:
             self.pending, self.later = self.later[1], None
         if not self.pending:
-            if timeout:
-                time.sleep(min(timeout, 0.02))
+            hunt_arena.CLOCK["now"] += timeout or 0.5  # the wait a socket would cost
             return None
         return self.pending.pop(0)
 

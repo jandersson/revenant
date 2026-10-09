@@ -192,7 +192,9 @@ def test_danger_ends_the_run():
 
 
 def test_the_exp_window_without_the_skill_is_asked_and_seeded():
-    fake = Fake(mindstates=[])
+    # The seed never moves (no mindstates), so a typed return ends the
+    # run after one appraisal rather than MAX_LAPS ten-minute waits.
+    fake = Fake(mindstates=[], stop_after=1)
     fake.state.experience = {}
     run(fake, ["once"])
     assert fake.sent[0] == "exp appraisal"
@@ -311,10 +313,14 @@ def test_a_stop_with_a_pouch_in_hand_puts_it_back():
 
 def test_a_named_item_inside_a_container_is_said_and_dropped():
     # appraisal_items naming a pouch in the pack: refused where it lies.
-    fake = Fake(mindstates=[1, 5, 5, 5], possessions=[])
-    fake.ask = lambda s, command, *_: (
-        fake.sent.append(command) or (IN_THERE if "second" in command else CERTAIN)
-    )
+    fake = Fake(mindstates=[1, 5, 5, 5], possessions=[], stop_after=1)
+
+    def ask(s, command, *_):
+        fake.sent.append(command)
+        fake.appraised += 1  # the typed return comes after the first
+        return IN_THERE if "second" in command else CERTAIN
+
+    fake.ask = ask
     out = run(fake, ["items=second pouch,shield", "once"])
     assert "the second pouch is inside a container" in out
 

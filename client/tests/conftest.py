@@ -69,8 +69,10 @@ def _short_ask_windows(monkeypatch):
 def fast_clock(monkeypatch):
     """probe's and buffs' clocks on the arena's fake clock (#501): a fake
     handle's get and sleep advance it, so an answer window or a pattern's
-    seconds pass in no real time. Opt in per module (pytestmark) — a fake
-    whose get never advances the clock would spin forever on it."""
+    seconds pass in no real time. A script's own wait loop reads
+    probe.clock() for the same reason (soul's hear_out, empath's
+    exchange). Opt in per module (pytestmark) — a fake whose get never
+    advances the clock would spin forever on it."""
     import hunt_arena
     from client.game import buffs, probe
 

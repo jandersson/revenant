@@ -115,7 +115,7 @@ def answering():
 def test_answer_returns_the_story_lines_after_the_echo_and_not_the_replay(answering):
     port, got, thread = answering
     result = send(
-        "tdp", port=port, origin="claude", settings=SHUT, environ=NO_ENV, answer=1.5
+        "tdp", port=port, origin="claude", settings=SHUT, environ=NO_ENV, answer=0.5
     )
     thread.join(5)
     assert result.sent
@@ -130,7 +130,7 @@ def test_the_console_script_prints_the_answer(monkeypatch, capsys, answering):
     port, got, thread = answering
     monkeypatch.setenv("REVENANT_ALLOW_SEND", "0")
     code = sendcmd.main(
-        ["--port", str(port), "--origin", "claude", "--answer", "1.5", "tdp"]
+        ["--port", str(port), "--origin", "claude", "--answer", "0.5", "tdp"]
     )
     thread.join(5)
     out = capsys.readouterr().out
@@ -345,7 +345,7 @@ def talker():
                     + frame("", "attached")
                     + frame("The girl runs past.\n")
                 )
-                sleep(1.0)
+                sleep(0.5)
                 conn.sendall(frame("The girl's breath comes in ragged pants.\n"))
                 while conn.recv(4096):
                     pass

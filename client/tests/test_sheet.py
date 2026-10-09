@@ -10,6 +10,7 @@ import sqlite3
 
 import pytest
 
+import hunt_arena
 from client.engine.core import Engine
 
 REPO = pathlib.Path(__file__).parents[2]
@@ -79,6 +80,9 @@ def test_parse_exp_all_reads_both_columns():
     assert "SKILL" not in skills  # the header row never parses as a skill
 
 
+pytestmark = pytest.mark.usefixtures("fast_clock")  # the arena's clock (#501)
+
+
 class Stopped(Exception):
     """What ;stop does to a script blocked on its command queue."""
 
@@ -112,7 +116,10 @@ class FakeHandle:
         raise Stopped()
 
     def get(self, timeout=None, streams=("",)):
-        return self.pending.pop(0) if self.pending else None
+        if self.pending:
+            return self.pending.pop(0)
+        hunt_arena.CLOCK["now"] += timeout or 0.5  # the wait a socket would cost
+        return None
 
     def echo(self, text):
         self.echoed.append(text)
@@ -841,6 +848,8 @@ def test_sheet_info_from_cold_records_info_and_exits(monkeypatch, tmp_path):
     handle = FakeHandle({"info": [INFO_TEXT.splitlines(keepends=True)]})
     handle.args = ["info"]
     monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
+    # INFO has no last line (INFO_END is None): its window is waited out.
+    monkeypatch.setattr(sheet, "COLLECT_SECONDS", 0.05)
     sheet.main(handle)
     assert handle.sent == ["info"]
     assert any("sheet: INFO for" in line for line in handle.echoed)

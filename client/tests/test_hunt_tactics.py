@@ -2,6 +2,8 @@
 Tactics is unlocked (#190), and one HUNT for tracks per empty room while
 Perception is (#194). Arena and wordings: hunt_arena.py."""
 
+import pytest
+
 from client.game import hunting
 from hunt_arena import (
     Arena,
@@ -21,6 +23,8 @@ from hunt_arena import (
     hunt,
     kill,
 )
+
+pytestmark = pytest.mark.usefixtures("fast_clock")  # the arena's clock (#501)
 
 
 # --- tracks ------------------------------------------------------------------

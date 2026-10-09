@@ -29,9 +29,7 @@ When it stops
 client/game/empathy.py is the model; docs/healing.md covers healing.
 """
 
-import time
-
-from client.game import buffs
+from client.game import buffs, probe
 from client.game.act import ask
 from client.game.empathy import (
     AVOIDED,
@@ -142,8 +140,8 @@ def exchange(s, command, until, seconds):
         pass  # what arrived before the command is not its answer
     s.put(command)
     lines = []
-    deadline = time.monotonic() + seconds
-    while time.monotonic() < deadline:
+    deadline = probe.clock() + seconds
+    while probe.clock() < deadline:
         piece = s.get(timeout=0.5, streams=STREAMS)
         if piece is None:
             continue
@@ -197,15 +195,15 @@ def take_everything(s, patient):
         pass
     s.put(f"take {patient} everything")
     lines, healed = [], 0
-    now = time.monotonic()
+    now = probe.clock()
     deadline, quiet = now + EVERYTHING_SECONDS, now + EVERYTHING_QUIET
-    while time.monotonic() < min(deadline, quiet):
+    while probe.clock() < min(deadline, quiet):
         piece = s.get(timeout=0.5, streams=STREAMS)
         if piece is None:
             continue
         text = piece[1] if isinstance(piece, tuple) else piece
         lines.append(text)
-        quiet = time.monotonic() + EVERYTHING_QUIET
+        quiet = probe.clock() + EVERYTHING_QUIET
         lowered = text.lower()
         if any(word in lowered for word in FATAL):
             s.echo(f"empath: {text.strip()} — the heal stops here")

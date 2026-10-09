@@ -545,9 +545,9 @@ def start_song(s, song, instrument, timers):
 def hear_out(s):
     """The story until the song ends, the soul's line after it
     included: (text, ended). Danger ends the wait (ended False)."""
-    deadline = time.monotonic() + SONG_WAIT
+    deadline = probe.clock() + SONG_WAIT
     heard = []
-    while time.monotonic() < deadline:
+    while probe.clock() < deadline:
         text = probe.collect(s, 1)
         heard.append(text)
         if any(word in text.lower() for word in ENDED + STOPPED):

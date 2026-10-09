@@ -57,7 +57,7 @@ jobs:
       # tests_gui/ (offscreen PyQt6).
       - name: Test with pytest
         working-directory: client
-        run: uv run pytest
+        run: uv run pytest --durations=15
 
       - name: Test beholder with pytest
         working-directory: beholder

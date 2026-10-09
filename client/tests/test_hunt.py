@@ -48,6 +48,8 @@ from hunt_arena import (
     kill,
 )
 
+pytestmark = pytest.mark.usefixtures("fast_clock")  # the arena's clock (#501)
+
 
 def test_readies_the_weapon_and_stance_walks_to_the_ground_then_hunts(travel):
     arena = _run(

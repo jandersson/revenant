@@ -7,6 +7,9 @@ import importlib.util
 import pathlib
 from types import SimpleNamespace
 
+import pytest
+
+import hunt_arena
 from test_empathy import TOUCH_CLEAN
 
 REPO = pathlib.Path(__file__).parents[2]
@@ -53,6 +56,9 @@ CLEAN = "Your body feels at full strength.\nYou have no significant injuries.\n"
 HEALED = "You gesture.\nThe external wounds on your {part} appear completely healed.\n"
 
 
+pytestmark = pytest.mark.usefixtures("fast_clock")  # the arena's clock (#501)
+
+
 class Fake:
     """A handle: put() queues the answer for the command's prefix (a list
     is consumed in order); get() hands its lines out; ask() answers at
@@ -78,7 +84,10 @@ class Fake:
         self.pending = self._answer(command).splitlines(keepends=True)
 
     def get(self, timeout=None, streams=("",)):
-        return self.pending.pop(0) if self.pending else None
+        if self.pending:
+            return self.pending.pop(0)
+        hunt_arena.CLOCK["now"] += timeout or 0.5  # the wait a socket would cost
+        return None
 
     def ask(self, s, command, *_):
         return self._answer(command)
