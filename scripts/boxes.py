@@ -15,7 +15,7 @@
 What it does
   - Sits, takes off the `hindering_gear`, and per box: DISARM, PICK, OPEN, empty, DISMANTLE.
   - Puts back a trap reading "longshot" or worse unless it is a nuisance trap;
-    a deadly or unknown one always.
+    a deadly or unknown one always. A sprung toad or mime is waited out (10–15 min).
   - Picks with the `lockpick` or the worn `lockpick_ring`, refilled once a run at
     Ragge's (`lockpick_refill` of `lockpick_kind`; 0 never buys).
   - Coins to the purse, gems to `gem_pouch`, the rest to the loot container.
@@ -83,6 +83,7 @@ from client.game.boxes import (
     RING_REFUSED,
     DISMANTLED,
     TOAD,
+    MIME_OVER,
     SKILL,
     TAKE_OUTCOMES,
     TOO_HARD,
@@ -507,6 +508,32 @@ def wait_toad(run):
     return False
 
 
+MIME_WAIT = 900  # seconds the mime trap's invisible box is waited out at most
+MIME_POLL = 15
+
+
+def wait_mime(run):
+    """The mime trap's invisible box waited out (#497): the stream read
+    for the line that ends it ("doing performance art"), MIME_WAIT at
+    most — every attempt meanwhile costs a 10 s roundtime and answers
+    nothing else (sixteen of them, 2026-10-09). True when it ended."""
+    s = run.s
+    run.say("caught in the mime trap's invisible box — waiting it out")
+    waited = 0
+    while waited < MIME_WAIT:
+        line = s.get(timeout=MIME_POLL)
+        if line is None:
+            waited += MIME_POLL
+            continue
+        if any(word in line.lower() for word in MIME_OVER):
+            run.say("out of the invisible box")
+            return True
+    run.say(
+        f"still in the invisible box after {MIME_WAIT // 60} minutes — trying anyway"
+    )
+    return False
+
+
 def sprung(run, answer, noun=""):
     """A trap went off: said, the stun waited out, the roundtime too,
     a toad waited out, the box picked back up; the reason to stop, or
@@ -857,6 +884,9 @@ def disarm(run, noun):
                 wait_stun(run)  # nothing was tried: wait, take the step again
                 recover(run, noun)
                 continue
+            if outcome == "boxed":
+                wait_mime(run)
+                continue
             if outcome == "injured":
                 return "stop:too hurt to disarm anything"
             if outcome == "lost":
@@ -905,6 +935,9 @@ def disarm(run, noun):
         if outcome == "stunned":
             wait_stun(run)  # nothing was tried: wait, take the step again
             recover(run, noun)
+            continue
+        if outcome == "boxed":
+            wait_mime(run)
             continue
         if outcome == "injured":
             return "stop:too hurt to disarm anything"
@@ -957,6 +990,9 @@ def pick(run, noun):
             if outcome == "stunned":
                 wait_stun(run)  # nothing was tried: wait, take the step again
                 recover(run, noun)
+                continue
+            if outcome == "boxed":
+                wait_mime(run)
                 continue
             if outcome == "injured":
                 return "stop:too hurt to pick anything"
@@ -1017,6 +1053,9 @@ def pick(run, noun):
         if outcome == "stunned":
             wait_stun(run)  # nothing was tried: wait, take the step again
             recover(run, noun)
+            continue
+        if outcome == "boxed":
+            wait_mime(run)
             continue
         if outcome == "injured":
             return "stop:too hurt to pick anything"

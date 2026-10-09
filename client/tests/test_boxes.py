@@ -111,6 +111,11 @@ def test_disarm_answers_classify_a_sprung_trap_before_anything_else():
         "out from the lock and burns your hand!\n"
     )
     assert classify(sprung, DISARM_OUTCOMES) == "sprung"
+    # #497 (2026-10-09): the mime trap's effect, every attempt for ten
+    # minutes, each a 10 s roundtime.
+    boxed = "You attempt that, but end up getting caught in an invisible box.\n"
+    assert classify(boxed, DISARM_OUTCOMES) == "boxed"
+    assert classify(boxed, PICK_OUTCOMES) == "boxed"
     assert classify(
         "You're in no shape to be disarming anything.", DISARM_OUTCOMES
     ) == ("injured")

@@ -818,6 +818,37 @@ DISMANTLE = (
 )
 
 
+def test_the_mime_traps_invisible_box_is_waited_out_then_the_step_taken_again():
+    # #497 (2026-10-09 07:42–07:53): sixteen "caught in an invisible box"
+    # answers, 10 s of roundtime each, read as failed identifies.
+    boxed = "You attempt that, but end up getting caught in an invisible box.\n"
+    over = "You suddenly feel nauseous, as if you'd been doing performance art.\n"
+    answers = one_easy_box()
+    tries = {"identify": 0}
+
+    def identify(command):
+        tries["identify"] += 1
+        if tries["identify"] == 1:
+            return boxed  # the trap sprang on an earlier box: still boxed
+        return SIMPLE_TRAP if _DISARMS["count"] < 1 else NO_TRAP
+
+    answers[3] = ("disarm my box identify", identify)
+    fake = Fake(answers, mindstates=[1, 3, 5, 7])
+    polls = {"n": 0}
+
+    def get(timeout=None, streams=("",)):
+        polls["n"] += 1
+        return over if polls["n"] == 3 else None  # free after three polls
+
+    fake.get = get
+    out = run(fake)
+    assert "caught in the mime trap's invisible box — waiting it out" in out
+    assert "out of the invisible box" in out
+    assert polls["n"] == 3
+    assert fake.sent.count("disarm my box identify") >= 2
+    assert "the box opened" in out
+
+
 def test_a_toad_is_waited_out_before_the_box_is_picked_back_up():
     # 2026-09-26: the frog trap made Cecil a toad; the run went on, every
     # GET answered TOAD, the coffer stayed on the floor and the gear read

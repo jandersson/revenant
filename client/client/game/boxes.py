@@ -230,6 +230,13 @@ STUNNED = ("you are still stunned",)
 # "You're just a simple toad now.  Get used to it." for a few minutes,
 # and the box lands on the floor.
 TOAD = ("simple toad now", "gotten much bigger")
+# The mime trap's effect (captured 2026-10-09 07:42–07:53 on an ogre
+# coffer, #497): every attempt for ten minutes or so answers "You
+# attempt that, but end up getting caught in an invisible box." with a
+# 10 s roundtime; it ends with "You suddenly feel nauseous, as if you'd
+# been doing performance art."
+MIMED = ("caught in an invisible box",)
+MIME_OVER = ("doing performance art",)
 # DISMANTLE of an emptied box (captured 2026-09-26, an oaken crate held):
 # "You examine the oaken crate to determine a weak point from which to
 # start the destruction. / You move your hands in a practiced maneuver,
@@ -343,6 +350,7 @@ DISARM_OUTCOMES = (
     ("forbidden", FORBIDDEN),
     ("sprung", TRAP_SPRUNG),
     ("stunned", STUNNED),
+    ("boxed", MIMED),
     ("injured", INJURED),
     ("lost", LOST),
     ("identify failed", IDENTIFY_FAILED),
@@ -403,6 +411,7 @@ PICK_OUTCOMES = (
     ("forbidden", FORBIDDEN),
     ("sprung", TRAP_SPRUNG),
     ("stunned", STUNNED),
+    ("boxed", MIMED),
     ("injured", INJURED),
     ("lost", PICK_LOST),
     ("wrong pick", WRONG_PICK),
