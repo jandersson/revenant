@@ -29,6 +29,13 @@ label { color: #8a8a96; }
   background-color: #2a2a34 !important;
 }
 .dash-dropdown-clear, .dash-dropdown-arrow { color: #8a8a96 !important; }
+.dash-dropdown-search-container { background-color: #1e1e26 !important; }
+.dash-dropdown-search {
+  color: #c8c8d0 !important;
+  caret-color: #c8c8d0 !important;
+  background-color: #1e1e26 !important;
+}
+.dash-dropdown-search::placeholder { color: #8a8a96 !important; }
 
 /* The data grids (dash-ag-grid, #39): revenant's chrome over the
    stock alpine-dark theme, matching the plots' surfaces. */
