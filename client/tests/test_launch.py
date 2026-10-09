@@ -39,10 +39,11 @@ def _unserved_port():
     refused_port says why)."""
     placeholder = socket.socket()
     placeholder.bind(("127.0.0.1", 0))
+    port = placeholder.getsockname()[1]
     if sys.platform == "darwin":
         placeholder.listen()
-        placeholder.close()
-    return placeholder, placeholder.getsockname()[1]
+        placeholder.close()  # getsockname is gone with it
+    return placeholder, port
 
 
 def test_session_running_false_on_unserved_port():
