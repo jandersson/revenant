@@ -31,7 +31,10 @@ attempts that failed as well as the boxes that opened, and the
 readings calibrate against rank.
 
 `measured` reads the copper Kronars per box back per ground, for ;hunt
-grounds. A logging failure is logged and never stops a script.
+grounds; `past` (beyond) says whether a creature's boxes are beyond the
+character — its last three all put back too hard, none opened — so
+;hunt leaves them (#495: thirteen ogre boxes in the tote at
+Locksmithing 53). A logging failure is logged and never stops a script.
 """
 
 import logging
@@ -332,6 +335,71 @@ def log_opened(s, path=None, **fields):
     except Exception:
         logging.getLogger(__name__).exception("box contents log failed")
         return None
+
+
+BEYOND_BOXES = 3  # the creature's last boxes that must all have beaten the character
+
+
+def verdicts(connection, character, creature, boxes=BEYOND_BOXES):
+    """The last `boxes` boxes of `creature` that ;boxes worked — its
+    `box_attempts` joined to the `box_drops` rows of the same character
+    and id — as [(box_id, opened, too_hard)], newest first (#495)."""
+    rows = connection.execute(
+        "SELECT d.box_id,"
+        " SUM(CASE WHEN a.verb = 'open' AND a.outcome = 'open' THEN 1 ELSE 0 END),"
+        " SUM(CASE WHEN a.outcome = 'too hard' THEN 1 ELSE 0 END),"
+        " MAX(a.seq) AS last"
+        " FROM box_attempts a JOIN box_drops d"
+        " ON d.box_id = a.box_id AND d.character_name = a.character_name"
+        " WHERE a.character_name = ? AND lower(d.creature) = lower(?)"
+        " GROUP BY d.box_id ORDER BY last DESC LIMIT ?",
+        (character, str(creature or ""), boxes),
+    ).fetchall()
+    return [(box_id, bool(opened), bool(hard)) for box_id, opened, hard, _ in rows]
+
+
+def beyond(connection, character, creature, boxes=BEYOND_BOXES):
+    """True when the creature's last `boxes` boxes all went back too hard
+    and none opened (#495): the measured answer to whether this
+    character can pick this creature's boxes. Fewer boxes on record, or
+    one opened among them, is no verdict."""
+    found = verdicts(connection, character, creature, boxes)
+    return len(found) >= boxes and all(hard and not opened for _, opened, hard in found)
+
+
+def past(character, creature, path=None, boxes=BEYOND_BOXES):
+    """beyond() off history.db; False when there is none or it cannot be
+    read (logged, never raised)."""
+    if not creature:
+        return False
+    try:
+        path = lootlog.db_path(path)
+        if not Path(path).is_file():
+            return False
+        connection = sqlite3.connect(str(path))
+        try:
+            ensure_schema(connection)
+            return beyond(connection, character, creature, boxes)
+        finally:
+            connection.close()
+    except Exception:
+        logging.getLogger(__name__).exception("box verdict failed")
+        return False
+
+
+def origin(s, box_id, noun, run_started, path=None):
+    """attribute() off history.db for a box in hand; {} when the
+    database cannot be read (logged, never raised)."""
+    try:
+        connection = sqlite3.connect(str(lootlog.db_path(path)))
+        try:
+            ensure_schema(connection)
+            return attribute(connection, _character(s), box_id, noun, run_started)
+        finally:
+            connection.close()
+    except Exception:
+        logging.getLogger(__name__).exception("box origin failed")
+        return {}
 
 
 def values(connection, character=None):

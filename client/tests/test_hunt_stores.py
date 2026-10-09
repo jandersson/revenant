@@ -256,6 +256,90 @@ def _drops(monkeypatch, tmp_path, answers):
         ).fetchall()
 
 
+def _beaten(db, creature, boxes, opened=0):
+    """history.db with `boxes` boxes of `creature` worked by ;boxes: each
+    put back too hard, the last `opened` of them opened instead."""
+    import sqlite3
+
+    from client.game import boxlog
+
+    with sqlite3.connect(str(db)) as connection:
+        boxlog.ensure_schema(connection)
+        for index in range(boxes):
+            box_id = f"{abs(hash(creature)) % 100000}{index}"  # unique per creature
+            boxlog.record_drop(
+                connection,
+                character_name="Lanival",
+                box_id=box_id,
+                noun="trunk",
+                description="a cracked pine trunk",
+                creature=creature,
+                ground="young_ogres",
+            )
+            done = index >= boxes - opened
+            boxlog.record_attempt(
+                connection,
+                character_name="Lanival",
+                box_id=box_id,
+                noun="trunk",
+                verb="open" if done else "disarm",
+                reading=None if done else 12,
+                outcome="open" if done else "too hard",
+                lockpick="ordinary",
+                rank=53,
+            )
+
+
+def test_a_creatures_boxes_the_data_says_are_past_you_are_left(monkeypatch, tmp_path):
+    # #495 (2026-10-09): thirteen ogre boxes in the tote, every one put
+    # back "for a better locksmith" at Locksmithing 53 — the hunt kept
+    # bringing them home.
+    db = tmp_path / "history.db"
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(db))
+    _beaten(db, "s'lai scout", 3)
+    found = iter([["a salt-stained copper box"], ["a salt-stained copper box"], []])
+    monkeypatch.setattr(
+        hunt.loot, "new_items", lambda before, after, creatures=(): next(found, [])
+    )
+    arena = Arena(
+        {"attack": [(KILL, kill)] * 2, "loot": [SCOUT_SEARCH] * 2},
+        experience={"Locksmithing": {"rank": 53, "percent": 0, "mindstate": 0}},
+    )
+    _run(arena, profile=PROFILE | {"skin": False, "max_kills": 2}, travel_first=False)
+    assert "stow box" not in arena.sent and "get box" not in arena.sent
+    said = [t for t in arena.echoed if "boxes are past you at Locksmithing 53" in t]
+    assert len(said) == 1  # once a run, two searches
+    assert "the box stays (the last three went back unopened)" in said[0]
+
+
+def test_a_box_farm_takes_the_boxes_whatever_the_data_says(monkeypatch, tmp_path):
+    db = tmp_path / "history.db"
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(db))
+    _beaten(db, "s'lai scout", 3)
+    rows = _drops(
+        monkeypatch, tmp_path, {"stow box": ["You put your box in your sack.\n"]}
+    )
+    assert len(rows) == 4  # the three seeded, and the farm's pickup
+
+
+def test_one_opened_among_the_last_three_is_no_verdict(tmp_path):
+    import sqlite3
+
+    from client.game import boxlog
+
+    db = tmp_path / "history.db"
+    _beaten(db, "young ogre", 3, opened=1)
+    with sqlite3.connect(str(db)) as connection:
+        assert not boxlog.beyond(connection, "Lanival", "young ogre")
+        assert len(boxlog.verdicts(connection, "Lanival", "young ogre")) == 3
+    _beaten(db, "rat", 2)
+    assert not boxlog.past("Lanival", "rat", path=db)  # two boxes: too few
+    _beaten(db, "wood troll", 3)
+    assert boxlog.past("Lanival", "Wood Troll", path=db)  # case ignored
+    assert not boxlog.past("Lanival", "", path=db)
+    assert not boxlog.past("Lanival", "rat", path=tmp_path / "none.db")
+
+
 def test_a_stowed_box_is_logged_with_the_id_its_hand_tag_showed(monkeypatch, tmp_path):
     # Captured 2026-10-02: STOW BOX showed the box in the left hand and
     # emptied it on the same line; the parser's last_held keeps it.

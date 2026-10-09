@@ -13,7 +13,8 @@
 What it does
   - Walks to the ground (a map tag, a bestiary zone or a ;go2 target) with the buffs up.
   - Fights one creature at a time: attack, skin (never a creature the wiki says has
-    no skin), loot, gems and boxes stowed.
+    no skin), loot, gems and boxes stowed — a creature's boxes are left once ;boxes
+    put its last three back unopened (history.db's verdict); a box farm takes them all.
   - Moves room to room; a room another player hunts is theirs and is skipped.
   - Trains the `weapons` in turn: the emptiest pool first, each to `weapon_target`,
     or for `weapon_minutes` at most when a pool will not fill.
@@ -1410,6 +1411,8 @@ def grab(s, profile, before, tally):
         if what == "box" and limit and tally.boxes >= limit:
             s.echo(f"hunt: {limit} box(es) carried — the {noun} stays")
             continue
+        if what == "box" and not farming(profile) and box_beyond(s, tally, noun):
+            continue  # past the character's Locksmithing, by the data (#495)
         if what in ("gem", "box") and stores_set(profile, what):
             # STOW GEM / STOW BOX: the first of its kind on the ground
             # straight into its STORE container, no hand needed (the
@@ -1498,6 +1501,27 @@ def grab(s, profile, before, tally):
     return taken
 
 
+def box_beyond(s, tally, noun):
+    """True when history.db says the searched creature's boxes are past
+    the character (boxlog.past: its last three all put back too hard,
+    none opened), said once a run per creature (#495). A box farm never
+    leaves one: the farm is what measures them."""
+    creature = (tally.search or {}).get("creature") or ""
+    name = getattr(s.state, "name", None) or ""
+    if not creature or not boxlog.past(name, creature):
+        return False
+    if creature not in tally.boxes_left:
+        tally.boxes_left.add(creature)
+        skill = (getattr(s.state, "experience", None) or {}).get("Locksmithing") or {}
+        rank = skill.get("rank") if isinstance(skill, dict) else None
+        at = f" at Locksmithing {rank}" if rank is not None else ""
+        s.echo(
+            f"hunt: the {creature}'s boxes are past you{at} — the {noun} stays "
+            "(the last three went back unopened)"
+        )
+    return True
+
+
 def note_box(s, profile, tally, since, noun, description, held=None):
     """A box picked up, as a history.db `box_drops` row (#423): its item
     id — off the hand tag that showed it, though a STOW straight off the
@@ -1581,6 +1605,12 @@ def dispose(s, profile, corpse, tally):
                 continue
             if tally.boxes_full and item in loot.BOX_NOUNS:
                 continue  # no room for it, and a GET would free a hand for it
+            if (
+                item in loot.BOX_NOUNS
+                and not farming(profile)
+                and box_beyond(s, tally, item)
+            ):
+                continue  # past the character's Locksmithing, by the data (#495)
             if loot.ignored(named(answer, item), ignore):
                 continue  # "an embroidery needle" off a scout (#365)
             if noun_of(item) in never:

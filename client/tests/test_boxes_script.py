@@ -1330,6 +1330,38 @@ def test_every_disarm_and_pick_is_an_attempt_row_with_the_rank_at_the_time(
         assert len(runs.fetchall()) == 1  # one run, the box_contents row's mark
 
 
+def test_the_boxes_kept_are_told_to_their_creatures_at_the_end(monkeypatch, tmp_path):
+    # #495: the crate kept "for a better locksmith" came from a wood
+    # troll, by the drop row ;hunt wrote; the end says whose boxes beat
+    # the character, since ;hunt leaves theirs from now on.
+    from client.game import boxlog
+
+    db = tmp_path / "history.db"
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(db))
+    boxlog.log_drop(
+        SimpleNamespace(state=SimpleNamespace(name="Lanival")),
+        box_id="139883772",
+        noun="crate",
+        description="a mildewy deobar crate",
+        creature="wood troll",
+        ground="wood_trolls_vineyard",
+    )
+    answers = one_easy_box()
+
+    def in_hand(command):
+        fake.state.right_hand = {"noun": "crate", "exist": "139883772", "name": "crate"}
+        return "You get a mildewy deobar crate from inside your canvas sack.\n"
+
+    answers[12] = ("get crate from my sack", in_hand)
+    fake = Fake(answers, mindstates=[1, 3, 5, 7])
+    out = run(fake)
+    assert "every box tried — 1 opened, 1 kept for a better locksmith" in out
+    assert (
+        "kept: 1 from wood troll — past your Locksmithing; ;hunt leaves theirs now"
+        in (out)
+    )
+
+
 def test_an_opened_box_is_a_contents_row_told_to_its_creature_by_its_id(
     monkeypatch, tmp_path
 ):

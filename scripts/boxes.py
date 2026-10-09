@@ -303,6 +303,7 @@ class Run:
         self.kept = {}  # noun -> boxes put back into the container
         self.moved = False  # walked home once, the guards having forbidden it
         self.kept_elsewhere = 0  # put back into the containers worked before it
+        self.kept_from = {}  # creature -> boxes kept this run, by their drop rows (#495)
         self.reported = set()
         self.opened = 0
         self.pick_in_hand = False
@@ -1218,6 +1219,10 @@ def kept(run, noun):
     Locksmithing unmoved), and a DISARM past the reading is the trap
     sprung, not the skill trained. A container with no room for it ends
     the run: PICK wants the other hand free."""
+    box = run.box or {}
+    found = boxlog.origin(run.s, box.get("box_id"), noun, run.started)
+    creature = (found or {}).get("creature") or "an unknown creature"
+    run.kept_from[creature] = run.kept_from.get(creature, 0) + 1
     if not put_back(run, noun, "for a better locksmith"):
         return f"stop:the {noun} is in hand with nowhere to go"
     return "kept"
@@ -1469,6 +1474,11 @@ def run_loop(s, profile, options):
             f"every box tried — {run.opened} opened, "
             f"{run.kept_elsewhere + sum(run.kept.values())} kept for a better locksmith"
         )
+        if run.kept_from:
+            # Whose boxes beat the character this run (#495): ;hunt leaves
+            # a creature's boxes once three in a row went back unopened.
+            whose = ", ".join(f"{n} from {c}" for c, n in sorted(run.kept_from.items()))
+            run.say(f"kept: {whose} — past your Locksmithing; ;hunt leaves theirs now")
     finally:
         try:
             put_pick_away(run)
