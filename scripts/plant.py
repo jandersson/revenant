@@ -19,6 +19,7 @@ What it does
 When it stops
   - the cast done, or any guild but Empath
   - mana under 50%, the focus not found, the ritual or the cast failing (said)
+  - the focus used up (said: a new phial of phofe attar; ;train recasts no more until one casts)
   - death, a typed return, or ;stop plant
 
 The model and the wordings are client/game/plant.py's; docs/healing.md.
@@ -168,7 +169,19 @@ def cast(s, options):
             s.echo(f"plant: PREPARE answered {said(text)!r}")
             ask(s, "release spell")
             return None
-        text = read_answer(s, f"invoke my {focus}", plant.INVOKED + plant.LOST)
+        text = read_answer(
+            s, f"invoke my {focus}", plant.INVOKED + plant.LOST + plant.FOCUS_EMPTY
+        )
+        if all(plant.said(text, (word,)) for word in plant.FOCUS_EMPTY):
+            # The phial's forty uses are spent (#496): no plant until a
+            # new one, and ;train is told through the record.
+            s.echo(
+                f"plant: the {focus} is empty — a new {focus} of phofe attar before "
+                "the next plant"
+            )
+            ask(s, "release spell")
+            plant.note_no_focus(getattr(s.state, "name", None) or "")
+            return plant.NO_FOCUS
         if not plant.said(text, plant.INVOKED):
             s.echo(f"plant: INVOKE answered {said(text)!r}")
             ask(s, "release spell")
@@ -213,8 +226,8 @@ def tend(s, room):
 
 
 def run(s, options, db=None, walk=None):
-    """Why the run ended: "cast", "tended", "clean", "no plant", "not an
-    empath", "no walk", "return", "dead" or "failed"."""
+    """Why the run ended: "cast", "tended", "clean", "no plant", "no
+    focus", "not an empath", "no walk", "return", "dead" or "failed"."""
     if not guild.is_empath(guild.character_guild(s)):
         s.echo("plant: Embrace of the Vela'Tohr is an Empath's spell")
         return "not an empath"
@@ -231,6 +244,8 @@ def run(s, options, db=None, walk=None):
     if wants_stop(s):
         return "return"
     minutes = cast(s, options)
+    if minutes == plant.NO_FOCUS:
+        return plant.NO_FOCUS
     if minutes is None:
         return "failed"
     where = room or str(travel.here(s, db) or "")

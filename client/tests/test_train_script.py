@@ -1233,6 +1233,33 @@ def test_between_tasks_the_plant_is_tended_twenty_minutes_after_its_cast(
     assert len(fake.started) == 2
 
 
+def test_an_empty_focus_stops_the_recasts_until_a_cast_and_is_said_once(
+    clock, monkeypatch
+):
+    # #496: the loop retried the empty phial every 15 minutes all night.
+    import os
+    import time
+
+    from client.game import plant
+
+    monkeypatch.setattr(train, "KEPT", {})
+    fake = Fake(exits={"plant": 10})
+    clock["fake"] = fake
+    fake.now = time.time()
+    plant.note_no_focus("Lanival", now=fake.now)
+    assert train.keep_plant(fake, plan(keep_plant="7890")) is False
+    fake.now += train.PLANT_RETRY_MINUTES * 60 * 4
+    assert train.keep_plant(fake, plan(keep_plant="7890")) is False
+    assert fake.started == []
+    said = [t for t in fake.echoed if "the ritual focus is empty" in t]
+    assert len(said) == 1 and ";plant 7890 once it is on you" in said[0]
+    # A cast with the new phial rewrites the record: the loop recasts again
+    # (the recast check reads the wall clock: a cast an hour ago is due).
+    plant.record("Lanival", "7890", 63, os.getpid(), now=time.time() - 3600)
+    assert train.keep_plant(fake, plan(keep_plant="7890")) is True
+    assert fake.started == [("plant", ["7890"])]
+
+
 def test_a_plant_run_that_cast_nothing_waits_before_the_next(clock, monkeypatch):
     monkeypatch.setattr(train, "KEPT", {})
     fake = Fake(exits={"plant": 10})

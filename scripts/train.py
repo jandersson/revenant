@@ -27,7 +27,8 @@ What it does
   - In the rests: soul deeds when `soul` is on, stat points from the plan's `tdp` list,
     and, wounded, the vela'tohr plant in `plant_room` touched and rested beside.
   - An Empath's `keep_plant`: between tasks and in rests, ;plant recasts the plant there
-    before it ends, and tends it every 20 minutes (;plant tend: the wounds it took, healed). A task with `plant: on` is spent beside that plant until healed;
+    before it ends, and tends it every 20 minutes (;plant tend: the wounds it took, healed);
+    an empty phial ends the recasts, said once, until a ;plant casts with a new one. A task with `plant: on` is spent beside that plant until healed;
     with a `helper` and `helper_page` too, a wound that bad gets the helper instead.
   - The interludes (the profile's `almanac`, a typed `;break`) between tasks and in rests.
   - A helper busy on its own ;train: its task is skipped, or, with `helper_page` and a wound
@@ -395,6 +396,16 @@ def plant_due(s, plan):
     if not room or s.dead or s.is_running("plant") or hostiles_present(s.state):
         return None
     name = getattr(s.state, "name", None) or ""
+    if plant.no_focus(name):
+        # The phial is spent (#496): no recast until a ;plant casts with
+        # a new one and rewrites the record; said once a session.
+        if not KEPT.get("no_focus_said"):
+            KEPT["no_focus_said"] = True
+            s.echo(
+                "train: the ritual focus is empty — no plant until a new phial of "
+                f"phofe attar; ;plant {room} once it is on you"
+            )
+        return None
     if not plant.due(name, room, os.getpid()):
         return None
     if "failed" in KEPT and clock() - KEPT["failed"] < PLANT_RETRY_MINUTES * 60:

@@ -97,6 +97,7 @@ An Empath's plant heals a non-Empath who touches it and stays in its room. `;tra
 
 - Below 50% mana the cast waits.
 - The plant ends when its Empath logs out.
+- The phial holds 40 uses; empty, `;plant` says so and `;train` stops recasting until a `;plant <room>` casts with a new one.
 - The plant keeps every wound it heals, through recasts, and despawns at its limit; only its Empath's TOUCH takes them back. `;train`'s `keep_plant` tends it every 20 minutes.
 
 `;stop <name>` ends any of these at once; `;heal return`, `;empath return` and `;plant return` finish the step in hand first.

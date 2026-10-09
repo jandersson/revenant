@@ -221,6 +221,33 @@ def test_plant_tend_takes_the_wounds_and_heals_without_a_cast(tmp_path, monkeypa
     assert script.run(bare, script.parse_args(["tend"]), db=CHAMBERS) == "no plant"
 
 
+def test_an_empty_phial_ends_the_run_and_marks_the_record(tmp_path, monkeypatch):
+    # #496 (Riphik, 2026-10-09 03:54): five recasts 15 minutes apart failed
+    # on the same INVOKE answer before anyone was told.
+    import os
+
+    monkeypatch.setenv("REVENANT_TRAINING", str(tmp_path))
+    plant.record("Lanival", "7890", 63, os.getpid(), now=1000.0)
+    script = _script()
+    s = handle()
+    empty = (
+        "You notice that your phial does not have enough phofe attar left to focus "
+        "a ritual.\n"
+    )
+    game = Game(s, CAST | {"invoke my phial": empty})
+    script.ask = game
+    assert script.run(s, script.parse_args(["7890"]), db=CHAMBERS, walk=arrive) == (
+        "no focus"
+    )
+    assert "cast" not in game.sent and "release spell" in game.sent
+    assert game.sent[-2:] == ["stow my phial", "stand"]
+    assert any("the phial is empty — a new phial of phofe attar" in t for t in s.echoed)
+    assert plant.no_focus("Lanival")
+    # A cast with a new phial rewrites the record and clears the mark.
+    plant.record("Lanival", "7890", 63, os.getpid(), now=2000.0)
+    assert not plant.no_focus("Lanival")
+
+
 def test_a_tend_is_due_twenty_minutes_after_the_cast_or_the_last_tend(
     tmp_path, monkeypatch
 ):

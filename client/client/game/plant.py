@@ -57,6 +57,11 @@ IN_THE_WAY = (
     ("interrupt your research", ""),
 )
 STRAIN = ("will disrupt about half your current attunement",)
+# The focus used up (Riphik, 2026-10-09 03:54, #496): "You notice that
+# your phial does not have enough phofe attar left to focus a ritual."
+# — five recasts failed on it 15 minutes apart before anyone was told.
+FOCUS_EMPTY = ("not have enough", "to focus a ritual")
+NO_FOCUS = "no focus"
 # The creator's TOUCH, the wiki's wordings, captured as such on Riphik
 # (2026-10-05): "...erupt in agony and blossom with wounds!  Your
 # vela'tohr plant looks healthier!"
@@ -144,6 +149,24 @@ def note_tend(name, now=None):
     path = record_path(name)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(mark), encoding="utf-8")
+
+
+def note_no_focus(name, now=None):
+    """The empty focus written into the record (#496): no recast until a
+    cast rewrites the record, which record() does."""
+    mark = load(name)
+    if not isinstance(mark, dict):
+        mark = {}
+    mark["no_focus"] = time.time() if now is None else now
+    path = record_path(name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(mark), encoding="utf-8")
+
+
+def no_focus(name):
+    """True while the record says the focus is empty (#496)."""
+    mark = load(name)
+    return isinstance(mark, dict) and bool(mark.get("no_focus"))
 
 
 def tend_due(name, room, session, now=None, minutes=TEND_MINUTES):
