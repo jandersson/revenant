@@ -100,6 +100,7 @@ Each is a script with its own manual (`;help <name>`). Under `;train`, give each
 | `athletics` | Athletics |
 | `forage` | Outdoorsmanship, Perception |
 | `attune` | Attunement (power walking; a Moon Mage perceives mana in place) |
+| `gaze` | Arcana (GAZE at a sanowret crystal at full concentration; `exhale` for the quick half-lesson) |
 | `perform` | Performance |
 | `scholarship books` | Scholarship |
 | `appraise` | Appraisal (`focus=<item>`: plus a drain boost to the item's skill) |
