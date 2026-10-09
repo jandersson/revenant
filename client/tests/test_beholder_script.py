@@ -44,13 +44,8 @@ def test_dashboard_running_detects_a_listening_port():
     server.close()
 
 
-def test_dashboard_running_false_on_a_closed_port():
-    # Bound but not listening: refused, and cannot be reassigned mid-test.
-    blocker = socket.socket()
-    blocker.bind(("127.0.0.1", 0))
-    port = blocker.getsockname()[1]
-    assert beholder.dashboard_running(port=port) is False
-    blocker.close()
+def test_dashboard_running_false_on_a_closed_port(refused_port):
+    assert beholder.dashboard_running(port=refused_port) is False
 
 
 def test_reuses_a_dashboard_that_is_already_up(monkeypatch):

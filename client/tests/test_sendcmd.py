@@ -212,16 +212,10 @@ def test_a_dry_run_still_reports_a_refusal(listener):
     assert result.message.startswith("refused")
 
 
-def test_nothing_listening_is_a_message_not_a_traceback():
-    probe = socket.socket()
-    probe.bind(("127.0.0.1", 0))  # bound, never listening: a port nobody answers on
-    port = probe.getsockname()[1]
-    try:
-        result = send("exp all", port=port, settings=SHUT, environ=NO_ENV)
-    finally:
-        probe.close()
+def test_nothing_listening_is_a_message_not_a_traceback(refused_port):
+    result = send("exp all", port=refused_port, settings=SHUT, environ=NO_ENV)
     assert result.sent is False
-    assert result.message == f"nothing is listening on 127.0.0.1:{port}"
+    assert result.message == f"nothing is listening on 127.0.0.1:{refused_port}"
 
 
 def test_the_origin_cannot_smuggle_a_second_line(listener):
@@ -379,13 +373,11 @@ def test_the_console_script_prints_the_state_as_json(monkeypatch, capsys, statef
     assert got == [b"\x1dclaude\t\n"]  # no fields: all of them
 
 
-def test_state_needs_no_gate_and_says_when_nothing_listens(monkeypatch, capsys):
-    holder = socket.socket()
-    holder.bind(("127.0.0.1", 0))
-    port = holder.getsockname()[1]  # bound, not listening: refused
-    code = sendcmd.main(["--port", str(port), "--state", "room"])
+def test_state_needs_no_gate_and_says_when_nothing_listens(
+    monkeypatch, capsys, refused_port
+):
+    code = sendcmd.main(["--port", str(refused_port), "--state", "room"])
     assert code == 1 and "no state answer" in capsys.readouterr().out
-    holder.close()
 
 
 def test_wait_for_ends_on_the_line_and_says_so(answering):

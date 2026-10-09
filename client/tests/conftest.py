@@ -1,4 +1,6 @@
 import os
+import socket
+import sys
 import tempfile
 
 import pytest
@@ -63,6 +65,26 @@ def _short_ask_windows(monkeypatch):
     # And the trainer's poll while mind-locked: a fake's sleep advances
     # its own clock, whatever the slice.
     monkeypatch.setattr(trainer, "LOCK_POLL", 0.01)
+
+
+@pytest.fixture
+def refused_port():
+    """A loopback port nothing listens on, so a connect to it fails at
+    once on every platform (#501). Held bound but not listening on
+    Linux and Windows, where that refuses and the port cannot be
+    retaken mid-test; macOS drops a SYN to such a socket without a
+    reset (XNU's tcp_input discards segments for a pcb still in
+    CLOSED), and the connect waited its 75 s timeout out there, so on
+    macOS the port is a listener closed again, at the small risk of
+    being retaken."""
+    holder = socket.socket()
+    holder.bind(("127.0.0.1", 0))
+    port = holder.getsockname()[1]
+    if sys.platform == "darwin":
+        holder.listen()
+        holder.close()
+    yield port
+    holder.close()
 
 
 @pytest.fixture

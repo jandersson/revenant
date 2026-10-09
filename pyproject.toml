@@ -11,6 +11,7 @@ dev = [
     "pre-commit",
     "pyinstaller>=6.22.2",
     "pytest",
+    "pytest-xdist>=3.8.0",
     "ruff",
 ]
 # The docs site (#97): uv run --group docs mkdocs build

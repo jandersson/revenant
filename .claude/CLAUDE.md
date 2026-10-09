@@ -13,8 +13,8 @@ the detail and the history.
 ```sh
 uv run revenant                      # launch: spawn/attach a session + GUI
 uv run revenant-chat [name]          # the standalone LNet window
-uv run pytest client/tests -q        # client suite (real sockets, threads)
-uv run pytest client/tests_gui -q    # the window and docks, offscreen PyQt6
+uv run pytest client/tests -q -n auto  # client suite (real sockets, threads)
+uv run pytest client/tests_gui -q -n auto  # the window and docks, offscreen PyQt6
 uv run pytest beholder/tests -q
 uv run pytest chat/tests -q
 uv run ruff check client chat beholder scripts    # CI enforces

@@ -726,16 +726,10 @@ def test_reattach_connects_when_a_session_is_listening():
     wire.close_socket(engine.connection.get_socket())
 
 
-def test_reattach_returns_false_without_a_session():
-    # Hold the port bound but not listening: connects are refused, and the
-    # port cannot be reassigned mid-test (hermeticity per CLAUDE.md).
-    blocker = socket.socket()
-    blocker.bind(("127.0.0.1", 0))
-    port = blocker.getsockname()[1]
-    engine = session.AttachedEngine("127.0.0.1", port)
+def test_reattach_returns_false_without_a_session(refused_port):
+    engine = session.AttachedEngine("127.0.0.1", refused_port)
     assert engine.reattach() is False
     assert engine.connection is None
-    blocker.close()
 
 
 def _autostart_with(monkeypatch, settings=None, **env):
@@ -1304,14 +1298,10 @@ def test_send_line_does_not_double_the_newline():
     assert received == [b"quit\n"]
 
 
-def test_send_line_reports_failure_when_nothing_listens():
+def test_send_line_reports_failure_when_nothing_listens(refused_port):
     # A session that already died must not raise — the sweep's kill is
     # the backstop, and a broken character may never answer at all.
-    held = socket.socket()  # bound, never listening: the port stays shut
-    held.bind(("127.0.0.1", 0))
-    port = held.getsockname()[1]
-    assert wire.send_line("127.0.0.1", port, "quit", timeout=1) is False
-    held.close()
+    assert wire.send_line("127.0.0.1", refused_port, "quit", timeout=1) is False
 
 
 def test_a_bell_is_never_replayed_to_a_late_attacher():

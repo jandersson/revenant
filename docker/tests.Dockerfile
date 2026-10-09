@@ -36,6 +36,6 @@ RUN uv sync --all-packages
 CMD ["sh", "-ec", "\
     uv run ruff check client chat beholder; \
     uv run ruff format --check client chat beholder; \
-    (cd client && uv run pytest); \
+    (cd client && uv run pytest -n auto); \
     (cd beholder && uv run pytest); \
     uv run pytest chat/tests"]

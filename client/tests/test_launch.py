@@ -33,9 +33,15 @@ def test_session_running_detects_listener():
 def _unserved_port():
     """A socket bound but never listening: connections are refused, and the
     port cannot be grabbed by another process while we hold it (a closed
-    ephemeral port can — CI runners reuse them fast)."""
+    ephemeral port can — CI runners reuse them fast). On macOS a SYN to
+    such a socket is dropped, not refused, and the connect waits its
+    timeout out, so there it is a listener closed again (the conftest's
+    refused_port says why)."""
     placeholder = socket.socket()
     placeholder.bind(("127.0.0.1", 0))
+    if sys.platform == "darwin":
+        placeholder.listen()
+        placeholder.close()
     return placeholder, placeholder.getsockname()[1]
 
 
