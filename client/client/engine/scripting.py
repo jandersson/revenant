@@ -484,6 +484,7 @@ RELOADABLE_MODULES = (
     "client.game.drain",
     "client.game.tdp",
     "client.game.guild",  # binds act and parse_info from tdp: after them
+    "client.game.gaze",  # pure wordings, nothing bound
     "client.game.money",
     "client.game.attune",
     "client.game.seek",  # binds chain/circuit from attune: after it
