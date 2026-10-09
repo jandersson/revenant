@@ -52,6 +52,7 @@ Edit it in File → Training Plan…, or by hand in `~/.revenant/training/<name>
 | `tdp_reserve` | TDPs never spent |
 | `shutdown_minutes` | wind down this close to a game shutdown (3) |
 | `plant_room` | where an Empath's vela'tohr plant stands: a wounded rest goes there, TOUCHes it and rests beside it |
+| `heal_fallback` | the healers tried, in order, before any task or rest when bleeding, under the profile's health floor or at its wound floor and no plant stands (`;tend` always first): `helper` (the plan's Empath, paged whatever `helper_page` says), `npc` (`;heal npc`, paid), `herbs` (`;heal`). Default all three |
 | `keep_plant` | an Empath's own plan: the room where its `;train` keeps a plant up (`;plant`, recast 10 minutes before it ends) and tends it between tasks every 20 minutes (`;plant tend`: the wounds it took, healed) |
 
 A task:

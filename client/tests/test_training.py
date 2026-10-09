@@ -227,6 +227,12 @@ def test_validate_names_what_would_break_the_loop():
     assert any("neither" in line and "no script" in line for line in problems)
     assert any("used twice" in line for line in problems)
     assert validate(plan()) == []
+    # #499: the healers a plan may fall back on are three, by name.
+    assert validate(plan(heal_fallback=["npc", "priest"])) == [
+        "heal_fallback 'priest' is not one of helper, npc, herbs"
+    ]
+    assert plan()["heal_fallback"] == ["helper", "npc", "herbs"]
+    assert plan(heal_fallback="npc, herbs")["heal_fallback"] == ["npc", "herbs"]
 
 
 # -- the decisions ----------------------------------------------------------

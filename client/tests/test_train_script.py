@@ -1303,16 +1303,19 @@ def test_a_recast_due_mid_task_sets_the_task_aside_and_runs_it_again(
     assert any("climbs set aside for the plant's recast" in t for t in fake.echoed)
 
 
-def plant_task(clock, room_objs):
+def plant_task(clock, room_objs, fallback=None, fake=None):
     def healed(fake):
         fake.state.injuries = {}
 
-    fake = Fake([{}, healed])
+    fake = fake or Fake([{}, healed])
     fake.state.injuries = {"chest": ("wound", 1)}
     fake.state.room_objs = room_objs
     fake.answers = {"touch plant": [PLANT_TOUCHED]}
     clock["fake"] = fake
-    current = plan(plant_room="bank", poll=10)
+    overrides = {"plant_room": "bank", "poll": 10}
+    if fallback is not None:
+        overrides["heal_fallback"] = fallback
+    current = plan(**overrides)
     task = normalize(
         {"tasks": [{"name": "plant", "plant": True, "when": "wounded", "minutes": 30}]}
     )["tasks"][0]
@@ -1329,10 +1332,31 @@ def test_the_heal_after_a_hunt_is_spent_beside_the_plant(clock):
     assert any("plant healed at the plant" in text for text in fake.echoed)
 
 
-def test_no_plant_in_its_room_ends_the_task(clock):
-    fake, reason = plant_task(clock, "You also see a waste bin.")
+def test_no_plant_and_no_fallback_allowed_ends_the_task(clock):
+    fake, reason = plant_task(clock, "You also see a waste bin.", fallback=[])
     assert reason == "no plant"
     assert "touch plant" not in fake.sent
+    assert fake.started == []
+
+
+def test_no_plant_in_its_room_tries_the_plans_other_healers(clock):
+    # #499: "found no plant" was the end of it until Cecil bled out.
+    fake = Fake([{}])
+    plain = fake.run
+
+    def run_script(name, args=()):
+        ok = plain(name, args)
+        fake.exits[name] = fake.now + 10
+        if name == "heal":
+            fake.state.injuries = {}
+        return ok
+
+    fake.run = run_script
+    fake, reason = plant_task(clock, "You also see a waste bin.", fake=fake)
+    assert reason == "treated"
+    assert "touch plant" not in fake.sent
+    assert fake.started == [("heal", ["npc"])]  # no helper in this plan: the healer
+    assert "train: healing — ;heal npc" in fake.echoed
 
 
 GET_HEALED = PAGED_HEAL | {"name": "get healed", "plant": "on"}
@@ -1392,6 +1416,77 @@ def test_get_healed_falls_back_to_the_plant_when_the_page_goes_unanswered(
     assert started == []
     assert world.sent == [";train page lanival", ";train release"]
     assert "train: get healed — the plant instead" in fake.echoed
+
+
+def test_a_bleeder_is_tended_and_healed_before_any_task(clock, monkeypatch):
+    # #499 (2026-10-09 14:52): Cecil bled out in town while the loop ran
+    # chores past eleven wounds, the plant gone; the hunt had refused to
+    # set out "(;heal treats it)" and nothing ran ;heal.
+    from types import SimpleNamespace
+
+    fake = Fake([{"Athletics": 3}], exits={})
+    clock["fake"] = fake
+    fake.status = SimpleNamespace(bleeding=True)
+    fake.state.injuries = {"chest": ("wound", 2), "neck": ("wound", 1)}
+    fake.state.vitals = {"health": 92}
+    fake.state.room_objs = "You also see a waste bin."  # no plant
+    plain = fake.run
+
+    def run_script(name, args=()):
+        ok = plain(name, args)
+        fake.exits[name] = fake.now + 10
+        if name == "tend":
+            fake.status.bleeding = False
+        if name == "heal" and list(args) == ["npc"]:
+            fake.state.injuries = {}  # the healer took them all
+        return ok
+
+    fake.run = run_script
+    current = plan(plant_room="bank", tasks=[plan()["tasks"][0]])
+    run(clock, fake, current)
+    started = [(name, args) for name, args in fake.started]
+    assert started[:2] == [("tend", ["once"]), ("heal", ["npc"])]
+    assert ("athletics", []) in started  # the task, after the healing
+    assert started.index(("athletics", [])) > started.index(("heal", ["npc"]))
+    assert "train: bleeding — healing before anything else" in fake.echoed
+    assert "train: healing — ;heal npc" in fake.echoed
+    assert "train: healed by the healer" in fake.echoed
+    assert fake.walks[0] == {2}  # the plant's room looked at first
+
+
+def test_a_wound_at_the_floor_with_no_plant_pages_the_helper_whatever_it_says(
+    clock, monkeypatch
+):
+    # #499: with no plant, the Empath is paged for a wound at the plan's
+    # floor, not only a severe one.
+    from client.game.profile import save_profile
+
+    save_profile("Lanival", {"health_floor": 60, "wound_floor": "harmful"})
+    fake2 = Fake([{"Athletics": 3}])
+    clock["fake"] = fake2
+    fake2.state.injuries = {"chest": ("wound", 3)}
+    fake2.state.vitals = {"health": 90}
+    fake2.state.room_objs = "You also see a waste bin."  # the plant is gone
+    fake2.answers = {"health": [HEALTH_SEVERE] * 4}
+    monkeypatch.setattr(train, "HelperIO", PagedWorld([["train"]] * 3))
+    healed = {"n": 0}
+
+    def start(s, task, db, walk):
+        from client.game import helper
+
+        healed["n"] += 1
+        fake2.state.injuries = {}
+        return helper.Helper("Uthmor", 4243, False)
+
+    monkeypatch.setattr(train, "start_helper", start)
+    task = normalize({"tasks": [GET_HEALED]})["tasks"][0]
+    current = plan(plant_room="bank", poll=10, tasks=[task])
+    reason = train.run_task(fake2, current, task, MAP, walk)
+    assert healed["n"] == 1  # the Empath came, paged off his own ;train
+    # The gate healed him before the task, so the task itself is not needed.
+    assert reason == "unneeded"
+    assert any("healing — Uthmor, the Empath" in t for t in fake2.echoed)
+    assert "train: healed by the Empath" in fake2.echoed
 
 
 def test_a_plant_task_needs_the_plans_plant_room():

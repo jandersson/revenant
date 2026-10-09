@@ -100,8 +100,16 @@ DEFAULTS = {
     # An Empath's own plan: the room (a ;go2 target) where its ;train
     # keeps a vela'tohr plant up with ;plant (#473). Empty: none.
     "keep_plant": "",
+    # The healers tried, in this order, when a bleeder, a health under
+    # the profile's floor or a wound at its wound floor stands between
+    # the character and the next task and no plant stands (#499): the
+    # helper Empath (paged whatever helper_page says), the NPC healer
+    # (;heal npc), the herbs (;heal). Cecil bled out on 2026-10-09 with
+    # the plant gone and nothing else tried.
+    "heal_fallback": ["helper", "npc", "herbs"],
     "tasks": [],
 }
+HEAL_RUNGS = ("helper", "npc", "herbs")
 SOUL = ("off", "on")
 # The choices behind each "choice" plan field, for the dialog.
 CHOICES = {
@@ -190,6 +198,12 @@ PLAN_FIELDS = (
         "str",
         "7890 — ;plant recasts it before it ends",
     ),
+    (
+        "heal_fallback",
+        "Healers tried, in order, when no plant stands",
+        "list",
+        "helper, npc, herbs",
+    ),
 )
 TASK_FIELDS = (
     ("name", "Name", "str", "how the task is reported"),
@@ -241,7 +255,7 @@ _INTS = (
 )
 _TASK_INTS = ("return_grace", "pace")
 _TASK_OPTIONAL_INTS = ("target", "minutes")
-_LISTS = ("safe_rooms", "rest_commands", "tdp")
+_LISTS = ("safe_rooms", "rest_commands", "tdp", "heal_fallback")
 _TASK_LISTS = ("skills", "args", "commands", "setup", "teardown", "helper_args")
 
 
@@ -493,6 +507,11 @@ def validate(plan: dict) -> list:
         problems.append(
             f"rest_mode {plan['rest_mode']!r} is not one of {', '.join(REST_MODES)}"
         )
+    for rung in plan.get("heal_fallback") or []:
+        if str(rung).strip().lower() not in HEAL_RUNGS:
+            problems.append(
+                f"heal_fallback {rung!r} is not one of {', '.join(HEAL_RUNGS)}"
+            )
     for entry in plan.get("tdp") or []:
         words = str(entry).split()
         if words == ["auto"]:

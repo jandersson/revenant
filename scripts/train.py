@@ -28,7 +28,10 @@ What it does
     and, wounded, the vela'tohr plant in `plant_room` touched and rested beside.
   - An Empath's `keep_plant`: between tasks and in rests, ;plant recasts the plant there
     before it ends, and tends it every 20 minutes (;plant tend: the wounds it took, healed);
-    an empty phial ends the recasts, said once, until a ;plant casts with a new one. A task with `plant: on` is spent beside that plant until healed;
+    an empty phial ends the recasts, said once, until a ;plant casts with a new one.
+  - Bleeding, health under the profile's `health_floor` or a wound at its `wound_floor`:
+    healed before any task or rest — ;tend first, then the plant, then `heal_fallback`'s
+    rungs in order: the helper Empath (paged whatever `helper_page` says), ;heal npc, ;heal. A task with `plant: on` is spent beside that plant until healed;
     with a `helper` and `helper_page` too, a wound that bad gets the helper instead.
   - The interludes (the profile's `almanac`, a typed `;break`) between tasks and in rests.
   - A helper busy on its own ;train: its task is skipped, or, with `helper_page` and a wound
@@ -363,6 +366,7 @@ ENDINGS = {
     "plant": "set aside for the plant's recast",
     "plant healed": "healed at the plant",
     "no plant": "found no plant",
+    "treated": "healed by the plan's other healers (no plant)",
 }
 UNTRAINED = ("skipped", "failed", "crashed")  # a task that never trained
 
@@ -591,6 +595,110 @@ def wounded(s):
     return bool(getattr(s.state, "injuries", None))
 
 
+TEND_MINUTES = 3  # one ;tend once: HEALTH, the bleeders bound
+HEAL_MINUTES = 20  # one ;heal run: the walk to the healer or the herbs taken
+PLANT_HEAL_MINUTES = 20  # beside the plant in the ladder before the next rung
+
+
+def bleeding(s):
+    """True when the status panel shows bleeding (s.status.bleeding, the
+    parser's IconBLEEDING; a dict status in a state read over the wire)."""
+    status = getattr(s, "status", None)
+    flag = getattr(status, "bleeding", None)
+    if flag is None:
+        status = getattr(s.state, "status", None)
+        flag = status.get("bleeding") if isinstance(status, dict) else None
+    return bool(flag)
+
+
+def hurt_badly(s):
+    """Why the character must heal before anything else (#499): bleeding,
+    health under the profile's `health_floor`, or a wound at its
+    `wound_floor` (what sends ;hunt home and keeps it from setting out).
+    None when nothing is that bad. Cecil bled out in town on 2026-10-09
+    while the loop ran chores past eleven wounds and a bleeder."""
+    if bleeding(s):
+        return "bleeding"
+    profile = profile_of(s)
+    vitals = getattr(s.state, "vitals", None) or {}
+    health = vitals.get("health") if isinstance(vitals, dict) else None
+    floor = int(profile.get("health_floor") or 0)
+    if floor and health is not None and health < floor:
+        return f"health {health}% under the floor of {floor}%"
+    wound = str(profile.get("wound_floor") or "").strip().lower()
+    if wound and wound != "off" and wounded(s) and severe(s, wound):
+        return f"a wound {wound} or worse"
+    return None
+
+
+def run_and_wait(s, plan, name, args, minutes):
+    """A script run and waited for, `minutes` at most; True when it ran."""
+    if not s.run(name, list(args)):
+        s.echo(f"train: could not start ;{name}")
+        return False
+    started = clock()
+    while s.is_running(name):
+        if s.dead:
+            return True
+        if clock() - started >= minutes * 60:
+            s.kill(name)
+            break
+        s.sleep(min(5, plan["poll"]))
+    return True
+
+
+def heal_ladder(s, plan, db, walk):
+    """The healers in turn until the injuries panel is clean (#499): the
+    plant when one stands in `plant_room`, then the rungs the plan's
+    `heal_fallback` allows — "helper" (the plan's helper Empath, paged
+    whatever its `helper_page` says: no plant means any wound counts),
+    "npc" (;heal npc, the nearest healer, paid), "herbs" (;heal). Each
+    rung said; the rung that cleaned the panel, else None, said."""
+    if not wounded(s):
+        return None
+    if plant_step(s, plan, db, walk, None) is not None:
+        s.echo("train: healing — the plant")
+        started = clock()
+        while wounded(s) and not s.dead and clock() - started < PLANT_HEAL_MINUTES * 60:
+            s.sleep(plan["poll"])
+        if not wounded(s):
+            return "the plant"
+    rungs = [str(r).strip().lower() for r in plan.get("heal_fallback") or []]
+    task = next((t for t in plan.get("tasks", []) if t.get("plant") == "on"), None)
+    if "helper" in rungs and task and helper.spec_of(task) and not s.dead:
+        s.echo(f"train: healing — {helper.spec_of(task)['name']}, the Empath")
+        urgent = dict(task, plant="", helper_page="insignificant", when="")
+        run_task(s, plan, urgent, db, walk, healing=True)
+        if not wounded(s):
+            return "the Empath"
+    for rung, args in (("npc", ["npc"]), ("herbs", [])):
+        if rung in rungs and wounded(s) and not s.dead:
+            s.echo(
+                f"train: healing — ;heal {' '.join(args) or 'with the herbs carried'}"
+            )
+            run_and_wait(s, plan, "heal", args, HEAL_MINUTES)
+            if not wounded(s):
+                return "the healer" if rung == "npc" else "the herbs"
+    if wounded(s) and not s.dead:
+        s.echo("train: still wounded after every healer the plan allows — resting on")
+    return None
+
+
+def heal_emergency(s, plan, db, walk):
+    """Before any task or rest (#499): a bleeder is tended at once, then
+    the ladder runs, said. True when something was that bad."""
+    why = hurt_badly(s)
+    if why is None:
+        return False
+    s.echo(f"train: {why} — healing before anything else")
+    if why == "bleeding":
+        run_and_wait(s, plan, "tend", ["once"], TEND_MINUTES)
+    healed_by = heal_ladder(s, plan, db, walk)
+    if healed_by:
+        s.echo(f"train: healed by {healed_by}")
+    return True
+
+
 # Embrace of the Vela'Tohr (#443): an Empath's ethereal plant heals a
 # non-Empath who TOUCHes it, slowly, while they stay in its room out of
 # combat; it never heals another Empath and is gone when its Empath logs
@@ -655,13 +763,16 @@ def following_task(plan, task):
     return None
 
 
-def run_task(s, plan, task, db=None, walk=None):
+def run_task(s, plan, task, db=None, walk=None, healing=False):
     """One task, setup to teardown; why it ended (watch's reasons). A
     task with a helper has the helper logged in, brought and started
     before the setup, and returned and logged out after the teardown
-    (client/game/helper.py)."""
+    (client/game/helper.py). `healing`: the ladder's own call (#499),
+    which skips the gate that would call the ladder."""
     study_almanac(s, plan)  # between tasks: the hands are the loop's
     keep_plant(s, plan)
+    if not healing and heal_emergency(s, plan, db, walk) and s.dead:
+        return "dead"
     if task.get("when") == "wounded" and not wounded(s):
         s.echo(f"train: {task['name']} — not wounded, skipped")
         return "unneeded"
@@ -753,6 +864,9 @@ def work_task(s, plan, task, db, walk, paged=False, use_helper=True):
         reason = run_helper_task(s, plan, task, deadline, active, db)
     elif task.get("plant") == "on":
         reason = run_plant_task(s, plan, task, deadline, db, walk)
+        if reason == "no plant" and wounded(s):
+            # No plant to heal at: the other healers (#499), not a rest.
+            reason = "treated" if heal_ladder(s, plan, db, walk) else "no plant"
     else:
         s.echo(f"train: {task['name']} has no script, commands or helper — skipped")
         reason = "skipped"
@@ -1093,6 +1207,8 @@ def rest(s, plan, db, walk, index):
     skill the almanac refilled is not waited for. Returns the next rest's
     index, None on death, RETURNED on a typed return, or LOGGED_OUT once
     a logout rest has sent its QUIT (#412)."""
+    if heal_emergency(s, plan, db, walk) and s.dead:
+        return None
     room = safe_room(plan, index)
     if room is not None:
         travel.go(s, room, repr(room), db=db, walk=walk)
