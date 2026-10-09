@@ -24,6 +24,7 @@ nav:
   - Guides:
       - Scripting: scripting.md
       - Movement and travel: movement.md
+      - Tasks: tasks.md
       - Combat: combat.md
       - Death: death.md
       - Experience: experience.md
