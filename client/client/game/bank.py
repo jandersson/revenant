@@ -21,10 +21,11 @@ Kronars in Zoluren), never the starting room's: a guild hall names no
 town (#342). Elanthipedia: Exchange command, Deposit command, Currency.
 """
 
+import math
 import re
 
 from client.game import act, travel
-from client.game.money import CURRENCIES, phrase, split
+from client.game.money import CURRENCIES, KRONAR_RATES, phrase, split
 from client.game.soul import currency_for
 
 EXCHANGED = ("hands you",)  # the money-changer's line, the new coins after it
@@ -125,19 +126,32 @@ _HANDED = re.compile(r"hands you ([^.]+)\.")
 # minimum is one bronze or ten coppers."'
 CHANGER_MINIMUM = 10  # copper
 TOO_SMALL = ("isn't worth my time", "the minimum is")
+# The changer's fee, a twentieth of what he hands over at the wiki's
+# rates (money.KRONAR_RATES): captured 2026-10-09 at the Crossing, 400
+# copper Kronars became 304 copper Lirums and 300 became 228 — 320 and
+# 240 at the rate, less five percent. EXCHANGE wants a cointype:
+# "exchange 400 kronars to lirums" answered 'I'm not sure what you're
+# getting at' and the syntax (EXCHANGE (amount) (cointype) (currency)
+# TO (currency), or ALL), so a top-up goes one denomination a command.
+CHANGER_FEE = 0.05
+CHANGE_GRAIN = 10  # copper: a top-up rounded up to whole bronze, past the floor
 
 
-def foreign(wealth, home):
+def foreign(wealth, home, kept=()):
     """The currencies to exchange: every one the purse holds at least the
     changer's minimum of that is not the province's own, in the game's
     order. `wealth` is money.parse_wealth's dict, `home`
-    "kronars"/"lirums"/"dokoras"."""
+    "kronars"/"lirums"/"dokoras". A coin in `kept` is wanted in the
+    purse (;bank lirums=300) and is not swept: a fare changed into
+    lirums was changed straight back by the next ;bank (2026-10-09)."""
     carried = wealth.get("carried", {})
+    held = {str(name).lower() for name in kept}
     return [
         currency.lower()
         for currency in CURRENCIES
         if carried.get(currency, 0) >= CHANGER_MINIMUM
         and currency.lower() != home.lower()
+        and currency.lower() not in held
     ]
 
 
@@ -155,6 +169,49 @@ def small_change(wealth, home):
 
 def exchange_command(currency, home):
     return f"exchange all {currency} to {home}"
+
+
+def top_up_needed(want_copper, want_currency, carried, home):
+    """(change, withdraw): the copper of `home` to hand the changer so
+    the purse reaches `want_copper` of `want_currency` after his fee,
+    rounded up to whole bronze, and how much of it the teller must
+    supply first; (0, 0) when the purse already holds enough."""
+    want_key, home_key = want_currency.capitalize(), home.capitalize()
+    short = want_copper - int(carried.get(want_key, 0) or 0)
+    if short <= 0:
+        return 0, 0
+    rate = KRONAR_RATES[want_key] / KRONAR_RATES[home_key]
+    exact = short * rate / (1 - CHANGER_FEE)
+    change = int(math.ceil(exact / CHANGE_GRAIN)) * CHANGE_GRAIN
+    withdraw = max(0, change - int(carried.get(home_key, 0) or 0))
+    return change, withdraw
+
+
+def top_up_commands(copper, home, want):
+    """EXCHANGE `copper` of `home` into `want`, one command per
+    denomination: the verb wants a cointype, and ALL would take the
+    purse's other home coin with it."""
+    return [
+        f"exchange {count} {denomination} {home.lower()} to {want.lower()}"
+        for count, denomination in split(copper)
+    ]
+
+
+def top_up(s, ask, prefix, copper, home, want):
+    """Change `copper` of `home` into `want` at the money-changer here,
+    each handover said; False, said, at the first command he did not
+    answer with coin."""
+    for command in top_up_commands(copper, home, want):
+        answer = ask(s, command)
+        got = handed(answer)
+        if got:
+            s.echo(f"{prefix}: the money-changer handed you {got}")
+            continue
+        line = changer_line(answer)
+        said = f"answered {line!r}" if line else "said nothing"
+        s.echo(f"{prefix}: the money-changer {said} to {command!r} — stopping")
+        return False
+    return True
 
 
 def handed(answer):

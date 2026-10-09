@@ -96,7 +96,7 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   (each box's contents, told to its creature by its item id);
   `wounds.py`, `herbs.py`, `empathy.py`; `soul.py`; `tdp.py`; `guild.py`
   (;sheet's snapshot, else INFO);
-  `money.py` (the purse), `bank.py` (the teller and the money-changer),
+  `money.py` (the purse), `bank.py` (the teller and the money-changer; `;bank lirums=300` a purse topped up in another coin),
   `shop.py` (`buy`, `afford`: one purchase, the quote checked, the sale
   closed the shop's way); `repair.py`; `outfit.py` (`;outfit`, a new
   character's essentials); `remedies.py` + `workorders.py` +

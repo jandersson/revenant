@@ -294,8 +294,12 @@ def test_an_empty_purse_with_a_keep_fetches_it_from_the_teller():
 
 
 def test_parse_args():
-    assert script.parse_args(["back", "keep=500"]) == {"back": True, "keep": 500}
-    assert script.parse_args([]) == {"back": False, "keep": 0}
+    assert script.parse_args(["back", "keep=500"]) == {
+        "back": True,
+        "keep": 500,
+        "wants": {},
+    }
+    assert script.parse_args([]) == {"back": False, "keep": 0, "wants": {}}
 
 
 # Riverhaven, as the community map writes it: a guild hall that names no
@@ -410,3 +414,107 @@ def test_withdraw_here_draws_by_denomination_and_says_the_tellers_lines():
     assert "the teller refused" in echoed[-1]
     assert bank.refused("You don't have enough coins in your account.")
     assert not bank.refused(counted.format("1 gold"))
+
+
+# --- a purse kept in another province's coin (;bank lirums=300) ---------------
+
+# Captured 2026-10-09 at the Crossing's money-changer: 400 copper Kronars
+# became 304 copper Lirums, 300 became 228 — the wiki's rate less a
+# twentieth. The syntax refusal to a bare "exchange 400 kronars to lirums".
+COUNTED_LINE = (
+    "The clerk counts out 1 silver Kronars and hands them over, making a notation "
+    "in her ledger.\n"
+)
+HANDED_LIRUMS = (
+    "You hand your money to the money-changer.  After collecting a modest fee, "
+    "he hands you 3 silver, and 4 copper Lirums.\n"
+)
+NO_COINTYPE = (
+    "The money-changer says, \"I'm not sure what you're getting at, Lanival.\"\n"
+    "------------------\n"
+    "The EXCHANGE command allows you exchange one currency (kronars, lirums or "
+    "dokoras) for another, but only if you're in a bank room that has a money-changer.\n"
+)
+WEALTH_SOME_LIRUMS = "Wealth:\n  No Kronars.\n  2 silver, 2 bronze, and 8 copper Lirums (228 copper Lirums).\n  No Dokoras.\n"
+WEALTH_ENOUGH_LIRUMS = "Wealth:\n  No Kronars.\n  3 silver, 2 bronze, and 8 copper Lirums (328 copper Lirums).\n  No Dokoras.\n"
+
+
+def test_the_changers_fee_is_a_twentieth_at_the_wikis_rate():
+    from client.game.bank import top_up_commands, top_up_needed
+
+    # The captured pairs: 400 Kronars bought 304 Lirums, 300 bought 228.
+    assert top_up_needed(304, "Lirums", {}, "Kronars") == (400, 400)
+    assert top_up_needed(228, "lirums", {}, "kronars") == (300, 300)
+    # Rounded up to whole bronze; the home coin already held is not drawn.
+    assert top_up_needed(300, "Lirums", {}, "Kronars") == (400, 400)
+    assert top_up_needed(300, "Lirums", {"Kronars": 150}, "Kronars") == (400, 250)
+    # Lirums already in the purse count: 72 short wants 95, so 100.
+    assert top_up_needed(300, "Lirums", {"Lirums": 228}, "Kronars") == (100, 100)
+    assert top_up_needed(300, "Lirums", {"Lirums": 328}, "Kronars") == (0, 0)
+    # One command per denomination, with the cointype the verb wants.
+    assert top_up_commands(400, "Kronars", "Lirums") == [
+        "exchange 4 silver kronars to lirums"
+    ]
+    assert top_up_commands(1510, "kronars", "lirums") == [
+        "exchange 1 gold kronars to lirums",
+        "exchange 5 silver kronars to lirums",
+        "exchange 1 bronze kronars to lirums",
+    ]
+
+
+def test_bank_lirums_keeps_the_lirums_held_and_tops_them_up_from_the_teller():
+    # 228 Lirums on an empty purse, 300 wanted: the Lirums are not swept
+    # as foreign, 100 Kronars are drawn and changed, WEALTH confirms.
+    fake = Fake(
+        {
+            "wealth": [WEALTH_SOME_LIRUMS, WEALTH_SOME_LIRUMS, WEALTH_ENOUGH_LIRUMS],
+            "withdraw": [COUNTED_LINE],
+            "exchange": [HANDED_LIRUMS],
+        }
+    )
+    script.run(fake, ["lirums=300"], MAP, walk_fn=walk)
+    assert "exchange all lirums to kronars" not in fake.sent
+    assert "withdraw 1 silver" in fake.sent
+    assert "exchange 1 silver kronars to lirums" in fake.sent
+    assert fake.walks[0] == {1900} and fake.walks[1] == {
+        1902
+    }  # the teller, then the changer
+    assert "bank: 3 silver, 2 bronze and 8 copper Lirums on you — enough" in echoes(
+        fake
+    )
+    assert "bank: the money-changer handed you 3 silver, and 4 copper Lirums" in echoes(
+        fake
+    )
+
+
+def test_a_changer_who_wants_a_cointype_stops_the_top_up_and_says_so():
+    fake = Fake(
+        {
+            "wealth": [WEALTH_SOME_LIRUMS, WEALTH_SOME_LIRUMS],
+            "withdraw": [COUNTED_LINE],
+            "exchange": [NO_COINTYPE],
+        }
+    )
+    script.run(fake, ["lirums=300"], MAP, walk_fn=walk)
+    assert "stopping" in echoes(fake) and "not sure what you" in echoes(fake)
+    assert "enough" not in echoes(fake)
+
+
+def test_enough_of_the_wanted_coin_walks_nowhere_and_the_provinces_coin_is_a_keep():
+    # WEALTH twice: the bank run's reading, then the top-up's own.
+    fake = Fake({"wealth": [WEALTH_ENOUGH_LIRUMS, WEALTH_ENOUGH_LIRUMS]})
+    script.run(fake, ["lirums=300"], MAP, walk_fn=walk)
+    assert fake.walks == [] and "on you — enough" in echoes(fake)
+    fake = Fake({"wealth": [WEALTH_ENOUGH_LIRUMS]})
+    script.run(fake, ["kronars=300"], MAP, walk_fn=walk)
+    assert "keep= is the word" in echoes(fake)
+
+
+def test_parse_args_reads_a_currency_target():
+    assert script.parse_args(["lirums=300", "keep=200", "back"]) == {
+        "back": True,
+        "keep": 200,
+        "wants": {"Lirums": 300},
+    }
+    assert script.parse_args(["Dokoras=50"])["wants"] == {"Dokoras": 50}
+    assert script.parse_args(["lirums=x"])["wants"] == {}

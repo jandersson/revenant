@@ -4,6 +4,9 @@
     ;bank back         ... and walk back to where you started
     ;bank keep=500     leave that many copper of the province's coin in the purse (for a tithe, a fee); 0 by default
                        an empty purse with a keep walks to the teller and withdraws it (a kit to buy, 2026-09-22)
+    ;bank lirums=300   the purse ends with at least that many copper of another province's coin (a ferry's or a barge's fare):
+                       what it lacks is drawn at the teller in the province's coin and changed at the money-changer;
+                       the coin named is not swept as foreign (dokoras=, kronars= the same; combines with keep= and back)
 
 Coins weigh, and a hunt's takings and the far towns' change pile up
 (the operator, 2026-09-20: a bank loop in ;train "will reduce
@@ -33,6 +36,8 @@ is not an empty purse. Stop with:  ;stop bank.
 from client.game import travel
 from client.game.act import ask
 from client.game.bank import (
+    top_up,
+    top_up_needed,
     deposit,
     exchange_each,
     foreign,
@@ -43,12 +48,12 @@ from client.game.bank import (
     withdraw_here,
 )
 from client.game.mapdb import MapDB
-from client.game.money import parse_wealth, unanswered
+from client.game.money import CURRENCIES, parse_wealth, phrase, purse, unanswered
 from client.game.walker import character_ranks, locate, walk
 
 
 def parse_args(words):
-    options = {"back": False, "keep": 0}
+    options = {"back": False, "keep": 0, "wants": {}}
     for word in words or []:
         lowered = str(word).lower()
         key, sep, value = lowered.partition("=")
@@ -56,6 +61,8 @@ def parse_args(words):
             options["back"] = True
         elif sep and key == "keep" and value.isdigit():
             options["keep"] = int(value)
+        elif sep and key.capitalize() in CURRENCIES and value.isdigit():
+            options["wants"][key.capitalize()] = int(value)
     return options
 
 
@@ -84,6 +91,50 @@ def withdraw_back(s, copper, home):
         return False
     s.echo(f"bank: kept {copper} copper {home} in the purse")
     return True
+
+
+def top_up_each(s, mapdb, walk_fn, wants, home, tellers):
+    """The purse brought to each wanted coin (;bank lirums=300): WEALTH
+    for what it holds now, the shortfall's home coin drawn at the
+    teller, changed at a money-changer of this province, and WEALTH
+    again for the verdict."""
+    carried = purse(s, ask)
+    for currency, want in wants.items():
+        if currency.lower() == home.lower():
+            s.echo(f"bank: {currency} are this province's own coin — keep= is the word")
+            continue
+        change, draw = top_up_needed(want, currency, carried, home)
+        if not change:
+            s.echo(
+                f"bank: {phrase(carried.get(currency, 0), currency)} on you — enough"
+            )
+            continue
+        s.echo(
+            f"bank: {phrase(want, currency)} wanted, "
+            f"{phrase(carried.get(currency, 0), currency)} on you — "
+            f"changing {phrase(change, home)}"
+        )
+        if draw:
+            if not travel.go(
+                s, set(tellers), "the bank teller", db=mapdb, walk=walk_fn
+            ):
+                s.echo("bank: could not reach a teller — nothing changed")
+                return
+            if not withdraw_here(s, ask, "bank", draw, home):
+                return
+        changers = mapdb.rooms_tagged("exchange")
+        changers = [
+            room for room in changers if room_currency(mapdb, room) == home
+        ] or changers
+        if not travel.go(s, set(changers), "the money-changer", db=mapdb, walk=walk_fn):
+            s.echo("bank: could not reach a money-changer — nothing changed")
+            return
+        if not top_up(s, ask, "bank", change, home, currency):
+            return
+        carried = purse(s, ask)
+        after = carried.get(currency, 0)
+        verdict = "enough" if after >= want else f"short of {phrase(want, currency)}"
+        s.echo(f"bank: {phrase(after, currency)} on you — {verdict}")
 
 
 def refresh_wealth(s):
@@ -120,15 +171,26 @@ def run(s, words, mapdb, walk_fn=walk):
     small = small_change(wealth, home)
     for currency, copper in small:
         s.echo(f"bank: {copper} copper {currency} under the changer's minimum — kept")
-    currencies = foreign(wealth, home)
+    currencies = foreign(wealth, home, kept=options["wants"])
     if not currencies and not carried.get(home.capitalize(), 0):
         empty = (
             "the purse holds only small change"
             if any(carried.values())
             else "the purse is empty"
         )
-        if options["keep"] <= 0:
+        if options["keep"] <= 0 and not options["wants"]:
             s.echo(f"bank: {empty} — nothing to bank")
+            return
+        if options["keep"] <= 0:
+            top_up_each(s, mapdb, walk_fn, options["wants"], home, tellers)
+            refresh_wealth(s)
+            if (
+                options["back"]
+                and start is not None
+                and locate(mapdb, s.state) != start
+            ):
+                if not travel.go(s, start, "where you started", db=mapdb, walk=walk_fn):
+                    s.echo("bank: could not walk back — you are at the bank")
             return
         # Nothing to deposit, something to fetch: the keep is what the
         # purse should hold, so the teller hands it over (2026-09-22, the
@@ -139,6 +201,8 @@ def run(s, words, mapdb, walk_fn=walk):
             s.echo("bank: could not reach a teller — nothing withdrawn")
             return
         withdraw_back(s, options["keep"], home)
+        if options["wants"]:
+            top_up_each(s, mapdb, walk_fn, options["wants"], home, tellers)
         refresh_wealth(s)
         if options["back"] and start is not None and locate(mapdb, s.state) != start:
             if not travel.go(s, start, "where you started", db=mapdb, walk=walk_fn):
@@ -154,6 +218,8 @@ def run(s, words, mapdb, walk_fn=walk):
         return
     if options["keep"] > 0:
         withdraw_back(s, options["keep"], home)
+    if options["wants"]:
+        top_up_each(s, mapdb, walk_fn, options["wants"], home, tellers)
     refresh_wealth(s)
     if options["back"] and start is not None and locate(mapdb, s.state) != start:
         if not travel.go(s, start, "where you started", db=mapdb, walk=walk_fn):
