@@ -27,7 +27,7 @@ What it does
   - At the lock it holds until Locksmithing drains, then goes on.
   - Logs each opened box to history.db (`box_contents`): trap, lock, coins, items,
     and the creature and ground it came from, by the id ;hunt logged at pickup;
-    and every DISARM and PICK sent (`box_attempts`): reading, outcome, rank at the time.
+    and every IDENTIFY, DISARM, PICK and OPEN sent (`box_attempts`): reading, outcome, rank at the time.
 
 Never a drop
   - An undismantled box goes in the room's bucket only if settings.json's

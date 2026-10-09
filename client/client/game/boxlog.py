@@ -1,7 +1,7 @@
 """What each opened box held, told to the creature and the ground that
 dropped it (#423).
 
-Two tables in history.db. `box_drops`: one row per box ;hunt picks up —
+Three tables in history.db. `box_drops`: one row per box ;hunt picks up —
 the box's item id, its noun and description, the creature searched, the
 ground, the room and the `loot` row of that search. `box_contents`: one
 row per box ;boxes opens — the id, the trap and lock readings (1-17, 0
