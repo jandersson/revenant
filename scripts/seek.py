@@ -23,7 +23,8 @@ peddler]"; ORDER 3 FROM PEDDLER bought the copper zills for 500
 Lirums, Lirums only; Elanthipedia: Tall Human Peddler). Not found
 after the laps: it says
 so and stops where the last lap ended, the start. Another player's
-room is passed through, never lingered in. It stops on death, on
+room is passed through, never lingered in; a room it cannot reach is
+skipped. It stops on death, on
 hostiles in the room (the shared escape, client/game/flight.py), and
 when the map has no street to loop.
 Stop with:  ;stop seek (at once), or ;seek return to walk back to the start first.
@@ -96,8 +97,8 @@ def run(s, options, mapdb, walk_fn=walk, avoid=()):
             if room != locate(mapdb, s.state) and not travel.go(
                 s, room, "the next room", db=mapdb, walk=walk_fn, avoid=avoid
             ):
-                s.echo("seek: the walk failed — stopping")
-                return
+                s.echo("seek: no way to the next room — skipping it")
+                continue
             if entry := found_here(s, noun):
                 s.echo(f"seek: {entry} here")
                 return

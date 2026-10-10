@@ -956,6 +956,20 @@ def test_avoided_rooms_resolve_like_go2_targets():
     assert walker.avoided_rooms(db, ["rock_guardians"]) == set()
 
 
+def test_ratha_bazaar_is_avoided_whatever_the_settings_say():
+    # #517: the Bazaar is a maze whose ways shift ("You can't go there."
+    # seven times in four seconds), so every walk detours round it.
+    db = MapDB(
+        [
+            {"id": 4718, "title": ["[[Ratha, Bazaar]]"], "wayto": {}},
+            {"id": 4752, "title": ["[[Ratha Bazaar, Grand Pavilion]]"], "wayto": {}},
+            {"id": 9, "title": ["[Safe Road]"], "wayto": {}},
+        ]
+    )
+    assert walker.avoided_rooms(db, None) == {4718}
+    assert walker.avoided_rooms(db, ["9"]) == {4718, 9}
+
+
 def test_walk_announces_a_route_forced_through_avoided_rooms():
     # No clean detour exists here, so the walk proceeds — announced
     # before the first step, never silently.

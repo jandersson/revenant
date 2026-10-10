@@ -453,12 +453,20 @@ def _disambiguate(db, candidates, compass):
     return max(candidates, key=lambda room_id: len(here_exits & exits_of(room_id)))
 
 
+# Rooms whose exits shift under the map, avoided by every walk whatever
+# avoid_rooms says: Ratha's Bazaar is "a maze, with constantly shifting
+# routes" (Elanthipedia: Ratha Bazaar), its exits refused "You can't go
+# there." one after another (#517).
+SHIFTING_ROOMS = ("Ratha, Bazaar",)
+
+
 def avoided_rooms(db, entries):
     """The room ids an avoid list names — each entry resolved like a
-    ;go2 target (tag, room id, or title substring). The standing list
-    lives in settings ("avoid_rooms"); scripts resolve it once per db."""
+    ;go2 target (tag, room id, or title substring) — and the shifting
+    rooms. The standing list lives in settings ("avoid_rooms"); scripts
+    resolve it once per db."""
     rooms = set()
-    for entry in entries or []:
+    for entry in [*SHIFTING_ROOMS, *(entries or [])]:
         rooms.update(db.resolve(str(entry)))
     return rooms
 

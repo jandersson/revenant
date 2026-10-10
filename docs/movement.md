@@ -51,7 +51,7 @@ The Riverhaven–Throne City barge is ridden the same way: at the Salt Yard's ba
 
 ## Rooms to avoid
 
-`avoid_rooms` in `~/.revenant/settings.json` lists `;go2`-style targets the planner detours around. The default is the cougar grounds. When no clean detour exists, the walk says so before the first step and goes through. `;go2 direct` skips the list once.
+`avoid_rooms` in `~/.revenant/settings.json` lists `;go2`-style targets the planner detours around. The default is the cougar grounds. Ratha's Bazaar, a maze whose ways shift, is always avoided. When no clean detour exists, the walk says so before the first step and goes through. `;go2 direct` skips the list once.
 
 ## Climbs
 

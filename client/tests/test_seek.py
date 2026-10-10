@@ -217,6 +217,24 @@ def test_a_parser_without_room_objs_looks_instead():
     assert "seek: a tall Human peddler here" in out
 
 
+def test_a_room_it_cannot_reach_is_skipped_not_the_end_of_the_search():
+    # #517: one failed walk (a way "You can't go there.") ended the
+    # whole search; now that room is passed over and the loop goes on.
+    def walk_but_room_3(s, db, goals, describe="", avoid=()):
+        if min(goals) == 3:
+            return False
+        return walk(s, db, goals, describe, avoid)
+
+    fake = Fake(listings={4: [PEDDLER]})
+    script.run(
+        fake, seek.parse_args(["peddler", "rooms=3"]), MAP, walk_fn=walk_but_room_3
+    )
+    out = "\n".join(fake.echoed)
+    assert fake.walks == [2, 4]
+    assert "no way to the next room — skipping it" in out
+    assert "seek: a tall Human peddler here" in out
+
+
 def test_a_room_with_no_street_is_refused():
     lone = MapDB([{"id": 1, "uid": [101], "title": ["[Alone]"], "wayto": {}}])
     fake = Fake()
