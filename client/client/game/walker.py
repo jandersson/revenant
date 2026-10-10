@@ -169,7 +169,8 @@ MAMMOTH_LANDS = (
 # Jolas." onto [The Jolas, Fore Deck]; it stays about fifteen minutes,
 # crosses in thirteen and lands with "The captain barks the order to tie
 # off the Jolas to the docks." (bescort's wait line); GO DOCK at
-# Hara'jaal ("You disembark."), GO END at Mer'Kresh (bescort's). Its
+# Hara'jaal and GO END at Mer'Kresh both answer "You disembark." (the
+# first walker ride, 20:46 to 21:12 on 2026-10-10, onto Wharf End). Its
 # slate's countdown is not the next docking: "2 hours 22 minutes" and the
 # ship tied up two minutes later.
 JOLAS_ANSWER_SECONDS = 4
