@@ -469,6 +469,7 @@ def ride_ferry(s, direction=""):
     every FERRY_POLL_SECONDS; the same routine serves Alfren's Ferry
     over the Segoltha, captured on 2026-09-18 with the same arrival
     ("pulls into the dock") and fee lines, 35 kronars."""
+    waiting = False  # the wait is said once, not every poll (the operator, 2026-10-10)
     for _ in range(max(1, round(FERRY_WAIT_SECONDS / FERRY_POLL_SECONDS))):
         s.waitrt()
         s.put("go ferry")
@@ -509,7 +510,12 @@ def ride_ferry(s, direction=""):
             )
             return "fare"
         if any(needle in answer for needle in FERRY_AWAY):
-            s.echo("no ferry at the dock — waiting for one")
+            if not waiting:
+                s.echo(
+                    "no ferry at the dock — waiting for one "
+                    f"(up to {FERRY_WAIT_SECONDS // 60} minutes)"
+                )
+                waiting = True
             read_story(s, FERRY_POLL_SECONDS, until=FERRY_ARRIVES)
             continue
         s.echo(f"GO FERRY answered {first!r} — please report it — stopping here")
@@ -566,10 +572,16 @@ def ride_barge(s, direction=""):
     that brings the barge in; a barge still nearing answers GO with
     BARGE_NOT_YET and is tried again once it docks."""
     deadline = monotonic() + BARGE_WAIT_SECONDS
+    waiting = False  # said once, not every poll (the operator, 2026-10-10)
     while monotonic() < deadline:
         name = barge_name(getattr(s.state, "room_objs", ""))
         if not name:
-            s.echo("no barge at the dock — waiting for one")
+            if not waiting:
+                s.echo(
+                    "no barge at the dock — waiting for one "
+                    f"(up to {BARGE_WAIT_SECONDS // 60} minutes)"
+                )
+                waiting = True
             story = read_story(s, BARGE_POLL_SECONDS, until=BARGE_ARRIVES)
             name = barge_name(story) or barge_name(getattr(s.state, "room_objs", ""))
             if not name:
