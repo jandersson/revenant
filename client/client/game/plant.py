@@ -120,20 +120,46 @@ def record_path(name):
 
 
 def record(name, room, minutes, session, now=None):
-    """The cast written down: where, when, for how long, in which session."""
+    """The cast written down: where, when, for how long, in which session
+    — the spent foci's ids carried over (#503)."""
+    old = load(name)
     path = record_path(name)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(
-            {
-                "room": str(room),
-                "cast": clock() if now is None else now,
-                "minutes": int(minutes),
-                "session": session,
-            }
-        ),
-        encoding="utf-8",
+    mark = {
+        "room": str(room),
+        "cast": clock() if now is None else now,
+        "minutes": int(minutes),
+        "session": session,
+    }
+    if isinstance(old, dict) and old.get("spent"):
+        mark["spent"] = old["spent"]
+    path.write_text(json.dumps(mark), encoding="utf-8")
+
+
+def spent_foci(name):
+    """The ids of foci found empty (#503)."""
+    mark = load(name)
+    return [str(e) for e in (mark.get("spent") or [])] if isinstance(mark, dict) else []
+
+
+def choose_focus(possessions, focus, spent=()):
+    """(the focus to GET, as "#<id>", or None; how many of its name the
+    character carries): the newest by INV LIST id among those not known
+    spent — a fresh phial bought beside an empty one of the same name
+    (#503). None when the listing shows none (GET by the noun then)."""
+    pattern = re.compile(rf"\b{re.escape(str(focus).lower())}\b")
+    mine = [
+        item
+        for item in possessions or ()
+        if item.get("exist") and pattern.search(str(item.get("name") or "").lower())
+    ]
+    fresh = [i for i in mine if str(i["exist"]) not in set(spent)]
+    if not fresh:
+        return None, len(mine)
+    newest = max(
+        fresh, key=lambda i: int(str(i["exist"])) if str(i["exist"]).isdigit() else 0
     )
+    return f"#{newest['exist']}", len(mine)
 
 
 def load(name):
@@ -156,13 +182,16 @@ def note_tend(name, now=None):
     path.write_text(json.dumps(mark), encoding="utf-8")
 
 
-def note_no_focus(name, now=None):
+def note_no_focus(name, now=None, spent=None):
     """The empty focus written into the record (#496): no recast until a
-    cast rewrites the record, which record() does."""
+    cast rewrites the record, which record() does; its id (`spent`) kept
+    so the next cast takes another (#503)."""
     mark = load(name)
     if not isinstance(mark, dict):
         mark = {}
     mark["no_focus"] = clock() if now is None else now
+    if spent:
+        mark["spent"] = sorted(set(mark.get("spent") or []) | {str(spent)})
     path = record_path(name)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(mark), encoding="utf-8")

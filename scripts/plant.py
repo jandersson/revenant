@@ -11,7 +11,8 @@
 What it does
   - An old plant in the room is TOUCHed: its wounds move to you (Empathy), and ;empath self
     heals them. The plant keeps every wound it heals and despawns at its limit.
-  - Casts Embrace of the Vela'Tohr: GET the focus, PREPARE EV, INVOKE the focus, CAST, STOW
+  - Casts Embrace of the Vela'Tohr: GET the focus (by its INV LIST id: the newest not
+    found empty, said when there are two), PREPARE EV, INVOKE the focus, CAST, STOW
     the focus, STAND.
   - PERCEIVE reads how long the plant lasts; ;train's `keep_plant` recasts 10 minutes before
     it ends and tends it between tasks every 20 minutes (;plant tend).
@@ -146,7 +147,13 @@ def cast(s, options):
     focus = options["focus"]
     if hands.full(s):
         hands.free_one(s)
-    answer = ask(s, f"get my {focus}")
+    name = getattr(s.state, "name", None) or ""
+    ref, carried = plant.choose_focus(
+        getattr(s.state, "possessions", None), focus, plant.spent_foci(name)
+    )
+    if ref and carried > 1:
+        s.echo(f"plant: {carried} {focus}s on you — taking {ref}, the newest not spent")
+    answer = ask(s, f"get {ref}" if ref else f"get my {focus}")
     if missing(answer) and not hands.holding(s, focus):
         s.echo(f"plant: no {focus} on you — the ritual needs its focus")
         return None
@@ -180,7 +187,15 @@ def cast(s, options):
                 "the next plant"
             )
             ask(s, "release spell")
-            plant.note_no_focus(getattr(s.state, "name", None) or "")
+            held = next(
+                (
+                    tag.get("exist")
+                    for tag in hands.tags(s).values()
+                    if tag and hands._same(tag.get("noun") or "", focus)
+                ),
+                None,
+            )
+            plant.note_no_focus(name, spent=held)  # its id, so the next takes another
             return plant.NO_FOCUS
         if not plant.said(text, plant.INVOKED):
             s.echo(f"plant: INVOKE answered {said(text)!r}")

@@ -248,6 +248,43 @@ def test_an_empty_phial_ends_the_run_and_marks_the_record(tmp_path, monkeypatch)
     assert not plant.no_focus("Lanival")
 
 
+def test_two_phials_the_fresh_one_is_taken_by_id_not_the_first_by_noun(
+    tmp_path, monkeypatch
+):
+    # #503 (Riphik, 2026-10-09): a fresh phial bought beside the spent
+    # one of the same name; GET MY PHIAL takes whichever the game lists
+    # first. The spent one's id is recorded when it runs dry; the next
+    # cast takes the newest other one by id, and says so.
+    import os
+
+    monkeypatch.setenv("REVENANT_TRAINING", str(tmp_path))
+    plant.record("Lanival", "7890", 63, os.getpid(), now=1000.0)
+    plant.note_no_focus("Lanival", now=1500.0, spent="160000001")
+    s = handle()
+    s.state.possessions = [
+        {"exist": "160000001", "name": "phial of phofe attar"},  # spent, listed first
+        {"exist": "170000002", "name": "phial of phofe attar"},
+    ]
+    script = _script()
+    game = Game(s, CAST | {"get #170000002": CAST["get my phial"]})
+    script.ask = game
+    assert (
+        script.run(s, script.parse_args(["7890"]), db=CHAMBERS, walk=arrive) == "cast"
+    )
+    assert game.sent[0] == "get #170000002" and "get my phial" not in game.sent
+    assert (
+        "plant: 2 phials on you — taking #170000002, the newest not spent" in s.echoed
+    )
+    # The spent id survives the cast's new record.
+    assert plant.spent_foci("Lanival") == ["160000001"]
+    assert plant.choose_focus(
+        s.state.possessions, "phial", ["160000001", "170000002"]
+    ) == (
+        None,
+        2,
+    )
+
+
 def test_a_tend_is_due_twenty_minutes_after_the_cast_or_the_last_tend(
     tmp_path, monkeypatch
 ):
