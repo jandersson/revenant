@@ -127,6 +127,30 @@ BARGE_NOT_YET = ("can't do that right now",)
 BARGE_ARRIVES = ("pulls into the dock",)
 BARGE_LANDS = ("ties the barge off",)
 _BARGE_NAME = re.compile(r"\bthe barge (?P<name>[A-Z][\w']*(?: [A-Z][\w']*)?)")
+# The sea mammoths (#515), bescort's take_mammoth: Fang Cove's dock
+# (8301) to Ratha's Shore Walk (11130) on the massive one, to
+# Acenamacra's pier (2239) on the tall one, free, two minutes docked and
+# about seven across (Elanthipedia: Sea Mammoths). JOIN SEA MAMMOTH (or
+# TALL) with it in: 'You join the Merelew driver.  "Right this way,
+# sir."' and the room is [Aboard the Mammoth, Platform] (captured
+# 2026-10-10 at Fang Cove, the driver's call before it: "I'm leaving
+# shortly, returning to Ratha."). With it out the answer is "What were
+# you referring to?" and the dock's story brings the next one in;
+# bescort's lines for that and for the landing, which sets the rider
+# ashore on its own — LOOK is the step's move after it, for the compass
+# frame the arrival check reads.
+MAMMOTH_ANSWER_SECONDS = 4
+MAMMOTH_WAIT_SECONDS = 1200  # a round trip and its two stops
+MAMMOTH_POLL_SECONDS = 30
+MAMMOTH_AWAY = ("What were you referring to",)
+MAMMOTH_ARRIVES = (
+    "waves along the waterline increase drastically",
+    "watery trumpeting sound heralds",
+)
+MAMMOTH_LANDS = (
+    "trumpets a series of watery blasts",
+    "Here we are, ladies and gentlemen",
+)
 # The Obsidian Pass gondola (#211), after bescort's ride_gondola and
 # captured on the first ride (2026-09-18): GO GONDOLA at a platform
 # lands in the cab ([Gondola, Cab North], a room: a compass frame) or
@@ -639,12 +663,57 @@ def ride_barge(s, direction=""):
     return "no barge"
 
 
+def ride_mammoth(s, mode=""):
+    """JOIN the sea mammoth at this dock and cross (#515): "landed" ashore
+    at the far side (the mammoth sets you there), "no mammoth" when none
+    came within MAMMOTH_WAIT_SECONDS, "stuck" when the crossing never
+    landed, "unknown" for an answer outside the table. The tall one
+    serves Acenamacra (bescort's 'acen', and 'fang' from its pier), the
+    massive one Ratha."""
+    title = str(getattr(s.state, "room_title", "") or "")
+    kind = "tall" if mode == "acen" or "Acenamacra" in title else "sea"
+    deadline = monotonic() + MAMMOTH_WAIT_SECONDS
+    waiting = False  # said once, not every poll (the operator, 2026-10-10)
+    while monotonic() < deadline:
+        s.waitrt()
+        s.put(f"join {kind} mammoth")
+        outcome, _, answer = await_arrival(s, timeout=MAMMOTH_ANSWER_SECONDS)
+        if outcome == "arrived":
+            s.echo(f"aboard the {kind} mammoth — crossing")
+            crossing = read_story(s, MAMMOTH_WAIT_SECONDS, until=MAMMOTH_LANDS)
+            if not any(needle in crossing for needle in MAMMOTH_LANDS):
+                s.echo(
+                    f"the mammoth never landed in {MAMMOTH_WAIT_SECONDS // 60} "
+                    "minutes — stopping here"
+                )
+                return "stuck"
+            return "landed"
+        if any(needle in answer for needle in MAMMOTH_AWAY):
+            if not waiting:
+                s.echo(
+                    "no mammoth at the dock — waiting for one "
+                    f"(up to {MAMMOTH_WAIT_SECONDS // 60} minutes)"
+                )
+                waiting = True
+            read_story(s, MAMMOTH_POLL_SECONDS, until=MAMMOTH_ARRIVES)
+            continue
+        first = (answer.strip().splitlines() or ["(silence)"])[0]
+        s.echo(
+            f"JOIN {kind.upper()} MAMMOTH answered {first!r} — please report it "
+            "— stopping here"
+        )
+        return "unknown"
+    s.echo(f"no mammoth came in {MAMMOTH_WAIT_SECONDS // 60} minutes — stopping here")
+    return "no mammoth"
+
+
 # route -> (the ride, the step's own move off it)
 RIDE_HANDLERS = {
     "faldesu": (ride_ferry, "go dock"),
     "ferry": (ride_ferry, "go dock"),
     "gondola": (ride_gondola, "out"),
     "haven_throne": (ride_barge, "go dock"),
+    "mammoth": (ride_mammoth, "look"),
 }
 
 

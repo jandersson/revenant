@@ -516,6 +516,15 @@ def test_from_fang_cove_the_exit_nearest_the_goal_is_planned_and_the_way_in_stay
     ]
 
 
+def test_a_walk_from_outside_fang_cove_never_portals_in_and_out_again():
+    # In by the Crossing's meeting portal, the exit returns you to the
+    # Crossing: the planner's route to Ratha through Fang Cove's Ratha
+    # exit would have landed where it began (#515).
+    cove = MapDB(COVE)
+    assert cove.path(1900, [389], premium=True) is None
+    assert cove.path(8308, [389]) == [(389, EXIT)]
+
+
 # --- one parse a process (#407) ---
 
 

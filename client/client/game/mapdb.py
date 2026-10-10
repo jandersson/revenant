@@ -92,11 +92,16 @@ DEFAULT_STEP_SECONDS = 0.2
 # The Riverhaven–Throne City barge (#506) is bescort's haven_throne route,
 # written in the `if` form on both docks (Salt Yard, Barge Dock 452 ↔
 # Stone Docks, Covered Shore 3084); walker.ride_barge boards by name.
+# The sea mammoths (#515) are bescort's mammoth route: Fang Cove, Dock
+# 8301 ↔ Ratha's Shore Walk, Rocky Path 11130 and Acenamacra Pier 2239;
+# with a Premium character's meeting portal into Fang Cove they are the
+# way from the Crossing to Ratha (walker.ride_mammoth).
 RIDES = {
     "faldesu": "ferry",
     "ferry": "ferry",
     "gondola": "gondola",
     "haven_throne": "barge",
+    "mammoth": "mammoth",
 }
 IF_FORM_RIDES = frozenset({"gondola", "ferry", "haven_throne"})
 RIDE_SECONDS = 300.0  # the wait and the crossing: a land route wins where one exists
@@ -690,6 +695,7 @@ class MapDB:
         avoid = frozenset(avoid)
         closed = frozenset(closed)
         weight = "seconds"
+        inside = {}  # a Fang Cove exit portal's room -> the walk starts beside it
         if avoid or closed or gates:
 
             def weight(here, dest, data):
@@ -702,6 +708,15 @@ class MapDB:
                     and not gate.met(ranks, guild, circle, premium)
                 ):
                     return None  # the map prices it nil for this character
+                if gates and gate is not None and gate.portal:
+                    # Fang Cove's exit returns you to the town you came in
+                    # by: a walk from outside that portals in and out again
+                    # lands where it began (#515), so only a walk that
+                    # starts in Fang Cove takes one.
+                    if here not in inside:
+                        inside[here] = start in self._fang_cove(here)
+                    if not inside[here]:
+                        return None
                 penalty = AVOID_PENALTY_SECONDS if dest in avoid else 0.0
                 return data["seconds"] + penalty
 
@@ -715,6 +730,19 @@ class MapDB:
             (dest, self.graph.edges[here, dest]["command"])
             for here, dest in zip(route, route[1:])
         ]
+
+    def _fang_cove(self, portal_room):
+        """The rooms walkable from Fang Cove's exit-portal room without a
+        gated edge or a ride: Fang Cove itself, whose other ways out are
+        the meeting portals and the mammoths."""
+        graph = self.graph
+
+        def inner(here, dest):
+            data = graph.edges[here, dest]
+            return data.get("gate") is None and not ride_of(data["command"])
+
+        view = nx.subgraph_view(graph, filter_edge=inner)
+        return nx.descendants(view, portal_room) | {portal_room}
 
     def route_gates(self, start, route):
         """(here, dest, Gate) for every gated edge of a route (a list
