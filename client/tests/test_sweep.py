@@ -160,6 +160,21 @@ def test_an_item_in_hand_the_list_does_not_name_goes_back():
     assert any("which loot_ignore does not name — put back" in t for t in s.echoed)
 
 
+def test_a_tag_that_drops_the_listed_adjective_is_still_the_item():
+    # #486 (2026-10-07 20:51): the tote listed "a grimy bar of soap",
+    # loot_ignore had "grimy bar of soap", the hand tag read "bar of soap"
+    # — and the soap went back in, night after night.
+    s, game = handle(
+        listing="In the canvas sack you see a grimy bar of soap.",
+        swap={"of soap": "bar of soap"},  # the sweep asks by short_name
+    )
+    profile = dict(PROFILE, loot_ignore=["grimy bar of soap"])
+    assert sweep.run(s, profile, game) == ["bar of soap"]
+    assert game.binned == ["bar of soap"]
+    assert sweep.same_item("a dark azurite runestone", "azurite runestone")
+    assert not sweep.same_item("a grimy bar of soap", "bar of iron")
+
+
 def test_a_bin_that_refuses_gets_the_item_put_back():
     s, game = handle(bin_refuses=True)
     assert sweep.run(s, PROFILE, game) == []

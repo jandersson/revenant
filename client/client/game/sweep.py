@@ -77,6 +77,21 @@ def sweepable(name, ignore):
     return any(word in singles for word in words[:-1])
 
 
+def same_item(listed, tag):
+    """True when a hand tag names the listed item, adjectives it drops
+    aside: the same last word, and every tag word in the listing ("bar
+    of soap" in "a grimy bar of soap", "azurite runestone" in "a dark
+    azurite runestone")."""
+    listed_words = re.findall(r"[a-z'-]+", str(listed or "").lower())
+    tag_words = re.findall(r"[a-z'-]+", str(tag or "").lower())
+    return (
+        bool(tag_words)
+        and bool(listed_words)
+        and tag_words[-1] == listed_words[-1]
+        and set(tag_words) <= set(listed_words)
+    )
+
+
 def _arrived(before, after):
     """The hand's item that was not there before the GET, or None."""
     for side, held in after.items():
@@ -148,7 +163,10 @@ def sweep_one(s, item, container, ignore, ask, prefix):
         return None
     name = str(held.get("name") or held.get("noun") or "")
     mine = short_name(name) or str(held.get("noun") or wanted)
-    if not sweepable(name, ignore):
+    # The listed item was judged sweepable already; the tag only says the
+    # GET took it — and a tag can drop an adjective the listing keeps
+    # ("bar of soap" for "a grimy bar of soap", #486).
+    if not (sweepable(name, ignore) or same_item(item, name)):
         ask(s, f"put my {mine} in my {container}")
         s.echo(f"{prefix}: got {name}, which loot_ignore does not name — put back")
         return None
