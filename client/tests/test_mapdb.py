@@ -525,6 +525,22 @@ def test_a_walk_from_outside_fang_cove_never_portals_in_and_out_again():
     assert cove.path(8308, [389]) == [(389, EXIT)]
 
 
+def test_inside_fang_cove_only_the_exit_to_the_town_you_came_in_by_is_planned():
+    # In by the Crossing's portal, out by the mammoth and back: the EXIT
+    # still returned to the Crossing, and a walk that planned Ratha's
+    # exit landed there (2026-10-10, #515).
+    from client.game.mapdb import portal_town_of
+
+    cove = MapDB(COVE)
+    assert portal_town_of(ENTRY) == "Crossing"
+    assert portal_town_of(EXIT) is None and portal_town_of("north") is None
+    assert cove.path(8308, [389], portal_town="Crossing") is None
+    assert cove.path(8308, [1900], portal_town="Crossing") == [
+        (932, EXIT),
+        (1900, "northwest"),
+    ]
+
+
 # --- one parse a process (#407) ---
 
 

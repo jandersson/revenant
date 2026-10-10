@@ -343,6 +343,16 @@ _SIMPLE_STATEMENT = re.compile(
 # Lich's note of the town a Fang Cove portal was entered from (#289):
 # bookkeeping for its own go2, nothing sent to the game.
 _BOOKKEEPING = re.compile(r"^UserVars\.premiumPortal\s*=\s*(?:nil|'[^']*'|\"[^\"]*\")$")
+_ENTRY_TOWN = re.compile(r"UserVars\.premiumPortal\s*=\s*'(?P<town>[^']+)'")
+
+
+def portal_town_of(command):
+    """The town a meeting-portal edge enters Fang Cove from ("Crossing"),
+    as lich notes it; None for any other edge. The game keeps that town:
+    the EXIT portal returns you there, a mammoth ride later included
+    (2026-10-10, #515)."""
+    match = _ENTRY_TOWN.search(command) if isinstance(command, str) else None
+    return match.group("town") if match else None
 
 
 @lru_cache(maxsize=4096)
@@ -667,6 +677,7 @@ class MapDB:
         circle=None,
         gates=True,
         premium=False,
+        portal_town=None,
     ):
         """Fastest walkable path from start to the nearest goal —
         weighted by the map's timeto travel times, so a route optimizes
@@ -681,7 +692,9 @@ class MapDB:
         {skill: rank}, `guild` and `circle` the character's when known
         — a skill the window does not list counts as rank 0, and an
         unknown guild or circle passes no gate that asks for one;
-        `premium` opens the meeting portals into Fang Cove.
+        `premium` opens the meeting portals into Fang Cove, and
+        `portal_town` (the town they were entered from, when known)
+        names the one exit portal that leads anywhere new.
         `gates=False` prices gated edges as if every gate were open —
         for a caller that wants to say which gate shut the only way.
 
@@ -712,10 +725,13 @@ class MapDB:
                     # Fang Cove's exit returns you to the town you came in
                     # by: a walk from outside that portals in and out again
                     # lands where it began (#515), so only a walk that
-                    # starts in Fang Cove takes one.
+                    # starts in Fang Cove takes one, and only the exit to
+                    # that town when it is known.
                     if here not in inside:
                         inside[here] = start in self._fang_cove(here)
                     if not inside[here]:
+                        return None
+                    if portal_town and gate.portal != portal_town:
                         return None
                 penalty = AVOID_PENALTY_SECONDS if dest in avoid else 0.0
                 return data["seconds"] + penalty

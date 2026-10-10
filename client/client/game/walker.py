@@ -28,6 +28,7 @@ from client.client_logger import ClientLogger
 from client.game import money
 from client.game.mapdb import (
     normalize_title,
+    portal_town_of,
     ride_args,
     ride_of,
     split_move,
@@ -129,19 +130,27 @@ BARGE_LANDS = ("ties the barge off",)
 _BARGE_NAME = re.compile(r"\bthe barge (?P<name>[A-Z][\w']*(?: [A-Z][\w']*)?)")
 # The sea mammoths (#515), bescort's take_mammoth: Fang Cove's dock
 # (8301) to Ratha's Shore Walk (11130) on the massive one, to
-# Acenamacra's pier (2239) on the tall one, free, two minutes docked and
-# about seven across (Elanthipedia: Sea Mammoths). JOIN SEA MAMMOTH (or
-# TALL) with it in: 'You join the Merelew driver.  "Right this way,
-# sir."' and the room is [Aboard the Mammoth, Platform] (captured
-# 2026-10-10 at Fang Cove, the driver's call before it: "I'm leaving
-# shortly, returning to Ratha."). With it out the answer is "What were
-# you referring to?" and the dock's story brings the next one in;
-# bescort's lines for that and for the landing, which sets the rider
-# ashore on its own — LOOK is the step's move after it, for the compass
-# frame the arrival check reads.
+# Acenamacra's pier (2239) on the tall one, free (Elanthipedia: Sea
+# Mammoths). JOIN SEA MAMMOTH (or TALL) with it in: 'You join the
+# Merelew driver.  "Right this way, sir."' and the room is [Aboard the
+# Mammoth, Platform] (captured 2026-10-10 at Fang Cove, the driver's
+# call before it: "I'm leaving shortly, returning to Ratha."). Every line
+# of the ride comes on the `atmospherics` stream, and a ride that read
+# only the story waited past its landing (2026-10-10): the departure
+# ("...he pulls the ladders, secures them and then slowly turns the
+# mammoth towards the water." — or "The ground beneath you, if it can be
+# called such, rumbles deeply..."), five minutes of sea, then the landing,
+# which sets the rider ashore on its own — "The burly beast trumpets a
+# series of watery blasts..." onto [Fang Cove, Dock], 'The handler atop
+# the beast's head calls back, "Here we are, ladies and gentlemen!..."'
+# onto [Shore Walk, Rocky Path]. LOOK is the step's move after it, for
+# the compass frame the arrival check reads. Up to ten minutes at the
+# dock before it left, both rides. With none in, the answer is "What were
+# you referring to?" and bescort's lines bring the next one in.
 MAMMOTH_ANSWER_SECONDS = 4
 MAMMOTH_WAIT_SECONDS = 1200  # a round trip and its two stops
 MAMMOTH_POLL_SECONDS = 30
+MAMMOTH_STREAMS = ("", "atmospherics")
 MAMMOTH_AWAY = ("What were you referring to",)
 MAMMOTH_ARRIVES = (
     "waves along the waterline increase drastically",
@@ -235,6 +244,20 @@ GATE_REFUSALS = ("not experienced enough to go there", "not allowed to go there"
 # as fresh copies, and the walk home tried the Promenade again after
 # every code change (2026-10-04). A climb refused for Athletics and a
 # way the map has wrong stay closed for their walk alone.
+
+
+def fang_cove_entry(s, town=None):
+    """The town the character last entered Fang Cove from ("Crossing"),
+    None when unknown; `town` records it. Kept on the session's parser
+    state like the gated edges: the game keeps it too, and its EXIT
+    portal returns you there, a mammoth ride later included (#515)."""
+    state = getattr(s, "state", None)
+    if town:
+        try:
+            state.fang_cove_entry = town
+        except AttributeError:
+            pass  # a state that takes no new attribute: unknown next walk
+    return getattr(state, "fang_cove_entry", None)
 
 
 def gated(s):
@@ -396,7 +419,7 @@ def avoided_rooms(db, entries):
     return rooms
 
 
-def read_story(s, seconds, until=()):
+def read_story(s, seconds, until=(), streams=("",)):
     """The story text that arrives within `seconds`, ending early once
     a piece holds any of `until`."""
     deadline = monotonic() + seconds
@@ -405,7 +428,7 @@ def read_story(s, seconds, until=()):
         remaining = deadline - monotonic()
         if remaining <= 0:
             break
-        item = s.get(timeout=min(remaining, 0.5), streams=("",))
+        item = s.get(timeout=min(remaining, 0.5), streams=streams)
         if item is None:
             continue
         text = item[1] if isinstance(item, tuple) else item
@@ -680,7 +703,9 @@ def ride_mammoth(s, mode=""):
         outcome, _, answer = await_arrival(s, timeout=MAMMOTH_ANSWER_SECONDS)
         if outcome == "arrived":
             s.echo(f"aboard the {kind} mammoth — crossing")
-            crossing = read_story(s, MAMMOTH_WAIT_SECONDS, until=MAMMOTH_LANDS)
+            crossing = read_story(
+                s, MAMMOTH_WAIT_SECONDS, until=MAMMOTH_LANDS, streams=MAMMOTH_STREAMS
+            )
             if not any(needle in crossing for needle in MAMMOTH_LANDS):
                 s.echo(
                     f"the mammoth never landed in {MAMMOTH_WAIT_SECONDS // 60} "
@@ -695,7 +720,9 @@ def ride_mammoth(s, mode=""):
                     f"(up to {MAMMOTH_WAIT_SECONDS // 60} minutes)"
                 )
                 waiting = True
-            read_story(s, MAMMOTH_POLL_SECONDS, until=MAMMOTH_ARRIVES)
+            read_story(
+                s, MAMMOTH_POLL_SECONDS, until=MAMMOTH_ARRIVES, streams=MAMMOTH_STREAMS
+            )
             continue
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         s.echo(
@@ -963,7 +990,13 @@ def walk(s, db, goals, describe="destination", avoid=(), max_steps=None):
     fetched = False  # a refused fare's coins fetched this walk (#455)
     for _ in range(REROUTES + 1):
         route = db.path(
-            here, goals, avoid=avoid, closed=closed, ranks=ranks, premium=premium
+            here,
+            goals,
+            avoid=avoid,
+            closed=closed,
+            ranks=ranks,
+            premium=premium,
+            portal_town=fang_cove_entry(s),
         )
         if route is None:
             if _dead_end(db, here, closed):
@@ -1152,6 +1185,7 @@ def _follow(s, db, route, here, closed, fetched=True):
             s.waitrt()
             s.put(follow_up)
         previous, here = here, dest  # the planned room, or its twin: the same place
+        fang_cove_entry(s, portal_town_of(command))
         # Arrival check: the nav uid is exact when the map knows it;
         # title comparison is the fallback for unmapped-uid rooms.
         mapped = uid_room(db, s.state)  # a tent's uid is its lane's (#466)

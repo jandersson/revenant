@@ -1909,6 +1909,45 @@ def test_a_fang_cove_portal_that_lands_in_another_town_plans_again_from_there():
     assert cove.rooms[8308]["wayto"] == {"932": exit_, "389": exit_}
 
 
+def test_the_town_fang_cove_was_entered_from_is_remembered_for_its_exit():
+    # 2026-10-10 (#515): in by the Crossing's portal, then a walk from
+    # the Fang Cove dock to Ratha planned Ratha's EXIT and landed back
+    # at the Crossing. The walker keeps the town the meeting portal was
+    # entered from, and only that exit is planned.
+    exit_ = ";e UserVars.premiumPortal = nil;move 'go portal'"
+    entry = ";e UserVars.premiumPortal = 'Crossing';move 'go meeting portal'"
+
+    def back_to(town):
+        return f";e unless UserVars.premiumPortal == '{town}' then nil else 0.2 end"
+
+    cove = MapDB(
+        [
+            {
+                "id": 932,
+                "uid": [10171],
+                "title": ["[The Strand, Sandy Path]"],
+                "wayto": {"8308": entry},
+            },
+            {
+                "id": 8308,
+                "uid": [9000],
+                "title": ["[Fang Cove, Fate's Fortune Lane]"],
+                "wayto": {"932": exit_, "4670": exit_},
+                "timeto": {"932": back_to("Crossing"), "4670": back_to("Ratha")},
+            },
+            {"id": 4670, "uid": [3010000], "title": ["[Ratha, Port Walk]"]},
+        ]
+    )
+    handle = FakeHandle(uids=[9000])
+    handle.state.room_uid = 10171
+    assert walker.walk(handle, cove, [8308]) is True
+    assert puts_of(handle) == ["go meeting portal"]
+    assert walker.fang_cove_entry(handle) == "Crossing"
+    # Ratha's exit would land at the Crossing: no route, said, nothing sent.
+    assert walker.walk(handle, cove, [4670]) is False
+    assert puts_of(handle) == ["go meeting portal"]
+
+
 # --- the Riverhaven–Throne City barge (#506) --------------------------------
 
 HAVEN_THRONE = (
@@ -2113,7 +2152,14 @@ class MammothHandle(FakeHandle):
     AWAY = "What were you referring to?\n"
     JOINED = 'You join the Merelew driver.  "Right this way, sir."\n'
     ARRIVES = "A watery trumpeting sound heralds the swift approach of a mammoth.\n"
-    LANDS = '"Here we are, ladies and gentlemen," the Merelew driver says.\n'
+    # Captured at Ratha's Shore Walk, 2026-10-10 — on `atmospherics`,
+    # which the first ride did not read and waited past.
+    LANDS = (
+        "The handler atop the beast's head calls back, \"Here we are, ladies and "
+        "gentlemen!  Chazowo is pleased to have brought you on your great "
+        "journey!\"  He leaps down, drops the ladders from the sea mammoth's "
+        "sides and begins assisting passengers off.\n"
+    )
 
     def __init__(self, uids, answers, arrives=True):
         super().__init__(uids)
@@ -2141,6 +2187,8 @@ class MammothHandle(FakeHandle):
             if self.answer is None:
                 return super().get(timeout, streams)
             return self.answer.pop(0) if self.answer else None
+        if "atmospherics" not in streams:
+            return None  # every line of the ride comes there
         return self.story.pop(0) if self.story else None
 
 
