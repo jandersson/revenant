@@ -160,6 +160,22 @@ MAMMOTH_LANDS = (
     "trumpets a series of watery blasts",
     "Here we are, ladies and gentlemen",
 )
+# The Jolas between Mer'Kresh's Wharf End (6542) and Hara'jaal's Sumilo
+# Dock (15253), bescort's jolas route, ridden by hand 2026-10-10 (#515):
+# moored, the dock lists "The Jolas" ("The Jolas ties off to the
+# Mer'Kresh docks!" as it comes in); GO JOLAS — "You climb onto the
+# Jolas." onto [The Jolas, Fore Deck]; it stays about fifteen minutes,
+# crosses in thirteen and lands with "The captain barks the order to tie
+# off the Jolas to the docks." (bescort's wait line); GO DOCK at
+# Hara'jaal ("You disembark."), GO END at Mer'Kresh (bescort's). Its
+# slate's countdown is not the next docking: "2 hours 22 minutes" and the
+# ship tied up two minutes later.
+JOLAS_ANSWER_SECONDS = 4
+JOLAS_WAIT_SECONDS = 3600  # a round trip: two crossings and two stays
+JOLAS_POLL_SECONDS = 30
+JOLAS_MOORED = "The Jolas"
+JOLAS_ARRIVES = ("The Jolas ties off",)
+JOLAS_LANDS = ("tie off the Jolas to the docks",)
 # The Obsidian Pass gondola (#211), after bescort's ride_gondola and
 # captured on the first ride (2026-09-18): GO GONDOLA at a platform
 # lands in the cab ([Gondola, Cab North], a room: a compass frame) or
@@ -695,6 +711,46 @@ def ride_barge(s, direction=""):
     return "no barge"
 
 
+def ride_jolas(s, mode=""):
+    """Board the Jolas at this dock and cross (#515): "landed" once it
+    ties off at the far dock (the step's GO DOCK or GO END is the
+    caller's), "no ship" when none came within JOLAS_WAIT_SECONDS,
+    "stuck" when the crossing never tied off, "unknown" for an answer
+    outside the table."""
+    deadline = monotonic() + JOLAS_WAIT_SECONDS
+    waiting = False  # said once, not every poll (the operator, 2026-10-10)
+    while monotonic() < deadline:
+        if JOLAS_MOORED not in str(getattr(s.state, "room_objs", "") or ""):
+            if not waiting:
+                s.echo(
+                    "the Jolas is not in — waiting for it "
+                    f"(up to {JOLAS_WAIT_SECONDS // 60} minutes)"
+                )
+                waiting = True
+            read_story(s, JOLAS_POLL_SECONDS, until=JOLAS_ARRIVES)
+            continue
+        s.waitrt()
+        s.put("go jolas")
+        outcome, _, answer = await_arrival(s, timeout=JOLAS_ANSWER_SECONDS)
+        if outcome == "arrived":
+            s.echo("aboard the Jolas — crossing")
+            crossing = read_story(s, JOLAS_WAIT_SECONDS, until=JOLAS_LANDS)
+            if not any(needle in crossing for needle in JOLAS_LANDS):
+                s.echo(
+                    f"the Jolas never tied off in {JOLAS_WAIT_SECONDS // 60} minutes"
+                    " — stopping here"
+                )
+                return "stuck"
+            return "landed"
+        if any(needle in answer for needle in WAY_REFUSALS):
+            continue  # it cast off as we went: wait for the next
+        first = (answer.strip().splitlines() or ["(silence)"])[0]
+        s.echo(f"GO JOLAS answered {first!r} — please report it — stopping here")
+        return "unknown"
+    s.echo(f"no Jolas came in {JOLAS_WAIT_SECONDS // 60} minutes — stopping here")
+    return "no ship"
+
+
 def ride_mammoth(s, mode=""):
     """JOIN the sea mammoth at this dock and cross (#515): "landed" ashore
     at the far side (the mammoth sets you there), "no mammoth" when none
@@ -750,6 +806,8 @@ RIDE_HANDLERS = {
     "gondola": (ride_gondola, "out"),
     "haven_throne": (ride_barge, "go dock"),
     "mammoth": (ride_mammoth, "look"),
+    # the leave by the ride's argument: the dock it lands at
+    "jolas": (ride_jolas, {"harajaal": "go dock", "merkresh": "go end"}),
 }
 
 
@@ -1077,6 +1135,8 @@ def _follow(s, db, route, here, closed, fetched=True):
                 return "fetched"  # planned again from where ;bank left you
             if ridden != "landed":
                 return False
+            if isinstance(leave, dict):
+                leave = leave[ride_args(command)]
             commands = [leave]
         before, move, after = split_move(commands)
         s.waitrt()

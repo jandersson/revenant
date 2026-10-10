@@ -2272,3 +2272,109 @@ def test_a_mammoth_that_never_comes_stops_the_walk(quick_mammoth):
     handle.state.room_uid = 9798001
     assert walker.walk(handle, MAMMOTHS, [11130]) is False
     assert any("no mammoth came" in e for e in handle.echoes)
+
+
+# --- the Jolas (#515) -------------------------------------------------------
+
+TO_MERKRESH = ";e start_script('bescort', ['jolas', 'merkresh']); wait_while{ running?('bescort') }"
+TO_HARAJAAL = ";e start_script('bescort', ['jolas', 'harajaal']); wait_while{ running?('bescort') }"
+
+JOLAS = MapDB(
+    [
+        {
+            "id": 15253,
+            "uid": [3155100],
+            "title": ["[Sumilo Dock]"],
+            "wayto": {"6542": TO_MERKRESH},
+        },
+        {
+            "id": 6542,
+            "uid": [3075323],
+            "title": ["[Wharf End, Mer'Kresh]"],
+            "wayto": {"15253": TO_HARAJAAL, "6541": "northwest"},
+        },
+        {"id": 6541, "uid": [3075322], "title": ["[Mer'Kresh, Wharfs]"]},
+    ]
+)
+
+
+class JolasHandle(FakeHandle):
+    """The dock's objects list "The Jolas" once it is in (`moored`), else
+    the story ties it off; GO JOLAS lands on the deck (a compass frame);
+    the crossing's story ties it off at the far dock; GO END or GO DOCK
+    steps off with a compass frame. Lines captured 2026-10-10."""
+
+    TIES_OFF = "The Jolas ties off to the Mer'Kresh docks!\n"
+    CLIMB = "You climb onto the Jolas.\n"
+    LANDS = "The captain barks the order to tie off the Jolas to the docks.\n"
+
+    def __init__(self, uids, moored=True, arrives=True):
+        super().__init__(uids)
+        self.state.room_objs = (
+            "You also see The Jolas, a slate board." if moored else ""
+        )
+        self.arrives = arrives
+        self.answer = None
+        self.story = []
+
+    def put(self, command):
+        super().put(command)
+        if command == "go jolas":
+            self.answer = [("", self.CLIMB), ("compass", "")]
+            self.story = [self.LANDS]
+        else:
+            self.answer = None
+
+    def get(self, timeout=None, streams=("",)):
+        if timeout == 0:
+            return None
+        if streams is None:
+            if self.answer is None:
+                return super().get(timeout, streams)
+            return self.answer.pop(0) if self.answer else None
+        if not self.story and self.arrives and "Jolas" not in self.state.room_objs:
+            self.state.room_objs = "You also see The Jolas, a slate board."
+            return self.TIES_OFF
+        return self.story.pop(0) if self.story else None
+
+
+@pytest.fixture
+def quick_jolas(monkeypatch):
+    monkeypatch.setattr(walker, "JOLAS_ANSWER_SECONDS", 0.05)
+    monkeypatch.setattr(walker, "JOLAS_WAIT_SECONDS", 0.3)
+    monkeypatch.setattr(walker, "JOLAS_POLL_SECONDS", 0.05)
+
+
+def test_the_jolas_is_a_ride_and_its_leave_is_the_far_docks():
+    assert ride_of(TO_MERKRESH) == "jolas"
+    assert JOLAS.graph[15253][6542]["seconds"] == RIDE_SECONDS
+
+
+def test_walk_boards_the_jolas_to_merkresh_and_steps_off_by_go_end(quick_jolas):
+    handle = JolasHandle(uids=[3075323, 3075322])
+    handle.state.room_uid = 3155100
+    assert walker.walk(handle, JOLAS, [6541], describe="the wharfs") is True
+    assert puts_of(handle) == ["go jolas", "go end", "northwest"]
+    assert any("aboard the Jolas" in e for e in handle.echoes)
+
+
+def test_to_harajaal_it_steps_off_by_go_dock(quick_jolas):
+    handle = JolasHandle(uids=[3155100])
+    handle.state.room_uid = 3075323
+    assert walker.walk(handle, JOLAS, [15253]) is True
+    assert puts_of(handle) == ["go jolas", "go dock"]
+
+
+def test_the_jolas_not_in_is_waited_for_said_once(quick_jolas):
+    handle = JolasHandle(uids=[3075323], moored=False)
+    handle.state.room_uid = 3155100
+    assert walker.walk(handle, JOLAS, [6542]) is True
+    assert puts_of(handle) == ["go jolas", "go end"]
+    assert sum("the Jolas is not in" in e for e in handle.echoes) == 1
+
+
+def test_a_jolas_that_never_comes_stops_the_walk(quick_jolas):
+    handle = JolasHandle(uids=[], moored=False, arrives=False)
+    handle.state.room_uid = 3155100
+    assert walker.walk(handle, JOLAS, [6542]) is False
+    assert any("no Jolas came" in e for e in handle.echoes)

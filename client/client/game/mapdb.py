@@ -102,6 +102,7 @@ RIDES = {
     "gondola": "gondola",
     "haven_throne": "barge",
     "mammoth": "mammoth",
+    "jolas": "ship",  # Wharf End 6542 <-> Sumilo Dock 15253 (#515)
 }
 IF_FORM_RIDES = frozenset({"gondola", "ferry", "haven_throne"})
 RIDE_SECONDS = 300.0  # the wait and the crossing: a land route wins where one exists

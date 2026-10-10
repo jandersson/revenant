@@ -36,6 +36,7 @@
 | Faldesu ferry | the Crossing's North Road and Riverhaven | 30 Lirums; short of it, a young character rides on debt and anyone else is turned away |
 | Alfren's Ferry | the Crossing and the Segoltha's south bank (the way to Leth Deriel and Shard) | 35 Kronars |
 | Obsidian Pass gondola | the two platforms over the Chasm | free |
+| The Jolas | Mer'Kresh's Wharf End and Hara'jaal's Sumilo Dock (it waits up to an hour for the ship) | free |
 | Sea mammoths | Fang Cove's dock and Ratha's Shore Walk (the massive one), or Acenamacra's pier (the tall one) | free |
 
 The walker boards, waits for a ferry that is out (up to fifteen minutes), and steps off at the far side. Turned away for the fare, it runs `;bank keep=200 lirums=200` (the coin the captain named, from the nearest teller and the money-changer) and plans the walk again, once a walk. A ride costs five minutes in the planner, so a land route wins where one exists. The other escort routes (airships, barges) are not walkable.
