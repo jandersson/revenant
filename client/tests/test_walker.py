@@ -408,7 +408,9 @@ def test_a_refusal_that_leaves_you_on_the_dock_stops_the_walk(quick_ferry):
 def test_a_refused_fare_is_fetched_from_the_bank_and_the_walk_goes_on(quick_ferry):
     # 2026-10-04 (#455): the hunt had banked every coin, the captain
     # refused the fare, and the hunt stopped at the dock. Now ;bank
-    # keep=200 fetches it and the way is planned again, once a walk.
+    # keep=200 fetches it and the way is planned again, once a walk; the
+    # coin the captain named rides along (#507: a bare keep= changed the
+    # Faldesu's lirums straight back to kronars, 2026-10-09).
     class Banking(FerryHandle):
         started = []
 
@@ -422,7 +424,7 @@ def test_a_refused_fare_is_fetched_from_the_bank_and_the_walk_goes_on(quick_ferr
     handle = Banking(uids=[10470, 10471], answers=["fare", "aboard"])
     handle.state.room_uid = 10385
     assert walker.walk(handle, FERRY, [471], describe="the pier") is True
-    assert handle.started == [("bank", ["keep=200"])]
+    assert handle.started == [("bank", ["keep=200", "lirums=200"])]
     assert puts_of(handle) == ["go ferry", "wealth", "go ferry", "go dock", "east"]
     assert any("fetching the fare" in echo for echo in handle.echoes)
     # A second refusal on the same walk stops it, said.
@@ -430,7 +432,7 @@ def test_a_refused_fare_is_fetched_from_the_bank_and_the_walk_goes_on(quick_ferr
     again.started = []
     again.state.room_uid = 10385
     assert walker.walk(again, FERRY, [470]) is False
-    assert again.started == [("bank", ["keep=200"])]
+    assert again.started == [("bank", ["keep=200", "lirums=200"])]
 
 
 def test_a_ferry_that_never_comes_stops_the_walk(quick_ferry):

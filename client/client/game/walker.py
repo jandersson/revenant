@@ -16,8 +16,9 @@ the ferry is at the dock, the wait for it when not, the crossing, then
 GO DOCK as the step's move — after dr-scripts' bescort take_rh_ferry,
 the wordings captured on the first ride (2026-09-18): the fare is 30
 lirums, put on the Therengian debt when there are none on you. A
-captain who turns you away for the fare has ;bank keep=200 fetch it
-and the walk planned again from the teller, once a walk (#455).
+captain who turns you away for the fare has ;bank keep=200 fetch it,
+with lirums=200 when lirums are the coin named (#507), and the walk
+planned again from the teller, once a walk (#455).
 """
 
 import re
@@ -432,25 +433,38 @@ def ride_gondola(s, direction=""):
     return "no gondola"
 
 
-# The copper of the province's coin a refused fare fetches: ;bank
-# keep=N withdraws it to an empty purse at the nearest teller, and the
-# walk is planned again from there (#455, after #454's travel purse).
+# The copper a refused fare fetches: ;bank keep=N withdraws the
+# province's coin to an empty purse at the nearest teller, and the walk
+# is planned again from there (#455, after #454's travel purse).
 FARE_PURSE = 200
+_FARE_COIN = re.compile(r"\b(kronars|lirums|dokoras)\b", re.IGNORECASE)
 
 
-def fetch_fare(s):
-    """;bank keep=FARE_PURSE, run through the handle and waited for: the
-    fare a ferry refused for coin (#455). True when ;bank ran to its
-    end; False, said, when the handle cannot start it (a ;bank already
-    running is the operator's)."""
+def fare_coin(answer):
+    """The coin a captain refused the fare in ("lirums"), from the fee
+    line or the refusal's "enough lirums"; "" when neither names one."""
+    match = _FARE_COIN.search(str(answer or ""))
+    return match.group(1).lower() if match else ""
+
+
+def fetch_fare(s, coin=""):
+    """;bank keep=FARE_PURSE, and <coin>=FARE_PURSE when the captain named
+    one, run through the handle and waited for: the fare a ferry refused
+    for coin (#455). The coin named is kept out of ;bank's foreign sweep
+    and topped up at the changer — a bare keep= changed the lirums a
+    Faldesu fare wants straight back to kronars (#507); where it is the
+    province's own coin ;bank says so and keep= covers it. True when
+    ;bank ran to its end; False, said, when the handle cannot start it
+    (a ;bank already running is the operator's)."""
     run = getattr(s, "run", None)
     running = getattr(s, "is_running", None)
     if run is None or running is None:
         return False
-    if not run("bank", [f"keep={FARE_PURSE}"]):
+    args = [f"keep={FARE_PURSE}"] + ([f"{coin}={FARE_PURSE}"] if coin else [])
+    if not run("bank", args):
         s.echo("could not start ;bank for the fare — fetch coins by hand")
         return False
-    s.echo(f"fetching the fare: ;bank keep={FARE_PURSE}, then the way again")
+    s.echo(f"fetching the fare: ;bank {' '.join(args)}, then the way again")
     while running("bank"):
         s.sleep(1)
     return True
@@ -508,7 +522,7 @@ def ride_ferry(s, direction=""):
                 + fare_purse(s, fee.group(1) if fee else "")
                 + f": {answer_line(answer, FERRY_NO_FARE)!r}"
             )
-            return "fare"
+            return f"fare {fare_coin(answer)}".strip()
         if any(needle in answer for needle in FERRY_AWAY):
             if not waiting:
                 s.echo(
@@ -615,7 +629,7 @@ def ride_barge(s, direction=""):
                 + fare_purse(s, fee.group(1) if fee else "")
                 + f": {answer_line(answer, FERRY_NO_FARE)!r}"
             )
-            return "fare"
+            return f"fare {fare_coin(answer)}".strip()
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         s.echo(
             f"GO {name.upper()} answered {first!r} — please report it — stopping here"
@@ -947,7 +961,8 @@ def _follow(s, db, route, here, closed, fetched=True):
             # off it is the step's own, with the compass sync and check.
             handler, leave = RIDE_HANDLERS[ride]
             ridden = handler(s, ride_args(command))
-            if ridden == "fare" and not fetched and fetch_fare(s):
+            fare, _, coin = ridden.partition(" ")
+            if fare == "fare" and not fetched and fetch_fare(s, coin):
                 return "fetched"  # planned again from where ;bank left you
             if ridden != "landed":
                 return False
