@@ -485,6 +485,7 @@ RELOADABLE_MODULES = (
     "client.game.tdp",
     "client.game.guild",  # binds act and parse_info from tdp: after them
     "client.game.gaze",  # pure wordings, nothing bound
+    "client.game.astral",  # pure wordings and the ring, nothing bound
     "client.game.tasks",  # pure wordings and a record, nothing bound
     "client.game.money",
     "client.game.attune",

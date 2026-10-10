@@ -42,6 +42,8 @@ The walker boards, waits for a ferry that is out (up to fifteen minutes), and st
 
 A mammoth is joined (`join sea mammoth`) and sets you ashore itself. A Premium character walks from the Crossing to Ratha by the meeting portal into Fang Cove and the mammoth; Fang Cove's exit portal only returns you to the town you came in by: a walk from outside never plans through it, and inside the walker plans only the exit to the town it saw you enter from (unknown after a relaunch, when a wrong landing plans again from there).
 
+A Moon Mage standing at a Grazhir shard crosses the Astral Plane to another with `;astral <shard>` (`;astral list` names the shards learned): Moongate in, the pillars, Moongate out, about four minutes. `harness=` sets the mana held (100 by default).
+
 Ratha to Hara'jaal is the Tasia'zaul, from the lower Uasin Dock behind a guard's bribe: `;harajaal` gets you down there (`;harajaal quest` on a first trip). The ship itself is not a walker ride yet.
 
 The Riverhaven–Throne City barge is ridden the same way: at the Salt Yard's barge dock or Throne City's Stone Docks the walker waits for a barge, boards it by name (`go riverhawk`, `go glory`), pays the 120 lirums, and steps off at the far dock. Fifteen minutes is the longest it waits.
