@@ -224,7 +224,16 @@ BALANCE_WAIT = 3  # seconds before the one retry an unbalanced STAND gets
 # "go panel" answered "I could not find what you were referring to."
 # (2026-09-18) — a hidden way, or a map edge that is wrong. Closed for
 # the walk like a gated way, and the route planned again.
-WAY_REFUSALS = ("could not find what you were referring", "You can't go there")
+# A guard who wants coin first: Ratha's Uasin Dock ramp answered a
+# character with no gold lirum 'A guard frowns at you.' and 'A guard
+# whispers, "HEH!  Come back when you got hard coin!"' and kept him up
+# top — read as an off-course arrival until #518 (2026-10-10). Closed
+# for the walk; ;harajaal pays him.
+WAY_REFUSALS = (
+    "could not find what you were referring",
+    "You can't go there",
+    "Come back when you got hard coin",
+)
 # A way the game closes to the character — a circle or guild gate the
 # map cannot know: the Paladins' Guild's back trail from the Northeast
 # Customs answered a circle-2 Paladin "You're not experienced enough to

@@ -1568,6 +1568,45 @@ def test_an_exit_the_game_cannot_find_is_routed_around():
     assert any("closed to you" in echo for echo in handle.echoes)
 
 
+RAMP = MapDB(
+    [
+        {
+            "id": 4632,
+            "uid": [3010121],
+            "title": ["[Uasin Dock, Port of Ratha]"],
+            "wayto": {"51321": "go ramp"},
+        },
+        {"id": 51321, "uid": [3010122], "title": ["[Uasin Dock, Port of Ratha]"]},
+    ]
+)
+# Captured 2026-10-10 at the Uasin Dock, no gold lirum on hand (#518).
+NO_COIN = (
+    "A guard frowns at you.\n"
+    'A guard whispers, "HEH!  Come back when you got hard coin!"\n'
+)
+
+
+class GuardHandle(NoWayHandle):
+    def put(self, command):
+        FakeHandle.put(self, command)
+        if command == "go ramp":
+            self.pending = [("", NO_COIN)]
+
+    def get(self, timeout=None, streams=("",)):
+        if timeout == 0:
+            return None
+        return self.pending.pop(0) if self.pending else None
+
+
+def test_a_guard_wanting_coin_closes_the_way_and_is_quoted_not_off_course():
+    handle = GuardHandle(uids=[])
+    handle.state.room_uid = 3010121
+    assert walker.walk(handle, RAMP, [51321]) is False
+    assert puts_of(handle) == ["go ramp"]
+    assert any("Come back when you got hard coin" in e for e in handle.echoes)
+    assert not any("off course" in e for e in handle.echoes)
+
+
 # Captured 2026-09-18 on Obsidian Pass's silverwood branch: the dizziness
 # refusal names the branch, not a tree.
 DIZZY_BRANCH = (
