@@ -425,6 +425,59 @@ def test_practice_restarts_when_the_activity_ends():
     assert len(puts) >= 2
 
 
+class TimedPracticeHandle(FakeHandle):
+    """The game's practice on a clock the loop's sleeps drive: it runs
+    PRACTICE_SECONDS from "You begin ...", a CLIMB PRACTICE sent into it
+    is refused, and it ends with the game's own line."""
+
+    # Send to end line: 121 s on 2026-10-04 05:33:45 (begin to end 112-120 s
+    # across 30 practices, the send and its answer a second or two more).
+    PRACTICE_SECONDS = 121
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.lines = []
+        self.now = 0.0
+        self.began = None
+        self.refused = 0
+
+    def put(self, command):
+        super().put(command)
+        if not command.startswith("climb practice"):
+            return
+        if self.began is not None:
+            self.refused += 1
+            self.lines.append(
+                "You should stop practicing your Athletics skill before you do that."
+            )
+        else:
+            self.began = self.now
+            self.lines.append("You begin to practice your climbing skills.")
+
+    def sleep(self, seconds):
+        self.now += seconds
+        if self.began is not None and self.now - self.began >= self.PRACTICE_SECONDS:
+            self.began = None
+            self.lines.append(
+                "You finish practicing your climbing skill and take a well-earned break."
+            )
+        super().sleep(seconds)
+
+
+def test_the_reassert_never_lands_on_a_running_practice(monkeypatch):
+    # #464: the 120 s re-assert came due in a practice's last second and
+    # was refused ("You should stop practicing ..."), then the practice
+    # finished and the loop started it again — two sends a second apart.
+    # The game's end line restarts it; the re-assert is past any practice.
+    handle = TimedPracticeHandle((), mindstates=(5,), sleeps=480)
+    monkeypatch.setattr(athletics.time, "monotonic", lambda: handle.now)
+    with pytest.raises(LoopDone):
+        athletics.train(handle, ["climb practice embrasure"], practice=True)
+    sends = [c for c in handle.calls if c == ("put", "climb practice embrasure")]
+    assert handle.refused == 0
+    assert len(sends) == 4  # at 0, 122, 244 and 366 s: one per practice
+
+
 def test_practice_reports_read_as_time_not_laps(monkeypatch):
     # A practice "lap" is a one-second watch-poll — reporting it as
     # "50 laps" read like fifty climbs. Practice reports go by clock.

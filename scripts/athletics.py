@@ -437,7 +437,10 @@ PRACTICE_STOP_WAIT = 3  # seconds for its answer before moving on
 # STOP CLIMB's answer (captured 2026-10-03: "You stop practicing your
 # climbing skills."), and the forms a stop with no practice may take.
 PRACTICE_STOPPED = r"(?i)you stop practicing|no longer practicing|n't practicing"
-PRACTICE_REASSERT = 120  # seconds between re-sends while it looks active
+# Seconds between re-sends while it looks active: past any practice, so
+# the game's end line restarts it and a re-send only covers a missed one;
+# at 120 it came due in a practice's last second and was refused (#464).
+PRACTICE_REASSERT = 180
 # The game's own verdict on a practice obstacle (dr-scripts' flags,
 # #177; wordings as its Flags name them, unobserved here): too hard
 # means one rung down, no challenge means the next rung up — at once,
