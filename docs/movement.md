@@ -43,6 +43,8 @@ The walker boards, waits for a ferry that is out (up to fifteen minutes), and st
 
 A mammoth is joined (`join sea mammoth`) and sets you ashore itself. A Premium character walks from the Crossing to Ratha by the meeting portal into Fang Cove and the mammoth; Fang Cove's exit portal only returns you to the town you came in by: a walk from outside never plans through it, and inside the walker plans only the exit to the town it saw you enter from (unknown after a relaunch, when a wrong landing plans again from there).
 
+A character with an Estate Holder ring (the profile's `estate_ring`, e.g. `copper band`, worn) is PUSHed to Fang Cove when the walk from there is far shorter — about 300 steps or more — or the only one; from inside Fang Cove a PULL returns to the room the walker last pushed from. The walker STUDYs the ring first, since each verb is charged once an hour. PUSH works only outdoors; refused, the walk goes on foot. After a PUSH no exit portal is planned: it returns you to the town you last came in by.
+
 A Moon Mage standing at a Grazhir shard crosses the Astral Plane to another with `;astral <shard>` (`;astral list` names the shards learned): Moongate in, the pillars, Moongate out, about four minutes. `harness=` sets the mana held (100 by default).
 
 Ratha to Hara'jaal is the Tasia'zaul, from the lower Uasin Dock behind a guard's bribe: `;harajaal` gets you down there (`;harajaal quest` on a first trip). The ship itself is not a walker ride yet.

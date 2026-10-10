@@ -36,6 +36,10 @@ DEFAULTS = {
     # The account has Premium: the walker takes the towns' meeting
     # portals into Fang Cove (lich's UserVars.premium, #467).
     "premium": False,
+    # The worn Estate Holder ring as PUSH takes it ("copper band"): the
+    # walker PUSHes to Fang Cove and PULLs back when that beats walking
+    # (#521); "" for none.
+    "estate_ring": "",
     # The anatomy-chart book ;compendium studies for First Aid; "" is
     # the noun "compendium".
     "compendium": "",
@@ -266,6 +270,12 @@ FIELDS = (
         "empty: a break-off leaves you just off the ground",
     ),
     ("premium", "Account has Premium (walks through Fang Cove's portals)", "bool", ""),
+    (
+        "estate_ring",
+        "Estate Holder ring, worn (PUSH to Fang Cove)",
+        "str",
+        "copper band — empty: none",
+    ),
     ("compendium", "Anatomy chart book", "str", "empty: compendium — ;compendium"),
     ("vault", "Vault's Carousel (;go2 target)", "str", "8285 — empty: the nearest"),
     ("weapon", "Weapon noun", "str", "empty: barehanded"),

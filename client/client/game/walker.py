@@ -20,7 +20,9 @@ captain who turns you away for the fare has ;bank keep=200 fetch it,
 with lirums=200 when lirums are the coin named (#507), and the walk
 planned again from the teller, once a walk (#455). Hara'jaal's Glaren
 Kweld grass, one title on dozens of rooms, is crossed bescort's way
-(ride_grass, #519).
+(ride_grass, #519). An Estate Holder ring in the profile is PUSHed to
+Fang Cove, or PULLed back from it, when that beats the walk (ring_route,
+#521).
 """
 
 import re
@@ -189,6 +191,18 @@ GRASS_TITLE = "hara'jaal, glaren kweld"
 GRASS_STEPS = 40  # NORTHEASTs before the grass is called a loss
 GRASS_ROCK = re.compile(r"\brock\b")
 GRASS_SLOPE = re.compile(r"\bslope\b")
+# The Estate Holder ring (#521): PUSH from a room outdoors lands on Fang
+# Cove's Fate's Fortune Lane (map 8308), PULL from Fang Cove returns to
+# the room of the PUSH, each once an hour of real time (Elanthipedia:
+# Estate Holder rings). Captured 2026-10-10: both answer "The world grows
+# blurry and indistinct for a moment.  You look around and find yourself
+# at..." and the room; indoors "You can't do that here."; STUDY says
+# "[You are able to PUSH your copper band anytime.]" or "[You will be
+# able to PUSH your copper band again about an hour from now.]".
+RING_LANDING = 8308
+RING_SECONDS = 60.0  # a teleport, but it spends an hour's charge: wins ~300 steps
+RING_STUDY_SECONDS = 3
+_RING_READY = re.compile(r"\[You are able to (PUSH|PULL) your")
 # The Obsidian Pass gondola (#211), after bescort's ride_gondola and
 # captured on the first ride (2026-09-18): GO GONDOLA at a platform
 # lands in the cab ([Gondola, Cab North], a room: a compass frame) or
@@ -262,6 +276,7 @@ WAY_REFUSALS = (
     "could not find what you were referring",
     "You can't go there",
     "Come back when you got hard coin",
+    "You can't do that here",  # the Estate Holder ring's PUSH indoors (#521)
 )
 # A way the game closes to the character — a circle or guild gate the
 # map cannot know: the Paladins' Guild's back trail from the Northeast
@@ -900,6 +915,69 @@ def ride_grass(s, mode=""):
     return "landed"
 
 
+def ring_of(state):
+    """The worn Estate Holder ring as PUSH takes it ("copper band"), from
+    the profile's `estate_ring`; "" without one."""
+    name = getattr(state, "name", None)
+    if not name:
+        return ""
+    from client.game.profile import load_profile
+
+    return str(load_profile(name).get("estate_ring") or "").strip().lower()
+
+
+def ring_pushed_from(s, room=None):
+    """The room the ring's last PUSH left (PULL's landing), None when
+    unknown; `room` records it, 0 forgets it. On the session's parser
+    state, like the gated edges."""
+    state = getattr(s, "state", None)
+    if room is not None:
+        try:
+            state.ring_pushed_from = room or None
+        except AttributeError:
+            pass
+    return getattr(state, "ring_pushed_from", None)
+
+
+def ring_ready(s, ring):
+    """The ring's verbs charged now, by STUDY: a subset of {"push", "pull"}."""
+    s.waitrt()
+    s.put(f"study my {ring}")
+    text = read_story(s, RING_STUDY_SECONDS, until=("PULL your",))
+    return {verb.lower() for verb in _RING_READY.findall(text)}
+
+
+def ring_route(s, db, here, goals, route, avoid, closed, **plan):
+    """The walk by the Estate Holder ring when it beats `route` (the plain
+    one, None when there is none): PUSH to Fang Cove from outside it,
+    PULL from inside it back to the last PUSH's room, then on from the
+    landing. STUDY is read only when the ring would win, and a verb not
+    charged closes it for the walk. None to walk the plain route."""
+    ring = ring_of(s.state)
+    if not ring:
+        return None
+    if here in db._fang_cove(RING_LANDING):
+        verb, landing = "pull", ring_pushed_from(s)
+    else:
+        verb, landing = "push", RING_LANDING
+        # Fang Cove's exit portal returns you to the town you came in by,
+        # and a PUSH is no town: no exit portal is planned after one, or a
+        # walk could spend the hour's charge to land where it began.
+        plan = {**plan, "portal_town": "(the ring)"}
+    if landing not in db.rooms or (here, landing) in closed:
+        return None
+    tail = db.path(landing, goals, avoid=avoid, closed=closed, **plan)
+    if tail is None:
+        return None
+    cost = RING_SECONDS + db.seconds_of(landing, tail, avoid)
+    if route is not None and db.seconds_of(here, route, avoid) <= cost:
+        return None
+    if verb not in ring_ready(s, ring):
+        closed.add((here, landing))
+        return None
+    return [(landing, f"{verb} my {ring}")] + tail
+
+
 # route -> (the ride, the step's own move off it)
 RIDE_HANDLERS = {
     "hara_polo": (ride_grass, {"up": "look", "down": "climb slope"}),
@@ -1176,6 +1254,21 @@ def walk(s, db, goals, describe="destination", avoid=(), max_steps=None):
             premium=premium,
             portal_town=fang_cove_entry(s),
         )
+        route = (
+            ring_route(
+                s,
+                db,
+                here,
+                goals,
+                route,
+                avoid,
+                closed,
+                ranks=ranks,
+                premium=premium,
+                portal_town=fang_cove_entry(s),
+            )
+            or route
+        )
         if route is None:
             if _dead_end(db, here, closed):
                 # A room the map lists without exits (#229): out by the
@@ -1373,6 +1466,10 @@ def _follow(s, db, route, here, closed, fetched=True):
             s.put(follow_up)
         previous, here = here, dest  # the planned room, or its twin: the same place
         fang_cove_entry(s, portal_town_of(command))
+        if command.startswith("push my "):
+            ring_pushed_from(s, previous)  # where a PULL returns (#521)
+        elif command.startswith("pull my "):
+            ring_pushed_from(s, 0)
         # Arrival check: the nav uid is exact when the map knows it;
         # title comparison is the fallback for unmapped-uid rooms.
         mapped = uid_room(db, s.state)  # a tent's uid is its lane's (#466)

@@ -2582,3 +2582,143 @@ def test_no_rock_in_the_grass_stops_the_walk(monkeypatch):
     handle = GrassHandle(GrassHandle.TOP)
     assert walker.walk(handle, GRASS, [11413]) is False
     assert any("no rock in 5 rooms" in e for e in handle.echoes)
+
+
+# --- the Estate Holder ring (#521) -----------------------------------------
+
+# A long road (100 s an edge) from Chieftain Walk to the Far Gate, which
+# Fang Cove's landing reaches in one step: the ring's 60 s wins.
+RING_MAP = MapDB(
+    [
+        {
+            "id": 1,
+            "uid": [101],
+            "title": ["[The Crossing, Chieftain Walk]"],
+            "wayto": {"2": "east"},
+            "timeto": {"2": 100},
+        },
+        {
+            "id": 2,
+            "uid": [102],
+            "title": ["[Long Road]"],
+            "wayto": {"3": "east"},
+            "timeto": {"3": 100},
+        },
+        {"id": 3, "uid": [103], "title": ["[Far Gate]"], "wayto": {}},
+        {
+            "id": 8308,
+            "uid": [9792003],
+            "title": ["[Fang Cove, Fate's Fortune Lane]"],
+            "wayto": {"3": "go arch"},
+        },
+    ]
+)
+
+
+class RingHandle(FakeHandle):
+    """The ring as the game answered it (2026-10-10): STUDY lists the
+    verbs charged; PUSH and PULL land with a compass frame like a step,
+    or PUSH answers `refusal`."""
+
+    def __init__(self, uids, charged=("PUSH", "PULL"), refusal=None):
+        super().__init__(uids)
+        self.state.name = "Lanival"
+        self.charged = charged
+        self.refusal = refusal
+        self.story = []
+        self.answer = None
+
+    def put(self, command):
+        super().put(command)
+        self.answer = None
+        if command.startswith("study my "):
+            self.story = [
+                f"[You are able to {verb} your copper band anytime.]\n"
+                for verb in self.charged
+            ]
+        elif command.startswith("push my ") and self.refusal:
+            self.answer = [("", self.refusal)]
+
+    def get(self, timeout=None, streams=("",)):
+        if timeout == 0:
+            return None
+        if streams is None:
+            if self.answer is not None:
+                return self.answer.pop(0) if self.answer else None
+            return super().get(timeout, streams)
+        return self.story.pop(0) if self.story else None
+
+
+@pytest.fixture
+def ringed(monkeypatch):
+    monkeypatch.setattr(walker, "ring_of", lambda state: "copper band")
+    monkeypatch.setattr(walker, "RING_STUDY_SECONDS", 0.05)
+
+
+def test_a_long_walk_goes_by_the_ring_and_remembers_where_it_pushed(ringed):
+    handle = RingHandle([9792003, 103])
+    handle.state.room_uid = 101
+    assert walker.walk(handle, RING_MAP, [3], describe="the Far Gate") is True
+    assert puts_of(handle) == ["study my copper band", "push my copper band", "go arch"]
+    assert walker.ring_pushed_from(handle) == 1
+
+
+def test_a_walk_the_ring_does_not_shorten_never_studies_it(ringed, monkeypatch):
+    monkeypatch.setattr(walker, "RING_SECONDS", 500.0)
+    handle = RingHandle([102, 103])
+    handle.state.room_uid = 101
+    assert walker.walk(handle, RING_MAP, [3]) is True
+    assert puts_of(handle) == ["east", "east"]
+
+
+def test_no_ring_in_the_profile_walks(monkeypatch):
+    monkeypatch.setattr(walker, "ring_of", lambda state: "")
+    handle = RingHandle([102, 103])
+    handle.state.room_uid = 101
+    assert walker.walk(handle, RING_MAP, [3]) is True
+    assert puts_of(handle) == ["east", "east"]
+
+
+def test_a_push_not_charged_walks_instead(ringed):
+    handle = RingHandle([102, 103], charged=("PULL",))
+    handle.state.room_uid = 101
+    assert walker.walk(handle, RING_MAP, [3]) is True
+    assert puts_of(handle) == ["study my copper band", "east", "east"]
+
+
+def test_a_push_refused_indoors_walks_instead(ringed):
+    handle = RingHandle([102, 103], refusal="You can't do that here.\n")
+    handle.state.room_uid = 101
+    assert walker.walk(handle, RING_MAP, [3]) is True
+    assert puts_of(handle) == [
+        "study my copper band",
+        "push my copper band",
+        "east",
+        "east",
+    ]
+
+
+def test_a_pull_from_fang_cove_returns_to_the_room_of_the_push(ringed):
+    handle = RingHandle([101, 102])
+    handle.state.room_uid = 9792003
+    walker.ring_pushed_from(handle, 1)
+    assert walker.walk(handle, RING_MAP, [2]) is True
+    assert puts_of(handle) == ["study my copper band", "pull my copper band", "east"]
+    assert walker.ring_pushed_from(handle) is None  # spent
+
+
+def test_after_a_push_no_exit_portal_is_planned(ringed):
+    # Fang Cove's exit returns you to the town you entered by; a PUSH is
+    # no town, so the walk on from the landing never counts on a portal.
+    planned = []
+
+    class Spy(MapDB):
+        def path(self, start, goals, **plan):
+            planned.append((start, plan.get("portal_town")))
+            return super().path(start, goals, **plan)
+
+    db = Spy([dict(room) for room in RING_MAP.rooms.values()])
+    handle = RingHandle([9792003, 103])
+    handle.state.room_uid = 101
+    assert walker.walk(handle, db, [3]) is True
+    assert (8308, "(the ring)") in planned

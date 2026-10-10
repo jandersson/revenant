@@ -760,6 +760,16 @@ class MapDB:
             for here, dest in zip(route, route[1:])
         ]
 
+    def seconds_of(self, start, route, avoid=()):
+        """What a route (path()'s steps from `start`) costs, priced as path()
+        prices it: the edges' seconds and the avoided rooms' penalty."""
+        total, here = 0.0, start
+        for dest, _ in route:
+            total += self.graph.edges[here, dest]["seconds"]
+            total += AVOID_PENALTY_SECONDS if dest in avoid else 0.0
+            here = dest
+        return total
+
     def _fang_cove(self, portal_room):
         """The rooms walkable from Fang Cove's exit-portal room without a
         gated edge or a ride: Fang Cove itself, whose other ways out are
