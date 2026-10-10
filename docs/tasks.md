@@ -1,6 +1,6 @@
 # Tasks
 
-A task is an errand an NPC gives for coin: ask a task giver, accept inside thirty seconds, do it, and the one you deliver to pays. `;task <giver>` runs a delivery end to end; the other kinds are declined until their wordings are captured (#505).
+A task is an errand an NPC gives for coin: ask a task giver, accept inside thirty seconds, do it, and the one you deliver to pays. `;task <giver>` runs a delivery or a search end to end; the other kinds are accepted and handed to you until their wordings are captured (#505).
 
 ## Using ;task
 
@@ -12,7 +12,7 @@ A task is an errand an NPC gives for coin: ask a task giver, accept inside thirt
 ```
 
 - Every offer is accepted inside its thirty seconds unless the profile's `task_declines` names its kind. The script runs a delivery; any other kind it accepts, records and hands to you, saying the offer.
-- A delivery's item is stowed for the walk and taken out again at the recipient, who is found through the givers' table in the model.
+- A delivery's item is stowed for the walk and taken out again at the recipient, who is found through the givers' table in the model. A search kneels and searches each room of the area in turn, waiting out every roundtime (about twelve seconds), picks up the find, and carries it back to the giver.
 - A walk that ends short is said with the reason to try: a shop shut for the night (wait a game hour), or the barge the walker lacks (#506). `;task` again from there carries on.
 
 ## The flow

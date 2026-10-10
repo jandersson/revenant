@@ -139,6 +139,52 @@ def test_the_accept_and_the_payment_are_read():
     assert tasks.paid(ACCEPTED) is None
 
 
+def test_a_searchs_area_names_its_rooms_and_the_answers_are_classed():
+    db = MapDB(
+        [
+            {
+                "id": 807,
+                "uid": [1],
+                "title": ["[The Crossing, Gildleaf Circle]"],
+                "wayto": {},
+            },
+            {
+                "id": 808,
+                "uid": [2],
+                "title": ["[The Crossing, Gildleaf Circle]"],
+                "wayto": {},
+            },
+            {
+                "id": 1,
+                "uid": [3],
+                "title": ["[The Crossing, Herald Street]"],
+                "wayto": {},
+            },
+        ]
+    )
+    assert tasks.area_rooms(db, "near The Crossing, Gildleaf Circle") == {807, 808}
+    assert tasks.area_rooms(db, "Gildleaf Circle") == {807, 808}
+    assert tasks.area_rooms(db, "near Nowhere, Nothing Street") == set()
+    # Captured 2026-10-10: the miss with its roundtime, the find at the feet.
+    assert (
+        tasks.search_outcome(
+            "You search for a bit, but do not find the item you are looking for.\nRoundtime: 12 sec.\n"
+        )
+        == "miss"
+    )
+    assert (
+        tasks.search_outcome(
+            "You find a glaes locket lying on the ground!\nRoundtime: 10 sec.\n"
+        )
+        == "found"
+    )
+    assert (
+        tasks.search_outcome("You don't find anything of interest here.\n")
+        == "wrong area"
+    )
+    assert tasks.search_outcome("") == "unknown"
+
+
 def test_the_recipients_room_comes_from_the_givers_table():
     db = MapDB(
         [

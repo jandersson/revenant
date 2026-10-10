@@ -44,13 +44,25 @@ MAP = MapDB(
             "id": 8261,
             "uid": [1],
             "title": ["[Cormyn's House of Heirlooms]"],
-            "wayto": {"10021": "north"},
+            "wayto": {"10021": "north", "807": "east"},
         },
         {
             "id": 10021,
             "uid": [2],
             "title": ["[Seven Star Exchange and Pawn]"],
-            "wayto": {},
+            "wayto": {"807": "east"},
+        },
+        {
+            "id": 807,
+            "uid": [3],
+            "title": ["[The Crossing, Gildleaf Circle]"],
+            "wayto": {"808": "north"},
+        },
+        {
+            "id": 808,
+            "uid": [4],
+            "title": ["[The Crossing, Gildleaf Circle]"],
+            "wayto": {"807": "south"},
         },
     ]
 )
@@ -202,9 +214,9 @@ def test_a_kind_in_task_declines_is_declined_inside_the_window():
     assert "said nothing known" not in out
 
 
-def test_a_searching_task_is_accepted_by_the_journal_and_handed_over_with_the_hint():
+def test_a_searching_task_is_accepted_by_the_journal_and_the_search_begins():
     # ;task's second live run (2026-10-10): the accept's answer is the
-    # search's hint, the journal proves the accept, the task is recorded.
+    # search's hint; the journal proves the accept; the search starts.
     fake = Fake(
         {
             "task": [JOURNAL_CLEAR, SEARCHING_JOURNAL],
@@ -213,13 +225,13 @@ def test_a_searching_task_is_accepted_by_the_journal_and_handed_over_with_the_hi
         }
     )
     out = run(fake, ["saeru"])
-    assert fake.sent == ["task", "ask saeru for task", "accept task", "task"]
+    assert fake.sent[:4] == ["task", "ask saeru for task", "accept task", "task"]
     assert (
         "a search for the locket near The Crossing, Gildleaf Circle (kneel and search)"
         in out
     )
-    assert "yours from here" in out and "kneeling" in out
-    assert "unrecognized" not in out
+    assert "unrecognized ACCEPT" not in out
+    assert fake.walks[0] == {807} and "kneel" in fake.sent
     assert script.load("Lanival")["kind"] == "searching"
 
 
@@ -284,3 +296,99 @@ def test_parse_args():
         "giver": "cormyn",
         "item": "basket",
     }
+
+
+# --- a search run end to end (captured 2026-10-10 at Gildleaf Circle) --------
+
+LOCKET = {"exist": "173989977", "noun": "locket", "name": "glaes locket"}
+MISS = "You search for a bit, but do not find the item you are looking for.\nRoundtime: 12 sec.\n"
+FOUND = "You find a glaes locket lying on the ground!\nRoundtime: 10 sec.\n"
+GOT_LOCKET = "You pick up a glaes locket.\n"
+HANDED_IN = 'Saeru says, "Thank you very much, Lanival."\nSaeru hands you 250 Lirums.\n'
+
+
+class SearchFake(Fake):
+    """SEARCH misses `misses` times, then finds; GET puts the locket in a
+    hand; the base fake's STOW and GIVE empty it."""
+
+    def __init__(self, answers, misses=2, journal=JOURNAL_CLEAR):
+        super().__init__(answers, journal=journal)
+        self.misses = misses
+        self.searches = 0
+
+    def put(self, command):
+        if command == "search":
+            self.sent.append(command)
+            self.searches += 1
+            text = MISS if self.searches <= self.misses else FOUND
+            self.pending = [line + "\n" for line in text.splitlines()]
+            return
+        if command.startswith("get "):
+            self.sent.append(command)
+            self.state.right_hand = dict(LOCKET)
+            self.pending = [GOT_LOCKET]
+            return
+        super().put(command)
+
+
+def test_a_searching_task_is_searched_found_and_handed_back_to_the_giver():
+    fake = SearchFake(
+        {
+            "task": [JOURNAL_CLEAR, SEARCHING_JOURNAL, JOURNAL_CLEAR],
+            "ask saeru": [SEARCHING_OFFER],
+            "accept": [SEARCHING_ACCEPTED],
+            "stow": [STOWED],
+            "give": [HANDED_IN],
+        },
+        misses=2,
+    )
+    out = run(fake, ["saeru"])
+    # The area's first room: kneel, two misses, the find; get, stand.
+    assert fake.walks[0] == {807}
+    assert fake.sent.count("search") == 3 and "kneel" in fake.sent
+    assert "get locket" in fake.sent and "stand" in fake.sent
+    assert "task: found — You find a glaes locket lying on the ground!" in out
+    # Stowed for the walk back, the giver's room, the locket given by id.
+    assert "stow my locket" in fake.sent
+    assert fake.walks[-1] == {10021}
+    assert (
+        "give #173989977 to Saeru" in fake.sent
+    )  # the journal's spelling of the giver
+    assert "task: handed in — Saeru paid 250 Lirums" in out
+    assert "task: the journal is clear" in out and script.load("Lanival") is None
+
+
+def test_a_search_moves_to_the_next_room_after_its_searches_and_gives_up_after_the_last(
+    monkeypatch,
+):
+    monkeypatch.setattr(script, "SEARCHES_PER_ROOM", 2)
+    fake = SearchFake(
+        {
+            "task": [JOURNAL_CLEAR, SEARCHING_JOURNAL],
+            "ask saeru": [SEARCHING_OFFER],
+            "accept": [SEARCHING_ACCEPTED],
+        },
+        misses=99,
+    )
+    out = run(fake, ["saeru"])
+    assert fake.walks == [{807}, {808}]
+    assert fake.sent.count("search") == 4 and fake.sent.count("stand") == 2
+    assert "nothing found in 2 room(s)" in out
+    assert script.load("Lanival")["kind"] == "searching"  # kept for a later ;task
+
+
+def test_a_search_already_found_is_only_handed_in_on_a_rerun():
+    script.record(
+        "Lanival",
+        {
+            "kind": "searching",
+            "giver": "Saeru",
+            "item": "glaes locket",
+            "area": "near The Crossing, Gildleaf Circle",
+        },
+    )
+    fake = SearchFake({"task": [SEARCHING_JOURNAL, JOURNAL_CLEAR], "give": [HANDED_IN]})
+    fake.state.right_hand = dict(LOCKET)
+    out = run(fake)
+    assert "already on you" in out and fake.sent.count("search") == 0
+    assert "give #173989977 to Saeru" in fake.sent

@@ -1,6 +1,6 @@
 """Run an NPC's task for the coin:  ;task <giver>
     ;task <giver>        ask the giver (a noun the room knows: cormyn) for a task and accept it; a kind the profile's task_declines names is declined
-    ;task                carry on the task in hand (the journal's): a delivery walks to the recipient and hands the item over
+    ;task                carry on the task in hand (the journal's): a delivery walks to the recipient and hands the item over; a search kneels and searches the area's rooms, then brings the find back to the giver
     ;task item=<noun>    ... naming the item when the record of the accept is gone (a basket)
     ;task return         typed while it runs: finish the step in hand and stop
 
@@ -8,10 +8,11 @@ What it does
 - TASK first: a task already in hand is carried on, no ask.
 - The offer has thirty seconds: it is accepted at once (a kind in task_declines is declined). A delivery is run; any other kind is yours from here — the offer said, the task recorded.
 - A delivery: the item lands in a hand and is stowed; the walk to the recipient's room (the givers' table in client/game/tasks.py); GET the item, GIVE it to the recipient; the payment said; the journal read again.
+- A search: the area's rooms by title; in each KNEEL and SEARCH (each one's roundtime waited) until the find, SEARCHES_PER_ROOM at most; GET the find, STAND, the walk back to the giver, GIVE; the journal read again.
 
 What stops it
 - The giver's cooldown (ten minutes between asks), an offer of a kind the profile declines, a recipient the table does not know, a walk that ends short — each said. A walk ends short at a shop shut for the night (sunrise is a game hour, fifteen real minutes) and at a ride the walker lacks (the Throne City barge, #506): ;task again from there carries on.
-- Only delivery is run by the script; recovery, kill, boss, foraging, skinning and searching are accepted and handed over, their wordings captured on the way (#505).
+- Delivery and searching are run by the script; recovery, kill, boss, foraging and skinning are accepted and handed over, their wordings captured on the way (#505).
 
 Elanthipedia: Task; the wordings captured on Crannach's delivery (docs/tasks.md).
 """
@@ -23,17 +24,21 @@ from client.game.mapdb import MapDB
 from client.game.tasks import (
     CLOSED_FOR_THE_NIGHT,
     LAPSED,
+    SEARCHES_PER_ROOM,
     accepted,
+    area_rooms,
     classify_ask,
     clear,
     decide,
     declined,
+    giver_rooms,
     load,
     paid,
     parse_journal,
     parse_offer,
     recipient_rooms,
     record,
+    search_outcome,
 )
 from client.game.walker import walk
 
@@ -180,12 +185,105 @@ def deliver(s, task, mapdb, walk_fn):
     return True
 
 
+def search_for(s, task, mapdb, walk_fn):
+    """KNEEL and SEARCH the area's rooms until the item lies at the feet,
+    then GET it and STAND: True with the item in hand."""
+    area = str(task.get("area") or "")
+    rooms = area_rooms(mapdb, area)
+    if not rooms:
+        s.echo(f"task: the map has no room for {area!r} — stopping")
+        return False
+    noun = str(task.get("item") or "").split()[-1] if task.get("item") else ""
+    for room in sorted(rooms):
+        if wants_stop(s):
+            return False
+        if not travel.go(s, {room}, f"{area} ({room})", db=mapdb, walk=walk_fn):
+            s.echo(f"task: could not reach room {room} of {area} — trying the next")
+            continue
+        ask(s, "kneel")
+        for number in range(1, SEARCHES_PER_ROOM + 1):
+            if wants_stop(s):
+                ask(s, "stand")
+                return False
+            s.waitrt()
+            answer = ask(s, "search")
+            outcome = search_outcome(answer)
+            if outcome == "found":
+                s.echo(f"task: found — {said(answer)} (search {number} in room {room})")
+                s.waitrt()
+                got = ask(s, f"get {noun}" if noun else "get item")
+                ask(s, "stand")
+                if not items.ref(s, noun):
+                    unknown(s, "task", "GET", got)
+                    return False
+                return True
+            if outcome == "wrong area":
+                s.echo(f"task: nothing of interest in room {room} — the next")
+                break
+            if outcome != "miss":
+                unknown(s, "task", "SEARCH", answer)
+                ask(s, "stand")
+                return False
+        ask(s, "stand")
+    s.echo(f"task: nothing found in {len(rooms)} room(s) of {area} — stopping")
+    return False
+
+
+def hand_in(s, task, mapdb, walk_fn):
+    """Walk the find back to the giver and GIVE it; the giver's answer
+    said, the journal the judge of the end."""
+    giver = str(task.get("giver") or "")
+    rooms = giver_rooms(mapdb, giver)
+    if not rooms:
+        s.echo(
+            f"task: the givers' table has no room for {giver} — the find is on you; stopping"
+        )
+        return False
+    noun = str(task.get("item") or "").split()[-1]
+    held = items.ref(s, noun)
+    if held:
+        hands.stow(s, noun, ask)
+    if not travel.go(s, rooms, f"{giver}'s room", db=mapdb, walk=walk_fn):
+        s.echo(f"task: stopped short of {giver} — ;task again from here carries on")
+        return False
+    held = items.ref(s, noun)
+    if not held:
+        answer = ask(s, f"get my {noun}")
+        held = items.ref(s, noun)
+        if not held:
+            unknown(s, "task", f"GET {noun.upper()}", answer)
+            return False
+    answer = ask(s, f"give {held} to {giver}")
+    payment = paid(answer)
+    if payment:
+        s.echo(f"task: handed in — {giver} paid {payment[0]} {payment[1]}")
+    else:
+        s.echo(f"task: handed in — {giver} said {said(answer)!r}")
+    journal = parse_journal(ask(s, "task"))
+    if journal is None:
+        s.echo("task: the journal is clear")
+        clear(character(s))
+        return True
+    s.echo(f"task: the journal still holds {describe(journal)}")
+    return False
+
+
+def run_search(s, task, mapdb, walk_fn):
+    noun = str(task.get("item") or "").split()[-1] if task.get("item") else ""
+    if noun and items.ref(s, noun) or (noun and items.listed_ref(s, noun)):
+        s.echo(f"task: the {noun} is already on you — handing it in")
+        return hand_in(s, task, mapdb, walk_fn)
+    if not search_for(s, task, mapdb, walk_fn):
+        return False
+    return hand_in(s, task, mapdb, walk_fn)
+
+
 def run(s, options, profile, mapdb, walk_fn=walk):
     declines = list(profile.get("task_declines") or [])
     name = character(s)
     task = parse_journal(ask(s, "task"))
     if task is not None:
-        if task.get("kind") != "delivery":
+        if task.get("kind") not in ("delivery", "searching"):
             s.echo(
                 f"task: the journal holds {describe(task)} — beyond the script, yours from here"
             )
@@ -196,7 +294,10 @@ def run(s, options, profile, mapdb, walk_fn=walk):
             task["item"] = options["item"]
         s.echo(f"task: carrying on {describe(task)}")
         record(name, task)
-        deliver(s, task, mapdb, walk_fn)
+        if task["kind"] == "searching":
+            run_search(s, task, mapdb, walk_fn)
+        else:
+            deliver(s, task, mapdb, walk_fn)
         return
     if not options["giver"]:
         s.echo("task: no task in hand — ;task <giver> asks one")
@@ -205,6 +306,10 @@ def run(s, options, profile, mapdb, walk_fn=walk):
     if offer is None:
         return
     task = {"giver": options["giver"], **offer}
+    if offer["kind"] == "searching":
+        record(name, task)
+        run_search(s, task, mapdb, walk_fn)
+        return
     if offer["kind"] != "delivery":
         record(name, task)
         s.echo(

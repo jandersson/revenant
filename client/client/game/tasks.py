@@ -34,6 +34,13 @@ ACCEPTED = ("Here is the item", "you're looking for")
 NO_TASK = "You are not currently on a task."
 JOURNAL_HEAD = "You look in your task journal"
 CLOSED_FOR_THE_NIGHT = "closed for the night"
+# A search (captured 2026-10-10 at Gildleaf Circle, docs/tasks.md): KNEEL,
+# then SEARCH answers a miss with a roundtime of 8–14 s, the find with
+# the item at the feet, and the wiki's wrong-area line elsewhere.
+SEARCH_MISS = ("do not find the item",)
+SEARCH_FOUND = ("lying on the ground",)
+SEARCH_WRONG_AREA = ("anything of interest",)
+SEARCHES_PER_ROOM = 30  # thirty-one found the locket in two rooms
 WINDOW_SECONDS = 30
 
 _DELIVERY = re.compile(
@@ -173,6 +180,34 @@ def decide(offer, declines=()):
     2026-10-10: a script built to learn declines nothing by default)."""
     kinds = {str(kind).strip().lower() for kind in declines or ()}
     return str(offer.get("kind") or "").lower() not in kinds
+
+
+def area_rooms(db, area):
+    """The map rooms a search's area names: "near The Crossing, Gildleaf
+    Circle" is the title's last part, "Gildleaf Circle", every room so
+    titled; empty when the map has none."""
+    text = str(area or "").strip()
+    if text.lower().startswith("near "):
+        text = text[5:]
+    part = text.split(",")[-1].strip()
+    return set(db.resolve(part)) if part else set()
+
+
+def search_outcome(answer):
+    """ "found", "miss", "wrong area" or "unknown" for a SEARCH's answer."""
+    text = str(answer or "")
+    if any(word in text for word in SEARCH_FOUND):
+        return "found"
+    if any(word in text for word in SEARCH_MISS):
+        return "miss"
+    if any(word in text for word in SEARCH_WRONG_AREA):
+        return "wrong area"
+    return "unknown"
+
+
+def giver_rooms(db, giver):
+    """The giver's room by the givers' table, as recipient_rooms."""
+    return recipient_rooms(db, giver)
 
 
 def recipient_rooms(db, person):
