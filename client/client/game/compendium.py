@@ -16,7 +16,8 @@ impossible" (dr-scripts' first-aid.lic, not captured here).
 
 The order is dr-scripts' first-aid's: the hardest chart the Scholarship
 reads first, from its table (anatomy_data.CHARTS), where the reach is
-the rank itself up to 100 and the rank over 1.6 past it.
+the rank itself up to 100; past 100 the game's "almost impossible" is
+the only cap (reach).
 """
 
 from client.game.anatomy_data import CHARTS
@@ -84,11 +85,14 @@ def charts(answer):
 
 def reach(scholarship):
     """The hardest chart (its table Scholarship) a reader of that rank
-    studies: the rank up to 100, the rank over 1.6 past it; None when
-    the rank is unknown."""
-    if scholarship is None:
+    studies: the rank up to 100; None past it, or when the rank is
+    unknown. dr-scripts' rank over 1.6 past 100 left out every chart near
+    the rank: at Scholarship 551 it is 344, while the Mammoth (550)
+    studied smoothly and the Angiswaerd (600) and the Wasp (700) slowly
+    (2026-10-10), so there the game's "almost impossible" is the judge."""
+    if scholarship is None or scholarship > 100:
         return None
-    return scholarship if scholarship <= 100 else scholarship / 1.6
+    return scholarship
 
 
 def outgrown(name, scholarship):

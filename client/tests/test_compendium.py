@@ -107,8 +107,16 @@ def test_the_hardest_chart_scholarship_reads_goes_first():
         "Equine",
         "Mystery Beast",
     ]
-    # Past rank 100 the reach is the rank over 1.6 (dr-scripts' first-aid).
-    assert compendium.reach(160) == 100 and compendium.reach(77) == 77
+    # Past rank 100 no table cap: at Scholarship 551 the Mammoth (550)
+    # studied smoothly and the Wasp (700) slowly (2026-10-10), where
+    # dr-scripts' rank over 1.6 (344) left them all out.
+    assert compendium.reach(551) is None and compendium.reach(77) == 77
+    assert compendium.plan(["Wasp", "Mammoth", "Ape", "Rock Troll"], 551) == [
+        "Wasp",
+        "Mammoth",
+        "Ape",
+        "Rock Troll",
+    ]
 
 
 def test_turn_finds_a_chart_by_its_tables_word():
