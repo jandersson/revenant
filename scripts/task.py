@@ -7,7 +7,7 @@
 What it does
 - TASK first: a task already in hand is carried on, no ask.
 - The offer has thirty seconds: it is accepted at once (a kind in task_declines is declined). A delivery is run; any other kind is yours from here — the offer said, the task recorded.
-- A delivery: the item lands in a hand and is stowed; the walk to the recipient's room (the givers' table in client/game/tasks.py); GET the item, GIVE it to the recipient; the payment said; the journal read again.
+- A delivery: the item lands in a hand and is stowed; the walk to the recipient's room (the givers' table in client/game/tasks.py); GET the item by the id the accept recorded (INV LIST's id, then the noun, when there is none; two of a noun said), GIVE it to the recipient; the payment said; the journal read again.
 - A search: the area's rooms by title; in each KNEEL and SEARCH (each one's roundtime waited) until the find, SEARCHES_PER_ROOM at most; GET the find, STAND, the walk back to the giver, GIVE; the journal read again.
 
 What stops it
@@ -16,6 +16,8 @@ What stops it
 
 Elanthipedia: Task; the wordings captured on Crannach's delivery (docs/tasks.md).
 """
+
+import re
 
 from client.game import hands, items, travel
 from client.game.act import ask, said, unknown
@@ -138,6 +140,56 @@ def stow_the_item(s, task):
     )
 
 
+def held_item(s, noun, exist):
+    """The hand's ref for the task's item: the recorded id when a hand
+    holds it, else the noun's."""
+    for tag in hands.tags(s).values():
+        if tag and exist and str(tag.get("exist")) == str(exist):
+            return f"#{exist}"
+    return items.ref(s, noun) if noun else None
+
+
+def take_item(s, task):
+    """The task's item into a hand, its ref back (None said): by the id
+    the accept recorded first, then INV LIST's id for the noun, the bare
+    noun last — two baskets on the character and a GET by noun can take
+    the wrong one (#513)."""
+    noun = str(task.get("item") or "").split()[-1] if task.get("item") else ""
+    exist = task.get("exist")
+    held = held_item(s, noun, exist)
+    if held:
+        return held
+    tries = [f"#{exist}"] if exist else []
+    listed = items.listed_ref(s, noun) if noun else None
+    if listed and listed not in tries:
+        tries.append(listed)
+    if noun:
+        tries.append(f"my {noun}")
+    answer = ""
+    for what in tries:
+        answer = ask(s, f"get {what}")
+        held = held_item(s, noun, exist)
+        if held:
+            if what != f"#{exist}" and len(named(s, noun)) > 1:
+                s.echo(
+                    f"task: {len(named(s, noun))} {noun}s on you and no id for the "
+                    f"task's — took {held}"
+                )
+            return held
+    if not tries:
+        s.echo("task: the item's noun is unknown — ;task item=<noun>")
+    else:
+        unknown(s, "task", f"GET {(noun or str(exist)).upper()}", answer)
+    return None
+
+
+def named(s, noun):
+    """INV LIST's items whose name holds `noun` as a word."""
+    pattern = re.compile(rf"\b{re.escape(noun.lower())}\b")
+    possessions = getattr(getattr(s, "state", None), "possessions", None) or []
+    return [i for i in possessions if pattern.search(str(i.get("name") or "").lower())]
+
+
 def deliver(s, task, mapdb, walk_fn):
     """Walk to the recipient and hand the item over; the payment said,
     the journal read, the record cleared when the task is done."""
@@ -155,17 +207,9 @@ def deliver(s, task, mapdb, walk_fn):
             "is #506; ;task again from here carries on"
         )
         return False
-    noun = str(task.get("item") or "")
-    if not noun:
-        s.echo("task: the item's noun is unknown — ;task item=<noun>")
-        return False
-    held = items.ref(s, noun)
+    held = take_item(s, task)
     if not held:
-        answer = ask(s, f"get my {noun}")
-        held = items.ref(s, noun)
-        if not held:
-            unknown(s, "task", f"GET {noun.upper()}", answer)
-            return False
+        return False
     answer = ask(s, f"give {held} to {person_name(person)}")
     payment = paid(answer)
     if payment:
@@ -247,13 +291,9 @@ def hand_in(s, task, mapdb, walk_fn):
     if not travel.go(s, rooms, f"{giver}'s room", db=mapdb, walk=walk_fn):
         s.echo(f"task: stopped short of {giver} — ;task again from here carries on")
         return False
-    held = items.ref(s, noun)
+    held = take_item(s, task)
     if not held:
-        answer = ask(s, f"get my {noun}")
-        held = items.ref(s, noun)
-        if not held:
-            unknown(s, "task", f"GET {noun.upper()}", answer)
-            return False
+        return False
     answer = ask(s, f"give {held} to {giver}")
     payment = paid(answer)
     if payment:

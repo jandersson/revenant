@@ -184,7 +184,7 @@ def test_a_delivery_is_asked_accepted_carried_and_handed_over():
     assert fake.sent[:4] == ["task", "ask cormyn for task", "accept task", "task"]
     assert "stow my basket" in fake.sent
     assert fake.walks == [{10021}]
-    assert "get my basket" in fake.sent
+    assert "get #172475803" in fake.sent  # by the id the accept recorded (#513)
     assert "give #172475803 to Saeru" in fake.sent
     assert "task: accepted — a delivery to Saeru in Throne City" in out
     assert "task: delivered — Saeru paid 314 Lirums" in out
@@ -272,6 +272,50 @@ def test_a_task_in_the_journal_is_carried_on_from_the_record():
     assert "task: carrying on a delivery to Saeru in Throne City" in out
     assert fake.walks == [{10021}] and "give #172475803 to Saeru" in fake.sent
     assert "task: delivered — Saeru paid 314 Lirums" in out
+
+
+class TwoBaskets(Fake):
+    """Two gift baskets in the pack: GET by id takes that one, GET MY
+    BASKET the first the game finds — the wrong one here (#513)."""
+
+    OTHER = {"exist": "160000001", "noun": "basket", "name": "gift basket"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.state.possessions = [
+            {"exist": self.OTHER["exist"], "name": "gift basket"},
+            {"exist": BASKET["exist"], "name": "gift basket"},
+        ]
+
+    def put(self, command):
+        super().put(command)
+        if command == "get my basket":
+            self.state.right_hand = dict(self.OTHER)
+        elif command.startswith("get #"):
+            exist = command[len("get #") :]
+            self.state.right_hand = dict(BASKET, exist=exist)
+
+
+def test_two_baskets_the_recorded_one_is_given():
+    script.record(
+        "Lanival", {"kind": "delivery", "item": "basket", "exist": "172475803"}
+    )
+    fake = TwoBaskets({"task": [JOURNAL, JOURNAL_CLEAR], "give": [PAID]})
+    run(fake)
+    assert "get #172475803" in fake.sent and "get my basket" not in fake.sent
+    assert "give #172475803 to Saeru" in fake.sent
+
+
+def test_two_baskets_and_no_id_the_noun_is_used_and_said():
+    # A record from before the id was kept: INV LIST's first basket, and
+    # the walk says the noun matched two.
+    script.record("Lanival", {"kind": "delivery", "item": "basket"})
+    fake = TwoBaskets({"task": [JOURNAL, JOURNAL_CLEAR], "give": [PAID]})
+    out = run(fake)
+    assert (
+        fake.sent[fake.sent.index("give #160000001 to Saeru") - 1] == "get #160000001"
+    )
+    assert "task: 2 baskets on you and no id for the task's — took #160000001" in out
 
 
 def test_a_walk_that_ends_short_is_said_with_the_nights_hint_and_the_record_kept():
