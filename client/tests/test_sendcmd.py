@@ -141,6 +141,7 @@ def test_the_console_script_prints_the_answer(monkeypatch, capsys, answering):
 def test_read_only_commands_are_allowlisted_and_the_rest_are_gated():
     assert allowlisted("exp all")
     assert allowlisted("INFO")
+    assert allowlisted("task")  # the journal, #505
     assert allowlisted(";sheet inv")
     assert allowlisted(";stop hunt")
     assert allowlisted("tdp project agility 12")

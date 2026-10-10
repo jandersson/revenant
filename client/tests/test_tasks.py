@@ -76,6 +76,36 @@ def test_a_delivery_offer_names_the_person_and_the_place():
     }
 
 
+def test_a_delivery_to_a_titled_recipient_keeps_the_title_and_gives_to_the_name():
+    # Saeru's third offer, 2026-10-10.
+    offer = tasks.parse_offer(
+        "Saeru says, \"I do have a small task I'd like for you to perform.  I have a "
+        "small item that needs to be taken to the Ranger Guildleader Kalika in The "
+        'Crossing.  Would you be willing to do that for me?"\n'
+        + DELIVERY_OFFER.splitlines()[-1]
+    )
+    assert offer == {
+        "kind": "delivery",
+        "person": "Ranger Guildleader Kalika",
+        "place": "The Crossing",
+    }
+    assert tasks.person_name(offer["person"]) == "Kalika"
+    assert tasks.person_name("Saeru") == "Saeru"
+    assert tasks.parse_journal(
+        "You look in your task journal and see the following entry:\n"
+        "Saeru wants you to deliver a package to the Ranger Guildleader Kalika in The Crossing.\n"
+    ) == {
+        "kind": "delivery",
+        "giver": "Saeru",
+        "person": "Ranger Guildleader Kalika",
+        "place": "The Crossing",
+    }
+    db = MapDB(
+        [{"id": 7900, "uid": [1], "title": ["[Ranger Guild, Main Hall]"], "wayto": {}}]
+    )
+    assert tasks.recipient_rooms(db, "Ranger Guildleader Kalika") == {7900}
+
+
 def test_a_recovery_offer_names_the_item_the_creature_and_the_area():
     assert tasks.parse_offer(RECOVERY_OFFER) == {
         "kind": "recovery",

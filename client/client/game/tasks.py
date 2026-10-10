@@ -43,8 +43,11 @@ SEARCH_WRONG_AREA = ("anything of interest",)
 SEARCHES_PER_ROOM = 30  # thirty-one found the locket in two rooms
 WINDOW_SECONDS = 30
 
+# The recipient is a name ("Saeru") or a title and a name ("the Ranger
+# Guildleader Kalika", Saeru's third offer, 2026-10-10): the words before
+# " in ", the article dropped; GIVE and the givers' table take the last.
 _DELIVERY = re.compile(
-    r"needs to be taken to (?P<person>[A-Z][\w']*) in (?P<place>[^.?]+)[.?]"
+    r"needs to be taken to (?:the )?(?P<person>[A-Z][\w' ]*?) in (?P<place>[^.?]+)[.?]"
 )
 _RECOVERY = re.compile(
     r"lost a very precious (?P<item>[\w' -]+?)\.\s+(?:He|She) lost it in the area "
@@ -58,7 +61,7 @@ _SEARCHING = re.compile(
 )
 _JOURNAL_DELIVERY = re.compile(
     r"(?P<giver>[A-Z][\w']*) wants you to deliver a package to "
-    r"(?P<person>[A-Z][\w']*) in (?P<place>[^.]+)\."
+    r"(?:the )?(?P<person>[A-Z][\w' ]*?) in (?P<place>[^.]+)\."
 )
 # "Saeru wants you to recover a glaes locket near The Crossing, Gildleaf
 # Circle." — a search's journal line; a recovery's (from a creature) is
@@ -74,6 +77,7 @@ _PAID = re.compile(r"hands you (?P<count>[\d,]+) (?P<currency>[A-Z]\w+)")
 # is looked up here. The wandering ones have no room (;seek finds them).
 GIVERS = {
     "Cormyn": "Cormyn's House of Heirlooms",
+    "Kalika": "Ranger Guild, Main Hall",  # the Crossing's Ranger guildleader (map 7900)
     "Amfitro": "Viper's Nest",
     "Saeru": "Seven Star Exchange and Pawn",
     "Daralaendra": "Warehouse Office",
@@ -210,10 +214,17 @@ def giver_rooms(db, giver):
     return recipient_rooms(db, giver)
 
 
+def person_name(person):
+    """The name GIVE and the givers' table take from a recipient: the last
+    word of "the Ranger Guildleader Kalika", "Saeru" as is."""
+    words = str(person or "").split()
+    return words[-1].strip(".,") if words else ""
+
+
 def recipient_rooms(db, person):
     """The map rooms a delivery's recipient stands in, by the givers'
     table; empty when the person is not in it or the map lacks the room."""
-    title = GIVERS.get(str(person or "").strip().capitalize())
+    title = GIVERS.get(person_name(person).capitalize())
     if not title:
         return set()
     return set(db.resolve(title))

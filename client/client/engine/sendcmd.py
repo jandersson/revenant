@@ -69,6 +69,7 @@ ALLOWLIST = frozenset(
         "spells",
         "health",
         "wealth",
+        "task",  # the task journal (#505)
         "look",
         "time",
         "inventory",

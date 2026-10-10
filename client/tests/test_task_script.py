@@ -64,6 +64,12 @@ MAP = MapDB(
             "title": ["[The Crossing, Gildleaf Circle]"],
             "wayto": {"807": "south"},
         },
+        {
+            "id": 7900,
+            "uid": [5],
+            "title": ["[Ranger Guild, Main Hall]"],
+            "wayto": {},
+        },
     ]
 )
 
@@ -392,3 +398,34 @@ def test_a_search_already_found_is_only_handed_in_on_a_rerun():
     out = run(fake)
     assert "already on you" in out and fake.sent.count("search") == 0
     assert "give #173989977 to Saeru" in fake.sent
+
+
+def test_a_rerun_with_the_item_still_in_hand_takes_its_noun_and_gives_to_the_recipients_name():
+    # 2026-10-10: an offer read as unknown left the letter in a hand and no
+    # item in the record; the next ;task carries the delivery on from the
+    # journal and the hand, and GIVEs to the last word of a titled name.
+    journal = (
+        "You look in your task journal and see the following entry:\n"
+        "Saeru wants you to deliver a package to the Ranger Guildleader Kalika in The Crossing.\n"
+    )
+    paid = (
+        'Kalika says, "Thank you very much, Lanival."\nKalika hands you 400 Lirums.\n'
+    )
+    fake = Fake(
+        {
+            "task": [journal, JOURNAL_CLEAR],
+            "stow": [STOWED],
+            "get": [GOT_BASKET],
+            "give": [paid],
+        }
+    )
+    fake.state.right_hand = {
+        "exist": "174053253",
+        "noun": "letter",
+        "name": "brown letter",
+    }
+    out = run(fake)
+    assert "carrying on a delivery to Ranger Guildleader Kalika in The Crossing" in out
+    assert fake.walks == [{7900}]
+    assert "give #174053253 to Kalika" in fake.sent
+    assert "task: delivered — Ranger Guildleader Kalika paid 400 Lirums" in out

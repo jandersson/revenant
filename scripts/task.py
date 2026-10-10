@@ -36,6 +36,7 @@ from client.game.tasks import (
     paid,
     parse_journal,
     parse_offer,
+    person_name,
     recipient_rooms,
     record,
     search_outcome,
@@ -165,7 +166,7 @@ def deliver(s, task, mapdb, walk_fn):
         if not held:
             unknown(s, "task", f"GET {noun.upper()}", answer)
             return False
-    answer = ask(s, f"give {held} to {person}")
+    answer = ask(s, f"give {held} to {person_name(person)}")
     payment = paid(answer)
     if payment:
         count, currency = payment
@@ -292,6 +293,13 @@ def run(s, options, profile, mapdb, walk_fn=walk):
         task = {**kept, **task}
         if options["item"]:
             task["item"] = options["item"]
+        if not task.get("item"):
+            # The accept's item is still in a hand (an offer read as
+            # unknown, a stop before the stow): take its noun from there.
+            for tag in hands.tags(s).values():
+                if tag and tag.get("noun"):
+                    task["item"], task["exist"] = tag["noun"], tag.get("exist")
+                    break
         s.echo(f"task: carrying on {describe(task)}")
         record(name, task)
         if task["kind"] == "searching":
