@@ -18,14 +18,14 @@ and only docks given this title bar fold at all — the Input dock (the
 command line) keeps Qt's own and never folds, so Ctrl+Shift+D with
 the cursor in the command line does nothing.
 
-A dock that shares a tab group never folds: Qt gives the group the
-lowest ceiling among its tabs, so one folded tab pinned the whole
-group at its minimum and the separator under it would not move
-(Thoughts with Injuries and Spells, 2026-09-25). The tab bar already
-hides a tab; `collapse` refuses one, a folded dock tabbed into a group
-unfolds when its group's tab is switched (`unfold_group`, wired to the
-main window's tabifiedDockWidgetActivated), and a restore never folds
-a tabbed dock again.
+A tab group folds and opens as one: Qt gives the group the lowest
+ceiling among its tabs, so one folded tab pinned the whole group at
+its minimum and the separator under it would not move (Thoughts with
+Injuries and Spells, 2026-09-25), and refusing a tabbed dock left its
+fold button doing nothing (Map with Arrivals, 2026-10-10). Folding any
+tab folds every open dock in its group; expanding one, or switching
+the group's tab (`unfold_group`, wired to the main window's
+tabifiedDockWidgetActivated), opens them all.
 
 The collapsed set rides the layout round trip: `collapsed_names`
 lists the docks to save beside the window state, `apply_collapsed`
@@ -115,22 +115,30 @@ def foldable(dock):
     return isinstance(dock.titleBarWidget(), DockTitleBar)
 
 
-def tabbed(dock):
-    """True when the dock shares a tab group with another open dock."""
+def group_of(dock):
+    """The dock and the open docks tabbed with it."""
     main = dock.parentWidget()
     if not isinstance(main, QMainWindow):
-        return False
-    return any(not other.isHidden() for other in main.tabifiedDockWidgets(dock))
+        return [dock]
+    return [dock] + [d for d in main.tabifiedDockWidgets(dock) if not d.isHidden()]
 
 
 def collapse(dock):
-    """Fold the dock to its title bar; False when it already is, floats,
-    shares a tab group (a folded tab caps the whole group), or is not
-    foldable."""
-    if is_collapsed(dock) or dock.isFloating() or not foldable(dock) or tabbed(dock):
+    """Fold the dock to its title bar, with every dock of its tab group
+    (a folded tab caps the whole group); False when it already is,
+    floats, or it or a tab beside it is not foldable."""
+    group = group_of(dock)
+    if is_collapsed(dock) or dock.isFloating() or not all(map(foldable, group)):
         return False
+    height = dock.height()  # the shown tab's: the group opens back to it
+    for member in group:
+        _fold(member, height)
+    return True
+
+
+def _fold(dock, height):
     bar = dock.titleBarWidget()
-    dock.setProperty(EXPANDED_HEIGHT, dock.height())
+    dock.setProperty(EXPANDED_HEIGHT, height)
     dock.setProperty(EXPANDED_MAX, dock.maximumHeight())
     content = dock.widget()
     if content is not None:
@@ -147,7 +155,6 @@ def collapse(dock):
     dock.setMaximumHeight(bar.sizeHint().height() + 4)
     dock.setProperty(COLLAPSED, True)
     bar.show_collapsed(True)
-    return True
 
 
 def expand(dock):
@@ -176,17 +183,13 @@ def expand(dock):
 def unfold_group(dock):
     """Expand the dock and every folded dock tabbed with it — a fold
     from before the dock joined the group would cap the group's
-    height. Wired to QMainWindow.tabifiedDockWidgetActivated."""
-    main = dock.parentWidget()
-    group = [dock]
-    if isinstance(main, QMainWindow):
-        group += main.tabifiedDockWidgets(dock)
-    for member in group:
-        expand(member)
+    height; True when any was folded. Wired to
+    QMainWindow.tabifiedDockWidgetActivated."""
+    return any([expand(member) for member in group_of(dock)])
 
 
 def toggle(dock):
-    return expand(dock) if is_collapsed(dock) else collapse(dock)
+    return unfold_group(dock) if is_collapsed(dock) else collapse(dock)
 
 
 def dock_of(widget):
@@ -205,12 +208,12 @@ def collapsed_names(docks):
 
 
 def apply_collapsed(docks, names):
-    """Fold the named docks after a layout restore; unnamed ones are
-    expanded, so a stale fold does not outlive its saved state. A
-    tabbed dock stays open whatever the saved set says."""
+    """Fold the named docks after a layout restore, a tab group whole
+    when any of its docks is named; the rest are expanded, so a stale
+    fold does not outlive its saved state."""
     wanted = set(names)
     for dock in docks:
-        if dock.objectName() in wanted and not tabbed(dock):
+        if any(member.objectName() in wanted for member in group_of(dock)):
             collapse(dock)
         else:
             expand(dock)

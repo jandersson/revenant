@@ -145,14 +145,19 @@ def _tab_group(window, qapp):
     return thoughts, injuries
 
 
-def test_a_tabbed_dock_never_folds(window, qapp):
-    # 2026-09-25: a folded tab gave the Thoughts/Injuries group its 23 px
-    # ceiling, the group sat at its minimum and its separator would not
-    # move. The tab bar already hides a tab.
+def test_a_tab_group_folds_and_opens_as_one(window, qapp):
+    # 2026-09-25: one folded tab gave the Thoughts/Injuries group its
+    # 23 px ceiling and its separator would not move; refusing the fold
+    # instead left the Map tab's fold button doing nothing (2026-10-10).
     thoughts, injuries = _tab_group(window, qapp)
-    assert dock_collapse.tabbed(injuries)
-    assert not dock_collapse.collapse(injuries)
+    assert dock_collapse.group_of(injuries) == [injuries, thoughts]
+    injuries.titleBarWidget().collapse_button.click()
+    assert dock_collapse.is_collapsed(injuries)
+    assert dock_collapse.is_collapsed(thoughts)
+    assert dock_collapse.toggle(thoughts)  # either tab's button opens both
     assert not dock_collapse.is_collapsed(injuries)
+    assert not dock_collapse.is_collapsed(thoughts)
+    assert injuries.maximumHeight() > 1000
 
 
 def test_a_folded_dock_tabbed_into_a_group_unfolds_on_the_tab_switch(window, qapp):
@@ -168,7 +173,11 @@ def test_a_folded_dock_tabbed_into_a_group_unfolds_on_the_tab_switch(window, qap
     assert injuries.maximumHeight() > 1000
 
 
-def test_a_restore_never_folds_a_tabbed_dock(window, qapp):
+def test_a_restore_folds_a_tab_group_whole(window, qapp):
     thoughts, injuries = _tab_group(window, qapp)
     dock_collapse.apply_collapsed([thoughts, injuries], ["Injuries"])
+    assert dock_collapse.is_collapsed(injuries)
+    assert dock_collapse.is_collapsed(thoughts)
+    dock_collapse.apply_collapsed([thoughts, injuries], [])
     assert not dock_collapse.is_collapsed(injuries)
+    assert not dock_collapse.is_collapsed(thoughts)
