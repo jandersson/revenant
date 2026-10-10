@@ -185,6 +185,10 @@ def test_the_accept_and_the_payment_are_read():
     assert tasks.declined(ACCEPTED) is False
     assert tasks.paid(PAID) == (314, "Lirums")
     assert tasks.paid(ACCEPTED) is None
+    # An item recovery handed back to its giver, 2026-10-10 21:19 (#509):
+    # the same thanks, from the giver.
+    recovered = PAID.replace("Saeru", "Cormyn").replace("314 Lirums", "777 Kronars")
+    assert tasks.paid(recovered) == (777, "Kronars")
 
 
 def test_a_searchs_area_names_its_rooms_and_the_answers_are_classed():

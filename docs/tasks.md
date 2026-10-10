@@ -39,6 +39,7 @@ give <item> to <person>   a delivery's end: the recipient pays
 - Silence past the window: `"Very well, I guess you do not wish to help me."`
 - Asking again inside the ten-minute cooldown: `"I am sorry, you must wait before I can give you a task."` Declining, letting it lapse and cancelling (`ask <giver> for task cancel`) all start the same ten minutes. `;task` keeps each giver's clock and says the minutes left rather than ask inside them.
 - A delivery's end: the recipient thanks you by name and `hands you 314 Lirums`; `task` then reads `You are not currently on a task.`
+- An item recovery's end: GIVE the item to the giver, who answers with the same thanks and `hands you 777 Kronars` (Cormyn's worn gauntlet).
 
 ## What bites
 
