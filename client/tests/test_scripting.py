@@ -266,6 +266,21 @@ def test_waitrt_trusts_local_sleep_without_fresh_prompts(tmp_path):
     assert len(slept) == 1, "must not spin when no new prompt arrives"
 
 
+def test_a_roundtime_slept_out_is_not_slept_again_without_a_prompt(tmp_path):
+    # probe.ask waits the PERCEIVE's 3 s out, then ;astral's own waitrt
+    # before the move slept them again: no prompt had come, so the stale
+    # server time still showed the roundtime running (2026-10-10).
+    script, state = _script_with_state(tmp_path, server_time=100, roundtime=103)
+    slept = []
+    script.sleep = lambda seconds: slept.append(seconds)  # no prompt arrives
+    script.waitrt()
+    script.waitrt()
+    assert len(slept) == 1
+    state.server_time, state.roundtime = 104, 108  # the next command's
+    script.waitrt()
+    assert len(slept) == 2
+
+
 def test_a_forming_pattern_holds_only_a_cast(tmp_path):
     # #249: a plain waitrt after PREPARE slept the cast time out as if it
     # were a roundtime, and the swing meant to fill the formation went out

@@ -291,7 +291,11 @@ class Script:
         badger bites with nothing sent, every training cast (#249,
         2026-09-20). Remaining time is the announced end (server clock)
         minus the last prompt's server time; if no fresher prompt arrives
-        while sleeping, the local sleep is trusted and we return."""
+        while sleeping, the local sleep is trusted and we return — and a
+        second waitrt with still no fresher prompt does not sleep that
+        roundtime again (probe.ask waits it out, then the script's own
+        waitrt before the next command slept it a second time: 3 s more
+        on every room of ;astral, 2026-10-10)."""
         state = self.state
         if state is None or state.server_time is None:
             return
@@ -312,12 +316,14 @@ class Script:
                 self.sleep(0.05)
             self._sent = None
         seen = state.server_time
-        remaining = (
-            max(state.roundtime, state.casttime) if cast else state.roundtime
-        ) - seen
+        ends = max(state.roundtime, state.casttime) if cast else state.roundtime
+        if getattr(self, "_slept", None) == (seen, ends):
+            return  # slept out already, and no prompt has come since
+        remaining = ends - seen
         while remaining > 0:
             self.sleep(remaining + pad)
             if state.server_time == seen:
+                self._slept = (seen, ends)
                 return
             seen = state.server_time
             remaining = (
