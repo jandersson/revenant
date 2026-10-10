@@ -261,6 +261,24 @@ def test_the_cooldown_is_said_and_nothing_else_sent():
     assert "says to wait — ten minutes between asks" in out
 
 
+def test_an_ask_inside_the_givers_cooldown_is_not_sent(monkeypatch):
+    # #514: the ask that got an offer starts the giver's ten minutes; a
+    # ;task inside them says the minutes left and asks nothing.
+    clock = [10_000.0]
+    monkeypatch.setattr(script, "now", lambda: clock[0])
+    declined = Fake({"ask cormyn": [RECOVERY_OFFER], "decline": [LAPSED]})
+    run(declined, ["cormyn"], declines=("recovery",))
+    clock[0] += 200
+    again = Fake({"ask cormyn": [RECOVERY_OFFER]})
+    out = run(again, ["cormyn"])
+    assert again.sent == ["task"]
+    assert "cormyn can be asked again in 7 minute(s)" in out
+    clock[0] += 400
+    later = Fake({"ask cormyn": [COOLDOWN]})
+    run(later, ["cormyn"])
+    assert later.sent == ["task", "ask cormyn for task"]
+
+
 def test_a_task_in_the_journal_is_carried_on_from_the_record():
     # A stop short of the shop (its night): the next ;task reads the
     # journal, takes the item's noun from the record, and delivers.

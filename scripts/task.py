@@ -11,13 +11,15 @@ What it does
 - A search: the area's rooms by title; in each KNEEL and SEARCH (each one's roundtime waited) until the find, SEARCHES_PER_ROOM at most; GET the find, STAND, the walk back to the giver, GIVE; the journal read again.
 
 What stops it
-- The giver's cooldown (ten minutes between asks), an offer of a kind the profile declines, a recipient the table does not know, a walk that ends short — each said. A shop shut for the night is waited for: the door tried each game hour (fifteen real minutes), eight times at most. A walk that ends short otherwise: ;task again from there carries on.
+- The giver's cooldown (ten minutes between asks, kept per giver: an ask inside it is not sent, the minutes left are said), an offer of a kind the profile declines, a recipient the table does not know, a walk that ends short — each said. A shop shut for the night is waited for: the door tried each game hour (fifteen real minutes), eight times at most. A walk that ends short otherwise: ;task again from there carries on.
 - Delivery and searching are run by the script; recovery, kill, boss, foraging and skinning are accepted and handed over, their wordings captured on the way (#505).
 
 Elanthipedia: Task; the wordings captured on Crannach's delivery (docs/tasks.md).
 """
 
+import math
 import re
+import time
 
 from client.game import hands, items, travel
 from client.game.act import ask, said, unknown
@@ -35,6 +37,7 @@ from client.game.tasks import (
     declined,
     giver_rooms,
     load,
+    note_ask,
     paid,
     parse_journal,
     parse_offer,
@@ -42,6 +45,7 @@ from client.game.tasks import (
     recipient_rooms,
     record,
     search_outcome,
+    wait_left,
 )
 from client.game import walker
 from client.game.walker import walk
@@ -59,21 +63,34 @@ def parse_args(words):
     return options
 
 
+now = time.time  # the cooldown's clock: wall time, kept across runs (#514)
+
+
 def character(s):
     return getattr(getattr(s, "state", None), "name", None) or ""
 
 
-def take_offer(s, giver, declines):
-    """ASK the giver; the offer judged and answered inside its window.
-    The accepted offer's dict, or None (said why)."""
+def take_offer(s, giver, declines, name=""):
+    """ASK the giver, unless its cooldown runs (#514); the offer judged
+    and answered inside its window. The accepted offer's dict, or None
+    (said why)."""
+    left = wait_left(name, giver, now())
+    if left:
+        s.echo(
+            f"task: {giver} can be asked again in {math.ceil(left / 60)} "
+            "minute(s) — ten minutes between asks"
+        )
+        return None
     answer = ask(s, f"ask {giver} for task")
     verdict = classify_ask(answer)
     if verdict == "cooldown":
+        note_ask(name, giver, now())  # its start unknown: a whole wait from here
         s.echo(f"task: {giver} says to wait — ten minutes between asks")
         return None
     if verdict != "offer":
         unknown(s, "task", "ASK FOR TASK", answer)
         return None
+    note_ask(name, giver, now())  # accepted or declined, the wait starts
     offer = parse_offer(answer)
     offer["text"] = said(answer)
     if not decide(offer, declines):
@@ -383,7 +400,7 @@ def run(s, options, profile, mapdb, walk_fn=walk):
     if not options["giver"]:
         s.echo("task: no task in hand — ;task <giver> asks one")
         return
-    offer = take_offer(s, options["giver"], declines)
+    offer = take_offer(s, options["giver"], declines, name)
     if offer is None:
         return
     task = {"giver": options["giver"], **offer}

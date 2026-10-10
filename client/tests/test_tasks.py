@@ -263,3 +263,14 @@ def test_the_record_round_trips_and_clears(monkeypatch, tmp_path):
     tasks.clear("Lanival")
     assert tasks.load("Lanival") is None
     tasks.clear("Lanival")  # twice is harmless
+
+
+def test_a_givers_cooldown_runs_ten_minutes_from_the_ask(monkeypatch, tmp_path):
+    # #514: "a 10 minute waiting period before you can ask again"
+    # (Elanthipedia: Task), kept per giver in wall time.
+    monkeypatch.setenv("REVENANT_TRAINING", str(tmp_path))
+    assert tasks.wait_left("Lanival", "cormyn", 1000.0) == 0
+    tasks.note_ask("Lanival", "Cormyn", 1000.0)
+    assert tasks.wait_left("Lanival", "cormyn", 1060.0) == 540.0
+    assert tasks.wait_left("Lanival", "saeru", 1060.0) == 0  # another giver
+    assert tasks.wait_left("Lanival", "cormyn", 1600.0) == 0

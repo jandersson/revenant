@@ -37,7 +37,7 @@ give <item> to <person>   a delivery's end: the recipient pays
 
 - The offer ends with `[You may accept by typing ACCEPT TASK, or decline by typing DECLINE TASK.  You have 30 seconds to decide.]` — parse and decide before the ask, not after.
 - Silence past the window: `"Very well, I guess you do not wish to help me."`
-- Asking again inside the ten-minute cooldown: `"I am sorry, you must wait before I can give you a task."` Declining, letting it lapse and cancelling (`ask <giver> for task cancel`) all start the same ten minutes.
+- Asking again inside the ten-minute cooldown: `"I am sorry, you must wait before I can give you a task."` Declining, letting it lapse and cancelling (`ask <giver> for task cancel`) all start the same ten minutes. `;task` keeps each giver's clock and says the minutes left rather than ask inside them.
 - A delivery's end: the recipient thanks you by name and `hands you 314 Lirums`; `task` then reads `You are not currently on a task.`
 
 ## What bites

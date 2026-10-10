@@ -279,3 +279,40 @@ def clear(name):
         record_path(name).unlink()
     except OSError:
         pass
+
+
+# --- the giver's cooldown (#514) --------------------------------------------
+# "there is a 10 minute waiting period before you can ask again", after
+# an accept or a decline (Elanthipedia: Task). Kept per giver in wall
+# time, so a later ;task knows it.
+COOLDOWN_SECONDS = 600
+
+
+def _asks_path(name):
+    from client.game.training import training_dir
+
+    return training_dir() / f"{str(name).lower()}.asks.json"
+
+
+def _asks(name):
+    try:
+        data = json.loads(_asks_path(name).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def note_ask(name, giver, now):
+    """The giver's cooldown starts at `now` (seconds since the epoch)."""
+    asks = {**_asks(name), str(giver).lower(): now}
+    path = _asks_path(name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(asks), encoding="utf-8")
+
+
+def wait_left(name, giver, now):
+    """Seconds until the giver may be asked again; 0 when it may be now."""
+    asked = _asks(name).get(str(giver).lower())
+    if not isinstance(asked, (int, float)):
+        return 0
+    return max(0, asked + COOLDOWN_SECONDS - now)
