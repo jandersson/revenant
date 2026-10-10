@@ -101,6 +101,7 @@ Each is a script with its own manual (`;help <name>`). Under `;train`, give each
 | `forage` | Outdoorsmanship, Perception |
 | `attune` | Attunement (power walking; a Moon Mage perceives mana in place) |
 | `gaze` | Arcana (GAZE at a sanowret crystal at full concentration; `exhale` for the quick half-lesson) |
+| `astral <shard> round from=<shard's room>` | Astrology, Attunement (a Moon Mage's astral round trip; `return_grace` 1200, since a trip always finishes) |
 | `perform` | Performance |
 | `scholarship books` | Scholarship |
 | `appraise` | Appraisal (`focus=<item>`: plus a drain boost to the item's skill) |

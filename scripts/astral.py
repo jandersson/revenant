@@ -1,8 +1,11 @@
 """Astral travel from the Grazhir shard you stand at to another:  ;astral <shard>
 
     ;astral besoge          Moongate in through this room's shard, to Besoge's conduit, Moongate out in Mer'Kresh
+    ;astral besoge round    there and back: ends at the shard it started from (a ;train task for Astrology, Attunement)
+    ;astral besoge from=8302   walk to that ;go2 target (a shard's room) first
     ;astral besoge harness=200   harness that much mana before entering (100 by default) and when the plane presses
     ;astral list            RECALL HEAVENS GRAZHIR: the shards you have learned
+    ;astral return          (typed while it runs) nothing early: a trip, or a round, always finishes
     ;stop astral            quit at once — inside the plane that leaves you there; finish by hand
 
 What it does
@@ -18,7 +21,7 @@ an answer it does not know, or too many rooms without arriving.
 The model and its wordings are client/game/astral.py's (Elanthipedia: Astral Travel).
 """
 
-from client.game import astral, probe
+from client.game import astral, probe, travel
 from client.game.act import ask, said
 
 _NOTES = """
@@ -29,6 +32,13 @@ prefers it because the harnessed mana is kept going in. The pillars
 are a ring joined east-west (Unity -> west -> Secrets, captured), with
 Convergence up and the Broken Pillar down; the 2008 StormFront script
 on the wiki walks a layout the plane no longer has.
+
+The trip trains: Astrology 0 -> 30/34 and Attunement 0 -> 28/34 in those
+four minutes, nothing else moving — so `round` exists for ;train, which
+starts the task wherever the character stands (hence `from=`) and types
+the return word at its target. A kill in the plane strands the mage,
+so the return word ends nothing early and the task's return_grace must
+outlast a round (ten minutes is safe at those ranks).
 """
 
 HARNESS = 100  # mana harnessed going in, and again when the plane presses
@@ -37,12 +47,16 @@ MAX_ROOMS = 40  # rooms followed toward the centre or a conduit's end
 
 
 def parse_args(args):
-    options = {"shard": "", "harness": HARNESS}
+    options = {"shard": "", "harness": HARNESS, "round": False, "from": ""}
     for arg in args:
         key, sep, value = str(arg).lower().partition("=")
         if sep and key == "harness" and value.isdigit():
             options["harness"] = int(value)
-        elif not sep:
+        elif sep and key == "from" and value:
+            options["from"] = value
+        elif key == "round":
+            options["round"] = True
+        elif not sep and key != "return":
             options["shard"] = key
     return options
 
@@ -114,7 +128,9 @@ def follow(s, goal, mana):
     return False
 
 
-def run(s, options):
+def run(s, options, go=None):
+    """`go(s, target)` walks to a ;go2 target (travel.go in the script,
+    a fake in tests)."""
     dest = options["shard"]
     mana = options["harness"]
     if dest == "list":
@@ -123,6 +139,9 @@ def run(s, options):
     if dest not in astral.SHARDS:
         s.echo(f"astral: which shard? one of {', '.join(sorted(astral.SHARDS))}")
         return "no shard"
+    if options["from"] and not (go or travel.go)(s, options["from"]):
+        s.echo(f"astral: could not reach {options['from']} — stopping")
+        return "walk"
     start = astral.shard_here(getattr(s.state, "room_objs", ""))
     if start is None:
         s.echo(
@@ -132,6 +151,16 @@ def run(s, options):
     if start == dest:
         s.echo(f"astral: you are at {dest} already")
         return "here"
+    outcome = trip(s, start, dest, mana)
+    if outcome != "arrived" or not options["round"]:
+        return outcome
+    outcome = trip(s, dest, start, mana)
+    return "round" if outcome == "arrived" else outcome
+
+
+def trip(s, start, dest, mana):
+    """One crossing, `start`'s shard (stood at) to `dest`'s: "arrived",
+    or why not."""
     pillar, town = astral.SHARDS[dest]
     s.echo(f"astral: {start} to {dest} ({town}) by the Pillar of {pillar}")
     if not moongate(s, start, mana):

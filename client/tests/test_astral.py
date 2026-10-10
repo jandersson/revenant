@@ -78,73 +78,91 @@ def test_the_ring_goes_the_short_way():
     assert astral.ring_moves("Secrets", "Secrets") == []
 
 
-class Plane:
-    """A handle on the plane: `to_centre` and `to_end` are the ways
-    PERCEIVE gives room by room; the last step lands on a pillar, or at
-    the conduit's end. `press` names a verdict the first PERCEIVE carries."""
+ROOMS = {
+    "vellano": "[Fang Cove, Obsidian Dome]",
+    "besoge": "[Caress-of-the-Moons Manor, Hall]",
+}
 
-    def __init__(self, to_centre, to_end, press=None, known=True):
-        self.to_centre = list(to_centre)
-        self.to_end = list(to_end)
+
+class Plane:
+    """A handle on the plane, standing at Vellano: `centre[shard]` are the
+    ways PERCEIVE gives from that shard's conduit to its pillar, room by
+    room; `end[shard]` the ways down that conduit to its shard. `press`
+    names a verdict the first PERCEIVE carries."""
+
+    def __init__(self, centre, end, press=None, known=True):
+        self.centre = {shard: list(ways) for shard, ways in centre.items()}
+        self.end = {shard: list(ways) for shard, ways in end.items()}
         self.press = press
         self.known = known
+        self.conduit = None  # the shard whose conduit we are in
+        self.leaving = False  # toward the centre, not the shard
         self.sent, self.echoed = [], []
-        self.state = SimpleNamespace(
-            room_title="[Fang Cove, Obsidian Dome]", room_objs=DOME_OBJS
-        )
+        self.state = SimpleNamespace(room_title=ROOMS["vellano"], room_objs=DOME_OBJS)
+
+    def at(self, shard):
+        self.state.room_title = ROOMS[shard]
+        self.state.room_objs = f"You also see the silvery-white shard {shard.title()}."
+
+    def in_conduit(self, shard, leaving):
+        self.conduit, self.leaving = shard, leaving
+        self.state.room_title = f"[Astral Plane, {shard.title()} Conduit]"
+        self.state.room_objs = ""
 
     def ask(self, s, command, seconds=None, tail=None):
         self.sent.append(command)
         title = self.state.room_title
+        verb, _, word = command.partition(" ")
         if command == "prepare moongate":
             return "You spread your hands apart then slowly bring them together.\n"
-        if command.startswith("focus ") and "Pillar of" in title:
-            self.state.room_title = "[Astral Plane, Besoge Conduit]"
-            return CONDUIT
-        if command.startswith("focus "):
+        if verb == "focus" and "Pillar of" in title:
+            self.in_conduit(word, leaving=False)
+            return CONDUIT.replace("Besoge", word.title())
+        if verb == "focus":
             return FOCUSED if self.known else "You do not recognize this shard.\n"
-        if command.startswith("harness"):
+        if verb == "harness":
             return HARNESSED
         if command == "release mana":
-            return "You release all the streams you were concentrating on keeping localized around you.\n"
-        if command.startswith("cast "):
+            return "You release all the streams you were concentrating on.\n"
+        if verb == "cast":
             if title.startswith("[Astral Plane"):
-                self.state.room_title = "[Caress-of-the-Moons Manor, Hall]"
+                self.at(word)
             else:
-                self.state.room_title = "[Astral Plane, Vellano Conduit]"
+                self.in_conduit(word, leaving=True)
             return "You are pulled through your unstable Moongate.\n"
         if command == "perceive":
             verdict = ""
             if self.press:
-                verdict, self.press = (
-                    f"You are {self.press} to maintain your place among the streams.\n",
-                    None,
-                )
+                verdict = f"You are {self.press} to maintain your place.\n"
+                self.press = None
             if "Pillar of" in title:
                 return "You sense an immense source of Lunar mana.\n"
-            if "Besoge" in title:
-                end = (
-                    f"You believe the end of the conduit lies {self.to_end[0]}.\n"
-                    if self.to_end
-                    else "You are already at the end of the conduit.\n"
+            if self.leaving:
+                way = self.centre[self.conduit][0]
+                return (
+                    f"You believe the center of the microcosm is to the {way}.\n"
+                    + verdict
                 )
-                return "You believe the center of the microcosm is to the east.\n" + end
-            return (
-                f"You believe the center of the microcosm is to the {self.to_centre[0]}.\n"
-                + verdict
+            ways = self.end[self.conduit]
+            end = (
+                f"You believe the end of the conduit lies {ways[0]}.\n"
+                if ways
+                else "You are already at the end of the conduit.\n"
             )
+            return "You believe the center of the microcosm is to the east.\n" + end
         if command in ("east", "west") and astral.pillar_of(title):
             here = astral.pillar_of(title)
             step = 1 if command == "east" else -1
             pillar = astral.RING[(astral.RING.index(here) + step) % len(astral.RING)]
             self.state.room_title = f"[Astral Plane, Pillar of {pillar}]"
             return ""
-        if "Besoge" in title:
-            self.to_end.pop(0)
+        if self.leaving:
+            self.centre[self.conduit].pop(0)
+            if not self.centre[self.conduit]:
+                pillar = astral.SHARDS[self.conduit][0]
+                self.state.room_title = f"[Astral Plane, Pillar of {pillar}]"
             return EFFORTLESS
-        self.to_centre.pop(0)
-        if not self.to_centre:
-            self.state.room_title = "[Astral Plane, Pillar of Unity]"
+        self.end[self.conduit].pop(0)
         return EFFORTLESS
 
     def waitrt(self):
@@ -154,16 +172,30 @@ class Plane:
         self.echoed.append(text)
 
 
-def run(plane, shard="besoge", harness=100):
+def run(plane, *words, walked=None):
     script.ask = plane.ask
     script.probe = SimpleNamespace(collect=lambda *a, **k: "")
-    return script.run(plane, {"shard": shard, "harness": harness})
+
+    def go(s, target):
+        if walked is not None:
+            walked.append(target)
+        return True
+
+    return script.run(plane, script.parse_args(list(words) or ["besoge"]), go=go)
+
+
+def first_trip():
+    return Plane(
+        centre={
+            "vellano": ["southwest", "west", "southwest", "west"],
+            "besoge": ["south"],
+        },
+        end={"besoge": ["north", "west"], "vellano": ["east"]},
+    )
 
 
 def test_vellano_to_besoge_as_the_first_trip_went():
-    plane = Plane(
-        to_centre=["southwest", "west", "southwest", "west"], to_end=["north", "west"]
-    )
+    plane = first_trip()
     assert run(plane) == "arrived"
     assert plane.state.room_title == "[Caress-of-the-Moons Manor, Hall]"
     assert plane.sent[:4] == [
@@ -185,22 +217,45 @@ def test_vellano_to_besoge_as_the_first_trip_went():
     ]
 
 
+def test_round_goes_there_and_back_to_the_shard_it_started_from():
+    # The ;train task: Astrology and Attunement from one trip each way.
+    plane = first_trip()
+    assert run(plane, "besoge", "round") == "round"
+    assert plane.state.room_title == "[Fang Cove, Obsidian Dome]"
+    casts = [c for c in plane.sent if c.startswith("cast ")]
+    assert casts == ["cast vellano", "cast besoge", "cast besoge", "cast vellano"]
+    # Back from the Pillar of Secrets: east to Unity, Vellano's conduit.
+    assert plane.sent.count("release mana") == 2
+    assert "focus vellano" in plane.sent[plane.sent.index("cast besoge") :]
+
+
+def test_from_walks_to_the_home_shard_first():
+    walked = []
+    plane = first_trip()
+    assert run(plane, "besoge", "from=8302", walked=walked) == "arrived"
+    assert walked == ["8302"]
+
+
+def test_the_return_word_is_not_a_shard():
+    assert script.parse_args(["besoge", "round", "return"])["shard"] == "besoge"
+
+
 def test_the_plane_pressing_harnesses_more_mana():
-    plane = Plane(to_centre=["west"], to_end=[], press="struggling")
-    assert run(plane, harness=150) == "arrived"
+    plane = Plane(centre={"vellano": ["west"]}, end={"besoge": []}, press="struggling")
+    assert run(plane, "besoge", "harness=150") == "arrived"
     assert plane.sent.count("harness 150") == 3  # in, the press, out
     assert any("struggling" in e for e in plane.echoed)
 
 
 def test_a_shard_not_learned_stops_before_the_plane():
-    plane = Plane(to_centre=[], to_end=[], known=False)
+    plane = Plane(centre={}, end={}, known=False)
     assert run(plane) == "entry"
     assert "cast vellano" not in plane.sent
     assert any("not learned vellano" in e for e in plane.echoed)
 
 
 def test_no_shard_in_the_room_or_an_unknown_destination_sends_nothing():
-    plane = Plane(to_centre=[], to_end=[])
+    plane = Plane(centre={}, end={})
     plane.state.room_objs = "You also see a ladder."
     assert run(plane) == "no start" and plane.sent == []
-    assert run(Plane([], []), shard="nowhere") == "no shard"
+    assert run(Plane({}, {}), "nowhere") == "no shard"
