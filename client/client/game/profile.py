@@ -78,9 +78,9 @@ DEFAULTS = {
     # hand and named. Off until turned on — `;break sweep` shows first
     # what it would take.
     "loot_sweep": False,
-    # The task kinds ;task accepts from a giver (#505): delivery is the
-    # one built; the rest are declined until their wordings are captured.
-    "task_kinds": ["delivery"],
+    # The task kinds ;task declines from a giver (#505); empty accepts every
+    # offer — the script runs a delivery and hands any other kind over.
+    "task_declines": [],
     "box_limit": 0,
     # Skins go on a bundling rope: a worn lumpy bundle takes each skin
     # straight from SKIN (BUNDLE help's auto-bundling), the rope is free
@@ -284,10 +284,10 @@ FIELDS = (
     ("dira_case", "Dira case", "str", "coin case — empty: diras stowed like loot"),
     ("loot_additions", "Also pick up after a search", "list", "club, dagger"),
     (
-        "task_kinds",
-        "Task kinds ;task accepts",
+        "task_declines",
+        "Task kinds ;task declines",
         "list",
-        "delivery — the rest are declined",
+        "recovery, kill — empty accepts every offer",
     ),
     ("loot_subtractions", "Never pick up", "list", "runestone"),
     (

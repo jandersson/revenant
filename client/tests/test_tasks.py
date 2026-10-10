@@ -70,15 +70,16 @@ def test_a_recovery_offer_names_the_item_the_creature_and_the_area():
     assert tasks.parse_offer(hammer)["item"] == "hammer"
 
 
-def test_an_uncaptured_offer_is_unknown_and_declined_by_default():
+def test_an_uncaptured_offer_is_unknown_and_still_accepted():
     offer = tasks.parse_offer(
         'Cormyn says, "Go and kill ten rats for me."\n'
         + DELIVERY_OFFER.splitlines()[-1]
     )
     assert offer == {"kind": "unknown"}
-    assert tasks.decide(offer, ["delivery"]) is False
-    assert tasks.decide({"kind": "delivery"}, ["Delivery", "foraging"]) is True
-    assert tasks.decide({"kind": "recovery"}, ["delivery"]) is False
+    # Every kind is accepted unless the profile declines it.
+    assert tasks.decide(offer) is True
+    assert tasks.decide({"kind": "recovery"}, ["Recovery", "kill"]) is False
+    assert tasks.decide({"kind": "delivery"}, ["recovery"]) is True
 
 
 def test_the_journal_reads_the_delivery_in_hand_and_the_clear_journal():
@@ -98,6 +99,9 @@ def test_the_journal_reads_the_delivery_in_hand_and_the_clear_journal():
 def test_the_accept_and_the_payment_are_read():
     assert tasks.accepted(ACCEPTED) is True
     assert tasks.accepted(LAPSED) is False
+    # The decline's answer is the lapse's line (2026-10-10, ;task's first run).
+    assert tasks.declined(LAPSED) is True
+    assert tasks.declined(ACCEPTED) is False
     assert tasks.paid(PAID) == (314, "Lirums")
     assert tasks.paid(ACCEPTED) is None
 

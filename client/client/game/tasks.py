@@ -20,7 +20,10 @@ import json
 import re
 
 OFFER_PROMPT = "[You may accept by typing ACCEPT TASK"
+# The giver's one line for a refusal, whether the window lapsed or
+# DECLINE TASK was sent (;task's first script run, 2026-10-10 04:33).
 LAPSED = "I guess you do not wish to help me"
+DECLINED = LAPSED
 COOLDOWN = "you must wait before I can give you a task"
 ACCEPTED = ("Here is the item",)
 NO_TASK = "You are not currently on a task."
@@ -124,10 +127,19 @@ def accepted(answer):
     return any(word in str(answer or "") for word in ACCEPTED)
 
 
-def decide(offer, allowed):
-    """True when the offer's kind is one the profile accepts."""
-    kinds = {str(kind).strip().lower() for kind in allowed or ()}
-    return str(offer.get("kind") or "").lower() in kinds
+def declined(answer):
+    """True when the giver answered a DECLINE TASK (or a lapse) with his
+    refusal line."""
+    return DECLINED in str(answer or "")
+
+
+def decide(offer, declines=()):
+    """True unless the offer's kind is one the profile declines: the
+    script accepts every offer so each kind's wording is met live, runs
+    the kinds it can and hands the rest to the operator (the operator,
+    2026-10-10: a script built to learn declines nothing by default)."""
+    kinds = {str(kind).strip().lower() for kind in declines or ()}
+    return str(offer.get("kind") or "").lower() not in kinds
 
 
 def recipient_rooms(db, person):

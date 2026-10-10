@@ -16,6 +16,7 @@ from test_tasks import (
     DELIVERY_OFFER,
     JOURNAL,
     JOURNAL_CLEAR,
+    LAPSED,
     PAID,
     RECOVERY_OFFER,
 )
@@ -134,9 +135,13 @@ def echoes(fake):
     return "\n".join(fake.echoed)
 
 
-def run(fake, words=(), kinds=("delivery",), walk_fn=walk):
+def run(fake, words=(), declines=(), walk_fn=walk):
     script.run(
-        fake, script.parse_args(list(words)), {"task_kinds": list(kinds)}, MAP, walk_fn
+        fake,
+        script.parse_args(list(words)),
+        {"task_declines": list(declines)},
+        MAP,
+        walk_fn,
     )
     return echoes(fake)
 
@@ -164,14 +169,26 @@ def test_a_delivery_is_asked_accepted_carried_and_handed_over():
     assert script.load("Lanival") is None  # the record is cleared when done
 
 
-def test_an_offer_of_a_kind_not_allowed_is_declined_inside_the_window():
-    fake = Fake({"ask cormyn": [RECOVERY_OFFER]})
-    out = run(fake, ["cormyn"])
-    assert fake.sent == ["task", "ask cormyn for task", "decline task"]
-    assert "a recovery task — not in task_kinds (delivery) — declined" in out
+def test_a_kind_the_script_cannot_run_is_accepted_and_handed_over():
+    # A script built to learn declines nothing: the recovery is accepted,
+    # recorded with the offer's line, and left to the operator.
     fake = Fake({"ask cormyn": [RECOVERY_OFFER], "accept": [ACCEPTED]})
-    run(fake, ["cormyn"], kinds=("delivery", "recovery"))
-    assert "accept task" in fake.sent
+    out = run(fake, ["cormyn"])
+    assert fake.sent == ["task", "ask cormyn for task", "accept task"]
+    assert (
+        "a recovery of the tabard from the poloh'izh near Hara'jaal, Glaren Kweld"
+        in out
+    )
+    assert "yours from here" in out and "lost a very precious tabard" in out
+    assert script.load("Lanival")["kind"] == "recovery"
+
+
+def test_a_kind_in_task_declines_is_declined_inside_the_window():
+    fake = Fake({"ask cormyn": [RECOVERY_OFFER], "decline": [LAPSED]})
+    out = run(fake, ["cormyn"], declines=("recovery",))
+    assert fake.sent == ["task", "ask cormyn for task", "decline task"]
+    assert "in task_declines — declined" in out
+    assert "said nothing known" not in out
 
 
 def test_the_cooldown_is_said_and_nothing_else_sent():
