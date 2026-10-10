@@ -89,8 +89,16 @@ DEFAULT_STEP_SECONDS = 0.2
 # Deriel and Shard — the map's other way, the Riverbank tunnel, goes
 # through a silverfish ground to a panel the game could not find
 # (2026-09-18).
-RIDES = {"faldesu": "ferry", "ferry": "ferry", "gondola": "gondola"}
-IF_FORM_RIDES = frozenset({"gondola", "ferry"})
+# The Riverhaven–Throne City barge (#506) is bescort's haven_throne route,
+# written in the `if` form on both docks (Salt Yard, Barge Dock 452 ↔
+# Stone Docks, Covered Shore 3084); walker.ride_barge boards by name.
+RIDES = {
+    "faldesu": "ferry",
+    "ferry": "ferry",
+    "gondola": "gondola",
+    "haven_throne": "barge",
+}
+IF_FORM_RIDES = frozenset({"gondola", "ferry", "haven_throne"})
 RIDE_SECONDS = 300.0  # the wait and the crossing: a land route wins where one exists
 _BESCORT_CALL = (
     r"start_script\s*\(\s*'bescort'\s*,\s*\[\s*'(?P<route>[a-z0-9_]+)'"

@@ -107,6 +107,25 @@ FERRY_PAID = ("you hand him", "gives you a little nod")
 FERRY_ON_DEBT = ("add it to yer debt", "debt to the province")
 FERRY_ARRIVES = ("pulls into the dock", "pulls up to the dock")
 FERRY_LANDS = ("ties the ferry off",)
+# The Riverhaven–Throne City barges (#506): the Riverhawk and the
+# Imperial Glory, bescort's haven_throne route, captured 2026-10-09/10 on
+# both docks. A barge is boarded by its name's last word (GO RIVERHAWK,
+# GO GLORY): the dock's object line reads "the barge Riverhawk and a
+# brushy break in the undergrowth", so the name is the capitalized
+# word or two after "the barge " and nothing past them (a reader that
+# took the rest boarded the undergrowth). Approach: "You can see a
+# barge nearing the dock.", when GO <name> answers "You can't do that
+# right now.", then "A barge pulls into the dock." The fee line is the
+# ferry's shape (120 Lirums); the landing "The barge pulls into dock and
+# its crew quickly ties the barge off."; GO DOCK steps off. A barge
+# stays a minute and crosses in six; the two alternate.
+BARGE_ANSWER_SECONDS = 4
+BARGE_WAIT_SECONDS = 900
+BARGE_POLL_SECONDS = 30
+BARGE_NOT_YET = ("can't do that right now",)
+BARGE_ARRIVES = ("pulls into the dock",)
+BARGE_LANDS = ("ties the barge off",)
+_BARGE_NAME = re.compile(r"\bthe barge (?P<name>[A-Z][\w']*(?: [A-Z][\w']*)?)")
 # The Obsidian Pass gondola (#211), after bescort's ride_gondola and
 # captured on the first ride (2026-09-18): GO GONDOLA at a platform
 # lands in the cab ([Gondola, Cab North], a room: a compass frame) or
@@ -527,11 +546,79 @@ def search_hidden(s, command):
     return False
 
 
+def barge_name(text):
+    """The barge a room's object line or a story piece names, as GO takes
+    it — its name's last word, lowered: "riverhawk" from "the barge
+    Riverhawk and a brushy break ...", "glory" from "the barge Imperial
+    Glory"; None when none is listed."""
+    match = _BARGE_NAME.search(str(text or ""))
+    if not match:
+        return None
+    return match.group("name").split()[-1].lower()
+
+
+def ride_barge(s, direction=""):
+    """Board the barge at this dock by its name and cross (#506): "landed"
+    at the far dock (GO DOCK is the caller's), "fare" when refused for
+    coin, "no barge" when none came within BARGE_WAIT_SECONDS, "stuck"
+    when the crossing never docked, "unknown" for an answer outside the
+    table. The name comes from the room's objects, else from the story
+    that brings the barge in; a barge still nearing answers GO with
+    BARGE_NOT_YET and is tried again once it docks."""
+    deadline = monotonic() + BARGE_WAIT_SECONDS
+    while monotonic() < deadline:
+        name = barge_name(getattr(s.state, "room_objs", ""))
+        if not name:
+            s.echo("no barge at the dock — waiting for one")
+            story = read_story(s, BARGE_POLL_SECONDS, until=BARGE_ARRIVES)
+            name = barge_name(story) or barge_name(getattr(s.state, "room_objs", ""))
+            if not name:
+                continue
+        s.waitrt()
+        s.put(f"go {name}")
+        outcome, _, answer = await_arrival(s, timeout=BARGE_ANSWER_SECONDS)
+        if outcome == "arrived":
+            fee = FERRY_FEE.search(answer)
+            s.echo(
+                f"aboard the barge {name}"
+                + (f" — fare {fee.group(1)}" if fee else "")
+                + " — crossing"
+            )
+            crossing = read_story(s, BARGE_WAIT_SECONDS, until=BARGE_LANDS)
+            if not any(needle in crossing for needle in BARGE_LANDS):
+                s.echo(
+                    f"the barge never docked in {BARGE_WAIT_SECONDS // 60} minutes"
+                    " — stopping here"
+                )
+                return "stuck"
+            return "landed"
+        if any(needle in answer for needle in BARGE_NOT_YET):
+            read_story(s, BARGE_POLL_SECONDS, until=BARGE_ARRIVES)
+            continue
+        if any(needle in answer for needle in FERRY_NO_FARE):
+            fee = FERRY_FEE.search(answer)
+            s.echo(
+                "the barge refused the fare"
+                + (f" of {fee.group(1)}" if fee else "")
+                + fare_purse(s, fee.group(1) if fee else "")
+                + f": {answer_line(answer, FERRY_NO_FARE)!r}"
+            )
+            return "fare"
+        first = (answer.strip().splitlines() or ["(silence)"])[0]
+        s.echo(
+            f"GO {name.upper()} answered {first!r} — please report it — stopping here"
+        )
+        return "unknown"
+    s.echo(f"no barge came in {BARGE_WAIT_SECONDS // 60} minutes — stopping here")
+    return "no barge"
+
+
 # route -> (the ride, the step's own move off it)
 RIDE_HANDLERS = {
     "faldesu": (ride_ferry, "go dock"),
     "ferry": (ride_ferry, "go dock"),
     "gondola": (ride_gondola, "out"),
+    "haven_throne": (ride_barge, "go dock"),
 }
 
 

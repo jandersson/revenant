@@ -1905,3 +1905,159 @@ def test_a_fang_cove_portal_that_lands_in_another_town_plans_again_from_there():
     assert any("off course at step 1" in echo for echo in handle.echoes)
     assert any("left off the map" in echo for echo in handle.echoes)
     assert cove.rooms[8308]["wayto"] == {"932": exit_, "389": exit_}
+
+
+# --- the Riverhaven–Throne City barge (#506) --------------------------------
+
+HAVEN_THRONE = (
+    ";e if Script.exists?('bescort') then start_script('bescort', ['haven_throne']);"
+    "wait_while{running?('bescort')};end"
+)
+
+BARGE = MapDB(
+    [
+        {
+            "id": 451,
+            "uid": [10451],
+            "title": ["[Salt Yard, Barge Approach]"],
+            "wayto": {"452": "south"},
+        },
+        {
+            "id": 452,
+            "uid": [10452],
+            "title": ["[Salt Yard, Barge Dock]"],
+            "wayto": {"451": "north", "3084": HAVEN_THRONE},
+        },
+        {
+            "id": 3084,
+            "uid": [13084],
+            "title": ["[Stone Docks, Covered Shore]"],
+            "wayto": {"452": HAVEN_THRONE, "3083": "south"},
+        },
+        {
+            "id": 3083,
+            "uid": [13083],
+            "title": ["[Forested Trail, Cobblestone Ruins]"],
+            "wayto": {"3084": "north"},
+        },
+    ]
+)
+
+
+def test_the_throne_city_barge_is_a_ride_in_its_if_form():
+    assert ride_of(HAVEN_THRONE) == "haven_throne"
+    assert walkable(HAVEN_THRONE)
+    assert BARGE.graph[452][3084]["seconds"] == RIDE_SECONDS
+
+
+def test_the_barges_name_is_the_word_after_the_barge_and_nothing_past_it():
+    # The dock's object line, 2026-10-10: a reader that took everything
+    # after "the barge" boarded the undergrowth.
+    assert (
+        walker.barge_name(
+            "You also see the barge Riverhawk and a brushy break in the undergrowth."
+        )
+        == "riverhawk"
+    )
+    assert (
+        walker.barge_name("You also see the barge Imperial Glory and a brushy break.")
+        == "glory"
+    )
+    assert walker.barge_name("the barge Imperial Glory") == "glory"
+    assert walker.barge_name("A barge pulls into the dock.") is None
+    assert walker.barge_name("") is None
+
+
+class BargeHandle(FakeHandle):
+    """GO <name> answers with the captured wordings: "notyet" (the barge
+    still nearing), "aboard" (the fee, then the barge's room). The dock's
+    story brings a barge in; the crossing's story docks it; GO DOCK lands
+    with a compass frame."""
+
+    OBJS = "the barge Riverhawk and a brushy break in the undergrowth."
+    NOT_YET = "You can't do that right now.\n"
+    FEE = (
+        "One of the barge's crew members stops you and requests a transportation "
+        "fee of 120 Lirums as you board the craft.  You hand him your Lirums and "
+        "climb aboard.\n"
+    )
+    NEARING = "You can see a barge nearing the dock.\n"
+    ARRIVES = "A barge pulls into the dock.\n"
+    LISTED = (
+        "You also see the barge Imperial Glory and a brushy break in the undergrowth.\n"
+    )
+    LANDS = "The barge pulls into dock and its crew quickly ties the barge off.\n"
+
+    def __init__(self, uids, answers, objs=OBJS, arrives=True):
+        super().__init__(uids)
+        self.state.room_objs = objs
+        self.answers = list(answers)
+        self.arrives = arrives
+        self.answer = None
+        self.story = [self.NEARING, self.ARRIVES, self.LISTED] if arrives else []
+
+    def put(self, command):
+        super().put(command)
+        if command.startswith("go ") and command not in ("go dock",):
+            answer = self.answers.pop(0)
+            if answer == "notyet":
+                self.answer = [("", self.NOT_YET)]
+                self.story = [self.ARRIVES]
+            else:
+                self.answer = [("", self.FEE), ("compass", "")]
+                self.story = [self.LANDS]
+        elif command == "go dock":
+            self.state.room_uid = self._uids.pop(0)
+            self.answer = [("compass", "s")]
+        else:
+            self.answer = None
+
+    def get(self, timeout=None, streams=("",)):
+        if timeout == 0:
+            return None
+        if streams is None:
+            if self.answer is None:
+                return super().get(timeout, streams)
+            return self.answer.pop(0) if self.answer else None
+        return self.story.pop(0) if self.story else None
+
+
+@pytest.fixture
+def quick_barge(monkeypatch):
+    monkeypatch.setattr(walker, "BARGE_ANSWER_SECONDS", 0.05)
+    monkeypatch.setattr(walker, "BARGE_WAIT_SECONDS", 0.3)
+    monkeypatch.setattr(walker, "BARGE_POLL_SECONDS", 0.05)
+
+
+def test_walk_boards_the_listed_barge_by_name_crosses_and_steps_off(quick_barge):
+    handle = BargeHandle(uids=[13084, 13083], answers=["aboard"])
+    handle.state.room_uid = 10452
+    assert walker.walk(handle, BARGE, [3083], describe="the trail") is True
+    assert puts_of(handle) == ["go riverhawk", "go dock", "south"]
+    assert any(
+        "aboard the barge riverhawk — fare 120 Lirums" in e for e in handle.echoes
+    )
+
+
+def test_a_barge_still_nearing_is_tried_again_once_it_docks(quick_barge):
+    handle = BargeHandle(uids=[13084], answers=["notyet", "aboard"])
+    handle.state.room_uid = 10452
+    assert walker.walk(handle, BARGE, [3084]) is True
+    assert puts_of(handle) == ["go riverhawk", "go riverhawk", "go dock"]
+
+
+def test_no_barge_listed_the_story_brings_one_in_and_names_it(quick_barge):
+    # The dock empty: the walker waits, the story says a barge is in and
+    # the room lists the Imperial Glory — boarded as GO GLORY.
+    handle = BargeHandle(uids=[13084], answers=["aboard"], objs="")
+    handle.state.room_uid = 10452
+    assert walker.walk(handle, BARGE, [3084]) is True
+    assert puts_of(handle) == ["go glory", "go dock"]
+    assert any("no barge at the dock" in e for e in handle.echoes)
+
+
+def test_a_barge_that_never_comes_stops_the_walk(quick_barge):
+    handle = BargeHandle(uids=[], answers=[], objs="", arrives=False)
+    handle.state.room_uid = 10452
+    assert walker.walk(handle, BARGE, [3084]) is False
+    assert any("no barge came" in e for e in handle.echoes)

@@ -39,6 +39,8 @@
 
 The walker boards, waits for a ferry that is out (up to fifteen minutes), and steps off at the far side. Turned away for the fare, it runs `;bank keep=200` (the fare from the nearest teller) and plans the walk again, once a walk. A ride costs five minutes in the planner, so a land route wins where one exists. The other escort routes (airships, barges) are not walkable.
 
+The Riverhaven–Throne City barge is ridden the same way: at the Salt Yard's barge dock or Throne City's Stone Docks the walker waits for a barge, boards it by name (`go riverhawk`, `go glory`), pays the 120 lirums, and steps off at the far dock. Fifteen minutes is the longest it waits.
+
 ## Rooms to avoid
 
 `avoid_rooms` in `~/.revenant/settings.json` lists `;go2`-style targets the planner detours around. The default is the cougar grounds. When no clean detour exists, the walk says so before the first step and goes through. `;go2 direct` skips the list once.
