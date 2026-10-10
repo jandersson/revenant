@@ -33,6 +33,19 @@ def test_hurt_parts_light_up_and_clear_again(qapp):
     assert "#4a4a55" in panel.labels["head"].styleSheet()
 
 
+def test_the_injuries_dock_can_be_squeezed_below_the_body(window):
+    # 2026-10-10: the docks' minimums summed past the screen's height,
+    # and the body's seven rows ran out of the Injuries dock and over the
+    # Talk dock below it. The dock asks for its title bar, no more; a
+    # squeezed panel clips its lower rows.
+    dock = window.stream_docks["Injuries"]
+    body = window.injuries.layout().minimumSize().height()
+    assert dock.minimumSizeHint().height() < body
+    assert (
+        dock.minimumSizeHint().height() <= dock.titleBarWidget().sizeHint().height() + 8
+    )
+
+
 def test_the_window_routes_the_injuries_stream_to_the_dock(window):
     window.dispatch_game_text("rightArm wound 1", "injuries", "")
     assert window.injuries.hurt == {"rightArm": ("wound", 1)}

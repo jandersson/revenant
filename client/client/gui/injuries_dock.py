@@ -13,7 +13,7 @@ dock can look clean while the health bar says hurt.
 """
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QGridLayout, QLabel, QWidget
+from PyQt6.QtWidgets import QGridLayout, QLabel, QSizePolicy, QWidget
 
 # Panel part id -> (label, row, column) in the body layout.
 PARTS = {
@@ -71,6 +71,10 @@ class InjuriesPanel(QWidget):
             grid.addWidget(badge, row, column)
             self.labels[part] = badge
         grid.setRowStretch(len({r for _, r, _ in PARTS.values()}), 1)
+        # The body's seven rows as a floor made the dock column taller
+        # than a screen, and Qt ran the panel over the Talk dock below
+        # it (2026-10-10): squeezed, it clips its lower rows instead.
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Ignored)
         self.hurt = {}
         self.show_frame("")
 
