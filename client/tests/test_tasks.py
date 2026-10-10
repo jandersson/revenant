@@ -255,6 +255,23 @@ def test_the_recipients_room_comes_from_the_givers_table():
     assert tasks.recipient_rooms(db, "Nobody") == set()
 
 
+def test_a_guild_leader_is_found_by_the_map_id_not_the_shared_title():
+    # #511: "Barbarian Guild, Main Hall" and its like repeat town to town;
+    # the leaders' rooms are dr-scripts' base-town ids.
+    db = MapDB(
+        [
+            {"id": 656, "uid": [3], "title": ["[Observatory, Third Level]"]},
+            {
+                "id": 5994,
+                "uid": [4],
+                "title": ["[Empaths' Guild, Guildleader's Office]"],
+            },
+        ]
+    )
+    assert tasks.recipient_rooms(db, "the Moon Mage Guildleader Kssarh") == {656}
+    assert tasks.recipient_rooms(db, "Guildleader Salvur Siksa") == {5994}
+
+
 def test_the_record_round_trips_and_clears(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_TRAINING", str(tmp_path))
     assert tasks.load("Lanival") is None

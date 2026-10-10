@@ -96,6 +96,32 @@ GIVERS = {
     "Aelik": "Aelik's Pawn",
     "Chabalu": "Chabalu's Exotics",
     "Paedraig": "Paedraig's Pawn",
+    "Urchin": "The Crossing, Town Green Southwest",  # a street urchin
+    "Barkeep": "Sand Spit Tavern, Barroom",
+    "Clerk": "Undershard, Derleth's Teahouse",  # a bored-looking clerk
+    "Sh'aar": "The Enclave, Sh'aar's Trove",  # Dumi Sh'aar
+    "Sephina": "Sephina's Lockbane",
+    # Guild leaders by map id (their rooms' titles repeat town to town),
+    # from dr-scripts' data/base-town.yaml guild_leaders (#511); a
+    # two-word name is listed under both words.
+    "Agonar": "7892",
+    "Silvyrfrost": "7898",
+    "Esuin": "7901",
+    "Salvur": "5994",
+    "Siksa": "5994",
+    "Kssarh": "656",
+    "Verika": "7891",
+    "Ansprahv": "8918",
+    "Gauthus": "7887",
+    "Mo": "7885",
+    "Jelna": "7883",
+    "Sarik": "7883",
+    "Nebela": "7861",
+    "Mentrade": "7861",
+    "Remen": "7951",
+    "Ievia": "506",
+    "Willowbrook": "7875",
+    "Karazhil": "427",
 }
 
 
