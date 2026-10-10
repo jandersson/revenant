@@ -20,6 +20,23 @@ RECOVERY_OFFER = (
     "[You may accept by typing ACCEPT TASK, or decline by typing DECLINE TASK.  "
     "You have 30 seconds to decide.]\n"
 )
+SEARCHING_OFFER = (
+    'Saeru says, "I do have a small favor to ask.  A friend of mine recently lost '
+    "a very precious locket.  She lost it in the area near The Crossing, Gildleaf "
+    "Circle.  If you could recover that for her I would greatly appreciate it.\n"
+    "[You may accept by typing ACCEPT TASK, or decline by typing DECLINE TASK.  "
+    "You have 30 seconds to decide.]\n"
+)
+SEARCHING_ACCEPTED = (
+    "Saeru says, \"Thank you so much.  Remember, you're looking for a glaes locket.  "
+    "Oh, and you might find it better if you're kneeling.\"\n"
+)
+SEARCHING_JOURNAL = (
+    "You look in your task journal and see the following entry:\n"
+    "Saeru wants you to recover a glaes locket near The Crossing, Gildleaf Circle.\n"
+    "You have performed the following tasks:\n"
+    "1 delivery tasks and 1 searching tasks\n"
+)
 LAPSED = 'Cormyn says, "Very well, I guess you do not wish to help me."\n'
 COOLDOWN = 'Cormyn says, "I am sorry, you must wait before I can give you a task."\n'
 ACCEPTED = (
@@ -68,6 +85,22 @@ def test_a_recovery_offer_names_the_item_the_creature_and_the_area():
     }
     hammer = RECOVERY_OFFER.replace("tabard", "hammer")
     assert tasks.parse_offer(hammer)["item"] == "hammer"
+
+
+def test_a_searching_offer_names_the_item_and_the_area_and_no_creature():
+    # Saeru, 2026-10-10: the same loss, "She lost it in the area near ...".
+    assert tasks.parse_offer(SEARCHING_OFFER) == {
+        "kind": "searching",
+        "item": "locket",
+        "area": "near The Crossing, Gildleaf Circle",
+    }
+    assert tasks.accepted(SEARCHING_ACCEPTED) is True
+    assert tasks.parse_journal(SEARCHING_JOURNAL) == {
+        "kind": "searching",
+        "giver": "Saeru",
+        "item": "glaes locket",
+        "area": "near The Crossing, Gildleaf Circle",
+    }
 
 
 def test_an_uncaptured_offer_is_unknown_and_still_accepted():

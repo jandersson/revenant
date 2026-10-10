@@ -77,9 +77,25 @@ def take_offer(s, giver, declines):
         s.echo(f"task: {describe(offer)} — in task_declines — {verdict}")
         return None
     answer = ask(s, "accept task")
-    if LAPSED in answer or not accepted(answer):
+    # The journal is the judge of the accept: a kind's thank-you line
+    # may be uncaptured, and the words are only said.
+    journal = parse_journal(ask(s, "task"))
+    if journal is None or LAPSED in answer:
         unknown(s, "task", "ACCEPT TASK", answer)
         return None
+    if not accepted(answer):
+        s.echo(
+            f"task: the accept's answer is new — {said(answer)!r} — please report it"
+        )
+    offer = {
+        # The offer's words win; the journal fills what it lacks (an
+        # uncaptured offer's kind, the giver's name).
+        **{k: v for k, v in journal.items() if k != "kind"},
+        **offer,
+    }
+    if offer.get("kind") == "unknown":
+        offer["kind"] = journal.get("kind", "unknown")
+    offer["accept_text"] = said(answer)
     s.echo(f"task: accepted — {describe(offer)}")
     return offer
 
@@ -91,6 +107,10 @@ def describe(task):
         return (
             f"a recovery of the {task.get('item')} from the {task.get('creature')} "
             f"{task.get('area')}"
+        )
+    if task.get("kind") == "searching":
+        return (
+            f"a search for the {task.get('item')} {task.get('area')} (kneel and search)"
         )
     if task.get("kind") == "unknown":
         return "a task of a kind not captured yet"
@@ -189,7 +209,7 @@ def run(s, options, profile, mapdb, walk_fn=walk):
         record(name, task)
         s.echo(
             f"task: {describe(task)} is beyond the script — yours from here; "
-            f"the offer: {task.get('text')!r}"
+            f"the offer: {task.get('text')!r}; the accept: {task.get('accept_text')!r}"
         )
         return
     if offer["kind"] == "delivery":

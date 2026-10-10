@@ -19,6 +19,9 @@ from test_tasks import (
     LAPSED,
     PAID,
     RECOVERY_OFFER,
+    SEARCHING_ACCEPTED,
+    SEARCHING_JOURNAL,
+    SEARCHING_OFFER,
 )
 
 REPO = pathlib.Path(__file__).parents[2]
@@ -147,9 +150,11 @@ def run(fake, words=(), declines=(), walk_fn=walk):
 
 
 def test_a_delivery_is_asked_accepted_carried_and_handed_over():
+    # TASK three times: before the ask, after the accept (its judge),
+    # after the give.
     fake = Fake(
         {
-            "task": [JOURNAL_CLEAR, JOURNAL_CLEAR],
+            "task": [JOURNAL_CLEAR, JOURNAL, JOURNAL_CLEAR],
             "ask cormyn": [DELIVERY_OFFER],
             "accept": [ACCEPTED],
             "stow": [STOWED],
@@ -158,7 +163,7 @@ def test_a_delivery_is_asked_accepted_carried_and_handed_over():
         }
     )
     out = run(fake, ["cormyn"])
-    assert fake.sent[:3] == ["task", "ask cormyn for task", "accept task"]
+    assert fake.sent[:4] == ["task", "ask cormyn for task", "accept task", "task"]
     assert "stow my basket" in fake.sent
     assert fake.walks == [{10021}]
     assert "get my basket" in fake.sent
@@ -172,9 +177,15 @@ def test_a_delivery_is_asked_accepted_carried_and_handed_over():
 def test_a_kind_the_script_cannot_run_is_accepted_and_handed_over():
     # A script built to learn declines nothing: the recovery is accepted,
     # recorded with the offer's line, and left to the operator.
-    fake = Fake({"ask cormyn": [RECOVERY_OFFER], "accept": [ACCEPTED]})
+    fake = Fake(
+        {
+            "task": [JOURNAL_CLEAR, SEARCHING_JOURNAL],
+            "ask cormyn": [RECOVERY_OFFER],
+            "accept": [ACCEPTED],
+        }
+    )
     out = run(fake, ["cormyn"])
-    assert fake.sent == ["task", "ask cormyn for task", "accept task"]
+    assert fake.sent == ["task", "ask cormyn for task", "accept task", "task"]
     assert (
         "a recovery of the tabard from the poloh'izh near Hara'jaal, Glaren Kweld"
         in out
@@ -189,6 +200,40 @@ def test_a_kind_in_task_declines_is_declined_inside_the_window():
     assert fake.sent == ["task", "ask cormyn for task", "decline task"]
     assert "in task_declines — declined" in out
     assert "said nothing known" not in out
+
+
+def test_a_searching_task_is_accepted_by_the_journal_and_handed_over_with_the_hint():
+    # ;task's second live run (2026-10-10): the accept's answer is the
+    # search's hint, the journal proves the accept, the task is recorded.
+    fake = Fake(
+        {
+            "task": [JOURNAL_CLEAR, SEARCHING_JOURNAL],
+            "ask saeru": [SEARCHING_OFFER],
+            "accept": [SEARCHING_ACCEPTED],
+        }
+    )
+    out = run(fake, ["saeru"])
+    assert fake.sent == ["task", "ask saeru for task", "accept task", "task"]
+    assert (
+        "a search for the locket near The Crossing, Gildleaf Circle (kneel and search)"
+        in out
+    )
+    assert "yours from here" in out and "kneeling" in out
+    assert "unrecognized" not in out
+    assert script.load("Lanival")["kind"] == "searching"
+
+
+def test_an_accept_the_journal_does_not_show_is_reported():
+    fake = Fake(
+        {
+            "task": [JOURNAL_CLEAR, JOURNAL_CLEAR],
+            "ask saeru": [SEARCHING_OFFER],
+            "accept": [LAPSED],
+        }
+    )
+    out = run(fake, ["saeru"])
+    assert "unrecognized ACCEPT TASK answer" in out
+    assert script.load("Lanival") is None
 
 
 def test_the_cooldown_is_said_and_nothing_else_sent():
@@ -214,6 +259,7 @@ def test_a_task_in_the_journal_is_carried_on_from_the_record():
 def test_a_walk_that_ends_short_is_said_with_the_nights_hint_and_the_record_kept():
     fake = Fake(
         {
+            "task": [JOURNAL_CLEAR, JOURNAL],
             "ask cormyn": [DELIVERY_OFFER],
             "accept": [ACCEPTED],
             "stow": [STOWED],

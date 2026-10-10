@@ -25,7 +25,12 @@ OFFER_PROMPT = "[You may accept by typing ACCEPT TASK"
 LAPSED = "I guess you do not wish to help me"
 DECLINED = LAPSED
 COOLDOWN = "you must wait before I can give you a task"
-ACCEPTED = ("Here is the item",)
+# The accept's answer by kind: a delivery hands the item over; a search
+# names the item and hints at kneeling (2026-10-10, ;task's second run:
+# "Thank you so much.  Remember, you're looking for a glaes locket.  Oh,
+# and you might find it better if you're kneeling."). The script trusts
+# the journal, not the words: ACCEPT is done when TASK shows the task.
+ACCEPTED = ("Here is the item", "you're looking for")
 NO_TASK = "You are not currently on a task."
 JOURNAL_HEAD = "You look in your task journal"
 CLOSED_FOR_THE_NIGHT = "closed for the night"
@@ -35,12 +40,25 @@ _DELIVERY = re.compile(
     r"needs to be taken to (?P<person>[A-Z][\w']*) in (?P<place>[^.?]+)[.?]"
 )
 _RECOVERY = re.compile(
-    r"lost a very precious (?P<item>[\w' -]+?)\.\s+He lost it in the area where "
-    r"the (?P<creature>[\w'-]+) make their home (?P<area>[^.]+)\."
+    r"lost a very precious (?P<item>[\w' -]+?)\.\s+(?:He|She) lost it in the area "
+    r"where the (?P<creature>[\w'-]+) make their home (?P<area>[^.]+)\."
+)
+# A search: the same loss, no creature — "She lost it in the area near The
+# Crossing, Gildleaf Circle." (Saeru, 2026-10-10); KNEEL and SEARCH there.
+_SEARCHING = re.compile(
+    r"lost a very precious (?P<item>[\w' -]+?)\.\s+(?:He|She) lost it in the area "
+    r"(?P<area>near [^.]+)\."
 )
 _JOURNAL_DELIVERY = re.compile(
     r"(?P<giver>[A-Z][\w']*) wants you to deliver a package to "
     r"(?P<person>[A-Z][\w']*) in (?P<place>[^.]+)\."
+)
+# "Saeru wants you to recover a glaes locket near The Crossing, Gildleaf
+# Circle." — a search's journal line; a recovery's (from a creature) is
+# uncaptured and would read the same way without the creature.
+_JOURNAL_SEARCHING = re.compile(
+    r"(?P<giver>[A-Z][\w']*) wants you to recover (?:an? )?(?P<item>[\w' -]+?) "
+    r"(?P<area>near [^.]+)\."
 )
 _PAID = re.compile(r"hands you (?P<count>[\d,]+) (?P<currency>[A-Z]\w+)")
 
@@ -91,6 +109,13 @@ def parse_offer(answer):
             "creature": match.group("creature"),
             "area": match.group("area").strip(),
         }
+    match = _SEARCHING.search(text)
+    if match:
+        return {
+            "kind": "searching",
+            "item": match.group("item").strip(),
+            "area": match.group("area").strip(),
+        }
     return {"kind": "unknown"}
 
 
@@ -108,6 +133,14 @@ def parse_journal(answer):
             "giver": match.group("giver"),
             "person": match.group("person"),
             "place": match.group("place").strip(),
+        }
+    match = _JOURNAL_SEARCHING.search(text)
+    if match:
+        return {
+            "kind": "searching",
+            "giver": match.group("giver"),
+            "item": match.group("item").strip(),
+            "area": match.group("area").strip(),
         }
     if JOURNAL_HEAD in text:
         return {"kind": "unknown"}
