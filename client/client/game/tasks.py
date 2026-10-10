@@ -66,6 +66,15 @@ _JOURNAL_DELIVERY = re.compile(
 # "Saeru wants you to recover a glaes locket near The Crossing, Gildleaf
 # Circle." — a search's journal line; a recovery's (from a creature) is
 # uncaptured and would read the same way without the creature.
+# "Cormyn wants you to recover a worn gauntlet from poloh'izh near Hara'jaal,
+# Glaren Kweld." — a recovery's journal line (2026-10-10, the fourth run):
+# the creature between "from" and the area. A recovery's accept answers
+# like a search's, the item named: "Thank you so much.  Remember, you're
+# looking for a worn gauntlet."
+_JOURNAL_RECOVERY = re.compile(
+    r"(?P<giver>[A-Z][\w']*) wants you to recover (?:an? )?(?P<item>[\w' -]+?) "
+    r"from (?:the )?(?P<creature>[\w'-]+) (?P<area>near [^.]+)\."
+)
 _JOURNAL_SEARCHING = re.compile(
     r"(?P<giver>[A-Z][\w']*) wants you to recover (?:an? )?(?P<item>[\w' -]+?) "
     r"(?P<area>near [^.]+)\."
@@ -144,6 +153,15 @@ def parse_journal(answer):
             "giver": match.group("giver"),
             "person": match.group("person"),
             "place": match.group("place").strip(),
+        }
+    match = _JOURNAL_RECOVERY.search(text)
+    if match:
+        return {
+            "kind": "recovery",
+            "giver": match.group("giver"),
+            "item": match.group("item").strip(),
+            "creature": match.group("creature"),
+            "area": match.group("area").strip(),
         }
     match = _JOURNAL_SEARCHING.search(text)
     if match:

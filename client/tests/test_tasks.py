@@ -159,6 +159,24 @@ def test_the_journal_reads_the_delivery_in_hand_and_the_clear_journal():
     ) == {"kind": "unknown"}
 
 
+def test_a_recoverys_journal_line_names_the_creature_and_the_area():
+    # Cormyn, 2026-10-10 06:06, the fourth live run.
+    assert tasks.parse_journal(
+        "You look in your task journal and see the following entry:\n"
+        "Cormyn wants you to recover a worn gauntlet from poloh'izh near Hara'jaal, Glaren Kweld.\n"
+    ) == {
+        "kind": "recovery",
+        "giver": "Cormyn",
+        "item": "worn gauntlet",
+        "creature": "poloh'izh",
+        "area": "near Hara'jaal, Glaren Kweld",
+    }
+    # Its accept answers like a search's: the item named, no kneeling.
+    assert tasks.accepted(
+        'Cormyn says, "Thank you so much.  Remember, you\'re looking for a worn gauntlet."\n'
+    )
+
+
 def test_the_accept_and_the_payment_are_read():
     assert tasks.accepted(ACCEPTED) is True
     assert tasks.accepted(LAPSED) is False
