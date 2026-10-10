@@ -26,6 +26,8 @@ uv run python tools/anatomy_tables.py  # regenerate the First Aid chart table
                                      # (client/game/anatomy_data.py)
 uv run python tools/hunting_tables.py  # regenerate the bestiary from dr-scripts'
                                      # base-hunting.yaml (client/game/hunting_data.py)
+uv run python tools/drive.py --character NAME [--act] "cmd"  # a logged, stoppable, paced send
+                                     # (--steps FILE a loop; --stop halts every driver)
 uv run python tools/wiki.py "Soul system" [--grep WORD]  # an Elanthipedia page's raw
                                      # wikitext, cached under ~/.revenant/wiki (--list)
 ```

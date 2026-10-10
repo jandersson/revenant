@@ -114,3 +114,7 @@ uv run revenant-send --origin claude --character NAME ";tdp help"
   answer text, not the indicator, right after a command.
 - **Every session change today needed a note somewhere durable**: an
   issue for a gap, a doc section for a mechanic, a fixture for a wording.
+
+## A loop from outside: tools/drive.py
+
+Ad-hoc driving that runs more than a command or two goes through `tools/drive.py`, never a bare shell loop: every send and its answer is appended to `~/.revenant/logs/drive-<Name>-<stamp>.log` as it goes and printed unbuffered, the stop file is checked before each send (`uv run python tools/drive.py --stop` halts every driver at once; `--go` lifts it), and the pace is capped at 20 sends a minute. `--steps FILE` runs a file of commands one a line (`sleep N` between them); `--act` opens the gate for commands that act, with the operator's say-so as above. A background Bash command that drives a session without a log file is refused by a hook (2026-10-10: a loop behind a buffering pipe sent a bad command for ten minutes unseen).
