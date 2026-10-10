@@ -1,0 +1,134 @@
+"""The task model (#505): the givers' wordings as captured on
+2026-10-09/10 (docs/tasks.md), read into offers, journal entries and
+payments."""
+
+from client.game import tasks
+from client.game.mapdb import MapDB
+
+DELIVERY_OFFER = (
+    "Cormyn says, \"I do have a small task I'd like for you to perform.  I have a "
+    "small item that needs to be taken to Saeru in Throne City.  Would you be "
+    'willing to do that for me?"\n'
+    "[You may accept by typing ACCEPT TASK, or decline by typing DECLINE TASK.  "
+    "You have 30 seconds to decide.]\n"
+)
+RECOVERY_OFFER = (
+    'Cormyn says, "I do have a small favor to ask.  A friend of mine recently lost '
+    "a very precious tabard.  He lost it in the area where the poloh'izh make their "
+    "home near Hara'jaal, Glaren Kweld.  If you could recover that for him I would "
+    "greatly appreciate it.\n"
+    "[You may accept by typing ACCEPT TASK, or decline by typing DECLINE TASK.  "
+    "You have 30 seconds to decide.]\n"
+)
+LAPSED = 'Cormyn says, "Very well, I guess you do not wish to help me."\n'
+COOLDOWN = 'Cormyn says, "I am sorry, you must wait before I can give you a task."\n'
+ACCEPTED = (
+    'Cormyn says, "Here is the item, please get it to Saeru as soon as possible."\n'
+)
+JOURNAL = (
+    "You look in your task journal and see the following entry:\n"
+    "Cormyn wants you to deliver a package to Saeru in Throne City.\n"
+    "You have performed the following tasks:\n"
+    "1 searching tasks\n"
+)
+JOURNAL_CLEAR = (
+    "You are not currently on a task.\n"
+    "You have performed the following tasks:\n"
+    "1 delivery tasks and 1 searching tasks\n"
+)
+PAID = (
+    'Saeru says, "Thank you very much, Lanival.  I have a few things here for you, '
+    'thank you so much for your help."\n'
+    "Saeru hands you 314 Lirums.\n"
+)
+
+
+def test_an_ask_is_an_offer_a_cooldown_or_unknown():
+    assert tasks.classify_ask(DELIVERY_OFFER) == "offer"
+    assert tasks.classify_ask(RECOVERY_OFFER) == "offer"
+    assert tasks.classify_ask(COOLDOWN) == "cooldown"
+    assert tasks.classify_ask(LAPSED) == "unknown"
+    assert tasks.classify_ask("") == "unknown"
+
+
+def test_a_delivery_offer_names_the_person_and_the_place():
+    assert tasks.parse_offer(DELIVERY_OFFER) == {
+        "kind": "delivery",
+        "person": "Saeru",
+        "place": "Throne City",
+    }
+
+
+def test_a_recovery_offer_names_the_item_the_creature_and_the_area():
+    assert tasks.parse_offer(RECOVERY_OFFER) == {
+        "kind": "recovery",
+        "item": "tabard",
+        "creature": "poloh'izh",
+        "area": "near Hara'jaal, Glaren Kweld",
+    }
+    hammer = RECOVERY_OFFER.replace("tabard", "hammer")
+    assert tasks.parse_offer(hammer)["item"] == "hammer"
+
+
+def test_an_uncaptured_offer_is_unknown_and_declined_by_default():
+    offer = tasks.parse_offer(
+        'Cormyn says, "Go and kill ten rats for me."\n'
+        + DELIVERY_OFFER.splitlines()[-1]
+    )
+    assert offer == {"kind": "unknown"}
+    assert tasks.decide(offer, ["delivery"]) is False
+    assert tasks.decide({"kind": "delivery"}, ["Delivery", "foraging"]) is True
+    assert tasks.decide({"kind": "recovery"}, ["delivery"]) is False
+
+
+def test_the_journal_reads_the_delivery_in_hand_and_the_clear_journal():
+    assert tasks.parse_journal(JOURNAL) == {
+        "kind": "delivery",
+        "giver": "Cormyn",
+        "person": "Saeru",
+        "place": "Throne City",
+    }
+    assert tasks.parse_journal(JOURNAL_CLEAR) is None
+    assert tasks.parse_journal("") is None
+    assert tasks.parse_journal(
+        "You look in your task journal and see the following entry:\nSomething new.\n"
+    ) == {"kind": "unknown"}
+
+
+def test_the_accept_and_the_payment_are_read():
+    assert tasks.accepted(ACCEPTED) is True
+    assert tasks.accepted(LAPSED) is False
+    assert tasks.paid(PAID) == (314, "Lirums")
+    assert tasks.paid(ACCEPTED) is None
+
+
+def test_the_recipients_room_comes_from_the_givers_table():
+    db = MapDB(
+        [
+            {
+                "id": 10021,
+                "uid": [1],
+                "title": ["[Seven Star Exchange and Pawn]"],
+                "wayto": {},
+            },
+            {
+                "id": 8261,
+                "uid": [2],
+                "title": ["[Cormyn's House of Heirlooms]"],
+                "wayto": {},
+            },
+        ]
+    )
+    assert tasks.recipient_rooms(db, "Saeru") == {10021}
+    assert tasks.recipient_rooms(db, "saeru") == {10021}
+    assert tasks.recipient_rooms(db, "Nobody") == set()
+
+
+def test_the_record_round_trips_and_clears(monkeypatch, tmp_path):
+    monkeypatch.setenv("REVENANT_TRAINING", str(tmp_path))
+    assert tasks.load("Lanival") is None
+    tasks.record("Lanival", {"kind": "delivery", "person": "Saeru", "item": "basket"})
+    assert tasks.load("Lanival")["item"] == "basket"
+    tasks.clear("Lanival")
+    assert tasks.load("Lanival") is None
+    tasks.clear("Lanival")  # twice is harmless

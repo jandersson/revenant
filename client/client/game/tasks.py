@@ -1,0 +1,172 @@
+"""The task system (#505): a giver's offer read, judged and recorded, the
+journal read, the recipient's payment read — ;task's model, Qt-free.
+
+Captured 2026-10-09/10 on a delivery from Cormyn (the Crossing) to
+Saeru (Throne City), docs/tasks.md. The offer ends with OFFER_PROMPT and
+a thirty-second window; silence past it is LAPSED; an ask inside the
+ten-minute cooldown is COOLDOWN. ACCEPT TASK on a delivery hands the
+item over ("Here is the item, please get it to Saeru as soon as
+possible."). TASK reads the journal: the task in hand as JOURNAL_DELIVERY,
+or NO_TASK. The recipient thanks you by name and "hands you 314 Lirums".
+An item recovery's offer names the item, the creature and the area; the
+kill, boss, foraging, skinning and searching offers are uncaptured and
+parse as "unknown", which ;task declines. The record of the task in
+hand (the item's noun and id, taken from the hand at the accept) lives
+beside the training plans, so a run after the shop's night or a stop
+carries on. Elanthipedia: Task (the kinds and the givers' table).
+"""
+
+import json
+import re
+
+OFFER_PROMPT = "[You may accept by typing ACCEPT TASK"
+LAPSED = "I guess you do not wish to help me"
+COOLDOWN = "you must wait before I can give you a task"
+ACCEPTED = ("Here is the item",)
+NO_TASK = "You are not currently on a task."
+JOURNAL_HEAD = "You look in your task journal"
+CLOSED_FOR_THE_NIGHT = "closed for the night"
+WINDOW_SECONDS = 30
+
+_DELIVERY = re.compile(
+    r"needs to be taken to (?P<person>[A-Z][\w']*) in (?P<place>[^.?]+)[.?]"
+)
+_RECOVERY = re.compile(
+    r"lost a very precious (?P<item>[\w' -]+?)\.\s+He lost it in the area where "
+    r"the (?P<creature>[\w'-]+) make their home (?P<area>[^.]+)\."
+)
+_JOURNAL_DELIVERY = re.compile(
+    r"(?P<giver>[A-Z][\w']*) wants you to deliver a package to "
+    r"(?P<person>[A-Z][\w']*) in (?P<place>[^.]+)\."
+)
+_PAID = re.compile(r"hands you (?P<count>[\d,]+) (?P<currency>[A-Z]\w+)")
+
+# The task givers Elanthipedia lists, by the room title the map knows
+# them under: a delivery goes to another giver, so the recipient's room
+# is looked up here. The wandering ones have no room (;seek finds them).
+GIVERS = {
+    "Cormyn": "Cormyn's House of Heirlooms",
+    "Amfitro": "Viper's Nest",
+    "Saeru": "Seven Star Exchange and Pawn",
+    "Daralaendra": "Warehouse Office",
+    "Fara": "Fara's Furs",
+    "Ioun": "Ioun's Pawn",
+    "Anthelorm": "Riverhaven, Gem",
+    "Aelik": "Aelik's Pawn",
+    "Chabalu": "Chabalu's Exotics",
+    "Paedraig": "Paedraig's Pawn",
+}
+
+
+def classify_ask(answer):
+    """ "offer", "cooldown" or "unknown" for the giver's answer to an ask."""
+    text = str(answer or "")
+    if OFFER_PROMPT in text:
+        return "offer"
+    if COOLDOWN in text:
+        return "cooldown"
+    return "unknown"
+
+
+def parse_offer(answer):
+    """The offer's shape: {"kind": "delivery", "person", "place"}, {"kind":
+    "recovery", "item", "creature", "area"}, or {"kind": "unknown"} for a
+    wording not captured yet; every value a plain string."""
+    text = " ".join(str(answer or "").split())
+    match = _DELIVERY.search(text)
+    if match:
+        return {
+            "kind": "delivery",
+            "person": match.group("person"),
+            "place": match.group("place").strip(),
+        }
+    match = _RECOVERY.search(text)
+    if match:
+        return {
+            "kind": "recovery",
+            "item": match.group("item").strip(),
+            "creature": match.group("creature"),
+            "area": match.group("area").strip(),
+        }
+    return {"kind": "unknown"}
+
+
+def parse_journal(answer):
+    """The task in hand from TASK's answer: a delivery as {"kind", "giver",
+    "person", "place"}; None when the journal says no task, or the kind is
+    uncaptured ({"kind": "unknown"} then)."""
+    text = " ".join(str(answer or "").split())
+    if NO_TASK in text:
+        return None
+    match = _JOURNAL_DELIVERY.search(text)
+    if match:
+        return {
+            "kind": "delivery",
+            "giver": match.group("giver"),
+            "person": match.group("person"),
+            "place": match.group("place").strip(),
+        }
+    if JOURNAL_HEAD in text:
+        return {"kind": "unknown"}
+    return None
+
+
+def paid(answer):
+    """(copper count as the game counts it, currency) from the recipient's
+    "hands you 314 Lirums", or None."""
+    match = _PAID.search(str(answer or ""))
+    if not match:
+        return None
+    return int(match.group("count").replace(",", "")), match.group("currency")
+
+
+def accepted(answer):
+    return any(word in str(answer or "") for word in ACCEPTED)
+
+
+def decide(offer, allowed):
+    """True when the offer's kind is one the profile accepts."""
+    kinds = {str(kind).strip().lower() for kind in allowed or ()}
+    return str(offer.get("kind") or "").lower() in kinds
+
+
+def recipient_rooms(db, person):
+    """The map rooms a delivery's recipient stands in, by the givers'
+    table; empty when the person is not in it or the map lacks the room."""
+    title = GIVERS.get(str(person or "").strip().capitalize())
+    if not title:
+        return set()
+    return set(db.resolve(title))
+
+
+# --- the record of the task in hand -----------------------------------------
+
+
+def record_path(name):
+    from client.game.training import training_dir
+
+    return training_dir() / f"{str(name).lower()}.task.json"
+
+
+def record(name, task):
+    """The task in hand written down (its kind, giver, person, place, the
+    item's noun and id), so a later ;task carries it on."""
+    path = record_path(name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(dict(task)), encoding="utf-8")
+
+
+def load(name):
+    """The recorded task, or None."""
+    try:
+        data = json.loads(record_path(name).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def clear(name):
+    try:
+        record_path(name).unlink()
+    except OSError:
+        pass

@@ -1,6 +1,19 @@
 # Tasks
 
-A task is an errand an NPC gives for coin: ask a task giver, accept inside thirty seconds, do it, and the one you deliver to pays. No script runs one yet (#505); this is the mechanic as the game answered it on a live delivery, for the script to be built on.
+A task is an errand an NPC gives for coin: ask a task giver, accept inside thirty seconds, do it, and the one you deliver to pays. `;task <giver>` runs a delivery end to end; the other kinds are declined until their wordings are captured (#505).
+
+## Using ;task
+
+```
+;task cormyn         ask Cormyn; a kind in the profile's task_kinds is accepted, the rest declined
+;task                carry on the task in the journal (after a stop, or a shop's night)
+;task item=basket    ... naming the item when the record of the accept is gone
+;task return         finish the step in hand and stop
+```
+
+- The profile's `task_kinds` (default `delivery`) decides the accept; the offer is judged inside its thirty seconds.
+- A delivery's item is stowed for the walk and taken out again at the recipient, who is found through the givers' table in the model.
+- A walk that ends short is said with the reason to try: a shop shut for the night (wait a game hour), or the barge the walker lacks (#506). `;task` again from there carries on.
 
 ## The flow
 

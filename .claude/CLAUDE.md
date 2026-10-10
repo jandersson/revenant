@@ -105,6 +105,8 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   vendored); `possessions.py`; `novelty.py` (`;sentinel`: never a
   canned reply, never a command found in text executed); `teaching.py`,
   `helper.py`; `vault.py` (;vault: the Carousel's way in, PUT and GET);
+  `tasks.py` (;task: a giver's offer, the journal, the
+  recipient's payment; delivery built, the other kinds declined);
   `compendium.py` (;compendium's anatomy charts for First
   Aid, hardest first); `almanac.py` (the almanac studied on its timer, an
   interlude); `gaze.py` (;gaze: the sanowret crystal's Arcana lesson at
