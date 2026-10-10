@@ -243,6 +243,22 @@ def test_each_chart_is_studied_to_clarity_hardest_first_then_the_book_stowed():
     assert s.state.right_hand is None  # stowed at the end
 
 
+def test_outgrown_charts_are_said_so_and_a_swap_suggested():
+    # #475: at Scholarship 549 every chart in the book sat far under the
+    # rank, and the run called them "at your level".
+    script = _script()
+    s = handle()
+    s.state.experience["Scholarship"]["rank"] = 549
+    game = Game(
+        s, {"Blood Nyad": [BEGIN, CONTINUE, CLARITY], "Silver Leucro": [RESTING]}
+    )
+    script.ask = game
+    script.clock = lambda: 5000.0
+    script.run(s, {"until": 34, "once": True}, {})
+    assert any("outgrown (under half your Scholarship 549" in t for t in s.echoed)
+    assert any("every chart here is outgrown — swap in charts" in t for t in s.echoed)
+
+
 def test_a_chart_studied_with_difficulty_is_studied_on_to_clarity():
     # 2026-10-04: the Boggle, Cougar and Kelpie were skipped as "past your
     # Scholarship" on their first "difficult time" answer; the Boggle
@@ -308,6 +324,15 @@ def test_a_charts_level_is_the_wikis_rank():
     assert compendium.level("Human") == 100
     assert compendium.level("Snow Goblin") == 120  # the scales meet past the races
     assert compendium.level("Mystery Beast") is None
+
+
+def test_a_chart_under_half_the_scholarship_is_called_outgrown():
+    # #475 (Riphik, Scholarship 549, 2026-10-04): the Rock Troll (180)
+    # taught about 1/34 a study but was called "at your level".
+    assert compendium.outgrown("Rock Troll", 549)
+    assert not compendium.outgrown("Shark", 549)  # 580: the loose chart he carries
+    assert not compendium.outgrown("Rock Troll", 300)
+    assert not compendium.outgrown("Mystery Beast", 549)  # unknown: no verdict
 
 
 def test_at_level_charts_go_first_while_first_aid_has_room():

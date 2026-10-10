@@ -13,6 +13,8 @@ What it does
     has room, the charts at your level go first, hardest first: a few studies each.
   - A slow chart (past your level: "having a difficult time comprehending") fills the
     time while Scholarship has room, five minutes a turn; it keeps its progress.
+  - A chart under half your Scholarship is said to be outgrown (it teaches a little);
+    with nothing else in the book, it says to swap in charts nearer your rank.
   - A chart at clarity rests twenty minutes; with every chart resting it waits for the first.
   - Stows the compendium at every end.
 
@@ -182,13 +184,25 @@ def run(s, options, profile):
             order.extend(compendium.plan(listed, scholarship))
             if not order:
                 return f"no chart in the {noun} that Scholarship {scholarship} reads"
-            easy = [name for name in order if not compendium.slow(name, scholarship)]
             hard = [name for name in order if compendium.slow(name, scholarship)]
+            low = [n for n in order if compendium.outgrown(n, scholarship)]
+            easy = [n for n in order if n not in hard and n not in low]
             s.echo(
                 f"compendium: {len(order)} chart(s) — at your level, hardest "
                 f"first: {', '.join(easy) or 'none'}"
                 + (f"; slow, for the time between: {', '.join(hard)}" if hard else "")
+                + (
+                    f"; outgrown (under half your Scholarship {scholarship}, a "
+                    f"little each): {', '.join(low)}"
+                    if low
+                    else ""
+                )
             )
+            if low and not easy:
+                s.echo(
+                    "compendium: every chart here is outgrown — swap in charts "
+                    f"nearer Scholarship {scholarship} (Elanthipedia: Anatomy charts)"
+                )
         now = clock()
         usable = [name for name in order if name not in shut]
         if not usable:

@@ -91,6 +91,16 @@ def reach(scholarship):
     return scholarship if scholarship <= 100 else scholarship / 1.6
 
 
+def outgrown(name, scholarship):
+    """True when the chart sits under half the reader's Scholarship: it
+    still teaches a little (Elanthipedia: Anatomy charts, "you may still
+    learn some from lower requirement charts"), but at Scholarship 549
+    the Rock Troll's 180 gave about 1/34 a study (2026-10-04, #475) —
+    worth saying, and worth swapping for a harder chart."""
+    rank = level(name)
+    return rank is not None and scholarship is not None and rank < scholarship / 2
+
+
 def plan(names, scholarship):
     """The charts to study, hardest first: the table's within reach (in
     the listing's order among equals), then any the table does not know;
