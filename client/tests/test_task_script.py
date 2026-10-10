@@ -318,7 +318,37 @@ def test_two_baskets_and_no_id_the_noun_is_used_and_said():
     assert "task: 2 baskets on you and no id for the task's — took #160000001" in out
 
 
-def test_a_walk_that_ends_short_is_said_with_the_nights_hint_and_the_record_kept():
+def test_a_shop_shut_for_the_night_is_knocked_on_each_game_hour_until_it_opens(
+    monkeypatch,
+):
+    # 2026-10-09 23:35 (#512): Saeru's pawn "closed for the night", the
+    # door open at sunrise twenty minutes on. The walker marks the shut
+    # door; ;task tries it again each game hour and delivers.
+    from client.game import walker
+
+    monkeypatch.setattr(script, "GAME_HOUR", 1)
+    monkeypatch.setattr(script, "KNOCK_POLL", 1)
+    script.record(
+        "Lanival", {"kind": "delivery", "item": "basket", "exist": "172475803"}
+    )
+    tries = []
+
+    def shut_once(s, db, goals, describe="", avoid=()):
+        tries.append(set(goals))
+        if len(tries) == 1:
+            walker.night_shut(s, "[Seven Star Exchange and Pawn]")
+            return False
+        walker.night_shut(s, False)
+        return walk(s, db, goals, describe, avoid)
+
+    fake = Fake({"task": [JOURNAL, JOURNAL_CLEAR], "get": [GOT_BASKET], "give": [PAID]})
+    out = run(fake, walk_fn=shut_once)
+    assert len(tries) == 2
+    assert "is closed for the night — trying the door each game hour" in out
+    assert "task: delivered — Saeru paid 314 Lirums" in out
+
+
+def test_a_walk_that_ends_short_is_said_and_the_record_kept():
     fake = Fake(
         {
             "task": [JOURNAL_CLEAR, JOURNAL],
@@ -328,7 +358,8 @@ def test_a_walk_that_ends_short_is_said_with_the_nights_hint_and_the_record_kept
         }
     )
     out = run(fake, ["cormyn"], walk_fn=no_walk)
-    assert "stopped short of Saeru" in out and "sunrise" in out
+    assert "stopped short of Saeru — ;task again from here carries on" in out
+    assert "closed for the night" not in out  # not the night: no wait
     assert "give" not in " ".join(fake.sent)
     assert script.load("Lanival")["item"] == "basket"
 

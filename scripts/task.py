@@ -11,7 +11,7 @@ What it does
 - A search: the area's rooms by title; in each KNEEL and SEARCH (each one's roundtime waited) until the find, SEARCHES_PER_ROOM at most; GET the find, STAND, the walk back to the giver, GIVE; the journal read again.
 
 What stops it
-- The giver's cooldown (ten minutes between asks), an offer of a kind the profile declines, a recipient the table does not know, a walk that ends short — each said. A walk ends short at a shop shut for the night (sunrise is a game hour, fifteen real minutes) and at a ride the walker lacks (the Throne City barge, #506): ;task again from there carries on.
+- The giver's cooldown (ten minutes between asks), an offer of a kind the profile declines, a recipient the table does not know, a walk that ends short — each said. A shop shut for the night is waited for: the door tried each game hour (fifteen real minutes), eight times at most. A walk that ends short otherwise: ;task again from there carries on.
 - Delivery and searching are run by the script; recovery, kill, boss, foraging and skinning are accepted and handed over, their wordings captured on the way (#505).
 
 Elanthipedia: Task; the wordings captured on Crannach's delivery (docs/tasks.md).
@@ -43,6 +43,7 @@ from client.game.tasks import (
     record,
     search_outcome,
 )
+from client.game import walker
 from client.game.walker import walk
 
 
@@ -190,6 +191,38 @@ def named(s, noun):
     return [i for i in possessions if pattern.search(str(i.get("name") or "").lower())]
 
 
+GAME_HOUR = 900  # real seconds: the walk is tried again each game hour
+NIGHT_HOURS = 8  # the knocks before giving up on the morning
+KNOCK_POLL = 30  # seconds between looks at a typed return while waiting
+
+
+def until_morning(s, go):
+    """A walk the walker ended at a shop closed for the night (#512): the
+    door tried again each game hour, NIGHT_HOURS at most — the wait said
+    once. True once the walk arrives; False for any other failure, a
+    typed return, or a night longer than the ceiling."""
+    shop = walker.night_shut(s)
+    if not shop:
+        return False
+    s.echo(
+        f"task: {shop} is closed for the night — trying the door each game hour "
+        f"(fifteen minutes), {NIGHT_HOURS} times at most"
+    )
+    for _ in range(NIGHT_HOURS):
+        waited = 0
+        while waited < GAME_HOUR:
+            if wants_stop(s):
+                return False
+            s.sleep(KNOCK_POLL)
+            waited += KNOCK_POLL
+        if go():
+            return True
+        if not walker.night_shut(s):
+            return False  # stopped short for another reason
+    s.echo(f"task: {shop} stayed shut for {NIGHT_HOURS} game hours")
+    return False
+
+
 def deliver(s, task, mapdb, walk_fn):
     """Walk to the recipient and hand the item over; the payment said,
     the journal read, the record cleared when the task is done."""
@@ -200,12 +233,12 @@ def deliver(s, task, mapdb, walk_fn):
         return False
     if wants_stop(s):
         return False
-    if not travel.go(s, rooms, f"{person}'s room", db=mapdb, walk=walk_fn):
-        s.echo(
-            f"task: stopped short of {person} — a shop shut for the night opens at "
-            "sunrise (a game hour, fifteen real minutes), and a ride the walker lacks "
-            "is #506; ;task again from here carries on"
-        )
+
+    def go():
+        return travel.go(s, rooms, f"{person}'s room", db=mapdb, walk=walk_fn)
+
+    if not go() and not until_morning(s, go):
+        s.echo(f"task: stopped short of {person} — ;task again from here carries on")
         return False
     held = take_item(s, task)
     if not held:

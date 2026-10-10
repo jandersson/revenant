@@ -260,6 +260,12 @@ WAY_REFUSALS = (
 # 2026-09-26, a circle-1 Barbarian walked toward the Paladins' Guild: a
 # stall, a RETREAT burst, the trail again, "stalled at step 148").
 GATE_REFUSALS = ("not experienced enough to go there", "not allowed to go there")
+# A shop's door at night (captured 2026-10-09 23:35 at Throne City's
+# Seven Star Exchange and Pawn, #512): "You stop as you realize that the
+# marble house is closed for the night." — it opened at sunrise, about
+# twenty minutes on. Not a stall and no way round: the walk ends, said,
+# and night_shut() tells the caller, who may wait for the morning.
+SHUT_AT_NIGHT = ("closed for the night",)
 # A gate's refusal outlives its walk (#394): ;train's walks to Cecil's
 # rest room tried the Promenade twice an evening, each answered "not
 # experienced enough" (2026-09-29). The edges are planned around by
@@ -269,6 +275,19 @@ GATE_REFUSALS = ("not experienced enough to go there", "not allowed to go there"
 # as fresh copies, and the walk home tried the Promenade again after
 # every code change (2026-10-04). A climb refused for Athletics and a
 # way the map has wrong stay closed for their walk alone.
+
+
+def night_shut(s, title=None):
+    """The shop the last walk found closed for the night (#512), None when
+    it did not; `title` records it (False clears it). On the session's
+    parser state, like the gated edges, for the script that walked."""
+    state = getattr(s, "state", None)
+    if title is not None:
+        try:
+            state.night_shut = title or None
+        except AttributeError:
+            pass
+    return getattr(state, "night_shut", None)
 
 
 def fang_cove_entry(s, town=None):
@@ -836,6 +855,8 @@ def await_arrival(s, timeout=ARRIVAL_TIMEOUT):
         hindering.extend(hindering_nouns(text))
         if any(needle in text for needle in CLIMB_REFUSALS + POSTURE_REFUSALS):
             return "refused", hindering, "".join(seen)
+        if any(needle in text for needle in SHUT_AT_NIGHT):
+            return "shut", hindering, "".join(seen)
         if any(needle in text for needle in GATE_REFUSALS + WAY_REFUSALS):
             return "closed", hindering, "".join(seen)
         if any(needle in text for needle in KNEELING_REFUSALS):
@@ -1026,6 +1047,7 @@ def walk(s, db, goals, describe="destination", avoid=(), max_steps=None):
     if s.dead:
         s.echo("you are DEAD — corpses don't travel; deathwatch has it (#91)")
         return False
+    night_shut(s, False)  # this walk's own verdict, not the last one's
     here = locate(db, s.state)
     if here is None:
         title = getattr(s.state, "room_title", None) if s.state else None
@@ -1182,6 +1204,13 @@ def _follow(s, db, route, here, closed, fetched=True):
             if outcome == "posture":
                 s.echo(f"step {number}: still cannot move ({first!r}) — stopping here")
                 return False
+        if outcome == "shut":
+            # A shop's door at night (#512): no way round, no stall —
+            # said, marked for the caller, and the walk ends.
+            titles = db.rooms[dest].get("title") or ["?"]
+            s.echo(f"{titles[0]} is closed for the night — it opens at sunrise")
+            night_shut(s, titles[0])
+            return False
         if outcome == "closed":
             closed.add((here, dest))
             titles = db.rooms[dest].get("title") or ["?"]

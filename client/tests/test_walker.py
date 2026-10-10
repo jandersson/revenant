@@ -1607,6 +1607,42 @@ def test_a_guard_wanting_coin_closes_the_way_and_is_quoted_not_off_course():
     assert not any("off course" in e for e in handle.echoes)
 
 
+SHOP = MapDB(
+    [
+        {
+            "id": 3083,
+            "uid": [13083],
+            "title": ["[Throne City, Rafters Row]"],
+            "wayto": {"10021": "go marble house"},
+        },
+        {"id": 10021, "uid": [10021], "title": ["[Seven Star Exchange and Pawn]"]},
+    ]
+)
+# Captured 2026-10-09 23:35 at Saeru's door (#512).
+SHUT = "You stop as you realize that the marble house is closed for the night.\n"
+
+
+class ShutHandle(GuardHandle):
+    def put(self, command):
+        FakeHandle.put(self, command)
+        if command == "go marble house":
+            self.pending = [("", SHUT)]
+
+
+def test_a_shop_shut_for_the_night_ends_the_walk_said_and_marked():
+    handle = ShutHandle(uids=[])
+    handle.state.room_uid = 13083
+    assert walker.walk(handle, SHOP, [10021]) is False
+    assert puts_of(handle) == ["go marble house"]
+    assert "retreat" not in puts_of(handle)
+    assert any("closed for the night — it opens at sunrise" in e for e in handle.echoes)
+    assert walker.night_shut(handle) == "[Seven Star Exchange and Pawn]"
+    # The next walk starts with no verdict.
+    handle.state.room_uid = 10021
+    assert walker.walk(handle, SHOP, [10021]) is True
+    assert walker.night_shut(handle) is None
+
+
 # Captured 2026-09-18 on Obsidian Pass's silverwood branch: the dizziness
 # refusal names the branch, not a tree.
 DIZZY_BRANCH = (

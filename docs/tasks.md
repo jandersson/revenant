@@ -13,7 +13,7 @@ A task is an errand an NPC gives for coin: ask a task giver, accept inside thirt
 
 - Every offer is accepted inside its thirty seconds unless the profile's `task_declines` names its kind. The script runs a delivery; any other kind it accepts, records and hands to you, saying the offer.
 - A delivery's item is stowed for the walk and taken out again at the recipient, who is found through the givers' table in the model. A search kneels and searches each room of the area in turn, waiting out every roundtime (about twelve seconds), picks up the find, and carries it back to the giver.
-- A walk that ends short is said with the reason to try: a shop shut for the night (wait a game hour), or the barge the walker lacks (#506). `;task` again from there carries on.
+- A shop shut for the night is waited for: `;task` tries the door each game hour (fifteen real minutes), eight times at most. Any other walk that ends short is said; `;task` again from there carries on.
 
 ## The flow
 
@@ -43,7 +43,7 @@ give <item> to <person>   a delivery's end: the recipient pays
 ## What bites
 
 - **The far province's coin.** Ferries and barges want it (the Faldesu ferry 30 lirums, the Throne City barges 120 each way), and a plain `;bank` changes it straight back. `;bank lirums=300` buys and keeps it.
-- **A shut door.** Shops close at night: `You stop as you realize that the marble house is closed for the night.` A game hour is fifteen real minutes, so wait for sunrise rather than give up; `;go2` only reports a stall on it.
+- **A shut door.** Shops close at night: `You stop as you realize that the marble house is closed for the night.` `;go2` says the shop opens at sunrise and stops; `;task` waits for it.
 - **Rides the walker lacks.** The Riverhaven–Throne City barge is boarded by its name (`go riverhawk`) at the Salt Yard dock and left with `go dock`; `;go2` carries you to the dock and from the far one (#506).
 - **The giver's pool.** Cormyn offered the same far item recovery twice before a delivery; a script's allowed kinds and areas decide the accept.
 
