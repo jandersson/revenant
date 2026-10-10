@@ -849,6 +849,20 @@ def test_the_mime_traps_invisible_box_is_waited_out_then_the_step_taken_again():
     assert "the box opened" in out
 
 
+def test_a_busy_room_does_not_stretch_the_mime_wait_past_its_cap(monkeypatch):
+    # #497's to-do: the cap counted only quiet polls, so a room whose
+    # story never paused could hold the wait forever. The clock decides.
+    monkeypatch.setattr(script, "MIME_WAIT", 0.3)
+    monkeypatch.setattr(script, "MIME_POLL", 0.01)
+    said_lines = []
+    run_ = SimpleNamespace(
+        s=SimpleNamespace(get=lambda timeout=None: "Lanival waves.\n"),
+        say=said_lines.append,
+    )
+    assert script.wait_mime(run_) is False
+    assert any("still in the invisible box" in line for line in said_lines)
+
+
 def test_a_toad_is_waited_out_before_the_box_is_picked_back_up():
     # 2026-09-26: the frog trap made Cecil a toad; the run went on, every
     # GET answered TOAD, the coffer stayed on the floor and the gear read

@@ -61,6 +61,7 @@ from client.game import (
     hands,
     items,
     money,
+    probe,
     shop,
     stores,
     trainer,
@@ -520,11 +521,12 @@ def wait_mime(run):
     nothing else (sixteen of them, 2026-10-09). True when it ended."""
     s = run.s
     run.say("caught in the mime trap's invisible box — waiting it out")
-    waited = 0
-    while waited < MIME_WAIT:
+    # The cap by the clock: counting only quiet polls let a busy room
+    # stretch the wait past it (#497).
+    deadline = probe.clock() + MIME_WAIT
+    while probe.clock() < deadline:
         line = s.get(timeout=MIME_POLL)
         if line is None:
-            waited += MIME_POLL
             continue
         if any(word in line.lower() for word in MIME_OVER):
             run.say("out of the invisible box")
