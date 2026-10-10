@@ -140,6 +140,12 @@ class Driver:
 
 
 def main(argv=None):
+    # The console's code page is not UTF-8 on Windows: a script's echo with a
+    # dash or the parser's replacement character crashed the print after the
+    # send had gone out (2026-10-10). Print what can be printed.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("command", nargs="?", help="one command to send")
     parser.add_argument("--character")

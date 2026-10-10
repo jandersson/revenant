@@ -79,3 +79,13 @@ def test_stop_and_go_raise_and_lift_the_file(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(drive, "STOP_FILE", tmp_path / "drive.stop")
     assert drive.main(["--stop"]) == 0 and (tmp_path / "drive.stop").exists()
     assert drive.main(["--go"]) == 0 and not (tmp_path / "drive.stop").exists()
+
+
+def test_an_answer_the_console_cannot_encode_is_still_logged(tmp_path, monkeypatch):
+    # 2026-10-10: a dash and the parser's U+FFFD in a script's echo crashed
+    # the print on a cp1252 console after the send had gone out.
+    driver, sent, _ = make(
+        tmp_path, monkeypatch, {"look": "task: found \u2014 \ufffd\n"}
+    )
+    assert driver.send("look") is not None
+    assert "task: found" in (tmp_path / "drive.log").read_text(encoding="utf-8")
