@@ -135,6 +135,30 @@ def test_a_cast_while_stunned_waits_the_stun_out_and_casts_again(monkeypatch):
     assert len(slept) == 3  # waited until the indicator cleared, then cast
 
 
+def test_a_stun_past_every_wait_lets_the_pattern_go_and_counts_no_cast(monkeypatch):
+    # #498's to-do: a second "still stunned" was counted as a cast that
+    # went out. STUN_CASTS of them now let the pattern go, said by the
+    # caller, and the cast clock is left alone.
+    monkeypatch.setattr(buffs, "CAST_TAIL_SECONDS", 0.6)
+    handle = Handle([READY])
+    handle.status = SimpleNamespace(stunned=False)
+    state = SimpleNamespace(cast_at={})
+
+    def ask(s, command):
+        s.sent.append(command)
+        if command == "cast":
+            return "You are still stunned.\n"
+        return PREPARED if command.startswith("prepare") else ""
+
+    handle.sleep = lambda seconds: None
+    outcome = buffs.cast_once(
+        handle, "footman's strike", 5, state, ask, lambda kind, answer: None
+    )
+    assert outcome == "stunned"
+    assert handle.sent.count("cast") == buffs.STUN_CASTS
+    assert handle.sent[-1] == "release" and state.cast_at == {}
+
+
 def test_a_cast_with_nothing_prepared_is_a_failed_cast_not_a_mystery(monkeypatch):
     monkeypatch.setattr(buffs, "CAST_TAIL_SECONDS", 0.6)
     handle = Handle([READY])

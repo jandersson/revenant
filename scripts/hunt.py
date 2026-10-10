@@ -365,10 +365,11 @@ _STUNNED = ("stunning you",)
 # a DRAW, a CIRCLE and a FEINT inside two seconds, the maneuvers reported
 # as unrecognized and the self-combo's queue emptied, #336). The swing
 # waits the stun out first (the status indicator, STUN_WAIT at most), and
-# an answer that still says so is a swing that never went out.
-_STILL_STUNNED = ("you are still stunned",)
-STUN_WAIT = 20  # seconds a swing waits for a stun to pass
-STUN_POLL = 0.5
+# an answer that still says so is a swing that never went out. One
+# wording and one wait for the swing and the cast: buffs' (#498).
+_STILL_STUNNED = buffs.STILL_STUNNED
+STUN_WAIT = buffs.STUN_WAIT
+STUN_POLL = buffs.STUN_POLL
 
 # Bare ATTACK with every attacker dead (captured 2026-08-22).
 _ALL_DEAD = ("nothing else to face", "what are you trying to attack")
@@ -1845,16 +1846,7 @@ def smite_allowed(s, tally):
     return False
 
 
-def wait_out_stun(s):
-    """Sleep while the status indicator says stunned, STUN_WAIT seconds
-    at most (#336). A handle without the status (a test's) waits none."""
-    waited = 0.0
-    while waited < STUN_WAIT and not s.dead:
-        status = getattr(s, "status", None)
-        if not getattr(status, "stunned", False):
-            return
-        s.sleep(STUN_POLL)
-        waited += STUN_POLL
+wait_out_stun = buffs.wait_stun  # the swing's wait is the cast's (#336, #498)
 
 
 def aimed_swing(s, profile, tally, prey):

@@ -194,8 +194,9 @@ PREPARE_OUTCOMES = (
 # went out and the pattern is still held — the stun is waited out and
 # the CAST sent again, as the hunt's swing reader does since #336.
 STILL_STUNNED = ("you are still stunned",)
-STUN_WAIT = 20  # seconds a cast waits for a stun to pass
+STUN_WAIT = 20  # seconds a cast (or ;hunt's swing) waits for a stun to pass
 STUN_POLL = 0.5
+STUN_CASTS = 3  # CASTs a stun can answer before the pattern is let go
 
 CAST_OUTCOMES = (
     ("stunned", STILL_STUNNED),
@@ -787,8 +788,10 @@ def cast_once(
     (the target was gone before the cast, or died under it — the
     pattern is let go, #203, #252), "held" (the pattern held was
     another spell's and TARGET refused it — released, #252),
-    "collapsed" (the cast failed), "strained" (cast, but the mana
-    asked was too much) or "ok"."""
+    "collapsed" (the cast failed), "stunned" (a CAST answered "You are
+    still stunned." STUN_CASTS times, the stun waited out between them:
+    nothing went out, the pattern let go, #498), "strained" (cast, but
+    the mana asked was too much) or "ok"."""
     # A spell that prepared by its abbreviation earlier in the run is
     # prepared by it at once: the name's refusal cost a command every
     # cast (the operator, 2026-09-26).
@@ -888,11 +891,19 @@ def cast_once(
     command = f"cast {target}" if target and not targeted else "cast"
     answer = ask(s, command)
     cast = classify(answer, CAST_OUTCOMES)
-    if cast == "stunned":
+    for _ in range(STUN_CASTS - 1):
+        if cast != "stunned":
+            break
         # Nothing went out (#498): the stun waited out, the CAST again.
         wait_stun(s)
         answer = ask(s, command)
         cast = classify(answer, CAST_OUTCOMES)
+    if cast == "stunned":
+        # A stun past every wait: the pattern let go, nothing counted.
+        if invoke:
+            ask(s, put_back or f"stow my {invoke}")
+        ask(s, "release")
+        return "stunned"
     if cast is None:
         # A bystander's line closed the window before the cast's own
         # ("The cougar closes to melee range on you!" with its prompt,
@@ -1164,6 +1175,9 @@ def cast_targeted(s, profile, state, ask, prefix, report, slot, target="", fille
     state.last_training = slot
     if result == "blocked":
         return  # magic will not form in this room: tried again elsewhere
+    if result == "stunned":
+        s.echo(f"{prefix}: still stunned after every wait — {spell} let go, not cast")
+        return
     if result == "released":
         s.echo(f"{prefix}: {spell} released — the foe was down before the cast")
     elif result == "held":
@@ -1278,6 +1292,11 @@ def cast_buffs(
         if result == "blocked":
             s.echo(
                 f"{prefix}: magic will not form here — the buffs wait until elsewhere"
+            )
+            break
+        if result == "stunned":
+            s.echo(
+                f"{prefix}: still stunned after every wait — {spell} let go, not cast"
             )
             break
         cast = True
