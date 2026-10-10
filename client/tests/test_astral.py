@@ -5,6 +5,7 @@ out. The wordings are the first trip's, Vellano to Besoge, 2026-10-10."""
 
 import importlib.util
 import pathlib
+import re
 from types import SimpleNamespace
 
 from client.game import astral
@@ -88,9 +89,10 @@ class Plane:
     """A handle on the plane, standing at Vellano: `centre[shard]` are the
     ways PERCEIVE gives from that shard's conduit to its pillar, room by
     room; `end[shard]` the ways down that conduit to its shard. `press`
-    names a verdict the first PERCEIVE carries."""
+    names a verdict the first PERCEIVE carries; `between` one that comes
+    between commands, which only the script's flag catches."""
 
-    def __init__(self, centre, end, press=None, known=True):
+    def __init__(self, centre, end, press=None, known=True, between=None):
         self.centre = {shard: list(ways) for shard, ways in centre.items()}
         self.end = {shard: list(ways) for shard, ways in end.items()}
         self.press = press
@@ -99,6 +101,18 @@ class Plane:
         self.leaving = False  # toward the centre, not the shard
         self.sent, self.echoed = [], []
         self.state = SimpleNamespace(room_title=ROOMS["vellano"], room_objs=DOME_OBJS)
+        self.between = between
+        self.flags = ()
+        self.perceive_tails = set()
+
+    def flag(self, name, *patterns):
+        self.flags = [re.compile(pattern, re.IGNORECASE) for pattern in patterns]
+
+    def flagged(self, name):
+        line, self.between = self.between, None
+        if line and any(pattern.search(line) for pattern in self.flags):
+            return line
+        return None
 
     def at(self, shard):
         self.state.room_title = ROOMS[shard]
@@ -131,6 +145,7 @@ class Plane:
                 self.in_conduit(word, leaving=True)
             return "You are pulled through your unstable Moongate.\n"
         if command == "perceive":
+            self.perceive_tails.add(tail)
             verdict = ""
             if self.press:
                 verdict = f"You are {self.press} to maintain your place.\n"
@@ -244,6 +259,27 @@ def test_the_plane_pressing_harnesses_more_mana():
     plane = Plane(centre={"vellano": ["west"]}, end={"besoge": []}, press="struggling")
     assert run(plane, "besoge", "harness=150") == "arrived"
     assert plane.sent.count("harness 150") == 3  # in, the press, out
+    assert any("struggling" in e for e in plane.echoed)
+
+
+def test_perceive_moves_on_as_its_roundtime_ends():
+    # The operator, 2026-10-10: 6-9 s a room where PERCEIVE's roundtime
+    # is 3 s; the ways come before it, so no tail window is waited.
+    plane = first_trip()
+    assert run(plane) == "arrived"
+    assert plane.perceive_tails == {0}
+
+
+def test_a_verdict_between_commands_is_caught_by_the_flag():
+    # The plane's verdict lands on its own timer, where an ask's clear()
+    # would drop it (2026-10-10: after a prompt, never inside an answer).
+    plane = Plane(
+        centre={"vellano": ["west"]},
+        end={"besoge": []},
+        between="You are struggling to maintain your place among the shifting streams of mana.",
+    )
+    assert run(plane, "besoge") == "arrived"
+    assert plane.sent.count("harness 100") == 3  # in, the press, out
     assert any("struggling" in e for e in plane.echoed)
 
 

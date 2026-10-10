@@ -76,6 +76,9 @@ STANDINGS = (
 # The Grey Expanse (the old script's wording) and the apparition that
 # sends a mage there (Elanthipedia: Pelag ai Aldam).
 LOST = ("cannot sense even a single thread of Lunar energy", "endless grey horizon")
+# The verdict comes on the plane's own timer, between commands, where an
+# ask's clear() would drop it: ;astral flags these lines instead.
+PLANE_LINES = tuple(re.escape(n) for n, _ in STANDINGS) + tuple(map(re.escape, LOST))
 
 
 def shard_here(objs_text):

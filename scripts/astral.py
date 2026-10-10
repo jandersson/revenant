@@ -92,7 +92,9 @@ def moongate(s, shard, mana):
 
 
 def pressed(s, answer, mana):
-    """React to the plane's verdict in an answer; False when lost."""
+    """React to the plane's verdict, in an answer or flagged between
+    commands; False when lost."""
+    answer = f"{answer}\n{s.flagged('plane') or ''}"
     if astral.lost(answer):
         s.echo("astral: in the Grey Expanse — nothing a script can do; ;stop astral")
         return False
@@ -106,12 +108,16 @@ def pressed(s, answer, mana):
 
 def follow(s, goal, mana):
     """PERCEIVE and step until at a pillar (goal "centre") or at the
-    conduit's end (goal "end"): True on arrival."""
+    conduit's end (goal "end"): True on arrival. PERCEIVE's ways come
+    before its 3 s roundtime, so the move goes out as the roundtime
+    ends, with no tail window (the operator, 2026-10-10: "too much of a
+    delay here between perceive and the movement", 6-9 s a room)."""
+    s.flag("plane", *astral.PLANE_LINES)
     for _ in range(MAX_ROOMS):
         if goal == "centre" and astral.pillar_of(title(s)):
             return True
         s.waitrt()
-        answer = ask(s, "perceive")
+        answer = ask(s, "perceive", tail=0)
         if not pressed(s, answer, mana):
             return False
         centre, end = astral.perceived(answer)
