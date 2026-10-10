@@ -477,6 +477,30 @@ def test_engine_emits_the_server_clock_delta_once(monkeypatch):
     assert frames == [("45.0", "timesync", ""), ("80.0", "timesync", "")]
 
 
+def test_a_prompt_parsed_long_after_the_server_stamped_it_is_logged(monkeypatch):
+    # #508: a walk stalled while the parser sat 30 s behind the game; a
+    # late prompt says so in the debug log, once per late stretch.
+    local = [1_787_402_500.0]
+    monkeypatch.setattr("time.time", lambda: local[0])
+    engine = Engine()
+    warnings = []
+    monkeypatch.setattr(engine.log, "warning", warnings.append)
+    engine.connection = FakeConnection(
+        [
+            b'<prompt time="1787402498">&gt;</prompt>\n',  # delta -2
+            b'<prompt time="1787402499">&gt;</prompt>\n',  # parsed 31 s on
+            b'<prompt time="1787402500">&gt;</prompt>\n',  # still behind
+            b'<prompt time="1787402531">&gt;</prompt>\n',  # caught up
+        ]
+    )
+    for now in (1_787_402_500.0, 1_787_402_532.0, 1_787_402_533.0, 1_787_402_533.0):
+        local[0] = now
+        engine.read(output_callback=lambda text, stream, style: None)
+    assert warnings == [
+        "game lines 31s late: a prompt parsed long after the server stamped it"
+    ]
+
+
 def test_room_frame_is_uid_tab_title_with_blanks_for_the_unknown_half():
     # The "room" stream's wire text, shared by Engine.read and the
     # session's attach replay: "uid<TAB>title", "" when neither is known.

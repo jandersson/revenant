@@ -80,6 +80,10 @@ READER_FAILURES = (
 # Ten minutes with no byte from the game and the heartbeat writes one
 # TIME (#221): a link dead without a FIN went 52 minutes unnoticed.
 SILENCE_PROBE_SECONDS = 600
+# One read of the game held this long (the parse, the log, the fan-out
+# to windows and scripts) is logged: with core's late-prompt line it
+# tells a held reader from lines that came late (#508).
+READ_HELD_SECONDS = 5.0
 # A spawned helper session logs itself out after this many heartbeats
 # in a row find the spawning session's port refusing (#296): one beat
 # is a relaunch in progress, two is a session that is gone.
@@ -281,7 +285,13 @@ class SessionServer(ClientLogger):
                 self._reader_parked.set()  # the socket belongs to the child now
                 return
             try:
+                started = monotonic()
                 self.engine.read(output_callback=self.fanout)
+                held = monotonic() - started
+                if held > READ_HELD_SECONDS:
+                    self.log.warning(
+                        f"the game reader was held {held:.1f}s in one read"
+                    )
                 failures = 0
             except EOFError:
                 # Same EOF, two stories: after a quit it is the expected

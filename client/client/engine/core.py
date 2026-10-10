@@ -9,6 +9,8 @@ from client.game.rested import describe as describe_rested
 from client.client_logger import ClientLogger
 from client.engine.xml_data import LEARNING_RATES, XMLData, describe_exp_mods
 
+LATE_SECONDS = 10  # a prompt this much later than the last one's is logged (#508)
+
 
 def indicators_frame(indicator: dict) -> str:
     """The "indicators" stream's wire text: the active indicator ids,
@@ -133,6 +135,7 @@ class Engine(ClientLogger):
         # flood. _last_server_time gates on prompt freshness.
         self.timesync_delta = None
         self._last_server_time = 0
+        self._last_delta = None  # the previous fresh prompt's delta (#508)
 
     @property
     def connection(self):
@@ -376,6 +379,15 @@ class Engine(ClientLogger):
         ):
             self._last_server_time = self.xml_data.server_time
             delta = self.xml_data.server_time - time.time()
+            # A prompt parsed well after the server stamped it: the game's
+            # lines reached us late, or the reader was held (#508: a walk
+            # stalled while the parser sat 30 s behind the game).
+            if self._last_delta is not None and self._last_delta - delta > LATE_SECONDS:
+                self.log.warning(
+                    f"game lines {self._last_delta - delta:.0f}s late: a prompt "
+                    "parsed long after the server stamped it"
+                )
+            self._last_delta = delta
             if self.timesync_delta is None or abs(delta - self.timesync_delta) > 2.0:
                 self.timesync_delta = delta
                 if output_callback:
