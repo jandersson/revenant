@@ -257,8 +257,10 @@ Traps that cost time before:
   work. Every issue carries a label at creation: bug, enhancement, or
   question. Draft issue bodies in a file and pass `--body-file`.
   Every issue body and comment Claude writes ends with the line
-  `🤖 Written by Claude Fable 5.1 (Claude Code)` (the operator,
-  2026-10-09: transparency), as commits carry the Co-Authored-By
+  `🤖 Written by Claude <the model writing it> (Claude Code)` —
+  `Claude Opus 5.5`, `Claude Fable 5.1`, whichever the session runs,
+  never another's (the operator, 2026-10-09: transparency; the model
+  named right, 2026-10-10), as commits carry the Co-Authored-By
   trailer.
 - Written for a skimmer: issues and comments use bold section labels and
   numbered steps; commits are Conventional Commits (`type(scope): summary`)
