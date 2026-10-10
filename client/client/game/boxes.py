@@ -60,7 +60,7 @@ fixtures. Sources: docs/bibliography.md.
 
 import re
 
-from client.game import items
+from client.game import items, probe
 from client.game.creatures import noun_of
 from client.game.loot import BOX_NOUNS
 
@@ -235,8 +235,8 @@ TOAD = ("simple toad now", "gotten much bigger")
 # attempt that, but end up getting caught in an invisible box." with a
 # 10 s roundtime; it ends with "You suddenly feel nauseous, as if you'd
 # been doing performance art."
-MIMED = ("caught in an invisible box",)
-MIME_OVER = ("doing performance art",)
+MIMED = probe.MIMED  # one wording: probe.ask waits it out for every script (#504)
+MIME_OVER = probe.MIME_OVER
 # DISMANTLE of an emptied box (captured 2026-09-26, an oaken crate held):
 # "You examine the oaken crate to determine a weak point from which to
 # start the destruction. / You move your hands in a practiced maneuver,

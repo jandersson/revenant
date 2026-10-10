@@ -308,6 +308,63 @@ def test_ask_gives_the_refusal_back_after_three_resends():
     assert handle.sent == ["cast"] * (probe.WAIT_RETRIES + 1)
 
 
+BOXED = "You attempt that, but end up getting caught in an invisible box.\n"
+RELEASED = "You suddenly feel nauseous, as if you'd been doing performance art.\n"
+
+
+class MimedHandle(FakeHandle):
+    """The mime trap's box answers the first send; the release line comes
+    in the same window (`at_once`) or later, once ask() says it waits
+    (#504); the next send runs."""
+
+    def __init__(self, answers, released=True, at_once=False):
+        super().__init__(answers)
+        self.released = released
+        self.at_once = at_once
+        self.later = []
+        self.echoed = []
+        self.dead = False
+
+    def put(self, command):
+        self.sent.append(command)
+        if len(self.sent) == 1:
+            self.pending = [BOXED] + ([RELEASED] if self.at_once else [])
+            if self.released and not self.at_once:
+                self.later = [RELEASED]
+        else:
+            self.pending = list(self.answers)
+
+    def echo(self, text):
+        self.echoed.append(text)
+        self.pending.extend(self.later)  # the release, while ask() waits
+        self.later = []
+
+
+def test_ask_waits_a_mime_trap_out_and_sends_again():
+    # ;compendium, 2026-10-09 13:30: four STUDYs answered with the box,
+    # each reported as unrecognized. Now the box is waited out, said
+    # once, and the STUDY sent again.
+    handle = MimedHandle(["You study the chart.\n"])
+    assert probe.ask(handle, "study my compendium", 0.02, 0) == "You study the chart."
+    assert handle.sent == ["study my compendium"] * 2
+    assert handle.echoed[0].startswith("caught in a mime trap's invisible box")
+    assert handle.echoed[-1] == "out of the invisible box"
+
+
+def test_a_box_already_lifted_in_the_window_is_sent_again_at_once():
+    handle = MimedHandle(["You study the chart.\n"], at_once=True)
+    assert probe.ask(handle, "study my compendium", 0.02, 0) == "You study the chart."
+    assert handle.sent == ["study my compendium"] * 2 and handle.echoed == []
+
+
+def test_a_box_that_never_lifts_gives_its_answer_back(monkeypatch):
+    monkeypatch.setattr(probe, "MIME_WAIT", 0.05)
+    monkeypatch.setattr(probe, "MIME_POLL", 0.01)
+    handle = MimedHandle(["You study the chart.\n"], released=False)
+    assert "invisible box" in probe.ask(handle, "study my compendium", 0.02, 0)
+    assert handle.sent == ["study my compendium"]
+
+
 class QueuedHandle:
     """A handle with a queue the way a running script has one: lines
     arrive whether or not the script reads them."""

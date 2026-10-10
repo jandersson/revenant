@@ -57,6 +57,17 @@ def _bystander(line, names):
 _WAIT = re.compile(r"^\.\.\.wait (\d+) seconds?\.", re.MULTILINE)
 WAIT_RETRIES = 3
 WAIT_PAD = 0.2
+# A sprung mime trap's invisible box (captured 2026-10-09 on an ogre
+# coffer, #497): every command for ten minutes or so answers "You
+# attempt that, but end up getting caught in an invisible box." (10 s
+# roundtime) and nothing runs; it ends with "You suddenly feel nauseous,
+# as if you'd been doing performance art." ask() waits for that line,
+# MIME_WAIT at most, said once, and sends the command again — every
+# script, not ;boxes alone (;compendium reported it four times, #504).
+MIMED = ("caught in an invisible box",)
+MIME_OVER = ("doing performance art",)
+MIME_WAIT = 900
+MIME_POLL = 5
 
 
 def wait_seconds(answer):
@@ -64,6 +75,27 @@ def wait_seconds(answer):
     the game ran the command."""
     held = _WAIT.search(answer or "")
     return int(held.group(1)) if held else None
+
+
+def mimed(answer):
+    """True when the answer is the mime trap's invisible box."""
+    lowered = str(answer or "").lower()
+    return any(needle in lowered for needle in MIMED)
+
+
+def wait_mime(s):
+    """Read the story for the line that ends the mime trap's box,
+    MIME_WAIT seconds at most, said once: True when it ended."""
+    s.echo(
+        f"caught in a mime trap's invisible box — waiting it out (up to {MIME_WAIT // 60} minutes)"
+    )
+    deadline = clock() + MIME_WAIT
+    while clock() < deadline and not getattr(s, "dead", False):
+        piece = s.get(timeout=MIME_POLL, streams=STORY_STREAMS)
+        if piece and any(needle in piece.lower() for needle in MIME_OVER):
+            s.echo("out of the invisible box")
+            return True
+    return False
 
 
 # What the main window shows: the story, and the combat stream the
@@ -210,11 +242,20 @@ def ask(s, command, seconds, tail_seconds):
     second is still running for a fraction no prompt stamp can show;
     32 refusals in one day's logs). Lich's DragonRealms commons resend
     on the same line (`DRC.bput`, docs/bibliography.md)."""
+    boxed = False
     for attempt in range(WAIT_RETRIES + 1):
         clear(s)
         before = _prompts(s)
         s.put(command)
         opening = collect(s, seconds, prompts_from=before)
+        if mimed(opening) and not boxed:
+            # Nothing ran (#504): the box waited out once, then again —
+            # at once when its release came in the same window.
+            boxed = True
+            over = any(needle in opening.lower() for needle in MIME_OVER)
+            if over or wait_mime(s):
+                continue
+            break
         held = wait_seconds(opening)
         if held is None or attempt == WAIT_RETRIES:
             break
