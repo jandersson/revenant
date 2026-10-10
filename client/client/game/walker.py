@@ -18,7 +18,9 @@ the wordings captured on the first ride (2026-09-18): the fare is 30
 lirums, put on the Therengian debt when there are none on you. A
 captain who turns you away for the fare has ;bank keep=200 fetch it,
 with lirums=200 when lirums are the coin named (#507), and the walk
-planned again from the teller, once a walk (#455).
+planned again from the teller, once a walk (#455). Hara'jaal's Glaren
+Kweld grass, one title on dozens of rooms, is crossed bescort's way
+(ride_grass, #519).
 """
 
 import re
@@ -176,6 +178,16 @@ JOLAS_POLL_SECONDS = 30
 JOLAS_MOORED = "The Jolas"
 JOLAS_ARRIVES = ("The Jolas ties off",)
 JOLAS_LANDS = ("tie off the Jolas to the docks",)
+# Hara'jaal's Glaren Kweld grassland (#519): dozens of rooms under one
+# title, three on the map (the slope's top 11411, the rock 11412, the
+# trail room 11416). CLIMB SLOPE from the top lands among the slope
+# rooms; NORTHEAST runs round the grass to the room that lists a rock
+# (24 moves, 2026-10-10) and on to the slope rooms again — bescort's
+# hara_polo up and down, the map's edges between 11411 and 11412.
+GRASS_TITLE = "hara'jaal, glaren kweld"
+GRASS_STEPS = 40  # NORTHEASTs before the grass is called a loss
+GRASS_ROCK = re.compile(r"\brock\b")
+GRASS_SLOPE = re.compile(r"\bslope\b")
 # The Obsidian Pass gondola (#211), after bescort's ride_gondola and
 # captured on the first ride (2026-09-18): GO GONDOLA at a platform
 # lands in the cab ([Gondola, Cab North], a room: a compass frame) or
@@ -826,8 +838,70 @@ def ride_mammoth(s, mode=""):
     return "no mammoth"
 
 
+def grass_move(s, move):
+    """One move in the Glaren Kweld grass, True on arrival: the poloh'izh
+    engage at once, so with hostiles in the room (or the move stalled)
+    it goes as RETREAT, RETREAT and the move back to back."""
+    s.waitrt()
+    while s.get(timeout=0, streams=("compass",)) is not None:
+        pass
+    if getattr(s.state, "hostiles", None):
+        s.put("retreat")
+        s.put("retreat")
+    s.put(move)
+    outcome, _, _ = await_arrival(s)
+    if outcome == "stalled":
+        s.put("retreat")
+        s.put("retreat")
+        s.put(move)
+        outcome, _, _ = await_arrival(s)
+    return outcome == "arrived"
+
+
+def grass_northeast(s, done):
+    """NORTHEAST through the grass until `done()`; False when a move
+    failed or GRASS_STEPS passed without it."""
+    for _ in range(GRASS_STEPS):
+        if done():
+            return True
+        if not grass_move(s, "northeast"):
+            return False
+    return done()
+
+
+def lost_in_grass(db, state):
+    """True in a Glaren Kweld room the map has no uid for (#519)."""
+    uid = getattr(state, "room_uid", None)
+    title = normalize_title(str(getattr(state, "room_title", "") or ""))
+    return bool(uid) and title == GRASS_TITLE and db.room_by_uid(uid) is None
+
+
+def ride_grass(s, mode=""):
+    """Cross the Glaren Kweld grass bescort's way (#519): "up" climbs
+    the slope and goes NORTHEAST until the room lists a rock (the step's
+    LOOK checks it is 11412); "down" goes NORTHEAST until a slope (the
+    step's CLIMB SLOPE lands on 11411). "landed", else "stuck"."""
+
+    def objs(pattern):
+        return lambda: bool(
+            pattern.search(str(getattr(s.state, "room_objs", "") or ""))
+        )
+
+    if mode == "up" and not grass_move(s, "climb slope"):
+        s.echo("the climb down the slope failed — stopping here")
+        return "stuck"
+    if not grass_northeast(s, objs(GRASS_ROCK if mode == "up" else GRASS_SLOPE)):
+        s.echo(
+            f"no {'rock' if mode == 'up' else 'slope'} in {GRASS_STEPS} rooms "
+            "of the grass — stopping here"
+        )
+        return "stuck"
+    return "landed"
+
+
 # route -> (the ride, the step's own move off it)
 RIDE_HANDLERS = {
+    "hara_polo": (ride_grass, {"up": "look", "down": "climb slope"}),
     "faldesu": (ride_ferry, "go dock"),
     "ferry": (ride_ferry, "go dock"),
     "gondola": (ride_gondola, "out"),
@@ -1056,6 +1130,12 @@ def walk(s, db, goals, describe="destination", avoid=(), max_steps=None):
         s.echo("you are DEAD — corpses don't travel; deathwatch has it (#91)")
         return False
     night_shut(s, False)  # this walk's own verdict, not the last one's
+    if lost_in_grass(db, s.state):
+        # Every grass room shares a title; NORTHEAST reaches the rock (#519).
+        s.echo("in the Glaren Kweld grass, off the map — northeast to the rock first")
+        if not grass_northeast(s, lambda: not lost_in_grass(db, s.state)):
+            s.echo("still lost in the grass — stopping here")
+            return False
     here = locate(db, s.state)
     if here is None:
         title = getattr(s.state, "room_title", None) if s.state else None

@@ -2428,3 +2428,157 @@ def test_a_jolas_that_never_comes_stops_the_walk(quick_jolas):
     handle.state.room_uid = 3155100
     assert walker.walk(handle, JOLAS, [6542]) is False
     assert any("no Jolas came" in e for e in handle.echoes)
+
+
+# --- the Glaren Kweld grass (#519) -----------------------------------------
+
+GRASS_TITLE = "[[Hara'jaal, Glaren Kweld]]"
+
+# The community map's three grass rooms as it writes them: one CLIMB SLOPE
+# from the slope's top to the rock, and no way back.
+GRASS = MapDB(
+    [
+        {
+            "id": 11410,
+            "uid": [3140045],
+            "title": ["[[Hara'jaal, Amo Potha Telga]]"],
+            "wayto": {"11411": "south"},
+        },
+        {
+            "id": 11411,
+            "uid": [3141001],
+            "title": [GRASS_TITLE],
+            "wayto": {"11410": "north", "11412": "climb slope"},
+        },
+        {
+            "id": 11412,
+            "uid": [3141026],
+            "title": [GRASS_TITLE],
+            "wayto": {"11412": "west", "11416": "south"},
+        },
+        {
+            "id": 11416,
+            "uid": [3141027],
+            "title": [GRASS_TITLE],
+            "wayto": {"11412": "north", "11413": "go trail"},
+        },
+        {
+            "id": 11413,
+            "uid": [3144001],
+            "title": ["[[Hara'jaal, Fal Daelfa]]"],
+            "wayto": {"11416": "north"},
+        },
+    ]
+)
+
+
+class GrassHandle(FakeHandle):
+    """The grass as the game had it on 2026-10-10: CLIMB SLOPE from the
+    top (3141001) lands on a slope room (3141003), NORTHEAST runs one
+    room at a time to the rock (3141026) and wraps to the slope rooms
+    (3141002), SOUTH from the rock is the trail room (3141027). A room in
+    `hostile` lists a poloh'izh, and a move there goes nowhere unless two
+    RETREATs went first."""
+
+    TOP, ROCK, TRAIL = 3141001, 3141026, 3141027
+    ABOVE, ENCLAVE = 3140045, 3144001
+
+    def __init__(self, uid, hostile=()):
+        super().__init__([])
+        self.hostile = set(hostile)
+        self.retreats = 0
+        self.lands = None
+        self.place(uid)
+
+    def place(self, uid):
+        state = self.state
+        state.room_uid = uid
+        grass = self.TOP <= uid <= self.TRAIL
+        state.room_title = "[Hara'jaal, Glaren Kweld]" if grass else "[Elsewhere]"
+        state.room_objs = (
+            "You also see a rock."
+            if uid == self.ROCK
+            else "You also see a steep slope."
+            if uid in (3141002, 3141003)
+            else ""
+        )
+        state.hostiles = {"1": "a poloh'izh"} if uid in self.hostile else {}
+
+    def lead(self, command):
+        uid = self.state.room_uid
+        if command == "northeast" and 3141002 <= uid <= self.ROCK:
+            return uid + 1 if uid < self.ROCK else 3141002
+        return {
+            "climb slope": {self.TOP: 3141003, 3141002: self.TOP, 3141003: self.TOP},
+            "south": {self.ROCK: self.TRAIL, self.ABOVE: self.TOP},
+            "north": {
+                self.TRAIL: self.ROCK,
+                self.TOP: self.ABOVE,
+                self.ENCLAVE: self.TRAIL,
+            },
+            "go trail": {self.TRAIL: self.ENCLAVE},
+            "look": {uid: uid},
+        }.get(command, {}).get(uid)
+
+    def put(self, command):
+        super().put(command)
+        if command == "retreat":
+            self.retreats += 1
+            return
+        engaged = bool(self.state.hostiles) and self.retreats < 2
+        self.retreats = 0
+        self.lands = None if engaged else self.lead(command)
+
+    def get(self, timeout=None, streams=("",)):
+        if timeout == 0 or streams is not None or self.lands is None:
+            return None
+        self.place(self.lands)
+        self.lands = None
+        return ("compass", "")
+
+
+def test_the_grass_is_crossed_by_bescorts_hara_polo_both_ways():
+    down = GRASS.path(11410, {11413})
+    up = GRASS.path(11413, {11410})
+    assert ride_of(dict(down)[11412]) == "hara_polo"
+    assert ride_of(dict(up)[11411]) == "hara_polo"
+
+
+def test_into_the_grass_it_climbs_down_and_goes_northeast_to_the_rock():
+    handle = GrassHandle(GrassHandle.ABOVE)
+    assert walker.walk(handle, GRASS, [11413], describe="Fal Daelfa") is True
+    assert puts_of(handle) == (
+        ["south", "climb slope"] + ["northeast"] * 23 + ["look", "south", "go trail"]
+    )
+    assert handle.state.room_uid == GrassHandle.ENCLAVE
+
+
+def test_out_of_the_grass_it_goes_northeast_to_a_slope_and_climbs_it():
+    handle = GrassHandle(GrassHandle.ENCLAVE)
+    assert walker.walk(handle, GRASS, [11410]) is True
+    assert puts_of(handle) == ["north", "north", "northeast", "climb slope", "north"]
+
+
+def test_a_walk_begun_lost_in_the_grass_goes_northeast_to_the_rock_first():
+    # #519: every grass room shares a title, and two ;go2s from inside it
+    # took a grass room for the trail room and stalled on GO TRAIL.
+    handle = GrassHandle(3141022, hostile={3141022})
+    assert walker.walk(handle, GRASS, [11413]) is True
+    assert puts_of(handle) == [
+        "retreat",
+        "retreat",
+        "northeast",
+        "northeast",
+        "northeast",
+        "northeast",
+        "south",
+        "go trail",
+    ]
+    assert any("in the Glaren Kweld grass" in e for e in handle.echoes)
+
+
+def test_no_rock_in_the_grass_stops_the_walk(monkeypatch):
+    monkeypatch.setattr(walker, "GRASS_STEPS", 5)
+    handle = GrassHandle(GrassHandle.TOP)
+    assert walker.walk(handle, GRASS, [11413]) is False
+    assert any("no rock in 5 rooms" in e for e in handle.echoes)

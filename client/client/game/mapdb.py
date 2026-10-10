@@ -103,6 +103,15 @@ RIDES = {
     "haven_throne": "barge",
     "mammoth": "mammoth",
     "jolas": "ship",  # Wharf End 6542 <-> Sumilo Dock 15253 (#515)
+    "hara_polo": "maze",  # the Glaren Kweld grass, GRASS_EDGES (#519)
+}
+# Hara'jaal's Glaren Kweld grass (#519): the map writes the slope's top
+# 11411 to the rock 11412 as one CLIMB SLOPE and has no way back, where
+# the game has dozens of rooms under one title between them; bescort's
+# hara_polo walks it, and so does the walker (walker.ride_grass).
+GRASS_EDGES = {
+    (11411, 11412): ";e start_script('bescort', ['hara_polo', 'up'])",
+    (11412, 11411): ";e start_script('bescort', ['hara_polo', 'down'])",
 }
 IF_FORM_RIDES = frozenset({"gondola", "ferry", "haven_throne"})
 RIDE_SECONDS = 300.0  # the wait and the crossing: a land route wins where one exists
@@ -482,6 +491,9 @@ class MapDB:
         self._lock = threading.RLock()
         self._by_title = {}
         self._by_uid = {}
+        for (room_id, dest), command in GRASS_EDGES.items():
+            if room_id in self.rooms and dest in self.rooms:
+                self.rooms[room_id].setdefault("wayto", {})[str(dest)] = command
         for room in rooms:
             for title in room.get("title") or []:
                 ids = self._by_title.setdefault(normalize_title(title), [])

@@ -47,6 +47,8 @@ A Moon Mage standing at a Grazhir shard crosses the Astral Plane to another with
 
 Ratha to Hara'jaal is the Tasia'zaul, from the lower Uasin Dock behind a guard's bribe: `;harajaal` gets you down there (`;harajaal quest` on a first trip). The ship itself is not a walker ride yet.
 
+Hara'jaal's Glaren Kweld grass is dozens of rooms under one title, three of them on the map. The walker crosses it the way bescort does: down the slope, then NORTHEAST until a room lists a rock; out, NORTHEAST until a slope, then CLIMB SLOPE. A walk begun lost in the grass goes NORTHEAST to the rock first. With a poloh'izh in the room each move goes as RETREAT, RETREAT and the move.
+
 The Riverhaven–Throne City barge is ridden the same way: at the Salt Yard's barge dock or Throne City's Stone Docks the walker waits for a barge, boards it by name (`go riverhawk`, `go glory`), pays the 120 lirums, and steps off at the far dock. Fifteen minutes is the longest it waits.
 
 ## Rooms to avoid
