@@ -2,7 +2,7 @@
 until the drain, a typed return between steps, danger to the escape.
 
     def step(s): ...                   # one unit of training; None to go on, a reason to end
-    why = trainer.train(s, "mechlore", "Mechanical Lore", step, again="braiding again")
+    why = trainer.train(s, "appraise", "Appraisal", step, again="appraising again")
     trainer.hold_at_lock(s, "cast", skills, until, again="casting again")   # the hold alone
 
 train() ends with the reason: "you are dead", "hostiles in the room"

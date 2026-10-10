@@ -4,7 +4,7 @@ the room's trash when it has one.
 Nothing the client sends drops an item unless the item is on the list:
 a dropped item is a lost item (the operator's rule, 2026-09-12). The
 built-in list is the foraged junk a training loop makes and discards
-on purpose — ;mechlore's grass and the grass rope it braids — and
+on purpose — grass and the grass rope braided from it — and
 nothing else; settings.json's `droppable` (a list of item names as
 typed after DROP MY) extends it for a character's own junk (the
 remedies an order rejects: cream, salve, ointment, 2026-09-22). Every

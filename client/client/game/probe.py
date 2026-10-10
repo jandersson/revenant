@@ -1,5 +1,5 @@
 """Ask the game a question and classify its answer by keyword — the
-half of a script that ;mechlore and ;favors used to each carry a copy of.
+half of a script that ;favors and the old ;mechlore each carried a copy of.
 
 ask() sends a command and gathers the lines that follow, including the
 ones the game holds back until the roundtime ends; classify() maps the
