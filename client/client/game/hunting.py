@@ -480,6 +480,7 @@ class Tally:
         self.boxes_full = False  # the loot container refused a box: no more boxes
         self.unrecognized = 0
         self.empty_moves = 0
+        self.held_moves = 0  # moves refused in place in a row (a hidden foe)
         self.room_clear = False
         self.corpse_swings = 0
         # None: no bundle yet, the first skin starts one; True: a bundle

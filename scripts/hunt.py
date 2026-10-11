@@ -353,6 +353,7 @@ MAX_ITERATIONS = 5000
 SETTLE_SECONDS = 1.0  # after arriving: the room's creature enumeration
 EMPTY_ROOM_WAIT = 20  # seconds between looks when the whole ground is empty
 EMPTY_LAPS = 2  # laps of the ground with nothing in it before the pause
+HELD_MOVES = 3  # moves refused in place in a row (a hidden foe) before the hunt ends
 # The ground-is-beyond-you fuses (#236): an hour of grass eels gave no
 # kill and nine stuns, the health bar never crossed the floor, and the
 # profile's wound floor was unset — nothing in the loop said stop while
@@ -1772,8 +1773,9 @@ def next_room(s, db, ground, avoid, tally):
     a one-room ground waits and looks instead. Once the ground has
     been lapped EMPTY_LAPS times with nothing in it, a pause of
     EMPTY_ROOM_WAIT and the laps go on — an empty ground is waited
-    out, never left (the operator, 2026-09-13). False only when a walk
-    fails."""
+    out, never left (the operator, 2026-09-13). A move refused where
+    the character stands is a hidden foe, waited for. False only when a
+    walk fails elsewhere, or HELD_MOVES refusals come in a row."""
     tally.room_clear = False
     tally.empty_moves += 1
     if tally.empty_moves > EMPTY_LAPS * max(len(ground), 1):
@@ -1800,7 +1802,22 @@ def next_room(s, db, ground, avoid, tally):
         s.echo("hunt: something arrived — staying")
         return True
     s.echo("hunt: room empty — moving on")
-    return step_on(s, db, ground, avoid)
+    if step_on(s, db, ground, avoid):
+        tally.held_moves = 0
+        return True
+    if here is None or locate(db, s.state) != here or tally.held_moves >= HELD_MOVES:
+        return False
+    # Refused where it stands: a foe hidden in the room still holds the
+    # character — "You can't do that while engaged!", both RETREATs "You
+    # are already as far away as you can get!" (a poloh'izh in the
+    # Glaren Kweld grass, 2026-10-11, which ended the task's hunt). It
+    # is waited for and fought, never walked away from.
+    tally.held_moves += 1
+    s.echo(
+        "hunt: the move was refused here — something hidden holds you; waiting for it"
+    )
+    wait_for_prey(s, EMPTY_ROOM_WAIT)
+    return True
 
 
 def step_on(s, db, ground, avoid):

@@ -1062,6 +1062,45 @@ def test_an_occupied_room_is_left_whatever_is_in_it_and_a_taken_ground_goes_home
     assert arena.walks[-1] == {1}  # and home
 
 
+def test_a_move_refused_in_place_waits_for_the_hidden_foe_and_fights_it(
+    travel, monkeypatch
+):
+    # 2026-10-11, the Glaren Kweld grass: a poloh'izh vanished into the
+    # grass still engaged, the room read empty, "south" answered "You
+    # can't do that while engaged!" and the task's hunt ended there.
+    arena = Arena(
+        {"attack": [(KILL, kill)] * 2, "skin": [SKINNED] * 2, "loot": [NOTHING] * 2}
+    )
+
+    def held_once(s, db, goals, describe="", avoid=()):
+        s.walks.append(set(goals))
+        if len(s.walks) == 1:
+            s.state.hostiles = {"2": True}  # it comes out of the grass
+            return False
+        s.room = s.state.room = min(goals)
+        return True
+
+    monkeypatch.setattr(hunt, "walk", held_once)
+    _run(arena, profile=PROFILE | {"max_kills": 2}, travel_first=False)
+    assert arena.sent.count("attack rat") == 2
+    assert any("something hidden holds you" in e for e in arena.echoed)
+    assert not any("walk to the next room failed" in e for e in arena.echoed)
+
+
+def test_moves_refused_in_place_three_times_end_the_hunt(travel, monkeypatch):
+    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
+
+    def held(s, db, goals, describe="", avoid=()):
+        s.walks.append(set(goals))
+        return set(goals) == {1}  # only the walk home goes
+
+    monkeypatch.setattr(hunt, "walk", held)
+    _run(arena, travel_first=False)
+    held_echoes = [e for e in arena.echoed if "something hidden holds you" in e]
+    assert len(held_echoes) == hunt.HELD_MOVES
+    assert any("walk to the next room failed" in e for e in arena.echoed)
+
+
 def test_a_failed_walk_off_an_occupied_room_is_said(travel, monkeypatch):
     # 2026-09-26: the walk on from a room two players held failed on a
     # map edge and ;hunt ended without a word, Cecil standing in a field.
