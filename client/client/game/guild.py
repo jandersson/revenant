@@ -1,4 +1,4 @@
-"""The character's guild — the latest ;sheet snapshot's, else INFO's.
+"""The character's guild — the latest ;sheet snapshot's, else INFO's — and its circle.
 
 Scripts that act by guild ask here: ;research picks the caster's mode
 or the Barbarian's, ;hunt refuses an Empath (empathic shock, #444).
@@ -16,14 +16,23 @@ from client.game.tdp import parse_info
 
 def snapshot_guild(name):
     """The guild of the latest ;sheet snapshot in history.db, or None."""
+    return _snapshot(name, "guild")
+
+
+def snapshot_circle(name):
+    """The circle of the latest ;sheet snapshot in history.db, or None."""
+    return _snapshot(name, "circle")
+
+
+def _snapshot(name, column):
     try:
         connection = sqlite3.connect(database_path())
     except sqlite3.Error:
         return None
     try:
         row = connection.execute(
-            "SELECT guild FROM character WHERE character_name = ?"
-            " AND guild IS NOT NULL ORDER BY logged_at DESC LIMIT 1",
+            f"SELECT {column} FROM character WHERE character_name = ?"
+            f" AND {column} IS NOT NULL ORDER BY logged_at DESC LIMIT 1",
             (name,),
         ).fetchone()
     except sqlite3.Error:

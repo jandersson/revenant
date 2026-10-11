@@ -141,8 +141,8 @@ class Plane:
         if verb == "cast":
             if title.startswith("[Astral Plane"):
                 self.at(word)
-            else:
-                self.in_conduit(word, leaving=True)
+            else:  # Grazhir lands in some conduit: Vellano's here
+                self.in_conduit("vellano" if word == "grazhir" else word, leaving=True)
             return "You are pulled through your unstable Moongate.\n"
         if command == "perceive":
             self.perceive_tails.add(tail)
@@ -249,6 +249,92 @@ def test_from_walks_to_the_home_shard_first():
     plane = first_trip()
     assert run(plane, "besoge", "from=8302", walked=walked) == "arrived"
     assert walked == ["8302"]
+
+
+def test_from_takes_a_shards_name_for_its_room():
+    # bescort's room_id_to_shard: Vellano is 8302.
+    assert script.parse_args(["besoge", "from=vellano"])["from"] == "8302"
+
+
+def test_from_the_100th_circle_grazhir_opens_the_gate_from_any_room(monkeypatch):
+    # Elanthipedia: Moongate casts at Grazhir with the 100th circle
+    # ability; bescort casts it with no FOCUS above circle 99.
+    monkeypatch.setattr(script.guild, "snapshot_circle", lambda name: 200)
+    plane = first_trip()
+    plane.state.name = "Lanival"
+    plane.state.room_objs = "You also see a ladder."
+    assert run(plane) == "arrived"
+    assert plane.sent[:3] == ["prepare moongate", "harness 100", "cast grazhir"]
+    assert plane.state.room_title == "[Caress-of-the-Moons Manor, Hall]"
+
+
+def test_below_the_100th_circle_or_for_a_round_a_shard_is_needed(monkeypatch):
+    plane = first_trip()
+    plane.state.name = "Lanival"
+    plane.state.room_objs = "You also see a ladder."
+    monkeypatch.setattr(script.guild, "snapshot_circle", lambda name: 99)
+    assert run(plane) == "no start"
+    monkeypatch.setattr(script.guild, "snapshot_circle", lambda name: 200)
+    assert run(plane, "besoge", "round") == "no start"
+    assert plane.sent == []
+    assert any("from=<shard>" in e for e in plane.echoed)
+
+
+class Study:
+    """A mage walked to a shard and STUDYing it: `answers` in turn."""
+
+    def __init__(self, *answers):
+        self.answers = list(answers)
+        self.sent, self.echoed, self.walked = [], [], []
+        self.state = SimpleNamespace(room_title="", room_objs="")
+
+    def ask(self, s, command, seconds=None, tail=None):
+        self.sent.append(command)
+        return self.answers.pop(0)
+
+    def waitrt(self):
+        pass
+
+    def echo(self, text):
+        self.echoed.append(text)
+
+    def learn(self, shard):
+        script.ask = self.ask
+        options = script.parse_args(["learn", shard])
+        return script.run(
+            self, options, go=lambda s, room: self.walked.append(room) or True
+        )
+
+
+def test_learn_walks_to_the_shard_and_studies_it_until_committed():
+    # Aevargwem at circle 200, 2026-10-11: three studies.
+    study = Study(
+        "You begin to probe at the shard Aevargwem with your magical senses.\n"
+        "You recognize the magical pattern behind the shard Aevargwem, but will "
+        "need to study it further to learn more.\n",
+        "You can sense the naming ritual set within the shard.  You should be able "
+        "to learn enough about the shard's pattern to successfully use it with "
+        "further study.\n",
+        "You commit the pattern of the shard Aevargwem to memory.\n",
+    )
+    assert study.learn("aevargwem") == "learned"
+    assert study.walked == ["51786"]
+    assert study.sent == ["study aevargwem"] * 3
+
+
+def test_learn_of_a_known_shard_ends_at_the_first_study():
+    study = Study(
+        "You intently study the shard Aevargwem, reaffirming its pattern in your "
+        "memory.\n"
+    )
+    assert study.learn("aevargwem") == "learned"
+    assert study.sent == ["study aevargwem"]
+
+
+def test_learn_stops_on_an_answer_it_does_not_know_and_emalerje_has_no_room():
+    study = Study("You study the sky, looking for the Shardstar.\n")
+    assert study.learn("aevargwem") == "unknown"
+    assert Study().learn("emalerje") == "no room"
 
 
 def test_the_return_word_is_not_a_shard():

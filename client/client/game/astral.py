@@ -44,6 +44,36 @@ SHARDS = {
     "mintais": ("Fortune", "Throne City"),
     "erekinzil": ("Fortune", "Taisgath"),
 }
+# Each shard's map room (dr-scripts' bescort.lic room_id_to_shard):
+# Emalerje was lost with the Crystal Hand Fortress.
+SHARD_ROOMS = {
+    "asharshpar'i": 9999,
+    "rolagi": 607,
+    "marendin": 2493,
+    "taniendar": 306,
+    "mintais": 3002,
+    "dinegavren": 3105,
+    "tamigen": 4542,
+    "erekinzil": 5050,
+    "auilusi": 6867,
+    "vellano": 8302,
+    "dor'na'torna": 3777,
+    "tabelrem": 287,
+    "besoge": 6991,
+    "aevargwem": 51786,
+}
+# At the 100th circle Moongate opens on Grazhir itself, from any room, no
+# FOCUS (Elanthipedia: Moongate; bescort casts it so above circle 99).
+GRAZHIR_CIRCLE = 100
+
+# STUDY <shard> at it (Aevargwem, 2026-10-11): "You recognize the magical
+# pattern behind the shard Aevargwem, but will need to study it further
+# to learn more." and "...the shard's pattern..." until "You commit the
+# pattern of the shard Aevargwem to memory."; a shard already known
+# answers "You intently study the shard Aevargwem, reaffirming its
+# pattern in your memory."
+STUDYING = "pattern"
+LEARNED = ("commit the pattern", "reaffirming its pattern")
 
 # "You also see an obsidian pedestal with the silvery-white shard Vellano
 # on it." — Asharshpar'i is "the silvery shard" (the old script's match).

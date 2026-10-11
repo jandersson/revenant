@@ -2,26 +2,29 @@
 
     ;astral besoge          Moongate in through this room's shard, to Besoge's conduit, Moongate out in Mer'Kresh
     ;astral besoge round    there and back: ends at the shard it started from (a ;train task for Astrology, Attunement)
-    ;astral besoge from=8302   walk to that ;go2 target (a shard's room) first
+    ;astral besoge from=vellano   walk to that shard first (or a ;go2 target: from=8302)
     ;astral besoge harness=200   harness that much mana before entering (100 by default) and when the plane presses
     ;astral list            RECALL HEAVENS GRAZHIR: the shards you have learned
+    ;astral learn aevargwem walk to that shard and STUDY it until its pattern is learned
     ;astral return          (typed while it runs) nothing early: a trip, or a round, always finishes
     ;stop astral            quit at once — inside the plane that leaves you there; finish by hand
 
 What it does
-  - PREPAREs Moongate, FOCUSes the shard here, HARNESSes the mana, CASTs into the plane.
+  - PREPAREs Moongate, FOCUSes the shard here, HARNESSes the mana, CASTs into the plane;
+    from the 100th circle it CASTs Grazhir instead, from any room (no shard, no FOCUS).
   - Follows PERCEIVE to the centre of the microcosm, walks the ring of pillars to the
     destination's, FOCUSes the destination to enter its conduit, follows PERCEIVE to its end.
   - PREPAREs, FOCUSes and CASTs Moongate out at the destination shard, then RELEASEs the mana.
   - Harnesses again whenever the plane says you only carefully or struggling maintain your place.
 
-What stops it: no shard in the room, a shard you have not learned, the Grey Expanse,
+What stops it: no shard in the room below the 100th circle (or for a round), a shard
+you have not learned, the Grey Expanse,
 an answer it does not know, or too many rooms without arriving.
 
 The model and its wordings are client/game/astral.py's (Elanthipedia: Astral Travel).
 """
 
-from client.game import astral, probe, travel
+from client.game import astral, guild, probe, travel
 from client.game.act import ask, said
 
 _NOTES = """
@@ -42,20 +45,29 @@ outlast a round (ten minutes is safe at those ranks).
 """
 
 HARNESS = 100  # mana harnessed going in, and again when the plane presses
+STUDIES = 10  # STUDYs of a shard before giving up on learning it (three at circle 200)
 PREPARE_SECONDS = 30  # the Moongate's preparation, after FOCUS's 20 s
 MAX_ROOMS = 40  # rooms followed toward the centre or a conduit's end
 
 
 def parse_args(args):
-    options = {"shard": "", "harness": HARNESS, "round": False, "from": ""}
+    options = {
+        "shard": "",
+        "harness": HARNESS,
+        "round": False,
+        "from": "",
+        "learn": False,
+    }
     for arg in args:
         key, sep, value = str(arg).lower().partition("=")
         if sep and key == "harness" and value.isdigit():
             options["harness"] = int(value)
         elif sep and key == "from" and value:
-            options["from"] = value
+            options["from"] = str(astral.SHARD_ROOMS.get(value, value))
         elif key == "round":
             options["round"] = True
+        elif key == "learn":
+            options["learn"] = True
         elif not sep and key != "return":
             options["shard"] = key
     return options
@@ -65,20 +77,27 @@ def title(s):
     return str(getattr(s.state, "room_title", "") or "")
 
 
+def circle(s):
+    """The character's circle by the latest ;sheet snapshot, 0 unknown."""
+    name = getattr(s.state, "name", None)
+    return (name and guild.snapshot_circle(name)) or 0
+
+
 def moongate(s, shard, mana):
-    """PREPARE Moongate, FOCUS `shard`, HARNESS, CAST: True once the cast
-    has moved the character (into the plane or out of it)."""
+    """PREPARE Moongate, FOCUS `shard` (never "grazhir"), HARNESS, CAST:
+    True once the cast has moved the character (into the plane or out)."""
     before = title(s)
     s.waitrt()
     heard = ask(s, "prepare moongate")
-    focus = ask(s, f"focus {shard}")
-    heard += focus
-    if astral.UNKNOWN_SHARD in focus.lower():
-        s.echo(f"astral: you have not learned {shard} — ;astral list")
-        return False
-    if astral.CONNECTED not in focus:
-        s.echo(f"astral: FOCUS {shard} answered {said(focus)!r} — stopping")
-        return False
+    if shard != "grazhir":
+        focus = ask(s, f"focus {shard}")
+        heard += focus
+        if astral.UNKNOWN_SHARD in focus.lower():
+            s.echo(f"astral: you have not learned {shard} — ;astral list")
+            return False
+        if astral.CONNECTED not in focus:
+            s.echo(f"astral: FOCUS {shard} answered {said(focus)!r} — stopping")
+            return False
     s.waitrt()
     heard += ask(s, f"harness {mana}")
     if astral.PREPARED not in heard:
@@ -145,13 +164,18 @@ def run(s, options, go=None):
     if dest not in astral.SHARDS:
         s.echo(f"astral: which shard? one of {', '.join(sorted(astral.SHARDS))}")
         return "no shard"
+    if options["learn"]:
+        return learn(s, dest, go or travel.go)
     if options["from"] and not (go or travel.go)(s, options["from"]):
         s.echo(f"astral: could not reach {options['from']} — stopping")
         return "walk"
     start = astral.shard_here(getattr(s.state, "room_objs", ""))
+    if start is None and not options["round"] and circle(s) >= astral.GRAZHIR_CIRCLE:
+        start = "grazhir"
     if start is None:
         s.echo(
-            "astral: no Grazhir shard here — stand at one (;astral list names yours)"
+            "astral: no Grazhir shard here — stand at one or name it:"
+            " from=<shard> (;astral list names yours)"
         )
         return "no start"
     if start == dest:
@@ -162,6 +186,29 @@ def run(s, options, go=None):
         return outcome
     outcome = trip(s, dest, start, mana)
     return "round" if outcome == "arrived" else outcome
+
+
+def learn(s, shard, go):
+    """Walk to `shard` and STUDY it until its pattern is committed to
+    memory: "learned", or why not."""
+    room = astral.SHARD_ROOMS.get(shard)
+    if room is None:
+        s.echo(f"astral: {shard} has no room to walk to")
+        return "no room"
+    if not go(s, str(room)):
+        s.echo(f"astral: could not reach {shard} ({room}) — stopping")
+        return "walk"
+    for _ in range(STUDIES):
+        s.waitrt()
+        answer = ask(s, f"study {shard}")
+        if any(line in answer for line in astral.LEARNED):
+            s.echo(f"astral: {shard} learned — ;astral list")
+            return "learned"
+        if astral.STUDYING not in answer:
+            s.echo(f"astral: STUDY {shard} answered {said(answer)!r} — stopping")
+            return "unknown"
+    s.echo(f"astral: {STUDIES} studies without learning {shard} — stopping")
+    return "not learned"
 
 
 def trip(s, start, dest, mana):
