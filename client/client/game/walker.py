@@ -906,7 +906,9 @@ def ride_mammoth(s, mode=""):
 def engaged_move(s, move):
     """One move where creatures engage (the Glaren Kweld grass, a river's
     swims), True on arrival: with hostiles in the room, or the move
-    stalled, it goes as RETREAT, RETREAT and the move back to back."""
+    stalled, it goes as RETREAT, RETREAT and the move back to back. Sent
+    into roundtime ("...wait 1 seconds.", a stroke one second after the
+    last in the Faldesu, 2026-10-11), it waits that out and goes again."""
     s.waitrt()
     while s.get(timeout=0, streams=("compass",)) is not None:
         pass
@@ -914,7 +916,15 @@ def engaged_move(s, move):
         s.put("retreat")
         s.put("retreat")
     s.put(move)
-    outcome, _, _ = await_arrival(s)
+    outcome, _, wording = await_arrival(s)
+    for _ in range(ROUNDTIME_RETRIES):
+        if outcome != "roundtime":
+            break
+        match = ROUNDTIME_WAIT.search(wording)
+        s.sleep(int(match.group(1)) + 0.5 if match else 1)
+        s.waitrt()
+        s.put(move)
+        outcome, _, wording = await_arrival(s)
     if outcome == "stalled":
         s.put("retreat")
         s.put("retreat")

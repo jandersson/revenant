@@ -2963,3 +2963,46 @@ def test_the_segoltha_is_swum_north_from_the_wreck_to_the_bank():
     assert puts_of(handle) == ["north", "west", "north", "look"]
     # Haven's End is no landing of the swim: that edge is never planned.
     assert db.path(19373, {922}, ranks={"Athletics": 1201}) is None
+
+
+class WaitOnceRiver(RiverHandle):
+    """The river, but the first stroke north from `wait_at` lands inside
+    the last one's roundtime: "...wait 1 seconds."."""
+
+    def __init__(self, *args, wait_at, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.wait_at = wait_at
+        self.waited = False
+
+    def put(self, command):
+        super().put(command)
+        if (
+            command == "north"
+            and self.state.room_uid == self.wait_at
+            and not self.waited
+        ):
+            self.waited = True
+            self.lands = "wait"
+
+    def get(self, timeout=None, streams=("",)):
+        if streams is None and self.lands == "wait":
+            self.lands = None
+            return ("", "...wait 1 seconds.\n")
+        return super().get(timeout, streams)
+
+
+def test_a_stroke_sent_inside_its_roundtime_is_sent_again():
+    # 2026-10-11 in the Faldesu: "...wait 1 seconds." stopped the swim
+    # three strokes out, the character left treading water mid-river.
+    handle = WaitOnceRiver(
+        1200030, ["s", "n"], FALDESU_STROKES, athletics=1201, wait_at=9001
+    )
+    assert walker.walk(handle, FALDESU, [473]) is True
+    assert puts_of(handle) == [
+        "dive river",
+        "north",
+        "north",
+        "northwest",
+        "northeast",
+        "climb bridge",
+    ]
