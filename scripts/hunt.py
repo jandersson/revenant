@@ -1853,9 +1853,17 @@ GRASS_WAYS = (
 
 def grass_step(s, tally):
     """One step through the Glaren Kweld grass for next_room: True in
-    the next room, or held in this one by a hidden foe (held)."""
-    index = tally.grass_turn % len(GRASS_WAYS)
-    tally.grass_turn += 1
+    the next room, or held in this one by a hidden foe (held). Only a
+    way the room's compass offers: the rock's room has no northeast,
+    "You can't go there." (2026-10-11)."""
+    exits = {
+        DIRECTIONS.get(way, way) for way in getattr(s.state, "compass", None) or ()
+    }
+    for _ in GRASS_WAYS:
+        index = tally.grass_turn % len(GRASS_WAYS)
+        tally.grass_turn += 1
+        if not exits or GRASS_WAYS[index] in exits:
+            break
     s.echo("hunt: room empty — on through the grass")
     if not engaged_move(s, GRASS_WAYS[index]):
         return held(s, tally)

@@ -1102,6 +1102,7 @@ def test_moves_refused_in_place_three_times_end_the_hunt(travel, monkeypatch):
 
 
 GRASS = "[Hara'jaal, Glaren Kweld]"
+EIGHT_WAYS = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]  # a grass room's compass
 
 
 def test_in_the_grass_the_hunt_steps_room_by_room_and_never_walks_the_map(
@@ -1115,6 +1116,7 @@ def test_in_the_grass_the_hunt_steps_room_by_room_and_never_walks_the_map(
         {"attack": [(KILL, kill)] * 2, "skin": [SKINNED] * 2, "loot": [NOTHING] * 2}
     )
     arena.state.room_title = GRASS
+    arena.state.compass = EIGHT_WAYS
     ways = []
 
     def step(s, way):
@@ -1130,11 +1132,31 @@ def test_in_the_grass_the_hunt_steps_room_by_room_and_never_walks_the_map(
     assert arena.walks == [{1}]  # only the walk home
 
 
+def test_a_grass_step_takes_only_a_way_the_compass_offers(travel, monkeypatch):
+    # The rock's room has no northeast: "You can't go there." was read as
+    # a hidden foe holding the character (2026-10-11).
+    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
+    arena.state.room_title = GRASS
+    arena.state.compass = ["n", "e", "s", "w"]
+    ways = []
+
+    def step(s, way):
+        ways.append(way)
+        s.state.hostiles = {"2": True}
+        return True
+
+    monkeypatch.setattr(hunt, "engaged_move", step)
+    arena.answers["attack"].append((KILL, kill))
+    _run(arena, profile=PROFILE | {"max_kills": 2}, travel_first=False)
+    assert ways[0] == "east"
+
+
 def test_a_step_out_of_the_grass_steps_back_in(travel, monkeypatch):
     arena = Arena(
         {"attack": [(KILL, kill)] * 2, "skin": [SKINNED] * 2, "loot": [NOTHING] * 2}
     )
     arena.state.room_title = GRASS
+    arena.state.compass = EIGHT_WAYS
     ways = []
 
     def step(s, way):
