@@ -151,17 +151,22 @@ _BARGE_NAME = re.compile(r"\bthe barge (?P<name>[A-Z][\w']*(?: [A-Z][\w']*)?)")
 # the beast's head calls back, "Here we are, ladies and gentlemen!..."'
 # onto [Shore Walk, Rocky Path]. LOOK is the step's move after it, for
 # the compass frame the arrival check reads. Up to ten minutes at the
-# dock before it left, both rides. With none in, the answer is "What were
-# you referring to?", and the next JOIN waits for the driver's call that
-# names this mammoth, "[JOIN SEA MAMMOTH before it leaves if you would
-# like to go to Ratha.]" (captured 2026-10-11) or "[JOIN TALL MAMMOTH
-# ...]" (the wiki's): a JOIN every thirty seconds, and one at the other
-# mammoth's arrival, filled the window for minutes at Fang Cove's dock
-# (the operator, 2026-10-11: "is go2 bugged?"). A JOIN every five
-# minutes still covers a call the streams missed.
+# dock before it left, both rides. A docked mammoth is in the dock's
+# listing, "You also see a massive sea mammoth and a ladder." (captured
+# 2026-10-10/11), and it comes in with "A watery trumpeting sound heralds
+# the swift approach and arrival of a massive sea mammoth." and the
+# driver's call, "[JOIN SEA MAMMOTH before it leaves if you would like to
+# go to Ratha.]" (or "[JOIN TALL MAMMOTH ...]", the wiki's). JOIN goes
+# out only then: a JOIN sent at an empty dock, every thirty seconds and
+# then every five minutes, filled the window ("What were you referring
+# to?"), and the operator asked for the boarding alone (2026-10-11).
 MAMMOTH_ANSWER_SECONDS = 4
 MAMMOTH_WAIT_SECONDS = 1200  # a round trip and its two stops
-MAMMOTH_POLL_SECONDS = 300
+MAMMOTH_LOOK_SECONDS = 2  # between looks at the dock's listing
+_DOCKED = {
+    "sea": re.compile(r"\bmassive\b[\w' -]*\bmammoth\b", re.I),
+    "tall": re.compile(r"\btall\b[\w' -]*\bmammoth\b", re.I),
+}
 MAMMOTH_STREAMS = ("", "atmospherics")
 MAMMOTH_AWAY = ("What were you referring to",)
 MAMMOTH_LANDS = (
@@ -854,6 +859,13 @@ def ride_jolas(s, mode=""):
     return "no ship"
 
 
+def docked(s, kind):
+    """True while the dock's listing names the `kind` ("sea": the massive
+    one, "tall") of mammoth."""
+    objs = str(getattr(getattr(s, "state", None), "room_objs", "") or "")
+    return _DOCKED[kind].search(objs) is not None
+
+
 def ride_mammoth(s, mode=""):
     """JOIN the sea mammoth at this dock and cross (#515): "landed" ashore
     at the far side (the mammoth sets you there), "no mammoth" when none
@@ -863,9 +875,23 @@ def ride_mammoth(s, mode=""):
     massive one Ratha."""
     title = str(getattr(s.state, "room_title", "") or "")
     kind = "tall" if mode == "acen" or "Acenamacra" in title else "sea"
+    call = f"[JOIN {kind.upper()} MAMMOTH"  # this mammoth's driver, not the other
     deadline = monotonic() + MAMMOTH_WAIT_SECONDS
-    waiting = False  # said once, not every poll (the operator, 2026-10-10)
+    waiting = False  # said once, not every look (the operator, 2026-10-10)
+    listing = True  # False after a JOIN the listing promised went unanswered
     while monotonic() < deadline:
+        if not (listing and docked(s, kind)):
+            if not waiting:
+                s.echo(
+                    "no mammoth at the dock — waiting for one "
+                    f"(up to {MAMMOTH_WAIT_SECONDS // 60} minutes)"
+                )
+                waiting = True
+            heard = read_story(
+                s, MAMMOTH_LOOK_SECONDS, until=(call,), streams=MAMMOTH_STREAMS
+            )
+            if call not in heard and not (listing and docked(s, kind)):
+                continue
         s.waitrt()
         s.put(f"join {kind} mammoth")
         outcome, _, answer = await_arrival(s, timeout=MAMMOTH_ANSWER_SECONDS)
@@ -882,16 +908,9 @@ def ride_mammoth(s, mode=""):
                 return "stuck"
             return "landed"
         if any(needle in answer for needle in MAMMOTH_AWAY):
-            if not waiting:
-                s.echo(
-                    "no mammoth at the dock — waiting for one "
-                    f"(up to {MAMMOTH_WAIT_SECONDS // 60} minutes)"
-                )
-                waiting = True
-            call = (
-                f"[JOIN {kind.upper()} MAMMOTH"  # this mammoth's driver, not the other
-            )
-            read_story(s, MAMMOTH_POLL_SECONDS, until=(call,), streams=MAMMOTH_STREAMS)
+            # Gone as the JOIN went out, or a listing not yet cleared: the
+            # next one is boarded at its driver's call alone.
+            listing = False
             continue
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         s.echo(

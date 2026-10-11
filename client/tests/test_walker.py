@@ -2237,10 +2237,18 @@ MAMMOTHS = MapDB(
 
 
 class MammothHandle(FakeHandle):
-    """JOIN <kind> MAMMOTH answers "away" ("What were you referring to?",
-    the dock's story then trumpets one in) or "aboard" (the driver's
-    line and the platform's compass); the crossing's story lands the
-    rider ashore, and the LOOK after it is the compass frame there."""
+    """The dock lists a mammoth when `docked`; otherwise the story
+    trumpets one in (`arrives`) and the listing names it at its driver's
+    call. JOIN <kind> MAMMOTH answers "away" ("What were you referring
+    to?") or "aboard" (the driver's line and the platform's compass);
+    the crossing's story lands the rider ashore, and the LOOK after it
+    is the compass frame there."""
+
+    EMPTY = "You also see a ladder."
+    LISTED = {
+        "SEA": "a massive sea mammoth",
+        "TALL": "a tall sea mammoth",  # the tall one's listing is uncaptured
+    }
 
     AWAY = "What were you referring to?\n"
     JOINED = 'You join the Merelew driver.  "Right this way, sir."\n'
@@ -2259,20 +2267,21 @@ class MammothHandle(FakeHandle):
         "sides and begins assisting passengers off.\n"
     )
 
-    def __init__(self, uids, answers, arrives=True, calls=None):
+    def __init__(self, uids, answers, arrives=True, calls=None, docked=False):
         super().__init__(uids)
         self.answers = list(answers)
-        self.arrives = arrives
         self.dock_calls = list(calls or self.ARRIVES)
         self.answer = None
-        self.story = []
+        self.story = list(self.dock_calls) if arrives else []
+        self.state.room_objs = self.EMPTY
+        if docked:
+            self.state.room_objs = f"You also see {self.LISTED['SEA']} and a ladder."
 
     def put(self, command):
         super().put(command)
         if command.startswith("join "):
             if self.answers.pop(0) == "away":
                 self.answer = [("", self.AWAY)]
-                self.story = list(self.dock_calls) if self.arrives else []
             else:
                 self.answer = [("", self.JOINED), ("compass", "down")]
                 self.story = [self.LANDS]
@@ -2288,14 +2297,20 @@ class MammothHandle(FakeHandle):
             return self.answer.pop(0) if self.answer else None
         if "atmospherics" not in streams:
             return None  # every line of the ride comes there
-        return self.story.pop(0) if self.story else None
+        line = self.story.pop(0) if self.story else None
+        for kind, name in self.LISTED.items():
+            if line and line.startswith(f"[JOIN {kind} MAMMOTH"):
+                self.state.room_objs = (
+                    f"You also see {name}, {self.state.room_objs[13:]}"
+                )
+        return line
 
 
 @pytest.fixture
 def quick_mammoth(monkeypatch):
     monkeypatch.setattr(walker, "MAMMOTH_ANSWER_SECONDS", 0.05)
     monkeypatch.setattr(walker, "MAMMOTH_WAIT_SECONDS", 0.3)
-    monkeypatch.setattr(walker, "MAMMOTH_POLL_SECONDS", 0.05)
+    monkeypatch.setattr(walker, "MAMMOTH_LOOK_SECONDS", 0.05)
 
 
 def test_the_mammoth_is_a_ride():
@@ -2304,25 +2319,39 @@ def test_the_mammoth_is_a_ride():
 
 
 def test_walk_joins_the_sea_mammoth_to_ratha_and_lands_ashore(quick_mammoth):
-    handle = MammothHandle(uids=[3010821, 3010820], answers=["aboard"])
+    handle = MammothHandle(uids=[3010821, 3010820], answers=["aboard"], docked=True)
     handle.state.room_uid = 9798001
     assert walker.walk(handle, MAMMOTHS, [4685], describe="the beach") is True
     assert puts_of(handle) == ["join sea mammoth", "look", "go the beach"]
     assert any("aboard the sea mammoth" in e for e in handle.echoes)
 
 
-def test_no_mammoth_in_waits_for_the_next_and_joins_it(quick_mammoth):
-    handle = MammothHandle(uids=[3010821], answers=["away", "aboard"])
+def test_an_empty_dock_is_waited_at_and_the_mammoth_boarded_when_it_comes(
+    quick_mammoth,
+):
+    # The operator, 2026-10-11: board it when it arrives, no JOIN at an
+    # empty dock. Nothing goes out until its driver calls.
+    handle = MammothHandle(uids=[3010821], answers=["aboard"])
+    handle.state.room_uid = 9798001
+    assert walker.walk(handle, MAMMOTHS, [11130]) is True
+    assert puts_of(handle) == ["join sea mammoth", "look"]
+    assert sum("no mammoth at the dock" in e for e in handle.echoes) == 1
+
+
+def test_a_listed_mammoth_gone_at_the_join_is_boarded_at_the_next_call(
+    quick_mammoth,
+):
+    handle = MammothHandle(uids=[3010821], answers=["away", "aboard"], docked=True)
     handle.state.room_uid = 9798001
     assert walker.walk(handle, MAMMOTHS, [11130]) is True
     assert puts_of(handle) == ["join sea mammoth", "join sea mammoth", "look"]
-    assert sum("no mammoth at the dock" in e for e in handle.echoes) == 1
 
 
 def test_from_acenamacra_the_tall_mammoth_goes_to_fang_cove(quick_mammoth):
     handle = MammothHandle(uids=[9798001], answers=["aboard"])
     handle.state.room_uid = 108100
     handle.state.room_title = "[Acenamacra Pier]"
+    handle.state.room_objs = "You also see a tall sea mammoth and a ladder."
     assert walker.walk(handle, MAMMOTHS, [8301]) is True
     assert puts_of(handle) == ["join tall mammoth", "look"]
 
@@ -2363,14 +2392,15 @@ def test_the_other_mammoths_call_is_not_answered(quick_mammoth):
         ]
     )
     assert walker.walk(handle, to_acenamacra, [2239]) is True
-    assert puts_of(handle) == ["join tall mammoth", "join tall mammoth", "look"]
+    assert puts_of(handle) == ["join tall mammoth", "look"]  # only at its own call
 
 
 def test_a_mammoth_that_never_comes_stops_the_walk(quick_mammoth):
-    handle = MammothHandle(uids=[], answers=["away"] * 20, arrives=False)
+    handle = MammothHandle(uids=[], answers=[], arrives=False)
     handle.state.room_uid = 9798001
     assert walker.walk(handle, MAMMOTHS, [11130]) is False
     assert any("no mammoth came" in e for e in handle.echoes)
+    assert not any(put.startswith("join") for put in puts_of(handle))  # no guesses
 
 
 # --- the Jolas (#515) -------------------------------------------------------
