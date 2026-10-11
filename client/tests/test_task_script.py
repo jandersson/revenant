@@ -742,6 +742,35 @@ def test_a_wanderers_delivery_is_sought_through_the_town_then_handed_over():
     assert "task: delivered" in out
 
 
+def test_a_recipient_named_only_by_a_road_is_sought_along_its_rooms():
+    # The barkeep, 2026-10-11: "Researcher Trelmik in Reshalia Trade
+    # Road" stopped the delivery, "the givers' table has no room".
+    journal = (
+        "You look in your task journal and see the following entry:\n"
+        "Barkeep wants you to deliver a package to Researcher Trelmik in "
+        "Reshalia Trade Road.\n"
+    )
+    road = MapDB(
+        [
+            {"id": 5101, "uid": [51], "title": ["[Reshalia Trade Road]"]},
+            {"id": 8261, "uid": [1], "title": ["[Cormyn's House of Heirlooms]"]},
+        ]
+    )
+    paid = PAID.replace("Saeru", "Researcher Trelmik")
+    fake = Seeking({"task": [journal, JOURNAL_CLEAR], "give": [paid]})
+    fake.state.room_objs = ""
+    fake.started = []
+    fake.run = lambda name, args=(): (
+        fake.started.append((name, list(args)))
+        or setattr(fake.state, "room_objs", "You also see Researcher Trelmik.")
+        or True
+    )
+    fake.state.right_hand = dict(BASKET)
+    script.run(fake, script.parse_args([]), {}, road, walk)
+    assert fake.started == [("seek", ["Trelmik", "area=Reshalia Trade Road", "laps=2"])]
+    assert "give #172475803 to Trelmik" in fake.sent
+
+
 def test_a_wanderer_not_found_stops_the_delivery_with_the_basket_kept():
     from test_tasks import BEGGAR_JOURNAL
 

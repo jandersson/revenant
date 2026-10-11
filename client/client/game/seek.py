@@ -240,15 +240,22 @@ TOWN_ROUTES = {
 
 
 def parse_args(args):
-    """{"noun", "rooms", "laps", "from", "town"} from ;seek's arguments: the
+    """{"noun", "rooms", "laps", "from", "town", "area"} from ;seek's arguments: the
     words that are not key=value options make the noun."""
-    options = {"noun": "", "rooms": ROOMS, "laps": LAPS, "from": "", "town": ""}
+    options = {
+        "noun": "",
+        "rooms": ROOMS,
+        "laps": LAPS,
+        "from": "",
+        "town": "",
+        "area": "",
+    }
     words = []
     for arg in args:
         key, sep, value = str(arg).lower().partition("=")
         if sep and key in ("rooms", "laps") and value.isdigit():
             options[key] = int(value)
-        elif sep and key in ("from", "town") and value:
+        elif sep and key in ("from", "town", "area") and value:
             options[key] = value
         else:
             words.append(str(arg))
@@ -284,6 +291,30 @@ def town_route(town, here=None):
     first; () for a town without one. "The Crossing" is "crossing"."""
     name = str(town or "").strip().lower().removeprefix("the ").strip()
     rooms = TOWN_ROUTES.get(name, ())
+    if here in rooms:
+        index = rooms.index(here)
+        return rooms[index:] + rooms[:index]
+    return rooms
+
+
+def area_route(db, area, here=None):
+    """One lap of the rooms whose title holds `area`, in map order (a
+    road's rooms run in sequence), begun at `here` when it is one of
+    them: a recipient named only by where he stands ("Researcher Trelmik
+    in Reshalia Trade Road", the barkeep's task, 2026-10-11); () when no
+    title holds it."""
+    from client.game.mapdb import normalize_title
+
+    text = normalize_title(str(area or "")).strip()
+    if not text:
+        return ()
+    rooms = tuple(
+        sorted(
+            room
+            for room, entry in db.rooms.items()
+            if any(text in normalize_title(title) for title in entry.get("title") or ())
+        )
+    )
     if here in rooms:
         index = rooms.index(here)
         return rooms[index:] + rooms[:index]

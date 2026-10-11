@@ -29,7 +29,7 @@ from client.game import hands, items, tasklog, travel
 from client.game.act import ask, said, unknown, whole_answer
 from client.game.loop import wants_stop
 from client.game.mapdb import MapDB
-from client.game.seek import present, town_route
+from client.game.seek import area_route, present, town_route
 from client.game.tasks import (
     CLOSED_FOR_THE_NIGHT,
     LAPSED,
@@ -293,7 +293,7 @@ def deliver(s, task, mapdb, walk_fn):
     person = str(task.get("person") or "")
     place = str(task.get("place") or "")
     rooms = recipient_rooms(mapdb, person)
-    if not rooms and not town_route(place):
+    if not rooms and not town_route(place) and not area_route(mapdb, place):
         s.echo(f"task: the givers' table has no room for {person} — stopping")
         return False
     if wants_stop(s):
@@ -303,7 +303,7 @@ def deliver(s, task, mapdb, walk_fn):
         return travel.go(s, rooms, f"{person}'s room", db=mapdb, walk=walk_fn)
 
     if not rooms:
-        if not sought(s, person_name(person), place):
+        if not sought(s, person_name(person), place, mapdb):
             s.echo(f"task: no {person} found in {place} — ;task again looks again")
             return False
     elif not go() and not until_morning(s, go):
@@ -435,12 +435,15 @@ def run_search(s, task, mapdb, walk_fn):
 SEEK_LAPS = 2  # laps of a town's wanderers' streets (86 rooms in the Crossing)
 
 
-def sought(s, noun, place):
+def sought(s, noun, place, mapdb=None):
     """A wandering recipient (no room in the givers' table, #511): ;seek
     <noun> town=<place> run and waited for, True when the room it ends
     in lists them ("an old blind beggar in The Crossing", Ioun,
     2026-10-11)."""
-    if not s.run("seek", [noun, f"town={place}", f"laps={SEEK_LAPS}"]):
+    # A town's wanderers' streets, else every room titled the place
+    # ("Researcher Trelmik in Reshalia Trade Road", 2026-10-11).
+    where = f"town={place}" if town_route(place) else f"area={place}"
+    if not s.run("seek", [noun, where, f"laps={SEEK_LAPS}"]):
         s.echo("task: ;seek did not start — the delivery is yours from here")
         return False
     try:

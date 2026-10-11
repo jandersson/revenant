@@ -134,6 +134,7 @@ def test_args():
         "laps": 2,
         "from": "389",
         "town": "",
+        "area": "",
     }
     assert seek.parse_args([])["noun"] == ""
 
@@ -181,6 +182,17 @@ def test_a_town_walks_its_wanderers_streets_from_where_you_stand(monkeypatch):
     out = run(fake, ["beggar", "town=The Crossing"])
     assert fake.walks == [3, 5]  # from room 1, on the route
     assert "seek: an old blind beggar here" in out
+
+
+def test_an_area_walks_every_room_its_title_holds_in_map_order():
+    # The barkeep's task, 2026-10-11: "Researcher Trelmik in Reshalia
+    # Trade Road", 71 rooms of that title and no room for him.
+    assert seek.area_route(MAP, "Street", 3) == (3, 4, 5, 1, 2)
+    assert seek.area_route(MAP, "Nowhere Road") == ()
+    fake = Fake(listings={4: ["You also see Researcher Trelmik."]})
+    out = run(fake, ["trelmik", "area=Street"])
+    assert fake.walks == [2, 3, 4]
+    assert "seek: Researcher Trelmik here" in out
 
 
 def test_the_noun_already_here_means_no_walk():
