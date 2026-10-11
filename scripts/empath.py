@@ -40,6 +40,7 @@ from client.game.empathy import (
     NO_LINK,
     PREPARED,
     TAKEN,
+    TRANSFERRING,
     TENDED,
     afflictions,
     foreign_bodies,
@@ -203,8 +204,14 @@ def take_everything(s, patient):
             continue
         text = piece[1] if isinstance(piece, tuple) else piece
         lines.append(text)
-        quiet = probe.clock() + EVERYTHING_QUIET
         lowered = text.lower()
+        if any(word in lowered for word in TAKEN + TRANSFERRING) or (
+            f"{patient.lower()}'s" in lowered
+        ):
+            # The transfer's own lines only: in a busy room every arrival
+            # restarted the window and the read ran to its ten-minute cap
+            # (Haven's End, 2026-10-11).
+            quiet = probe.clock() + EVERYTHING_QUIET
         if any(word in lowered for word in FATAL):
             s.echo(f"empath: {text.strip()} — the heal stops here")
             return "fatal"

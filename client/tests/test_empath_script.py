@@ -211,6 +211,40 @@ def test_take_everything_brings_every_part_over_in_one_transfer():
     assert "Lanival has no injuries left" in out
 
 
+def test_a_busy_room_does_not_hold_take_everything_open():
+    # 2026-10-11 at Haven's End: every passer-by's line restarted the
+    # quiet window, and the read ran to its ten-minute cap.
+    class Busy(Fake):
+        chatter = 1000
+        sent_take = False
+
+        def put(self, command, cleanup=False):
+            super().put(command, cleanup)
+            self.sent_take = command.startswith("take ")
+
+        def get(self, timeout=None, streams=("",)):
+            line = super().get(timeout, streams)
+            if line is None and self.sent_take and self.chatter:
+                self.chatter -= 1
+                return "Arvawn goes east.\n"
+            return line
+
+    fake = Busy(
+        {
+            "take lanival everything": (
+                "You feel the transfer beginning as a cold stillness settles in "
+                "the center of your being.\n"
+                "You sense that Lanival's external left arm wounds are fully healed.\n"
+                "You sense that Lanival's internal left arm wounds are fully healed.\n"
+            )
+        }
+    )
+    start = hunt_arena.CLOCK["now"]
+    assert script.take_everything(fake, "lanival") == 2
+    assert hunt_arena.CLOCK["now"] - start < 5
+    assert fake.chatter > 900  # read past the transfer only as long as the window
+
+
 def test_the_death_warning_stops_the_heal_at_once():
     fatal = (
         "You realize that you are taking a wound that will kill you if you "
