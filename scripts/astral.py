@@ -180,6 +180,10 @@ def run(s, options, go=None):
     if options["from"] and not (go or travel.go)(s, options["from"]):
         s.echo(f"astral: could not reach {options['from']} — stopping")
         return "walk"
+    if astral.IN_PLANE in title(s):
+        # Left inside the plane (a stop mid-crossing, 2026-10-11 at the
+        # Pillar of Fortune): on to the destination from where it stands.
+        return trip(s, "plane", dest, mana)
     start = astral.shard_here(getattr(s.state, "room_objs", ""))
     if start is None and not options["round"] and circle(s) >= astral.GRAZHIR_CIRCLE:
         start = "grazhir"
@@ -228,9 +232,9 @@ def trip(s, start, dest, mana):
     or why not."""
     pillar, town = astral.SHARDS[dest]
     s.echo(f"astral: {start} to {dest} ({town}) by the Pillar of {pillar}")
-    if not moongate(s, start, mana):
+    if start != "plane" and not moongate(s, start, mana):
         return "entry"
-    if not follow(s, "centre", mana):
+    if not astral.pillar_of(title(s)) and not follow(s, "centre", mana):
         return "lost"
     for move in astral.ring_moves(astral.pillar_of(title(s)), pillar):
         s.waitrt()

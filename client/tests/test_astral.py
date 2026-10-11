@@ -419,6 +419,16 @@ def test_a_room_magic_will_not_form_in_casts_nothing(monkeypatch):
     assert any("magic will not form here" in e for e in plane.echoed)
 
 
+def test_left_at_a_pillar_it_goes_on_from_there_without_a_way_in():
+    # 2026-10-11: a stop mid-crossing left the mage at the Pillar of
+    # Fortune with no script running.
+    plane = first_trip()
+    plane.state.room_title = "[Astral Plane, Pillar of Unity]"
+    plane.state.room_objs = ""
+    assert run(plane, "besoge") == "arrived"
+    assert "cast vellano" not in plane.sent and plane.sent[0] == "west"
+
+
 def test_no_shard_in_the_room_or_an_unknown_destination_sends_nothing():
     plane = Plane(centre={}, end={})
     plane.state.room_objs = "You also see a ladder."
