@@ -1112,6 +1112,21 @@ def test_a_hidden_hostile_is_not_swung_at_the_room_reads_empty(travel):
     assert arena.sent.count("attack rat") == 1  # at the visible one there
 
 
+def test_nothing_to_attack_while_hostiles_are_listed_marks_them_hidden(travel):
+    # 2026-10-11 19:53: the poloh'izh vanished, the listing came empty
+    # with no crtrStatus burst, and the parser kept it hostile; every
+    # swing answered this, every pattern was let go, two seconds apart.
+    nothing = "There is nothing else to face!\nWhat are you trying to attack?"
+    arena = Arena(
+        {"attack": [nothing, (KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]}
+    )
+    arena.arrivals = {6047: {"2": True}}
+    _run(arena, profile=PROFILE | {"max_kills": 1}, travel_first=False)
+    assert arena.walks[0] == {6047}  # on, not at the hidden one again
+    assert arena.sent.count("attack rat") == 2  # the second at the one there
+    assert "1" in arena.state.hidden_hostiles
+
+
 GRASS = "[Hara'jaal, Glaren Kweld]"
 EIGHT_WAYS = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]  # a grass room's compass
 

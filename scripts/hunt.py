@@ -493,6 +493,13 @@ def hostiles(state):
     return {exist: on for exist, on in every.items() if exist not in hidden}
 
 
+def hide_hostiles(state):
+    """Mark every hostile the parser holds hidden: the game sees nothing
+    to attack. The parser's next crtrStatus burst replaces the mark."""
+    every = set(getattr(state, "hostiles", None) or ())
+    state.hidden_hostiles = set(getattr(state, "hidden_hostiles", None) or ()) | every
+
+
 def next_turn(s, profile, tally, from_current=False, leave=False):
     """The weapons entry to fight with. The one in hand while its skill
     sits below `turn_target` and its `weapon_minutes` have not run out
@@ -2036,6 +2043,11 @@ def swing(s, profile, tally, prey):
         credit(s, profile, tally, fallen, prey)
     elif any(word in lowered for word in _ALL_DEAD):
         tally.room_clear = True  # the game says so; the hostile state lags
+        # ...or they hid: a poloh'izh that "flickers slowly and vanishes"
+        # can leave an empty listing and no crtrStatus to say so, and was
+        # TARGETed and swung at every two seconds (2026-10-11, #526).
+        # Hidden until the next burst re-announces them.
+        hide_hostiles(s.state)
     elif corpse := _DEAD_NOUN.search(text):
         log_room(s, "corpse answered", corpse.group(0))
         tally.corpse_swings += 1
