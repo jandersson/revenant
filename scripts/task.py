@@ -7,7 +7,7 @@
 What it does
 - TASK first: a task already in hand is carried on, no ask.
 - The offer has thirty seconds: it is accepted at once (a kind in task_declines is declined). A delivery is run; any other kind is yours from here — the offer said, the task recorded.
-- A delivery: the item lands in a hand and is stowed; the walk to the recipient's room (the givers' table in client/game/tasks.py); GET the item by the id the accept recorded (INV LIST's id, then the noun, when there is none; two of a noun said), GIVE it to the recipient; the payment said; the journal read again.
+- A delivery: the item lands in a hand and is stowed; the walk to the recipient's room (the givers' table in client/game/tasks.py), or for a wanderer with none (an old blind beggar in The Crossing) ;seek through the town's streets; GET the item by the id the accept recorded (INV LIST's id, then the noun, when there is none; two of a noun said), GIVE it to the recipient; the payment said; the journal read again.
 - A search: the area's rooms by title; in each KNEEL and SEARCH (each one's roundtime waited) until the find, SEARCHES_PER_ROOM at most; GET the find, STAND, the walk back to the giver, GIVE; the journal read again.
 - A recovery: ;hunt task, waited for — the area's rooms by title as the ground, the profile's weapons on whatever engages, until a kill's death line drops the item; ;hunt picks it up and goes home as any hunt does; then the walk to the giver, GIVE; the journal read again.
 
@@ -27,6 +27,7 @@ from client.game import hands, items, travel
 from client.game.act import ask, said, unknown, whole_answer
 from client.game.loop import wants_stop
 from client.game.mapdb import MapDB
+from client.game.seek import present, town_route
 from client.game.tasks import (
     CLOSED_FOR_THE_NIGHT,
     LAPSED,
@@ -251,8 +252,9 @@ def deliver(s, task, mapdb, walk_fn):
     """Walk to the recipient and hand the item over; the payment said,
     the journal read, the record cleared when the task is done."""
     person = str(task.get("person") or "")
+    place = str(task.get("place") or "")
     rooms = recipient_rooms(mapdb, person)
-    if not rooms:
+    if not rooms and not town_route(place):
         s.echo(f"task: the givers' table has no room for {person} — stopping")
         return False
     if wants_stop(s):
@@ -261,7 +263,11 @@ def deliver(s, task, mapdb, walk_fn):
     def go():
         return travel.go(s, rooms, f"{person}'s room", db=mapdb, walk=walk_fn)
 
-    if not go() and not until_morning(s, go):
+    if not rooms:
+        if not sought(s, person_name(person), place):
+            s.echo(f"task: no {person} found in {place} — ;task again looks again")
+            return False
+    elif not go() and not until_morning(s, go):
         s.echo(f"task: stopped short of {person} — ;task again from here carries on")
         return False
     held = take_item(s, task)
@@ -375,6 +381,28 @@ def run_search(s, task, mapdb, walk_fn):
     if not search_for(s, task, mapdb, walk_fn):
         return False
     return hand_in(s, task, mapdb, walk_fn)
+
+
+SEEK_LAPS = 2  # laps of a town's wanderers' streets (86 rooms in the Crossing)
+
+
+def sought(s, noun, place):
+    """A wandering recipient (no room in the givers' table, #511): ;seek
+    <noun> town=<place> run and waited for, True when the room it ends
+    in lists them ("an old blind beggar in The Crossing", Ioun,
+    2026-10-11)."""
+    if not s.run("seek", [noun, f"town={place}", f"laps={SEEK_LAPS}"]):
+        s.echo("task: ;seek did not start — the delivery is yours from here")
+        return False
+    try:
+        while s.is_running("seek"):
+            s.sleep(1)
+    except BaseException:
+        s.kill("seek")  # a ;stop task takes its seek with it
+        raise
+    state = s.state
+    objs = getattr(state, "room_objs", "")
+    return present(noun, objs, getattr(state, "room_players", None) or ()) is not None
 
 
 def hunted(s):

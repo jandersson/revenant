@@ -4,6 +4,7 @@
     ;seek peddler rooms=12   a longer loop (default 8 rooms out and back)
     ;seek peddler laps=5     lap the loop this many times before giving up (default 3)
     ;seek peddler from=389   walk to that ;go2 target first and loop from there
+    ;seek beggar town=crossing   walk the town's wanderers' streets instead (dr-scripts' list: crossing, dirge, shard)
     ;seek return             (typed while it runs) walk back to where the search began and end
 
 A wandering NPC — Riverhaven's Tall Human Peddler, who sells the
@@ -33,7 +34,7 @@ Stop with:  ;stop seek (at once), or ;seek return to walk back to the start firs
 from client.game import flight, probe, travel
 from client.game.loop import danger, wants_stop
 from client.game.mapdb import MapDB
-from client.game.seek import loop, parse_args, present
+from client.game.seek import loop, parse_args, present, town_route
 from client.game.walker import locate, walk
 
 COLLECT_SECONDS = 2  # LOOK's listing, for a parser without room_objs
@@ -67,16 +68,22 @@ def run(s, options, mapdb, walk_fn=walk, avoid=()):
             s.echo("seek: could not reach the start room — stopping")
             return
     start = locate(mapdb, s.state)
-    if start is None:
+    if start is None and not options["town"]:
         s.echo("seek: current room unknown — 'look' once and retry")
         return
     if entry := found_here(s, noun):
         s.echo(f"seek: {entry} here")
         return
-    order = loop(mapdb, start, options["rooms"], avoid=avoid)
-    if not order:
-        s.echo("seek: no street to loop from here — try from= a street")
-        return
+    if options["town"]:
+        order = list(town_route(options["town"], start))
+        if not order:
+            s.echo(f"seek: no wanderers' streets known for {options['town']!r}")
+            return
+    else:
+        order = loop(mapdb, start, options["rooms"], avoid=avoid)
+        if not order:
+            s.echo("seek: no street to loop from here — try from= a street")
+            return
     titles = [(mapdb.rooms[r].get("title") or ["?"])[0] for r in order]
     s.echo(
         f"seek: looking for {noun!r} along {len(set(order))} rooms, "
@@ -92,7 +99,10 @@ def run(s, options, mapdb, walk_fn=walk, avoid=()):
                 return
             if wants_stop(s):
                 s.echo("seek: returning to the start as asked")
-                travel.go(s, start, "the start", db=mapdb, walk=walk_fn, avoid=avoid)
+                if start is not None:
+                    travel.go(
+                        s, start, "the start", db=mapdb, walk=walk_fn, avoid=avoid
+                    )
                 return
             if room != locate(mapdb, s.state) and not travel.go(
                 s, room, "the next room", db=mapdb, walk=walk_fn, avoid=avoid

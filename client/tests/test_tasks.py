@@ -106,6 +106,25 @@ def test_a_delivery_to_a_titled_recipient_keeps_the_title_and_gives_to_the_name(
     assert tasks.recipient_rooms(db, "Ranger Guildleader Kalika") == {7900}
 
 
+BEGGAR_OFFER = (
+    "Ioun says, \"I do have a small task I'd like for you to perform.  I have a "
+    "small item that needs to be taken to an old blind beggar in The Crossing.  "
+    'Would you be willing to do that for me?"\n'
+)
+BEGGAR_JOURNAL = (
+    "You look in your task journal and see the following entry:\n"
+    "Ioun wants you to deliver a package to an old blind beggar in The Crossing.\n"
+)
+
+
+def test_a_wanderer_with_no_name_is_a_delivery_recipient():
+    # Ioun, 2026-10-11: "a task of a kind not captured yet", handed over.
+    wanted = {"kind": "delivery", "person": "old blind beggar", "place": "The Crossing"}
+    assert tasks.parse_offer(BEGGAR_OFFER) == wanted
+    assert tasks.parse_journal(BEGGAR_JOURNAL) == wanted | {"giver": "Ioun"}
+    assert tasks.person_name("old blind beggar") == "beggar"
+
+
 def test_a_recipients_lowercase_title_is_read_and_the_name_given_to():
     # Ievia, 2026-10-11: read as no delivery and handed over.
     offer = tasks.parse_offer(

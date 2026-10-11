@@ -17,7 +17,7 @@
 
 - The first use downloads the map (~13 MB) into `~/.revenant/mapdb/`.
 - `;stop go2` stops the walk where it stands.
-- To find a wandering NPC the map has no room for, use `;seek <noun>`: it loops the nearby streets until a room lists it, then stops there.
+- To find a wandering NPC the map has no room for, use `;seek <noun>`: it loops the nearby streets until a room lists it, then stops there. `town=crossing` (or `dirge`, `shard`) walks that town's wanderers' streets instead, dr-scripts' list.
 
 ## What the walk does for you
 

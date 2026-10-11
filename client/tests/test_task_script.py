@@ -637,6 +637,51 @@ def test_a_search_already_found_is_only_handed_in_on_a_rerun():
     assert "give #173989977 to Saeru" in fake.sent
 
 
+class Seeking(Fake):
+    """;seek stood in for: over at once, the room it ends in listing the
+    old blind beggar when `found`."""
+
+    def __init__(self, answers, found=True):
+        super().__init__(answers)
+        self.started, self.found = [], found
+
+    def run(self, name, args=()):
+        self.started.append((name, list(args)))
+        if self.found:
+            self.state.room_objs = "You also see an old blind beggar."
+        return True
+
+    def is_running(self, name):
+        return False
+
+    def kill(self, name):
+        pass
+
+
+def test_a_wanderers_delivery_is_sought_through_the_town_then_handed_over():
+    # Ioun, 2026-10-11: a gift basket for an old blind beggar in The
+    # Crossing, who has no room; ;seek walks the town's streets for him.
+    from test_tasks import BEGGAR_JOURNAL
+
+    paid = PAID.replace("Saeru", "The old blind beggar").replace("314", "150")
+    fake = Seeking({"task": [BEGGAR_JOURNAL, JOURNAL_CLEAR], "give": [paid]})
+    fake.state.right_hand = dict(BASKET)
+    out = run(fake)
+    assert fake.started == [("seek", ["beggar", "town=The Crossing", "laps=2"])]
+    assert "give #172475803 to beggar" in fake.sent
+    assert "task: delivered" in out
+
+
+def test_a_wanderer_not_found_stops_the_delivery_with_the_basket_kept():
+    from test_tasks import BEGGAR_JOURNAL
+
+    fake = Seeking({"task": [BEGGAR_JOURNAL]}, found=False)
+    fake.state.right_hand = dict(BASKET)
+    out = run(fake)
+    assert not any(c.startswith("give") for c in fake.sent)
+    assert "no old blind beggar found in The Crossing" in out
+
+
 def test_a_rerun_with_the_item_still_in_hand_takes_its_noun_and_gives_to_the_recipients_name():
     # 2026-10-10: an offer read as unknown left the letter in a hand and no
     # item in the record; the next ;task carries the delivery on from the

@@ -128,7 +128,13 @@ def run(fake, args):
 
 def test_args():
     options = seek.parse_args(["tall", "peddler", "rooms=3", "laps=2", "from=389"])
-    assert options == {"noun": "tall peddler", "rooms": 3, "laps": 2, "from": "389"}
+    assert options == {
+        "noun": "tall peddler",
+        "rooms": 3,
+        "laps": 2,
+        "from": "389",
+        "town": "",
+    }
     assert seek.parse_args([])["noun"] == ""
 
 
@@ -159,6 +165,22 @@ def test_it_stops_in_the_room_that_lists_the_noun():
     out = run(fake, ["peddler", "rooms=3"])
     assert fake.walks == [2, 3]
     assert "seek: a tall Human peddler here" in out
+
+
+BEGGAR = "You also see a town crier and an old blind beggar."
+
+
+def test_a_town_walks_its_wanderers_streets_from_where_you_stand(monkeypatch):
+    # dr-scripts' find.lic: the town's wandering_npcs rooms in order,
+    # begun at the current room when it is one of them ("find crossing
+    # beggar"; the beggar is a task's recipient, Ioun, 2026-10-11).
+    monkeypatch.setattr(seek, "TOWN_ROUTES", {"crossing": (4, 1, 3, 5, 2)})
+    assert seek.town_route("The Crossing", 3) == (3, 5, 2, 4, 1)
+    assert seek.town_route("Riverhaven") == ()
+    fake = Fake(listings={5: [BEGGAR]})
+    out = run(fake, ["beggar", "town=The Crossing"])
+    assert fake.walks == [3, 5]  # from room 1, on the route
+    assert "seek: an old blind beggar here" in out
 
 
 def test_the_noun_already_here_means_no_walk():

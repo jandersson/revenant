@@ -22,19 +22,234 @@ ROOMS = 8  # rooms beyond the start in the loop, out and back
 LAPS = 3  # laps of the loop before giving up
 _SPLIT = re.compile(r",\s+|\s+and\s+")
 _ALSO_SEE = "you also see"
+# A town's streets where its wanderers walk, in dr-scripts' order
+# (data/base-town.yaml wandering_npcs; its find.lic walks them until the
+# room lists the NPC, "find crossing beggar"): ;seek town=<town> laps
+# these instead of the loop round the start. An old blind beggar in The
+# Crossing is a task's recipient (Ioun, 2026-10-11, #511).
+TOWN_ROUTES = {
+    "crossing": (
+        732,
+        741,
+        739,
+        734,
+        733,
+        753,
+        792,
+        791,
+        785,
+        783,
+        779,
+        775,
+        776,
+        777,
+        778,
+        738,
+        737,
+        736,
+        735,
+        784,
+        782,
+        780,
+        774,
+        773,
+        771,
+        770,
+        769,
+        781,
+        810,
+        819,
+        822,
+        7902,
+        809,
+        808,
+        807,
+        811,
+        812,
+        813,
+        804,
+        805,
+        806,
+        803,
+        802,
+        814,
+        815,
+        800,
+        799,
+        801,
+        817,
+        816,
+        761,
+        797,
+        762,
+        763,
+        798,
+        764,
+        765,
+        766,
+        760,
+        759,
+        758,
+        757,
+        756,
+        748,
+        747,
+        746,
+        729,
+        728,
+        730,
+        731,
+        754,
+        751,
+        750,
+        749,
+        752,
+        793,
+        794,
+        954,
+        796,
+        795,
+        767,
+        768,
+        786,
+        787,
+        788,
+        789,
+    ),
+    "dirge": (
+        1307,
+        1308,
+        1311,
+        1315,
+        1316,
+        1309,
+        1310,
+        12109,
+        1317,
+        1318,
+        1321,
+        1314,
+        1313,
+        1319,
+        1320,
+    ),
+    "shard": (
+        2544,
+        2550,
+        2556,
+        2557,
+        2558,
+        2559,
+        2560,
+        2561,
+        2562,
+        2522,
+        19287,
+        2517,
+        2516,
+        2518,
+        2520,
+        2521,
+        2523,
+        2524,
+        2525,
+        2526,
+        2527,
+        2528,
+        2529,
+        2536,
+        2537,
+        2538,
+        2611,
+        2503,
+        2502,
+        2501,
+        2496,
+        2497,
+        2498,
+        2511,
+        2512,
+        2513,
+        2514,
+        2515,
+        2499,
+        2500,
+        2581,
+        2596,
+        2575,
+        2573,
+        2570,
+        2567,
+        2565,
+        2566,
+        2564,
+        2563,
+        2582,
+        2585,
+        2586,
+        2589,
+        2597,
+        2598,
+        2599,
+        2600,
+        2601,
+        2612,
+        2607,
+        2549,
+        2548,
+        2547,
+        2545,
+        2621,
+        2544,
+        2613,
+        2608,
+        2617,
+        2633,
+        2632,
+        2631,
+        2504,
+        2505,
+        2506,
+        2507,
+        2508,
+        2509,
+        2574,
+        2540,
+        2539,
+        2541,
+        2543,
+        2603,
+        2602,
+        2583,
+        2584,
+        2592,
+        2593,
+        2594,
+        2595,
+        2567,
+        2571,
+        2572,
+        2569,
+        2568,
+        2565,
+        2566,
+        2564,
+        2563,
+    ),
+}
 
 
 def parse_args(args):
-    """{"noun", "rooms", "laps", "from"} from ;seek's arguments: the
+    """{"noun", "rooms", "laps", "from", "town"} from ;seek's arguments: the
     words that are not key=value options make the noun."""
-    options = {"noun": "", "rooms": ROOMS, "laps": LAPS, "from": ""}
+    options = {"noun": "", "rooms": ROOMS, "laps": LAPS, "from": "", "town": ""}
     words = []
     for arg in args:
         key, sep, value = str(arg).lower().partition("=")
         if sep and key in ("rooms", "laps") and value.isdigit():
             options[key] = int(value)
-        elif sep and key == "from" and value:
-            options["from"] = value
+        elif sep and key in ("from", "town") and value:
+            options[key] = value
         else:
             words.append(str(arg))
     options["noun"] = " ".join(words).strip()
@@ -61,6 +276,18 @@ def present(noun, objs_text="", players=()):
         if entry and pattern.search(entry):
             return entry
     return None
+
+
+def town_route(town, here=None):
+    """One lap of the town's wanderers' streets (TOWN_ROUTES), begun at
+    `here` when it is on them, as dr-scripts' find does, else at the
+    first; () for a town without one. "The Crossing" is "crossing"."""
+    name = str(town or "").strip().lower().removeprefix("the ").strip()
+    rooms = TOWN_ROUTES.get(name, ())
+    if here in rooms:
+        index = rooms.index(here)
+        return rooms[index:] + rooms[:index]
+    return rooms
 
 
 def loop(db, start, rooms, avoid=()):
