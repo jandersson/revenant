@@ -125,6 +125,36 @@ GIVERS = {
 }
 
 
+# Each town's trade minister, at its trader outpost, by map id (dr-scripts'
+# data/base-town.yaml trade_minister, each checked against the map): a
+# delivery may go to one, "the Stone Clan trade minister in Stone Clan"
+# (Cormyn, 2026-10-11, #511). Keyed by the town the recipient names.
+TRADE_MINISTERS = {
+    "arthe dale": "8999",
+    "crossing": "8915",
+    "darkling wood": "14636",
+    "dirge": "15175",
+    "fayrin's rest": "19278",
+    "leth deriel": "9004",
+    "shard": "8197",
+    "steelclaw clan": "19399",
+    "stone clan": "8996",
+    "tiger clan": "1889",
+    "wolf clan": "8997",
+    "riverhaven": "7876",
+    "therenborough": "3232",
+    "langenfirth": "13414",
+    "fornsted": "14435",
+    "hvaral": "14651",
+    "hibarnhvidar": "7412",
+    "raven's point": "14642",
+    "boar clan": "13675",
+    "muspar'i": "14288",
+    "ain ghazal": "14638",
+}
+_MINISTER = " trade minister"
+
+
 def classify_ask(answer):
     """ "offer", "cooldown" or "unknown" for the giver's answer to an ask."""
     text = str(answer or "")
@@ -267,7 +297,12 @@ def person_name(person):
 
 def recipient_rooms(db, person):
     """The map rooms a delivery's recipient stands in, by the givers'
-    table; empty when the person is not in it or the map lacks the room."""
+    table, or a town's trade minister by TRADE_MINISTERS; empty when the
+    person is not in either or the map lacks the room."""
+    text = str(person or "").strip().lower().removeprefix("the ")
+    if text.endswith(_MINISTER):
+        room = TRADE_MINISTERS.get(text[: -len(_MINISTER)].strip())
+        return set(db.resolve(room)) if room else set()
     title = GIVERS.get(person_name(person).capitalize())
     if not title:
         return set()

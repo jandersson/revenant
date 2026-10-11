@@ -259,6 +259,21 @@ def test_the_recipients_room_comes_from_the_givers_table():
     assert tasks.recipient_rooms(db, "Nobody") == set()
 
 
+def test_a_towns_trade_minister_is_found_by_the_town():
+    # Cormyn, 2026-10-11: "I have a small item that needs to be taken to
+    # the Stone Clan trade minister in Stone Clan."
+    db = MapDB(
+        [
+            {"id": 8996, "uid": [5], "title": ["[Stone Clan, Trader's Guild Outpost]"]},
+            {"id": 8915, "uid": [6], "title": ["[Traders' Guild, Hall of Records]"]},
+        ]
+    )
+    assert tasks.recipient_rooms(db, "Stone Clan trade minister") == {8996}
+    assert tasks.recipient_rooms(db, "the Crossing trade minister") == {8915}
+    assert tasks.recipient_rooms(db, "Nowhere trade minister") == set()
+    assert tasks.person_name("Stone Clan trade minister") == "minister"  # GIVE's word
+
+
 def test_a_guild_leader_is_found_by_the_map_id_not_the_shared_title():
     # #511: "Barbarian Guild, Main Hall" and its like repeat town to town;
     # the leaders' rooms are dr-scripts' base-town ids.
