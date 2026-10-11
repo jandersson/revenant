@@ -506,6 +506,24 @@ def test_any_walks_to_the_nearest_giver_whose_ten_minutes_are_up(monkeypatch):
     assert "ask cormyn for task" not in fake.sent
 
 
+def test_any_asks_the_towns_trade_minister_by_the_word_the_game_takes(monkeypatch):
+    # 2026-10-11, Eshar's Trading Post: ;task any walked 64 steps to the
+    # barkeep past the Leth Deriel trade minister, whom the givers' table
+    # did not hold; the ministers give foraging and skinning tasks.
+    monkeypatch.setattr(script, "now", lambda: 10_000.0)
+    post = MapDB(
+        [{"id": 9004, "uid": [9], "title": ["[Eshar's Trading Post, Main Room]"]}]
+    )
+    fake = Fake({"ask minister": [COOLDOWN]})
+    fake.state.room_uid = 9
+    fake.state.room_title = "[Eshar's Trading Post, Main Room]"
+    script.run(fake, script.parse_args(["any"]), {}, post, walk)
+    assert "task: leth deriel trade minister is the nearest giver free to ask" in (
+        "\n".join(fake.echoed)
+    )
+    assert "ask minister for task" in fake.sent
+
+
 def test_any_with_no_giver_free_within_reach_says_so(monkeypatch):
     from client.game import tasks
 

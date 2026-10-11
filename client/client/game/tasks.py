@@ -426,4 +426,7 @@ def available_givers(name, now):
     available"). Every one, the foraging and boss givers too: an offer
     of a kind ;task cannot run yet is accepted and learned from, never
     turned down ("id rather accept them and learn how to do them")."""
-    return [giver for giver in GIVERS if not wait_left(name, giver, now)]
+    # The towns' trade ministers give tasks too (foraging, skinning, kill;
+    # Elanthipedia: Task), each named the way a delivery names one.
+    ministers = [f"{town}{_MINISTER}" for town in TRADE_MINISTERS]
+    return [giver for giver in [*GIVERS, *ministers] if not wait_left(name, giver, now)]

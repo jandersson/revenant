@@ -121,7 +121,7 @@ def take_offer(s, giver, declines, name=""):
             "minute(s) — ten minutes between asks"
         )
         return None
-    answer = ask(s, f"ask {giver} for task")
+    answer = ask(s, f"ask {person_name(giver)} for task")
     verdict = classify_ask(answer)
     if verdict == "cooldown":
         note_ask(name, giver, now())  # its start unknown: a whole wait from here
@@ -401,7 +401,7 @@ def hand_in(s, task, mapdb, walk_fn):
     held = take_item(s, task)
     if not held:
         return False
-    answer = ask(s, f"give {held} to {giver}")
+    answer = ask(s, f"give {held} to {person_name(giver)}")
     payment = paid(answer)
     if payment:
         s.echo(f"task: handed in — {giver} paid {payment[0]} {payment[1]}")
