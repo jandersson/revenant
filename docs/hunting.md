@@ -8,6 +8,7 @@
 ;hunt                 # hunt with the profile
 ;hunt <style>         # hunt one of the profile's hunt styles
 ;hunt here            # skip the walk; hunt where you stand
+;hunt task            # the item recovery ;task took: its area, until the item drops (tasks.md)
 ;hunt grounds [rank]  # hunting zones that suit your weakest weapon, nearest first, with your measured box rate (else the wiki's)
 ;hunt profile [style] # print the profile it would use
 ;hunt styles          # list the hunt styles
@@ -94,6 +95,7 @@ A `;train` task passes the style in its args: `"script": "hunt", "args": ["boxes
 - **A losing fight**: 60 swings without a kill, or three stuns in one fight, break off the same way.
 - **Locks**: every `train_skills` skill mind-locked, or every weapon in the rotation locked.
 - **The style's `until`**: boxes, or `max_kills`.
+- **A task's item** (`;hunt task`): picked up off the kill that drops it. No lock ends a task hunt.
 - **You**: `;hunt return` or `;stop hunt`.
 
 An empty ground is not an end: the hunt waits and laps it again.

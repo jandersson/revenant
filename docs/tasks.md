@@ -1,6 +1,6 @@
 # Tasks
 
-A task is an errand an NPC gives for coin: ask a task giver, accept inside thirty seconds, do it, and the one you deliver to pays. `;task <giver>` runs a delivery or a search end to end; the other kinds are accepted and handed to you until their wordings are captured (#505).
+A task is an errand an NPC gives for coin: ask a task giver, accept inside thirty seconds, do it, and the one you deliver to pays. `;task <giver>` runs a delivery, a search or an item recovery end to end; the other kinds are accepted and handed to you until their wordings are captured (#505).
 
 ## Using ;task
 
@@ -11,7 +11,8 @@ A task is an errand an NPC gives for coin: ask a task giver, accept inside thirt
 ;task return         finish the step in hand and stop
 ```
 
-- Every offer is accepted inside its thirty seconds unless the profile's `task_declines` names its kind. The script runs a delivery; any other kind it accepts, records and hands to you, saying the offer.
+- Every offer is accepted inside its thirty seconds unless the profile's `task_declines` names its kind. The script runs a delivery, a search and a recovery; any other kind it accepts, records and hands to you, saying the offer.
+- A recovery runs `;hunt task`: the area's rooms are the ground, the profile's weapons fight whatever engages, and the hunt ends when a kill's death line drops the item (`As grey poloh'izh dies, you see it drop a worn gauntlet onto the ground.`); it picks the item up and goes home, then `;task` carries it to the giver. A profile with no weapon gets the recovery handed over: a spell caster's kill is not built.
 - A delivery's item is stowed for the walk and taken out again at the recipient, who is found through the givers' table in the model. A search kneels and searches each room of the area in turn, waiting out every roundtime (about twelve seconds), picks up the find, and carries it back to the giver.
 - A shop shut for the night is waited for: `;task` tries the door each game hour (fifteen real minutes), eight times at most. Any other walk that ends short is said; `;task` again from there carries on.
 

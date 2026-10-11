@@ -3,6 +3,7 @@
     ;hunt                   walk to the ground and hunt until one of the stops below
     ;hunt here              hunt where you stand, no walk
     ;hunt <style>           a hunt style from the profile's `hunts` (its ground, prey, weapons, `until`)
+    ;hunt task              the item recovery ;task took: its area, whatever engages, until the item drops
     ;hunt styles            list the profile's hunt styles
     ;hunt profile [style]   print the profile the hunt would use
     ;hunt grounds [rank]    hunting zones for your weakest weapon's rank (or <rank>), nearest first,
@@ -29,6 +30,7 @@ When it stops — then walks home, and runs ;skins bank (skins sold, purse banke
   - health below `health_floor`, or a wound at `wound_floor` (also checked before setting out)
   - 60 swings without a kill, or three stuns in one fight
   - every trained skill mind-locked, or the style's `until` (boxes, kills)
+  - ;hunt task: the task's item dropping in a kill's death line (picked up and stowed); no lock ends it
   - every room of the ground taken by other players
   - ;hunt return
   - a hunt that never reached the fight (no ground, a wound at the floor) ends without selling
@@ -61,6 +63,7 @@ from client.game import (
     lootlog,
     probe,
     stores,
+    tasks,
     travel,
 )
 from client.game.act import (
@@ -116,6 +119,7 @@ rank_of = hunting.rank_of
 locked = hunting.locked
 stalled_turn = hunting.stalled_turn
 farming = hunting.farming
+tasked = hunting.tasked
 swing_verb = hunting.swing_verb
 
 # The design notes the manual above leaves out: what each rule came
@@ -612,7 +616,7 @@ def rotate(s, profile, tally):
     tally.rotated_at = tally.kills
     index = next_turn(s, profile, tally)
     if index is None:
-        return farming(profile)
+        return farming(profile) or tasked(profile)
     if index != tally.weapon:
         entry = weapon_plan(profile)[tally.weapon]
         if (
@@ -2052,6 +2056,55 @@ def say_outgrown(s, profile, tally):
         )
 
 
+TASK_DROP = "task drop"  # the flag on the recovery's death line (#509)
+
+
+def task_profile(s, profile, db):
+    """;hunt task (#509): the item recovery ;task recorded, laid over the
+    profile — its area the ground, whatever engages the prey (the offer
+    names the creature in the plural), until the item drops. (None,
+    None) said when there is no recovery in hand or the map lacks its
+    area."""
+    task = tasks.load(getattr(s.state, "name", None) or "") or {}
+    if task.get("kind") != "recovery" or not task.get("item"):
+        s.echo("hunt: no item recovery in hand — ;task <giver> takes one")
+        return None, None
+    ground = sorted(tasks.area_rooms(db, task.get("area")))
+    if not ground:
+        s.echo(f"hunt: the map has no room for {task.get('area')!r} — stopping")
+        return None, None
+    s.echo(
+        f"hunt: the task — the {task['item']} from the {task.get('creature')} "
+        f"{task.get('area')}, until it drops"
+    )
+    overlay = {"hunting_ground": task.get("area"), "prey": "", "until": "task"}
+    return {**profile, **overlay, "task_item": task["item"]}, ground
+
+
+def take_drop(s, profile):
+    """The task's item dropped at a kill: GET it by its ADJECTIVE NOUN, a
+    hand freed first, its id written into the task's record for ;task's
+    GIVE, and stowed. The hunt's end either way, said."""
+    item = profile["task_item"]
+    words = tasks.item_words(item)
+    noun = words.split()[-1]
+    drawn = hand_for_loot(s, profile)
+    answer = ask(s, f"get {words}")
+    held = items.ref(s, noun)
+    got = bool(held) or hands.holding(s, noun)
+    if held:
+        name = getattr(s.state, "name", None) or ""
+        tasks.record(name, {**(tasks.load(name) or {}), "exist": held.lstrip("#")})
+    if got:
+        stow(s, profile, noun)
+    if drawn:
+        draw(s, profile)
+    if not got:
+        unknown(s, "hunt", "GET", answer)
+        return f"the task's {item} dropped, but the GET did not take it — it lies here"
+    return f"the task's {item} dropped — picked up"
+
+
 def loop(s, profile, db, ground, avoid, tally):
     """Fight until something ends the hunt; returns why."""
     prey = profile["prey"]
@@ -2064,6 +2117,8 @@ def loop(s, profile, db, ground, avoid, tally):
             return "dead — deathwatch has it"
         if (s.command(timeout=0) or "").strip().lower() == "return":
             return "returning on request"
+        if profile.get("task_item") and s.flagged(TASK_DROP):
+            return take_drop(s, profile)
         current = health(s.state)
         if current is not None and current < floor:
             escape(s, db)
@@ -2089,7 +2144,7 @@ def loop(s, profile, db, ground, avoid, tally):
                 area, kind, lvl = hit
                 escape(s, db)
                 return f"{area} {kind.replace('_', ' ')} {SEVERITIES[lvl]} — at the wound floor"
-        if locked(s.state, profile["train_skills"]):
+        if not tasked(profile) and locked(s.state, profile["train_skills"]):
             return "trained skills mind-locked"
         if profile["max_kills"] and tally.kills >= profile["max_kills"]:
             return "kill fuse reached"
@@ -2132,10 +2187,11 @@ def loop(s, profile, db, ground, avoid, tally):
     return "action budget spent"
 
 
-def hunt(s, profile, db, travel_first=True, avoid=()):
+def hunt(s, profile, db, travel_first=True, avoid=(), ground=None):
     ground_name = profile["hunting_ground"]
-    # A map tag, else a bestiary zone, else a ;go2 target (#340).
-    ground = hunting.ground_rooms(db, ground_name)
+    # A map tag, else a bestiary zone, else a ;go2 target (#340); a
+    # task's area given outright (#509).
+    ground = ground or hunting.ground_rooms(db, ground_name)
     tally = Tally()
     tally.turn_times = dict(
         load_stores(getattr(s.state, "name", None)).get("turns") or {}
@@ -2178,8 +2234,8 @@ def hunt(s, profile, db, travel_first=True, avoid=()):
     wear_bundle(s, profile, tally)
     cast_buffs(s, profile, tally)
     first = next_turn(s, profile, tally, from_current=True) if has_turns(profile) else 0
-    if first is None and farming(profile):
-        first = 0  # a farm fights on with its first turn, locked or not
+    if first is None and (farming(profile) or tasked(profile)):
+        first = 0  # a farm or a task fights on with its first turn, locked or not
     if first is None:
         s.echo("hunt: every weapon skill is mind-locked — nothing to train")
         return
@@ -2189,6 +2245,8 @@ def hunt(s, profile, db, travel_first=True, avoid=()):
             "(profile wound_floor; off never asks HEALTH)"
         )
     ready(s, profile, tally, first)
+    if profile.get("task_item"):
+        s.flag(TASK_DROP, tasks.drop_pattern(profile["task_item"]))
     started = hunting.clock()
     reason = loop(s, profile, db, ground, avoid, tally)
     minutes = (hunting.clock() - started) / 60
@@ -2353,7 +2411,7 @@ def main(s):
     if chosen:
         profile = styled(profile, chosen)
         s.echo(f"hunt: the {chosen} style — until {profile['until']}")
-    elif words and words[0] not in ("here", "profile", "grounds") and known:
+    elif words and words[0] not in ("here", "profile", "grounds", "task") and known:
         s.echo(f"hunt: no style named {words[0]!r} — styles: {', '.join(known)}")
         return
     if words and words[0] == "profile":
@@ -2383,6 +2441,11 @@ def main(s):
     if words and words[0] == "grounds":
         show_grounds(s, profile, db, words[1:], travel.avoided(db))
         return
+    ground = None
+    if words and words[0] == "task":
+        profile, ground = task_profile(s, profile, db)
+        if profile is None:
+            return
     try:
         hunt(
             s,
@@ -2390,6 +2453,7 @@ def main(s):
             db,
             travel_first="here" not in words,
             avoid=travel.avoided(db),
+            ground=ground,
         )
     finally:
         # The weapon stays in hand by design; the cambrinth piece does

@@ -10,6 +10,7 @@ it was captured; docs/hunting.md is the model they pin.
 
 import importlib.util
 import pathlib
+import re
 from types import SimpleNamespace
 from client.game import buffs
 from client.game.mapdb import MapDB
@@ -205,6 +206,8 @@ class Arena:
         self.room = room
         self.dead = False
         self.listing = True  # the game re-sends the room listing on a death
+        self.flags = {}  # name -> patterns, as the engine's s.flag keeps them
+        self.flag_lines = {}  # name -> the first line that matched since read
         self.state = SimpleNamespace(
             name="Lanival",
             hostiles={exist: True for exist in hostiles},
@@ -233,7 +236,22 @@ class Arena:
                     # own effect marked it already.
                     mark_corpse(self, hunt.kill_noun(answer) or "rat")
                 self.pending = [line + "\n" for line in answer.splitlines()]
+                for line in answer.splitlines():
+                    for name, patterns in self.flags.items():
+                        if name not in self.flag_lines and any(
+                            p.search(line) for p in patterns
+                        ):
+                            self.flag_lines[name] = line
                 return
+
+    def flag(self, name, *patterns, streams=("", "combat")):
+        self.flags[name] = [re.compile(p, re.IGNORECASE) for p in patterns]
+        self.flag_lines.pop(name, None)
+
+    def flagged(self, name, clear=True):
+        if clear:
+            return self.flag_lines.pop(name, None)
+        return self.flag_lines.get(name)
 
     def get(self, timeout=None, streams=("",)):
         if self.pending:

@@ -722,6 +722,12 @@ def farming(profile):
     return str(profile.get("until") or "").lower() == "boxes"
 
 
+def tasked(profile):
+    """True for ;hunt task (`until` task, #509): it ends on the task's
+    item dropping, never on the skills, so a locked weapon swings on."""
+    return str(profile.get("until") or "").lower() == "task"
+
+
 SMITE_INTERVAL = 60  # seconds between smites: the fallback (#191)
 TACTICS_EVERY = 3  # every third swing is a maneuver while Tactics is unlocked
 clock = time.monotonic  # tests replace it

@@ -1,6 +1,6 @@
 """Run an NPC's task for the coin:  ;task <giver>
     ;task <giver>        ask the giver (a noun the room knows: cormyn) for a task and accept it; a kind the profile's task_declines names is declined
-    ;task                carry on the task in hand (the journal's): a delivery walks to the recipient and hands the item over; a search kneels and searches the area's rooms, then brings the find back to the giver
+    ;task                carry on the task in hand (the journal's): a delivery walks to the recipient and hands the item over; a search kneels and searches the area's rooms, a recovery hunts the area (;hunt task), then brings the find back to the giver
     ;task item=<noun>    ... naming the item when the record of the accept is gone (a basket)
     ;task return         typed while it runs: finish the step in hand and stop
 
@@ -9,10 +9,12 @@ What it does
 - The offer has thirty seconds: it is accepted at once (a kind in task_declines is declined). A delivery is run; any other kind is yours from here — the offer said, the task recorded.
 - A delivery: the item lands in a hand and is stowed; the walk to the recipient's room (the givers' table in client/game/tasks.py); GET the item by the id the accept recorded (INV LIST's id, then the noun, when there is none; two of a noun said), GIVE it to the recipient; the payment said; the journal read again.
 - A search: the area's rooms by title; in each KNEEL and SEARCH (each one's roundtime waited) until the find, SEARCHES_PER_ROOM at most; GET the find, STAND, the walk back to the giver, GIVE; the journal read again.
+- A recovery: ;hunt task, waited for — the area's rooms by title as the ground, the profile's weapons on whatever engages, until a kill's death line drops the item; ;hunt picks it up and goes home as any hunt does; then the walk to the giver, GIVE; the journal read again.
 
 What stops it
 - The giver's cooldown (ten minutes between asks, kept per giver: an ask inside it is not sent, the minutes left are said), an offer of a kind the profile declines, a recipient the table does not know, a walk that ends short — each said. A shop shut for the night is waited for: the door tried each game hour (fifteen real minutes), eight times at most. A walk that ends short otherwise: ;task again from there carries on.
-- Delivery and searching are run by the script; recovery, kill, boss, foraging and skinning are accepted and handed over, their wordings captured on the way (#505).
+- A hunt that ends without the item (a floor, a ;hunt return): ;task again hunts on.
+- Delivery, searching and recovery are run by the script; kill, boss, foraging and skinning are accepted and handed over, their wordings captured on the way (#505).
 
 Elanthipedia: Task; the wordings captured on Crannach's delivery (docs/tasks.md).
 """
@@ -370,12 +372,54 @@ def run_search(s, task, mapdb, walk_fn):
     return hand_in(s, task, mapdb, walk_fn)
 
 
+def hunted(s):
+    """;hunt task run and waited for (#509); False when it did not start
+    (the engine says why: ;hunt already running, say)."""
+    if not s.run("hunt", ["task"]):
+        s.echo("task: ;hunt task did not start — the recovery is yours from here")
+        return False
+    try:
+        while s.is_running("hunt"):
+            s.sleep(1)
+    except BaseException:
+        s.kill("hunt")  # a ;stop task takes its hunt with it
+        raise
+    return True
+
+
+def run_recovery(s, task, profile, mapdb, walk_fn):
+    """The recovery's area hunted by ;hunt task until the item drops, then
+    the find walked back to the giver. The hunt writes the item's id into
+    the record when it picks it up: an id there is the item on you. A
+    profile with no weapon is no hunter: ;hunt would fight bare-handed
+    (a spell caster's kill is not built), so the recovery is handed over."""
+    if task.get("exist"):
+        s.echo(f"task: the {task.get('item')} is already on you — handing it in")
+        return hand_in(s, task, mapdb, walk_fn)
+    if not profile.get("weapon") and not profile.get("weapons"):
+        s.echo(
+            f"task: {describe(task)} — the profile names no weapon for ;hunt; "
+            "yours from here"
+        )
+        return False
+    if not hunted(s):
+        return False
+    task = {**task, **(load(character(s)) or {})}
+    if not task.get("exist"):
+        s.echo(
+            f"task: the hunt ended without the {task.get('item')} — ;task again "
+            "hunts on"
+        )
+        return False
+    return hand_in(s, task, mapdb, walk_fn)
+
+
 def run(s, options, profile, mapdb, walk_fn=walk):
     declines = list(profile.get("task_declines") or [])
     name = character(s)
     task = parse_journal(ask(s, "task"))
     if task is not None:
-        if task.get("kind") not in ("delivery", "searching"):
+        if task.get("kind") not in ("delivery", "searching", "recovery"):
             s.echo(
                 f"task: the journal holds {describe(task)} — beyond the script, yours from here"
             )
@@ -395,6 +439,8 @@ def run(s, options, profile, mapdb, walk_fn=walk):
         record(name, task)
         if task["kind"] == "searching":
             run_search(s, task, mapdb, walk_fn)
+        elif task["kind"] == "recovery":
+            run_recovery(s, task, profile, mapdb, walk_fn)
         else:
             deliver(s, task, mapdb, walk_fn)
         return
@@ -408,6 +454,10 @@ def run(s, options, profile, mapdb, walk_fn=walk):
     if offer["kind"] == "searching":
         record(name, task)
         run_search(s, task, mapdb, walk_fn)
+        return
+    if offer["kind"] == "recovery":
+        record(name, task)
+        run_recovery(s, task, profile, mapdb, walk_fn)
         return
     if offer["kind"] != "delivery":
         record(name, task)

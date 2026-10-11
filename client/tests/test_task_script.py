@@ -192,9 +192,10 @@ def test_a_delivery_is_asked_accepted_carried_and_handed_over():
     assert script.load("Lanival") is None  # the record is cleared when done
 
 
-def test_a_kind_the_script_cannot_run_is_accepted_and_handed_over():
-    # A script built to learn declines nothing: the recovery is accepted,
-    # recorded with the offer's line, and left to the operator.
+def test_a_recovery_with_no_weapon_in_the_profile_is_accepted_and_handed_over():
+    # A script built to learn declines nothing: the recovery is accepted
+    # and recorded; with no weapon ;hunt would fight bare-handed, so it
+    # is left to the operator.
     fake = Fake(
         {
             "task": [JOURNAL_CLEAR, SEARCHING_JOURNAL],
@@ -208,7 +209,80 @@ def test_a_kind_the_script_cannot_run_is_accepted_and_handed_over():
         "a recovery of the tabard from the poloh'izh near Hara'jaal, Glaren Kweld"
         in out
     )
-    assert "yours from here" in out and "lost a very precious tabard" in out
+    assert "names no weapon" in out and "yours from here" in out
+    assert script.load("Lanival")["kind"] == "recovery"
+
+
+TABARD = {"exist": "176392386", "noun": "tabard", "name": "faded tabard"}
+RECOVERY_JOURNAL = (
+    "You look in your task journal and see the following entry:\n"
+    "Cormyn wants you to recover a tabard from poloh'izh near Hara'jaal, "
+    "Glaren Kweld.\n"
+)
+RECOVERED = PAID.replace("Saeru", "Cormyn").replace("314 Lirums", "777 Kronars")
+
+
+class Hunting(Fake):
+    """;hunt task stood in for: started, over at once, and — when it
+    found the item — the item's id in the task's record, as the hunt's
+    pickup writes it. A GET takes the tabard."""
+
+    def __init__(self, answers, found=True):
+        super().__init__(answers)
+        self.started, self.found = [], found
+
+    def run(self, name, args=()):
+        self.started.append((name, list(args)))
+        if self.found:
+            script.record("Lanival", {**script.load("Lanival"), "exist": "176392386"})
+        return True
+
+    def is_running(self, name):
+        return False
+
+    def kill(self, name):
+        pass
+
+    def put(self, command):
+        super().put(command)
+        if command.startswith("get "):
+            self.state.right_hand = dict(TABARD)
+
+
+def run_armed(fake, words=()):
+    script.run(fake, script.parse_args(list(words)), {"weapon": "handaxe"}, MAP, walk)
+    return echoes(fake)
+
+
+def test_a_recovery_is_hunted_by_hunt_task_then_handed_to_the_giver():
+    fake = Hunting(
+        {
+            "task": [JOURNAL_CLEAR, RECOVERY_JOURNAL, JOURNAL_CLEAR],
+            "ask cormyn": [RECOVERY_OFFER],
+            "accept": [ACCEPTED],
+            "give": [RECOVERED],
+        }
+    )
+    out = run_armed(fake, ["cormyn"])
+    assert fake.started == [("hunt", ["task"])]
+    assert fake.walks == [{8261}]  # back to Cormyn
+    assert "give #176392386 to Cormyn" in fake.sent  # by the id the hunt recorded
+    assert "task: handed in — Cormyn paid 777 Kronars" in out
+    assert script.load("Lanival") is None
+
+
+def test_a_hunt_that_ends_without_the_item_leaves_the_task_to_carry_on():
+    fake = Hunting(
+        {
+            "task": [JOURNAL_CLEAR, RECOVERY_JOURNAL],
+            "ask cormyn": [RECOVERY_OFFER],
+            "accept": [ACCEPTED],
+        },
+        found=False,
+    )
+    out = run_armed(fake, ["cormyn"])
+    assert "the hunt ended without the tabard — ;task again hunts on" in out
+    assert not fake.walks and not any(c.startswith("give") for c in fake.sent)
     assert script.load("Lanival")["kind"] == "recovery"
 
 

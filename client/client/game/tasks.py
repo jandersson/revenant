@@ -8,9 +8,10 @@ ten-minute cooldown is COOLDOWN. ACCEPT TASK on a delivery hands the
 item over ("Here is the item, please get it to Saeru as soon as
 possible."). TASK reads the journal: the task in hand as JOURNAL_DELIVERY,
 or NO_TASK. The recipient thanks you by name and "hands you 314 Lirums".
-An item recovery's offer names the item, the creature and the area; the
-kill, boss, foraging, skinning and searching offers are uncaptured and
-parse as "unknown", which ;task declines. The record of the task in
+An item recovery's offer names the item, the creature and the area; its
+item drops in a kill's death line (drop_pattern), which ;hunt task
+watches for. The kill, boss, foraging and skinning offers are
+uncaptured and parse as "unknown". The record of the task in
 hand (the item's noun and id, taken from the hand at the accept) lives
 beside the training plans, so a run after the shop's night or a stop
 carries on. Elanthipedia: Task (the kinds and the givers' table).
@@ -85,6 +86,26 @@ _JOURNAL_SEARCHING = re.compile(
     r"(?P<area>near [^.]+)\."
 )
 _PAID = re.compile(r"hands you (?P<count>[\d,]+) (?P<currency>[A-Z]\w+)")
+# A recovery's item comes in the death line, bold on the story stream
+# (the poloh'izh hunt by hand, 2026-10-10, #509): "As grey poloh'izh dies,
+# you see it drop a worn gauntlet onto the ground." Every other kill of
+# the creature says "Although azure poloh'izh dies, you do not see the
+# object you are looking for." SEARCH of the corpse finds nothing.
+
+
+def drop_pattern(item):
+    """The regex (for a script's flag) of the death line that drops the
+    task's `item`."""
+    item = re.escape(str(item or "").strip())
+    return rf"dies, you see it drop (?:an? |some )?{item} onto the ground"
+
+
+def item_words(item):
+    """What GET takes for the item: ADJECTIVE NOUN, never three words
+    ("small hand mirror" is "hand mirror": a three-word GET answers
+    "Please rephrase that command.", learnings 2026-10-08)."""
+    return " ".join(str(item or "").split()[-2:])
+
 
 # The task givers Elanthipedia lists, by the room title the map knows
 # them under: a delivery goes to another giver, so the recipient's room
