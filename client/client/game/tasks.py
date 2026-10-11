@@ -52,8 +52,11 @@ WINDOW_SECONDS = 30
 # The recipient is a name ("Saeru") or a title and a name ("the Ranger
 # Guildleader Kalika", Saeru's third offer, 2026-10-10): the words before
 # " in ", the article dropped; GIVE and the givers' table take the last.
+# A title may be lowercase: "the merchant Chabalu in Ratha" (Ievia,
+# 2026-10-11) read as no delivery at all and was handed over.
+_PERSON = r"(?P<person>(?:[a-z]+ )*[A-Z][\w' ]*?)"
 _DELIVERY = re.compile(
-    r"needs to be taken to (?:the )?(?P<person>[A-Z][\w' ]*?) in (?P<place>[^.?]+)[.?]"
+    rf"needs to be taken to (?:the )?{_PERSON} in (?P<place>[^.?]+)[.?]"
 )
 _RECOVERY = re.compile(
     r"lost a very precious (?P<item>[\w' -]+?)\.\s+(?:He|She) lost it in the area "
@@ -67,7 +70,7 @@ _SEARCHING = re.compile(
 )
 _JOURNAL_DELIVERY = re.compile(
     r"(?P<giver>[A-Z][\w']*) wants you to deliver a package to "
-    r"(?:the )?(?P<person>[A-Z][\w' ]*?) in (?P<place>[^.]+)\."
+    rf"(?:the )?{_PERSON} in (?P<place>[^.]+)\."
 )
 # "Saeru wants you to recover a glaes locket near The Crossing, Gildleaf
 # Circle." — a search's journal line; a recovery's (from a creature) is

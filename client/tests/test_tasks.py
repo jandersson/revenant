@@ -106,6 +106,28 @@ def test_a_delivery_to_a_titled_recipient_keeps_the_title_and_gives_to_the_name(
     assert tasks.recipient_rooms(db, "Ranger Guildleader Kalika") == {7900}
 
 
+def test_a_recipients_lowercase_title_is_read_and_the_name_given_to():
+    # Ievia, 2026-10-11: read as no delivery and handed over.
+    offer = tasks.parse_offer(
+        "The Ranger Journeywomen Ievia says, \"I do have a small task I'd like for "
+        "you to perform.  I have a small item that needs to be taken to the "
+        'merchant Chabalu in Ratha.  Would you be willing to do that for me?"\n'
+        + DELIVERY_OFFER.splitlines()[-1]
+    )
+    assert offer == {"kind": "delivery", "person": "merchant Chabalu", "place": "Ratha"}
+    assert tasks.person_name(offer["person"]) == "Chabalu"
+    assert tasks.parse_journal(
+        "You look in your task journal and see the following entry:\n"
+        "The Ranger Journeywomen Ievia wants you to deliver a package to the "
+        "merchant Chabalu in Ratha.\n"
+    ) == {
+        "kind": "delivery",
+        "giver": "Ievia",
+        "person": "merchant Chabalu",
+        "place": "Ratha",
+    }
+
+
 def test_a_recovery_offer_names_the_item_the_creature_and_the_area():
     assert tasks.parse_offer(RECOVERY_OFFER) == {
         "kind": "recovery",
