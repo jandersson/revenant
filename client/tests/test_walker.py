@@ -2201,6 +2201,9 @@ TO_RATHA = (
 TO_FANG = (
     ";e start_script('bescort', ['mammoth', 'fang']);wait_while{running?('bescort')};"
 )
+TO_ACEN = (
+    ";e start_script('bescort', ['mammoth', 'acen']);wait_while{running?('bescort')};"
+)
 
 MAMMOTHS = MapDB(
     [
@@ -2240,7 +2243,12 @@ class MammothHandle(FakeHandle):
 
     AWAY = "What were you referring to?\n"
     JOINED = 'You join the Merelew driver.  "Right this way, sir."\n'
-    ARRIVES = "A watery trumpeting sound heralds the swift approach of a mammoth.\n"
+    # The arrival and the driver's call, captured at Fang Cove 2026-10-11.
+    ARRIVES = (
+        "A watery trumpeting sound heralds the swift approach and arrival of a "
+        "massive sea mammoth.\n",
+        "[JOIN SEA MAMMOTH before it leaves if you would like to go to Ratha.]\n",
+    )
     # Captured at Ratha's Shore Walk, 2026-10-10 — on `atmospherics`,
     # which the first ride did not read and waited past.
     LANDS = (
@@ -2250,10 +2258,11 @@ class MammothHandle(FakeHandle):
         "sides and begins assisting passengers off.\n"
     )
 
-    def __init__(self, uids, answers, arrives=True):
+    def __init__(self, uids, answers, arrives=True, calls=None):
         super().__init__(uids)
         self.answers = list(answers)
         self.arrives = arrives
+        self.dock_calls = list(calls or self.ARRIVES)
         self.answer = None
         self.story = []
 
@@ -2262,7 +2271,7 @@ class MammothHandle(FakeHandle):
         if command.startswith("join "):
             if self.answers.pop(0) == "away":
                 self.answer = [("", self.AWAY)]
-                self.story = [self.ARRIVES] if self.arrives else []
+                self.story = list(self.dock_calls) if self.arrives else []
             else:
                 self.answer = [("", self.JOINED), ("compass", "down")]
                 self.story = [self.LANDS]
@@ -2315,6 +2324,45 @@ def test_from_acenamacra_the_tall_mammoth_goes_to_fang_cove(quick_mammoth):
     handle.state.room_title = "[Acenamacra Pier]"
     assert walker.walk(handle, MAMMOTHS, [8301]) is True
     assert puts_of(handle) == ["join tall mammoth", "look"]
+
+
+class TallLaterHandle(MammothHandle):
+    """The massive mammoth comes in first, then the tall one: JOIN TALL
+    MAMMOTH is "away" until the tall one's call has come."""
+
+    TALL = (
+        "[JOIN TALL MAMMOTH before it leaves if you would like to go to Acenemacra.]\n"
+    )
+
+    def __init__(self, uids):
+        super().__init__(uids, answers=[], calls=[*MammothHandle.ARRIVES, self.TALL])
+        self.tall_in = False
+
+    def put(self, command):
+        if command.startswith("join "):
+            self.answers = ["aboard" if self.tall_in else "away"]
+        super().put(command)
+
+    def get(self, timeout=None, streams=("",)):
+        line = super().get(timeout, streams)
+        if line == self.TALL:
+            self.tall_in = True
+        return line
+
+
+def test_the_other_mammoths_call_is_not_answered(quick_mammoth):
+    # 2026-10-11 at Fang Cove: the massive mammoth came in for Ratha and
+    # the walk, waiting for the tall one, sent JOIN TALL MAMMOTH at it.
+    handle = TallLaterHandle(uids=[108100])
+    handle.state.room_uid = 9798001
+    to_acenamacra = MapDB(
+        [
+            {"id": 8301, "uid": [9798001], "wayto": {"2239": TO_ACEN}},
+            {"id": 2239, "uid": [108100], "wayto": {}},
+        ]
+    )
+    assert walker.walk(handle, to_acenamacra, [2239]) is True
+    assert puts_of(handle) == ["join tall mammoth", "join tall mammoth", "look"]
 
 
 def test_a_mammoth_that_never_comes_stops_the_walk(quick_mammoth):

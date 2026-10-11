@@ -150,16 +150,18 @@ _BARGE_NAME = re.compile(r"\bthe barge (?P<name>[A-Z][\w']*(?: [A-Z][\w']*)?)")
 # onto [Shore Walk, Rocky Path]. LOOK is the step's move after it, for
 # the compass frame the arrival check reads. Up to ten minutes at the
 # dock before it left, both rides. With none in, the answer is "What were
-# you referring to?" and bescort's lines bring the next one in.
+# you referring to?", and the next JOIN waits for the driver's call that
+# names this mammoth, "[JOIN SEA MAMMOTH before it leaves if you would
+# like to go to Ratha.]" (captured 2026-10-11) or "[JOIN TALL MAMMOTH
+# ...]" (the wiki's): a JOIN every thirty seconds, and one at the other
+# mammoth's arrival, filled the window for minutes at Fang Cove's dock
+# (the operator, 2026-10-11: "is go2 bugged?"). A JOIN every five
+# minutes still covers a call the streams missed.
 MAMMOTH_ANSWER_SECONDS = 4
 MAMMOTH_WAIT_SECONDS = 1200  # a round trip and its two stops
-MAMMOTH_POLL_SECONDS = 30
+MAMMOTH_POLL_SECONDS = 300
 MAMMOTH_STREAMS = ("", "atmospherics")
 MAMMOTH_AWAY = ("What were you referring to",)
-MAMMOTH_ARRIVES = (
-    "waves along the waterline increase drastically",
-    "watery trumpeting sound heralds",
-)
 MAMMOTH_LANDS = (
     "trumpets a series of watery blasts",
     "Here we are, ladies and gentlemen",
@@ -840,9 +842,10 @@ def ride_mammoth(s, mode=""):
                     f"(up to {MAMMOTH_WAIT_SECONDS // 60} minutes)"
                 )
                 waiting = True
-            read_story(
-                s, MAMMOTH_POLL_SECONDS, until=MAMMOTH_ARRIVES, streams=MAMMOTH_STREAMS
+            call = (
+                f"[JOIN {kind.upper()} MAMMOTH"  # this mammoth's driver, not the other
             )
+            read_story(s, MAMMOTH_POLL_SECONDS, until=(call,), streams=MAMMOTH_STREAMS)
             continue
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         s.echo(
