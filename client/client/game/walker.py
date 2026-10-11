@@ -33,6 +33,7 @@ from time import monotonic
 from client.client_logger import ClientLogger
 from client.game import money
 from client.game.mapdb import (
+    ICE_ROAD,
     normalize_title,
     pause_seconds,
     portal_town_of,
@@ -1011,6 +1012,91 @@ def ring_of(state):
     return str(load_profile(name).get("estate_ring") or "").strip().lower()
 
 
+def skates_of(state):
+    """(skates, footwear) the profile names for the ice road, lower-case;
+    ("", "") without skates."""
+    name = getattr(state, "name", None)
+    if not name:
+        return "", ""
+    from client.game.profile import load_profile
+
+    profile = load_profile(name)
+    skates = str(profile.get("skates") or "").strip().lower()
+    return skates, str(profile.get("footwear") or "").strip().lower() if skates else ""
+
+
+# On skates the ice road needs none of its pauses: the move says "Your
+# ice skates help you traverse..." (dr-scripts' filters), and bescort
+# moves on at once — until a line says the pace is too fast, its own
+# flags (bescort.lic): then the pauses come back for the rest of the road.
+SKATES_HELP = "ice skates help you"
+SKATES_TOO_FAST = (
+    "better slow down",
+    "slip and fall sooner",
+    "excessive speed causes you to lose your footing",
+    "falling down you",
+)
+
+
+def skate_state(s):
+    """The skates' state for this session, kept on the parser state as
+    gated() keeps its edges: {"on": worn for the road, "slow": a too-fast
+    line seen on it}."""
+    state = getattr(s, "state", None)
+    if state is None:
+        return {}
+    skating = getattr(state, "skating", None)
+    if skating is None:
+        skating = {"on": False, "slow": False}
+        try:
+            state.skating = skating
+        except AttributeError:
+            pass
+    return skating
+
+
+def put_on_skates(s):
+    """Off with the profile's footwear and on with its skates, before the
+    ice road's first step; nothing without skates in the profile."""
+    skates, footwear = skates_of(getattr(s, "state", None))
+    skating = skate_state(s)
+    if not skates or skating.get("on"):
+        return
+    s.echo(f"the ice road: into the {skates}")
+    commands = [f"remove my {footwear}", f"stow my {footwear}"] if footwear else []
+    for command in commands + [f"get my {skates}", f"wear my {skates}"]:
+        s.waitrt()
+        s.put(command)
+    skating.update(on=True, slow=False)
+
+
+def take_off_skates(s):
+    """The skates off and stowed, the footwear back on: after the road."""
+    skating = skate_state(s)
+    if not skating.get("on"):
+        return
+    skates, footwear = skates_of(getattr(s, "state", None))
+    skating.update(on=False, slow=False)
+    if not skates:
+        return
+    commands = [f"remove my {skates}", f"stow my {skates}"]
+    if footwear:
+        commands += [f"get my {footwear}", f"wear my {footwear}"]
+    for command in commands:
+        s.waitrt()
+        s.put(command)
+
+
+def skating_fast(s, wording):
+    """True when this move was made on the skates at a pace the road
+    allows: the skates' help line in its answer, no too-fast line yet."""
+    skating = skate_state(s)
+    text = str(wording or "").lower()
+    if any(line in text for line in SKATES_TOO_FAST):
+        skating["slow"] = True
+    return bool(skating.get("on")) and not skating.get("slow") and SKATES_HELP in text
+
+
 def ring_pushed_from(s, room=None):
     """The room the ring's last PUSH left (PULL's landing), None when
     unknown; `room` records it, 0 forgets it. On the session's parser
@@ -1374,6 +1460,18 @@ def leave_dead_end(s, db, here):
 
 
 def walk(s, db, goals, describe="destination", avoid=(), max_steps=None):
+    """Walk to the nearest goal room (_walk); the ice road's skates come
+    off however the walk ends, a ;stop included."""
+    try:
+        return _walk(s, db, goals, describe, avoid, max_steps)
+    finally:
+        try:
+            take_off_skates(s)
+        except BaseException:  # noqa: BLE001 - a stopping script sends nothing more
+            pass
+
+
+def _walk(s, db, goals, describe="destination", avoid=(), max_steps=None):
     """Walk to the nearest goal room; True on arrival (or already there).
 
     Rooms in `avoid` are routed around when a clean detour exists;
@@ -1502,6 +1600,10 @@ def _follow(s, db, route, here, closed, fetched=True):
         if s.dead:
             s.echo(f"died en route at step {number} — stopping; deathwatch takes it")
             return False
+        if here in ICE_ROAD and dest in ICE_ROAD:
+            put_on_skates(s)  # the profile's skates, if any, for the road
+        else:
+            take_off_skates(s)
         # A scripted edge translates to several game commands; the move
         # lands in the destination room and gets the arrival check, and
         # a STAND or LOOK after it goes out once there (split_move).
@@ -1645,7 +1747,8 @@ def _follow(s, db, route, here, closed, fetched=True):
         for follow_up in after:
             s.waitrt()
             if (wait := pause_seconds(follow_up)) is not None:
-                s.sleep(wait)
+                if not skating_fast(s, wording):  # on skates the road needs none
+                    s.sleep(wait)
                 continue
             s.put(follow_up)
         previous, here = here, dest  # the planned room, or its twin: the same place

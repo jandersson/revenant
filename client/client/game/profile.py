@@ -40,6 +40,11 @@ DEFAULTS = {
     # walker PUSHes to Fang Cove and PULLs back when that beats walking
     # (#521); "" for none.
     "estate_ring": "",
+    # Ice skates for the ice road between Shard and Hibarnhvidar, and the
+    # worn footwear they replace there (bescort's `footwear`): the walker
+    # changes into the skates for the road and back after it; "" for none.
+    "skates": "",
+    "footwear": "",
     # The anatomy-chart book ;compendium studies for First Aid; "" is
     # the noun "compendium".
     "compendium": "",
@@ -277,6 +282,13 @@ FIELDS = (
         "str",
         "copper band — empty: none",
     ),
+    (
+        "skates",
+        "Ice skates for the ice road (their noun)",
+        "str",
+        "skates — empty: none, the road walked at its pace",
+    ),
+    ("footwear", "Footwear the skates replace", "str", "footwraps — empty: none"),
     ("compendium", "Anatomy chart book", "str", "empty: compendium — ;compendium"),
     ("vault", "Vault's Carousel (;go2 target)", "str", "8285 — empty: the nearest"),
     ("weapon", "Weapon noun", "str", "empty: barehanded"),

@@ -42,6 +42,10 @@ ICE_ROAD = MapDB(
 )
 
 SHUT = "I could not find what you were referring to."
+# The skates' line (dr-scripts' filters: "Your ice skates help you
+# traverse") and a too-fast line (bescort's flags); the rest uncaptured.
+SKATED = "Your ice skates help you traverse the frozen road.\n"
+TOO_FAST = "You had better slow down!\n"
 
 
 class RoadHandle(FakeHandle):
@@ -55,18 +59,24 @@ class RoadHandle(FakeHandle):
         (4, "se"): 3,
     }
 
-    def __init__(self, uid, shut=True):
+    def __init__(self, uid, shut=True, too_fast=False):
         super().__init__([])
         self.shut = shut
         self.lands = None
         self.answer = None
         self.state.room_uid = uid
+        self.skates_on = False
+        self.too_fast = too_fast  # the road says to slow down, on skates
 
     def put(self, command):
         super().put(command)
         uid = self.state.room_uid
         self.lands = None
-        if command.startswith("turn "):
+        if command == "wear my skates":
+            self.skates_on = True
+        elif command == "remove my skates":
+            self.skates_on = False
+        elif command.startswith("turn "):
             self.shut = False
         elif command == "go stone wall" and self.shut:
             self.answer = SHUT
@@ -74,6 +84,8 @@ class RoadHandle(FakeHandle):
             self.lands = uid
         else:
             self.lands = self.MOVES.get((uid, command))
+            if self.lands and self.skates_on and uid in (3, 4):
+                self.answer = SKATED + (TOO_FAST if self.too_fast else "")
 
     def get(self, timeout=None, streams=("",)):
         if timeout == 0 or streams is not None:
@@ -92,11 +104,53 @@ def quick_door(monkeypatch):
     monkeypatch.setattr(walker, "DOOR_ANSWER_SECONDS", 0.05)
 
 
+@pytest.fixture
+def skater(monkeypatch):
+    monkeypatch.setattr(walker, "skates_of", lambda state: ("skates", "footwraps"))
+
+
 def test_the_ice_road_moves_at_the_maps_pace_and_sends_no_pause():
     handle = RoadHandle(3)
     assert walker.walk(handle, ICE_ROAD, [4429]) is True
     assert puts_of(handle) == ["nw"]
     assert ("sleep", 11.0) in handle.calls  # the pause 11 is slept, not sent
+
+
+def test_on_skates_the_road_is_walked_without_its_pauses_and_changed_back(skater):
+    # The operator, 2026-10-11: he has ice skates. The footwear comes off
+    # for them before the road, and goes back on after it.
+    handle = RoadHandle(3)
+    assert walker.walk(handle, ICE_ROAD, [4429]) is True
+    assert puts_of(handle) == [
+        "remove my footwraps",
+        "stow my footwraps",
+        "get my skates",
+        "wear my skates",
+        "nw",
+        "remove my skates",
+        "stow my skates",
+        "get my footwraps",
+        "wear my footwraps",
+    ]
+    assert not any(call[0] == "sleep" for call in handle.calls)
+
+
+def test_a_too_fast_line_brings_the_pauses_back(skater):
+    handle = RoadHandle(3, too_fast=True)
+    assert walker.walk(handle, ICE_ROAD, [4429]) is True
+    assert ("sleep", 11.0) in handle.calls
+
+
+def test_skates_that_never_help_leave_the_pauses_in_place(monkeypatch):
+    # Skates named but the move never says they help (not worn, say):
+    # the road keeps its pace.
+    monkeypatch.setattr(walker, "skates_of", lambda state: ("skates", ""))
+    handle = RoadHandle(3)
+    handle.put = lambda command, put=handle.put: put(
+        "wear nothing" if command == "wear my skates" else command
+    )
+    assert walker.walk(handle, ICE_ROAD, [4429]) is True
+    assert ("sleep", 11.0) in handle.calls
 
 
 def test_a_shut_stone_wall_is_opened_with_the_basin_and_walked_through(quick_door):

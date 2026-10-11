@@ -148,6 +148,12 @@ STONE_WALL_EDGES = {
     (4540, 4543): ";e start_script('bescort', ['stone_wall', 'torch'])",
 }
 DOOR_SECONDS = 2.0
+# The ice road's rooms, the Himineldar Shel mountain road (4366) to the
+# Rope Bridge (4430), the Fortress Gate (4427) off it not among them: a
+# walker with skates crosses them on the skates (walker.skate_state).
+ICE_ROAD = frozenset(
+    {4366, 4367, 4419, 4420, 4421, 4422, 4423, 4424, 4425, 4426, 4428, 4429, 4430}
+)
 IF_FORM_RIDES = frozenset({"gondola", "ferry", "haven_throne"})
 RIDE_SECONDS = 300.0  # the wait and the crossing: a land route wins where one exists
 _BESCORT_CALL = (
