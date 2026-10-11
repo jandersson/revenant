@@ -365,11 +365,32 @@ def gate_of(timeto):
 # with a literal — the Crossing temple's stairs into the Eyes of the
 # Thirteen are `fput 'go stair'; waitfor 'Obvious paths:'` (2026-09-20),
 # and the walker waits for the room's arrival on its own.
+# A bare `move e` is lich's direction method, not a literal: the Fisherman's
+# Trail out of the Segoltha swim's south landing is `;e move e; move e;
+# move e;` (19389 -> 19075), and unread it left the swim a dead end and
+# sent a strong swimmer to Alfren's Ferry (2026-10-11).
 _SIMPLE_STATEMENT = re.compile(
     r"^(?:(?:fput|move)\s*\(?\s*(['\"])(?P<literal>.*?)\1\s*\)?"
+    r"|move(?:\s+|\s*\(\s*)(?P<bare>ne|nw|se|sw|n|e|s|w|up|u|down|d|out|o)\s*\)?"
     r"|waitrt\??"
-    r"|waitfor\s*\(?\s*(['\"]).*?\3\s*\)?)$"
+    r"|waitfor\s*\(?\s*(?P<quote>['\"]).*?(?P=quote)\s*\)?)$"
 )
+_BARE_DIRECTIONS = {
+    "n": "north",
+    "ne": "northeast",
+    "e": "east",
+    "se": "southeast",
+    "s": "south",
+    "sw": "southwest",
+    "w": "west",
+    "nw": "northwest",
+    "u": "up",
+    "up": "up",
+    "d": "down",
+    "down": "down",
+    "o": "out",
+    "out": "out",
+}
 # Lich's note of the town a Fang Cove portal was entered from (#289):
 # bookkeeping for its own go2, nothing sent to the game.
 _BOOKKEEPING = re.compile(r"^UserVars\.premiumPortal\s*=\s*(?:nil|'[^']*'|\"[^\"]*\")$")
@@ -413,12 +434,15 @@ def translate_embedded(command):
         match = _SIMPLE_STATEMENT.match(statement)
         if not match:
             return None
-        if match.group("literal") is not None:
+        literal = match.group("literal")
+        if match.group("bare"):
+            literal = _BARE_DIRECTIONS[match.group("bare")]
+        if literal is not None:
             if waited:
                 # A waitfor BEFORE a command is a real wait — the ferry
                 # arriving — that the walker does not do: untranslatable.
                 return None
-            commands.append(match.group("literal"))
+            commands.append(literal)
         elif statement.startswith("waitfor"):
             waited = True
     return commands or None

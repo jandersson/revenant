@@ -42,6 +42,21 @@ def test_a_waitfor_in_a_scripted_edge_drops_out_like_waitrt():
     assert translate_embedded(";e waitfor 'The ferry arrives'; move 'go ferry'") is None
 
 
+def test_a_bare_move_is_lichs_direction_method():
+    from client.game.mapdb import translate_embedded
+
+    # The Fisherman's Trail out of the Segoltha swim's landing (19389 ->
+    # 19075): unread, the swim was a dead end and the walker took the ferry.
+    assert translate_embedded(";e move e; move e; move e;") == ["east"] * 3
+    assert translate_embedded(";e move w; move(nw); move o") == [
+        "west",
+        "northwest",
+        "out",
+    ]
+    assert translate_embedded(";e move east") is None  # not one of lich's names
+    assert translate_embedded(";e move dir") is None
+
+
 def test_walkable_accepts_simple_and_translated_edges_only():
     assert walkable("north")
     assert walkable("go gate")
