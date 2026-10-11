@@ -2770,3 +2770,59 @@ def test_after_a_push_no_exit_portal_is_planned(ringed):
     handle.state.room_uid = 101
     assert walker.walk(handle, db, [3]) is True
     assert (8308, "(the ring)") in planned
+
+
+def test_the_entry_town_outlives_a_session_restart():
+    # #523: the session's state is gone after a restart, and an exit
+    # planned for the Crossing landed in Ratha. The town is kept on disk
+    # per character too.
+    before = FakeHandle(uids=[])
+    before.state.name = "Lanival"
+    walker.fang_cove_entry(before, "Crossing")
+    after = FakeHandle(uids=[])  # a new session: a fresh parser state
+    after.state.name = "Lanival"
+    assert walker.fang_cove_entry(after) == "Crossing"
+    other = FakeHandle(uids=[])
+    other.state.name = "Sable"
+    assert walker.fang_cove_entry(other) is None
+
+
+def test_an_exit_that_lands_in_another_town_records_that_town():
+    # The exit knows the town better than any record: the room it sets
+    # you down in holds that town's meeting portal, which names it.
+    exit_ = ";e UserVars.premiumPortal = nil;move 'go portal'"
+    entry = ";e UserVars.premiumPortal = 'Riverhaven';move 'go meeting portal'"
+
+    def back_to(town):
+        return f";e unless UserVars.premiumPortal == '{town}' then nil else 0.2 end"
+
+    cove = MapDB(
+        [
+            {
+                "id": 8308,
+                "uid": [9000],
+                "title": ["[Fang Cove, Fate's Fortune Lane]"],
+                "wayto": {"932": exit_, "389": exit_},
+                "timeto": {"932": back_to("Crossing"), "389": back_to("Riverhaven")},
+            },
+            {
+                "id": 932,
+                "uid": [10171],
+                "title": ["[The Strand, Sandy Path]"],
+                "wayto": {"1900": "northwest"},
+            },
+            {
+                "id": 389,
+                "uid": [1010101],
+                "title": ["[Riverhaven, Town Square]"],
+                "wayto": {"932": "south", "8308": entry},
+            },
+            {"id": 1900, "uid": [19104], "title": ["[Provincial Bank, Teller]"]},
+        ]
+    )
+    handle = FakeHandle(uids=[1010101, 10171, 19104])
+    handle.state.name = "Lanival"
+    handle.state.room_uid = 9000
+    assert walker.walk(handle, cove, [1900], describe="the bank") is True
+    assert walker.fang_cove_entry(handle) == "Riverhaven"
+    assert any("Fang Cove's exit returns you to Riverhaven" in e for e in handle.echoes)

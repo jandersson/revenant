@@ -50,6 +50,9 @@ def _isolated_login_defaults(tmp_path, monkeypatch):
     # settings.json: every walk reads avoid_rooms from it now (#407),
     # and a test's walk must never resolve the operator's list.
     monkeypatch.setenv("REVENANT_SETTINGS", str(tmp_path / "settings.json"))
+    # The training plans, and the walker's record of the town each
+    # character entered Fang Cove from (#523): never the operator's.
+    monkeypatch.setenv("REVENANT_TRAINING", str(tmp_path / "training"))
 
 
 @pytest.fixture(autouse=True)

@@ -25,6 +25,7 @@ Fang Cove, or PULLed back from it, when that beats the walk (ring_route,
 #521).
 """
 
+import json
 import re
 from time import monotonic
 
@@ -322,16 +323,55 @@ def night_shut(s, title=None):
 
 def fang_cove_entry(s, town=None):
     """The town the character last entered Fang Cove from ("Crossing"),
-    None when unknown; `town` records it. Kept on the session's parser
-    state like the gated edges: the game keeps it too, and its EXIT
-    portal returns you there, a mammoth ride later included (#515)."""
+    None when unknown; `town` records it. The game keeps it, and its
+    EXIT portal returns you there, a mammoth ride later included (#515);
+    so the walker keeps it on the session's parser state and, per
+    character, beside the training plan, which a restart leaves (#523:
+    after one, an exit planned for the Crossing landed in Ratha)."""
     state = getattr(s, "state", None)
     if town:
         try:
             state.fang_cove_entry = town
         except AttributeError:
-            pass  # a state that takes no new attribute: unknown next walk
-    return getattr(state, "fang_cove_entry", None)
+            pass  # a state that takes no new attribute: the file still has it
+        _entry_file(state, town)
+    return getattr(state, "fang_cove_entry", None) or _entry_file(state)
+
+
+def _entry_file(state, town=None):
+    """The character's recorded entry town, None without one; `town`
+    writes it. No name, no file."""
+    name = getattr(state, "name", None)
+    if not name:
+        return None
+    from client.game.training import training_dir
+
+    path = training_dir() / f"{str(name).lower()}.fangcove.json"
+    if town:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"entry": town}), encoding="utf-8")
+        return town
+    try:
+        return json.loads(path.read_text(encoding="utf-8")).get("entry")
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def landed_town(db, here, dest, landing):
+    """The town an exit portal set you down in when the planned edge
+    (`here` to `dest`) was one and `landing` is where the game put you:
+    the meeting portal of that room names it (Ratha's Port Walk:
+    "UserVars.premiumPortal = 'Ratha'"); None for any other edge."""
+    if not db.graph.has_edge(here, dest):
+        return None
+    gate = db.graph.edges[here, dest].get("gate")
+    if gate is None or not gate.portal:
+        return None
+    for command in (db.rooms.get(landing, {}).get("wayto") or {}).values():
+        town = portal_town_of(command)
+        if town:
+            return town
+    return None
 
 
 def gated(s):
@@ -1502,6 +1542,10 @@ def _follow(s, db, route, here, closed, fetched=True):
                     note = f"the map now says {previous} {move} -> {mapped}"
                 else:
                     note = "left off the map (a stair, a ring or a named way)"
+                if town := landed_town(db, previous, dest, mapped):
+                    # An exit portal that knew better than the record (#523).
+                    fang_cove_entry(s, town)
+                    note = f"Fang Cove's exit returns you to {town}"
                 s.echo(
                     f"off course at step {number}: in room {mapped} "
                     f"({s.state.room_title!r}), expected {dest} — {note}; "
