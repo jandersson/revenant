@@ -2326,6 +2326,28 @@ def test_walk_joins_the_sea_mammoth_to_ratha_and_lands_ashore(quick_mammoth):
     assert any("aboard the sea mammoth" in e for e in handle.echoes)
 
 
+class LandingFrameHandle(MammothHandle):
+    """The landing sends its own room frame after its line, before the
+    LOOK's (2026-10-11 at Ratha: two [Shore Walk, Rocky Path] frames)."""
+
+    def get(self, timeout=None, streams=("",)):
+        line = super().get(timeout, streams)
+        if line == self.LANDS:
+            self._uids.insert(0, 3010821)  # the landing's frame, the Rocky Path
+            self.answer = None  # the arrival wait reads the frames from here
+        return line
+
+
+def test_the_landings_own_frame_is_taken_before_the_look(quick_mammoth):
+    handle = LandingFrameHandle(
+        uids=[3010821, 3010820], answers=["aboard"], docked=True
+    )
+    handle.state.room_uid = 9798001
+    assert walker.walk(handle, MAMMOTHS, [4685], describe="the beach") is True
+    assert puts_of(handle) == ["join sea mammoth", "look", "go the beach"]
+    assert not any("off course" in e for e in handle.echoes)
+
+
 def test_an_empty_dock_is_waited_at_and_the_mammoth_boarded_when_it_comes(
     quick_mammoth,
 ):

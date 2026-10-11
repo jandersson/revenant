@@ -906,6 +906,12 @@ def ride_mammoth(s, mode=""):
                     "minutes — stopping here"
                 )
                 return "stuck"
+            # The landing sets the rider ashore with a room frame of its
+            # own, a moment behind its line: taken here, so the step's LOOK
+            # reads its own frame and the next move its own — "go the
+            # beach" read LOOK's [Shore Walk, Rocky Path] and the walk to
+            # Chabalu called itself off course (2026-10-11).
+            await_arrival(s, timeout=MAMMOTH_ANSWER_SECONDS)
             return "landed"
         if any(needle in answer for needle in MAMMOTH_AWAY):
             # Gone as the JOIN went out, or a listing not yet cleared: the
