@@ -315,7 +315,7 @@ def search_for(s, task, mapdb, walk_fn):
             if outcome == "wrong area":
                 s.echo(f"task: nothing of interest in room {room} — the next")
                 break
-            if outcome != "miss":
+            if outcome not in ("miss", "feature"):  # a hidden way: search on
                 unknown(s, "task", "SEARCH", answer)
                 ask(s, "stand")
                 return False

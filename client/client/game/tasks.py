@@ -40,6 +40,11 @@ CLOSED_FOR_THE_NIGHT = "closed for the night"
 SEARCH_MISS = ("do not find the item",)
 SEARCH_FOUND = ("lying on the ground",)
 SEARCH_WRONG_AREA = ("anything of interest",)
+# A SEARCH that finds the room's own hidden way instead, a meadow room of
+# the Riverhaven West Wilds (2026-10-11): "You poke around near the base
+# of the boulder and discover a narrow gap." Nothing about the item: the
+# room is searched on.
+SEARCH_FEATURE = ("and discover a",)
 SEARCHES_PER_ROOM = 30  # thirty-one found the locket in two rooms
 WINDOW_SECONDS = 30
 
@@ -272,7 +277,8 @@ def area_rooms(db, area):
 
 
 def search_outcome(answer):
-    """ "found", "miss", "wrong area" or "unknown" for a SEARCH's answer."""
+    """ "found", "miss", "wrong area", "feature" (the room's hidden way,
+    not the item) or "unknown" for a SEARCH's answer."""
     text = str(answer or "")
     if any(word in text for word in SEARCH_FOUND):
         return "found"
@@ -280,6 +286,8 @@ def search_outcome(answer):
         return "miss"
     if any(word in text for word in SEARCH_WRONG_AREA):
         return "wrong area"
+    if any(word in text for word in SEARCH_FEATURE):
+        return "feature"
     return "unknown"
 
 

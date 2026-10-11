@@ -410,16 +410,19 @@ class SearchFake(Fake):
     """SEARCH misses `misses` times, then finds; GET puts the locket in a
     hand; the base fake's STOW and GIVE empty it."""
 
-    def __init__(self, answers, misses=2, journal=JOURNAL_CLEAR):
+    def __init__(self, answers, misses=2, journal=JOURNAL_CLEAR, first=None):
         super().__init__(answers, journal=journal)
         self.misses = misses
         self.searches = 0
+        self.first = first  # the first SEARCH's answer, when it is another
 
     def put(self, command):
         if command == "search":
             self.sent.append(command)
             self.searches += 1
             text = MISS if self.searches <= self.misses else FOUND
+            if self.first and self.searches == 1:
+                text = self.first
             self.pending = [line + "\n" for line in text.splitlines()]
             return
         if command.startswith("get "):
@@ -455,6 +458,26 @@ def test_a_searching_task_is_searched_found_and_handed_back_to_the_giver():
     )  # the journal's spelling of the giver
     assert "task: handed in — Saeru paid 250 Lirums" in out
     assert "task: the journal is clear" in out and script.load("Lanival") is None
+
+
+def test_a_room_whose_search_finds_a_hidden_way_is_searched_on():
+    # 2026-10-11: "You poke around near the base of the boulder and
+    # discover a narrow gap." stopped the search as an unknown answer.
+    fake = SearchFake(
+        {
+            "task": [JOURNAL_CLEAR, SEARCHING_JOURNAL, JOURNAL_CLEAR],
+            "ask saeru": [SEARCHING_OFFER],
+            "accept": [SEARCHING_ACCEPTED],
+            "stow": [STOWED],
+            "give": [HANDED_IN],
+        },
+        misses=1,
+        first="You poke around near the base of the boulder and discover a narrow gap.",
+    )
+    out = run(fake, ["saeru"])
+    assert fake.sent.count("search") == 2
+    assert "please report it" not in out
+    assert "task: found" in out
 
 
 def test_a_search_moves_to_the_next_room_after_its_searches_and_gives_up_after_the_last(

@@ -235,6 +235,9 @@ def test_a_searchs_area_names_its_rooms_and_the_answers_are_classed():
         == "wrong area"
     )
     assert tasks.search_outcome("") == "unknown"
+    # The room's own hidden way, not the item (2026-10-11).
+    gap = "You poke around near the base of the boulder and discover a narrow gap.\n"
+    assert tasks.search_outcome(gap) == "feature"
 
 
 def test_the_recipients_room_comes_from_the_givers_table():
