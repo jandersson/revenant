@@ -64,6 +64,9 @@ SHARD_ROOMS = {
 }
 # At the 100th circle Moongate opens on Grazhir itself, from any room, no
 # FOCUS (Elanthipedia: Moongate; bescort casts it so above circle 99).
+# Cast in Ioun's Pawn, 2026-10-11, it took the nearest shard: "You attempt
+# to open an astral conduit here, using the energies of the shard
+# Taniendar." onto that conduit's end, then the usual way to the centre.
 GRAZHIR_CIRCLE = 100
 
 # STUDY <shard> at it (Aevargwem, 2026-10-11): "You recognize the magical

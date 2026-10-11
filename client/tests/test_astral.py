@@ -141,7 +141,7 @@ class Plane:
         if verb == "cast":
             if title.startswith("[Astral Plane"):
                 self.at(word)
-            else:  # Grazhir lands in some conduit: Vellano's here
+            else:  # Grazhir lands at the nearest shard's conduit end (Vellano's here)
                 self.in_conduit("vellano" if word == "grazhir" else word, leaving=True)
             return "You are pulled through your unstable Moongate.\n"
         if command == "perceive":
