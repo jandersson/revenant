@@ -132,7 +132,8 @@ A box is matched to its creature by its item id, which holds within one login. A
 - **`buffs`** are cast before the walk and recast whenever the Spells window drops one.
 - **`train_casting`** (e.g. `Augmentation, Warding, Utility`, or `all`) recasts a buff every `cast_gap` seconds (60) for the named skill with the emptiest pool. Its mana starts a step under what DISCERN says you can hold and climbs to it; a cambrinth charge counts toward that. Each skill is trained by the first buff DISCERN says uses it; a skill no buff uses is named once.
 - **`cambrinth`** charges a piece with `cambrinth_mana` before each training cast, for Arcana. Set `cambrinth_worn` for an anklet or armband; a worn piece is removed to charge. The piece must not outrank your Arcana (a 1- or 5-mana piece at 0 ranks).
-- **`debilitation`** (e.g. `Stun Foe`) and **`targeted`** (e.g. `Footman's Strike`) are cast at the prey on the same gap. The training casts take turns, so a swing never carries two.
+- **`debilitation`** (e.g. `Stun Foe`) and **`targeted`** (e.g. `Footman's Strike`) are cast at the prey on the same gap. The training casts take turns, so a swing never carries two. A creature the spell kills is counted and looted like a swing's kill.
+- A caster with no weapon brawls between casts: `weapons` `fists:Brawling`, `brawling` the attacks for the worn gear (`claw` for hand claws, `elbow`, `kick`), and the two spell slots (a Moon Mage: `Dinazen Olkar`, `Mental Blast`).
 - Mana never ramps past what DISCERN says you can hold; a cast that strains or backfires holds a step under for the rest of the run. A spell your ranks cannot cast is turned off for the run, with the rank it needs.
 - Barbarians cast nothing: `analyze`, `abilities` and `roar` fill the same roles.
 

@@ -117,6 +117,48 @@ def test_the_targeted_spell_is_cast_at_the_prey_before_the_swing(travel):
     assert any("for Targeted Magic" in text for text in arena.echoed)
 
 
+# A Moon Mage's kill (2026-10-10, the poloh'izh hunted by hand): Dinazen
+# Olkar's cast, the noose, and the kill line on the story stream.
+DO_KILL = (
+    "You gesture at a rat.\n"
+    "A noose of darkest shadows forms in your hands.  With a flick of your "
+    "wrist, you send it flying at a rat!\n"
+    "The noose wraps around and closes straight through its chest.\n"
+    "The rat falls to the ground and lies still."
+)
+
+CASTER = PROFILE | {
+    "weapon": "",
+    "weapons": ["fists:Brawling"],
+    "brawling": ["claw"],
+    "prey": "",
+    "skin": False,
+    "targeted": "dinazen olkar",
+}
+
+
+def test_a_kill_by_the_spell_is_counted_and_looted_like_a_swings(travel):
+    # The claw misses; the cast kills. No swing reports the corpse, so
+    # the loop's own look at the listing credits it before walking on.
+    arena = Arena(
+        {
+            "claw": [(MISSED, _stands)] * 3,
+            "prepare": ["You raise one hand before you and concentrate."] * 3,
+            "target": [TARGETING] * 3,
+            "cast": [(DO_KILL, kill)],
+            "loot": [NOTHING],
+            "discern": [DISCERNED],
+        },
+        experience=TM_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    _run(arena, profile=CASTER | {"max_kills": 1}, travel_first=False)
+    assert "target #1" in arena.sent  # no prey noun: the engaged foe by id
+    assert arena.sent.index("cast") < arena.sent.index("loot")
+    assert any(text == "hunt: rat down (1)" for text in arena.echoed)
+    assert any("kill fuse reached" in text for text in arena.echoed)
+
+
 def test_no_targeted_cast_at_lock_under_the_mana_floor_or_with_no_spell(travel):
     for profile, experience, mana in (
         (STRIKING, TM_LOCKED, 100),

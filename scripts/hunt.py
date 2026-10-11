@@ -1941,26 +1941,7 @@ def swing(s, profile, tally, prey):
         probe.collect(s, LISTING_WAIT)
         fallen = new_corpses(s, tally) or [kill_noun(text) or prey or "corpse"]
     if fallen:
-        tally.kills += len(fallen)
-        tally.empty_moves = 0
-        tally.corpse_swings = 0
-        tally.stuns = 0  # a kill resets the fight's fuses (#236)
-        tally.swings_at_kill = tally.swings
-        corpse = noun_of(fallen[-1]) or prey or "corpse"
-        s.echo(f"hunt: {corpse} down ({tally.kills})")
-        if tally.coins or tally.boxes:
-            s.echo(
-                f"hunt: loot so far — {tally.coins} coin pile(s), {tally.boxes} box(es)"
-            )
-        dispose(s, profile, corpse, tally)
-        tally.check_wounds = True
-        if len(hostiles(s.state)) <= 1:
-            # The kill line is the truth; the parser keeps the dead one
-            # until a status frame it never sends (#244), and a cast at
-            # it answered "already dead, so that's a bit pointless"
-            # (#252). One hostile listed and it just fell: the room is
-            # clear, as the game's own "nothing else to face" says.
-            tally.room_clear = True
+        credit(s, profile, tally, fallen, prey)
     elif any(word in lowered for word in _ALL_DEAD):
         tally.room_clear = True  # the game says so; the hostile state lags
     elif corpse := _DEAD_NOUN.search(text):
@@ -1981,6 +1962,29 @@ def swing(s, profile, tally, prey):
         ask(s, f"advance {prey}" if prey else "advance")
         probe.collect(s, ADVANCE_WAIT, until="melee range")
     return not tally.room_clear and bool(hostiles(s.state))
+
+
+def credit(s, profile, tally, fallen, prey):
+    """The kills the listing gained (`fallen`, its corpse names): counted,
+    the fight's fuses reset, the last corpse disposed of (skin, loot)."""
+    tally.kills += len(fallen)
+    tally.empty_moves = 0
+    tally.corpse_swings = 0
+    tally.stuns = 0  # a kill resets the fight's fuses (#236)
+    tally.swings_at_kill = tally.swings
+    corpse = noun_of(fallen[-1]) or prey or "corpse"
+    s.echo(f"hunt: {corpse} down ({tally.kills})")
+    if tally.coins or tally.boxes:
+        s.echo(f"hunt: loot so far — {tally.coins} coin pile(s), {tally.boxes} box(es)")
+    dispose(s, profile, corpse, tally)
+    tally.check_wounds = True
+    if len(hostiles(s.state)) <= 1:
+        # The kill line is the truth; the parser keeps the dead one
+        # until a status frame it never sends (#244), and a cast at
+        # it answered "already dead, so that's a bit pointless"
+        # (#252). One hostile listed and it just fell: the room is
+        # clear, as the game's own "nothing else to face" says.
+        tally.room_clear = True
 
 
 _LOG = logging.getLogger("client.scripts.hunt")
@@ -2117,6 +2121,11 @@ def loop(s, profile, db, ground, avoid, tally):
             return "dead — deathwatch has it"
         if (s.command(timeout=0) or "").strip().lower() == "return":
             return "returning on request"
+        mark_room(s, tally)  # a body here before the fight is not ours
+        if fallen := new_corpses(s, tally):
+            # A corpse no swing reported: a spell's kill (a caster's
+            # targeted cast between swings kills as a swing does).
+            credit(s, profile, tally, fallen, prey)
         if profile.get("task_item") and s.flagged(TASK_DROP):
             return take_drop(s, profile)
         current = health(s.state)
