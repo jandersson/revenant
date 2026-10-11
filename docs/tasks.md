@@ -8,6 +8,7 @@ A task is an errand an NPC gives for coin: ask a task giver, accept inside thirt
 ;task cormyn         ask Cormyn and accept the offer; a kind in the profile's task_declines is declined
 ;task                carry on the task in the journal (after a stop, or a shop's night)
 ;task item=basket    ... naming the item when the record of the accept is gone
+;task any            walk to the nearest giver whose ten minutes are up and ask
 ;task history        what each giver has offered: the kinds, where, the pay, the minutes
 ;task return         finish the step in hand and stop
 ```

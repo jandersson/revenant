@@ -481,13 +481,41 @@ def test_no_task_and_no_giver_says_how_to_ask():
 
 
 def test_parse_args():
-    def args(giver="", item="", history=False):
-        return {"giver": giver, "item": item, "history": history}
+    def args(giver="", item="", history=False, any=False):
+        return {"giver": giver, "item": item, "history": history, "any": any}
 
     assert script.parse_args(["cormyn"]) == args("cormyn")
     assert script.parse_args(["item=basket"]) == args(item="basket")
     assert script.parse_args(["Cormyn", "item=basket"]) == args("cormyn", "basket")
     assert script.parse_args(["history"]) == args(history=True)
+    assert script.parse_args(["any"]) == args(any=True)
+
+
+def test_any_walks_to_the_nearest_giver_whose_ten_minutes_are_up(monkeypatch):
+    # The operator, 2026-10-11: "We should get tasks from givers who are
+    # available" — Cormyn asked at 21:12 said "9 minute(s)" at 21:14.
+    from client.game import tasks
+
+    monkeypatch.setattr(script, "now", lambda: 10_000.0)
+    tasks.note_ask("Lanival", "cormyn", 10_000.0 - 60)
+    fake = Fake({"ask saeru": [COOLDOWN]})
+    out = run(fake, ["any"])
+    assert "task: Saeru is the nearest giver free to ask" in out
+    assert fake.walks == [{10021}]  # one step north of Cormyn's
+    assert "ask saeru for task" in fake.sent
+    assert "ask cormyn for task" not in fake.sent
+
+
+def test_any_with_no_giver_free_within_reach_says_so(monkeypatch):
+    from client.game import tasks
+
+    monkeypatch.setattr(script, "now", lambda: 10_000.0)
+    for giver in ("cormyn", "saeru"):
+        tasks.note_ask("Lanival", giver, 10_000.0 - 60)
+    fake = Fake({})
+    out = run(fake, ["any"])
+    assert "no giver free to ask within reach" in out
+    assert fake.sent == ["task"]
 
 
 def test_every_offer_and_its_pay_are_kept_and_history_reads_them(monkeypatch, tmp_path):

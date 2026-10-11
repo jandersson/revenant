@@ -2,6 +2,7 @@
     ;task <giver>        ask the giver (a noun the room knows: cormyn) for a task and accept it; a kind the profile's task_declines names is declined
     ;task                carry on the task in hand (the journal's): a delivery walks to the recipient and hands the item over; a search kneels and searches the area's rooms, a recovery hunts the area (;hunt task), then brings the find back to the giver
     ;task item=<noun>    ... naming the item when the record of the accept is gone (a basket)
+    ;task any            walk to the nearest giver whose ten minutes are up and ask
     ;task history        what each giver has offered (history.db's tasks): the kinds, where, the pay, the minutes
     ;task return         typed while it runs: finish the step in hand and stop
 
@@ -39,6 +40,7 @@ from client.game.tasks import (
     clear,
     decide,
     declined,
+    available_givers,
     giver_rooms,
     load,
     note_ask,
@@ -56,7 +58,7 @@ from client.game.walker import walk
 
 
 def parse_args(words):
-    options = {"giver": "", "item": "", "history": False}
+    options = {"giver": "", "item": "", "history": False, "any": False}
     for word in words or []:
         text = str(word).strip()
         key, sep, value = text.lower().partition("=")
@@ -64,6 +66,8 @@ def parse_args(words):
             options["item"] = value
         elif key == "history" and not options["giver"]:
             options["history"] = True
+        elif key == "any" and not options["giver"]:
+            options["any"] = True
         elif text and not options["giver"]:
             options["giver"] = text.lower()
     return options
@@ -74,6 +78,36 @@ now = time.time  # the cooldown's clock: wall time, kept across runs (#514)
 
 def character(s):
     return getattr(getattr(s, "state", None), "name", None) or ""
+
+
+ANY_TRIES = 3  # givers ;task any walks toward before giving up
+
+
+def to_available(s, mapdb, name, walk_fn):
+    """Walk to the nearest giver who may be asked now (;task any): its
+    name lower-cased, or None, said. A giver the walk does not reach (a
+    guild that keeps others out) is passed over for the next nearest,
+    ANY_TRIES at most."""
+    rooms = {
+        giver: giver_rooms(mapdb, giver) for giver in available_givers(name, now())
+    }
+    rooms = {giver: found for giver, found in rooms.items() if found}
+    for _ in range(ANY_TRIES):
+        here = travel.here(s, mapdb)
+        goals = set().union(*rooms.values()) if rooms else set()
+        if here is None or not goals:
+            break
+        route = [] if here in goals else mapdb.path(here, goals)
+        if route is None:
+            break
+        dest = route[-1][0] if route else here
+        giver = next(giver for giver, found in rooms.items() if dest in found)
+        s.echo(f"task: {giver} is the nearest giver free to ask")
+        if travel.go(s, rooms[giver], f"{giver}'s room", db=mapdb, walk=walk_fn):
+            return giver.lower()
+        rooms.pop(giver)
+    s.echo("task: no giver free to ask within reach — ;task <giver> names one")
+    return None
 
 
 def take_offer(s, giver, declines, name=""):
@@ -499,6 +533,10 @@ def run(s, options, profile, mapdb, walk_fn=walk):
         else:
             deliver(s, task, mapdb, walk_fn)
         return
+    if options.get("any") and not options["giver"]:
+        options["giver"] = to_available(s, mapdb, name, walk_fn)
+        if not options["giver"]:
+            return
     if not options["giver"]:
         s.echo("task: no task in hand — ;task <giver> asks one")
         return

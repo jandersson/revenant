@@ -418,3 +418,12 @@ def wait_left(name, giver, now):
     if not isinstance(asked, (int, float)):
         return 0
     return max(0, asked + COOLDOWN_SECONDS - now)
+
+
+def available_givers(name, now):
+    """The givers in GIVERS that `name` may ask now (;task any, the
+    operator, 2026-10-11: "We should get tasks from givers who are
+    available"). Every one, the foraging and boss givers too: an offer
+    of a kind ;task cannot run yet is accepted and learned from, never
+    turned down ("id rather accept them and learn how to do them")."""
+    return [giver for giver in GIVERS if not wait_left(name, giver, now)]
