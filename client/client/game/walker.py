@@ -1025,10 +1025,16 @@ def skates_of(state):
     return skates, str(profile.get("footwear") or "").strip().lower() if skates else ""
 
 
-# On skates the ice road needs none of its pauses: the move says "Your
-# ice skates help you traverse..." (dr-scripts' filters), and bescort
-# moves on at once — until a line says the pace is too fast, its own
-# flags (bescort.lic): then the pauses come back for the rest of the road.
+# On skates the ice road needs none of its pauses: every move says "Your
+# ice skates help you traverse the frozen terrain.", and bescort moves on
+# at once — until a line says the pace is too fast, its own flags
+# (bescort.lic): then the pauses come back for the rest of the road.
+# Captured 2026-10-11 southbound, the twelve steps in four seconds with
+# no warning: "You pull your steel-toed footwraps off your feet.", "You
+# slide your ice skates on your feet and tightly tie the laces.", after
+# the road "You untie your skates and slip them off of your feet." and
+# "You slide some steel-toed footwraps on your feet and kick the ground
+# to finish the fit."
 SKATES_HELP = "ice skates help you"
 SKATES_TOO_FAST = (
     "better slow down",

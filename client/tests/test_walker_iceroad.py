@@ -42,9 +42,9 @@ ICE_ROAD = MapDB(
 )
 
 SHUT = "I could not find what you were referring to."
-# The skates' line (dr-scripts' filters: "Your ice skates help you
-# traverse") and a too-fast line (bescort's flags); the rest uncaptured.
-SKATED = "Your ice skates help you traverse the frozen road.\n"
+# The skates' line, captured on the road 2026-10-11, and a too-fast line
+# (bescort's flags; not seen on that crossing).
+SKATED = "Your ice skates help you traverse the frozen terrain.\n"
 TOO_FAST = "You had better slow down!\n"
 
 
