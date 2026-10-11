@@ -224,6 +224,36 @@ def test_hostiles_track_the_rooms_creatures(xml_data):
     assert xml_data.hostiles == {"78646436": False}
 
 
+# Captured 2026-10-11 in the Glaren Kweld grass (#526): a poloh'izh that
+# "flickers slowly and vanishes with a faint shimmer" mid-fight stays in
+# the listing, almost invisible, still hostile; the sleeping one is live.
+CRTR_HIDDEN = (
+    "<component id='room objs'>You also see <pushBold/>a green poloh'izh<popBold/>"
+    " that is almost invisible, <pushBold/>an amber poloh'izh<popBold/>,"
+    " <pushBold/>a green poloh'izh<popBold/> that is sleeping and a rock.</component>"
+    '<crtrStatus exist="180146575" hostile="1" invisible="1"/>'
+    '<crtrStatus exist="180146574" hostile="1"/>'
+    '<crtrStatus exist="180146573" hostile="1" sleeping="1" prone="1"/>'
+    '<prompt time="1791734814">&gt;</prompt>'
+)
+# ... and it comes out: "A green poloh'izh moves from its camouflaged position".
+CRTR_SHOWN = (
+    "<component id='room objs'>You also see <pushBold/>a green poloh'izh<popBold/>"
+    " and <pushBold/>an amber poloh'izh<popBold/>.</component>"
+    '<crtrStatus exist="180146575" hostile="1"/>'
+    '<crtrStatus exist="180146574" hostile="1"/>'
+    '<prompt time="1791734830">&gt;</prompt>'
+)
+
+
+def test_a_hidden_hostile_stays_hostile_and_is_marked_hidden(xml_data):
+    XMLParser(target=xml_data).feed(f"<r>{CRTR_HIDDEN}</r>")
+    assert set(xml_data.hostiles) == {"180146575", "180146574", "180146573"}
+    assert xml_data.hidden_hostiles == {"180146575"}
+    XMLParser(target=xml_data).feed(f"<r>{CRTR_SHOWN}</r>")
+    assert xml_data.hidden_hostiles == set()
+
+
 def test_hostiles_swap_only_at_the_closing_prompt(xml_data):
     XMLParser(target=xml_data).feed(f"<r>{CRTR_ARRIVE}</r>")
     # A fresh enumeration without its prompt yet: readers still see

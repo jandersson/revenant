@@ -483,7 +483,14 @@ BUNDLE_REFUSALS = 3  # refusals in a row before a run stops trying
 
 
 def hostiles(state):
-    return dict(getattr(state, "hostiles", None) or {})
+    """The hostiles a swing or a TARGET can reach: the parser's, less the
+    hidden ones (#526: a poloh'izh "almost invisible" was TARGETed, the
+    bare swing answered "What are you trying to attack?", and the pattern
+    was let go every two seconds). A hidden one still holds the
+    character: the escape and the end ask flight.hostiles_present."""
+    hidden = getattr(state, "hidden_hostiles", None) or ()
+    every = getattr(state, "hostiles", None) or {}
+    return {exist: on for exist, on in every.items() if exist not in hidden}
 
 
 def next_turn(s, profile, tally, from_current=False, leave=False):
@@ -786,7 +793,7 @@ def escape(s, db=None):
         if getattr(s.state, "room_uid", None) != before:
             note_landing(s, db, here, move)
             return True
-        if not hostiles(s.state):
+        if not flight.hostiles_present(s.state):
             return True
     s.echo("hunt: could not get clear of them — intervene if you can")
     return False
@@ -1739,7 +1746,7 @@ def study_almanac(s):
     """The interludes due (client/game/interlude.py — the profile's
     almanac, a typed ;break) run in a room with nothing hostile in it,
     only with a hand already free: the weapon and shield stay."""
-    if not hostiles(s.state):
+    if not flight.hostiles_present(s.state):
         interlude.run_due(s, make_room=False)
 
 
@@ -2391,7 +2398,7 @@ def go_home(s, profile, db, ground, avoid, reason):
             s.echo(f"hunt: home at {s.state.room_title}")
     elif any(word in reason for word in BROKE_OFF) and ground:
         leave_ground(s, db, ground, avoid)
-    if hostiles(s.state) and not s.dead:
+    if flight.hostiles_present(s.state) and not s.dead:
         # Never an end among them (#314): the walk home or off the
         # ground failed, or never ran — keep getting away.
         flight.react(s, "hunt")

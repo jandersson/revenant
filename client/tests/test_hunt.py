@@ -1101,6 +1101,17 @@ def test_moves_refused_in_place_three_times_end_the_hunt(travel, monkeypatch):
     assert any("walk to the next room failed" in e for e in arena.echoed)
 
 
+def test_a_hidden_hostile_is_not_swung_at_the_room_reads_empty(travel):
+    # #526: a poloh'izh "almost invisible" (crtrStatus invisible="1") was
+    # swung at and TARGETed; "What are you trying to attack?" each time.
+    arena = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
+    arena.state.hidden_hostiles = {"1"}
+    arena.arrivals = {6047: {"2": True}}
+    _run(arena, profile=PROFILE | {"max_kills": 1}, travel_first=False)
+    assert arena.walks[0] == {6047}  # on to the next room, no swing first
+    assert arena.sent.count("attack rat") == 1  # at the visible one there
+
+
 GRASS = "[Hara'jaal, Glaren Kweld]"
 EIGHT_WAYS = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]  # a grass room's compass
 

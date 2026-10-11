@@ -6,6 +6,7 @@ What the scripts that fight or flee (`;hunt`, `;fight`, `;athletics`, `;train`) 
 
 - Three ranges: missile (outdoor fights start here), pole, melee. A hostile advances one step at a time.
 - The parser's `hostiles` comes from the `crtrStatus` tags, which may arrive only once per sighting; it is cleared on a room change, never on an empty listing.
+- A hostile that hides mid-fight (`invisible="1"`, listed "that is almost invisible") is in `hidden_hostiles` too. It still holds the character (no move, no retreat), but no swing or TARGET reaches it: `;hunt` fights only the visible ones and waits for a hidden one to come out.
 - `RETREAT` steps out one range and **can fail** while engaged ("You are unable to retreat from...").
 - At missile range you can move or climb again, even with the creature still in the room.
 

@@ -343,6 +343,13 @@ class XMLData:
         # self-heals at the next room change.
         self.hostiles = {}
         self._staged_hostiles = None
+        # The hostiles hidden from sight, by id: crtrStatus invisible="1",
+        # listed "that is almost invisible" (a poloh'izh that "flickers
+        # slowly and vanishes" mid-fight, still engaged, 2026-10-11). No
+        # swing or TARGET reaches one until it comes out (#526). Staged
+        # and swapped with the hostiles.
+        self.hidden_hostiles = set()
+        self._staged_hidden = None
         # The corpses in the room, by id: the creatures a crtrStatus
         # burst marks dead="1", in its order — staged and swapped with
         # the hostiles. SKIN #id and LOOT #id act on exactly that body
@@ -502,6 +509,8 @@ class XMLData:
             if self._staged_hostiles is not None:
                 self.hostiles = self._staged_hostiles
                 self._staged_hostiles = None
+                self.hidden_hostiles = self._staged_hidden or set()
+                self._staged_hidden = None
                 self.corpses = self._staged_corpses or []
                 self._staged_corpses = None
         elif name == "settingsInfo":
@@ -528,6 +537,8 @@ class XMLData:
             # enumeration arrives.
             self.hostiles = {}
             self._staged_hostiles = None
+            self.hidden_hostiles = set()
+            self._staged_hidden = None
             self.corpses = []
             self._staged_corpses = None
             self.room_creatures = []
@@ -602,6 +613,7 @@ class XMLData:
             # a creature re-announced harmless drops out at the swap.
             if self._staged_hostiles is None:
                 self._staged_hostiles = {}
+                self._staged_hidden = set()
                 self._staged_corpses = []
             if attributes.get("dead") == "1" and attributes.get("exist"):
                 self._staged_corpses.append(attributes["exist"])
@@ -613,6 +625,8 @@ class XMLData:
                 self._staged_hostiles[attributes.get("exist", "")] = (
                     attributes.get("disengaged") != "1"
                 )
+                if attributes.get("invisible") == "1":
+                    self._staged_hidden.add(attributes.get("exist", ""))
         elif name == "streamWindow" and attributes.get("id") == "room":
             subtitle = attributes.get("subtitle", "")
             if subtitle.startswith(" - "):
@@ -691,6 +705,8 @@ class XMLData:
                 # #453). An empty pulse is no listing (#85): it keeps them.
                 self.hostiles = {}
                 self._staged_hostiles = None
+                self.hidden_hostiles = set()
+                self._staged_hidden = None
                 self.corpses = []
                 self._staged_corpses = None
             if creatures != self.room_creatures or dead != self.room_creatures_dead:

@@ -771,11 +771,17 @@ def cast_left(s):
 
 def foe_ref(s):
     """The foe as a command names it, by its crtrStatus id
-    ("#146989491"): an engaged hostile first, else any; None with none
-    (#456)."""
-    hostiles = getattr(getattr(s, "state", None), "hostiles", None) or {}
-    engaged = [exist for exist, on in hostiles.items() if on and exist]
-    others = [exist for exist in hostiles if exist]
+    ("#146989491"): an engaged hostile first, else any; never a hidden
+    one, which no swing reaches (#526); None with none (#456)."""
+    state = getattr(s, "state", None)
+    hidden = getattr(state, "hidden_hostiles", None) or ()
+    hostiles = {
+        exist: on
+        for exist, on in (getattr(state, "hostiles", None) or {}).items()
+        if exist and exist not in hidden
+    }
+    engaged = [exist for exist, on in hostiles.items() if on]
+    others = list(hostiles)
     pick = (engaged or others)[:1]
     return f"#{pick[0]}" if pick else None
 

@@ -952,3 +952,19 @@ def test_a_foe_gone_by_its_id_is_targeted_bare():
     assert buffs.foe_ref(s) == "#7"
     s.state.hostiles = {}
     assert buffs.foe_ref(s) is None
+
+
+def test_a_hidden_foe_is_never_the_target():
+    # #526: TARGET #id picked the poloh'izh "almost invisible", the bare
+    # swing at it answered "What are you trying to attack?", and the
+    # pattern was let go every two seconds.
+    from types import SimpleNamespace
+
+    s = SimpleNamespace(
+        state=SimpleNamespace(
+            hostiles={"575": True, "574": True}, hidden_hostiles={"575"}
+        )
+    )
+    assert buffs.foe_ref(s) == "#574"
+    s.state.hostiles = {"575": True}
+    assert buffs.foe_ref(s) is None

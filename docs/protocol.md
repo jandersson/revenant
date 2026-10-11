@@ -28,7 +28,7 @@ Stream ids are case-sensitive (`percWindow`). `combat` carries every swing and k
 | `nav rm=` | `room_uid`, the map's key |
 | `compass` / `dir` | `compass` |
 | `dialogData` minivitals, injuries | `vitals`, `injuries` |
-| `crtrStatus hostile="1"` | `hostiles` |
+| `crtrStatus hostile="1"` | `hostiles` (`invisible="1"` also `hidden_hostiles`) |
 | `left`, `right` | `left_hand`, `right_hand` |
 | `spell`, the `percWindow` stream | `prepared_spell`, `active_spells` |
 | INV LIST's `<d cmd>` links | `possessions` |
