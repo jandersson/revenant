@@ -493,6 +493,7 @@ RELOADABLE_MODULES = (
     "client.game.gaze",  # pure wordings, nothing bound
     "client.game.astral",  # pure wordings and the ring, nothing bound
     "client.game.tasks",  # pure wordings and a record, nothing bound
+    "client.game.tasklog",  # history.db's tasks; lootlog reached at call time
     "client.game.moonbeam",  # pure wordings and a record, nothing bound
     "client.game.money",
     "client.game.attune",

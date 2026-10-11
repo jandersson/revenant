@@ -2,6 +2,7 @@
     ;task <giver>        ask the giver (a noun the room knows: cormyn) for a task and accept it; a kind the profile's task_declines names is declined
     ;task                carry on the task in hand (the journal's): a delivery walks to the recipient and hands the item over; a search kneels and searches the area's rooms, a recovery hunts the area (;hunt task), then brings the find back to the giver
     ;task item=<noun>    ... naming the item when the record of the accept is gone (a basket)
+    ;task history        what each giver has offered (history.db's tasks): the kinds, where, the pay, the minutes
     ;task return         typed while it runs: finish the step in hand and stop
 
 What it does
@@ -23,7 +24,7 @@ import math
 import re
 import time
 
-from client.game import hands, items, travel
+from client.game import hands, items, tasklog, travel
 from client.game.act import ask, said, unknown, whole_answer
 from client.game.loop import wants_stop
 from client.game.mapdb import MapDB
@@ -55,12 +56,14 @@ from client.game.walker import walk
 
 
 def parse_args(words):
-    options = {"giver": "", "item": ""}
+    options = {"giver": "", "item": "", "history": False}
     for word in words or []:
         text = str(word).strip()
         key, sep, value = text.lower().partition("=")
         if sep and key == "item":
             options["item"] = value
+        elif key == "history" and not options["giver"]:
+            options["history"] = True
         elif text and not options["giver"]:
             options["giver"] = text.lower()
     return options
@@ -104,6 +107,7 @@ def take_offer(s, giver, declines, name=""):
             else "declined (the giver said nothing known)"
         )
         s.echo(f"task: {describe(offer)} — in task_declines — {verdict}")
+        tasklog.log_offer(name, giver, offer, accepted=False)
         return None
     answer = ask(s, "accept task")
     # The journal is the judge of the accept: a kind's thank-you line
@@ -130,6 +134,7 @@ def take_offer(s, giver, declines, name=""):
         # "glaes locket" too): the drop line and the find say the whole name.
         offer["item"] = named
     offer["accept_text"] = said(answer)
+    offer["log_seq"] = tasklog.log_offer(name, giver, offer, accepted=True)
     s.echo(f"task: accepted — {describe(offer)}")
     return offer
 
@@ -278,6 +283,9 @@ def deliver(s, task, mapdb, walk_fn):
     if payment:
         count, currency = payment
         s.echo(f"task: delivered — {person} paid {count} {currency}")
+        tasklog.log_end(
+            task.get("log_seq"), done_at=tasklog.now(), paid=count, currency=currency
+        )
     elif CLOSED_FOR_THE_NIGHT in answer:
         s.echo(f"task: {person}'s shop is shut for the night — ;task again at sunrise")
         return False
@@ -319,6 +327,7 @@ def search_for(s, task, mapdb, walk_fn):
             outcome = search_outcome(answer)
             if outcome == "found":
                 s.echo(f"task: found — {said(answer)} (search {number} in room {room})")
+                tasklog.log_end(task.get("log_seq"), room=room, searches=number)
                 s.waitrt()
                 got = ask(s, f"get {noun}" if noun else "get item")
                 ask(s, "stand")
@@ -362,6 +371,12 @@ def hand_in(s, task, mapdb, walk_fn):
     payment = paid(answer)
     if payment:
         s.echo(f"task: handed in — {giver} paid {payment[0]} {payment[1]}")
+        tasklog.log_end(
+            task.get("log_seq"),
+            done_at=tasklog.now(),
+            paid=payment[0],
+            currency=payment[1],
+        )
     else:
         s.echo(f"task: handed in — {giver} said {said(answer)!r}")
     journal = parse_journal(ask(s, "task"))
@@ -450,6 +465,13 @@ def run_recovery(s, task, profile, mapdb, walk_fn):
 def run(s, options, profile, mapdb, walk_fn=walk):
     declines = list(profile.get("task_declines") or [])
     name = character(s)
+    if options.get("history"):
+        groups = tasklog.summary(name or None)
+        for group in groups:
+            s.echo(f"task: {tasklog.describe(group)}")
+        if not groups:
+            s.echo("task: no offers on record yet — they are kept from now on")
+        return
     task = parse_journal(ask(s, "task"))
     if task is not None:
         if task.get("kind") not in ("delivery", "searching", "recovery"):

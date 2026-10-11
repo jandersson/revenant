@@ -481,12 +481,36 @@ def test_no_task_and_no_giver_says_how_to_ask():
 
 
 def test_parse_args():
-    assert script.parse_args(["cormyn"]) == {"giver": "cormyn", "item": ""}
-    assert script.parse_args(["item=basket"]) == {"giver": "", "item": "basket"}
-    assert script.parse_args(["Cormyn", "item=basket"]) == {
-        "giver": "cormyn",
-        "item": "basket",
-    }
+    def args(giver="", item="", history=False):
+        return {"giver": giver, "item": item, "history": history}
+
+    assert script.parse_args(["cormyn"]) == args("cormyn")
+    assert script.parse_args(["item=basket"]) == args(item="basket")
+    assert script.parse_args(["Cormyn", "item=basket"]) == args("cormyn", "basket")
+    assert script.parse_args(["history"]) == args(history=True)
+
+
+def test_every_offer_and_its_pay_are_kept_and_history_reads_them(monkeypatch, tmp_path):
+    # The operator, 2026-10-11: "Start tracking what task givers assign".
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "history.db"))
+    fake = Fake(
+        {
+            "task": [JOURNAL_CLEAR, JOURNAL, JOURNAL_CLEAR],
+            "ask cormyn": [DELIVERY_OFFER],
+            "accept": [ACCEPTED],
+            "stow": [STOWED],
+            "get": [GOT_BASKET],
+            "give": [PAID],
+        }
+    )
+    run(fake, ["cormyn"])
+    history = Fake({"task": [JOURNAL_CLEAR]})
+    out = run(history, ["history"])
+    assert (
+        "task: cormyn delivery: 1 offered, 1 taken, 1 done — Saeru Throne City x1"
+        " — paid 314 Lirums — 0 min median"
+    ) in out
+    assert history.sent == []  # read off the database, nothing asked
 
 
 # --- a search run end to end (captured 2026-10-10 at Gildleaf Circle) --------

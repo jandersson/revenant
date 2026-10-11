@@ -109,6 +109,7 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   `helper.py`; `vault.py` (;vault: the Carousel's way in, PUT and GET);
   `tasks.py` (;task: a giver's offer, the journal, the
   recipient's payment; delivery, search and recovery (;hunt task) built);
+  `tasklog.py` (every offer and its end in history.db; ;task history);
   `compendium.py` (;compendium's anatomy charts for First
   Aid, hardest first); `almanac.py` (the almanac studied on its timer, an
   interlude); `gaze.py` (;gaze: the sanowret crystal's Arcana lesson at
