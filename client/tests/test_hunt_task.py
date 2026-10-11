@@ -122,5 +122,13 @@ def test_the_drop_pattern_names_the_item_and_get_takes_two_words():
         "As amber poloh'izh dies, you see it drop a small hand mirror onto the ground."
     )
     assert not pattern.search(DROP_KILL)
+    # Ioun's offer said "ring", the journal "pearl ring" (2026-10-11).
+    ring = re.compile(tasks.drop_pattern("ring"), re.IGNORECASE)
+    assert ring.search(
+        "As grey poloh'izh dies, you see it drop a pearl ring onto the ground."
+    )
+    assert not ring.search(
+        "As grey poloh'izh dies, you see it drop a pearl earring onto the ground."
+    )
     assert tasks.item_words("small hand mirror") == "hand mirror"
     assert tasks.item_words("worn gauntlet") == "worn gauntlet"

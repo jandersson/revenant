@@ -271,6 +271,24 @@ def test_a_recovery_is_hunted_by_hunt_task_then_handed_to_the_giver():
     assert script.load("Lanival") is None
 
 
+def test_a_recovery_keeps_the_journals_fuller_item_name():
+    # Ioun, 2026-10-11: the offer lost "a very precious ring", the journal
+    # and the accept named "a pearl ring" — the name the drop line uses.
+    fake = Hunting(
+        {
+            "task": [
+                JOURNAL_CLEAR,
+                RECOVERY_JOURNAL.replace("a tabard", "a pearl ring"),
+            ],
+            "ask cormyn": [RECOVERY_OFFER.replace("tabard", "ring")],
+            "accept": [ACCEPTED],
+        },
+        found=False,
+    )
+    run_armed(fake, ["cormyn"])
+    assert script.load("Lanival")["item"] == "pearl ring"
+
+
 def test_a_hunt_that_ends_without_the_item_leaves_the_task_to_carry_on():
     fake = Hunting(
         {
@@ -307,8 +325,8 @@ def test_a_searching_task_is_accepted_by_the_journal_and_the_search_begins():
     out = run(fake, ["saeru"])
     assert fake.sent[:4] == ["task", "ask saeru for task", "accept task", "task"]
     assert (
-        "a search for the locket near The Crossing, Gildleaf Circle (kneel and search)"
-        in out
+        "a search for the glaes locket near The Crossing, Gildleaf Circle "
+        "(kneel and search)" in out  # the journal's fuller name
     )
     assert "unrecognized ACCEPT" not in out
     assert fake.walks[0] == {807} and "kneel" in fake.sent

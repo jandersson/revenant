@@ -123,6 +123,11 @@ def take_offer(s, giver, declines, name=""):
     }
     if offer.get("kind") == "unknown":
         offer["kind"] = journal.get("kind", "unknown")
+    named = str(journal.get("item") or "")
+    if named and named.endswith(str(offer.get("item") or "")):
+        # The journal's "pearl ring" over the offer's "ring" (a search's
+        # "glaes locket" too): the drop line and the find say the whole name.
+        offer["item"] = named
     offer["accept_text"] = said(answer)
     s.echo(f"task: accepted — {describe(offer)}")
     return offer

@@ -98,9 +98,10 @@ _PAID = re.compile(r"hands you (?P<count>[\d,]+) (?P<currency>[A-Z]\w+)")
 
 def drop_pattern(item):
     """The regex (for a script's flag) of the death line that drops the
-    task's `item`."""
+    task's `item`, words before it allowed: Ioun's offer named only "a
+    very precious ring", the journal "a pearl ring" (2026-10-11)."""
     item = re.escape(str(item or "").strip())
-    return rf"dies, you see it drop (?:an? |some )?{item} onto the ground"
+    return rf"dies, you see it drop (?:an? |some )?(?:[\w'-]+ )*?{item} onto the ground"
 
 
 def item_words(item):
