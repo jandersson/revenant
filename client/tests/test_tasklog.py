@@ -49,3 +49,56 @@ def test_offers_and_their_ends_read_back_per_giver_and_kind(tmp_path):
         0,
     )
     assert tasklog.summary("Sable", path=path) == []
+
+
+# Game-log lines as the logs of 2026-10-09 to 10-11 carry them: the
+# server's prompt stamps between, the tags left in.
+GAME_LOG = [
+    '<prompt time="1791651000">&gt;</prompt>',
+    'Cormyn says, "I do have a small favor to ask.  A friend of mine recently lost'
+    " a very precious tabard.  He lost it in the area where the poloh'izh make"
+    " their home near Hara'jaal, Glaren Kweld.  If you could recover that for him"
+    ' I would greatly appreciate it."',
+    "[You may accept by typing ACCEPT TASK, or decline by typing DECLINE TASK.  You"
+    " have 30 seconds to decide.]",
+    'Cormyn says, "Very well, I guess you do not wish to help me."',
+    '<prompt time="1791651600">&gt;</prompt>',
+    "Cormyn says, \"I do have a small task I'd like for you to perform.  I have a"
+    " small item that needs to be taken to Saeru in Throne City.  Would you be"
+    ' willing to do that for me?"',
+    'Cormyn says, "Here is the item, please get it to Saeru as soon as possible."',
+    "Cormyn wants you to deliver a package to Saeru in Throne City.",
+    '<prompt time="1791655200">&gt;</prompt>',
+    "The sales clerk hands you 50 Kronars.",
+    '<prompt time="1791658800">&gt;</prompt>',
+    "Saeru hands you 314 Lirums.",
+]
+
+
+def test_a_game_logs_offers_read_with_their_answers_and_pay():
+    offers = tasklog.scan(GAME_LOG)
+    assert [(o["giver"], o["offer"]["kind"], o["accepted"]) for o in offers] == [
+        ("Cormyn", "recovery", False),
+        ("Cormyn", "delivery", True),
+    ]
+    taken = offers[1]
+    assert (taken["paid"], taken["currency"]) == (314, "Lirums")  # not the clerk's
+    assert taken["offered_at"] == "2026-10-10T17:00:00+00:00"
+    assert taken["done_at"] == "2026-10-10T19:00:00+00:00"
+    assert "done_at" not in offers[0]
+
+
+def test_the_journals_fuller_name_wins():
+    # Cormyn's mirror, 2026-10-10: "a very precious mirror", the journal's
+    # "small hand mirror".
+    lines = [
+        'Cormyn says, "I do have a small favor to ask.  A friend of mine recently'
+        " lost a very precious mirror.  She lost it in the area where the poloh'izh"
+        " make their home near Hara'jaal, Glaren Kweld.  If you could recover that"
+        ' for her I would greatly appreciate it."',
+        "Cormyn says, \"Thank you so much.  Remember, you're looking for a small"
+        ' hand mirror."',
+        "Cormyn wants you to recover a small hand mirror from poloh'izh near"
+        " Hara'jaal, Glaren Kweld.",
+    ]
+    assert tasklog.scan(lines)[0]["offer"]["item"] == "small hand mirror"

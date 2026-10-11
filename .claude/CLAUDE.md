@@ -30,6 +30,8 @@ uv run python tools/drive.py --character NAME [--act] "cmd"  # a logged, stoppab
                                      # (--steps FILE a loop; --stop halts every driver)
 uv run python tools/wiki.py "Soul system" [--grep WORD]  # an Elanthipedia page's raw
                                      # wikitext, cached under ~/.revenant/wiki (--list)
+uv run python tools/task_backfill.py  # history.db's task offers read back out of the
+                                     # game logs (--dry-run); a rerun adds nothing
 ```
 
 CI runs ruff and pytest on 3.10–3.12 on ubuntu plus 3.12 on macOS. Run

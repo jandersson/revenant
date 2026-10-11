@@ -12,7 +12,7 @@ A task is an errand an NPC gives for coin: ask a task giver, accept inside thirt
 ;task return         finish the step in hand and stop
 ```
 
-- Every offer, taken or declined, is a row in history.db's `tasks` table: the giver, the kind, the item, the creature and the area or recipient. The end adds the pay, the time and, for a search, the room it was found in and on which SEARCH. `;task history` reads them back per giver and kind.
+- Every offer, taken or declined, is a row in history.db's `tasks` table: the giver, the kind, the item, the creature and the area or recipient. The end adds the pay, the time and, for a search, the room it was found in and on which SEARCH. `;task history` reads them back per giver and kind. `uv run python tools/task_backfill.py` reads the offers made before the table out of the game logs.
 
 - Every offer is accepted inside its thirty seconds unless the profile's `task_declines` names its kind. The script runs a delivery, a search and a recovery; any other kind it accepts, records and hands to you, saying the offer.
 - A recovery runs `;hunt task`: the area's rooms are the ground, the profile's weapons fight whatever engages, and the hunt ends when a kill's death line drops the item (`As grey poloh'izh dies, you see it drop a worn gauntlet onto the ground.`); it picks the item up and goes home, then `;task` carries it to the giver. A profile with no weapon gets the recovery handed over: a spell caster's kill is not built.

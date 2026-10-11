@@ -11,10 +11,12 @@ offer's words. The end fills the same row: `done_at`, the pay as the
 game counts it (`paid`, `currency`), and for a search the room it was
 found in and the SEARCH that found it. `summary` reads the rows back per
 giver and kind for ;task history. A logging failure is logged and never
-stops a script.
+stops a script. `scan` reads the same rows out of a game log's lines,
+for tools/task_backfill.py: the offers made before the table (#527).
 """
 
 import logging
+import re
 import sqlite3
 from collections import Counter
 from datetime import datetime, timezone
@@ -54,9 +56,9 @@ def now():
     return datetime.now(timezone.utc).isoformat()
 
 
-def log_offer(character, giver, offer, accepted, path=None):
-    """One row for an offer as ;task read it; the seq, or None when the
-    write failed."""
+def log_offer(character, giver, offer, accepted, path=None, offered_at=None):
+    """One row for an offer as ;task read it (at `offered_at`, an ISO
+    time, for a backfill); the seq, or None when the write failed."""
     try:
         connection = _connect(path)
         try:
@@ -65,7 +67,7 @@ def log_offer(character, giver, offer, accepted, path=None):
                 " creature, area, person, accepted, text)"
                 " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
-                    now(),
+                    offered_at or now(),
                     character or "unknown",
                     str(giver or "").lower(),
                     str(offer.get("kind") or "unknown"),
@@ -197,3 +199,66 @@ def describe(group):
         ordered = sorted(group["minutes"])
         parts.append(f"{ordered[len(ordered) // 2]} min median")
     return " — ".join(parts)
+
+
+# A game log's offer, as the logs from 2026-10-09 on say it: "Cormyn says,
+# \"I do have a small favor to ask.  A friend of mine recently lost ...\""
+# or "The Ranger Guildleader Kalika says, \"I do have a small task ...\"".
+_OFFER = re.compile(r'^(?P<speaker>.+?) says, "I do have a small (?:task|favor)')
+_PROMPT = re.compile(r'<prompt time="(?P<time>\d+)"')
+_TAG = re.compile(r"<[^>]*>")
+
+
+def _iso(epoch):
+    return datetime.fromtimestamp(int(epoch), timezone.utc).isoformat()
+
+
+def scan(lines):
+    """The offers in a character's game-log lines (raw, tags and all, in
+    time order across logs): [{"giver", "offer", "accepted", "offered_at",
+    and when paid "done_at", "paid", "currency"}]. Taken by the giver's
+    accept ("Here is the item", "you're looking for"), refused by its
+    "I guess you do not wish to help me"; paid by the recipient of a
+    delivery, else the giver, "hands you 397 Kronars". The journal's
+    fuller name of the item ("small hand mirror" for "mirror") wins."""
+    from client.game import tasks
+
+    when, offers, pending, open_task = None, [], None, None
+    for raw in lines:
+        if stamp := _PROMPT.search(raw):
+            when = stamp.group("time")
+        text = _TAG.sub("", raw).replace("&gt;", ">").strip()
+        if not text:
+            continue
+        if match := _OFFER.match(text):
+            pending = {
+                "giver": tasks.person_name(match.group("speaker")),
+                "offer": {**tasks.parse_offer(text), "text": text},
+                "accepted": False,
+                "offered_at": _iso(when) if when else now(),
+            }
+            offers.append(pending)
+            continue
+        if pending is not None:
+            if tasks.DECLINED in text:
+                pending = None
+            elif tasks.accepted(text) and pending["giver"].lower() in text.lower():
+                pending["accepted"] = True
+                open_task, pending = pending, None
+            continue
+        if open_task is None:
+            continue
+        journal = tasks.parse_journal(text)
+        named = str((journal or {}).get("item") or "")
+        item = str(open_task["offer"].get("item") or "")
+        if named and item and named != item and named.endswith(item):
+            open_task["offer"]["item"] = named
+        payment = tasks.paid(text)
+        if payment:
+            offer = open_task["offer"]
+            payer = tasks.person_name(offer.get("person") or open_task["giver"])
+            if payer.lower() in text.lower():
+                open_task["paid"], open_task["currency"] = payment
+                open_task["done_at"] = _iso(when) if when else now()
+                open_task = None
+    return offers
