@@ -971,11 +971,15 @@ def grass_northeast(s, done):
     return done()
 
 
+def in_grass(state):
+    """True in a room of the Glaren Kweld grass, on the map or off it."""
+    return normalize_title(str(getattr(state, "room_title", "") or "")) == GRASS_TITLE
+
+
 def lost_in_grass(db, state):
     """True in a Glaren Kweld room the map has no uid for (#519)."""
     uid = getattr(state, "room_uid", None)
-    title = normalize_title(str(getattr(state, "room_title", "") or ""))
-    return bool(uid) and title == GRASS_TITLE and db.room_by_uid(uid) is None
+    return bool(uid) and in_grass(state) and db.room_by_uid(uid) is None
 
 
 def ride_grass(s, mode=""):

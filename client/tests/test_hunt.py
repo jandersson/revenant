@@ -1101,6 +1101,54 @@ def test_moves_refused_in_place_three_times_end_the_hunt(travel, monkeypatch):
     assert any("walk to the next room failed" in e for e in arena.echoed)
 
 
+GRASS = "[Hara'jaal, Glaren Kweld]"
+
+
+def test_in_the_grass_the_hunt_steps_room_by_room_and_never_walks_the_map(
+    travel, monkeypatch
+):
+    # The operator, 2026-10-11: the walk between the map's three grass
+    # rooms passed rooms with poloh'izh in them; "the hunting area is a
+    # maze". Each empty room is one step on, round the compass, and the
+    # room it lands in is fought in.
+    arena = Arena(
+        {"attack": [(KILL, kill)] * 2, "skin": [SKINNED] * 2, "loot": [NOTHING] * 2}
+    )
+    arena.state.room_title = GRASS
+    ways = []
+
+    def step(s, way):
+        ways.append(way)
+        if len(ways) == 2:
+            s.state.hostiles = {"2": True}  # a poloh'izh in this one
+        return True
+
+    monkeypatch.setattr(hunt, "engaged_move", step)
+    _run(arena, profile=PROFILE | {"max_kills": 2}, travel_first=False)
+    assert ways == ["northeast", "east"]
+    assert arena.sent.count("attack rat") == 2
+    assert arena.walks == [{1}]  # only the walk home
+
+
+def test_a_step_out_of_the_grass_steps_back_in(travel, monkeypatch):
+    arena = Arena(
+        {"attack": [(KILL, kill)] * 2, "skin": [SKINNED] * 2, "loot": [NOTHING] * 2}
+    )
+    arena.state.room_title = GRASS
+    ways = []
+
+    def step(s, way):
+        ways.append(way)
+        s.state.room_title = "[Hara'jaal, Slope]" if len(ways) == 1 else GRASS
+        if len(ways) == 3:
+            s.state.hostiles = {"2": True}
+        return True
+
+    monkeypatch.setattr(hunt, "engaged_move", step)
+    _run(arena, profile=PROFILE | {"max_kills": 2}, travel_first=False)
+    assert ways == ["northeast", "southwest", "east"]
+
+
 def test_a_failed_walk_off_an_occupied_room_is_said(travel, monkeypatch):
     # 2026-09-26: the walk on from a room two players held failed on a
     # map edge and ;hunt ended without a word, Cecil standing in a field.

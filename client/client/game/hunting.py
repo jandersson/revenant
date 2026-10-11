@@ -481,6 +481,7 @@ class Tally:
         self.unrecognized = 0
         self.empty_moves = 0
         self.held_moves = 0  # moves refused in place in a row (a hidden foe)
+        self.grass_turn = 0  # the next of hunt.GRASS_WAYS in the Glaren Kweld grass
         self.room_clear = False
         self.corpse_swings = 0
         # None: no bundle yet, the first skin starts one; True: a bundle

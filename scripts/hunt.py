@@ -16,7 +16,8 @@ What it does
   - Fights one creature at a time: attack, skin (never a creature the wiki says has
     no skin), loot, gems and boxes stowed — a creature's boxes are left once ;boxes
     put its last three back unopened (history.db's verdict); a box farm takes them all.
-  - Moves room to room; a room another player hunts is theirs and is skipped.
+  - Moves room to room; a room another player hunts is theirs and is skipped. In the
+    Glaren Kweld grass, a maze off the map, one step at a time round the compass.
   - Trains the `weapons` in turn: the emptiest pool first, each to `weapon_target`,
     or for `weapon_minutes` at most when a pool will not fill.
   - Between swings, as the profile says: maneuvers, SMITE, training casts,
@@ -79,7 +80,7 @@ from client.game.creatures import aim, aim_corpse, noun_of, outgrown, skinnable
 from client.game.probe import classify
 from client.game.profile import describe, load_profile
 from client.game.profile import styles as profile_styles
-from client.game.walker import DIRECTIONS, locate, walk
+from client.game.walker import DIRECTIONS, engaged_move, in_grass, locate, walk
 from client.game.wounds import SEVERITIES, level, parse_health
 
 # The pure half — the tables, the kill sentence, the weapon plan, the
@@ -1770,13 +1771,19 @@ def study_in_fight(s, profile, tally):
 
 def next_room(s, db, ground, avoid, tally):
     """The room is empty: on to the next room of the ground, cyclically;
-    a one-room ground waits and looks instead. Once the ground has
+    a one-room ground waits and looks instead; the Glaren Kweld grass is
+    stepped through room by room (grass_step). Once the ground has
     been lapped EMPTY_LAPS times with nothing in it, a pause of
     EMPTY_ROOM_WAIT and the laps go on — an empty ground is waited
     out, never left (the operator, 2026-09-13). A move refused where
     the character stands is a hidden foe, waited for. False only when a
     walk fails elsewhere, or HELD_MOVES refusals come in a row."""
     tally.room_clear = False
+    if in_grass(s.state):
+        if hostiles(s.state):
+            s.echo("hunt: something arrived — staying")
+            return True
+        return grass_step(s, tally)
     tally.empty_moves += 1
     if tally.empty_moves > EMPTY_LAPS * max(len(ground), 1):
         s.echo(f"hunt: ground empty — waiting {EMPTY_ROOM_WAIT}s, then looking again")
@@ -1805,18 +1812,57 @@ def next_room(s, db, ground, avoid, tally):
     if step_on(s, db, ground, avoid):
         tally.held_moves = 0
         return True
-    if here is None or locate(db, s.state) != here or tally.held_moves >= HELD_MOVES:
+    if here is None or locate(db, s.state) != here:
         return False
-    # Refused where it stands: a foe hidden in the room still holds the
-    # character — "You can't do that while engaged!", both RETREATs "You
-    # are already as far away as you can get!" (a poloh'izh in the
-    # Glaren Kweld grass, 2026-10-11, which ended the task's hunt). It
-    # is waited for and fought, never walked away from.
+    return held(s, tally)
+
+
+def held(s, tally):
+    """A move refused where the character stands: a foe hidden in the
+    room still holds it — "You can't do that while engaged!", both
+    RETREATs "You are already as far away as you can get!" (a poloh'izh
+    in the Glaren Kweld grass, 2026-10-11, which ended the task's
+    hunt). It is waited for and fought, never walked away from: True,
+    until HELD_MOVES refusals in a row."""
+    if tally.held_moves >= HELD_MOVES:
+        return False
     tally.held_moves += 1
     s.echo(
         "hunt: the move was refused here — something hidden holds you; waiting for it"
     )
     wait_for_prey(s, EMPTY_ROOM_WAIT)
+    return True
+
+
+# The Glaren Kweld grass is a maze of rooms with one title, three on the
+# map (#519): the walk between those three crossed rooms of poloh'izh
+# without a stop (the operator, 2026-10-11: "it shouldn't do the mapped
+# rooms since the hunting area is a maze"). In it, the next room is one
+# step round the compass, and a step that leaves the grass goes back.
+GRASS_WAYS = (
+    "northeast",
+    "east",
+    "southeast",
+    "south",
+    "southwest",
+    "west",
+    "northwest",
+    "north",
+)
+
+
+def grass_step(s, tally):
+    """One step through the Glaren Kweld grass for next_room: True in
+    the next room, or held in this one by a hidden foe (held)."""
+    index = tally.grass_turn % len(GRASS_WAYS)
+    tally.grass_turn += 1
+    s.echo("hunt: room empty — on through the grass")
+    if not engaged_move(s, GRASS_WAYS[index]):
+        return held(s, tally)
+    tally.held_moves = 0
+    if not in_grass(s.state):
+        engaged_move(s, GRASS_WAYS[(index + 4) % len(GRASS_WAYS)])  # back in
+    probe.collect(s, SETTLE_SECONDS)
     return True
 
 
