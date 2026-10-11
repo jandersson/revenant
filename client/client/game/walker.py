@@ -22,7 +22,8 @@ planned again from the teller, once a walk (#455). Hara'jaal's Glaren
 Kweld grass, one title on dozens of rooms, is crossed bescort's way
 (ride_grass, #519). An Estate Holder ring in the profile is PUSHed to
 Fang Cove, or PULLed back from it, when that beats the walk (ring_route,
-#521).
+#521). With the Athletics, the Faldesu and the Segoltha are swum
+bescort's way instead of ferried (ride_faldesu_swim, ride_segoltha).
 """
 
 import json
@@ -202,6 +203,11 @@ GRASS_SLOPE = re.compile(r"\bslope\b")
 # at..." and the room; indoors "You can't do that here."; STUDY says
 # "[You are able to PUSH your copper band anytime.]" or "[You will be
 # able to PUSH your copper band again about an hour from now.]".
+# The rivers' swims (mapdb.SWIMS, bescort's): strokes before one is
+# called lost, and the Segoltha's three bank rooms by their game uids
+# (map 19373 the wreck, 19457 and 15888 the north bank).
+SWIM_STROKES = 40
+SEGOLTHA_UIDS = {19373: 241538, 19457: 241503, 15888: 241522}
 RING_LANDING = 8308
 RING_SECONDS = 60.0  # a teleport, but it spends an hour's charge: wins ~300 steps
 RING_STUDY_SECONDS = 3
@@ -897,10 +903,10 @@ def ride_mammoth(s, mode=""):
     return "no mammoth"
 
 
-def grass_move(s, move):
-    """One move in the Glaren Kweld grass, True on arrival: the poloh'izh
-    engage at once, so with hostiles in the room (or the move stalled)
-    it goes as RETREAT, RETREAT and the move back to back."""
+def engaged_move(s, move):
+    """One move where creatures engage (the Glaren Kweld grass, a river's
+    swims), True on arrival: with hostiles in the room, or the move
+    stalled, it goes as RETREAT, RETREAT and the move back to back."""
     s.waitrt()
     while s.get(timeout=0, streams=("compass",)) is not None:
         pass
@@ -923,7 +929,7 @@ def grass_northeast(s, done):
     for _ in range(GRASS_STEPS):
         if done():
             return True
-        if not grass_move(s, "northeast"):
+        if not engaged_move(s, "northeast"):
             return False
     return done()
 
@@ -946,7 +952,7 @@ def ride_grass(s, mode=""):
             pattern.search(str(getattr(s.state, "room_objs", "") or ""))
         )
 
-    if mode == "up" and not grass_move(s, "climb slope"):
+    if mode == "up" and not engaged_move(s, "climb slope"):
         s.echo("the climb down the slope failed — stopping here")
         return "stuck"
     if not grass_northeast(s, objs(GRASS_ROCK if mode == "up" else GRASS_SLOPE)):
@@ -1021,8 +1027,73 @@ def ring_route(s, db, here, goals, route, avoid, closed, **plan):
     return [(landing, f"{verb} my {ring}")] + tail
 
 
+def open_ways(s):
+    """The room's exits in full ("north"), from the parser's compass."""
+    return {DIRECTIONS.get(way, way) for way in getattr(s.state, "compass", None) or []}
+
+
+def ride_faldesu_swim(s, mode=""):
+    """Swim the Faldesu at the Marsh, bescort's swim_faldesu: DIVE RIVER,
+    then north while north is open, northwest while an east way is,
+    northeast while north is again (south, southwest, southeast toward
+    the Crossing); the step's CLIMB BRIDGE lands on the far bank.
+    "landed", or "stuck" when a stroke goes nowhere."""
+    ahead, drift, last = (
+        ("north", "northwest", "northeast")
+        if mode == "haven"
+        else ("south", "southwest", "southeast")
+    )
+    if not engaged_move(s, "dive river"):
+        s.echo("DIVE RIVER went nowhere — stopping here")
+        return "stuck"
+    for stroke, while_open in ((ahead, ahead), (drift, "east"), (last, ahead)):
+        for _ in range(SWIM_STROKES):
+            if while_open not in open_ways(s):
+                break
+            if not engaged_move(s, stroke):
+                s.echo(f"a stroke {stroke} went nowhere in the Faldesu — stopping here")
+                return "stuck"
+    return "landed"
+
+
+def ride_segoltha(s, mode=""):
+    """Swim the Segoltha, bescort's segoltha: north from the wreck, south
+    (or "west", from the north bank's west end) toward it. The current
+    pins a swimmer against a bank with one or two ways out, and WEST
+    frees them; otherwise the stroke goes the way of travel, and north,
+    after sixteen strokes, EAST onto the north bank. "landed" on a bank,
+    "stuck" when the strokes run out."""
+    heading = "north" if mode == "north" else "south"
+    strokes = 0
+    for _ in range(SWIM_STROKES * 2):
+        ways = open_ways(s)
+        here = getattr(s.state, "room_uid", None)
+        if len(ways) in (1, 2):
+            engaged_move(s, "west")
+            strokes -= 1
+        elif heading == "north" and strokes == 16:
+            engaged_move(s, "east")
+            if getattr(s.state, "room_uid", None) == SEGOLTHA_UIDS[15888]:
+                return "landed"
+        elif heading in ways:
+            engaged_move(s, heading)
+        elif not ways:
+            if here == SEGOLTHA_UIDS[19373 if heading == "south" else 19457]:
+                return "landed"
+            if not engaged_move(s, heading):
+                engaged_move(s, "west")
+                strokes -= 1
+        else:
+            return "landed"  # a bank with its own ways out: bescort ends here
+        strokes += 1
+    s.echo(f"{SWIM_STROKES * 2} strokes without a bank in the Segoltha — stopping here")
+    return "stuck"
+
+
 # route -> (the ride, the step's own move off it)
 RIDE_HANDLERS = {
+    "faldesu_swim": (ride_faldesu_swim, "climb bridge"),
+    "segoltha": (ride_segoltha, "look"),
     "hara_polo": (ride_grass, {"up": "look", "down": "climb slope"}),
     "faldesu": (ride_ferry, "go dock"),
     "ferry": (ride_ferry, "go dock"),

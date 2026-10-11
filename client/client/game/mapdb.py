@@ -104,7 +104,26 @@ RIDES = {
     "mammoth": "mammoth",
     "jolas": "ship",  # Wharf End 6542 <-> Sumilo Dock 15253 (#515)
     "hara_polo": "maze",  # the Glaren Kweld grass, GRASS_EDGES (#519)
+    "segoltha": "swim",  # SWIMS
 }
+# The rivers a strong swimmer crosses instead of riding a ferry: bescort's
+# swims, each gated on Athletics. The Faldesu between the Marsh's Stone
+# Road (1375) and Riverhaven's Stone Bridge (473), where the map writes
+# bescort's faldesu route in its `if` form with the swim as the else
+# (ride "faldesu_swim"): Elanthipedia (Faldesu River) asks about 120,
+# bescort swims at 140 with its armor off and at 300 as it stands, and
+# the walker takes no armor off. The Segoltha between Fisherman's Trail,
+# Near the Wreck (19373) and the north bank (19457, 15888), bescort's
+# segoltha route: Elanthipedia (Segoltha River) asks 350. A swim is a
+# couple of dozen strokes, cheaper than a ferry's wait.
+SWIMS = {"faldesu_swim": 300, "segoltha": 350}
+SWIM_SECONDS = 60.0
+IF_FORM_SWIMS = {"faldesu": "faldesu_swim"}
+# Bescort's segoltha swim starts only from its mode's room ("Must start
+# bescort in room ...") and ends on a bank: an edge from any other room,
+# or to Haven's End (922), is no swim.
+SEGOLTHA_STARTS = {"north": 19373, "south": 19457, "west": 15888}
+SEGOLTHA_LANDINGS = frozenset({19373, 19457, 15888})
 # Hara'jaal's Glaren Kweld grass (#519): the map writes the slope's top
 # 11411 to the rock 11412 as one CLIMB SLOPE and has no way back, where
 # the game has dozens of rooms under one title between them; bescort's
@@ -431,7 +450,7 @@ def _ride_match(command):
     if match and match.group("route") in RIDES:
         return match
     match = _BESCORT_IF.search(command)
-    if match and match.group("route") in IF_FORM_RIDES:
+    if match and match.group("route") in IF_FORM_RIDES | set(IF_FORM_SWIMS):
         return match
     return None
 
@@ -440,7 +459,12 @@ def ride_of(command):
     """The bescort route a scripted edge names when the walker rides it
     ("faldesu", "gondola"), else None (#205, #211)."""
     match = _ride_match(command)
-    return match.group("route") if match else None
+    if not match:
+        return None
+    route = match.group("route")
+    if route in IF_FORM_SWIMS and _BESCORT_IF.search(command):
+        return IF_FORM_SWIMS[route]  # the `if` form at the Marsh: the swim
+    return route
 
 
 def ride_args(command):
@@ -654,6 +678,12 @@ class MapDB:
                 if str(dest).isdigit() and int(dest) in self.rooms and walkable(command)
             ]
             for dest, command in edges:
+                ride = ride_of(command)
+                if ride == "segoltha" and (
+                    SEGOLTHA_STARTS.get(ride_args(command)) != room_id
+                    or dest not in SEGOLTHA_LANDINGS
+                ):
+                    continue  # bescort swims from its mode's room to a bank
                 # A room that names both twins of one place (684
                 # → 670 and 13100, both "south") plans through the
                 # one the game will report: the uid-bearing twin
@@ -666,16 +696,21 @@ class MapDB:
                     for other, other_command in edges
                 ):
                     continue
+                gate = gate_of((room.get("timeto") or {}).get(str(dest)))
+                if ride in SWIMS:
+                    gate = Gate(SWIM_SECONDS, skill="Athletics", ranks=SWIMS[ride])
                 graph.add_edge(
                     room_id,
                     dest,
                     command=command,
-                    seconds=RIDE_SECONDS
-                    if ride_of(command)
+                    seconds=SWIM_SECONDS
+                    if ride in SWIMS
+                    else RIDE_SECONDS
+                    if ride
                     else edge_seconds(room, str(dest)),
                     # The gate a Ruby timeto puts on the edge
                     # (#214), judged per walk against the character.
-                    gate=gate_of((room.get("timeto") or {}).get(str(dest))),
+                    gate=gate,
                 )
         return graph
 

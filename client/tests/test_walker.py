@@ -75,15 +75,16 @@ def test_a_bescort_route_the_walker_rides_is_walkable_and_named():
     assert walkable(FALDESU_NORTH)
     assert ride_of(";e start_script('bescort', ['airship'])") is None
     assert ride_of("north") is None
-    # The Marsh's swim edge names the route inside a branch with no dock
-    # to wait at: not a ride (it sent the walker to wait at a bridge).
+    # The Marsh's edge names the route inside a branch with a swim as the
+    # else and no dock to wait at: not the ferry (it once sent the walker
+    # to wait at a bridge) but the swim, gated on Athletics (SWIMS).
     marsh = (
         ";e if Script.exists?('bescort') then start_script('bescort', "
         "['faldesu', 'haven']);wait_while{running?('bescort')}; else "
         "fput 'dive river';pause;waitrt?;fput 'swim n' end"
     )
-    assert ride_of(marsh) is None
-    assert not walkable(marsh)
+    assert ride_of(marsh) == "faldesu_swim"
+    assert walkable(marsh)
     assert not walkable(";e start_script('bescort', ['airship'])")
 
 
@@ -2826,3 +2827,139 @@ def test_an_exit_that_lands_in_another_town_records_that_town():
     assert walker.walk(handle, cove, [1900], describe="the bank") is True
     assert walker.fang_cove_entry(handle) == "Riverhaven"
     assert any("Fang Cove's exit returns you to Riverhaven" in e for e in handle.echoes)
+
+
+# --- the rivers' swims ------------------------------------------------------
+
+MARSH_SWIM = (
+    ";e if Script.exists?('bescort') then start_script('bescort', "
+    "['faldesu', 'haven']);wait_while{running?('bescort')}; else "
+    "fput 'dive river';pause;waitrt?;fput 'swim n' end"
+)
+SEGOLTHA_NORTH = (
+    ";e start_script('bescort', ['segoltha', 'north']);wait_while{running?('bescort')};"
+)
+
+
+class RiverHandle(FakeHandle):
+    """A river as a table: `moves[(uid, command)]` is the (uid, compass)
+    a command lands in, with a compass frame; a command the table lacks
+    goes nowhere (no frame)."""
+
+    def __init__(self, uid, compass, moves, athletics):
+        super().__init__([])
+        self.moves = moves
+        self.lands = None
+        self.state.room_uid = uid
+        self.state.compass = list(compass)
+        self.state.experience = {"Athletics": {"rank": athletics}}
+
+    def put(self, command):
+        super().put(command)
+        self.lands = self.moves.get((self.state.room_uid, command))
+
+    def get(self, timeout=None, streams=("",)):
+        if timeout == 0 or streams is not None or self.lands is None:
+            return None
+        self.state.room_uid, compass = self.lands
+        self.state.compass = list(compass)
+        self.lands = None
+        return ("compass", " ".join(compass))
+
+
+FALDESU = MapDB(
+    [
+        {
+            "id": 1375,
+            "uid": [1200030],
+            "title": ["[The Marsh, Stone Road]"],
+            "wayto": {"473": MARSH_SWIM},
+        },
+        {
+            "id": 473,
+            "uid": [1012035],
+            "title": ["[Riverhaven, Stone Bridge]"],
+            "wayto": {},
+        },
+    ]
+)
+# The Marsh to Riverhaven as bescort strokes it: north while north is
+# open, northwest while east is, northeast while north is, CLIMB BRIDGE.
+FALDESU_STROKES = {
+    (1200030, "dive river"): (9001, ["n"]),
+    (9001, "north"): (9002, ["e", "nw"]),
+    (9002, "northwest"): (9003, ["n", "ne"]),
+    (9003, "northeast"): (9004, ["s"]),
+    (9004, "climb bridge"): (1012035, ["n", "s"]),
+}
+
+
+def test_the_swim_is_planned_for_a_strong_swimmer_and_the_ferry_for_the_rest():
+    ferry = ";e start_script('bescort', ['faldesu', 'haven']);wait_while{running?('bescort')};"
+    db = MapDB(
+        [
+            {"id": 1, "uid": [1], "wayto": {"2": "west", "3": "east"}},
+            {"id": 2, "uid": [2], "wayto": {"4": ferry}},
+            {"id": 3, "uid": [3], "wayto": {"4": MARSH_SWIM}},
+            {"id": 4, "uid": [4], "wayto": {}},
+        ]
+    )
+    assert [c for _, c in db.path(1, {4}, ranks={"Athletics": 1201})][-1] == MARSH_SWIM
+    assert [c for _, c in db.path(1, {4}, ranks={"Athletics": 200})][-1] == ferry
+
+
+def test_the_faldesu_is_swum_bescorts_way_and_climbed_out_of_by_the_bridge():
+    handle = RiverHandle(1200030, ["s", "n"], FALDESU_STROKES, athletics=1201)
+    assert walker.walk(handle, FALDESU, [473], describe="Riverhaven") is True
+    assert puts_of(handle) == [
+        "dive river",
+        "north",
+        "northwest",
+        "northeast",
+        "climb bridge",
+    ]
+
+
+def test_a_weak_swimmer_is_never_sent_into_the_faldesu():
+    handle = RiverHandle(1200030, ["s", "n"], FALDESU_STROKES, athletics=150)
+    assert walker.walk(handle, FALDESU, [473]) is False
+    assert puts_of(handle) == []
+    assert any("Athletics 300" in e for e in handle.echoes)
+
+
+def test_the_segoltha_is_swum_north_from_the_wreck_to_the_bank():
+    db = MapDB(
+        [
+            {
+                "id": 19373,
+                "uid": [241538],
+                "title": ["[Fisherman's Trail, Near the Wreck]"],
+                "wayto": {"19457": SEGOLTHA_NORTH, "922": SEGOLTHA_NORTH},
+            },
+            {
+                "id": 19457,
+                "uid": [241503],
+                "title": ["[Segoltha River, North Bank]"],
+                "wayto": {},
+            },
+            {
+                "id": 922,
+                "uid": [10124],
+                "title": ["[The Crossing, Haven's End]"],
+                "wayto": {},
+            },
+        ]
+    )
+    # Pinned against a bank once (two ways out: WEST frees), then north
+    # to the north bank, which lists no ways while the swim lands there.
+    strokes = {
+        (241538, "north"): (8001, ["n", "w"]),
+        (8001, "west"): (8002, ["n", "e", "w"]),
+        (8002, "north"): (241503, []),
+        (241503, "look"): (241503, ["n", "s"]),
+    }
+    handle = RiverHandle(241538, ["n", "e", "w"], strokes, athletics=1201)
+    assert walker.walk(handle, db, [19457]) is True
+    assert puts_of(handle) == ["north", "west", "north", "look"]
+    # Haven's End is no landing of the swim: that edge is never planned.
+    assert db.path(19373, {922}, ranks={"Athletics": 1201}) is None
