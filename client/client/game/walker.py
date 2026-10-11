@@ -1633,6 +1633,13 @@ def _follow(s, db, route, here, closed, fetched=True):
                 leave = leave[ride_args(command)]
             commands = [leave]
         before, move, after = split_move(commands)
+        # A step of several moves (the Marsh's `move 'south'` three times
+        # over, 1376 -> 1370): each leading move waits for its own room,
+        # or the last one's arrival read paired with an earlier frame —
+        # "in room 14743, expected 1370", a wrong edge written to the
+        # local map and the walk planned from a room it had left
+        # (2026-10-11).
+        moves_before = any(p.strip().lower() in COMPASS_MOVES for p in before)
         s.waitrt()
         for preliminary in before:
             if (wait := pause_seconds(preliminary)) is not None:
@@ -1640,6 +1647,11 @@ def _follow(s, db, route, here, closed, fetched=True):
                 continue
             if preliminary.split()[0].lower() == "search":
                 search_hidden(s, preliminary)
+            elif preliminary.strip().lower() in COMPASS_MOVES:
+                while s.get(timeout=0, streams=("compass",)) is not None:
+                    pass
+                s.put(preliminary)
+                await_arrival(s)
             else:
                 s.put(preliminary)
             s.waitrt()
@@ -1791,7 +1803,11 @@ def _follow(s, db, route, here, closed, fetched=True):
                 # -> 5752" and then "-> 5750", which sent a later walk
                 # over the ferry and the gondola to Shard (2026-09-28,
                 # #364). Anything else is closed for this walk only.
-                if move.strip().lower() in COMPASS_MOVES and mapped != previous:
+                if (
+                    move.strip().lower() in COMPASS_MOVES
+                    and not moves_before
+                    and mapped != previous
+                ):
                     db.record_edge(previous, mapped, move)
                     note = f"the map now says {previous} {move} -> {mapped}"
                 else:

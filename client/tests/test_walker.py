@@ -1816,6 +1816,37 @@ def test_an_off_course_stair_or_named_move_is_never_written_to_the_map(
     assert not (tmp_path / "local.json").exists()
 
 
+def test_a_step_of_several_moves_waits_for_each_room_and_lands_where_planned(
+    tmp_path, monkeypatch
+):
+    # 2026-10-11, the Marsh south of the Faldesu: 1376 -> 1370 is `;e move
+    # 'south'` three times over (14744, 14743, 1370). The leading souths
+    # went out without their rooms, the last one's read took 14743's
+    # frame, "off course ... the map now says 1376 south -> 14743" was
+    # written to the local map, and the walk planned from a room it had
+    # left ("You can't go there." three times).
+    monkeypatch.setenv("REVENANT_MAPDB_LOCAL", str(tmp_path / "local.json"))
+    marsh = MapDB(
+        [
+            {
+                "id": 1376,
+                "uid": [1],
+                "title": ["[The Marsh, Stone Road]"],
+                "wayto": {"1370": ";e move 'south'; move 'south'; move 'south'"},
+            },
+            {"id": 14744, "uid": [2], "title": ["[The Marsh, Stone Road]"]},
+            {"id": 14743, "uid": [3], "title": ["[The Marsh, Stone Road]"]},
+            {"id": 1370, "uid": [4], "title": ["[The Marsh, Stone Road]"]},
+        ]
+    )
+    handle = FakeHandle(uids=[2, 3, 4])
+    handle.state.room_uid = 1
+    assert walker.walk(handle, marsh, [1370]) is True
+    assert handle.state.room_uid == 4
+    assert not any("off course" in echo for echo in handle.echoes)
+    assert not (tmp_path / "local.json").exists()
+
+
 def test_a_step_limit_holds_on_every_plan_a_replan_included(tmp_path, monkeypatch):
     # #364: ;soul's 80-step limit was checked once, before the walk; after
     # two closed ways the replan went 261 steps to Shard's altar.
