@@ -1005,6 +1005,18 @@ def targeted_due(s, profile, state, slot):
     return last is None or clock() - last >= cast_gap(profile)
 
 
+def spells_learning(s, profile, state):
+    """True while a spell the profile casts at the prey is on for this
+    run and its skill (TARGETED_SLOTS) sits below lock: a caster's hunt
+    fights on with a locked weapon for them (#525)."""
+    return any(
+        profile.get(slot)
+        and slot not in state.slots_off
+        and not locked(s.state, [skill])
+        for slot, skill in TARGETED_SLOTS.items()
+    )
+
+
 def next_cast(s, profile, state):
     """Whose turn it is before this swing: "buff" when the training
     cast is due, or a targeted slot whose spell is due — the first due

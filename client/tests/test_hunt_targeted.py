@@ -180,6 +180,35 @@ def test_no_targeted_cast_at_lock_under_the_mana_floor_or_with_no_spell(travel):
         assert prepares(arena) == []
 
 
+def test_a_locked_weapon_fights_on_while_the_targeted_spell_still_learns(travel):
+    # #525: Brawling locked nine minutes in at the lava drakes and ended
+    # the hunt with Targeted Magic at 1/34. Small Edged locked here: the
+    # spell's open skill sets the handaxe swinging and, after the kill,
+    # the hunt walks on for the next; with Targeted Magic locked too it
+    # never sets out.
+    axe_locked = {"Small Edged": {"rank": 39, "percent": 0, "mindstate": 34}}
+    profile = STRIKING | {"weapons": ["handaxe:Small Edged:sack"]}
+    runs = {}
+    for name, experience in (("open", TM_OPEN), ("locked", TM_LOCKED)):
+        arena = Arena(
+            {
+                "attack": [(KILL, kill)],
+                "prepare": [FS_PREPARED],
+                "cast": [STRUCK],
+                "skin": [SKINNED],
+                "loot": [NOTHING],
+            },
+            experience=axe_locked | experience,
+        )
+        _run(arena, profile=profile, travel_first=False)
+        runs[name] = arena
+    assert runs["open"].sent.count("attack rat") == 1
+    assert not any("mind-locked" in e for e in runs["open"].echoed)
+    assert any("room empty" in e for e in runs["open"].echoed)  # on for the next
+    assert not any(c.startswith("attack") for c in runs["locked"].sent)
+    assert any("nothing to train" in e for e in runs["locked"].echoed)
+
+
 def test_each_targeted_slot_is_gated_on_its_own_skill(travel):
     # Debilitation locked, Targeted Magic open: the strike goes out and
     # the stun stays home — and the other way round.

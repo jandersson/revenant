@@ -29,7 +29,8 @@ What it does
 When it stops — then walks home, and runs ;skins bank (skins sold, purse banked but 200 copper kept for a ferry fare; ;bank alone when no skin was cut)
   - health below `health_floor`, or a wound at `wound_floor` (also checked before setting out)
   - 60 swings without a kill, or three stuns in one fight
-  - every trained skill mind-locked, or the style's `until` (boxes, kills)
+  - every trained skill mind-locked, or the style's `until` (boxes, kills); a locked
+    weapon fights on while `targeted` or `debilitation` still trains its skill
   - ;hunt task: the task's item dropping in a kill's death line (picked up and stowed); no lock ends it
   - every room of the ground taken by other players
   - ;hunt return
@@ -606,17 +607,30 @@ def pass_turn(s, profile, tally):
     return True
 
 
+def fights_locked(s, profile, tally):
+    """True for a hunt that swings a locked weapon on: a farm (its end is
+    the box count), a task (the drop), or a caster whose spell at the
+    prey still learns (#525)."""
+    return (
+        farming(profile)
+        or tasked(profile)
+        or buffs.spells_learning(s, profile, tally.buffs)
+    )
+
+
 def rotate(s, profile, tally):
     """After a kill: the turn in hand keeps the hands until its skill
     reaches the target, then the emptiest open one takes them. False when
     every weapon skill is locked — the hunt's end, unless the hunt is a
     farm (`until` boxes): its end is the box count, and the weapon in
     hand keeps swinging (2026-09-26: the boxes style's mace locked Small
-    Blunt five kills in and ended the farm)."""
+    Blunt five kills in and ended the farm); nor while a spell cast at
+    the prey still trains its skill (#525: Brawling locked in nine
+    minutes at the lava drakes, Targeted Magic and Debilitation at 1/34)."""
     tally.rotated_at = tally.kills
     index = next_turn(s, profile, tally)
     if index is None:
-        return farming(profile) or tasked(profile)
+        return fights_locked(s, profile, tally)
     if index != tally.weapon:
         entry = weapon_plan(profile)[tally.weapon]
         if (
@@ -2243,8 +2257,8 @@ def hunt(s, profile, db, travel_first=True, avoid=(), ground=None):
     wear_bundle(s, profile, tally)
     cast_buffs(s, profile, tally)
     first = next_turn(s, profile, tally, from_current=True) if has_turns(profile) else 0
-    if first is None and (farming(profile) or tasked(profile)):
-        first = 0  # a farm or a task fights on with its first turn, locked or not
+    if first is None and fights_locked(s, profile, tally):
+        first = 0  # fights on with its first turn, locked or not
     if first is None:
         s.echo("hunt: every weapon skill is mind-locked — nothing to train")
         return

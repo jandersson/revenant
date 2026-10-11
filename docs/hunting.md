@@ -84,7 +84,7 @@ A `;train` task passes the style in its args: `"script": "hunt", "args": ["boxes
 
 - The weapon whose skill has the emptiest pool fights first, and keeps fighting until its skill reaches `weapon_target` (30). Then the next emptiest takes over. Equally empty pools go to the skill trained longest ago, then the lowest rank. `weapon_minutes` (10) is the fallback: a weapon hands on after that long even below the target, for a ground where the casts do the killing and a pool never fills; 0 turns it off.
 - Once every weapon is past the target, the emptiest unlocked one fights on to lock.
-- A locked skill's weapon sits out until it drains. All locked ends the hunt.
+- A locked skill's weapon sits out until it drains. All locked ends the hunt, unless a `targeted` or `debilitation` spell still trains its skill: then the locked weapon fights on for it.
 - A weapon that goes 20 swings without a kill hands over to the next.
 - `fists:Brawling` swings the `brawling` attacks (`punch`, `kick`, `elbow`) with empty hands; worn knuckles and a parry stick still work. With `brawling` empty, the fists turn is skipped.
 - With `weapons` empty, the hunt uses `weapon` alone.
@@ -93,7 +93,7 @@ A `;train` task passes the style in its args: `"script": "hunt", "args": ["boxes
 
 - **Health** below `health_floor`, or a **wound** at `wound_floor`: retreat, then walk home (or to the nearest room off the ground if no `home`). A wound already at the floor keeps the hunt from setting out; `;heal` treats it.
 - **A losing fight**: 60 swings without a kill, or three stuns in one fight, break off the same way.
-- **Locks**: every `train_skills` skill mind-locked, or every weapon in the rotation locked.
+- **Locks**: every `train_skills` skill mind-locked, or every weapon in the rotation locked with no spell cast at the prey still learning.
 - **The style's `until`**: boxes, or `max_kills`.
 - **A task's item** (`;hunt task`): picked up off the kill that drops it. No lock ends a task hunt.
 - **You**: `;hunt return` or `;stop hunt`.
