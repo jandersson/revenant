@@ -116,6 +116,41 @@ def test_a_docks_right_click_menu_clears_that_dock_alone(window):
     assert "troll" in window.main_window.toPlainText()  # the story untouched
 
 
+def test_talk_lines_carry_the_time_and_the_room_they_were_said_in(window):
+    # The operator, 2026-10-08 (#492): a timestamp on each Talk line,
+    # the room as metadata, not text.
+    import re
+
+    window.dispatch_game_text("8302\t[Fang Cove, Obsidian Dome]", "room", "")
+    window.dispatch_game_text("Uthmor says, ", "talk", "speech")
+    window.dispatch_game_text('"over here"\n', "talk", "")
+    talk = window.stream_windows["talk"]
+    assert re.fullmatch(
+        r'\[\d\d:\d\d\] Uthmor says, "over here"\n?', talk.toPlainText()
+    )
+    stamp = talk.document().find("[")
+    assert stamp.charFormat().toolTip() == "[Fang Cove, Obsidian Dome]"
+    assert "[" not in window.main_window.toPlainText()  # the story stays bare
+
+
+def test_a_docks_timestamps_toggle_from_its_menu_and_are_remembered(window):
+    from PyQt6.QtCore import QPoint
+
+    from client.gui.client_gui import layout_settings
+
+    thoughts = window.stream_windows["thoughts"]
+    window.dispatch_game_text("[LNet] Sable: hi\n", "thoughts", "")
+    assert thoughts.toPlainText().startswith("[LNet]")  # off by default
+    menu = thoughts.context_menu(QPoint(0, 0))
+    toggle = next(a for a in menu.actions() if a.text() == "Timestamps")
+    assert not toggle.isChecked()
+    toggle.trigger()
+    menu.deleteLater()
+    window.dispatch_game_text("[LNet] Sable: again\n", "thoughts", "")
+    assert thoughts.toPlainText().splitlines()[-1].endswith("] [LNet] Sable: again")
+    assert layout_settings().value("timestamps/Thoughts", type=bool) is True
+
+
 def test_an_undocked_streams_text_still_reaches_the_story(window):
     window.dispatch_game_text("a backpack\n", "inv", "")
     assert "a backpack" in window.main_window.toPlainText()

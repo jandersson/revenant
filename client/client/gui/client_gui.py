@@ -270,6 +270,13 @@ class ClientGUI(QMainWindow, ClientLogger):
             view = self._make_view()
             if title == "Experience":
                 style_experience_view(view)
+            else:
+                # Timestamps per dock, Talk's on until switched off (#492).
+                key = f"timestamps/{title}"
+                view.stamps = layout_settings().value(key, title == "Talk", type=bool)
+                view.save_stamps = lambda on, key=key: layout_settings().setValue(
+                    key, on
+                )
             self._dock(title, view)
         for stream, title in self.STREAM_WINDOWS.items():
             if title not in self.WIDGET_DOCKS:
@@ -842,6 +849,14 @@ class ClientGUI(QMainWindow, ClientLogger):
             follow = scrollbar.value() >= scrollbar.maximum() - 4
         cursor = QTextCursor(view.document())
         cursor.movePosition(QTextCursor.MoveOperation.End)
+        if view.stamps and view.at_line_start and text.strip():
+            stamp = QTextCharFormat()
+            stamp.setForeground(QColor(self.STYLE_FORMATS["sent"][1]))
+            stamp.setToolTip(self.map_view.room_title or "")
+            cursor.insertText(time.strftime("[%H:%M] "), stamp)
+        # shortcut: a piece holding several lines is stamped once, at its
+        # start; split it here if a stamped dock's stream ever sends such.
+        view.at_line_start = text.endswith("\n")
         text_format = QTextCharFormat()
         if style.startswith("link:"):
             # A <d> command link: clicking sends the command (issue #54).

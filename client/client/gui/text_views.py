@@ -7,8 +7,9 @@ Split out of client_gui.py, which builds one view for the story and
 one per stream dock and appends the styled text.
 """
 
+from PyQt6.QtCore import QEvent
 from PyQt6.QtGui import QFont, QFontDatabase
-from PyQt6.QtWidgets import QTextBrowser
+from PyQt6.QtWidgets import QTextBrowser, QToolTip
 
 from client.ui.textfont import view_font
 
@@ -24,15 +25,47 @@ class GameTextView(QTextBrowser):
         self.setOpenExternalLinks(False)
         self.anchorClicked.connect(lambda url: on_link(url.toString().strip()))
         self.installEventFilter(event_filter)
+        self.at_line_start = True  # the next piece the window appends begins a line
+        # An [HH:MM] before each line, the room it was said in as the
+        # stamp's tooltip (#492); `save_stamps(on)` remembers the toggle,
+        # and a view without one offers none.
+        self.stamps = False
+        self.save_stamps = None
+
+    def clear(self):
+        super().clear()
+        self.at_line_start = True
+
+    def set_stamps(self, on):
+        self.stamps = on
+        self.save_stamps(on)
 
     def context_menu(self, pos):
-        """The right-click menu: the standard one (Copy, Select All) and
-        Clear, which empties this view (the operator, 2026-10-04: a
-        Clear for the Thoughts window, #452)."""
+        """The right-click menu: the standard one (Copy, Select All),
+        Timestamps where the view keeps them, and Clear, which empties
+        this view (the operator, 2026-10-04: a Clear for the Thoughts
+        window, #452)."""
         menu = self.createStandardContextMenu(pos)
         menu.addSeparator()
+        if self.save_stamps:
+            toggle = menu.addAction("Timestamps")
+            toggle.setCheckable(True)
+            toggle.setChecked(self.stamps)
+            toggle.toggled.connect(self.set_stamps)
         menu.addAction("Clear").triggered.connect(self.clear)
         return menu
+
+    def viewportEvent(self, event):
+        # A stamp's tooltip is its character format's, which QTextBrowser
+        # does not show by itself.
+        if event.type() == QEvent.Type.ToolTip:
+            tip = self.cursorForPosition(event.pos()).charFormat().toolTip()
+            if tip:
+                QToolTip.showText(event.globalPos(), tip, self)
+            else:
+                QToolTip.hideText()
+            return True
+        return super().viewportEvent(event)
 
     def contextMenuEvent(self, event):
         menu = self.context_menu(event.pos())
