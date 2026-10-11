@@ -57,6 +57,18 @@ def test_a_bare_move_is_lichs_direction_method():
     assert translate_embedded(";e move dir") is None
 
 
+def test_a_multifput_edge_sends_each_literal_in_turn():
+    from client.game.mapdb import split_move, translate_embedded
+
+    # The dark lava tube to the Arthelun lava drakes (10983 -> 10987): the
+    # rooms between name nothing, so the walker checks only the last.
+    commands = translate_embedded(";e multifput('go tube', 'ne', 'e', 'go maw')")
+    assert commands == ["go tube", "ne", "e", "go maw"]
+    assert split_move(commands) == (["go tube", "ne", "e"], "go maw", [])
+    assert translate_embedded(';e multifput("go gate"); waitrt?') == ["go gate"]
+    assert translate_embedded(";e multifput(dirs)") is None  # a variable: logic
+
+
 def test_walkable_accepts_simple_and_translated_edges_only():
     assert walkable("north")
     assert walkable("go gate")

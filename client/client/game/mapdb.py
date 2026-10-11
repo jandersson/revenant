@@ -392,6 +392,15 @@ _BARE_DIRECTIONS = {
     "o": "out",
     "out": "out",
 }
+# lich's multifput: each literal sent in turn. The dark lava tube on the
+# way to the Arthelun lava drakes is one: `;e multifput('go tube', 'ne',
+# 'e', 'go maw')` (10983 -> 10987) walks rooms the game names nothing in
+# ("It's pitch dark and you can't see a thing!"), and a walk room by room
+# lost itself in the first (2026-10-11).
+_MULTIFPUT = re.compile(
+    r"^multifput\s*\(?\s*(?P<args>(['\"]).*?\2(?:\s*,\s*(['\"]).*?\3)*)\s*\)?$"
+)
+_LITERAL = re.compile(r"(['\"])(.*?)\1")
 # Lich's note of the town a Fang Cove portal was entered from (#289):
 # bookkeeping for its own go2, nothing sent to the game.
 _BOOKKEEPING = re.compile(r"^UserVars\.premiumPortal\s*=\s*(?:nil|'[^']*'|\"[^\"]*\")$")
@@ -431,6 +440,12 @@ def translate_embedded(command):
     for statement in command[2:].split(";"):
         statement = statement.strip()
         if not statement or _BOOKKEEPING.match(statement):
+            continue
+        several = _MULTIFPUT.match(statement)
+        if several:
+            if waited:
+                return None  # a real wait before the commands, as below
+            commands += [text for _, text in _LITERAL.findall(several.group("args"))]
             continue
         match = _SIMPLE_STATEMENT.match(statement)
         if not match:
