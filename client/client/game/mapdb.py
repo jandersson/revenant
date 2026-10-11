@@ -106,6 +106,7 @@ RIDES = {
     "jolas": "ship",  # Wharf End 6542 <-> Sumilo Dock 15253 (#515)
     "hara_polo": "maze",  # the Glaren Kweld grass, GRASS_EDGES (#519)
     "segoltha": "swim",  # SWIMS
+    "stone_wall": "door",  # Seord Kerwaith's hidden door, STONE_WALL_EDGES
 }
 # The rivers a strong swimmer crosses instead of riding a ferry: bescort's
 # swims, each gated on Athletics. The Faldesu between the Marsh's Stone
@@ -134,6 +135,19 @@ GRASS_EDGES = {
     (11411, 11412): ";e start_script('bescort', ['hara_polo', 'up'])",
     (11412, 11411): ";e start_script('bescort', ['hara_polo', 'down'])",
 }
+# The stone wall between Seord Kerwaith's Squat Cavern (4543) and the
+# Cragstone Vale tunnel (4540) is the only way from Shard to the ice road
+# and Hibarnhvidar but Fang Cove's portal. The map writes it with logic:
+# GO STONE WALL, and on "I could not find what you were referring to."
+# TURN BASIN (TURN TORCH from the tunnel), a pause, GO again. The walker
+# opens it the same way (walker.open_stone_wall), the edge renamed here as
+# a route of its own the way GRASS_EDGES are (2026-10-11); a door costs
+# seconds, not a ride's minutes.
+STONE_WALL_EDGES = {
+    (4543, 4540): ";e start_script('bescort', ['stone_wall', 'basin'])",
+    (4540, 4543): ";e start_script('bescort', ['stone_wall', 'torch'])",
+}
+DOOR_SECONDS = 2.0
 IF_FORM_RIDES = frozenset({"gondola", "ferry", "haven_throne"})
 RIDE_SECONDS = 300.0  # the wait and the crossing: a land route wins where one exists
 _BESCORT_CALL = (
@@ -370,12 +384,28 @@ def gate_of(timeto):
 # Trail out of the Segoltha swim's south landing is `;e move e; move e;
 # move e;` (19389 -> 19075), and unread it left the swim a dead end and
 # sent a strong swimmer to Alfren's Ferry (2026-10-11).
+# A `pause N` is a wait the walker sleeps, as "pause N" in the commands
+# (pause_seconds reads it; a bare pause is lich's one second): the ice
+# road between Shard and Hibarnhvidar is twelve `;e move 'se'; pause 11`
+# edges, the pace that keeps a walker on the ice from slipping, and
+# unread they cut Hibarnhvidar off (2026-10-11).
 _SIMPLE_STATEMENT = re.compile(
     r"^(?:(?:fput|move)\s*\(?\s*(['\"])(?P<literal>.*?)\1\s*\)?"
     r"|move(?:\s+|\s*\(\s*)(?P<bare>ne|nw|se|sw|n|e|s|w|up|u|down|d|out|o)\s*\)?"
     r"|waitrt\??"
+    r"|(?P<pause>pause)(?:\s*\(?\s*(?P<seconds>\d+(?:\.\d+)?)\s*\)?)?"
     r"|waitfor\s*\(?\s*(?P<quote>['\"]).*?(?P=quote)\s*\)?)$"
 )
+_PAUSE = re.compile(r"^pause (\d+(?:\.\d+)?)$")
+
+
+def pause_seconds(command):
+    """The seconds a translated "pause N" waits, or None for a command
+    the game is sent."""
+    match = _PAUSE.match(str(command or ""))
+    return float(match.group(1)) if match else None
+
+
 _BARE_DIRECTIONS = {
     "n": "north",
     "ne": "northeast",
@@ -459,16 +489,21 @@ def translate_embedded(command):
                 # arriving — that the walker does not do: untranslatable.
                 return None
             commands.append(literal)
+        elif match.group("pause"):
+            commands.append(f"pause {match.group('seconds') or 1}")
         elif statement.startswith("waitfor"):
             waited = True
-    return commands or None
+    if all(pause_seconds(command) is not None for command in commands):
+        return None  # a wait with no command is no way anywhere
+    return commands
 
 
 # Verbs an edge sends after its move, in the room it lands in: the
 # poplar over the Northwall Trail's river leaves you lying (`fput 'go
 # poplar'; waitrt?; fput 'stand'`), the heavy barricade ends with a
-# LOOK, the iron arch closes and locks the door behind you.
-AFTER_MOVE_VERBS = frozenset({"stand", "look", "close", "lock"})
+# LOOK, the iron arch closes and locks the door behind you; the ice road
+# pauses there before the next step.
+AFTER_MOVE_VERBS = frozenset({"stand", "look", "close", "lock", "pause"})
 
 
 def split_move(commands):
@@ -556,7 +591,7 @@ class MapDB:
         self._lock = threading.RLock()
         self._by_title = {}
         self._by_uid = {}
-        for (room_id, dest), command in GRASS_EDGES.items():
+        for (room_id, dest), command in {**GRASS_EDGES, **STONE_WALL_EDGES}.items():
             if room_id in self.rooms and dest in self.rooms:
                 self.rooms[room_id].setdefault("wayto", {})[str(dest)] = command
         for room in rooms:
@@ -746,6 +781,8 @@ class MapDB:
                     command=command,
                     seconds=SWIM_SECONDS
                     if ride in SWIMS
+                    else DOOR_SECONDS
+                    if RIDES.get(ride) == "door"
                     else RIDE_SECONDS
                     if ride
                     else edge_seconds(room, str(dest)),

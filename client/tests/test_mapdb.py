@@ -69,6 +69,27 @@ def test_a_multifput_edge_sends_each_literal_in_turn():
     assert translate_embedded(";e multifput(dirs)") is None  # a variable: logic
 
 
+def test_a_pause_is_a_wait_after_or_before_the_move():
+    from client.game.mapdb import pause_seconds, split_move, translate_embedded
+
+    # The ice road (2026-10-11): the move, then the map's pace.
+    commands = translate_embedded(";e move 'se'; pause 11")
+    assert commands == ["se", "pause 11"]
+    assert split_move(commands) == ([], "se", ["pause 11"])
+    assert translate_embedded(';e pause 10; move("southwest")') == [
+        "pause 10",
+        "southwest",
+    ]
+    assert translate_embedded(";e fput('search'); pause; fput('go path')") == [
+        "search",
+        "pause 1",
+        "go path",
+    ]
+    assert translate_embedded(";e pause 3") is None  # a wait goes nowhere
+    assert pause_seconds("pause 11") == 11.0
+    assert pause_seconds("go pause") is None
+
+
 def test_walkable_accepts_simple_and_translated_edges_only():
     assert walkable("north")
     assert walkable("go gate")

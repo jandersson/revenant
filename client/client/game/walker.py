@@ -34,6 +34,7 @@ from client.client_logger import ClientLogger
 from client.game import money
 from client.game.mapdb import (
     normalize_title,
+    pause_seconds,
     portal_town_of,
     ride_args,
     ride_of,
@@ -1126,7 +1127,35 @@ def ride_segoltha(s, mode=""):
 
 
 # route -> (the ride, the step's own move off it)
+STONE_WALL_SHUT = "could not find what you were referring to"
+DOOR_ANSWER_SECONDS = 4
+
+
+def open_stone_wall(s, opener=""):
+    """Through Seord Kerwaith's stone wall (mapdb.STONE_WALL_EDGES): GO
+    STONE WALL, and on "I could not find what you were referring to." —
+    the wall shut — TURN the `opener` (the basin, or the torch from the
+    tunnel), a second's pause, and GO again, as the map's own edge does.
+    "landed" through it, "shut" said otherwise."""
+    answer = ""
+    for attempt in range(2):
+        s.waitrt()
+        s.put("go stone wall")
+        outcome, _, answer = await_arrival(s, timeout=DOOR_ANSWER_SECONDS)
+        if outcome == "arrived":
+            return "landed"
+        if attempt or STONE_WALL_SHUT not in answer.lower() or not opener:
+            break
+        s.waitrt()
+        s.put(f"turn {opener}")
+        s.sleep(1)
+    first = (answer.strip().splitlines() or ["(silence)"])[0]
+    s.echo(f"the stone wall did not open ({first!r}) — stopping here")
+    return "shut"
+
+
 RIDE_HANDLERS = {
+    "stone_wall": (open_stone_wall, "look"),
     "faldesu_swim": (ride_faldesu_swim, "climb bridge"),
     "segoltha": (ride_segoltha, "look"),
     "hara_polo": (ride_grass, {"up": "look", "down": "climb slope"}),
@@ -1494,6 +1523,9 @@ def _follow(s, db, route, here, closed, fetched=True):
         before, move, after = split_move(commands)
         s.waitrt()
         for preliminary in before:
+            if (wait := pause_seconds(preliminary)) is not None:
+                s.sleep(wait)  # the map's own pace (the ice road's pause 11)
+                continue
             if preliminary.split()[0].lower() == "search":
                 search_hidden(s, preliminary)
             else:
@@ -1612,6 +1644,9 @@ def _follow(s, db, route, here, closed, fetched=True):
             return False
         for follow_up in after:
             s.waitrt()
+            if (wait := pause_seconds(follow_up)) is not None:
+                s.sleep(wait)
+                continue
             s.put(follow_up)
         previous, here = here, dest  # the planned room, or its twin: the same place
         fang_cove_entry(s, portal_town_of(command))

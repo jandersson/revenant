@@ -55,6 +55,8 @@ A Moon Mage can leave a moonbeam and teleport back to it: `;moonbeam` focuses on
 
 Ratha to Hara'jaal is the Tasia'zaul, from the lower Uasin Dock behind a guard's bribe: `;harajaal` gets you down there (`;harajaal quest` on a first trip). The ship itself is not a walker ride yet.
 
+Shard to Hibarnhvidar is the ice road: twelve steps between the Rope Bridge and the Himineldar Shel mountain road, each followed by the map's eleven-second pause so the walk does not slip on the ice. The way to it from Shard is Seord Kerwaith's stone wall, a hidden door: the walker tries GO STONE WALL and, while it is shut, turns the basin (the torch from the tunnel side) and goes again.
+
 Hara'jaal's Glaren Kweld grass is dozens of rooms under one title, three of them on the map. The walker crosses it the way bescort does: down the slope, then NORTHEAST until a room lists a rock; out, NORTHEAST until a slope, then CLIMB SLOPE. A walk begun lost in the grass goes NORTHEAST to the rock first. With a poloh'izh in the room each move goes as RETREAT, RETREAT and the move.
 
 The Riverhaven–Throne City barge is ridden the same way: at the Salt Yard's barge dock or Throne City's Stone Docks the walker waits for a barge, boards it by name (`go riverhawk`, `go glory`), pays the 120 lirums, and steps off at the far dock. Fifteen minutes is the longest it waits.
