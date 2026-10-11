@@ -125,6 +125,20 @@ def test_a_wanderer_with_no_name_is_a_delivery_recipient():
     assert tasks.person_name("old blind beggar") == "beggar"
 
 
+def test_a_giver_with_an_article_is_read_from_the_journal():
+    # The barkeep, 2026-10-11: read as "a task of a kind not captured yet".
+    assert tasks.parse_journal(
+        "You look in your task journal and see the following entry:\n"
+        "A barkeep wants you to deliver a package to Researcher Trelmik in "
+        "Reshalia Trade Road.\n"
+    ) == {
+        "kind": "delivery",
+        "giver": "barkeep",
+        "person": "Researcher Trelmik",
+        "place": "Reshalia Trade Road",
+    }
+
+
 def test_a_recipients_lowercase_title_is_read_and_the_name_given_to():
     # Ievia, 2026-10-11: read as no delivery and handed over.
     offer = tasks.parse_offer(

@@ -71,7 +71,7 @@ _SEARCHING = re.compile(
     r"(?P<area>near [^.]+)\."
 )
 _JOURNAL_DELIVERY = re.compile(
-    r"(?P<giver>[A-Z][\w']*) wants you to deliver a package to "
+    r"(?P<giver>[A-Za-z][\w']*) wants you to deliver a package to "
     rf"(?:the |an? )?{_PERSON} in (?P<place>[^.]+)\."
 )
 # "Saeru wants you to recover a glaes locket near The Crossing, Gildleaf
@@ -83,11 +83,11 @@ _JOURNAL_DELIVERY = re.compile(
 # like a search's, the item named: "Thank you so much.  Remember, you're
 # looking for a worn gauntlet."
 _JOURNAL_RECOVERY = re.compile(
-    r"(?P<giver>[A-Z][\w']*) wants you to recover (?:an? )?(?P<item>[\w' -]+?) "
+    r"(?P<giver>[A-Za-z][\w']*) wants you to recover (?:an? )?(?P<item>[\w' -]+?) "
     r"from (?:the )?(?P<creature>[\w'-]+) (?P<area>near [^.]+)\."
 )
 _JOURNAL_SEARCHING = re.compile(
-    r"(?P<giver>[A-Z][\w']*) wants you to recover (?:an? )?(?P<item>[\w' -]+?) "
+    r"(?P<giver>[A-Za-z][\w']*) wants you to recover (?:an? )?(?P<item>[\w' -]+?) "
     r"(?P<area>near [^.]+)\."
 )
 _PAID = re.compile(r"hands you (?P<count>[\d,]+) (?P<currency>[A-Z]\w+)")
