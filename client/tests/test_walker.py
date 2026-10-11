@@ -2932,6 +2932,47 @@ def test_no_way_on_foot_crosses_the_astral_plane_to_the_learned_shard(mage):
     assert puts_of(handle) == ["go door"]
 
 
+class ShopHandle(AstralHandle):
+    """A shop magic will not form in (Chabalu's Exotics, 2026-10-11): the
+    crossing fails there and goes from the street outside."""
+
+    def run(self, name, args=()):
+        self.started.append((name, list(args)))
+        if self.state.room_uid == 102:  # the street
+            self.state.room_uid = 6991
+        return True
+
+
+def test_a_crossing_refused_in_a_room_steps_out_and_crosses_from_the_next(mage):
+    # 2026-10-11: "Something in the area interferes with your spell
+    # preparations." in Chabalu's Exotics, and three shards were tried
+    # from it one after another before the walk gave up.
+    shop = MapDB(
+        [
+            {
+                "id": 1,
+                "uid": [101],
+                "title": ["[Chabalu's Exotics]"],
+                "wayto": {"2": "out"},
+            },
+            {"id": 2, "uid": [102], "title": ["[Ratha, Street]"], "wayto": {}},
+            {
+                "id": 6991,
+                "uid": [6991],
+                "title": ["[Caress-of-the-Moons Manor, Hall]"],
+                "wayto": {"7": "go door"},
+            },
+            {"id": 7, "uid": [107], "title": ["[Wharf End]"], "wayto": {}},
+        ]
+    )
+    handle = ShopHandle([102, 107])
+    handle.state.room_uid = 101
+    handle.state.compass = ["out"]
+    assert walker.walk(handle, shop, [7]) is True
+    assert handle.started == [("astral", ["besoge"]), ("astral", ["besoge"])]
+    assert puts_of(handle) == ["out", "go door"]
+
+
 def test_below_the_100th_circle_or_a_shard_not_learned_there_is_no_crossing(
     mage, monkeypatch
 ):

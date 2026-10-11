@@ -402,6 +402,23 @@ def test_an_arrival_adds_both_shards_to_the_record():
     assert {"vellano", "besoge"} <= astral.learned("Lanival")
 
 
+def test_a_room_magic_will_not_form_in_casts_nothing(monkeypatch):
+    # Chabalu's Exotics in Ratha, 2026-10-11.
+    monkeypatch.setattr(script.guild, "snapshot_circle", lambda name: 200)
+    plane = first_trip()
+    plane.state.name = "Lanival"
+    plane.state.room_objs = "You also see a counter."
+    blocked = "Something in the area interferes with your spell preparations.\n"
+    script.ask = lambda s, command, *a, **k: (
+        plane.sent.append(command) or (blocked if command == "prepare moongate" else "")
+    )
+    assert script.run(plane, script.parse_args(["besoge"]), go=lambda s, t: True) == (
+        "entry"
+    )
+    assert plane.sent == ["prepare moongate"]
+    assert any("magic will not form here" in e for e in plane.echoed)
+
+
 def test_no_shard_in_the_room_or_an_unknown_destination_sends_nothing():
     plane = Plane(centre={}, end={})
     plane.state.room_objs = "You also see a ladder."

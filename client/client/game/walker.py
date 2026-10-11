@@ -1248,6 +1248,20 @@ def leg_of(command):
     return None
 
 
+def step_out(s):
+    """One move out of the room: OUT where the compass offers it, else
+    its first exit; True on arrival."""
+    ways = list(getattr(s.state, "compass", None) or [])
+    if not ways:
+        return False
+    s.waitrt()
+    while s.get(timeout=0, streams=("compass",)) is not None:
+        pass
+    s.put("out" if "out" in ways else DIRECTIONS.get(ways[0], ways[0]))
+    outcome, _, _ = await_arrival(s)
+    return outcome == "arrived"
+
+
 def ran(s, script, args):
     """A travel script run and waited for: True when it moved the
     character (it says itself why not)."""
@@ -1716,6 +1730,14 @@ def _follow(s, db, route, here, closed, fetched=True):
                 uid_room(db, s.state), dest
             ):
                 closed.add((here, dest))
+                if script == "astral":
+                    # A room magic will not form in refuses every crossing
+                    # ("Something in the area interferes with your spell
+                    # preparations.", Chabalu's Exotics, 2026-10-11: three
+                    # shards tried from it): none again from here, and a
+                    # step out so the next room plans one afresh.
+                    closed.update((here, room) for room in astral.SHARD_ROOMS.values())
+                    step_out(s)
                 s.echo(f"{what} did not take you — on foot from here")
                 return "closed"
             here = dest
