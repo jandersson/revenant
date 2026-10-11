@@ -43,7 +43,7 @@ The walker boards, waits for a ferry that is out (up to fifteen minutes), and st
 
 A climber with Athletics 540 skips the gondola: the way under it, the branch off the Obsidian Pass trail and six climbs below, plans shorter than the ride, both ways.
 
-A strong swimmer skips both rivers' ferries: the Faldesu is swum at the Marsh's Stone Road to Riverhaven's Stone Bridge with Athletics 300, the Segoltha between Fisherman's Trail by the wreck and its north bank with Athletics 350 — bescort's strokes, a minute in the planner. Below those ranks the walker keeps to the ferries; it takes no armor off to swim, so empty your hands of anything heavy.
+A strong swimmer skips both rivers' ferries: the Faldesu is swum at the Marsh's Stone Road to Riverhaven's Stone Bridge with Athletics 300, the Segoltha between Fisherman's Trail by the wreck and its north bank with Athletics 350 — bescort's strokes, half a minute in the planner. Below those ranks the walker keeps to the ferries; it takes no armor off to swim, so empty your hands of anything heavy.
 
 A mammoth is joined (`join sea mammoth`) and sets you ashore itself. A Premium character walks from the Crossing to Ratha by the meeting portal into Fang Cove and the mammoth; Fang Cove's exit portal only returns you to the town you came in by: a walk from outside never plans through it, and inside the walker plans only the exit to the town you entered from, remembered across relaunches; an exit that lands elsewhere corrects the record and plans again from there.
 

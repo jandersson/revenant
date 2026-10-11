@@ -116,9 +116,10 @@ RIDES = {
 # the walker takes no armor off. The Segoltha between Fisherman's Trail,
 # Near the Wreck (19373) and the north bank (19457, 15888), bescort's
 # segoltha route: Elanthipedia (Segoltha River) asks 350. A swim is a
-# couple of dozen strokes, cheaper than a ferry's wait.
+# couple of dozen strokes: 27 s over the Segoltha and 28 s over the
+# Faldesu at Athletics 1201 (2026-10-11), against a ferry's wait.
 SWIMS = {"faldesu_swim": 300, "segoltha": 350}
-SWIM_SECONDS = 60.0
+SWIM_SECONDS = 30.0
 IF_FORM_SWIMS = {"faldesu": "faldesu_swim"}
 # Bescort's segoltha swim starts only from its mode's room ("Must start
 # bescort in room ...") and ends on a bank: an edge from any other room,
