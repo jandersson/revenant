@@ -95,6 +95,34 @@ def test_buffs_are_cast_before_the_weapon_is_drawn(travel):
     assert "hunt: cast heroic strength" in arena.echoed
 
 
+def test_a_buffs_mana_setting_is_prepared_and_its_name_read_alone(travel):
+    # "Psychic Shield:30" (the operator, 2026-10-11): a buff kept up
+    # with set mana, the Spells window still read by the spell's name.
+    def running(arena):
+        arena.state.active_spells = {"Heroic Strength": 10}
+
+    arena = Arena(
+        {
+            "attack": [(KILL, lambda a: None), (KILL, kill)],
+            "prepare": [PREPARED],
+            "cast": [(CAST, running)],
+            "skin": [SKINNED, SKINNED],
+            "loot": [NOTHING, NOTHING],
+        }
+    )
+    arena.state.active_spells = {}
+    profile = BUFFED | {"buffs": ["heroic strength:30"], "max_kills": 2}
+    _run(arena, profile=profile, travel_first=False)
+    assert arena.sent[0] == "prepare heroic strength 30"
+    assert arena.sent.count("cast") == 1  # listed by name: not recast
+    assert buffs.buff_entry("Psychic Shield : 30") == ("Psychic Shield", 30)
+    assert buffs.buff_entry("Seer's Sense") == ("Seer's Sense", 0)
+    assert buffs.buff_names({"buffs": ["Psychic Shield:30", "", "cv"]}) == [
+        "Psychic Shield",
+        "cv",
+    ]
+
+
 def test_a_buff_the_spells_window_lists_is_not_recast_until_it_runs_out(travel):
     def running(arena):
         arena.state.active_spells = {"Heroic Strength": 10}

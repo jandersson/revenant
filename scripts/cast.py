@@ -191,7 +191,7 @@ def loop(s, options, shaped):
         buffs.put_back_if_held(s, shaped, "cast")
 
     s.echo(
-        f"cast: {', '.join(shaped['buffs'])} for "
+        f"cast: {', '.join(buffs.buff_names(shaped))} for "
         f"{', '.join(buffs.training_skills(shaped))}"
         + (f" with the {shaped['cambrinth']}" if shaped.get("cambrinth") else "")
         + (", POWER between casts" if options["power"] else "")

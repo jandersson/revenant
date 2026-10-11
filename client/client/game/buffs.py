@@ -502,6 +502,36 @@ def training_skills(profile):
     return [str(name).strip() for name in raw if str(name).strip()]
 
 
+_BUFF_MANA = re.compile(r"^(?P<name>.*?)\s*:\s*(?P<mana>\d+)$")
+
+
+def buff_entry(entry):
+    """(spell, mana) for a `buffs` entry: "Psychic Shield:30" is the
+    spell prepared with 30 mana, a bare name the spell at its minimum
+    (0). A circle-200 Moon Mage's minimum Psychic Shield is a short,
+    weak one; the operator's dr-scripts setup keeps 30 (2026-10-11)."""
+    text = str(entry or "").strip()
+    match = _BUFF_MANA.match(text)
+    if match:
+        return match.group("name").strip(), int(match.group("mana"))
+    return text, 0
+
+
+def buff_names(profile):
+    """The profile's buffs by spell name, the mana settings dropped."""
+    names = (buff_entry(entry)[0] for entry in profile.get("buffs") or [])
+    return [name for name in names if name]
+
+
+def upkeep_mana(profile, spell):
+    """The mana the profile keeps `spell` up with; 0 for the minimum."""
+    for entry in profile.get("buffs") or []:
+        name, mana = buff_entry(entry)
+        if name.lower() == str(spell).lower():
+            return mana
+    return 0
+
+
 def training_buffs(profile, state):
     """skill -> the buff whose recasts train it: for each skill
     `train_casting` names (every skill of the buffs, for "all"), the
@@ -512,7 +542,7 @@ def training_buffs(profile, state):
     every = any(name.lower() == "all" for name in names)
     wanted = {name.lower() for name in names}
     chosen = {}
-    for spell in profile.get("buffs") or []:
+    for spell in buff_names(profile):
         if spell in state.buffs_off or spell in state.training_spells_off:
             continue
         for skill in skills_of(state, spell) or []:
@@ -538,7 +568,7 @@ def training_pick(s, profile, state):
             return None
         if locked(s.state, ["Arcana"]):
             return None
-        for spell in profile.get("buffs") or []:
+        for spell in buff_names(profile):
             if spell not in state.buffs_off and spell not in state.training_spells_off:
                 return "Arcana", spell
         return None
@@ -562,7 +592,7 @@ def _training_left(profile, state):
         return bool(training_buffs(profile, state))
     return any(
         spell not in state.buffs_off and spell not in state.training_spells_off
-        for spell in profile.get("buffs") or []
+        for spell in buff_names(profile)
     )
 
 
@@ -939,7 +969,7 @@ def training_cast_due(s, profile, state):
     alone), mana is above the floor, and the last training cast, of
     whichever buff, is the profile's cast_gap seconds old
     (CAST_GAP_SECONDS for a profile without the key, #189)."""
-    if not profile["buffs"] or state.training_off:
+    if not buff_names(profile) or state.training_off:
         return False
     if training_pick(s, profile, state) is None:
         return False
@@ -1086,7 +1116,7 @@ def discern_training_buffs(s, profile, state, ask, prefix):
             for skill in skills
         )
 
-    for spell in profile["buffs"]:
+    for spell in buff_names(profile):
         if not every and wanted <= covered:
             break
         if spell in state.buffs_off or spell in state.training_spells_off:
@@ -1253,7 +1283,7 @@ def cast_buffs(
         pick = training_pick(s, profile, state)
     cast = False
     dropped = False
-    for spell in profile["buffs"]:
+    for spell in buff_names(profile):
         if blocked_here(s, state):
             break  # magic will not form in this room: every buff waits
         if spell in state.buffs_off:
@@ -1268,7 +1298,11 @@ def cast_buffs(
         # A spell whose minimum plus the charge passes the ramp's streams
         # casts without the piece: Hands of Justice (minimum 5, total 12)
         # backfired at its minimum with the anklet's 12 (2026-09-29, #390).
-        streams = state.buff_mana.get(spell, 0) if training else 0
+        # An upkeep cast takes the profile's mana for the buff (its
+        # `:mana`); a training cast its own ramp.
+        streams = (
+            state.buff_mana.get(spell, 0) if training else upkeep_mana(profile, spell)
+        )
         mana = streams
         invoke = None
         if (

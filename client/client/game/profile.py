@@ -93,7 +93,8 @@ DEFAULTS = {
     "bundle": False,
     # Self-cast buffs kept up through the hunt: PREPARE <spell>, CAST
     # before the first swing, and again whenever the Spells window no
-    # longer lists it (Heroic Strength, Manifest Force, ...).
+    # longer lists it (Heroic Strength, Manifest Force, ...). "Psychic
+    # Shield:30" prepares the spell with 30 mana; a bare name, the minimum.
     "buffs": [],
     # Magic skills to train by recasting buffs between swings while
     # mana holds: each cast goes to the skill with the emptiest pool
@@ -319,7 +320,12 @@ FIELDS = (
         "bool",
         "worn; ASK a tanner FOR ROPE",
     ),
-    ("buffs", "Buff spells to keep up", "list", "Heroic Strength, Manifest Force"),
+    (
+        "buffs",
+        "Buff spells to keep up",
+        "list",
+        "Heroic Strength, Psychic Shield:30 — :mana sets the mana; none, the minimum",
+    ),
     (
         "train_casting",
         "Magic skills to train with the buffs",
