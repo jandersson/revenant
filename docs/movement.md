@@ -51,6 +51,8 @@ A character with an Estate Holder ring (the profile's `estate_ring`, e.g. `coppe
 
 A Moon Mage standing at a Grazhir shard crosses the Astral Plane to another with `;astral <shard>` (`;astral list` names the shards learned): Moongate in, the pillars, Moongate out, about four minutes. `harness=` sets the mana held (100 by default).
 
+A Moon Mage can leave a moonbeam and teleport back to it: `;moonbeam` focuses one where you stand (outdoors) on the moon with the most time left, and `;moonbeam teleport` returns to it from afar. A beam lasts no longer than its moon is up, so the teleport first checks the moon with PERCEIVE MOONS and the beam with Distant Gaze, and casts nothing if either is gone: Teleport on a moon that is down kills. The mana is DISCERN's most unless `mana=` names it.
+
 Ratha to Hara'jaal is the Tasia'zaul, from the lower Uasin Dock behind a guard's bribe: `;harajaal` gets you down there (`;harajaal quest` on a first trip). The ship itself is not a walker ride yet.
 
 Hara'jaal's Glaren Kweld grass is dozens of rooms under one title, three of them on the map. The walker crosses it the way bescort does: down the slope, then NORTHEAST until a room lists a rock; out, NORTHEAST until a slope, then CLIMB SLOPE. A walk begun lost in the grass goes NORTHEAST to the rock first. With a poloh'izh in the room each move goes as RETREAT, RETREAT and the move.
