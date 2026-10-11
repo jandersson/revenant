@@ -82,7 +82,8 @@ DEFAULT_STEP_SECONDS = 0.2
 # with a swim as the else, and there is no dock there to wait at
 # (2026-09-18). The Obsidian Pass gondola (#211) is written in that
 # `if` form with GO GONDOLA as the else, so that route rides from it
-# too; the way under the gondola wants 550 ranks of Athletics.
+# too; the way under the gondola is gated in timeto at Athletics 540 (the
+# branch off 2245), so a climber past it skips the ride.
 # Alfren's Ferry over the Segoltha (The Crossing, Alfren's Ferry 957 ↔
 # Southern Trade Route, Segoltha South Bank 1904) is bescort's 'ferry'
 # route, written in the `if` form too; it is the way south to Leth
