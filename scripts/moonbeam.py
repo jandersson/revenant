@@ -114,6 +114,7 @@ def focus(s, options, db):
         unknown(s, "moonbeam", "CAST (Focus Moonbeam)", answer)
         return False
     title = str(getattr(s.state, "room_title", "") or "")
+    now = time.time()
     moonbeam.record(
         character(s),
         {
@@ -121,7 +122,9 @@ def focus(s, options, db):
             "room": locate(db, s.state),
             "title": title,
             "mana": mana,
-            "at": time.time(),
+            "at": now,
+            # the moon's setting: no beam outlives it (the walker's check)
+            "ends": now + moonbeam.minutes_left(moons[moon]) * 60,
         },
     )
     s.echo(

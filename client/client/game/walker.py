@@ -22,16 +22,17 @@ planned again from the teller, once a walk (#455). Hara'jaal's Glaren
 Kweld grass, one title on dozens of rooms, is crossed bescort's way
 (ride_grass, #519). An Estate Holder ring in the profile is PUSHed to
 Fang Cove, or PULLed back from it, when that beats the walk (ring_route,
-#521). With the Athletics, the Faldesu and the Segoltha are swum
+#521); ahead of it, a Moon Mage's beam on record is Teleported to the
+same way (beam_route, #522: ;moonbeam teleport). With the Athletics, the Faldesu and the Segoltha are swum
 bescort's way instead of ferried (ride_faldesu_swim, ride_segoltha).
 """
 
 import json
 import re
-from time import monotonic
+from time import monotonic, time
 
 from client.client_logger import ClientLogger
-from client.game import money
+from client.game import money, moonbeam
 from client.game.mapdb import (
     ICE_ROAD,
     normalize_title,
@@ -217,6 +218,13 @@ SWIM_STROKES = 40
 SEGOLTHA_UIDS = {19373: 241538, 19457: 241503, 15888: 241522}
 RING_LANDING = 8308
 RING_SECONDS = 60.0  # a teleport, but it spends an hour's charge: wins ~300 steps
+# A Moon Mage's moonbeam (#522): Teleport back to the beam ;moonbeam
+# focused when that beats the walk, ahead of the ring, which has an
+# hourly charge (the operator, 2026-10-11). The step runs ;moonbeam
+# teleport, which casts only with the beam's moon up and the beam seen
+# by Distant Gaze; refused, the beam is closed for the walk.
+BEAM_STEP = ";moonbeam teleport"
+BEAM_SECONDS = 90.0  # PERCEIVE, Distant Gaze, DISCERN, the pattern, the cast
 RING_STUDY_SECONDS = 3
 _RING_READY = re.compile(r"\[You are able to (PUSH|PULL) your")
 # The Obsidian Pass gondola (#211), after bescort's ride_gondola and
@@ -1159,6 +1167,42 @@ def ring_route(s, db, here, goals, route, avoid, closed, **plan):
     return [(landing, f"{verb} my {ring}")] + tail
 
 
+def beam_route(s, db, here, goals, route, avoid, closed, **plan):
+    """The walk by a Teleport to the recorded moonbeam when it beats
+    `route` (the plain one, None when there is none): the beam's room,
+    then on from it. None to walk without it: no beam on record, one
+    past its moon's setting (moonbeam.usable), or the step closed."""
+    name = getattr(s.state, "name", None)
+    beam = moonbeam.load(name) if name else None
+    if not moonbeam.usable(beam, time()):
+        return None
+    landing = beam.get("room")
+    if landing not in db.rooms or landing == here or (here, landing) in closed:
+        return None
+    tail = db.path(landing, goals, avoid=avoid, closed=closed, **plan)
+    if tail is None:
+        return None
+    cost = BEAM_SECONDS + db.seconds_of(landing, tail, avoid)
+    if route is not None and db.seconds_of(here, route, avoid) <= cost:
+        return None
+    return [(landing, BEAM_STEP)] + tail
+
+
+def teleported(s):
+    """;moonbeam teleport run and waited for: True when it moved the
+    character (it says itself why not)."""
+    before = getattr(s.state, "room_uid", None)
+    if not s.run("moonbeam", ["teleport"]):
+        return False
+    try:
+        while s.is_running("moonbeam"):
+            s.sleep(1)
+    except BaseException:
+        s.kill("moonbeam")  # a stop of the walk takes the teleport with it
+        raise
+    return getattr(s.state, "room_uid", None) != before
+
+
 def open_ways(s):
     """The room's exits in full ("north"), from the parser's compass."""
     return {DIRECTIONS.get(way, way) for way in getattr(s.state, "compass", None) or []}
@@ -1540,19 +1584,14 @@ def _walk(s, db, goals, describe="destination", avoid=(), max_steps=None):
             premium=premium,
             portal_town=fang_cove_entry(s),
         )
+        plan = {
+            "ranks": ranks,
+            "premium": premium,
+            "portal_town": fang_cove_entry(s),
+        }
         route = (
-            ring_route(
-                s,
-                db,
-                here,
-                goals,
-                route,
-                avoid,
-                closed,
-                ranks=ranks,
-                premium=premium,
-                portal_town=fang_cove_entry(s),
-            )
+            beam_route(s, db, here, goals, route, avoid, closed, **plan)
+            or ring_route(s, db, here, goals, route, avoid, closed, **plan)
             or route
         )
         if route is None:
@@ -1610,6 +1649,13 @@ def _follow(s, db, route, here, closed, fetched=True):
         if s.dead:
             s.echo(f"died en route at step {number} — stopping; deathwatch takes it")
             return False
+        if command == BEAM_STEP:
+            if not teleported(s) or not db.same_place(uid_room(db, s.state), dest):
+                closed.add((here, dest))
+                s.echo("the moonbeam did not take you — on foot from here")
+                return "closed"
+            here = dest
+            continue
         if here in ICE_ROAD and dest in ICE_ROAD:
             put_on_skates(s)  # the profile's skates, if any, for the road
         else:

@@ -165,6 +165,8 @@ def test_the_beam_goes_on_the_moon_with_the_most_time_and_is_recorded():
     ]
     beam = moonbeam.load("Lanival")
     assert (beam["moon"], beam["room"], beam["mana"]) == ("xibar", 8262, 100)
+    assert beam["ends"] > beam["at"]  # the moon's setting, for the walker
+    assert moonbeam.usable(beam, beam["at"])
     assert "a Xibar beam here, [The Crossing, Varlet's Run], with 100 mana" in out
 
 

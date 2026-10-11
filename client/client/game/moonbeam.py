@@ -161,6 +161,18 @@ def load(name):
     return data if isinstance(data, dict) else None
 
 
+def usable(beam, now):
+    """True while a recorded beam may still stand with TELEPORT_MARGIN to
+    spare: before its moon's setting as read at the focus (`ends`), or
+    within a moon's whole time up of the focus for a record without
+    one. The walker plans a Teleport on it; ;moonbeam teleport checks the
+    moon and the beam before it casts."""
+    if not beam or not beam.get("room"):
+        return False
+    ends = beam.get("ends") or beam.get("at", 0) + UP_MINUTES * 60
+    return now < ends - TELEPORT_MARGIN * 60
+
+
 def clear(name):
     try:
         record_path(name).unlink()

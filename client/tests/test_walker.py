@@ -2818,6 +2818,76 @@ def test_a_push_not_charged_walks_instead(ringed):
     assert puts_of(handle) == ["study my copper band", "east", "east"]
 
 
+class BeamHandle(RingHandle):
+    """;moonbeam teleport stood in for: started, over at once, the room
+    the beam's when it `goes`."""
+
+    def __init__(self, uids, goes=True):
+        super().__init__(uids)
+        self.goes, self.started = goes, []
+
+    def run(self, name, args=()):
+        self.started.append((name, list(args)))
+        if self.goes:
+            self.state.room_uid = 103
+        return True
+
+    def is_running(self, name):
+        return False
+
+    def kill(self, name):
+        pass
+
+
+def beam_at(room, ends_in_minutes):
+    import time
+
+    from client.game import moonbeam
+
+    now = time.time()
+    moonbeam.record(
+        "Lanival",
+        {"moon": "xibar", "room": room, "at": now, "ends": now + ends_in_minutes * 60},
+    )
+
+
+def test_a_beam_on_record_takes_the_walk_ahead_of_the_ring(ringed):
+    # The operator, 2026-10-11: "If he uses moonbeams he doesn't need to
+    # rely on a ring with a one hour timer". The beam's 90 s beat the
+    # road's 200; the ring is never studied.
+    beam_at(3, 60)
+    handle = BeamHandle([])
+    handle.state.room_uid = 101
+    assert walker.walk(handle, RING_MAP, [3]) is True
+    assert handle.started == [("moonbeam", ["teleport"])]
+    assert puts_of(handle) == []
+
+
+def test_a_teleport_that_does_not_go_walks_on_foot(monkeypatch):
+    monkeypatch.setattr(walker, "ring_of", lambda state: "")
+    beam_at(3, 60)
+    handle = BeamHandle([102, 103], goes=False)
+    handle.state.room_uid = 101
+    assert walker.walk(handle, RING_MAP, [3]) is True
+    assert handle.started == [("moonbeam", ["teleport"])]
+    assert puts_of(handle) == ["east", "east"]
+    assert any("the moonbeam did not take you" in e for e in handle.echoes)
+
+
+def test_a_beam_past_its_moons_setting_is_never_planned(monkeypatch):
+    from client.game import moonbeam
+
+    monkeypatch.setattr(walker, "ring_of", lambda state: "")
+    beam_at(3, moonbeam.TELEPORT_MARGIN - 1)
+    handle = BeamHandle([102, 103])
+    handle.state.room_uid = 101
+    assert walker.walk(handle, RING_MAP, [3]) is True
+    assert handle.started == []
+    # A record from before `ends` was kept: a moon's whole time up.
+    assert moonbeam.usable({"room": 3, "at": 1000.0}, 1000.0 + 60)
+    assert not moonbeam.usable({"room": 3, "at": 1000.0}, 1000.0 + 176 * 60)
+
+
 def test_a_push_refused_indoors_walks_instead(ringed):
     handle = RingHandle([102, 103], refusal="You can't do that here.\n")
     handle.state.room_uid = 101
