@@ -119,10 +119,10 @@ GIVERS = {
     "Kalika": "Ranger Guild, Main Hall",  # the Crossing's Ranger guildleader (map 7900)
     "Amfitro": "Viper's Nest",
     "Saeru": "Seven Star Exchange and Pawn",
-    "Daralaendra": "Warehouse Office",
+    "Daralaendra": "Warehouse Office",  # unmapped: the office door east of 13814 (#511)
     "Fara": "Fara's Furs",
     "Ioun": "Ioun's Pawn",
-    "Anthelorm": "Riverhaven, Gem",
+    "Anthelorm": "7955",  # Anthelorm's Gems and Curios, Purchasing Office (base-town.yaml gemshop)
     "Aelik": "Aelik's Pawn",
     "Chabalu": "Chabalu's Exotics",
     "Paedraig": "Paedraig's Pawn",
