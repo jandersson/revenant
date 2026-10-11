@@ -22,7 +22,7 @@ import re
 import time
 
 from client.game import hands, items, travel
-from client.game.act import ask, said, unknown
+from client.game.act import ask, said, unknown, whole_answer
 from client.game.loop import wants_stop
 from client.game.mapdb import MapDB
 from client.game.tasks import (
@@ -301,7 +301,8 @@ def search_for(s, task, mapdb, walk_fn):
                 ask(s, "stand")
                 return False
             s.waitrt()
-            answer = ask(s, "search")
+            # A bystander's line can close the window first (2026-10-11).
+            answer = whole_answer(s, ask(s, "search"))
             outcome = search_outcome(answer)
             if outcome == "found":
                 s.echo(f"task: found — {said(answer)} (search {number} in room {room})")

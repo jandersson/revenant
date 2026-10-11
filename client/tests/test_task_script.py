@@ -480,6 +480,35 @@ def test_a_room_whose_search_finds_a_hidden_way_is_searched_on():
     assert "task: found" in out
 
 
+def test_a_bystanders_line_before_the_search_answer_is_read_past(monkeypatch):
+    # 2026-10-11, Gildleaf Circle: another player's prayer landed in the
+    # SEARCH's window ("unrecognized SEARCH answer 'Tedriel bows his head
+    # and chants catechisms.'") and the search's own miss came after it.
+    from client.game import act
+
+    prayer = (
+        "Tedriel bows his head and chants catechisms.\n"
+        "You decipher the signs of a Holy utility spell."
+    )
+    tail = [MISS]
+    monkeypatch.setattr(act, "rest_of_answer", lambda s, seconds=None: tail.pop(0))
+    fake = SearchFake(
+        {
+            "task": [JOURNAL_CLEAR, SEARCHING_JOURNAL, JOURNAL_CLEAR],
+            "ask saeru": [SEARCHING_OFFER],
+            "accept": [SEARCHING_ACCEPTED],
+            "stow": [STOWED],
+            "give": [HANDED_IN],
+        },
+        misses=1,
+        first=prayer,
+    )
+    fake.state.room_players = ["Tedriel"]
+    out = run(fake, ["saeru"])
+    assert "please report it" not in out
+    assert fake.sent.count("search") == 2 and "task: found" in out
+
+
 def test_a_search_moves_to_the_next_room_after_its_searches_and_gives_up_after_the_last(
     monkeypatch,
 ):

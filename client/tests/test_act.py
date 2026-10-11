@@ -160,6 +160,26 @@ def test_noise_only_knows_a_window_that_answers_nothing():
     assert not act.noise_only("You feel fully rested.\nYou search the Endrus serpent.")
 
 
+def test_a_players_own_line_is_noise_and_the_answer_is_read_on(monkeypatch):
+    # 2026-10-11: a cleric's prayer closed a SEARCH's window.
+    prayer = "Tedriel bows his head and chants catechisms."
+    assert act.player_line(prayer, ["Tedriel"])
+    assert act.player_line("Ulaan gestures.", ["Sympath Ulaan Holdenstone"])
+    assert not act.player_line("Tedriel gives you a gift basket.", ["Tedriel"])
+    assert not act.player_line(prayer, [])  # no "Also here": nothing assumed
+    assert not act.player_line("Tedrielle waves.", ["Tedriel"])  # a whole name only
+    assert act.noise_only(
+        f"{prayer}\nYou decipher the signs of a Holy utility spell.",
+        players=["Tedriel"],
+    )
+    assert not act.noise_only(prayer)
+    s = SimpleNamespace(state=SimpleNamespace(room_players=["Tedriel"]))
+    miss = "You search for a bit, but do not find the item you are looking for."
+    tail = [miss]
+    monkeypatch.setattr(act, "rest_of_answer", lambda s, seconds=None: tail.pop(0))
+    assert act.whole_answer(s, prayer) == f"{prayer}\n{miss}"
+
+
 def test_a_listed_creatures_own_line_is_noise_and_the_answer_is_read_on(monkeypatch):
     # #477 (2026-10-05): "An Endrus serpent weaves about drunkenly, its
     # form losing coherence." 393 times a session, once in TARGET's window.

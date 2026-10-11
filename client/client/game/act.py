@@ -81,6 +81,9 @@ NOISE = (
     "runnels of arcane light",
     "pierce your flesh",
     "fights off the attempted curse",
+    # Another's cast read by the character's own magic: "You decipher the
+    # signs of a Holy utility spell." (2026-10-11, a SEARCH's window).
+    "decipher the signs of",
 )
 _COMINGS = re.compile(
     r"\b(arrives|arrived|leaves|left|goes|went|runs|walks|wanders)\b.*\.$", re.I
@@ -118,12 +121,27 @@ def creature_line(line, creatures):
     return False
 
 
-def noise_only(answer, swings=False, creatures=()):
+def player_line(line, players):
+    """True when the line begins with the name of a player in the room
+    ("Also here", `players`) and says nothing of you: another player's
+    own doing — "Tedriel bows his head and chants catechisms." closed a
+    SEARCH's window before the search's own line (2026-10-11). A listed
+    name may carry a title ("Sympath Ulaan Holdenstone"): any of its
+    words is the name a line begins with."""
+    lowered = str(line or "").lower()
+    if not players or re.search(r"\byou\b|\byour\b", lowered):
+        return False
+    first = re.sub(r"[^\w'-]", "", (lowered.split() or [""])[0])
+    return any(first in str(name).lower().split() for name in players if first)
+
+
+def noise_only(answer, swings=False, creatures=(), players=()):
     """True when every line of the window is noise (NOISE, a coming or
     going without a 'you', a [You're ...] balance line, a listed
     creature's own action line (`creatures`, the room's listing names),
-    and with `swings` a combat stream's `<` swing line) — or the window
-    is empty. Then the command's own answer is still to come:
+    a player's own line (`players`, the room's "Also here"), and with
+    `swings` a combat stream's `<` swing line) — or the window is
+    empty. Then the command's own answer is still to come:
     rest_of_answer(), or whole_answer() for both at once."""
     found = [line.strip() for line in str(answer or "").splitlines() if line.strip()]
     for line in found:
@@ -136,7 +154,7 @@ def noise_only(answer, swings=False, creatures=()):
             continue
         if _COMINGS.search(line) and not re.search(r"\byou\b|\byour\b", lowered):
             continue
-        if creature_line(line, creatures):
+        if creature_line(line, creatures) or player_line(line, players):
             continue
         return False
     return True
@@ -150,10 +168,12 @@ def rest_of_answer(s, seconds=None):
 
 def whole_answer(s, answer, swings=False):
     """`answer` read on past a window that held only noise — the room's
-    creatures' own lines included, off the parser's listing (#483,
-    #477); the answer as it came otherwise."""
-    creatures = getattr(getattr(s, "state", None), "room_creatures", None) or ()
-    if noise_only(answer, swings, creatures):
+    creatures' and players' own lines included, off the parser's
+    listing (#483, #477); the answer as it came otherwise."""
+    state = getattr(s, "state", None)
+    creatures = getattr(state, "room_creatures", None) or ()
+    players = getattr(state, "room_players", None) or ()
+    if noise_only(answer, swings, creatures, players):
         return (str(answer or "") + "\n" + rest_of_answer(s)).strip()
     return answer
 
