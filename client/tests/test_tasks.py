@@ -217,6 +217,14 @@ def test_a_searchs_area_names_its_rooms_and_the_answers_are_classed():
     assert tasks.area_rooms(db, "near The Crossing, Gildleaf Circle") == {807, 808}
     assert tasks.area_rooms(db, "Gildleaf Circle") == {807, 808}
     assert tasks.area_rooms(db, "near Nowhere, Nothing Street") == set()
+    # The whole title first: "Meadow" alone is every meadow (2026-10-11).
+    meadows = MapDB(
+        [
+            {"id": 1433, "uid": [7], "title": ["[Grassland Road, Meadow]"]},
+            {"id": 594, "uid": [8], "title": ["[Riverhaven West Wilds, Meadow]"]},
+        ]
+    )
+    assert tasks.area_rooms(meadows, "near Grassland Road, Meadow") == {1433}
     # Captured 2026-10-10: the miss with its roundtime, the find at the feet.
     assert (
         tasks.search_outcome(

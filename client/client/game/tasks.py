@@ -266,12 +266,18 @@ def decide(offer, declines=()):
 
 
 def area_rooms(db, area):
-    """The map rooms a search's area names: "near The Crossing, Gildleaf
-    Circle" is the title's last part, "Gildleaf Circle", every room so
-    titled; empty when the map has none."""
+    """The map rooms a search's area names: every room titled the whole
+    area ("near Grassland Road, Meadow" is [Grassland Road, Meadow]), else
+    every room whose title holds its last part ("Gildleaf Circle"); empty
+    when the map has none. The last part alone, "Meadow", named 187
+    meadows the world over, and the search walked the Riverhaven West
+    Wilds' and took the ferry before the Grassland Road's (2026-10-11)."""
     text = str(area or "").strip()
     if text.lower().startswith("near "):
         text = text[5:]
+    titled = db.rooms_titled(text)
+    if titled:
+        return set(titled)
     part = text.split(",")[-1].strip()
     return set(db.resolve(part)) if part else set()
 
