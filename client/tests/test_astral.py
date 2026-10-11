@@ -376,6 +376,32 @@ def test_a_shard_not_learned_stops_before_the_plane():
     assert any("not learned vellano" in e for e in plane.echoed)
 
 
+RECALLED = (
+    "You know the names of:\n  Asharshpar'i\n  Dinegavren\n  Mintais\n  Rolagi\n"
+    "  Dor'na'torna\n  Marendin\n  Tamigen\n  Taniendar\n  Erekinzil\n  Tabelrem\n"
+    "  Auilusi\n  Besoge\n  Vellano\n  Aevargwem\nRoundtime: 2 sec.\n"
+)
+
+
+def test_list_keeps_the_learned_shards_on_record_for_the_walker():
+    # RECALL HEAVENS GRAZHIR at circle 200, 2026-10-11: fourteen names.
+    assert len(astral.known_shards(RECALLED)) == 14
+    assert astral.known_shards("You recall nothing.") == set()
+    plane = Plane({}, {})
+    plane.state.name = "Lanival"
+    script.ask = lambda s, command, *a, **k: RECALLED
+    assert script.run(plane, script.parse_args(["list"])) == "list"
+    assert "besoge" in astral.learned("Lanival")
+    assert any("14 shards on record" in e for e in plane.echoed)
+
+
+def test_an_arrival_adds_both_shards_to_the_record():
+    plane = first_trip()
+    plane.state.name = "Lanival"
+    assert run(plane) == "arrived"
+    assert {"vellano", "besoge"} <= astral.learned("Lanival")
+
+
 def test_no_shard_in_the_room_or_an_unknown_destination_sends_nothing():
     plane = Plane(centre={}, end={})
     plane.state.room_objs = "You also see a ladder."

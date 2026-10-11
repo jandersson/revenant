@@ -23,7 +23,9 @@ Kweld grass, one title on dozens of rooms, is crossed bescort's way
 (ride_grass, #519). An Estate Holder ring in the profile is PUSHed to
 Fang Cove, or PULLed back from it, when that beats the walk (ring_route,
 #521); ahead of it, a Moon Mage's beam on record is Teleported to the
-same way (beam_route, #522: ;moonbeam teleport). With the Athletics, the Faldesu and the Segoltha are swum
+same way (beam_route, #522: ;moonbeam teleport), and a circle-100+ Moon
+Mage crosses the Astral Plane to a learned shard (astral_route, #516:
+;astral <shard>). With the Athletics, the Faldesu and the Segoltha are swum
 bescort's way instead of ferried (ride_faldesu_swim, ride_segoltha).
 """
 
@@ -32,7 +34,7 @@ import re
 from time import monotonic, time
 
 from client.client_logger import ClientLogger
-from client.game import money, moonbeam
+from client.game import astral, money, moonbeam
 from client.game.mapdb import (
     ICE_ROAD,
     normalize_title,
@@ -225,6 +227,16 @@ RING_SECONDS = 60.0  # a teleport, but it spends an hour's charge: wins ~300 ste
 # by Distant Gaze; refused, the beam is closed for the walk.
 BEAM_STEP = ";moonbeam teleport"
 BEAM_SECONDS = 90.0  # PERCEIVE, Distant Gaze, DISCERN, the pattern, the cast
+# A circle-100+ Moon Mage crosses the Astral Plane from any room to a
+# shard on record as learned (#516): ;astral <shard>, then on from the
+# shard's room. From the mainland the map has no way to Hara'jaal but
+# the ships; ;astral besoge reaches Mer'Kresh, the Jolas's port
+# (2026-10-11, "no walkable path" from the Crossing).
+ASTRAL_SECONDS = 120.0  # Grazhir to Besoge and to Taniendar: 105 s each
+# The steps that run a travel script: (script, arguments, what it is).
+LEGS = {
+    BEAM_STEP: ("moonbeam", ["teleport"], "the moonbeam"),
+}
 RING_STUDY_SECONDS = 3
 _RING_READY = re.compile(r"\[You are able to (PUSH|PULL) your")
 # The Obsidian Pass gondola (#211), after bescort's ride_gondola and
@@ -1188,17 +1200,65 @@ def beam_route(s, db, here, goals, route, avoid, closed, **plan):
     return [(landing, BEAM_STEP)] + tail
 
 
-def teleported(s):
-    """;moonbeam teleport run and waited for: True when it moved the
+def astral_shards(s):
+    """The shards on record as learned (;astral list) for a character
+    of the 100th circle, whose Moongate opens on Grazhir from any room;
+    none for anyone else."""
+    name = getattr(s.state, "name", None)
+    shards = astral.learned(name) if name else set()
+    if not shards:
+        return set()
+    from client.game.guild import snapshot_circle
+
+    return shards if (snapshot_circle(name) or 0) >= astral.GRAZHIR_CIRCLE else set()
+
+
+def astral_route(s, db, here, goals, route, avoid, closed, **plan):
+    """The walk by ;astral to the learned shard nearest the goal when it
+    beats `route` (the plain one, None when there is none); None to walk
+    without it. Only a route longer than the crossing itself asks."""
+    if route is not None and db.seconds_of(here, route, avoid) <= ASTRAL_SECONDS:
+        return None
+    best = None
+    for shard in sorted(astral_shards(s)):
+        room = astral.SHARD_ROOMS.get(shard)
+        if room not in db.rooms or room == here or (here, room) in closed:
+            continue
+        tail = db.path(room, goals, avoid=avoid, closed=closed, **plan)
+        if tail is None:
+            continue
+        cost = ASTRAL_SECONDS + db.seconds_of(room, tail, avoid)
+        if best is None or cost < best[0]:
+            best = (cost, room, shard, tail)
+    if best is None:
+        return None
+    cost, room, shard, tail = best
+    if route is not None and db.seconds_of(here, route, avoid) <= cost:
+        return None
+    return [(room, f";astral {shard}")] + tail
+
+
+def leg_of(command):
+    """(script, arguments, what it is) for a step that runs a travel
+    script — the moonbeam's Teleport, an astral crossing — else None."""
+    if command in LEGS:
+        return LEGS[command]
+    if isinstance(command, str) and command.startswith(";astral "):
+        return ("astral", command.split()[1:], "the astral crossing")
+    return None
+
+
+def ran(s, script, args):
+    """A travel script run and waited for: True when it moved the
     character (it says itself why not)."""
     before = getattr(s.state, "room_uid", None)
-    if not s.run("moonbeam", ["teleport"]):
+    if not s.run(script, list(args)):
         return False
     try:
-        while s.is_running("moonbeam"):
+        while s.is_running(script):
             s.sleep(1)
     except BaseException:
-        s.kill("moonbeam")  # a stop of the walk takes the teleport with it
+        s.kill(script)  # a stop of the walk takes the leg with it
         raise
     return getattr(s.state, "room_uid", None) != before
 
@@ -1591,6 +1651,7 @@ def _walk(s, db, goals, describe="destination", avoid=(), max_steps=None):
         }
         route = (
             beam_route(s, db, here, goals, route, avoid, closed, **plan)
+            or astral_route(s, db, here, goals, route, avoid, closed, **plan)
             or ring_route(s, db, here, goals, route, avoid, closed, **plan)
             or route
         )
@@ -1649,10 +1710,13 @@ def _follow(s, db, route, here, closed, fetched=True):
         if s.dead:
             s.echo(f"died en route at step {number} — stopping; deathwatch takes it")
             return False
-        if command == BEAM_STEP:
-            if not teleported(s) or not db.same_place(uid_room(db, s.state), dest):
+        if leg := leg_of(command):
+            script, args, what = leg
+            if not ran(s, script, args) or not db.same_place(
+                uid_room(db, s.state), dest
+            ):
                 closed.add((here, dest))
-                s.echo("the moonbeam did not take you — on foot from here")
+                s.echo(f"{what} did not take you — on foot from here")
                 return "closed"
             here = dest
             continue

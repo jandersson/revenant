@@ -4,7 +4,7 @@
     ;astral besoge round    there and back: ends at the shard it started from (a ;train task for Astrology, Attunement)
     ;astral besoge from=vellano   walk to that shard first (or a ;go2 target: from=8302)
     ;astral besoge harness=200   harness that much mana before entering (100 by default) and when the plane presses
-    ;astral list            RECALL HEAVENS GRAZHIR: the shards you have learned
+    ;astral list            RECALL HEAVENS GRAZHIR: the shards you have learned, kept for the walker
     ;astral learn aevargwem walk to that shard and STUDY it until its pattern is learned
     ;astral return          (typed while it runs) nothing early: a trip, or a round, always finishes
     ;stop astral            quit at once — inside the plane that leaves you there; finish by hand
@@ -159,7 +159,13 @@ def run(s, options, go=None):
     dest = options["shard"]
     mana = options["harness"]
     if dest == "list":
-        s.echo(said(ask(s, "recall heavens grazhir")))
+        answer = ask(s, "recall heavens grazhir")
+        s.echo(said(answer))
+        if known := astral.known_shards(answer):
+            astral.remember(character(s), known, replace=True)
+            s.echo(
+                f"astral: {len(known)} shards on record — the walker crosses to them"
+            )
         return "list"
     if dest not in astral.SHARDS:
         s.echo(f"astral: which shard? one of {', '.join(sorted(astral.SHARDS))}")
@@ -202,6 +208,7 @@ def learn(s, shard, go):
         s.waitrt()
         answer = ask(s, f"study {shard}")
         if any(line in answer for line in astral.LEARNED):
+            astral.remember(character(s), {shard})
             s.echo(f"astral: {shard} learned — ;astral list")
             return "learned"
         if astral.STUDYING not in answer:
@@ -238,8 +245,15 @@ def trip(s, start, dest, mana):
     if not moongate(s, dest, mana):
         return "exit"
     ask(s, "release mana")
+    astral.remember(
+        character(s), {dest} | ({start} if start in astral.SHARDS else set())
+    )
     s.echo(f"astral: arrived at {dest} — {title(s)}")
     return "arrived"
+
+
+def character(s):
+    return getattr(s.state, "name", None) or "unknown"
 
 
 def main(s):

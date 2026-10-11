@@ -2888,6 +2888,66 @@ def test_a_beam_past_its_moons_setting_is_never_planned(monkeypatch):
     assert not moonbeam.usable({"room": 3, "at": 1000.0}, 1000.0 + 176 * 60)
 
 
+# --- an astral crossing (#516) ---------------------------------------------
+
+# The Crossing's street and an island the map reaches only from Besoge's
+# shard (6991): 2026-10-11, "no walkable path" from the Crossing to
+# Hara'jaal, where ;astral besoge reaches Mer'Kresh and the Jolas.
+ISLAND = MapDB(
+    [
+        {"id": 1, "uid": [101], "title": ["[The Crossing, Street]"], "wayto": {}},
+        {
+            "id": 6991,
+            "uid": [6991],
+            "title": ["[Caress-of-the-Moons Manor, Hall]"],
+            "wayto": {"7": "go door"},
+        },
+        {"id": 7, "uid": [107], "title": ["[Wharf End]"], "wayto": {}},
+    ]
+)
+
+
+class AstralHandle(BeamHandle):
+    def run(self, name, args=()):
+        self.started.append((name, list(args)))
+        if self.goes:
+            self.state.room_uid = 6991
+        return True
+
+
+@pytest.fixture
+def mage(monkeypatch):
+    from client.game import astral, guild
+
+    monkeypatch.setattr(walker, "ring_of", lambda state: "")
+    monkeypatch.setattr(guild, "snapshot_circle", lambda name: 200)
+    astral.remember("Lanival", {"besoge", "rolagi"})
+
+
+def test_no_way_on_foot_crosses_the_astral_plane_to_the_learned_shard(mage):
+    handle = AstralHandle([107])
+    handle.state.room_uid = 101
+    assert walker.walk(handle, ISLAND, [7]) is True
+    assert handle.started == [("astral", ["besoge"])]
+    assert puts_of(handle) == ["go door"]
+
+
+def test_below_the_100th_circle_or_a_shard_not_learned_there_is_no_crossing(
+    mage, monkeypatch
+):
+    from client.game import astral, guild
+
+    handle = AstralHandle([107])
+    handle.state.room_uid = 101
+    monkeypatch.setattr(guild, "snapshot_circle", lambda name: 99)
+    assert walker.walk(handle, ISLAND, [7]) is False
+    monkeypatch.setattr(guild, "snapshot_circle", lambda name: 200)
+    astral.remember("Lanival", {"rolagi"}, replace=True)
+    assert walker.walk(handle, ISLAND, [7]) is False
+    assert handle.started == []
+    assert any("no walkable path" in e for e in handle.echoes)
+
+
 def test_a_push_refused_indoors_walks_instead(ringed):
     handle = RingHandle([102, 103], refusal="You can't do that here.\n")
     handle.state.room_uid = 101

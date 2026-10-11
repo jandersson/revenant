@@ -10,6 +10,7 @@ Vellano (Fang Cove) to Besoge (Mer'Kresh): every line on the main
 story stream.
 """
 
+import json
 import re
 
 # The pillars as a ring joined east-west, the microcosm map's A to H
@@ -77,6 +78,45 @@ GRAZHIR_CIRCLE = 100
 # pattern in your memory."
 STUDYING = "pattern"
 LEARNED = ("commit the pattern", "reaffirming its pattern")
+# RECALL HEAVENS GRAZHIR (2 s roundtime, 2026-10-11): "You know the names
+# of:" and one shard a line, "  Aevargwem". ;astral list keeps them on
+# record, a learn and an arrival add to it, and the walker plans a crossing
+# only to a shard on it: a trip to one unlearned stops at its pillar.
+KNOWN_HEAD = "You know the names of:"
+
+
+def known_shards(answer):
+    """The shards RECALL HEAVENS GRAZHIR names, lowered; empty without
+    its head line."""
+    text = str(answer or "")
+    if KNOWN_HEAD not in text:
+        return set()
+    lines = text.split(KNOWN_HEAD, 1)[1].splitlines()
+    return {line.strip().lower() for line in lines if line.strip().lower() in SHARDS}
+
+
+def learned_path(name):
+    from client.game.training import training_dir
+
+    return training_dir() / f"{str(name).lower()}.shards.json"
+
+
+def learned(name):
+    """The shards on record as learned by `name`, lowered."""
+    try:
+        data = json.loads(learned_path(name).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return set()
+    return {str(shard) for shard in data} if isinstance(data, list) else set()
+
+
+def remember(name, shards, replace=False):
+    """Add `shards` to the record (or replace it: RECALL's whole list)."""
+    shards = set(shards) | (set() if replace else learned(name))
+    path = learned_path(name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(sorted(shards)), encoding="utf-8")
+
 
 # "You also see an obsidian pedestal with the silvery-white shard Vellano
 # on it." — Asharshpar'i is "the silvery shard" (the old script's match).
