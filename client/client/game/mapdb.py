@@ -395,8 +395,11 @@ def gate_of(timeto):
 # road between Shard and Hibarnhvidar is twelve `;e move 'se'; pause 11`
 # edges, the pace that keeps a walker on the ice from slipping, and
 # unread they cut Hibarnhvidar off (2026-10-11).
+# lich's `put` sends without waiting: the way out of Fang's Shadow to
+# Fang Cove is `;e fput 'search creeper'; put 'go cave'` (8331 -> 8330),
+# and unread it stranded a hunter among the yellow gremlins (2026-10-13).
 _SIMPLE_STATEMENT = re.compile(
-    r"^(?:(?:fput|move)\s*\(?\s*(['\"])(?P<literal>.*?)\1\s*\)?"
+    r"^(?:(?:fput|move|put)\s*\(?\s*(['\"])(?P<literal>.*?)\1\s*\)?"
     r"|move(?:\s+|\s*\(\s*)(?P<bare>ne|nw|se|sw|n|e|s|w|up|u|down|d|out|o)\s*\)?"
     r"|waitrt\??"
     r"|(?P<pause>pause)(?:\s*\(?\s*(?P<seconds>\d+(?:\.\d+)?)\s*\)?)?"

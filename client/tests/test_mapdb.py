@@ -57,6 +57,15 @@ def test_a_bare_move_is_lichs_direction_method():
     assert translate_embedded(";e move dir") is None
 
 
+def test_a_put_edge_sends_its_literal_like_fput():
+    # Fang's Shadow back to Fang Cove (8331 -> 8330, 2026-10-13): unread,
+    # the walker found no way out of the gremlins' village.
+    from client.game.mapdb import translate_embedded
+
+    edge = ";e fput 'search creeper'; put 'go cave'"
+    assert translate_embedded(edge) == ["search creeper", "go cave"]
+
+
 def test_a_multifput_edge_sends_each_literal_in_turn():
     from client.game.mapdb import split_move, translate_embedded
 
