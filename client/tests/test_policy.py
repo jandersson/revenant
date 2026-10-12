@@ -22,6 +22,8 @@ def test_read_only_verbs_pass_and_ordinary_ones_pass_too():
     assert look.allowed and look.tier == "read-only"
     assert walk.allowed and walk.tier == "allowed"
     assert stance.allowed
+    assert policy.decide("bank numbers").allowed  # BANK's read-only forms
+    assert policy.decide("bank account").allowed
 
 
 def test_the_giving_spending_and_leaving_verbs_are_refused_with_a_reason():
@@ -29,6 +31,10 @@ def test_the_giving_spending_and_leaving_verbs_are_refused_with_a_reason():
         ("give my handaxe to Sable", "GIVE"),
         ("sell my bundle", "SELL"),
         ("withdraw 10 gold", "WITHDRAW"),
+        # #537: BANK's verb is its second word; the urchin runner spends.
+        ("bank withdraw 8 16200", "BANK WITHDRAW"),
+        ("bank transfer 1 8 500", "BANK TRANSFER"),
+        ("bank debt 3 all", "BANK DEBT"),
         ("train agility", "TRAIN"),
         ("depart", "DEPART"),
         ("exchange 1 gold for lirums", "EXCHANGE"),

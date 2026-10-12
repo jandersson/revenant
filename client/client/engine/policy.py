@@ -7,7 +7,7 @@ it; the player's own typing never does. Three tiers. Read-only verbs
 always pass (the sendcmd allowlist). Verbs that give something away,
 drop it, spend or leave — DROP and DISCARD of anything but the
 junk list, GIVE, HAND, OFFER of an item, SELL, TRADE, EXCHANGE, ACCEPT,
-WITHDRAW, TRAIN and STUDY of a stat (TDPs; STUDY MY BOOK reads crafting
+WITHDRAW (BANK WITHDRAW, TRANSFER and DEBT too), TRAIN and STUDY of a stat (TDPs; STUDY MY BOOK reads crafting
 instructions and passes, 2026-09-22), DEPART, PUT into
 anything but the character's own container, and `;reexec` — are
 refused with a one-line reason the session echoes to every window.
@@ -86,6 +86,11 @@ DENIED = {
     "exchange": "EXCHANGE spends coins or an item",
     "accept": "ACCEPT takes someone's offer",
     "withdraw": "WITHDRAW spends banked coins",
+    # BANK's own verb is the second word (#537): an urchin runner's
+    # withdrawal, transfer or debt payment spends banked coins.
+    "bank withdraw": "BANK WITHDRAW spends banked coins",
+    "bank transfer": "BANK TRANSFER moves banked coins away",
+    "bank debt": "BANK DEBT spends banked coins on a debt",
     "train": "TRAIN spends TDPs",
     "study": "STUDY of a stat spends TDPs",
     "depart": "DEPART is the character's own call",
@@ -225,6 +230,9 @@ def decide(line, policy=None) -> Verdict:
     verb = words[0]
     if verb in READ_ONLY:
         return Verdict(True, "read-only")
+    pair = " ".join(words[:2])
+    if pair in policy.denied:
+        return Verdict(False, "denied", policy.denied[pair])
     if (
         verb in policy.denied
         and not _BID.match(" ".join(words))
