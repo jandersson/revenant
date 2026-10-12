@@ -111,6 +111,14 @@ An empty ground is not an end: the hunt waits and laps it again.
 - With `bundle`, the first skin starts a bundle from the bundling rope, wherever it is carried, and later skins go straight into it. A place already taken ("can't wear any more items like that") moves TOGGLE BUNDLE on to the next; a bundle that goes on nowhere is stowed and the skins go loose. `;skins` sells the bundle and keeps the rope.
 - Nothing is ever dropped.
 
+## ARRANGE: which piece SKIN takes
+
+- A creature may carry a skin, a part, a bone or an organ; Elanthipedia's creature page lists them. A storm bull has "a storm bull hide" and "a jagged horn".
+- A bare SKIN takes the part when there is one: the storm bull gave the jagged horn.
+- `ARRANGE <corpse> FOR SKIN` (or `PART`, `BONE`, `ORGAN`) before the SKIN picks the piece. It also makes the cut harder for a better result: "You begin to arrange the bull's corpse in a manner that, while making the process of obtaining a skin more difficult, guarantees a greater reward.", then "a sterling example of a storm bull hide".
+- Arranged the most it can be, a creature yields a perfect piece if the skill is there; too much arranging for the skill makes the SKIN fail. `ARRANGE ALL` needs the Leather Tanning Expertise or Basic Bone Collecting technique.
+- `;hunt` ARRANGEs only on a skinning task, once FOR SKIN before each SKIN. Every other kill gets a bare SKIN.
+
 ## Box yield
 
 The hunt's end says what each kind of creature carried: `searched by creature — s'lai scout x15: 1 box(es), 6 with coins`. `;hunt grounds` adds what you measured on each zone, e.g. `measured 26 box(es) in 180 search(es), 14%; 2.1 box(es) an hour over 6 hunt(s), ~2,604 copper Kronars; 1,240 copper Kronars a box over 12 opened`. Each part appears once there is data for it. A zone with nothing measured shows what the wiki says instead: `wiki: boxes from Wood Troll (Locksmithing 30-55)`, or `wiki: no boxes`.
