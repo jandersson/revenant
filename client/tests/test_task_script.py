@@ -402,21 +402,28 @@ class Skinning(Hunting):
             self.state.right_hand = dict(HIDE)
 
 
+# The barkeep's answers to each hide and the last, captured 2026-10-12.
+BARKEEP_TAKES = 'Barkeep takes the hide and says, "Thanks, Lanival!  I need {} more."\n'
+BARKEEP_PAID = (
+    'A barkeep says, "Thank you very much, Lanival.  I have a few coins here for '
+    "you, thank you so much for your help.  Maybe the locals will rest easier "
+    'knowing that you dealt with the problem."\n'
+    "A barkeep hands you 7454 Kronars.\n"
+)
+
+
 def test_a_skinning_task_is_hunted_then_given_a_hide_at_a_time():
     # #509: the hides are cut by ;hunt task, kept loose, and each GIVE
     # counts as one, as a foraging giver's does.
     fake = Skinning(
-        {
-            "task": [JOURNAL_SKINNING],
-            "give": [TAKES.format(1), FORAGE_PAID.replace("trade minister", "barkeep")],
-        }
+        {"task": [JOURNAL_SKINNING], "give": [BARKEEP_TAKES.format(1), BARKEEP_PAID]}
     )
     script.run(fake, script.parse_args([]), {"weapon": "handaxe"}, TAVERN, walk)
     out = echoes(fake)
     assert fake.started == [("hunt", ["task"])]
     assert fake.walks == [{13275}]  # back to the barkeep
     assert fake.sent.count("give #185300001 to barkeep") == 2
-    assert "done — the barkeep paid 785 Kronars" in out
+    assert "done — the barkeep paid 7454 Kronars" in out
 
 
 def test_a_kind_in_task_declines_is_declined_inside_the_window():
