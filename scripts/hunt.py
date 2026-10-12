@@ -29,7 +29,7 @@ What it does
   - At the end, says each creature's searches, boxes and coins; history.db keeps
     every search (`loot`), every hunt (`hunts`) and every box picked up (`box_drops`).
 
-When it stops — then walks home, and runs ;skins bank (skins sold, purse banked but 200 copper kept for a ferry fare; ;bank alone when no skin was cut)
+When it stops — then walks home, and runs ;skins bank (skins sold, purse banked but 200 copper kept for a ferry fare; ;bank alone when no skin was cut); a ;hunt task walks straight to the task's giver instead, no bank
   - health below `health_floor`, or a wound at `wound_floor` (also checked before setting out)
   - 60 swings without a kill, or three stuns in one fight
   - every trained skill mind-locked, or the style's `until` (boxes, kills); a locked
@@ -2502,8 +2502,10 @@ def hunt(s, profile, db, travel_first=True, avoid=(), ground=None):
     if s.dead:
         return
     go_home(s, profile, db, ground, avoid, reason)
-    if not s.dead:
-        # A skinning task's hides go to its giver, never to the tanner.
+    if not s.dead and not profile.get("return_to"):
+        # A task hunt ends at its giver with no stop on the way; the bank
+        # waits for the next hunt. A skinning task's hides go to its
+        # giver, never to the tanner.
         sale = bool(tally.skins or tally.bundle) and not profile.get("task_hides")
         sell_and_bank(s, skinned=sale)
 
@@ -2534,13 +2536,25 @@ def way_back(s, profile, db, ground, ground_name, avoid=()):
 
 
 def go_home(s, profile, db, ground, avoid, reason):
-    """Every end of a hunt: home when the profile names one, else off
+    """Every end of a hunt: a task hunt at its giver (the operator,
+    2026-10-13: the rat task walked home to the Middens and ;task walked
+    back to Fang Cove), else home when the profile names one, else off
     the ground after a break-off, and never an end among hostiles."""
     # The weapon stays in hand at every end: a stowed weapon is no
     # parry (2026-09-12, three rats and an empty hand after a stop),
     # and nothing a hunt hands over to needs both hands. Its container
     # is only where the first swing fetches it from.
-    if profile["home"]:
+    if profile.get("return_to"):
+        if travel.go(
+            s,
+            set(profile["return_to"]),
+            "the task's giver",
+            db=db,
+            walk=walk,
+            avoid=avoid,
+        ):
+            s.echo(f"hunt: at the task's giver — {s.state.room_title}")
+    elif profile["home"]:
         if travel.go(
             s,
             profile["home"],

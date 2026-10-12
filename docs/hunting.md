@@ -103,7 +103,7 @@ A style named after a ground is that ground's own settings: it is laid over when
 - **A losing fight**: 60 swings without a kill, or three stuns in one fight, break off the same way.
 - **Locks**: every `train_skills` skill mind-locked, or every weapon in the rotation locked with no spell cast at the prey still learning.
 - **The style's `until`**: boxes, or `max_kills`.
-- **A task's item** (`;hunt task`): picked up off the kill that drops it. No lock ends a task hunt.
+- **A task's item** (`;hunt task`): picked up off the kill that drops it. No lock ends a task hunt, and it ends at the task's giver, not home, with no bank on the way.
 - **You**: `;hunt return` or `;stop hunt`.
 
 An empty ground is not an end: the hunt waits and laps it again.

@@ -1809,6 +1809,25 @@ def test_a_skinning_tasks_hides_are_banked_never_sold(travel):
     assert arena.started == [("bank", ["keep=200"])]
 
 
+def test_a_task_hunt_ends_at_its_giver_with_no_bank_on_the_way(travel):
+    # 2026-10-13: the rat task's hunt walked home to the Middens and
+    # banked; ;task then walked back to the giver in Fang Cove.
+    arena = _Runner(
+        {"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]},
+        running=("train",),
+    )
+    task = {
+        "max_kills": 1,
+        "task_hide": "rat pelt",
+        "task_hides": 6,
+        "return_to": [6048],
+    }
+    _run(arena, profile=PROFILE | task, travel_first=False)
+    assert arena.walks[-1] == {6048}  # the giver's room, not home
+    assert arena.started == []
+    assert "hunt: at the task's giver — " in "\n".join(arena.echoed)
+
+
 def test_a_stop_while_selling_stops_the_skins_it_started(travel):
     class Selling(_Runner):
         def sleep(self, seconds):
