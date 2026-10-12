@@ -812,7 +812,7 @@ def train(s, options, profile):
             take_out(s, spec[4])
             hands.stow(s, spec[4], ask=ask)
             if options["count"] and made >= options["count"]:
-                why = f"{made} made"
+                why = "the count reached"
                 break
             if not tools_in_hand(s):
                 return

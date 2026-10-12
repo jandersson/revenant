@@ -261,7 +261,9 @@ TIED_MORTAR = (
     "You pull at the iron mortar, but the ties from the alchemist's belt "
     "prevent you.  Maybe if you untie it, first?\n"
 )
-UNTIED_MORTAR = "You untie your iron mortar from your alchemist's belt.\n"
+UNTIED_MORTAR = "You untie an iron mortar from the straps of your alchemist's belt.\n"
+# TIE answers "You attach a black marble pestle speckled with tiny silver
+# veins to a strap on your alchemist's belt." (captured the same day).
 
 
 def test_tools_tied_to_the_profiles_tool_belt_are_untied_and_tied_back():
