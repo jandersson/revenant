@@ -172,13 +172,13 @@ def item_words(item):
 # is looked up here. The wandering ones have no room (;seek finds them).
 GIVERS = {
     "Cormyn": "Cormyn's House of Heirlooms",
-    "Kalika": "Ranger Guild, Main Hall",  # the Crossing's Ranger guildleader (map 7900)
+    "Kalika": "Ranger Guild, Main Hall",  # the Crossing's Ranger guildleader
     "Amfitro": "Viper's Nest",
     "Saeru": "Seven Star Exchange and Pawn",
-    "Daralaendra": "Warehouse Office",  # unmapped: the office door east of 13814 (#511)
+    "Daralaendra": "Warehouse Office",  # unmapped: the office door east of 13814
     "Fara": "Fara's Furs",
     "Ioun": "Ioun's Pawn",
-    "Anthelorm": "7955",  # Anthelorm's Gems and Curios, Purchasing Office (base-town.yaml gemshop)
+    "Anthelorm": "7955",  # Anthelorm's Gems and Curios, Purchasing Office
     "Aelik": "Aelik's Pawn",
     "Chabalu": "Chabalu's Exotics",
     "Paedraig": "Paedraig's Pawn",
@@ -188,9 +188,7 @@ GIVERS = {
     "Sh'aar": "The Enclave, Sh'aar's Trove",  # Dumi Sh'aar
     "Sephina": "Sephina's Lockbane",
     "Representative": "8308",  # the Estate Holder's; Fang Cove, Fate's Fortune Lane
-    # Guild leaders by map id (their rooms' titles repeat town to town),
-    # from dr-scripts' data/base-town.yaml guild_leaders (#511); a
-    # two-word name is listed under both words.
+    # Guild leaders, by map id
     "Agonar": "7892",
     "Silvyrfrost": "7898",
     "Esuin": "7901",
