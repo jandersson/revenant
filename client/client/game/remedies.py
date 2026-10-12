@@ -172,8 +172,11 @@ CRUSHED = (
     "crush the",
     "crush some",
     "gained a new rank",
-    # MIX in the bowl (#533), assumed from CRUSH's until captured; any
-    # other answer is said as unrecognized.
+    # MIX in the bowl (#533, captured 2026-10-12 on a mouth wash): "With
+    # wide strokes you mix some unfinished mouth wash with your stick.
+    # Peering at the solution reveals it is mixing correctly." The bowl's
+    # prompts are the mortar's, "...pour or put it into the bowl, pot or
+    # cauldron and continue mixing the unfinished brew inside."
     "you mix some unfinished",
     "mix the",
     "mix some",
