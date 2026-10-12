@@ -58,11 +58,10 @@ DEFAULTS = {
     # STANCE SET <evasion> <parry> <shield> [<attack>]; "" leaves the
     # stance alone. Defensive-first is the convention (docs/combat.md).
     "stance": "",
-    # Skinning: SKIN <corpse> after each kill, with the wielded weapon
-    # unless a knife noun is named (the game wants an edged weapon or a
-    # belt knife). The skin is stowed into the loot container.
+    # Skinning: SKIN <corpse> after each kill; the game uses a worn knife
+    # where it sits, else the wielded edged weapon. The skin is stowed
+    # into the loot container.
     "skin": False,
-    "skin_knife": "",
     "loot_container": "",  # "" stows with the game's STOW default
     # Gems found on a corpse go into this pouch; "" leaves them stowed.
     "gem_pouch": "",
@@ -297,8 +296,7 @@ FIELDS = (
     ("weapon", "Weapon noun", "str", "empty: barehanded"),
     ("weapon_container", "Weapon is kept in", "str", "sack, sheath — empty: in hand"),
     ("stance", "STANCE SET arguments", "str", "e.g. 100 80 0 — empty: leave it"),
-    ("skin", "Skin each kill", "bool", ""),
-    ("skin_knife", "Skinning knife noun", "str", "empty: the wielded weapon"),
+    ("skin", "Skin each kill", "bool", "a worn knife, else the wielded weapon"),
     ("loot_container", "Stow loot and skins in", "str", "empty: the STOW default"),
     ("gem_pouch", "Gem pouch noun", "str", "empty: gems are stowed like loot"),
     (
@@ -584,7 +582,6 @@ ITEM_FIELDS = (
     "instrument_cloth",
     "gem_pouch",
     "loot_container",
-    "skin_knife",
     "weapon",
     "weapon_container",
     "compendium",

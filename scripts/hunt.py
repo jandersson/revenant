@@ -955,15 +955,11 @@ def free_hand(s, profile):
 
 
 def held_skin(s, profile):
-    """The noun of whatever a hand holds besides the weapon and the
-    profile's skinning knife — the skin SKIN just cut — or None when
-    nothing did land. Only asked of a handle with hand state (hasattr
-    left_hand); a bare one never reaches here. (A held skinning knife,
-    Grek's, bought 2026-09-14, sat in the off hand after every cut and
-    would have been taken for the skin.)"""
-    tools = {profile["weapon"], profile.get("skin_knife") or ""}
+    """The noun of whatever a hand holds besides the weapon — the skin
+    SKIN just cut — or None when nothing did land. Only asked of a handle
+    with hand state (hasattr left_hand); a bare one never reaches here."""
     for noun in hands.nouns(s):
-        if noun not in tools:
+        if noun != profile["weapon"]:
             return noun
     return None
 
@@ -1377,9 +1373,8 @@ def has_skin(s, corpse, tally):
 
 
 def skin(s, profile, corpse, tally):
-    knife = profile["skin_knife"]
-    if knife:
-        ask(s, f"get my {knife}")
+    # The game skins with a worn knife where it sits, else the wielded
+    # edged weapon; neither is "nothing to skin with" and skinning goes off.
     answer = ask(s, f"skin {corpse}")
     outcome = classify(answer, SKIN_OUTCOMES)
     if outcome == "hands_full":
@@ -1424,8 +1419,6 @@ def skin(s, profile, corpse, tally):
         profile["skin"] = False
     elif outcome is None:
         unrecognized(s, tally, "skin", answer)
-    if knife:
-        stow(s, profile, knife)
 
 
 def listing(s):

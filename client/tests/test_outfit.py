@@ -1,10 +1,9 @@
 """How ;outfit buys a new character's essentials (#341) — these tests are
 the manual. INVENTORY's worn list says what is there; a missing
 essential is bought at its shop and worn, the purse topped up at the
-teller when short, and the profile set after."""
+teller when short."""
 
 import importlib.util
-import json
 import pathlib
 from types import SimpleNamespace
 
@@ -108,11 +107,7 @@ def test_check_lists_what_is_missing_and_walks_nowhere():
     assert fake.walks == []
 
 
-def test_a_missing_knife_is_bought_worn_and_the_profile_stops_fetching_one(
-    tmp_path, monkeypatch
-):
-    monkeypatch.setenv("REVENANT_PROFILES", str(tmp_path))
-    (tmp_path / "sable.json").write_text(json.dumps({"skin_knife": "knife"}))
+def test_a_missing_knife_is_bought_and_worn():
     fake = Fake(
         {
             "inventory": WORN_WITHOUT,
@@ -127,12 +122,10 @@ def test_a_missing_knife_is_bought_worn_and_the_profile_stops_fetching_one(
         "wear my skinning knife"
     )
     assert "You attach a small steel skinning knife" in out
-    assert json.loads((tmp_path / "sable.json").read_text())["skin_knife"] == ""
     assert "1 of 1 bought and worn" in out
 
 
-def test_a_short_purse_is_topped_up_at_the_teller_before_the_buy(tmp_path, monkeypatch):
-    monkeypatch.setenv("REVENANT_PROFILES", str(tmp_path))
+def test_a_short_purse_is_topped_up_at_the_teller_before_the_buy():
     fake = Fake(
         {
             "inventory": WORN_WITHOUT,
@@ -183,8 +176,7 @@ def test_a_sum_under_the_changers_minimum_is_kept_not_counted_as_exchanged():
     assert "0 of 1 bought and worn" in out
 
 
-def test_a_refused_purchase_ends_the_run_with_the_shops_line(tmp_path, monkeypatch):
-    monkeypatch.setenv("REVENANT_PROFILES", str(tmp_path))
+def test_a_refused_purchase_ends_the_run_with_the_shops_line():
     fake = Fake(
         {
             "inventory": WORN_WITHOUT,

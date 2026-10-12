@@ -189,8 +189,8 @@ def test_a_skinning_hunt_ends_at_the_tasks_count(bull_yard, travel):
 def test_a_skinning_hunt_with_nothing_to_skin_with_ends_at_the_first_skin(
     bull_yard, travel
 ):
-    # A worn knife needs no skin_knife (the hunt SKINs and the game uses
-    # it); with none, the first SKIN says so and the hunt kills no more.
+    # The game skins with a worn knife or the wielded blade; with neither,
+    # the first SKIN says so and the hunt kills no more.
     arena = Arena(
         {
             "attack": [(KILL, lambda a: None), (KILL, kill)],

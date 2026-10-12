@@ -35,7 +35,7 @@ File → Character Profile, or `~/.revenant/profiles/<name>.json`. The keys a hu
 | `premium` | the account has Premium: walks take the meeting portals into Fang Cove |
 | `weapon`, `weapon_container` | the weapon WIELDed at the start, and where it is kept |
 | `stance` | `STANCE SET` arguments, sent once |
-| `skin`, `skin_knife` | skin each kill; a knife noun, or empty for a worn knife or the weapon |
+| `skin` | skin each kill, with a worn knife, else the wielded weapon |
 | `bundle` | put skins on a worn bundling rope (free at any tannery) |
 | `loot_container`, `gem_pouch` | where loot and skins go; where gems go |
 | `card_case`, `dira_case` | the worn cases trading cards and Imperial diras go into (a collector's case, a coin case) |

@@ -433,36 +433,6 @@ def test_every_search_is_a_row_in_the_loot_table(travel, tmp_path, monkeypatch):
     assert hunts == [("Lanival", PROFILE["hunting_ground"], "", 1, 1, 0)]
 
 
-def test_a_held_skinning_knife_is_fetched_stowed_and_never_taken_for_the_skin(travel):
-    # Grek's skinning knife (2026-09-14) cannot be worn: the hunt GETs
-    # it before the cut and stows it after, and the hand it sits in is
-    # not the skin's hand — with a worn bundle the cut goes straight in.
-    arena = Arena(
-        {
-            "attack": [(KILL, kill)],
-            "tap my bundle": ["You tap a lumpy bundle that you are wearing."],
-            "get my knife": ["You get a skinning knife from inside your canvas sack."],
-            "skin": [
-                "Working deftly, you skillfully remove a curved claw from the "
-                "remains of a rat.\nYou carefully fit a curved claw into your bundle."
-            ],
-            "loot": [NOTHING],
-        }
-    )
-    arena.state.left_hand = {"noun": "knife", "exist": "1", "name": "skinning knife"}
-    arena.state.right_hand = {
-        "noun": "handaxe",
-        "exist": "2",
-        "name": "oak-hafted handaxe",
-    }
-    _run(arena, profile=PROFILE | {"skin_knife": "knife", "bundle": True})
-    after_kill = arena.sent[arena.sent.index("attack rat") + 1 :]
-    assert after_kill[:3] == ["get my knife", "skin rat", "put my knife in my sack"]
-    assert "bundle" not in arena.sent
-    assert not any("took no more" in text for text in arena.echoed)
-    assert any("1 kill(s), 1 skin(s)" in text for text in arena.echoed)
-
-
 def test_a_skin_the_game_fits_into_the_bundle_is_bundled_whatever_the_hands_say(travel):
     # #272: the second grendel's ear went into the worn bundle from
     # SKIN itself, yet BUNDLE went out and bundling was turned off.

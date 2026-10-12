@@ -2,8 +2,7 @@
 
 Each entry is one thing a character should wear or carry, the way to
 tell it is already there, and the errand that buys it: the shop's
-community-map room, the BUY and WEAR commands, the price and currency,
-and the profile keys to set once it is worn. `;outfit` reads the
+community-map room, the BUY and WEAR commands, the price and currency. `;outfit` reads the
 INVENTORY worn list, buys what is missing and puts it on.
 
 The first entry is the worn skinning knife. SKIN wants one hand free,
@@ -19,8 +18,7 @@ Tobb's Smithy at Knife Clan sells a wrist-worn one for 500 Kronars
 decide to purchase the knife, and pay the sales clerk 500 Kronars.",
 "The sales clerk hands you your skinning knife.", "You attach a small
 steel skinning knife with a leather-wrapped hilt to your wrist."
-(captured 2026-09-13). Bought, the profile's `skin_knife` is cleared
-so ;hunt stops fetching a held one.
+(captured 2026-09-13).
 """
 
 ESSENTIALS = (
@@ -34,7 +32,6 @@ ESSENTIALS = (
         "wear": "wear my skinning knife",
         "price": 500,
         "currency": "Kronars",
-        "profile": {"skin_knife": ""},
     },
 )
 

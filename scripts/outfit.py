@@ -1,6 +1,6 @@
 """Buy a new character the essentials it lacks:  ;outfit
 
-    ;outfit          INVENTORY's worn list read; each missing essential bought at its shop, worn, the profile set; then back where you started
+    ;outfit          INVENTORY's worn list read; each missing essential bought at its shop and worn; then back where you started
     ;outfit check    list what is missing and where it is sold; buy nothing
     ;outfit stay     ... and stay at the last shop instead of walking back
 
@@ -16,9 +16,7 @@ the shop's own town, once there — or, when the teller refuses, EXCHANGE
 the purse's other coins at the nearest money-changer (client/game/bank.py's
 exchange_each, as ;bank does: his minimum kept, his own line said); then
 BUY, WEAR ("You attach a small steel skinning knife with a
-leather-wrapped hilt to your wrist."), and the profile's keys the
-entry names are set (the knife clears `skin_knife`, so ;hunt stops
-fetching a held one). A purchase the shop refuses, or a purse that
+leather-wrapped hilt to your wrist."). A purchase the shop refuses, or a purse that
 stays short, ends the run with the game's line. The knife is Tobb's
 at Knife Clan, 500 Kronars (Elanthipedia: Tobb's Smithy, Skinning
 knife; captured 2026-09-13), #341. Stops on death.
@@ -37,7 +35,6 @@ from client.game.outfit import (
     put_on,
     worn_items,
 )
-from client.game.profile import load_profile, save_profile
 from client.game.walker import locate, walk
 
 
@@ -111,15 +108,6 @@ def outfit_one(s, mapdb, walk_fn, essential):
         )
         return False
     s.echo(f"outfit: {said(answer)}")
-    name = getattr(s.state, "name", None)
-    if essential["profile"] and name:
-        profile = load_profile(name)
-        profile.update(essential["profile"])
-        save_profile(name, profile)
-        keys = ", ".join(
-            f"{key}={value!r}" for key, value in essential["profile"].items()
-        )
-        s.echo(f"outfit: profile set — {keys}")
     return True
 
 
