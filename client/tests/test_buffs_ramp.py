@@ -84,8 +84,8 @@ def test_a_targeted_ramp_starts_a_step_under_the_estimate():
     state = buffs.BuffState()
     profile = {"buffs": [], "debilitation": "stun foe"}
     buffs.discern_slots(handle, profile, state, ask, "hunt", _report)
-    assert state.slot_mana["debilitation"] == 5
-    assert state.slot_limit["debilitation"] == 7
+    assert state.slot_mana["stun foe"] == 5  # each spell its own ramp
+    assert state.slot_limit["stun foe"] == 7
     assert "hunt: DISCERN caps stun foe at 7 mana (minimum 1), starting at 5" in (
         handle.echoed
     )
@@ -261,3 +261,34 @@ def test_the_games_strain_warning_and_a_fatigued_cast_are_read_as_such():
     )
     assert buffs.classify(prepared, buffs.PREPARE_OUTCOMES) == "strain"
     assert buffs.classify(cast, buffs.CAST_OUTCOMES) == "failed"
+
+
+def test_a_slot_naming_two_spells_casts_them_in_turn_each_on_its_ramp(monkeypatch):
+    # The operator, 2026-10-12: Partial Displacement beside Dinazen Olkar
+    # for Targeted Magic. The slot's gap holds across both spells.
+    cast = []
+    monkeypatch.setattr(
+        buffs,
+        "cast_once",
+        lambda s, spell, mana, *a, **k: cast.append((spell, mana)) or "ok",
+    )
+    now = [1000.0]
+    monkeypatch.setattr(buffs, "clock", lambda: now[0])
+    handle = Handle()
+    handle.state.experience["Targeted Magic"] = {"rank": 900, "mindstate": 5}
+    state = buffs.BuffState()
+    profile = {"targeted": "Dinazen Olkar, Partial Displacement", "cast_gap": 10}
+    for _ in range(3):
+        buffs.cast_targeted(handle, profile, state, ask, "hunt", _report, "targeted")
+        state.cast_at[cast[-1][0]] = now[0]  # as cast_once records it
+    assert [spell for spell, _ in cast] == [
+        "Dinazen Olkar",
+        "Partial Displacement",
+        "Dinazen Olkar",
+    ]
+    assert cast[1][1] == 0 and cast[2][1] == buffs.MANA_STEP  # a ramp each
+    assert not buffs.targeted_due(handle, profile, state, "targeted")  # one gap
+    now[0] += 10
+    assert buffs.targeted_due(handle, profile, state, "targeted")
+    state.slots_off.add("Partial Displacement")  # one refused: the other goes on
+    assert buffs.slot_spell(profile, state, "targeted") == "Dinazen Olkar"

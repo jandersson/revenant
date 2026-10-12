@@ -133,7 +133,8 @@ DEFAULTS = {
     # An attack spell cast at the prey between swings to train Targeted
     # Magic ("Footman's Strike" for a Paladin, cast through the melee
     # weapon in hand): the same cast gap, mana ramp and turn-taking as
-    # the debilitation spell (#200). "" casts none.
+    # the debilitation spell (#200). "" casts none. Either slot may name
+    # several spells, comma-separated, cast in turn on the slot's gap.
     "targeted": "",
     # Below this health % the loop breaks off and walks home.
     "health_floor": 60,
@@ -358,13 +359,13 @@ FIELDS = (
         "debilitation",
         "Spell cast at the prey (Debilitation)",
         "str",
-        "Stun Foe — empty: none",
+        "Stun Foe; several comma-separated, cast in turn — empty: none",
     ),
     (
         "targeted",
         "Attack spell cast at the prey (Targeted Magic)",
         "str",
-        "Footman's Strike — empty: none",
+        "Footman's Strike; several comma-separated, cast in turn — empty: none",
     ),
     ("health_floor", "Break off below health %", "int", "60"),
     (

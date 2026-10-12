@@ -354,11 +354,14 @@ class BuffState:
         self.spell_skills = None  # spell -> its skills, loaded on first use
         self.unmatched = set()  # named skills no buff trains, said once
         self.cambrinth_off = False  # the piece refused this run, said once
-        self.slot_mana = {}  # targeted slot -> its next cast's mana (#192, #200)
-        self.slot_cap = {}  # targeted slot -> one step under its strain, once met
-        self.slot_limit = {}  # targeted slot -> DISCERN's total, the ramp's ceiling
-        self.slots_off = set()  # targeted slots whose spell refused this run
-        # Targeted slots and "buff:<spell>" keys DISCERNed this run (#202)
+        # The targeted slots' ramps, one per spell: a slot may name several,
+        # cast in turn (slot_spell).
+        self.slot_mana = {}  # spell -> its next cast's mana (#192, #200)
+        self.slot_cap = {}  # spell -> one step under its strain, once met
+        self.slot_limit = {}  # spell -> DISCERN's total, the ramp's ceiling
+        self.slots_off = set()  # targeted spells that refused this run
+        self.slot_turn = {}  # slot -> casts its spells have taken, in turn
+        # "slot:<spell>" and "buff:<spell>" keys DISCERNed this run (#202)
         self.discerned = set()
         self.last_training = None  # "buff" or a targeted slot: whose turn it was
         self.short_names = {}  # spell -> the abbreviation that prepared it (#320)
@@ -993,22 +996,42 @@ def cast_gap(profile):
     return CAST_GAP_SECONDS if gap is None else float(gap)
 
 
+def slot_spells(profile, slot):
+    """The spells a targeted slot names: "Dinazen Olkar, Partial
+    Displacement" is two, cast in turn (the operator, 2026-10-12)."""
+    return [
+        name.strip() for name in str(profile.get(slot) or "").split(",") if name.strip()
+    ]
+
+
+def slot_spell(profile, state, slot):
+    """The slot's spell whose turn it is, past those off for this run;
+    "" when none is on."""
+    spells = [
+        spell for spell in slot_spells(profile, slot) if spell not in state.slots_off
+    ]
+    return spells[state.slot_turn.get(slot, 0) % len(spells)] if spells else ""
+
+
 def targeted_due(s, profile, state, slot):
     """True when the profile's spell in `slot` ("debilitation",
-    "targeted") should go out at the prey: one is named and has not
-    refused this run, the skill the slot trains (TARGETED_SLOTS) sits
-    below lock, mana is above the floor, and its last cast is the cast
-    gap old (#192, #200)."""
-    spell = profile.get(slot) or ""
-    if not spell or slot in state.slots_off:
+    "targeted") should go out at the prey: one is named and on for this
+    run, the skill the slot trains (TARGETED_SLOTS) sits below lock,
+    mana is above the floor, and the slot's last cast, whichever of its
+    spells, is the cast gap old (#192, #200)."""
+    if not slot_spell(profile, state, slot):
         return False
     if locked(s.state, [TARGETED_SLOTS[slot]]):
         return False
     mana = (getattr(s.state, "vitals", None) or {}).get("mana")
     if mana is not None and mana < MANA_FLOOR:
         return False
-    last = state.cast_at.get(spell)
-    return last is None or clock() - last >= cast_gap(profile)
+    casts = [
+        state.cast_at[spell]
+        for spell in slot_spells(profile, slot)
+        if spell in state.cast_at
+    ]
+    return not casts or clock() - max(casts) >= cast_gap(profile)
 
 
 def spells_learning(s, profile, state):
@@ -1016,9 +1039,7 @@ def spells_learning(s, profile, state):
     run and its skill (TARGETED_SLOTS) sits below lock: a caster's hunt
     fights on with a locked weapon for them (#525)."""
     return any(
-        profile.get(slot)
-        and slot not in state.slots_off
-        and not locked(s.state, [skill])
+        slot_spell(profile, state, slot) and not locked(s.state, [skill])
         for slot, skill in TARGETED_SLOTS.items()
     )
 
@@ -1082,35 +1103,42 @@ def discern_slots(s, profile, state, ask, prefix, report):
     waited out; an answer outside the table is reported and the slot
     cast anyway (#202, #203)."""
     for slot, skill in TARGETED_SLOTS.items():
-        spell = profile.get(slot) or ""
-        if not spell or slot in state.slots_off or slot in state.discerned:
-            continue
-        state.discerned.add(slot)
-        answer = discern(s, spell, state, ask)
-        outcome = classify(answer, DISCERN_OUTCOMES)
-        # The estimate is the ramp's ceiling (2026-09-20): "The spell
-        # requires at minimum 1 mana streams and you think you can
-        # reinforce it with 2 more, for a total of 3 streams."
-        if outcome == "unable":
-            state.slots_off.add(slot)
-            floor = rank_floor(answer)
-            wants = f"needs {skill} {floor[0]} ({floor[1]})" if floor else "is beyond"
-            s.echo(
-                f"{prefix}: DISCERN says {spell} {wants}; "
-                f"{skill} is {rank_of(s.state, skill)} — off for this run"
-            )
-        elif outcome == "unknown":
-            state.slots_off.add(slot)
-            s.echo(f"{prefix}: {spell} is not a spell you know — off for this run")
-        elif outcome is None:
-            report("discern", answer)
-        else:
-            start = _cap_by_discern(s, prefix, spell, answer, state.slot_limit, slot)
-            if start is not None:
-                state.slot_mana.setdefault(slot, start)
+        for spell in slot_spells(profile, slot):
+            key = f"slot:{spell.lower()}"
+            if spell in state.slots_off or key in state.discerned:
+                continue
+            state.discerned.add(key)
+            discern_slot_spell(s, state, ask, prefix, report, spell, skill)
     # The training buffs too: their ramps climbed the same way, with no
     # estimate to stop them (2026-09-20).
     discern_training_buffs(s, profile, state, ask, prefix)
+
+
+def discern_slot_spell(s, state, ask, prefix, report, spell, skill):
+    """One targeted spell DISCERNed: off for the run when beyond the
+    ranks or unknown, else its ramp capped by the estimate."""
+    answer = discern(s, spell, state, ask)
+    outcome = classify(answer, DISCERN_OUTCOMES)
+    # The estimate is the ramp's ceiling (2026-09-20): "The spell
+    # requires at minimum 1 mana streams and you think you can
+    # reinforce it with 2 more, for a total of 3 streams."
+    if outcome == "unable":
+        state.slots_off.add(spell)
+        floor = rank_floor(answer)
+        wants = f"needs {skill} {floor[0]} ({floor[1]})" if floor else "is beyond"
+        s.echo(
+            f"{prefix}: DISCERN says {spell} {wants}; "
+            f"{skill} is {rank_of(s.state, skill)} — off for this run"
+        )
+    elif outcome == "unknown":
+        state.slots_off.add(spell)
+        s.echo(f"{prefix}: {spell} is not a spell you know — off for this run")
+    elif outcome is None:
+        report("discern", answer)
+    else:
+        start = _cap_by_discern(s, prefix, spell, answer, state.slot_limit, spell)
+        if start is not None:
+            state.slot_mana.setdefault(spell, start)
 
 
 def discern_training_buffs(s, profile, state, ask, prefix):
@@ -1204,10 +1232,14 @@ def cast_targeted(s, profile, state, ask, prefix, report, slot, target="", fille
     MANA_STEP per cast that took until the strain warning or a
     collapse, then holds one step under; a collapse at the minimum, or
     a cast the ranks cannot carry, turns the spell off for the run,
-    said once (#192, #200, #202)."""
-    spell = profile[slot]
+    said once (#192, #200, #202). A slot naming several spells casts the
+    next in turn, each on its own ramp."""
+    spell = slot_spell(profile, state, slot)
+    if not spell:
+        return
+    state.slot_turn[slot] = state.slot_turn.get(slot, 0) + 1
     skill = TARGETED_SLOTS[slot]
-    mana = state.slot_mana.get(slot, 0)
+    mana = state.slot_mana.get(spell, 0)
     result = cast_once(
         s,
         spell,
@@ -1232,28 +1264,28 @@ def cast_targeted(s, profile, state, ask, prefix, report, slot, target="", fille
         s.echo(f"{prefix}: the pattern held was not {spell} — released")
     elif result == "refused":
         s.echo(f"{prefix}: cannot prepare {spell} — off for this run")
-        state.slots_off.add(slot)
+        state.slots_off.add(spell)
     elif result == "lacking":
         s.echo(
             f"{prefix}: {spell} fails for lack of {skill} ranks "
             f"({rank_of(s.state, skill)}) — off for this run"
         )
-        state.slots_off.add(slot)
+        state.slots_off.add(spell)
     elif result == "ok":
         s.echo(
             f"{prefix}: cast {spell} at {target or 'the foe'} with "
             f"{mana or 'minimum'} mana for {skill}"
         )
-        if slot not in state.slot_cap:
-            state.slot_mana[slot] = climb(mana, state.slot_limit.get(slot))
+        if spell not in state.slot_cap:
+            state.slot_mana[spell] = climb(mana, state.slot_limit.get(spell))
     elif mana == 0:
-        state.slots_off.add(slot)
+        state.slots_off.add(spell)
         s.echo(f"{prefix}: {spell} fails at minimum mana — off for this run")
     else:
-        state.slot_mana[slot] = state.slot_cap[slot] = mana - MANA_STEP
+        state.slot_mana[spell] = state.slot_cap[spell] = mana - MANA_STEP
         s.echo(
             f"{prefix}: {spell} at {mana} mana was too much ({result}) — "
-            f"holding at {state.slot_mana[slot] or 'minimum'}"
+            f"holding at {state.slot_mana[spell] or 'minimum'}"
         )
 
 
