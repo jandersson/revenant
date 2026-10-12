@@ -55,6 +55,18 @@ def test_a_negative_amount_is_the_minus_sign_before_its_phrase():
     assert money.phrase(-3) == "-3 copper"
 
 
+def test_short_is_the_largest_coin_rounded_for_reading():
+    # The operator, 2026-10-12: five denominations a figure were unreadable.
+    assert money.short(97_329_630) == "9,733 plat"
+    assert money.short(540_050) == "54 plat"
+    assert money.short(16_200) == "1.62 plat"
+    assert money.short(6_133) == "6.13 gold"
+    assert money.short(1_500) == "1.5 gold"
+    assert money.short(42) == "4.2 bronze"
+    assert money.short(7) == "7 copper"
+    assert money.short(-2_047) == "-2.05 gold"
+
+
 def test_info_splits_into_carried_and_owed_per_currency():
     assert money.parse_wealth(INFO) == {
         "carried": {"Kronars": 0, "Lirums": 0, "Dokoras": 0},

@@ -69,6 +69,28 @@ def in_kronars(copper, currency="Kronars"):
     return round((copper or 0) * KRONAR_RATES.get(key, 1.0))
 
 
+def short(copper):
+    """An amount in its largest coin, rounded, for a reader to take in at a
+    glance: 97329630 → "9,733 plat", 16200 → "1.62 plat", 6133 → "6.13
+    gold", 42 → "4.2 bronze" (the operator, 2026-10-12: ;wealth's five
+    denominations a figure were unreadable). Exact figures stay phrase()'s."""
+    if copper < 0:
+        return "-" + short(-copper)
+    for size, unit in (
+        (10_000, "plat"),
+        (1_000, "gold"),
+        (100, "silver"),
+        (10, "bronze"),
+    ):
+        if copper >= size:
+            value = copper / size
+            places = 0 if value >= 100 else 1 if value >= 10 else 2
+            text = f"{value:,.{places}f}"
+            text = text.rstrip("0").rstrip(".") if "." in text else text
+            return f"{text} {unit}"
+    return f"{int(copper)} copper"
+
+
 def split(copper):
     """[(count, denomination)] for a copper total, largest coins first,
     zero counts left out: 1510 → [(1, "gold"), (5, "silver"), (1, "bronze")].

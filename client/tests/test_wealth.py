@@ -143,7 +143,7 @@ REPORT_LINES = [
 ]
 
 
-INFO_LINES = [
+PURSE_LINES = [
     "Wealth:",
     "  3 silver Kronars (300 copper Kronars).",
     "  No Lirums.",
@@ -155,12 +155,12 @@ INFO_LINES = [
 
 class Fake:
     """A handle with a fake clock: BANK ACCOUNT answers with the report
-    (or nothing), INFO with the wealth block, typed requests arrive
+    (or nothing), WEALTH with the purse and debt, typed requests arrive
     through command()."""
 
-    def __init__(self, answers=None, requests=(), info=None):
+    def __init__(self, answers=None, requests=(), purse=None):
         self.answers = list(answers if answers is not None else [REPORT_LINES])
-        self.info = list(INFO_LINES if info is None else info)
+        self.purse = list(PURSE_LINES if purse is None else purse)
         self.requests = list(requests)
         self.now = 1000.0
         self.sent = []
@@ -173,8 +173,8 @@ class Fake:
         self.sent.append(command)
         if command == "bank account" and self.answers:
             self.pending = list(self.answers.pop(0))
-        if command == "info":
-            self.pending = list(self.info)
+        if command == "wealth":
+            self.pending = list(self.purse)
 
     def waitrt(self):
         pass
@@ -202,8 +202,8 @@ def run_tracker(fake, args=(), stop_after_sends=1, monkeypatch=None, tmp_path=No
     monkeypatch.setattr(wealth, "START_DELAY", 0)
     monkeypatch.setattr(wealth, "REPORT_SETTLE", 2)
     monkeypatch.setattr(wealth, "REPORT_WAIT", 5)
-    monkeypatch.setattr(wealth, "INFO_SECONDS", 0.01)
-    monkeypatch.setattr(wealth, "INFO_TAIL", 0.01)
+    monkeypatch.setattr(wealth, "PURSE_SECONDS", 0.01)
+    monkeypatch.setattr(wealth, "PURSE_TAIL", 0.01)
 
     class Stop(Exception):
         pass
@@ -227,7 +227,7 @@ def test_the_tracker_asks_on_start_logs_every_branch_and_summarizes(
 ):
     fake = Fake()
     run_tracker(fake, monkeypatch=monkeypatch, tmp_path=tmp_path)
-    assert fake.sent == ["bank account", "info"]
+    assert fake.sent == ["bank account", "wealth"]
     connection = sqlite3.connect(wealth.database_path())
     rows = connection.execute(
         "SELECT bank, currency, copper FROM wealth WHERE kind = 'bank' ORDER BY seq"
@@ -239,14 +239,12 @@ def test_the_tracker_asks_on_start_logs_every_branch_and_summarizes(
         ("Surlaenis", "Lirums", 350_464),
     ]
     text = "\n".join(fake.echoed)
+    # WEALTH's carried and debt are fresh, logged like ;sheet's, and netted
     assert (
-        "Kronars: on deposit 34 platinum, 2 gold, 3 silver, 9 bronze and 9 copper"
-        in text
+        "Kronars 34.2 plat net — banked 34.2 plat (Crossing 33.7 plat, Dirge "
+        "5.08 gold), carrying 3 silver, owing 9.3 silver" in text
     )
-    assert "(Crossing 33 platinum" in text and "Dirge 5 gold" in text
-    assert "Dokoras: on deposit 1 gold, 4 silver, 9 bronze and 4 copper" in text
-    # INFO's carried and debt are fresh, logged like ;sheet's, and netted
-    assert "carrying 3 silver, owing 9 silver and 3 bronze" in text
+    assert "Dokoras 1.49 gold net — banked 1.49 gold" in text
     held = connection.execute(
         "SELECT kind, currency, copper FROM wealth WHERE kind IN ('carried', 'debt')"
     ).fetchall()
@@ -255,7 +253,7 @@ def test_the_tracker_asks_on_start_logs_every_branch_and_summarizes(
         ("carried", "Lirums", 0),
         ("debt", "Kronars", 930),
     ]
-    assert "Lirums: on deposit 35 platinum" in text  # deposited, nothing carried
+    assert "Lirums 35 plat net — banked 35 plat" in text  # nothing carried
 
 
 def test_a_bank_account_refused_for_roundtime_is_asked_again(tmp_path, monkeypatch):
@@ -263,14 +261,14 @@ def test_a_bank_account_refused_for_roundtime_is_asked_again(tmp_path, monkeypat
     # was a missed report until the next three-hourly interval.
     fake = Fake(answers=[["...wait 1 seconds."], REPORT_LINES])
     run_tracker(fake, monkeypatch=monkeypatch, tmp_path=tmp_path)
-    assert fake.sent == ["bank account", "bank account", "info"]
+    assert fake.sent == ["bank account", "bank account", "wealth"]
     text = "\n".join(fake.echoed)
     assert "gave no report" not in text
-    assert "Kronars: on deposit" in text
+    assert "Kronars 34.2 plat net — banked" in text
 
 
 def test_a_paid_debt_reaches_the_history_as_a_zero(tmp_path, monkeypatch):
-    fake = Fake(info=["Wealth:", "  No Kronars.", "Debt:", "  No debt."])
+    fake = Fake(purse=["Wealth:", "  No Kronars.", "Debt:", "  No debt."])
     run_tracker(fake, monkeypatch=monkeypatch, tmp_path=tmp_path)
     connection = sqlite3.connect(wealth.database_path())
     held = connection.execute(
@@ -278,7 +276,8 @@ def test_a_paid_debt_reaches_the_history_as_a_zero(tmp_path, monkeypatch):
     ).fetchall()
     assert held == [("carried", "Kronars", 0), ("debt", "Kronars", 0)]
     text = "\n".join(fake.echoed)
-    assert "carrying 0 copper, owing 0 copper" in text
+    assert "Kronars 34.2 plat net — banked 34.2 plat (Crossing 33.7 plat, " in text
+    assert "owing" not in text and "carrying" not in text  # nothing is not said
 
 
 def test_the_summary_nets_the_sheet_s_carried_and_debt(tmp_path, monkeypatch):
@@ -300,9 +299,7 @@ def test_the_summary_nets_the_sheet_s_carried_and_debt(tmp_path, monkeypatch):
     assert held == {("carried", "Kronars"): 300, ("debt", "Kronars"): 1510}
     lines = wealth.summary({("Crossing", "Kronars"): 18_939}, held)
     assert lines == [
-        "Kronars: on deposit 1 platinum, 8 gold, 9 silver, 3 bronze and 9 copper, "
-        "carrying 3 silver, owing 1 gold, 5 silver and 1 bronze — net "
-        "1 platinum, 7 gold, 7 silver, 2 bronze and 9 copper"
+        "Kronars 1.77 plat net — banked 1.89 plat, carrying 3 silver, owing 1.51 gold"
     ]
 
 
@@ -312,11 +309,11 @@ def test_now_from_cold_asks_once_and_exits(tmp_path, monkeypatch):
     monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "xp.db"))
     monkeypatch.setattr(wealth, "clock", lambda: fake.now)
     monkeypatch.setattr(wealth, "REPORT_SETTLE", 2)
-    monkeypatch.setattr(wealth, "INFO_SECONDS", 0.01)
-    monkeypatch.setattr(wealth, "INFO_TAIL", 0.01)
+    monkeypatch.setattr(wealth, "PURSE_SECONDS", 0.01)
+    monkeypatch.setattr(wealth, "PURSE_TAIL", 0.01)
     wealth.main(fake)  # returns on its own once the report settled
-    assert fake.sent == ["bank account", "info"]
-    assert any("on deposit" in line for line in fake.echoed)
+    assert fake.sent == ["bank account", "wealth"]
+    assert any("net — banked" in line for line in fake.echoed)
 
 
 def test_a_typed_now_asks_again_and_the_interval_asks_by_itself(tmp_path, monkeypatch):
@@ -350,7 +347,7 @@ def test_no_open_account_is_a_report_of_nothing_not_a_silence(tmp_path, monkeypa
     # silence and the character was told about Premium and urchin runners.
     fake = Fake(
         answers=[NO_ACCOUNT_LINES],
-        info=[
+        purse=[
             "Wealth:",
             "  No Kronars.",
             "  1 bronze and 3 copper Lirums (13 copper Lirums).",
@@ -360,14 +357,13 @@ def test_no_open_account_is_a_report_of_nothing_not_a_silence(tmp_path, monkeypa
         ],
     )
     run_tracker(fake, monkeypatch=monkeypatch, tmp_path=tmp_path)
-    assert fake.sent == ["bank account", "info"]
+    assert fake.sent == ["bank account", "wealth"]
     text = "\n".join(fake.echoed)
     assert "gave no report" not in text
     assert "wealth: no bank account open — nothing on deposit" in text
-    assert "Kronars: on deposit 0 copper, carrying 0 copper, owing 2 gold" in text
-    assert "Lirums: on deposit 0 copper, carrying 1 bronze and 3 copper" in text
     # The net of owing more than is held (#333).
-    assert "net -2 gold, 4 bronze and 7 copper" in text
+    assert "Kronars -2.05 gold net — nothing banked, owing 2.05 gold" in text
+    assert "Lirums 1.3 bronze net — nothing banked, carrying 1.3 bronze" in text
     connection = sqlite3.connect(wealth.database_path())
     assert connection.execute(
         "SELECT COUNT(*) FROM wealth WHERE kind = 'bank'"
@@ -383,6 +379,6 @@ def test_the_first_ask_waits_past_sheets_login_inv_list():
 def test_a_silent_answer_is_reported_not_retried(tmp_path, monkeypatch):
     fake = Fake(answers=[[]])
     run_tracker(fake, monkeypatch=monkeypatch, tmp_path=tmp_path)
-    assert fake.sent == ["bank account"]  # no report, no INFO
+    assert fake.sent == ["bank account"]  # no report, no WEALTH
     assert any("gave no report" in line for line in fake.echoed)
     assert not any("on deposit" in line for line in fake.echoed)

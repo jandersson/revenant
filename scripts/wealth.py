@@ -15,17 +15,18 @@ BANK ACCOUNT the game refused for roundtime ("...wait 1 seconds."),
 asked again once the seconds have passed (#268). A character with no
 account gets the slip with zero totals and "You have no open bank
 accounts!" (captured 2026-09-26): that ends the report with nothing on
-deposit, said so, and INFO and the summary follow as for any other —
+deposit, said so, and WEALTH and the summary follow as for any other —
 it read as a silent answer and drew the Premium advice until #330.
 The first ask waits START_DELAY (45 s) past the start, clear of the
 autostarted ;sheet's login INV LIST, whose roundtime refused a BANK
 ACCOUNT sent in the same second (#330). Each branch
 line becomes a `bank` wealth row in ~/.revenant/history.db (the branch
 in the `bank` column, the report's own copper total as the amount; its
-Totals block is skipped, the branches add up to it); INFO follows,
-its carried coin and provincial debt logged as `carried` and `debt`
-rows (the shape ;sheet writes), and the two are echoed as a summary
-per currency: on deposit, carrying, owing, net. A teller's balance
+Totals block is skipped, the branches add up to it); WEALTH follows
+(INFO's Wealth and Debt blocks without the character sheet), its
+carried coin and provincial debt logged as `carried` and `debt` rows
+(the shape ;sheet writes), and the two are echoed as a summary per
+currency, the net first, each amount in its largest coin. A teller's balance
 line ("Your current balance is ...", "As expected, there are ...")
 heard in passing is logged the same way. The beholder Wealth view
 reads the table, newest row per item. Stop with:  ;stop wealth;
@@ -43,7 +44,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from client.game import probe
 from client.game.history import database_path as history_database_path
-from client.game.money import parse_wealth, phrase, to_copper
+from client.game.money import parse_wealth, phrase, short, to_copper
 
 INTERVAL = 3 * 3600  # seconds between BANK ACCOUNT asks
 # Seconds after the start before the first ask: past the login noise and
@@ -52,8 +53,8 @@ INTERVAL = 3 * 3600  # seconds between BANK ACCOUNT asks
 START_DELAY = 45
 REPORT_WAIT = 20  # seconds a report gets to arrive before it counts as none
 REPORT_SETTLE = 3  # seconds of silence after a branch line that end a report
-INFO_SECONDS = 3  # INFO's answer, opening window
-INFO_TAIL = 1.5  # ... and the tail past its (nonexistent) roundtime
+PURSE_SECONDS = 3  # WEALTH's answer, opening window
+PURSE_TAIL = 1.5  # ... and the tail past its (nonexistent) roundtime
 NO_REPORT = (
     "bank account gave no report — the ACCOUNT option is free on a Premium "
     "account and an urchin-runner service otherwise"
@@ -151,7 +152,7 @@ def record(connection, character, currency, copper, bank=None, logged_at=None):
 
 
 def record_held(connection, character, wealth, logged_at=None):
-    """INFO's carried and debt as `carried`/`debt` rows, one per
+    """WEALTH's carried and debt as `carried`/`debt` rows, one per
     currency, the shape ;sheet writes; {(kind, currency): copper}."""
     ensure_schema(connection)
     stamp = logged_at or datetime.now(timezone.utc).isoformat()
@@ -170,7 +171,7 @@ def record_held(connection, character, wealth, logged_at=None):
 
 def latest_carried_and_debt(connection, character):
     """{(kind, currency): copper} — the newest carried and debt rows
-    logged from INFO, per currency (;sheet's or this script's)."""
+    logged, per currency (;sheet's from INFO or this script's from WEALTH)."""
     ensure_schema(connection)
     latest = {}
     for kind, currency, copper in connection.execute(
@@ -184,8 +185,11 @@ def latest_carried_and_debt(connection, character):
 
 
 def summary(report, held):
-    """Lines per currency: on deposit (branches), carried, owed, net.
-    report is {(bank, currency): copper}; held is latest_carried_and_debt's."""
+    """A line per currency, the net first: "Dokoras 9,731 plat net — banked
+    9,733 plat (Shard 9,425 plat, Hibarnhvidar 308 plat), owing 1.62 plat";
+    the branches largest first, carrying and owing only when not nothing,
+    each amount money.short's. report is {(bank, currency): copper}; held
+    is latest_carried_and_debt's."""
     lines = []
     currencies = sorted({c for _, c in report} | {c for _, c in held})
     for currency in currencies:
@@ -195,13 +199,21 @@ def summary(report, held):
         owed = held.get(("debt", currency), 0)
         if not (deposited or carried or owed):
             continue  # a currency the character has nothing in
-        where = ", ".join(f"{b} {phrase(v)}" for b, v in sorted(branches.items()))
-        lines.append(
-            f"{currency}: on deposit {phrase(deposited)}"
-            + (f" ({where})" if len(branches) > 1 else "")
-            + f", carrying {phrase(carried)}, owing {phrase(owed)}"
-            f" — net {phrase(deposited + carried - owed)}"
+        where = ", ".join(
+            f"{b} {short(v)}"
+            for b, v in sorted(branches.items(), key=lambda kv: -kv[1])
         )
+        parts = [
+            f"banked {short(deposited)}" + (f" ({where})" if len(branches) > 1 else "")
+        ]
+        if not deposited:
+            parts = ["nothing banked"]
+        if carried:
+            parts.append(f"carrying {short(carried)}")
+        if owed:
+            parts.append(f"owing {short(owed)}")
+        net = short(deposited + carried - owed)
+        lines.append(f"{currency} {net} net — {', '.join(parts)}")
     return lines
 
 
@@ -225,15 +237,15 @@ def main(s):
     report, report_stamp, last_branch_at = {}, None, None
 
     def finish():
-        """The report is in: INFO for what is carried and owed right now
+        """The report is in: WEALTH for what is carried and owed right now
         (logged like ;sheet's), then the summary of both."""
         nonlocal asked_at, report, report_stamp, last_branch_at
         held = record_held(
             connection,
             character,
-            parse_wealth(probe.ask(s, "info", INFO_SECONDS, INFO_TAIL)),
+            parse_wealth(probe.ask(s, "wealth", PURSE_SECONDS, PURSE_TAIL)),
         )
-        if not held:  # INFO went unanswered: the newest logged figures
+        if not held:  # WEALTH went unanswered: the newest logged figures
             held = latest_carried_and_debt(connection, character)
         for line in summary(report, held):
             s.echo(f"wealth: {line}")
