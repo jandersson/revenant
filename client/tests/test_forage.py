@@ -435,6 +435,35 @@ def test_a_herb_the_bowl_remedies_take_crushed_goes_to_the_grinder(travel):
     assert reason.endswith("; 1 fresh stack(s) ground and combined in the backpack")
 
 
+def test_finds_in_the_bag_the_ground_stack_is_stowed_to_are_all_ground():
+    # 2026-10-12, an Empath with no loot container: the finds and the
+    # ground stack shared the backpack, the next GET took the crushed one
+    # back, and the run ended "2 ground" with two stacks still raw.
+    raw = "You get some blue flowers from inside your backpack."
+    crushed = "You get some crushed blue flowers from inside your backpack."
+    # Captured 2026-10-12 at the Tool Shop's plant grinder.
+    ground = (
+        "You place some blue flowers on the basestone and crank the handle until "
+        "the top has firmly closed down.  As you continue to crank the handle, the "
+        "grinder turns, crushing the flowers.  You then crank the grinder open and "
+        "remove some crushed blue flowers."
+    )
+    s = Fake(
+        [raw, ground, INTO_PACK]  # the first ground and stowed to the front
+        + [crushed, INTO_PACK]  # the GET takes it back: past it from here
+        + [crushed, INTO_PACK]  # the first ordinal, put back
+        + [raw, ground, crushed, COMBINED, INTO_PACK]  # the second
+        + [raw, ground, crushed, COMBINED, INTO_PACK]  # the third
+        + [NOTHING]
+    )
+    assert forage.press_herb(s, "flowers", "backpack", "grinder", "crushed") == (
+        3,
+        "backpack",
+    )
+    assert s.sent.count("put my flowers in grinder") == 3
+    assert "get my third flowers from my backpack" in s.sent
+
+
 def test_fresh_finds_a_stow_sent_to_the_backpack_are_pressed_too(travel):
     # #403 (2026-10-01): six fresh stacks sat in the backpack unpressed
     # because the press only took finds out of the sack. The backpack's

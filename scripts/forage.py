@@ -200,8 +200,9 @@ GRINDS = frozenset(
     }
 )
 _HERB_FOUND = re.compile(r"you manage to find (?:some |an? )?(?P<what>[^.!]+)", re.I)
-# The grinder's "remove some crushed" is assumed from the press's line:
-# any other answer stops the run and says it, to be captured.
+# The grinder (captured 2026-10-12, the Tool Shop): "You place some blue
+# flowers on the basestone and crank the handle ... crushing the flowers.
+# You then crank the grinder open and remove some crushed blue flowers."
 _PRESSED = ("remove some dried", "remove some crushed")
 
 
@@ -444,11 +445,11 @@ def combine_held(s, noun):
     return ask(s, f"combine {pair[0]} with {pair[1]}").lower()
 
 
-def _combine_and_stow(s, noun, home, word="dried"):
+def _combine_and_stow(s, noun, home, form="dried"):
     """The dried stack just pressed combined with the one at `home` (when
     one is there) and stowed; where the stow put it."""
     if home:
-        again = ask(s, f"get {word} {noun} from my {home}").lower()
+        again = ask(s, f"get {form} {noun} from my {home}").lower()
         if any(word in again for word in _GOT):
             joined = combine_held(s, noun)
             if not any(word in joined for word in _COMBINED):
@@ -459,7 +460,7 @@ def _combine_and_stow(s, noun, home, word="dried"):
     return home
 
 
-def press_from(s, noun, container, home, machine="press", word="dried"):
+def press_from(s, noun, container, home, machine="press", form="dried"):
     """The fresh stacks of `noun` in `container` pressed — the finds a
     STOW sent there instead of the bag (#403) — each reached by the
     plain noun's ordinals past the dried stacks, which go back to the
@@ -474,7 +475,7 @@ def press_from(s, noun, container, home, machine="press", word="dried"):
         got = ask(s, f"get my {which}{noun} from my {container}").lower()
         if not any(word in got for word in _GOT):
             break
-        if word in got:
+        if form in got:
             ask(s, f"put {held_name(s, noun)} in my {container}")
             skip += 1
             continue
@@ -488,13 +489,13 @@ def press_from(s, noun, container, home, machine="press", word="dried"):
             ask(s, f"put {held_name(s, noun)} in my {container}")
             break
         pressed_count += 1
-        home = _combine_and_stow(s, noun, home, word)
+        home = _combine_and_stow(s, noun, home, form)
         if home == container:
             skip += 1  # the dried stack went to the container's front
     return pressed_count, home
 
 
-def press_herb(s, noun, bag, machine="press", word="dried"):
+def press_herb(s, noun, bag, machine="press", form="dried"):
     """At the dry press: each raw find out of `bag` pressed and combined
     with the dried stack before it, the stack stowed — the stacks in
     hand named by their ids (held_name) — then the finds a STOW sent to
@@ -511,18 +512,26 @@ def press_herb(s, noun, bag, machine="press", word="dried"):
         got = ask(s, f"get {noun} from my {bag}").lower()
         if not any(word in got for word in _GOT):
             break  # the bag holds no more
+        if form in got:
+            # The prepared stack itself, stowed to the bag's front when the
+            # bag is where STOW puts it: the finds left are past it (an
+            # Empath's backpack, 2026-10-12: one of three ground, two left raw).
+            ask(s, f"put {held_name(s, noun)} in my {bag}")
+            more, home = press_from(s, noun, bag, home, machine, form)
+            stacks += more
+            break
         pressed = ask(s, f"put {held_name(s, noun)} in {machine}").lower()
         if not any(word in pressed for word in _PRESSED + _PREPARED):
             s.echo(f"forage: the {machine} answered {said(pressed)!r} — stopping")
             ask(s, f"put {held_name(s, noun)} in my {bag}")
             break
         stacks += 1
-        home = _combine_and_stow(s, noun, home, word)
+        home = _combine_and_stow(s, noun, home, form)
         if any(word in pressed for word in _PREPARED) and home == bag:
             break  # the bag holds only the dried stack now: all pressed
     store = home or hands.default_container(s, ask) or ""
     if store and store != bag:
-        more, home = press_from(s, noun, store, home, machine, word)
+        more, home = press_from(s, noun, store, home, machine, form)
         stacks += more
     if not stacks:
         return None
@@ -540,13 +549,13 @@ def run_herb(s, options, db=None, avoid=(), bag="sack"):
     reason, pieces, noun = gather_herb(s, options, bag)
     if not pieces:
         return reason
-    machine, word = machine_of(item)
+    machine, form = machine_of(item)
     s.echo(f"forage: {reason} — to the {machine}")
     if db is not None and not travel.go(
         s, PRESS_ROOMS, f"the {machine}", db=db, walk=walk, avoid=avoid
     ):
         return f"{reason}; could not reach the {machine} — the {noun} wait in the {bag}"
-    pressed = press_herb(s, noun, bag, machine, word)
+    pressed = press_herb(s, noun, bag, machine, form)
     if pressed is None:
         return f"{reason}; nothing to press"
     stacks, home = pressed
