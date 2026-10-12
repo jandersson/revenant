@@ -15,7 +15,9 @@ coins fall short walks to the nearest teller and WITHDRAWs the
 difference one denomination at a time — a teller that knows no
 account for you, or holds too little, stops it there with the answer
 echoed; put coins in the character's hands (GIVE from another) and
-run it again. Then it walks to the nearest debt office, PAYs, and
+run it again. A town official may take the coins from a debtor as they
+come out of the bank (Shard): the purse and the debt are read again
+after the teller. Then it walks to the nearest debt office, PAYs, and
 reads INFO again: the debt gone is the only success it reports. It
 stops on death, and walks back to where it started unless told
 `stay`. The nearest office is the map's word: a debt owed to Zoluren
@@ -97,9 +99,16 @@ def run(s, words, mapdb=None, walk_fn=walk):
     if carried < owed:
         if not fetch(s, owed - carried, currency, mapdb, walk_fn):
             return
-        # The purse alone after the teller: WEALTH's (#407); INFO stays
-        # where the debt is read beside it.
-        carried = money.carried(s, currency, ask)
+        # The purse and the debt read again after the teller: a town
+        # official takes coins from a debtor who carries them ("this
+        # partial payment reduces your debt to 6200 Dokoras", Shard,
+        # 2026-10-12), so the debt read before the withdrawal is stale.
+        fresh = money.parse_wealth(ask(s, "wealth"))
+        carried = fresh["carried"].get(currency, 0)
+        owed = fresh["debt"].get(currency, owed)
+        if not owed:
+            s.echo("debt: a town official took the coins as they came — paid")
+            return
         if carried < owed:
             s.echo(
                 f"debt: still short — carrying {phrase(carried, currency)} "

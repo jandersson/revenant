@@ -199,6 +199,36 @@ def test_a_withdrawal_that_left_you_short_stops_before_the_office():
     assert "still short" in echoes(fake)
 
 
+def test_a_town_official_who_took_part_leaves_the_rest_to_the_office():
+    # Shard, 2026-10-12: "A town official approaches you. ... this partial
+    # payment reduces your debt to 6200 Dokoras" as the platinum came out;
+    # the purse matched the smaller debt, and ;debt stopped "still short".
+    fake = Fake(
+        {
+            "info": [info(carried=0), info(carried=0, owed=0)],
+            "wealth": [info(carried=510, owed=510)],
+            "withdraw": ["ok", "ok", "ok"],
+            "pay": [PAID],
+        }
+    )
+    script.run(fake, ["pay"], mapdb=MAP, walk_fn=walk)
+    assert "still short" not in echoes(fake)
+    assert "pay all" in fake.sent
+
+
+def test_a_town_official_who_took_it_all_ends_the_run_paid():
+    fake = Fake(
+        {
+            "info": [info(carried=0)],
+            "wealth": [info(carried=0, owed=0)],
+            "withdraw": ["ok", "ok", "ok"],
+        }
+    )
+    script.run(fake, ["pay"], mapdb=MAP, walk_fn=walk)
+    assert "a town official took the coins as they came — paid" in echoes(fake)
+    assert "pay all" not in fake.sent and fake.walks == [{1900}]
+
+
 def test_a_debt_that_survives_pay_is_reported_not_claimed_paid():
     fake = Fake(
         {
