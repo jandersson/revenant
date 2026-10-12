@@ -11,6 +11,7 @@ A task is an errand an NPC gives for coin: ask a task giver, accept inside thirt
 ;task any            walk to the nearest giver whose ten minutes are up and ask
 ;task any radius=40  ... a giver at most 40 steps away
 ;task loop           task after task until one ends short (radius= too)
+;task loop representative  ... that giver's tasks only, walked back to before each ask
 ;task history        what each giver has offered: the kinds, where, the pay, the minutes
 ;task return         finish the step in hand and stop
 ```

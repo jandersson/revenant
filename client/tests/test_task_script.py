@@ -726,6 +726,28 @@ def test_loop_with_no_giver_free_waits_once_then_ends(monkeypatch):
     assert slept == [240]
 
 
+def test_loop_with_a_giver_walks_back_to_that_giver_and_asks_no_other(monkeypatch):
+    # The Estate Holder representative's skinning tasks, one after another.
+    monkeypatch.setattr(script, "now", lambda: 10_000.0)
+    fake = Fake({"ask saeru": [COOLDOWN]})
+    slept = []
+    fake.sleep = slept.append
+    done = script.loop(fake, script.parse_args(["loop", "saeru"]), {}, MAP, walk)
+    assert done == 0
+    assert fake.walks == [{10021}, {10021}]  # before each ask
+    assert [c for c in fake.sent if c.startswith("ask")] == ["ask saeru for task"]
+    assert "waiting 10 minute(s) for saeru to be free" in echoes(fake)
+    assert "ask cormyn for task" not in fake.sent
+
+
+def test_loop_with_a_giver_the_map_lacks_ends_said(monkeypatch):
+    monkeypatch.setattr(script, "now", lambda: 10_000.0)
+    fake = Fake({})
+    done = script.loop(fake, script.parse_args(["loop", "nobody"]), {}, MAP, walk)
+    assert done == 0 and not fake.walks
+    assert "nothing in the map matches nobody's room" in echoes(fake)
+
+
 def test_every_offer_and_its_pay_are_kept_and_history_reads_them(monkeypatch, tmp_path):
     # The operator, 2026-10-11: "Start tracking what task givers assign".
     monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "history.db"))

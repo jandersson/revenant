@@ -5,6 +5,7 @@
     ;task any            walk to the nearest giver whose ten minutes are up and ask
     ;task any radius=40  ... a giver at most 40 steps away
     ;task loop [radius=N] task after task: the one in hand, then the nearest free giver's
+    ;task loop <giver>   ... that giver's only, walked back to before each ask (representative)
     ;task history       what each giver has offered (history.db's tasks): the kinds, where, the pay, the minutes
     ;task return         typed while it runs: finish the step in hand and stop
 
@@ -20,7 +21,7 @@ What it does
 What stops it
 - The giver's cooldown (ten minutes between asks, kept per giver: an ask inside it is not sent, the minutes left are said), an offer of a kind the profile declines, a recipient the table does not know, a walk that ends short — each said. A shop shut for the night is waited for: the door tried each game hour (fifteen real minutes), eight times at most. A walk that ends short otherwise: ;task again from there carries on.
 - A hunt that ends without the item (a floor, a ;hunt return): ;task again hunts on.
-- The loop: a task that ends short, ;task return between tasks, or no giver free twice running (one wait for the first giver's ten minutes between). Each ask waits two minutes after the last: every giver refuses a character asked elsewhere just before.
+- The loop: a task that ends short, ;task return between tasks, or no giver free twice running (one wait for the first giver's ten minutes between; a named giver's own). Each ask waits two minutes after the last: every giver refuses a character asked elsewhere just before.
 - Delivery, searching, recovery, foraging and skinning are run by the script; kill and boss are accepted and handed over, their wordings captured on the way (#505). A herb no room on record grows is handed over too.
 
 Elanthipedia: Task; the wordings captured on Crannach's delivery (docs/tasks.md).
@@ -685,6 +686,11 @@ def run(s, options, profile, mapdb, walk_fn=walk):
         options["giver"] = to_available(s, mapdb, name, walk_fn, options.get("radius"))
         if not options["giver"]:
             return None
+    elif options.get("loop") and options["giver"]:
+        giver = options["giver"]
+        rooms = giver_rooms(mapdb, giver)
+        if not travel.go(s, rooms, f"{giver}'s room", db=mapdb, walk=walk_fn):
+            return False
     if not options["giver"]:
         s.echo("task: no task in hand — ;task <giver> asks one")
         return None
@@ -715,10 +721,11 @@ LOOP_GAP = 120
 
 def loop(s, options, profile, mapdb, walk_fn=walk):
     """;task loop: the task in hand, then the nearest free giver's, again
-    and again. No giver free: one wait for the first one's ten minutes,
-    then a second miss ends it; a task that ends short ends it (;task
-    said why); a ;task return between tasks ends it."""
-    name = character(s)
+    and again — or a named giver's alone, walked back to each time. No
+    giver free: one wait for the first one's ten minutes (the named
+    one's), then a second miss ends it; a task that ends short ends it
+    (;task said why); a ;task return between tasks ends it."""
+    name, giver = character(s), options["giver"]
     done, waited = 0, False
     while not wants_stop(s):
         gap = last_ask(name) + LOOP_GAP - now()
@@ -730,8 +737,11 @@ def loop(s, options, profile, mapdb, walk_fn=walk):
             continue
         if result is False or waited:
             break
-        left = soonest_free(name, now())
-        s.echo(f"task: waiting {math.ceil(left / 60)} minute(s) for a giver to be free")
+        left = wait_left(name, giver, now()) if giver else soonest_free(name, now())
+        s.echo(
+            f"task: waiting {math.ceil(left / 60)} minute(s) for {giver or 'a giver'} "
+            "to be free"
+        )
         s.sleep(left)
         waited = True
     s.echo(f"task: the loop ends — {done} task(s) done")
