@@ -24,7 +24,7 @@ an answer it does not know, or too many rooms without arriving.
 The model and its wordings are client/game/astral.py's (Elanthipedia: Astral Travel).
 """
 
-from client.game import astral, buffs, guild, probe, travel
+from client.game import astral, buffs, guild, probe, travel, walker
 from client.game.act import ask, said
 
 _NOTES = """
@@ -232,6 +232,15 @@ def trip(s, start, dest, mana):
     or why not."""
     pillar, town = astral.SHARDS[dest]
     s.echo(f"astral: {start} to {dest} ({town}) by the Pillar of {pillar}")
+    posture = getattr(getattr(s, "status", None), "posture", None)
+    if posture not in (None, "standing"):
+        # The cast and the conduit's moves go lying down, the ring's do
+        # not: "You can't do that while lying down." four times at the
+        # Pillar of Fortune after a fall in the mud (2026-10-12, #528).
+        stood, refusal = walker.stand(s)
+        if not stood:
+            s.echo(f"astral: cannot stand ({refusal!r}) — stopping")
+            return "posture"
     if start != "plane" and not moongate(s, start, mana):
         return "entry"
     if not astral.pillar_of(title(s)) and not follow(s, "centre", mana):

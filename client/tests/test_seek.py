@@ -189,6 +189,11 @@ def test_an_area_walks_every_room_its_title_holds_in_map_order():
     # Trade Road", 71 rooms of that title and no room for him.
     assert seek.area_route(MAP, "Street", 3) == (3, 4, 5, 1, 2)
     assert seek.area_route(MAP, "Nowhere Road") == ()
+    # A room no mapped way leads into (#528: three of the road's) is left out.
+    walled = MapDB(
+        [*MAP.rooms.values(), {"id": 9, "title": ["[Street 9]"], "wayto": {"1": "go"}}]
+    )
+    assert seek.area_route(walled, "Street") == (1, 2, 3, 4, 5)
     fake = Fake(listings={4: ["You also see Researcher Trelmik."]})
     out = run(fake, ["trelmik", "area=Street"])
     assert fake.walks == [2, 3, 4]

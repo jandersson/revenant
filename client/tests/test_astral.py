@@ -429,6 +429,26 @@ def test_left_at_a_pillar_it_goes_on_from_there_without_a_way_in():
     assert "cast vellano" not in plane.sent and plane.sent[0] == "west"
 
 
+def test_lying_down_it_stands_before_the_ring(monkeypatch):
+    # 2026-10-12 (#528): a fall in the mud before the crossing, and all
+    # four ring moves at Fortune answered "You can't do that while lying down."
+    stands = []
+    plane = first_trip()
+    plane.status = SimpleNamespace(posture="prone")
+    plane.state.room_title = "[Astral Plane, Pillar of Unity]"
+    plane.state.room_objs = ""
+    monkeypatch.setattr(
+        script.walker, "stand", lambda s: (stands.append(1) or True, "")
+    )
+    assert run(plane, "besoge") == "arrived" and stands == [1]
+    stuck = first_trip()
+    stuck.status = SimpleNamespace(posture="prone")
+    monkeypatch.setattr(
+        script.walker, "stand", lambda s: (False, "You are overburdened")
+    )
+    assert run(stuck, "besoge") == "posture" and stuck.sent == []
+
+
 def test_no_shard_in_the_room_or_an_unknown_destination_sends_nothing():
     plane = Plane(centre={}, end={})
     plane.state.room_objs = "You also see a ladder."

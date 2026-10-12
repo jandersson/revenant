@@ -753,7 +753,12 @@ def test_a_recipient_named_only_by_a_road_is_sought_along_its_rooms():
     road = MapDB(
         [
             {"id": 5101, "uid": [51], "title": ["[Reshalia Trade Road]"]},
-            {"id": 8261, "uid": [1], "title": ["[Cormyn's House of Heirlooms]"]},
+            {
+                "id": 8261,
+                "uid": [1],
+                "title": ["[Cormyn's House of Heirlooms]"],
+                "wayto": {"5101": "out"},  # a road room no way leads into is not sought
+            },
         ]
     )
     paid = PAID.replace("Saeru", "Researcher Trelmik")

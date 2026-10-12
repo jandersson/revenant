@@ -201,6 +201,8 @@ class ClimbHandle(FakeHandle):
     KNEELING = "You can't do that while kneeling!\n"
     # A plain move sent sitting (captured 2026-10-02, #411).
     SEATED = "You can't do that while sitting!\n"
+    # Reshalia Trade Road's mud (captured 2026-10-12, #528).
+    SLIP = "You slip in the mud and fall flat on your back!\n"
     # STAND's answers (#411): each STAND takes the next of `stands`, "ok"
     # once the list is spent.
     STANDS = {
@@ -233,6 +235,11 @@ class ClimbHandle(FakeHandle):
                 self.pending = [("", self.KNEELING)]  # a plain move's refusal (#220)
             elif answer == "seated":
                 self.pending = [("", self.SEATED)]
+            elif answer == "slip":
+                self.pending = [("", self.SLIP)]
+            elif answer == "silent":  # thrown down by a wording not yet known
+                self.pending = []
+                self.status = SimpleNamespace(posture="prone")
             else:
                 self.pending = [("", HINDER), ("", self.ANSWERS[answer])]
 
@@ -507,6 +514,22 @@ def test_a_move_refused_for_kneeling_stands_and_retries_once():
     assert puts_of(stuck) == ["climb felled tree", "stand", "climb felled tree"]
     assert any("still cannot move" in echo for echo in stuck.echoes)
     assert not any("retreat" in put for put in puts_of(stuck))
+
+
+def test_a_move_that_throws_you_down_stands_and_retries():
+    # #528: Reshalia Trade Road's mud, 2026-10-12 — the slip read as a
+    # stall, the RETREAT burst drew "You must stand first." and the step
+    # was closed as turned back.
+    handle = ClimbHandle(uids=[224006], answers=["slip", "ok"])
+    handle.state.room_uid = 224005
+    assert walker.walk(handle, TREE, [5705]) is True
+    assert puts_of(handle) == ["climb felled tree", "stand", "climb felled tree"]
+    assert any("You slip in the mud" in echo for echo in handle.echoes)
+    # Down by a wording not known yet: the parser's posture says so.
+    silent = ClimbHandle(uids=[224006], answers=["silent", "ok"])
+    silent.state.room_uid = 224005
+    assert walker.walk(silent, TREE, [5705]) is True
+    assert puts_of(silent) == ["climb felled tree", "stand", "climb felled tree"]
 
 
 def test_a_walk_stands_first_when_the_parser_says_you_are_not_standing():
@@ -2971,6 +2994,43 @@ def test_a_crossing_refused_in_a_room_steps_out_and_crosses_from_the_next(mage):
     assert walker.walk(handle, shop, [7]) is True
     assert handle.started == [("astral", ["besoge"]), ("astral", ["besoge"])]
     assert puts_of(handle) == ["out", "go door"]
+
+
+class PlaneHandle(AstralHandle):
+    """A crossing that stops at a pillar `stops` times before it lands:
+    the game sends no uid in the plane, so the last one stays."""
+
+    def __init__(self, uids, stops):
+        super().__init__(uids)
+        self.stops = stops
+
+    def run(self, name, args=()):
+        self.started.append((name, list(args)))
+        if self.stops:
+            self.stops -= 1
+            self.state.room_title = "[Astral Plane, Pillar of Fortune]"
+        else:
+            self.state.room_title = "[Caress-of-the-Moons Manor, Hall]"
+            self.state.room_uid = 6991
+        return True
+
+
+def test_a_crossing_stopped_in_the_plane_goes_on_from_there(mage):
+    # 2026-10-12 (#528): a crossing stopped at the Pillar of Fortune and
+    # the walk, reading the stale uid as Reshalia Trade Road, sent `east`
+    # and the ring's PUSH from the pillar.
+    handle = PlaneHandle([107], stops=1)
+    handle.state.room_uid = 101
+    assert walker.walk(handle, ISLAND, [7]) is True
+    assert handle.started == [("astral", ["besoge"]), ("astral", ["besoge"])]
+    assert puts_of(handle) == ["go door"]
+    # Left there twice: the walk stops, nothing sent on foot.
+    stuck = PlaneHandle([107], stops=2)
+    stuck.state.room_uid = 101
+    assert walker.walk(stuck, ISLAND, [7]) is False
+    assert puts_of(stuck) == []
+    assert any(";astral besoge finishes the crossing" in e for e in stuck.echoes)
+    assert walker.locate(ISLAND, stuck.state) is None
 
 
 def test_below_the_100th_circle_or_a_shard_not_learned_there_is_no_crossing(

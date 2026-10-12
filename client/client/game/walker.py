@@ -290,6 +290,12 @@ POSTURE_REFUSALS = ("You must be standing", "You must stand first")
 # Honor's chapel, #220); the sitting and lying wordings are assumed.
 # STAND and one retry, not the engaged-stall burst.
 KNEELING_REFUSALS = ("while kneeling", "while sitting", "while lying down")
+# A move that throws the character down instead: "You slip in the mud and
+# fall flat on your back!" on Reshalia Trade Road's farmland (Crannach,
+# 2026-10-11 and three times on 2026-10-12, #528). It read as a stall, the
+# RETREAT burst drew "You must stand first.", and the step was closed as
+# turned back. The same STAND and one retry as a kneeling refusal.
+FALLS = ("fall flat on your back",)
 # STAND's answers, captured: "You stand back up.", "You are already
 # standing.", and two refusals — "You are overburdened and cannot
 # manage to stand." (Roundtime 9-10 s; #411, a box run that sat on
@@ -478,7 +484,7 @@ def locate(db, state):
     (uid_room); titles collide (roads repeat the same title), so the
     title+exits guess is only the fallback. None when position is
     unknown."""
-    if state is None:
+    if state is None or in_plane(state):
         return None
     by_uid = uid_room(db, state)
     if by_uid is not None:
@@ -492,6 +498,15 @@ def locate(db, state):
     return _disambiguate(db, candidates, state.compass)
 
 
+def in_plane(state):
+    """True in the Astral Plane: the game sends no room uid there, so the
+    parser's is the last mapped room's ("[Astral Plane, Pillar of
+    Fortune] (5123)", a Reshalia Trade Road room, 2026-10-12, #528) and
+    a walk planned from it sent compass moves and a ring PUSH from a
+    pillar. The map's pillar rooms are an old layout; nowhere is known."""
+    return astral.IN_PLANE in str(getattr(state, "room_title", "") or "")
+
+
 NEAR_STEPS = 3  # how far from the uid's room a sub-room is looked for
 
 
@@ -503,6 +518,8 @@ def uid_room(db, state):
     titled otherwise, the nearest room carrying the game's title, a few
     steps out, is where the character stands. Titles only: descriptions
     change with the time of day and with events."""
+    if in_plane(state):
+        return None
     uid = getattr(state, "room_uid", None)
     mapped = db.room_by_uid(uid) if uid else None
     title = getattr(state, "room_title", None)
@@ -1412,7 +1429,7 @@ def await_arrival(s, timeout=ARRIVAL_TIMEOUT):
             return "shut", hindering, "".join(seen)
         if any(needle in text for needle in GATE_REFUSALS + WAY_REFUSALS):
             return "closed", hindering, "".join(seen)
-        if any(needle in text for needle in KNEELING_REFUSALS):
+        if any(needle in text for needle in KNEELING_REFUSALS + FALLS):
             return "posture", hindering, "".join(seen)
         if ROUNDTIME_WAIT.search(text):
             return "roundtime", hindering, "".join(seen)
@@ -1726,9 +1743,23 @@ def _follow(s, db, route, here, closed, fetched=True):
             return False
         if leg := leg_of(command):
             script, args, what = leg
-            if not ran(s, script, args) or not db.same_place(
+            arrived = ran(s, script, args) and db.same_place(
                 uid_room(db, s.state), dest
-            ):
+            )
+            if not arrived and in_plane(s.state):
+                # Stopped inside the plane (#528): ;astral goes on from
+                # where it stands, once; never a step on foot from there.
+                s.echo(f"{what} stopped in the Astral Plane — going on from there")
+                arrived = ran(s, script, args) and db.same_place(
+                    uid_room(db, s.state), dest
+                )
+                if not arrived and in_plane(s.state):
+                    s.echo(
+                        f"left in the Astral Plane — ;astral {' '.join(args)} "
+                        "finishes the crossing; stopping here"
+                    )
+                    return False
+            if not arrived:
                 closed.add((here, dest))
                 if script == "astral":
                     # A room magic will not form in refuses every crossing
@@ -1804,10 +1835,13 @@ def _follow(s, db, route, here, closed, fetched=True):
             s.put(move)
             outcome, hindering, wording = await_arrival(s)
         note_climb(s, move, outcome, wording, dest)
+        posture = getattr(getattr(s, "status", None), "posture", None)
+        if outcome == "stalled" and posture not in (None, "standing"):
+            outcome = "posture"  # down by a wording FALLS does not know yet
         if outcome == "posture":
             # Kneeling (a prayer), sitting or lying: STAND and one retry
             # (#220); the engaged-stall burst below would not help.
-            first = answer_line(wording, KNEELING_REFUSALS)
+            first = answer_line(wording, KNEELING_REFUSALS + FALLS)
             s.waitrt()
             stood, refusal = stand(s)
             if not stood:

@@ -302,7 +302,9 @@ def area_route(db, area, here=None):
     road's rooms run in sequence), begun at `here` when it is one of
     them: a recipient named only by where he stands ("Researcher Trelmik
     in Reshalia Trade Road", the barkeep's task, 2026-10-11); () when no
-    title holds it."""
+    title holds it. A room no mapped way leads into is left out: three
+    of that road's 71 (7144, 12395, 51461) cost a "no walkable path"
+    every lap (#528)."""
     from client.game.mapdb import normalize_title
 
     text = normalize_title(str(area or "")).strip()
@@ -313,6 +315,7 @@ def area_route(db, area, here=None):
             room
             for room, entry in db.rooms.items()
             if any(text in normalize_title(title) for title in entry.get("title") or ())
+            and db.graph.in_degree(room)
         )
     )
     if here in rooms:

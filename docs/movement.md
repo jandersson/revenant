@@ -21,7 +21,7 @@
 
 ## What the walk does for you
 
-- **Stands up first** if you are sitting or kneeling, and reads the answer: overburdened, it stops with "bank or stow the load first" instead of walking on seated; unbalanced, it waits a moment and stands again.
+- **Stands up first** if you are sitting or kneeling, and reads the answer: overburdened, it stops with "bank or stow the load first" instead of walking on seated; unbalanced, it waits a moment and stands again. A step that throws you down (mud on Reshalia Trade Road) gets a STAND and the step again.
 - **Waits out roundtime** before every step; a step the game answers "...wait N seconds." is sent again once that roundtime is over.
 - **Searches for hidden ways:** a map edge that SEARCHes first repeats the SEARCH (15 at most) until something is found — one often finds nothing.
 - **Escapes an engagement:** a step that stalls gets RETREAT, RETREAT and the step again, once.
@@ -49,7 +49,7 @@ A mammoth is joined (`join sea mammoth`) once the dock lists it or its driver ca
 
 A character with an Estate Holder ring (the profile's `estate_ring`, e.g. `copper band`, worn) is PUSHed to Fang Cove when the walk from there is far shorter — about 300 steps or more — or the only one; from inside Fang Cove a PULL returns to the room the walker last pushed from. The walker STUDYs the ring first, since each verb is charged once an hour. PUSH works only outdoors; refused, the walk goes on foot. After a PUSH no exit portal is planned: it returns you to the town you last came in by.
 
-A Moon Mage standing at a Grazhir shard crosses the Astral Plane to another with `;astral <shard>` (`;astral list` names the shards learned): Moongate in, the pillars, Moongate out, about four minutes. From the 100th circle it starts from any room, casting at Grazhir itself, and every walk crosses to a learned shard when that beats the walk or nothing else reaches the goal (Hara'jaal from the mainland); `;astral list` puts the learned shards on record for it. `harness=` sets the mana held (100 by default); `from=<shard>` walks to a shard first, and `;astral learn <shard>` walks there and studies it until it is learned.
+A Moon Mage standing at a Grazhir shard crosses the Astral Plane to another with `;astral <shard>` (`;astral list` names the shards learned): Moongate in, the pillars, Moongate out, about four minutes. From the 100th circle it starts from any room, casting at Grazhir itself, and every walk crosses to a learned shard when that beats the walk or nothing else reaches the goal (Hara'jaal from the mainland); `;astral list` puts the learned shards on record for it; a crossing that stops inside the plane is taken on from there once, never walked on foot. `harness=` sets the mana held (100 by default); `from=<shard>` walks to a shard first, and `;astral learn <shard>` walks there and studies it until it is learned.
 
 A Moon Mage can leave a moonbeam and teleport back to it: `;moonbeam` focuses one where you stand (outdoors) on the moon with the most time left, and `;moonbeam teleport` returns to it from afar. A beam lasts no longer than its moon is up, so the teleport first checks the moon with PERCEIVE MOONS and the beam with Distant Gaze, and casts nothing if either is gone: Teleport on a moon that is down kills. The mana is DISCERN's most unless `mana=` names it. Every walk (`;go2`, a hunt's way home, a task's hand-in) teleports to a beam on record when that beats the walk, ahead of the ring; refused, it walks.
 
