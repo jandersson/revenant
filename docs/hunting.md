@@ -48,7 +48,7 @@ File → Character Profile, or `~/.revenant/profiles/<name>.json`. The keys a hu
 | `wound_floor` | break off at a wound this bad; empty is `harmful`, `off` never checks |
 | `train_skills` | end when all of these mind-lock |
 | `max_kills` | end after this many kills (0: no limit) |
-| `weapons`, `weapon_target`, `weapon_minutes`, `brawling` | the weapon rotation, below |
+| `weapons`, `weapon_target`, `weapon_minutes` | the weapon rotation, below |
 | `buffs`, `train_casting`, `cambrinth*`, `cast_gap`, `debilitation`, `targeted` | spells, below |
 | `smite` | Paladin: a swing is SMITE each time the game says "The strength of your conviction has fully returned." (about a minute; the minute itself if the line is missed), for Conviction |
 | `tactics` | maneuvers (`bob`, `circle`, `weave`) every third swing, for Tactics |
@@ -94,7 +94,7 @@ A style named after a ground is that ground's own settings: it is laid over when
 - Once every weapon is past the target, the emptiest unlocked one fights on to lock.
 - A locked skill's weapon sits out until it drains. All locked ends the hunt, unless a `targeted` or `debilitation` spell still trains its skill: then the locked weapon fights on for it.
 - A weapon that goes 20 swings without a kill hands over to the next.
-- `fists:Brawling` swings the `brawling` attacks (`punch`, `kick`, `elbow`) with empty hands; worn knuckles and a parry stick still work. `["attack"]` leaves the move to the game. With `brawling` empty, the fists turn is skipped.
+- `fists:Brawling` swings ATTACK with empty hands and the game picks the brawling move; worn knuckles and a parry stick still work.
 - With `weapons` empty, the hunt uses `weapon` alone.
 
 ## What ends a hunt
@@ -151,7 +151,7 @@ A box is matched to its creature by its item id, which holds within one login. A
 - **`train_casting`** (e.g. `Augmentation, Warding, Utility`, or `all`) recasts a buff every `cast_gap` seconds (60) for the named skill with the emptiest pool. Its mana starts a step under what DISCERN says you can hold and climbs to it; a cambrinth charge counts toward that. Each skill is trained by the first buff DISCERN says uses it; a skill no buff uses is named once.
 - **`cambrinth`** charges a piece with `cambrinth_mana` before each training cast, for Arcana. Set `cambrinth_worn` for an anklet or armband; a worn piece is removed to charge. The piece must not outrank your Arcana (a 1- or 5-mana piece at 0 ranks).
 - **`debilitation`** (e.g. `Stun Foe`) and **`targeted`** (e.g. `Footman's Strike`) are cast at the prey on the same gap. Either may name several spells, comma-separated (`Dinazen Olkar, Partial Displacement`), cast in turn on that one gap. The training casts take turns, so a swing never carries two. A creature the spell kills is counted and looted like a swing's kill.
-- A caster with no weapon brawls between casts: `weapons` `fists:Brawling`, `brawling` the attacks for the worn gear (`claw` for hand claws, `elbow`, `kick`), and the two spell slots (a Moon Mage: `Dinazen Olkar`, `Mental Blast`).
+- A caster with no weapon brawls between casts: `weapons` `fists:Brawling` and the two spell slots (a Moon Mage: `Dinazen Olkar`, `Mental Blast`).
 - Mana never ramps past what DISCERN says you can hold; a cast that strains or backfires holds a step under for the rest of the run. A spell your ranks cannot cast is turned off for the run, with the rank it needs.
 - Barbarians cast nothing: `analyze`, `abilities` and `roar` fill the same roles.
 

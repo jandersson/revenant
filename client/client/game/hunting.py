@@ -544,9 +544,7 @@ class Tally:
         self.tracking_off = False  # HUNT refused this run, said once
         self.swings = 0  # swings this run, against MAX_ACTIONS
         self.check_wounds = False  # HEALTH before the next swing (a kill, a hit)
-        self.fists_warned = False  # "no brawling attacks" said once
         self.armed = None  # the weapon the turn in hand drew ("" for the fists)
-        self.brawl = 0  # the brawling attacks' rotation index (#238)
         self.weapon = 0  # the weapons' rotation index: the turn in hand (#238)
         self.rotated_at = 0  # the kill count the weapon last turned on
         self.turn_started = 0  # tally.swings when the turn in hand began
@@ -603,11 +601,6 @@ def maneuvers(profile):
     return [m.strip().lower() for m in profile.get("tactics") or [] if m.strip()]
 
 
-def brawling(profile):
-    """The profile's brawling attacks, lower-case, blanks dropped."""
-    return [m.strip().lower() for m in profile.get("brawling") or [] if m.strip()]
-
-
 FISTS = (
     "",
     "fists",
@@ -657,16 +650,15 @@ def has_turns(profile):
 
 def fists_turn(profile):
     """True while the turn in hand is the fists (profile `weapon` is "",
-    as `arm` sets it for that turn)."""
-    return not profile["weapon"] and bool(brawling(profile))
+    as `arm` sets it for that turn). It swings ATTACK and the game picks
+    the brawling move (the operator, 2026-10-13: "stop sending anything
+    but attack ... when brawling")."""
+    return not profile["weapon"]
 
 
-def plain_swing(profile, verb):
-    """True for a swing that is not a tactical maneuver: ATTACK, SMITE,
-    or a brawling attack on the fists turn."""
-    return verb in ("attack", "smite") or (
-        fists_turn(profile) and verb in brawling(profile)
-    )
+def plain_swing(verb):
+    """True for a swing that is not a tactical maneuver: ATTACK or SMITE."""
+    return verb in ("attack", "smite")
 
 
 DEFAULT_WEAPON_TARGET = 30
@@ -805,11 +797,6 @@ def swing_verb(profile, tally, state=None):
     ):
         verb = rotation[tally.tactic % len(rotation)]
         tally.tactic += 1
-        return verb
-    if fists_turn(profile):
-        attacks = brawling(profile)
-        verb = attacks[tally.brawl % len(attacks)]
-        tally.brawl += 1
         return verb
     return "attack"
 

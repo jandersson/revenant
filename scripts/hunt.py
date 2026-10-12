@@ -120,7 +120,6 @@ named = hunting.named
 free_smites = hunting.free_smites
 wound_floor = hunting.wound_floor
 maneuvers = hunting.maneuvers
-brawling = hunting.brawling
 parse_weapon = hunting.parse_weapon
 weapon_plan = hunting.weapon_plan
 has_turns = hunting.has_turns
@@ -294,17 +293,15 @@ container — WIELD finds it wherever it sits and remembers the place
 (#259: the scimitar in the sack, the profile naming the scabbard, and
 the turn swung bare-handed, before WIELD did the searching;
 Elanthipedia: Wield command, Sheathe command — DRAW is an attack
-maneuver, never the draw); the fists turn draws nothing and swings the profile's
-`brawling` attacks in rotation — PUNCH, KICK, ELBOW (Elanthipedia:
-Brawling skill, Punch command, Elbow command) — with the hands empty,
-since PUNCH wants a free hand and a worn parry stick parries as it
-is (Elanthipedia: Parry Ability skill), brass knuckles likewise.
-Captured 2026-09-20 on a striped badger, the first live fists turn:
-"you punch your brass knuckle at a striped badger" (the worn knuckles
-are the fist), "you kick your foot at a striped badger", "you elbow
-your plate-clad elbow at a striped badger" — each shaped like a
-weapon swing in the combat stream, the kill line the same, so the
-attacks need no table of their own. A
+maneuver, never the draw); the fists turn draws nothing and swings
+ATTACK with the hands empty, the game choosing the brawling move (the
+operator, 2026-10-13: "stop sending anything but attack ... when
+brawling"; a rotation of PUNCH, KICK and ELBOW from the profile's
+`brawling` list before) — a worn parry stick parries as it is
+(Elanthipedia: Parry Ability skill), brass knuckles likewise. The
+brawling lines ("you punch your brass knuckle at a striped badger",
+2026-09-20) are shaped like a weapon swing in the combat stream, the
+kill line the same, so they need no table of their own. A
 weapon whose skill sits at mind-lock is skipped until it drains; all
 of them locked ends the hunt. A turn that goes twenty swings without a
 kill passes to the next (a new weapon at rank 3 cannot finish the
@@ -415,12 +412,7 @@ ADVANCE_WAIT = 10  # seconds for "melee range" before the next ATTACK
 # on a badger closing from pole range): "You must be closer to use
 # tactical abilities on your opponent." — the loop ADVANCEs on the prey
 # and waits for melee range, as ATTACK's own advance would.
-# PUNCH and KICK at range fall through the same way (captured 2026-09-20
-# on a badger closing from pole range, #257): PUNCH answers "Actually,
-# using a weapon would probably be a bit more effective." and KICK its
-# emote, "You kick some dirt on a striped badger in disgust." — neither
-# with a roundtime, so the filler loop spent three commands in a second.
-_NEED_MELEE = ("must be closer", "using a weapon would probably", "kick some dirt")
+_NEED_MELEE = ("must be closer",)
 # SMITE (captured 2026-09-13 on a rat): "Drawing strength from your
 # conviction, you execute a divinely inspired strike!" then the swing
 # line as ATTACK would give it, 6 s roundtime. From range it answers
@@ -555,8 +547,7 @@ def next_turn(s, profile, tally, from_current=False, leave=False):
     in hand over (a stalled turn). None when no turn is open: every skill
     is locked (a turn with no skill never locks and is never below the
     target — it fights when nothing else can) or, with `leave`, the one
-    in hand is the only one. The fists turn is skipped when the profile
-    lists no brawling attacks, said once."""
+    in hand is the only one."""
     plan = weapon_plan(profile)
     if from_current:
         order = list(range(len(plan)))
@@ -566,13 +557,6 @@ def next_turn(s, profile, tally, from_current=False, leave=False):
     for index in order:
         entry = plan[index]
         if entry["skill"] and locked(s.state, [entry["skill"]]):
-            continue
-        if not entry["weapon"] and not brawling(profile):
-            if not tally.fists_warned:
-                tally.fists_warned = True
-                s.echo(
-                    "hunt: the profile lists no brawling attacks — fists turn skipped"
-                )
             continue
         if leave and index == tally.weapon:
             continue
@@ -2021,8 +2005,9 @@ def swing(s, profile, tally, prey):
     if verb == "smite" and (tally.smite_off or not smite_allowed(s, tally)):
         verb = "attack"
     combo = False
-    if verb == "attack":
-        # A Barbarian's self-combo takes the place of ATTACK (#328).
+    if verb == "attack" and not fists_turn(profile):
+        # A Barbarian's self-combo takes the place of ATTACK (#328); its
+        # attacks want a weapon, so the fists turn keeps its ATTACK.
         attack = barbarian.next_combo_attack(
             s,
             profile,
@@ -2045,12 +2030,10 @@ def swing(s, profile, tally, prey):
     tally.stuns += sum(lowered.count(word) for word in _STUNNED)
     if any(word in lowered for word in _STILL_STUNNED):
         # Nothing went out (#336): the attack keeps its place in the
-        # combo, the maneuver and the brawling attack their turn.
+        # combo, the maneuver its turn.
         if combo:
             tally.barb.combo.insert(0, verb)
-        elif fists_turn(profile) and verb in brawling(profile):
-            tally.brawl = max(0, tally.brawl - 1)
-        elif not plain_swing(profile, verb):
+        elif not plain_swing(verb):
             tally.tactic = max(0, tally.tactic - 1)
         tally.stunned_swings += 1
         wait_out_stun(s)
@@ -2063,7 +2046,7 @@ def swing(s, profile, tally, prey):
         hunting.note_smite(tally, s.state)  # spent only when it struck
     if verb == "smite" and any(word in lowered for word in _SMITE_NO_WEAPON):
         hunting.note_smite(tally, s.state)  # refused: not again this minute (#396)
-    if combo or plain_swing(profile, verb):
+    if combo or plain_swing(verb):
         tally.since_maneuver += 1
     else:
         tally.since_maneuver = 0

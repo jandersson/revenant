@@ -173,8 +173,8 @@ DEFAULTS = {
     "roar": "",
     # The weapons the hunt trains, each with the skill it trains —
     # "noun:Skill[:container]", the container where it is kept between
-    # turns ("handaxe:Small Edged:sack"), or "fists:Brawling" for the
-    # brawling attacks with nothing in hand (a parry stick and knuckles
+    # turns ("handaxe:Small Edged:sack"), or "fists:Brawling" for ATTACK
+    # with nothing in hand, the game picking the move (a parry stick and knuckles
     # are worn and work worn). The one with the emptiest pool fights
     # until its skill reaches `weapon_target`, then the next emptiest
     # takes over, so one more skill is moving at each hand-over (the
@@ -191,12 +191,6 @@ DEFAULTS = {
     # one sword at 4/34 and three weapons untouched in thirty minutes
     # (the operator, 2026-10-02). 0 leaves it to the target alone.
     "weapon_minutes": 10,
-    # The brawling attacks in rotation for the fists turn ("punch",
-    # "kick", "elbow" — Elanthipedia: Brawling skill; punch wants a
-    # free hand, elbow and kick none), which is what trains Brawling;
-    # ["attack"] leaves the move to the game.
-    # [] means the fists turn has nothing to swing and is skipped.
-    "brawling": [],
     # HUNT for tracks when a room of the ground empties, at most once
     # per 75 seconds while Perception sits below lock — HUNT teaches
     # Perception on that timer (Elanthipedia: Hunt command, #194).
@@ -415,12 +409,6 @@ FIELDS = (
         "Minutes a weapon keeps the hands at most",
         "int",
         "10; 0: until its target",
-    ),
-    (
-        "brawling",
-        "Brawling attacks for the fists turn (Brawling)",
-        "list",
-        "punch, kick, elbow — empty: the fists turn is skipped",
     ),
     ("attune_start", ";attune walks to (;go2 target)", "str", "empty: from here"),
     (

@@ -75,11 +75,12 @@ def test_no_combo_once_expertise_locks_or_without_the_profile(travel):
         assert "attack rat" in arena.sent
 
 
-def test_the_fists_turn_swings_its_brawling_not_the_combo(travel):
+def test_the_fists_turn_swings_attack_not_the_combo(travel):
+    # The combo's attacks want a weapon; bare-handed it is ATTACK.
     arena = Arena(
         {
             "analyze flame": [COMBO] * 3,
-            "punch": [(KILL, kill)] * 3,
+            "attack": [(KILL, kill)] * 3,
             "skin": [SKINNED] * 9,
             "loot": [NOTHING] * 9,
         },
@@ -88,12 +89,11 @@ def test_the_fists_turn_swings_its_brawling_not_the_combo(travel):
     )
     fists = ANALYZING | {
         "weapons": ["fists:Brawling"],
-        "brawling": ["punch"],
         "max_kills": 2,
     }
     _run(arena, profile=fists, travel_first=False)
     assert not any(c.startswith("analyze") for c in arena.sent)
-    assert "punch rat" in arena.sent
+    assert "attack rat" in arena.sent
 
 
 def test_an_ability_goes_up_before_the_walk_and_a_roar_at_the_prey(travel):

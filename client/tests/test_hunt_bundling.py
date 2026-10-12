@@ -117,7 +117,7 @@ def test_a_cambrinth_held_for_a_cast_goes_back_on_for_the_rope(travel):
 
     arena = Arena(
         {
-            "punch": [(KILL, kill_with_anklet_held)],
+            "attack": [(KILL, kill_with_anklet_held)],
             "tap": ["I could not find what you were referring to."],
             "skin": [(PELT_LOOSE, skin_in_hand)],
             "get my bundling rope": [
@@ -132,7 +132,6 @@ def test_a_cambrinth_held_for_a_cast_goes_back_on_for_the_rope(travel):
     _hands(arena, right=None)
     fists = BUNDLING | {
         "weapon": "",
-        "brawling": ["punch"],
         "cambrinth": "anklet",
         "cambrinth_worn": True,
     }

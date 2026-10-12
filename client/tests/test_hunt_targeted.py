@@ -130,7 +130,6 @@ DO_KILL = (
 CASTER = PROFILE | {
     "weapon": "",
     "weapons": ["fists:Brawling"],
-    "brawling": ["claw"],
     "prey": "",
     "skin": False,
     "targeted": "dinazen olkar",
@@ -138,11 +137,11 @@ CASTER = PROFILE | {
 
 
 def test_a_kill_by_the_spell_is_counted_and_looted_like_a_swings(travel):
-    # The claw misses; the cast kills. No swing reports the corpse, so
+    # The swing misses; the cast kills. No swing reports the corpse, so
     # the loop's own look at the listing credits it before walking on.
     arena = Arena(
         {
-            "claw": [(MISSED, _stands)] * 3,
+            "attack": [(MISSED, _stands)] * 3,
             "prepare": ["You raise one hand before you and concentrate."] * 3,
             "target": [TARGETING] * 3,
             "cast": [(DO_KILL, kill)],

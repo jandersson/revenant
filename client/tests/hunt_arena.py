@@ -172,12 +172,6 @@ PUNCHED = (
 )
 
 
-PUNCH_MISSED = (
-    "< You punch your brass knuckle at a striped badger.  A striped badger "
-    "evades, just stepping out of harm's way.  "
-)
-
-
 KICKED = (
     "< Moving with indomitable grace, you kick your foot at a striped badger.  "
     "A striped badger fails to dodge, avoiding only some of the blow.  The foot "
@@ -318,7 +312,6 @@ def _run(arena, profile=PROFILE, travel_first=True):
 
 ROTATING = PROFILE | {
     "weapons": ["handaxe:Small Edged:sack", "fists:Brawling"],
-    "brawling": ["punch", "kick", "elbow"],
     "tactics": [],
 }
 

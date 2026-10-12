@@ -32,7 +32,6 @@ from hunt_arena import (
     PELT_LOOSE,
     PROFILE,
     PUNCHED,
-    PUNCH_MISSED,
     Patient,
     RAT_KILL,
     ROTATING,
@@ -73,9 +72,8 @@ def test_the_emptiest_weapon_fills_to_the_target_then_the_next_takes_over(
     # profile's weapon_target (30); then the next emptiest takes over.
     # It was one weapon per kill (#238). The fists turn draws nothing
     # (the parry stick and the knuckles are worn and work worn) and
-    # swings PUNCH, KICK, ELBOW in turn — the answers are the captured
-    # ones, a hit, a miss and a hit, none of them read as anything but a
-    # swing that did not kill.
+    # swings ATTACK, the game picking the move — the answers are the
+    # captured brawling lines, none of them read as anything but a swing.
     def brawling_filled(arena):
         arena.state.experience["Brawling"]["mindstate"] = 30
         _stands(arena)
@@ -83,10 +81,12 @@ def test_the_emptiest_weapon_fills_to_the_target_then_the_next_takes_over(
     arena = _run(
         Arena(
             {
-                "attack": [(KILL, kill)],
-                "punch": [PUNCHED + "\n", PUNCH_MISSED + "\n"],
-                "kick": [(KICKED + "\n" + KILL, _stands)],
-                "elbow": [(ELBOWED + "\n" + KILL, brawling_filled)],
+                "attack": [
+                    PUNCHED + "\n",
+                    (KICKED + "\n" + KILL, _stands),
+                    (ELBOWED + "\n" + KILL, brawling_filled),
+                    (KILL, kill),
+                ],
                 "skin": [SKINNED] * 3,
                 "loot": [NOTHING] * 3,
             },
@@ -105,9 +105,9 @@ def test_the_emptiest_weapon_fills_to_the_target_then_the_next_takes_over(
         or c.startswith(("wield my", "sheathe my handaxe", "get my", "stow my"))
     ]
     assert fights == [
-        "punch rat",  # Brawling's pool (5) is the emptiest: the fists first
-        "kick rat",  # the first kill, Brawling still below 30: fists again
-        "elbow rat",  # the second kill fills Brawling to 30
+        "attack rat",  # Brawling's pool (5) is the emptiest: the fists first
+        "attack rat",  # the first kill, Brawling still below 30: fists again
+        "attack rat",  # the second kill fills Brawling to 30
         "wield my handaxe",  # Small Edged (10) takes over
         "attack rat",
     ]
@@ -204,7 +204,7 @@ def test_a_single_fists_turn_hunts_bare_handed_whatever_the_weapon_says(travel):
     arena = _run(
         Arena(
             {
-                "punch": [PUNCHED + "\n", (KILL, kill)],
+                "attack": [PUNCHED + "\n", (KILL, kill)],
                 "skin": [SKINNED],
                 "loot": [NOTHING],
             },
@@ -216,20 +216,19 @@ def test_a_single_fists_turn_hunts_bare_handed_whatever_the_weapon_says(travel):
     assert not any(
         c.startswith(("get my handaxe", "put my handaxe")) for c in arena.sent
     )
-    assert arena.sent.count("punch rat") == 2
-    assert "attack rat" not in arena.sent
+    assert arena.sent.count("attack rat") == 2
     assert any("hunt: fists for Brawling (5/34)" in t for t in arena.echoed)
     assert not any("unrecognized" in t for t in arena.echoed)
 
 
-def test_the_fists_turn_of_a_paladin_punches_and_never_smites(travel):
+def test_the_fists_turn_of_a_paladin_attacks_and_never_smites(travel):
     # 2026-10-01 (#396): every fists turn at the blood wolves sent one
     # PUNCH, then SMITE after SMITE — refused bare-handed, no roundtime,
     # a second apart — and handed over "20 swings without a kill".
     arena = _run(
         Arena(
             {
-                "punch": [PUNCHED + "\n", (KILL, kill)],
+                "attack": [PUNCHED + "\n", (KILL, kill)],
                 "smite": [SMITE_NO_WEAPON] * 5,
                 "skin": [SKINNED],
                 "loot": [NOTHING],
@@ -240,7 +239,7 @@ def test_the_fists_turn_of_a_paladin_punches_and_never_smites(travel):
         travel_first=False,
     )
     assert not any(c.startswith("smite") for c in arena.sent)
-    assert arena.sent.count("punch rat") == 2
+    assert arena.sent.count("attack rat") == 2
 
 
 def test_a_smite_refused_for_want_of_a_weapon_waits_its_minute(travel, monkeypatch):
@@ -269,7 +268,7 @@ def test_a_locked_weapon_skill_sits_out_and_all_locked_ends_the_hunt(travel):
     arena = _run(
         Arena(
             {
-                "punch": [(KILL, _stands), (KILL, kill)],
+                "attack": [(KILL, _stands), (KILL, kill)],
                 "skin": [SKINNED] * 2,
                 "loot": [NOTHING] * 2,
             },
@@ -278,14 +277,14 @@ def test_a_locked_weapon_skill_sits_out_and_all_locked_ends_the_hunt(travel):
                 "Brawling": {"rank": 7, "percent": 0, "mindstate": 5},
             },
         ),
-        profile=ROTATING | {"brawling": ["punch"], "max_kills": 2},
+        profile=ROTATING | {"max_kills": 2},
         travel_first=False,
     )
     assert not any(c.startswith("get my handaxe") for c in arena.sent)
-    assert arena.sent.count("punch rat") == 2
+    assert arena.sent.count("attack rat") == 2
     both = _run(
-        Arena({"punch": [(KILL, _stands)], "skin": [SKINNED], "loot": [NOTHING]}),
-        profile=ROTATING | {"brawling": ["punch"]},
+        Arena({"attack": [(KILL, _stands)], "skin": [SKINNED], "loot": [NOTHING]}),
+        profile=ROTATING,
         travel_first=False,
     )
     assert any("every weapon skill is mind-locked" in t for t in both.echoed) or True
@@ -298,7 +297,6 @@ def test_a_locked_weapon_skill_sits_out_and_all_locked_ends_the_hunt(travel):
     assert hunt.weapon_plan(PROFILE) == [
         {"weapon": "handaxe", "skill": "", "container": "sack"}
     ]
-    assert hunt.brawling(PROFILE) == []  # the fists turn is skipped with none
 
 
 def test_a_tool_left_in_hand_from_the_last_run_is_stowed_before_the_draw(travel):
@@ -310,14 +308,13 @@ def test_a_tool_left_in_hand_from_the_last_run_is_stowed_before_the_draw(travel)
     arena.state.right_hand = {"noun": "rag", "exist": "1"}
     _run(arena)
     assert arena.sent[:2] == ["stow my rag", "wield my handaxe"]
-    fists = Arena({"punch": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
+    fists = Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
     fists.state.left_hand = None
     fists.state.right_hand = {"noun": "handaxe", "exist": "1"}
-    _run(fists, profile=PROFILE | {"weapon": "", "brawling": ["punch"]})
+    _run(fists, profile=PROFILE | {"weapon": ""})
     assert fists.sent[:2] == ["stow my handaxe", "stance set 100 80 0"]
     assert any(text.startswith("hunt: rat down (1)") for text in arena.echoed)
     assert not any("unrecognized" in text for text in arena.echoed)
-    assert hunt.brawling(PROFILE) == []  # nothing to swing with none listed
 
 
 def test_another_turns_weapon_left_in_hand_is_sheathed_where_it_lives(travel):
@@ -1832,8 +1829,8 @@ def test_a_turn_that_cannot_kill_hands_over_before_the_hunt_breaks_off(travel):
     arena = _run(
         Arena(
             {
-                "attack": [(MISSED, _stands)] * hunt.TURN_STALL_SWINGS,
-                "punch": [(KILL, kill)],
+                "attack": [(MISSED, _stands)] * hunt.TURN_STALL_SWINGS
+                + [(KILL, kill)],  # the fists' first ATTACK kills
                 "skin": [SKINNED],
                 "loot": [NOTHING],
             },
@@ -1849,7 +1846,7 @@ def test_a_turn_that_cannot_kill_hands_over_before_the_hunt_breaks_off(travel):
         f"handaxe has gone {hunt.TURN_STALL_SWINGS} swings without a kill" in text
         for text in arena.echoed
     )
-    assert "punch rat" in arena.sent or "punch" in " ".join(arena.sent)
+    assert arena.sent.count("attack rat") == hunt.TURN_STALL_SWINGS + 1
     assert not any("the ground is beyond you" in text for text in arena.echoed)
 
 
