@@ -2304,6 +2304,9 @@ def loop(s, profile, db, ground, avoid, tally):
             return (
                 f"{tally.task_hides} {profile['task_hide']}(s) cut — the task's count"
             )
+        if profile.get("task_hides") and not profile["skin"]:
+            # SKIN found no knife, worn or held, or no room for a hide.
+            return f"skinning is off — no {profile['task_hide']} can be cut"
         current = health(s.state)
         if current is not None and current < floor:
             escape(s, db)

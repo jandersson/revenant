@@ -419,15 +419,6 @@ def test_a_skinning_task_is_hunted_then_given_a_hide_at_a_time():
     assert "done — the barkeep paid 785 Kronars" in out
 
 
-def test_a_skinning_task_with_nothing_to_skin_with_is_handed_over():
-    # A fists-only profile with no skin_knife would kill for no hide.
-    fake = Skinning({"task": [JOURNAL_SKINNING]})
-    profile = {"weapons": ["fists:Brawling"]}
-    script.run(fake, script.parse_args([]), profile, TAVERN, walk)
-    assert fake.started == [] and not fake.walks
-    assert "no skin_knife to skin with; yours from here" in echoes(fake)
-
-
 def test_a_kind_in_task_declines_is_declined_inside_the_window():
     fake = Fake({"ask cormyn": [RECOVERY_OFFER], "decline": [LAPSED]})
     out = run(fake, ["cormyn"], declines=("recovery",))

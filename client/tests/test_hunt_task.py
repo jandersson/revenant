@@ -186,6 +186,26 @@ def test_a_skinning_hunt_ends_at_the_tasks_count(bull_yard, travel):
     assert not any(command.startswith("bundle") for command in arena.sent)
 
 
+def test_a_skinning_hunt_with_nothing_to_skin_with_ends_at_the_first_skin(
+    bull_yard, travel
+):
+    # A worn knife needs no skin_knife (the hunt SKINs and the game uses
+    # it); with none, the first SKIN says so and the hunt kills no more.
+    arena = Arena(
+        {
+            "attack": [(KILL, lambda a: None), (KILL, kill)],
+            "skin": ["You have nothing to skin with."],
+            "loot": [NOTHING] * 2,
+        }
+    )
+    tasks.record("Lanival", SKINNING)
+    overlaid, ground = hunt.task_profile(arena, dict(TASK_PROFILE), GROUND)
+    overlaid["prey"] = ""
+    hunt.hunt(arena, overlaid, GROUND, travel_first=False, ground=ground)
+    assert "skinning is off — no storm bull hide can be cut" in "\n".join(arena.echoed)
+    assert sum(command.startswith("attack") for command in arena.sent) == 1
+
+
 def test_no_ground_for_the_creature_is_said():
     arena = Arena({})
     tasks.record("Lanival", {**SKINNING, "creature": "glass dragon"})
