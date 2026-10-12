@@ -265,8 +265,8 @@ def test_a_maneuver_from_range_advances_on_the_prey_and_waits_for_melee(travel):
 def test_a_bare_handed_attacks_punch_or_kick_at_range_advances_on_the_prey(travel):
     # Captured 2026-09-20 on a badger closing from pole range (#257): the
     # brawling PUNCH quips about a weapon, the KICK kicks dirt, neither
-    # with a roundtime. A bare-handed ATTACK cycles those moves, so its
-    # answer can be either; both mean ADVANCE.
+    # with a roundtime. ATTACK cycles the moves of whatever is in hand,
+    # bare-handed those two, so its answer can be either; both mean ADVANCE.
     quip = "Actually, using a weapon would probably be a bit more effective.\n"
     dirt = "You kick some dirt on a striped badger in disgust.\n"
     arena = _run(

@@ -650,9 +650,9 @@ def has_turns(profile):
 
 def fists_turn(profile):
     """True while the turn in hand is the fists (profile `weapon` is "",
-    as `arm` sets it for that turn). It swings ATTACK and the game picks
-    the brawling move (the operator, 2026-10-13: "stop sending anything
-    but attack ... when brawling")."""
+    as `arm` sets it for that turn). It swings ATTACK, which cycles the
+    brawling moves as it cycles any weapon's (the operator, 2026-10-13:
+    "stop sending anything but attack ... when brawling")."""
     return not profile["weapon"]
 
 

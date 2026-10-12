@@ -294,7 +294,8 @@ container — WIELD finds it wherever it sits and remembers the place
 the turn swung bare-handed, before WIELD did the searching;
 Elanthipedia: Wield command, Sheathe command — DRAW is an attack
 maneuver, never the draw); the fists turn draws nothing and swings
-ATTACK with the hands empty, the game choosing the brawling move (the
+ATTACK with the hands empty, the game cycling the brawling moves as it
+cycles any weapon's (the
 operator, 2026-10-13: "stop sending anything but attack ... when
 brawling"; a rotation of PUNCH, KICK and ELBOW from the profile's
 `brawling` list before) — a worn parry stick parries as it is
@@ -412,8 +413,8 @@ ADVANCE_WAIT = 10  # seconds for "melee range" before the next ATTACK
 # on a badger closing from pole range): "You must be closer to use
 # tactical abilities on your opponent." — the loop ADVANCEs on the prey
 # and waits for melee range, as ATTACK's own advance would.
-# A bare-handed ATTACK cycles the brawling moves, and its PUNCH and KICK
-# at range fall through the same way (captured 2026-09-20 on a badger
+# ATTACK cycles the moves of whatever is in hand, and bare-handed its
+# PUNCH and KICK at range fall through the same way (captured 2026-09-20 on a badger
 # closing from pole range, #257): "Actually, using a weapon would
 # probably be a bit more effective." and "You kick some dirt on a
 # striped badger in disgust." — neither with a roundtime.
