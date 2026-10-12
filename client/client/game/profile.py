@@ -193,7 +193,8 @@ DEFAULTS = {
     "weapon_minutes": 10,
     # The brawling attacks in rotation for the fists turn ("punch",
     # "kick", "elbow" — Elanthipedia: Brawling skill; punch wants a
-    # free hand, elbow and kick none), which is what trains Brawling.
+    # free hand, elbow and kick none), which is what trains Brawling;
+    # ["attack"] leaves the move to the game.
     # [] means the fists turn has nothing to swing and is skipped.
     "brawling": [],
     # HUNT for tracks when a room of the ground empties, at most once

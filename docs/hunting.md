@@ -94,7 +94,7 @@ A style named after a ground is that ground's own settings: it is laid over when
 - Once every weapon is past the target, the emptiest unlocked one fights on to lock.
 - A locked skill's weapon sits out until it drains. All locked ends the hunt, unless a `targeted` or `debilitation` spell still trains its skill: then the locked weapon fights on for it.
 - A weapon that goes 20 swings without a kill hands over to the next.
-- `fists:Brawling` swings the `brawling` attacks (`punch`, `kick`, `elbow`) with empty hands; worn knuckles and a parry stick still work. With `brawling` empty, the fists turn is skipped.
+- `fists:Brawling` swings the `brawling` attacks (`punch`, `kick`, `elbow`) with empty hands; worn knuckles and a parry stick still work. `["attack"]` leaves the move to the game. With `brawling` empty, the fists turn is skipped.
 - With `weapons` empty, the hunt uses `weapon` alone.
 
 ## What ends a hunt
