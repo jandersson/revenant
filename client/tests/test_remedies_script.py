@@ -201,7 +201,7 @@ def ledger_rows():
 def test_the_head_salve_is_studied_crushed_watered_catalysed_and_stowed():
     fake = Fake(
         {
-            "study my book": [TOO_HARD],
+            "study my remed book": [TOO_HARD],
             "get my dried nemoih": ["You get some dried nemoih."],
             "put my nemoih in my mortar": ["You put your nemoih in your iron mortar."],
             "get my water": ["You get some water."],
@@ -220,12 +220,12 @@ def test_the_head_salve_is_studied_crushed_watered_catalysed_and_stowed():
     )
     out = run(fake, ["count=1"])
     assert "sheathe my scimitar" in fake.sent
-    assert fake.sent.index("study my book") < fake.sent.index(
+    assert fake.sent.index("study my remed book") < fake.sent.index(
         "put my nemoih in my mortar"
     )
     assert (
-        "turn my book to chapter 3" in fake.sent
-        and "turn my book to page 4" in fake.sent
+        "turn my remed book to chapter 3" in fake.sent
+        and "turn my remed book to page 4" in fake.sent
     )
     assert "beyond the ranks" in out
     assert crushes(fake) == [
@@ -253,7 +253,7 @@ def test_without_a_catalyst_the_salve_waits_in_the_mortar():
     )
     fake = Fake(
         {
-            "study my book": [TOO_HARD],
+            "study my remed book": [TOO_HARD],
             "crush my nemoih in my mortar with my pestle": [CRUSHED],
             "crush my salve in my mortar with my pestle": [NEED_CATALYST],
         },
@@ -277,7 +277,7 @@ def test_a_remedy_left_in_the_mortar_is_finished_first_and_the_mortar_freed():
     # remedy in the mortar is finished, taken out and stowed first.
     fake = Fake(
         {
-            "study my book": [TOO_HARD],
+            "study my remed book": [TOO_HARD],
             "get my dried nemoih": ["You get some dried nemoih."],
             "put my nemoih in my mortar": [
                 BUSY_MORTAR,
@@ -298,7 +298,7 @@ def test_a_remedy_left_in_the_mortar_is_finished_first_and_the_mortar_freed():
     assert "remedies: head salve finished (1)" in out
     # The neck salve's page (3, 1) studied before its crush, the head
     # salve's (3, 4) before the nemoih went in.
-    assert fake.sent.index("turn my book to page 1") < fake.sent.index(
+    assert fake.sent.index("turn my remed book to page 1") < fake.sent.index(
         "get my salve from my mortar"
     )
     assert fake.sent.count("put my nemoih in my mortar") == 2
@@ -322,7 +322,7 @@ def test_the_mortar_is_looked_in_first_and_a_leftover_finished_before_the_study(
                 "In the iron mortar you see some unfinished georin salve.\n",
                 "There is nothing in there.\n",
             ],
-            "study my book": [TOO_HARD],
+            "study my remed book": [TOO_HARD],
             "get my dried nemoih": ["You get some dried nemoih."],
             "put my nemoih in my mortar": ["You put your nemoih in your iron mortar."],
             "crush my nemoih in my mortar with my pestle": [CRUSHED],
@@ -335,8 +335,8 @@ def test_the_mortar_is_looked_in_first_and_a_leftover_finished_before_the_study(
     assert "remedies: head salve finished (1)" in out
     # The neck salve's page studied and crushed before the head salve's
     # page; the nemoih went in only once the mortar was free.
-    assert fake.sent.index("turn my book to page 1") < fake.sent.index(
-        "turn my book to page 4"
+    assert fake.sent.index("turn my remed book to page 1") < fake.sent.index(
+        "turn my remed book to page 4"
     )
     assert fake.sent.index("get my salve from my mortar") < fake.sent.index(
         "put my nemoih in my mortar"
@@ -351,7 +351,7 @@ def test_the_mortar_is_looked_in_first_and_a_leftover_finished_before_the_study(
 def test_a_crush_refused_again_and_again_ends_the_run_instead_of_spinning():
     fake = Fake(
         {
-            "study my book": [TOO_HARD],
+            "study my remed book": [TOO_HARD],
             "get my dried nemoih": ["You get some dried nemoih."],
             "put my nemoih in my mortar": ["You put your nemoih in your iron mortar."],
             "crush my nemoih in my mortar with my pestle": ["Crush what?\n"],
@@ -368,30 +368,30 @@ def test_a_spent_study_is_studied_again_and_a_second_refusal_ends_it():
     # the right herb was refused until the page was studied again.
     fake = Fake(
         {
-            "study my book": [STUDIED],
+            "study my remed book": [STUDIED],
             "crush my nemoih in my mortar with my pestle": [NO_INSTRUCTIONS, CRUSHED],
             "crush my salve in my mortar with my pestle": [FINISHED],
         },
         mindstates=[0, 1, 2, 3],
     )
     out = run(fake, ["count=1"])
-    assert fake.sent.count("study my book") == 2
+    assert fake.sent.count("study my remed book") == 2
     assert "head salve finished (1)" in out
     stubborn = Fake(
         {
-            "study my book": [STUDIED],
+            "study my remed book": [STUDIED],
             "crush my nemoih in my mortar with my pestle": [NO_INSTRUCTIONS],
         }
     )
     out = run(stubborn)
-    assert stubborn.sent.count("study my book") == 2
+    assert stubborn.sent.count("study my remed book") == 2
     assert "wrong page or herb" in out
 
 
 def test_a_typed_return_ends_after_the_crush_in_hand_and_the_lock_holds():
     fake = Fake(
         {
-            "study my book": [STUDIED],
+            "study my remed book": [STUDIED],
             "crush my nemoih in my mortar with my pestle": [CRUSHED],
             "crush my salve in my mortar with my pestle": [CRUSHED],
         },
@@ -403,7 +403,7 @@ def test_a_typed_return_ends_after_the_crush_in_hand_and_the_lock_holds():
     assert "stopped" in out
     locked = Fake(
         {
-            "study my book": [STUDIED],
+            "study my remed book": [STUDIED],
             "crush my nemoih in my mortar with my pestle": [CRUSHED],
             "crush my salve in my mortar with my pestle": [CRUSHED],
         },
@@ -414,10 +414,10 @@ def test_a_typed_return_ends_after_the_crush_in_hand_and_the_lock_holds():
 
 
 def test_no_herb_no_book_and_no_alchemy_are_said_and_end():
-    fake = Fake({"study my book": [STUDIED], "get my dried nemoih": [MISSING]})
+    fake = Fake({"study my remed book": [STUDIED], "get my dried nemoih": [MISSING]})
     out = run(fake)
     assert "no dried nemoih on you" in out
-    bookless = Fake({"get my book": [MISSING]})
+    bookless = Fake({"get my remed book": [MISSING]})
     out = run(bookless)
     assert "no remedies book on you" in out
     assert crushes(bookless) == []
@@ -432,7 +432,7 @@ def test_a_work_order_is_asked_crafted_bundled_and_handed_in():
     fake = Fake(
         {
             "ask lanshado for easy remedies work": [ORDER],
-            "study my book": [STUDIED],
+            "study my remed book": [STUDIED],
             "get my dried flowers": ["You get some dried red flowers."],
             "put my flowers in my mortar": [
                 "You put your flowers in your iron mortar."
@@ -471,10 +471,10 @@ def test_a_work_order_is_asked_crafted_bundled_and_handed_in():
         "order — 2 stack(s) of blister cream, finely-crafted, due in 65 roisaen" in out
     )
     assert (
-        "turn my book to chapter 2" in fake.sent
-        and "turn my book to page 1" in fake.sent
+        "turn my remed book to chapter 2" in fake.sent
+        and "turn my remed book to page 1" in fake.sent
     )
-    assert fake.sent.count("study my book") == 2  # once per stack
+    assert fake.sent.count("study my remed book") == 2  # once per stack
     assert fake.sent.count("bundle my cream with my logbook") == 2
     assert "stow my nemoih" in fake.sent  # the second herb's stack goes back
     assert fake.sent.index("stow my mortar") < fake.sent.index(
@@ -508,7 +508,7 @@ def work_answers(**extra):
     return {
         "ask lanshado for easy remedies work": [ORDER],
         "read my logbook": [LOGBOOK_NONE, LOGBOOK_OPEN, LOGBOOK_DONE],
-        "study my book": [STUDIED],
+        "study my remed book": [STUDIED],
         "get my dried flowers": ["You get some dried red flowers."],
         "put my flowers in my mortar": ["You put your flowers in your iron mortar."],
         "get my water": ["You get some water."],
@@ -529,6 +529,33 @@ def work_answers(**extra):
         "bundle my cream with my logbook": [BUNDLED],
         "give my logbook to lanshado": [PAID],
     } | extra
+
+
+def test_any_item_of_the_book_is_made_on_demand_its_herbs_bought():
+    # The operator, 2026-10-12: ";remedies should be able to craft items
+    # outside of being needed for a work order". One blister cream with no
+    # red flowers on you: bought at the Supplies, crushed, and the run ends.
+    fake = Fake(
+        work_answers(
+            wealth=[WEALTH_POOR],
+            **{
+                "get my dried flowers": [MISSING, "You get some dried red flowers."],
+                "order 13": [QUOTE, BOUGHT],
+                "crush my cream in my mortar with my pestle": [
+                    NEED_HERB,
+                    NEED_CATALYST,
+                    FINISHED,
+                ],
+            },
+        ),
+        mindstates=[3] + [5] * 30,
+    )
+    out = run(fake, ["blister", "count=1"])
+    assert "turn my remed book to chapter 2" in fake.sent
+    assert "turn my remed book to page 1" in fake.sent
+    assert fake.walked == ["8862"] and fake.sent.count("order 13") == 2
+    assert "remedies: blister cream finished (1)" in out and "1 made" in out
+    assert not any(line.startswith("ask lanshado") for line in fake.sent)
 
 
 def test_the_herbs_water_and_coal_are_bought_as_they_run_out():
@@ -569,7 +596,7 @@ def test_the_herbs_water_and_coal_are_bought_as_they_run_out():
     # The stack begun goes on after a restock: the flowers go in once
     # per stack, and the page is studied again before the crushes resume.
     assert crushes(fake).count("crush my flowers in my mortar with my pestle") == 2
-    assert fake.sent.count("study my book") == 5  # three restocks, two stacks
+    assert fake.sent.count("study my remed book") == 5  # three restocks, two stacks
     # 686 flowers, 62 water, 212 the massive nugget: the stock is spent in
     # this order.
     assert "order 1 paid 1146 Kronars (186 clear of 960 spent so far)" in out
@@ -597,7 +624,7 @@ def ointment_answers(**extra):
     return {
         "ask lanshado for easy remedies work": [ORDER_OINTMENT],
         "read my logbook": [LOGBOOK_NONE, LOGBOOK_OPEN, LOGBOOK_DONE],
-        "study my book": [STUDIED],
+        "study my remed book": [STUDIED],
         "get my dried flowers": ["You get some dried red flowers."],
         "put my flowers in my mortar": ["You put your flowers in your iron mortar."],
         "get my alcohol": ["You get some grain alcohol."],
@@ -623,7 +650,7 @@ def test_an_ointment_is_crushed_with_alcohol_not_water():
     # alcohol" was an answer the table lacked (#427).
     fake = Fake(ointment_answers(), mindstates=[3] + [5] * 20)
     out = run(fake, ["work", "count=1"])
-    assert "turn my book to page 2" in fake.sent
+    assert "turn my remed book to page 2" in fake.sent
     assert fake.sent.count("pour my alcohol in my mortar") == 2  # once a stack
     assert "get my water" not in fake.sent
     assert "stow my alcohol" in fake.sent
@@ -1449,7 +1476,7 @@ def test_a_catalyst_the_remedy_refuses_stops_the_craft_not_a_loop():
     # until the 400-crush fuse while the work order's timer ran.
     fake = Fake(
         {
-            "study my book": [TOO_HARD],
+            "study my remed book": [TOO_HARD],
             "get my dried nemoih": ["You get some dried nemoih."],
             "put my nemoih in my mortar": ["You put your nemoih in your iron mortar."],
             "get my nugget": ["You get a medium lead nugget."],
@@ -1927,7 +1954,7 @@ def test_a_buy_that_leaves_the_load_overburdened_stops_the_run():
         in out
     )
     assert "Overburdened after buying flowers — the order waits in the logbook" in out
-    assert "study my book" not in fake.sent[fake.sent.index("encumbrance") :]
+    assert "study my remed book" not in fake.sent[fake.sent.index("encumbrance") :]
 
 
 def test_a_load_short_of_the_limit_passes_the_buy():
@@ -2069,7 +2096,7 @@ def test_the_tools_are_named_whole_from_the_profile():
     )
     fake = Fake(
         {
-            "study my book": [TOO_HARD],
+            "study my remed book": [TOO_HARD],
             "crush my nemoih in my mortar with my pestle": [CRUSHED],
             "crush my salve in my mortar with my pestle": [NEED_CATALYST],
         },
@@ -2105,7 +2132,7 @@ def test_a_catalyst_the_game_cannot_get_stops_the_craft_not_a_loop():
     )
     fake = Fake(
         {
-            "study my book": [TOO_HARD],
+            "study my remed book": [TOO_HARD],
             "get my massive coal nugget": ["Please rephrase that command."] * 5,
             "crush my nemoih in my mortar with my pestle": [CRUSHED],
             "crush my salve in my mortar with my pestle": [NEED_CATALYST] * 6,

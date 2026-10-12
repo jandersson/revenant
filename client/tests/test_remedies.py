@@ -256,6 +256,9 @@ def test_the_arguments():
     }
     assert remedies.parse_args(["ledger"])["ledger"] is True
     assert remedies.parse_args(["salve=bogus"])["salve"] == "head"
+    # Any page on record, by its first word (2026-10-12).
+    assert remedies.parse_args(["blister", "cream", "count=1"])["salve"] == "blister"
+    assert remedies.PRODUCTS["blister"] == "blister cream"
     assert remedies.parse_args(["merge"])["merge"] is True
 
 

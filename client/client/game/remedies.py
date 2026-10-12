@@ -111,6 +111,10 @@ RECIPES = {
 LIQUIDS = ("water", "alcohol")
 # The training default: a chapter-3 salve, one herb the society sells.
 SALVES = {name.split()[0]: RECIPES[name] for name in RECIPES if RECIPES[name][0] == 3}
+# Every page on record by its first word ("blister" for blister cream):
+# ;remedies makes any of them for a character who needs one, not only an
+# order's (the operator, 2026-10-12).
+PRODUCTS = {name.split()[0]: name for name in RECIPES}
 CHAPTER = 3
 HERB_SALVE = {spec[2]: salve for salve, spec in SALVES.items()}
 
@@ -350,7 +354,8 @@ ROUNDTIME = re.compile(r"roundtime:\s*(\d+)\s*sec", re.IGNORECASE)
 
 def parse_args(args):
     """{"salve", "until", "once", "count", "work", "level", "ledger"} from
-    ;remedies' arguments: the salve to train on ("head" by default),
+    ;remedies' arguments: the item to make by its first word, any page
+    on record ("head" by default, "blister" for blister cream),
     until= the Alchemy mindstate to stop at (34), `once` to exit at the
     lock, count= remedies (or orders, with work) before ending,
     `work [easy|challenging|hard]` for the society's orders instead of
@@ -368,9 +373,9 @@ def parse_args(args):
     }
     for arg in args:
         key, sep, value = str(arg).lower().partition("=")
-        if sep and key == "salve" and value in SALVES:
+        if sep and key == "salve" and value in PRODUCTS:
             options["salve"] = value
-        elif not sep and key in SALVES:
+        elif not sep and key in PRODUCTS:
             options["salve"] = key
         elif sep and key == "until" and value.isdigit():
             options["until"] = int(value)

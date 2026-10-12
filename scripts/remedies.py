@@ -1,9 +1,9 @@
 """Train Alchemy crushing remedies, or fill the society's work orders:  ;remedies
 
     ;remedies                 the head salve, CRUSHed until Alchemy mind-locks
-    ;remedies <salve>         another chapter-3 salve (neck, abdominal, chest, head, back, eye;
-                              or salve=<name>); its dried herb must be on you
-    ;remedies count=2         finish that many remedies (orders, with work), then end
+    ;remedies <item>          any item of the book by its first word: blister, moisturizing, itch,
+                              wart, or a salve (neck, abdominal, chest, head, back, eye)
+    ;remedies blister count=1 make just that many (orders, with work), then end
     ;remedies until=30        stop at that mindstate instead of 34
     ;remedies once            end at mind-lock instead of holding or, with work, working on
     ;remedies work            the Alchemy Society's easy work orders, one after another, for the pay
@@ -92,6 +92,7 @@ from client.game.remedies import (
     ORDER_EXPIRED,
     ORDER_TRIES,
     POURED,
+    PRODUCTS,
     remedy_in_mortar,
     unfinished_in_mortar,
     REJECTED,
@@ -130,6 +131,7 @@ _NOTES = """Train Alchemy by crushing remedies in the mortar, and fill the socie
 
     ;remedies                 the head salve — dried nemoih in the mortar, CRUSHed until Alchemy mind-locks
     ;remedies chest           another chapter-3 salve (neck, abdominal, chest, head, back, eye); its dried herb must be on you
+                              (since 2026-10-12 any page on record, blister cream included, its herbs bought when short)
     ;remedies count=2         finish that many remedies, then end
     ;remedies until=30        stop at that mindstate instead of 34
     ;remedies once            exit at mind-lock instead of holding for the drain
@@ -306,17 +308,20 @@ def study(s, chapter, page, what):
     when the book is not on you or the game did not say it is ready."""
     # The mortar and pestle fill both hands ("You need a free hand to
     # pick that up.", 2026-09-22): the pestle down for the book, up after.
+    # REMED BOOK, dr-scripts' remedy.lic noun: an Empath's pack listed a
+    # master shaping book ahead of the remedies one, which MY BOOK would
+    # take (2026-10-12); "remed" fits "remedy" and "remedies" books alike.
     ask(s, f"stow {my('pestle')}")
-    answer = ask(s, "get my book")
+    answer = ask(s, "get my remed book")
     if missing(answer):
         s.echo("remedies: no remedies book on you — stopping")
         ask(s, f"get {my('pestle')}")
         return False
-    ask(s, f"turn my book to chapter {chapter}")
-    ask(s, f"turn my book to page {page}")
-    answer = ask(s, "study my book")
+    ask(s, f"turn my remed book to chapter {chapter}")
+    ask(s, f"turn my remed book to page {page}")
+    answer = ask(s, "study my remed book")
     s.waitrt()
-    ask(s, "stow my book")
+    ask(s, "stow my remed book")
     ask(s, f"get {my('pestle')}")
     lowered = answer.lower()
     if any(word in lowered for word in TOO_HARD):
@@ -749,32 +754,40 @@ def tools_in_hand(s):
 
 
 def train(s, options, profile):
-    """The training loop: the chapter-3 salve crushed until the lock."""
-    salve = options["salve"]
-    spec = recipe(f"{salve} salve")
+    """The training loop: the book's item crushed until the lock, or
+    `count` of them made; what runs short is bought as for an order."""
+    name = PRODUCTS[options["salve"]]
+    spec = recipe(name)
     catalyst = str(profile.get("catalyst") or "").strip()
     if not tools_in_hand(s):
         return
-    s.echo(
-        f"remedies: {salve} salve from dried {spec[2]} — {SKILL} {mindstate(s, SKILL)}/34"
-    )
-    tally = {"crushes": 0, "unrecognized": 0}
-    salves = 0
+    s.echo(f"remedies: {name} from dried {spec[2]} — {SKILL} {mindstate(s, SKILL)}/34")
+    tally = {"crushes": 0, "unrecognized": 0, "spent": 0}
+    made = 0
     while True:
-        why = craft(s, spec, f"the {salve} salve", catalyst, options, tally)
+        why = craft(s, spec, f"the {name}", catalyst, options, tally)
         if why is None:
-            salves += 1
-            s.echo(f"remedies: {salve} salve finished ({salves})")
+            made += 1
+            s.echo(f"remedies: {name} finished ({made})")
             take_out(s, spec[4])
             hands.stow(s, spec[4], ask=ask)
-            if options["count"] and salves >= options["count"]:
-                why = f"{salves} salve(s) made"
+            if options["count"] and made >= options["count"]:
+                why = f"{made} made"
                 break
             if not tools_in_hand(s):
                 return
             continue
-        break
-    s.echo(f"remedies: {why} — {salves} salve(s), {SKILL} {mindstate(s, SKILL)}/34")
+        ask(s, f"stow {my('pestle')}")
+        ask(s, f"stow {my('mortar')}")
+        owed = max(1, options["count"] - made)
+        bought = restock(s, spec, catalyst, why, owed, tally, profile)
+        if not bought:
+            if bought is False:
+                why = tally.pop("why", None) or f"out of {why}"
+            break
+        if not tools_in_hand(s):
+            return
+    s.echo(f"remedies: {why} — {made} made, {SKILL} {mindstate(s, SKILL)}/34")
     ask(s, f"stow {my('pestle')}")
     ask(s, f"stow {my('mortar')}")
 
