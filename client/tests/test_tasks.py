@@ -383,6 +383,16 @@ def test_the_recipients_room_comes_from_the_givers_table():
     assert tasks.recipient_rooms(db, "Nobody") == set()
 
 
+def test_the_estate_holder_representative_stands_by_fang_coves_portal():
+    # Skinning tasks only (Elanthipedia: Task); the room from DR Lich
+    # Discord: "...a shimmering EXIT portal and an Estate Holder representative."
+    db = MapDB(
+        [{"id": 8308, "uid": [7], "title": ["[Fang Cove, Fate's Fortune Lane]"]}]
+    )
+    assert tasks.recipient_rooms(db, "an Estate Holder representative") == {8308}
+    assert "Representative" in tasks.available_givers("Lanival", 0.0)
+
+
 def test_a_towns_trade_minister_is_found_by_the_town():
     # Cormyn, 2026-10-11: "I have a small item that needs to be taken to
     # the Stone Clan trade minister in Stone Clan."

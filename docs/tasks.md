@@ -59,4 +59,4 @@ give <item> to <person>   a delivery's end: the recipient pays
 - **A skin, not a part.** A bare SKIN takes a creature's part when it has one (a storm bull's jagged horn). A skinning task's hunt sends `ARRANGE <corpse> FOR SKIN` first, and the SKIN after it cuts the hide ([hunting.md](hunting.md#arrange-which-piece-skin-takes)).
 - **The giver's pool.** Cormyn offered the same far item recovery twice before a delivery; a script's allowed kinds and areas decide the accept.
 
-Givers and their task kinds are on Elanthipedia's Task page; the Crossing has Cormyn (House of Heirlooms), Amfitro (Viper's Nest Inn) and the guild leaders. See [movement.md](movement.md) for the walker and [bibliography.md](bibliography.md) for the sources.
+Givers and their task kinds are on Elanthipedia's Task page; the Crossing has Cormyn (House of Heirlooms), Amfitro (Viper's Nest Inn) and the guild leaders, and an Estate Holder representative beside Fang Cove's EXIT portal gives skinning tasks only. See [movement.md](movement.md) for the walker and [bibliography.md](bibliography.md) for the sources.

@@ -180,6 +180,11 @@ GIVERS = {
     "Clerk": "Undershard, Derleth's Teahouse",  # a bored-looking clerk
     "Sh'aar": "The Enclave, Sh'aar's Trove",  # Dumi Sh'aar
     "Sephina": "Sephina's Lockbane",
+    # An Estate Holder representative, skinning tasks only (Elanthipedia:
+    # Task), beside Fang Cove's EXIT portal (DR Lich Discord #general,
+    # 2025-01-04 and 2022-10-17: "[Fang Cove, Fate's Fortune Lane] ... a
+    # shimmering EXIT portal and an Estate Holder representative").
+    "Representative": "8308",
     # Guild leaders by map id (their rooms' titles repeat town to town),
     # from dr-scripts' data/base-town.yaml guild_leaders (#511); a
     # two-word name is listed under both words.
