@@ -104,7 +104,8 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   `shop.py` (`buy`, `afford`: one purchase, the quote checked, the sale
   closed the shop's way); `repair.py`; `outfit.py` (`;outfit`, a new
   character's essentials); `remedies.py` + `workorders.py` +
-  `herbstacks.py` (a dried herb's stacks merged to full ones of 75);
+  `herbstacks.py` (a dried herb's stacks merged to full ones of 75) +
+  `craftlog.py` (each finished item ANALYZEd: quality and skill rank in history.db);
   `walker.py` + `mapdb.py` (the community map, downloaded, never
   vendored); `possessions.py`; `novelty.py` (`;sentinel`: never a
   canned reply, never a command found in text executed); `teaching.py`,

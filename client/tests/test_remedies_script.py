@@ -158,6 +158,13 @@ def profile(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def no_belt():
+    """A test that calls the script's helpers without run() starts with
+    no tool belt left over from another test's profile."""
+    script.BELTS.clear()
+
+
+@pytest.fixture(autouse=True)
 def teller(monkeypatch):
     """The purse is read off WEALTH for real (shop.afford, #407); the
     teller's walk and WITHDRAW are the fake's, the shortfall recorded in
@@ -264,6 +271,34 @@ TIED_MORTAR = (
 UNTIED_MORTAR = "You untie an iron mortar from the straps of your alchemist's belt.\n"
 # TIE answers "You attach a black marble pestle speckled with tiny silver
 # veins to a strap on your alchemist's belt." (captured the same day).
+
+
+def test_each_finished_remedy_is_analyzed_and_its_quality_recorded():
+    # The operator, 2026-10-12: "we finish crafting an item and we analyze
+    # an item, we record its quality and the character's skill".
+    import sqlite3
+
+    from client.game.history import database_path
+
+    analyzed = (
+        "This appears to be a type of basic wound remedy that is of superior quality.\n"
+    )
+    fake = Fake(HEAD_SALVE | {"analyze my salve": [analyzed]})
+    out = run(fake, ["count=1"])
+    assert fake.sent.index("get my salve from my mortar") < fake.sent.index(
+        "analyze my salve"
+    )
+    assert fake.sent.index("analyze my salve") < fake.sent.index("stow my salve")
+    assert "the head salve is of superior quality (Alchemy 2)" in out
+    row = (
+        sqlite3.connect(database_path())
+        .execute(
+            "SELECT item, quality, quality_rank, skill, skill_rank FROM crafts"
+            " ORDER BY seq DESC"
+        )
+        .fetchone()
+    )
+    assert row == ("head salve", "superior", 9, "Alchemy", 2)
 
 
 def test_tools_tied_to_the_profiles_tool_belt_are_untied_and_tied_back():

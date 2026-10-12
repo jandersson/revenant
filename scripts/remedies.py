@@ -37,6 +37,8 @@ What it does
   - A remedy not of the order's 5 uses is cut to 5 (MARK, BREAK) or topped up from
     another stack of it (COMBINE); what is broken off is stowed for the next order.
   - Every order handed in is a row in history.db, summed by `;remedies ledger`.
+  - Every remedy finished is ANALYZEd: its quality and the Alchemy rank go into
+    history.db's `crafts` table, and are said.
 
 When it stops
   - mind-lock with `once` (else it holds for the drain, or works on under `work`)
@@ -56,6 +58,7 @@ import re
 import time
 
 from client.game import (
+    craftlog,
     discard,
     encumbrance,
     flight,
@@ -715,7 +718,7 @@ def finish_in_mortar(s, name, catalyst, options, tally):
     why = craft(s, spec, f"the {name}", catalyst, options, tally, started=True)
     if why is not None:
         return why
-    take_out(s, spec[4])
+    take_out(s, spec[4], name)
     hands.stow(s, spec[4], ask=ask)
     if not tools_in_hand(s):
         return "mortar"
@@ -723,12 +726,29 @@ def finish_in_mortar(s, name, catalyst, options, tally):
     return None
 
 
-def take_out(s, noun):
+def take_out(s, noun, item):
     """The finished remedy out of the mortar into a hand: the pestle
-    stowed first, then the mortar (a free hand for whatever is next)."""
+    stowed first, then the mortar (a free hand for whatever is next).
+    Then ANALYZEd, its quality and the rank written to history.db's
+    crafts table (client/game/craftlog.py) and said."""
     put_away(s, "pestle")
     ask(s, f"get my {noun} from {my('mortar')}")
     put_away(s, "mortar")
+    text = ask(s, f"analyze my {noun}")
+    s.waitrt()
+    experience = (getattr(s.state, "experience", None) or {}).get(SKILL) or {}
+    rank = experience.get("rank")
+    quality = craftlog.log(
+        getattr(s.state, "name", None),
+        "remedies",
+        item,
+        text,
+        SKILL,
+        rank,
+        experience.get("percent"),
+    )
+    if quality:
+        s.echo(f"remedies: the {item} is of {quality} quality ({SKILL} {rank})")
 
 
 def stacks_on_hand(possessions, item):
@@ -809,7 +829,7 @@ def train(s, options, profile):
         if why is None:
             made += 1
             s.echo(f"remedies: {name} finished ({made})")
-            take_out(s, spec[4])
+            take_out(s, spec[4], name)
             hands.stow(s, spec[4], ask=ask)
             if options["count"] and made >= options["count"]:
                 why = "the count reached"
@@ -1468,7 +1488,7 @@ def work(s, options, profile):
             started = False
             sync_order(s, state, tally, snapshot)
             if why is None:
-                take_out(s, spec[4])
+                take_out(s, spec[4], parsed["item"])
                 outcome, remaining, due = bundle(s, spec[4], remaining, parsed["item"])
                 if outcome == "rejected":
                     rejected += 1
