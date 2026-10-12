@@ -95,6 +95,37 @@ def test_a_foraging_task_is_read_from_the_offer_and_the_journal():
     assert tasks.forage_name("nuloe stems") == "nuloe stem"
 
 
+def test_a_skinning_task_is_no_foraging_task():
+    # The Sand Spit barkeep, captured 2026-10-12 on ;task loop's first run:
+    # read as a foraging task of "skins from the province's ..." it was
+    # handed over as a herb no room grows.
+    offer = (
+        "A barkeep says, \"I do have a small task I'd like for you to perform.  I "
+        "need 6 skins from the province's storm bull population.  If you could get "
+        "those for me, I would greatly appreciate it.  I think they have a storm "
+        "bull hide.  Such a trophy would suffice as evidence of your kills."
+    )
+    assert tasks.parse_offer(offer) == {
+        "kind": "skinning",
+        "item": "storm bull hide",
+        "creature": "storm bull",
+        "count": 6,
+    }
+    journal = (
+        "You look in your task journal and see the following entry:\n"
+        "A barkeep in The Crossing wants you to retrieve 6 skins from the "
+        "province's storm bull population.  A barkeep will accept \"a storm bull "
+        'hide".  You still need to turn in 5 more.\n'
+    )
+    assert tasks.parse_journal(journal) == {
+        "kind": "skinning",
+        "giver": "barkeep",
+        "item": "storm bull hide",
+        "creature": "storm bull",
+        "count": 5,
+    }
+
+
 def test_a_delivery_offer_names_the_person_and_the_place():
     assert tasks.parse_offer(DELIVERY_OFFER) == {
         "kind": "delivery",

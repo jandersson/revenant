@@ -48,6 +48,7 @@ give <item> to <person>   a delivery's end: the recipient pays
 - The same answer from a giver never asked: an offer taken elsewhere a moment before (36 s, not 93 s). `;task loop` leaves two minutes between asks.
 - A delivery's end: the recipient thanks you by name and `hands you 314 Lirums`; `task` then reads `You are not currently on a task.`
 - An item recovery's end: GIVE the item to the giver, who answers with the same thanks and `hands you 777 Kronars` (Cormyn's worn gauntlet).
+- Foraging and skinning offers share a shape: `I need 13 nuloe stems.` against `I need 6 skins from the province's storm bull population. ... I think they have a storm bull hide.` Each GIVE counts as one item, so a bundle counts as one.
 
 ## What bites
 

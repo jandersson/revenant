@@ -108,7 +108,26 @@ _JOURNAL_FORAGING = re.compile(
     r"(?P<giver>[A-Z][^:.]*?)(?: in [A-Z][^:.]*?)? wants you to retrieve "
     r"(?P<count>\d+) (?P<item>[\w' -]+?)\."
 )
-_TURN_IN = re.compile(r"You need to turn in (?P<left>\d+) more")
+# A skinning task reads like a foraging one, the creature's skins for the
+# herb (the Sand Spit barkeep, 2026-10-12, ;task loop's first run): "I
+# need 6 skins from the province's storm bull population.  If you could
+# get those for me, ...  I think they have a storm bull hide.  Such a
+# trophy would suffice as evidence of your kills."; the accept "...  Oh,
+# don't clean them or anything. ...  A storm bull hide is just fine.";
+# the journal "A barkeep in The Crossing wants you to retrieve 6 skins
+# from the province's storm bull population.  A barkeep will accept "a
+# storm bull hide".  You still need to turn in 6 more." Read first.
+_SKINNING = re.compile(
+    r"I need (?P<count>\d+) skins from the province's (?P<creature>[\w' -]+?) "
+    r"population\.(?:.*?I think they have (?:an? )?(?P<item>[\w' -]+?)\.)?"
+)
+_JOURNAL_SKINNING = re.compile(
+    r"(?P<giver>[A-Z][^:.]*?)(?: in [A-Z][^:.]*?)? wants you to retrieve "
+    r"(?P<count>\d+) skins from the province's (?P<creature>[\w' -]+?) population\."
+    r'(?:.*?will accept "(?:an? )?(?P<item>[^"]+)")?'
+)
+_TURN_IN = re.compile(r"need to turn in (?P<left>\d+) more")
+_ARTICLE = re.compile(r"^(?:The|An?) ")  # "A barkeep", "The Leth Deriel trade minister"
 NEED_MORE = re.compile(r"I need (?P<left>\d+) more")
 FORAGED = "you manage to find"
 # Where a foraging task's herb grows when the map tags no room with it
@@ -252,6 +271,14 @@ def parse_offer(answer):
             "item": match.group("item").strip(),
             "area": match.group("area").strip(),
         }
+    match = _SKINNING.search(text)
+    if match:
+        return {
+            "kind": "skinning",
+            "item": (match.group("item") or "").strip(),
+            "creature": match.group("creature"),
+            "count": int(match.group("count")),
+        }
     match = _FORAGING.search(text)
     if match:
         return {
@@ -294,12 +321,22 @@ def parse_journal(answer):
             "item": match.group("item").strip(),
             "area": match.group("area").strip(),
         }
+    match = _JOURNAL_SKINNING.search(text)
+    if match:
+        left = _TURN_IN.search(text)
+        return {
+            "kind": "skinning",
+            "giver": _ARTICLE.sub("", match.group("giver")).strip(),
+            "item": (match.group("item") or "").strip(),
+            "creature": match.group("creature"),
+            "count": int(left.group("left") if left else match.group("count")),
+        }
     match = _JOURNAL_FORAGING.search(text)
     if match:
         left = _TURN_IN.search(text)
         return {
             "kind": "foraging",
-            "giver": match.group("giver").removeprefix("The ").strip(),
+            "giver": _ARTICLE.sub("", match.group("giver")).strip(),
             "item": match.group("item").strip(),
             "count": int(left.group("left") if left else match.group("count")),
         }

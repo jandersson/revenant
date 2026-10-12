@@ -210,6 +210,11 @@ def describe(task):
             f"a foraging task of {task.get('count')} {task.get('item')} for the "
             f"{task.get('giver')}"
         )
+    if task.get("kind") == "skinning":
+        return (
+            f"a skinning task of {task.get('count')} {task.get('creature')} skins "
+            f"({task.get('item') or 'the hide'}) for the {task.get('giver')}"
+        )
     if task.get("kind") == "unknown":
         return "a task of a kind not captured yet"
     return f"a {task.get('kind')} task"
