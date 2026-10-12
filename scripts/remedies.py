@@ -31,6 +31,8 @@ What it does
     (;forage herb, once an order) before any are bought.
   - The mortar and pestle are the profile's `mortar` and `pestle`, named whole
     ("iron mortar"): a looted stone mortar in the same pack is never taken.
+  - Tools tied to a belt (the profile's `tool_belt`, "alchemist's belt") are UNTIEd
+    and TIEd back, never stowed in a pack.
   - A remedy too poor for the order is discarded if `droppable` names it, else stowed.
   - A remedy not of the order's 5 uses is cut to 5 (MARK, BREAK) or topped up from
     another stack of it (COMBINE); what is broken off is stowed for the next order.
@@ -44,12 +46,13 @@ When it stops
   - a shortage the craft still finds right after its buy, 20 buys in a run, or a
     load reading Overburdened after one
 
-Profile keys: `catalyst` (coal nugget), `forage_herbs`, `crafting_master`, `crafting_hall`. ;train runs
+Profile keys: `catalyst` (coal nugget), `tool_belt`, `forage_herbs`, `crafting_master`, `crafting_hall`. ;train runs
 it as an Alchemy task (`"args": ["work"]` for orders, with `return_grace` and `minutes`
 long enough to finish one). The recipes and wordings are client/game/remedies.py's.
 """
 
 import logging
+import re
 import time
 
 from client.game import (
@@ -279,11 +282,48 @@ TOOLS = {"mortar": "mortar", "pestle": "pestle"}
 def name_tools(profile):
     for tool in TOOLS:
         TOOLS[tool] = str((profile or {}).get(tool) or tool).strip().lower() or tool
+    BELTS.clear()
+    if belt := str((profile or {}).get("tool_belt") or "").strip().lower():
+        BELTS.update(dict.fromkeys(TOOLS, belt))
 
 
 def my(tool):
     """The tool as the profile spells it: "my iron pestle"."""
     return f"my {TOOLS[tool]}"
+
+
+# A tool tied to a crafting belt (an Empath's alchemist's belt, 2026-10-12):
+# GET answers "You pull at the iron mortar, but the ties from the
+# alchemist's belt prevent you.  Maybe if you untie it, first?" and a PUT
+# into it "You should untie the iron mortar from the alchemist's belt
+# first." It is UNTIEd from the profile's `tool_belt` (or the belt that
+# answer names) and TIEd back where a stow would go (dr-scripts'
+# sigilharvest.lic: "untie my X from my BELT", "You untie").
+_TIED = re.compile(r"ties from the (?P<belt>.+?) prevent you")
+UNTIED = "You untie"
+BELTS = {}  # tool -> the belt it is tied to, this run
+
+
+def take(s, tool):
+    """The tool in hand, UNTIEd from its belt or GOT: the answer. A tool
+    the belt does not hold is GOT and STOWed from then on."""
+    if belt := BELTS.get(tool):
+        answer = ask(s, f"untie {my(tool)} from my {belt}")
+        if UNTIED in answer:
+            return answer
+        del BELTS[tool]
+    answer = ask(s, f"get {my(tool)}")
+    if tied := _TIED.search(answer):
+        BELTS[tool] = tied["belt"]
+        answer = ask(s, f"untie {my(tool)} from my {tied['belt']}")
+    return answer
+
+
+def put_away(s, tool):
+    """The tool out of hand, TIEd back to its belt or STOWed: the answer."""
+    if belt := BELTS.get(tool):
+        return ask(s, f"tie {my(tool)} to my {belt}")
+    return ask(s, f"stow {my(tool)}")
 
 
 def profile_of(s):
@@ -311,18 +351,18 @@ def study(s, chapter, page, what):
     # REMED BOOK, dr-scripts' remedy.lic noun: an Empath's pack listed a
     # master shaping book ahead of the remedies one, which MY BOOK would
     # take (2026-10-12); "remed" fits "remedy" and "remedies" books alike.
-    ask(s, f"stow {my('pestle')}")
+    put_away(s, "pestle")
     answer = ask(s, "get my remed book")
     if missing(answer):
         s.echo("remedies: no remedies book on you — stopping")
-        ask(s, f"get {my('pestle')}")
+        take(s, "pestle")
         return False
     ask(s, f"turn my remed book to chapter {chapter}")
     ask(s, f"turn my remed book to page {page}")
     answer = ask(s, "study my remed book")
     s.waitrt()
     ask(s, "stow my remed book")
-    ask(s, f"get {my('pestle')}")
+    take(s, "pestle")
     lowered = answer.lower()
     if any(word in lowered for word in TOO_HARD):
         s.echo(
@@ -345,7 +385,7 @@ def fetch_into_mortar(s, noun, what):
     answer to "flowers" but not to "dried" (#420). In hand it goes by
     its id, else the plain noun — never "dried <herb>" again."""
     dried = what in ("herb", "second herb")
-    ask(s, f"stow {my('pestle')}")
+    put_away(s, "pestle")
     if dried:
         answer = herbstacks.get_dried(s, ask, noun)
     else:
@@ -353,7 +393,7 @@ def fetch_into_mortar(s, noun, what):
     if answer is None or (not dried and missing(answer)):
         shown = f"dried {noun}" if dried else noun
         s.echo(f"remedies: no {shown} on you — the {what} is missing")
-        ask(s, f"get {my('pestle')}")
+        take(s, "pestle")
         return False
 
     def held():
@@ -368,7 +408,7 @@ def fetch_into_mortar(s, noun, what):
             f"pieces — the {what} is missing"
         )
         hands.stow(s, token(), ask=ask)
-        ask(s, f"get {my('pestle')}")
+        take(s, "pestle")
         return False
     verb = "pour" if what in LIQUIDS else "put"
     answer = ask(s, f"{verb} {held()} in {my('mortar')}")
@@ -382,14 +422,14 @@ def fetch_into_mortar(s, noun, what):
         name = held[0] if held else "remedy"
         s.echo(f"remedies: the mortar already holds an unfinished {name}")
         hands.stow(s, token(), ask=ask)
-        ask(s, f"get {my('pestle')}")
+        take(s, "pestle")
         return f"busy:{name}"
     if what in LIQUIDS and not any(word in lowered for word in POURED):
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         s.echo(f"remedies: the pour answered {first!r}")
     if what != "herb":
         hands.stow(s, token(), ask=ask)  # the liquid, the second herb's stack, a nugget
-    ask(s, f"get {my('pestle')}")
+    take(s, "pestle")
     return True
 
 
@@ -418,7 +458,7 @@ def full_stack(s, noun):
     held = pieces(ask(s, f"count {in_hand()}"))
     if held is None or held >= STACK_PIECES:
         return True
-    ask(s, f"stow {my('mortar')}")
+    put_away(s, "mortar")
     possessions = getattr(s.state, "possessions", None)
     # Where INV LIST showed the herb, else every container (a stack
     # bought since the login listing): never the gem pouch first.
@@ -446,7 +486,7 @@ def full_stack(s, noun):
             held = pieces(ask(s, f"count {in_hand()}")) or held
         if held >= STACK_PIECES:
             break
-    ask(s, f"get {my('mortar')}")
+    take(s, "mortar")
     return held >= STACK_PIECES
 
 
@@ -614,8 +654,8 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
             if not study(s, chapter, page, what):
                 return "book"
         elif outcome == "free hand":
-            ask(s, f"stow {my('pestle')}")
-            ask(s, f"get {my('pestle')}")
+            put_away(s, "pestle")
+            take(s, "pestle")
         elif outcome == "missing" and not started:
             # "Crush what?" with nothing in the mortar: the herb fetched
             # again, but not for ever — the first evening's spin was
@@ -686,9 +726,9 @@ def finish_in_mortar(s, name, catalyst, options, tally):
 def take_out(s, noun):
     """The finished remedy out of the mortar into a hand: the pestle
     stowed first, then the mortar (a free hand for whatever is next)."""
-    ask(s, f"stow {my('pestle')}")
+    put_away(s, "pestle")
     ask(s, f"get my {noun} from {my('mortar')}")
-    ask(s, f"stow {my('mortar')}")
+    put_away(s, "mortar")
 
 
 def stacks_on_hand(possessions, item):
@@ -747,7 +787,7 @@ def tools_in_hand(s):
     # never dropped, or the pestle and the book find no hand.
     hands.free(s, keep=tuple(TOOLS.values()), ask=ask)
     for tool in ("mortar", "pestle"):
-        if missing(ask(s, f"get {my(tool)}")):
+        if missing(take(s, tool)):
             s.echo(f"remedies: no {TOOLS[tool]} on you — stopping")
             return False
     return True
@@ -777,8 +817,8 @@ def train(s, options, profile):
             if not tools_in_hand(s):
                 return
             continue
-        ask(s, f"stow {my('pestle')}")
-        ask(s, f"stow {my('mortar')}")
+        put_away(s, "pestle")
+        put_away(s, "mortar")
         owed = max(1, options["count"] - made)
         bought = restock(s, spec, catalyst, why, owed, tally, profile)
         if not bought:
@@ -788,8 +828,8 @@ def train(s, options, profile):
         if not tools_in_hand(s):
             return
     s.echo(f"remedies: {why} — {made} made, {SKILL} {mindstate(s, SKILL)}/34")
-    ask(s, f"stow {my('pestle')}")
-    ask(s, f"stow {my('mortar')}")
+    put_away(s, "pestle")
+    put_away(s, "mortar")
 
 
 def to_master(s, profile):
@@ -1457,8 +1497,8 @@ def work(s, options, profile):
                     why = "tools"
                     break
                 continue
-            ask(s, f"stow {my('pestle')}")
-            ask(s, f"stow {my('mortar')}")
+            put_away(s, "pestle")
+            put_away(s, "mortar")
             bought = restock(s, spec, catalyst, why, remaining, tally, profile)
             if not bought:
                 if bought is False:
@@ -1474,8 +1514,8 @@ def work(s, options, profile):
             # controlling herb, put in first, starts the stack over.
             started = why != f"dried {spec[2]}"
             why = None
-        ask(s, f"stow {my('pestle')}")
-        ask(s, f"stow {my('mortar')}")
+        put_away(s, "pestle")
+        put_away(s, "mortar")
         sync_order(s, state, tally, snapshot)
         if why == LAPSED:
             if lapsed(s, tally):
@@ -1597,7 +1637,12 @@ def put_tools_away(s):
     too (hands.at_end: the cleanup puts that still go out after one): a
     stopped run left both in hand on 2026-09-26, and the next task,
     ;forage, could not collect with no hand free."""
-    hands.at_end(s, ("pestle", "mortar"))
+    if getattr(s, "dead", False):
+        return
+    for tool in ("pestle", "mortar"):
+        if tool in BELTS and hands.holding(s, TOOLS[tool]):
+            hands.cleanup(s, f"tie {my(tool)} to my {BELTS[tool]}")
+    hands.at_end(s, tuple(tool for tool in ("pestle", "mortar") if tool not in BELTS))
 
 
 def main(s):

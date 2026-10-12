@@ -224,6 +224,9 @@ DEFAULTS = {
     # mortar in the same pack answered MY MORTAR until #478.
     "mortar": "mortar",
     "pestle": "pestle",
+    # The belt the crafting tools are tied to ("alchemist's belt"): GET
+    # cannot take a tied tool, so ;remedies UNTIEs it and TIEs it back.
+    "tool_belt": "",
     # The almanac's noun (client/game/almanac.py): ;train and ;hunt
     # study it whenever its ten-minute timer allows; "" for none.
     "almanac": "",
@@ -529,6 +532,12 @@ FIELDS = (
         "iron pestle — like the mortar",
     ),
     (
+        "tool_belt",
+        "Belt the crafting tools are tied to",
+        "str",
+        "alchemist's belt — empty: none; ;remedies unties and ties them back",
+    ),
+    (
         "repair_tools",
         "Crafting tools ;repair tools takes to Rangu",
         "list",
@@ -567,6 +576,7 @@ ITEM_FIELDS = (
     "catalyst",
     "mortar",
     "pestle",
+    "tool_belt",
     "lockpick",
     "lockpick_ring",
     "almanac",

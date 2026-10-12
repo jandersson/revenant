@@ -245,6 +245,64 @@ def test_the_head_salve_is_studied_crushed_watered_catalysed_and_stowed():
     assert not any(c.startswith("drop") for c in fake.sent)
 
 
+HEAD_SALVE = {
+    "study my remed book": [STUDIED],
+    "get my dried nemoih": ["You get some dried nemoih."],
+    "put my nemoih in my mortar": ["You put your nemoih in your iron mortar."],
+    "get my water": ["You get some water."],
+    "pour my water in my mortar": [POURED],
+    "get my nugget": ["You get a tiny coal nugget."],
+    "put my nugget in my mortar": [SHAVINGS],
+    "crush my nemoih in my mortar with my pestle": [NEED_WATER],
+    "crush my salve in my mortar with my pestle": [NEED_CATALYST, FINISHED],
+}
+# Captured 2026-10-12: an Empath's mortar and pestle tied to his belt.
+TIED_MORTAR = (
+    "You pull at the iron mortar, but the ties from the alchemist's belt "
+    "prevent you.  Maybe if you untie it, first?\n"
+)
+UNTIED_MORTAR = "You untie your iron mortar from your alchemist's belt.\n"
+
+
+def test_tools_tied_to_the_profiles_tool_belt_are_untied_and_tied_back():
+    from client.game.profile import load_profile, save_profile
+
+    save_profile("Lanival", load_profile("Lanival") | {"tool_belt": "alchemist's belt"})
+    fake = Fake(
+        HEAD_SALVE
+        | {
+            "untie my mortar": [UNTIED_MORTAR],
+            "untie my pestle": [UNTIED_MORTAR.replace("iron mortar", "pestle")],
+        }
+    )
+    out = run(fake, ["count=1"])
+    assert "remedies: head salve finished (1)" in out
+    assert "untie my mortar from my alchemist's belt" in fake.sent
+    assert "get my mortar" not in fake.sent  # the belt named: no GET first
+    assert "tie my pestle to my alchemist's belt" in fake.sent
+    assert fake.sent[-1] == "tie my mortar to my alchemist's belt"
+    assert "stow my mortar" not in fake.sent and "get my pestle" not in fake.sent
+
+
+def test_a_tool_tied_to_a_belt_the_profile_does_not_name_is_untied_from_it():
+    # 2026-10-12: no tool_belt set, GET answered the ties and every PUT
+    # "You should untie the iron mortar from the alchemist's belt first."
+    fake = Fake(
+        HEAD_SALVE
+        | {
+            "get my mortar": [TIED_MORTAR],
+            "untie my mortar": [UNTIED_MORTAR],
+        }
+    )
+    out = run(fake, ["count=1"])
+    assert "remedies: head salve finished (1)" in out
+    assert fake.sent.index("get my mortar") + 1 == fake.sent.index(
+        "untie my mortar from my alchemist's belt"
+    )
+    assert fake.sent[-1] == "tie my mortar to my alchemist's belt"
+    assert "stow my pestle" in fake.sent  # the pestle was never on it
+
+
 def test_without_a_catalyst_the_salve_waits_in_the_mortar():
     from client.game.profile import DEFAULTS, save_profile
 
