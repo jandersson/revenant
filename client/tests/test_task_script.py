@@ -559,14 +559,22 @@ def test_no_task_and_no_giver_says_how_to_ask():
 
 
 def test_parse_args():
-    def args(giver="", item="", history=False, any=False):
-        return {"giver": giver, "item": item, "history": history, "any": any}
+    def args(giver="", item="", history=False, any=False, loop=False, radius=None):
+        return {
+            "giver": giver,
+            "item": item,
+            "history": history,
+            "any": any,
+            "loop": loop,
+            "radius": radius,
+        }
 
     assert script.parse_args(["cormyn"]) == args("cormyn")
     assert script.parse_args(["item=basket"]) == args(item="basket")
     assert script.parse_args(["Cormyn", "item=basket"]) == args("cormyn", "basket")
     assert script.parse_args(["history"]) == args(history=True)
     assert script.parse_args(["any"]) == args(any=True)
+    assert script.parse_args(["loop", "radius=40"]) == args(loop=True, radius=40)
 
 
 def test_any_walks_to_the_nearest_giver_whose_ten_minutes_are_up(monkeypatch):
@@ -612,6 +620,53 @@ def test_any_with_no_giver_free_within_reach_says_so(monkeypatch):
     out = run(fake, ["any"])
     assert "no giver free to ask within reach" in out
     assert fake.sent == ["task"]
+
+
+def test_any_past_its_radius_asks_no_one(monkeypatch):
+    from client.game import tasks
+
+    monkeypatch.setattr(script, "now", lambda: 10_000.0)
+    tasks.note_ask("Lanival", "cormyn", 10_000.0 - 60)  # here, inside his ten minutes
+    fake = Fake({})
+    out = run(fake, ["any", "radius=0"])  # Saeru is one step away
+    assert "no giver free to ask within 0 steps" in out
+    assert fake.sent == ["task"] and not fake.walks
+
+
+def loop_with(monkeypatch, results, last_ask=0.0):
+    """;task loop over rounds that end as `results` say; the sleeps it took."""
+    from client.game import tasks
+
+    monkeypatch.setattr(script, "now", lambda: 10_000.0)
+    if last_ask:
+        tasks.note_ask("Lanival", "cormyn", last_ask)
+    rounds = iter(results)
+    monkeypatch.setattr(script, "run", lambda *a, **k: next(rounds))
+    fake = Fake({})
+    slept = []
+    fake.sleep = slept.append
+    done = script.loop(fake, script.parse_args(["loop"]), {}, MAP, walk)
+    return done, slept, echoes(fake)
+
+
+def test_loop_runs_task_after_task_until_one_ends_short(monkeypatch):
+    done, slept, out = loop_with(monkeypatch, [True, True, False])
+    assert done == 2 and "the loop ends — 2 task(s) done" in out
+
+
+def test_loop_waits_the_characters_gap_after_an_ask(monkeypatch):
+    # Fara's "you must wait" came 36 s after Mo's offer (#514).
+    done, slept, _ = loop_with(monkeypatch, [False], last_ask=10_000.0 - 30)
+    assert slept == [script.LOOP_GAP - 30]
+
+
+def test_loop_with_no_giver_free_waits_once_then_ends(monkeypatch):
+    done, slept, out = loop_with(
+        monkeypatch, [True, None, None], last_ask=10_000.0 - 600 + 240
+    )
+    assert done == 1
+    assert "waiting 4 minute(s) for a giver to be free" in out
+    assert slept == [240]
 
 
 def test_every_offer_and_its_pay_are_kept_and_history_reads_them(monkeypatch, tmp_path):

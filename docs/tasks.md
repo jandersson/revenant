@@ -9,6 +9,8 @@ A task is an errand an NPC gives for coin: ask a task giver, accept inside thirt
 ;task                carry on the task in the journal (after a stop, or a shop's night)
 ;task item=basket    ... naming the item when the record of the accept is gone
 ;task any            walk to the nearest giver whose ten minutes are up and ask
+;task any radius=40  ... a giver at most 40 steps away
+;task loop           task after task until one ends short (radius= too)
 ;task history        what each giver has offered: the kinds, where, the pay, the minutes
 ;task return         finish the step in hand and stop
 ```
@@ -43,6 +45,7 @@ give <item> to <person>   a delivery's end: the recipient pays
 - The offer ends with `[You may accept by typing ACCEPT TASK, or decline by typing DECLINE TASK.  You have 30 seconds to decide.]` — parse and decide before the ask, not after.
 - Silence past the window: `"Very well, I guess you do not wish to help me."`
 - Asking again inside the ten-minute cooldown: `"I am sorry, you must wait before I can give you a task."` Declining, letting it lapse and cancelling (`ask <giver> for task cancel`) all start the same ten minutes. `;task` keeps each giver's clock and says the minutes left rather than ask inside them.
+- The same answer from a giver never asked: an offer taken elsewhere a moment before (36 s, not 93 s). `;task loop` leaves two minutes between asks.
 - A delivery's end: the recipient thanks you by name and `hands you 314 Lirums`; `task` then reads `You are not currently on a task.`
 - An item recovery's end: GIVE the item to the giver, who answers with the same thanks and `hands you 777 Kronars` (Cormyn's worn gauntlet).
 

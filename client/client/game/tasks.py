@@ -483,6 +483,19 @@ def wait_left(name, giver, now):
     return max(0, asked + COOLDOWN_SECONDS - now)
 
 
+def last_ask(name):
+    """When `name` last asked any giver (seconds since the epoch); 0 for never."""
+    stamps = [t for t in _asks(name).values() if isinstance(t, (int, float))]
+    return max(stamps, default=0)
+
+
+def soonest_free(name, now):
+    """Seconds until the first giver `name` waits on is free again; 0 when
+    none is waited on."""
+    waits = [wait_left(name, giver, now) for giver in _asks(name)]
+    return min((left for left in waits if left > 0), default=0)
+
+
 def available_givers(name, now):
     """The givers in GIVERS that `name` may ask now (;task any, the
     operator, 2026-10-11: "We should get tasks from givers who are

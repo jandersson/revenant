@@ -3,7 +3,9 @@
     ;task                carry on the task in hand (the journal's): a delivery walks to the recipient and hands the item over; a search kneels and searches the area's rooms, a recovery hunts the area (;hunt task), then brings the find back to the giver
     ;task item=<noun>    ... naming the item when the record of the accept is gone (a basket)
     ;task any            walk to the nearest giver whose ten minutes are up and ask
-    ;task history        what each giver has offered (history.db's tasks): the kinds, where, the pay, the minutes
+    ;task any radius=40  ... a giver at most 40 steps away
+    ;task loop [radius=N] task after task: the one in hand, then the nearest free giver's
+    ;task history       what each giver has offered (history.db's tasks): the kinds, where, the pay, the minutes
     ;task return         typed while it runs: finish the step in hand and stop
 
 What it does
@@ -17,6 +19,7 @@ What it does
 What stops it
 - The giver's cooldown (ten minutes between asks, kept per giver: an ask inside it is not sent, the minutes left are said), an offer of a kind the profile declines, a recipient the table does not know, a walk that ends short — each said. A shop shut for the night is waited for: the door tried each game hour (fifteen real minutes), eight times at most. A walk that ends short otherwise: ;task again from there carries on.
 - A hunt that ends without the item (a floor, a ;hunt return): ;task again hunts on.
+- The loop: a task that ends short, ;task return between tasks, or no giver free twice running (one wait for the first giver's ten minutes between). Each ask waits two minutes after the last: every giver refuses a character asked elsewhere just before.
 - Delivery, searching, recovery and foraging are run by the script; kill, boss and skinning are accepted and handed over, their wordings captured on the way (#505). A herb no room on record grows is handed over too.
 
 Elanthipedia: Task; the wordings captured on Crannach's delivery (docs/tasks.md).
@@ -47,6 +50,7 @@ from client.game.tasks import (
     forage_rooms,
     available_givers,
     giver_rooms,
+    last_ask,
     load,
     note_ask,
     paid,
@@ -56,6 +60,7 @@ from client.game.tasks import (
     recipient_rooms,
     record,
     search_outcome,
+    soonest_free,
     wait_left,
 )
 from client.game import walker
@@ -63,16 +68,25 @@ from client.game.walker import walk
 
 
 def parse_args(words):
-    options = {"giver": "", "item": "", "history": False, "any": False}
+    options = {
+        "giver": "",
+        "item": "",
+        "history": False,
+        "any": False,
+        "loop": False,
+        "radius": None,
+    }
     for word in words or []:
         text = str(word).strip()
         key, sep, value = text.lower().partition("=")
         if sep and key == "item":
             options["item"] = value
+        elif sep and key == "radius" and value.isdigit():
+            options["radius"] = int(value)
         elif key == "history" and not options["giver"]:
             options["history"] = True
-        elif key == "any" and not options["giver"]:
-            options["any"] = True
+        elif key in ("any", "loop") and not options["giver"]:
+            options[key] = True
         elif text and not options["giver"]:
             options["giver"] = text.lower()
     return options
@@ -88,11 +102,11 @@ def character(s):
 ANY_TRIES = 3  # givers ;task any walks toward before giving up
 
 
-def to_available(s, mapdb, name, walk_fn):
+def to_available(s, mapdb, name, walk_fn, radius=None):
     """Walk to the nearest giver who may be asked now (;task any): its
     name lower-cased, or None, said. A giver the walk does not reach (a
     guild that keeps others out) is passed over for the next nearest,
-    ANY_TRIES at most."""
+    ANY_TRIES at most; one more than `radius` steps away is out of reach."""
     rooms = {
         giver: giver_rooms(mapdb, giver) for giver in available_givers(name, now())
     }
@@ -103,7 +117,7 @@ def to_available(s, mapdb, name, walk_fn):
         if here is None or not goals:
             break
         route = [] if here in goals else mapdb.path(here, goals)
-        if route is None:
+        if route is None or (radius is not None and len(route) > radius):
             break
         dest = route[-1][0] if route else here
         giver = next(giver for giver, found in rooms.items() if dest in found)
@@ -111,7 +125,8 @@ def to_available(s, mapdb, name, walk_fn):
         if travel.go(s, rooms[giver], f"{giver}'s room", db=mapdb, walk=walk_fn):
             return giver.lower()
         rooms.pop(giver)
-    s.echo("task: no giver free to ask within reach — ;task <giver> names one")
+    reach = f"within {radius} steps" if radius is not None else "within reach"
+    s.echo(f"task: no giver free to ask {reach} — ;task <giver> names one")
     return None
 
 
@@ -578,7 +593,21 @@ def run_foraging(s, task, mapdb, walk_fn):
     return False
 
 
+def carry(s, task, profile, mapdb, walk_fn):
+    """The task's kind run: True when it ended paid, False short."""
+    if task["kind"] == "searching":
+        return run_search(s, task, mapdb, walk_fn)
+    if task["kind"] == "recovery":
+        return run_recovery(s, task, profile, mapdb, walk_fn)
+    if task["kind"] == "foraging":
+        return run_foraging(s, task, mapdb, walk_fn)
+    return deliver(s, task, mapdb, walk_fn)
+
+
 def run(s, options, profile, mapdb, walk_fn=walk):
+    """One task: True when it ended paid, False when it ended short (said),
+    None when no offer was taken (no giver free, the giver's wait, a
+    decline) — ;task loop asks again later on a None only."""
     declines = list(profile.get("task_declines") or [])
     name = character(s)
     if options.get("history"):
@@ -587,14 +616,14 @@ def run(s, options, profile, mapdb, walk_fn=walk):
             s.echo(f"task: {tasklog.describe(group)}")
         if not groups:
             s.echo("task: no offers on record yet — they are kept from now on")
-        return
+        return None
     task = parse_journal(ask(s, "task"))
     if task is not None:
         if task.get("kind") not in ("delivery", "searching", "recovery", "foraging"):
             s.echo(
                 f"task: the journal holds {describe(task)} — beyond the script, yours from here"
             )
-            return
+            return False
         kept = load(name) or {}
         task = {**kept, **task}
         if options["item"]:
@@ -608,55 +637,67 @@ def run(s, options, profile, mapdb, walk_fn=walk):
                     break
         s.echo(f"task: carrying on {describe(task)}")
         record(name, task)
-        if task["kind"] == "searching":
-            run_search(s, task, mapdb, walk_fn)
-        elif task["kind"] == "recovery":
-            run_recovery(s, task, profile, mapdb, walk_fn)
-        elif task["kind"] == "foraging":
-            run_foraging(s, task, mapdb, walk_fn)
-        else:
-            deliver(s, task, mapdb, walk_fn)
-        return
+        return carry(s, task, profile, mapdb, walk_fn)
     if options.get("any") and not options["giver"]:
-        options["giver"] = to_available(s, mapdb, name, walk_fn)
+        options["giver"] = to_available(s, mapdb, name, walk_fn, options.get("radius"))
         if not options["giver"]:
-            return
+            return None
     if not options["giver"]:
         s.echo("task: no task in hand — ;task <giver> asks one")
-        return
+        return None
     offer = take_offer(s, options["giver"], declines, name)
     if offer is None:
-        return
+        return None
     task = {"giver": options["giver"], **offer}
-    if offer["kind"] == "searching":
-        record(name, task)
-        run_search(s, task, mapdb, walk_fn)
-        return
-    if offer["kind"] == "recovery":
-        record(name, task)
-        run_recovery(s, task, profile, mapdb, walk_fn)
-        return
-    if offer["kind"] == "foraging":
-        record(name, task)
-        run_foraging(s, task, mapdb, walk_fn)
-        return
-    if offer["kind"] != "delivery":
+    if offer["kind"] not in ("delivery", "searching", "recovery", "foraging"):
         record(name, task)
         s.echo(
             f"task: {describe(task)} is beyond the script — yours from here; "
             f"the offer: {task.get('text')!r}; the accept: {task.get('accept_text')!r}"
         )
-        return
+        return False
     if offer["kind"] == "delivery":
         stow_the_item(s, task)
         if options["item"]:
             task["item"] = options["item"]
-        record(name, task)
-        deliver(s, task, mapdb, walk_fn)
+    record(name, task)
+    return carry(s, task, profile, mapdb, walk_fn)
+
+
+# The wait every giver keeps after an offer to the same character, on top
+# of each giver's ten minutes: Fara said "you must wait" 36 s after Mo's
+# offer, the asks 93 s and more apart were all answered (2026-10-11, #514).
+LOOP_GAP = 120
+
+
+def loop(s, options, profile, mapdb, walk_fn=walk):
+    """;task loop: the task in hand, then the nearest free giver's, again
+    and again. No giver free: one wait for the first one's ten minutes,
+    then a second miss ends it; a task that ends short ends it (;task
+    said why); a ;task return between tasks ends it."""
+    name = character(s)
+    done, waited = 0, False
+    while not wants_stop(s):
+        gap = last_ask(name) + LOOP_GAP - now()
+        if gap > 0:
+            s.sleep(gap)
+        result = run(s, {**options, "any": True}, profile, mapdb, walk_fn)
+        if result:
+            done, waited = done + 1, False
+            continue
+        if result is False or waited:
+            break
+        left = soonest_free(name, now())
+        s.echo(f"task: waiting {math.ceil(left / 60)} minute(s) for a giver to be free")
+        s.sleep(left)
+        waited = True
+    s.echo(f"task: the loop ends — {done} task(s) done")
+    return done
 
 
 def main(s):
     from client.game.profile import load_profile
 
     profile = load_profile(character(s))
-    run(s, parse_args(s.args), profile, MapDB.load())
+    options = parse_args(s.args)
+    (loop if options["loop"] else run)(s, options, profile, MapDB.load())
