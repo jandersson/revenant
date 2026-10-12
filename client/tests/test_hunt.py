@@ -1158,6 +1158,52 @@ def test_in_the_grass_the_hunt_steps_room_by_room_and_never_walks_the_map(
     assert arena.walks == [{1}]  # only the walk home
 
 
+def test_a_listed_prey_with_no_creature_tag_is_fought_not_walked_past(
+    travel, monkeypatch
+):
+    # 2026-10-12, the Glaren Kweld grass: "You also see an amber poloh'izh."
+    # and its tail lashing, but no crtrStatus for it; the hunt called the
+    # room empty and stepped on, room after room.
+    def listed_dies(arena):
+        arena.state.room_creatures_dead = [True]
+
+    arena = Arena(
+        {
+            "attack": [(KILL, kill), (KILL, listed_dies)],
+            "skin": [SKINNED] * 2,
+            "loot": [NOTHING] * 2,
+        }
+    )
+    arena.state.room_title = GRASS
+    arena.state.compass = EIGHT_WAYS
+    ways = []
+
+    def step(s, way):
+        ways.append(way)
+        s.state.room_creatures, s.state.room_creatures_dead = ["a rat"], [False]
+        return True
+
+    monkeypatch.setattr(hunt, "engaged_move", step)
+    _run(arena, profile=PROFILE | {"max_kills": 2}, travel_first=False)
+    assert ways == ["northeast"]
+    assert arena.sent.count("attack rat") == 2
+
+
+def test_only_the_prey_counts_without_a_tag_and_a_hidden_tag_still_hides():
+    def room(names, hidden=()):
+        return SimpleNamespace(
+            hostiles={},
+            hidden_hostiles=set(hidden),
+            room_creatures=names,
+            room_creatures_dead=[False] * len(names),
+        )
+
+    assert hunt.present(room(["an amber poloh'izh"]), "poloh'izh")
+    assert not hunt.present(room(["a town guard"]), "poloh'izh")  # never an NPC
+    # "that is almost invisible": its tag says so, and no swing reaches it (#526).
+    assert not hunt.present(room(["an amber poloh'izh"], hidden={"9"}), "poloh'izh")
+
+
 def test_a_grass_step_takes_only_a_way_the_compass_offers(travel, monkeypatch):
     # The rock's room has no northeast: "You can't go there." was read as
     # a hidden foe holding the character (2026-10-11).

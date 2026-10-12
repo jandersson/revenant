@@ -493,6 +493,29 @@ def hostiles(state):
     return {exist: on for exist, on in every.items() if exist not in hidden}
 
 
+def present(state, prey):
+    """Something to fight here: a hostile the parser holds, or, when the
+    game sent no crtrStatus for the room at all, a live creature of the
+    prey's noun in its listing. A poloh'izh in the Glaren Kweld grass came
+    listed and lashing its tail with no tag for it, and the hunt called
+    the room empty and walked on, room after room (2026-10-12). Only the
+    prey: a bold NPC in a listing is never fought on its name alone."""
+    if hostiles(state):
+        return True
+    if (
+        not prey
+        or getattr(state, "hostiles", None)
+        or getattr(state, "hidden_hostiles", None)
+    ):
+        return False
+    names = list(getattr(state, "room_creatures", None) or [])
+    dead = list(getattr(state, "room_creatures_dead", None) or [])
+    dead += [False] * (len(names) - len(dead))
+    return any(
+        noun_of(name) == prey.lower() for name, flag in zip(names, dead) if not flag
+    )
+
+
 def hide_hostiles(state):
     """Mark every hostile the parser holds hidden: the game sees nothing
     to attack. The parser's next crtrStatus burst replaces the mark."""
@@ -2003,7 +2026,7 @@ def swing(s, profile, tally, prey):
             tally.tactic = max(0, tally.tactic - 1)
         tally.stunned_swings += 1
         wait_out_stun(s)
-        return bool(hostiles(s.state))
+        return present(s.state, prey)
     if verb == "smite" and any(word in lowered for word in _SMITE_WRATH):
         # The pool paid for that one: no more smites this run (#217).
         tally.smite_off = True
@@ -2065,7 +2088,7 @@ def swing(s, profile, tally, prey):
     elif any(word in lowered for word in _NEED_MELEE):
         ask(s, f"advance {prey}" if prey else "advance")
         probe.collect(s, ADVANCE_WAIT, until="melee range")
-    return not tally.room_clear and bool(hostiles(s.state))
+    return not tally.room_clear and present(s.state, prey)
 
 
 def credit(s, profile, tally, fallen, prey):
@@ -2271,7 +2294,7 @@ def loop(s, profile, db, ground, avoid, tally):
             )
         if tally.kills > tally.rotated_at and not rotate(s, profile, tally):
             return "every weapon skill mind-locked"
-        if tally.room_clear or not hostiles(s.state):
+        if tally.room_clear or not present(s.state, prey):
             track(s, profile, tally)
             study_almanac(s)  # a clear room: the hands are the hunt's
             if not next_room(s, db, ground, avoid, tally):
