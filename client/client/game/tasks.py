@@ -188,7 +188,7 @@ GIVERS = {
     "Sh'aar": "The Enclave, Sh'aar's Trove",  # Dumi Sh'aar
     "Sephina": "Sephina's Lockbane",
     "Representative": "8308",  # the Estate Holder's; Fang Cove, Fate's Fortune Lane
-    # Guild leaders, by map id
+    # Guild leaders
     "Agonar": "7892",
     "Silvyrfrost": "7898",
     "Esuin": "7901",
