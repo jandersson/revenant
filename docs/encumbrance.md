@@ -30,6 +30,15 @@ Levels run 1 (None) to 12 ("It's amazing you aren't squashed!"). At level *L* a 
 - **Wear armor, never carry it.** Worn full plate counted about half its 500 stones; the same plate in hand or in a sack counted in full.
 - **A container adds nothing.** An item reads the same in hand or in a sack.
 
+## Containers
+
+The game never states how much a container holds, whatever the Appraisal: APPRAISE (CAREFUL too) gives its weight and value, ANALYZE and RECALL nothing.
+
+- **How full, by weight:** APPRAISE's weight includes the contents. An empty bag read its own 30 stones; a haversack of 60 stones read 548, so 488 stones inside its 1000-stone limit.
+- **Size and limit:** Elanthipedia's item page holds the inside dimensions and the weight limit (`ilsize` × `iwsize` × `ihsize`, `csize`); the [Containers](https://elanthipedia.play.net/Containers) page has the typical ones (a backpack or haversack 15×10×5, 1000 stones).
+- **Room can run out before weight:** the game says so only when a PUT is refused.
+- **RECALL <container>** says whether it was [embiggened](https://elanthipedia.play.net/Embiggening).
+
 ## Weighing one item
 
 MAMAS shops weigh items for a fee: PUT <item> ON COUNTER, or ASK CLERK ABOUT WEIGHT for your 25 heaviest. The Crossing has a branch.
