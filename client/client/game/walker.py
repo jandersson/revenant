@@ -1540,6 +1540,22 @@ def character_premium(state):
     return bool(load_profile(name).get("premium"))
 
 
+def on_foot(s, db, start, goals, avoid=()):
+    """The map's route from `start` to `goals` under the character's own
+    gates, as walk() plans it, with no astral, ring or beam to fall back
+    on; None when there is none (#541: Fang's Shadow refused a Moongate
+    and the gremlin hunt had no other way out, 2026-10-13)."""
+    return db.path(
+        start,
+        set(goals),
+        avoid=frozenset(avoid),
+        closed=set(gated(s)),
+        ranks=character_ranks(s.state),
+        premium=character_premium(s.state),
+        portal_town=fang_cove_entry(s),
+    )
+
+
 def _explain_no_path(s, db, here, goals, avoid, closed, ranks, describe, premium=False):
     """Say why no route exists: the gate the character does not pass on
     the only way (#214), else the scripted-edge answer of old."""

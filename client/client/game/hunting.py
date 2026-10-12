@@ -71,6 +71,17 @@ def zones_with(creature):
     ]
 
 
+def stranding_rooms(ground, goals, path):
+    """The rooms of `ground` with no walk to any of `goals` (#541), by
+    `path(room, goals)` (None for no route): a hunt that ends in one
+    cannot leave on foot. Empty when every room has a way back, or when
+    there is nowhere to check."""
+    goals = set(goals)
+    if not goals:
+        return []
+    return [room for room in ground if room not in goals and path(room, goals) is None]
+
+
 def zone_range(name):
     """(low, high) over the zone's creatures, either None when unknown;
     None for a zone without a ranked creature."""

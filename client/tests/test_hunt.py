@@ -632,7 +632,7 @@ def test_a_break_off_with_no_home_leaves_the_ground(travel):
 
 def test_off_ground_is_the_rooms_one_move_outside():
     assert hunt.off_ground(GROUND, [6046, 6047]) == {6048}
-    assert hunt.off_ground(GROUND, [6048]) == {6047}
+    assert hunt.off_ground(GROUND, [6048]) == {6047, 1}  # the gate's way home
 
 
 HURT = "Your body feels slightly battered.\nYou have deep cuts across the neck.\n"
@@ -667,6 +667,19 @@ def test_a_wound_already_at_the_floor_keeps_the_hunt_home(travel):
     assert arena.walks == []
     assert any(
         "neck external harmful — already at the wound floor; not setting out" in text
+        for text in arena.echoed
+    )
+
+
+def test_a_ground_with_no_walk_home_is_never_set_out_for(travel):
+    # #541: a hunt that cannot walk home from its ground ends there,
+    # among its creatures; it is refused before the buffs and the walk.
+    arena = Arena({"attack": [(KILL, kill)]})
+    _run(arena, profile=PROFILE | {"home": "2"})  # a cave with no way in
+    assert arena.walks == [] and arena.sent == []
+    assert any(
+        "no walk back from 'rats' to home '2' (room 6046, 6047) — not setting out"
+        in text
         for text in arena.echoed
     )
 

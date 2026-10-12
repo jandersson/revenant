@@ -11,7 +11,7 @@ from client.game import hunting
 
 YARD_ZONE = {
     "yard_rats": ("Zoluren", (6048, 6047), (("Rat", 0, 30),), ()),
-    "far_trolls": ("Zoluren", (1,), (("Cave troll", 200, 300),), ()),
+    "far_trolls": ("Zoluren", (2,), (("Cave troll", 200, 300),), ()),
 }
 
 

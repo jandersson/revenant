@@ -199,6 +199,35 @@ def test_a_skinning_hunt_ends_at_the_tasks_count(bull_yard, travel):
     skins = [i for i, c in enumerate(arena.sent) if c.startswith("skin ")]
     assert all(arena.sent[i - 1].endswith(" for skin") for i in skins)
     assert sum(text.startswith("hunt: ARRANGE answered") for text in arena.echoed) == 1
+    # The count cut goes into the task's record for ;task (#541).
+    assert tasks.load("Lanival")["cut"] == 2
+
+
+def test_hides_cut_on_an_earlier_run_shorten_the_hunt(bull_yard):
+    arena = Arena({})
+    tasks.record("Lanival", {**SKINNING, "cut": 1})
+    profile, _ = hunt.task_profile(arena, dict(TASK_PROFILE), GROUND)
+    assert profile["task_hides"] == 1 and profile["task_cut"] == 1
+    tasks.record("Lanival", {**SKINNING, "cut": 2})
+    assert hunt.task_profile(arena, dict(TASK_PROFILE), GROUND) == (None, None)
+    assert "2 storm bull hides already cut — ;task hands them in" in arena.echoed[-1]
+
+
+def test_no_walk_back_to_the_tasks_giver_and_the_hunt_never_sets_out(
+    bull_yard, travel, monkeypatch
+):
+    # #541: the gremlins' village had no walk back the walker could read.
+    monkeypatch.setattr(
+        tasks, "giver_rooms", lambda db, giver: {2}
+    )  # a cave, no way in
+    arena = Arena({})
+    tasks.record("Lanival", SKINNING)
+    overlaid, ground = hunt.task_profile(arena, dict(TASK_PROFILE), GROUND)
+    hunt.hunt(arena, overlaid, GROUND, travel_first=True, ground=ground)
+    assert arena.walks == [] and not any(c.startswith("attack") for c in arena.sent)
+    assert "no walk back from 'yard_bulls' to the task's giver (room 6046, 6047)" in (
+        "\n".join(arena.echoed)
+    )
 
 
 def test_a_parts_task_arranges_for_the_part_on_the_bestiarys_unhyphenated_ground(

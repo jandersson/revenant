@@ -257,3 +257,14 @@ def test_where_nothing_is_measured_the_wiki_says_what_it_knows(monkeypatch):
     assert hunting.describe(entry, measured).endswith(
         "; measured 0 box(es) in 13 search(es), 0%"
     )
+
+
+def test_a_room_with_no_walk_back_is_a_stranding_room():
+    # #541: the gremlins' village had no walk to Fang Cove the walker
+    # could read, and the hunt ended there among them.
+    routes = {6046: [(6047, "east")], 6047: None}
+    stuck = hunting.stranding_rooms(
+        [6046, 6047, 1], {1}, lambda room, goals: routes.get(room)
+    )
+    assert stuck == [6047]  # the goal itself is never stuck
+    assert hunting.stranding_rooms([6046], set(), lambda room, goals: None) == []

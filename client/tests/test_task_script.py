@@ -426,6 +426,32 @@ def test_a_skinning_task_is_hunted_then_given_a_hide_at_a_time():
     assert "done — the barkeep paid 7454 Kronars" in out
 
 
+def test_hides_already_cut_go_straight_to_the_giver_without_a_hunt():
+    # #541: the gremlin bristles were cut and the walk out failed; a rerun
+    # of ;task hunted ten more instead of handing these in.
+    fake = Skinning(
+        {"task": [JOURNAL_SKINNING], "give": [BARKEEP_TAKES.format(1), BARKEEP_PAID]}
+    )
+    script.record("Lanival", {"kind": "skinning", "giver": "barkeep", "cut": 2})
+    script.run(fake, script.parse_args([]), {"weapon": "handaxe"}, TAVERN, walk)
+    assert fake.started == []  # no ;hunt
+    assert fake.sent.count("give #185300001 to barkeep") == 2
+    assert "2 storm bull hide(s) already cut — to the giver" in echoes(fake)
+
+
+def test_a_walk_that_ends_short_among_hostiles_gets_away_first(monkeypatch):
+    # #541: "The idea is to leave - you cannot leave by killing things."
+    fled = []
+    monkeypatch.setattr(script.flight, "react", lambda s, prefix: fled.append(prefix))
+    fake = Skinning({"task": [JOURNAL_SKINNING]})
+    fake.state.hostiles = {"185664068": True}
+    script.record("Lanival", {"kind": "skinning", "giver": "barkeep", "cut": 2})
+    script.run(fake, script.parse_args([]), {"weapon": "handaxe"}, TAVERN, no_walk)
+    assert fled == ["task"]
+    assert "stopped short of the barkeep" in echoes(fake)
+    assert not any(c.startswith("give") for c in fake.sent)
+
+
 def test_a_kind_in_task_declines_is_declined_inside_the_window():
     fake = Fake({"ask cormyn": [RECOVERY_OFFER], "decline": [LAPSED]})
     out = run(fake, ["cormyn"], declines=("recovery",))

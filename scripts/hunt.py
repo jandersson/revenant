@@ -35,11 +35,13 @@ When it stops — then walks home, and runs ;skins bank (skins sold, purse banke
   - every trained skill mind-locked, or the style's `until` (boxes, kills); a locked
     weapon fights on while `targeted` or `debilitation` still trains its skill
   - ;hunt task: the task's item dropping in a kill's death line (picked up and stowed), or the
-    skinning task's count of hides cut; no lock ends it
+    skinning task's count of hides cut (written into the task, so ;task hands them in); no lock ends it
   - every room of the ground taken by other players
   - ;hunt return
   - a hunt that never reached the fight (no ground, a wound at the floor) ends without selling
   - an Empath never sets out: attacking a living creature brings empathic shock
+  - never sets out for a ground with a room the map walks no way back from, to home
+    or a task's giver (a Moongate is not counted on)
 
 The profile is ~/.revenant/profiles/<name>.json (File > Character Profile...);
 docs/hunting.md explains every key. Report any "hunt: unrecognized ..." line.
@@ -84,7 +86,14 @@ from client.game.creatures import aim, aim_corpse, noun_of, outgrown, skinnable
 from client.game.probe import classify
 from client.game.profile import describe, load_profile, styled
 from client.game.profile import styles as profile_styles
-from client.game.walker import DIRECTIONS, engaged_move, in_grass, locate, walk
+from client.game.walker import (
+    DIRECTIONS,
+    engaged_move,
+    in_grass,
+    locate,
+    on_foot,
+    walk,
+)
 from client.game.wounds import SEVERITIES, level, parse_health
 
 # The pure half — the tables, the kill sentence, the weapon plan, the
@@ -2229,7 +2238,12 @@ def task_profile(s, profile, db):
         f"hunt: the task — the {task['item']} from the {task.get('creature')} "
         f"{task.get('area')}, until it drops"
     )
-    overlay = {"hunting_ground": task.get("area"), "prey": "", "until": "task"}
+    overlay = {
+        "hunting_ground": task.get("area"),
+        "prey": "",
+        "until": "task",
+        "return_to": sorted(tasks.giver_rooms(db, task.get("giver"))),
+    }
     return {**profile, **overlay, "task_item": task["item"]}, ground
 
 
@@ -2260,7 +2274,12 @@ def skinning_profile(s, profile, db, task):
         profile = own
         s.echo(f"hunt: the {zone} style — the ground's own settings")
     hide = str(task.get("item") or f"{creature} hide")
-    count = int(task.get("count") or 0)
+    # Those cut on an earlier run wait in the loot container (#541).
+    cut = int(task.get("cut") or 0)
+    count = int(task.get("count") or 0) - cut
+    if count <= 0:
+        s.echo(f"hunt: {cut} {hide}s already cut — ;task hands them in")
+        return None, None
     s.echo(f"hunt: the task — {count} {hide}s from the {creature}s of {zone}")
     overlay = {
         "hunting_ground": zone,
@@ -2271,6 +2290,8 @@ def skinning_profile(s, profile, db, task):
         "task_hide": hide,
         "task_hides": count,
         "task_piece": task.get("piece") or "skin",
+        "task_cut": cut,
+        "return_to": sorted(tasks.giver_rooms(db, task.get("giver"))),
     }
     return {**profile, **overlay}, ground
 
@@ -2420,6 +2441,8 @@ def hunt(s, profile, db, travel_first=True, avoid=(), ground=None):
                 "at the wound floor; not setting out (;heal treats it)"
             )
             return
+        if not way_back(s, profile, db, ground, ground_name, avoid):
+            return
         # The buffs before the walk, not among the prey: four casts on
         # arrival were a minute spent standing in the badgers' room
         # (the operator, 2026-09-20), and a buff at minimum mana lasts
@@ -2477,6 +2500,14 @@ def hunt(s, profile, db, travel_first=True, avoid=(), ground=None):
     if tally.kinds:
         s.echo(f"hunt: searched by creature — {hunting.kinds_said(tally.kinds)}")
     record_hunt(s, profile, tally, minutes, reason)
+    if profile.get("task_hides"):
+        # The count cut into the task's record (#541): a ;task after a
+        # walk that ended short hands them in rather than hunting again.
+        name = getattr(s.state, "name", None) or ""
+        task = tasks.load(name)
+        if task:
+            cut = int(profile.get("task_cut") or 0) + tally.task_hides
+            tasks.record(name, {**task, "cut": cut})
     if s.dead:
         return
     go_home(s, profile, db, ground, avoid, reason)
@@ -2484,6 +2515,31 @@ def hunt(s, profile, db, travel_first=True, avoid=(), ground=None):
         # A skinning task's hides go to its giver, never to the tanner.
         sale = bool(tally.skins or tally.bundle) and not profile.get("task_hides")
         sell_and_bank(s, skinned=sale)
+
+
+def way_back(s, profile, db, ground, ground_name, avoid=()):
+    """Before setting out (#541): every room of the ground has a walk
+    back to where the hunt ends — home, and a task's giver — on foot, no
+    Moongate to count on (Fang's Shadow refused one, and the gremlin
+    hunt ended with no way out, 2026-10-13). False, said, when a room
+    has none."""
+    ends = []
+    if profile["home"]:
+        ends.append((f"home {profile['home']!r}", travel.goals_of(db, profile["home"])))
+    if profile.get("return_to"):
+        ends.append(("the task's giver", set(profile["return_to"])))
+    for label, goals in ends:
+        stuck = hunting.stranding_rooms(
+            ground, goals, lambda room, goals: on_foot(s, db, room, goals, avoid)
+        )
+        if stuck:
+            rooms = ", ".join(str(room) for room in stuck[:5])
+            s.echo(
+                f"hunt: no walk back from {ground_name!r} to {label} (room "
+                f"{rooms}) — not setting out"
+            )
+            return False
+    return True
 
 
 def go_home(s, profile, db, ground, avoid, reason):

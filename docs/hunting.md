@@ -108,6 +108,8 @@ A style named after a ground is that ground's own settings: it is laid over when
 
 An empty ground is not an end: the hunt waits and laps it again.
 
+A ground with any room the map cannot walk back from, to `home` or a task's giver, is never set out for; a Moongate is not counted on. `uv run python tools/ground_exits.py <target>` lists every such ground.
+
 ## Loot and skins
 
 - Each kill is skinned (with `skin`) and LOOTed. Coins, gems and boxes are picked up, plus `loot_additions`, minus `loot_subtractions` and `loot_ignore`.

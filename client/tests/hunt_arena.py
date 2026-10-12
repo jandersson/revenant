@@ -77,9 +77,17 @@ GROUND = MapDB(
             "uid": [21103],
             "title": ["[Barana's Shipyard, Gate]"],
             "tags": [],
-            "wayto": {"6047": "south"},
+            "wayto": {"6047": "south", "1": "go gate"},
         },
-        {"id": 1, "uid": [1], "title": ["[Town Green]"], "tags": ["home"], "wayto": {}},
+        {
+            "id": 1,
+            "uid": [1],
+            "title": ["[Town Green]"],
+            "tags": ["home"],
+            "wayto": {},
+        },
+        # No way in or out: a zone no walk reaches (test_hunt_grounds.py).
+        {"id": 2, "uid": [2], "title": ["[Troll Cave]"], "wayto": {}},
     ]
 )
 

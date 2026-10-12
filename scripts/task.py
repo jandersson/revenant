@@ -16,10 +16,10 @@ What it does
 - A search: the area's rooms by title; in each KNEEL and SEARCH (each one's roundtime waited) until the find, SEARCHES_PER_ROOM at most; GET the find, STAND, the walk back to the giver, GIVE; the journal read again.
 - A recovery: ;hunt task, waited for — the area's rooms by title as the ground, the profile's weapons on whatever engages, until a kill's death line drops the item; ;hunt picks it up and goes home as any hunt does; then the walk to the giver, GIVE; the journal read again.
 - A foraging task (the giver counts each GIVE as one item): the walk to a room the map tags with the herb (else tasks.FORAGE_ROOMS; a find tags its room), FORAGE until one find per item owed, each stowed apart; the walk back, a stack GIVEn at a time until the giver pays.
-- A skinning task: ;hunt task on the bestiary's nearest ground for the creature, every kill skinned and the hide kept loose until the count; the walk back, a hide GIVEn at a time until the giver pays.
+- A skinning task: ;hunt task on the bestiary's nearest ground for the creature, every kill skinned and the hide kept loose until the count; the walk back, a hide GIVEn at a time until the giver pays. Hides already cut go straight to the giver.
 
 What stops it
-- The giver's cooldown (ten minutes between asks, kept per giver: an ask inside it is not sent, the minutes left are said), an offer of a kind the profile declines, a recipient the table does not know, a walk that ends short — each said. A shop shut for the night is waited for: the door tried each game hour (fifteen real minutes), eight times at most. A walk that ends short otherwise: ;task again from there carries on.
+- The giver's cooldown (ten minutes between asks, kept per giver: an ask inside it is not sent, the minutes left are said), an offer of a kind the profile declines, a recipient the table does not know, a walk that ends short — each said. A shop shut for the night is waited for: the door tried each game hour (fifteen real minutes), eight times at most. A walk that ends short otherwise: ;task again from there carries on — with hostiles on you, it gets away from them first.
 - A hunt that ends without the item (a floor, a ;hunt return): ;task again hunts on.
 - The loop: a task that ends short, ;task return between tasks, or no giver free twice running (one wait for the first giver's ten minutes between; a named giver's own). Each ask waits two minutes after the last: every giver refuses a character asked elsewhere just before.
 - Delivery, searching, recovery, foraging and skinning are run by the script; kill and boss are accepted and handed over, their wordings captured on the way (#505). A herb no room on record grows is handed over too.
@@ -31,7 +31,7 @@ import math
 import re
 import time
 
-from client.game import hands, items, tasklog, travel
+from client.game import flight, hands, items, tasklog, travel
 from client.game.act import ask, said, unknown, whole_answer
 from client.game.loop import danger, wants_stop
 from client.game.mapdb import MapDB
@@ -104,6 +104,18 @@ def character(s):
     return getattr(getattr(s, "state", None), "name", None) or ""
 
 
+def walk_to(s, rooms, describe, mapdb, walk_fn):
+    """travel.go; a walk that ends short with hostiles on the character
+    gets away from them before the script ends (#541): three gremlins
+    stayed on Crannach when the walk out of their village failed,
+    2026-10-13. Leaving, never fighting on."""
+    if travel.go(s, rooms, describe, db=mapdb, walk=walk_fn):
+        return True
+    if flight.hostiles_present(s.state):
+        flight.react(s, "task")
+    return False
+
+
 ANY_TRIES = 3  # givers ;task any walks toward before giving up
 
 
@@ -127,7 +139,7 @@ def to_available(s, mapdb, name, walk_fn, radius=None):
         dest = route[-1][0] if route else here
         giver = next(giver for giver, found in rooms.items() if dest in found)
         s.echo(f"task: {giver} is the nearest giver free to ask")
-        if travel.go(s, rooms[giver], f"{giver}'s room", db=mapdb, walk=walk_fn):
+        if walk_to(s, rooms[giver], f"{giver}'s room", mapdb, walk_fn):
             return giver.lower()
         rooms.pop(giver)
     reach = f"within {radius} steps" if radius is not None else "within reach"
@@ -338,7 +350,7 @@ def deliver(s, task, mapdb, walk_fn):
         return False
 
     def go():
-        return travel.go(s, rooms, f"{person}'s room", db=mapdb, walk=walk_fn)
+        return walk_to(s, rooms, f"{person}'s room", mapdb, walk_fn)
 
     if not rooms:
         if not sought(s, person_name(person), place, mapdb):
@@ -385,7 +397,7 @@ def search_for(s, task, mapdb, walk_fn):
     for room in sorted(rooms):
         if wants_stop(s):
             return False
-        if not travel.go(s, {room}, f"{area} ({room})", db=mapdb, walk=walk_fn):
+        if not walk_to(s, {room}, f"{area} ({room})", mapdb, walk_fn):
             s.echo(f"task: could not reach room {room} of {area} — trying the next")
             continue
         ask(s, "kneel")
@@ -433,7 +445,7 @@ def hand_in(s, task, mapdb, walk_fn):
     held = items.ref(s, noun)
     if held:
         hands.stow(s, noun, ask)
-    if not travel.go(s, rooms, f"{giver}'s room", db=mapdb, walk=walk_fn):
+    if not walk_to(s, rooms, f"{giver}'s room", mapdb, walk_fn):
         s.echo(f"task: stopped short of {giver} — ;task again from here carries on")
         return False
     held = take_item(s, task)
@@ -553,7 +565,7 @@ def run_foraging(s, task, mapdb, walk_fn):
     if not rooms:
         s.echo(f"task: no room on record grows {name} — yours from here")
         return False
-    if not travel.go(s, rooms, f"the {name}", db=mapdb, walk=walk_fn):
+    if not walk_to(s, rooms, f"the {name}", mapdb, walk_fn):
         s.echo(f"task: stopped short of the {name} — ;task again carries on")
         return False
     found = 0
@@ -585,9 +597,7 @@ def give_each(s, task, noun, mapdb, walk_fn):
     one item. True paid; False short, said."""
     item, owed = task["item"], int(task.get("count") or 0)
     giver = str(task.get("giver") or "")
-    if not travel.go(
-        s, giver_rooms(mapdb, giver), f"{giver}'s room", db=mapdb, walk=walk_fn
-    ):
+    if not walk_to(s, giver_rooms(mapdb, giver), f"{giver}'s room", mapdb, walk_fn):
         s.echo(f"task: stopped short of the {giver} — ;task again carries on")
         return False
     for _ in range(owed):
@@ -595,6 +605,7 @@ def give_each(s, task, noun, mapdb, walk_fn):
         held = items.ref(s, noun)
         if not held:
             s.echo(f"task: no more {item} on you — ;task again brings the rest")
+            record(character(s), {**task, "cut": 0})  # every one cut is given
             return False
         answer = ask(s, f"give {held} to {person_name(giver)}")
         if payment := paid(answer):
@@ -620,14 +631,18 @@ def run_skinning(s, task, profile, mapdb, walk_fn):
     2026-10-12): ;hunt task cuts the hides on the bestiary's nearest
     ground for the creature, kept loose, then a hide GIVEn at a time
     until the giver pays. A profile with no weapon hands it over, as a
-    recovery does."""
-    if not profile.get("weapon") and not profile.get("weapons"):
+    recovery does. The count already cut (;hunt writes it into the
+    record, #541) goes straight to the giver."""
+    cut, owed = int(task.get("cut") or 0), int(task.get("count") or 0)
+    if cut and cut >= owed:
+        s.echo(f"task: {cut} {task.get('item')}(s) already cut — to the giver")
+    elif not profile.get("weapon") and not profile.get("weapons"):
         s.echo(
             f"task: {describe(task)} — the profile names no weapon for ;hunt; "
             "yours from here"
         )
         return False
-    if not hunted(s):
+    elif not hunted(s):
         return False
     noun = str(task.get("item") or "hide").split()[-1]
     return give_each(s, task, noun, mapdb, walk_fn)
@@ -690,7 +705,7 @@ def run(s, options, profile, mapdb, walk_fn=walk):
     elif options.get("loop") and options["giver"]:
         giver = options["giver"]
         rooms = giver_rooms(mapdb, giver)
-        if not travel.go(s, rooms, f"{giver}'s room", db=mapdb, walk=walk_fn):
+        if not walk_to(s, rooms, f"{giver}'s room", mapdb, walk_fn):
             return False
     if not options["giver"]:
         s.echo("task: no task in hand — ;task <giver> asks one")

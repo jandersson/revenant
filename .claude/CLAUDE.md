@@ -30,6 +30,8 @@ uv run python tools/drive.py --character NAME [--act] "cmd"  # a logged, stoppab
                                      # (--steps FILE a loop; --stop halts every driver)
 uv run python tools/wiki.py "Soul system" [--grep WORD]  # an Elanthipedia page's raw
                                      # wikitext, cached under ~/.revenant/wiki (--list)
+uv run python tools/ground_exits.py 8308  # the bestiary's grounds with a room the map
+                                     # walks no way out of (--premium, --zone)
 uv run python tools/task_backfill.py  # history.db's task offers read back out of the
                                      # game logs (--dry-run); a rerun adds nothing
 ```
