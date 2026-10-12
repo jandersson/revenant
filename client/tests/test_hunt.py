@@ -1784,7 +1784,19 @@ def test_a_run_that_cut_no_skin_banks_without_the_tannery(travel):
     )
     _run(arena, profile=PROFILE | {"max_kills": 1, "skin": False}, travel_first=False)
     assert arena.started == [("bank", ["keep=200"])]
-    assert "hunt: no skins this run — banking (;bank)" in arena.echoed
+    assert "hunt: no skins to sell — banking (;bank)" in arena.echoed
+
+
+def test_a_skinning_tasks_hides_are_banked_never_sold(travel):
+    # 2026-10-12: the storm bull task's hunt ended with ;skins bank, which
+    # would have sold the hides the barkeep was owed.
+    arena = _Runner(
+        {"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]},
+        running=("train",),
+    )
+    task = {"max_kills": 1, "task_hide": "rat pelt", "task_hides": 6}
+    _run(arena, profile=PROFILE | task, travel_first=False)
+    assert arena.started == [("bank", ["keep=200"])]
 
 
 def test_a_stop_while_selling_stops_the_skins_it_started(travel):

@@ -1224,7 +1224,10 @@ def stow(s, profile, item):
     False when neither has room (#262), the item still in hand."""
     container = profile["loot_container"]
     if container:
-        if not items.no_room(ask(s, f"put my {item} in my {container}")):
+        answer = ask(s, f"put my {item} in my {container}")
+        # "What were you referring to?": no container by that name ("duffel"
+        # for a heavy silk duffel bag, 2026-10-12) — STOW, as with no room.
+        if not items.no_room(answer) and not missing(answer):
             return True
     return not items.no_room(ask(s, f"stow my {item}"))
 
@@ -1375,6 +1378,15 @@ def has_skin(s, corpse, tally):
 def skin(s, profile, corpse, tally):
     # The game skins with a worn knife where it sits, else the wielded
     # edged weapon; neither is "nothing to skin with" and skinning goes off.
+    if profile.get("task_hide"):
+        # A bare SKIN takes a creature's part when it has one: a storm
+        # bull gave "a jagged horn", not the task's hide (2026-10-12).
+        # ARRANGE FOR SKIN picks the skin (Elanthipedia: Arrange command).
+        arranged = ask(s, f"arrange {corpse} for skin")
+        s.waitrt()
+        if not tally.arrange_reported:
+            tally.arrange_reported = True
+            s.echo(f"hunt: ARRANGE answered {said(arranged)!r}")
     answer = ask(s, f"skin {corpse}")
     outcome = classify(answer, SKIN_OUTCOMES)
     if outcome == "hands_full":
@@ -2456,7 +2468,9 @@ def hunt(s, profile, db, travel_first=True, avoid=(), ground=None):
         return
     go_home(s, profile, db, ground, avoid, reason)
     if not s.dead:
-        sell_and_bank(s, skinned=bool(tally.skins or tally.bundle))
+        # A skinning task's hides go to its giver, never to the tanner.
+        sale = bool(tally.skins or tally.bundle) and not profile.get("task_hides")
+        sell_and_bank(s, skinned=sale)
 
 
 def go_home(s, profile, db, ground, avoid, reason):
@@ -2511,7 +2525,7 @@ def sell_and_bank(s, skinned=True):
         s.echo("hunt: selling the skins and banking (;skins bank)")
     else:
         name, args = "bank", [f"keep={TRAVEL_PURSE}"]
-        s.echo("hunt: no skins this run — banking (;bank)")
+        s.echo("hunt: no skins to sell — banking (;bank)")
     if not start(name, args):
         s.echo(f"hunt: could not start ;{name} — sell and bank by hand")
         return

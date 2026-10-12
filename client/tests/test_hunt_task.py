@@ -184,6 +184,30 @@ def test_a_skinning_hunt_ends_at_the_tasks_count(bull_yard, travel):
     assert sum(command.startswith("attack") for command in arena.sent) == 2
     assert arena.sent.count("put my hide in my sack") == 2
     assert not any(command.startswith("bundle") for command in arena.sent)
+    # A bare SKIN took the storm bull's part, a jagged horn: the skin is
+    # ARRANGEd for first, and the answer said once for the fixtures.
+    skins = [i for i, c in enumerate(arena.sent) if c.startswith("skin ")]
+    assert all(arena.sent[i - 1].endswith(" for skin") for i in skins)
+    assert sum(text.startswith("hunt: ARRANGE answered") for text in arena.echoed) == 1
+
+
+def test_a_put_into_no_such_container_falls_back_to_stow(bull_yard, travel):
+    # 2026-10-12: "duffel" for a heavy silk duffel bag — PUT answered "What
+    # were you referring to?", the horn was taken for stowed and stayed in
+    # hand, and with both hands full every SKIN was refused.
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "skin": [HIDE],
+            "put my hide": ["What were you referring to?"],
+            "loot": [NOTHING],
+        }
+    )
+    tasks.record("Lanival", {**SKINNING, "count": 1})
+    overlaid, ground = hunt.task_profile(arena, dict(TASK_PROFILE), GROUND)
+    overlaid["prey"] = ""
+    hunt.hunt(arena, overlaid, GROUND, travel_first=False, ground=ground)
+    assert arena.sent.index("put my hide in my sack") < arena.sent.index("stow my hide")
 
 
 def test_a_skinning_hunt_with_nothing_to_skin_with_ends_at_the_first_skin(

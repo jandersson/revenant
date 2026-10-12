@@ -517,6 +517,7 @@ class Tally:
         self.tactic_misses = 0  # unrecognized maneuver answers in a row
         self.tactics_off = False  # the maneuvers refused this run, said once
         self.loot_reported = False  # LOOT's first answer echoed for the fixtures
+        self.arrange_reported = False  # ARRANGE's first answer too (#509)
         self.disposed = set()  # the corpse ids skinned and looted (#456)
         self.caps_said = False  # the ground's teaching caps looked at once (#322)
         self.last_track = None  # clock() of the last HUNT that read tracks (#194)
