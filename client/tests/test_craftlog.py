@@ -27,6 +27,17 @@ def test_analyze_gives_the_quality_its_rank_and_the_difficulty():
     assert craftlog.read("What were you referring to?") == ("", None, "")
 
 
+def test_a_crafted_word_comes_without_of_and_quality():
+    # ANALYZE MY WASH, an eye wash made at Alchemy 392 (captured 2026-10-12):
+    # the word stood unread and the row was logged with no quality.
+    analyzed = (
+        "You thoroughly analyze the eye wash, revealing some of its secrets.\n"
+        "This appears to be a type of basic wound remedy that is well-crafted.\n"
+        "The wash is a challenging piece to make.\n"
+    )
+    assert craftlog.read(analyzed) == ("well-crafted", 7, "challenging")
+
+
 def test_a_finished_item_is_one_row(tmp_path):
     path = tmp_path / "history.db"
     quality = craftlog.log(

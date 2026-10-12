@@ -785,7 +785,7 @@ def take_out(s, noun, item):
         experience.get("percent"),
     )
     if quality:
-        s.echo(f"remedies: the {item} is of {quality} quality ({SKILL} {rank})")
+        s.echo(f"remedies: the {item} — {quality} ({SKILL} {rank})")
 
 
 def stacks_on_hand(possessions, item):

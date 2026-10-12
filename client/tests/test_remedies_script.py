@@ -296,7 +296,7 @@ def test_each_finished_remedy_is_analyzed_and_its_quality_recorded():
         "analyze my salve"
     )
     assert fake.sent.index("analyze my salve") < fake.sent.index("stow my salve")
-    assert "the head salve is of superior quality (Alchemy 2)" in out
+    assert "the head salve — superior (Alchemy 2)" in out
     row = (
         sqlite3.connect(database_path())
         .execute(

@@ -53,7 +53,9 @@ QUALITIES = (
     "outstanding",
     "masterfully-crafted",
 )
-_QUALITY = re.compile(r"is of (?P<quality>[\w' -]+?) quality")
+# "...remedy that is of exceptional quality." and, for the -crafted words,
+# "...remedy that is well-crafted." (an eye wash, 2026-10-12).
+_QUALITY = re.compile(r"that is (?:of )?(?P<quality>[\w' -]+?)(?: quality)?\.")
 _DIFFICULTY = re.compile(r"is an? (?P<difficulty>[\w' -]+?) piece to make")
 
 
