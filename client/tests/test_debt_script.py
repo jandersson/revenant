@@ -229,6 +229,48 @@ def test_a_town_official_who_took_it_all_ends_the_run_paid():
     assert "pay all" not in fake.sent and fake.walks == [{1900}]
 
 
+def test_a_debt_to_ilithi_is_drawn_at_a_dokora_teller_and_paid_in_shard():
+    # Crannach, 2026-10-12 (#538): the nearest teller was the Crossing's
+    # Kronars and the nearest office Zoluren's.
+    world = MapDB(
+        [
+            *MAP.rooms.values(),
+            {
+                "id": 19276,
+                "uid": [9003],
+                "title": ["[First Bank of Ilithi, Teller]"],
+                "location": "Shard",
+                "tags": ["bank"],
+                "wayto": {},
+            },
+            {
+                "id": 2477,
+                "uid": [9004],
+                "title": ["[The Great Tower, Debt Collector's Office]"],
+                "location": "The Great Tower",
+                "tags": ["debt"],
+                "wayto": {},
+            },
+        ]
+    )
+    owed = (
+        "Wealth:\n  No Kronars.\n  No Lirums.\n  No Dokoras.\nDebt:\n"
+        "  You owe 1 platinum, 6 gold and 2 silver Dokoras to the Domain of "
+        "Ilithi. (16200 copper Dokoras)\n"
+    )
+    fake = Fake(
+        {
+            "info": [owed, "Wealth:\n  No Dokoras.\nDebt:\n  No debt.\n"],
+            "wealth": ["Wealth:\n  16200 copper Dokoras (16200 copper Dokoras).\n"],
+            "withdraw": ["ok", "ok", "ok"],
+            "pay": [PAID],
+        }
+    )
+    script.run(fake, ["pay", "stay"], mapdb=world, walk_fn=walk)
+    assert fake.walks == [{19276}, {2477}]
+    assert "debt: paid 1 platinum, 6 gold and 2 silver Dokoras" in echoes(fake)
+
+
 def test_a_debt_that_survives_pay_is_reported_not_claimed_paid():
     fake = Fake(
         {

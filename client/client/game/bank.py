@@ -52,8 +52,12 @@ def withdraw(s, mapdb, walk_fn, ask, prefix, copper, currency, retry="try again"
     exchange of words in its answer window as its own (the operator,
     2026-09-20). False, said, when the map has no teller, the walk
     failed or the teller refused. Shared by ;debt (the shortfall) and
-    ;tdp (the trainer's fee, #247)."""
+    ;tdp (the trainer's fee, #247). A teller of `currency`'s province
+    first: Shard's for Dokoras, never the Crossing's Kronars (#538)."""
     tellers = mapdb.rooms_tagged("bank")
+    tellers = [
+        room for room in tellers if room_currency(mapdb, room) == str(currency).lower()
+    ] or tellers
     if not tellers:
         s.echo(f"{prefix}: the map has no room tagged 'bank'")
         return False

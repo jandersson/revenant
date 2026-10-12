@@ -20,17 +20,32 @@ come out of the bank (Shard): the purse and the debt are read again
 after the teller. Then it walks to the nearest debt office, PAYs, and
 reads INFO again: the debt gone is the only success it reports. It
 stops on death, and walks back to where it started unless told
-`stay`. The nearest office is the map's word: a debt owed to Zoluren
-is paid in Zoluren (Crossing, Leth Deriel); from another province the
-PAY answer names the right towns and the script echoes it.
+`stay`. The teller is one of the debt's coin, the office one of the
+province INFO names ("... Dokoras to the Domain of Ilithi.": Shard's),
+from dr-scripts' pay-debt.lic; a province it does not know takes the
+nearest office, whose PAY answer names the right towns.
 Stop with:  ;stop debt
 """
+
+import re
 
 from client.game import bank, money, travel
 from client.game.act import ask
 from client.game.mapdb import MapDB
 from client.game.money import parse_wealth, phrase
 from client.game.walker import locate, walk
+
+# Each province's debt offices by map id, from dr-scripts' pay-debt.lic
+# and data/base-town.yaml (#538): a debt is paid in its own province.
+OFFICES = {
+    "zoluren": {8282, 14385},  # the Crossing, Leth Deriel
+    "therengia": {3225, 13403, 54},  # Therenborough, Riverhaven, Muspar'i
+    "ilithi": {2477},  # Shard, in the Great Tower
+    "qi": {107, 7160, 11922},  # Aesry, Ratha, Mer'Kresh
+    "forfedhdar": {11696},  # Hibarnhvidar
+}
+# INFO's "You owe ... Dokoras to the Domain of Ilithi. (16200 copper Dokoras)".
+_OWED_TO = re.compile(r"(Kronars|Lirums|Dokoras) to the [\w' ]+? of ([\w']+)")
 
 # The teller's lines and refusals are client/game/bank.py's (shared with
 # ;tdp's fee, #247). Success is not classified: INFO afterwards is the
@@ -46,8 +61,10 @@ def echo_lines(s, text):
 
 
 def wealth(s):
-    """INFO's carried coin and debt, echoed per currency; the dict."""
-    info = parse_wealth(ask(s, "info"))
+    """INFO's carried coin and debt, echoed per currency; the dict, with
+    INFO's text under "text"."""
+    text = ask(s, "info")
+    info = {**parse_wealth(text), "text": text}
     for currency in sorted(set(info["carried"]) | set(info["debt"])):
         carried = info["carried"].get(currency, 0)
         owed = info["debt"].get(currency, 0)
@@ -67,6 +84,21 @@ def owed_first(info):
         if copper > 0:
             return currency, copper, info["carried"].get(currency, 0)
     return None
+
+
+def offices_for(mapdb, text, currency):
+    """The debt offices of the province INFO says `currency`'s debt is
+    owed to; every room the map tags `debt` for a province not known."""
+    for coin, province in _OWED_TO.findall(text or ""):
+        if coin.lower() != currency.lower():
+            continue
+        for key, rooms in OFFICES.items():
+            # "Qi'Reshalia" is pay-debt's "qi"
+            if province.lower().startswith(key):
+                found = {room for room in rooms if room in mapdb.rooms}
+                if found:
+                    return found
+    return set(mapdb.rooms_tagged("debt"))
 
 
 def fetch(s, shortfall, currency, mapdb, walk_fn):
@@ -115,7 +147,7 @@ def run(s, words, mapdb=None, walk_fn=walk):
                 f"against {phrase(owed, currency)} owed — stopping"
             )
             return
-    offices = set(mapdb.rooms_tagged("debt"))
+    offices = offices_for(mapdb, info["text"], currency)
     if not travel.go(s, offices, "the debt office", db=mapdb, walk=walk_fn):
         s.echo("debt: could not reach a debt office — stopping")
         return

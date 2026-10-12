@@ -35,7 +35,7 @@ The province lends when you cannot pay a fee (a stat trainer, a fine). INFO show
 
 ```
 ;debt              what you carry and owe (spends nothing)
-;debt pay          fetch the shortfall from the teller, PAY ALL at the debt office, walk back
+;debt pay          the shortfall from a teller of the debt's coin, PAY ALL at its province's office, walk back
 ```
 
 Debt offices carry the map's `debt` tag; Zoluren's are in the Crossing's Town Hall and Leth Deriel. Neither WITHDRAW nor PAY costs roundtime.
