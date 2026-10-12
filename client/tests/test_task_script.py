@@ -619,6 +619,19 @@ def test_parse_args():
     assert script.parse_args(["history"]) == args(history=True)
     assert script.parse_args(["any"]) == args(any=True)
     assert script.parse_args(["loop", "radius=40"]) == args(loop=True, radius=40)
+    # 2026-10-12: "minister" stamped one cooldown for every trade minister.
+    words = ["Tiger", "Clan", "trade", "minister"]
+    assert script.parse_args(words) == args("tiger clan trade minister")
+
+
+def test_a_ministers_cooldown_is_his_own_and_the_ask_takes_his_noun(monkeypatch):
+    from client.game import tasks
+
+    monkeypatch.setattr(script, "now", lambda: 10_000.0)
+    tasks.note_ask("Lanival", "leth deriel trade minister", 10_000.0 - 60)
+    fake = Fake({"ask minister": [COOLDOWN]})
+    run(fake, ["tiger", "clan", "trade", "minister"])
+    assert "ask minister for task" in fake.sent  # not held by Leth Deriel's
 
 
 def test_any_walks_to_the_nearest_giver_whose_ten_minutes_are_up(monkeypatch):

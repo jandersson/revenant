@@ -1,5 +1,5 @@
 """Run an NPC's task for the coin:  ;task <giver>
-    ;task <giver>        ask the giver (a noun the room knows: cormyn) for a task and accept it; a kind the profile's task_declines names is declined
+    ;task <giver>        ask the giver (cormyn, or a minister by his whole name: tiger clan trade minister) for a task and accept it; a kind the profile's task_declines names is declined
     ;task                carry on the task in hand (the journal's): a delivery walks to the recipient and hands the item over; a search kneels and searches the area's rooms, a recovery hunts the area (;hunt task), then brings the find back to the giver
     ;task item=<noun>    ... naming the item when the record of the accept is gone (a basket)
     ;task any            walk to the nearest giver whose ten minutes are up and ask
@@ -88,8 +88,11 @@ def parse_args(words):
             options["history"] = True
         elif key in ("any", "loop") and not options["giver"]:
             options[key] = True
-        elif text and not options["giver"]:
-            options["giver"] = text.lower()
+        elif text and not sep:
+            # A giver of several words is one name ("tiger clan trade
+            # minister"): its cooldown is kept under the whole name, as
+            # ;task any keeps it; ASK takes the last word.
+            options["giver"] = f"{options['giver']} {text.lower()}".strip()
     return options
 
 
@@ -161,7 +164,9 @@ def take_offer(s, giver, declines, name=""):
             if declined(answer)
             else "declined (the giver said nothing known)"
         )
-        s.echo(f"task: {describe(offer)} — in task_declines — {verdict}")
+        s.echo(
+            f"task: {describe({'giver': giver, **offer})} — in task_declines — {verdict}"
+        )
         tasklog.log_offer(name, giver, offer, accepted=False)
         return None
     answer = ask(s, "accept task")
