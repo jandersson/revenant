@@ -203,6 +203,39 @@ def test_a_skinning_hunt_ends_at_the_tasks_count(bull_yard, travel):
     assert tasks.load("Lanival")["cut"] == 2
 
 
+def test_a_task_for_either_piece_skins_bare_and_counts_both(monkeypatch, travel):
+    # The representative's 10 rat pelts or tails (2026-10-13): no ARRANGE
+    # for a piece the task does not mind; a tail counts as a pelt would.
+    from client.game import hunting
+
+    zone = ("Zoluren", (6046, 6047), (("Rat", 0, 30),), ())
+    monkeypatch.setitem(hunting.ZONES, "yard_rats", zone)
+    rats = {
+        "kind": "skinning",
+        "giver": "Estate Holder representative",
+        "item": "rat pelt",
+        "items": ["rat pelt", "rat tail"],
+        "creature": "rat",
+        "count": 2,
+        "piece": "either",
+    }
+    tail = "You skillfully remove a rat tail from the remains of a rat."
+    pelt = "You work loose a rat pelt from the rat carcass."
+    arena = Arena(
+        {
+            "attack": [(KILL, lambda a: None), (KILL, kill), (KILL, kill)],
+            "skin": [tail, pelt],
+            "loot": [NOTHING] * 3,
+        }
+    )
+    tasks.record("Lanival", rats)
+    overlaid, ground = hunt.task_profile(arena, dict(TASK_PROFILE), GROUND)
+    overlaid["prey"] = ""
+    hunt.hunt(arena, overlaid, GROUND, travel_first=False, ground=ground)
+    assert not any(c.startswith("arrange") for c in arena.sent)
+    assert "2 rat pelt or rat tail(s) cut — the task's count" in "\n".join(arena.echoed)
+
+
 def test_hides_cut_on_an_earlier_run_shorten_the_hunt(bull_yard):
     arena = Arena({})
     tasks.record("Lanival", {**SKINNING, "cut": 1})

@@ -121,18 +121,39 @@ _JOURNAL_FORAGING = re.compile(
 # The Estate Holder representative asks for parts the same way ("I need 10
 # parts from the province's yellow-bristled gremlin population. ... I think
 # they have a yellow gremlin bristle.", 2026-10-12): SKIN after ARRANGE FOR
-# PART, so the piece is kept.
+# PART, so the piece is kept. Or for either ("10 skins and parts from the
+# province's rat population. ... I think they have a rat pelt or a rat
+# tail.  Either would suffice", the journal 'will accept "a rat pelt"
+# and/or "a rat tail"', 2026-10-13): a bare SKIN, both items counted.
 _SKINNING = re.compile(
-    r"I need (?P<count>\d+) (?P<piece>skin|part)s from the province's "
-    r"(?P<creature>[\w' -]+?) population\."
-    r"(?:.*?I think they have (?:an? )?(?P<item>[\w' -]+?)\.)?"
+    r"I need (?P<count>\d+) (?P<piece>skins and parts|skins|parts) from the "
+    r"province's (?P<creature>[\w' -]+?) population\."
+    r"(?:.*?I think they have (?:an? )?(?P<item>[\w' -]+?)"
+    r"(?: or (?:an? )?(?P<other>[\w' -]+?))?\.)?"
 )
 _JOURNAL_SKINNING = re.compile(
     r"(?P<giver>[A-Z][^:.]*?)(?: in [A-Z][^:.]*?)? wants you to retrieve "
-    r"(?P<count>\d+) (?P<piece>skin|part)s from the province's "
-    r"(?P<creature>[\w' -]+?) population\."
-    r'(?:.*?will accept "(?:an? )?(?P<item>[^"]+)")?'
+    r"(?P<count>\d+) (?P<piece>skins and parts|skins|parts) from the "
+    r"province's (?P<creature>[\w' -]+?) population\."
+    r'(?:.*?will accept "(?:an? )?(?P<item>[^"]+)"'
+    r'(?: and/or "(?:an? )?(?P<other>[^"]+)")?)?'
 )
+PIECES = {"skins": "skin", "parts": "part", "skins and parts": "either"}
+
+
+def _skinning(match):
+    """A skinning offer's or journal's fields, the items it accepts."""
+    item = (match.group("item") or "").strip()
+    other = (match.group("other") or "").strip()
+    return {
+        "kind": "skinning",
+        "item": item,
+        "items": [name for name in (item, other) if name],
+        "creature": match.group("creature"),
+        "piece": PIECES[match.group("piece")],
+    }
+
+
 _TURN_IN = re.compile(r"need to turn in (?P<left>\d+) more")
 _ARTICLE = re.compile(r"^(?:The|An?) ")  # "A barkeep", "The Leth Deriel trade minister"
 NEED_MORE = re.compile(r"I need (?P<left>\d+) more")
@@ -279,13 +300,7 @@ def parse_offer(answer):
         }
     match = _SKINNING.search(text)
     if match:
-        return {
-            "kind": "skinning",
-            "item": (match.group("item") or "").strip(),
-            "creature": match.group("creature"),
-            "count": int(match.group("count")),
-            "piece": match.group("piece"),
-        }
+        return {**_skinning(match), "count": int(match.group("count"))}
     match = _FORAGING.search(text)
     if match:
         return {
@@ -332,12 +347,9 @@ def parse_journal(answer):
     if match:
         left = _TURN_IN.search(text)
         return {
-            "kind": "skinning",
+            **_skinning(match),
             "giver": _ARTICLE.sub("", match.group("giver")).strip(),
-            "item": (match.group("item") or "").strip(),
-            "creature": match.group("creature"),
             "count": int(left.group("left") if left else match.group("count")),
-            "piece": match.group("piece"),
         }
     match = _JOURNAL_FORAGING.search(text)
     if match:

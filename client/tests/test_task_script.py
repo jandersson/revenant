@@ -457,6 +457,37 @@ def test_hides_in_the_loot_container_count_as_cut_without_a_record():
     assert fake.sent.count("give #185300001 to barkeep") == 2
 
 
+def test_a_task_for_either_item_gives_whichever_is_on_hand():
+    # The rat pelts or tails (2026-10-13): the bag holds tails only.
+    class Tails(Skinning):
+        def put(self, command):
+            Fake.put(self, command)
+            if command == "get my tail":
+                self.state.right_hand = {
+                    "exist": "1",
+                    "noun": "tail",
+                    "name": "rat tail",
+                }
+
+    journal = (
+        "A barkeep in The Crossing wants you to retrieve 2 skins and parts from "
+        'the province\'s rat population.  A barkeep will accept "a rat pelt" '
+        'and/or "a rat tail".  You still need to turn in 2 more.\n'
+    )
+    fake = Tails(
+        {
+            "task": [journal],
+            "look in my sack": ["In the sack you see a rat tail and a rat tail."],
+            "give": [BARKEEP_TAKES.format(1), BARKEEP_PAID],
+        }
+    )
+    profile = {"weapon": "handaxe", "loot_container": "sack"}
+    script.run(fake, script.parse_args([]), profile, TAVERN, walk)
+    assert fake.started == []  # two tails on hand: no hunt
+    assert fake.sent.count("get my pelt") == 2 and fake.sent.count("get my tail") == 2
+    assert fake.sent.count("give #1 to barkeep") == 2
+
+
 def test_a_walk_that_ends_short_among_hostiles_gets_away_first(monkeypatch):
     # #541: "The idea is to leave - you cannot leave by killing things."
     fled = []

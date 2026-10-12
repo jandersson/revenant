@@ -212,6 +212,9 @@ def take_offer(s, giver, declines, name=""):
     return offer
 
 
+PIECE_WORDS = {"skin": "skins", "part": "parts", "either": "skins and parts"}
+
+
 def describe(task):
     if task.get("kind") == "delivery":
         return f"a delivery to {task.get('person')} in {task.get('place')}"
@@ -232,7 +235,7 @@ def describe(task):
     if task.get("kind") == "skinning":
         return (
             f"a skinning task of {task.get('count')} {task.get('creature')} "
-            f"{task.get('piece') or 'skin'}s "
+            f"{PIECE_WORDS.get(task.get('piece'), 'skins')} "
             f"({task.get('item') or 'the hide'}) for the {task.get('giver')}"
         )
     if task.get("kind") == "unknown":
@@ -591,18 +594,23 @@ def run_foraging(s, task, mapdb, walk_fn):
     return give_each(s, task, noun, mapdb, walk_fn)
 
 
-def give_each(s, task, noun, mapdb, walk_fn):
-    """The walk to the giver, then GIVE an item of `noun` at a time until
-    the giver pays — a foraging or skinning giver credits each GIVE as
-    one item. True paid; False short, said."""
+def give_each(s, task, nouns, mapdb, walk_fn):
+    """The walk to the giver, then GIVE an item of `nouns` (a noun, or
+    the nouns a task takes either of: pelt, tail) at a time until the
+    giver pays — a foraging or skinning giver credits each GIVE as one
+    item. True paid; False short, said."""
+    nouns = [nouns] if isinstance(nouns, str) else list(nouns)
     item, owed = task["item"], int(task.get("count") or 0)
     giver = str(task.get("giver") or "")
     if not walk_to(s, giver_rooms(mapdb, giver), f"{giver}'s room", mapdb, walk_fn):
         s.echo(f"task: stopped short of the {giver} — ;task again carries on")
         return False
     for _ in range(owed):
-        ask(s, f"get my {noun}")
-        held = items.ref(s, noun)
+        held = None
+        for noun in nouns:
+            ask(s, f"get my {noun}")
+            if held := items.ref(s, noun):
+                break
         if not held:
             s.echo(f"task: no more {item} on you — ;task again brings the rest")
             record(character(s), {**task, "cut": 0})  # every one cut is given
@@ -634,9 +642,10 @@ def run_skinning(s, task, profile, mapdb, walk_fn):
     recovery does. Those already cut go straight to the giver: the loot
     container's LOOK IN counts them, else the record ;hunt writes (#541),
     and a hunt cuts only the rest."""
-    noun = str(task.get("item") or "hide").split()[-1]
+    names = task.get("items") or [task.get("item") or "hide"]
+    nouns = [str(name).split()[-1] for name in names]
     owed = int(task.get("count") or 0)
-    cut = max(int(task.get("cut") or 0), in_container(s, profile, noun))
+    cut = max(int(task.get("cut") or 0), in_container(s, profile, nouns))
     record(character(s), {**task, "cut": cut})  # ;hunt task reads it
     if cut and cut >= owed:
         s.echo(f"task: {cut} {task.get('item')}(s) already cut — to the giver")
@@ -648,19 +657,19 @@ def run_skinning(s, task, profile, mapdb, walk_fn):
         return False
     elif not hunted(s):
         return False
-    return give_each(s, task, noun, mapdb, walk_fn)
+    return give_each(s, task, nouns, mapdb, walk_fn)
 
 
-def in_container(s, profile, noun):
-    """How many `noun` the profile's loot container lists (LOOK IN), where
+def in_container(s, profile, nouns):
+    """How many of `nouns` the profile's loot container lists (LOOK IN), where
     ;hunt stows what it cuts; 0 with no container or no listing. Ten
     gremlin bristles cut before ;hunt kept a count sent ;task hunting ten
     more (2026-10-13)."""
     container = str(profile.get("loot_container") or "").strip()
     if not container:
         return 0
-    nouns = items.listed_nouns(ask(s, f"look in my {container}")) or []
-    return nouns.count(noun.lower())
+    listed = items.listed_nouns(ask(s, f"look in my {container}")) or []
+    return sum(listed.count(noun.lower()) for noun in nouns)
 
 
 RUNNABLE = ("delivery", "searching", "recovery", "foraging", "skinning")

@@ -111,6 +111,7 @@ def test_a_skinning_task_is_no_foraging_task():
         "creature": "storm bull",
         "count": 6,
         "piece": "skin",
+        "items": ["storm bull hide"],
     }
     journal = (
         "You look in your task journal and see the following entry:\n"
@@ -125,6 +126,7 @@ def test_a_skinning_task_is_no_foraging_task():
         "creature": "storm bull",
         "count": 5,
         "piece": "skin",
+        "items": ["storm bull hide"],
     }
 
 
@@ -144,6 +146,7 @@ def test_a_task_for_parts_is_a_skinning_task_for_the_part():
         "creature": "yellow-bristled gremlin",
         "count": 10,
         "piece": "part",
+        "items": ["yellow gremlin bristle"],
     }
     journal = (
         "You look in your task journal and see the following entry:\n"
@@ -159,7 +162,38 @@ def test_a_task_for_parts_is_a_skinning_task_for_the_part():
         "creature": "yellow-bristled gremlin",
         "count": 10,
         "piece": "part",
+        "items": ["yellow gremlin bristle"],
     }
+
+
+def test_a_task_for_skins_and_parts_takes_either_item():
+    # The Estate Holder representative, captured 2026-10-13: read as
+    # foraging, "no room grows" it, and the loop ended.
+    offer = (
+        "An Estate Holder representative says, \"I do have a small task I'd like "
+        "for you to perform.  I need 10 skins and parts from the province's rat "
+        "population.  If you could get those for me, I would greatly appreciate "
+        "it.  I think they have a rat pelt or a rat tail.  Either would suffice "
+        "as evidence of your kills."
+    )
+    assert tasks.parse_offer(offer) == {
+        "kind": "skinning",
+        "item": "rat pelt",
+        "items": ["rat pelt", "rat tail"],
+        "creature": "rat",
+        "count": 10,
+        "piece": "either",
+    }
+    journal = (
+        "You look in your task journal and see the following entry:\n"
+        "An Estate Holder representative in Fang Cove wants you to retrieve 10 "
+        "skins and parts from the province's rat population.  An Estate Holder "
+        'representative will accept "a rat pelt" and/or "a rat tail".  You still '
+        "need to turn in 10 more.\n"
+    )
+    found = tasks.parse_journal(journal)
+    assert found["items"] == ["rat pelt", "rat tail"] and found["piece"] == "either"
+    assert found["count"] == 10
 
 
 def test_a_delivery_offer_names_the_person_and_the_place():

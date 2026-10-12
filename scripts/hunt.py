@@ -1388,7 +1388,7 @@ def has_skin(s, corpse, tally):
 def skin(s, profile, corpse, tally):
     # The game skins with a worn knife where it sits, else the wielded
     # edged weapon; neither is "nothing to skin with" and skinning goes off.
-    if profile.get("task_hide"):
+    if profile.get("task_hide") and profile.get("task_piece") != "either":
         # A bare SKIN takes a creature's part when it has one: a storm
         # bull gave "a jagged horn", not the task's hide (2026-10-12).
         # ARRANGE FOR SKIN picks the skin (Elanthipedia: Arrange command):
@@ -1397,7 +1397,7 @@ def skin(s, profile, corpse, tally):
         # a greater reward." and the SKIN after it "...a sterling example of
         # a storm bull hide from the bull carcass." (2026-10-12). A parts
         # task (the Estate Holder representative's gremlin bristles) asks
-        # FOR PART.
+        # FOR PART; one that takes either (a rat pelt or tail) skins bare.
         piece = profile.get("task_piece") or "skin"
         arranged = ask(s, f"arrange {corpse} for {piece}")
         s.waitrt()
@@ -1425,8 +1425,8 @@ def skin(s, profile, corpse, tally):
         outcome = classify(answer, SKIN_OUTCOMES)
     if outcome == "ok":
         tally.skins += 1
-        hide = profile.get("task_hide")
-        if hide and noun_of(hide) in answer.lower():
+        nouns = profile.get("task_nouns") or []
+        if any(noun.lower() in answer.lower() for noun in nouns):
             tally.task_hides += 1
         if "into your bundle" in answer.lower() or bundled(s, profile, tally):
             # The game said so ("You carefully fit a pink grendel ear
@@ -2273,7 +2273,8 @@ def skinning_profile(s, profile, db, task):
         # The ground's own style beneath the task's keys, which win.
         profile = own
         s.echo(f"hunt: the {zone} style — the ground's own settings")
-    hide = str(task.get("item") or f"{creature} hide")
+    names = task.get("items") or [task.get("item") or f"{creature} hide"]
+    hide = " or ".join(names)  # "rat pelt or rat tail": either counts
     # Those cut on an earlier run wait in the loot container (#541).
     cut = int(task.get("cut") or 0)
     count = int(task.get("count") or 0) - cut
@@ -2288,6 +2289,7 @@ def skinning_profile(s, profile, db, task):
         "skin": True,
         "bundle": False,
         "task_hide": hide,
+        "task_nouns": [noun_of(name) for name in names],
         "task_hides": count,
         "task_piece": task.get("piece") or "skin",
         "task_cut": cut,
