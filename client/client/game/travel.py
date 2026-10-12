@@ -4,6 +4,7 @@
     travel.here(s)                            # the map id of the room, or None
     travel.mapdb()                            # the map, parsed once
     travel.avoided(db)                        # settings.json's avoid_rooms as ids
+    travel.tag_here(s, "red flower", db)      # tag the room with a find, in the local map
 
 A test passes its fakes as db= and walk= (the walker's arguments, avoid
 included); avoid=() walks through anything. go() says "nothing in the
@@ -47,6 +48,16 @@ def goals_of(db, target):
 def here(s, db=None):
     """The map id of the room the character stands in, or None."""
     return walker.locate(db or mapdb(), getattr(s, "state", None))
+
+
+def tag_here(s, tag, db=None):
+    """Tag the room with an item found in it (#535), by the game's uid
+    only — a title guess could tag a twin. The map id, or None."""
+    db = db or mapdb()
+    room = walker.uid_room(db, getattr(s, "state", None))
+    if room is not None:
+        db.record_tag(room, tag)
+    return room
 
 
 def go(s, target, describe=None, *, db=None, walk=None, avoid=None, max_steps=None):

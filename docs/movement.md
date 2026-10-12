@@ -28,6 +28,7 @@
 - **Checks every room** it lands in against the route, and stops rather than guessing when it is lost.
 - **Goes round a closed way:** a guild or circle gate ("not experienced enough"), an exit the game cannot find, or a climb that failed twice is dropped from the route and the walk replans from where you stand. A gate stays dropped for every later walk until the session is relaunched.
 - **Leaves a room the map has no exits for** by trying OUT and the compass exits, and remembers the way in `~/.revenant/mapdb/local.json`.
+- **Tags a room with what FORAGE or COLLECT found there** (`;forage`, `;task`), in the same file, so the next walk for that herb goes there.
 
 ## Rides
 

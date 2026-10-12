@@ -660,18 +660,35 @@ class MapDB:
             if isinstance(timeto, dict):
                 room["timeto"] = {k: v for k, v in timeto.items() if k in wayto}
             self._graph = None
-            overlay = []
-            if path.is_file():
-                with open(path) as stream:
-                    overlay = json.load(stream)
-            overlay = [
-                entry for entry in overlay if int(entry.get("id", -1)) != room_id
-            ]
-            overlay.append(room)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps(overlay, indent=1))
-        _restamp(self, path)
+            self._save_room(room_id, path)
         return path
+
+    def record_tag(self, room_id, tag, path=None):
+        """Tag a room with an item FORAGE or COLLECT found there (#535),
+        in this map and in the local overlay as record_edge does. The
+        overlay's path, or None when the room carries the tag already."""
+        path = path or local_mapdb_path()
+        with self._lock:
+            room = self.rooms[room_id]
+            tags = list(room.get("tags") or [])
+            if any(t.lower() == tag.lower() for t in tags):
+                return None
+            room["tags"] = tags + [tag]
+            self._save_room(room_id, path)
+        return path
+
+    def _save_room(self, room_id, path):
+        """The room's whole copy into the overlay at `path`, replacing an
+        earlier copy of the id; the load cache follows."""
+        overlay = []
+        if path.is_file():
+            with open(path) as stream:
+                overlay = json.load(stream)
+        overlay = [entry for entry in overlay if int(entry.get("id", -1)) != room_id]
+        overlay.append(self.rooms[room_id])
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(overlay, indent=1))
+        _restamp(self, path)
 
     def rooms_titled(self, title):
         return list(self._by_title.get(normalize_title(title), []))

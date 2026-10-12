@@ -661,3 +661,24 @@ def test_an_edge_the_map_records_itself_keeps_the_cached_map(monkeypatch, tmp_pa
     db.record_edge(1, 2, "north")
     assert mapdb.MapDB.load() is db
     assert db.path(1, [2]) == [(2, "north")]
+
+
+def test_a_find_tags_its_room_once_in_the_map_and_the_overlay(tmp_path, monkeypatch):
+    # #535: FORAGE found nuloe stems where the community map tags none.
+    import json
+
+    from client.game import mapdb
+
+    (tmp_path / "mapdb.json").write_text(
+        json.dumps([{"id": 2216, "title": ["[Marsh]"], "tags": ["red flower"]}])
+    )
+    monkeypatch.setenv("REVENANT_MAPDB", str(tmp_path / "mapdb.json"))
+    monkeypatch.setenv("REVENANT_MAPDB_LOCAL", str(tmp_path / "local.json"))
+    db = mapdb.MapDB.load()
+    assert db.record_tag(2216, "nuloe stem") == tmp_path / "local.json"
+    assert db.rooms_tagged("nuloe stem") == [2216]
+    assert db.record_tag(2216, "Nuloe Stem") is None  # tagged already
+    overlay = json.loads((tmp_path / "local.json").read_text())
+    assert [room["tags"] for room in overlay] == [["red flower", "nuloe stem"]]
+    mapdb._LOADED.clear()
+    assert mapdb.MapDB.load().rooms_tagged("nuloe stem") == [2216]

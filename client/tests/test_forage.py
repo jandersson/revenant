@@ -577,6 +577,17 @@ def test_the_end_line_says_what_was_pressed_never_a_stack_it_reaches(travel):
     )
 
 
+def test_a_herb_found_tags_the_room_by_its_uid():
+    # #535: the room a find came from is tagged with the herb, so the
+    # next ;forage herb (and ;task) walks there; a miss tags nothing.
+    meadow = MapDB([{"id": 5, "uid": [7], "title": [STREET], "tags": []}])
+    s = Fake([EMPTY, HERB_FOUND, SIX, INTO_SACK])
+    s.state.room_uid = 7
+    options = forage.parse_args(["herb", "red", "flower", "pieces=6", "here"])
+    forage.gather_herb(s, options, "sack", meadow)
+    assert meadow.rooms_tagged("red flower") == [5]
+
+
 def test_a_find_in_hand_goes_to_the_sack_when_the_hands_fill():
     # #403: a STOW sent the find to the backpack, out of the press's
     # reach; a find in hand goes in the bag instead.

@@ -12,7 +12,7 @@ What it does
 - A delivery: the item lands in a hand and is stowed; the walk to the recipient's room (the givers' table in client/game/tasks.py), or for a wanderer with none (an old blind beggar in The Crossing) ;seek through the town's streets; GET the item by the id the accept recorded (INV LIST's id, then the noun, when there is none; two of a noun said), GIVE it to the recipient; the payment said; the journal read again.
 - A search: the area's rooms by title; in each KNEEL and SEARCH (each one's roundtime waited) until the find, SEARCHES_PER_ROOM at most; GET the find, STAND, the walk back to the giver, GIVE; the journal read again.
 - A recovery: ;hunt task, waited for — the area's rooms by title as the ground, the profile's weapons on whatever engages, until a kill's death line drops the item; ;hunt picks it up and goes home as any hunt does; then the walk to the giver, GIVE; the journal read again.
-- A foraging task (the giver counts each GIVE as one item): the walk to a room the map tags with the herb (else tasks.FORAGE_ROOMS), FORAGE until one find per item owed, each stowed apart; the walk back, a stack GIVEn at a time until the giver pays.
+- A foraging task (the giver counts each GIVE as one item): the walk to a room the map tags with the herb (else tasks.FORAGE_ROOMS; a find tags its room), FORAGE until one find per item owed, each stowed apart; the walk back, a stack GIVEn at a time until the giver pays.
 
 What stops it
 - The giver's cooldown (ten minutes between asks, kept per giver: an ask inside it is not sent, the minutes left are said), an offer of a kind the profile declines, a recipient the table does not know, a walk that ends short — each said. A shop shut for the night is waited for: the door tried each game hour (fifteen real minutes), eight times at most. A walk that ends short otherwise: ;task again from there carries on.
@@ -541,6 +541,7 @@ def run_foraging(s, task, mapdb, walk_fn):
         answer = ask(s, f"forage {name}")
         s.waitrt()
         if FORAGED in answer.lower():
+            travel.tag_here(s, name, mapdb)
             hands.stow(s, noun, ask)  # apart, never combined: one GIVE, one item
             found += 1
     if found < owed:

@@ -379,6 +379,7 @@ def test_a_foraging_task_is_foraged_a_stack_a_find_and_given_a_stack_at_a_time()
     assert fake.sent.count("forage nuloe stem") == 4
     assert fake.sent.count("give #185113829 to minister") == 3
     assert "foraged — the Leth Deriel trade minister paid 785 Kronars" in out
+    assert "nuloe stem" in GROVE.rooms[2216]["tags"]  # #535: the find's room
 
 
 def test_a_kind_in_task_declines_is_declined_inside_the_window():

@@ -21,6 +21,7 @@ What it does
     muljin, riolur, aevaes, ...), each is pressed and combined into the stack (a full
     one holds 75; the rest starts another) — the finds a STOW sent to the backpack
     too, past the dried stacks there. The end line says how many were pressed.
+  - A find tags the room with the item in the local map overlay, `here` too.
   - Both hands full: a find in hand goes in the sack, anything else is STOWed,
     never a drop, and it goes on.
 
@@ -344,6 +345,8 @@ def run(s, options, db=None, avoid=()):
         collected += 1
         if outcome == "ok":
             successes += 1
+            if db is not None:
+                travel.tag_here(s, item, db)
         elif outcome is None:
             first = said(answer)
             if first not in seen:
@@ -365,7 +368,7 @@ def pieces_of(s, noun):
     return items.count(ask(s, f"count {held_name(s, noun)}")) or 0
 
 
-def gather_herb(s, options, bag):
+def gather_herb(s, options, bag, db=None):
     """FORAGE the herb until the pieces are in: each find counted and
     put in `bag`. (why it ended, pieces, the find's noun)."""
     item, target = options["item"], options["pieces"]
@@ -387,6 +390,8 @@ def gather_herb(s, options, bag):
             if dropped:
                 precise = True  # the potency bonus again, PRECISE_RETRY tries
             noun = found.group("what").split()[-1].lower()
+            if db is not None:
+                travel.tag_here(s, item, db)
             pieces += pieces_of(s, noun)
             ask(s, f"put {held_name(s, noun)} in my {bag}")
             continue
@@ -559,7 +564,7 @@ def run_herb(s, options, db=None, avoid=(), bag="sack"):
         return "which herb? — ;forage herb red flower"
     if db is not None and not options["here"] and not find_item(s, db, item, avoid):
         return "no room to forage in"
-    reason, pieces, noun = gather_herb(s, options, bag)
+    reason, pieces, noun = gather_herb(s, options, bag, db)
     if not pieces:
         return reason
     machine, form = machine_of(item)
@@ -579,7 +584,7 @@ def run_herb(s, options, db=None, avoid=(), bag="sack"):
 
 def main(s):
     options = parse_args(s.args or [])
-    db = None if options["here"] else travel.mapdb()
+    db = travel.mapdb()  # `here` walks nowhere, but a find still tags the room
     avoid = travel.avoided(db) if db else ()
     if options.get("herb"):
         from client.game.profile import load_profile

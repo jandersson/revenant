@@ -114,7 +114,9 @@ FORAGED = "you manage to find"
 # Where a foraging task's herb grows when the map tags no room with it
 # (Elanthipedia: the herb's Common Locations); FORAGE takes the herb's
 # singular name, the giver says the plural ("nuloe stems"). Acenamacra
-# Road, Marsh gave 12 finds in 12 tries at Outdoorsmanship 881.
+# Road, Marsh gave 12 finds in 12 tries at Outdoorsmanship 881, and 13 in
+# 13 on ;task's first foraging run. The seed for a first find: from then
+# on the find tags its room in the local map (#535).
 FORAGE_ROOMS = {"nuloe stem": (2216, 2217)}
 _PAID = re.compile(r"hands you (?P<count>[\d,]+) (?P<currency>[A-Z]\w+)")
 # A recovery's item comes in the death line, bold on the story stream
