@@ -33,7 +33,7 @@ Stop with:  ;stop research, or ;research return.
 
 from time import monotonic
 
-from client.game import buffs, flight, guild, probe, trainer
+from client.game import casting, flight, guild, probe, trainer
 from client.game.act import ask, said, unknown
 from client.game.probe import classify as classify_answer
 from client.game.loop import (
@@ -200,7 +200,7 @@ def gauge_minutes(s):
 
 
 def report(s):
-    """The report buffs.cast_once makes of a cast or target answer nothing
+    """The report casting.cast_once makes of a cast or target answer nothing
     recognized: the common report-it echo, naming Gauge Flow."""
 
     def answered(what, answer):
@@ -222,7 +222,7 @@ def fit_mana(s, mana):
             return 0
         answer = ask(s, f"prepare {GAUGE_FLOW} {mana}")
         ask(s, "release spell")
-        if classify_answer(answer, buffs.PREPARE_OUTCOMES) != "strain":
+        if classify_answer(answer, casting.PREPARE_OUTCOMES) != "strain":
             return mana
         lower = mana * 3 // 4
         s.echo(f"research: Gauge Flow at {mana} mana strains — trying {lower}")
@@ -247,13 +247,13 @@ def ensure_gauge(s, gauge):
         answer = ask(s, "discern gauge flow")
         s.waitrt()
         gauge["mana"] = fit_mana(
-            s, gauge_mana(buffs.mana_limit(answer or ""), buffs.MANA_STEP)
+            s, gauge_mana(casting.mana_limit(answer or ""), casting.MANA_STEP)
         )
     why = "not up" if not minutes else f"{minutes} min left"
     for attempt in range(2):
         mana = gauge["mana"]
-        outcome = buffs.cast_once(
-            s, GAUGE_FLOW, mana, buffs.BuffState(), ask, report(s)
+        outcome = casting.cast_once(
+            s, GAUGE_FLOW, mana, casting.CastState(), ask, report(s)
         )
         if outcome in ("ok", "strained"):
             gauge["cast_at"] = clock()

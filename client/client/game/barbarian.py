@@ -1,7 +1,7 @@
 """A Barbarian's pieces of the hunt (#328): ANALYZE self-combos for
 Expertise, the profile's abilities — berserks, forms, meditations — kept
 up, and a roar at the prey for Debilitation. ;hunt calls it beside
-client/game/buffs.py, which is a caster's PREPARE and CAST and none of
+client/game/casting.py, which is a caster's PREPARE and CAST and none of
 this (docs/barbarian.md).
 
 ANALYZE <type> starts a self-combo: the game names the attacks to land

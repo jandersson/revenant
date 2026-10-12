@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from client.game import buffs, moonbeam
+from client.game import casting, moonbeam
 from client.game.mapdb import MapDB
 
 REPO = pathlib.Path(__file__).parents[2]
@@ -107,17 +107,17 @@ def _wired(monkeypatch, tmp_path):
     monkeypatch.setattr(
         script, "locate", lambda db, state: {7: 8262, 8: 8263}[state.room_uid]
     )
-    monkeypatch.setattr(buffs, "wait_stun", lambda s: None)
+    monkeypatch.setattr(casting, "wait_stun", lambda s: None)
 
 
 def run(mage, *words):
     script.ask = mage.ask
     buffs_ask = mage.ask  # DISCERN goes through the same game
-    script.buffs = SimpleNamespace(
-        BuffState=buffs.BuffState,
-        PREPARE_OUTCOMES=buffs.PREPARE_OUTCOMES,
-        classify=buffs.classify,
-        mana_limit=buffs.mana_limit,
+    script.casting = SimpleNamespace(
+        CastState=casting.CastState,
+        PREPARE_OUTCOMES=casting.PREPARE_OUTCOMES,
+        classify=casting.classify,
+        mana_limit=casting.mana_limit,
         wait_stun=lambda s: None,
         discern=lambda s, spell, state, ask: buffs_ask(s, f"discern {spell}"),
     )

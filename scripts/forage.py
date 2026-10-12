@@ -43,7 +43,7 @@ from client.game import flight, hands, items, travel
 from client.game import herbstacks
 from client.game.act import ask, missing, said, unknown
 from client.game.loop import danger, wants_stop
-from client.game.buffs import locked
+from client.game.casting import locked
 from client.game.walker import locate, walk
 
 # The design notes the manual above leaves out: what each rule came

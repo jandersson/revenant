@@ -99,11 +99,11 @@ def fast_clock(monkeypatch):
     exchange). Opt in per module (pytestmark) — a fake whose get never
     advances the clock would spin forever on it."""
     import hunt_arena
-    from client.game import buffs, probe
+    from client.game import casting, probe
 
     hunt_arena.CLOCK["now"] = 1000.0
     monkeypatch.setattr(probe, "clock", lambda: hunt_arena.CLOCK["now"])
-    monkeypatch.setattr(buffs, "clock", lambda: hunt_arena.CLOCK["now"])
+    monkeypatch.setattr(casting, "clock", lambda: hunt_arena.CLOCK["now"])
     return hunt_arena.CLOCK
 
 

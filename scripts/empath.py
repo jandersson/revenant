@@ -29,7 +29,7 @@ When it stops
 client/game/empathy.py is the model; docs/healing.md covers healing.
 """
 
-from client.game import buffs, probe
+from client.game import casting, probe
 from client.game.act import ask
 from client.game.empathy import (
     AVOIDED,
@@ -262,7 +262,7 @@ def take_affliction(s, patient, kind):
     """TAKE <patient> POISON or DISEASE, when the Empath knows the spell
     that cures it after; True when sent, "fatal" on the death warning."""
     spell, _, _ = CURES[kind]
-    if not buffs.abbreviation(getattr(s.state, "name", None), spell):
+    if not casting.abbreviation(getattr(s.state, "name", None), spell):
         s.echo(
             f"empath: {patient.capitalize()} has {kind} — {spell} is not among "
             "your recorded spells (;sheet records them), so it is left"

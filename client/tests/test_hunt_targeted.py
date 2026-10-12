@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from client.game import buffs
+from client.game import casting
 
 from hunt_arena import (
     Arena,
@@ -345,10 +345,15 @@ def test_discern_saying_no_spares_the_prepare_and_names_the_rank(travel):
 
 
 def test_rank_floor_reads_the_title_discern_names():
-    assert buffs.rank_floor(DISCERN_REFUSED) == (10, "promising novice")
-    assert buffs.rank_floor("reach the rank of a lowly novice.") == (1, "lowly novice")
-    assert buffs.rank_floor("reach the rank of an adept.") == (200, "adept")
-    assert buffs.rank_floor("You don't think you are able to cast this spell.") is None
+    assert casting.rank_floor(DISCERN_REFUSED) == (10, "promising novice")
+    assert casting.rank_floor("reach the rank of a lowly novice.") == (
+        1,
+        "lowly novice",
+    )
+    assert casting.rank_floor("reach the rank of an adept.") == (200, "adept")
+    assert (
+        casting.rank_floor("You don't think you are able to cast this spell.") is None
+    )
 
 
 def test_the_swing_goes_out_while_the_training_cast_prepares(travel):
@@ -392,7 +397,7 @@ def _pattern(seconds):
 
 
 def _clocked(arena):
-    """The Arena on the server's clock, the way buffs.cast_left reads a
+    """The Arena on the server's clock, the way casting.cast_left reads a
     pattern: every ATTACK is a 4 s swing roundtime gone by."""
     arena.state.server_time = 100
     arena.state.casttime = 0
@@ -448,11 +453,11 @@ def test_the_pattern_is_still_forming_on_the_second_its_timer_names():
     # second short of ready — the CAST sent then read the ready line as
     # its answer. One second stays; past the second, nothing.
     state = SimpleNamespace(server_time=119, casttime=119)
-    assert buffs.cast_left(SimpleNamespace(state=state)) == 1
+    assert casting.cast_left(SimpleNamespace(state=state)) == 1
     state.server_time = 120
-    assert buffs.cast_left(SimpleNamespace(state=state)) == 0
+    assert casting.cast_left(SimpleNamespace(state=state)) == 0
     state.server_time = 100
-    assert buffs.cast_left(SimpleNamespace(state=state)) == 20
+    assert casting.cast_left(SimpleNamespace(state=state)) == 20
 
 
 def test_a_battle_spells_pattern_gets_the_one_swing(travel):
@@ -784,11 +789,15 @@ def test_the_training_buff_is_discerned_and_its_ramp_capped_too(travel):
         "DISCERN caps heroic strength at 4 mana (minimum 1), starting at 2" in t
         for t in arena.echoed
     )
-    assert buffs.mana_limit("You think you could weave at most 27 mana streams") is None
     assert (
-        buffs.climb(0, None) == 2 and buffs.climb(2, 3) == 3 and buffs.climb(3, 3) == 3
+        casting.mana_limit("You think you could weave at most 27 mana streams") is None
     )
-    assert buffs.climb(0, 0) == 0
+    assert (
+        casting.climb(0, None) == 2
+        and casting.climb(2, 3) == 3
+        and casting.climb(3, 3) == 3
+    )
+    assert casting.climb(0, 0) == 0
 
 
 def test_a_buff_the_ranks_cannot_carry_is_off_for_the_run(travel):
@@ -947,11 +956,11 @@ def test_a_foe_gone_by_its_id_is_targeted_bare():
     from types import SimpleNamespace
 
     s = SimpleNamespace(state=SimpleNamespace(hostiles={"7": False, "9": True}))
-    assert buffs.foe_ref(s) == "#9"  # the engaged one first
+    assert casting.foe_ref(s) == "#9"  # the engaged one first
     s.state.hostiles = {"7": False}
-    assert buffs.foe_ref(s) == "#7"
+    assert casting.foe_ref(s) == "#7"
     s.state.hostiles = {}
-    assert buffs.foe_ref(s) is None
+    assert casting.foe_ref(s) is None
 
 
 def test_a_hidden_foe_is_never_the_target():
@@ -965,6 +974,6 @@ def test_a_hidden_foe_is_never_the_target():
             hostiles={"575": True, "574": True}, hidden_hostiles={"575"}
         )
     )
-    assert buffs.foe_ref(s) == "#574"
+    assert casting.foe_ref(s) == "#574"
     s.state.hostiles = {"575": True}
-    assert buffs.foe_ref(s) is None
+    assert casting.foe_ref(s) is None

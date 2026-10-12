@@ -22,7 +22,7 @@ Teleport, Distant Gaze; dr-scripts' gate.lic checks the moon the same way).
 
 import time
 
-from client.game import buffs, moonbeam, probe
+from client.game import casting, moonbeam, probe
 from client.game.act import ask, said, unknown
 from client.game.mapdb import MapDB
 from client.game.walker import locate
@@ -78,7 +78,9 @@ def mana_for(s, options, which):
     when DISCERN gives no estimate."""
     if options["mana"]:
         return options["mana"]
-    limit = buffs.mana_limit(buffs.discern(s, SPELLS[which][1], buffs.BuffState(), ask))
+    limit = casting.mana_limit(
+        casting.discern(s, SPELLS[which][1], casting.CastState(), ask)
+    )
     return limit[1] if limit else 0
 
 
@@ -88,7 +90,7 @@ def cast_at(s, which, mana, moon):
     s.waitrt()
     word = SPELLS[which][0]
     prepared = ask(s, f"prepare {word} {mana}" if mana else f"prepare {word}")
-    if buffs.classify(prepared, buffs.PREPARE_OUTCOMES) in ("failed", "blocked"):
+    if casting.classify(prepared, casting.PREPARE_OUTCOMES) in ("failed", "blocked"):
         s.echo(
             f"moonbeam: PREPARE {word.upper()} answered {said(prepared)!r} — stopping"
         )
@@ -180,7 +182,7 @@ def teleport(s, options):
     if moonbeam.TELEPORTED not in answer:
         unknown(s, "moonbeam", "CAST (Teleport)", answer)
         return False
-    buffs.wait_stun(s)  # "You are stunned!" on arrival
+    casting.wait_stun(s)  # "You are stunned!" on arrival
     s.waitrt()
     s.echo(
         f"moonbeam: teleported with {mana or 'minimum'} mana — "

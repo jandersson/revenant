@@ -91,7 +91,7 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
 - `profile.py` per-character profiles (FIELDS is the schema the GUI
   dialog builds from; `hunts` styles; `weapons` + `weapon_target`, `weapon_minutes` the fallback);
   `training.py` + `drain.py` the `;train` plan and the drain model.
-- `buffs.py` buffs, training and targeted casts; `barbarian.py` a
+- `casting.py` every cast: buffs, training and targeted casts; `barbarian.py` a
   Barbarian's instead (ANALYZE combos, abilities, roars); `hunting.py`
   the bestiary (a ground is a map tag, a dr-scripts zone or a ;go2
   target; `;hunt grounds`) and ;hunt's pure half; `creatures.py` +

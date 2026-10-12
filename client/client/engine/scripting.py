@@ -481,10 +481,10 @@ RELOADABLE_MODULES = (
     "client.game.loop",  # binds interlude: after it
     "client.game.discard",
     "client.game.sweep",  # binds loot and discard: after them
-    "client.game.buffs",
+    "client.game.casting",
     "client.game.barbarian",
     "client.game.hunting_data",
-    "client.game.hunting",  # binds hunting_data, act, buffs and barbarian: after them
+    "client.game.hunting",  # binds hunting_data, act, casting and barbarian: after them
     "client.game.profile",
     "client.game.training",  # binds names from profile: after it
     "client.game.drain",

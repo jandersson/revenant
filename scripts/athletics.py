@@ -54,7 +54,7 @@ import re
 import sys
 import time
 
-from client.game import buffs, climbs
+from client.game import casting, climbs
 from client.game import flight, hands, interlude, loop, probe, trainer, travel
 from client.game.act import ask, unknown
 from client.game.status import counted
@@ -693,14 +693,14 @@ def returned(s):
 
 def wait_filler(s):
     """What the award-timer wait does instead of idling: the profile's
-    buffs kept up and its training casts (client/game/buffs.py, the
+    buffs kept up and its training casts (client/game/casting.py, the
     hunt's helpers), or None when the profile names no buff."""
     from client.game.profile import load_profile
 
     profile = load_profile(getattr(s.state, "name", None) or "")
     if not profile["buffs"]:
         return None
-    state = buffs.BuffState()
+    state = casting.CastState()
 
     def report(what, answer):
         unknown(s, "ATHLETICS", what, answer)
@@ -709,8 +709,8 @@ def wait_filler(s):
         # DISCERN once before the first cast, as the hunt does: the
         # ramp's ceiling is the game's own estimate (#264: heroic
         # strength at 18 mana here, the hunt's cap 16, a backfire).
-        buffs.discern_slots(s, profile, state, ask, "ATHLETICS", report)
-        buffs.cast_buffs(s, profile, state, ask, "ATHLETICS", report)
+        casting.discern_slots(s, profile, state, ask, "ATHLETICS", report)
+        casting.cast_buffs(s, profile, state, ask, "ATHLETICS", report)
 
     return fill
 

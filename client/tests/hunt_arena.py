@@ -12,7 +12,7 @@ import importlib.util
 import pathlib
 import re
 from types import SimpleNamespace
-from client.game import buffs
+from client.game import casting
 from client.game.mapdb import MapDB
 from client.game.profile import DEFAULTS
 
@@ -47,10 +47,10 @@ hunt.ADVANCE_WAIT = 0.01
 hunt.LISTING_WAIT = 0.01
 
 
-buffs.PREPARE_SECONDS = 0.01
+casting.PREPARE_SECONDS = 0.01
 
 
-buffs.CAST_GAP_SECONDS = 0
+casting.CAST_GAP_SECONDS = 0
 
 
 YARD = "[Barana's Shipyard, Lumber Storage]"

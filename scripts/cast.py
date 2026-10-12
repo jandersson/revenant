@@ -11,7 +11,7 @@
 The hunt's cast loop without the hunt (#225): what a gondola ride, a
 ferry crossing or a wait at an altar can train while the character
 stands still. Every `cast_gap` seconds (the profile's, 60 by default)
-it does what ;hunt does between swings through client/game/buffs.py
+it does what ;hunt does between swings through client/game/casting.py
 — picks the named skill with the emptiest pool and the first buff
 DISCERN says uses it (#374), GETs and CHARGEs the profile's
 `cambrinth` piece with `cambrinth_mana` (the charge trains Arcana),
@@ -38,13 +38,13 @@ buff and no spell= is given. Never a targeted spell: those want a prey
 refuses it all — "You are a bit too busy performing to
 do that.", "You should stop playing before you do that." (captured
 2026-09-20 with ;perform on the gondola) — so it stops and says to end
-the song first. Wordings are the hunt's captures (client/game/buffs.py).
+the song first. Wordings are the hunt's captures (client/game/casting.py).
 Stop with:  ;stop cast, or ;cast return.
 """
 
 import time
 
-from client.game import buffs
+from client.game import casting
 from client.game import trainer
 from client.game.act import ask, unknown
 from client.game.loop import pause
@@ -89,8 +89,8 @@ def skills_watched(profile, options, state):
     (as DISCERN spells them once it has named each buff's, the names
     the profile gives before), Arcana for a cambrinth piece, Attunement
     when POWERing."""
-    watched = list(buffs.training_buffs(profile, state)) or [
-        name for name in buffs.training_skills(profile) if name.lower() != "all"
+    watched = list(casting.training_buffs(profile, state)) or [
+        name for name in casting.training_skills(profile) if name.lower() != "all"
     ]
     if profile.get("cambrinth"):
         watched.append("Arcana")
@@ -109,7 +109,7 @@ def cast_profile(profile, options):
         shaped["buffs"] = [options["spell"]]
     if options["skill"]:
         shaped["train_casting"] = [options["skill"]]
-    elif options["spell"] or not buffs.training_skills(profile):
+    elif options["spell"] or not casting.training_skills(profile):
         shaped["train_casting"] = ["all"]
     return shaped
 
@@ -136,7 +136,7 @@ def loop(s, options, shaped):
     first DISCERN and shrink when a buff or POWER is dropped for the
     run), and the window need not list them yet (ensure=False): a
     skill it has not listed never held the lock up."""
-    state = buffs.BuffState()
+    state = casting.CastState()
     skills = skills_watched(shaped, options, state)
 
     busy = {"song": False}
@@ -154,10 +154,10 @@ def loop(s, options, shaped):
         if state.training_off:
             return "the training casts are off for this run"
         mana = (getattr(s.state, "vitals", None) or {}).get("mana")
-        if mana is not None and mana < buffs.MANA_FLOOR:
+        if mana is not None and mana < casting.MANA_FLOOR:
             low_since = low_since or clock()
             if clock() - low_since >= MANA_WAIT:
-                return f"mana under {buffs.MANA_FLOOR}% for ten minutes"
+                return f"mana under {casting.MANA_FLOOR}% for ten minutes"
         else:
             low_since = None
         if options["power"] and (
@@ -175,8 +175,8 @@ def loop(s, options, shaped):
             # the most mana this caster can weave is the ramp's ceiling —
             # the hunt's ramp climbed past it and backfired five times in
             # one evening, each a nerve wound (2026-09-20).
-            buffs.discern_slots(s, shaped, state, ask, "cast", report)
-            buffs.cast_buffs(s, shaped, state, ask, "cast", report, upkeep=False)
+            casting.discern_slots(s, shaped, state, ask, "cast", report)
+            casting.cast_buffs(s, shaped, state, ask, "cast", report, upkeep=False)
         if busy["song"]:
             return (
                 "the game refuses spellwork while a song plays — "
@@ -188,11 +188,11 @@ def loop(s, options, shaped):
     def finish(s, why):
         # A ;stop between the GET and the stow left the anklet in hand
         # (2026-09-20): the put-back goes out even after the stop.
-        buffs.put_back_if_held(s, shaped, "cast")
+        casting.put_back_if_held(s, shaped, "cast")
 
     s.echo(
-        f"cast: {', '.join(buffs.buff_names(shaped))} for "
-        f"{', '.join(buffs.training_skills(shaped))}"
+        f"cast: {', '.join(casting.buff_names(shaped))} for "
+        f"{', '.join(casting.training_skills(shaped))}"
         + (f" with the {shaped['cambrinth']}" if shaped.get("cambrinth") else "")
         + (", POWER between casts" if options["power"] else "")
         + f" — watching {', '.join(skills) or 'nothing'}"

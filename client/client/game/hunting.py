@@ -43,7 +43,7 @@ import re
 import time
 from collections import Counter
 
-from client.game import barbarian, buffs, creatures, hunting_data
+from client.game import barbarian, casting, creatures, hunting_data
 from client.game.act import NOT_FOUND
 
 ZONES = hunting_data.ZONES
@@ -502,7 +502,7 @@ class Tally:
         self.bundle_refusals = 0  # skins in a row BUNDLE would not start on
         self.unskinnable = set()  # creatures with no skin, said once (#494)
         self.boxes_left = set()  # creatures whose boxes are past you, said once (#495)
-        self.buffs = buffs.BuffState()  # the casts (client/game/buffs.py)
+        self.casts = casting.CastState()  # the casts (client/game/casting.py)
         self.barb = barbarian.BarbState()  # a Barbarian's pieces (#328)
         self.last_smite = None  # clock() of the last smite that struck (#183)
         # The parser's conviction_returns at that smite: the game's own

@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from client.engine.scripting import ScriptStopped
-from client.game import buffs
+from client.game import casting
 
 REPO = pathlib.Path(__file__).parents[2]
 
@@ -26,9 +26,9 @@ def _script():
 
 script = _script()
 script.POLL = 0.01
-buffs.PREPARE_SECONDS = 0.01
+casting.PREPARE_SECONDS = 0.01
 
-# The hunt's captured wordings (client/game/buffs.py, 2026-09-12/14).
+# The hunt's captured wordings (client/game/casting.py, 2026-09-12/14).
 ANSWERS = {
     "get": ["You get a round cambrinth flake.\n"] * 9,
     "charge": [
@@ -136,7 +136,7 @@ def learning(mindstate):
 def test_one_pass_powers_charges_and_casts_the_first_buff_then_returns(monkeypatch):
     now = [1000.0]
     monkeypatch.setattr(script, "clock", lambda: now[0])
-    monkeypatch.setattr(buffs, "clock", lambda: now[0])
+    monkeypatch.setattr(casting, "clock", lambda: now[0])
     fake = Fake(ANSWERS, learning(10))
     fake.commands = [None, "return"]
     script.run(fake, [], PROFILE)
@@ -160,7 +160,7 @@ def test_one_pass_powers_charges_and_casts_the_first_buff_then_returns(monkeypat
 def test_nopower_and_a_spell_of_your_own_skip_the_perceive(monkeypatch):
     now = [1000.0]
     monkeypatch.setattr(script, "clock", lambda: now[0])
-    monkeypatch.setattr(buffs, "clock", lambda: now[0])
+    monkeypatch.setattr(casting, "clock", lambda: now[0])
     fake = Fake(ANSWERS, learning(10))
     fake.commands = [None, "return"]
     script.run(fake, ["nopower", "spell=aspirant's aegis", "skill=Warding"], PROFILE)
@@ -172,7 +172,7 @@ def test_nopower_and_a_spell_of_your_own_skip_the_perceive(monkeypatch):
 def test_the_lock_ends_a_once_run_and_holds_otherwise(monkeypatch):
     now = [1000.0]
     monkeypatch.setattr(script, "clock", lambda: now[0])
-    monkeypatch.setattr(buffs, "clock", lambda: now[0])
+    monkeypatch.setattr(casting, "clock", lambda: now[0])
     locked = Fake(ANSWERS, learning(34))
     script.run(locked, ["once"], PROFILE)
     assert locked.sent == []
@@ -209,7 +209,7 @@ def test_a_stop_mid_cycle_puts_the_piece_back_on_the_way_out(monkeypatch):
     # worn piece, STOW otherwise.
     now = [1000.0]
     monkeypatch.setattr(script, "clock", lambda: now[0])
-    monkeypatch.setattr(buffs, "clock", lambda: now[0])
+    monkeypatch.setattr(casting, "clock", lambda: now[0])
     fake = StopAfterCharge(ANSWERS, learning(10))
     with pytest.raises(ScriptStopped):
         script.run(fake, ["nopower"], PROFILE)
@@ -244,10 +244,10 @@ def test_held_piece_reads_either_hand_by_noun_or_name():
         left_hand=None, right_hand={"noun": "flake", "name": "cambrinth anklet"}
     )
     empty = SimpleNamespace(left_hand=None, right_hand={"noun": "sword"})
-    assert buffs.held_piece(left, profile) == "anklet"
-    assert buffs.held_piece(right, profile) == "anklet"
-    assert buffs.held_piece(empty, profile) is None
-    assert buffs.held_piece(left, {"cambrinth": ""}) is None
+    assert casting.held_piece(left, profile) == "anklet"
+    assert casting.held_piece(right, profile) == "anklet"
+    assert casting.held_piece(empty, profile) is None
+    assert casting.held_piece(left, {"cambrinth": ""}) is None
 
 
 def test_no_buff_and_no_spell_is_nothing_to_cast():
@@ -273,7 +273,7 @@ def test_a_song_playing_stops_the_run_with_the_reason(monkeypatch):
     # Captured 2026-09-20 on the gondola with ;perform running.
     now = [1000.0]
     monkeypatch.setattr(script, "clock", lambda: now[0])
-    monkeypatch.setattr(buffs, "clock", lambda: now[0])
+    monkeypatch.setattr(casting, "clock", lambda: now[0])
     busy = dict(ANSWERS, power=["You are a bit too busy performing to do that.\n"])
     fake = Fake(busy, learning(10))
     script.run(fake, [], PROFILE)
@@ -292,7 +292,7 @@ def test_with_no_skill_named_every_skill_of_the_buffs_takes_its_turn(monkeypatch
     # not kept up — only training casts go out standing still.
     now = [1000.0]
     monkeypatch.setattr(script, "clock", lambda: now[0])
-    monkeypatch.setattr(buffs, "clock", lambda: now[0])
+    monkeypatch.setattr(casting, "clock", lambda: now[0])
     fake = Fake(ANSWERS, learning(10))
     fake.commands = [None, "return"]
     profile = {

@@ -24,7 +24,7 @@ an answer it does not know, or too many rooms without arriving.
 The model and its wordings are client/game/astral.py's (Elanthipedia: Astral Travel).
 """
 
-from client.game import astral, buffs, guild, probe, travel, walker
+from client.game import astral, casting, guild, probe, travel, walker
 from client.game.act import ask, said
 
 _NOTES = """
@@ -89,7 +89,7 @@ def moongate(s, shard, mana):
     before = title(s)
     s.waitrt()
     heard = ask(s, "prepare moongate")
-    if buffs.classify(heard, buffs.PREPARE_OUTCOMES) == "blocked":
+    if casting.classify(heard, casting.PREPARE_OUTCOMES) == "blocked":
         # Chabalu's Exotics in Ratha, 2026-10-11: "Something in the area
         # interferes with your spell preparations."
         s.echo(f"astral: magic will not form here ({said(heard)!r}) — step out first")

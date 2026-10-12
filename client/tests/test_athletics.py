@@ -870,10 +870,10 @@ def test_climbs_help_means_no_such_obstacle_and_leaves_the_rung_at_once():
 
 
 def test_the_award_timer_wait_casts_the_profiles_buffs(monkeypatch):
-    from client.game import buffs
+    from client.game import casting
     from client.game.profile import DEFAULTS as PROFILE_DEFAULTS
 
-    monkeypatch.setattr(buffs, "PREPARE_SECONDS", 0.01)
+    monkeypatch.setattr(casting, "PREPARE_SECONDS", 0.01)
     profile = dict(PROFILE_DEFAULTS) | {
         "buffs": ["heroic strength"],
         "train_casting": "Augmentation",

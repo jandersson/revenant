@@ -55,7 +55,7 @@ from client.game import (
     almanac,
     barbarian,
     boxlog,
-    buffs,
+    casting,
     cards,
     flight,
     gems,
@@ -377,9 +377,9 @@ _STUNNED = ("stunning you",)
 # waits the stun out first (the status indicator, STUN_WAIT at most), and
 # an answer that still says so is a swing that never went out. One
 # wording and one wait for the swing and the cast: buffs' (#498).
-_STILL_STUNNED = buffs.STILL_STUNNED
-STUN_WAIT = buffs.STUN_WAIT
-STUN_POLL = buffs.STUN_POLL
+_STILL_STUNNED = casting.STILL_STUNNED
+STUN_WAIT = casting.STUN_WAIT
+STUN_POLL = casting.STUN_POLL
 
 # Bare ATTACK with every attacker dead (captured 2026-08-22).
 _ALL_DEAD = ("nothing else to face", "what are you trying to attack")
@@ -656,7 +656,7 @@ def fights_locked(s, profile, tally):
     return (
         farming(profile)
         or tasked(profile)
-        or buffs.spells_learning(s, profile, tally.buffs)
+        or casting.spells_learning(s, profile, tally.casts)
     )
 
 
@@ -1139,11 +1139,11 @@ def make_bundle(s, profile, tally):
 
 
 def cast_buffs(s, profile, tally, fight=False, filler=None):
-    """The profile's buffs, cast and kept up by client/game/buffs.py
+    """The profile's buffs, cast and kept up by client/game/casting.py
     with the hunt's answer windows and its unrecognized-answer tally.
     In the fight (`fight`) the targeted spells — the profile's
     `debilitation` and `targeted` — go out at the prey too, taking
-    turns with the buff training cast (buffs.next_cast), so a swing
+    turns with the buff training cast (casting.next_cast), so a swing
     never carries two casts (#192, #200). Outside the fight, each
     targeted spell is DISCERNed once per run first, so one the ranks
     cannot carry never costs a PREPARE (#202). In the fight the
@@ -1152,7 +1152,7 @@ def cast_buffs(s, profile, tally, fight=False, filler=None):
     pattern (a non-battle spell's 26 s) is swung into again for as
     long as a roundtime fits, every swing counted (#250); True when a
     swing went out, so the loop does not swing again (#203)."""
-    state = tally.buffs
+    state = tally.casts
     taken = {"alive": None}
 
     def report(what, answer):
@@ -1173,10 +1173,10 @@ def cast_buffs(s, profile, tally, fight=False, filler=None):
 
     swing_first = fill if fight and filler is not None else None
     if not fight:
-        buffs.discern_slots(s, profile, state, ask, "hunt", report)
-    turn = buffs.next_cast(s, profile, state) if fight else None
-    if turn in buffs.TARGETED_SLOTS:
-        buffs.cast_targeted(
+        casting.discern_slots(s, profile, state, ask, "hunt", report)
+    turn = casting.next_cast(s, profile, state) if fight else None
+    if turn in casting.TARGETED_SLOTS:
+        casting.cast_targeted(
             s,
             profile,
             state,
@@ -1187,11 +1187,11 @@ def cast_buffs(s, profile, tally, fight=False, filler=None):
             target=profile["prey"],
             filler=swing_first,
         )
-        buffs.cast_buffs(
+        casting.cast_buffs(
             s, profile, state, ask, "hunt", report, train=False, filler=swing_first
         )
     else:
-        buffs.cast_buffs(s, profile, state, ask, "hunt", report, filler=swing_first)
+        casting.cast_buffs(s, profile, state, ask, "hunt", report, filler=swing_first)
     return taken["alive"] is not None
 
 
@@ -1971,7 +1971,7 @@ def smite_allowed(s, tally):
     return False
 
 
-wait_out_stun = buffs.wait_stun  # the swing's wait is the cast's (#336, #498)
+wait_out_stun = casting.wait_stun  # the swing's wait is the cast's (#336, #498)
 
 
 def aimed_swing(s, profile, tally, prey):
@@ -2170,7 +2170,7 @@ def say_outgrown(s, profile, tally):
     dead += [False] * (len(names) - len(dead))
     live = [name for name, flag in zip(names, dead) if not flag]
     ranks = {
-        entry["skill"]: buffs.rank_of(s.state, entry["skill"])
+        entry["skill"]: casting.rank_of(s.state, entry["skill"])
         for entry in weapon_plan(profile)
         if entry["skill"]
     }
@@ -2639,4 +2639,4 @@ def main(s):
     finally:
         # The weapon stays in hand by design; the cambrinth piece does
         # not — a ;stop mid-cycle puts it back (2026-09-20, ;cast).
-        buffs.put_back_if_held(s, profile, "hunt")
+        casting.put_back_if_held(s, profile, "hunt")

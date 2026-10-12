@@ -14,7 +14,7 @@ import importlib.util
 import pathlib
 from types import SimpleNamespace
 
-from client.game import buffs, research
+from client.game import casting, research
 
 REPO = pathlib.Path(__file__).parents[2]
 
@@ -247,12 +247,12 @@ class Fake:
 def run(fake, args=()):
     script.ask = fake.ask  # act.ask, imported by name (#407)
     script.probe = SimpleNamespace(STORY_STREAMS=("", "combat"))
-    script.buffs = SimpleNamespace(
+    script.casting = SimpleNamespace(
         cast_once=fake.cast_once,
-        mana_limit=buffs.mana_limit,
-        MANA_STEP=buffs.MANA_STEP,
-        PREPARE_OUTCOMES=buffs.PREPARE_OUTCOMES,
-        BuffState=buffs.BuffState,
+        mana_limit=casting.mana_limit,
+        MANA_STEP=casting.MANA_STEP,
+        PREPARE_OUTCOMES=casting.PREPARE_OUTCOMES,
+        CastState=casting.CastState,
     )
     script.clock = lambda: fake.now
     script.run_caster(fake, research.parse_caster_args(list(args)))

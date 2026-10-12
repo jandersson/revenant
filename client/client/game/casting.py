@@ -1,5 +1,7 @@
-"""Self-cast buffs kept up by a trainer, and the training casts that
-climb a magic skill — the cast helpers ;hunt grew on 2026-09-12,
+"""Every cast a script makes: self-cast buffs kept up, the training casts
+that climb a magic skill, and the targeted spells cast at the prey
+(`debilitation`, `targeted`, cast_targeted) — PREPARE, CAST, the mana
+ramp and DISCERN shared by them all. The cast helpers ;hunt grew on 2026-09-12,
 shared so ;athletics can fill its award-timer waits the same way
 (dr-scripts casts buffs around its climbs, #177).
 
@@ -332,7 +334,7 @@ TARGETED_SLOTS = {"debilitation": "Debilitation", "targeted": "Targeted Magic"}
 CAST_TURNS = ("buff",) + tuple(TARGETED_SLOTS)
 
 
-class BuffState:
+class CastState:
     """What one run remembers about its casts."""
 
     def __init__(self):

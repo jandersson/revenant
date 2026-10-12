@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from client.game import buffs, probe
+from client.game import casting, probe
 
 READY = "You feel fully prepared to cast your spell.\n"
 PREPARED = "You begin chanting a prayer to invoke the Footman's Strike spell.\n"
@@ -23,7 +23,7 @@ NOW = {"now": 1000.0}  # the fake clock probe and buffs read here (#501)
 def _fast_clock(monkeypatch):
     NOW["now"] = 1000.0
     monkeypatch.setattr(probe, "clock", lambda: NOW["now"])
-    monkeypatch.setattr(buffs, "clock", lambda: NOW["now"])
+    monkeypatch.setattr(casting, "clock", lambda: NOW["now"])
 
 
 class Handle:
@@ -57,7 +57,7 @@ def _cast(handle, cast_answer):
         return answers.get(command, "")
 
     state = SimpleNamespace(cast_at={})
-    outcome = buffs.cast_once(
+    outcome = casting.cast_once(
         handle,
         "footman's strike",
         5,
@@ -69,7 +69,7 @@ def _cast(handle, cast_answer):
 
 
 def test_a_bystanders_line_as_the_answer_is_read_past_into_the_spells_own(monkeypatch):
-    monkeypatch.setattr(buffs, "CAST_TAIL_SECONDS", 0.6)
+    monkeypatch.setattr(casting, "CAST_TAIL_SECONDS", 0.6)
     # The ready line ends the prepare wait; the spell's line waits in the
     # stream for the second window.
     handle = Handle([READY, STRUCK])
@@ -80,7 +80,7 @@ def test_a_bystanders_line_as_the_answer_is_read_past_into_the_spells_own(monkey
 
 
 def test_a_second_window_with_nothing_in_it_still_reports_the_answer(monkeypatch):
-    monkeypatch.setattr(buffs, "CAST_TAIL_SECONDS", 0.6)
+    monkeypatch.setattr(casting, "CAST_TAIL_SECONDS", 0.6)
     handle = Handle([READY])
     outcome, reported = _cast(handle, APPROACH)
     assert outcome == "ok"  # as before: an unread answer is not a failure
@@ -88,7 +88,7 @@ def test_a_second_window_with_nothing_in_it_still_reports_the_answer(monkeypatch
 
 
 def test_a_recognized_answer_opens_no_second_window(monkeypatch):
-    monkeypatch.setattr(buffs, "CAST_TAIL_SECONDS", 0.6)
+    monkeypatch.setattr(casting, "CAST_TAIL_SECONDS", 0.6)
     handle = Handle([READY, APPROACH])
     outcome, reported = _cast(handle, STRUCK)
     assert outcome == "ok" and reported == []
@@ -102,7 +102,7 @@ NOT_PREPARED = "You don't have a spell prepared!\n"
 def test_a_cast_while_stunned_waits_the_stun_out_and_casts_again(monkeypatch):
     # #498 (Cecil at the young ogres, 2026-10-09 10:26 and 12:31): the
     # swarm's stun; the CAST answered nothing the table knew.
-    monkeypatch.setattr(buffs, "CAST_TAIL_SECONDS", 0.6)
+    monkeypatch.setattr(casting, "CAST_TAIL_SECONDS", 0.6)
     handle = Handle([READY])
     handle.status = SimpleNamespace(stunned=True)
     casts = ["You are still stunned.\n", STRUCK]
@@ -121,7 +121,7 @@ def test_a_cast_while_stunned_waits_the_stun_out_and_casts_again(monkeypatch):
             handle.status.stunned = False
 
     handle.sleep = sleep
-    outcome = buffs.cast_once(
+    outcome = casting.cast_once(
         handle,
         "footman's strike",
         5,
@@ -139,7 +139,7 @@ def test_a_stun_past_every_wait_lets_the_pattern_go_and_counts_no_cast(monkeypat
     # #498's to-do: a second "still stunned" was counted as a cast that
     # went out. STUN_CASTS of them now let the pattern go, said by the
     # caller, and the cast clock is left alone.
-    monkeypatch.setattr(buffs, "CAST_TAIL_SECONDS", 0.6)
+    monkeypatch.setattr(casting, "CAST_TAIL_SECONDS", 0.6)
     handle = Handle([READY])
     handle.status = SimpleNamespace(stunned=False)
     state = SimpleNamespace(cast_at={})
@@ -151,16 +151,16 @@ def test_a_stun_past_every_wait_lets_the_pattern_go_and_counts_no_cast(monkeypat
         return PREPARED if command.startswith("prepare") else ""
 
     handle.sleep = lambda seconds: None
-    outcome = buffs.cast_once(
+    outcome = casting.cast_once(
         handle, "footman's strike", 5, state, ask, lambda kind, answer: None
     )
     assert outcome == "stunned"
-    assert handle.sent.count("cast") == buffs.STUN_CASTS
+    assert handle.sent.count("cast") == casting.STUN_CASTS
     assert handle.sent[-1] == "release" and state.cast_at == {}
 
 
 def test_a_cast_with_nothing_prepared_is_a_failed_cast_not_a_mystery(monkeypatch):
-    monkeypatch.setattr(buffs, "CAST_TAIL_SECONDS", 0.6)
+    monkeypatch.setattr(casting, "CAST_TAIL_SECONDS", 0.6)
     handle = Handle([READY])
     outcome, reported = _cast(handle, NOT_PREPARED)
     assert outcome == "collapsed"
@@ -199,7 +199,7 @@ def test_a_name_the_game_does_not_parse_is_prepared_by_its_abbreviation(
         s.sent.append(command)
         return answers.get(command, "")
 
-    buffs.cast_once(
+    casting.cast_once(
         handle,
         "hands of justice",
         0,
@@ -241,9 +241,9 @@ def test_the_abbreviation_that_prepared_is_used_first_for_the_rest_of_the_run(
         s.sent.append(command)
         return answers.get(command, "")
 
-    state = buffs.BuffState()
+    state = casting.CastState()
     for _ in range(2):
-        buffs.cast_once(handle, "hands of justice", 0, state, ask, lambda *a: None)
+        casting.cast_once(handle, "hands of justice", 0, state, ask, lambda *a: None)
     prepares = [command for command in handle.sent if command.startswith("prepare")]
     assert prepares == ["prepare hands of justice", "prepare hoj", "prepare hoj"]
 
@@ -253,11 +253,11 @@ def test_a_room_that_blocks_magic_is_blocked_not_a_failed_prepare():
     from client.game.probe import classify
 
     blocked = "Something in the area interferes with your spell preparations.\n"
-    assert classify(blocked, buffs.PREPARE_OUTCOMES) == "blocked"
+    assert classify(blocked, casting.PREPARE_OUTCOMES) == "blocked"
     charge = "Something in the area is interfering with your magical senses.\n"
-    assert classify(charge, buffs.CHARGE_OUTCOMES) == "blocked"
+    assert classify(charge, casting.CHARGE_OUTCOMES) == "blocked"
     unknown = "You have no idea how to cast that spell.\n"
-    assert classify(unknown, buffs.PREPARE_OUTCOMES) == "failed"
+    assert classify(unknown, casting.PREPARE_OUTCOMES) == "failed"
 
 
 def test_a_blocked_room_turns_no_buff_off_and_is_tried_again_elsewhere():
@@ -274,17 +274,17 @@ def test_a_blocked_room_turns_no_buff_off_and_is_tried_again_elsewhere():
         s.sent.append(command)
         return answers.get(command, "")
 
-    state = buffs.BuffState()
+    state = casting.CastState()
     spell = "heroic strength"
-    assert buffs.cast_once(handle, spell, 0, state, ask, lambda *a: None) == "blocked"
+    assert casting.cast_once(handle, spell, 0, state, ask, lambda *a: None) == "blocked"
     assert spell not in state.buffs_off and state.blocked_room == 11716
     # Still in the library: nothing is sent at all.
     handle.sent.clear()
-    assert buffs.cast_once(handle, spell, 0, state, ask, lambda *a: None) == "blocked"
+    assert casting.cast_once(handle, spell, 0, state, ask, lambda *a: None) == "blocked"
     assert handle.sent == []
     # Elsewhere: prepared again.
     handle.state.room_uid = 11717
-    buffs.cast_once(handle, spell, 0, state, ask, lambda *a: None)
+    casting.cast_once(handle, spell, 0, state, ask, lambda *a: None)
     assert handle.sent[0] == "prepare heroic strength"
 
 
@@ -297,4 +297,4 @@ def test_the_hands_of_justice_cast_is_a_cast():
         "divine guidance.\nYour hands glow briefly with a pristine white light as "
         "you feel your dedication to the pursuit of justice strengthened!\n"
     )
-    assert classify(cast, buffs.CAST_OUTCOMES) == "ok"
+    assert classify(cast, casting.CAST_OUTCOMES) == "ok"

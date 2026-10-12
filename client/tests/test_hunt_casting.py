@@ -5,7 +5,7 @@ wordings: hunt_arena.py; the targeted attack spell is test_hunt_targeted.py."""
 
 import pytest
 
-from client.game import buffs
+from client.game import casting
 
 from hunt_arena import (
     Arena,
@@ -115,9 +115,9 @@ def test_a_buffs_mana_setting_is_prepared_and_its_name_read_alone(travel):
     _run(arena, profile=profile, travel_first=False)
     assert arena.sent[0] == "prepare heroic strength 30"
     assert arena.sent.count("cast") == 1  # listed by name: not recast
-    assert buffs.buff_entry("Psychic Shield : 30") == ("Psychic Shield", 30)
-    assert buffs.buff_entry("Seer's Sense") == ("Seer's Sense", 0)
-    assert buffs.buff_names({"buffs": ["Psychic Shield:30", "", "cv"]}) == [
+    assert casting.buff_entry("Psychic Shield : 30") == ("Psychic Shield", 30)
+    assert casting.buff_entry("Seer's Sense") == ("Seer's Sense", 0)
+    assert casting.buff_names({"buffs": ["Psychic Shield:30", "", "cv"]}) == [
         "Psychic Shield",
         "cv",
     ]
@@ -378,7 +378,7 @@ def test_the_profile_cast_gap_paces_the_training_casts(travel, monkeypatch):
     # profile's cast_gap (60 s by default) spaces the casts; 0 casts
     # before every swing.
     now = {"t": 1000.0}
-    monkeypatch.setattr(buffs, "clock", lambda: now["t"])
+    monkeypatch.setattr(casting, "clock", lambda: now["t"])
     original_ask = hunt.ask
 
     def ask(s, command):

@@ -287,7 +287,7 @@ def knows(*spells):
 
 
 def test_poison_is_taken_when_flush_poisons_is_known_and_flushed_after(monkeypatch):
-    monkeypatch.setattr(script, "buffs", knows("Flush Poisons"))
+    monkeypatch.setattr(script, "casting", knows("Flush Poisons"))
     fake = Fake(
         {
             "touch lanival": [POISONED, LINK + TOUCH_CLEAN],
@@ -309,7 +309,7 @@ def test_poison_is_taken_when_flush_poisons_is_known_and_flushed_after(monkeypat
 
 
 def test_poison_is_left_when_the_empath_cannot_cure_it(monkeypatch):
-    monkeypatch.setattr(script, "buffs", knows())
+    monkeypatch.setattr(script, "casting", knows())
     fake = Fake({"touch lanival": POISONED})
     out = run(fake, ["lanival", "take"])
     assert "take lanival poison" not in fake.sent
@@ -321,7 +321,7 @@ RESTORED = "With a wave of your hand, your vitality is fully restored.\n"
 
 
 def test_low_vitality_is_taken_and_restored_with_vitality_healing(monkeypatch):
-    monkeypatch.setattr(script, "buffs", knows("Vitality Healing"))
+    monkeypatch.setattr(script, "casting", knows("Vitality Healing"))
     fake = Fake(
         {
             "touch lanival": [DRAINED, LINK + TOUCH_CLEAN],
@@ -349,7 +349,7 @@ def test_low_vitality_is_taken_and_restored_with_vitality_healing(monkeypatch):
 
 
 def test_vitality_is_left_when_your_own_is_low(monkeypatch):
-    monkeypatch.setattr(script, "buffs", knows("Vitality Healing"))
+    monkeypatch.setattr(script, "casting", knows("Vitality Healing"))
     fake = Fake({"touch lanival": DRAINED})
     fake.state.vitals["health"] = 50
     out = run(fake, ["lanival", "take"])

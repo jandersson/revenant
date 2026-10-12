@@ -6,7 +6,7 @@ estimate of 28."""
 
 from types import SimpleNamespace
 
-from client.game import buffs
+from client.game import casting
 
 # Captured 2026-09-28 (Cecil's ;hunt): Heroic Strength and Stun Foe.
 HS_DISCERN = (
@@ -81,9 +81,9 @@ def _prepares(handle):
 
 def test_a_targeted_ramp_starts_a_step_under_the_estimate():
     handle = Handle()
-    state = buffs.BuffState()
+    state = casting.CastState()
     profile = {"buffs": [], "debilitation": "stun foe"}
-    buffs.discern_slots(handle, profile, state, ask, "hunt", _report)
+    casting.discern_slots(handle, profile, state, ask, "hunt", _report)
     assert state.slot_mana["stun foe"] == 5  # each spell its own ramp
     assert state.slot_limit["stun foe"] == 7
     assert "hunt: DISCERN caps stun foe at 7 mana (minimum 1), starting at 5" in (
@@ -92,14 +92,14 @@ def test_a_targeted_ramp_starts_a_step_under_the_estimate():
 
 
 def test_the_invoked_anklet_counts_against_the_estimate(monkeypatch):
-    monkeypatch.setattr(buffs, "PREPARE_SECONDS", 0)
+    monkeypatch.setattr(casting, "PREPARE_SECONDS", 0)
     handle = Handle()
-    state = buffs.BuffState()
-    buffs.discern_slots(handle, PROFILE, state, ask, "hunt", _report)
+    state = casting.CastState()
+    casting.discern_slots(handle, PROFILE, state, ask, "hunt", _report)
     assert state.buff_mana["heroic strength"] == 26  # streams, a step under 28
     handle.sent.clear()
     for _ in range(2):
-        buffs.cast_buffs(handle, PROFILE, state, ask, "hunt", _report)
+        casting.cast_buffs(handle, PROFILE, state, ask, "hunt", _report)
     # 26 streams are 14 prepared and the anklet's 12; then the estimate's 28.
     assert _prepares(handle) == [
         "prepare heroic strength 14",
@@ -109,7 +109,7 @@ def test_the_invoked_anklet_counts_against_the_estimate(monkeypatch):
     # Arcana locked: no charge, so the whole 28 is prepared.
     handle.state.experience["Arcana"]["mindstate"] = 34
     handle.sent.clear()
-    buffs.cast_buffs(handle, PROFILE, state, ask, "hunt", _report)
+    casting.cast_buffs(handle, PROFILE, state, ask, "hunt", _report)
     assert _prepares(handle) == ["prepare heroic strength 28"]
     assert "charge my anklet 12" not in handle.sent
 
@@ -118,10 +118,10 @@ def test_a_piece_worn_again_before_the_invoke_comes_off_for_it(monkeypatch):
     # 2026-10-04 15:12 (Cecil's ;hunt): a kill mid-cast, the SKIN found
     # both hands full and wore the anklet back on, and the INVOKE was
     # refused — the cast went without the charge.
-    monkeypatch.setattr(buffs, "PREPARE_SECONDS", 0)
+    monkeypatch.setattr(casting, "PREPARE_SECONDS", 0)
     handle = Handle()
-    state = buffs.BuffState()
-    buffs.discern_slots(handle, PROFILE, state, ask, "hunt", _report)
+    state = casting.CastState()
+    casting.discern_slots(handle, PROFILE, state, ask, "hunt", _report)
     handle.sent.clear()
     invokes = iter(
         [
@@ -137,7 +137,7 @@ def test_a_piece_worn_again_before_the_invoke_comes_off_for_it(monkeypatch):
             return next(invokes)
         return ask(s, command)
 
-    buffs.cast_buffs(handle, PROFILE, state, worn_once, "hunt", _report)
+    casting.cast_buffs(handle, PROFILE, state, worn_once, "hunt", _report)
     at = handle.sent.index("remove my anklet")
     assert handle.sent[at - 1 : at + 3] == [
         "invoke my anklet",
@@ -148,10 +148,10 @@ def test_a_piece_worn_again_before_the_invoke_comes_off_for_it(monkeypatch):
 
 
 def test_a_collapse_at_the_estimate_holds_a_step_under(monkeypatch):
-    monkeypatch.setattr(buffs, "PREPARE_SECONDS", 0)
+    monkeypatch.setattr(casting, "PREPARE_SECONDS", 0)
     handle = Handle(arcana=34)
-    state = buffs.BuffState()
-    buffs.discern_slots(handle, PROFILE, state, ask, "hunt", _report)
+    state = casting.CastState()
+    casting.discern_slots(handle, PROFILE, state, ask, "hunt", _report)
     state.buff_mana["heroic strength"] = 28
     answers = dict(ANSWERS, cast="You gesture.\nYour spell backfires.\n")
 
@@ -161,7 +161,7 @@ def test_a_collapse_at_the_estimate_holds_a_step_under(monkeypatch):
             return "You begin chanting a prayer.\n"
         return answers.get(command, "")
 
-    buffs.cast_buffs(handle, PROFILE, state, backfire, "hunt", _report)
+    casting.cast_buffs(handle, PROFILE, state, backfire, "hunt", _report)
     assert state.buff_mana["heroic strength"] == 26
     assert "heroic strength" in state.buff_cap
 
@@ -187,9 +187,9 @@ def test_a_charge_that_overfills_a_small_buff_stays_out_of_its_cast(monkeypatch)
     # Hands of Justice: minimum 5, total 12, the anklet's charge 12. The
     # ramp's 10 streams left nothing to prepare, the bare PREPARE and
     # the anklet made 17, and it backfired (2026-09-29).
-    monkeypatch.setattr(buffs, "PREPARE_SECONDS", 0)
+    monkeypatch.setattr(casting, "PREPARE_SECONDS", 0)
     handle = _hoj_handle()
-    state = buffs.BuffState()
+    state = casting.CastState()
     answers = dict(ANSWERS, **{"discern hands of justice": HOJ_DISCERN})
 
     def hoj(s, command):
@@ -198,10 +198,10 @@ def test_a_charge_that_overfills_a_small_buff_stays_out_of_its_cast(monkeypatch)
             return "You begin chanting a prayer.\n"
         return answers.get(command, "")
 
-    buffs.discern_slots(handle, HOJ_PROFILE, state, hoj, "hunt", _report)
+    casting.discern_slots(handle, HOJ_PROFILE, state, hoj, "hunt", _report)
     assert state.buff_mana["hands of justice"] == 10
     handle.sent.clear()
-    buffs.cast_buffs(handle, HOJ_PROFILE, state, hoj, "hunt", _report)
+    casting.cast_buffs(handle, HOJ_PROFILE, state, hoj, "hunt", _report)
     assert _prepares(handle) == ["prepare hands of justice 10"]
     assert "invoke my anklet" not in handle.sent
     assert "charge my anklet 12" not in handle.sent
@@ -211,9 +211,9 @@ def test_a_charge_that_overfills_a_small_buff_stays_out_of_its_cast(monkeypatch)
 def test_a_backfire_at_minimum_with_the_charge_keeps_the_buff_training(monkeypatch):
     # With no DISCERN estimate the charge is tried; its backfire at the
     # minimum is the charge's fault, so the buff trains on without it.
-    monkeypatch.setattr(buffs, "PREPARE_SECONDS", 0)
+    monkeypatch.setattr(casting, "PREPARE_SECONDS", 0)
     handle = _hoj_handle()
-    state = buffs.BuffState()
+    state = casting.CastState()
     answers = dict(
         ANSWERS,
         cast="You gesture.\nYour spell backfires.\n",
@@ -228,17 +228,17 @@ def test_a_backfire_at_minimum_with_the_charge_keeps_the_buff_training(monkeypat
             return "You begin chanting a prayer.\n"
         return answers.get(command, "")
 
-    buffs.discern_slots(handle, HOJ_PROFILE, state, backfire, "hunt", _report)
+    casting.discern_slots(handle, HOJ_PROFILE, state, backfire, "hunt", _report)
     assert "hands of justice" not in state.buff_floor  # no estimate read
     state.buff_mana["hands of justice"] = 10
     handle.sent.clear()
-    buffs.cast_buffs(handle, HOJ_PROFILE, state, backfire, "hunt", _report)
+    casting.cast_buffs(handle, HOJ_PROFILE, state, backfire, "hunt", _report)
     assert "invoke my anklet" in handle.sent
     assert "hands of justice" in state.cambrinth_skip
     assert "hands of justice" not in state.training_spells_off
     assert any("cast without the anklet from here" in e for e in handle.echoed)
     handle.sent.clear()
-    buffs.cast_buffs(handle, HOJ_PROFILE, state, ask, "hunt", _report)
+    casting.cast_buffs(handle, HOJ_PROFILE, state, ask, "hunt", _report)
     assert "invoke my anklet" not in handle.sent
     assert _prepares(handle) == ["prepare hands of justice 10"]
 
@@ -247,7 +247,7 @@ def test_the_games_strain_warning_and_a_fatigued_cast_are_read_as_such():
     # Riphik's Gauge Flow at 98 mana, 2026-10-04 (#474): the warning
     # read as a plain prepare and the failed cast as "You gesture.", so
     # ;research took Gauge Flow for up and RESEARCH refused.
-    from client.game import buffs
+    from client.game import casting
 
     prepared = (
         "You feel intense strain as you try to manipulate the mana streams to form "
@@ -259,8 +259,8 @@ def test_the_games_strain_warning_and_a_fatigued_cast_are_read_as_such():
         "You gesture.\nYou strain, but are too mentally fatigued to finish the "
         "pattern, and it slips away."
     )
-    assert buffs.classify(prepared, buffs.PREPARE_OUTCOMES) == "strain"
-    assert buffs.classify(cast, buffs.CAST_OUTCOMES) == "failed"
+    assert casting.classify(prepared, casting.PREPARE_OUTCOMES) == "strain"
+    assert casting.classify(cast, casting.CAST_OUTCOMES) == "failed"
 
 
 def test_a_slot_naming_two_spells_casts_them_in_turn_each_on_its_ramp(monkeypatch):
@@ -268,27 +268,27 @@ def test_a_slot_naming_two_spells_casts_them_in_turn_each_on_its_ramp(monkeypatc
     # for Targeted Magic. The slot's gap holds across both spells.
     cast = []
     monkeypatch.setattr(
-        buffs,
+        casting,
         "cast_once",
         lambda s, spell, mana, *a, **k: cast.append((spell, mana)) or "ok",
     )
     now = [1000.0]
-    monkeypatch.setattr(buffs, "clock", lambda: now[0])
+    monkeypatch.setattr(casting, "clock", lambda: now[0])
     handle = Handle()
     handle.state.experience["Targeted Magic"] = {"rank": 900, "mindstate": 5}
-    state = buffs.BuffState()
+    state = casting.CastState()
     profile = {"targeted": "Dinazen Olkar, Partial Displacement", "cast_gap": 10}
     for _ in range(3):
-        buffs.cast_targeted(handle, profile, state, ask, "hunt", _report, "targeted")
+        casting.cast_targeted(handle, profile, state, ask, "hunt", _report, "targeted")
         state.cast_at[cast[-1][0]] = now[0]  # as cast_once records it
     assert [spell for spell, _ in cast] == [
         "Dinazen Olkar",
         "Partial Displacement",
         "Dinazen Olkar",
     ]
-    assert cast[1][1] == 0 and cast[2][1] == buffs.MANA_STEP  # a ramp each
-    assert not buffs.targeted_due(handle, profile, state, "targeted")  # one gap
+    assert cast[1][1] == 0 and cast[2][1] == casting.MANA_STEP  # a ramp each
+    assert not casting.targeted_due(handle, profile, state, "targeted")  # one gap
     now[0] += 10
-    assert buffs.targeted_due(handle, profile, state, "targeted")
+    assert casting.targeted_due(handle, profile, state, "targeted")
     state.slots_off.add("Partial Displacement")  # one refused: the other goes on
-    assert buffs.slot_spell(profile, state, "targeted") == "Dinazen Olkar"
+    assert casting.slot_spell(profile, state, "targeted") == "Dinazen Olkar"
