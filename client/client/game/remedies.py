@@ -617,15 +617,19 @@ def unsold(spec):
 def recipe_cost(spec, remaining=1):
     """Kronars for every Supplies ingredient of `remaining` remedies of
     `spec`: the controlling herb a stack each, the second herb and the
-    liquid one buy each. The first buy of a remedy withdraws this much,
-    so one bank trip pays for the rest (#532: an itch salve walked to
-    the teller for the flowers, then again for the jadice)."""
+    liquid one buy each, and a stock of the catalyst. The first buy of a
+    remedy withdraws this much, so one bank trip pays for the rest (#532:
+    an itch salve walked to the teller for the flowers, then again for
+    the jadice). The nugget is counted whether or not one is carried: a
+    run with none went to the teller twice (2026-10-12), and an unneeded
+    212 stays in the purse."""
     chapter, page, herb, extra, noun, liquid = spec
-    return sum(
+    herbs = sum(
         CATALOG[name][1] * count
         for name, count in ((herb, max(1, remaining)), (extra, 1), (liquid, 1))
         if name in CATALOG
     )
+    return herbs + CATALYST_CATALOG["nugget"][1] * CATALYST_STOCK
 
 
 def unobtainable(spec, possessions):

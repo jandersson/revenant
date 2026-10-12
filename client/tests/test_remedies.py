@@ -309,9 +309,10 @@ def test_a_bowl_remedy_is_mixed_from_crushed_herbs():
 
 def test_a_remedys_supplies_are_priced_together_for_one_bank_trip():
     itch = remedies.recipe("itch salve")
-    # 343 the flowers, 375 the jadice, 62 the water (#532: two trips before).
-    assert remedies.recipe_cost(itch) == 343 + 375 + 62
-    assert remedies.recipe_cost(itch, 2) == 2 * 343 + 375 + 62
+    # 343 the flowers, 375 the jadice, 62 the water (#532: two trips before),
+    # 212 a coal nugget (a run with none went to the teller twice).
+    assert remedies.recipe_cost(itch) == 343 + 375 + 62 + 212
+    assert remedies.recipe_cost(itch, 2) == 2 * 343 + 375 + 62 + 212
 
 
 def test_a_herb_the_supplies_lack_and_you_lack_is_caught_before_the_mortar():

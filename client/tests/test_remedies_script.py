@@ -752,9 +752,10 @@ def test_the_herbs_water_and_coal_are_bought_as_they_run_out():
     out = run(fake, ["work", "count=1"])
     assert fake.walked == ["8862", "8862", "8775"]
     # One bank trip (#532): the order's Supplies ingredients at the first
-    # buy, two stacks of flowers, the nemoih and the water (998), less the
-    # 100 in the purse; the water and the nugget are paid from it.
-    assert fake.withdrawn == [898]
+    # buy, two stacks of flowers, the nemoih and the water (998) and a
+    # nugget (212), less the 100 in the purse; the water and the nugget
+    # are paid from it.
+    assert fake.withdrawn == [1110]
     assert fake.sent.count("order 13") == 4
     assert fake.sent.count("order 1") == 2
     assert fake.sent.count("order 2") == 2 * CATALYST_STOCK
