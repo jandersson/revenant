@@ -92,28 +92,38 @@ def get_dried(s, ask, herb, container=None):
     LIST shows is walked in turn, the gem pouch left out — a bare MY
     SECOND <herb> took nothing while a bought stack sat in the backpack
     (2026-10-02, 17:36), the merge's FROM MY <container> form reaches it
-    (#402). The GET's answer, or None when no dried stack came."""
+    (#402). The GET's answer, or None when no dried stack came. A herb
+    named with its prepared word ("crushed flowers", the grinder's for the
+    bowl remedies, #533) is reached by that word instead of "dried"."""
+    word, _, rest = str(herb).partition(" ")
+    if word in PREPARED and rest:
+        herb = rest
+    else:
+        word = "dried"
     where = f" from my {container}" if container else ""
     mine = "" if container else "my "
-    answer = ask(s, f"get {mine}dried {herb}{where}")
+    answer = ask(s, f"get {mine}{word} {herb}{where}")
     if not act.missing(answer):
         return answer  # silence passes, as the plain GET's did before
     if container is None:
         possessions = getattr(getattr(s, "state", None), "possessions", None)
         places = items.containers(possessions, skip=("pouch",)) if possessions else []
         for place in places:
-            found = _walk(s, ask, herb, place)
+            found = _walk(s, ask, herb, place, word)
             if found is not None:
                 return found
         if places:
             return None
-    return _walk(s, ask, herb, container)
+    return _walk(s, ask, herb, container, word)
 
 
-def _walk(s, ask, herb, container):
+PREPARED = ("dried", "crushed")
+
+
+def _walk(s, ask, herb, container, word="dried"):
     """The plain noun's ordinals in `container` (none: the bare form),
-    a stack that is not dried put back to the front; the GET's answer
-    for the first dried one, else None."""
+    a stack not prepared that way (`word`) put back to the front; the
+    GET's answer for the first one that is, else None."""
     where = f" from my {container}" if container else ""
     mine = "" if container else "my "
     for skip, ordinal in enumerate(ORDINALS):
@@ -122,7 +132,7 @@ def _walk(s, ask, herb, container):
         answer = ask(s, f"get {mine}{which}{herb}{where}")
         if not answer.strip() or act.missing(answer):
             return None
-        if "dried" in answer.lower():
+        if word in answer.lower():
             return answer
         # Another kind of the same noun: back to where it came from.
         new = [item for item in held(s) if item not in before]

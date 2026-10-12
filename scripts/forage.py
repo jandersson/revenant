@@ -17,7 +17,8 @@ What it does
   - herb: FORAGE <herb> PRECISE (Remedial Herb Gathering; plain FORAGE without it,
     and after 8 misses in a row — PRECISE is the harder roll — until a find),
     finds into the loot container; then, at the Crossing Alchemy
-    Society's dry press, each is pressed and combined into the dried stack (a full
+    Society's dry press (its plant grinder for a herb taken crushed: blue flower,
+    muljin, riolur, aevaes, ...), each is pressed and combined into the stack (a full
     one holds 75; the rest starts another) — the finds a STOW sent to the backpack
     too, past the dried stacks there. The end line says how many were pressed.
   - Both hands full: a find in hand goes in the sack, anything else is STOWed,
@@ -172,9 +173,44 @@ HERB_MISSES = 40  # tries without a find before the run gives up
 # missed 25 PRECISE tries at the Water Lily Pool).
 PLAIN_AFTER = 8
 PRECISE_RETRY = 3
-PRESS_ROOMS = (8860,)  # the Crossing Alchemy Society's Tool Shop: a dry press
+PRESS_ROOMS = (8860,)  # the Crossing Alchemy Society's Tool Shop: a press and a grinder
+# The herbs prepared at the plant grinder, not the press: those dr-scripts'
+# base-ingredients.yaml gives a "crushed" output (blue flower to "crushed
+# flower"), which the bowl remedies take (#533). The press refuses what is
+# not an alchemy herb: "This press looks designed only to dry alchemical
+# herbs." (a healer's sufil sap, 2026-10-12).
+GRINDS = frozenset(
+    {
+        "blue flower",
+        "yelith root",
+        "seolarn weed",
+        "riolur leaves",
+        "muljin sap",
+        "eghmok moss",
+        "ojhenik root",
+        "hisan flower",
+        "nuloe stem",
+        "belradi moss",
+        "hulij leaves",
+        "junliar stem",
+        "lujeakave root",
+        "aevaes leaves",
+        "marsh woundwort",
+        "ashen flamestalk",
+    }
+)
 _HERB_FOUND = re.compile(r"you manage to find (?:some |an? )?(?P<what>[^.!]+)", re.I)
-_PRESSED = ("remove some dried",)
+# The grinder's "remove some crushed" is assumed from the press's line:
+# any other answer stops the run and says it, to be captured.
+_PRESSED = ("remove some dried", "remove some crushed")
+
+
+def machine_of(item):
+    """("grinder", "crushed") for a herb the grinder prepares, else
+    ("press", "dried")."""
+    return ("grinder", "crushed") if item in GRINDS else ("press", "dried")
+
+
 _PREPARED = ("already appears prepared",)
 _COMBINED = ("you combine",)
 _GOT = ("you get", "you pick up", "you are already holding")
@@ -408,11 +444,11 @@ def combine_held(s, noun):
     return ask(s, f"combine {pair[0]} with {pair[1]}").lower()
 
 
-def _combine_and_stow(s, noun, home):
+def _combine_and_stow(s, noun, home, word="dried"):
     """The dried stack just pressed combined with the one at `home` (when
     one is there) and stowed; where the stow put it."""
     if home:
-        again = ask(s, f"get dried {noun} from my {home}").lower()
+        again = ask(s, f"get {word} {noun} from my {home}").lower()
         if any(word in again for word in _GOT):
             joined = combine_held(s, noun)
             if not any(word in joined for word in _COMBINED):
@@ -423,7 +459,7 @@ def _combine_and_stow(s, noun, home):
     return home
 
 
-def press_from(s, noun, container, home):
+def press_from(s, noun, container, home, machine="press", word="dried"):
     """The fresh stacks of `noun` in `container` pressed — the finds a
     STOW sent there instead of the bag (#403) — each reached by the
     plain noun's ordinals past the dried stacks, which go back to the
@@ -438,27 +474,27 @@ def press_from(s, noun, container, home):
         got = ask(s, f"get my {which}{noun} from my {container}").lower()
         if not any(word in got for word in _GOT):
             break
-        if "dried" in got:
+        if word in got:
             ask(s, f"put {held_name(s, noun)} in my {container}")
             skip += 1
             continue
-        pressed = ask(s, f"put {held_name(s, noun)} in press").lower()
+        pressed = ask(s, f"put {held_name(s, noun)} in {machine}").lower()
         if any(word in pressed for word in _PREPARED):
             ask(s, f"put {held_name(s, noun)} in my {container}")  # dried after all
             skip += 1
             continue
         if not any(word in pressed for word in _PRESSED):
-            s.echo(f"forage: the press answered {said(pressed)!r} — stopping")
+            s.echo(f"forage: the {machine} answered {said(pressed)!r} — stopping")
             ask(s, f"put {held_name(s, noun)} in my {container}")
             break
         pressed_count += 1
-        home = _combine_and_stow(s, noun, home)
+        home = _combine_and_stow(s, noun, home, word)
         if home == container:
             skip += 1  # the dried stack went to the container's front
     return pressed_count, home
 
 
-def press_herb(s, noun, bag):
+def press_herb(s, noun, bag, machine="press", word="dried"):
     """At the dry press: each raw find out of `bag` pressed and combined
     with the dried stack before it, the stack stowed — the stacks in
     hand named by their ids (held_name) — then the finds a STOW sent to
@@ -475,18 +511,18 @@ def press_herb(s, noun, bag):
         got = ask(s, f"get {noun} from my {bag}").lower()
         if not any(word in got for word in _GOT):
             break  # the bag holds no more
-        pressed = ask(s, f"put {held_name(s, noun)} in press").lower()
+        pressed = ask(s, f"put {held_name(s, noun)} in {machine}").lower()
         if not any(word in pressed for word in _PRESSED + _PREPARED):
-            s.echo(f"forage: the press answered {said(pressed)!r} — stopping")
+            s.echo(f"forage: the {machine} answered {said(pressed)!r} — stopping")
             ask(s, f"put {held_name(s, noun)} in my {bag}")
             break
         stacks += 1
-        home = _combine_and_stow(s, noun, home)
+        home = _combine_and_stow(s, noun, home, word)
         if any(word in pressed for word in _PREPARED) and home == bag:
             break  # the bag holds only the dried stack now: all pressed
     store = home or hands.default_container(s, ask) or ""
     if store and store != bag:
-        more, home = press_from(s, noun, store, home)
+        more, home = press_from(s, noun, store, home, machine, word)
         stacks += more
     if not stacks:
         return None
@@ -504,17 +540,19 @@ def run_herb(s, options, db=None, avoid=(), bag="sack"):
     reason, pieces, noun = gather_herb(s, options, bag)
     if not pieces:
         return reason
-    s.echo(f"forage: {reason} — to the dry press")
+    machine, word = machine_of(item)
+    s.echo(f"forage: {reason} — to the {machine}")
     if db is not None and not travel.go(
-        s, PRESS_ROOMS, "the dry press", db=db, walk=walk, avoid=avoid
+        s, PRESS_ROOMS, f"the {machine}", db=db, walk=walk, avoid=avoid
     ):
-        return f"{reason}; could not reach the dry press — the {noun} wait in the {bag}"
-    pressed = press_herb(s, noun, bag)
+        return f"{reason}; could not reach the {machine} — the {noun} wait in the {bag}"
+    pressed = press_herb(s, noun, bag, machine, word)
     if pressed is None:
         return f"{reason}; nothing to press"
     stacks, home = pressed
     where = f" in the {home}" if home else ""
-    return f"{reason}; {stacks} fresh stack(s) pressed and combined{where}"
+    done = "ground" if machine == "grinder" else "pressed"
+    return f"{reason}; {stacks} fresh stack(s) {done} and combined{where}"
 
 
 def main(s):

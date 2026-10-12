@@ -102,8 +102,7 @@ RECIPES = {
     "itch salve": (2, 3, "flowers", "jadice", "salve", "water"),
     "wart salve": (2, 4, "flowers", "sufil", "salve", "water"),
     # The journeyman book's page 6 (Elanthipedia: Remedies products), both
-    # herbs the Supplies' own; pages 5, 7 and 8 are internal remedies,
-    # made in a bowl, which ;remedies does not do.
+    # herbs the Supplies' own.
     "lip balm": (2, 6, "flowers", "nilos", "balm", "water"),
     "neck salve": (3, 1, "georin", None, "salve", "water"),
     "abdominal salve": (3, 2, "nilos", None, "salve", "water"),
@@ -111,15 +110,48 @@ RECIPES = {
     "head salve": (3, 4, "nemoih", None, "salve", "water"),
     "back salve": (3, 5, "hulnik", None, "salve", "water"),
     "eye salve": (3, 6, "sufil", None, "salve", "water"),
+    # The internal remedies of chapter 2 (#533): MIXed in a bowl with a
+    # mixing stick, from herbs the plant grinder crushes ("If it can be put
+    # in the grinder, it needs crushed before starting the recipe. It will
+    # be mixed in a bowl with a stick.", Pfanston's Guide to Remedies). The
+    # blue flowers are foraged (;forage herb blue flower), the riolur and
+    # aevaes sold crushed, the muljin foraged. Last, so "eye" stays the salve.
+    "stomach tonic": (2, 5, "crushed flowers", "crushed muljin", "tonic", "water"),
+    "mouth wash": (2, 7, "crushed flowers", "crushed riolur", "wash", "water"),
+    "eye wash": (2, 8, "crushed flowers", "crushed aevaes", "wash", "water"),
 }
+BOWL = {"stomach tonic", "mouth wash", "eye wash"}
+BOWL_TOOLS = {"mortar": "bowl", "pestle": "mixing stick"}  # the roles the bowl takes
+PREPARED_WORDS = ("dried", "crushed")
 LIQUIDS = ("water", "alcohol")
 # The training default: a chapter-3 salve, one herb the society sells.
 SALVES = {name.split()[0]: RECIPES[name] for name in RECIPES if RECIPES[name][0] == 3}
-# Every page on record by its first word ("blister" for blister cream):
-# ;remedies makes any of them for a character who needs one, not only an
-# order's (the operator, 2026-10-12).
-PRODUCTS = {name.split()[0]: name for name in RECIPES}
+# Every page on record by its first word ("blister" for blister cream) —
+# the first recipe of that word, so "eye" is the salve — or whole ("eye
+# wash"): ;remedies makes any of them for a character who needs one, not
+# only an order's (the operator, 2026-10-12).
+PRODUCTS = {name: name for name in RECIPES}
+for _name in RECIPES:
+    PRODUCTS.setdefault(_name.split()[0], _name)
 NAME_WORDS = {word for name in RECIPES for word in name.split()}  # "cream", "salve"
+
+
+def prepared(herb):
+    """The herb's name as its prepared stack answers to it: "dried
+    flowers" for "flowers", "crushed riolur" as it stands."""
+    herb = str(herb or "")
+    return herb if herb.split(" ", 1)[0] in PREPARED_WORDS else f"dried {herb}"
+
+
+def herb_of(why):
+    """The herb a craft that ended on `why` ("dried plovik", "crushed
+    riolur") lacks, as RECIPES and CATALOG name it; "" for no herb."""
+    word, _, rest = str(why or "").partition(" ")
+    if word == "dried":
+        return rest
+    return why if word == "crushed" else ""
+
+
 CHAPTER = 3
 HERB_SALVE = {spec[2]: salve for salve, spec in SALVES.items()}
 
@@ -140,9 +172,14 @@ CRUSHED = (
     "crush the",
     "crush some",
     "gained a new rank",
+    # MIX in the bowl (#533), assumed from CRUSH's until captured; any
+    # other answer is said as unrecognized.
+    "you mix some unfinished",
+    "mix the",
+    "mix some",
 )
 AS_CRUSHED = ("as crushed as it is going to get",)
-MISSING = ("what were you referring", "could not find", "crush what")
+MISSING = ("what were you referring", "could not find", "crush what", "mix what")
 FREE_HAND = ("need a free hand",)
 STUDIED = ("feel ready to begin",)
 TOO_HARD = ("far beyond your abilities",)
@@ -337,6 +374,10 @@ CATALOG = {  # noun: (catalog number, Kronars)
     "jadice": (5, 375),
     "nilos": (6, 437),
     "georin": (7, 437),
+    # Sold crushed, for the bowl remedies (Elanthipedia: Alchemy Society
+    # (Crossing), the Supplies' sign; #533).
+    "crushed riolur": (8, 562),
+    "crushed aevaes": (10, 537),
     "flowers": (13, 343),
 }
 # The massive coal nugget, item 2: a rub takes one volume and it has
@@ -380,7 +421,16 @@ def parse_args(args):
         "tilt": False,
         "unknown": [],
     }
-    for arg in args:
+    # Two words that make a whole recipe name are one: "eye wash" is not
+    # the eye salve "eye" names (#533).
+    words, index = [], 0
+    args = [str(arg) for arg in args]
+    while index < len(args):
+        pair = " ".join(args[index : index + 2]).lower()
+        whole = pair in RECIPES and index + 1 < len(args)
+        words.append(pair if whole else args[index])
+        index += 2 if whole else 1
+    for arg in words:
         key, sep, value = str(arg).lower().partition("=")
         if sep and key == "salve" and value in PRODUCTS:
             options["salve"] = value
@@ -424,14 +474,18 @@ def page_for(salve):
     return SALVES[salve][1]
 
 
-def crush_command(herb, started, noun="salve"):
+def crush_command(herb, started, noun="salve", bowl=False):
     """CRUSH the herb the first time, the unfinished remedy — by its
     noun, "salve" or "cream" — after. The mortar and pestle go by their
     bare nouns here: CRUSH's WITH clause refuses the profile's whole
     name ("with my iron pestle": "With what, your hand?  Huh uh.",
     2026-10-06), and by the CRUSH the tools fetched by that name are
-    the ones in hand, which MY <noun> reaches first (#478)."""
-    what = noun if started else herb
+    the ones in hand, which MY <noun> reaches first (#478). A bowl
+    remedy is MIXed, the bowl itself named every time (dr-scripts'
+    remedy.lic: "mix my bowl with my mixing stick", #533)."""
+    if bowl:
+        return "mix my bowl with my mixing stick"
+    what = noun if started else prepared(herb).split()[-1]
     return f"crush my {what} in my mortar with my pestle"
 
 
@@ -578,13 +632,11 @@ def unobtainable(spec, possessions):
     remedy held the mortar for every run after (#532)."""
     if possessions is None:
         return None
-    names = [str(item.get("name") or "").lower() for item in possessions]
+    names = [set(str(item.get("name") or "").lower().split()) for item in possessions]
     for herb in spec[2:4]:
-        if (
-            herb
-            and herb not in CATALOG
-            and not any(f"dried {herb}" in n for n in names)
-        ):
+        # By its words: ground blue flowers may list as "crushed blue flowers".
+        wanted = set(prepared(herb).split())
+        if herb and herb not in CATALOG and not any(wanted <= n for n in names):
             return herb
     return None
 
@@ -604,12 +656,13 @@ def shortage(why, spec, catalyst):
     water or alcohol ten splashes at a time, the catalyst one per
     remedy — or None when `why` is not a shortage the shops answer."""
     chapter, page, herb, extra, noun, liquid = spec
-    if why == f"dried {herb}":
-        return herb, 1, SUPPLIES, CATALOG
+    if why == prepared(herb):
+        # Never the catalog's "flowers" for the bowl's crushed blue ones.
+        return (herb, 1, SUPPLIES, CATALOG) if herb in CATALOG else None
     # The game's word, not the order's recipe: a remedy another run left
     # in the mortar asks for its own second herb (#431: a leftover
     # ointment's plovik during an itch salve order) and its own liquid.
-    wanted = why[len("dried ") :] if why.startswith("dried ") else ""
+    wanted = herb_of(why)
     if wanted and wanted in CATALOG:
         return wanted, 0, SUPPLIES, CATALOG
     if why in LIQUIDS:

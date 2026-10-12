@@ -400,6 +400,41 @@ def test_a_herb_is_foraged_to_the_pieces_then_pressed_and_combined(travel):
     assert reason.endswith("; 2 fresh stack(s) pressed and combined in the backpack")
 
 
+def test_a_herb_the_bowl_remedies_take_crushed_goes_to_the_grinder(travel):
+    # #533: blue flowers are ground ("crushed flower", dr-scripts'
+    # base-ingredients), the Tool Shop's plant grinder beside its press.
+    def blue(line):
+        return line.replace("red flowers", "blue flowers")
+
+    ground = blue(PRESSED).replace("press", "grinder").replace("dried", "crushed")
+    s = Fake(
+        [
+            blue(HERB_FOUND),
+            SIX,
+            INTO_SACK,
+            blue(FROM_SACK),
+            ground,
+            INTO_PACK,
+            NOTHING,
+            blue(FROM_PACK).replace("dried", "crushed"),
+            INTO_PACK,
+            NOTHING,
+        ],
+        room=19343,
+    )
+    garden = MapDB(
+        [
+            {**GARDEN.rooms[19343], "tags": ["blue flower"]},
+            GARDEN.rooms[8860],
+        ]
+    )
+    options = forage.parse_args(["herb", "blue", "flower", "pieces=6"])
+    reason = forage.run_herb(s, options, db=garden, bag="sack")
+    assert "put my flowers in grinder" in s.sent
+    assert "put my flowers in press" not in s.sent
+    assert reason.endswith("; 1 fresh stack(s) ground and combined in the backpack")
+
+
 def test_fresh_finds_a_stow_sent_to_the_backpack_are_pressed_too(travel):
     # #403 (2026-10-01): six fresh stacks sat in the backpack unpressed
     # because the press only took finds out of the sack. The backpack's

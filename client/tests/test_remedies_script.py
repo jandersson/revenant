@@ -308,11 +308,40 @@ def test_each_finished_remedy_is_analyzed_and_its_quality_recorded():
     assert row == ("head salve", "superior", 9, "Alchemy", 2)
 
 
+def test_a_bowl_remedy_is_mixed_in_the_bowl_with_the_mixing_stick():
+    # #533: the mouth wash, chapter 2 page 7, MIXed (dr-scripts' remedy.lic).
+    fake = Fake(
+        {
+            "study my remed book": [STUDIED],
+            "get my crushed flowers": ["You get some crushed blue flowers."],
+            "put my crushed flowers in my bowl": ["You put your flowers in your bowl."],
+            "get my water": ["You get some water."],
+            "pour my water in my bowl": [POURED],
+            "get my crushed riolur": ["You get some crushed riolur."],
+            "get my nugget": ["You get a tiny coal nugget."],
+            "mix my bowl with my mixing stick": [
+                NEED_WATER.replace("salve", "wash"),
+                NEED_HERB.replace("cream", "wash"),
+                NEED_CATALYST.replace("cream", "wash"),
+                FINISHED.replace("salve", "wash"),
+            ],
+        }
+    )
+    out = run(fake, ["mouth", "wash", "count=1"])
+    assert "turn my remed book to page 7" in fake.sent
+    assert "get my bowl" in fake.sent and "get my mixing stick" in fake.sent
+    assert "get my mortar" not in fake.sent
+    assert not any(c.startswith("crush ") for c in fake.sent)
+    assert "put my crushed riolur in my bowl" in fake.sent
+    assert "get my wash from my bowl" in fake.sent
+    assert "remedies: mouth wash finished (1)" in out
+
+
 def test_an_item_not_on_record_is_said_and_nothing_is_sent():
-    # #532: ;remedies stomach ignored the word and made a head salve.
+    # #532: ;remedies stomach (then unknown) ignored the word and made a head salve.
     fake = Fake(HEAD_SALVE)
-    out = run(fake, ["stomach", "count=1"])
-    assert "no recipe for 'stomach'" in out and "blister" in out
+    out = run(fake, ["hangover", "count=1"])
+    assert "no recipe for 'hangover'" in out and "blister" in out
     assert fake.sent == []
 
 
@@ -1142,13 +1171,13 @@ def test_an_order_the_book_lacks_a_missing_master_and_no_herbs_are_said():
     fake = Fake(
         {
             "ask lanshado for easy remedies work": [
-                ORDER.replace("blister cream", "stomach tonic")
+                ORDER.replace("blister cream", "hangover potion")
             ]
         }
     )
     out = run(fake, ["work"])
-    assert "no page for stomach tonic — asking for another order" in out
-    assert "no page for stomach tonic — 3 orders asked, stopping" in out
+    assert "no page for hangover potion — asking for another order" in out
+    assert "no page for hangover potion — 3 orders asked, stopping" in out
     assert fake.sent.count("ask lanshado for easy remedies work") == 3
     unsold = Fake(
         {

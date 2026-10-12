@@ -82,7 +82,7 @@ def test_the_recipes_are_the_books_pages():
         "water",
     )
     assert remedies.recipe("head salve") == (3, 4, "nemoih", None, "salve", "water")
-    assert remedies.recipe("a stomach tonic") is None
+    assert remedies.recipe("a hangover potion") is None
     # The ointment's liquid is alcohol (#427, Remedies products).
     assert remedies.recipe("moisturizing ointment") == (
         2,
@@ -263,13 +263,46 @@ def test_the_arguments():
     assert remedies.parse_args(["ledger"])["ledger"] is True
     assert remedies.parse_args(["salve=bogus"])["salve"] == "head"
     # Any page on record, by its first word (2026-10-12).
-    assert remedies.parse_args(["blister", "cream", "count=1"])["salve"] == "blister"
+    assert (
+        remedies.parse_args(["blister", "cream", "count=1"])["salve"] == "blister cream"
+    )
+    assert remedies.parse_args(["blister"])["salve"] == "blister"
+    # #533: two words that make a whole name are that recipe, not the first word's.
+    assert remedies.parse_args(["eye", "wash"])["salve"] == "eye wash"
+    assert remedies.PRODUCTS["eye"] == "eye salve"
+    assert remedies.PRODUCTS["stomach"] == "stomach tonic"
     assert remedies.PRODUCTS["blister"] == "blister cream"
     assert remedies.parse_args(["merge"])["merge"] is True
     # #532: an item not on record is said, not swapped for a head salve.
-    assert remedies.parse_args(["stomach", "tonic"])["unknown"] == ["stomach", "tonic"]
+    assert remedies.parse_args(["hangover", "potion"])["unknown"] == [
+        "hangover",
+        "potion",
+    ]
     assert remedies.parse_args(["lip", "balm", "count=1"])["unknown"] == []
     assert remedies.parse_args(["tilt"])["tilt"] is True
+
+
+def test_a_bowl_remedy_is_mixed_from_crushed_herbs():
+    # #533: the internal remedies, blue flowers crushed at the grinder.
+    wash = remedies.recipe("mouth wash")
+    assert wash == (2, 7, "crushed flowers", "crushed riolur", "wash", "water")
+    assert remedies.prepared("flowers") == "dried flowers"
+    assert remedies.prepared("crushed flowers") == "crushed flowers"
+    assert remedies.herb_of("dried plovik") == "plovik"
+    assert remedies.herb_of("crushed riolur") == "crushed riolur"
+    assert remedies.herb_of("water") == ""
+    assert remedies.crush_command("crushed flowers", False, "wash", bowl=True) == (
+        "mix my bowl with my mixing stick"
+    )
+    assert remedies.crush_command("flowers", False, "cream") == (
+        "crush my flowers in my mortar with my pestle"
+    )
+    # The crushed riolur is sold (#8); the blue flowers never buy the red.
+    assert remedies.shortage("crushed riolur", wash, "nugget")[0] == "crushed riolur"
+    assert remedies.shortage("crushed flowers", wash, "nugget") is None
+    held = [{"name": "some crushed blue flowers"}, {"name": "some dried red flowers"}]
+    assert remedies.unobtainable(wash, held) is None
+    assert remedies.unobtainable(wash, held[1:]) == "crushed flowers"
 
 
 def test_a_remedys_supplies_are_priced_together_for_one_bank_trip():

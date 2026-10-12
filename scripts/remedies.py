@@ -2,7 +2,8 @@
 
     ;remedies                 the head salve, CRUSHed until Alchemy mind-locks
     ;remedies <item>          any item of the book by its first word: blister, moisturizing, itch,
-                              wart, lip, or a salve (neck, abdominal, chest, head, back, eye)
+                              wart, lip, a salve (neck, abdominal, chest, head, back, eye),
+                              or one MIXed in the bowl: stomach, mouth, "eye wash"
     ;remedies blister count=1 make just that many (orders, with work), then end
     ;remedies until=30        stop at that mindstate instead of 34
     ;remedies once            end at mind-lock instead of holding or, with work, working on
@@ -17,7 +18,8 @@
 What it does
   - STUDies the book page, puts the herb's dried stack in the mortar and CRUSHes,
     adding water (alcohol for an ointment), the second herb and the catalyst as
-    the game asks.
+    the game asks. A tonic or wash goes in the bowl, crushed herbs MIXed with the
+    mixing stick; ;forage herb blue flower grinds the flowers it takes.
   - Work: reads the logbook (resumes, hands in or clears an order), finds the master,
     crafts and bundles each stack, hands the logbook in for the pay. An order that
     expires on the way is untied, its stacks stowed for the next, and another asked.
@@ -102,6 +104,8 @@ from client.game.remedies import (
     ORDER_EXPIRED,
     ORDER_TRIES,
     POURED,
+    BOWL,
+    BOWL_TOOLS,
     PRODUCTS,
     remedy_in_mortar,
     unfinished_in_mortar,
@@ -119,6 +123,8 @@ from client.game.remedies import (
     payment,
     recipe,
     recipe_cost,
+    herb_of,
+    prepared,
     roundtime_of,
     sellable,
     shortage,
@@ -292,6 +298,7 @@ TOOLS = {"mortar": "mortar", "pestle": "pestle"}
 def name_tools(profile):
     for tool in TOOLS:
         TOOLS[tool] = str((profile or {}).get(tool) or tool).strip().lower() or tool
+    MORTAR_TOOLS.update(TOOLS)
     BELTS.clear()
     if belt := str((profile or {}).get("tool_belt") or "").strip().lower():
         BELTS.update(dict.fromkeys(TOOLS, belt))
@@ -312,6 +319,19 @@ def my(tool):
 _TIED = re.compile(r"ties from the (?P<belt>.+?) prevent you")
 UNTIED = "You untie"
 BELTS = {}  # tool -> the belt it is tied to, this run
+
+
+MORTAR_TOOLS = {}  # the profile's mortar and pestle, while the bowl holds the roles
+
+
+def use_vessel(item):
+    """The mortar and pestle roles taken by the bowl and mixing stick for
+    a remedy MIXed in a bowl (#533), else the profile's mortar and
+    pestle: every "my mortar" and "my pestle" then reaches the right tool."""
+    item = str(item or "").lower().removeprefix("some ")
+    TOOLS.update(BOWL_TOOLS if item in BOWL else MORTAR_TOOLS)
+    if belt := next(iter(BELTS.values()), None):
+        BELTS.update(dict.fromkeys(TOOLS, belt))
 
 
 def take(s, tool):
@@ -401,7 +421,7 @@ def fetch_into_mortar(s, noun, what):
     else:
         answer = ask(s, f"get my {noun}")
     if answer is None or (not dried and missing(answer)):
-        shown = f"dried {noun}" if dried else noun
+        shown = prepared(noun) if dried else noun
         s.echo(f"remedies: no {shown} on you — the {what} is missing")
         take(s, "pestle")
         return False
@@ -414,7 +434,7 @@ def fetch_into_mortar(s, noun, what):
 
     if what == "herb" and not full_stack(s, noun):
         s.echo(
-            f"remedies: the dried {noun} on you come to fewer than {STACK_PIECES} "
+            f"remedies: the {prepared(noun)} on you come to fewer than {STACK_PIECES} "
             f"pieces — the {what} is missing"
         )
         hands.stow(s, token(), ask=ask)
@@ -543,7 +563,7 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
         started = True  # this recipe, in progress: resumed
     if not started:
         if lacking := unobtainable(spec, getattr(s.state, "possessions", None)):
-            return f"dried {lacking}"  # nothing in the mortar it cannot finish
+            return prepared(lacking)  # nothing in the mortar it cannot finish
     if not study(s, chapter, page, what):
         return "book"
     misses = 0
@@ -565,7 +585,7 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
                 s.echo("remedies: the mortar is still busy — stopping")
                 return "mortar"
         if not fetched:
-            return f"dried {herb}"
+            return prepared(herb)
     for _ in range(MAX_CRUSHES):
         if why := danger(s):
             return why
@@ -595,7 +615,8 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
             ):
                 return "stopped"
         # Bare nouns on purpose: the held tools (crush_command's docstring).
-        answer = ask(s, crush_command(herb, started, noun))
+        bowl = TOOLS["mortar"] == BOWL_TOOLS["mortar"]
+        answer = ask(s, crush_command(herb, started, noun, bowl=bowl))
         s.waitrt()
         tally["crushes"] += 1
         tally["crush_seconds"] = tally.get("crush_seconds", 0) + roundtime_of(answer)
@@ -632,7 +653,7 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
             if isinstance(fetched, str):
                 return refused_ingredient(s, extra, "second herb")
             if not fetched:
-                return f"dried {extra}"
+                return prepared(extra)
         elif outcome == "need catalyst":
             started = True
             catalyst_tries += 1
@@ -685,7 +706,7 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
             if isinstance(fetched, str):
                 return "mortar"
             if not fetched:
-                return f"dried {herb}"
+                return prepared(herb)
         elif outcome is None and is_noise(answer):
             tally["noise"] = tally.get("noise", 0) + 1  # a bystander's line
         else:
@@ -728,7 +749,7 @@ def finish_in_mortar(s, name, catalyst, options, tally):
     s.echo(f"remedies: the mortar holds an unfinished {name} — finishing it first")
     why = craft(s, spec, f"the {name}", catalyst, options, tally, started=True)
     if why is not None:
-        if why.startswith("dried ") and why[len("dried ") :] not in CATALOG:
+        if herb_of(why) and herb_of(why) not in CATALOG:
             s.echo(
                 f"remedies: the {name} needs {why}, which the Supplies does not "
                 "sell — ;remedies tilt empties the mortar"
@@ -834,10 +855,13 @@ def train(s, options, profile):
     `count` of them made; what runs short is bought as for an order."""
     name = PRODUCTS[options["salve"]]
     spec = recipe(name)
+    use_vessel(name)
     catalyst = str(profile.get("catalyst") or "").strip()
     if not tools_in_hand(s):
         return
-    s.echo(f"remedies: {name} from dried {spec[2]} — {SKILL} {mindstate(s, SKILL)}/34")
+    s.echo(
+        f"remedies: {name} from {prepared(spec[2])} — {SKILL} {mindstate(s, SKILL)}/34"
+    )
     tally = {"crushes": 0, "unrecognized": 0, "spent": 0}
     made = 0
     while True:
@@ -1273,7 +1297,7 @@ def restock(s, spec, catalyst, why, remaining, tally, profile=None):
     shortage, else whether it was had."""
     short = shortage(why, spec, catalyst)
     if short is None:
-        if str(why or "").startswith("dried "):
+        if herb_of(why):
             s.echo(f"remedies: the Supplies sells no {why} — it cannot be bought")
         return None
     noun, per_stack, store, catalog = short
@@ -1502,6 +1526,7 @@ def work(s, options, profile):
         why = None
         started = False
         rejected = 0
+        use_vessel(parsed["item"])
         if remaining and not tools_in_hand(s):
             break
         while remaining > 0:
@@ -1553,7 +1578,7 @@ def work(s, options, profile):
                 break
             # The remedy begun stays in the mortar and goes on; only the
             # controlling herb, put in first, starts the stack over.
-            started = why != f"dried {spec[2]}"
+            started = why != prepared(spec[2])
             why = None
         put_away(s, "pestle")
         put_away(s, "mortar")
