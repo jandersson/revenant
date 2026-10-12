@@ -187,9 +187,7 @@ GIVERS = {
     "Clerk": "Undershard, Derleth's Teahouse",  # a bored-looking clerk
     "Sh'aar": "The Enclave, Sh'aar's Trove",  # Dumi Sh'aar
     "Sephina": "Sephina's Lockbane",
-    # Fang Cove's Estate Holder representative gives only skinning tasks
-    # (skins or parts); he stands by the EXIT portal, room 8308.
-    "Representative": "8308",
+    "Representative": "8308",  # the Estate Holder's; Fang Cove, Fate's Fortune Lane
     # Guild leaders by map id (their rooms' titles repeat town to town),
     # from dr-scripts' data/base-town.yaml guild_leaders (#511); a
     # two-word name is listed under both words.
