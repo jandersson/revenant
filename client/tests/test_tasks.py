@@ -420,8 +420,6 @@ def test_the_recipients_room_comes_from_the_givers_table():
 
 
 def test_the_estate_holder_representative_stands_by_fang_coves_portal():
-    # Skinning tasks only (Elanthipedia: Task); the room from DR Lich
-    # Discord: "...a shimmering EXIT portal and an Estate Holder representative."
     db = MapDB(
         [{"id": 8308, "uid": [7], "title": ["[Fang Cove, Fate's Fortune Lane]"]}]
     )
