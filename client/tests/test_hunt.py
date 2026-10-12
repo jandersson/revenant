@@ -2033,6 +2033,32 @@ def test_the_guild_comes_from_info_without_a_snapshot(monkeypatch):
     assert echoes[-1].startswith("hunt: an Empath does not hunt")
 
 
+def test_a_style_named_after_the_profiles_ground_is_laid_over(monkeypatch, tmp_path):
+    # The operator, 2026-10-12: profiles by hunting area. A plain ;hunt on
+    # the profile's ground takes the style of that name; a style word
+    # given still chooses its own.
+    from client.game import mapdb
+
+    hunted = []
+    echoes = []
+    own = {"stance": "100 0 100", "targeted": "Partial Displacement"}
+    base = PROFILE | {"hunting_ground": "rats", "hunts": {"rats": own}}
+    monkeypatch.setattr(hunt_arena.hunt, "load_profile", lambda name: dict(base))
+    monkeypatch.setattr(hunt_arena.hunt.guild, "snapshot_guild", lambda name: "Ranger")
+    monkeypatch.setattr(hunt_arena.hunt, "hunt", lambda s, p, *a, **k: hunted.append(p))
+    monkeypatch.setattr(hunt_arena.hunt.casting, "put_back_if_held", lambda *a: None)
+    (tmp_path / "map.json").write_text("[]")
+    monkeypatch.setattr(mapdb, "mapdb_path", lambda: tmp_path / "map.json")
+    monkeypatch.setattr(mapdb.MapDB, "load", classmethod(lambda cls, path=None: GROUND))
+    handle = SimpleNamespace(
+        args=[], state=SimpleNamespace(name="Lanival"), echo=echoes.append
+    )
+    hunt_arena.hunt.main(handle)
+    assert hunted[0]["stance"] == "100 0 100"
+    assert hunted[0]["targeted"] == "Partial Displacement"
+    assert "hunt: the rats style — the ground's own settings" in echoes
+
+
 # --- the corpse by its id (#456) ---
 
 

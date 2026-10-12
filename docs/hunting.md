@@ -78,6 +78,14 @@ One character hunts for different reasons: to train, or to farm boxes for `;boxe
 
 A `;train` task passes the style in its args: `"script": "hunt", "args": ["boxes"]`.
 
+A style named after a ground is that ground's own settings: it is laid over whenever the hunt is on that ground, by a plain `;hunt` on the profile's `hunting_ground` or a `;hunt task` choosing the zone, with no word typed. A task's own keys still win (`skin`, `prey`, `until`). Name it as the ground is named, a bestiary zone such as `storm_bulls`:
+
+```json
+"hunts": {
+  "storm_bulls": {"targeted": "Dinazen Olkar, Partial Displacement", "stance": "100 0 100"}
+}
+```
+
 ## Weapon rotation
 
 `weapons` lists `noun:Skill[:container]` entries, e.g. `handaxe:Small Edged:sack`, `fists:Brawling`.

@@ -240,6 +240,21 @@ def test_a_skinning_hunt_with_nothing_to_skin_with_ends_at_the_first_skin(
     assert sum(command.startswith("attack") for command in arena.sent) == 1
 
 
+def test_a_style_named_after_the_ground_is_its_own_settings(bull_yard):
+    # The operator, 2026-10-12: "Can we make profiles by hunting area?" A
+    # style named after the zone is laid over whenever it is hunted; the
+    # task's keys win where both speak.
+    arena = Arena({})
+    tasks.record("Lanival", SKINNING)
+    own = {"targeted": "Partial Displacement", "stance": "100 0 100", "skin": False}
+    profile = dict(TASK_PROFILE, hunts={"yard_bulls": own})
+    overlaid, _ = hunt.task_profile(arena, profile, GROUND)
+    assert overlaid["targeted"] == "Partial Displacement"
+    assert overlaid["stance"] == "100 0 100"
+    assert overlaid["skin"] is True and overlaid["until"] == "task"  # the task's
+    assert "hunt: the yard_bulls style — the ground's own settings" in arena.echoed
+
+
 def test_no_ground_for_the_creature_is_said():
     arena = Arena({})
     tasks.record("Lanival", {**SKINNING, "creature": "glass dragon"})

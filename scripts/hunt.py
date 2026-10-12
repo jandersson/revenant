@@ -2,7 +2,8 @@
 
     ;hunt                   walk to the ground and hunt until one of the stops below
     ;hunt here              hunt where you stand, no walk
-    ;hunt <style>           a hunt style from the profile's `hunts` (its ground, prey, weapons, `until`)
+    ;hunt <style>           a hunt style from the profile's `hunts` (its ground, prey, weapons, `until`);
+                            a style named after the ground (storm_bulls) applies there unasked
     ;hunt task              the item recovery ;task took: its area, whatever engages, until the item drops;
                             a skinning task: the creature's ground, the hides kept loose, until the count
     ;hunt styles            list the profile's hunt styles
@@ -81,7 +82,7 @@ from client.game.act import (
 )
 from client.game.creatures import aim, aim_corpse, noun_of, outgrown, skinnable
 from client.game.probe import classify
-from client.game.profile import describe, load_profile
+from client.game.profile import describe, load_profile, styled
 from client.game.profile import styles as profile_styles
 from client.game.walker import DIRECTIONS, engaged_move, in_grass, locate, walk
 from client.game.wounds import SEVERITIES, level, parse_health
@@ -2251,6 +2252,10 @@ def skinning_profile(s, profile, db, task):
         s.echo(f"hunt: no ground on record has {creature}s — stopping")
         return None, None
     zone, ground = min(found, key=lambda entry: steps(entry[1]))
+    if (own := styled(profile, zone)) is not None:
+        # The ground's own style beneath the task's keys, which win.
+        profile = own
+        s.echo(f"hunt: the {zone} style — the ground's own settings")
     hide = str(task.get("item") or f"{creature} hide")
     count = int(task.get("count") or 0)
     s.echo(f"hunt: the task — {count} {hide}s from the {creature}s of {zone}")
@@ -2591,7 +2596,7 @@ def record_hunt(s, profile, tally, minutes, reason):
 def main(s):
     from client.game.mapdb import MapDB, download, mapdb_path
 
-    from client.game.profile import styled, styles
+    from client.game.profile import styles
 
     name = getattr(s.state, "name", None) or ""
     profile = load_profile(name)
@@ -2613,6 +2618,11 @@ def main(s):
     elif words and words[0] not in ("here", "profile", "grounds", "task") and known:
         s.echo(f"hunt: no style named {words[0]!r} — styles: {', '.join(known)}")
         return
+    elif words[:1] != ["task"] and (own := styled(profile, profile["hunting_ground"])):
+        # A style named after the ground is that ground's own settings,
+        # laid over whenever it is hunted (the operator, 2026-10-12).
+        profile = own
+        s.echo(f"hunt: the {own['hunt_style']} style — the ground's own settings")
     if words and words[0] == "profile":
         s.echo(f"hunt: profile for {name or 'an unnamed character'}")
         for line in describe(profile):
