@@ -620,6 +620,13 @@ def run_skinning(s, task, profile, mapdb, walk_fn):
             "yours from here"
         )
         return False
+    if not profile.get("skin_knife") and not profile.get("weapon"):
+        # Fists alone cut no hide: the hunt would kill for nothing.
+        s.echo(
+            f"task: {describe(task)} — the profile names no skin_knife to skin "
+            "with; yours from here"
+        )
+        return False
     if not hunted(s):
         return False
     noun = str(task.get("item") or "hide").split()[-1]
