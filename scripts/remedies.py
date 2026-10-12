@@ -2,7 +2,7 @@
 
     ;remedies                 the head salve, CRUSHed until Alchemy mind-locks
     ;remedies <item>          any item of the book by its first word: blister, moisturizing, itch,
-                              wart, or a salve (neck, abdominal, chest, head, back, eye)
+                              wart, lip, or a salve (neck, abdominal, chest, head, back, eye)
     ;remedies blister count=1 make just that many (orders, with work), then end
     ;remedies until=30        stop at that mindstate instead of 34
     ;remedies once            end at mind-lock instead of holding or, with work, working on
@@ -10,6 +10,7 @@
     ;remedies work hard       a harder tier: challenging or hard
     ;remedies ledger          the orders on record: pay, materials, profit, the last few
     ;remedies merge           merge each dried herb's stacks into full ones of 75, then end
+    ;remedies tilt            empty the mortar: an unfinished remedy is destroyed
     ;remedies return          (typed while it runs) finish the remedy, or the order, in hand and end
     ;stop remedies            quit at once; the mortar and pestle are stowed
 
@@ -21,8 +22,10 @@ What it does
     crafts and bundles each stack, hands the logbook in for the pay. An order that
     expires on the way is untied, its stacks stowed for the next, and another asked.
   - Buys what runs out (herbs, water, alcohol, coal ten at a time), coins from the bank
-    when short, and finishes a remedy left in the mortar first; one buy per
-    shortage, and ENCUMBRANCE read after each.
+    when short (enough for the whole remedy at its first buy), and finishes a remedy
+    left in the mortar first; one buy per shortage, and ENCUMBRANCE read after each.
+  - Starts no remedy whose herb the Supplies does not sell and you do not carry
+    dried (the wart salve's sufil).
   - First merges each dried herb's stacks in every container into full stacks
     of 75 and one short one (a stack caps at 75).
   - A herb stack short of 25 pieces is combined with the herb's other stacks
@@ -69,7 +72,7 @@ from client.game import (
     trainer,
     travel,
 )
-from client.game.act import ask, missing
+from client.game.act import ask, missing, said
 from client.game.loop import danger, ensure_mindstate, mindstate, wants_stop
 from client.game.probe import classify
 from client.game.money import phrase
@@ -79,6 +82,7 @@ from client.game.remedies import (
     BUNDLED,
     building_rooms,
     CATALYST_RUBS,
+    CATALOG,
     CATALYST_STOCK,
     LIQUIDS,
     COMBINED,
@@ -104,6 +108,7 @@ from client.game.remedies import (
     REJECTED,
     REJECTIONS,
     STUDIED,
+    TILT_AGAIN,
     TOO_HARD,
     crush_command,
     is_noise,
@@ -113,9 +118,11 @@ from client.game.remedies import (
     parse_order,
     payment,
     recipe,
+    recipe_cost,
     roundtime_of,
     sellable,
     shortage,
+    unobtainable,
     unsold,
     uses,
 )
@@ -534,6 +541,9 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
         started = False
     elif held is not None:
         started = True  # this recipe, in progress: resumed
+    if not started:
+        if lacking := unobtainable(spec, getattr(s.state, "possessions", None)):
+            return f"dried {lacking}"  # nothing in the mortar it cannot finish
     if not study(s, chapter, page, what):
         return "book"
     misses = 0
@@ -644,6 +654,7 @@ def craft(s, spec, what, catalyst, options, tally, started=False):
             if not fetched:
                 return catalyst
         elif outcome in ("finished", "done already"):
+            tally.pop("funded", None)  # the next remedy's first buy funds it
             return None
         elif outcome == "no instructions":
             # The readiness was spent (a failed attempt spends it): the
@@ -717,6 +728,11 @@ def finish_in_mortar(s, name, catalyst, options, tally):
     s.echo(f"remedies: the mortar holds an unfinished {name} — finishing it first")
     why = craft(s, spec, f"the {name}", catalyst, options, tally, started=True)
     if why is not None:
+        if why.startswith("dried ") and why[len("dried ") :] not in CATALOG:
+            s.echo(
+                f"remedies: the {name} needs {why}, which the Supplies does not "
+                "sell — ;remedies tilt empties the mortar"
+            )
         return why
     take_out(s, spec[4], name)
     hands.stow(s, spec[4], ask=ask)
@@ -1173,9 +1189,10 @@ def walk_to(s, target, describe):
     return travel.go(s, target, describe)
 
 
-def buy(s, noun, count, store, catalog, tally):
+def buy(s, noun, count, store, catalog, tally, budget=0):
     """`count` of `noun` ORDERed at `store` — the coins fetched from the
-    bank first when the purse is short (shop.afford) — each bought the
+    bank first when the purse is short (shop.afford), `budget` of them at
+    a remedy's first buy — each bought the
     shop's way (shop.buy: the quote checked against the noun before the
     second ORDER buys it), each purchase STOWed. False, said, when the
     quote names something else, the shop keeps the item, or the walk
@@ -1184,7 +1201,11 @@ def buy(s, noun, count, store, catalog, tally):
     # whole, since a looted lead nugget answered GET MY NUGGET first.
     number, price = catalog.get(noun) or catalog[noun.split()[-1]]
     need = price * count
-    if not shop.afford(s, ask, "remedies", need, "Kronars"):
+    funded = tally.get("funded")
+    tally["funded"] = True
+    if not shop.afford(
+        s, ask, "remedies", need if funded else max(need, budget), "Kronars"
+    ):
         return False
     if not walk_to(s, store, "the Supplies"):
         s.echo("remedies: could not reach the Supplies — stopping")
@@ -1291,7 +1312,7 @@ def restock(s, spec, catalyst, why, remaining, tally, profile=None):
         # and never under the stock that spares the next orders the
         # Forging Society's Supplies (#393).
         count = max(CATALYST_STOCK, -(-(remaining + 1) // CATALYST_RUBS))
-    return buy(s, noun, count, store, catalog, tally)
+    return buy(s, noun, count, store, catalog, tally, recipe_cost(spec, remaining))
 
 
 def next_order(s, master, options, seek=None):
@@ -1625,6 +1646,12 @@ def run(s, options):
     if options["ledger"]:
         ledger(s)
         return
+    if options["unknown"]:
+        s.echo(
+            f"remedies: no recipe for {' '.join(options['unknown'])!r} — "
+            f"the items on record: {', '.join(sorted(PRODUCTS))}"
+        )
+        return
     profile = profile_of(s)
     name_tools(profile)
     for problem in item_name_problems(profile):
@@ -1632,6 +1659,10 @@ def run(s, options):
     if options["merge"]:
         clear_hands(s, profile)
         merge_herbs(s)
+        return
+    if options["tilt"]:
+        clear_hands(s, profile)
+        tilt(s)
         return
     value = ensure_mindstate(s, SKILL, ask)
     if value is None:
@@ -1650,6 +1681,23 @@ def run(s, options):
         # 2026-09-22 — no reason for a crafter to end armed).
         if danger(s) and "hostiles" in (danger(s) or ""):
             flight.react(s, "remedies")
+
+
+def tilt(s):
+    """;remedies tilt: the mortar's contents destroyed by TILT, twice (the
+    first only asks), and the mortar put away. An unfinished remedy can
+    be had no other way: "The unfinished salve may be dangerous to touch.
+    You think it better to tilt the mortar if you want to discard the
+    contents." (a wart salve stuck for want of sufil, #532)."""
+    if missing(take(s, "mortar")):
+        s.echo(f"remedies: no {TOOLS['mortar']} on you")
+        return
+    answer = ask(s, f"tilt {my('mortar')}")
+    if TILT_AGAIN in answer:
+        answer = ask(s, f"tilt {my('mortar')}")
+    s.waitrt()
+    put_away(s, "mortar")
+    s.echo(f"remedies: {said(answer)}")
 
 
 def put_tools_away(s):

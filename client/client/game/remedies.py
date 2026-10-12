@@ -101,6 +101,10 @@ RECIPES = {
     "moisturizing ointment": (2, 2, "flowers", "plovik", "ointment", "alcohol"),
     "itch salve": (2, 3, "flowers", "jadice", "salve", "water"),
     "wart salve": (2, 4, "flowers", "sufil", "salve", "water"),
+    # The journeyman book's page 6 (Elanthipedia: Remedies products), both
+    # herbs the Supplies' own; pages 5, 7 and 8 are internal remedies,
+    # made in a bowl, which ;remedies does not do.
+    "lip balm": (2, 6, "flowers", "nilos", "balm", "water"),
     "neck salve": (3, 1, "georin", None, "salve", "water"),
     "abdominal salve": (3, 2, "nilos", None, "salve", "water"),
     "chest salve": (3, 3, "plovik", None, "salve", "water"),
@@ -115,6 +119,7 @@ SALVES = {name.split()[0]: RECIPES[name] for name in RECIPES if RECIPES[name][0]
 # ;remedies makes any of them for a character who needs one, not only an
 # order's (the operator, 2026-10-12).
 PRODUCTS = {name.split()[0]: name for name in RECIPES}
+NAME_WORDS = {word for name in RECIPES for word in name.split()}  # "cream", "salve"
 CHAPTER = 3
 HERB_SALVE = {spec[2]: salve for salve, spec in SALVES.items()}
 
@@ -360,7 +365,9 @@ def parse_args(args):
     lock, count= remedies (or orders, with work) before ending,
     `work [easy|challenging|hard]` for the society's orders instead of
     the training loop, `ledger` to print the orders' takings, `merge` to
-    merge the dried herb stacks and end (#402)."""
+    merge the dried herb stacks and end (#402), `tilt` to empty the
+    mortar. A word that is none of these lands in "unknown": ;remedies
+    stomach made a head salve before (#532)."""
     options = {
         "salve": "head",
         "until": 34,
@@ -370,6 +377,8 @@ def parse_args(args):
         "level": "easy",
         "ledger": False,
         "merge": False,
+        "tilt": False,
+        "unknown": [],
     }
     for arg in args:
         key, sep, value = str(arg).lower().partition("=")
@@ -389,8 +398,12 @@ def parse_args(args):
             options["ledger"] = True
         elif key == "merge":
             options["merge"] = True
+        elif key == "tilt":
+            options["tilt"] = True
         elif key in LEVELS:
             options["level"] = key
+        elif not sep and key not in NAME_WORDS:
+            options["unknown"].append(key)
     return options
 
 
@@ -541,6 +554,47 @@ def unsold(spec):
         if wanted and wanted not in CATALOG:
             return f"dried {wanted}"
     return None if liquid in CATALOG else liquid
+
+
+def recipe_cost(spec, remaining=1):
+    """Kronars for every Supplies ingredient of `remaining` remedies of
+    `spec`: the controlling herb a stack each, the second herb and the
+    liquid one buy each. The first buy of a remedy withdraws this much,
+    so one bank trip pays for the rest (#532: an itch salve walked to
+    the teller for the flowers, then again for the jadice)."""
+    chapter, page, herb, extra, noun, liquid = spec
+    return sum(
+        CATALOG[name][1] * count
+        for name, count in ((herb, max(1, remaining)), (extra, 1), (liquid, 1))
+        if name in CATALOG
+    )
+
+
+def unobtainable(spec, possessions):
+    """The herb of `spec` the Supplies does not sell and no dried stack
+    of which INV LIST shows (`possessions`), or None; None too when
+    nothing was listed. Checked before the first herb goes in: a wart
+    salve was begun with no prepared sufil to be had, and its unfinished
+    remedy held the mortar for every run after (#532)."""
+    if possessions is None:
+        return None
+    names = [str(item.get("name") or "").lower() for item in possessions]
+    for herb in spec[2:4]:
+        if (
+            herb
+            and herb not in CATALOG
+            and not any(f"dried {herb}" in n for n in names)
+        ):
+            return herb
+    return None
+
+
+# TILT MY MORTAR (captured 2026-10-12, an unfinished wart salve): "You grab
+# the mortar and prepare to dump it out." and "[Do you really want to
+# destroy the mortar's contents?  Tilt it one more time to empty them
+# out.]", then "You grab the mortar and toss the contents away."
+# (Roundtime: 2 sec.), and on an empty one "The mortar is empty."
+TILT_AGAIN = "Tilt it one more time"
 
 
 def shortage(why, spec, catalyst):

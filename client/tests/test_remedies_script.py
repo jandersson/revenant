@@ -78,6 +78,13 @@ BOUGHT_NUGGET = BOUGHT.replace("(25 pieces) dried red flowers", "a massive coal 
 WEALTH_POOR = "Wealth:\n  1 silver Kronars (100 copper Kronars).\n  No Lirums.\nDebt:\n  No debt.\n"
 
 
+def purse(copper):
+    """WEALTH with `copper` Kronars carried."""
+    return WEALTH_POOR.replace(
+        "1 silver Kronars (100", f"{copper} copper Kronars ({copper}"
+    )
+
+
 class Fake:
     """A handle: each command prefix has a queue of answers (the last
     answer repeats once the queue is dry); the Alchemy mindstate steps
@@ -299,6 +306,43 @@ def test_each_finished_remedy_is_analyzed_and_its_quality_recorded():
         .fetchone()
     )
     assert row == ("head salve", "superior", 9, "Alchemy", 2)
+
+
+def test_an_item_not_on_record_is_said_and_nothing_is_sent():
+    # #532: ;remedies stomach ignored the word and made a head salve.
+    fake = Fake(HEAD_SALVE)
+    out = run(fake, ["stomach", "count=1"])
+    assert "no recipe for 'stomach'" in out and "blister" in out
+    assert fake.sent == []
+
+
+def test_tilt_empties_the_mortar_and_puts_it_back():
+    # Captured 2026-10-12: the first TILT asks, the second empties it.
+    fake = Fake(
+        {
+            "tilt my mortar": [
+                "You grab the mortar and prepare to dump it out.\n[Do you really want"
+                " to destroy the mortar's contents?  Tilt it one more time to empty"
+                " them out.]\n",
+                "You grab the mortar and toss the contents away.\nRoundtime: 2 sec.\n",
+            ],
+        }
+    )
+    out = run(fake, ["tilt"])
+    assert fake.sent.count("tilt my mortar") == 2
+    assert fake.sent[-1] == "stow my mortar"
+    assert "toss the contents away" in out
+
+
+def test_a_herb_no_shop_sells_stops_the_remedy_before_the_mortar():
+    # #532: a wart salve was begun with no prepared sufil to be had; the
+    # flowers went in and the unfinished salve held the mortar after.
+    fake = Fake(HEAD_SALVE)
+    fake.state.possessions = [{"name": "some sufil sap", "exist": "7"}]
+    out = run(fake, ["wart", "count=1"])
+    assert "the Supplies sells no dried sufil" in out
+    assert not any(c.startswith(("put ", "crush ")) for c in fake.sent)
+    assert not fake.walked  # nothing bought for a remedy it cannot finish
 
 
 def test_tools_tied_to_the_profiles_tool_belt_are_untied_and_tied_back():
@@ -662,7 +706,9 @@ def test_the_herbs_water_and_coal_are_bought_as_they_run_out():
     # again.
     fake = Fake(
         work_answers(
-            wealth=[WEALTH_POOR],
+            # The purse as WEALTH reads it at each buy: 100, then what the
+            # one withdrawal left after the flowers, then after the water.
+            wealth=[WEALTH_POOR, purse(312), purse(250)],
             **{
                 "get my dried flowers": [MISSING, "You get some dried red flowers."],
                 "get my water": [MISSING, "You get some water."],
@@ -676,8 +722,10 @@ def test_the_herbs_water_and_coal_are_bought_as_they_run_out():
     )
     out = run(fake, ["work", "count=1"])
     assert fake.walked == ["8862", "8862", "8775"]
-    # 686 for the flowers and 212 for the massive nugget, 100 in the purse.
-    assert fake.withdrawn == [586, 112]
+    # One bank trip (#532): the order's Supplies ingredients at the first
+    # buy, two stacks of flowers, the nemoih and the water (998), less the
+    # 100 in the purse; the water and the nugget are paid from it.
+    assert fake.withdrawn == [898]
     assert fake.sent.count("order 13") == 4
     assert fake.sent.count("order 1") == 2
     assert fake.sent.count("order 2") == 2 * CATALYST_STOCK
@@ -1911,7 +1959,7 @@ def test_a_herb_run_out_is_foraged_once_an_order_before_any_is_bought(monkeypatc
     monkeypatch.setattr(
         script,
         "buy",
-        lambda s, noun, count, shop, catalog, tally: (
+        lambda s, noun, count, shop, catalog, tally, budget=0: (
             bought.append((noun, count)) or True
         ),
     )
@@ -1936,7 +1984,7 @@ def test_without_forage_herbs_the_herb_is_bought(monkeypatch):
     monkeypatch.setattr(
         script,
         "buy",
-        lambda s, noun, count, shop, catalog, tally: (
+        lambda s, noun, count, shop, catalog, tally, budget=0: (
             bought.append((noun, count)) or True
         ),
     )
@@ -1952,7 +2000,7 @@ def test_the_catalyst_is_bought_as_a_stock_not_an_orders_worth(monkeypatch):
     monkeypatch.setattr(
         script,
         "buy",
-        lambda s, noun, count, shop, catalog, tally: (
+        lambda s, noun, count, shop, catalog, tally, budget=0: (
             bought.append((noun, count)) or True
         ),
     )

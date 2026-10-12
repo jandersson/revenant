@@ -67,6 +67,9 @@ def test_a_names_descriptive_tail_is_not_its_noun():
             "almanac"
         ),
         "an ornate platinum brooch set with an orichalcum icosahedron": "brooch",
+        # An Empath's INV LIST, 2026-10-12 (#532): GET ... FROM MY "VICTUALS".
+        'a curved lunch pail labeled "Victuals"': "pail",
+        'a black stone jar labeled "Stink Bomb"': "jar",
     }
     for name, noun in names.items():
         assert possessions.noun_of(name) == noun, name

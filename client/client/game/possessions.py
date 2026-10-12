@@ -30,7 +30,7 @@ _STATE_SUFFIX = re.compile(r"\s*\([^)]*\)\s*$")
 # and "a stick of fragrant incense" end in their noun.
 _TAIL = re.compile(
     r"\s+(?:with|bearing|depicting|displaying|featuring|showing|that|which"
-    r"|made\s+(?:of|from))\s",
+    r"|labell?ed|made\s+(?:of|from))\s",
     re.IGNORECASE,
 )
 # What leads into the tail is part of it, not the noun: a participle

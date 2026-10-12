@@ -233,6 +233,8 @@ def test_the_arguments():
         "level": "easy",
         "ledger": False,
         "merge": False,
+        "tilt": False,
+        "unknown": [],
     }
     assert remedies.parse_args(["chest", "count=2", "until=30", "once"]) == {
         "salve": "chest",
@@ -243,6 +245,8 @@ def test_the_arguments():
         "level": "easy",
         "ledger": False,
         "merge": False,
+        "tilt": False,
+        "unknown": [],
     }
     assert remedies.parse_args(["work", "hard", "count=3"]) == {
         "salve": "head",
@@ -253,6 +257,8 @@ def test_the_arguments():
         "level": "hard",
         "ledger": False,
         "merge": False,
+        "tilt": False,
+        "unknown": [],
     }
     assert remedies.parse_args(["ledger"])["ledger"] is True
     assert remedies.parse_args(["salve=bogus"])["salve"] == "head"
@@ -260,6 +266,27 @@ def test_the_arguments():
     assert remedies.parse_args(["blister", "cream", "count=1"])["salve"] == "blister"
     assert remedies.PRODUCTS["blister"] == "blister cream"
     assert remedies.parse_args(["merge"])["merge"] is True
+    # #532: an item not on record is said, not swapped for a head salve.
+    assert remedies.parse_args(["stomach", "tonic"])["unknown"] == ["stomach", "tonic"]
+    assert remedies.parse_args(["lip", "balm", "count=1"])["unknown"] == []
+    assert remedies.parse_args(["tilt"])["tilt"] is True
+
+
+def test_a_remedys_supplies_are_priced_together_for_one_bank_trip():
+    itch = remedies.recipe("itch salve")
+    # 343 the flowers, 375 the jadice, 62 the water (#532: two trips before).
+    assert remedies.recipe_cost(itch) == 343 + 375 + 62
+    assert remedies.recipe_cost(itch, 2) == 2 * 343 + 375 + 62
+
+
+def test_a_herb_the_supplies_lack_and_you_lack_is_caught_before_the_mortar():
+    wart = remedies.recipe("wart salve")
+    # The 2026-10-12 inventory: a raw sufil sap is no dried sufil (#532).
+    held = [{"name": "some sufil sap"}, {"name": "some dried red flowers"}]
+    assert remedies.unobtainable(wart, held) == "sufil"
+    assert remedies.unobtainable(wart, held + [{"name": "some dried sufil"}]) is None
+    assert remedies.unobtainable(remedies.recipe("itch salve"), held) is None
+    assert remedies.unobtainable(wart, None) is None  # no listing: no verdict
 
 
 def test_the_remedy_the_mortar_already_holds_is_read_off_the_refusal():
