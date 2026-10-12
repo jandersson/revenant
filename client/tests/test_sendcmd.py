@@ -161,6 +161,8 @@ def test_read_only_commands_are_allowlisted_and_the_rest_are_gated():
     assert allowlisted("ability list")  # a Barbarian's abilities, recalled
     assert allowlisted("ABILITY List")
     assert not allowlisted("ability")
+    assert allowlisted("CRAFT")  # the career, hobby and technique slots
+    assert not allowlisted("craft remedies")
     assert not allowlisted("attack rat")
     assert not allowlisted("drop sack")
     assert not allowlisted(";hunt")

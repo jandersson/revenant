@@ -100,9 +100,10 @@ ALLOWLIST = frozenset(
 # VAULT TIME says when the rent is due and VAULT NUMBERS names the
 # vaults (#380); VAULT STANDARD and FAMILY stay gated, since off a
 # Premium account each spends an urchin runner, and VAULT PAY, STORE
-# and REMOVE act.
+# and REMOVE act. CRAFT alone recalls the crafting career, hobby and free
+# technique slots (the operator, 2026-10-12); its other forms are unread.
 READ_ONLY_LINES = frozenset(
-    {"bank account", "ability list", "vault time", "vault numbers"}
+    {"bank account", "ability list", "vault time", "vault numbers", "craft"}
 )
 # Scripts that only read or stop something.
 SCRIPT_ALLOWLIST = frozenset({";list", ";help", ";stop", ";sheet", ";clock"})
