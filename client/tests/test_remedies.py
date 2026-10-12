@@ -269,6 +269,8 @@ def test_the_arguments():
     assert remedies.parse_args(["blister"])["salve"] == "blister"
     # #533: two words that make a whole name are that recipe, not the first word's.
     assert remedies.parse_args(["eye", "wash"])["salve"] == "eye wash"
+    # Quoted as the manual once showed it, the quotes are the engine's split.
+    assert remedies.parse_args(['"eye', 'wash"', "count=1"])["salve"] == "eye wash"
     assert remedies.PRODUCTS["eye"] == "eye salve"
     assert remedies.PRODUCTS["stomach"] == "stomach tonic"
     assert remedies.PRODUCTS["blister"] == "blister cream"

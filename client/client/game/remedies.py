@@ -427,7 +427,8 @@ def parse_args(args):
     # Two words that make a whole recipe name are one: "eye wash" is not
     # the eye salve "eye" names (#533).
     words, index = [], 0
-    args = [str(arg) for arg in args]
+    # The engine splits on spaces: ;remedies "eye wash" arrives as '"eye', 'wash"'.
+    args = [str(arg).strip("\"'") for arg in args]
     while index < len(args):
         pair = " ".join(args[index : index + 2]).lower()
         whole = pair in RECIPES and index + 1 < len(args)

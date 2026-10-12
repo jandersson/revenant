@@ -3,7 +3,7 @@
     ;remedies                 the head salve, CRUSHed until Alchemy mind-locks
     ;remedies <item>          any item of the book by its first word: blister, moisturizing, itch,
                               wart, lip, a salve (neck, abdominal, chest, head, back, eye),
-                              or one MIXed in the bowl: stomach, mouth, "eye wash"
+                              or one MIXed in the bowl: stomach, mouth, eye wash
     ;remedies blister count=1 make just that many (orders, with work), then end
     ;remedies until=30        stop at that mindstate instead of 34
     ;remedies once            end at mind-lock instead of holding or, with work, working on
