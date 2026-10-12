@@ -3,7 +3,8 @@
     ;hunt                   walk to the ground and hunt until one of the stops below
     ;hunt here              hunt where you stand, no walk
     ;hunt <style>           a hunt style from the profile's `hunts` (its ground, prey, weapons, `until`)
-    ;hunt task              the item recovery ;task took: its area, whatever engages, until the item drops
+    ;hunt task              the item recovery ;task took: its area, whatever engages, until the item drops;
+                            a skinning task: the creature's ground, the hides kept loose, until the count
     ;hunt styles            list the profile's hunt styles
     ;hunt profile [style]   print the profile the hunt would use
     ;hunt grounds [rank]    hunting zones for your weakest weapon's rank (or <rank>), nearest first,
@@ -32,7 +33,8 @@ When it stops — then walks home, and runs ;skins bank (skins sold, purse banke
   - 60 swings without a kill, or three stuns in one fight
   - every trained skill mind-locked, or the style's `until` (boxes, kills); a locked
     weapon fights on while `targeted` or `debilitation` still trains its skill
-  - ;hunt task: the task's item dropping in a kill's death line (picked up and stowed); no lock ends it
+  - ;hunt task: the task's item dropping in a kill's death line (picked up and stowed), or the
+    skinning task's count of hides cut; no lock ends it
   - every room of the ground taken by other players
   - ;hunt return
   - a hunt that never reached the fight (no ground, a wound at the floor) ends without selling
@@ -43,6 +45,7 @@ docs/hunting.md explains every key. Report any "hunt: unrecognized ..." line.
 """
 
 import logging
+import math
 import re
 import time
 from collections import Counter
@@ -1398,6 +1401,9 @@ def skin(s, profile, corpse, tally):
         outcome = classify(answer, SKIN_OUTCOMES)
     if outcome == "ok":
         tally.skins += 1
+        hide = profile.get("task_hide")
+        if hide and noun_of(hide) in answer.lower():
+            tally.task_hides += 1
         if "into your bundle" in answer.lower() or bundled(s, profile, tally):
             # The game said so ("You carefully fit a pink grendel ear
             # into your bundle.", #272), or the hands say it landed.
@@ -2197,6 +2203,8 @@ def task_profile(s, profile, db):
     None) said when there is no recovery in hand or the map lacks its
     area."""
     task = tasks.load(getattr(s.state, "name", None) or "") or {}
+    if task.get("kind") == "skinning":
+        return skinning_profile(s, profile, db, task)
     if task.get("kind") != "recovery" or not task.get("item"):
         s.echo("hunt: no item recovery in hand — ;task <giver> takes one")
         return None, None
@@ -2210,6 +2218,43 @@ def task_profile(s, profile, db):
     )
     overlay = {"hunting_ground": task.get("area"), "prey": "", "until": "task"}
     return {**profile, **overlay, "task_item": task["item"]}, ground
+
+
+def skinning_profile(s, profile, db, task):
+    """A skinning task (#509): the bestiary's nearest ground for the
+    creature, its kind the prey, every kill skinned and the hide kept loose
+    — the giver counts one GIVE as one item, so no bundle — until the
+    count owed is cut. (None, None) said when no ground lists it."""
+    creature = str(task.get("creature") or "")
+    here = travel.here(s, db)
+
+    def steps(rooms):
+        if here in rooms:
+            return 0
+        route = db.path(here, set(rooms)) if here is not None else None
+        return len(route) if route is not None else math.inf
+
+    found = [
+        (name, hunting.ground_rooms(db, name)) for name in hunting.zones_with(creature)
+    ]
+    found = [(name, rooms) for name, rooms in found if rooms]
+    if not found:
+        s.echo(f"hunt: no ground on record has {creature}s — stopping")
+        return None, None
+    zone, ground = min(found, key=lambda entry: steps(entry[1]))
+    hide = str(task.get("item") or f"{creature} hide")
+    count = int(task.get("count") or 0)
+    s.echo(f"hunt: the task — {count} {hide}s from the {creature}s of {zone}")
+    overlay = {
+        "hunting_ground": zone,
+        "prey": noun_of(creature),
+        "until": "task",
+        "skin": True,
+        "bundle": False,
+        "task_hide": hide,
+        "task_hides": count,
+    }
+    return {**profile, **overlay}, ground
 
 
 def take_drop(s, profile):
@@ -2255,6 +2300,10 @@ def loop(s, profile, db, ground, avoid, tally):
             credit(s, profile, tally, fallen, prey)
         if profile.get("task_item") and s.flagged(TASK_DROP):
             return take_drop(s, profile)
+        if profile.get("task_hides") and tally.task_hides >= profile["task_hides"]:
+            return (
+                f"{tally.task_hides} {profile['task_hide']}(s) cut — the task's count"
+            )
         current = health(s.state)
         if current is not None and current < floor:
             escape(s, db)

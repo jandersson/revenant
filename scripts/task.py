@@ -15,12 +15,13 @@ What it does
 - A search: the area's rooms by title; in each KNEEL and SEARCH (each one's roundtime waited) until the find, SEARCHES_PER_ROOM at most; GET the find, STAND, the walk back to the giver, GIVE; the journal read again.
 - A recovery: ;hunt task, waited for — the area's rooms by title as the ground, the profile's weapons on whatever engages, until a kill's death line drops the item; ;hunt picks it up and goes home as any hunt does; then the walk to the giver, GIVE; the journal read again.
 - A foraging task (the giver counts each GIVE as one item): the walk to a room the map tags with the herb (else tasks.FORAGE_ROOMS; a find tags its room), FORAGE until one find per item owed, each stowed apart; the walk back, a stack GIVEn at a time until the giver pays.
+- A skinning task: ;hunt task on the bestiary's nearest ground for the creature, every kill skinned and the hide kept loose until the count; the walk back, a hide GIVEn at a time until the giver pays.
 
 What stops it
 - The giver's cooldown (ten minutes between asks, kept per giver: an ask inside it is not sent, the minutes left are said), an offer of a kind the profile declines, a recipient the table does not know, a walk that ends short — each said. A shop shut for the night is waited for: the door tried each game hour (fifteen real minutes), eight times at most. A walk that ends short otherwise: ;task again from there carries on.
 - A hunt that ends without the item (a floor, a ;hunt return): ;task again hunts on.
 - The loop: a task that ends short, ;task return between tasks, or no giver free twice running (one wait for the first giver's ten minutes between). Each ask waits two minutes after the last: every giver refuses a character asked elsewhere just before.
-- Delivery, searching, recovery and foraging are run by the script; kill, boss and skinning are accepted and handed over, their wordings captured on the way (#505). A herb no room on record grows is handed over too.
+- Delivery, searching, recovery, foraging and skinning are run by the script; kill and boss are accepted and handed over, their wordings captured on the way (#505). A herb no room on record grows is handed over too.
 
 Elanthipedia: Task; the wordings captured on Crannach's delivery (docs/tasks.md).
 """
@@ -568,6 +569,15 @@ def run_foraging(s, task, mapdb, walk_fn):
         s.echo(f"task: only {found} of {owed} {item} found — ;task again forages on")
         return False
     s.echo(f"task: {found} {item} found — back to the {giver}")
+    return give_each(s, task, noun, mapdb, walk_fn)
+
+
+def give_each(s, task, noun, mapdb, walk_fn):
+    """The walk to the giver, then GIVE an item of `noun` at a time until
+    the giver pays — a foraging or skinning giver credits each GIVE as
+    one item. True paid; False short, said."""
+    item, owed = task["item"], int(task.get("count") or 0)
+    giver = str(task.get("giver") or "")
     if not travel.go(
         s, giver_rooms(mapdb, giver), f"{giver}'s room", db=mapdb, walk=walk_fn
     ):
@@ -577,11 +587,11 @@ def run_foraging(s, task, mapdb, walk_fn):
         ask(s, f"get my {noun}")
         held = items.ref(s, noun)
         if not held:
-            s.echo(f"task: no more {item} on you — ;task again forages the rest")
+            s.echo(f"task: no more {item} on you — ;task again brings the rest")
             return False
         answer = ask(s, f"give {held} to {person_name(giver)}")
         if payment := paid(answer):
-            s.echo(f"task: foraged — the {giver} paid {payment[0]} {payment[1]}")
+            s.echo(f"task: done — the {giver} paid {payment[0]} {payment[1]}")
             tasklog.log_end(
                 task.get("log_seq"),
                 done_at=tasklog.now(),
@@ -598,6 +608,27 @@ def run_foraging(s, task, mapdb, walk_fn):
     return False
 
 
+def run_skinning(s, task, profile, mapdb, walk_fn):
+    """A skinning task (the Sand Spit barkeep's 6 storm bull hides,
+    2026-10-12): ;hunt task cuts the hides on the bestiary's nearest
+    ground for the creature, kept loose, then a hide GIVEn at a time
+    until the giver pays. A profile with no weapon hands it over, as a
+    recovery does."""
+    if not profile.get("weapon") and not profile.get("weapons"):
+        s.echo(
+            f"task: {describe(task)} — the profile names no weapon for ;hunt; "
+            "yours from here"
+        )
+        return False
+    if not hunted(s):
+        return False
+    noun = str(task.get("item") or "hide").split()[-1]
+    return give_each(s, task, noun, mapdb, walk_fn)
+
+
+RUNNABLE = ("delivery", "searching", "recovery", "foraging", "skinning")
+
+
 def carry(s, task, profile, mapdb, walk_fn):
     """The task's kind run: True when it ended paid, False short."""
     if task["kind"] == "searching":
@@ -606,6 +637,8 @@ def carry(s, task, profile, mapdb, walk_fn):
         return run_recovery(s, task, profile, mapdb, walk_fn)
     if task["kind"] == "foraging":
         return run_foraging(s, task, mapdb, walk_fn)
+    if task["kind"] == "skinning":
+        return run_skinning(s, task, profile, mapdb, walk_fn)
     return deliver(s, task, mapdb, walk_fn)
 
 
@@ -624,7 +657,7 @@ def run(s, options, profile, mapdb, walk_fn=walk):
         return None
     task = parse_journal(ask(s, "task"))
     if task is not None:
-        if task.get("kind") not in ("delivery", "searching", "recovery", "foraging"):
+        if task.get("kind") not in RUNNABLE:
             s.echo(
                 f"task: the journal holds {describe(task)} — beyond the script, yours from here"
             )
@@ -654,7 +687,7 @@ def run(s, options, profile, mapdb, walk_fn=walk):
     if offer is None:
         return None
     task = {"giver": options["giver"], **offer}
-    if offer["kind"] not in ("delivery", "searching", "recovery", "foraging"):
+    if offer["kind"] not in RUNNABLE:
         record(name, task)
         s.echo(
             f"task: {describe(task)} is beyond the script — yours from here; "

@@ -378,8 +378,45 @@ def test_a_foraging_task_is_foraged_a_stack_a_find_and_given_a_stack_at_a_time()
     assert fake.walks == [{2216, 2217}, {9004}]
     assert fake.sent.count("forage nuloe stem") == 4
     assert fake.sent.count("give #185113829 to minister") == 3
-    assert "foraged — the Leth Deriel trade minister paid 785 Kronars" in out
+    assert "done — the Leth Deriel trade minister paid 785 Kronars" in out
     assert "nuloe stem" in GROVE.rooms[2216]["tags"]  # #535: the find's room
+
+
+# The Sand Spit barkeep's skinning task, captured 2026-10-12.
+JOURNAL_SKINNING = (
+    "You look in your task journal and see the following entry:\n"
+    "A barkeep in The Crossing wants you to retrieve 2 skins from the province's "
+    'storm bull population.  A barkeep will accept "a storm bull hide".  You '
+    "still need to turn in 2 more.\n"
+)
+HIDE = {"exist": "185300001", "noun": "hide", "name": "storm bull hide"}
+TAVERN = MapDB([{"id": 13275, "uid": [5], "title": ["[Sand Spit Tavern, Barroom]"]}])
+
+
+class Skinning(Hunting):
+    """;hunt task stood in for; a GET puts a hide in the hand."""
+
+    def put(self, command):
+        Fake.put(self, command)
+        if command.startswith("get "):
+            self.state.right_hand = dict(HIDE)
+
+
+def test_a_skinning_task_is_hunted_then_given_a_hide_at_a_time():
+    # #509: the hides are cut by ;hunt task, kept loose, and each GIVE
+    # counts as one, as a foraging giver's does.
+    fake = Skinning(
+        {
+            "task": [JOURNAL_SKINNING],
+            "give": [TAKES.format(1), FORAGE_PAID.replace("trade minister", "barkeep")],
+        }
+    )
+    script.run(fake, script.parse_args([]), {"weapon": "handaxe"}, TAVERN, walk)
+    out = echoes(fake)
+    assert fake.started == [("hunt", ["task"])]
+    assert fake.walks == [{13275}]  # back to the barkeep
+    assert fake.sent.count("give #185300001 to barkeep") == 2
+    assert "done — the barkeep paid 785 Kronars" in out
 
 
 def test_a_kind_in_task_declines_is_declined_inside_the_window():

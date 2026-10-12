@@ -56,6 +56,17 @@ def zone(name):
     return ZONES.get(str(name or "").strip().lower())
 
 
+def zones_with(creature):
+    """The zone names whose creatures include `creature` ("storm bull": the
+    Leth bulls and the two Ilithi grounds)."""
+    wanted = str(creature or "").strip().lower()
+    return [
+        name
+        for name, entry in ZONES.items()
+        if any(str(listed).lower() == wanted for listed, *_ in entry[2])
+    ]
+
+
 def zone_range(name):
     """(low, high) over the zone's creatures, either None when unknown;
     None for a zone without a ranked creature."""
@@ -474,6 +485,7 @@ class Tally:
     def __init__(self):
         self.kills = 0
         self.skins = 0
+        self.task_hides = 0  # a skinning task's hides cut this run (#509)
         self.coins = 0  # coin piles STOWed after a search that left some
         self.boxes = 0  # boxes into the loot container
         self.unlootable = set()  # nouns the game found no room for this run

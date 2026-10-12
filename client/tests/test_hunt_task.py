@@ -12,7 +12,7 @@ import pytest
 
 from client.game import tasks
 
-from hunt_arena import NOTHING, PROFILE, Arena, GROUND, hunt, kill
+from hunt_arena import KILL, NOTHING, PROFILE, Arena, GROUND, hunt, kill
 
 # The death lines, as captured: a kill without the item, and the kill
 # that drops it (bold, on the story stream, before the kill line).
@@ -132,3 +132,62 @@ def test_the_drop_pattern_names_the_item_and_get_takes_two_words():
     )
     assert tasks.item_words("small hand mirror") == "hand mirror"
     assert tasks.item_words("worn gauntlet") == "worn gauntlet"
+
+
+# A skinning task (#509), as ;task records the Sand Spit barkeep's
+# (2026-10-12): the creature's hides, a count, each GIVE one item.
+SKINNING = {
+    "kind": "skinning",
+    "giver": "barkeep",
+    "item": "storm bull hide",
+    "creature": "storm bull",
+    "count": 2,
+}
+HIDE = "You skin the rat, obtaining a storm bull hide."  # the shape of SKINNED
+
+
+@pytest.fixture
+def bull_yard(monkeypatch):
+    """The arena's yard as a bestiary zone of storm bulls."""
+    from client.game import hunting
+
+    zone = ("Zoluren", (6046, 6047), (("Storm bull", 550, 750),), ())
+    monkeypatch.setitem(hunting.ZONES, "yard_bulls", zone)
+
+
+def test_a_skinning_task_hunts_the_creatures_ground_and_keeps_the_hides_loose(
+    bull_yard,
+):
+    arena = Arena({})
+    tasks.record("Lanival", SKINNING)
+    profile, ground = hunt.task_profile(arena, dict(TASK_PROFILE), GROUND)
+    assert ground == [6046, 6047]  # the zone that lists storm bulls
+    assert profile["prey"] == "bull" and profile["until"] == "task"
+    assert profile["skin"] is True and profile["bundle"] is False  # one GIVE, one hide
+    assert profile["task_hides"] == 2
+
+
+def test_a_skinning_hunt_ends_at_the_tasks_count(bull_yard, travel):
+    arena = Arena(
+        {
+            "attack": [(KILL, lambda a: None), (KILL, kill), (KILL, kill)],
+            "skin": [HIDE, HIDE, HIDE],
+            "loot": [NOTHING] * 3,
+        }
+    )
+    tasks.record("Lanival", SKINNING)
+    overlaid, ground = hunt.task_profile(arena, dict(TASK_PROFILE), GROUND)
+    overlaid["prey"] = ""  # the arena's creature is no bull
+    hunt.hunt(arena, overlaid, GROUND, travel_first=False, ground=ground)
+    out = "\n".join(arena.echoed)
+    assert "2 storm bull hide(s) cut — the task's count" in out
+    assert sum(command.startswith("attack") for command in arena.sent) == 2
+    assert arena.sent.count("put my hide in my sack") == 2
+    assert not any(command.startswith("bundle") for command in arena.sent)
+
+
+def test_no_ground_for_the_creature_is_said():
+    arena = Arena({})
+    tasks.record("Lanival", {**SKINNING, "creature": "glass dragon"})
+    assert hunt.task_profile(arena, dict(TASK_PROFILE), GROUND) == (None, None)
+    assert "no ground on record has glass dragons" in "\n".join(arena.echoed)
