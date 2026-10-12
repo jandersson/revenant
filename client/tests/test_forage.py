@@ -464,6 +464,33 @@ def test_finds_in_the_bag_the_ground_stack_is_stowed_to_are_all_ground():
     assert "get my third flowers from my backpack" in s.sent
 
 
+def test_a_herb_the_grinder_renames_is_stowed_by_its_new_noun():
+    # Captured 2026-10-12: muljin sap comes out of the grinder as "some
+    # crushed muljin"; STOW MY SAP answered "Stow what?" and both ground
+    # stacks stayed in hand, the third find unground for want of a hand.
+    raw = "You get some muljin sap from inside your backpack."
+    ground = (
+        "You place some muljin sap on the basestone and crank the handle until the "
+        "top has firmly closed down.  As you continue to crank the handle, the "
+        "grinder turns, crushing the sap.  You then crank the grinder open and "
+        "remove some crushed muljin."
+    )
+    crushed = "You get some crushed muljin from inside your backpack."
+    into = "You put your muljin in your backpack."
+    s = Fake(
+        [raw, ground, into]
+        + [raw, ground, crushed, COMBINED, into]
+        + [NOTHING, NOTHING]
+    )
+    assert forage.press_herb(s, "sap", "backpack", "grinder", "crushed") == (
+        2,
+        "backpack",
+    )
+    assert s.sent.count("stow my muljin") == 2
+    assert "get crushed muljin from my backpack" in s.sent
+    assert not any(command.startswith("stow my sap") for command in s.sent)
+
+
 def test_fresh_finds_a_stow_sent_to_the_backpack_are_pressed_too(travel):
     # #403 (2026-10-01): six fresh stacks sat in the backpack unpressed
     # because the press only took finds out of the sack. The backpack's

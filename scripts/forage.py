@@ -204,6 +204,17 @@ _HERB_FOUND = re.compile(r"you manage to find (?:some |an? )?(?P<what>[^.!]+)", 
 # flowers on the basestone and crank the handle ... crushing the flowers.
 # You then crank the grinder open and remove some crushed blue flowers."
 _PRESSED = ("remove some dried", "remove some crushed")
+# The grinder renames some herbs: "muljin sap" comes out "some crushed
+# muljin" (the first muljin ground, 2026-10-12: STOW MY SAP answered "Stow
+# what?" and two ground stacks stayed in hand).
+_REMOVED = re.compile(r"remove some (?:dried|crushed) (?P<what>[^.!]+)")
+
+
+def product_of(pressed, noun):
+    """The prepared stack's noun, from the press's or grinder's answer;
+    `noun` when the answer names none."""
+    found = _REMOVED.search(pressed)
+    return found.group("what").split()[-1] if found else noun
 
 
 def machine_of(item):
@@ -489,7 +500,7 @@ def press_from(s, noun, container, home, machine="press", form="dried"):
             ask(s, f"put {held_name(s, noun)} in my {container}")
             break
         pressed_count += 1
-        home = _combine_and_stow(s, noun, home, form)
+        home = _combine_and_stow(s, product_of(pressed, noun), home, form)
         if home == container:
             skip += 1  # the dried stack went to the container's front
     return pressed_count, home
@@ -506,6 +517,7 @@ def press_herb(s, noun, bag, machine="press", form="dried"):
     piece(s)" after 76 were pressed (#421)."""
     home = ""  # where STOW puts the dried stack, read off its answer
     stacks = 0
+    made = noun  # the prepared stack's noun, the grinder's may differ
     for _ in range(MAX_COLLECTS):
         if s.dead or danger(s):
             break
@@ -526,7 +538,8 @@ def press_herb(s, noun, bag, machine="press", form="dried"):
             ask(s, f"put {held_name(s, noun)} in my {bag}")
             break
         stacks += 1
-        home = _combine_and_stow(s, noun, home, form)
+        made = product_of(pressed, noun)
+        home = _combine_and_stow(s, made, home, form)
         if any(word in pressed for word in _PREPARED) and home == bag:
             break  # the bag holds only the dried stack now: all pressed
     store = home or hands.default_container(s, ask) or ""
@@ -535,7 +548,7 @@ def press_herb(s, noun, bag, machine="press", form="dried"):
         stacks += more
     if not stacks:
         return None
-    stow_herb_in_hands(s, noun)
+    stow_herb_in_hands(s, made)
     return stacks, home
 
 
