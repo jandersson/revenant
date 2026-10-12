@@ -1381,7 +1381,11 @@ def skin(s, profile, corpse, tally):
     if profile.get("task_hide"):
         # A bare SKIN takes a creature's part when it has one: a storm
         # bull gave "a jagged horn", not the task's hide (2026-10-12).
-        # ARRANGE FOR SKIN picks the skin (Elanthipedia: Arrange command).
+        # ARRANGE FOR SKIN picks the skin (Elanthipedia: Arrange command):
+        # "You begin to arrange the bull's corpse in a manner that, while
+        # making the process of obtaining a skin more difficult, guarantees
+        # a greater reward." and the SKIN after it "...a sterling example of
+        # a storm bull hide from the bull carcass." (2026-10-12).
         arranged = ask(s, f"arrange {corpse} for skin")
         s.waitrt()
         if not tally.arrange_reported:

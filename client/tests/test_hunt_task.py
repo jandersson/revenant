@@ -143,7 +143,16 @@ SKINNING = {
     "creature": "storm bull",
     "count": 2,
 }
-HIDE = "You skin the rat, obtaining a storm bull hide."  # the shape of SKINNED
+# Captured 2026-10-12 on the first ARRANGEd storm bull: the ARRANGE, then
+# the SKIN that took the hide (a bare SKIN had taken a jagged horn).
+ARRANGED = (
+    "You begin to arrange the bull's corpse in a manner that, while making the "
+    "process of obtaining a skin more difficult, guarantees a greater reward."
+)
+HIDE = (
+    "With preternatural poise, you work loose a sterling example of a storm bull "
+    "hide from the bull carcass."
+)
 
 
 @pytest.fixture
@@ -171,6 +180,7 @@ def test_a_skinning_hunt_ends_at_the_tasks_count(bull_yard, travel):
     arena = Arena(
         {
             "attack": [(KILL, lambda a: None), (KILL, kill), (KILL, kill)],
+            "arrange": [ARRANGED] * 3,
             "skin": [HIDE, HIDE, HIDE],
             "loot": [NOTHING] * 3,
         }
