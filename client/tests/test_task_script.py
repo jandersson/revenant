@@ -439,6 +439,24 @@ def test_hides_already_cut_go_straight_to_the_giver_without_a_hunt():
     assert "2 storm bull hide(s) already cut — to the giver" in echoes(fake)
 
 
+def test_hides_in_the_loot_container_count_as_cut_without_a_record():
+    # 2026-10-13: ten bristles cut before ;hunt kept a count; ;task hunted
+    # ten more. The container's LOOK IN is the game's own count.
+    fake = Skinning(
+        {
+            "task": [JOURNAL_SKINNING],
+            "look in my sack": [
+                "In the sack you see a storm bull hide, some coins and a storm bull hide."
+            ],
+            "give": [BARKEEP_TAKES.format(1), BARKEEP_PAID],
+        }
+    )
+    profile = {"weapon": "handaxe", "loot_container": "sack"}
+    script.run(fake, script.parse_args([]), profile, TAVERN, walk)
+    assert fake.started == []  # no ;hunt
+    assert fake.sent.count("give #185300001 to barkeep") == 2
+
+
 def test_a_walk_that_ends_short_among_hostiles_gets_away_first(monkeypatch):
     # #541: "The idea is to leave - you cannot leave by killing things."
     fled = []

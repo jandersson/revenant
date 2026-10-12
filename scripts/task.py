@@ -631,9 +631,13 @@ def run_skinning(s, task, profile, mapdb, walk_fn):
     2026-10-12): ;hunt task cuts the hides on the bestiary's nearest
     ground for the creature, kept loose, then a hide GIVEn at a time
     until the giver pays. A profile with no weapon hands it over, as a
-    recovery does. The count already cut (;hunt writes it into the
-    record, #541) goes straight to the giver."""
-    cut, owed = int(task.get("cut") or 0), int(task.get("count") or 0)
+    recovery does. Those already cut go straight to the giver: the loot
+    container's LOOK IN counts them, else the record ;hunt writes (#541),
+    and a hunt cuts only the rest."""
+    noun = str(task.get("item") or "hide").split()[-1]
+    owed = int(task.get("count") or 0)
+    cut = max(int(task.get("cut") or 0), in_container(s, profile, noun))
+    record(character(s), {**task, "cut": cut})  # ;hunt task reads it
     if cut and cut >= owed:
         s.echo(f"task: {cut} {task.get('item')}(s) already cut — to the giver")
     elif not profile.get("weapon") and not profile.get("weapons"):
@@ -644,8 +648,19 @@ def run_skinning(s, task, profile, mapdb, walk_fn):
         return False
     elif not hunted(s):
         return False
-    noun = str(task.get("item") or "hide").split()[-1]
     return give_each(s, task, noun, mapdb, walk_fn)
+
+
+def in_container(s, profile, noun):
+    """How many `noun` the profile's loot container lists (LOOK IN), where
+    ;hunt stows what it cuts; 0 with no container or no listing. Ten
+    gremlin bristles cut before ;hunt kept a count sent ;task hunting ten
+    more (2026-10-13)."""
+    container = str(profile.get("loot_container") or "").strip()
+    if not container:
+        return 0
+    nouns = items.listed_nouns(ask(s, f"look in my {container}")) or []
+    return nouns.count(noun.lower())
 
 
 RUNNABLE = ("delivery", "searching", "recovery", "foraging", "skinning")
