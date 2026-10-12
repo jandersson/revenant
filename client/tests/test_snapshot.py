@@ -14,6 +14,7 @@ def _state():
     data.room_title = "[Town Square]"
     data.room_uid = 1
     data.compass = ["n", "s"]
+    data.room_desc = "A fountain splashes."
     data.vitals = {"health": 64, "mana": 100}
     data.experience = {
         "Athletics": {"rank": 37, "percent": 4, "mindstate": 2, "rate": "clear"}
@@ -31,7 +32,12 @@ def test_the_snapshot_holds_every_field_as_plain_json():
     full = snapshot(_state())
     assert set(full) == set(FIELDS)
     assert full["name"] == "Lanival"
-    assert full["room"] == {"title": "[Town Square]", "uid": 1, "compass": ["n", "s"]}
+    assert full["room"] == {
+        "title": "[Town Square]",
+        "uid": 1,
+        "compass": ["n", "s"],
+        "description": "A fountain splashes.",
+    }
     assert full["vitals"] == {"health": 64, "mana": 100}
     assert full["experience"]["Athletics"]["rank"] == 37
     assert full["hands"]["left"]["noun"] == "handaxe" and full["hands"]["right"] is None
@@ -65,7 +71,12 @@ def test_the_running_scripts_are_the_sessions_list():
 
 def test_a_fresh_parser_snapshots_to_empties_not_errors():
     fresh = snapshot(XMLData())
-    assert fresh["room"] == {"title": None, "uid": None, "compass": []}
+    assert fresh["room"] == {
+        "title": None,
+        "uid": None,
+        "compass": [],
+        "description": "",
+    }
     assert fresh["hands"] == {"left": None, "right": None}
     assert fresh["experience"] == {} and fresh["injuries"] == {}
     json.dumps(fresh)

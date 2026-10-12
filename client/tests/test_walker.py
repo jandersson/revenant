@@ -865,6 +865,35 @@ FANG_COVE = MapDB(
 )
 
 
+def test_twins_of_one_title_and_exits_are_told_apart_by_the_description():
+    # 361 title-and-exits twins on the map have a room with no uid
+    # (2026-10-13): the game's description breaks the tie.
+    twins = MapDB(
+        [
+            {
+                "id": 1,
+                "title": ["[[Muddy Road]]"],
+                "description": ["A rut runs north.", "Night hides the rut."],
+                "wayto": {"3": "north"},
+            },
+            {
+                "id": 2,
+                "title": ["[[Muddy Road]]"],
+                "description": ["A fallen log blocks the ditch."],
+                "wayto": {"3": "north"},
+            },
+            {"id": 3, "title": ["[[Crossroads]]"], "wayto": {}},
+        ]
+    )
+    state = SimpleNamespace(room_uid=None, compass=["n"], room_title="[Muddy Road]")
+    state.room_desc = "A fallen log blocks the ditch.  A rat scurries past."
+    assert walker.locate(twins, state) == 2  # the game's opens with the map's
+    state.room_desc = "Night hides the rut."
+    assert walker.locate(twins, state) == 1  # the night version
+    state.room_desc = ""
+    assert walker.locate(twins, state) == 1  # nothing to go by: the first
+
+
 def test_inside_a_tent_the_title_places_the_character_not_the_lanes_uid():
     state = SimpleNamespace(room_uid=9792004, compass=["e"])
     state.room_title = "[Advanced Anatomy, Atrium]"

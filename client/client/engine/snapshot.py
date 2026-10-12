@@ -49,6 +49,7 @@ def _room(xml_data):
         "title": getattr(xml_data, "room_title", None),
         "uid": getattr(xml_data, "room_uid", None),
         "compass": list(getattr(xml_data, "compass", None) or []),
+        "description": getattr(xml_data, "room_desc", "") or "",
     }
 
 

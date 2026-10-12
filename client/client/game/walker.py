@@ -487,8 +487,8 @@ def locate(db, state):
     The game's <nav rm> uid is the exact fix and wins whenever the map
     knows it, bar a sub-room that reports its enclosing room's uid
     (uid_room); titles collide (roads repeat the same title), so the
-    title+exits guess is only the fallback. None when position is
-    unknown."""
+    title+exits guess, the description breaking a tie, is only the
+    fallback. None when position is unknown."""
     if state is None or in_plane(state):
         return None
     by_uid = uid_room(db, state)
@@ -500,7 +500,7 @@ def locate(db, state):
     candidates = db.rooms_titled(title)
     if not candidates:
         return None
-    return _disambiguate(db, candidates, state.compass)
+    return _disambiguate(db, candidates, state.compass, getattr(state, "room_desc", ""))
 
 
 def in_plane(state):
@@ -561,11 +561,16 @@ def _titled_near(db, start, title):
     return None
 
 
-def _disambiguate(db, candidates, compass):
-    """Same title, several rooms: prefer the one whose exits match ours."""
-    if len(candidates) == 1 or not compass:
+def _disambiguate(db, candidates, compass, description=""):
+    """Same title, several rooms: prefer the one whose exits match ours,
+    then, still tied, one whose map description is the game's — any of
+    the map's versions (day, night), or one the game's opens with (an
+    event's line after it). 361 title-and-exits twins on the map have a
+    room with no uid; their descriptions tell 244 apart (2026-10-13)."""
+    if len(candidates) == 1:
         return candidates[0]
-    here_exits = {DIRECTIONS.get(direction, direction) for direction in compass}
+    here_exits = {DIRECTIONS.get(direction, direction) for direction in compass or ()}
+    here = " ".join(str(description or "").split())
 
     def exits_of(room_id):
         wayto = db.rooms[room_id].get("wayto") or {}
@@ -575,7 +580,18 @@ def _disambiguate(db, candidates, compass):
             if isinstance(command, str) and command in DIRECTIONS.values()
         }
 
-    return max(candidates, key=lambda room_id: len(here_exits & exits_of(room_id)))
+    def described(room_id):
+        versions = (
+            " ".join(str(v).split()) for v in db.rooms[room_id].get("description") or []
+        )
+        return bool(here) and any(
+            v and (here == v or here.startswith(v)) for v in versions
+        )
+
+    return max(
+        candidates,
+        key=lambda room_id: (len(here_exits & exits_of(room_id)), described(room_id)),
+    )
 
 
 # Rooms whose exits shift under the map, avoided by every walk whatever

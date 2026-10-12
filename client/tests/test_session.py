@@ -1191,6 +1191,7 @@ def test_a_state_request_is_answered_to_the_asker_alone():
         "title": None,
         "uid": None,
         "compass": [],
+        "description": "",
     }
 
     watcher.settimeout(0.5)

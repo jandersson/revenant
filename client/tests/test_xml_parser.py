@@ -149,6 +149,22 @@ def test_nav_tag_carries_the_room_uid(xml_data):
     assert xml_data.room_uid == 10081
 
 
+def test_the_room_description_is_kept_and_a_new_room_clears_it(xml_data):
+    # The raw order on every arrival (2026-10-13): <nav>, the room
+    # stream, then <component id='room desc'>.
+    parser = XMLParser(target=xml_data)
+    parser.feed(
+        "<r><nav rm='9798252'/><component id='room desc'>Mud and wattle walls"
+        "  end abruptly\nbarely two feet off the floor.</component>"
+    )
+    assert (
+        xml_data.room_desc
+        == "Mud and wattle walls end abruptly barely two feet off the floor."
+    )
+    parser.feed("<nav rm='9798251'/></r>")
+    assert xml_data.room_desc == ""
+
+
 def test_room_title_from_stream_window(xml_data):
     XMLParser(target=xml_data).feed(
         "<r><streamWindow id='room' title='Room' "

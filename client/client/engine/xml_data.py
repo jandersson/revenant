@@ -287,6 +287,12 @@ class XMLData:
         # (#207). "" until the fresh listing arrives after a room change.
         self.room_objs = ""
         self._objs_text = None
+        # The room's description (<component id='room desc'>, sent after
+        # the <nav> on every arrival), whitespace collapsed: the walker's
+        # tie-break between rooms of one title and exits. "" until it
+        # arrives after a room change, and in a dark room.
+        self.room_desc = ""
+        self._desc_text = None
         # Rested experience, from the footer the exp window pushes on
         # every pulse (<component id='exp rexp'>Rested EXP Stored: 5:42
         # hours  Usable This Cycle: 5:42 hours  Cycle Refreshes: 21
@@ -442,6 +448,8 @@ class XMLData:
                 self._perc_text += "\n"
         if self._players_text is not None:
             self._players_text += text_string
+        if self._desc_text is not None:
+            self._desc_text += text_string
         if self._objs_after_bold:
             # The text right after a bolded creature says whether it is
             # a corpse: " which appears dead, ..." (#278).
@@ -544,6 +552,7 @@ class XMLData:
             self.room_creatures = []
             self.room_creatures_dead = []
             self.room_objs = ""
+            self.room_desc = ""
         elif name == "roundTime":
             self.roundtime = int(attributes["value"])
         elif name == "castTime":
@@ -582,6 +591,8 @@ class XMLData:
                 self._exp_text = ""
             elif ident == "room players":
                 self._players_text = ""
+            elif ident == "room desc":
+                self._desc_text = ""
             elif ident == "room objs":
                 self._objs_names, self._objs_bold = [], None
                 self._objs_text = []
@@ -664,6 +675,9 @@ class XMLData:
             self._inv_indent = ""  # the engine's per-line root
         if name == "dialogData":
             self._injuries_dialog = False
+        if name == "component" and self._desc_text is not None:
+            self.room_desc = " ".join(self._desc_text.split())
+            self._desc_text = None
         if name == "component" and self._players_text is not None:
             players, self._players_text = _players(self._players_text), None
             if players != self.room_players:
