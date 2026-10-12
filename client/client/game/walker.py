@@ -290,6 +290,11 @@ POSTURE_REFUSALS = ("You must be standing", "You must stand first")
 # Honor's chapel, #220); the sitting and lying wordings are assumed.
 # STAND and one retry, not the engaged-stall burst.
 KNEELING_REFUSALS = ("while kneeling", "while sitting", "while lying down")
+# A move sent engaged: "You are engaged to a yellow-bristled gremlin at
+# melee range!" (Crannach, 2026-10-13) and "You can't do that while
+# engaged!" (the Glaren Kweld grass). Read as the stall it is at once,
+# not after ARRIVAL_TIMEOUT's fifteen seconds among the attackers.
+ENGAGED_REFUSALS = ("You are engaged to", "while engaged")
 # A move that throws the character down instead: "You slip in the mud and
 # fall flat on your back!" on Reshalia Trade Road's farmland (Crannach,
 # 2026-10-11 and three times on 2026-10-12, #528). It read as a stall, the
@@ -1431,6 +1436,8 @@ def await_arrival(s, timeout=ARRIVAL_TIMEOUT):
             return "closed", hindering, "".join(seen)
         if any(needle in text for needle in KNEELING_REFUSALS + FALLS):
             return "posture", hindering, "".join(seen)
+        if any(needle in text for needle in ENGAGED_REFUSALS):
+            return "stalled", hindering, "".join(seen)
         if ROUNDTIME_WAIT.search(text):
             return "roundtime", hindering, "".join(seen)
 

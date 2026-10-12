@@ -796,6 +796,27 @@ def test_walk_retries_without_a_burst_where_the_only_exit_is_out():
     assert puts == ["go window", "go window"]
 
 
+def test_a_move_refused_engaged_is_a_stall_at_once():
+    # Crannach, 2026-10-13: the walker waited out its fifteen seconds
+    # among three gremlins before the RETREAT burst.
+    class Lines:
+        def __init__(self, items):
+            self.items, self.gets = list(items), 0
+
+        def get(self, timeout=None, streams=None):
+            self.gets += 1
+            return self.items.pop(0) if self.items else None
+
+    for line in (
+        "You are engaged to a yellow-bristled gremlin at melee range!\n",
+        "You can't do that while engaged!\n",
+    ):
+        handle = Lines([("", line), ("", "A gremlin gestures rudely at you.\n")])
+        outcome, _, wording = walker.await_arrival(handle)
+        assert outcome == "stalled" and wording == line
+        assert handle.gets == 1  # nothing more waited for
+
+
 def test_walk_bursts_once_then_stops_on_a_persistent_stall():
     # A stall the burst cannot fix (bad edge, closed door): one retry,
     # then the old stop-and-report behavior — never a retreat loop.
