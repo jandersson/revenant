@@ -241,10 +241,11 @@ def test_the_tracker_asks_on_start_logs_every_branch_and_summarizes(
     text = "\n".join(fake.echoed)
     # WEALTH's carried and debt are fresh, logged like ;sheet's, and netted
     assert (
-        "Kronars 34.2 plat net — banked 34.2 plat (Crossing 33.7 plat, Dirge "
-        "5.08 gold), carrying 3 silver, owing 9.3 silver" in text
+        "Dokoras: 1.49 gold net\n  Shard  1.49 gold\n"
+        "Kronars: 34.2 plat net\n  Crossing  33.7 plat\n  Dirge  5.08 gold\n"
+        "  carrying  3 silver\n  owing  9.3 silver\n"
+        "Lirums: 35 plat net\n  Surlaenis  35 plat" in text
     )
-    assert "Dokoras 1.49 gold net — banked 1.49 gold" in text
     held = connection.execute(
         "SELECT kind, currency, copper FROM wealth WHERE kind IN ('carried', 'debt')"
     ).fetchall()
@@ -253,7 +254,6 @@ def test_the_tracker_asks_on_start_logs_every_branch_and_summarizes(
         ("carried", "Lirums", 0),
         ("debt", "Kronars", 930),
     ]
-    assert "Lirums 35 plat net — banked 35 plat" in text  # nothing carried
 
 
 def test_a_bank_account_refused_for_roundtime_is_asked_again(tmp_path, monkeypatch):
@@ -264,7 +264,7 @@ def test_a_bank_account_refused_for_roundtime_is_asked_again(tmp_path, monkeypat
     assert fake.sent == ["bank account", "bank account", "wealth"]
     text = "\n".join(fake.echoed)
     assert "gave no report" not in text
-    assert "Kronars 34.2 plat net — banked" in text
+    assert "Kronars: 34.2 plat net" in text
 
 
 def test_a_paid_debt_reaches_the_history_as_a_zero(tmp_path, monkeypatch):
@@ -276,7 +276,7 @@ def test_a_paid_debt_reaches_the_history_as_a_zero(tmp_path, monkeypatch):
     ).fetchall()
     assert held == [("carried", "Kronars", 0), ("debt", "Kronars", 0)]
     text = "\n".join(fake.echoed)
-    assert "Kronars 34.2 plat net — banked 34.2 plat (Crossing 33.7 plat, " in text
+    assert "Kronars: 34.2 plat net\n  Crossing  33.7 plat" in text
     assert "owing" not in text and "carrying" not in text  # nothing is not said
 
 
@@ -299,7 +299,10 @@ def test_the_summary_nets_the_sheet_s_carried_and_debt(tmp_path, monkeypatch):
     assert held == {("carried", "Kronars"): 300, ("debt", "Kronars"): 1510}
     lines = wealth.summary({("Crossing", "Kronars"): 18_939}, held)
     assert lines == [
-        "Kronars 1.77 plat net — banked 1.89 plat, carrying 3 silver, owing 1.51 gold"
+        "Kronars: 1.77 plat net",
+        "  Crossing  1.89 plat",
+        "  carrying  3 silver",
+        "  owing  1.51 gold",
     ]
 
 
@@ -313,7 +316,7 @@ def test_now_from_cold_asks_once_and_exits(tmp_path, monkeypatch):
     monkeypatch.setattr(wealth, "PURSE_TAIL", 0.01)
     wealth.main(fake)  # returns on its own once the report settled
     assert fake.sent == ["bank account", "wealth"]
-    assert any("net — banked" in line for line in fake.echoed)
+    assert any("plat net" in line for line in fake.echoed)
 
 
 def test_a_typed_now_asks_again_and_the_interval_asks_by_itself(tmp_path, monkeypatch):
@@ -362,8 +365,8 @@ def test_no_open_account_is_a_report_of_nothing_not_a_silence(tmp_path, monkeypa
     assert "gave no report" not in text
     assert "wealth: no bank account open — nothing on deposit" in text
     # The net of owing more than is held (#333).
-    assert "Kronars -2.05 gold net — nothing banked, owing 2.05 gold" in text
-    assert "Lirums 1.3 bronze net — nothing banked, carrying 1.3 bronze" in text
+    assert "Kronars: -2.05 gold net\n  owing  2.05 gold" in text
+    assert "Lirums: 1.3 bronze net\n  carrying  1.3 bronze" in text
     connection = sqlite3.connect(wealth.database_path())
     assert connection.execute(
         "SELECT COUNT(*) FROM wealth WHERE kind = 'bank'"

@@ -26,7 +26,8 @@ Totals block is skipped, the branches add up to it); WEALTH follows
 (INFO's Wealth and Debt blocks without the character sheet), its
 carried coin and provincial debt logged as `carried` and `debt` rows
 (the shape ;sheet writes), and the two are echoed as a summary per
-currency, the net first, each amount in its largest coin. A teller's balance
+currency as a list: its net, then each bank, carrying and owing, each
+amount in its largest coin. A teller's balance
 line ("Your current balance is ...", "As expected, there are ...")
 heard in passing is logged the same way. The beholder Wealth view
 reads the table, newest row per item. Stop with:  ;stop wealth;
@@ -185,35 +186,30 @@ def latest_carried_and_debt(connection, character):
 
 
 def summary(report, held):
-    """A line per currency, the net first: "Dokoras 9,731 plat net — banked
-    9,733 plat (Shard 9,425 plat, Hibarnhvidar 308 plat), owing 1.62 plat";
-    the branches largest first, carrying and owing only when not nothing,
-    each amount money.short's. report is {(bank, currency): copper}; held
-    is latest_carried_and_debt's."""
-    lines = []
+    """The money as a list (the operator, 2026-10-12: "people like
+    lists"): a heading per currency with its net, then a line per bank
+    branch, largest first, and the coins carried and owed when there are
+    any; each amount money.short's. No column padding: the main window's
+    font is proportional, where padded columns drift.
+    report is {(bank, currency): copper}; held is latest_carried_and_debt's."""
+    blocks = []
     currencies = sorted({c for _, c in report} | {c for _, c in held})
     for currency in currencies:
         branches = {b: v for (b, c), v in report.items() if c == currency}
-        deposited = sum(branches.values())
         carried = held.get(("carried", currency), 0)
         owed = held.get(("debt", currency), 0)
-        if not (deposited or carried or owed):
+        if not (sum(branches.values()) or carried or owed):
             continue  # a currency the character has nothing in
-        where = ", ".join(
-            f"{b} {short(v)}"
-            for b, v in sorted(branches.items(), key=lambda kv: -kv[1])
-        )
-        parts = [
-            f"banked {short(deposited)}" + (f" ({where})" if len(branches) > 1 else "")
+        rows = sorted(branches.items(), key=lambda kv: -kv[1])
+        rows += [
+            (label, v) for label, v in (("carrying", carried), ("owing", owed)) if v
         ]
-        if not deposited:
-            parts = ["nothing banked"]
-        if carried:
-            parts.append(f"carrying {short(carried)}")
-        if owed:
-            parts.append(f"owing {short(owed)}")
-        net = short(deposited + carried - owed)
-        lines.append(f"{currency} {net} net — {', '.join(parts)}")
+        net = sum(branches.values()) + carried - owed
+        blocks.append((f"{currency}: {short(net)} net", rows))
+    lines = []
+    for heading, rows in blocks:
+        lines.append(heading)
+        lines.extend(f"  {label}  {short(copper)}" for label, copper in rows)
     return lines
 
 
@@ -247,8 +243,9 @@ def main(s):
         )
         if not held:  # WEALTH went unanswered: the newest logged figures
             held = latest_carried_and_debt(connection, character)
-        for line in summary(report, held):
-            s.echo(f"wealth: {line}")
+        if lines := summary(report, held):
+            # One block, one prefix: the list reads as a list in the window.
+            s.echo("\n".join(["wealth:", *lines]))
         asked_at, report, report_stamp, last_branch_at = None, {}, None, None
 
     try:
