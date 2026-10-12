@@ -1,6 +1,6 @@
 # Tasks
 
-A task is an errand an NPC gives for coin: ask a task giver, accept inside thirty seconds, do it, and the one you deliver to pays. `;task <giver>` runs a delivery, a search or an item recovery end to end; the other kinds are accepted and handed to you until their wordings are captured (#505).
+A task is an errand an NPC gives for coin: ask a task giver, accept inside thirty seconds, do it, and the one you deliver to pays. `;task <giver>` runs a delivery, a search, an item recovery or a foraging task end to end; the other kinds are accepted and handed to you until their wordings are captured (#505).
 
 ## Using ;task
 

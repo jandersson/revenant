@@ -10,8 +10,9 @@ possible."). TASK reads the journal: the task in hand as JOURNAL_DELIVERY,
 or NO_TASK. The recipient thanks you by name and "hands you 314 Lirums".
 An item recovery's offer names the item, the creature and the area; its
 item drops in a kill's death line (drop_pattern), which ;hunt task
-watches for. The kill, boss, foraging and skinning offers are
-uncaptured and parse as "unknown". The record of the task in
+watches for. A foraging task names the count and the herb ("I need 11
+nuloe stems."), each GIVE credited as one item. The kill, boss and
+skinning offers are uncaptured and parse as "unknown". The record of the task in
 hand (the item's noun and id, taken from the hand at the accept) lives
 beside the training plans, so a run after the shop's night or a stop
 carries on. Elanthipedia: Task (the kinds and the givers' table).
@@ -31,7 +32,7 @@ COOLDOWN = "you must wait before I can give you a task"
 # "Thank you so much.  Remember, you're looking for a glaes locket.  Oh,
 # and you might find it better if you're kneeling."). The script trusts
 # the journal, not the words: ACCEPT is done when TASK shows the task.
-ACCEPTED = ("Here is the item", "you're looking for")
+ACCEPTED = ("Here is the item", "you're looking for", "Get to it")
 NO_TASK = "You are not currently on a task."
 JOURNAL_HEAD = "You look in your task journal"
 CLOSED_FOR_THE_NIGHT = "closed for the night"
@@ -90,6 +91,31 @@ _JOURNAL_SEARCHING = re.compile(
     r"(?P<giver>[A-Za-z][\w']*) wants you to recover (?:an? )?(?P<item>[\w' -]+?) "
     r"(?P<area>near [^.]+)\."
 )
+# A foraging task (the Leth Deriel trade minister, 2026-10-12): the offer "I
+# do have a small task I'd like for you to perform.  I need 11 nuloe
+# stems.  If you could get those for me, I would greatly appreciate it.";
+# the accept "Well, then.  Get to it.  Remember, I need 11 nuloe stems.
+# Also, I will treat each item you give me as one item." and "So, don't
+# try to give me a huge bundle, I'll only credit you for one!"; the
+# journal "The Leth Deriel trade minister in Leth Deriel wants you to
+# retrieve 11 nuloe stems.  You need to turn in 11 more."; each GIVE
+# "...takes the stems and says, "Thanks, Crannach!  I need 10 more."",
+# the last "...I have a few things here for you..." and the payment.
+_FORAGING = re.compile(
+    r"I need (?P<count>\d+) (?P<item>[\w' -]+?)\.\s+If you could get those"
+)
+_JOURNAL_FORAGING = re.compile(
+    r"(?P<giver>[A-Z][^:.]*?)(?: in [A-Z][^:.]*?)? wants you to retrieve "
+    r"(?P<count>\d+) (?P<item>[\w' -]+?)\."
+)
+_TURN_IN = re.compile(r"You need to turn in (?P<left>\d+) more")
+NEED_MORE = re.compile(r"I need (?P<left>\d+) more")
+FORAGED = "you manage to find"
+# Where a foraging task's herb grows when the map tags no room with it
+# (Elanthipedia: the herb's Common Locations); FORAGE takes the herb's
+# singular name, the giver says the plural ("nuloe stems"). Acenamacra
+# Road, Marsh gave 12 finds in 12 tries at Outdoorsmanship 881.
+FORAGE_ROOMS = {"nuloe stem": (2216, 2217)}
 _PAID = re.compile(r"hands you (?P<count>[\d,]+) (?P<currency>[A-Z]\w+)")
 # A recovery's item comes in the death line, bold on the story stream
 # (the poloh'izh hunt by hand, 2026-10-10, #509): "As grey poloh'izh dies,
@@ -224,6 +250,13 @@ def parse_offer(answer):
             "item": match.group("item").strip(),
             "area": match.group("area").strip(),
         }
+    match = _FORAGING.search(text)
+    if match:
+        return {
+            "kind": "foraging",
+            "item": match.group("item").strip(),
+            "count": int(match.group("count")),
+        }
     return {"kind": "unknown"}
 
 
@@ -258,6 +291,15 @@ def parse_journal(answer):
             "giver": match.group("giver"),
             "item": match.group("item").strip(),
             "area": match.group("area").strip(),
+        }
+    match = _JOURNAL_FORAGING.search(text)
+    if match:
+        left = _TURN_IN.search(text)
+        return {
+            "kind": "foraging",
+            "giver": match.group("giver").removeprefix("The ").strip(),
+            "item": match.group("item").strip(),
+            "count": int(left.group("left") if left else match.group("count")),
         }
     if JOURNAL_HEAD in text:
         return {"kind": "unknown"}
@@ -322,6 +364,25 @@ def search_outcome(answer):
     if any(word in text for word in SEARCH_FEATURE):
         return "feature"
     return "unknown"
+
+
+def forage_name(item):
+    """The name FORAGE takes for a foraging task's item: the singular ("nuloe
+    stem" for "nuloe stems"); a plural FORAGE never finds (;forage's red
+    flowers)."""
+    item = str(item or "").strip().lower()
+    return item[:-1] if item.endswith("s") and not item.endswith("ss") else item
+
+
+def forage_rooms(db, name):
+    """The rooms the map tags with the herb, else FORAGE_ROOMS'; empty when
+    neither knows one."""
+    tagged = {
+        room
+        for room, entry in db.rooms.items()
+        if name in (entry.get("tags") or ()) or f"{name}s" in (entry.get("tags") or ())
+    }
+    return tagged or {room for room in FORAGE_ROOMS.get(name, ()) if room in db.rooms}
 
 
 def giver_rooms(db, giver):

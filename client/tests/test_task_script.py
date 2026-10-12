@@ -304,6 +304,83 @@ def test_a_hunt_that_ends_without_the_item_leaves_the_task_to_carry_on():
     assert script.load("Lanival")["kind"] == "recovery"
 
 
+STEMS = {"exist": "185113829", "noun": "stems", "name": "nuloe stems"}
+# The Leth Deriel trade minister's foraging task, captured 2026-10-12.
+JOURNAL_FORAGE = (
+    "You look in your task journal and see the following entry:\n"
+    "The Leth Deriel trade minister in Leth Deriel wants you to retrieve 3 nuloe "
+    "stems.\nYou need to turn in 3 more.\n"
+)
+FOUND_STEMS = "You manage to find some nuloe stems.\nRoundtime: 4 sec.\n"
+TAKES = (
+    'The Leth Deriel trade minister takes the stems and says, "Thanks, Lanival!  '
+    'I need {} more."\n'
+)
+FORAGE_PAID = (
+    'The Leth Deriel trade minister says, "Thank you very much, Lanival.  I have a '
+    'few things here for you, thank you so much for your help."\n'
+    "The Leth Deriel trade minister hands you 785 Kronars.\n"
+)
+GROVE = MapDB(
+    [
+        {
+            "id": 9004,
+            "uid": [1],
+            "title": ["[Eshar's Trading Post, Main Room]"],
+            "wayto": {"2216": "out"},
+        },
+        {
+            "id": 2216,
+            "uid": [2],
+            "title": ["[Acenamacra Road, Marsh]"],
+            "wayto": {"9004": "west"},
+        },
+        {
+            "id": 2217,
+            "uid": [3],
+            "title": ["[Acenamacra Road, Marsh]"],
+            "wayto": {"2216": "west"},
+        },
+    ]
+)
+
+
+class Foraging(Fake):
+    """A find puts a stack of stems in the hand, as GET does; STOW and
+    GIVE empty it."""
+
+    def put(self, command):
+        super().put(command)
+        if command.startswith("forage ") and "manage to find" in "".join(self.pending):
+            self.state.right_hand = dict(STEMS)
+        elif command.startswith("get "):
+            self.state.right_hand = dict(STEMS)
+
+
+def test_a_foraging_task_is_foraged_a_stack_a_find_and_given_a_stack_at_a_time():
+    # 2026-10-12: "each item you give me as one item" — the finds are
+    # stowed apart and given one by one until the minister pays.
+    fake = Foraging(
+        {
+            "task": [JOURNAL_FORAGE, JOURNAL_CLEAR],
+            "forage nuloe stem": [
+                FOUND_STEMS,
+                "You forage around but are unable to find anything.\n",
+                FOUND_STEMS,
+                FOUND_STEMS,
+            ],
+            "give": [TAKES.format(2), TAKES.format(1), FORAGE_PAID],
+        }
+    )
+    fake.state.room_uid = 1
+    script.run(fake, script.parse_args([]), {"task_declines": []}, GROVE, walk)
+    out = echoes(fake)
+    assert fake.walks == [{2216, 2217}, {9004}]
+    assert fake.sent.count("forage nuloe stem") == 4
+    assert fake.sent.count("give #185113829 to minister") == 3
+    assert "foraged — the Leth Deriel trade minister paid 785 Kronars" in out
+
+
 def test_a_kind_in_task_declines_is_declined_inside_the_window():
     fake = Fake({"ask cormyn": [RECOVERY_OFFER], "decline": [LAPSED]})
     out = run(fake, ["cormyn"], declines=("recovery",))

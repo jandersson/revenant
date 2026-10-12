@@ -12,11 +12,12 @@ What it does
 - A delivery: the item lands in a hand and is stowed; the walk to the recipient's room (the givers' table in client/game/tasks.py), or for a wanderer with none (an old blind beggar in The Crossing) ;seek through the town's streets; GET the item by the id the accept recorded (INV LIST's id, then the noun, when there is none; two of a noun said), GIVE it to the recipient; the payment said; the journal read again.
 - A search: the area's rooms by title; in each KNEEL and SEARCH (each one's roundtime waited) until the find, SEARCHES_PER_ROOM at most; GET the find, STAND, the walk back to the giver, GIVE; the journal read again.
 - A recovery: ;hunt task, waited for — the area's rooms by title as the ground, the profile's weapons on whatever engages, until a kill's death line drops the item; ;hunt picks it up and goes home as any hunt does; then the walk to the giver, GIVE; the journal read again.
+- A foraging task (the giver counts each GIVE as one item): the walk to a room the map tags with the herb (else tasks.FORAGE_ROOMS), FORAGE until one find per item owed, each stowed apart; the walk back, a stack GIVEn at a time until the giver pays.
 
 What stops it
 - The giver's cooldown (ten minutes between asks, kept per giver: an ask inside it is not sent, the minutes left are said), an offer of a kind the profile declines, a recipient the table does not know, a walk that ends short — each said. A shop shut for the night is waited for: the door tried each game hour (fifteen real minutes), eight times at most. A walk that ends short otherwise: ;task again from there carries on.
 - A hunt that ends without the item (a floor, a ;hunt return): ;task again hunts on.
-- Delivery, searching and recovery are run by the script; kill, boss, foraging and skinning are accepted and handed over, their wordings captured on the way (#505).
+- Delivery, searching, recovery and foraging are run by the script; kill, boss and skinning are accepted and handed over, their wordings captured on the way (#505). A herb no room on record grows is handed over too.
 
 Elanthipedia: Task; the wordings captured on Crannach's delivery (docs/tasks.md).
 """
@@ -27,11 +28,13 @@ import time
 
 from client.game import hands, items, tasklog, travel
 from client.game.act import ask, said, unknown, whole_answer
-from client.game.loop import wants_stop
+from client.game.loop import danger, wants_stop
 from client.game.mapdb import MapDB
 from client.game.seek import area_route, present, town_route
 from client.game.tasks import (
     CLOSED_FOR_THE_NIGHT,
+    FORAGED,
+    NEED_MORE,
     LAPSED,
     SEARCHES_PER_ROOM,
     accepted,
@@ -40,6 +43,8 @@ from client.game.tasks import (
     clear,
     decide,
     declined,
+    forage_name,
+    forage_rooms,
     available_givers,
     giver_rooms,
     load,
@@ -184,6 +189,11 @@ def describe(task):
     if task.get("kind") == "searching":
         return (
             f"a search for the {task.get('item')} {task.get('area')} (kneel and search)"
+        )
+    if task.get("kind") == "foraging":
+        return (
+            f"a foraging task of {task.get('count')} {task.get('item')} for the "
+            f"{task.get('giver')}"
         )
     if task.get("kind") == "unknown":
         return "a task of a kind not captured yet"
@@ -499,6 +509,74 @@ def run_recovery(s, task, profile, mapdb, walk_fn):
     return hand_in(s, task, mapdb, walk_fn)
 
 
+FORAGE_TRIES = 4  # FORAGEs per item owed before a foraging task gives up
+
+
+def run_foraging(s, task, mapdb, walk_fn):
+    """A giver's foraging task (the Leth Deriel trade minister's 11 nuloe
+    stems, 2026-10-12): the herb FORAGEd where it grows, each find
+    stowed apart — the giver credits one GIVE as one item, "don't try to
+    give me a huge bundle" — then walked back and GIVEn a stack at a
+    time until the giver pays."""
+    item, owed = task["item"], int(task.get("count") or 0)
+    giver, name = str(task.get("giver") or ""), forage_name(task["item"])
+    noun = item.split()[-1]
+    rooms = forage_rooms(mapdb, name)
+    if not rooms:
+        s.echo(f"task: no room on record grows {name} — yours from here")
+        return False
+    if not travel.go(s, rooms, f"the {name}", db=mapdb, walk=walk_fn):
+        s.echo(f"task: stopped short of the {name} — ;task again carries on")
+        return False
+    found = 0
+    for _ in range(owed * FORAGE_TRIES):
+        if found >= owed:
+            break
+        if reason := danger(s):
+            s.echo(f"task: {reason} — stopping with {found} of {owed}")
+            return False
+        if wants_stop(s):
+            s.echo(f"task: {found} of {owed} {item} found — ;task again carries on")
+            return False
+        answer = ask(s, f"forage {name}")
+        s.waitrt()
+        if FORAGED in answer.lower():
+            hands.stow(s, noun, ask)  # apart, never combined: one GIVE, one item
+            found += 1
+    if found < owed:
+        s.echo(f"task: only {found} of {owed} {item} found — ;task again forages on")
+        return False
+    s.echo(f"task: {found} {item} found — back to the {giver}")
+    if not travel.go(
+        s, giver_rooms(mapdb, giver), f"{giver}'s room", db=mapdb, walk=walk_fn
+    ):
+        s.echo(f"task: stopped short of the {giver} — ;task again carries on")
+        return False
+    for _ in range(owed):
+        ask(s, f"get my {noun}")
+        held = items.ref(s, noun)
+        if not held:
+            s.echo(f"task: no more {item} on you — ;task again forages the rest")
+            return False
+        answer = ask(s, f"give {held} to {person_name(giver)}")
+        if payment := paid(answer):
+            s.echo(f"task: foraged — the {giver} paid {payment[0]} {payment[1]}")
+            tasklog.log_end(
+                task.get("log_seq"),
+                done_at=tasklog.now(),
+                paid=payment[0],
+                currency=payment[1],
+            )
+            clear(character(s))
+            return True
+        if not NEED_MORE.search(answer):
+            unknown(s, "task", "GIVE", answer)
+            hands.stow(s, noun, ask)
+            return False
+    s.echo(f"task: {owed} given and no pay yet — the journal says what is owed")
+    return False
+
+
 def run(s, options, profile, mapdb, walk_fn=walk):
     declines = list(profile.get("task_declines") or [])
     name = character(s)
@@ -511,7 +589,7 @@ def run(s, options, profile, mapdb, walk_fn=walk):
         return
     task = parse_journal(ask(s, "task"))
     if task is not None:
-        if task.get("kind") not in ("delivery", "searching", "recovery"):
+        if task.get("kind") not in ("delivery", "searching", "recovery", "foraging"):
             s.echo(
                 f"task: the journal holds {describe(task)} — beyond the script, yours from here"
             )
@@ -533,6 +611,8 @@ def run(s, options, profile, mapdb, walk_fn=walk):
             run_search(s, task, mapdb, walk_fn)
         elif task["kind"] == "recovery":
             run_recovery(s, task, profile, mapdb, walk_fn)
+        elif task["kind"] == "foraging":
+            run_foraging(s, task, mapdb, walk_fn)
         else:
             deliver(s, task, mapdb, walk_fn)
         return
@@ -554,6 +634,10 @@ def run(s, options, profile, mapdb, walk_fn=walk):
     if offer["kind"] == "recovery":
         record(name, task)
         run_recovery(s, task, profile, mapdb, walk_fn)
+        return
+    if offer["kind"] == "foraging":
+        record(name, task)
+        run_foraging(s, task, mapdb, walk_fn)
         return
     if offer["kind"] != "delivery":
         record(name, task)

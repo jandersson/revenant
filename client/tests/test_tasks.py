@@ -68,6 +68,33 @@ def test_an_ask_is_an_offer_a_cooldown_or_unknown():
     assert tasks.classify_ask("") == "unknown"
 
 
+def test_a_foraging_task_is_read_from_the_offer_and_the_journal():
+    # The Leth Deriel trade minister, captured 2026-10-12.
+    offer = (
+        "The Leth Deriel trade minister says, \"I do have a small task I'd like for "
+        "you to perform.  I need 11 nuloe stems.  If you could get those for me, I "
+        'would greatly appreciate it."'
+    )
+    assert tasks.parse_offer(offer) == {
+        "kind": "foraging",
+        "item": "nuloe stems",
+        "count": 11,
+    }
+    journal = (
+        "You look in your task journal and see the following entry:\n"
+        "The Leth Deriel trade minister in Leth Deriel wants you to retrieve 11 "
+        "nuloe stems.\nYou need to turn in 4 more.\n"
+    )
+    assert tasks.parse_journal(journal) == {
+        "kind": "foraging",
+        "giver": "Leth Deriel trade minister",
+        "item": "nuloe stems",
+        "count": 4,  # what is still owed
+    }
+    assert tasks.accepted("Well, then.  Get to it.  Remember, I need 11 nuloe stems.")
+    assert tasks.forage_name("nuloe stems") == "nuloe stem"
+
+
 def test_a_delivery_offer_names_the_person_and_the_place():
     assert tasks.parse_offer(DELIVERY_OFFER) == {
         "kind": "delivery",
