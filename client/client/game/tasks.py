@@ -11,8 +11,9 @@ or NO_TASK. The recipient thanks you by name and "hands you 314 Lirums".
 An item recovery's offer names the item, the creature and the area; its
 item drops in a kill's death line (drop_pattern), which ;hunt task
 watches for. A foraging task names the count and the herb ("I need 11
-nuloe stems."), each GIVE credited as one item. The kill, boss and
-skinning offers are uncaptured and parse as "unknown". The record of the task in
+nuloe stems."), each GIVE credited as one item; a skinning task the
+same with a creature's skins or parts. The kill and boss offers are
+uncaptured and parse as "unknown". The record of the task in
 hand (the item's noun and id, taken from the hand at the accept) lives
 beside the training plans, so a run after the shop's night or a stop
 carries on. Elanthipedia: Task (the kinds and the givers' table).
@@ -117,13 +118,19 @@ _JOURNAL_FORAGING = re.compile(
 # the journal "A barkeep in The Crossing wants you to retrieve 6 skins
 # from the province's storm bull population.  A barkeep will accept "a
 # storm bull hide".  You still need to turn in 6 more." Read first.
+# The Estate Holder representative asks for parts the same way ("I need 10
+# parts from the province's yellow-bristled gremlin population. ... I think
+# they have a yellow gremlin bristle.", 2026-10-12): SKIN after ARRANGE FOR
+# PART, so the piece is kept.
 _SKINNING = re.compile(
-    r"I need (?P<count>\d+) skins from the province's (?P<creature>[\w' -]+?) "
-    r"population\.(?:.*?I think they have (?:an? )?(?P<item>[\w' -]+?)\.)?"
+    r"I need (?P<count>\d+) (?P<piece>skin|part)s from the province's "
+    r"(?P<creature>[\w' -]+?) population\."
+    r"(?:.*?I think they have (?:an? )?(?P<item>[\w' -]+?)\.)?"
 )
 _JOURNAL_SKINNING = re.compile(
     r"(?P<giver>[A-Z][^:.]*?)(?: in [A-Z][^:.]*?)? wants you to retrieve "
-    r"(?P<count>\d+) skins from the province's (?P<creature>[\w' -]+?) population\."
+    r"(?P<count>\d+) (?P<piece>skin|part)s from the province's "
+    r"(?P<creature>[\w' -]+?) population\."
     r'(?:.*?will accept "(?:an? )?(?P<item>[^"]+)")?'
 )
 _TURN_IN = re.compile(r"need to turn in (?P<left>\d+) more")
@@ -283,6 +290,7 @@ def parse_offer(answer):
             "item": (match.group("item") or "").strip(),
             "creature": match.group("creature"),
             "count": int(match.group("count")),
+            "piece": match.group("piece"),
         }
     match = _FORAGING.search(text)
     if match:
@@ -335,6 +343,7 @@ def parse_journal(answer):
             "item": (match.group("item") or "").strip(),
             "creature": match.group("creature"),
             "count": int(left.group("left") if left else match.group("count")),
+            "piece": match.group("piece"),
         }
     match = _JOURNAL_FORAGING.search(text)
     if match:

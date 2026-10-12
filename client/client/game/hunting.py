@@ -59,11 +59,15 @@ def zone(name):
 def zones_with(creature):
     """The zone names whose creatures include `creature` ("storm bull": the
     Leth bulls and the two Ilithi grounds)."""
-    wanted = str(creature or "").strip().lower()
+
+    # The game's "yellow-bristled gremlin" is dr-scripts' "Yellow bristled gremlin".
+    def plain(name):
+        return str(name or "").strip().lower().replace("-", " ")
+
     return [
         name
         for name, entry in ZONES.items()
-        if any(str(listed).lower() == wanted for listed, *_ in entry[2])
+        if any(plain(listed) == plain(creature) for listed, *_ in entry[2])
     ]
 
 

@@ -219,7 +219,8 @@ def describe(task):
         )
     if task.get("kind") == "skinning":
         return (
-            f"a skinning task of {task.get('count')} {task.get('creature')} skins "
+            f"a skinning task of {task.get('count')} {task.get('creature')} "
+            f"{task.get('piece') or 'skin'}s "
             f"({task.get('item') or 'the hide'}) for the {task.get('giver')}"
         )
     if task.get("kind") == "unknown":

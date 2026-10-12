@@ -110,6 +110,7 @@ def test_a_skinning_task_is_no_foraging_task():
         "item": "storm bull hide",
         "creature": "storm bull",
         "count": 6,
+        "piece": "skin",
     }
     journal = (
         "You look in your task journal and see the following entry:\n"
@@ -123,6 +124,41 @@ def test_a_skinning_task_is_no_foraging_task():
         "item": "storm bull hide",
         "creature": "storm bull",
         "count": 5,
+        "piece": "skin",
+    }
+
+
+def test_a_task_for_parts_is_a_skinning_task_for_the_part():
+    # The Estate Holder representative, captured 2026-10-12 on the first
+    # ;task loop representative: read as foraging, "no room grows" it.
+    offer = (
+        "An Estate Holder representative says, \"I do have a small task I'd like "
+        "for you to perform.  I need 10 parts from the province's yellow-bristled "
+        "gremlin population.  If you could get those for me, I would greatly "
+        "appreciate it.  I think they have a yellow gremlin bristle.  Such a "
+        "trophy would suffice as evidence of your kills."
+    )
+    assert tasks.parse_offer(offer) == {
+        "kind": "skinning",
+        "item": "yellow gremlin bristle",
+        "creature": "yellow-bristled gremlin",
+        "count": 10,
+        "piece": "part",
+    }
+    journal = (
+        "You look in your task journal and see the following entry:\n"
+        "An Estate Holder representative in Fang Cove wants you to retrieve 10 "
+        "parts from the province's yellow-bristled gremlin population.  An Estate "
+        'Holder representative will accept "a yellow gremlin bristle".  You still '
+        "need to turn in 10 more.\n"
+    )
+    assert tasks.parse_journal(journal) == {
+        "kind": "skinning",
+        "giver": "Estate Holder representative",
+        "item": "yellow gremlin bristle",
+        "creature": "yellow-bristled gremlin",
+        "count": 10,
+        "piece": "part",
     }
 
 

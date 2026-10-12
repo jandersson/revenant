@@ -5,7 +5,7 @@
     ;hunt <style>           a hunt style from the profile's `hunts` (its ground, prey, weapons, `until`);
                             a style named after the ground (storm_bulls) applies there unasked
     ;hunt task              the item recovery ;task took: its area, whatever engages, until the item drops;
-                            a skinning task: the creature's ground, the hides kept loose, until the count
+                            a skinning task: the creature's ground, the hides (or parts) kept loose, until the count
     ;hunt styles            list the profile's hunt styles
     ;hunt profile [style]   print the profile the hunt would use
     ;hunt grounds [rank]    hunting zones for your weakest weapon's rank (or <rank>), nearest first,
@@ -1386,8 +1386,11 @@ def skin(s, profile, corpse, tally):
         # "You begin to arrange the bull's corpse in a manner that, while
         # making the process of obtaining a skin more difficult, guarantees
         # a greater reward." and the SKIN after it "...a sterling example of
-        # a storm bull hide from the bull carcass." (2026-10-12).
-        arranged = ask(s, f"arrange {corpse} for skin")
+        # a storm bull hide from the bull carcass." (2026-10-12). A parts
+        # task (the Estate Holder representative's gremlin bristles) asks
+        # FOR PART.
+        piece = profile.get("task_piece") or "skin"
+        arranged = ask(s, f"arrange {corpse} for {piece}")
         s.waitrt()
         if not tally.arrange_reported:
             tally.arrange_reported = True
@@ -2267,6 +2270,7 @@ def skinning_profile(s, profile, db, task):
         "bundle": False,
         "task_hide": hide,
         "task_hides": count,
+        "task_piece": task.get("piece") or "skin",
     }
     return {**profile, **overlay}, ground
 

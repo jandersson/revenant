@@ -201,6 +201,42 @@ def test_a_skinning_hunt_ends_at_the_tasks_count(bull_yard, travel):
     assert sum(text.startswith("hunt: ARRANGE answered") for text in arena.echoed) == 1
 
 
+def test_a_parts_task_arranges_for_the_part_on_the_bestiarys_unhyphenated_ground(
+    monkeypatch, travel
+):
+    # The representative's 10 yellow gremlin bristles (2026-10-12): the
+    # game says "yellow-bristled", dr-scripts' bestiary "Yellow bristled".
+    from client.game import hunting
+
+    zone = ("Fang Cove", (6046, 6047), (("Yellow bristled gremlin", 280, 410),), ())
+    monkeypatch.setitem(hunting.ZONES, "yard_gremlins", zone)
+    bristles = {
+        **SKINNING,
+        "giver": "Estate Holder representative",
+        "item": "yellow gremlin bristle",
+        "creature": "yellow-bristled gremlin",
+        "count": 1,
+        "piece": "part",
+    }
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "skin": ["You work loose a yellow gremlin bristle from the carcass."],
+            "loot": [NOTHING],
+        }
+    )
+    tasks.record("Lanival", bristles)
+    overlaid, ground = hunt.task_profile(arena, dict(TASK_PROFILE), GROUND)
+    assert ground == [6046, 6047] and overlaid["prey"] == "gremlin"
+    overlaid["prey"] = ""
+    hunt.hunt(arena, overlaid, GROUND, travel_first=False, ground=ground)
+    skins = [i for i, c in enumerate(arena.sent) if c.startswith("skin ")]
+    assert skins and all(arena.sent[i - 1].endswith(" for part") for i in skins)
+    assert "1 yellow gremlin bristle(s) cut — the task's count" in "\n".join(
+        arena.echoed
+    )
+
+
 def test_a_put_into_no_such_container_falls_back_to_stow(bull_yard, travel):
     # 2026-10-12: "duffel" for a heavy silk duffel bag — PUT answered "What
     # were you referring to?", the horn was taken for stowed and stayed in
