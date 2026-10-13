@@ -468,10 +468,11 @@ def test_the_debilitation_spell_is_cast_at_the_prey_before_the_swing(travel):
     # DISCERN first, before the weapon is drawn (#202); the cast in the fight.
     # PREPARE, the swing while the pattern forms (its kill skinned and
     # searched, the pattern holding), CAST (#203).
-    assert arena.sent[:5] == [
+    assert arena.sent[:6] == [
         "discern stun foe",
         "wield my handaxe",
         "stance set 100 80 0",
+        "look in my sack",  # the boxes carried (#545)
         "prepare stun foe",
         "attack rat",
     ]

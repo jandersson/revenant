@@ -55,9 +55,10 @@ def test_readies_the_weapon_and_stance_walks_to_the_ground_then_hunts(travel):
         Arena({"attack": [(KILL, kill)], "skin": [SKINNED], "loot": [NOTHING]})
     )
     assert arena.walks[0] == {6046, 6047}
-    assert arena.sent[:3] == [
+    assert arena.sent[:4] == [
         "wield my handaxe",
         "stance set 100 80 0",
+        "look in my sack",  # the boxes carried (#545)
         "attack rat",
     ]
     assert any(text.startswith("hunt: rat down (1)") for text in arena.echoed)
@@ -606,7 +607,7 @@ def test_an_empty_room_moves_to_the_next_room_of_the_ground(travel):
 
 def test_below_the_health_floor_the_hunt_breaks_off_and_goes_home(travel):
     arena = _run(Arena({"attack": []}, health=40), travel_first=False)
-    assert arena.sent[2:5] == ["retreat", "retreat", "west"]
+    assert arena.sent[3:6] == ["retreat", "retreat", "west"]
     assert not any(command.startswith("attack") for command in arena.sent)
     assert any("health 40% below the floor" in text for text in arena.echoed)
     assert arena.walks[-1] == {1}
@@ -621,7 +622,7 @@ def test_a_break_off_with_no_home_leaves_the_ground(travel):
         profile=PROFILE | {"home": ""},
         travel_first=False,
     )
-    assert arena.sent[2:5] == ["retreat", "retreat", "west"]
+    assert arena.sent[3:6] == ["retreat", "retreat", "west"]
     assert arena.walks[-1] == {6048}  # the gate, the only room off the ground
     assert any("left the ground for" in text for text in arena.echoed)
     assert any("set home" in text for text in arena.echoed)

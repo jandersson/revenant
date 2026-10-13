@@ -503,6 +503,7 @@ class Tally:
         self.task_hides = 0  # a skinning task's hides cut this run (#509)
         self.coins = 0  # coin piles STOWed after a search that left some
         self.boxes = 0  # boxes into the loot container
+        self.boxes_carried = 0  # boxes on the character when the run began (#545)
         self.unlootable = set()  # nouns the game found no room for this run
         self.boxes_full = False  # the loot container refused a box: no more boxes
         self.unrecognized = 0

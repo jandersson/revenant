@@ -174,6 +174,46 @@ def test_a_gem_a_full_pouch_refuses_goes_with_the_loot(monkeypatch):
     )
 
 
+def test_the_boxes_already_carried_count_toward_the_box_limit(monkeypatch):
+    # #545, after combat-trainer's box_loot_limit (DRCI.count_all_boxes):
+    # the run's count starts at the boxes the sack already holds.
+    found = iter([["a small wooden coffer"], ["a small wooden coffer"], []])
+    monkeypatch.setattr(
+        hunt.loot, "new_items", lambda before, after, creatures=(): next(found, [])
+    )
+    arena = Arena(
+        {
+            "attack": [(KILL, _no_kill), (KILL, kill), (KILL, kill)],
+            "loot": [NOTHING] * 3,
+            "look in my sack": [
+                "In the canvas sack you see a brass crate, some coins and a "
+                "mahogany coffer.\n"
+            ],
+            "stow box": ["You put your coffer in your canvas sack.\n"] * 3,
+        }
+    )
+    limited = PROFILE | {"skin": False, "box_limit": 3, "max_kills": 2}
+    _run(arena, profile=limited, travel_first=False)
+    assert arena.sent.count("stow box") == 1  # two carried, one more fits
+    assert any("3 box(es) carried — the coffer stays" in e for e in arena.echoed)
+
+
+def test_a_box_still_in_hand_at_the_start_means_no_box_this_run(monkeypatch):
+    # Crannach, 2026-10-13: a crate the full duffel refused stayed in hand;
+    # the next run's STOW BOX put a coffer in the other hand, and no SKIN
+    # had a hand for fifty kills.
+    found = iter([["a small wooden coffer"], []])
+    monkeypatch.setattr(
+        hunt.loot, "new_items", lambda before, after, creatures=(): next(found, [])
+    )
+    arena = Arena({"attack": [(KILL, kill)], "loot": [NOTHING]})
+    arena.state.left_hand = {"noun": "crate", "exist": "9", "name": "brass crate"}
+    arena.state.right_hand = None
+    _run(arena, profile=PROFILE | {"skin": False, "max_kills": 1}, travel_first=False)
+    assert "stow box" not in arena.sent and "get coffer" not in arena.sent
+    assert any("a crate is still in hand — the sack is full" in e for e in arena.echoed)
+
+
 def _no_kill(arena):
     """The first swing's line, the rat still up (test_hunt's _stands)."""
 

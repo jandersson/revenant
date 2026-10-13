@@ -318,6 +318,28 @@ def test_a_put_into_no_such_container_falls_back_to_stow(bull_yard, travel):
     assert arena.sent.index("put my hide in my sack") < arena.sent.index("stow my hide")
 
 
+def test_a_skinning_hunt_with_no_hand_free_ends_rather_than_kill_on(bull_yard, travel):
+    # #545: a box in each hand, "You must have one hand free to skin." after
+    # the stow as before it — 50 kills for 2 bristles until it was stopped.
+    no_hand = "You must have one hand free to skin."
+    arena = Arena(
+        {
+            "attack": [(KILL, lambda a: None), (KILL, kill)],
+            "skin": [no_hand, no_hand],
+            "loot": [NOTHING] * 2,
+        }
+    )
+    arena.state.left_hand = {"noun": "coffer", "exist": "1", "name": "mahogany coffer"}
+    tasks.record("Lanival", SKINNING)
+    overlaid, ground = hunt.task_profile(arena, dict(TASK_PROFILE), GROUND)
+    overlaid["prey"] = ""
+    hunt.hunt(arena, overlaid, GROUND, travel_first=False, ground=ground)
+    out = "\n".join(arena.echoed)
+    assert "no hand free to skin — skinning is off for this run" in out
+    assert "skinning is off — no storm bull hide can be cut" in out
+    assert sum(command.startswith("attack") for command in arena.sent) == 1
+
+
 def test_a_skinning_hunt_with_nothing_to_skin_with_ends_at_the_first_skin(
     bull_yard, travel
 ):

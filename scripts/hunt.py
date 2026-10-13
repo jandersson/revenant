@@ -57,6 +57,7 @@ from client.game import (
     act,
     almanac,
     barbarian,
+    boxes,
     boxlog,
     casting,
     cards,
@@ -928,6 +929,26 @@ def known_weapons(s, profile):
     return found
 
 
+def count_boxes(s, profile, tally):
+    """The boxes on the character when a run begins (#545, after
+    combat-trainer's box_loot_limit and DRCI.count_all_boxes): those the
+    loot container lists (LOOK IN) and those in hand. `box_limit` counts
+    from there, so it holds across runs. A box still in hand once the
+    hands are cleared is one the full container refused: no box is
+    picked up this run, or the next fills the other hand and no SKIN
+    has a hand (Crannach, 2026-10-13: 50 kills, 2 bristles)."""
+    held = boxes.held_boxes(*hands.tags(s).values())
+    container = str(profile.get("loot_container") or "").strip()
+    stored = boxes.boxes_in(ask(s, f"look in my {container}")) if container else None
+    tally.boxes_carried = len(held) + len(stored or [])
+    if held:
+        tally.boxes_full = True
+        s.echo(
+            f"hunt: a {held[0]} is still in hand — the {container or 'container'} "
+            "is full; no box is picked up this run (;boxes empties it)"
+        )
+
+
 def ready(s, profile, tally=None, index=0):
     """Hands cleared, the first turn's weapon in hand and stance set
     before the first swing."""
@@ -1436,6 +1457,12 @@ def skin(s, profile, corpse, tally):
     elif outcome == "no_knife":
         s.echo("hunt: nothing to skin with — skinning is off for this run")
         profile["skin"] = False
+    elif outcome == "hands_full":
+        # Still "You must have one hand free to skin." after the stow: a
+        # box the full container refused holds the hand (#545). A skinning
+        # task's hunt ends on it rather than killing on uncut.
+        s.echo("hunt: no hand free to skin — skinning is off for this run")
+        profile["skin"] = False
     elif outcome is None:
         unrecognized(s, tally, "skin", answer)
 
@@ -1484,7 +1511,7 @@ def grab(s, profile, before, tally):
             continue
         if what == "box" and tally.boxes_full:
             continue  # said once, when the container refused the first
-        if what == "box" and limit and tally.boxes >= limit:
+        if what == "box" and limit and tally.boxes_carried + tally.boxes >= limit:
             s.echo(f"hunt: {limit} box(es) carried — the {noun} stays")
             continue
         if what == "box" and not farming(profile) and box_beyond(s, tally, noun):
@@ -2367,8 +2394,9 @@ def loop(s, profile, db, ground, avoid, tally):
         if profile["max_kills"] and tally.kills >= profile["max_kills"]:
             return "kill fuse reached"
         box_limit = int(profile.get("box_limit") or 0)
-        if profile.get("until") == "boxes" and box_limit and tally.boxes >= box_limit:
-            return f"{tally.boxes} box(es) in the {profile.get('loot_container') or 'pack'} — the farm is done"
+        carried = tally.boxes_carried + tally.boxes
+        if profile.get("until") == "boxes" and box_limit and carried >= box_limit:
+            return f"{carried} box(es) in the {profile.get('loot_container') or 'pack'} — the farm is done"
         if farming(profile) and tally.boxes_full:
             return (
                 f"the {profile.get('loot_container') or 'pack'} is full after "
@@ -2465,6 +2493,7 @@ def hunt(s, profile, db, travel_first=True, avoid=(), ground=None):
             "(profile wound_floor; off never asks HEALTH)"
         )
     ready(s, profile, tally, first)
+    count_boxes(s, profile, tally)
     if profile.get("task_item"):
         s.flag(TASK_DROP, tasks.drop_pattern(profile["task_item"]))
     started = hunting.clock()

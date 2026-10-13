@@ -99,10 +99,11 @@ def test_the_targeted_spell_is_cast_at_the_prey_before_the_swing(travel):
     # Only in the fight, the weapon drawn: the spell takes it as its focus.
     # Targeted magic: PREPARE, TARGET the prey, the swing while the
     # pattern forms, CAST at the pattern (#203).
-    assert arena.sent[:6] == [
+    assert arena.sent[:7] == [
         "discern footman's strike",
         "wield my handaxe",
         "stance set 100 80 0",
+        "look in my sack",  # the boxes carried (#545)
         "prepare footman's strike",
         "target rat",
         "attack rat",
