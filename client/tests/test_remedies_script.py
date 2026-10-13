@@ -165,10 +165,12 @@ def profile(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
-def no_belt():
+def default_tools():
     """A test that calls the script's helpers without run() starts with
-    no tool belt left over from another test's profile."""
-    script.BELTS.clear()
+    the bare mortar and pestle and no tool belt: a bowl remedy or a
+    profile's iron mortar left in TOOLS by the worker's previous test
+    sent "get my bowl" to tools_in_hand under xdist (#536)."""
+    script.name_tools({})
 
 
 @pytest.fixture(autouse=True)
