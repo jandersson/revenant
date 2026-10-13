@@ -1,7 +1,9 @@
 """The map dock: the community map drawn live around the character (#56).
 
-MapView renders the BFS neighborhood of the current room — layout comes
-from client/maplayout (Qt-free, where the tests live), Qt only draws.
+MapView renders the BFS neighborhood of the current room where the
+community map's image draws each room, a grid cell for the rest —
+layout comes from client/maplayout (Qt-free, where the tests live), Qt
+only draws (positions are cells, floats for drawn rooms, times CELL).
 It follows the engine's "room" stream as the character moves, and a
 click on a room walks there (";go2 <id>" through the shared walker).
 Survey rooms from the local overlay get a violet outline, the current
