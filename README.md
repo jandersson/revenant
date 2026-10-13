@@ -17,7 +17,7 @@ uv sync          # creates .venv and installs everything, Python included if nee
 uv run revenant  # first run: a login window
 ```
 
-The login window asks for your account, password, and character (the roster is fetched from the server once the account and password are in). Tick *remember* and the password goes to your OS keychain and the names to `~/.revenant/login.json`; the next `uv run revenant` logs straight in. Nothing is ever written to a file in plain text. The game window appears with "Connected" in the status bar, and the community map downloads on first use of `;go2` or the Map dock.
+The login window asks for your account, password, and character (the roster is fetched from the server once the account and password are in). Tick *remember* and the password goes to your OS keychain and the names to `~/.revenant/login.json`; the next `uv run revenant` logs straight in. Nothing is ever written to a file in plain text. The game window appears with "Connected" in the status bar, and the community map downloads on first use of `;go2` (or any script that walks) and again once it is a week old.
 
 Run the commands from the repository root; that is where `uv` finds the workspace and the session finds its scripts.
 
@@ -103,7 +103,7 @@ Revenant stands on the DragonRealms community's open work, and credit belongs wh
 - [robbintt/pylanthia](https://github.com/robbintt/pylanthia) — a threaded Python DragonRealms client for headless use: the other Python take on this game, and an early inspiration.
 - [elanthia-online/lich-5](https://github.com/elanthia-online/lich-5) — Lich, the scripting engine most of the DR world runs on. Revenant's session-and-scripts split is modeled on it, and `;lnet` is a 1:1 port of `lnet.lic`.
 - [elanthia-online/dr-scripts](https://github.com/elanthia-online/dr-scripts) — the community's Lich scripts for DragonRealms: the reference for what a script ecosystem grows into, and where the `;`-command habits come from.
-- [elanthia-online/mapdb-backup-dr](https://github.com/elanthia-online/mapdb-backup-dr) — the community map. Downloaded on first use for the Map dock and `;go2`, never vendored.
+- [elanthia-online/mapdb-backup-dr](https://github.com/elanthia-online/mapdb-backup-dr) — the community map. Downloaded on first use of `;go2` and refreshed weekly, never vendored.
 - [elanthia-online/ProfanityFE](https://github.com/elanthia-online/ProfanityFE) — the terminal frontend. The terminal frontend [launcher/](launcher/) pairs with Lich; revenant's own is `revenant-tui`, which attaches to a running session (docs/running.md).
 - [elanthia-online/illthorn](https://github.com/elanthia-online/illthorn) — an Electron frontend for Lich.
 - [elanthia-online/Lichborne](https://github.com/elanthia-online/Lichborne) — a community-driven DragonRealms client for Lich users.

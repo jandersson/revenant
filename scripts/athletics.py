@@ -719,12 +719,11 @@ def auto_train(s, db=None, walk=None):
     """The no-arguments mode: walk to the optimal rung and train it,
     moving up the ladder when a rung goes stale."""
     if db is None or walk is None:
-        from client.game.mapdb import MapDB, download, mapdb_path
+        from client.game.mapdb import MapDB, ensure_fresh
         from client.game.walker import walk as real_walk
 
-        if not mapdb_path().is_file():
-            s.echo("downloading map database (first use, ~13MB) ...")
-            download()
+        if db is None:
+            ensure_fresh(s.echo)
         db = db or MapDB.load()
         walk = walk or real_walk
 

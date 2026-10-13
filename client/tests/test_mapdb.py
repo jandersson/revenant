@@ -1,3 +1,7 @@
+import urllib.error
+
+import pytest
+
 from client.game.mapdb import MapDB, normalize_title, walkable
 
 ROOMS = [
@@ -691,3 +695,104 @@ def test_a_find_tags_its_room_once_in_the_map_and_the_overlay(tmp_path, monkeypa
     assert [room["tags"] for room in overlay] == [["red flower", "nuloe stem"]]
     mapdb._LOADED.clear()
     assert mapdb.MapDB.load().rooms_tagged("nuloe stem") == [2216]
+
+
+# --- the map fetched again once a week old (#543) ---
+
+DAY = 86400
+
+
+def _serve(monkeypatch, answer):
+    """urlopen answers `answer`'s bytes, or raises it when an exception."""
+    import io
+    import urllib.request
+
+    def urlopen(url, timeout=None):
+        if isinstance(answer, Exception):
+            raise answer
+        return io.BytesIO(answer)
+
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+
+
+def test_a_map_a_week_old_is_fetched_again_and_the_next_load_is_the_new_one(
+    monkeypatch, tmp_path
+):
+    # The copy here was two months and 189 rooms behind (#543).
+    import json
+    import time
+
+    from client.game import mapdb
+
+    path = _map_file(
+        tmp_path, monkeypatch, [{"id": 1, "title": ["[A]"]}], time.time() - 8 * DAY
+    )
+    old = mapdb.MapDB.load()
+    _serve(monkeypatch, json.dumps([{"id": 1}, {"id": 2, "title": ["[B]"]}]).encode())
+    echoes = []
+    assert mapdb.ensure_fresh(echoes.append) == path
+    assert echoes == ["refreshing map database (8 days old, ~13MB) ..."]
+    new = mapdb.MapDB.load()
+    assert new is not old and 2 in new.rooms
+    assert [p.name for p in tmp_path.iterdir()] == ["mapdb.json"]  # no .part left
+
+
+def test_a_missing_map_is_downloaded_on_first_use(monkeypatch, tmp_path):
+    import json
+
+    from client.game import mapdb
+
+    monkeypatch.setenv("REVENANT_MAPDB", str(tmp_path / "mapdb" / "mapdb.json"))
+    _serve(monkeypatch, json.dumps([{"id": 7}]).encode())
+    echoes = []
+    path = mapdb.ensure_fresh(echoes.append)
+    assert json.loads(path.read_text()) == [{"id": 7}]
+    assert echoes == ["downloading map database (first use, ~13MB) ..."]
+
+
+def test_a_map_younger_than_a_week_is_left_alone(monkeypatch, tmp_path):
+    import time
+
+    from client.game import mapdb
+
+    path = _map_file(tmp_path, monkeypatch, [{"id": 1}], time.time() - 6 * DAY)
+    _serve(monkeypatch, AssertionError("fetched a fresh map"))
+    echoes = []
+    assert mapdb.ensure_fresh(echoes.append) == path
+    assert echoes == []
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        urllib.error.URLError("no route"),
+        b"<html>rate limited</html>",
+        b'[{"id": 1}, {"id"',  # cut off mid-read
+        b'{"rooms": []}',
+        b"[]",
+        b'[{"title": ["[A]"]}]',  # a room without an id
+    ],
+)
+def test_a_failed_or_garbled_fetch_keeps_the_old_copy(monkeypatch, tmp_path, answer):
+    import time
+
+    from client.game import mapdb
+
+    path = _map_file(tmp_path, monkeypatch, [{"id": 1}], time.time() - 30 * DAY)
+    before = path.read_bytes()
+    _serve(monkeypatch, answer)
+    echoes = []
+    assert mapdb.ensure_fresh(echoes.append) == path  # never raises
+    assert path.read_bytes() == before
+    assert len(echoes) == 2 and echoes[1].endswith("keeping the old copy")
+    assert [p.name for p in tmp_path.iterdir()] == ["mapdb.json"]
+
+
+def test_a_failed_first_download_is_raised(monkeypatch, tmp_path):
+    # No copy to fall back on: the script cannot walk, and says why.
+    from client.game import mapdb
+
+    monkeypatch.setenv("REVENANT_MAPDB", str(tmp_path / "mapdb.json"))
+    _serve(monkeypatch, urllib.error.URLError("no route"))
+    with pytest.raises(urllib.error.URLError):
+        mapdb.ensure_fresh(lambda line: None)

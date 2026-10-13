@@ -2711,7 +2711,7 @@ def record_hunt(s, profile, tally, minutes, reason):
 
 
 def main(s):
-    from client.game.mapdb import MapDB, download, mapdb_path
+    from client.game.mapdb import MapDB, ensure_fresh
 
     from client.game.profile import styles
 
@@ -2759,9 +2759,7 @@ def main(s):
             "brings empathic shock"
         )
         return
-    if not mapdb_path().is_file():
-        s.echo("downloading map database (first use, ~13MB) ...")
-        download()
+    ensure_fresh(s.echo)
     db = MapDB.load()
     words = [str(word).lower() for word in (s.args or [])]
     if words and words[0] == "grounds":

@@ -11,7 +11,8 @@ The Faldesu ferry between the Crossing's North Road and Riverhaven is
 ridden on the way (the map's bescort edge; the walker boards, waits for
 a ferry that is out, and steps off at the far dock, #205).
 ;go2 alone reports where the map thinks you are; ;go2 update refreshes
-the database. First use downloads it (~13MB) into ~/.revenant/mapdb/.
+the database. First use downloads it (~13MB) into ~/.revenant/mapdb/,
+and a copy a week old is fetched again.
 The location and walking engine lives in client/game/walker.py, shared with
 other traveling scripts.
 """
@@ -47,16 +48,14 @@ def named_room(s, query):
 
 
 def main(s):
-    from client.game.mapdb import MapDB, download, mapdb_path
+    from client.game.mapdb import MapDB, download, ensure_fresh
     from client.settings import setting
 
     if s.args and s.args[0] == "update":
         s.echo("downloading map database ...")
         s.echo(f"updated {download()}")
         return
-    if not mapdb_path().is_file():
-        s.echo("downloading map database (first use, ~13MB) ...")
-        download()
+    ensure_fresh(s.echo)
     db = MapDB.load()
 
     avoid = avoided_rooms(db, setting("avoid_rooms"))

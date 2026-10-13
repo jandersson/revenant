@@ -451,12 +451,11 @@ def main(s, db=None, walk=None):
         s.echo("favors: you are dead — this run needs a living body")
         return
     if db is None or walk is None:
-        from client.game.mapdb import MapDB, download, mapdb_path
+        from client.game.mapdb import MapDB, ensure_fresh
         from client.game.walker import walk as real_walk
 
-        if not mapdb_path().is_file():
-            s.echo("downloading map database (first use, ~13MB) ...")
-            download()
+        if db is None:
+            ensure_fresh(s.echo)
         db = db or MapDB.load()
         walk = walk or real_walk
     # An orb already yours comes first: in a hand (the parser knows,

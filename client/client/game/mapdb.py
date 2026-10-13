@@ -2,7 +2,9 @@
 
 Rooms come from the elanthia-online mapdb-backup-dr repository (the lich
 map database). The JSON is cached under ~/.revenant/mapdb (override the
-file with REVENANT_MAPDB) and refreshed on demand — never vendored here.
+file with REVENANT_MAPDB) — never vendored here — and fetched again by
+ensure_fresh, which every walking script calls, once the copy is a week
+old; a failed fetch keeps the old copy (#543).
 
 Schema notes (as observed in the real data): a list of rooms with id,
 title (list of bracketed strings), wayto (dest-id -> movement command),
@@ -25,7 +27,9 @@ instance records is in it already and keeps the instance.
 import json
 import os
 import re
+import tempfile
 import threading
+import time
 import urllib.request
 from dataclasses import dataclass
 from functools import lru_cache
@@ -37,6 +41,9 @@ MAPDB_URL = (
     "https://raw.githubusercontent.com/elanthia-online/"
     "mapdb-backup-dr/main/map_files/mapdb.json"
 )
+# The backup repository commits every few days: a copy a week old is
+# fetched again (#543).
+MAX_AGE_DAYS = 7
 
 
 def mapdb_path() -> Path:
@@ -55,13 +62,50 @@ def local_mapdb_path() -> Path:
 
 
 def download(url=MAPDB_URL, destination=None) -> Path:
+    """The map fetched into `destination` (mapdb_path() by default): the
+    file is replaced, atomically, only by a list of rooms with ids, so a
+    cut-off or garbled fetch never costs the copy already there."""
     destination = destination or mapdb_path()
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with urllib.request.urlopen(url) as response:
+    with urllib.request.urlopen(url, timeout=60) as response:
         data = response.read()
-    json.loads(data)  # refuse to cache anything that isn't JSON
-    destination.write_bytes(data)
+    rooms = json.loads(data)
+    if not rooms or not isinstance(rooms, list):
+        raise ValueError("the map download is not a list of rooms")
+    if not all(isinstance(room, dict) and "id" in room for room in rooms):
+        raise ValueError("the map download has a room without an id")
+    handle, temp = tempfile.mkstemp(dir=destination.parent, suffix=".part")
+    try:
+        with os.fdopen(handle, "wb") as stream:
+            stream.write(data)
+        os.replace(temp, destination)
+    finally:
+        Path(temp).unlink(missing_ok=True)
     return destination
+
+
+def ensure_fresh(echo, max_age_days=MAX_AGE_DAYS, path=None) -> Path:
+    """The map's path, downloaded first when the file is missing or older
+    than `max_age_days`; every script that walks calls this before
+    MapDB.load. A refresh that fails keeps the old copy and says so once
+    through `echo`; with no copy at all the failure is raised."""
+    path = path or mapdb_path()
+    with _LOAD_LOCK:  # one download at a time, never a replace mid-load
+        stamp = _stamp(path)
+        age_days = (time.time() - stamp[0] / 1e9) / 86400 if stamp else None
+        if age_days is not None and age_days < max_age_days:
+            return path
+        if age_days is None:
+            echo("downloading map database (first use, ~13MB) ...")
+        else:
+            echo(f"refreshing map database ({age_days:.0f} days old, ~13MB) ...")
+        try:
+            download(destination=path)
+        except Exception as error:  # any failure (a cut-off read too) keeps it
+            if age_days is None:
+                raise
+            echo(f"map database refresh failed ({error}); keeping the old copy")
+    return path
 
 
 def normalize_title(title: str) -> str:

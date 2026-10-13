@@ -1387,12 +1387,10 @@ def travel_engine(s, plan):
     """The map and walker, loaded only when the plan names a safe room."""
     if not plan["safe_rooms"]:
         return None, None
-    from client.game.mapdb import MapDB, download, mapdb_path
+    from client.game.mapdb import MapDB, ensure_fresh
     from client.game.walker import walk
 
-    if not mapdb_path().is_file():
-        s.echo("downloading map database (first use, ~13MB) ...")
-        download()
+    ensure_fresh(s.echo)
     return MapDB.load(), walk
 
 
