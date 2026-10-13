@@ -214,6 +214,33 @@ def test_a_bundle_that_goes_on_nowhere_is_stowed_and_the_skins_go_loose(travel):
     assert arena.sent.count("put my pelt in my sack") == 1
 
 
+def test_a_held_bundle_with_nowhere_to_go_turns_skinning_off_once(travel):
+    # Captured 2026-10-03 (#438): the next run's TAP found the bundle in
+    # hand, WEAR was refused, and neither the tote nor the backpack had
+    # room for it; every SKIN after answered "You must have one hand free
+    # to skin." The run fights on without skinning, said once, never a DROP.
+    arena = Arena(
+        {
+            "attack": [(KILL, lambda arena: None), (KILL, kill)],
+            "tap": ["You tap a lumpy bundle that you are holding."],
+            "wear #7": [WEAR_TAKEN] * 7,  # the held bundle, by its id (#456)
+            "toggle bundle": [TOGGLED] * 6,
+            "put my bundle in my tote": [
+                "There isn't any more room in the tote for that."
+            ],
+            "stow my bundle": ["There isn't any more room in the backpack for that."],
+            "loot": [NOTHING, NOTHING],
+        }
+    )
+    _hands(arena, left={"noun": "bundle", "exist": "7", "name": "lumpy bundle"})
+    tote = BUNDLING | {"loot_container": "tote", "max_kills": 2}
+    _run(arena, profile=tote, travel_first=False)
+    assert arena.sent.count("toggle bundle") == 6
+    assert not any(command.startswith("skin") for command in arena.sent)
+    assert not any(command.startswith("drop") for command in arena.sent)
+    assert sum("skinning is off" in text for text in arena.echoed) == 1
+
+
 def test_a_full_bundle_is_known_and_the_skin_is_stowed_loose(travel):
     # Captured 2026-09-20 on the fourth badger skin of a run (#254): the
     # worn bundle takes no more, BUNDLE says so, the skin stays in hand.
