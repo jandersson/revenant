@@ -555,6 +555,7 @@ class Tally:
         # began, by name: a kill is a corpse more than this (#315).
         self.dead_room = None
         self.dead_seen = Counter()
+        self.decays_seen = Counter()  # the room's decays at the last read (#540)
         # creature -> Counter(searched, boxes, coins): every LOOT of the
         # run against the creature it searched (#419).
         self.kinds = {}

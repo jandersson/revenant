@@ -165,6 +165,21 @@ def test_the_room_description_is_kept_and_a_new_room_clears_it(xml_data):
     assert xml_data.room_desc == ""
 
 
+def test_a_corpses_decay_is_counted_by_name_until_the_room_changes(xml_data):
+    # The game's line for every creature (2026-10-13 logs, #540).
+    parser = XMLParser(target=xml_data)
+    parser.feed("<r><nav rm='9798249'/>A yellow-bristled gremlin decays away.\n")
+    parser.feed(
+        "An amber poloh'izh decays away.\nA yellow-bristled gremlin decays away.\n"
+    )
+    assert xml_data.corpses_decayed == {
+        "yellow-bristled gremlin": 2,
+        "amber poloh'izh": 1,
+    }
+    parser.feed("<nav rm='9798251'/></r>")
+    assert xml_data.corpses_decayed == {}
+
+
 def test_room_title_from_stream_window(xml_data):
     XMLParser(target=xml_data).feed(
         "<r><streamWindow id='room' title='Room' "

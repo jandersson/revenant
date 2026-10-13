@@ -81,6 +81,30 @@ TM_OPEN = {"Targeted Magic": {"rank": 1, "percent": 0, "mindstate": 5}}
 TM_LOCKED = {"Targeted Magic": {"rank": 1, "percent": 0, "mindstate": 34}}
 
 
+def test_a_targeted_cast_aims_past_a_corpse_listed_first(travel):
+    # #539 (the gremlins, 2026-10-13): TARGET at the bare noun found the
+    # corpse first, "There is no need to target a yellow-bristled gremlin.
+    # It is already dead.", and the pattern was released unused.
+    arena = Arena(
+        {
+            "attack": [(KILL, kill)],
+            "prepare": [FS_PREPARED],
+            "cast": [STRUCK],
+            "skin": [SKINNED],
+            "loot": [NOTHING],
+            "discern": [DISCERNED],
+            "target": [TARGETING],
+        },
+        experience=TM_OPEN,
+    )
+    arena.state.vitals["mana"] = 100
+    arena.state.room_creatures = ["a rat", "a rat"]
+    arena.state.room_creatures_dead = [True, False]
+    _run(arena, profile=STRIKING | {"max_kills": 1}, travel_first=False)
+    assert "target second rat" in arena.sent
+    assert "target rat" not in arena.sent
+
+
 def test_the_targeted_spell_is_cast_at_the_prey_before_the_swing(travel):
     arena = Arena(
         {

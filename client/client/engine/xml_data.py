@@ -163,6 +163,11 @@ _EXP_MOD = re.compile(
 _SHUTDOWN = re.compile(
     r"^(?:Announcement:\s+)?DragonRealms will be shutting down in (\d+) minutes?\b"
 )
+# A corpse decaying: "A wood troll decays away." for every creature (2,000
+# in the logs to 2026-10-13, 15 kinds). Counted per room so ;hunt adds a
+# decay back when it compares two listings: a kill and an older corpse's
+# decay between two reads netted out and the kill went unskinned (#540).
+_DECAYS = re.compile(r"^(?:An?|The)\s+(.+?)\s+decays away\.$")
 # A Paladin's free smite back (#191): a story line of its own, 50-61 s
 # after the smite that struck (711 pairs in the logs to 2026-10-02,
 # most at 55-59). Matched whole, so a quoted copy never counts.
@@ -293,6 +298,9 @@ class XMLData:
         # arrives after a room change, and in a dark room.
         self.room_desc = ""
         self._desc_text = None
+        # The corpses that decayed in this room, by name without its
+        # article ({"wood troll": 2}), cleared by a new room (_DECAYS).
+        self.corpses_decayed = {}
         # Rested experience, from the footer the exp window pushes on
         # every pulse (<component id='exp rexp'>Rested EXP Stored: 5:42
         # hours  Usable This Cycle: 5:42 hours  Cycle Refreshes: 21
@@ -478,6 +486,9 @@ class XMLData:
                     if at != self.shutdown_at:
                         self.shutdown_at = at
                         self.shutdown_updated = True
+            elif match := _DECAYS.match(stripped):
+                name = match.group(1).lower()
+                self.corpses_decayed[name] = self.corpses_decayed.get(name, 0) + 1
             elif match := _BALANCE.match(stripped):
                 if match.group(1) != self.balance:
                     self.balance = match.group(1)
@@ -553,6 +564,7 @@ class XMLData:
             self.room_creatures_dead = []
             self.room_objs = ""
             self.room_desc = ""
+            self.corpses_decayed = {}
         elif name == "roundTime":
             self.roundtime = int(attributes["value"])
         elif name == "castTime":

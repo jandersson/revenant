@@ -1631,12 +1631,34 @@ def test_the_corpse_count_is_the_listings_and_a_decay_lowers_it():
     hunt.mark_room(s, tally)
     assert hunt.new_corpses(s, tally) == []
     s.state.room_creatures_dead = [True, True, False]
-    assert hunt.new_corpses(s, tally) == ["a rat"]
+    assert hunt.new_corpses(s, tally) == ["rat"]
     s.state.room_creatures = ["a rat", "a goblin"]  # one decayed away
     s.state.room_creatures_dead = [True, False]
     assert hunt.new_corpses(s, tally) == []
     s.state.room_creatures_dead = [True, True]
-    assert hunt.new_corpses(s, tally) == ["a goblin"]
+    assert hunt.new_corpses(s, tally) == ["goblin"]
+
+
+def test_a_kill_hidden_by_another_corpses_decay_is_still_counted():
+    # #540 (the gremlins, 2026-10-13): two corpses, three at the kill, two
+    # again at an older one's "decays away" a second later — between two
+    # reads the listing never grew, and the kill went unskinned.
+    tally = hunt.Tally()
+    gremlins = ["a yellow-bristled gremlin"] * 3
+    s = SimpleNamespace(
+        state=SimpleNamespace(
+            room_uid=1,
+            room_creatures=gremlins,
+            room_creatures_dead=[True, True, False],
+            corpses_decayed={},
+        )
+    )
+    hunt.mark_room(s, tally)
+    s.state.room_creatures_dead = [True, True, False]  # the kill, then a decay
+    s.state.room_creatures = ["a yellow-bristled gremlin"] * 3  # a newcomer
+    s.state.corpses_decayed = {"yellow-bristled gremlin": 1}
+    assert hunt.new_corpses(s, tally) == ["yellow-bristled gremlin"]
+    assert hunt.new_corpses(s, tally) == []  # counted once
 
 
 def test_a_known_death_line_still_counts_when_the_listing_never_comes(travel):

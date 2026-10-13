@@ -710,7 +710,20 @@ def corpses(state):
     room_creatures / room_creatures_dead, #278) — as a Counter."""
     names = list(getattr(state, "room_creatures", None) or [])
     dead = list(getattr(state, "room_creatures_dead", None) or [])
-    return Counter(name for name, flag in zip(names, dead) if flag)
+    return Counter(_bare(name) for name, flag in zip(names, dead) if flag)
+
+
+def _bare(name):
+    """A creature's name lower-cased without its article, as the parser
+    keeps a decay's ("a wood troll" and "A wood troll decays away." meet
+    as "wood troll")."""
+    return re.sub(r"^(?:an?|the|some)\s+", "", str(name).strip().lower())
+
+
+def decays(state):
+    """The room's decays so far by name, as a Counter (the parser's
+    corpses_decayed, #540)."""
+    return Counter(getattr(state, "corpses_decayed", None) or {})
 
 
 def mark_room(s, tally):
@@ -720,6 +733,7 @@ def mark_room(s, tally):
     if key != tally.dead_room:
         tally.dead_room = key
         tally.dead_seen = corpses(s.state)
+        tally.decays_seen = decays(s.state)
 
 
 def new_corpses(s, tally):
@@ -730,9 +744,15 @@ def new_corpses(s, tally):
     the goblins' "collapses to the ground, shuddering and moaning until
     it ceases all movement" (2026-09-25, missed, #314) — while the
     listing marks every corpse "which appears dead" (dr-scripts'
-    combat-trainer loots by DRRoom.dead_npcs the same way, #315)."""
+    combat-trainer loots by DRRoom.dead_npcs the same way, #315). A
+    corpse that decayed since the last read is added back first: the
+    gremlins' listing went two corpses, three at a kill, two again at an
+    older one's decay a second later, and the kill went unskinned (#540)."""
     now = corpses(s.state)
-    gained = now - tally.dead_seen
+    decayed = decays(s.state)
+    gone = decayed - tally.decays_seen
+    tally.decays_seen = decayed
+    gained = (now + gone) - tally.dead_seen
     tally.dead_seen = now
     return list(gained.elements())
 
@@ -1205,7 +1225,10 @@ def cast_buffs(s, profile, tally, fight=False, filler=None):
             "hunt",
             report,
             turn,
-            target=profile["prey"],
+            # Aimed as a swing is: a corpse of the prey listed first
+            # took the bare noun's TARGET, "no need to target", and the
+            # pattern was released unused (#539).
+            target=aim_at(s, profile["prey"]),
             filler=swing_first,
         )
         casting.cast_buffs(
