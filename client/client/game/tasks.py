@@ -196,7 +196,7 @@ GIVERS = {
     "Kalika": "Ranger Guild, Main Hall",  # the Crossing's Ranger guildleader
     "Amfitro": "Viper's Nest",
     "Saeru": "Seven Star Exchange and Pawn",
-    "Daralaendra": "Warehouse Office",  # unmapped: the office door east of 13814
+    "Daralaendra": "Warehouse Office",  # past 13814's lunat door; in no community map, the local overlay's
     "Fara": "Fara's Furs",
     "Ioun": "Ioun's Pawn",
     "Anthelorm": "7955",  # Anthelorm's Gems and Curios, Purchasing Office
