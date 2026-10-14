@@ -111,6 +111,28 @@ def test_a_contract_is_read_for_its_towns_goods_and_worth():
     assert trade.contract("What were you referring to?") is None
 
 
+def test_a_contract_read_without_its_line_breaks_keeps_its_origin():
+    # Live, 2026-10-15: the familiar stream's lines came without breaks,
+    # the origin ran on into the next line, and a contract issued and
+    # never loaded was led off unloaded.
+    contract = trade.contract(CONTRACT.replace("\n", ""))
+    assert contract.origin == "Crossing"
+    assert (contract.destination, contract.goods) == (
+        "Wolf Clan",
+        "13 ornate saber hilts",
+    )
+    assert contract.presented is False
+
+
+def test_a_lead_is_taken_with_or_without_the_drivers_acknowledgement():
+    # To Arthe Dale the driver says only the second line (2026-10-15).
+    alone = (
+        "You pass on the order to lead to your driver, who makes sure your"
+        " bullock-drawn caravan does your bidding.\n"
+    )
+    assert trade.LEADING in LEADING and trade.LEADING in alone
+
+
 def test_the_minister_issues_asks_for_dues_or_says_one_is_held():
     assert trade.minister(ISSUED) == ("issued", (3537, 985))
     assert trade.minister(DUES_OWED) == ("dues", 2375)
@@ -254,13 +276,17 @@ class World:
         for prefix, queue in self.answers.items():
             if command == prefix or command.startswith(prefix + " "):
                 text = queue.pop(0) if len(queue) > 1 else (queue[0] if queue else "")
-                self.pending = [line + "\n" for line in text.splitlines()]
+                # READ's contract comes on the familiar stream, as live.
+                stream = "familiar" if trade.READ_END in text else ""
+                self.pending = [(stream, line + "\n") for line in text.splitlines()]
                 return
 
     def get(self, timeout=None, streams=("",)):
-        if timeout == 0 or not self.pending:
-            return None
-        return self.pending.pop(0)
+        while timeout != 0 and self.pending:
+            stream, text = self.pending.pop(0)
+            if stream in streams:
+                return text
+        return None
 
     def clear(self):
         self.pending = []
@@ -388,6 +414,30 @@ def test_an_empty_feedbag_stops_before_the_lead(script):
     script.main(world)
     assert not any(" to lead to " in c for c in world.sent)
     assert any("no grass in your feedbag" in e for e in world.echoed)
+
+
+def test_the_contract_is_read_off_the_familiar_stream(script):
+    # The first live run (2026-10-15) read nothing: READ pushes the
+    # contract to <pushStream id="familiar">, which ask() does not read.
+    world = World({"read my contract": [CONTRACT]})
+    contract = script.held(world)
+    assert contract.destination == "Wolf Clan"
+    assert world.sent == ["read my contract"]
+
+
+def test_a_contract_issued_and_never_loaded_is_loaded_and_led(script):
+    # The first live run stopped holding the minister's contract; the
+    # next run loads it at the clerk instead of asking for another.
+    answers = dict(LEG, **{"read my contract": [CONTRACT, LOADED_CONTRACT]})
+    world = World(answers, return_after_lead=True)
+    script.main(world)
+    assert "ask minister for contract" not in world.sent
+    assert world.sent.index("give my contract to clerk") < world.sent.index(
+        "tell bullock-drawn caravan to lead to wolf clan"
+    )
+    (route,) = tradelog.summary("Lanival")
+    assert route["delivered"] == 1 and route["paid"] == 11791
+    assert route["profit"] == 11791 - 50  # the minister's charges unknown
 
 
 def test_the_caravan_is_walked_to_the_outpost_one_followed_room_at_a_time(script):

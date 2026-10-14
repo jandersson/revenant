@@ -25,7 +25,7 @@ The towns, the contract and the wordings are client/game/trade.py's,
 the log client/game/tradelog.py's; docs/trade.md.
 """
 
-from client.game import hands, loop, shop, trade, tradelog, travel
+from client.game import hands, loop, probe, shop, trade, tradelog, travel
 from client.game.act import ask, missing, said, unknown
 from client.game.mapdb import pause_seconds, translate_embedded
 
@@ -48,6 +48,8 @@ PREFIX = "trade"
 LEAD_MINUTES = 20  # the Crossing to Wolf Clan took 3½
 FOLLOW_SECONDS = 30  # a step's wait for the caravan to catch up
 LOW_GRASS = 5
+READ_STREAMS = ("", "familiar")
+READ_SECONDS = 5
 
 
 def parse_args(args):
@@ -86,8 +88,23 @@ def walk(s, db, room, describe):
 
 
 def held(s):
-    """The contract on the character, read (READ MY CONTRACT), or None."""
-    return trade.contract(ask(s, "read my contract"))
+    """The contract on the character, read (READ MY CONTRACT), or None.
+    The game pushes the contract's text to the familiar stream, which
+    ask() does not read: the first live ;trade stopped on an unread
+    contract (2026-10-15)."""
+    while s.get(timeout=0, streams=READ_STREAMS) is not None:
+        pass  # what came before the READ is not its answer
+    s.put("read my contract")
+    text = ""
+    deadline = probe.clock() + READ_SECONDS
+    while probe.clock() < deadline:
+        piece = s.get(timeout=0.5, streams=READ_STREAMS)
+        if piece is None:
+            continue
+        text += piece
+        if trade.READ_END in piece or missing(piece):
+            break
+    return trade.contract(text)
 
 
 def deliver(s, db, place):
@@ -299,8 +316,10 @@ def main(s):
                 return
             contract = None
         if contract and not contract.presented and trade.town(contract.origin) == place:
-            # Issued here and never loaded: a stop between the minister and the clerk.
-            if not load(s, db, place, None):
+            # Issued here and never loaded: a stop between the minister and
+            # the clerk. Logged now, the minister's charges unknown.
+            seq = tradelog.log_issue(character(s), place, contract)
+            if not load(s, db, place, seq):
                 return
         if contract is None:
             walk(s, db, trade.TOWNS[place].clerk, f"the {place} shipment clerk")

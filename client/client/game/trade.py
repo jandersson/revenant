@@ -75,14 +75,17 @@ FED = ("takes the feedbag from you", "munches away happily")
 NOT_HUNGRY = "sniffs disinterestedly"
 _GRASS = re.compile(r"\bsome grass\b", re.I)
 
-# TELL <caravan> TO LEAD TO WOLF CLAN: "The driver of your bullock-drawn
-# caravan acknowledges the order to lead to Wolf Clan." Then the caravan
-# moves and the character follows it room by room; at the end: "The
-# bullock-drawn caravan stops and waits, having arrived at its
-# destination." (3½ minutes from the Crossing's Commerce Avenue to Wolf
-# Clan's outpost.) The refusals, the guide's surrender and the follow
-# line are trade.lic's.
-LEADING = "acknowledges the order to lead"
+# TELL <caravan> TO LEAD TO WOLF CLAN: "You pass on the order to lead to
+# your driver, who makes sure your bullock-drawn caravan does your
+# bidding." — after "The driver of your bullock-drawn caravan
+# acknowledges the order to lead to Wolf Clan." to Wolf Clan, alone to
+# Arthe Dale (2026-10-15: the first live ;trade took that for a refusal
+# and the caravan led off without it). Then the caravan moves and the
+# character follows it room by room; at the end: "The bullock-drawn
+# caravan stops and waits, having arrived at its destination." (3½
+# minutes from the Crossing's Commerce Avenue to Wolf Clan's outpost.)
+# The refusals, the guide's surrender and the follow line are trade.lic's.
+LEADING = "You pass on the order to lead"
 LEAD_REFUSED = ("but turns back and says", "looks at you confused")
 ARRIVED = "having arrived at its destination"
 LEAD_FAILED = "Your caravan guide comes to you and suggests"
@@ -100,11 +103,16 @@ NO_CARAVAN = ("don't recall having a caravan", "don't recall where you left")
 Contract = namedtuple(
     "Contract", "origin destination goods worth currency presented expired"
 )
-_ORIGIN = re.compile(r"Trading Contract Issued by:\s+(?:The )?(.+?)\s*$", re.M)
-_DESTINATION = re.compile(
-    r"The guild office at (?:The )?(.+?) requires (.+?),?\s*$", re.M
-)
+# Read with its whitespace collapsed: the familiar stream's lines reached
+# the script without their breaks, and the origin ran on into the next
+# line (2026-10-15: a contract issued and never loaded was led off
+# unloaded). Each field ends at the next one's words instead.
+_ORIGIN = re.compile(r"Issued by: (?:The )?(.+?) The guild office at")
+_DESTINATION = re.compile(r"The guild office at (?:The )?(.+?) requires (.+?), to be")
 _WORTH = re.compile(r"worth " + _COIN + " on delivery", re.I)
+# READ pushes the contract to the familiar stream (<pushStream
+# id="familiar">); its last line is the estimate.
+READ_END = "on delivery"
 
 
 def contract(text):
@@ -118,7 +126,7 @@ def contract(text):
      clerk.
     You estimate these goods are currently worth 11791 Kronars on delivery.
     """
-    text = str(text or "")
+    text = re.sub(r"\s+", " ", str(text or ""))
     destination = _DESTINATION.search(text)
     if not destination:
         return None
