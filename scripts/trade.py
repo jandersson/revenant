@@ -9,6 +9,8 @@ What it does
     Wolf Clan or Tiger Clan — with your caravan at the outpost (RECALL CARAVAN
     finds it; RENT CARAVAN at a shipment clerk, 400 Kronars, rents one).
   - At the clerk: hands in the contract for this town and is paid; PAY CLERK.
+  - After a delivery with a teller near the clerk (the Crossing, Dirge), banks
+    the purse and keeps 20,000 copper Kronars for dues and fees (;bank).
   - At the minister: ASK MINISTER FOR CONTRACT; dues owed are drawn at the
     nearest teller when the purse is short, and paid first.
   - The clerk loads the crate; the caravan is fed from your feedbag and told to
@@ -25,7 +27,7 @@ The towns, the contract and the wordings are client/game/trade.py's,
 the log client/game/tradelog.py's; docs/trade.md.
 """
 
-from client.game import hands, loop, probe, shop, trade, tradelog, travel
+from client.game import hands, loop, money, probe, shop, trade, tradelog, travel
 from client.game.act import ask, missing, said, unknown
 from client.game.mapdb import pause_seconds, translate_embedded
 
@@ -56,6 +58,12 @@ FOLLOW_SECONDS = 30  # a step's wait for the caravan to catch up
 LOW_GRASS = 5
 READ_STREAMS = ("", "familiar")
 READ_SECONDS = 5
+# A teller this many rooms from the clerk gets the pay after a delivery:
+# the Crossing's (14) and Dirge's (3); the other outposts are 40 and more.
+BANK_ROOMS = 20
+# Copper Kronars kept on hand after banking: the dues and fees ahead (a
+# contract's charges at the minister ran 4,522 and 5,625 Kronars).
+KEEP = 20_000
 
 
 def parse_args(args):
@@ -140,6 +148,29 @@ def pay(s):
     """PAY CLERK at the clerk here; the answer's line."""
     answer = ask(s, "pay clerk")
     return said(answer, trade.SETTLED + (trade.PART_PAID, trade.NO_COINS))
+
+
+def bank_run(s, db):
+    """After a delivery and the dues: the purse banked at a teller near
+    the clerk with KEEP kept (;bank keep=KEEP back, which walks back
+    here); nothing with no teller near or no more than KEEP on hand."""
+    here = travel.here(s, db)
+    tellers = db.rooms_tagged("bank")
+    route = db.path(here, tellers) if here is not None and tellers else None
+    if route is None or len(route) > BANK_ROOMS:
+        return
+    if money.carried(s, "Kronars", ask) <= KEEP:
+        return
+    s.echo(f"{PREFIX}: banking the pay, keeping {money.phrase(KEEP, 'Kronars')}")
+    if not s.run("bank", [f"keep={KEEP}", "back"]):
+        s.echo(f"{PREFIX}: could not start ;bank — the purse stays as it is")
+        return
+    try:
+        while s.is_running("bank"):
+            s.sleep(1)
+    except BaseException:
+        s.kill("bank")  # ;stop trade takes the ;bank with it
+        raise
 
 
 def issue(s, db, place):
@@ -317,10 +348,11 @@ def main(s):
         return
     while True:
         contract = held(s)
+        delivered = False
         if contract and trade.town(contract.destination) == place:
             if not deliver(s, db, place):
                 return
-            contract = None
+            contract, delivered = None, True
         if contract and not contract.presented and trade.town(contract.origin) == place:
             # Issued here and never loaded: a stop between the minister and
             # the clerk. Logged now, the minister's charges unknown.
@@ -330,6 +362,8 @@ def main(s):
         if contract is None:
             walk(s, db, trade.TOWNS[place].clerk, f"the {place} shipment clerk")
             s.echo(f"{PREFIX}: {pay(s)}")
+            if delivered:
+                bank_run(s, db)
             if returning or loop.wants_stop(s):
                 s.echo(f"{PREFIX}: nothing held — done at {place}")
                 return

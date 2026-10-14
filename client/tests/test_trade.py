@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from client.game import trade, tradelog
+from client.game import money, trade, tradelog
 from client.game.mapdb import MapDB
 
 REPO = pathlib.Path(__file__).parents[2]
@@ -222,7 +222,9 @@ def _script():
 MAP = MapDB(
     [
         {"id": 895, "uid": [10155], "title": ["[The Crossing, Commerce Avenue]"],
-         "wayto": {"8916": "go doors"}},
+         "wayto": {"8916": "go doors", "1900": "go bank"}},
+        {"id": 1900, "uid": [10200], "title": ["[Provincial Bank, Teller]"],
+         "wayto": {"895": "out"}, "tags": ["bank"]},
         {"id": 8916, "uid": [13047], "title": ["[Traders' Guild, Shipment Center]"],
          "wayto": {"895": "out", "8915": "north"}},
         {"id": 8915, "uid": [13046], "title": ["[Traders' Guild, Hall of Records]"],
@@ -254,6 +256,8 @@ class World:
         self.dead = False
         self.args = []
         self.room = room
+        self.purse = 0  # copper Kronars, as WEALTH reads them
+        self.ran = []
         self.state = SimpleNamespace(
             name="Lanival", right_hand=None, left_hand=None, hostiles={}
         )
@@ -302,6 +306,16 @@ class World:
                 return line
         return None
 
+    def run(self, name, args=()):
+        self.ran.append((name, list(args)))
+        return True
+
+    def is_running(self, name):
+        return False
+
+    def kill(self, name):
+        pass
+
     def command(self, timeout=None):
         return self.typed.pop(0) if self.typed else None
 
@@ -328,6 +342,9 @@ def script(monkeypatch, tmp_path):
         mapdb=lambda: MAP, here=lambda s, db=None: s.room, go=go
     )
     module.shop = SimpleNamespace(afford=lambda *a, **k: True)
+    module.money = SimpleNamespace(
+        carried=lambda s, currency="Kronars", ask=None: s.purse, phrase=money.phrase
+    )
     monkeypatch.setattr(
         tradelog, "_connect", _in(tmp_path / "history.db", tradelog._connect)
     )
@@ -467,3 +484,44 @@ def test_history_reads_the_log_back(script):
     script.main(world)
     assert world.sent == []
     assert world.echoed[0].startswith("trade: Crossing → Wolf Clan: 1 contract")
+
+
+TO_CROSSING = LOADED_CONTRACT.replace("Wolf Clan", "Crossing").replace(
+    "Issued by:  Crossing", "Issued by:  Wolf Clan"
+)
+
+
+def test_a_delivery_near_a_teller_banks_the_pay_and_keeps_the_reserve(script):
+    # The operator, 2026-10-15: "a banking run when it finishes a contract
+    # near a bank - but keep a reasonable sum for expenses".
+    answers = dict(
+        LEG,
+        **{"read my contract": [TO_CROSSING], "give my contract to clerk": [DELIVERED]},
+    )
+    world = World(answers)
+    world.args = ["return"]
+    world.purse = 31_000
+    script.main(world)
+    assert world.ran == [("bank", [f"keep={script.KEEP}", "back"])]
+    out = "\n".join(world.echoed)
+    assert "trade: Crossing paid 11,791 Kronars" in out
+    assert out.index("dues are settled") < out.index("banking the pay")
+    assert out.index("banking the pay") < out.index("nothing held — done at Crossing")
+
+
+def test_no_bank_run_with_no_more_than_the_reserve_on_hand(script):
+    world = World({})
+    world.purse = script.KEEP
+    script.bank_run(world, MAP)
+    assert world.ran == []
+
+
+def test_no_bank_run_far_from_a_teller(script):
+    world = World({}, room=8997)  # Wolf Clan: no teller within reach
+    world.purse = 50_000
+    script.bank_run(world, MAP)
+    assert world.ran == []
+    script.BANK_ROOMS = 0  # the Crossing's teller is two rooms off
+    world.room = 8916
+    script.bank_run(world, MAP)
+    assert world.ran == []
