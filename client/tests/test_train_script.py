@@ -1271,6 +1271,98 @@ def test_an_empty_focus_stops_the_recasts_until_a_cast_and_is_said_once(
     assert fake.started == [("plant", ["7890"])]
 
 
+def test_a_second_empty_phial_in_one_session_is_said_again(clock, monkeypatch):
+    # #496: the notice was once a session, so the next phial's end went unsaid.
+    import os
+    import time
+
+    from client.game import plant
+
+    monkeypatch.setattr(train, "KEPT", {})
+    fake = Fake(exits={"plant": 10})
+    clock["fake"] = fake
+    fake.now = time.time()
+    current = plan(keep_plant="7890")
+    plant.note_no_focus("Lanival", now=fake.now)
+    train.keep_plant(fake, current)
+    plant.record("Lanival", "7890", 63, os.getpid(), now=time.time())  # a new phial
+    assert train.keep_plant(fake, current) is False  # a fresh plant: nothing due
+    plant.note_no_focus("Lanival", now=fake.now)  # that phial ran dry too
+    train.keep_plant(fake, current)
+    said = [t for t in fake.echoed if "the ritual focus is empty" in t]
+    assert len(said) == 2
+
+
+def tend_finds(clock, monkeypatch, *, focus):
+    """A keep_plant loop whose ;plant tend finds the room empty, as
+    ;plant tend does: the record marked gone. With `focus` a ;plant cast
+    rewrites the record; without it the phial is spent."""
+    import os
+    import time
+
+    from client.game import plant
+
+    monkeypatch.setattr(train, "KEPT", {})
+    fake = Fake(exits={"plant": 10})
+    clock["fake"] = fake
+    fake.now = 1000.0
+    wall = {"now": time.time()}
+    monkeypatch.setattr(plant, "clock", lambda: wall["now"])
+    plain = fake.run
+
+    def run_script(name, args=()):
+        if list(args)[:1] == ["tend"]:
+            plant.note_gone("Lanival")  # "no vela'tohr plant at 7890 to tend"
+        else:
+            plant.record("Lanival", "7890", 62, os.getpid())
+        return plain(name, args)
+
+    def pass_minutes(minutes):
+        fake.now += minutes * 60
+        wall["now"] += minutes * 60
+
+    fake.run = run_script
+    plant.record("Lanival", "7890", 62, os.getpid())
+    if not focus:
+        plant.note_no_focus("Lanival")  # the phial ran dry at the last recast
+    pass_minutes(plant.TEND_MINUTES)
+    return fake, pass_minutes
+
+
+def test_a_tend_that_finds_no_plant_tends_no_more_until_a_cast(clock, monkeypatch):
+    # #546 (Riphik, 2026-10-12): the phial spent and the plant lapsed, the
+    # between-task tend walked to an empty room 27 times that day.
+    from client.game import plant
+
+    fake, pass_minutes = tend_finds(clock, monkeypatch, focus=False)
+    current = plan(keep_plant="7890")
+    assert train.keep_plant(fake, current) is True
+    assert (
+        "train: no vela'tohr plant stands at 7890 — no tends until ;plant casts one"
+        in fake.echoed
+    )
+    for _ in range(6):  # two more hours of task boundaries
+        pass_minutes(plant.TEND_MINUTES)
+        assert train.keep_plant(fake, current) is False
+    assert fake.started == [("plant", ["tend", "7890"])]
+    assert sum("no vela'tohr plant stands" in t for t in fake.echoed) == 1
+
+
+def test_a_plant_a_tend_finds_gone_is_recast_at_the_next_task(clock, monkeypatch):
+    # #546: a plant despawned at its healing limit is not waited out to its
+    # recorded end; keep_plant keeps one up, so a phial left means a cast.
+    from client.game import plant
+
+    fake, pass_minutes = tend_finds(clock, monkeypatch, focus=True)
+    current = plan(keep_plant="7890")
+    assert train.keep_plant(fake, current) is True  # the tend: none there
+    assert train.keep_plant(fake, current) is True  # the recast, at once
+    assert fake.started == [("plant", ["tend", "7890"]), ("plant", ["7890"])]
+    pass_minutes(plant.TEND_MINUTES)
+    assert train.keep_plant(fake, current) is True  # the new plant tended
+    assert fake.started[-1] == ("plant", ["tend", "7890"])
+
+
 def test_a_plant_run_that_cast_nothing_waits_before_the_next(clock, monkeypatch):
     monkeypatch.setattr(train, "KEPT", {})
     fake = Fake(exits={"plant": 10})
@@ -1498,6 +1590,65 @@ def test_a_wound_at_the_floor_with_no_plant_pages_the_helper_whatever_it_says(
     assert reason == "unneeded"
     assert any("healing — Uthmor, the Empath" in t for t in fake2.echoed)
     assert "train: healed by the Empath" in fake2.echoed
+
+
+WEALTH_EMPTY = "Wealth:\n  No Kronars.\n  No Lirums.\n  No Dokoras.\n"
+
+
+def ladder(clock, fallback, wealth=None):
+    """heal_ladder for a wounded character with no plant and no helper in
+    the plan: the scripts it started, its echoes, and the rung that
+    healed. ;heal (any args) takes every wound."""
+    fake = Fake([{}])
+    clock["fake"] = fake
+    fake.state.injuries = {"chest": ("wound", 2)}
+    if wealth is not None:
+        fake.answers = {"wealth": [wealth]}
+    plain = fake.run
+
+    def run_script(name, args=()):
+        ok = plain(name, args)
+        fake.exits[name] = fake.now + 10
+        if name == "heal":
+            fake.state.injuries = {}
+        return ok
+
+    fake.run = run_script
+    healed_by = train.heal_ladder(fake, plan(heal_fallback=fallback), MAP, walk)
+    return fake, healed_by
+
+
+def test_buy_in_heal_fallback_lets_the_herbs_step_buy_what_is_missing(clock):
+    # #499: the herbs step only ever ate what was carried; buying spends
+    # coin, so a plan opts in with `buy`.
+    fake, healed_by = ladder(clock, ["herbs", "buy"])
+    assert fake.started == [("heal", ["buy"])]
+    assert "train: healing — ;heal buy" in fake.echoed
+    assert healed_by == "the herbs"
+    fake, healed_by = ladder(clock, ["herbs"])
+    assert fake.started == [("heal", [])]
+    assert "train: healing — ;heal with the herbs carried" in fake.echoed
+
+
+def test_a_rung_the_ladder_skips_is_said_never_passed_in_silence(clock):
+    # #499: "an empty purse or a missing healer drops a rung with a line,
+    # never a silent rest".
+    fake, healed_by = ladder(clock, ["helper", "npc", "herbs"], wealth=WEALTH_EMPTY)
+    assert (
+        "train: healing — no helper Empath: the plan has no `plant: on` task with "
+        "one, skipped" in fake.echoed
+    )
+    assert "train: healing — ;heal npc skipped: the purse is empty" in fake.echoed
+    assert fake.started == [("heal", [])]  # the herbs, the one rung left
+    assert healed_by == "the herbs"
+
+
+def test_an_unread_purse_still_sends_the_healer(clock):
+    # No WEALTH answer is not an empty purse (money.unanswered): ;heal npc
+    # reads it again and decides.
+    fake, healed_by = ladder(clock, ["npc"])
+    assert fake.started == [("heal", ["npc"])]
+    assert healed_by == "the healer"
 
 
 def test_a_plant_task_needs_the_plans_plant_room():

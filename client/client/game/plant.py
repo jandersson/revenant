@@ -14,7 +14,9 @@ The record is ~/.revenant/training/<name>.plant.json: the room, the
 cast's time, its minutes, and the session's pid, since a new session
 means a logout ended the plant — and the last tend, the TOUCH that
 takes back the wounds patients left in it (#491): the plant keeps every
-wound it heals, through recasts, and despawns at its healing limit.
+wound it heals, through recasts, and despawns at its healing limit. A
+tend that finds no plant marks it gone (#546): no tend until a cast
+rewrites the record, and the recast is due at once.
 """
 
 import json
@@ -67,6 +69,12 @@ STRAIN = ("will disrupt about half your current attunement",)
 # — five recasts failed on it 15 minutes apart before anyone was told.
 FOCUS_EMPTY = ("not have enough", "to focus a ritual")
 NO_FOCUS = "no focus"
+# Where a new phial is bought (#496): Herilo's Artifacts sells the deep
+# purple glass phial, 40 uses of phofe attar, 3,750 Kronars
+# (Elanthipedia: Herilo's Artifacts; Item:Deep purple glass phial).
+FOCUS_SHOP = (
+    "the deep purple glass phial, Herilo's Artifacts in the Crossing (;go2 19152)"
+)
 # The creator's TOUCH, the wiki's wordings, captured as such on Riphik
 # (2026-10-05): "...erupt in agony and blossom with wounds!  Your
 # vela'tohr plant looks healthier!"
@@ -203,13 +211,33 @@ def no_focus(name):
     return isinstance(mark, dict) and bool(mark.get("no_focus"))
 
 
+def note_gone(name, now=None):
+    """A tend that found no plant written into the record (#546): Riphik's
+    loop walked to tend a lapsed plant 27 times on 2026-10-12, each time
+    "no vela'tohr plant at 7890 to tend". Cleared by the next cast, which
+    record() writes fresh."""
+    mark = load(name)
+    if not isinstance(mark, dict):
+        mark = {}
+    mark["gone"] = clock() if now is None else now
+    path = record_path(name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(mark), encoding="utf-8")
+
+
+def gone(name):
+    """True while the record says the last tend found no plant (#546)."""
+    mark = load(name)
+    return isinstance(mark, dict) and bool(mark.get("gone"))
+
+
 def tend_due(name, room, session, now=None, minutes=TEND_MINUTES):
     """True when the plant in `room` wants a tend: the record says it
     stands there in this session and `minutes` have passed since its cast
     or its last tend (#491). A plant due a recast is not tended — the
-    recast TOUCHes it first."""
+    recast TOUCHes it first — nor one the last tend found gone (#546)."""
     mark = load(name)
-    if not isinstance(mark, dict):
+    if not isinstance(mark, dict) or mark.get("gone"):
         return False
     if str(mark.get("room")) != str(room) or mark.get("session") != session:
         return False
@@ -223,10 +251,11 @@ def tend_due(name, room, session, now=None, minutes=TEND_MINUTES):
 
 def due(name, room, session, now=None, margin=MARGIN_MINUTES):
     """True when the plant in `room` wants a cast: none recorded, one in
-    another room or another session (a logout ended it), or within
-    `margin` minutes of its end."""
+    another room or another session (a logout ended it), one a tend found
+    gone (despawned at its healing limit, #546), or within `margin`
+    minutes of its end."""
     mark = load(name)
-    if not isinstance(mark, dict):
+    if not isinstance(mark, dict) or mark.get("gone"):
         return True
     if str(mark.get("room")) != str(room) or mark.get("session") != session:
         return True

@@ -16,11 +16,13 @@ What it does
     the focus, STAND.
   - PERCEIVE reads how long the plant lasts; ;train's `keep_plant` recasts 10 minutes before
     it ends and tends it between tasks every 20 minutes (;plant tend).
+  - A tend that finds no plant marks it gone: ;train tends no more and recasts it.
 
 When it stops
   - the cast done, or any guild but Empath
   - mana under 50%, the focus not found, the ritual or the cast failing (said)
-  - the focus used up (said: a new phial of phofe attar; ;train recasts no more until one casts)
+  - the focus used up (said; ;train recasts no more until one casts): a new phial is the
+    deep purple glass phial, Herilo's Artifacts in the Crossing (;go2 19152, 3,750 Kronars)
   - death, a typed return, or ;stop plant
 
 The model and the wordings are client/game/plant.py's; docs/healing.md.
@@ -182,9 +184,10 @@ def cast(s, options):
         if all(plant.said(text, (word,)) for word in plant.FOCUS_EMPTY):
             # The phial's forty uses are spent (#496): no plant until a
             # new one, and ;train is told through the record.
+            shop = f": {plant.FOCUS_SHOP}" if focus == plant.FOCUS else ""
             s.echo(
                 f"plant: the {focus} is empty — a new {focus} of phofe attar before "
-                "the next plant"
+                f"the next plant{shop}"
             )
             ask(s, "release spell")
             held = next(
@@ -227,10 +230,12 @@ def cast(s, options):
 def tend(s, room):
     """The plant TOUCHed for the wounds patients left in it and those
     healed with ;empath self, no cast (#491): "tended", "clean" or "no
-    plant", said, the tend noted in the record either way it stood."""
+    plant", said, the tend noted in the record either way it stood. No
+    plant is noted too (#546): ;train tends no more until a cast."""
     result = touch(s)
     if result == "none":
         s.echo(f"plant: no vela'tohr plant at {room or 'here'} to tend")
+        plant.note_gone(getattr(s.state, "name", None) or "")
         return "no plant"
     plant.note_tend(getattr(s.state, "name", None) or "")
     if result == "clean":

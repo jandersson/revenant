@@ -28,11 +28,14 @@ What it does
     and, wounded, the vela'tohr plant in `plant_room` touched and rested beside.
   - An Empath's `keep_plant`: between tasks and in rests, ;plant recasts the plant there
     before it ends, and tends it every 20 minutes (;plant tend: the wounds it took, healed);
-    an empty phial ends the recasts, said once, until a ;plant casts with a new one.
+    an empty phial ends the recasts, said once, until a ;plant casts with a new one, and a
+    tend that finds no plant ends the tends until one is cast.
   - Bleeding, health under the profile's `health_floor` or a wound at its `wound_floor`:
     healed before any task or rest — ;tend first, then the plant, then `heal_fallback`'s
-    rungs in order: the helper Empath (paged whatever `helper_page` says), ;heal npc, ;heal. A task with `plant: on` is spent beside that plant until healed;
-    with a `helper` and `helper_page` too, a wound that bad gets the helper instead.
+    rungs: the helper Empath (paged whatever `helper_page` says), ;heal npc, ;heal (;heal
+    buy with `buy` listed). A rung skipped — no helper, an empty purse — is said.
+  - A task with `plant: on` is spent beside that plant until healed; with a `helper` and
+    `helper_page` too, a wound that bad gets the helper instead.
   - The interludes (the profile's `almanac`, a typed `;break`) between tasks and in rests.
   - A helper busy on its own ;train: its task is skipped, or, with `helper_page` and a wound
     that bad, its ;train is paged for the task and handed back after.
@@ -51,7 +54,17 @@ import os
 import sqlite3
 import time
 
-from client.game import act, almanac, drain, flight, helper, interlude, plant, travel
+from client.game import (
+    act,
+    almanac,
+    drain,
+    flight,
+    helper,
+    interlude,
+    money,
+    plant,
+    travel,
+)
 from client.game.history import database_path
 from client.game.wounds import parse_health
 
@@ -402,7 +415,7 @@ def plant_due(s, plan):
     name = getattr(s.state, "name", None) or ""
     if plant.no_focus(name):
         # The phial is spent (#496): no recast until a ;plant casts with
-        # a new one and rewrites the record; said once a session.
+        # a new one and rewrites the record; said once a phial.
         if not KEPT.get("no_focus_said"):
             KEPT["no_focus_said"] = True
             s.echo(
@@ -410,6 +423,9 @@ def plant_due(s, plan):
                 f"phofe attar; ;plant {room} once it is on you"
             )
         return None
+    # A cast with a new phial cleared the mark: the next empty one is
+    # said again (#496 — it was said once a session, then never).
+    KEPT.pop("no_focus_said", None)
     if not plant.due(name, room, os.getpid()):
         return None
     if "failed" in KEPT and clock() - KEPT["failed"] < PLANT_RETRY_MINUTES * 60:
@@ -451,7 +467,9 @@ def keep_plant(s, plan):
     between the casts `;plant tend <room>` when tend_due says so — the
     wounds patients left in it taken back and healed (#491). True when
     either ran; a run that cast nothing waits PLANT_RETRY_MINUTES before
-    the next."""
+    the next. A tend that finds no plant ends the tends until a cast
+    (#546), said."""
+    name = getattr(s.state, "name", None) or ""
     room = plant_due(s, plan)
     if room is None:
         room = tend_due(s, plan)
@@ -462,8 +480,12 @@ def keep_plant(s, plan):
         s.echo(f"train: the vela'tohr plant at {room} is tended — ;plant tend {room}")
         KEPT["tended"] = clock()
         wait_for_plant(s, plan)
+        if plant.gone(name):
+            s.echo(
+                f"train: no vela'tohr plant stands at {room} — no tends until "
+                ";plant casts one"
+            )
         return True
-    name = getattr(s.state, "name", None) or ""
     if not s.run("plant", [room]):
         return False
     s.echo(f"train: the vela'tohr plant at {room} is due — ;plant {room}")
@@ -634,6 +656,14 @@ def hurt_badly(s):
     return None
 
 
+def purse_empty(s):
+    """True when WEALTH reads no coin in any currency: the NPC healer is
+    paid per part and ;heal npc stops before the walk without coin. An
+    unread WEALTH is not an empty purse (money.unanswered)."""
+    carried = money.purse(s)
+    return bool(carried) and not any(carried.values())
+
+
 def run_and_wait(s, plan, name, args, minutes):
     """A script run and waited for, `minutes` at most; True when it ran."""
     if not s.run(name, list(args)):
@@ -655,8 +685,11 @@ def heal_ladder(s, plan, db, walk):
     plant when one stands in `plant_room`, then the rungs the plan's
     `heal_fallback` allows — "helper" (the plan's helper Empath, paged
     whatever its `helper_page` says: no plant means any wound counts),
-    "npc" (;heal npc, the nearest healer, paid), "herbs" (;heal). Each
-    rung said; the rung that cleaned the panel, else None, said."""
+    "npc" (;heal npc, the nearest healer, paid), "herbs" (;heal), with
+    "buy" the herbs step buying what is missing (;heal buy). Each rung
+    said, and so is one skipped — no helper in the plan, an empty purse
+    for the healer — never a silent step; the rung that cleaned the
+    panel, else None, said."""
     if not wounded(s):
         return None
     if plant_step(s, plan, db, walk, None) is not None:
@@ -668,20 +701,34 @@ def heal_ladder(s, plan, db, walk):
             return "the plant"
     rungs = [str(r).strip().lower() for r in plan.get("heal_fallback") or []]
     task = next((t for t in plan.get("tasks", []) if t.get("plant") == "on"), None)
-    if "helper" in rungs and task and helper.spec_of(task) and not s.dead:
-        s.echo(f"train: healing — {helper.spec_of(task)['name']}, the Empath")
-        urgent = dict(task, plant="", helper_page="insignificant", when="")
-        run_task(s, plan, urgent, db, walk, healing=True)
-        if not wounded(s):
-            return "the Empath"
-    for rung, args in (("npc", ["npc"]), ("herbs", [])):
-        if rung in rungs and wounded(s) and not s.dead:
-            s.echo(
-                f"train: healing — ;heal {' '.join(args) or 'with the herbs carried'}"
-            )
-            run_and_wait(s, plan, "heal", args, HEAL_MINUTES)
+    if "helper" in rungs and not s.dead:
+        if task and helper.spec_of(task):
+            s.echo(f"train: healing — {helper.spec_of(task)['name']}, the Empath")
+            urgent = dict(task, plant="", helper_page="insignificant", when="")
+            run_task(s, plan, urgent, db, walk, healing=True)
             if not wounded(s):
-                return "the healer" if rung == "npc" else "the herbs"
+                return "the Empath"
+        else:
+            s.echo(
+                "train: healing — no helper Empath: the plan has no `plant: on` task "
+                "with one, skipped"
+            )
+    if "npc" in rungs and wounded(s) and not s.dead:
+        if purse_empty(s):
+            # ;heal npc stops on an empty purse before the walk; said
+            # here so the ladder never moves on in silence (#499).
+            s.echo("train: healing — ;heal npc skipped: the purse is empty")
+        else:
+            s.echo("train: healing — ;heal npc")
+            run_and_wait(s, plan, "heal", ["npc"], HEAL_MINUTES)
+            if not wounded(s):
+                return "the healer"
+    if ("herbs" in rungs or "buy" in rungs) and wounded(s) and not s.dead:
+        args = ["buy"] if "buy" in rungs else []
+        s.echo(f"train: healing — ;heal {' '.join(args) or 'with the herbs carried'}")
+        run_and_wait(s, plan, "heal", args, HEAL_MINUTES)
+        if not wounded(s):
+            return "the herbs"
     if wounded(s) and not s.dead:
         s.echo("train: still wounded after every healer the plan allows — resting on")
     return None

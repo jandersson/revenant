@@ -105,11 +105,13 @@ DEFAULTS = {
     # the character and the next task and no plant stands (#499): the
     # helper Empath (paged whatever helper_page says), the NPC healer
     # (;heal npc), the herbs (;heal). Cecil bled out on 2026-10-09 with
-    # the plant gone and nothing else tried.
+    # the plant gone and nothing else tried. "buy" lets the herbs step
+    # buy what is missing (;heal buy, coins from the teller) — spending,
+    # so a plan opts in.
     "heal_fallback": ["helper", "npc", "herbs"],
     "tasks": [],
 }
-HEAL_RUNGS = ("helper", "npc", "herbs")
+HEAL_RUNGS = ("helper", "npc", "herbs", "buy")
 SOUL = ("off", "on")
 # The choices behind each "choice" plan field, for the dialog.
 CHOICES = {
@@ -202,7 +204,7 @@ PLAN_FIELDS = (
         "heal_fallback",
         "Healers tried, in order, when no plant stands",
         "list",
-        "helper, npc, herbs",
+        "helper, npc, herbs — add buy to buy missing herbs",
     ),
 )
 TASK_FIELDS = (

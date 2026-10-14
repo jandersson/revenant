@@ -242,6 +242,8 @@ def test_an_empty_phial_ends_the_run_and_marks_the_record(tmp_path, monkeypatch)
     assert "cast" not in game.sent and "release spell" in game.sent
     assert game.sent[-2:] == ["stow my phial", "stand"]
     assert any("the phial is empty — a new phial of phofe attar" in t for t in s.echoed)
+    # Where the new one is bought, said where it is needed (#496).
+    assert any("Herilo's Artifacts in the Crossing (;go2 19152)" in t for t in s.echoed)
     assert plant.no_focus("Lanival")
     # A cast with a new phial rewrites the record and clears the mark.
     plant.record("Lanival", "7890", 63, os.getpid(), now=2000.0)
@@ -283,6 +285,31 @@ def test_two_phials_the_fresh_one_is_taken_by_id_not_the_first_by_noun(
         None,
         2,
     )
+
+
+def test_a_tend_that_finds_no_plant_marks_it_gone_until_a_cast(tmp_path, monkeypatch):
+    # #546 (Riphik, 2026-10-12): ;train walked to tend a plant that had
+    # lapsed 27 times that day, each "no vela'tohr plant at 7890 to tend".
+    import os
+
+    monkeypatch.setenv("REVENANT_TRAINING", str(tmp_path))
+    session = os.getpid()
+    plant.record("Lanival", "7890", 62, session, now=1000.0)
+    script = _script()
+    s = handle()  # an armored sentry, no plant
+    script.ask = Game(s, {})
+    options = script.parse_args(["tend", "7890"])
+    assert script.run(s, options, db=CHAMBERS, walk=arrive) == "no plant"
+    assert "plant: no vela'tohr plant at 7890 to tend" in s.echoed
+    assert plant.gone("Lanival")
+    # No tend while it is gone, however long; the recast is due at once,
+    # though the plant's recorded hour is not up (despawned at its limit).
+    assert not plant.tend_due("Lanival", "7890", session, now=1000.0 + 120 * 60)
+    assert plant.due("Lanival", "7890", session, now=1000.0 + 21 * 60)
+    # The next cast writes a fresh record: the tends come back.
+    plant.record("Lanival", "7890", 62, session, now=5000.0)
+    assert not plant.gone("Lanival")
+    assert plant.tend_due("Lanival", "7890", session, now=5000.0 + 20 * 60)
 
 
 def test_a_tend_is_due_twenty_minutes_after_the_cast_or_the_last_tend(

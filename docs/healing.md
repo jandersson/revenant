@@ -63,6 +63,16 @@ It walks to the healer, sets DEMEANOR FRIENDLY EMPATH (left friendly after), lie
 - An Empath already logged in is used and left logged in.
 - In a training plan the same is a task with a `helper` (see [training.md](training.md)).
 
+## In `;train`: healed before anything else
+
+Bleeding, health under the profile's `health_floor`, or a wound at its `wound_floor` stops `;train` before any task or rest until it is healed:
+
+1. `;tend`, at once, for a bleeder.
+2. The plan's vela'tohr plant (`plant_room`), when one stands.
+3. The plan's `heal_fallback` rungs: `helper` (its Empath, paged), `npc` (`;heal npc`), `herbs` (`;heal`); `buy` lets the herbs step buy what is missing.
+
+A skipped rung is said (no helper in the plan, an empty purse), and so is the rung that healed. The keys are in [training.md](training.md).
+
 ## Player Empaths
 
 Ask aloud in the Empaths' Guild courtyard (`;go2 5713` in the Crossing). An Empath who touches you heals everything, scars and internal damage included, usually for free. This is never automated: the ask is yours.
@@ -97,7 +107,7 @@ An Empath's plant heals a non-Empath who touches it and stays in its room. `;tra
 
 - Below 50% mana the cast waits.
 - The plant ends when its Empath logs out.
-- The phial holds 40 uses; empty, `;plant` says so and `;train` stops recasting until a `;plant <room>` casts with a new one.
-- The plant keeps every wound it heals, through recasts, and despawns at its limit; only its Empath's TOUCH takes them back. `;train`'s `keep_plant` tends it every 20 minutes.
+- The phial holds 40 uses; empty, `;plant` says so and `;train` stops recasting until a `;plant <room>` casts with a new one. A new one is the deep purple glass phial at Herilo's Artifacts in the Crossing (`;go2 19152`, 3,750 Kronars).
+- The plant keeps every wound it heals, through recasts, and despawns at its limit; only its Empath's TOUCH takes them back. `;train`'s `keep_plant` tends it every 20 minutes; a tend that finds it gone stops the tends and recasts it.
 
 `;stop <name>` ends any of these at once; `;heal return`, `;empath return` and `;plant return` finish the step in hand first.
