@@ -41,15 +41,20 @@ Clan outpost's door, where the clerk paid 11,791. dr-scripts' trade.lic
 is the procedure (contract, clerk, feed, lead, the caravan following
 step by step) and the source of the wordings not yet seen live: the
 follow line, a refused or failed lead, a held contract, the no-goods
-answer. Elanthipedia: Caravan (the lead destinations: a lead to the
-Crossing ends at the Northeast Gate, so the last stretch is walked with
-the caravan following), Trader (RENT CARAVAN).
+answer. Elanthipedia: Caravan (the lead destinations; it says a lead
+to the Crossing ends at the Northeast Gate), Trader (RENT CARAVAN).
 
 The first script run (the same night) ran Wolf Clan → Arthe Dale: the
 lead took six minutes and ended at Arthe Dale's outpost, the clerk paid
 14,586. It first stopped on an unread contract (the familiar stream)
 and on the Arthe Dale lead's answer, which lacks the acknowledgement
-line; both fixed in 9bdebcc.
+line; both fixed in 9bdebcc. The unattended run after it led between
+Arthe Dale, the Crossing, Wolf Clan and Tiger Clan, 2 to 7
+minutes a leg, and Tiger Clan to Dirge in 11½: every lead ended at the
+outpost — the Crossing's at Commerce Avenue, not the wiki's Northeast
+Gate, Dirge's at Gateway Road, not the North Roads Caravansary — so
+bring() has not had to walk the caravan yet. The bank runs, after the
+Crossing's and Dirge's deliveries, kept 2 platinum and walked back.
 """
 
 PREFIX = "trade"
@@ -301,7 +306,8 @@ def steps(route):
 def bring(s, db, name, room):
     """Walk the caravan to `room` (the outpost) one room at a time,
     waiting for it to follow each (trade.lic's take_caravan_to); True
-    there. A lead to the Crossing ends at the Northeast Gate."""
+    there. Every lead so far ended at the outpost; this is for one that
+    stops short of it."""
     here = travel.here(s, db)
     if here == room:
         return True
