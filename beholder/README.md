@@ -13,6 +13,8 @@ revenant client (xp script)  ──▶  ~/.revenant/history.db  ──▶  behol
 uv run beholder                # options: --host, --port, --debug
 ```
 
+Every machine's history at once: `tools/history_merge.py` builds `~/.revenant/merged.db` from the snapshots `;archive` copies to a shared folder, and `REVENANT_HISTORY_DB=~/.revenant/merged.db uv run beholder --port 8051` reads it beside the session's own dashboard ([running.md](../docs/running.md)).
+
 The page auto-refreshes every 60 seconds to match the `;xp` cadence, and a browser refresh picks up newly logged characters.
 
 ## Layout

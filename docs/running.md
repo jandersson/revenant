@@ -60,3 +60,14 @@ It never replies for you.
 File → Settings: fonts, autostarted scripts, whether closing quits, the idle-warning answer.
 
 Logs are under `~/.revenant/logs/`: `game-<Name>-*.log` has what the game sent, `revenant_client-<Name>-*.log` what the scripts did.
+
+## Several machines: one archive
+
+`;archive` copies this machine's logs and a snapshot of its history into a shared folder, and `tools/history_merge.py` merges every machine's history into one database for beholder.
+
+1. In each machine's `~/.revenant/settings.json`, set `archive_dir` to a folder every machine syncs (a Dropbox folder, say); `archive_machine` names this machine there (default: the host name).
+2. Sessions then autostart `;archive`: every 30 minutes, new or grown logs to `<archive_dir>/revenant/<machine>/logs/` and the history to `.../history.db`. `;archive now` copies at once.
+3. To see everything: `uv run python tools/history_merge.py`, then `REVENANT_HISTORY_DB=~/.revenant/merged.db uv run beholder --port 8051`.
+
+- Each machine keeps writing its own files; never point `REVENANT_HISTORY_DB` or `REVENANT_LOG_DIR` at the shared folder itself.
+- Nothing in the archive is ever deleted. The merged database is rebuilt on every run and is for reading only.

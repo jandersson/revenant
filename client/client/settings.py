@@ -76,6 +76,12 @@ DEFAULTS = {
     # ;athletics' in-town rotation skips the stops dr-scripts flags as
     # justice areas when this is on — for a character the guards want.
     "avoid_justice_climbs": False,
+    # ;archive (#547): the shared folder every machine copies its logs and a
+    # history snapshot into (a Dropbox folder, say; "" — off), and this
+    # machine's folder name there ("" — the host name). Set, ;archive
+    # autostarts; REVENANT_NO_ARCHIVE=1 skips it for one launch.
+    "archive_dir": "",
+    "archive_machine": "",
 }
 
 

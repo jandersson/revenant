@@ -738,6 +738,8 @@ def _autostart_with(monkeypatch, settings=None, **env):
     monkeypatch.delenv("REVENANT_NO_SHEET", raising=False)
     monkeypatch.delenv("REVENANT_NO_DEATHWATCH", raising=False)
     monkeypatch.delenv("REVENANT_NO_WEALTH", raising=False)
+    monkeypatch.delenv("REVENANT_NO_ARCHIVE", raising=False)
+    monkeypatch.delenv("REVENANT_ARCHIVE_DIR", raising=False)
     # The sentinel (#276) is off here unless a test asks for it, so the
     # older expectations stay as they are.
     monkeypatch.setenv("REVENANT_NO_SENTINEL", "1")
@@ -768,6 +770,21 @@ def test_sessions_autostart_xp_and_the_quiet_dashboard(monkeypatch):
         ("deathwatch", []),
         ("wealth", []),
     ]
+
+
+def test_archive_autostarts_only_once_the_settings_name_a_shared_folder(monkeypatch):
+    # #547: no archive_dir, no ;archive; one named, it copies every half hour.
+    off = {
+        "autostart_xp": False,
+        "autostart_beholder": False,
+        "autostart_sheet": False,
+        "autostart_deathwatch": False,
+        "autostart_wealth": False,
+    }
+    assert _autostart_with(monkeypatch, settings=off) == []
+    named = {**off, "archive_dir": "~/Dropbox"}
+    assert _autostart_with(monkeypatch, settings=named) == [("archive", [])]
+    assert _autostart_with(monkeypatch, settings=named, REVENANT_NO_ARCHIVE="1") == []
 
 
 def test_env_flags_disable_each_autostart(monkeypatch):
