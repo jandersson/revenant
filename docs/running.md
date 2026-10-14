@@ -61,13 +61,11 @@ File → Settings: fonts, autostarted scripts, whether closing quits, the idle-w
 
 Logs are under `~/.revenant/logs/`: `game-<Name>-*.log` has what the game sent, `revenant_client-<Name>-*.log` what the scripts did.
 
-## Several machines: one archive
+## Several machines: Dropbox sync
 
-`;archive` copies this machine's logs and a snapshot of its history into a shared folder, and `tools/history_merge.py` merges every machine's history into one database for beholder.
+Tick **Sync logs and history through Dropbox** in File → Settings on each machine, and the dashboard shows every machine's history; nothing to run by hand.
 
-1. In each machine's `~/.revenant/settings.json`, set `archive_dir` to a folder every machine syncs (a Dropbox folder, say); `archive_machine` names this machine there (default: the host name).
-2. Sessions then autostart `;archive`: every 30 minutes, new or grown logs to `<archive_dir>/revenant/<machine>/logs/` and the history to `.../history.db`. `;archive now` copies at once.
-3. To see everything: `uv run python tools/history_merge.py`, then `REVENANT_HISTORY_DB=~/.revenant/merged.db uv run beholder --port 8051`.
-
-- Each machine keeps writing its own files; never point `REVENANT_HISTORY_DB` or `REVENANT_LOG_DIR` at the shared folder itself.
-- Nothing in the archive is ever deleted. The merged database is rebuilt on every run and is for reading only.
+- The session copies this machine's logs and a snapshot of its history to `Dropbox/Revenant/<machine>/` every 10 minutes (`;dropbox`; `;dropbox now` copies at once).
+- Beholder merges every machine's snapshot with this one's own history, whenever one is newer, into `~/.revenant/merged.db`, and reads that.
+- The Dropbox folder is found on its own. `dropbox_dir` in `~/.revenant/settings.json` names another synced folder instead, `dropbox_machine` this machine's name there (default: the host name).
+- Each machine keeps writing its own files, and nothing in Dropbox is ever deleted.

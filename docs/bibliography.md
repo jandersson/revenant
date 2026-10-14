@@ -64,6 +64,7 @@ Credit for the scripts, wiki pages and projects revenant drew on, feature by fea
 | `;warrant`, `client/game/justice.py` | [Elanthipedia: Justice](https://elanthipedia.play.net/Justice) | RECALL WARRANT and SURRENDER. |
 | `;status`, `client/game/status.py` | Lich's DragonRealms status idiom — the `stunned?`, `hidden?`, `checkprone` helpers dr-scripts read off XMLData, now inside lich-5 ([drinfomon.rb](https://github.com/elanthia-online/lich-5/blob/main/lib/dragonrealms/drinfomon.rb), [drdefs.rb](https://github.com/elanthia-online/lich-5/blob/main/lib/dragonrealms/drinfomon/drdefs.rb)) | The idea of readable status flags; nothing ported. |
 | The room id after the room title, `client/ui/roomids.py` | Lich's `;roomnumbers` script (shipped through [Lich](https://github.com/elanthia-online/lich-5)'s own script repository, not on GitHub) | The idea of the map id after the room title; nothing ported. |
+| Dropbox sync: `;dropbox`, `client/game/dropbox.py` | [Dropbox Help: How to find the Dropbox folder on a computer](https://help.dropbox.com/installs/locate-dropbox-folder) | Where Dropbox's info.json lives on each system, and its personal and business folder paths. |
 | `launcher/` | [Lich](https://github.com/elanthia-online/lich-5) and [ProfanityFE](https://github.com/elanthia-online/ProfanityFE) | Starts the Ruby toolchain headless; a bridge, not a reimplementation. |
 
 ## Whole-project influences

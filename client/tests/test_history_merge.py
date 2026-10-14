@@ -1,25 +1,19 @@
-"""How every machine's history becomes one database for beholder (#547)
-— these tests are the manual.
+"""How every machine's history becomes one database for beholder (#547,
+#548) — these tests are the manual.
 
-tools/history_merge.py reads each machine's snapshot in the shared
-folder, this machine's own history fresh, and rebuilds one database:
+With Dropbox sync on, beholder merges each machine's snapshot in Dropbox
+with this machine's own history, fresh, into one database:
 every row of every machine with a `machine` column, each machine's seq
 (and the *_seq columns that point at another table's rows) shifted so
 the machines' numbers never collide, a row two machines both hold (a
 history.db copied between them) kept once.
 """
 
-import importlib.util
-import json
-import pathlib
 import sqlite3
-
-import pytest
 
 from client.game import historymerge
 from client.game.historymerge import OFFSET
 
-REPO = pathlib.Path(__file__).parents[2]
 
 SCHEMA = (
     "CREATE TABLE IF NOT EXISTS mindstate (seq INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -144,7 +138,7 @@ def test_merging_again_rebuilds_and_never_doubles_a_row(tmp_path):
     history(desk, mindstate=[("t2", "Lanival", "Evasion", 6)])
     historymerge.merge({"desk": desk}, out)
     assert rows(out, "SELECT count(*) FROM mindstate") == [(2,)]
-    assert not (tmp_path / ".merged.db.part").exists()
+    assert not list(tmp_path.glob(".merged.db*.part"))
 
 
 def test_an_index_a_source_carries_is_rebuilt(tmp_path):
@@ -164,66 +158,14 @@ def test_an_index_a_source_carries_is_rebuilt(tmp_path):
 
 
 def test_the_sources_are_every_snapshot_and_this_machines_own_history(tmp_path):
-    shared = tmp_path / "Dropbox"
+    base = tmp_path / "Dropbox" / "Revenant"
     for machine in ("desk", "laptop"):
-        (shared / "revenant" / machine).mkdir(parents=True)
-        history(shared / "revenant" / machine / "history.db")
+        (base / machine).mkdir(parents=True)
+        history(base / machine / "history.db")
     fresh = history(tmp_path / "fresh.db")
-    assert historymerge.sources(shared, "laptop", fresh) == {
-        "desk": shared / "revenant" / "desk" / "history.db",
+    assert historymerge.sources(base, "laptop", fresh) == {
+        "desk": base / "desk" / "history.db",
         "laptop": fresh,  # this machine's own, newer than its copy there
     }
     assert historymerge.sources(None, "laptop", fresh) == {"laptop": fresh}
     assert historymerge.sources(None, "laptop", None) == {}
-
-
-def _tool():
-    spec = importlib.util.spec_from_file_location(
-        "history_merge_tool", REPO / "tools/history_merge.py"
-    )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-@pytest.fixture
-def machine(tmp_path, monkeypatch):
-    shared = tmp_path / "Dropbox"
-    (shared / "revenant" / "desk").mkdir(parents=True)
-    settings = tmp_path / "settings.json"
-    settings.write_text(
-        json.dumps({"archive_dir": str(shared), "archive_machine": "laptop"})
-    )
-    monkeypatch.setenv("REVENANT_SETTINGS", str(settings))
-    monkeypatch.setenv("REVENANT_HISTORY_DB", str(tmp_path / "history.db"))
-    monkeypatch.delenv("REVENANT_ARCHIVE_DIR", raising=False)
-    return shared
-
-
-def test_the_tool_merges_the_desks_snapshot_with_this_laptops_history(
-    machine, tmp_path, capsys
-):
-    history(
-        machine / "revenant" / "desk" / "history.db",
-        mindstate=[("2026-10-01T10:00:00", "Lanival", "Evasion", 20)],
-    )
-    history(
-        tmp_path / "history.db",
-        mindstate=[("2026-10-14T20:00:00", "Lanival", "Evasion", 4)],
-    )
-    out = tmp_path / "merged.db"
-    assert _tool().main(["--out", str(out)]) == 0
-    assert capsys.readouterr().out.splitlines() == [
-        "desk: 1 rows",
-        "laptop: 1 rows",
-        f"merged 2 machine(s) into {out}",
-    ]
-    assert rows(out, "SELECT machine, mindstate FROM mindstate ORDER BY logged_at") == [
-        ("desk", 20),
-        ("laptop", 4),
-    ]
-
-
-def test_the_tool_names_a_shared_folder_that_is_not_there(machine, tmp_path, capsys):
-    assert _tool().main(["--dir", str(tmp_path / "nowhere")]) == 1
-    assert capsys.readouterr().out.strip() == f"no folder at {tmp_path / 'nowhere'}"

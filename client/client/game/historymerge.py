@@ -1,10 +1,10 @@
-"""Every machine's history in one database (#547): what
-tools/history_merge.py builds for beholder.
+"""Every machine's history in one database (#547, #548): what beholder
+reads with Dropbox sync on.
 
-Each machine's ;archive copies a snapshot of its history.db to the shared
-folder (client/game/archive.py). Those files cannot simply be joined: every table
-keys on its own autoincrement seq, so two machines number their rows
-over each other. merge() rebuilds one database from all of them:
+Each machine's ;dropbox copies a snapshot of its history.db to Dropbox
+(client/game/dropbox.py). Those files cannot simply be joined: every
+table keys on its own autoincrement seq, so two machines number their
+rows over each other. merge() rebuilds one database from all of them:
 
 - every table of every source, its columns the union of theirs (an
   older machine's rows read NULL in a column only newer code writes),
@@ -19,14 +19,16 @@ over each other. merge() rebuilds one database from all of them:
 - the sources' indexes, rebuilt (never unique: two machines' rows may
   repeat what one machine's could not)
 
-The output is rebuilt from scratch on every run, so running it again
+The output is rebuilt from scratch on every run, so building it again
 after the next snapshots never doubles a row. It is written to a
-temporary file beside it and moved into place.
+temporary file beside it, named by process and thread so two builders
+never share one, and moved into place.
 """
 
 import os
 import re
 import sqlite3
+import threading
 from pathlib import Path
 
 OFFSET = 1_000_000_000  # seq values a machine may use before the next one's
@@ -36,15 +38,15 @@ def quoted(name):
     return '"' + str(name).replace('"', '""') + '"'
 
 
-def sources(root, machine, local_history):
+def sources(base, machine, local_history):
     """{machine: history path}: every machine's snapshot under
-    <root>/revenant/*/history.db, with `local_history` — a fresh
-    snapshot of this machine's own, taken by the caller so the merge
-    never holds the live file's lock — in place of the one it copied there
-    up to half an hour ago. `root` None: this machine's history alone."""
+    <base>/*/history.db, with `local_history` — a fresh snapshot of this
+    machine's own, taken by the caller so the merge never holds the live
+    file's lock — in place of the one it copied there minutes ago.
+    `base` None: this machine's history alone."""
     found = {}
-    if root is not None:
-        for snapshot in sorted(Path(root, "revenant").glob("*/history.db")):
+    if base is not None:
+        for snapshot in sorted(Path(base).glob("*/history.db")):
             found[snapshot.parent.name] = snapshot
     if local_history is not None and Path(local_history).exists():
         found[machine] = Path(local_history)
@@ -136,15 +138,28 @@ def merge(found, out):
     ({machine: rows taken}, rows skipped as another machine's copy)."""
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    part = out.with_name(f".{out.name}.part")
+    part = out.with_name(f".{out.name}.{os.getpid()}.{threading.get_ident()}.part")
     if part.exists():
         part.unlink()
-    target = sqlite3.connect(part)
+    try:
+        taken, skipped = build(found, part)
+        os.replace(part, out)
+    except BaseException:
+        # A source mid-sync, or merged.db open elsewhere (Windows): the
+        # old one stands, and no half-built file is left beside it.
+        part.unlink(missing_ok=True)
+        raise
+    return taken, skipped
+
+
+def build(found, path):
+    """The merged tables written into a new database at `path`."""
+    target = sqlite3.connect(path)
     taken, skipped = {}, 0
     schema, seen, indexes = {}, {}, []
     try:
-        for place, (machine, path) in enumerate(sorted(found.items())):
-            uri = f"{Path(path).resolve().as_uri()}?mode=ro"
+        for place, (machine, source_path) in enumerate(sorted(found.items())):
+            uri = f"{Path(source_path).resolve().as_uri()}?mode=ro"
             source = sqlite3.connect(uri, uri=True)
             try:
                 taken[machine] = 0
@@ -174,5 +189,4 @@ def merge(found, out):
         target.commit()
     finally:
         target.close()
-    os.replace(part, out)
     return taken, skipped

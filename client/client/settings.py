@@ -76,12 +76,15 @@ DEFAULTS = {
     # ;athletics' in-town rotation skips the stops dr-scripts flags as
     # justice areas when this is on — for a character the guards want.
     "avoid_justice_climbs": False,
-    # ;archive (#547): the shared folder every machine copies its logs and a
-    # history snapshot into (a Dropbox folder, say; "" — off), and this
-    # machine's folder name there ("" — the host name). Set, ;archive
-    # autostarts; REVENANT_NO_ARCHIVE=1 skips it for one launch.
-    "archive_dir": "",
-    "archive_machine": "",
+    # Dropbox sync (#547, #548): on, ;dropbox autostarts and copies this
+    # machine's logs and a history snapshot into Dropbox, and beholder
+    # reads every machine's history. The folder is the one Dropbox's
+    # info.json names unless dropbox_dir names another synced folder;
+    # dropbox_machine is this machine's folder name there ("" — the host
+    # name). REVENANT_NO_DROPBOX=1 skips the autostart for one launch.
+    "dropbox_sync": False,
+    "dropbox_dir": "",
+    "dropbox_machine": "",
 }
 
 

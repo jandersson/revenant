@@ -12,8 +12,11 @@ explicit choice; a "use the default" checkbox that locked the pickers
 read as broken (#130), and a reset button would only exist to be
 hit by accident. The autostart
 toggles take effect when the next session starts (a running session
-already made its choices); quit-on-close is read live at window close,
-and the clocks dock picks its row up within a minute.
+already made its choices) — Dropbox sync excepted, which the window
+starts or stops in the running session too (#548); quit-on-close is
+read live at window close, and the clocks dock picks its row up within
+a minute. The Dropbox row names the folder it found, or says there is
+none and stays off.
 """
 
 from PyQt6.QtGui import QFont
@@ -30,6 +33,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from client.game import dropbox
 from client.gui.text_views import fixed_pitch_font
 from client.ui.textfont import MAX_SIZE, MIN_SIZE, TEXT_VIEWS, font_choice, view_font
 
@@ -67,6 +71,20 @@ class SettingsDialog(QDialog):
             "Flag what is new or addressed at you while away (;sentinel)"
         )
         self.autostart_sentinel.setChecked(bool(settings.get("autostart_sentinel")))
+        # Dropbox sync (#548): the folder found here, or none to sync with.
+        self.dropbox_sync = QCheckBox(
+            "Sync logs and history through Dropbox: every machine's in the dashboard"
+        )
+        folder = dropbox.shared_dir(settings)
+        found = folder is not None and folder.is_dir()
+        self.dropbox_sync.setChecked(found and bool(settings.get("dropbox_sync")))
+        self.dropbox_sync.setEnabled(found)
+        self.dropbox_folder = QLabel(
+            f"Dropbox folder: {folder}"
+            if found
+            else "Dropbox is not installed on this computer"
+        )
+        self.dropbox_folder.setStyleSheet("color: #808090; margin-left: 24px;")
         self.quit_on_close = QCheckBox(
             "Quit the game when the window closes (File → Detach skips this)"
         )
@@ -152,6 +170,8 @@ class SettingsDialog(QDialog):
             self.deathwatch_young_depart,
             self.autostart_wealth,
             self.autostart_sentinel,
+            self.dropbox_sync,
+            self.dropbox_folder,
             self.quit_on_close,
             self.answer_idle_warning,
             self.clocks_earth_moon,
@@ -182,6 +202,7 @@ class SettingsDialog(QDialog):
             "deathwatch_young_depart": self.deathwatch_young_depart.isChecked(),
             "autostart_wealth": self.autostart_wealth.isChecked(),
             "autostart_sentinel": self.autostart_sentinel.isChecked(),
+            "dropbox_sync": self.dropbox_sync.isChecked(),
             "autostart_extra": [
                 entry.strip()
                 for entry in self.autostart_extra.text().split(",")

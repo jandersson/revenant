@@ -584,13 +584,18 @@ class ClientGUI(QMainWindow, ClientLogger):
     def edit_settings(self):
         """File → Settings…: toggles and the font over settings.json.
         Quit-on-close and the font apply immediately; autostarts apply
-        to the next session."""
+        to the next session, but Dropbox sync starts or stops ;dropbox
+        in this one too (#548) — nobody should need to restart for it."""
         from client.gui.settings_dialog import SettingsDialog
 
-        dialog = SettingsDialog(load_settings(), self)
+        before = load_settings()
+        dialog = SettingsDialog(before, self)
         if dialog.exec() != dialog.DialogCode.Accepted:
             return
-        save_settings(dialog.values())
+        values = dialog.values()
+        save_settings(values)
+        if values["dropbox_sync"] != bool(before.get("dropbox_sync")):
+            self.write(";dropbox" if values["dropbox_sync"] else ";stop dropbox")
         self._apply_text_font()
         self.clocks.reload_settings()
         self._show_room_ids = bool(setting("show_room_ids"))

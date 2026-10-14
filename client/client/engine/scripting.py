@@ -459,8 +459,8 @@ RELOADABLE_MODULES = (
     "client.ui.textfont",
     "client.game.eltime",
     "client.game.history",
-    "client.game.archive",  # ;archive's model (#547)
-    "client.game.historymerge",  # tools/history_merge.py's (#547)
+    "client.game.historymerge",  # before dropbox, which binds it (#547)
+    "client.game.dropbox",  # ;dropbox's model (#548)
     "client.game.rested",
     "client.game.climbs",
     "client.game.plant",

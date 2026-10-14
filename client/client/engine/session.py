@@ -1062,12 +1062,10 @@ def autostart_scripts(server):
         "autostart_sentinel", True
     ):
         server.scripts.start("sentinel", [])
-    # Logs and a history snapshot to the shared folder (#547), once the
-    # settings name one; REVENANT_NO_ARCHIVE=1 skips it for a launch.
-    if not os.environ.get("REVENANT_NO_ARCHIVE") and (
-        settings.get("archive_dir") or os.environ.get("REVENANT_ARCHIVE_DIR")
-    ):
-        server.scripts.start("archive", [])
+    # Dropbox sync (#548): logs and a history snapshot copied into
+    # Dropbox; REVENANT_NO_DROPBOX=1 skips it for a launch.
+    if not os.environ.get("REVENANT_NO_DROPBOX") and settings.get("dropbox_sync"):
+        server.scripts.start("dropbox", [])
     # User-chosen extras: script names with optional args ("lnet",
     # "athletics ladder"). Unknown names answer with the usual
     # no-script-named message rather than failing the startup.
