@@ -38,16 +38,16 @@ def quoted(name):
     return '"' + str(name).replace('"', '""') + '"'
 
 
-def sources(base, machine, local_history):
-    """{machine: history path}: every machine's snapshot under
-    <base>/*/history.db, with `local_history` — a fresh snapshot of this
+def sources(folder, machine, local_history):
+    """{machine: history path}: every machine's snapshot in `folder`,
+    history.<machine>.db, with `local_history` — a fresh snapshot of this
     machine's own, taken by the caller so the merge never holds the live
     file's lock — in place of the one it copied there minutes ago.
-    `base` None: this machine's history alone."""
+    `folder` None: this machine's history alone."""
     found = {}
-    if base is not None:
-        for snapshot in sorted(Path(base).glob("*/history.db")):
-            found[snapshot.parent.name] = snapshot
+    if folder is not None:
+        for snapshot in sorted(Path(folder).glob("history.*.db")):
+            found[snapshot.name[len("history.") : -len(".db")]] = snapshot
     if local_history is not None and Path(local_history).exists():
         found[machine] = Path(local_history)
     return found

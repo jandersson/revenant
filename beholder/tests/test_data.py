@@ -675,8 +675,8 @@ def test_with_dropbox_sync_on_the_dashboard_reads_every_machines_history(
     import json
 
     box = tmp_path / "Dropbox"
-    (box / "Revenant" / "laptop").mkdir(parents=True)
-    _history(box / "Revenant" / "laptop" / "history.db", [ROWS[4]])
+    (box / "Revenant" / "_history").mkdir(parents=True)
+    _history(box / "Revenant" / "_history" / "history.laptop.db", [ROWS[4]])
     local = tmp_path / "history.db"
     _history(local, ROWS[:4])
     settings = tmp_path / "settings.json"

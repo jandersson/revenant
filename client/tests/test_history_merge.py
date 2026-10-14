@@ -158,13 +158,13 @@ def test_an_index_a_source_carries_is_rebuilt(tmp_path):
 
 
 def test_the_sources_are_every_snapshot_and_this_machines_own_history(tmp_path):
-    base = tmp_path / "Dropbox" / "Revenant"
+    folder = tmp_path / "Dropbox" / "Revenant" / "_history"
+    folder.mkdir(parents=True)
     for machine in ("desk", "laptop"):
-        (base / machine).mkdir(parents=True)
-        history(base / machine / "history.db")
+        history(folder / f"history.{machine}.db")
     fresh = history(tmp_path / "fresh.db")
-    assert historymerge.sources(base, "laptop", fresh) == {
-        "desk": base / "desk" / "history.db",
+    assert historymerge.sources(folder, "laptop", fresh) == {
+        "desk": folder / "history.desk.db",
         "laptop": fresh,  # this machine's own, newer than its copy there
     }
     assert historymerge.sources(None, "laptop", fresh) == {"laptop": fresh}

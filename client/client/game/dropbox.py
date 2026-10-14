@@ -1,13 +1,20 @@
-"""Dropbox sync (#547, #548): every machine's logs and history gathered
-in Dropbox, and beholder reading all of them — one checkbox in File →
-Settings, nothing to run by hand.
+"""Dropbox sync (#547, #548, #549): every machine's logs and history
+gathered in Dropbox, and beholder reading all of them — one checkbox in
+File → Settings, nothing to run by hand.
 
 With `dropbox_sync` on, each session autostarts ;dropbox, which every
-INTERVAL_MINUTES copies into <Dropbox>/Revenant/<machine>/:
+INTERVAL_MINUTES copies into <Dropbox>/Revenant/:
 
-    logs/        every log in the local log directory that is new there
-                 or has grown since the last copy
-    history.db   a snapshot of ~/.revenant/history.db
+    <Character>/<log>.<machine>.log    every log that is new there or has
+                                       grown since the last copy, filed
+                                       by the character its name carries
+    _other/<log>.<machine>.log         a log with no character in its name
+    _history/history.<machine>.db      a snapshot of ~/.revenant/history.db,
+                                       every character inside
+
+A character's folder holds its logs from every machine, each machine
+named in the file; _other and _history start with an underscore, which
+no character name can.
 
 and beholder, asked for the history, reads merged_history(): one
 database rebuilt from every machine's snapshot and this machine's own
@@ -45,7 +52,12 @@ from pathlib import Path
 from client.game import historymerge
 
 ENV = "REVENANT_DROPBOX_DIR"
-FOLDER = "Revenant"  # inside the Dropbox folder: one folder per machine below it
+FOLDER = "Revenant"  # inside the Dropbox folder: one folder per character below it
+OTHER = "_other"  # the logs whose names carry no character
+HISTORY = "_history"  # one history snapshot per machine
+# The character a log's name carries: game-, lnet-, revenant_client- and
+# drive-<Name>-<YYYYMMDD>-<HHMMSS> (client_logger.py, tools/drive.py).
+_CHARACTER = re.compile(r"^[a-z_]+-([A-Za-z]+)-\d{8}-\d{6}")
 INTERVAL_MINUTES = 10  # between ;dropbox's copies
 MERGE_SECONDS = 60  # the merged history is rebuilt at most this often
 
@@ -109,32 +121,54 @@ def machine_name(settings, host=None):
     return value or "machine"
 
 
-def machine_dir(root, machine):
-    """<root>/Revenant/<machine>: the one folder this machine writes."""
-    return Path(root) / FOLDER / machine
+def character_of(name):
+    """The character a log's file name carries, or None (a process
+    before login, the legacy logs)."""
+    match = _CHARACTER.match(name)
+    return match.group(1).capitalize() if match else None
 
 
-def copy_logs(source, dest):
-    """Every file in `source` (no subfolders, no dot-files) copied into
-    `dest` when it is missing there, a different size, or newer: the
+def tagged(name, machine):
+    """The log's name with its machine before .log:
+    game-Lanival-20261014-200000.calculon.log (a rotated debug log's
+    .log.1 likewise)."""
+    if ".log" in name:
+        return name.replace(".log", f".{machine}.log", 1)
+    return f"{name}.{machine}"
+
+
+def log_target(root, name, machine):
+    """Where a log goes: <root>/Revenant/<Character or _other>/<tagged>."""
+    folder = character_of(name) or OTHER
+    return Path(root) / FOLDER / folder / tagged(name, machine)
+
+
+def history_target(root, machine):
+    """Where this machine's history snapshot goes."""
+    return Path(root) / FOLDER / HISTORY / f"history.{machine}.db"
+
+
+def copy_logs(source, root, machine):
+    """Every file in `source` (no subfolders, no dot-files) copied to its
+    log_target when it is missing there, a different size, or newer: the
     names copied. A copy goes to a dot-file beside it first and is moved
-    into place. Nothing in `dest` is ever deleted — a debug log pruned
-    locally after 7 days stays in Dropbox."""
-    source, dest = Path(source), Path(dest)
+    into place. Nothing in Dropbox is ever deleted — a debug log pruned
+    locally after 7 days stays there."""
+    source = Path(source)
     copied = []
     if not source.is_dir():
         return copied
-    dest.mkdir(parents=True, exist_ok=True)
     for path in sorted(source.iterdir()):
         if path.name.startswith(".") or not path.is_file():
             continue
-        target = dest / path.name
+        target = log_target(root, path.name, machine)
+        target.parent.mkdir(parents=True, exist_ok=True)
         here = path.stat()
         if target.exists():
             there = target.stat()
             if there.st_size == here.st_size and there.st_mtime >= here.st_mtime:
                 continue
-        part = dest / f".{path.name}.part"
+        part = target.with_name(f".{target.name}.part")
         shutil.copy2(path, part)  # the mtime too: the next look compares it
         os.replace(part, target)
         copied.append(path.name)
@@ -168,11 +202,10 @@ def snapshot_history(source, target):
 
 
 def copy(root, machine, logs, history):
-    """One copy into <root>/Revenant/<machine>/: (the log names copied,
-    the snapshot's answer)."""
-    base = machine_dir(root, machine)
-    copied = copy_logs(logs, base / "logs")
-    return copied, snapshot_history(history, base / "history.db")
+    """One copy into <root>/Revenant/: (the log names copied, the
+    snapshot's answer)."""
+    copied = copy_logs(logs, root, machine)
+    return copied, snapshot_history(history, history_target(root, machine))
 
 
 def merged_history(settings, local):
@@ -188,7 +221,7 @@ def merged_history(settings, local):
     local = Path(local)
     out = local.with_name("merged.db")
     with _MERGING:
-        snapshots = sorted((root / FOLDER).glob("*/history.db"))
+        snapshots = sorted((root / FOLDER / HISTORY).glob("history.*.db"))
         newest = max(
             (path.stat().st_mtime for path in [*snapshots, local] if path.exists()),
             default=0.0,
@@ -211,6 +244,6 @@ def rebuild(root, machine, local, out):
         fresh = Path(scratch) / "history.db"
         if snapshot_history(local, fresh) == NO_HISTORY:
             fresh = None
-        found = historymerge.sources(Path(root) / FOLDER, machine, fresh)
+        found = historymerge.sources(Path(root) / FOLDER / HISTORY, machine, fresh)
         if found:
             historymerge.merge(found, out)

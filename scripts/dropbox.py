@@ -7,8 +7,11 @@
 Turn it on in File → Settings: "Sync logs and history through Dropbox".
 
 What it does
-  - Copies every log that is new or has grown, and a snapshot of the history,
-    to <Dropbox>/Revenant/<this machine>/. Nothing there is ever deleted.
+  - Copies every log that is new or has grown to <Dropbox>/Revenant/<Character>/,
+    this machine's name in each file's (game-Lanival-<stamp>.<machine>.log); a log
+    with no character goes to _other/.
+  - Copies a snapshot of the history to <Dropbox>/Revenant/_history/history.<machine>.db.
+  - Nothing there is ever deleted.
   - Beholder then shows every machine's history, not this one's alone.
   - The Dropbox folder is found on its own; `dropbox_dir` in settings.json names
     another synced folder, `dropbox_machine` this machine's name there.
@@ -40,10 +43,8 @@ def copy_once(s, root, machine, say):
         s.echo(f"dropbox: the copy to {root} failed — {error}")
         return False
     if say:
-        s.echo(
-            f"dropbox: {len(copied)} log(s) copied, history {snapshot} — "
-            f"{dropbox.machine_dir(root, machine)}"
-        )
+        where = root / dropbox.FOLDER
+        s.echo(f"dropbox: {len(copied)} log(s) copied, history {snapshot} — {where}")
     return True
 
 
@@ -61,7 +62,7 @@ def main(s):
         copy_once(s, root, machine, say=True)
         return
     s.echo(
-        f"dropbox: logs and history to {dropbox.machine_dir(root, machine)} every "
+        f"dropbox: logs and history to {root / dropbox.FOLDER} as {machine} every "
         f"{dropbox.INTERVAL_MINUTES} minutes; ;dropbox now copies at once, "
         ";stop dropbox stops"
     )

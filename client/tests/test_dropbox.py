@@ -1,10 +1,12 @@
 """How Dropbox sync gathers every machine's logs and history (#547,
-#548) — these tests are the manual.
+#548, #549) — these tests are the manual.
 
-The Dropbox folder is the one Dropbox's info.json names. Each machine
-writes only under <Dropbox>/Revenant/<machine>/: logs/ gets every log
-that is new or has grown since the last copy, history.db a whole
-snapshot of the history. Nothing there is ever deleted. Beholder, with
+The Dropbox folder is the one Dropbox's info.json names. Under its
+Revenant/ folder each log that is new or has grown since the last copy
+goes to the folder of the character its name carries, the machine in
+its name (Lanival/game-Lanival-<stamp>.desk.log), and each machine's
+history to _history/history.<machine>.db, whole. Nothing there is ever
+deleted. Beholder, with
 sync on, reads a merged history rebuilt when a machine's snapshot or
 this one's history is newer. The session autostarts ;dropbox once the
 Settings checkbox is ticked.
@@ -135,28 +137,54 @@ def test_the_machine_folder_is_the_host_name_or_the_setting():
 # -- the copy -----------------------------------------------------------------
 
 
+def test_a_log_is_filed_by_its_character_with_the_machine_in_its_name(tmp_path):
+    def where(name):
+        return dropbox.log_target(tmp_path, name, "desk").relative_to(tmp_path)
+
+    assert where("game-Lanival-20261014-200000.log") == pathlib.Path(
+        "Revenant/Lanival/game-Lanival-20261014-200000.desk.log"
+    )
+    assert where("lnet-Sable-20261014-200000.log").parent.name == "Sable"
+    assert where("drive-Uthmor-20261014-200000.log").parent.name == "Uthmor"
+    # A rotated debug log keeps its number after .log.
+    assert where("revenant_client-Lanival-20261014-200000-4242.log.1").name == (
+        "revenant_client-Lanival-20261014-200000-4242.desk.log.1"
+    )
+    # No character in the name — a process before login, the legacy logs.
+    assert where("revenant_client-20261014-200000-4242.log") == pathlib.Path(
+        "Revenant/_other/revenant_client-20261014-200000-4242.desk.log"
+    )
+    assert where("game-20260808-legacy.log").parent.name == "_other"
+    assert dropbox.history_target(tmp_path, "desk").relative_to(tmp_path) == (
+        pathlib.Path("Revenant/_history/history.desk.db")
+    )
+
+
 def test_logs_new_or_grown_are_copied_and_nothing_there_is_deleted(home):
     game = home.logs / "game-Lanival-20261014-200000.log"
     debug = home.logs / "revenant_client-Lanival-20261014-200000-4242.log"
     game.write_text("<prompt>&gt;</prompt>\n")
     debug.write_text("script started\n")
     (home.logs / ".DS_Store").write_text("")
-    dest = home.box / "Revenant" / "desk" / "logs"
-    assert dropbox.copy_logs(home.logs, dest) == [game.name, debug.name]
-    assert dropbox.copy_logs(home.logs, dest) == []  # nothing new
+    folder = home.box / "Revenant" / "Lanival"
+    assert dropbox.copy_logs(home.logs, home.box, "desk") == [game.name, debug.name]
+    assert dropbox.copy_logs(home.logs, home.box, "desk") == []  # nothing new
     with game.open("a") as log:  # the session goes on writing
         log.write("You feel fully rested.\n")
-    assert dropbox.copy_logs(home.logs, dest) == [game.name]
-    assert (dest / game.name).read_text().endswith("fully rested.\n")
+    assert dropbox.copy_logs(home.logs, home.box, "desk") == [game.name]
+    copy = folder / "game-Lanival-20261014-200000.desk.log"
+    assert copy.read_text().endswith("fully rested.\n")
     debug.unlink()  # pruned locally after 7 days
-    dropbox.copy_logs(home.logs, dest)
-    assert (dest / debug.name).exists()  # still in Dropbox
-    assert sorted(p.name for p in dest.iterdir()) == sorted([game.name, debug.name])
+    dropbox.copy_logs(home.logs, home.box, "desk")
+    assert sorted(p.name for p in folder.iterdir()) == [
+        "game-Lanival-20261014-200000.desk.log",
+        "revenant_client-Lanival-20261014-200000-4242.desk.log",  # still in Dropbox
+    ]
 
 
 def test_the_history_snapshot_is_whole_and_taken_only_after_a_write(home):
     write_history(home.history, [("2026-10-14T20:00:00", "Lanival", "Evasion", 12)])
-    target = home.box / "Revenant" / "desk" / "history.db"
+    target = dropbox.history_target(home.box, "desk")
     writer = sqlite3.connect(home.history)  # a script holding it open
     writer.execute(
         "INSERT INTO mindstate (logged_at, character_name, skill_name, mindstate)"
@@ -183,11 +211,9 @@ def test_the_history_snapshot_is_whole_and_taken_only_after_a_write(home):
 
 
 def test_with_sync_on_beholder_reads_every_machines_history(home, monkeypatch):
-    laptop = home.box / "Revenant" / "laptop"
-    laptop.mkdir(parents=True)
-    write_history(
-        laptop / "history.db", [("2026-10-01T10:00:00", "Sable", "Evasion", 3)]
-    )
+    laptop = dropbox.history_target(home.box, "laptop")
+    laptop.parent.mkdir(parents=True)
+    write_history(laptop, [("2026-10-01T10:00:00", "Sable", "Evasion", 3)])
     write_history(home.history, [("2026-10-14T20:00:00", "Lanival", "Evasion", 12)])
     settings = json.loads(home.settings.read_text())
     merged = dropbox.merged_history(settings, home.history)
@@ -251,9 +277,9 @@ def test_dropbox_now_copies_once_and_says_what(home):
     write_history(home.history, [("2026-10-14T20:00:00", "Lanival", "Evasion", 12)])
     s = Handle(args=["now"])
     _script().main(s)
-    base = home.box / "Revenant" / "desk"
-    assert (base / "logs" / "game-Lanival-20261014-200000.log").exists()
-    assert (base / "history.db").exists()
+    base = home.box / "Revenant"
+    assert (base / "Lanival" / "game-Lanival-20261014-200000.desk.log").exists()
+    assert (base / "_history" / "history.desk.db").exists()
     assert s.echoed == [f"dropbox: 1 log(s) copied, history taken — {base}"]
 
 
