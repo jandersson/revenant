@@ -8,8 +8,10 @@ Turn it on in File → Settings: "Sync logs and history through Dropbox".
 
 What it does
   - Copies every log that is new or has grown to <Dropbox>/Revenant/<Character>/,
-    this machine's name in each file's (game-Lanival-<stamp>.<machine>.log); a log
-    with no character goes to _other/.
+    this machine's name in each file's (game-Lanival-<stamp>.<machine>.log).
+  - A log whose name carries no character (before late September 2026) is filed by
+    best effort: its login line, the game log of its stamp, or the session before it;
+    _other/ when nothing says.
   - Copies a snapshot of the history to <Dropbox>/Revenant/_history/history.<machine>.db.
   - Nothing there is ever deleted.
   - Beholder then shows every machine's history, not this one's alone.

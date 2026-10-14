@@ -160,6 +160,58 @@ def test_a_log_is_filed_by_its_character_with_the_machine_in_its_name(tmp_path):
     )
 
 
+LOGIN = '<app char="{}" game="DR" title="[DR: {}] StormFront"/>\n'
+
+
+def test_a_log_with_no_character_in_its_name_is_filed_by_best_effort(home):
+    # #550: logs from before the names carried the character. A ;reexec
+    # or a reconnect never logs in again: it continues the session before.
+    logs = {
+        "game-20260801-000000.log": "a room\n",  # nothing before: the next known
+        "game-20260813-001415.log": LOGIN.format("Lanival", "Lanival"),
+        "game-20260813-015648.log": "a room\n",  # continues Lanival's session
+        "revenant_client-20260813-015648-4242.log": "script started\n",
+        "game-20260813-034007.log": LOGIN.format("Sable", "Sable"),
+        "game-20260813-035859.log": "a room\n",
+        "game-Uthmor-20261001-100000.log": "a room\n",  # the name says
+        "revenant_client-20261001-110000-4243.log": "script started\n",
+        "revenant_client.log": "Lanival ... Sable ... Uthmor\n",  # no stamp: shared
+    }
+    for name, text in logs.items():
+        (home.logs / name).write_text(text)
+    assert dropbox.owners(sorted(home.logs.iterdir())) == {
+        "game-20260801-000000.log": "Lanival",
+        "game-20260813-001415.log": "Lanival",
+        "game-20260813-015648.log": "Lanival",
+        "revenant_client-20260813-015648-4242.log": "Lanival",
+        "game-20260813-034007.log": "Sable",
+        "game-20260813-035859.log": "Sable",
+        "game-Uthmor-20261001-100000.log": "Uthmor",
+        "revenant_client-20261001-110000-4243.log": "Uthmor",
+        "revenant_client.log": None,
+    }
+    dropbox.copy_logs(home.logs, home.box, "desk")
+    folder = home.box / "Revenant"
+    assert (folder / "Sable" / "game-20260813-035859.desk.log").exists()
+    assert sorted(p.name for p in (folder / "_other").iterdir()) == [
+        "revenant_client.desk.log"
+    ]
+
+
+def test_a_log_filed_under_other_moves_once_its_character_is_found(home):
+    # The first copy knows nothing of the session; the next log's login
+    # line names it: the earlier copy moves, it is not copied twice.
+    (home.logs / "game-20260813-015648.log").write_text("a room\n")
+    dropbox.copy_logs(home.logs, home.box, "desk")
+    stray = home.box / "Revenant" / "_other" / "game-20260813-015648.desk.log"
+    assert stray.exists()
+    (home.logs / "game-20260813-001415.log").write_text(LOGIN.format("Sable", "Sable"))
+    copied = dropbox.copy_logs(home.logs, home.box, "desk")
+    assert copied == ["game-20260813-001415.log"]  # the other one was moved
+    assert not stray.exists()
+    assert (home.box / "Revenant" / "Sable" / "game-20260813-015648.desk.log").exists()
+
+
 def test_logs_new_or_grown_are_copied_and_nothing_there_is_deleted(home):
     game = home.logs / "game-Lanival-20261014-200000.log"
     debug = home.logs / "revenant_client-Lanival-20261014-200000-4242.log"

@@ -8,13 +8,17 @@ INTERVAL_MINUTES copies into <Dropbox>/Revenant/:
     <Character>/<log>.<machine>.log    every log that is new there or has
                                        grown since the last copy, filed
                                        by the character its name carries
-    _other/<log>.<machine>.log         a log with no character in its name
+    _other/<log>.<machine>.log         a log no character was found for
     _history/history.<machine>.db      a snapshot of ~/.revenant/history.db,
                                        every character inside
 
 A character's folder holds its logs from every machine, each machine
 named in the file; _other and _history start with an underscore, which
-no character name can.
+no character name can. A log whose name carries no character (one from
+before the names did, late September 2026) is filed by best effort
+(#550, owners()): the login line in it, else the log of the same stamp,
+else the session before it — a ;reexec or a reconnect never logs in
+again, so it continues the last session whose character is known.
 
 and beholder, asked for the history, reads merged_history(): one
 database rebuilt from every machine's snapshot and this machine's own
@@ -38,6 +42,7 @@ Nothing in Dropbox is ever deleted, and each machine keeps writing its
 own local files, so a sync problem never touches a running session.
 """
 
+import bisect
 import json
 import os
 import re
@@ -58,6 +63,11 @@ HISTORY = "_history"  # one history snapshot per machine
 # The character a log's name carries: game-, lnet-, revenant_client- and
 # drive-<Name>-<YYYYMMDD>-<HHMMSS> (client_logger.py, tools/drive.py).
 _CHARACTER = re.compile(r"^[a-z_]+-([A-Za-z]+)-\d{8}-\d{6}")
+_STAMP = re.compile(r"-(\d{8}-\d{6})")  # when the log's process started
+# The login line, sent once when a character logs in (xml_data reads it).
+_LOGIN = re.compile(r"""<app char=["']([A-Za-z]+)["']""")
+SNIFF_BYTES = 256 * 1024  # how much of a log is read for its login line
+_LOGINS = {}  # (path, size, mtime) -> the login found: each log read once a session
 INTERVAL_MINUTES = 10  # between ;dropbox's copies
 MERGE_SECONDS = 60  # the merged history is rebuilt at most this often
 
@@ -137,9 +147,64 @@ def tagged(name, machine):
     return f"{name}.{machine}"
 
 
-def log_target(root, name, machine):
-    """Where a log goes: <root>/Revenant/<Character or _other>/<tagged>."""
-    folder = character_of(name) or OTHER
+def stamp_of(name):
+    """The YYYYMMDD-HHMMSS a log's name carries, or None (the old
+    shared logs, revenant_client.log)."""
+    match = _STAMP.search(name)
+    return match.group(1) if match else None
+
+
+def login_in(path):
+    """The character whose login line is in the log's first SNIFF_BYTES,
+    or None; each log is read once a session."""
+    path = Path(path)
+    stat = path.stat()
+    key = (str(path), stat.st_size, stat.st_mtime)
+    if key not in _LOGINS:
+        try:
+            with open(path, "rb") as handle:
+                head = handle.read(SNIFF_BYTES).decode("utf-8", "replace")
+        except OSError:
+            head = ""
+        match = _LOGIN.search(head)
+        _LOGINS[key] = match.group(1).capitalize() if match else None
+    return _LOGINS[key]
+
+
+def owners(paths):
+    """{log name: character or None}, best effort (#550), in order: the
+    character in the name; the login line in the log; the log of the
+    same stamp (a revenant_client-<stamp>-<pid>.log is its game-<stamp>.log's);
+    the nearest earlier log whose character is known (a log with no
+    login continues the session before it), else the nearest later one.
+    A log with no stamp in its name and no login line — the old shared
+    revenant_client.log names several characters — stays None. Two
+    characters played side by side before the names carried them are
+    told apart by their login lines alone."""
+    known = {path.name: character_of(path.name) or login_in(path) for path in paths}
+    by_stamp, anchors = {}, []
+    for name, who in known.items():
+        stamp = stamp_of(name)
+        if who and stamp:
+            by_stamp.setdefault(stamp, who)
+            anchors.append((stamp, who))
+    anchors.sort()
+    stamps = [stamp for stamp, _ in anchors]
+    found = {}
+    for name, who in known.items():
+        stamp = stamp_of(name)
+        if who is None and stamp and anchors:
+            place = bisect.bisect_right(stamps, stamp)
+            nearest = anchors[place - 1] if place else anchors[0]
+            who = by_stamp.get(stamp) or nearest[1]
+        found[name] = who
+    return found
+
+
+def log_target(root, name, machine, character=None):
+    """Where a log goes: <root>/Revenant/<Character or _other>/<tagged>,
+    the character owners() found, else the one its name carries."""
+    folder = character or character_of(name) or OTHER
     return Path(root) / FOLDER / folder / tagged(name, machine)
 
 
@@ -150,19 +215,28 @@ def history_target(root, machine):
 
 def copy_logs(source, root, machine):
     """Every file in `source` (no subfolders, no dot-files) copied to its
-    log_target when it is missing there, a different size, or newer: the
-    names copied. A copy goes to a dot-file beside it first and is moved
+    log_target — its character by owners() — when it is missing there, a
+    different size, or newer: the names copied. A copy goes to a dot-file beside it first and is moved
     into place. Nothing in Dropbox is ever deleted — a debug log pruned
     locally after 7 days stays there."""
     source = Path(source)
     copied = []
     if not source.is_dir():
         return copied
-    for path in sorted(source.iterdir()):
-        if path.name.startswith(".") or not path.is_file():
-            continue
-        target = log_target(root, path.name, machine)
+    paths = [
+        path
+        for path in sorted(source.iterdir())
+        if not path.name.startswith(".") and path.is_file()
+    ]
+    who = owners(paths)
+    for path in paths:
+        target = log_target(root, path.name, machine, who[path.name])
         target.parent.mkdir(parents=True, exist_ok=True)
+        stray = Path(root) / FOLDER / OTHER / target.name
+        if target.parent.name != OTHER and not target.exists() and stray.exists():
+            # Filed under _other before its character was found: moved
+            # to it, never copied twice (#550).
+            os.replace(stray, target)
         here = path.stat()
         if target.exists():
             there = target.stat()
