@@ -1,20 +1,16 @@
-"""How Dropbox sync gathers every machine's logs and history (#547,
-#548, #549) — these tests are the manual.
+"""How Dropbox sync gathers every machine's logs (#547, #548, #549,
+#550) — these tests are the manual.
 
 The Dropbox folder is the one Dropbox's info.json names. Under its
 Revenant/ folder each log that is new or has grown since the last copy
-goes to the folder of the character its name carries, the machine in
-its name (Lanival/game-Lanival-<stamp>.desk.log), and each machine's
-history to _history/history.<machine>.db, whole. Nothing there is ever
-deleted. Beholder, with
-sync on, reads a merged history rebuilt when a machine's snapshot or
-this one's history is newer. The session autostarts ;dropbox once the
-Settings checkbox is ticked.
+goes to the folder of the character it belongs to, the machine in its
+name (Lanival/game-Lanival-<stamp>.desk.log). Nothing there is ever
+deleted, and only logs go: the history database stays on its machine.
+The session autostarts ;dropbox once the Settings checkbox is ticked.
 """
 
 import importlib.util
 import json
-import os
 import pathlib
 import sqlite3
 from types import SimpleNamespace
@@ -155,9 +151,6 @@ def test_a_log_is_filed_by_its_character_with_the_machine_in_its_name(tmp_path):
         "Revenant/_other/revenant_client-20261014-200000-4242.desk.log"
     )
     assert where("game-20260808-legacy.log").parent.name == "_other"
-    assert dropbox.history_target(tmp_path, "desk").relative_to(tmp_path) == (
-        pathlib.Path("Revenant/_history/history.desk.db")
-    )
 
 
 LOGIN = '<app char="{}" game="DR" title="[DR: {}] StormFront"/>\n'
@@ -234,76 +227,6 @@ def test_logs_new_or_grown_are_copied_and_nothing_there_is_deleted(home):
     ]
 
 
-def test_the_history_snapshot_is_whole_and_taken_only_after_a_write(home):
-    write_history(home.history, [("2026-10-14T20:00:00", "Lanival", "Evasion", 12)])
-    target = dropbox.history_target(home.box, "desk")
-    writer = sqlite3.connect(home.history)  # a script holding it open
-    writer.execute(
-        "INSERT INTO mindstate (logged_at, character_name, skill_name, mindstate)"
-        " VALUES ('2026-10-14T20:01:00', 'Lanival', 'Evasion', 13)"
-    )  # not committed: not in the snapshot
-    assert dropbox.snapshot_history(home.history, target) == dropbox.TAKEN
-    writer.rollback()
-    writer.close()
-    copy = sqlite3.connect(target)
-    assert copy.execute("SELECT mindstate FROM mindstate").fetchall() == [(12,)]
-    copy.close()
-    assert not any(p.name.endswith(".part") for p in target.parent.iterdir())
-    # Unwritten since: no new snapshot to sync.
-    later = target.stat().st_mtime + 60
-    os.utime(target, (later, later))
-    assert dropbox.snapshot_history(home.history, target) == dropbox.UNCHANGED
-    write_history(home.history, [("2026-10-14T21:00:00", "Lanival", "Evasion", 20)])
-    os.utime(home.history, (later + 60, later + 60))
-    assert dropbox.snapshot_history(home.history, target) == dropbox.TAKEN
-    assert dropbox.snapshot_history(home.box / "none.db", target) == dropbox.NO_HISTORY
-
-
-# -- what beholder reads ------------------------------------------------------
-
-
-def test_with_sync_on_beholder_reads_every_machines_history(home, monkeypatch):
-    laptop = dropbox.history_target(home.box, "laptop")
-    laptop.parent.mkdir(parents=True)
-    write_history(laptop, [("2026-10-01T10:00:00", "Sable", "Evasion", 3)])
-    write_history(home.history, [("2026-10-14T20:00:00", "Lanival", "Evasion", 12)])
-    settings = json.loads(home.settings.read_text())
-    merged = dropbox.merged_history(settings, home.history)
-    assert merged == home.history.with_name("merged.db")
-    connection = sqlite3.connect(merged)
-    assert connection.execute(
-        "SELECT machine, character_name FROM mindstate ORDER BY logged_at"
-    ).fetchall() == [("laptop", "Sable"), ("desk", "Lanival")]
-    connection.close()
-    assert dropbox.merged_history({"dropbox_sync": False}, home.history) is None
-
-
-def test_the_merge_is_rebuilt_only_when_a_source_is_newer_and_at_most_once_a_minute(
-    home, monkeypatch
-):
-    write_history(home.history, [("t1", "Lanival", "Evasion", 1)])
-    settings = json.loads(home.settings.read_text())
-    builds = []
-    real = dropbox.rebuild
-    monkeypatch.setattr(
-        dropbox, "rebuild", lambda *args: builds.append(1) or real(*args)
-    )
-    now = {"t": home.history.stat().st_mtime + 5}
-    monkeypatch.setattr(dropbox, "clock", lambda: now["t"])
-    out = dropbox.merged_history(settings, home.history)
-    built = out.stat().st_mtime
-    assert len(builds) == 1
-    dropbox.merged_history(settings, home.history)
-    assert len(builds) == 1  # nothing newer
-    os.utime(home.history, (built + 10, built + 10))  # ;xp wrote a row
-    now["t"] = built + 30
-    dropbox.merged_history(settings, home.history)
-    assert len(builds) == 1  # newer, but built 30 seconds ago
-    now["t"] = built + dropbox.MERGE_SECONDS
-    dropbox.merged_history(settings, home.history)
-    assert len(builds) == 2
-
-
 # -- ;dropbox -----------------------------------------------------------------
 
 
@@ -331,8 +254,8 @@ def test_dropbox_now_copies_once_and_says_what(home):
     _script().main(s)
     base = home.box / "Revenant"
     assert (base / "Lanival" / "game-Lanival-20261014-200000.desk.log").exists()
-    assert (base / "_history" / "history.desk.db").exists()
-    assert s.echoed == [f"dropbox: 1 log(s) copied, history taken — {base}"]
+    assert not (base / "_history").exists()  # the history stays here
+    assert s.echoed == [f"dropbox: 1 log(s) copied — {base}"]
 
 
 def test_without_a_dropbox_folder_it_says_how_to_get_one(home, monkeypatch):
@@ -384,4 +307,4 @@ def test_the_autostart_copies_at_once_then_every_ten_minutes_quietly(home, monke
     assert copies == [0.0, 3 * 60, 13 * 60, 23 * 60]  # at once, typed, every 10 min
     said = [t for t in s.echoed if "copied" in t]
     assert len(said) == 1  # only the copy asked for is said
-    assert s.echoed[0].startswith("dropbox: logs and history to ")
+    assert s.echoed[0].startswith("dropbox: logs to ")

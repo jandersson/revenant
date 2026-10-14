@@ -459,7 +459,6 @@ RELOADABLE_MODULES = (
     "client.ui.textfont",
     "client.game.eltime",
     "client.game.history",
-    "client.game.historymerge",  # before dropbox, which binds it (#547)
     "client.game.dropbox",  # ;dropbox's model (#548)
     "client.game.rested",
     "client.game.climbs",

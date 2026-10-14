@@ -13,8 +13,6 @@ revenant client (xp script)  ──▶  ~/.revenant/history.db  ──▶  behol
 uv run beholder                # options: --host, --port, --debug
 ```
 
-With Dropbox sync on (File → Settings), the dashboard shows every machine's history: it merges the snapshots each machine's `;dropbox` copies into Dropbox with this machine's own, into `~/.revenant/merged.db`, whenever one is newer ([running.md](../docs/running.md)).
-
 The page auto-refreshes every 60 seconds to match the `;xp` cadence, and a browser refresh picks up newly logged characters.
 
 ## Layout

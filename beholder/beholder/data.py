@@ -16,10 +16,7 @@ def database_path() -> Path:
     """The history database, shared with the scripts that write it:
     ~/.revenant/history.db, once xp.db (#121). client/game/history.py owns the
     rule and the one-time rename; without the client package (a
-    dashboard-only install) the same rule is applied here. With Dropbox
-    sync on (File → Settings, #548) it is every machine's history
-    instead: client/game/dropbox.py's merged database, rebuilt when a
-    machine's snapshot or this one's history is newer."""
+    dashboard-only install) the same rule is applied here."""
     try:
         from client.game.history import database_path as shared
     except ImportError:  # pragma: no cover — the workspace always has it
@@ -27,11 +24,7 @@ def database_path() -> Path:
             "REVENANT_XP_DB"
         )
         return Path(override or "~/.revenant/history.db").expanduser()
-    from client.game import dropbox
-    from client.settings import load_settings
-
-    local = shared()
-    return dropbox.merged_history(load_settings(), local) or local
+    return shared()
 
 
 def connect(path=None):

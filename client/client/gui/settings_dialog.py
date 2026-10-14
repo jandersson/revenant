@@ -72,9 +72,7 @@ class SettingsDialog(QDialog):
         )
         self.autostart_sentinel.setChecked(bool(settings.get("autostart_sentinel")))
         # Dropbox sync (#548): the folder found here, or none to sync with.
-        self.dropbox_sync = QCheckBox(
-            "Sync logs and history through Dropbox: every machine's in the dashboard"
-        )
+        self.dropbox_sync = QCheckBox("Sync logs to Dropbox, filed by character")
         folder = dropbox.shared_dir(settings)
         found = folder is not None and folder.is_dir()
         self.dropbox_sync.setChecked(found and bool(settings.get("dropbox_sync")))

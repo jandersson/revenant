@@ -77,8 +77,7 @@ DEFAULTS = {
     # justice areas when this is on — for a character the guards want.
     "avoid_justice_climbs": False,
     # Dropbox sync (#547, #548): on, ;dropbox autostarts and copies this
-    # machine's logs and a history snapshot into Dropbox, and beholder
-    # reads every machine's history. The folder is the one Dropbox's
+    # machine's logs into Dropbox, filed by character. The folder is the one Dropbox's
     # info.json names unless dropbox_dir names another synced folder;
     # dropbox_machine is this machine's folder name there ("" — the host
     # name). REVENANT_NO_DROPBOX=1 skips the autostart for one launch.

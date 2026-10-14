@@ -1,10 +1,10 @@
-"""Dropbox sync: this machine's logs and history copied to Dropbox:  ;dropbox
+"""Dropbox sync: this machine's logs copied to Dropbox, by character:  ;dropbox
 
     ;dropbox          (autostarts with Dropbox sync on) copy now, then every 10 minutes
     ;dropbox now      copy once and end; typed at the running ;dropbox, copy now
     ;stop dropbox     stop
 
-Turn it on in File → Settings: "Sync logs and history through Dropbox".
+Turn it on in File → Settings: "Sync logs to Dropbox".
 
 What it does
   - Copies every log that is new or has grown to <Dropbox>/Revenant/<Character>/,
@@ -12,9 +12,7 @@ What it does
   - A log whose name carries no character (before late September 2026) is filed by
     best effort: its login line, the game log of its stamp, or the session before it;
     _other/ when nothing says.
-  - Copies a snapshot of the history to <Dropbox>/Revenant/_history/history.<machine>.db.
-  - Nothing there is ever deleted.
-  - Beholder then shows every machine's history, not this one's alone.
+  - Nothing there is ever deleted. Only logs go: the history database stays here.
   - The Dropbox folder is found on its own; `dropbox_dir` in settings.json names
     another synced folder, `dropbox_machine` this machine's name there.
   - REVENANT_NO_DROPBOX=1 skips the autostart for one launch.
@@ -26,7 +24,6 @@ import time
 
 from client.client_logger import log_dir
 from client.game import dropbox
-from client.game.history import database_path
 from client.settings import load_settings
 
 clock = time.monotonic  # tests replace it
@@ -40,13 +37,13 @@ def copy_once(s, root, machine, say):
         s.echo(f"dropbox: no folder at {root} — is Dropbox running here?")
         return False
     try:
-        copied, snapshot = dropbox.copy(root, machine, log_dir(), database_path())
+        copied = dropbox.copy(root, machine, log_dir())
     except OSError as error:
         s.echo(f"dropbox: the copy to {root} failed — {error}")
         return False
     if say:
         where = root / dropbox.FOLDER
-        s.echo(f"dropbox: {len(copied)} log(s) copied, history {snapshot} — {where}")
+        s.echo(f"dropbox: {len(copied)} log(s) copied — {where}")
     return True
 
 
@@ -64,7 +61,7 @@ def main(s):
         copy_once(s, root, machine, say=True)
         return
     s.echo(
-        f"dropbox: logs and history to {root / dropbox.FOLDER} as {machine} every "
+        f"dropbox: logs to {root / dropbox.FOLDER} as {machine} every "
         f"{dropbox.INTERVAL_MINUTES} minutes; ;dropbox now copies at once, "
         ";stop dropbox stops"
     )

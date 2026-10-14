@@ -63,11 +63,10 @@ Logs are under `~/.revenant/logs/`: `game-<Name>-*.log` has what the game sent, 
 
 ## Several machines: Dropbox sync
 
-Tick **Sync logs and history through Dropbox** in File → Settings on each machine, and the dashboard shows every machine's history; nothing to run by hand.
+Tick **Sync logs to Dropbox, filed by character** in File → Settings on each machine, and every machine's logs gather in one place; nothing to run by hand.
 
-- Every 10 minutes the session copies (`;dropbox`; `;dropbox now` copies at once):
-  - each log to `Dropbox/Revenant/<Character>/`, the machine in its name: `game-Lanival-<stamp>.<machine>.log`. An old log whose name carries no character is filed by best effort (its login line, or the session before it); `_other/` when nothing says;
-  - a snapshot of the history to `Dropbox/Revenant/_history/history.<machine>.db`.
-- Beholder merges every machine's snapshot with this one's own history, whenever one is newer, into `~/.revenant/merged.db`, and reads that.
+- Every 10 minutes the session copies each new or grown log to `Dropbox/Revenant/<Character>/`, the machine in its name: `game-Lanival-<stamp>.<machine>.log` (`;dropbox`; `;dropbox now` copies at once).
+- An old log whose name carries no character is filed by best effort (its login line, or the session before it); `_other/` when nothing says.
+- Only logs go: the history database the dashboard reads stays on its own machine.
 - The Dropbox folder is found on its own. `dropbox_dir` in `~/.revenant/settings.json` names another synced folder instead, `dropbox_machine` this machine's name there (default: the host name).
 - Each machine keeps writing its own files, and nothing in Dropbox is ever deleted.
