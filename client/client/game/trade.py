@@ -94,9 +94,12 @@ FOLLOW_ORDERED = ("make it follow", "order to follow")
 WAIT_ORDERED = ("make it wait", "order to wait")
 
 # RECALL CARAVAN: "You recall that your bullock-drawn caravan should be
-# located in..." and the room; "You seem to recall that you left your
-# ... right behind you" when it is here (trade.lic).
-_RECALLED = re.compile(r"recall (?:that )?your (.+?) should be located", re.I)
+# located in..." and the room; nearby, "You seem to recall your
+# bullock-drawn caravan should be somewhere to the east." (a ;trade at
+# Arthe Dale's clerk took that for no caravan, 2026-10-15); "You seem to
+# recall that you left your ... right behind you" when it is here
+# (trade.lic).
+_RECALLED = re.compile(r"recall (?:that )?your (.+?) should be\b", re.I)
 _BEHIND = re.compile(r"you left your (.+?) right behind you", re.I)
 NO_CARAVAN = ("don't recall having a caravan", "don't recall where you left")
 
