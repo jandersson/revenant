@@ -218,6 +218,16 @@ lessons the code and docs cannot carry themselves.
   loses it: "Your concentration slips for a moment, and your spell is
   lost." about 50 s after the INVOKE (2026-10-03; a phial use gone).
 
+- READ MY CONTRACT (a Trader's caravan contract) pushes its text to
+  `<pushStream id="familiar">`, and `ask()` reads only the story and
+  combat streams: the first live ;trade read nothing and stopped
+  (2026-10-15, #552). Read such an answer with
+  `streams=("", "familiar")` (;empath's TOUCH does too), and parse it
+  with the whitespace collapsed: the familiar lines reached the script
+  without their breaks, and a line-anchored regex ran one field into
+  the next. Grep the raw log for the pushStream when a script misses
+  text the window shows.
+
 ## Evidence first
 
 - The debug log (`revenant_client-<Name>-...-<pid>.log`) records the

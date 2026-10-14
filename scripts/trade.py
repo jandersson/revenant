@@ -42,6 +42,12 @@ follow line, a refused or failed lead, a held contract, the no-goods
 answer. Elanthipedia: Caravan (the lead destinations: a lead to the
 Crossing ends at the Northeast Gate, so the last stretch is walked with
 the caravan following), Trader (RENT CARAVAN).
+
+The first script run (the same night) ran Wolf Clan → Arthe Dale: the
+lead took six minutes and ended at Arthe Dale's outpost, the clerk paid
+14,586. It first stopped on an unread contract (the familiar stream)
+and on the Arthe Dale lead's answer, which lacks the acknowledgement
+line; both fixed in 9bdebcc.
 """
 
 PREFIX = "trade"
