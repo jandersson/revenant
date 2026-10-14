@@ -510,6 +510,8 @@ RELOADABLE_MODULES = (
     "client.game.boxes",  # binds BOX_NOUNS from loot: after it
     "client.game.lootlog",  # binds BOX_NOUNS from loot: after it
     "client.game.boxlog",  # binds lootlog and money: after them
+    "client.game.trade",  # binds money: after it
+    "client.game.tradelog",  # history.db's contracts; lootlog reached at call time
     "client.game.scholarship",
     "client.game.soul",
     "client.game.encumbrance",

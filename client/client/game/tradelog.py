@@ -1,0 +1,172 @@
+"""Every caravan contract, from the minister to the pay — ;trade's log in
+history.db (the operator, 2026-10-15: "Create a database to track the
+trading contracts").
+
+One `contracts` row per contract: when the minister issued it, the
+character, the town it came from and the one it goes to, the goods, the
+wholesale price and the dues charged at the issue, the contract's own
+estimate of its worth on delivery, and the coin. The clerk's loading
+adds the transport fee; the delivery fills `delivered_at` and `paid`.
+`summary` reads the rows back per route for ;trade history: count,
+delivered, the pay, the cost (wholesale, dues and fee) and the minutes
+from issue to pay. A logging failure is logged and never stops a script.
+"""
+
+import logging
+import sqlite3
+from datetime import datetime, timezone
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS contracts (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    issued_at TEXT NOT NULL,
+    character_name TEXT NOT NULL,
+    origin TEXT NOT NULL,
+    destination TEXT NOT NULL,
+    goods TEXT NOT NULL,
+    wholesale INTEGER,
+    dues INTEGER,
+    worth INTEGER,
+    currency TEXT,
+    fee INTEGER,
+    delivered_at TEXT,
+    paid INTEGER
+)
+"""
+
+
+def _connect(path):
+    from client.game.lootlog import db_path
+
+    connection = sqlite3.connect(str(db_path(path)))
+    connection.execute(SCHEMA)
+    return connection
+
+
+def now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _write(sql, values, path):
+    try:
+        connection = _connect(path)
+        try:
+            cursor = connection.execute(sql, values)
+            connection.commit()
+            return cursor.lastrowid
+        finally:
+            connection.close()
+    except Exception:
+        logging.getLogger(__name__).exception("contract log failed")
+        return None
+
+
+def log_issue(character, origin, contract, wholesale=None, dues=None, path=None):
+    """One row for a contract the minister issued (`contract` is
+    trade.contract's reading); the seq, or None when the write failed."""
+    return _write(
+        "INSERT INTO contracts (issued_at, character_name, origin, destination,"
+        " goods, wholesale, dues, worth, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            now(),
+            character or "unknown",
+            origin,
+            contract.destination,
+            contract.goods,
+            wholesale,
+            dues,
+            contract.worth,
+            contract.currency,
+        ),
+        path,
+    )
+
+
+def log_fee(seq, fee, path=None):
+    """The clerk's transport fee for the crate, on the contract's row."""
+    if seq is not None and fee is not None:
+        _write("UPDATE contracts SET fee = ? WHERE seq = ?", (fee, seq), path)
+
+
+def log_delivery(character, destination, paid, path=None):
+    """The pay on the oldest undelivered row of the character's for
+    `destination`: a contract read back after a restart is found by its
+    town, no seq kept. Nothing when no row is open (a contract issued
+    before the table)."""
+    return _write(
+        "UPDATE contracts SET delivered_at = ?, paid = ? WHERE seq = ("
+        "SELECT seq FROM contracts WHERE character_name = ? AND destination = ?"
+        " AND delivered_at IS NULL ORDER BY seq LIMIT 1)",
+        (now(), paid, character or "unknown", destination),
+        path,
+    )
+
+
+def _minutes(start, end):
+    try:
+        delta = datetime.fromisoformat(end) - datetime.fromisoformat(start)
+    except (TypeError, ValueError):
+        return None
+    return delta.total_seconds() / 60
+
+
+def summary(character=None, path=None):
+    """Per route, the most run first: {"origin", "destination",
+    "contracts", "delivered", "paid", "cost" (wholesale, dues and fee of
+    the delivered ones), "profit", "minutes" (issue to pay, the
+    delivered ones' mean, None with none)}."""
+    connection = _connect(path)
+    try:
+        rows = connection.execute(
+            "SELECT origin, destination, wholesale, dues, fee, paid, issued_at,"
+            " delivered_at FROM contracts"
+            + (" WHERE character_name = ?" if character else ""),
+            (character,) if character else (),
+        ).fetchall()
+    finally:
+        connection.close()
+    routes = {}
+    for origin, destination, wholesale, dues, fee, paid, issued, delivered in rows:
+        route = routes.setdefault(
+            (origin, destination),
+            {
+                "origin": origin,
+                "destination": destination,
+                "contracts": 0,
+                "delivered": 0,
+                "paid": 0,
+                "cost": 0,
+                "minutes": [],
+            },
+        )
+        route["contracts"] += 1
+        if delivered is None:
+            continue
+        route["delivered"] += 1
+        route["paid"] += paid or 0
+        route["cost"] += (wholesale or 0) + (dues or 0) + (fee or 0)
+        minutes = _minutes(issued, delivered)
+        if minutes is not None:
+            route["minutes"].append(minutes)
+    out = []
+    for route in routes.values():
+        times = route.pop("minutes")
+        route["profit"] = route["paid"] - route["cost"]
+        route["minutes"] = sum(times) / len(times) if times else None
+        out.append(route)
+    return sorted(out, key=lambda route: (-route["contracts"], route["origin"]))
+
+
+def describe(route):
+    """One ;trade history line: "Crossing → Wolf Clan: 3 contracts, 3
+    delivered, paid 35,373, profit 21,657, 8 min each"."""
+    line = (
+        f"{route['origin']} → {route['destination']}: {route['contracts']}"
+        f" contract{'s' if route['contracts'] != 1 else ''},"
+        f" {route['delivered']} delivered"
+    )
+    if route["delivered"]:
+        line += f", paid {route['paid']:,}, profit {route['profit']:,}"
+    if route["minutes"] is not None:
+        line += f", {route['minutes']:.0f} min each"
+    return line
