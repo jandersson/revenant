@@ -506,9 +506,9 @@ def test_dues_owed_are_paid_before_the_contract(script):
     assert len(asks) == 2 and asks[0] < pays[1] < asks[1]
 
 
-def test_return_with_nothing_held_stops_at_the_clerk(script):
+def test_return_typed_with_nothing_held_stops_at_the_clerk(script):
     world = World(LEG)
-    world.args = ["return"]
+    world.typed = ["return"]
     script.main(world)
     assert "ask minister for contract" not in world.sent
     assert "trade: nothing held — done at Crossing" in world.echoed
@@ -550,14 +550,6 @@ def test_with_no_caravan_one_is_rented_at_the_clerk_and_the_run_goes_on(script):
     assert world.sent[:3] == ["recall caravan", "rent caravan", "recall caravan"]
     assert "trade: rented a caravan at Crossing for 400 Kronars" in world.echoed
     assert "tell bullock-drawn caravan to lead to wolf clan" in world.sent
-
-
-def test_return_with_no_caravan_rents_nothing(script):
-    world = World({"recall caravan": [NO_CARAVAN]})
-    world.args = ["return"]
-    script.main(world)
-    assert world.sent == ["recall caravan"]
-    assert world.echoed == ["trade: no caravan — nothing to deliver or return"]
 
 
 def test_a_caravan_recall_cannot_place_is_not_rented_over(script):
@@ -647,7 +639,7 @@ def test_a_delivery_near_a_teller_banks_the_pay_and_keeps_the_reserve(script):
         **{"read my contract": [TO_CROSSING], "give my contract to clerk": [DELIVERED]},
     )
     world = World(answers)
-    world.args = ["return"]
+    world.typed = ["return"]
     world.purse = 31_000
     script.main(world)
     assert world.ran == [("bank", [f"keep={script.KEEP}", "back"])]
@@ -679,7 +671,7 @@ def test_the_graceful_end_returns_the_caravan_once_its_box_is_empty(script):
     # The operator, 2026-10-15: "return the caravan on the next stop -
     # then build it in to the script". Captured at Stone Clan that night.
     world = World(LEG)
-    world.args = ["return"]
+    world.typed = ["return"]
     script.main(world)
     sent = world.sent
     tail = [c for c in sent if "storage box" in c or c == "return caravan"]
@@ -703,7 +695,7 @@ def test_a_caravan_with_anything_in_its_box_is_kept(script):
         },
     )
     world = World(answers)
-    world.args = ["return"]
+    world.typed = ["return"]
     script.main(world)
     assert "return caravan" not in world.sent
     assert any("the caravan is kept" in e for e in world.echoed)

@@ -4,7 +4,7 @@
 
 ```
 ;trade            run contracts until stopped
-;trade return     deliver what is held, take no new contract, return the caravan
+;trade return     typed while it runs: deliver what is held, take no new contract, return the caravan
 ;trade history    per route: contracts, pay, profit, minutes
 ```
 
@@ -16,7 +16,7 @@
 - Each leg: deliver and get paid, PAY CLERK, ASK MINISTER FOR CONTRACT, the clerk loads the crate, feed, LEAD TO the contract's town.
 - The minister charges the goods' wholesale price and dues to the issuing town; they are paid at that town's clerk before its next contract. When the purse is short, `;trade` draws the dues at the nearest teller.
 - After a delivery in the Crossing, Dirge, Leth Deriel or Shard, the towns with a teller near the clerk, `;trade` banks the pay through `;bank`, keeping 20,000 copper of the province's coin for the dues and fees ahead.
-- `;trade return` (or `return` typed while it runs) ends by returning the rented caravan at the clerk, RETURN CARAVAN, once its storage box is empty; with anything in the box the caravan is kept. `;stop trade` keeps it too. The next `;trade` rents another.
+- `;trade return`, typed while it runs, ends by returning the rented caravan at the clerk, RETURN CARAVAN, once its storage box is empty; with anything in the box the caravan is kept. `;stop trade` keeps it too. The next `;trade` rents another.
 - A contract between Zoluren and Ilithi (the Crossing's broker, ASK BROKER FOR CONTRACT) goes by Leth Deriel and the Obsidian Pass gondola: the caravan follows you from Leth's outpost to Shard's and rides the gondola with you. A contract for any other province is left with you.
 - `;trade` does not fight. On the road you follow the caravan; watch the window.
 

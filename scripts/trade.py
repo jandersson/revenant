@@ -1,7 +1,7 @@
 """Run Trader caravan contracts in Zoluren or Ilithi:  ;trade
 
     ;trade            deliver, pay the dues, take the next contract, load it, feed the caravan, lead it there; again
-    ;trade return     deliver what is held, take no new contract, return the caravan at the clerk (typed while it runs: the same)
+    ;trade return     typed while it runs: deliver what is held, take no new contract, return the caravan at the clerk
     ;trade history    every contract logged: per route the count, the pay, the profit, the minutes
 
 What it does
@@ -610,7 +610,6 @@ def main(s):
     if opts["verb"] == "history":
         history(s)
         return
-    returning = opts["verb"] == "return"
     db = travel.mapdb()
     training = trainers(s)
     place = nearest_town(s, db)
@@ -620,9 +619,6 @@ def main(s):
     answer = ask(s, "recall caravan")
     name, _ = trade.caravan(answer)
     if not name and trade.NO_CARAVAN[0] in answer:
-        if returning:
-            s.echo(f"{PREFIX}: no caravan — nothing to deliver or return")
-            return
         name = rent(s, db, place)
         if not name:
             return
@@ -649,7 +645,7 @@ def main(s):
             s.echo(f"{PREFIX}: {pay(s)}")
             if delivered:
                 bank_run(s, db, trade.coin(place))
-            if returning or loop.wants_stop(s):
+            if loop.wants_stop(s):
                 s.echo(f"{PREFIX}: nothing held — done at {place}")
                 return_caravan(s, db, place, name)
                 return
@@ -669,4 +665,3 @@ def main(s):
         if grass is None or not leg(s, db, name, place, destination, [grass], training):
             return
         place = destination
-        returning = returning or loop.wants_stop(s)
