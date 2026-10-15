@@ -437,7 +437,7 @@ class World:
             self.heard.append(ARRIVED)
             self.room = self.leads.get(command.split(" to lead to ")[1], 1533)
             if self.return_after_lead:
-                self.typed.append("return")
+                self.typed.append(getattr(self, "after_lead_word", "return"))
         elif command in self.moves():
             self.room = self.moves()[command]
             self.heard.append("Your bullock-drawn caravan, following you, arrives.\n")
@@ -1512,6 +1512,33 @@ def test_grass_is_topped_up_before_any_training(script):
     assert world.ran == [("perform", ["once", "here"])]
     assert world.sent.index("put my grass in my feedbag") > forage
     assert world.told == [("perform", "return")]
+
+
+def test_pause_typed_on_a_lead_stops_after_delivery_with_the_caravan_kept(script):
+    # The operator, 2026-10-16: stop and start "without needing to return
+    # and rent a new caravan".
+    world = World(LEG, return_after_lead=True)
+    world.after_lead_word = "pause"
+    script.main(world)
+    assert "return caravan" not in world.sent
+    assert world.sent.count("ask minister for contract") == 1
+    assert any("paused at Wolf Clan" in e for e in world.echoed)
+
+
+def test_pause_when_not_running_starts_nothing(script):
+    world = World(LEG)
+    world.args = ["pause"]
+    script.main(world)
+    assert world.sent == []
+    assert "not running" in world.echoed[0]
+
+
+def test_lead_training_is_read_again_before_every_leg(script):
+    calls = []
+    real = script.trainers
+    script.trainers = lambda s, quiet=False: calls.append(quiet) or real(s, quiet)
+    script.main(World(LEG, return_after_lead=True))
+    assert calls == [False, True]
 
 
 def test_the_profiles_lead_training_keeps_what_trade_can_run(script):

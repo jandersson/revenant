@@ -3,6 +3,7 @@
     ;trade            deliver, pay the dues, take the next contract, load it, feed the caravan, lead it there; again
     ;trade interprovince  the same, each contract for another province (the broker's) where one is offered: the Crossing, Shard
     ;trade return     typed while it runs: deliver what is held, take no new contract, return the caravan at the clerk
+    ;trade pause      typed while it runs: deliver what is held, take no new contract, stop with the caravan kept at the outpost
     ;trade history    every contract logged: per route the count, the pay and the profit in Kronars, the minutes
 
 What it does
@@ -41,8 +42,8 @@ What it does
 
 When it stops
   - ;trade return once nothing is held, the caravan returned (RETURN CARAVAN;
-    kept, said, while its storage box holds anything); ;stop trade at once,
-    the caravan kept
+    kept, said, while its storage box holds anything); ;trade pause once nothing
+    is held, the caravan kept at the outpost; ;stop trade at once, the caravan kept
   - at Riverhaven once delivered and paid, the caravan kept: no minister's
     contract is taken there; with `interprovince` its broker's is (its minister's towns are beyond the routes)
   - a contract for a town ;trade does not lead to (Therengia past Riverhaven):
@@ -510,9 +511,10 @@ def forage(s, grass):
     return arrival(answer)
 
 
-def trainers(s):
+def trainers(s, quiet=False):
     """The profile's `lead_training` scripts ;trade knows how to run on a
-    lead (TRAINERS), the rest said once."""
+    lead (TRAINERS), the rest said unless `quiet`. Read again before
+    every leg, so a profile change applies on the next lead."""
     from client.game.profile import load_profile
 
     wanted = [
@@ -520,7 +522,7 @@ def trainers(s):
         for name in load_profile(character(s)).get("lead_training") or []
     ]
     unknown = [name for name in wanted if name not in TRAINERS]
-    if unknown:
+    if unknown and not quiet:
         s.echo(f"{PREFIX}: no lead training for {', '.join(unknown)} — skipped")
     return [name for name in wanted if name in TRAINERS]
 
@@ -679,8 +681,38 @@ def leg(s, db, name, origin, destination, grass=None, training=()):
     )
 
 
+def paused(s):
+    """True once "pause" was typed at ;trade, held for the run. Read here
+    first: loop.wants_stop drops every typed word but "return", which
+    this keeps for it."""
+    if getattr(s, "_pause_typed", False):
+        return True
+    while (line := s.command(timeout=0)) is not None:
+        word = line.lower()
+        flag = (
+            "_pause_typed"
+            if "pause" in word
+            else "_return_typed"
+            if "return" in word
+            else None
+        )
+        if flag:
+            try:
+                setattr(s, flag, True)
+            except AttributeError:  # a fake without attributes
+                pass
+            if flag == "_pause_typed":
+                return True
+    return False
+
+
 def main(s):
     opts = parse_args(s.args)
+    if opts["verb"] == "pause":
+        s.echo(
+            f"{PREFIX}: not running — nothing to pause (type ;trade pause while it runs)"
+        )
+        return
     if opts["verb"] == "history":
         history(s)
         return
@@ -726,6 +758,12 @@ def main(s):
             s.echo(f"{PREFIX}: {pay(s)}")
             if delivered:
                 bank_run(s, db, trade.coin(place))
+            if paused(s):
+                s.echo(
+                    f"{PREFIX}: paused at {place} — the caravan kept at the outpost;"
+                    " ;trade carries on with it"
+                )
+                return
             if loop.wants_stop(s):
                 s.echo(f"{PREFIX}: nothing held — done at {place}")
                 return_caravan(s, db, place, name)
@@ -755,6 +793,7 @@ def main(s):
             return
         beside = False
         grass = feed(s, name)
+        training = trainers(s, quiet=True)
         if grass is None or not leg(s, db, name, place, destination, [grass], training):
             return
         place = destination
