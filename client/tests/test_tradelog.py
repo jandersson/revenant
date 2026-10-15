@@ -60,6 +60,16 @@ def test_history_counts_an_interprovince_route_in_kronars(tmp_path):
     )
 
 
+def test_a_contract_paid_in_lirums_counts_them_at_their_rate(tmp_path):
+    # The Crossing's broker, 2026-10-15: Riverhaven paid 47,840 Lirums.
+    path = tmp_path / "history.db"
+    haven = CONTRACT._replace(destination="Riverhaven", worth=47840, currency="Lirums")
+    tradelog.log_issue("Lanival", "Crossing", haven, 17940, 5836, path=path)
+    tradelog.log_delivery("Lanival", "Riverhaven", 47840, path=path)
+    (route,) = tradelog.summary("Lanival", path=path)
+    assert route["paid"] == round(47840 * money.KRONAR_RATES["Lirums"])
+
+
 def test_a_table_from_before_the_column_gets_it_filled_in(tmp_path):
     path = tmp_path / "history.db"
     old = sqlite3.connect(str(path))

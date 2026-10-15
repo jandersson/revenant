@@ -11,7 +11,7 @@ or Ilithi, or Interprovince when the destination is in another province
 adds the transport fee; the delivery fills `delivered_at` and `paid`.
 `summary` reads the rows back per route for ;trade history: count,
 delivered, the pay, the cost (wholesale, dues and fee) and the minutes
-from issue to pay, the money in Kronars (the pay in the destination's
+from issue to pay, the money in Kronars (the pay in the contract's own
 coin, the cost in the origin's, at money.KRONAR_RATES). A logging failure is logged and never stops a script.
 """
 
@@ -151,15 +151,25 @@ def summary(character=None, path=None):
     connection = _connect(path)
     try:
         rows = connection.execute(
-            "SELECT origin, destination, wholesale, dues, fee, paid, issued_at,"
-            " delivered_at FROM contracts"
+            "SELECT origin, destination, wholesale, dues, fee, paid, currency,"
+            " issued_at, delivered_at FROM contracts"
             + (" WHERE character_name = ?" if character else ""),
             (character,) if character else (),
         ).fetchall()
     finally:
         connection.close()
     routes = {}
-    for origin, destination, wholesale, dues, fee, paid, issued, delivered in rows:
+    for (
+        origin,
+        destination,
+        wholesale,
+        dues,
+        fee,
+        paid,
+        coin,
+        issued,
+        delivered,
+    ) in rows:
         route = routes.setdefault(
             (origin, destination),
             {
@@ -176,7 +186,8 @@ def summary(character=None, path=None):
         if delivered is None:
             continue
         route["delivered"] += 1
-        route["paid"] += money.in_kronars(paid, trade.coin(destination))
+        # The contract's own coin: a broker's for Riverhaven pays Lirums.
+        route["paid"] += money.in_kronars(paid, coin or trade.coin(destination))
         route["cost"] += money.in_kronars(
             (wholesale or 0) + (dues or 0) + (fee or 0), trade.coin(origin)
         )
