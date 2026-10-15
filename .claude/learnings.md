@@ -233,6 +233,13 @@ lessons the code and docs cannot carry themselves.
   never match it at all. Wait on one wording, or on `--state scripts`
   for a script's end.
 
+- `Handle.waitfor` matches its patterns as regexes (`re.search`), so
+  a pattern with a dot or a bracket must be escaped: `;trade`'s
+  unescaped "...wait" matched "city waits" in the Road to Shard's
+  description and left a caravan a room behind (2026-10-15, 90ac621).
+  A test fake's waitfor matches the same way (`re.search`), or it hides
+  the bug: `test_trade`'s substring fake passed the broken pattern.
+
 ## Evidence first
 
 - The debug log (`revenant_client-<Name>-...-<pid>.log`) records the
