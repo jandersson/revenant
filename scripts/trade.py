@@ -11,6 +11,8 @@ What it does
     Rest, Steelclaw Clan, Darkling Wood — or Riverhaven, with your caravan at
     the outpost (RECALL CARAVAN finds it); with none, rents one at the clerk
     (RENT CARAVAN, 400 Kronars or 288 Dokoras).
+  - Started beside its caravan away from an outpost (a run stopped on the road),
+    goes on from there with the crate it holds.
   - At the clerk: hands in the contract for this town and is paid; PAY CLERK.
   - After a delivery with a teller near the clerk (the Crossing, Dirge, Leth,
     Shard, Riverhaven), banks the purse and keeps 20,000 copper for dues and fees (;bank).
@@ -137,6 +139,9 @@ the dock; not yet driven.
 PREFIX = "trade"
 LEAD_MINUTES = 20  # the Crossing to Wolf Clan took 3½
 FOLLOW_SECONDS = 30  # a step's wait for the caravan to catch up
+# A command sent in roundtime is dropped: "...wait 3 seconds." (an INV
+# LIST typed mid-walk took a step's move, 2026-10-15).
+WAITED = "...wait"
 LOW_GRASS = 5
 # Grass is foraged on a lead while the feedbag holds fewer than this:
 # the caravan eats on about two legs in five (seven of seventeen,
@@ -683,7 +688,12 @@ def bring(s, db, name, room):
                 continue
             s.waitrt()
             s.put(command)
-        if s.waitfor(trade.FOLLOWING, timeout=FOLLOW_SECONDS) is None:
+        line = s.waitfor(trade.FOLLOWING, WAITED, timeout=FOLLOW_SECONDS)
+        if line is not None and WAITED in line:
+            s.waitrt()
+            s.put(commands[-1])
+            line = s.waitfor(trade.FOLLOWING, timeout=FOLLOW_SECONDS)
+        if line is None:
             s.echo(f"{PREFIX}: the caravan fell behind after {commands[-1]!r}")
             return False
     ask(s, f"tell {name} to wait")
@@ -763,7 +773,7 @@ def main(s):
         s.echo(f"{PREFIX}: not at an outpost ;trade knows — walk to one")
         return
     answer = ask(s, "recall caravan")
-    name, _ = trade.caravan(answer)
+    name, beside = trade.caravan(answer)
     if not name and trade.NO_CARAVAN[0] in answer:
         name = rent(s, db, place)
         if not name:
@@ -776,6 +786,14 @@ def main(s):
     while True:
         contract = held(s)
         delivered = False
+        # Started beside the caravan with its crate bound elsewhere (a run
+        # stopped mid-walk): it goes on from here, not back to the outpost.
+        beside = (
+            beside
+            and contract is not None
+            and contract.presented
+            and trade.town(contract.destination) != place
+        )
         if contract and trade.town(contract.destination) == place:
             if not deliver(s, db, place):
                 return
@@ -814,8 +832,11 @@ def main(s):
                 " does not lead to — deliver it yourself"
             )
             return
-        if not walk(s, db, trade.TOWNS[place].outpost, f"the {place} outpost"):
+        if not beside and not walk(
+            s, db, trade.TOWNS[place].outpost, f"the {place} outpost"
+        ):
             return
+        beside = False
         grass = feed(s, name)
         if grass is None or not leg(s, db, name, place, destination, [grass], training):
             return

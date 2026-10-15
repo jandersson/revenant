@@ -947,6 +947,48 @@ def test_a_leg_to_leth_deriel_goes_by_the_crossing_and_the_ferry(script):
     assert world.room == 2039
 
 
+class Busy(World):
+    """The first EAST lands in a typed command's roundtime and is dropped."""
+
+    dropped = False
+
+    def put(self, command):
+        if command == "east" and not self.dropped:
+            self.dropped = True
+            self.sent.append(command)
+            self.heard.append("...wait 3 seconds.\n")
+            return
+        super().put(command)
+
+
+def test_a_move_dropped_in_roundtime_is_sent_again(script):
+    # 2026-10-15: an INV LIST typed mid-walk took ;trade's SOUTHWEST
+    # ("...wait 3 seconds."), and the follow wait gave up on the caravan.
+    world = Busy(CROSSING_ANSWERS, room=1534)
+    assert script.bring(world, MAP, "weathered caravan", 1533)
+    assert world.sent == [
+        "tell weathered caravan to follow",
+        "east",
+        "east",
+        "tell weathered caravan to wait",
+    ]
+
+
+def test_a_run_started_beside_its_caravan_goes_on_from_there(script):
+    beside = "You seem to recall that you left your bullock-drawn caravan right behind you.\n"
+    answers = dict(
+        LEG, **{"recall caravan": [beside], "read my contract": [LOADED_CONTRACT]}
+    )
+    world = World(answers, room=8915)
+    legs = []
+    script.leg = lambda s, db, name, origin, destination, *rest: (
+        legs.append((origin, destination)) and False
+    )
+    script.main(world)
+    assert world.walks == []  # not back to the Crossing's outpost first
+    assert legs == [("Crossing", "Wolf Clan")]
+
+
 def test_a_fare_the_purse_lacks_is_fetched_with_the_caravan_waiting(script):
     # 2026-10-15: back from Shard with only Dokoras, Alfren's Ferry
     # refused the Kronars fare at the south bank and the run stopped there.
