@@ -35,9 +35,10 @@ What it does
     the fare first. Back, the ferry and a lead to Dirge from the riverbank.
   - On a lead, grass first: with fewer than 60 bunches in the feedbag, forages
     grass every 15 seconds (you follow through the roundtime). Then the profile's
-    `lead_training` scripts one at a time (perform: ;perform once here; appraise:
-    ;appraise once), the emptiest skill first, the next when one ends, the one
-    running ended on arrival.
+    `lead_training` scripts one at a time (perform: ;perform once here stay;
+    appraise: ;appraise once stay), the emptiest skill first, the next when one
+    ends, the one running ended on arrival. A trainer waits hostiles out in
+    place, never fleeing off the lead; ;trade itself decides when they hold you.
   - Every contract goes into history.db's contracts table: charge, pay, times.
 
 When it stops
@@ -166,8 +167,8 @@ RECALL_WAIT = 10
 # ends at mind-lock; ;appraise works the character's own items, each put
 # back, and ends at mind-lock.
 TRAINERS = {
-    "perform": (("once", "here"), "Performance"),
-    "appraise": (("once",), "Appraisal"),
+    "perform": (("once", "here", "stay"), "Performance"),
+    "appraise": (("once", "stay"), "Appraisal"),
 }
 STOP_GRACE = 10  # seconds a trainer gets to end on its typed return
 

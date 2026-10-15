@@ -167,18 +167,21 @@ def focus_events(text):
 
 
 def parse_args(args):
-    """{"items", "careful", "until", "once", "focus"} from ;appraise's
-    arguments: items= a comma-separated list of your own ([] means the
-    profile's, else the possessions), `careful` for full appraisals
-    (QUICK otherwise), until= the mindstate to stop at (34), `once` to
-    exit at the lock instead of holding for the drain, focus= the item
-    or concept for APPRAISE FOCUS beside the rotation ("" for none)."""
+    """{"items", "careful", "until", "once", "focus", "stay"} from
+    ;appraise's arguments: items= a comma-separated list of your own ([]
+    means the profile's, else the possessions), `careful` for full
+    appraisals (QUICK otherwise), until= the mindstate to stop at (34),
+    `once` to exit at the lock instead of holding for the drain, focus=
+    the item or concept for APPRAISE FOCUS beside the rotation ("" for
+    none), `stay` to wait hostiles out instead of fleeing (;trade's
+    leads, #565)."""
     options = {
         "items": [],
         "careful": False,
         "until": 34,
         "once": False,
         "focus": "",
+        "stay": False,
     }
     for arg in args:
         key, sep, value = str(arg).lower().partition("=")
@@ -192,8 +195,8 @@ def parse_args(args):
             options["until"] = int(value)
         elif key == "careful":
             options["careful"] = True
-        elif key == "once":
-            options["once"] = True
+        elif key in ("once", "stay"):
+            options[key] = True
     return options
 
 

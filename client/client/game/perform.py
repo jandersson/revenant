@@ -170,12 +170,13 @@ def play_command(song, mood, instrument):
 
 
 def parse_args(args):
-    """{"instrument", "song", "mood", "until", "once", "here"} from
-    ;perform's arguments; "" for the instrument means the profile's, ""
-    for the song means the rank's band, None for the mood means every
+    """{"instrument", "song", "mood", "until", "once", "here", "stay"}
+    from ;perform's arguments; "" for the instrument means the profile's,
+    "" for the song means the rank's band, None for the mood means every
     style tried and the best kept (#381), "" the game's own style.
-    `here` never walks home for a room that refuses a song: ;trade runs
-    it while the caravan leads (#558)."""
+    `here` never walks home for a room that refuses a song, `stay` waits
+    hostiles out instead of fleeing: ;trade runs it so while the caravan
+    leads (#558, #565)."""
     options = {
         "instrument": "",
         "song": "",
@@ -183,6 +184,7 @@ def parse_args(args):
         "until": 34,
         "once": False,
         "here": False,
+        "stay": False,
     }
     for arg in args:
         key, sep, value = str(arg).lower().partition("=")
@@ -190,6 +192,6 @@ def parse_args(args):
             options[key] = value
         elif sep and key == "until" and value.isdigit():
             options["until"] = int(value)
-        elif key in ("once", "here"):
+        elif key in ("once", "here", "stay"):
             options[key] = True
     return options

@@ -92,6 +92,78 @@ def test_a_death_and_hostiles_end_the_loop_hostiles_with_the_escape(monkeypatch)
     assert fled == ["mech"]
 
 
+class Passing(Fake):
+    """Hostiles in the room for `stay` one-second sleeps, then gone."""
+
+    def __init__(self, stay=3, **kwargs):
+        super().__init__(hostiles={"1": "a goblin"}, **kwargs)
+        self.stay = stay
+        self.slept = 0
+
+    def sleep(self, seconds):
+        super().sleep(seconds)
+        self.slept += 1
+        if self.slept >= self.stay:
+            self.state.hostiles = {}
+
+
+def test_stay_waits_hostiles_out_in_place_and_trains_on(monkeypatch):
+    # ;trade's lead trainers (#565): a flight would leave the caravan.
+    fled = []
+    monkeypatch.setattr(flight, "react", lambda s, prefix, **k: fled.append(prefix))
+    s = Passing(stay=3)
+    steps = []
+
+    def step(handle):
+        steps.append(dict(handle.state.hostiles))
+        return "done for the test"
+
+    assert trainer.train(s, "mech", SKILL, step, stay=True) == "done for the test"
+    assert fled == [] and steps == [{}] and s.slept == 3
+    assert s.echoed[:2] == [
+        "mech: hostiles here — staying put until they are gone",
+        "mech: clear of them — going on",
+    ]
+
+
+def test_stay_still_ends_on_a_typed_return_or_death_while_waiting(monkeypatch):
+    fled = []
+    monkeypatch.setattr(flight, "react", lambda s, prefix, **k: fled.append(prefix))
+    asked = Passing(stay=99, commands=[None, "return"])
+    assert trainer.train(asked, "mech", SKILL, lambda h: None, stay=True) == "return"
+    assert asked.echoed[-1] == "mech: returning as asked"
+
+    class Dying(Passing):
+        def sleep(self, seconds):
+            super().sleep(seconds)
+            self.dead = True
+
+    dying = Dying(stay=99)
+    assert trainer.train(dying, "mech", SKILL, lambda h: None, stay=True) == (
+        "you are dead"
+    )
+    assert dying.echoed[-1] == "mech: you are dead — stopping"
+    assert fled == []
+
+
+def test_stay_through_a_hold_broken_by_hostiles_goes_on_not_returns():
+    # The hold's pause ends on the danger; after the wait no word was
+    # typed, so the loop holds again rather than reading a return.
+    s = Fake(mindstates=[34, 34, 34, 20])
+    calls = []
+
+    def sleep(seconds, original=s.sleep):
+        original(seconds)
+        calls.append(1)
+        s.state.hostiles = {"1": "a goblin"} if len(calls) == 1 else {}
+
+    s.sleep = sleep
+    why = trainer.train(s, "mech", SKILL, lambda h: "done for the test", stay=True)
+    assert why == "done for the test"
+    assert "mech: returning as asked" not in s.echoed
+    assert "mech: clear of them — going on" in s.echoed
+
+
 def test_a_lock_with_once_ends_done_and_without_it_holds_until_the_drain():
     once = Fake(mindstates=[34])
     assert trainer.train(once, "mech", SKILL, lambda h: None, once=True) == "locked"

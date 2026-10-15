@@ -7,7 +7,8 @@
     ;perform until=30           stop at that mindstate instead of 34
     ;perform once               exit at mind-lock instead of holding for the drain
     ;perform here               never walk home for a room that refuses a song (;trade's leads)
-    ;perform return             (typed while it runs) stop the song and end
+    ;perform stay               wait hostiles out in place instead of fleeing (;trade's leads)
+    ;perform return            (typed while it runs) stop the song and end
     ;stop perform               quit at once, the song stopped
 
 What it does
@@ -22,7 +23,7 @@ What it does
   - Nothing is ever dropped: whatever else is in hand is stowed for the cloth.
 
 When it stops
-  - death, or hostiles in the room (the shared escape)
+  - death, or hostiles in the room (the shared escape; with stay it waits them out)
   - the instrument not on you, or EXP showing no Performance
   - a song refused at home too, or a PLAY answer it does not know
   - mind-lock with `once`, or ;perform return
@@ -410,6 +411,7 @@ def run(s, options, walker=walk_home):
         again="playing again",
         finish=finish,
         ask=ask,
+        stay=options.get("stay", False),
     )
 
 

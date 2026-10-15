@@ -1437,7 +1437,7 @@ def test_the_lead_plays_the_profiles_trainer_and_stops_it_on_arrival(script):
     world.staying = {"perform"}
     full = [script.GRASS_TOP]
     assert script.lead(world, "weathered caravan", "Wolf Clan", full, ["perform"])
-    assert world.ran == [("perform", ["once", "here"])]
+    assert world.ran == [("perform", ["once", "here", "stay"])]
     assert "forage grass" not in world.sent
     assert world.told == [("perform", "return")]
     assert "trade: ;perform while the caravan leads" in world.echoed
@@ -1479,7 +1479,7 @@ def test_the_emptiest_skill_trains_first_on_a_lead(script):
         ["perform", "appraise"],
     )
     assert lead
-    assert world.ran == [("appraise", ["once"])]
+    assert world.ran == [("appraise", ["once", "stay"])]
 
 
 def test_a_trainer_that_ends_hands_the_lead_to_the_next(script):
@@ -1494,7 +1494,10 @@ def test_a_trainer_that_ends_hands_the_lead_to_the_next(script):
         ["perform", "appraise"],
     )
     assert lead
-    assert world.ran == [("appraise", ["once"]), ("perform", ["once", "here"])]
+    assert world.ran == [
+        ("appraise", ["once", "stay"]),
+        ("perform", ["once", "here", "stay"]),
+    ]
     assert "forage grass" not in world.sent
     assert world.told == [("perform", "return")]
 
@@ -1509,7 +1512,7 @@ def test_grass_is_topped_up_before_any_training(script):
     assert grass == [script.GRASS_TOP]
     assert world.sent.count("forage grass") == 1
     forage = world.sent.index("forage grass")
-    assert world.ran == [("perform", ["once", "here"])]
+    assert world.ran == [("perform", ["once", "here", "stay"])]
     assert world.sent.index("put my grass in my feedbag") > forage
     assert world.told == [("perform", "return")]
 

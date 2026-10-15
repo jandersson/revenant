@@ -5,6 +5,7 @@
     ;appraise careful              full appraisals instead of QUICK (a longer roundtime, the same learning)
     ;appraise until=30             stop at that mindstate instead of 34
     ;appraise once                 exit at mind-lock instead of holding for the drain
+    ;appraise stay                 wait hostiles out in place instead of fleeing (;trade's leads)
     ;appraise focus=box            APPRAISE FOCUS on that item beside the rotation (200 ranks;
                                    focus=offense for a concept, focus=inner_fire for two words)
     ;appraise return               (typed while it runs) finish the appraisal in hand and end
@@ -24,7 +25,8 @@ What it does
 
 When it stops
   - Appraisal at the mindstate with `once`; else it holds until below 28 and goes on
-  - death or hostiles in the room (the shared escape); ;appraise return; nothing left
+  - death or hostiles in the room (the shared escape; with stay it waits them out);
+    ;appraise return; nothing left
     to appraise
 
 ;train runs it as an Appraisal task. The loop is every trainer's
@@ -379,6 +381,7 @@ def lap(s, options, items, held, focus=None):
         finish=finish,
         tick=tick,
         ask=ask,
+        stay=options.get("stay", False),
     )
 
 

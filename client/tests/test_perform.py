@@ -158,9 +158,11 @@ def test_the_play_line_and_the_args():
         "until": 30,
         "once": True,
         "here": False,
+        "stay": False,
     }
     assert perform.parse_args(["mood="])["mood"] == ""
     assert perform.parse_args(["here"])["here"] is True  # ;trade's leads (#558)
+    assert perform.parse_args(["stay"])["stay"] is True  # and their hostiles (#565)
 
 
 def test_every_captured_start_counts_as_playing():

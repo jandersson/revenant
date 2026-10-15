@@ -41,15 +41,17 @@ def test_the_arguments():
         "until": 34,
         "once": False,
         "focus": "",
+        "stay": False,
     }
     assert appraisal.parse_args(
-        ["items=pouch,shield", "careful", "until=30", "once", "focus=coffer"]
+        ["items=pouch,shield", "careful", "until=30", "once", "focus=coffer", "stay"]
     ) == {
         "items": ["pouch", "shield"],
         "careful": True,
         "until": 30,
         "once": True,
         "focus": "coffer",
+        "stay": True,
     }
     assert appraisal.parse_args(["focus=inner_fire"])["focus"] == "inner fire"
 

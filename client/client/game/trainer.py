@@ -6,7 +6,8 @@ until the drain, a typed return between steps, danger to the escape.
     trainer.hold_at_lock(s, "cast", skills, until, again="casting again")   # the hold alone
 
 train() ends with the reason: "you are dead", "hostiles in the room"
-(flight.react first), "return", "locked" (once=True), "no skill", or
+(flight.react first; stay=True waits them out in place instead),
+"return", "locked" (once=True), "no skill", or
 the step's own, said as "<prefix>: <reason> — stopping". finish(s, why)
 runs at every end, a ;stop included. `skills` may be a callable for a
 set that changes mid-run; ensure=False skips the EXP check.
@@ -99,12 +100,30 @@ def hold_at_lock(
             tick()
 
 
-def interrupted(s, prefix, after_hold=False):
+def wait_out(s, prefix):
+    """`stay`'s answer to hostiles: no flight, the training paused until
+    they are gone, a typed return or death; "you are dead" for the
+    last, else None. A trainer on ;trade's lead stays with the caravan,
+    which moves on, and ;trade decides when a fight holds it (#565)."""
+    s.echo(f"{prefix}: hostiles here — staying put until they are gone")
+    while "hostiles" in (danger(s) or "") and not wants_stop(s):
+        s.sleep(1)
+    if s.dead:
+        return "you are dead"
+    if not wants_stop(s):
+        s.echo(f"{prefix}: clear of them — going on")
+    return None
+
+
+def interrupted(s, prefix, after_hold=False, stay=False):
     """Why the loop ends now, said, or None: a danger (flight.react for
-    hostiles), else a typed return. After an interrupted hold the
-    return word was read by the pause already, so no danger means the
-    return."""
+    hostiles, or with `stay` wait_out), else a typed return. After an
+    interrupted hold the return word was read by the pause already, so
+    no danger means the return."""
     reason = danger(s)
+    if stay and "hostiles" in (reason or ""):
+        reason = wait_out(s, prefix)
+        after_hold = False  # the hostiles broke the hold, not the word
     if reason:
         s.echo(f"{prefix}: {reason} — stopping")
         if "hostiles" in reason:
@@ -128,10 +147,12 @@ def train(
     tick=None,
     ask=None,
     ensure=True,
+    stay=False,
 ):
     """Run `step(s)` until the skill locks (then hold, or end with
     `once`), a typed return, a danger, or a reason from the step; the
-    reason returned, `finish(s, why)` run at every end."""
+    reason returned, `finish(s, why)` run at every end. `stay` waits
+    hostiles out in place instead of fleeing and ending."""
     ask = ask or act.ask
     why = None
     try:
@@ -142,7 +163,7 @@ def train(
                     why = "no skill"
                     return why
         while why is None:
-            why = interrupted(s, prefix)
+            why = interrupted(s, prefix, stay=stay)
             if why:
                 break
             current = _skills(skills)
@@ -152,7 +173,7 @@ def train(
                     why = "locked"
                     break
                 if not hold_at_lock(s, prefix, current, until, again=again, tick=tick):
-                    why = interrupted(s, prefix, after_hold=True)
+                    why = interrupted(s, prefix, after_hold=True, stay=stay)
                 continue
             why = step(s)
             if why:
