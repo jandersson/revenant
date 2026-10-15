@@ -433,11 +433,58 @@ def test_a_contract_for_a_town_it_cannot_lead_to_is_left_with_you(script):
     assert any("Leth Deriel, which ;trade does not lead to" in e for e in world.echoed)
 
 
-def test_no_caravan_no_trade(script):
-    world = World({"recall caravan": ["You don't recall having a caravan.\n"]})
+NO_CARAVAN = "You don't recall having a caravan.\n"
+RENTED = (
+    "The clerk nods and says, \"All right, that's a 400 Kronars fee for a"
+    ' rental...."\n'
+    "You count out your 400 Kronars and pay the clerk, who sends his assistant"
+    " out to get your transportation together.\n"
+)
+RENT_SHORT = (
+    "The clerk nods and says, \"All right, that's a 400 Kronars fee for a"
+    ' rental...."\n'
+    "You attempt to pay the clerk, but you don't have enough money.  After"
+    " haggling with the clerk for several moments, he finally shrugs at you and"
+    ' says, "Sorry, can\'t put it in your dues.  Ya gotta pay up front."\n'
+)
+
+
+def test_with_no_caravan_one_is_rented_at_the_clerk_and_the_run_goes_on(script):
+    # The operator, 2026-10-15: "when ;trade starts without a caravan,
+    # have it RENT CARAVAN at the nearest outpost's clerk".
+    answers = dict(
+        LEG, **{"recall caravan": [NO_CARAVAN, RECALLED], "rent caravan": [RENTED]}
+    )
+    world = World(answers, return_after_lead=True)
+    script.main(world)
+    assert world.sent[:3] == ["recall caravan", "rent caravan", "recall caravan"]
+    assert "trade: rented a caravan at Crossing for 400 Kronars" in world.echoed
+    assert "tell bullock-drawn caravan to lead to wolf clan" in world.sent
+
+
+def test_return_with_no_caravan_rents_nothing(script):
+    world = World({"recall caravan": [NO_CARAVAN]})
+    world.args = ["return"]
     script.main(world)
     assert world.sent == ["recall caravan"]
-    assert "RENT CARAVAN" in world.echoed[0]
+    assert world.echoed == ["trade: no caravan — nothing to deliver or return"]
+
+
+def test_a_caravan_recall_cannot_place_is_not_rented_over(script):
+    world = World(
+        {"recall caravan": ["You don't recall where you left your caravan.\n"]}
+    )
+    script.main(world)
+    assert world.sent == ["recall caravan"]
+    assert "bring it to the outpost" in world.echoed[0]
+
+
+def test_a_rental_short_of_coin_stops(script):
+    answers = {"recall caravan": [NO_CARAVAN], "rent caravan": [RENT_SHORT]}
+    world = World(answers)
+    script.main(world)
+    assert world.sent == ["recall caravan", "rent caravan"]
+    assert "trade: not enough coin for the caravan's 400 Kronars" in world.echoed
 
 
 def test_an_empty_feedbag_stops_before_the_lead(script):

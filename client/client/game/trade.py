@@ -111,6 +111,17 @@ NO_CARAVAN = ("don't recall having a caravan", "don't recall where you left")
 # As the clerk makes note of your return, another worker goes outside to
 # retrieve your caravan." Captured at Stone Clan, 2026-10-15.
 BOX_EMPTY = "there is nothing in there"
+
+# RENT CARAVAN at a shipment clerk, the Crossing, 2026-10-14: "The clerk
+# nods and says, "All right, that's a 400 Kronars fee for a rental....""
+# then "You count out your 400 Kronars and pay the clerk, who sends his
+# assistant out to get your transportation together." The caravan waits
+# at the outpost. Short: "You attempt to pay the clerk, but you don't have
+# enough money. ... "Sorry, can't put it in your dues. Ya gotta pay up
+# front."" (Elanthipedia: Trader, 400 Kronars at any Zoluren outpost.)
+RENT_FEE = 400
+RENTED = "get your transportation together"
+RENT_SHORT = "don't have enough money"
 RETURNED = ("free to go now", "retrieve your caravan")
 
 Contract = namedtuple(

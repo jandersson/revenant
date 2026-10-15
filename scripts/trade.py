@@ -7,7 +7,7 @@
 What it does
   - Starts at a Zoluren outpost — the Crossing, Arthe Dale, Stone Clan, Dirge,
     Wolf Clan or Tiger Clan — with your caravan at the outpost (RECALL CARAVAN
-    finds it; RENT CARAVAN at a shipment clerk, 400 Kronars, rents one).
+    finds it); with none, rents one at the clerk (RENT CARAVAN, 400 Kronars).
   - At the clerk: hands in the contract for this town and is paid; PAY CLERK.
   - After a delivery with a teller near the clerk (the Crossing, Dirge), banks
     the purse and keeps 20,000 copper Kronars for dues and fees (;bank).
@@ -22,7 +22,8 @@ When it stops
     kept, said, while its storage box holds anything); ;stop trade at once,
     the caravan kept
   - a contract for a town it does not lead to (Leth Deriel, another province): said, kept
-  - no caravan, no feedbag or no grass in it, a lead refused or given up,
+  - a caravan RECALL cannot place, a rental refused, no feedbag or no grass
+    in it, a lead refused or given up,
     a teller that refuses, an answer it does not know (said)
 
 The towns, the contract and the wordings are client/game/trade.py's,
@@ -71,6 +72,8 @@ BANK_ROOMS = 20
 # Copper Kronars kept on hand after banking: the dues and fees ahead (a
 # contract's charges at the minister ran 4,522 and 5,625 Kronars).
 KEEP = 20_000
+RECALL_TRIES = 6  # after a RENT, the assistant brings the caravan round
+RECALL_WAIT = 10
 
 
 def parse_args(args):
@@ -155,6 +158,35 @@ def pay(s):
     """PAY CLERK at the clerk here; the answer's line."""
     answer = ask(s, "pay clerk")
     return said(answer, trade.SETTLED + (trade.PART_PAID, trade.NO_COINS))
+
+
+def rent(s, db, place):
+    """A caravan rented at this town's clerk (RENT CARAVAN, 400 Kronars,
+    drawn at a teller when the purse is short): its name once RECALL
+    finds it, or None, said."""
+    if not shop.afford(s, ask, PREFIX, trade.RENT_FEE, db=db, retry="run ;trade again"):
+        return None
+    if not walk(s, db, trade.TOWNS[place].clerk, f"the {place} shipment clerk"):
+        return None
+    answer = ask(s, "rent caravan")
+    if trade.RENTED not in answer:
+        if trade.RENT_SHORT in answer:
+            s.echo(
+                f"{PREFIX}: not enough coin for the caravan's {trade.RENT_FEE} Kronars"
+            )
+        else:
+            unknown(s, PREFIX, "RENT CARAVAN", answer)
+        return None
+    s.echo(f"{PREFIX}: rented a caravan at {place} for {trade.RENT_FEE} Kronars")
+    for _ in range(RECALL_TRIES):
+        name, _ = trade.caravan(ask(s, "recall caravan"))
+        if name:
+            return name
+        s.sleep(RECALL_WAIT)
+    s.echo(
+        f"{PREFIX}: RECALL does not find the rented caravan yet — ;trade again in a minute"
+    )
+    return None
 
 
 def return_caravan(s, db, place, name):
@@ -369,13 +401,23 @@ def main(s):
         return
     returning = opts["verb"] == "return"
     db = travel.mapdb()
-    name, _ = trade.caravan(ask(s, "recall caravan"))
-    if not name:
-        s.echo(f"{PREFIX}: no caravan — RENT CARAVAN at a shipment clerk (400 Kronars)")
-        return
     place = nearest_town(s, db)
     if place is None:
         s.echo(f"{PREFIX}: not at a Zoluren outpost ;trade knows — walk to one")
+        return
+    answer = ask(s, "recall caravan")
+    name, _ = trade.caravan(answer)
+    if not name and trade.NO_CARAVAN[0] in answer:
+        if returning:
+            s.echo(f"{PREFIX}: no caravan — nothing to deliver or return")
+            return
+        name = rent(s, db, place)
+        if not name:
+            return
+    elif not name:
+        s.echo(
+            f"{PREFIX}: no caravan found ({said(answer)!r}) — bring it to the outpost"
+        )
         return
     while True:
         contract = held(s)
