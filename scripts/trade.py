@@ -42,6 +42,8 @@ When it stops
     contract is taken there; with `interprovince` its broker's is (its minister's towns are beyond the routes)
   - a contract for a town ;trade does not lead to (Therengia past Riverhaven):
     said, kept unpaid and unloaded
+  - hostiles holding you on a lead while the caravan goes on: you get clear
+    (the escape every trainer uses), said
   - a caravan RECALL cannot place, a rental refused, no feedbag or no grass
     in it, a lead refused or given up,
     a teller that refuses, an answer it does not know (said)
@@ -50,7 +52,18 @@ The towns, the contract and the wordings are client/game/trade.py's,
 the log client/game/tradelog.py's; docs/trade.md.
 """
 
-from client.game import hands, loop, money, probe, shop, trade, tradelog, travel, walker
+from client.game import (
+    flight,
+    hands,
+    loop,
+    money,
+    probe,
+    shop,
+    trade,
+    tradelog,
+    travel,
+    walker,
+)
 from client.game.act import ask, missing, said, unknown
 from client.game.mapdb import pause_seconds, ride_args, ride_of, translate_embedded
 
@@ -130,6 +143,10 @@ LOW_GRASS = 5
 # 2026-10-15), one bunch a meal.
 GRASS_TOP = 60
 FORAGE_EVERY = 15  # seconds between FORAGE GRASS tries on a lead
+HOSTILE_POLL = 5  # the longest a lead waits between looks at the room
+# Looks in one room among hostiles: the caravan has gone on and you
+# are held (the Lava Fields outside Dirge, 2026-10-15).
+HELD_LOOKS = 2
 READ_STREAMS = ("", "familiar")
 READ_SECONDS = 5
 # A teller this many rooms from the clerk gets the pay after a delivery:
@@ -543,7 +560,7 @@ def lead(s, name, place, grass=None, training=()):
     trainer = start_training(s, training)
     try:
         deadline = probe.clock() + LEAD_MINUTES * 60
-        line = None
+        line, held, room = None, 0, None
         while line is None and probe.clock() < deadline:
             busy = trainer is not None and s.is_running(trainer)
             topping = (
@@ -552,9 +569,27 @@ def lead(s, name, place, grass=None, training=()):
                 and grass[0] is not None
                 and grass[0] < GRASS_TOP
             )
-            wait = FORAGE_EVERY if topping or busy else deadline - probe.clock()
+            wait = (
+                FORAGE_EVERY
+                if topping or busy
+                else min(HOSTILE_POLL, deadline - probe.clock())
+            )
             line = s.waitfor(trade.ARRIVED, trade.LEAD_FAILED, timeout=wait)
-            if line is None and topping:
+            if line is not None:
+                break
+            here = getattr(s.state, "room_uid", None)
+            held = held + 1 if flight.hostiles_present(s.state) and here == room else 0
+            room = here
+            if held >= HELD_LOOKS:
+                stop_training(s, trainer)
+                trainer = None
+                flight.react(s, PREFIX)
+                s.echo(
+                    f"{PREFIX}: held by hostiles on the lead to {place} — the caravan"
+                    " goes on alone; find it (RECALL CARAVAN) and ;trade again"
+                )
+                return False
+            if topping:
                 line = heard(s) or forage(s, grass)
     finally:
         stop_training(s, trainer)

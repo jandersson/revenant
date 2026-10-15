@@ -1207,6 +1207,47 @@ class Slow(World):
         return super().waitfor(*patterns, timeout=timeout, streams=streams)
 
 
+class Held(World):
+    """A lead that never arrives, two hostiles in the room."""
+
+    def put(self, command):
+        super().put(command)
+        self.heard = [line for line in self.heard if ARRIVED not in line]
+
+
+def test_a_character_held_by_hostiles_on_a_lead_gets_clear_and_stops(script):
+    # 2026-10-15: crazed madmen in the Lava Fields outside Dirge engaged
+    # the led character, and the caravan went on to Dirge alone.
+    world = Held({"tell weathered caravan to lead": [LED]}, room=1533)
+    world.state.hostiles = {"197647014": "crazed madman", "197648055": "ghoul"}
+    reacted = []
+    script.flight = SimpleNamespace(
+        hostiles_present=lambda state: bool(state.hostiles),
+        react=lambda s, prefix, *a, **k: reacted.append(prefix) or True,
+    )
+    assert not script.lead(world, "weathered caravan", "Dirge")
+    assert reacted == ["trade"]
+    assert any("held by hostiles on the lead to Dirge" in e for e in world.echoed)
+
+
+class Passing(Slow):
+    """A lead through rooms with hostiles in them, a new room each look."""
+
+    def waitfor(self, *patterns, timeout=None, streams=("",)):
+        self.state.room_uid = getattr(self.state, "room_uid", 0) + 1
+        return super().waitfor(*patterns, timeout=timeout, streams=streams)
+
+
+def test_hostiles_in_rooms_the_lead_passes_do_not_stop_it(script):
+    world = Passing({"tell weathered caravan to lead": [LED]}, quiet=4, room=1533)
+    world.state.hostiles = {"1": "ghoul"}
+    script.flight = SimpleNamespace(
+        hostiles_present=lambda state: bool(state.hostiles),
+        react=lambda *a, **k: pytest.fail("reacted to a passing room"),
+    )
+    assert script.lead(world, "weathered caravan", "Dirge")
+
+
 GRASS_ANSWERS = {
     "tell weathered caravan to lead": [LED],
     "forage grass": [FOUND_GRASS],
