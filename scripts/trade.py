@@ -16,8 +16,8 @@ What it does
     Shard, Riverhaven), banks the purse and keeps 20,000 copper for dues and fees (;bank).
   - At the minister: ASK MINISTER FOR CONTRACT; dues owed are drawn at the
     nearest teller when the purse is short, and paid first. With
-    `interprovince`, ASK BROKER FOR CONTRACT instead (the Crossing's Foreign Trade Office,
-    Shard's Provincial Broker), its charge paid at the clerk
+    `interprovince`, ASK BROKER FOR CONTRACT instead (the Crossing's and
+    Riverhaven's Foreign Trade Offices, Shard's Provincial Broker), its charge paid at the clerk
     before loading; the minister elsewhere.
   - The clerk loads the crate; the caravan is fed from your feedbag and told to
     LEAD TO the contract's town; you follow it, then walk it to the outpost.
@@ -38,8 +38,8 @@ When it stops
   - ;trade return once nothing is held, the caravan returned (RETURN CARAVAN;
     kept, said, while its storage box holds anything); ;stop trade at once,
     the caravan kept
-  - at Riverhaven once delivered and paid, the caravan kept: no contract is
-    taken there (its minister's towns are beyond the routes)
+  - at Riverhaven once delivered and paid, the caravan kept: no minister's
+    contract is taken there; with `interprovince` its broker's is (its minister's towns are beyond the routes)
   - a contract for a town ;trade does not lead to (Therengia past Riverhaven):
     said, kept unpaid and unloaded
   - a caravan RECALL cannot place, a rental refused, no feedbag or no grass
@@ -760,7 +760,7 @@ def main(s):
                 s.echo(f"{PREFIX}: nothing held — done at {place}")
                 return_caravan(s, db, place, name)
                 return
-            if place in trade.THERENGIA:
+            if place in trade.THERENGIA and not (broker and place in trade.BROKERS):
                 # Its minister's towns are beyond the routes: a contract
                 # taken there would only leave its charge owed.
                 s.echo(

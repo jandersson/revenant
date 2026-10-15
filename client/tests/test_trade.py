@@ -81,6 +81,17 @@ BROKER_TO_RIVERHAVEN = (
     .replace("11170", "5836")
     .replace("43833", "23776")
 )
+# Riverhaven's broker, 2026-10-15: a contract for Shard, charged in Lirums.
+FROM_RIVERHAVEN = (
+    TO_SHARD.replace("Issued by:  Crossing", "Issued by:  Riverhaven")
+    .replace("the Crossing guild", "the Riverhaven guild")
+    .replace("78568 Dokoras", "152536 Dokoras")
+)
+RIVERHAVEN_BROKER = (
+    BROKER_ISSUED.replace("32663 Kronars", "50729 Lirums")
+    .replace("11170", "18464")
+    .replace("43833", "69193")
+)
 PAID_IN_LIRUMS = (
     "The shipment clerk finds everything in order with your merchandise."
     '  "Life is profit!  Profit is life!" he says, handing you your payment of'
@@ -1140,6 +1151,39 @@ def test_a_delivery_at_riverhaven_ends_the_run_with_the_caravan_kept(script):
     assert "return caravan" not in world.sent
     assert "trade: Riverhaven paid 47,840 Lirums" in world.echoed
     assert world.echoed[-1].startswith("trade: done at Riverhaven")
+
+
+def test_interprovince_at_riverhaven_takes_its_brokers_contract(script):
+    delivered = TO_RIVERHAVEN.replace(
+        " This contract has yet to be presented to the Crossing guild\n clerk.\n", ""
+    )
+    answers = dict(
+        LEG,
+        **{
+            "read my contract": [delivered, FROM_RIVERHAVEN],
+            "get my riverhaven contract": [
+                "You get a Riverhaven contract from inside your sturdy backpack.\n"
+            ],
+            "give my contract to clerk": [PAID_IN_LIRUMS, LOADED],
+            "ask broker": [RIVERHAVEN_BROKER],
+        },
+    )
+    world = World(answers, room=13751)
+    world.args = ["interprovince"]
+    afforded, legs = [], []
+    script.shop = SimpleNamespace(
+        afford=lambda s, ask, prefix, copper, coin, **k: (
+            afforded.append((copper, coin)) or True
+        )
+    )
+    script.leg = lambda s, db, name, origin, destination, *rest: (
+        legs.append((origin, destination)) and False
+    )
+    script.main(world)
+    assert "ask broker for contract" in world.sent
+    assert 7877 in world.walks
+    assert afforded == [(69193, "Lirums")]
+    assert legs == [("Riverhaven", "Shard")]
 
 
 FOUND_GRASS = "You manage to find some grass.\n"

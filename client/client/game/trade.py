@@ -82,8 +82,10 @@ _COIN = r"(\d+) (Kronars|Lirums|Dokoras)"
 # The broker, ASK BROKER FOR CONTRACT, issues a contract for another
 # province in the same words ("The broker plucks a contract ...", "The
 # broker reminds you that you still owe 4048 Kronars in dues ...", the
-# Crossing, 2026-10-15; Shard's Provincial Broker the same that afternoon).
-BROKERS = {"Crossing": 11995, "Shard": 14305}
+# Crossing, 2026-10-15; Shard's Provincial Broker the same that afternoon;
+# Riverhaven's "interprovince broker" in its Foreign Trade Office, east of
+# the guild lobby, that evening: a contract for Shard, charged in Lirums).
+BROKERS = {"Crossing": 11995, "Shard": 14305, "Riverhaven": 7877}
 ISSUED = "plucks a contract"
 HELD = "You still have another contract"  # trade.lic's wording
 _OWED = re.compile(r"still owe " + _COIN + " in dues", re.I)
