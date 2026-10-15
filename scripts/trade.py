@@ -2,7 +2,7 @@
 
     ;trade            deliver, pay the dues, take the next contract, load it, feed the caravan, lead it there; again
     ;trade interprovince  the same, each contract for another province (the broker's) where one is offered: the Crossing, Shard
-    ;trade circuit    hold a contract from every town at once, the caravan led to the nearest town with a crate for it
+    ;trade circuit    hold a contract from every town at once, the caravan led to the nearest town with business
     ;trade return     typed while it runs: deliver what is held, take no new contract, return the caravan at the clerk
     ;trade pause      typed while it runs: deliver what is held, take no new contract, stop with the caravan kept at the outpost
     ;trade history    every contract logged: per route the count, the pay and the profit in Kronars, the minutes
@@ -43,8 +43,9 @@ What it does
   - `circuit` (within a province): at each stop every contract for the town is
     handed in, and the town's own taken when none from it is held (the game
     allows one per town); the next stop is the nearest town a held crate goes
-    to, by the shortest leg history.db measured, else the map. return and pause
-    take no new contract and end once every held one is delivered.
+    to or no contract from it is held, by the shortest leg history.db
+    measured, else the map. return and pause take no new contract and end
+    once every held one is delivered.
   - Every contract goes into history.db's contracts table: charge, pay, times.
 
 When it stops
@@ -704,6 +705,20 @@ def leg(s, db, name, origin, destination, grass=None, training=()):
     )
 
 
+def province(place):
+    """The towns a circuit from `place` works: Ilithi's, else Zoluren's
+    (Leth Deriel among them); Riverhaven is its own and takes none."""
+    if place in trade.ILITHI:
+        return trade.ILITHI
+    if place in trade.THERENGIA:
+        return ()
+    return tuple(
+        town
+        for town in trade.TOWNS
+        if town not in trade.ILITHI and town not in trade.THERENGIA
+    )
+
+
 def next_stop(db, place, towns, legs):
     """The nearest of `towns` from `place` (#556): by `legs`, the shortest
     delivered contract either way (tradelog.leg_minutes), when it knows
@@ -760,8 +775,9 @@ def town_stop(s, db, place, contracts, due):
 def circuit(s, db, name, place, beside, training):
     """;trade circuit (#556): every contract for this town handed in,
     the town's own taken when none from it is held, the caravan led to
-    the nearest town a held crate goes to; again. A typed return or
-    pause takes no new contract and ends once nothing is held."""
+    the nearest town with business (a held crate goes to it, or no
+    contract from it is held); again. A typed return or pause takes no
+    new contract and ends once nothing is held."""
     while True:
         contracts = held_all(s)
         due = [
@@ -778,7 +794,14 @@ def circuit(s, db, name, place, beside, training):
             contracts = town_stop(s, db, place, contracts, due)
             if contracts is None:
                 return
+        # Business: a town a held crate goes to, or one no contract is held
+        # from yet, to take its own (trade.lic's set_next_outpost): without
+        # the second, every stop's new contract would be the only one held.
         towns = {trade.town(c.destination) for c in contracts} - {None}
+        if not (paused(s) or loop.wants_stop(s)):
+            held_from = {trade.town(c.origin) for c in contracts}
+            towns |= {town for town in province(place) if town not in held_from}
+        towns.discard(place)
         if not towns:
             if contracts:
                 s.echo(
@@ -792,10 +815,11 @@ def circuit(s, db, name, place, beside, training):
                 return_caravan(s, db, place, name)
             return
         destination = next_stop(db, place, towns, tradelog.leg_minutes(character(s)))
+        crates = sum(trade.town(c.destination) == destination for c in contracts)
         s.echo(
-            f"{PREFIX}: {len(contracts)} contract(s) held — next {destination}"
-            f" ({sum(trade.town(c.destination) == destination for c in contracts)}"
-            " crate(s) for it)"
+            f"{PREFIX}: {len(contracts)} contract(s) held — next {destination} ("
+            + (f"{crates} crate(s) for it" if crates else "its contract to take")
+            + ")"
         )
         if not beside and not walk(
             s, db, trade.TOWNS[place].outpost, f"the {place} outpost"

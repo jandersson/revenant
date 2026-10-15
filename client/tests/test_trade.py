@@ -1641,12 +1641,46 @@ def test_a_town_whose_contract_is_held_issues_none(script):
         stops=[
             [_contract("Shard", "Darkling Wood"), _contract("Darkling Wood", "Shard")]
         ],
-        minutes={("Shard", "Darkling Wood"): 6.9},
+        minutes=SHARD_LEGS,
         legs=1,
     )
     script.circuit(world, MAP, "ironclad caravan", "Shard", False, [])
     assert ("take", "Shard") not in fake.calls
-    assert fake.calls[-1] == ("leg", "Shard", "Darkling Wood")
+    assert fake.calls[-1] == ("leg", "Shard", "Steelclaw Clan")
+
+
+# Measured legs from Shard, the nearest first.
+SHARD_LEGS = {
+    ("Shard", "Steelclaw Clan"): 4.1,
+    ("Shard", "Fayrin's Rest"): 5.3,
+    ("Shard", "Darkling Wood"): 6.9,
+}
+
+
+def test_a_town_no_contract_is_held_from_is_business_too(script):
+    # Fayrin's Rest with nothing held: its contract goes to Darkling Wood,
+    # and the nearest stop is Steelclaw Clan, for its own contract — or
+    # every stop's new contract would be the only one held.
+    world = World({})
+    fake = Circuit(
+        script,
+        stops=[[]],
+        taken=[_contract("Fayrin's Rest", "Darkling Wood")],
+        minutes={
+            ("Fayrin's Rest", "Steelclaw Clan"): 2.2,
+            ("Fayrin's Rest", "Shard"): 5.3,
+            ("Fayrin's Rest", "Darkling Wood"): 9.0,
+        },
+    )
+    script.circuit(world, MAP, "ironclad caravan", "Fayrin's Rest", False, [])
+    assert fake.calls == [
+        ("take", "Fayrin's Rest"),
+        ("leg", "Fayrin's Rest", "Steelclaw Clan"),
+    ]
+    assert (
+        "trade: 1 contract(s) held — next Steelclaw Clan (its contract to take)"
+        in world.echoed
+    )
 
 
 def test_a_return_takes_nothing_new_and_ends_once_nothing_is_held(script):
@@ -1725,8 +1759,8 @@ def test_a_circuit_started_on_the_road_goes_on_without_the_clerk(script):
     fake = Circuit(
         script,
         stops=[[_contract("Shard", "Darkling Wood")]],
-        minutes={("Shard", "Darkling Wood"): 6.9},
+        minutes=SHARD_LEGS,
     )
     script.circuit(world, MAP, "ironclad caravan", "Shard", True, [])
-    assert fake.calls == [("leg", "Shard", "Darkling Wood")]
+    assert fake.calls == [("leg", "Shard", "Steelclaw Clan")]
     assert "trade: dues settled" not in world.echoed
