@@ -594,6 +594,36 @@ def test_with_no_slightest_hint_the_best_tier_wins_the_harder_style_first():
     assert "perform: masterful plays plain" in out
 
 
+def test_the_chosen_style_is_remembered_and_the_next_run_searches_no_more():
+    # The operator, 2026-10-16: every ;trade lead stepped through all the
+    # styles again for the one it found the lead before.
+    def lead():
+        return Styled(
+            {"fierce": SLIGHTEST}, mindstates=[5] * 60 + [34], rank=1180, stop_at=1300
+        )
+
+    run(lead(), ["once"], mood=None)
+    assert perform.remembered_style("Lanival", "concerto", "zills") == "fierce"
+    again = lead()
+    out = run(again, ["once"], mood=None)
+    assert plays(again) == ["play concerto fierce on my zills"]
+    assert "perform: fierce still plays slightest — no style search" in out
+
+
+def test_a_remembered_style_past_the_slightest_hint_is_searched_again():
+    perform.remember_style("Lanival", "concerto", "zills", "off-key")
+    fake = Styled(
+        {"fierce": SLIGHTEST, "off-key": EFFORTLESS},
+        mindstates=[5] * 60 + [34],
+        rank=1180,
+        stop_at=1300,
+    )
+    run(fake, ["once"], mood=None)
+    assert plays(fake)[0] == "play concerto off-key on my zills"
+    assert plays(fake)[-1] == "play concerto fierce on my zills"
+    assert perform.remembered_style("Lanival", "concerto", "zills") == "fierce"
+
+
 def test_a_fixed_mood_tries_no_other_style():
     fake = Styled({}, mindstates=[5] * 20 + [34], rank=1180, stop_at=1000 + 60)
     run(fake, ["once"], mood="masterful")

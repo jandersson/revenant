@@ -14,6 +14,8 @@
 What it does
   - Tries every style of the song for your rank band (PLAY, STOP PLAY: no roundtime) and keeps
     the one the game rates nearest "with only the slightest hint of difficulty"; again after each lock.
+  - Remembers that style per song and instrument (~/.revenant/perform/<name>.json): the next run
+    plays it first and tries the others only when it no longer starts with the slightest hint.
   - PLAYs it, starts it again when it ends, watches the mindstate.
   - At mind-lock STOPs PLAY and holds until the pool drains, then plays again
     (client/game/trainer.py, the loop every trainer runs).
@@ -56,6 +58,8 @@ from client.game.perform import (
     difficulty,
     parse_args,
     play_command,
+    remember_style,
+    remembered_style,
     song_for,
 )
 
@@ -208,24 +212,25 @@ def rank(s):
 
 
 def start_song(s, options):
-    """PLAY; ("playing", dirty) when the song started (or was already
-    running) — dirty True when the game said the instrument's dirt
-    weighs on it (#233) — ("no instrument", False) when the game found
-    none, ("not here", False) for a room that refuses a song,
-    ("unknown", False) otherwise."""
+    """PLAY; ("playing", dirty, tier) when the song started (or was
+    already running) — dirty True when the game said the instrument's
+    dirt weighs on it (#233), tier the start line's TIERS entry —
+    ("no instrument", False, None) when the game found none, ("not
+    here", ...) for a room that refuses a song, ("unknown", ...)
+    otherwise."""
     song = options["song"] or song_for(rank(s))
     answer = ask(s, play_command(song, options["mood"], options["instrument"]))
     lowered = answer.lower()
     dirty = any(word in lowered for word in DIRTY)
     if any(word in lowered for word in STARTED + ALREADY):
-        return "playing", dirty
+        return "playing", dirty, difficulty(answer)
     if any(word in lowered for word in NO_INSTRUMENT):
-        return "no instrument", False
+        return "no instrument", False, None
     if any(word in lowered for word in NOT_HERE):
-        return "not here", False
+        return "not here", False, None
     if any(word in lowered for word in IN_COMBAT):
-        return "in combat", False
-    return "unknown", False
+        return "in combat", False, None
+    return "unknown", False, None
 
 
 def pick_style(s, options):
@@ -307,22 +312,29 @@ def run(s, options, walker=walk_home):
         s.echo("perform: no instrument — instrument=<noun>, or the profile's")
         return
     # No mood= given: every style tried after the first start (and the
-    # cleaning it may call for), and again after each lock (#381).
+    # cleaning it may call for), and again after each lock (#381) — unless
+    # the style a search chose before still starts with the slightest hint.
     search = options["mood"] is None
+    name = getattr(s.state, "name", None)
+    known = None
     if search:
-        options["mood"] = ""
+        known = remembered_style(
+            name, options["song"] or song_for(rank(s)), options["instrument"]
+        )
+        options["mood"] = known or ""
     song = SimpleNamespace(
         playing=False,
         moved=False,  # walked home once for a room that refuses a song
         cleaned=False,  # the instrument cleaned once for a dirt warning (#233)
         search_due=search,
+        known=known is not None,  # options["mood"] is a search's pick
         sent=False,  # a PLAY went out: the end stops it, whatever came after
     )
 
     def step(s):
         if not song.playing:
             song.sent = True
-            outcome, dirty = start_song(s, options)
+            outcome, dirty, tier = start_song(s, options)
             song.sent = outcome == "playing"  # a refused PLAY plays nothing
             if outcome == "no instrument":
                 return f"no {options['instrument']} on you"
@@ -364,12 +376,24 @@ def run(s, options, walker=walk_home):
                     return None
             if song.search_due:
                 song.search_due = False
-                stop_song(s)
-                style, tier = pick_style(s, options)
-                if style is not None:
-                    options["mood"] = style
-                    s.echo(f"perform: {style or 'the plain style'} plays {tier}")
-                return None
+                if not (song.known and tier == "slightest"):
+                    stop_song(s)
+                    style, tier = pick_style(s, options)
+                    if style is not None:
+                        options["mood"] = style
+                        song.known = True
+                        remember_style(
+                            name,
+                            options["song"] or song_for(rank(s)),
+                            options["instrument"],
+                            style,
+                        )
+                        s.echo(f"perform: {style or 'the plain style'} plays {tier}")
+                    return None
+                s.echo(
+                    f"perform: {options['mood'] or 'the plain style'} still plays "
+                    "slightest — no style search"
+                )
             song.playing = True
             s.echo(
                 f"perform: playing {options['song'] or song_for(rank(s))} "

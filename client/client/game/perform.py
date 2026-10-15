@@ -28,7 +28,15 @@ logs by 2026-10-03). A PLAY without the instrument is uncaptured.
 An instrument gathers dirt as it plays and the game says so at PLAY;
 CLEAN with a cloth takes it off (Elanthipedia: Clean command; the
 wordings below, #233). Model: docs/training.md.
+The style a search picked is remembered per song and instrument in
+~/.revenant/perform/<name>.json (REVENANT_PERFORM_DIR moves it): the
+next run plays it first and searches only when it no longer starts
+with the slightest hint.
 """
+
+import json
+import os
+from pathlib import Path
 
 # (first rank of the band, song) — Elanthipedia: Play command.
 SONGS = (
@@ -195,3 +203,32 @@ def parse_args(args):
         elif key in ("once", "here", "stay"):
             options[key] = True
     return options
+
+
+def styles_path(character):
+    """Where a character's chosen styles are remembered."""
+    base = os.environ.get("REVENANT_PERFORM_DIR") or str(
+        Path.home() / ".revenant" / "perform"
+    )
+    return Path(base) / f"{character or 'unknown'}.json"
+
+
+def _styles(character):
+    try:
+        return json.loads(styles_path(character).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def remembered_style(character, song, instrument):
+    """The style last chosen for `song` on `instrument` ("" the plain
+    one), or None when none was."""
+    return _styles(character).get(f"{song} on {instrument}")
+
+
+def remember_style(character, song, instrument, style):
+    styles = _styles(character)
+    styles[f"{song} on {instrument}"] = style
+    target = styles_path(character)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(styles, indent=1), encoding="utf-8")
