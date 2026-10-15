@@ -96,14 +96,14 @@ def withdraw_back(s, copper, home):
 def top_up_each(s, mapdb, walk_fn, wants, home, tellers):
     """The purse brought to each wanted coin (;bank lirums=300): WEALTH
     for what it holds now, the shortfall's home coin drawn at the
-    teller, changed at a money-changer of this province, and WEALTH
-    again for the verdict."""
+    teller (always: the coins the changer is handed, #562), changed at
+    a money-changer of this province, and WEALTH again for the verdict."""
     carried = purse(s, ask)
     for currency, want in wants.items():
         if currency.lower() == home.lower():
             s.echo(f"bank: {currency} are this province's own coin — keep= is the word")
             continue
-        change, draw = top_up_needed(want, currency, carried, home)
+        change = top_up_needed(want, currency, carried, home)
         if not change:
             s.echo(
                 f"bank: {phrase(carried.get(currency, 0), currency)} on you — enough"
@@ -114,14 +114,11 @@ def top_up_each(s, mapdb, walk_fn, wants, home, tellers):
             f"{phrase(carried.get(currency, 0), currency)} on you — "
             f"changing {phrase(change, home)}"
         )
-        if draw:
-            if not travel.go(
-                s, set(tellers), "the bank teller", db=mapdb, walk=walk_fn
-            ):
-                s.echo("bank: could not reach a teller — nothing changed")
-                return
-            if not withdraw_here(s, ask, "bank", draw, home):
-                return
+        if not travel.go(s, set(tellers), "the bank teller", db=mapdb, walk=walk_fn):
+            s.echo("bank: could not reach a teller — nothing changed")
+            return
+        if not withdraw_here(s, ask, "bank", change, home):
+            return
         changers = mapdb.rooms_tagged("exchange")
         changers = [
             room for room in changers if room_currency(mapdb, room) == home

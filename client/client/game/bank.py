@@ -180,19 +180,20 @@ def exchange_command(currency, home):
 
 
 def top_up_needed(want_copper, want_currency, carried, home):
-    """(change, withdraw): the copper of `home` to hand the changer so
-    the purse reaches `want_copper` of `want_currency` after his fee,
-    rounded up to whole bronze, and how much of it the teller must
-    supply first; (0, 0) when the purse already holds enough."""
+    """The copper of `home` to hand the changer so the purse reaches
+    `want_copper` of `want_currency` after his fee, rounded up to whole
+    bronze; 0 when the purse already holds enough. All of it is drawn
+    at the teller first, in the coins top_up_commands names, whatever
+    `home` coin the purse holds: the changer takes only a denomination
+    the purse has, and a keep drawn in platinum and gold held no silver
+    for "exchange 4 silver" (#562)."""
     want_key, home_key = want_currency.capitalize(), home.capitalize()
     short = want_copper - int(carried.get(want_key, 0) or 0)
     if short <= 0:
-        return 0, 0
+        return 0
     rate = KRONAR_RATES[want_key] / KRONAR_RATES[home_key]
     exact = short * rate / (1 - CHANGER_FEE)
-    change = int(math.ceil(exact / CHANGE_GRAIN)) * CHANGE_GRAIN
-    withdraw = max(0, change - int(carried.get(home_key, 0) or 0))
-    return change, withdraw
+    return int(math.ceil(exact / CHANGE_GRAIN)) * CHANGE_GRAIN
 
 
 def top_up_commands(copper, home, want):

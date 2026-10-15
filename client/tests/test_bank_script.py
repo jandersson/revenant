@@ -461,14 +461,14 @@ def test_the_changers_fee_is_a_twentieth_at_the_wikis_rate():
     from client.game.bank import top_up_commands, top_up_needed
 
     # The captured pairs: 400 Kronars bought 304 Lirums, 300 bought 228.
-    assert top_up_needed(304, "Lirums", {}, "Kronars") == (400, 400)
-    assert top_up_needed(228, "lirums", {}, "kronars") == (300, 300)
-    # Rounded up to whole bronze; the home coin already held is not drawn.
-    assert top_up_needed(300, "Lirums", {}, "Kronars") == (400, 400)
-    assert top_up_needed(300, "Lirums", {"Kronars": 150}, "Kronars") == (400, 250)
+    assert top_up_needed(304, "Lirums", {}, "Kronars") == 400
+    assert top_up_needed(228, "lirums", {}, "kronars") == 300
+    # Rounded up to whole bronze, whatever Kronars the purse holds (#562).
+    assert top_up_needed(300, "Lirums", {}, "Kronars") == 400
+    assert top_up_needed(300, "Lirums", {"Kronars": 25000}, "Kronars") == 400
     # Lirums already in the purse count: 72 short wants 95, so 100.
-    assert top_up_needed(300, "Lirums", {"Lirums": 228}, "Kronars") == (100, 100)
-    assert top_up_needed(300, "Lirums", {"Lirums": 328}, "Kronars") == (0, 0)
+    assert top_up_needed(300, "Lirums", {"Lirums": 228}, "Kronars") == 100
+    assert top_up_needed(300, "Lirums", {"Lirums": 328}, "Kronars") == 0
     # One command per denomination, with the cointype the verb wants.
     assert top_up_commands(400, "Kronars", "Lirums") == [
         "exchange 4 silver kronars to lirums"
@@ -503,6 +503,38 @@ def test_bank_lirums_keeps_the_lirums_held_and_tops_them_up_from_the_teller():
     assert "bank: the money-changer handed you 3 silver, and 4 copper Lirums" in echoes(
         fake
     )
+
+
+WEALTH_KEPT = (
+    "Wealth:\n  2 platinum, and 5 gold Kronars (25000 copper Kronars).\n"
+    "  No Lirums.\n  No Dokoras.\n"
+)
+WEALTH_KEPT_AND_LIRUMS = WEALTH_KEPT.replace(
+    "No Lirums.", "3 silver, and 4 copper Lirums (304 copper Lirums)."
+)
+
+
+def test_a_top_up_draws_the_coins_it_exchanges_whatever_the_keep_holds():
+    # #562, the Crossing, 2026-10-15: keep=25000 left 2 platinum and 5
+    # gold, and "exchange 4 silver kronars to lirums" met "You don't have
+    # that many silver Kronars to exchange." The 4 silver come from the teller.
+    fake = Fake(
+        {
+            "wealth": [WEALTH_KEPT, WEALTH_KEPT, WEALTH_KEPT_AND_LIRUMS],
+            "deposit": [DEPOSITED],
+            "withdraw": [COUNTED_LINE] * 3,
+            "exchange": [HANDED_LIRUMS],
+        }
+    )
+    script.run(fake, ["keep=25000", "lirums=300"], MAP, walk_fn=walk)
+    moves = [c for c in fake.sent if c.startswith(("withdraw", "exchange"))]
+    assert moves == [
+        "withdraw 2 platinum",
+        "withdraw 5 gold",
+        "withdraw 4 silver",
+        "exchange 4 silver kronars to lirums",
+    ]
+    assert "bank: 3 silver and 4 copper Lirums on you — enough" in echoes(fake)
 
 
 def test_a_changer_who_wants_a_cointype_stops_the_top_up_and_says_so():
