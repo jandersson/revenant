@@ -623,6 +623,50 @@ def test_a_descent_turned_back_is_a_refusal_not_a_stall():
         assert "retreat" not in puts_of(handle)
 
 
+class Lines:
+    """The arrival wait's (stream, text) pairs, one per get."""
+
+    def __init__(self, items):
+        self.items = list(items)
+
+    def get(self, timeout=None, streams=None):
+        return self.items.pop(0) if self.items else None
+
+
+def test_the_segoltha_banks_refusals_are_climbs_turned_back():
+    # Haven's End, 2026-10-15 (#564): both waited out the arrival
+    # timeout, and every ;go2 climbed the bank again.
+    for line in (
+        "You approach the bank, but the steepness is intimidating.\n",
+        "You start up the bank, but slip after a few feet and fall to the "
+        "ground!  You are unharmed but feel foolish.\n",
+    ):
+        outcome, _, _ = walker.await_arrival(Lines([("", line)]))
+        assert outcome == "refused"
+
+
+def test_a_refusal_wording_in_the_new_rooms_description_is_an_arrival():
+    # Derelict Road, Darkling Wood (2026-10-16, #564): "find purchase" in
+    # the description read as a turned-back climb, the move went twice
+    # and a wrong edge was written to the local map.
+    handle = Lines(
+        [
+            ("", "You run southwest.\n"),
+            ("", "[Derelict Road, Darkling Wood]\n"),
+            (
+                "",
+                "As travelers pass along the road, pine needles and scree skitter "
+                "down the incline with the soft sound of rain until they find "
+                "purchase in a clump of moss or fall away through a crevice.\n",
+            ),
+            ("", "Obvious paths: northeast, southwest.\n"),
+            ("compass", "ne sw"),
+        ]
+    )
+    outcome, hindering, _ = walker.await_arrival(handle)
+    assert outcome == "arrived" and hindering == []
+
+
 def test_hindering_nouns_are_the_last_word_of_each_item():
     assert walker.hindering_nouns(HINDER) == ["handaxe", "vambraces"]
     assert walker.hindering_nouns(

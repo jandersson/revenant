@@ -277,10 +277,19 @@ GONDOLA_STOPS = ("soft bump",)
 CLIMB_REFUSALS = (
     "footing is questionable",
     "climb back down",
-    "find purchase",
+    "can't seem to find purchase",  # a room's description says "find purchase" too (#564)
     "make your way back up",
     "back away from the",  # "...from the tree" / "...from the branch" (Obsidian Pass, 2026-09-18)
+    # The Segoltha's bank at Haven's End (2026-10-15, #564): unknown, both
+    # waited out the arrival timeout and the bank was climbed again.
+    "steepness is intimidating",
+    "slip after a few feet",
 )
+# The arrival's room title: what follows it is the new room's text, and
+# a refusal wording in a description is no answer (#564: "...until they
+# find purchase in a clump of moss" on Derelict Road read as a turned-back
+# climb, the move went twice, and a wrong edge went to the local map).
+ROOM_TITLE = re.compile(r"^\[[^\]]+\]$")
 # A climb (or a stow) attempted sitting — what a turned-back climb
 # leaves you — answers with these (captured on the retry, 2026-09-11);
 # the same retry, which STANDs first, is the remedy.
@@ -1434,6 +1443,7 @@ def await_arrival(s, timeout=ARRIVAL_TIMEOUT):
     deadline = monotonic() + timeout
     hindering = []
     seen = []
+    landed = False  # the new room's title came: only the compass is awaited
     while True:
         remaining = deadline - monotonic()
         if remaining <= 0:
@@ -1447,6 +1457,9 @@ def await_arrival(s, timeout=ARRIVAL_TIMEOUT):
         if stream:
             continue  # a dock's stream: not the story
         seen.append(text)
+        landed = landed or bool(ROOM_TITLE.match(text.strip()))
+        if landed:
+            continue
         hindering.extend(hindering_nouns(text))
         if any(needle in text for needle in CLIMB_REFUSALS + POSTURE_REFUSALS):
             return "refused", hindering, "".join(seen)
