@@ -538,7 +538,7 @@ def test_dues_owed_are_paid_before_the_contract(script):
     assert len(asks) == 2 and asks[0] < pays[1] < asks[1]
 
 
-def test_broker_takes_its_contract_and_pays_the_charge_before_loading(script):
+def test_interprovince_takes_the_brokers_contract_paid_before_loading(script):
     # By hand at the Crossing, 2026-10-15: ASK BROKER FOR CONTRACT, PAY
     # CLERK for its 43,833 Kronars, then the clerk loaded it (#554).
     answers = dict(
@@ -549,7 +549,7 @@ def test_broker_takes_its_contract_and_pays_the_charge_before_loading(script):
         },
     )
     world = World(answers)
-    world.args = ["broker"]
+    world.args = ["interprovince"]
     afforded, legs = [], []
     script.shop = SimpleNamespace(
         afford=lambda s, ask, prefix, copper, coin, **k: (
@@ -592,7 +592,7 @@ def test_dues_owed_at_the_broker_are_paid_before_its_contract(script):
     ]
 
 
-def test_broker_where_none_is_known_takes_the_ministers_contract(script):
+def test_interprovince_with_no_broker_takes_the_ministers_contract(script):
     answers = dict(LEG, **{"read my contract": [CONTRACT]})
     world = World(answers, room=8997)
     assert script.take(world, MAP, "Wolf Clan", broker=True)

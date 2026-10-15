@@ -1,7 +1,7 @@
 """Run Trader caravan contracts in Zoluren or Ilithi:  ;trade
 
     ;trade            deliver, pay the dues, take the next contract, load it, feed the caravan, lead it there; again
-    ;trade broker     the same, each contract from the broker (another province) where one is known: the Crossing, Shard
+    ;trade interprovince  the same, each contract for another province (the broker's) where one is offered: the Crossing, Shard
     ;trade return     typed while it runs: deliver what is held, take no new contract, return the caravan at the clerk
     ;trade history    every contract logged: per route the count, the pay, the profit, the minutes
 
@@ -15,8 +15,8 @@ What it does
   - After a delivery with a teller near the clerk (the Crossing, Dirge, Leth,
     Shard), banks the purse and keeps 20,000 copper for dues and fees (;bank).
   - At the minister: ASK MINISTER FOR CONTRACT; dues owed are drawn at the
-    nearest teller when the purse is short, and paid first. With `broker`,
-    ASK BROKER FOR CONTRACT instead (the Crossing's Foreign Trade Office,
+    nearest teller when the purse is short, and paid first. With
+    `interprovince`, ASK BROKER FOR CONTRACT instead (the Crossing's Foreign Trade Office,
     Shard's Provincial Broker, untried), its charge paid at the clerk
     before loading; the minister elsewhere.
   - The clerk loads the crate; the caravan is fed from your feedbag and told to
@@ -88,8 +88,8 @@ to Brickwell Tower. 27 minutes from Commerce Avenue to Shard's clerk,
 who paid 78,568 Dokoras against 43,833 Kronars charged, and took back
 the caravan the Crossing had rented out.
 
-`;trade broker` takes that contract itself in the order the hand run
-did: ASK BROKER FOR CONTRACT (the minister's wordings, "The broker"
+`;trade interprovince` takes that contract itself in the order the hand
+run did (the operator named the verb: "broker" says too little): ASK BROKER FOR CONTRACT (the minister's wordings, "The broker"
 for "The minister"), PAY CLERK for the charge, then the clerk's
 loading. Whether the clerk loads a broker contract unpaid, as it does
 the minister's, was never tried. Shard's broker is the map's room
@@ -636,7 +636,7 @@ def main(s):
     if opts["verb"] == "history":
         history(s)
         return
-    broker = opts["verb"] == "broker"
+    broker = opts["verb"] == "interprovince"
     db = travel.mapdb()
     training = trainers(s)
     place = nearest_town(s, db)
