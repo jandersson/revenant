@@ -14,7 +14,7 @@
 - Wear or carry a feedbag with grass in it; the caravan is fed before every lead.
 - Each leg: deliver and get paid, PAY CLERK, ASK MINISTER FOR CONTRACT, the clerk loads the crate, feed, LEAD TO the contract's town.
 - The minister charges the goods' wholesale price and dues to the issuing town; they are paid at that town's clerk before its next contract. When the purse is short, `;trade` draws the dues at the nearest teller.
-- After a delivery in the Crossing or Dirge, the towns with a teller near the clerk, `;trade` banks the pay through `;bank`, keeping 20,000 copper Kronars for the dues and fees ahead.
+- After a delivery in the Crossing, Dirge or Leth Deriel, the towns with a teller near the clerk, `;trade` banks the pay through `;bank`, keeping 20,000 copper Kronars for the dues and fees ahead.
 - `;trade return` (or `return` typed while it runs) ends by returning the rented caravan at the clerk, RETURN CARAVAN, once its storage box is empty; with anything in the box the caravan is kept. `;stop trade` keeps it too. The next `;trade` rents another.
 - A contract for another province is left with you.
 - `;trade` does not fight. On the road you follow the caravan; watch the window.

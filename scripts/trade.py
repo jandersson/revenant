@@ -10,7 +10,7 @@ What it does
     (RECALL CARAVAN finds it); with none, rents one at the clerk (RENT CARAVAN,
     400 Kronars).
   - At the clerk: hands in the contract for this town and is paid; PAY CLERK.
-  - After a delivery with a teller near the clerk (the Crossing, Dirge), banks
+  - After a delivery with a teller near the clerk (the Crossing, Dirge, Leth), banks
     the purse and keeps 20,000 copper Kronars for dues and fees (;bank).
   - At the minister: ASK MINISTER FOR CONTRACT; dues owed are drawn at the
     nearest teller when the purse is short, and paid first.
@@ -59,8 +59,15 @@ Arthe Dale, the Crossing, Wolf Clan and Tiger Clan, 2 to 7
 minutes a leg, and Tiger Clan to Dirge in 11½: every lead ended at the
 outpost — the Crossing's at Commerce Avenue, not the wiki's Northeast
 Gate, Dirge's at Gateway Road, not the North Roads Caravansary — so
-bring() has not had to walk the caravan yet. The bank runs, after the
+bring() had not had to walk the caravan. The bank runs, after the
 Crossing's and Dirge's deliveries, kept 2 platinum and walked back.
+
+Leth Deriel, driven by hand and then unattended both ways the next
+morning: the caravan followed onto Alfren's Ferry and off at either
+bank (the ferry was out a minute or so each time), LEAD TO LETH from the
+south bank ended at the Oakenheart Circle outpost, and LEAD TO CROSSING
+from Leth ended at the south bank dock, so bring() rode the ferry and
+walked the six rooms to Commerce Avenue, a followed step every 5 s.
 """
 
 PREFIX = "trade"
@@ -70,7 +77,7 @@ LOW_GRASS = 5
 READ_STREAMS = ("", "familiar")
 READ_SECONDS = 5
 # A teller this many rooms from the clerk gets the pay after a delivery:
-# the Crossing's (14) and Dirge's (3); the other outposts are 40 and more.
+# the Crossing's (14), Dirge's (3), Leth Deriel's (5); the others are 40 and more.
 BANK_ROOMS = 20
 # Copper Kronars kept on hand after banking: the dues and fees ahead (a
 # contract's charges at the minister ran 4,522 and 5,625 Kronars).
