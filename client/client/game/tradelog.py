@@ -5,7 +5,9 @@ trading contracts").
 One `contracts` row per contract: when the minister issued it, the
 character, the town it came from and the one it goes to, the goods, the
 wholesale price and the dues charged at the issue, the contract's own
-estimate of its worth on delivery, and the coin. The clerk's loading
+estimate of its worth on delivery, the coin, and its province: Zoluren
+or Ilithi, or Interprovince when the destination is in another province
+(filled in for the rows logged before the column). The clerk's loading
 adds the transport fee; the delivery fills `delivered_at` and `paid`.
 `summary` reads the rows back per route for ;trade history: count,
 delivered, the pay, the cost (wholesale, dues and fee) and the minutes
@@ -15,6 +17,8 @@ from issue to pay. A logging failure is logged and never stops a script.
 import logging
 import sqlite3
 from datetime import datetime, timezone
+
+from client.game import trade
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS contracts (
@@ -30,9 +34,26 @@ CREATE TABLE IF NOT EXISTS contracts (
     currency TEXT,
     fee INTEGER,
     delivered_at TEXT,
-    paid INTEGER
+    paid INTEGER,
+    province TEXT
 )
 """
+
+
+def _home(town):
+    if town in trade.ILITHI:
+        return "Ilithi"
+    return "Zoluren" if town in trade.TOWNS else None
+
+
+def province(origin, destination):
+    """A contract's province: its origin's, Zoluren or Ilithi, or
+    "Interprovince" when the destination is in another province; None
+    for an origin ;trade does not know."""
+    home = _home(origin)
+    if home is None:
+        return None
+    return home if _home(destination) == home else "Interprovince"
 
 
 def _connect(path):
@@ -40,6 +61,15 @@ def _connect(path):
 
     connection = sqlite3.connect(str(db_path(path)))
     connection.execute(SCHEMA)
+    present = {row[1] for row in connection.execute("PRAGMA table_info(contracts)")}
+    if "province" not in present:
+        connection.execute("ALTER TABLE contracts ADD COLUMN province TEXT")
+        rows = connection.execute("SELECT seq, origin, destination FROM contracts")
+        connection.executemany(
+            "UPDATE contracts SET province = ? WHERE seq = ?",
+            [(province(origin, to), seq) for seq, origin, to in rows.fetchall()],
+        )
+        connection.commit()
     return connection
 
 
@@ -66,7 +96,8 @@ def log_issue(character, origin, contract, wholesale=None, dues=None, path=None)
     trade.contract's reading); the seq, or None when the write failed."""
     return _write(
         "INSERT INTO contracts (issued_at, character_name, origin, destination,"
-        " goods, wholesale, dues, worth, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        " goods, wholesale, dues, worth, currency, province)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             now(),
             character or "unknown",
@@ -77,6 +108,7 @@ def log_issue(character, origin, contract, wholesale=None, dues=None, path=None)
             dues,
             contract.worth,
             contract.currency,
+            province(origin, contract.destination),
         ),
         path,
     )

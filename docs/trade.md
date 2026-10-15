@@ -22,4 +22,4 @@
 - A contract between Zoluren and Ilithi goes by Leth Deriel and the Obsidian Pass gondola: the caravan follows you from Leth's outpost to Shard's and rides the gondola with you. A contract for any other province is left with you.
 - `;trade` does not fight. On the road you follow the caravan; watch the window.
 
-The `contracts` table in history.db holds one row per contract: issued, origin, destination, goods, wholesale, dues, worth, fee, delivered and paid.
+The `contracts` table in history.db holds one row per contract: issued, origin, destination, goods, wholesale, dues, worth, fee, delivered, paid, and province (Zoluren, Ilithi, or Interprovince for a contract to another province).
