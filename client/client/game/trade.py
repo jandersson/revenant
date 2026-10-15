@@ -234,15 +234,19 @@ def clerk(answer):
 
 def caravan(answer):
     """RECALL CARAVAN's answer: (its name, here) — ("bullock-drawn
-    caravan", False) when it waits elsewhere — or (None, False)."""
+    caravan", False) when it waits elsewhere — or (None, False). The
+    name is the first word and the noun: GIVE POLISHED WOOD CARAVAN
+    answered "What is it you're trying to give?" (Steelclaw Clan,
+    2026-10-15; an item is ADJECTIVE NOUN, act.py), trade.lic's way."""
     text = str(answer or "")
     behind = _BEHIND.search(text)
-    if behind:
-        return behind.group(1), True
     recalled = _RECALLED.search(text)
-    if recalled:
-        return recalled.group(1), False
-    return None, False
+    found = behind or recalled
+    if not found:
+        return None, False
+    words = found.group(1).split()
+    name = " ".join((words[0], words[-1])) if len(words) > 2 else " ".join(words)
+    return name, behind is not None
 
 
 def grass(answer):

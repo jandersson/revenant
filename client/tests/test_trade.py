@@ -160,6 +160,10 @@ def test_the_clerk_loads_at_the_issue_and_pays_at_the_destination():
 
 def test_recall_names_the_caravan_and_whether_it_is_here():
     assert trade.caravan(RECALLED) == ("bullock-drawn caravan", False)
+    # Three words do not GIVE: "What is it you're trying to give?" (2026-10-15).
+    assert trade.caravan(
+        "You recall that your polished wood caravan should be located in...\n"
+    ) == ("polished caravan", False)
     # Nearby, a direction instead of a room (Arthe Dale's clerk, 2026-10-15).
     assert trade.caravan(
         "You seem to recall your bullock-drawn caravan should be somewhere to the east."
