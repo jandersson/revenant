@@ -579,6 +579,19 @@ def test_interprovince_takes_the_brokers_contract_paid_before_loading(script):
     )
 
 
+def test_a_broker_contract_beyond_the_routes_is_neither_paid_nor_loaded(script):
+    far = TO_SHARD.replace("Shard requires", "Riverhaven requires")
+    answers = dict(
+        LEG,
+        **{"ask broker": [BROKER_ISSUED], "read my contract": [far]},
+    )
+    world = World(answers)
+    assert script.take(world, MAP, "Crossing", broker=True) is None
+    assert "give my contract to clerk" not in world.sent
+    assert world.sent.count("pay clerk") == 0
+    assert any("43,833 Kronars owed at the clerk" in e for e in world.echoed)
+
+
 def test_dues_owed_at_the_broker_are_paid_before_its_contract(script):
     world = World(dict(LEG, **{"ask broker": [BROKER_DUES, BROKER_ISSUED]}))
     assert script.issue(world, MAP, "Crossing", broker=True) == (32663, 11170)
@@ -615,7 +628,8 @@ def test_a_contract_for_a_town_it_cannot_lead_to_is_left_with_you(script):
     world = World(answers)
     script.main(world)
     assert not any(" to lead to " in c for c in world.sent)
-    assert any("Riverhaven, which ;trade does not lead to" in e for e in world.echoed)
+    assert "give my contract to clerk" not in world.sent
+    assert any("Riverhaven is beyond ;trade's routes" in e for e in world.echoed)
 
 
 NO_CARAVAN = "You don't recall having a caravan.\n"

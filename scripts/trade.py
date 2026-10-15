@@ -34,7 +34,7 @@ When it stops
   - ;trade return once nothing is held, the caravan returned (RETURN CARAVAN;
     kept, said, while its storage box holds anything); ;stop trade at once,
     the caravan kept
-  - a contract for a town outside Zoluren and Ilithi: said, kept
+  - a contract for a town outside Zoluren and Ilithi: said, kept unpaid and unloaded
   - a caravan RECALL cannot place, a rental refused, no feedbag or no grass
     in it, a lead refused or given up,
     a teller that refuses, an answer it does not know (said)
@@ -370,6 +370,15 @@ def take(s, db, place, broker=False):
         f"{PREFIX}: {contract.goods} for {contract.destination},"
         f" worth {contract.worth or '?'} on delivery"
     )
+    if trade.town(contract.destination) is None:
+        # A broker's contract for a province ;trade cannot reach: kept
+        # unpaid and unloaded, the operator's to take on or not.
+        s.echo(
+            f"{PREFIX}: {contract.destination} is beyond ;trade's routes — the"
+            f" contract is yours, its {(wholesale or 0) + (dues or 0):,}"
+            f" {trade.coin(place)} owed at the clerk, nothing loaded"
+        )
+        return None
     # The clerk loaded the first broker contract with its charge paid
     # (2026-10-15); whether it loads one unpaid is untried.
     if broker and not settle(s, db, place, (wholesale or 0) + (dues or 0)):
