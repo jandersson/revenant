@@ -537,6 +537,9 @@ RELOADABLE_MODULES = (
     "client.game.anatomy_data",
     "client.game.compendium",  # binds CHARTS from anatomy_data: after it
     "client.game.vault",
+    "client.game.haul",  # binds act, travel, walker and trade: after them
+    "client.game.commodities",
+    "client.game.commoditylog",  # history.db's boards and trades; lootlog at call time
 )
 
 # The session's manager also reloads any imported module of this package

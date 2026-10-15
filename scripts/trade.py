@@ -55,10 +55,9 @@ The towns, the contract and the wordings are client/game/trade.py's,
 the log client/game/tradelog.py's; docs/trade.md.
 """
 
-import re
-
 from client.game import (
     flight,
+    haul,
     hands,
     loop,
     money,
@@ -67,10 +66,8 @@ from client.game import (
     trade,
     tradelog,
     travel,
-    walker,
 )
 from client.game.act import ask, missing, said, unknown
-from client.game.mapdb import pause_seconds, ride_args, ride_of, translate_embedded
 
 _NOTES = """
 Built from one contract driven by hand on 2026-10-15: the Crossing's
@@ -141,12 +138,6 @@ the dock; not yet driven.
 
 PREFIX = "trade"
 LEAD_MINUTES = 20  # the Crossing to Wolf Clan took 3½
-FOLLOW_SECONDS = 30  # a step's wait for the caravan to catch up
-# A command sent in roundtime is dropped: "...wait 3 seconds." (an INV
-# LIST typed mid-walk took a step's move, 2026-10-15).
-# A regex, as waitfor matches: "...wait" unescaped took "city waits" in
-# the Road to Shard's description for it (2026-10-15).
-WAITED = r"^\.\.\.wait \d+ seconds?\."
 LOW_GRASS = 5
 # Grass is foraged on a lead while the feedbag holds fewer than this:
 # the caravan eats on about two legs in five (seven of seventeen,
@@ -167,9 +158,6 @@ BANK_ROOMS = 20
 KEEP = 20_000
 RECALL_TRIES = 6  # after a RENT, the assistant brings the caravan round
 RECALL_WAIT = 10
-FERRY = "ferry"  # a route step the walker rides: Alfren's Ferry, the Faldesu's
-GONDOLA = "gondola"  # and the Obsidian Pass gondola, Leth Deriel to Shard
-RIDDEN = {"ferry": FERRY, "faldesu": FERRY, "gondola": GONDOLA}  # the map's names
 # The scripts a lead can run (#558), with the arguments that keep them in
 # place: ;perform never walks home for a room that refuses a song, and
 # ends at mind-lock.
@@ -609,100 +597,11 @@ def lead(s, name, place, grass=None, training=()):
     return True
 
 
-def steps(route):
-    """Each edge of a route as the game commands it sends — FERRY for
-    Alfren's Ferry and the Faldesu's, GONDOLA for the gondola, which the
-    walker rides (the bank or the cab's direction the argument) — or
-    None when one is a scripted edge a caravan cannot follow."""
-    out = []
-    for _, command in route:
-        ride = RIDDEN.get(ride_of(command)) if command.startswith(";e") else None
-        if ride:
-            out.append((ride, ride_args(command)))
-            continue
-        sent = translate_embedded(command) if command.startswith(";e") else [command]
-        if not sent:
-            return None
-        out.append(sent)
-    return out
-
-
-def fare(s, db, name, coin):
-    """A ferry fare the purse lacked (a run back from Ilithi carries only
-    Dokoras: "You haven't got enough kronars to pay for your trip."),
-    fetched by ;bank at the nearest teller with the caravan told to wait
-    at the dock: True back at the dock with the caravan following."""
-    dock = travel.here(s, db)
-    ask(s, f"tell {name} to wait")
-    if not walker.fetch_fare(s, coin[0] if coin else ""):
-        return False
-    if not walk(s, db, dock, "the ferry dock"):
-        return False
-    return said(ask(s, f"tell {name} to follow"), trade.FOLLOW_ORDERED)
-
-
 def bring(s, db, name, room):
-    """Walk the caravan to `room` (the outpost) one room at a time,
-    waiting for it to follow each (trade.lic's take_caravan_to); True
-    there. Every lead so far ended at the outpost; this is for one that
-    stops short of it."""
-    here = travel.here(s, db)
-    if here == room:
-        return True
-    route = db.path(here, [room]) if here is not None else None
-    edges = steps(route) if route else None
-    if not edges:
-        s.echo(
-            f"{PREFIX}: no plain walk from here to the outpost — bring the caravan yourself"
-        )
-        return False
-    if not said(ask(s, f"tell {name} to follow"), trade.FOLLOW_ORDERED):
-        s.echo(f"{PREFIX}: the caravan would not follow")
-        return False
-    for commands in edges:
-        s.clear()
-        if commands[0] == FERRY:
-            # The caravan follows aboard and off again; GO DOCK is the
-            # step it is waited for on.
-            ride = walker.ride_ferry(s, commands[1])
-            if ride.startswith("fare") and fare(s, db, name, ride.split()[1:]):
-                ride = walker.ride_ferry(s, commands[1])
-            if ride != "landed":
-                s.echo(f"{PREFIX}: the ferry crossing failed — the caravan is with you")
-                return False
-            commands = ["go dock"]
-        elif commands[0] == GONDOLA:
-            # The caravan follows into the cab, and the cab's direction
-            # waits for it (trade.lic's ride_gondola); OUT is the step
-            # it is waited for on after.
-            ride = walker.ride_gondola(
-                s,
-                commands[1],
-                aboard=lambda: s.waitfor(trade.FOLLOWING, timeout=FOLLOW_SECONDS),
-            )
-            if ride != "landed":
-                s.echo(
-                    f"{PREFIX}: the gondola ride failed ({ride}) — the caravan is with you"
-                )
-                return False
-            commands = ["out"]
-        for command in commands:
-            pause = pause_seconds(command)
-            if pause is not None:
-                s.sleep(pause)
-                continue
-            s.waitrt()
-            s.put(command)
-        line = s.waitfor(trade.FOLLOWING, WAITED, timeout=FOLLOW_SECONDS)
-        if line is not None and re.search(WAITED, line):
-            s.waitrt()
-            s.put(commands[-1])
-            line = s.waitfor(trade.FOLLOWING, timeout=FOLLOW_SECONDS)
-        if line is None:
-            s.echo(f"{PREFIX}: the caravan fell behind after {commands[-1]!r}")
-            return False
-    ask(s, f"tell {name} to wait")
-    return travel.here(s, db) == room
+    """Walk the caravan to `room` (the outpost) one followed room at a
+    time (client/game/haul.py). Every lead so far ended at the outpost;
+    this is for one that stops short of it."""
+    return haul.bring(s, db, name, room, PREFIX)
 
 
 def leg(s, db, name, origin, destination, grass=None, training=()):

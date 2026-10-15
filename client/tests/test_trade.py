@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from client.game import money, trade, tradelog
+from client.game import haul, money, trade, tradelog
 from client.game.mapdb import MapDB
 
 REPO = pathlib.Path(__file__).parents[2]
@@ -549,6 +549,9 @@ def script(monkeypatch, tmp_path):
         return "landed"
 
     module.walker = SimpleNamespace(ride_ferry=ride_ferry, ride_gondola=ride_gondola)
+    # bring() walks through haul's travel and walker: the same fakes.
+    monkeypatch.setattr(haul, "travel", module.travel)
+    monkeypatch.setattr(haul, "walker", module.walker)
     module.money = SimpleNamespace(
         carried=lambda s, currency="Kronars", ask=None: s.purse, phrase=money.phrase
     )
@@ -925,9 +928,9 @@ CROSSING_ANSWERS = {
 
 def test_the_ferry_is_a_step_the_walker_rides():
     # Alfren's Ferry is a scripted edge: ridden, not refused (2026-10-15).
-    script = _script()
+    _script()
     route = MAP.path(895, [1904])
-    assert script.steps(route) == [["go pier"], (script.FERRY, "leth")]
+    assert haul.steps(route) == [["go pier"], (haul.FERRY, "leth")]
 
 
 def test_a_leg_to_leth_deriel_goes_by_the_crossing_and_the_ferry(script):
@@ -1081,11 +1084,11 @@ def test_a_leg_from_leth_deriel_crosses_back_by_the_ferry(script):
 
 
 def test_the_gondola_is_a_step_the_walker_rides():
-    script = _script()
+    _script()
     route = MAP.path(2039, [8191])
-    assert script.steps(route) == [
+    assert haul.steps(route) == [
         ["climb platform"],
-        (script.GONDOLA, "south"),
+        (haul.GONDOLA, "south"),
         ["go frame"],
     ]
 
@@ -1145,9 +1148,9 @@ def test_a_contract_from_ilithi_to_zoluren_crosses_back_the_same_way(script):
 
 def test_the_faldesu_ferry_is_a_step_the_walker_rides():
     # The map's bescort 'faldesu' edge, ridden like Alfren's Ferry.
-    script = _script()
-    assert script.steps(MAP.path(1385, [386])) == [
-        (script.FERRY, "haven"),
+    _script()
+    assert haul.steps(MAP.path(1385, [386])) == [
+        (haul.FERRY, "haven"),
         ["go ramp"],
         ["go arch"],
         ["northwest"],
