@@ -8,6 +8,7 @@ The answers are a Crossing → Wolf Clan run's, captured 2026-10-15
 
 import importlib.util
 import pathlib
+import re
 from types import SimpleNamespace
 
 import pytest
@@ -475,9 +476,9 @@ class World:
         self.pending = []
 
     def waitfor(self, *patterns, timeout=None, streams=("",)):
-        while self.heard:
+        while self.heard:  # regexes, as the handle's waitfor matches them
             line = self.heard.pop(0)
-            if any(pattern in line for pattern in patterns):
+            if any(re.search(pattern, line) for pattern in patterns):
                 return line
         return None
 
@@ -972,6 +973,43 @@ def test_a_move_dropped_in_roundtime_is_sent_again(script):
         "east",
         "tell weathered caravan to wait",
     ]
+
+
+class Scenic(World):
+    """A room whose description says "waits", the caravan a moment behind."""
+
+    def put(self, command):
+        super().put(command)
+        if command == "east":
+            self.heard.insert(
+                0, "a shimmering crystal city waits astride a sparkling blue lake.\n"
+            )
+
+
+def test_a_description_that_waits_is_no_dropped_move(script):
+    # 2026-10-15: "...wait" unescaped matched "city waits" on the Road to
+    # Shard, and the next step left the caravan a room behind.
+    world = Scenic(CROSSING_ANSWERS, room=1534)
+    assert script.bring(world, MAP, "weathered caravan", 1533)
+    assert world.sent.count("east") == 1
+    assert world.heard == []  # the step waited for the caravan, not the city
+
+
+def test_a_run_started_beside_its_caravan_in_its_town_brings_it_in(script):
+    beside = "You seem to recall that you left your bullock-drawn caravan right behind you.\n"
+    answers = dict(
+        LEG,
+        **{
+            "recall caravan": [beside],
+            "read my contract": [LOADED_CONTRACT, "What were you referring to?"],
+        },
+    )
+    world = World(answers, room=1534)  # a room from Wolf Clan's outpost
+    brought = []
+    script.bring = lambda s, db, name, room: brought.append(room) or True
+    script.main(world)
+    assert brought == [1533]
+    assert "give my contract to clerk" in world.sent
 
 
 def test_a_run_started_beside_its_caravan_goes_on_from_there(script):

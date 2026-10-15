@@ -12,7 +12,8 @@ What it does
     the outpost (RECALL CARAVAN finds it); with none, rents one at the clerk
     (RENT CARAVAN, 400 Kronars or 288 Dokoras).
   - Started beside its caravan away from an outpost (a run stopped on the road),
-    goes on from there with the crate it holds.
+    goes on from there with the crate it holds; near its town, walks the
+    caravan to the outpost and delivers.
   - At the clerk: hands in the contract for this town and is paid; PAY CLERK.
   - After a delivery with a teller near the clerk (the Crossing, Dirge, Leth,
     Shard, Riverhaven), banks the purse and keeps 20,000 copper for dues and fees (;bank).
@@ -53,6 +54,8 @@ When it stops
 The towns, the contract and the wordings are client/game/trade.py's,
 the log client/game/tradelog.py's; docs/trade.md.
 """
+
+import re
 
 from client.game import (
     flight,
@@ -141,7 +144,9 @@ LEAD_MINUTES = 20  # the Crossing to Wolf Clan took 3½
 FOLLOW_SECONDS = 30  # a step's wait for the caravan to catch up
 # A command sent in roundtime is dropped: "...wait 3 seconds." (an INV
 # LIST typed mid-walk took a step's move, 2026-10-15).
-WAITED = "...wait"
+# A regex, as waitfor matches: "...wait" unescaped took "city waits" in
+# the Road to Shard's description for it (2026-10-15).
+WAITED = r"^\.\.\.wait \d+ seconds?\."
 LOW_GRASS = 5
 # Grass is foraged on a lead while the feedbag holds fewer than this:
 # the caravan eats on about two legs in five (seven of seventeen,
@@ -689,7 +694,7 @@ def bring(s, db, name, room):
             s.waitrt()
             s.put(command)
         line = s.waitfor(trade.FOLLOWING, WAITED, timeout=FOLLOW_SECONDS)
-        if line is not None and WAITED in line:
+        if line is not None and re.search(WAITED, line):
             s.waitrt()
             s.put(commands[-1])
             line = s.waitfor(trade.FOLLOWING, timeout=FOLLOW_SECONDS)
@@ -786,18 +791,16 @@ def main(s):
     while True:
         contract = held(s)
         delivered = False
-        # Started beside the caravan with its crate bound elsewhere (a run
-        # stopped mid-walk): it goes on from here, not back to the outpost.
-        beside = (
-            beside
-            and contract is not None
-            and contract.presented
-            and trade.town(contract.destination) != place
-        )
+        # Started beside the caravan with its crate loaded (a run stopped
+        # mid-walk): it goes on from where it stands, brought to the
+        # outpost first when this is its town.
+        beside = beside and contract is not None and contract.presented
         if contract and trade.town(contract.destination) == place:
+            if beside and not bring(s, db, name, trade.TOWNS[place].outpost):
+                return
             if not deliver(s, db, place):
                 return
-            contract, delivered = None, True
+            contract, delivered, beside = None, True, False
         if contract and not contract.presented and trade.town(contract.origin) == place:
             # Issued here and never loaded: a stop between the minister and
             # the clerk. Logged now, the minister's charges unknown.
