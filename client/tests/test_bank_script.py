@@ -272,6 +272,24 @@ def test_a_refused_keep_is_said_and_never_claimed_kept():
     assert "kept" not in echoes(fake)
 
 
+def test_a_keep_over_the_balance_is_refused_not_kept():
+    # #553 (Shard, 2026-10-15): 19,826 Dokoras deposited, keep=20000, and
+    # the First Bank of Ilithi's refusal read as a withdrawal.
+    fake = Fake(
+        {
+            "wealth": [WEALTH_HOME],
+            "deposit": [DEPOSITED],
+            "withdraw": [
+                "The clerk tells you, \"You don't have that much money in your"
+                " account.  I'm sorry, we are not lending money at this time.\"\n"
+            ],
+        }
+    )
+    script.run(fake, ["keep=512"], MAP, walk_fn=walk)
+    assert "bank: the teller refused" in echoes(fake)
+    assert "kept" not in echoes(fake)
+
+
 def test_a_wealth_the_game_never_answered_is_no_reading_and_banks_nothing():
     # #465 (2026-10-04, a server stall): WEALTH went unanswered, the purse
     # read as empty and the 8000 copper keep was withdrawn over 1,444 held.

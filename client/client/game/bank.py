@@ -32,10 +32,14 @@ EXCHANGED = ("hands you",)  # the money-changer's line, the new coins after it
 # The teller's withdrawal line (captured 2026-09-12): "The clerk counts
 # out 1 gold Kronars and hands them over, making a notation in her
 # ledger." The account refusal is captured too ("you do not seem to
-# have an account with us", 2026-09-11); the rest are assumptions.
+# have an account with us", 2026-09-11), and the short account's at the
+# First Bank of Ilithi ("You don't have that much money in your account.
+# I'm sorry, we are not lending money at this time.", 2026-10-15, #553:
+# a keep over the balance was said kept); the rest are assumptions.
 COUNTED = ("counts out",)
 WITHDRAW_REFUSALS = (
     "do not seem to have an account",
+    "don't have that much money",
     "not have enough",
     "don't have enough",
     "insufficient",
