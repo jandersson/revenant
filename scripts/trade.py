@@ -3,7 +3,7 @@
     ;trade            deliver, pay the dues, take the next contract, load it, feed the caravan, lead it there; again
     ;trade interprovince  the same, each contract for another province (the broker's) where one is offered: the Crossing, Shard
     ;trade return     typed while it runs: deliver what is held, take no new contract, return the caravan at the clerk
-    ;trade history    every contract logged: per route the count, the pay, the profit, the minutes
+    ;trade history    every contract logged: per route the count, the pay and the profit in Kronars, the minutes
 
 What it does
   - Starts at an outpost of Zoluren — the Crossing, Arthe Dale, Stone Clan,

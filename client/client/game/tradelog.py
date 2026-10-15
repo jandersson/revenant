@@ -11,14 +11,15 @@ or Ilithi, or Interprovince when the destination is in another province
 adds the transport fee; the delivery fills `delivered_at` and `paid`.
 `summary` reads the rows back per route for ;trade history: count,
 delivered, the pay, the cost (wholesale, dues and fee) and the minutes
-from issue to pay. A logging failure is logged and never stops a script.
+from issue to pay, the money in Kronars (the pay in the destination's
+coin, the cost in the origin's, at money.KRONAR_RATES). A logging failure is logged and never stops a script.
 """
 
 import logging
 import sqlite3
 from datetime import datetime, timezone
 
-from client.game import trade
+from client.game import money, trade
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS contracts (
@@ -146,7 +147,7 @@ def summary(character=None, path=None):
     """Per route, the most run first: {"origin", "destination",
     "contracts", "delivered", "paid", "cost" (wholesale, dues and fee of
     the delivered ones), "profit", "minutes" (issue to pay, the
-    delivered ones' mean, None with none)}."""
+    delivered ones' mean, None with none)}; the money in copper Kronars."""
     connection = _connect(path)
     try:
         rows = connection.execute(
@@ -175,8 +176,10 @@ def summary(character=None, path=None):
         if delivered is None:
             continue
         route["delivered"] += 1
-        route["paid"] += paid or 0
-        route["cost"] += (wholesale or 0) + (dues or 0) + (fee or 0)
+        route["paid"] += money.in_kronars(paid, trade.coin(destination))
+        route["cost"] += money.in_kronars(
+            (wholesale or 0) + (dues or 0) + (fee or 0), trade.coin(origin)
+        )
         minutes = _minutes(issued, delivered)
         if minutes is not None:
             route["minutes"].append(minutes)
@@ -191,14 +194,14 @@ def summary(character=None, path=None):
 
 def describe(route):
     """One ;trade history line: "Crossing → Wolf Clan: 3 contracts, 3
-    delivered, paid 35,373, profit 21,657, 8 min each"."""
+    delivered, paid 35,373, profit 21,657 Kronars, 8 min each"."""
     line = (
         f"{route['origin']} → {route['destination']}: {route['contracts']}"
         f" contract{'s' if route['contracts'] != 1 else ''},"
         f" {route['delivered']} delivered"
     )
     if route["delivered"]:
-        line += f", paid {route['paid']:,}, profit {route['profit']:,}"
+        line += f", paid {route['paid']:,}, profit {route['profit']:,} Kronars"
     if route["minutes"] is not None:
         line += f", {route['minutes']:.0f} min each"
     return line

@@ -6,7 +6,7 @@
 ;trade            run contracts until stopped
 ;trade interprovince  the same, each contract for another province where one is offered
 ;trade return     typed while it runs: deliver what is held, take no new contract, return the caravan
-;trade history    per route: contracts, pay, profit, minutes
+;trade history    per route: contracts, pay and profit in Kronars (Dokoras at 1.386), minutes
 ```
 
 - Start at an outpost with your caravan at it: in Zoluren the Crossing, Arthe Dale, Stone Clan, Dirge, Wolf Clan, Tiger Clan or Leth Deriel (Kronars); in Ilithi Shard, Fayrin's Rest, Steelclaw Clan or Darkling Wood (Dokoras).
