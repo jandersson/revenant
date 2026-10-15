@@ -1460,7 +1460,7 @@ def test_a_trainer_deaf_to_return_is_stopped(script):
 def test_the_profiles_lead_training_keeps_what_trade_can_run(script):
     from client.game import profile
 
-    profile.save_profile("Lanival", {"lead_training": ["Perform", "knit"]})
+    profile.save_profile("Lanival", {"lead_training": ["Perform", "appraise", "knit"]})
     world = World({})
-    assert script.trainers(world) == ["perform"]
+    assert script.trainers(world) == ["perform", "appraise"]
     assert world.echoed == ["trade: no lead training for knit — skipped"]

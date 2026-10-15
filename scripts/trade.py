@@ -33,7 +33,7 @@ What it does
     the Faldesu ferry; at Dirge ;bank tops the purse up to 500 Lirums for
     the fare first. Back, the ferry and a lead to Dirge from the riverbank.
   - On a lead, runs the profile's `lead_training` script (perform: ;perform once
-    here), ended on arrival; with none playing and fewer than 60 bunches in the
+    here; appraise: ;appraise once), ended on arrival; with none playing and fewer than 60 bunches in the
     feedbag, forages grass every 15 seconds (you follow through the roundtime).
   - Every contract goes into history.db's contracts table: charge, pay, times.
 
@@ -160,8 +160,9 @@ RECALL_TRIES = 6  # after a RENT, the assistant brings the caravan round
 RECALL_WAIT = 10
 # The scripts a lead can run (#558), with the arguments that keep them in
 # place: ;perform never walks home for a room that refuses a song, and
-# ends at mind-lock.
-TRAINERS = {"perform": ("once", "here")}
+# ends at mind-lock; ;appraise works the character's own items, each put
+# back, and ends at mind-lock.
+TRAINERS = {"perform": ("once", "here"), "appraise": ("once",)}
 STOP_GRACE = 10  # seconds a trainer gets to end on its typed return
 
 
