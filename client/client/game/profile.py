@@ -204,6 +204,9 @@ DEFAULTS = {
     # The cloth ;perform cleans the instrument with when the game says
     # its dirt weighs on the song ("rag"); "" plays it dirty (#233).
     "instrument_cloth": "",
+    # The scripts ;trade runs while the caravan leads ("perform"): a led
+    # character follows through any roundtime (#558); [] trains nothing.
+    "lead_training": [],
     # The library ;scholarship books reads in — a ;go2 target (the
     # Paladins' Guild library is 11716); "" reads where it stands (#210).
     "library": "",
@@ -422,6 +425,12 @@ FIELDS = (
         "Cloth ;perform cleans the instrument with",
         "str",
         "rag — empty: a dirty instrument plays on",
+    ),
+    (
+        "lead_training",
+        "Scripts ;trade runs while the caravan leads",
+        "list",
+        "perform — empty: none",
     ),
     (
         "library",

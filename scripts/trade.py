@@ -19,8 +19,9 @@ What it does
     LEAD TO the contract's town; you follow it, then walk it to the outpost.
     Leth Deriel is by the Crossing and Alfren's Ferry, the caravan following
     you aboard (77 Kronars for the goods).
-  - On a lead, with fewer than 60 bunches in the feedbag, forages grass every
-    15 seconds and puts what it finds in (you follow through the roundtime).
+  - On a lead, runs the profile's `lead_training` script (perform: ;perform once
+    here), ended on arrival; with none playing and fewer than 60 bunches in the
+    feedbag, forages grass every 15 seconds (you follow through the roundtime).
   - Every contract goes into history.db's contracts table: charge, pay, times.
 
 When it stops
@@ -93,6 +94,11 @@ KEEP = 20_000
 RECALL_TRIES = 6  # after a RENT, the assistant brings the caravan round
 RECALL_WAIT = 10
 FERRY = "ferry"  # a route step the walker rides: Alfren's Ferry
+# The scripts a lead can run (#558), with the arguments that keep them in
+# place: ;perform never walks home for a room that refuses a song, and
+# ends at mind-lock.
+TRAINERS = {"perform": ("once", "here")}
+STOP_GRACE = 10  # seconds a trainer gets to end on its typed return
 
 
 def parse_args(args):
@@ -397,25 +403,75 @@ def forage(s, grass):
     return arrival(answer)
 
 
-def lead(s, name, place, grass=None):
+def trainers(s):
+    """The profile's `lead_training` scripts ;trade knows how to run on a
+    lead (TRAINERS), the rest said once."""
+    from client.game.profile import load_profile
+
+    wanted = [
+        str(name).lower()
+        for name in load_profile(character(s)).get("lead_training") or []
+    ]
+    unknown = [name for name in wanted if name not in TRAINERS]
+    if unknown:
+        s.echo(f"{PREFIX}: no lead training for {', '.join(unknown)} — skipped")
+    return [name for name in wanted if name in TRAINERS]
+
+
+def start_training(s, names):
+    """The first of `names` started as a child script, its name; None
+    when none would start (one already running is the operator's)."""
+    for name in names or ():
+        if s.run(name, list(TRAINERS[name])):
+            s.echo(f"{PREFIX}: ;{name} while the caravan leads")
+            return name
+    return None
+
+
+def stop_training(s, name):
+    """A lead's trainer ended: the typed `return` every script answers,
+    then a ;stop after STOP_GRACE seconds."""
+    if not name or not s.is_running(name):
+        return
+    s.tell(name, "return")
+    for _ in range(STOP_GRACE):
+        if not s.is_running(name):
+            return
+        s.sleep(1)
+    s.kill(name)
+
+
+def lead(s, name, place, grass=None, training=()):
     """TELL the caravan TO LEAD TO `place` and follow it; True on
-    arrival, False, said, when the driver refuses or gives up. With
-    `grass` ([the feedbag's count]) below GRASS_TOP, grass is foraged on
-    the way: a led character follows through the roundtime."""
+    arrival, False, said, when the driver refuses or gives up. A
+    `training` script runs while led, ended on arrival (#558); with none
+    running and `grass` ([the feedbag's count]) below GRASS_TOP, grass
+    is foraged on the way: a led character follows through the
+    roundtime."""
     s.clear()
     answer = ask(s, f"tell {name} to lead to {trade.lead_name(place)}")
     if trade.LEADING not in answer:
         s.echo(f"{PREFIX}: the driver did not take the lead ({said(answer)!r})")
         return False
     s.echo(f"{PREFIX}: leading to {place}")
-    deadline = probe.clock() + LEAD_MINUTES * 60
-    line = None
-    while line is None and probe.clock() < deadline:
-        topping = grass is not None and grass[0] is not None and grass[0] < GRASS_TOP
-        wait = FORAGE_EVERY if topping else deadline - probe.clock()
-        line = s.waitfor(trade.ARRIVED, trade.LEAD_FAILED, timeout=wait)
-        if line is None and topping:
-            line = heard(s) or forage(s, grass)
+    trainer = start_training(s, training)
+    try:
+        deadline = probe.clock() + LEAD_MINUTES * 60
+        line = None
+        while line is None and probe.clock() < deadline:
+            busy = trainer is not None and s.is_running(trainer)
+            topping = (
+                not busy
+                and grass is not None
+                and grass[0] is not None
+                and grass[0] < GRASS_TOP
+            )
+            wait = FORAGE_EVERY if topping or busy else deadline - probe.clock()
+            line = s.waitfor(trade.ARRIVED, trade.LEAD_FAILED, timeout=wait)
+            if line is None and topping:
+                line = heard(s) or forage(s, grass)
+    finally:
+        stop_training(s, trainer)
     if line is None or trade.LEAD_FAILED in line:
         s.echo(f"{PREFIX}: the lead to {place} did not arrive ({line or 'no word'})")
         return False
@@ -479,7 +535,7 @@ def bring(s, db, name, room):
     return travel.here(s, db) == room
 
 
-def leg(s, db, name, origin, destination, grass=None):
+def leg(s, db, name, origin, destination, grass=None, training=()):
     """The caravan from `origin`'s outpost to `destination`'s: led, then
     walked to the outpost when the lead stops short. Leth Deriel is
     across the Segoltha, so a leg to or from it goes by the Crossing and
@@ -489,19 +545,21 @@ def leg(s, db, name, origin, destination, grass=None):
     the Crossing's outpost."""
     crossing = trade.TOWNS["Crossing"].outpost
     if origin == trade.ACROSS:
-        if not lead(s, name, "Crossing", grass) or not bring(s, db, name, crossing):
+        if not lead(s, name, "Crossing", grass, training) or not bring(
+            s, db, name, crossing
+        ):
             return False
         origin = "Crossing"
     if destination == trade.ACROSS:
         if origin != "Crossing" and not (
-            lead(s, name, "Crossing", grass) and bring(s, db, name, crossing)
+            lead(s, name, "Crossing", grass, training) and bring(s, db, name, crossing)
         ):
             return False
         if not bring(s, db, name, trade.FERRY_SOUTH):
             return False
     if origin == destination:
         return True
-    return lead(s, name, destination, grass) and bring(
+    return lead(s, name, destination, grass, training) and bring(
         s, db, name, trade.TOWNS[destination].outpost
     )
 
@@ -513,6 +571,7 @@ def main(s):
         return
     returning = opts["verb"] == "return"
     db = travel.mapdb()
+    training = trainers(s)
     place = nearest_town(s, db)
     if place is None:
         s.echo(f"{PREFIX}: not at a Zoluren outpost ;trade knows — walk to one")
@@ -566,7 +625,7 @@ def main(s):
         if not walk(s, db, trade.TOWNS[place].outpost, f"the {place} outpost"):
             return
         grass = feed(s, name)
-        if grass is None or not leg(s, db, name, place, destination, [grass]):
+        if grass is None or not leg(s, db, name, place, destination, [grass], training):
             return
         place = destination
         returning = returning or loop.wants_stop(s)

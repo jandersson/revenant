@@ -12,6 +12,7 @@
 - Leth Deriel is across the Segoltha: the caravan is led to the Crossing and follows you onto Alfren's Ferry (77 Kronars for the goods), then leads on from the south bank.
 - With no caravan, `;trade` rents one at the outpost's clerk: RENT CARAVAN, 400 of the province's coin paid up front, drawn at a teller when the purse is short.
 - Wear or carry a feedbag with grass in it; the caravan is fed before every lead. While the caravan leads, `;trade` forages grass into the feedbag until it holds 60.
+- A led character follows the caravan through any roundtime, so a lead trains in place: the profile's `lead_training` (File → Character Profile…) names the scripts, today `perform` (`;perform once here`, your `instrument`). It is ended when the caravan arrives; the grass forage waits while it plays.
 - Each leg: deliver and get paid, PAY CLERK, ASK MINISTER FOR CONTRACT, the clerk loads the crate, feed, LEAD TO the contract's town.
 - The minister charges the goods' wholesale price and dues to the issuing town; they are paid at that town's clerk before its next contract. When the purse is short, `;trade` draws the dues at the nearest teller.
 - After a delivery in the Crossing, Dirge, Leth Deriel or Shard, the towns with a teller near the clerk, `;trade` banks the pay through `;bank`, keeping 20,000 copper of the province's coin for the dues and fees ahead.

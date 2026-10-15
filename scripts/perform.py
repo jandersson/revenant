@@ -6,6 +6,7 @@
     ;perform mood=<style>       one style, no search (mood= alone for the game's own style)
     ;perform until=30           stop at that mindstate instead of 34
     ;perform once               exit at mind-lock instead of holding for the drain
+    ;perform here               never walk home for a room that refuses a song (;trade's leads)
     ;perform return             (typed while it runs) stop the song and end
     ;stop perform               quit at once, the song stopped
 
@@ -327,7 +328,7 @@ def run(s, options, walker=walk_home):
             if outcome == "not here":
                 # A bank's teller refused the song (2026-09-20): once,
                 # walk to the profile's home and play there.
-                home = home_of(s)
+                home = "" if options.get("here") else home_of(s)
                 if song.moved or not home:
                     return "the game refuses a song here" + (
                         " and at home too"

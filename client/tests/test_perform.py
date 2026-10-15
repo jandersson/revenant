@@ -157,8 +157,10 @@ def test_the_play_line_and_the_args():
         "mood": None,  # every style tried (#381)
         "until": 30,
         "once": True,
+        "here": False,
     }
     assert perform.parse_args(["mood="])["mood"] == ""
+    assert perform.parse_args(["here"])["here"] is True  # ;trade's leads (#558)
 
 
 def test_every_captured_start_counts_as_playing():
@@ -330,6 +332,27 @@ def test_a_room_that_refuses_the_song_sends_it_home_once(monkeypatch, tmp_path):
     drive(none, lambda s, home: True)
     assert len(plays(none)) == 1
     assert any("names no home — stopping" in t for t in none.echoed)
+
+
+def test_here_never_walks_home_for_a_refused_song(monkeypatch, tmp_path):
+    # ;trade runs ;perform once here while the caravan leads (#558): a walk
+    # home would leave the caravan behind.
+    monkeypatch.setenv("REVENANT_PROFILES", str(tmp_path))
+    from client.game import profile
+
+    profile.save_profile("Lanival", profile.load_profile("Lanival") | {"home": "11716"})
+    fake = RefusingHere(mindstates=[5, 34])
+    script.clock = lambda: fake.now
+    script.ask = fake.ask
+    script.probe = SimpleNamespace(collect=fake.collect)
+    walks = []
+    script.run(
+        fake,
+        script.parse_args(["once", "here", "instrument=zills", "mood=off-key"]),
+        walker=lambda s, home: walks.append(home) or True,
+    )
+    assert walks == []
+    assert len(plays(fake)) == 1
 
 
 class InCombat(Fake):

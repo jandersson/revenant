@@ -350,15 +350,29 @@ class World:
                 return line
         return None
 
+    # A child in `staying` runs until told `return` (or, `deaf`, until
+    # killed); any other ends at once, as ;bank does here.
+    staying = frozenset()
+    deaf = False
+
     def run(self, name, args=()):
         self.ran.append((name, list(args)))
+        if name in self.staying:
+            self.running = getattr(self, "running", set()) | {name}
         return True
 
     def is_running(self, name):
-        return False
+        return name in getattr(self, "running", set())
+
+    def tell(self, name, line):
+        self.told = getattr(self, "told", []) + [(name, line)]
+        if line == "return" and not self.deaf:
+            self.running = getattr(self, "running", set()) - {name}
+        return True
 
     def kill(self, name):
-        pass
+        self.killed = getattr(self, "killed", []) + [name]
+        self.running = getattr(self, "running", set()) - {name}
 
     def command(self, timeout=None):
         return self.typed.pop(0) if self.typed else None
@@ -399,6 +413,7 @@ def script(monkeypatch, tmp_path):
     monkeypatch.setattr(
         tradelog, "_connect", _in(tmp_path / "history.db", tradelog._connect)
     )
+    monkeypatch.setenv("REVENANT_PROFILES", str(tmp_path))
     return module
 
 
@@ -838,3 +853,39 @@ def test_a_contract_its_town_word_does_not_name_is_got_plainly(script):
     script.travel.go = lambda s, rooms, describe="", db=None, walk=None: True
     assert script.deliver(world, MAP, "Fayrin's Rest")
     assert world.sent[:2] == ["get my fayrin's contract", "get my contract"]
+
+
+def test_the_lead_plays_the_profiles_trainer_and_stops_it_on_arrival(script):
+    # The operator, 2026-10-15: "He is wearing zills, so we can start with
+    # ;perform" (#558). No grass forage while it plays (trade.lic's
+    # forage_grass waits on a training token too).
+    world = Slow(GRASS_ANSWERS, quiet=2, room=1533)
+    world.staying = {"perform"}
+    assert script.lead(world, "weathered caravan", "Wolf Clan", [10], ["perform"])
+    assert world.ran == [("perform", ["once", "here"])]
+    assert "forage grass" not in world.sent
+    assert world.told == [("perform", "return")]
+    assert "trade: ;perform while the caravan leads" in world.echoed
+
+
+def test_a_trainer_that_ended_lets_the_grass_forage_resume(script):
+    # ;perform once ends itself at mind-lock: the lead forages again.
+    world = Slow(GRASS_ANSWERS, quiet=2, room=1533)
+    assert script.lead(world, "weathered caravan", "Wolf Clan", [10], ["perform"])
+    assert world.sent.count("forage grass") == 2
+
+
+def test_a_trainer_deaf_to_return_is_stopped(script):
+    world = Slow(GRASS_ANSWERS, quiet=1, room=1533)
+    world.staying, world.deaf = {"perform"}, True
+    assert script.lead(world, "weathered caravan", "Wolf Clan", [10], ["perform"])
+    assert world.killed == ["perform"]
+
+
+def test_the_profiles_lead_training_keeps_what_trade_can_run(script):
+    from client.game import profile
+
+    profile.save_profile("Lanival", {"lead_training": ["Perform", "knit"]})
+    world = World({})
+    assert script.trainers(world) == ["perform"]
+    assert world.echoed == ["trade: no lead training for knit — skipped"]
