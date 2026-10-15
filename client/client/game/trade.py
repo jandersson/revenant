@@ -103,6 +103,16 @@ _RECALLED = re.compile(r"recall (?:that )?your (.+?) should be\b", re.I)
 _BEHIND = re.compile(r"you left your (.+?) right behind you", re.I)
 NO_CARAVAN = ("don't recall having a caravan", "don't recall where you left")
 
+# The storage box (35th circle and up): OPEN STORAGE BOX ON <caravan>,
+# then RUMMAGE IN STORAGE BOX ON <caravan>: "You rummage through a
+# storage box but there is nothing in there." Closed, the RUMMAGE answers
+# "While it's closed?" RETURN CARAVAN at a shipment clerk: "... everything
+# appears to be in order with your caravan, so you're free to go now. ..."
+# As the clerk makes note of your return, another worker goes outside to
+# retrieve your caravan." Captured at Stone Clan, 2026-10-15.
+BOX_EMPTY = "there is nothing in there"
+RETURNED = ("free to go now", "retrieve your caravan")
+
 Contract = namedtuple(
     "Contract", "origin destination goods worth currency presented expired"
 )

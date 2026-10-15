@@ -1,7 +1,7 @@
 """Run Trader caravan contracts around Zoluren:  ;trade
 
     ;trade            deliver, pay the dues, take the next contract, load it, feed the caravan, lead it there; again
-    ;trade return     deliver what is held and stop at the clerk, no new contract (typed while it runs: the same)
+    ;trade return     deliver what is held, take no new contract, return the caravan at the clerk (typed while it runs: the same)
     ;trade history    every contract logged: per route the count, the pay, the profit, the minutes
 
 What it does
@@ -18,7 +18,9 @@ What it does
   - Every contract goes into history.db's contracts table: charge, pay, times.
 
 When it stops
-  - ;trade return once nothing is held; ;stop trade at once
+  - ;trade return once nothing is held, the caravan returned (RETURN CARAVAN;
+    kept, said, while its storage box holds anything); ;stop trade at once,
+    the caravan kept
   - a contract for a town it does not lead to (Leth Deriel, another province): said, kept
   - no caravan, no feedbag or no grass in it, a lead refused or given up,
     a teller that refuses, an answer it does not know (said)
@@ -153,6 +155,29 @@ def pay(s):
     """PAY CLERK at the clerk here; the answer's line."""
     answer = ask(s, "pay clerk")
     return said(answer, trade.SETTLED + (trade.PART_PAID, trade.NO_COINS))
+
+
+def return_caravan(s, db, place, name):
+    """The rented caravan handed back at this town's clerk (RETURN
+    CARAVAN), its storage box rummaged at the outpost first: True once
+    returned; kept, said, when the box holds anything or the answer is
+    not the box's (the caravan not at the outpost)."""
+    if not walk(s, db, trade.TOWNS[place].outpost, f"the {place} outpost"):
+        return False
+    ask(s, f"open storage box on {name}")
+    answer = ask(s, f"rummage in storage box on {name}")
+    ask(s, f"close storage box on {name}")
+    if trade.BOX_EMPTY not in answer:
+        s.echo(f"{PREFIX}: the caravan is kept — its storage box: {said(answer)!r}")
+        return False
+    if not walk(s, db, trade.TOWNS[place].clerk, f"the {place} shipment clerk"):
+        return False
+    answer = ask(s, "return caravan")
+    if not any(word in answer for word in trade.RETURNED):
+        unknown(s, PREFIX, "RETURN CARAVAN", answer)
+        return False
+    s.echo(f"{PREFIX}: the caravan returned at {place}")
+    return True
 
 
 def bank_run(s, db):
@@ -372,6 +397,7 @@ def main(s):
                 bank_run(s, db)
             if returning or loop.wants_stop(s):
                 s.echo(f"{PREFIX}: nothing held — done at {place}")
+                return_caravan(s, db, place, name)
                 return
             contract = take(s, db, place)
             if contract is None:

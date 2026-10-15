@@ -95,6 +95,14 @@ ARRIVED = (
 )
 GOT_CONTRACT = "You get a Wolf Clan contract from inside your sturdy backpack.\n"
 STOWED = "You put your contract in your sturdy backpack.\n"
+BOX_EMPTY = "You rummage through a storage box but there is nothing in there.\n"
+RETURNED = (
+    "\"Ah, Lanival, good to see you're still in one piece after your travels."
+    "  Let's see, now, everything appears to be in order with your caravan, so"
+    " you're free to go now.  If you have any dues outstanding, though, you might"
+    " want to take care of them while you're here.\"  As the clerk makes note of"
+    " your return, another worker goes outside to retrieve your caravan.\n"
+)
 
 
 # The model
@@ -368,6 +376,8 @@ LEG = {
     "wear my feedbag": ["You attach a tan canvas feedbag to your belt.\n"],
     "tell bullock-drawn caravan to lead": [LEADING],
     "get my wolf contract": [GOT_CONTRACT],
+    "rummage in storage box": [BOX_EMPTY],
+    "return caravan": [RETURNED],
 }
 
 
@@ -385,7 +395,8 @@ def test_a_leg_takes_a_contract_leads_the_caravan_and_is_paid(script):
     assert "give bullock-drawn caravan" in sent
     assert "tell bullock-drawn caravan to lead to wolf clan" in sent
     assert "get my wolf contract" in sent
-    assert world.walks == [8915, 8916, 895, 8997]
+    # Then out to the caravan's box, and back to the clerk to return it.
+    assert world.walks == [8915, 8916, 895, 8997, 1533, 8997]
     assert "trade: 13 ornate saber hilts for Wolf Clan, worth 11791 on delivery" in out
     assert "trade: leading to Wolf Clan" in out
     assert "trade: Wolf Clan paid 11,791 Kronars" in out
@@ -525,3 +536,37 @@ def test_no_bank_run_far_from_a_teller(script):
     world.room = 8916
     script.bank_run(world, MAP)
     assert world.ran == []
+
+
+def test_the_graceful_end_returns_the_caravan_once_its_box_is_empty(script):
+    # The operator, 2026-10-15: "return the caravan on the next stop -
+    # then build it in to the script". Captured at Stone Clan that night.
+    world = World(LEG)
+    world.args = ["return"]
+    script.main(world)
+    sent = world.sent
+    tail = [c for c in sent if "storage box" in c or c == "return caravan"]
+    assert tail == [
+        "open storage box on bullock-drawn caravan",
+        "rummage in storage box on bullock-drawn caravan",
+        "close storage box on bullock-drawn caravan",
+        "return caravan",
+    ]
+    assert world.walks == [895, 8916]  # the box at the outpost, then the clerk
+    assert "trade: the caravan returned at Crossing" in world.echoed
+
+
+def test_a_caravan_with_anything_in_its_box_is_kept(script):
+    answers = dict(
+        LEG,
+        **{
+            "rummage in storage box": [
+                "You rummage through a storage box and see a fur packing crate.\n"
+            ]
+        },
+    )
+    world = World(answers)
+    world.args = ["return"]
+    script.main(world)
+    assert "return caravan" not in world.sent
+    assert any("the caravan is kept" in e for e in world.echoed)
