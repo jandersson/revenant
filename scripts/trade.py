@@ -32,9 +32,11 @@ What it does
   - Riverhaven (the Crossing broker's) is led to by Dirge and walked to over
     the Faldesu ferry; at Dirge ;bank tops the purse up to 500 Lirums for
     the fare first. Back, the ferry and a lead to Dirge from the riverbank.
-  - On a lead, runs the profile's `lead_training` script (perform: ;perform once
-    here; appraise: ;appraise once), ended on arrival; with none playing and fewer than 60 bunches in the
-    feedbag, forages grass every 15 seconds (you follow through the roundtime).
+  - On a lead, grass first: with fewer than 60 bunches in the feedbag, forages
+    grass every 15 seconds (you follow through the roundtime). Then the profile's
+    `lead_training` scripts one at a time (perform: ;perform once here; appraise:
+    ;appraise once), the emptiest skill first, the next when one ends, the one
+    running ended on arrival.
   - Every contract goes into history.db's contracts table: charge, pay, times.
 
 When it stops
@@ -162,7 +164,10 @@ RECALL_WAIT = 10
 # place: ;perform never walks home for a room that refuses a song, and
 # ends at mind-lock; ;appraise works the character's own items, each put
 # back, and ends at mind-lock.
-TRAINERS = {"perform": ("once", "here"), "appraise": ("once",)}
+TRAINERS = {
+    "perform": (("once", "here"), "Performance"),
+    "appraise": (("once",), "Appraisal"),
+}
 STOP_GRACE = 10  # seconds a trainer gets to end on its typed return
 
 
@@ -520,11 +525,17 @@ def trainers(s):
     return [name for name in wanted if name in TRAINERS]
 
 
-def start_training(s, names):
-    """The first of `names` started as a child script, its name; None
-    when none would start (one already running is the operator's)."""
-    for name in names or ():
-        if s.run(name, list(TRAINERS[name])):
+def start_training(s, names, tried):
+    """The next of `names` started as a child script, its name, the one
+    whose skill holds the least first (the most skills moving; a skill
+    the exp window does not list is empty), ties in the profile's order;
+    each is tried once a lead (`tried` collects them). None when none is
+    left that would start (one already running is the operator's)."""
+    left = [name for name in names or () if name not in tried]
+    left.sort(key=lambda name: loop.mindstate(s, TRAINERS[name][1]) or 0)
+    for name in left:
+        tried.append(name)
+        if s.run(name, list(TRAINERS[name][0])):
             s.echo(f"{PREFIX}: ;{name} while the caravan leads")
             return name
     return None
@@ -545,10 +556,12 @@ def stop_training(s, name):
 
 def lead(s, name, place, grass=None, training=()):
     """TELL the caravan TO LEAD TO `place` and follow it; True on
-    arrival, False, said, when the driver refuses or gives up. A
-    `training` script runs while led, ended on arrival (#558); with none
-    running and `grass` ([the feedbag's count]) below GRASS_TOP, grass
-    is foraged on the way: a led character follows through the
+    arrival, False, said, when the driver refuses or gives up. Grass
+    comes first: while `grass` ([the feedbag's count]) is below GRASS_TOP
+    it is foraged on the way (the operator: "grass forage should take
+    prio just so he doesn't run out of feed"); then the `training`
+    scripts run one at a time, the emptiest skill first, the one running
+    ended on arrival (#558). A led character follows through the
     roundtime."""
     s.clear()
     answer = ask(s, f"tell {name} to lead to {trade.lead_name(place)}")
@@ -556,18 +569,19 @@ def lead(s, name, place, grass=None, training=()):
         s.echo(f"{PREFIX}: the driver did not take the lead ({said(answer)!r})")
         return False
     s.echo(f"{PREFIX}: leading to {place}")
-    trainer = start_training(s, training)
+    tried, trainer = [], None
     try:
         deadline = probe.clock() + LEAD_MINUTES * 60
         line, held, room = None, 0, None
         while line is None and probe.clock() < deadline:
-            busy = trainer is not None and s.is_running(trainer)
             topping = (
-                not busy
-                and grass is not None
-                and grass[0] is not None
-                and grass[0] < GRASS_TOP
+                grass is not None and grass[0] is not None and grass[0] < GRASS_TOP
             )
+            if trainer is not None and not s.is_running(trainer):
+                trainer = None  # it ended: the next, below
+            if trainer is None and not topping:
+                trainer = start_training(s, training, tried)
+            busy = trainer is not None
             wait = (
                 FORAGE_EVERY
                 if topping or busy

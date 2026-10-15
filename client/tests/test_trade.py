@@ -1432,11 +1432,11 @@ def test_a_contract_its_town_word_does_not_name_is_got_plainly(script):
 
 def test_the_lead_plays_the_profiles_trainer_and_stops_it_on_arrival(script):
     # The operator, 2026-10-15: "He is wearing zills, so we can start with
-    # ;perform" (#558). No grass forage while it plays (trade.lic's
-    # forage_grass waits on a training token too).
+    # ;perform" (#558). The feedbag full, no forage.
     world = Slow(GRASS_ANSWERS, quiet=2, room=1533)
     world.staying = {"perform"}
-    assert script.lead(world, "weathered caravan", "Wolf Clan", [10], ["perform"])
+    full = [script.GRASS_TOP]
+    assert script.lead(world, "weathered caravan", "Wolf Clan", full, ["perform"])
     assert world.ran == [("perform", ["once", "here"])]
     assert "forage grass" not in world.sent
     assert world.told == [("perform", "return")]
@@ -1453,8 +1453,65 @@ def test_a_trainer_that_ended_lets_the_grass_forage_resume(script):
 def test_a_trainer_deaf_to_return_is_stopped(script):
     world = Slow(GRASS_ANSWERS, quiet=1, room=1533)
     world.staying, world.deaf = {"perform"}, True
-    assert script.lead(world, "weathered caravan", "Wolf Clan", [10], ["perform"])
+    full = [script.GRASS_TOP]
+    assert script.lead(world, "weathered caravan", "Wolf Clan", full, ["perform"])
     assert world.killed == ["perform"]
+
+
+def _exp(**minds):
+    return {
+        skill: {"rank": 100, "percent": 0, "mindstate": mind, "rate": ""}
+        for skill, mind in minds.items()
+    }
+
+
+def test_the_emptiest_skill_trains_first_on_a_lead(script):
+    # The operator, 2026-10-15: "a list of things to train instead of
+    # being one or the other" — the most skills moving.
+    world = Slow(GRASS_ANSWERS, quiet=2, room=1533)
+    world.state.experience = _exp(Performance=20, Appraisal=3)
+    world.staying = {"perform", "appraise"}
+    lead = script.lead(
+        world,
+        "weathered caravan",
+        "Wolf Clan",
+        [script.GRASS_TOP],
+        ["perform", "appraise"],
+    )
+    assert lead
+    assert world.ran == [("appraise", ["once"])]
+
+
+def test_a_trainer_that_ends_hands_the_lead_to_the_next(script):
+    world = Slow(GRASS_ANSWERS, quiet=2, room=1533)
+    world.state.experience = _exp(Performance=20, Appraisal=3)
+    world.staying = {"perform"}  # ;appraise once ends at once (at mind-lock)
+    lead = script.lead(
+        world,
+        "weathered caravan",
+        "Wolf Clan",
+        [script.GRASS_TOP],
+        ["perform", "appraise"],
+    )
+    assert lead
+    assert world.ran == [("appraise", ["once"]), ("perform", ["once", "here"])]
+    assert "forage grass" not in world.sent
+    assert world.told == [("perform", "return")]
+
+
+def test_grass_is_topped_up_before_any_training(script):
+    # The operator, 2026-10-15: "grass forage should take prio just so he
+    # doesn't run out of feed".
+    world = Slow(GRASS_ANSWERS, quiet=3, room=1533)
+    world.staying = {"perform"}
+    grass = [script.GRASS_TOP - 1]
+    assert script.lead(world, "weathered caravan", "Wolf Clan", grass, ["perform"])
+    assert grass == [script.GRASS_TOP]
+    assert world.sent.count("forage grass") == 1
+    forage = world.sent.index("forage grass")
+    assert world.ran == [("perform", ["once", "here"])]
+    assert world.sent.index("put my grass in my feedbag") > forage
+    assert world.told == [("perform", "return")]
 
 
 def test_the_profiles_lead_training_keeps_what_trade_can_run(script):
