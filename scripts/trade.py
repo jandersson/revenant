@@ -10,19 +10,20 @@ What it does
     Dirge, Wolf Clan, Tiger Clan, Leth Deriel — or Ilithi — Shard, Fayrin's
     Rest, Steelclaw Clan, Darkling Wood — with your caravan at the outpost
     (RECALL CARAVAN finds it); with none, rents one at the clerk (RENT CARAVAN,
-    400 Kronars or Dokoras).
+    400 Kronars or 288 Dokoras).
   - At the clerk: hands in the contract for this town and is paid; PAY CLERK.
   - After a delivery with a teller near the clerk (the Crossing, Dirge, Leth,
     Shard), banks the purse and keeps 20,000 copper for dues and fees (;bank).
   - At the minister: ASK MINISTER FOR CONTRACT; dues owed are drawn at the
     nearest teller when the purse is short, and paid first. With
     `interprovince`, ASK BROKER FOR CONTRACT instead (the Crossing's Foreign Trade Office,
-    Shard's Provincial Broker, untried), its charge paid at the clerk
+    Shard's Provincial Broker), its charge paid at the clerk
     before loading; the minister elsewhere.
   - The clerk loads the crate; the caravan is fed from your feedbag and told to
     LEAD TO the contract's town; you follow it, then walk it to the outpost.
     Leth Deriel is by the Crossing and Alfren's Ferry, the caravan following
-    you aboard (77 Kronars for the goods). A contract between Zoluren and
+    you aboard (77 Kronars for the goods; with none on you ;bank fetches
+    them while the caravan waits at the dock). A contract between Zoluren and
     Ilithi (a broker's) goes by Leth Deriel and the Obsidian Pass
     gondola, the caravan walked after you and riding along.
   - On a lead, runs the profile's `lead_training` script (perform: ;perform once
@@ -92,8 +93,14 @@ the caravan the Crossing had rented out.
 run did (the operator named the verb: "broker" says too little): ASK BROKER FOR CONTRACT (the minister's wordings, "The broker"
 for "The minister"), PAY CLERK for the charge, then the clerk's
 loading. Whether the clerk loads a broker contract unpaid, as it does
-the minister's, was never tried. Shard's broker is the map's room
-14305, Brickwell Tower's Provincial Broker, never visited.
+the minister's, was never tried. Shard's broker, the map's room 14305
+(Brickwell Tower's Provincial Broker), answered the first
+`;trade interprovince` the same way: 559 sacks of marsh chestnuts for
+the Crossing, 22,265 Dokoras wholesale and 7,814 dues, worth 102,856
+Kronars. That run stopped at the Segoltha's south bank: Alfren's Ferry
+wanted 77 Kronars and the purse held only Dokoras ("You haven't got
+enough kronars to pay for your trip."); bring() fetches a refused
+fare since.
 """
 
 PREFIX = "trade"
@@ -212,26 +219,23 @@ def pay(s):
 
 
 def rent(s, db, place):
-    """A caravan rented at this town's clerk (RENT CARAVAN, 400 of the
-    town's coin, drawn at a teller when the purse is short): its name
+    """A caravan rented at this town's clerk (RENT CARAVAN, 400 Kronars or
+    288 Dokoras, drawn at a teller when the purse is short): its name
     once RECALL finds it, or None, said."""
     coin = trade.coin(place)
-    if not shop.afford(
-        s, ask, PREFIX, trade.RENT_FEE, coin, db=db, retry="run ;trade again"
-    ):
+    fee = trade.RENT_FEE[coin]
+    if not shop.afford(s, ask, PREFIX, fee, coin, db=db, retry="run ;trade again"):
         return None
     if not walk(s, db, trade.TOWNS[place].clerk, f"the {place} shipment clerk"):
         return None
     answer = ask(s, "rent caravan")
     if trade.RENTED not in answer:
         if trade.RENT_SHORT in answer:
-            s.echo(
-                f"{PREFIX}: not enough coin for the caravan's {trade.RENT_FEE} {coin}"
-            )
+            s.echo(f"{PREFIX}: not enough coin for the caravan's {fee} {coin}")
         else:
             unknown(s, PREFIX, "RENT CARAVAN", answer)
         return None
-    s.echo(f"{PREFIX}: rented a caravan at {place} for {trade.RENT_FEE} {coin}")
+    s.echo(f"{PREFIX}: rented a caravan at {place} for {fee} {coin}")
     for _ in range(RECALL_TRIES):
         name, _ = trade.caravan(ask(s, "recall caravan"))
         if name:
@@ -542,6 +546,20 @@ def steps(route):
     return out
 
 
+def fare(s, db, name, coin):
+    """A ferry fare the purse lacked (a run back from Ilithi carries only
+    Dokoras: "You haven't got enough kronars to pay for your trip."),
+    fetched by ;bank at the nearest teller with the caravan told to wait
+    at the dock: True back at the dock with the caravan following."""
+    dock = travel.here(s, db)
+    ask(s, f"tell {name} to wait")
+    if not walker.fetch_fare(s, coin[0] if coin else ""):
+        return False
+    if not walk(s, db, dock, "the ferry dock"):
+        return False
+    return said(ask(s, f"tell {name} to follow"), trade.FOLLOW_ORDERED)
+
+
 def bring(s, db, name, room):
     """Walk the caravan to `room` (the outpost) one room at a time,
     waiting for it to follow each (trade.lic's take_caravan_to); True
@@ -565,7 +583,10 @@ def bring(s, db, name, room):
         if commands[0] == FERRY:
             # The caravan follows aboard and off again; GO DOCK is the
             # step it is waited for on.
-            if walker.ride_ferry(s, commands[1]) != "landed":
+            ride = walker.ride_ferry(s, commands[1])
+            if ride.startswith("fare") and fare(s, db, name, ride.split()[1:]):
+                ride = walker.ride_ferry(s, commands[1])
+            if ride != "landed":
                 s.echo(f"{PREFIX}: the ferry crossing failed — the caravan is with you")
                 return False
             commands = ["go dock"]

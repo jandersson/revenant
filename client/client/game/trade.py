@@ -65,7 +65,7 @@ _COIN = r"(\d+) (Kronars|Lirums|Dokoras)"
 # The broker, ASK BROKER FOR CONTRACT, issues a contract for another
 # province in the same words ("The broker plucks a contract ...", "The
 # broker reminds you that you still owe 4048 Kronars in dues ...", the
-# Crossing, 2026-10-15). Shard's is the map's Provincial Broker, untried.
+# Crossing, 2026-10-15; Shard's Provincial Broker the same that afternoon).
 BROKERS = {"Crossing": 11995, "Shard": 14305}
 ISSUED = "plucks a contract"
 HELD = "You still have another contract"  # trade.lic's wording
@@ -153,7 +153,8 @@ BOX_EMPTY = "there is nothing in there"
 # at the outpost. Short: "You attempt to pay the clerk, but you don't have
 # enough money. ... "Sorry, can't put it in your dues. Ya gotta pay up
 # front."" (Elanthipedia: Trader, 400 Kronars at any Zoluren outpost.)
-RENT_FEE = 400
+# Shard's clerk, 2026-10-15: "that's a 288 Dokoras fee for a rental".
+RENT_FEE = {"Kronars": 400, "Dokoras": 288}
 RENTED = "get your transportation together"
 RENT_SHORT = "don't have enough money"
 RETURNED = ("free to go now", "retrieve your caravan")

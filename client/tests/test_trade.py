@@ -849,6 +849,40 @@ def test_a_leg_to_leth_deriel_goes_by_the_crossing_and_the_ferry(script):
     assert world.room == 2039
 
 
+def test_a_fare_the_purse_lacks_is_fetched_with_the_caravan_waiting(script):
+    # 2026-10-15: back from Shard with only Dokoras, Alfren's Ferry
+    # refused the Kronars fare at the south bank and the run stopped there.
+    world = World(CROSSING_ANSWERS, room=1904)
+    rides, fetched = ["fare kronars", "landed"], []
+
+    def ride_ferry(s, bank=""):
+        s.sent.append(f"(the ferry to {bank})")
+        s.landing = 957
+        return rides.pop(0)
+
+    script.walker.ride_ferry = ride_ferry
+
+    def fetch_fare(s, coin=""):
+        fetched.append(coin)
+        s.room = 1900  # ;bank ends at the teller
+        return True
+
+    script.walker.fetch_fare = fetch_fare
+    assert script.bring(world, MAP, "weathered caravan", 895)
+    assert fetched == ["kronars"]
+    assert world.walks == [1904]  # back to the dock from the teller
+    assert [c for c in world.sent if c.startswith(("tell", "(the", "go "))] == [
+        "tell weathered caravan to follow",
+        "(the ferry to crossing)",
+        "tell weathered caravan to wait",
+        "tell weathered caravan to follow",
+        "(the ferry to crossing)",
+        "go dock",
+        "go square",
+        "tell weathered caravan to wait",
+    ]
+
+
 def test_a_leg_from_leth_deriel_crosses_back_by_the_ferry(script):
     # trade.lic's do_lead_from: led toward the Crossing — here to the
     # south bank — then walked over the ferry to the Crossing's outpost.
@@ -1032,8 +1066,8 @@ def test_a_caravan_rented_in_shard_is_paid_in_dokoras(script):
         {"recall caravan": [NO_CARAVAN], "rent caravan": [RENT_SHORT]}, room=8193
     )
     script.main(world)
-    assert afforded == [(400, "Dokoras")]
-    assert "trade: not enough coin for the caravan's 400 Dokoras" in world.echoed
+    assert afforded == [(288, "Dokoras")]
+    assert "trade: not enough coin for the caravan's 288 Dokoras" in world.echoed
 
 
 def test_a_contract_its_town_word_does_not_name_is_got_plainly(script):
