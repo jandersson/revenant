@@ -113,6 +113,17 @@ technique Remedial Herb Gathering, FORAGE RED FLOWER PRECISE found on
 three tries in three, 10, 9 and 10 pieces, at 10 s of roundtime (plain:
 about one in five, 6 pieces, 3-4 s) — about three times the pieces a
 minute; COUNT waits the roundtime out ("...wait 1 seconds." otherwise).
+
+Nemoih root and plovik leaves (#487): a character at Outdoorsmanship
+108, at night in winter, in plate gauntlets and brass knuckles, missed
+both 97 times (2026-10-07), plovik answering "dead and lifeless" 15
+times at the Water Lily Pool, though red flowers came 118 times in 118.
+A Trader at 390, bare-handed, the same night of the year (2026-10-15):
+10 in 10 each at Willow Walk's Fountain, Midton Circle, the first
+character's own Town Green North room, and plovik at the Water Lily
+Pool. The herbs grow where the map says; the misses were the
+difficulty (skill, night, hand armor — not yet told apart), and "dead
+and lifeless" is a failed roll there, not a dead season.
 """
 
 ITEM = "rock"
