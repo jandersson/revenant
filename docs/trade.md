@@ -1,6 +1,6 @@
 # Trading
 
-`;trade` runs a Trader's caravan contracts around Zoluren: it takes a contract, has the caravan lead to its town, collects the pay, and goes again. Every contract is logged to history.db.
+`;trade` runs a Trader's caravan contracts in Zoluren or Ilithi: it takes a contract, has the caravan lead to its town, collects the pay, and goes again. Every contract is logged to history.db.
 
 ```
 ;trade            run contracts until stopped
@@ -8,13 +8,13 @@
 ;trade history    per route: contracts, pay, profit, minutes
 ```
 
-- Start at an outpost in the Crossing, Arthe Dale, Stone Clan, Dirge, Wolf Clan, Tiger Clan or Leth Deriel, with your caravan at the outpost.
+- Start at an outpost with your caravan at it: in Zoluren the Crossing, Arthe Dale, Stone Clan, Dirge, Wolf Clan, Tiger Clan or Leth Deriel (Kronars); in Ilithi Shard, Fayrin's Rest, Steelclaw Clan or Darkling Wood (Dokoras).
 - Leth Deriel is across the Segoltha: the caravan is led to the Crossing and follows you onto Alfren's Ferry (77 Kronars for the goods), then leads on from the south bank.
-- With no caravan, `;trade` rents one at the outpost's clerk: RENT CARAVAN, 400 Kronars paid up front, drawn at a teller when the purse is short.
+- With no caravan, `;trade` rents one at the outpost's clerk: RENT CARAVAN, 400 of the province's coin paid up front, drawn at a teller when the purse is short.
 - Wear or carry a feedbag with grass in it; the caravan is fed before every lead. While the caravan leads, `;trade` forages grass into the feedbag until it holds 60.
 - Each leg: deliver and get paid, PAY CLERK, ASK MINISTER FOR CONTRACT, the clerk loads the crate, feed, LEAD TO the contract's town.
 - The minister charges the goods' wholesale price and dues to the issuing town; they are paid at that town's clerk before its next contract. When the purse is short, `;trade` draws the dues at the nearest teller.
-- After a delivery in the Crossing, Dirge or Leth Deriel, the towns with a teller near the clerk, `;trade` banks the pay through `;bank`, keeping 20,000 copper Kronars for the dues and fees ahead.
+- After a delivery in the Crossing, Dirge, Leth Deriel or Shard, the towns with a teller near the clerk, `;trade` banks the pay through `;bank`, keeping 20,000 copper of the province's coin for the dues and fees ahead.
 - `;trade return` (or `return` typed while it runs) ends by returning the rented caravan at the clerk, RETURN CARAVAN, once its storage box is empty; with anything in the box the caravan is kept. `;stop trade` keeps it too. The next `;trade` rents another.
 - A contract for another province is left with you.
 - `;trade` does not fight. On the road you follow the caravan; watch the window.

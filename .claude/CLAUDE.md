@@ -116,7 +116,7 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   recipient's payment; delivery, search, foraging, and recovery and
   skinning through ;hunt task built; ;task loop);
   `tasklog.py` (every offer and its end in history.db; ;task history);
-  `trade.py` (;trade: Zoluren caravan contracts, minister to clerk to
+  `trade.py` (;trade: Zoluren and Ilithi caravan contracts, minister to clerk to
   LEAD TO) + `tradelog.py` (every contract and its pay in history.db;
   ;trade history);
   `compendium.py` (;compendium's anatomy charts for First

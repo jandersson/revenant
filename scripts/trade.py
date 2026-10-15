@@ -1,17 +1,18 @@
-"""Run Trader caravan contracts around Zoluren:  ;trade
+"""Run Trader caravan contracts in Zoluren or Ilithi:  ;trade
 
     ;trade            deliver, pay the dues, take the next contract, load it, feed the caravan, lead it there; again
     ;trade return     deliver what is held, take no new contract, return the caravan at the clerk (typed while it runs: the same)
     ;trade history    every contract logged: per route the count, the pay, the profit, the minutes
 
 What it does
-  - Starts at a Zoluren outpost — the Crossing, Arthe Dale, Stone Clan, Dirge,
-    Wolf Clan, Tiger Clan or Leth Deriel — with your caravan at the outpost
+  - Starts at an outpost of Zoluren — the Crossing, Arthe Dale, Stone Clan,
+    Dirge, Wolf Clan, Tiger Clan, Leth Deriel — or Ilithi — Shard, Fayrin's
+    Rest, Steelclaw Clan, Darkling Wood — with your caravan at the outpost
     (RECALL CARAVAN finds it); with none, rents one at the clerk (RENT CARAVAN,
-    400 Kronars).
+    400 Kronars or Dokoras).
   - At the clerk: hands in the contract for this town and is paid; PAY CLERK.
-  - After a delivery with a teller near the clerk (the Crossing, Dirge, Leth), banks
-    the purse and keeps 20,000 copper Kronars for dues and fees (;bank).
+  - After a delivery with a teller near the clerk (the Crossing, Dirge, Leth,
+    Shard), banks the purse and keeps 20,000 copper for dues and fees (;bank).
   - At the minister: ASK MINISTER FOR CONTRACT; dues owed are drawn at the
     nearest teller when the purse is short, and paid first.
   - The clerk loads the crate; the caravan is fed from your feedbag and told to
@@ -155,6 +156,9 @@ def deliver(s, db, place):
         return False
     answer = ask(s, f"get my {trade.contract_noun(place)}")
     if missing(answer):
+        # "Fayrin's" may not name it: the one contract held, then.
+        answer = ask(s, "get my contract")
+    if missing(answer):
         s.echo(f"{PREFIX}: no {place} contract on you")
         return False
     answer = ask(s, "give my contract to clerk")
@@ -179,10 +183,13 @@ def pay(s):
 
 
 def rent(s, db, place):
-    """A caravan rented at this town's clerk (RENT CARAVAN, 400 Kronars,
-    drawn at a teller when the purse is short): its name once RECALL
-    finds it, or None, said."""
-    if not shop.afford(s, ask, PREFIX, trade.RENT_FEE, db=db, retry="run ;trade again"):
+    """A caravan rented at this town's clerk (RENT CARAVAN, 400 of the
+    town's coin, drawn at a teller when the purse is short): its name
+    once RECALL finds it, or None, said."""
+    coin = trade.coin(place)
+    if not shop.afford(
+        s, ask, PREFIX, trade.RENT_FEE, coin, db=db, retry="run ;trade again"
+    ):
         return None
     if not walk(s, db, trade.TOWNS[place].clerk, f"the {place} shipment clerk"):
         return None
@@ -190,12 +197,12 @@ def rent(s, db, place):
     if trade.RENTED not in answer:
         if trade.RENT_SHORT in answer:
             s.echo(
-                f"{PREFIX}: not enough coin for the caravan's {trade.RENT_FEE} Kronars"
+                f"{PREFIX}: not enough coin for the caravan's {trade.RENT_FEE} {coin}"
             )
         else:
             unknown(s, PREFIX, "RENT CARAVAN", answer)
         return None
-    s.echo(f"{PREFIX}: rented a caravan at {place} for {trade.RENT_FEE} Kronars")
+    s.echo(f"{PREFIX}: rented a caravan at {place} for {trade.RENT_FEE} {coin}")
     for _ in range(RECALL_TRIES):
         name, _ = trade.caravan(ask(s, "recall caravan"))
         if name:
@@ -230,7 +237,7 @@ def return_caravan(s, db, place, name):
     return True
 
 
-def bank_run(s, db):
+def bank_run(s, db, coin="Kronars"):
     """After a delivery and the dues: the purse banked at a teller near
     the clerk with KEEP kept (;bank keep=KEEP back, which walks back
     here); nothing with no teller near or no more than KEEP on hand."""
@@ -239,9 +246,9 @@ def bank_run(s, db):
     route = db.path(here, tellers) if here is not None and tellers else None
     if route is None or len(route) > BANK_ROOMS:
         return
-    if money.carried(s, "Kronars", ask) <= KEEP:
+    if money.carried(s, coin, ask) <= KEEP:
         return
-    s.echo(f"{PREFIX}: banking the pay, keeping {money.phrase(KEEP, 'Kronars')}")
+    s.echo(f"{PREFIX}: banking the pay, keeping {money.phrase(KEEP, coin)}")
     if not s.run("bank", [f"keep={KEEP}", "back"]):
         s.echo(f"{PREFIX}: could not start ;bank — the purse stays as it is")
         return
@@ -272,8 +279,11 @@ def issue(s, db, place):
         if kind != "dues":
             unknown(s, PREFIX, "ASK MINISTER", answer)
             return None
-        s.echo(f"{PREFIX}: {value:,} Kronars of dues owed to {place} — paying them")
-        if not shop.afford(s, ask, PREFIX, value, db=db, retry="run ;trade again"):
+        coin = trade.coin(place)
+        s.echo(f"{PREFIX}: {value:,} {coin} of dues owed to {place} — paying them")
+        if not shop.afford(
+            s, ask, PREFIX, value, coin, db=db, retry="run ;trade again"
+        ):
             return None
         if not walk(s, db, town.clerk, f"the {place} shipment clerk"):
             return None
@@ -538,7 +548,7 @@ def main(s):
             walk(s, db, trade.TOWNS[place].clerk, f"the {place} shipment clerk")
             s.echo(f"{PREFIX}: {pay(s)}")
             if delivered:
-                bank_run(s, db)
+                bank_run(s, db, trade.coin(place))
             if returning or loop.wants_stop(s):
                 s.echo(f"{PREFIX}: nothing held — done at {place}")
                 return_caravan(s, db, place, name)

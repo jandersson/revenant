@@ -262,6 +262,12 @@ MAP = MapDB(
          "wayto": {"8997": "go guild outpost", "1534": "west"}},
         {"id": 1534, "uid": [152009], "title": ["[Wolf Clan Home, Dirt Road]"],
          "wayto": {"1533": "east"}},
+        {"id": 8191, "uid": [130001], "title": ["[Brickwell Tower, Courtyard]"],
+         "wayto": {"8193": "go arch"}},
+        {"id": 8193, "uid": [130003], "title": ["[Brickwell Tower, Dispatch]"],
+         "wayto": {"8191": "out", "8197": "east"}},
+        {"id": 8197, "uid": [130007], "title": ["[Brickwell Tower, Trade Minister]"],
+         "wayto": {"8193": "west"}},
         {"id": 8997, "uid": [152101], "title": ["[Wolf Clan Trader Outpost]"],
          "wayto": {"1533": "out"}},
     ]
@@ -793,3 +799,42 @@ def test_the_feeding_reads_fed_not_hungry_and_unknown(script):
     odd = World(dict(feeding, **{"give weathered caravan": ["The driver frowns.\n"]}))
     assert script.feed(odd, "weathered caravan") is None
     assert any("the feeding" in e for e in odd.echoed)
+
+
+def test_ilithi_trades_in_dokoras_and_leads_to_darkling():
+    # The operator, 2026-10-15: "Lets ;trade in Ilithi" (Elanthipedia:
+    # Trade Route, Ilithi; trade.lic's "darkling").
+    assert trade.coin("Shard") == "Dokoras"
+    assert trade.coin("Crossing") == "Kronars"
+    assert trade.town("Fayrin's Rest") == "Fayrin's Rest"
+    assert trade.lead_name("Darkling Wood") == "darkling"
+
+
+def test_a_caravan_rented_in_shard_is_paid_in_dokoras(script):
+    afforded = []
+    script.shop = SimpleNamespace(
+        afford=lambda s, ask, prefix, copper, currency="Kronars", **k: (
+            afforded.append((copper, currency)) or True
+        )
+    )
+    world = World(
+        {"recall caravan": [NO_CARAVAN], "rent caravan": [RENT_SHORT]}, room=8193
+    )
+    script.main(world)
+    assert afforded == [(400, "Dokoras")]
+    assert "trade: not enough coin for the caravan's 400 Dokoras" in world.echoed
+
+
+def test_a_contract_its_town_word_does_not_name_is_got_plainly(script):
+    # "Fayrin's Rest contract": GET MY FAYRIN'S CONTRACT may not parse.
+    world = World(
+        {
+            "get my fayrin's contract": ["What were you referring to?\n"],
+            "get my contract": ["You get a Fayrin's Rest contract.\n"],
+            "give my contract to clerk": [DELIVERED],
+        },
+        room=19278,
+    )
+    script.travel.go = lambda s, rooms, describe="", db=None, walk=None: True
+    assert script.deliver(world, MAP, "Fayrin's Rest")
+    assert world.sent[:2] == ["get my fayrin's contract", "get my contract"]

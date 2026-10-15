@@ -30,7 +30,16 @@ TOWNS = {
     "Wolf Clan": Town(1533, 8997, 8997),
     "Tiger Clan": Town(1885, 1889, 1889),
     "Leth Deriel": Town(2039, 9004, 9004),
+    # Ilithi: Shard's outpost is Brickwell Tower's courtyard. Elanthipedia's
+    # Trade Route puts the leads between Shard's East Bridge and Derelict
+    # Road, Whistling Wood, "nowhere near the Darkling Wood outpost", so
+    # that stretch is walked with the caravan following.
+    "Shard": Town(8191, 8197, 8193),
+    "Fayrin's Rest": Town(2840, 19278, 19278),
+    "Steelclaw Clan": Town(2874, 19399, 19399),
+    "Darkling Wood": Town(2702, 14636, 14636),
 }
+ILITHI = ("Shard", "Fayrin's Rest", "Steelclaw Clan", "Darkling Wood")
 
 # Leth Deriel is across the Segoltha: the caravan is walked from the
 # Crossing's outpost onto Alfren's Ferry and off at the south bank,
@@ -41,7 +50,7 @@ TOWNS = {
 # Deriel"). Captured 2026-10-15; trade.lic's do_lead_to the way.
 ACROSS = "Leth Deriel"
 FERRY_SOUTH = 1904  # Southern Trade Route, Segoltha South Bank
-LEAD_NAMES = {"Leth Deriel": "leth"}
+LEAD_NAMES = {"Leth Deriel": "leth", "Darkling Wood": "darkling"}  # trade.lic's
 
 _COIN = r"(\d+) (Kronars|Lirums|Dokoras)"
 
@@ -249,6 +258,12 @@ def town(name):
         if key.lower() == name:
             return key
     return None
+
+
+def coin(name):
+    """The coin a town's minister charges and its clerk pays: Dokoras in
+    Ilithi, Kronars in Zoluren."""
+    return "Dokoras" if name in ILITHI else "Kronars"
 
 
 def lead_name(name):
