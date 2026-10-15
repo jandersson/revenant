@@ -712,3 +712,84 @@ def test_a_leg_from_leth_deriel_crosses_back_by_the_ferry(script):
         "tell weathered caravan to lead to arthe dale",
     ]
     assert world.room == 1073
+
+
+FOUND_GRASS = "You manage to find some grass.\n"
+PUT_GRASS = "You put your grass in your tan canvas feedbag.\n"
+NO_HAND = (
+    "You really need to have at least one hand free to properly collect something.\n"
+)
+
+
+class Slow(World):
+    """A lead whose arrival comes after `quiet` empty waits."""
+
+    def __init__(self, answers, quiet=2, **kwargs):
+        super().__init__(answers, **kwargs)
+        self.quiet = quiet
+
+    def waitfor(self, *patterns, timeout=None, streams=("",)):
+        if self.quiet:
+            self.quiet -= 1
+            return None
+        return super().waitfor(*patterns, timeout=timeout, streams=streams)
+
+
+GRASS_ANSWERS = {
+    "tell weathered caravan to lead": [LED],
+    "forage grass": [FOUND_GRASS],
+    "put my grass": [PUT_GRASS],
+}
+
+
+def test_grass_is_foraged_while_led_below_the_top_up(script):
+    # The operator, 2026-10-15: "Lets add top up logic" — a led
+    # character follows through the forage's roundtime (Elanthipedia:
+    # Trader, caravan drivers), trade.lic's forage_grass on a lead.
+    world = Slow(GRASS_ANSWERS, quiet=2, room=1533)
+    grass = [10]
+    assert script.lead(world, "weathered caravan", "Wolf Clan", grass)
+    assert world.sent.count("forage grass") == 2
+    assert world.sent.count("put my grass in my feedbag") == 2
+    assert grass == [12]
+
+
+def test_no_forage_at_the_top_up(script):
+    world = Slow(GRASS_ANSWERS, quiet=2, room=1533)
+    assert script.lead(world, "weathered caravan", "Wolf Clan", [script.GRASS_TOP])
+    assert "forage grass" not in world.sent
+
+
+def test_an_arrival_inside_a_forage_answer_ends_the_lead(script):
+    # ask() clears the queue: the arrival read in the forage's own answer.
+    answers = dict(GRASS_ANSWERS, **{"forage grass": [FOUND_GRASS + ARRIVED]})
+    world = Slow(answers, quiet=5, room=1533)
+    assert script.lead(world, "weathered caravan", "Wolf Clan", [10])
+    assert world.sent.count("forage grass") == 1
+
+
+def test_a_forage_the_hands_refuse_is_not_tried_again_on_that_lead(script):
+    answers = dict(GRASS_ANSWERS, **{"forage grass": [NO_HAND]})
+    world = Slow(answers, quiet=3, room=1533)
+    grass = [10]
+    assert script.lead(world, "weathered caravan", "Wolf Clan", grass)
+    assert world.sent.count("forage grass") == 1
+    assert grass == [None]
+
+
+def test_the_feeding_reads_fed_not_hungry_and_unknown(script):
+    feeding = {
+        "look in my feedbag": [FEEDBAG],
+        "remove my feedbag": ["You remove a tan canvas feedbag from your belt.\n"],
+    }
+    fed = World(dict(feeding, **{"give weathered caravan": [FED]}))
+    assert script.feed(fed, "weathered caravan") == 6  # seven, one eaten
+    not_hungry = (
+        "You offer the tan canvas feedbag to the caravan driver.  He calls"
+        ' over to you, "Nope, they are all set for now."\n'
+    )
+    full = World(dict(feeding, **{"give weathered caravan": [not_hungry]}))
+    assert script.feed(full, "weathered caravan") == 7
+    odd = World(dict(feeding, **{"give weathered caravan": ["The driver frowns.\n"]}))
+    assert script.feed(odd, "weathered caravan") is None
+    assert any("the feeding" in e for e in odd.echoed)

@@ -18,6 +18,8 @@ What it does
     LEAD TO the contract's town; you follow it, then walk it to the outpost.
     Leth Deriel is by the Crossing and Alfren's Ferry, the caravan following
     you aboard (77 Kronars for the goods).
+  - On a lead, with fewer than 60 bunches in the feedbag, forages grass every
+    15 seconds and puts what it finds in (you follow through the roundtime).
   - Every contract goes into history.db's contracts table: charge, pay, times.
 
 When it stops
@@ -74,6 +76,11 @@ PREFIX = "trade"
 LEAD_MINUTES = 20  # the Crossing to Wolf Clan took 3½
 FOLLOW_SECONDS = 30  # a step's wait for the caravan to catch up
 LOW_GRASS = 5
+# Grass is foraged on a lead while the feedbag holds fewer than this:
+# the caravan eats on about two legs in five (seven of seventeen,
+# 2026-10-15), one bunch a meal.
+GRASS_TOP = 60
+FORAGE_EVERY = 15  # seconds between FORAGE GRASS tries on a lead
 READ_STREAMS = ("", "familiar")
 READ_SECONDS = 5
 # A teller this many rooms from the clerk gets the pay after a delivery:
@@ -317,42 +324,88 @@ def take(s, db, place):
 
 
 def feed(s, name):
-    """Feed the caravan from the feedbag (worn or carried); False, said,
-    without a feedbag or grass."""
+    """Feed the caravan from the feedbag (worn or carried): the grass
+    left in it, or None, said, without a feedbag or grass or with an
+    answer it does not know."""
     grass = trade.grass(ask(s, "look in my feedbag"))
     if not grass:
         s.echo(
             f"{PREFIX}: no grass in your feedbag — FORAGE GRASS and put it in, then ;trade"
         )
-        return False
+        return None
     if grass < LOW_GRASS:
         s.echo(f"{PREFIX}: {grass} grass left in your feedbag")
     hands.free(s)
     worn = not missing(ask(s, "remove my feedbag"), ("aren't wearing", "not wearing"))
     if not worn and missing(ask(s, "get my feedbag")):
         s.echo(f"{PREFIX}: no feedbag on you")
-        return False
+        return None
     answer = ask(s, f"give {name}")
     if worn:
         ask(s, "wear my feedbag")
     else:
         hands.stow(s, "feedbag")
-    if not said(answer, trade.FED + (trade.NOT_HUNGRY,)) or missing(answer):
-        unknown(s, PREFIX, "the feeding", answer)
-        return False
-    return True
+    if any(word in answer for word in trade.FED):
+        return grass - 1
+    if any(word in answer for word in trade.NOT_HUNGRY):
+        return grass
+    unknown(s, PREFIX, "the feeding", answer)
+    return None
 
 
-def lead(s, name, place):
+def arrival(text):
+    """The lead's end in `text`: its ARRIVED or LEAD_FAILED line, or None."""
+    for line in str(text or "").splitlines():
+        if trade.ARRIVED in line or trade.LEAD_FAILED in line:
+            return line
+    return None
+
+
+def heard(s):
+    """The lead's end among the lines queued now, read without waiting:
+    ask() clears the queue before it sends, and an arrival line queued
+    then would be lost."""
+    while (line := s.get(timeout=0)) is not None:
+        if arrival(line):
+            return line
+    return None
+
+
+def forage(s, grass):
+    """FORAGE GRASS once while led, a find put in the feedbag (`grass`
+    counts it): the lead's end if it came in an answer, None otherwise;
+    `grass` set to None when the room or the hands will not allow it."""
+    answer = ask(s, "forage grass")
+    s.waitrt()
+    if trade.GRASS_FOUND in answer.lower():
+        put = ask(s, "put my grass in my feedbag")
+        if not missing(put):
+            grass[0] += 1
+        return arrival(answer) or arrival(put)
+    if any(word in answer for word in trade.FORAGE_BLOCKED):
+        grass[0] = None  # not on this lead
+    return arrival(answer)
+
+
+def lead(s, name, place, grass=None):
     """TELL the caravan TO LEAD TO `place` and follow it; True on
-    arrival, False, said, when the driver refuses or gives up."""
+    arrival, False, said, when the driver refuses or gives up. With
+    `grass` ([the feedbag's count]) below GRASS_TOP, grass is foraged on
+    the way: a led character follows through the roundtime."""
     s.clear()
     answer = ask(s, f"tell {name} to lead to {trade.lead_name(place)}")
     if trade.LEADING not in answer:
         s.echo(f"{PREFIX}: the driver did not take the lead ({said(answer)!r})")
         return False
     s.echo(f"{PREFIX}: leading to {place}")
-    line = s.waitfor(trade.ARRIVED, trade.LEAD_FAILED, timeout=LEAD_MINUTES * 60)
+    deadline = probe.clock() + LEAD_MINUTES * 60
+    line = None
+    while line is None and probe.clock() < deadline:
+        topping = grass is not None and grass[0] is not None and grass[0] < GRASS_TOP
+        wait = FORAGE_EVERY if topping else deadline - probe.clock()
+        line = s.waitfor(trade.ARRIVED, trade.LEAD_FAILED, timeout=wait)
+        if line is None and topping:
+            line = heard(s) or forage(s, grass)
     if line is None or trade.LEAD_FAILED in line:
         s.echo(f"{PREFIX}: the lead to {place} did not arrive ({line or 'no word'})")
         return False
@@ -416,7 +469,7 @@ def bring(s, db, name, room):
     return travel.here(s, db) == room
 
 
-def leg(s, db, name, origin, destination):
+def leg(s, db, name, origin, destination, grass=None):
     """The caravan from `origin`'s outpost to `destination`'s: led, then
     walked to the outpost when the lead stops short. Leth Deriel is
     across the Segoltha, so a leg to or from it goes by the Crossing and
@@ -426,19 +479,19 @@ def leg(s, db, name, origin, destination):
     the Crossing's outpost."""
     crossing = trade.TOWNS["Crossing"].outpost
     if origin == trade.ACROSS:
-        if not lead(s, name, "Crossing") or not bring(s, db, name, crossing):
+        if not lead(s, name, "Crossing", grass) or not bring(s, db, name, crossing):
             return False
         origin = "Crossing"
     if destination == trade.ACROSS:
         if origin != "Crossing" and not (
-            lead(s, name, "Crossing") and bring(s, db, name, crossing)
+            lead(s, name, "Crossing", grass) and bring(s, db, name, crossing)
         ):
             return False
         if not bring(s, db, name, trade.FERRY_SOUTH):
             return False
     if origin == destination:
         return True
-    return lead(s, name, destination) and bring(
+    return lead(s, name, destination, grass) and bring(
         s, db, name, trade.TOWNS[destination].outpost
     )
 
@@ -502,7 +555,8 @@ def main(s):
             return
         if not walk(s, db, trade.TOWNS[place].outpost, f"the {place} outpost"):
             return
-        if not feed(s, name) or not leg(s, db, name, place, destination):
+        grass = feed(s, name)
+        if grass is None or not leg(s, db, name, place, destination, [grass]):
             return
         place = destination
         returning = returning or loop.wants_stop(s)

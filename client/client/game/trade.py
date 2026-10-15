@@ -81,10 +81,18 @@ NO_GOODS = "What have you done with the goods"  # trade.lic
 
 # Feeding: "The driver takes the feedbag from you and begins feeding the
 # caravan. The driver hands back the feedbag and says, "They are well
-# fed now sir."" A fed animal sniffs at it (trade.lic).
+# fed now sir."" Not hungry, ten legs of seventeen on 2026-10-15: "You
+# offer the tan canvas feedbag to the caravan driver. He calls over to
+# you, "Nope, they are all set for now."" The other two are trade.lic's.
 FED = ("takes the feedbag from you", "munches away happily")
-NOT_HUNGRY = "sniffs disinterestedly"
+NOT_HUNGRY = ("they are all set for now", "sniffs disinterestedly")
 _GRASS = re.compile(r"\bsome grass\b", re.I)
+
+# FORAGE GRASS (the game logs since 2026-08): "You manage to find some
+# grass." puts it in a hand; a miss is "You forage around but are unable
+# to find anything." or the dragon's-egg line, a few seconds' roundtime.
+GRASS_FOUND = "find some grass"
+FORAGE_BLOCKED = ("at least one hand free", "too cluttered", "futile")
 
 # TELL <caravan> TO LEAD TO WOLF CLAN: "You pass on the order to lead to
 # your driver, who makes sure your bullock-drawn caravan does your
