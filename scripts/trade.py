@@ -18,7 +18,9 @@ What it does
   - The clerk loads the crate; the caravan is fed from your feedbag and told to
     LEAD TO the contract's town; you follow it, then walk it to the outpost.
     Leth Deriel is by the Crossing and Alfren's Ferry, the caravan following
-    you aboard (77 Kronars for the goods).
+    you aboard (77 Kronars for the goods). A contract between Zoluren and
+    Ilithi (the Crossing's broker) goes by Leth Deriel and the Obsidian Pass
+    gondola, the caravan walked after you and riding along.
   - On a lead, runs the profile's `lead_training` script (perform: ;perform once
     here), ended on arrival; with none playing and fewer than 60 bunches in the
     feedbag, forages grass every 15 seconds (you follow through the roundtime).
@@ -28,7 +30,7 @@ When it stops
   - ;trade return once nothing is held, the caravan returned (RETURN CARAVAN;
     kept, said, while its storage box holds anything); ;stop trade at once,
     the caravan kept
-  - a contract for another province's town: said, kept
+  - a contract for a town outside Zoluren and Ilithi: said, kept
   - a caravan RECALL cannot place, a rental refused, no feedbag or no grass
     in it, a lead refused or given up,
     a teller that refuses, an answer it does not know (said)
@@ -72,6 +74,15 @@ bank (the ferry was out a minute or so each time), LEAD TO LETH from the
 south bank ended at the Oakenheart Circle outpost, and LEAD TO CROSSING
 from Leth ended at the south bank dock, so bring() rode the ferry and
 walked the six rooms to Commerce Avenue, a followed step every 5 s.
+
+The first broker contract (the Crossing to Shard, 427 jars of pickled
+eel, the same afternoon) ran unattended once loaded by hand: the ferry,
+LEAD TO LETH, 77 followed rooms up the Obsidian Pass, a three-minute
+wait for the gondola, the caravan in the cab ("Your two auroch caravan
+entered a weathered wooden gondola, following you."), 70 followed rooms
+to Brickwell Tower. 27 minutes from Commerce Avenue to Shard's clerk,
+who paid 78,568 Dokoras against 43,833 Kronars charged, and took back
+the caravan the Crossing had rented out.
 """
 
 PREFIX = "trade"
@@ -94,6 +105,7 @@ KEEP = 20_000
 RECALL_TRIES = 6  # after a RENT, the assistant brings the caravan round
 RECALL_WAIT = 10
 FERRY = "ferry"  # a route step the walker rides: Alfren's Ferry
+GONDOLA = "gondola"  # and the Obsidian Pass gondola, Leth Deriel to Shard
 # The scripts a lead can run (#558), with the arguments that keep them in
 # place: ;perform never walks home for a room that refuses a song, and
 # ends at mind-lock.
@@ -480,12 +492,13 @@ def lead(s, name, place, grass=None, training=()):
 
 def steps(route):
     """Each edge of a route as the game commands it sends — FERRY for
-    Alfren's Ferry, which the walker rides (its bank the argument) — or
-    None when one is a scripted edge a caravan cannot follow."""
+    Alfren's Ferry and GONDOLA for the gondola, which the walker rides
+    (the bank or the cab's direction the argument) — or None when one is
+    a scripted edge a caravan cannot follow."""
     out = []
     for _, command in route:
-        if command.startswith(";e") and ride_of(command) == "ferry":
-            out.append((FERRY, ride_args(command)))
+        if command.startswith(";e") and ride_of(command) in (FERRY, GONDOLA):
+            out.append((ride_of(command), ride_args(command)))
             continue
         sent = translate_embedded(command) if command.startswith(";e") else [command]
         if not sent:
@@ -521,6 +534,21 @@ def bring(s, db, name, room):
                 s.echo(f"{PREFIX}: the ferry crossing failed — the caravan is with you")
                 return False
             commands = ["go dock"]
+        elif commands[0] == GONDOLA:
+            # The caravan follows into the cab, and the cab's direction
+            # waits for it (trade.lic's ride_gondola); OUT is the step
+            # it is waited for on after.
+            ride = walker.ride_gondola(
+                s,
+                commands[1],
+                aboard=lambda: s.waitfor(trade.FOLLOWING, timeout=FOLLOW_SECONDS),
+            )
+            if ride != "landed":
+                s.echo(
+                    f"{PREFIX}: the gondola ride failed ({ride}) — the caravan is with you"
+                )
+                return False
+            commands = ["out"]
         for command in commands:
             pause = pause_seconds(command)
             if pause is not None:
@@ -542,7 +570,20 @@ def leg(s, db, name, origin, destination, grass=None, training=()):
     Alfren's Ferry (trade.lic's do_lead_from and do_lead_to): to it, led
     to the Crossing, walked over the ferry to the south bank, led to
     Leth; from it, led toward the Crossing and walked over the ferry to
-    the Crossing's outpost."""
+    the Crossing's outpost. A leg between Zoluren and Ilithi (a broker's
+    contract) goes by Leth Deriel's outpost and Shard's, the caravan
+    walked between them over the Obsidian Pass gondola."""
+    if origin == destination:
+        return True
+    if (origin in trade.ILITHI) != (destination in trade.ILITHI):
+        out, into = ("Shard", trade.ACROSS)
+        if destination in trade.ILITHI:
+            out, into = into, out
+        return (
+            leg(s, db, name, origin, out, grass, training)
+            and bring(s, db, name, trade.TOWNS[into].outpost)
+            and leg(s, db, name, into, destination, grass, training)
+        )
     crossing = trade.TOWNS["Crossing"].outpost
     if origin == trade.ACROSS:
         if not lead(s, name, "Crossing", grass, training) or not bring(

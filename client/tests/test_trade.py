@@ -233,9 +233,11 @@ def _script():
     return module
 
 
-def _ferry(bank):
+def _ferry(bank, route="ferry"):
     return (
-        ";e if Script.exists?('bescort'); start_script('bescort', ['ferry', '"
+        ";e if Script.exists?('bescort'); start_script('bescort', ['"
+        + route
+        + "', '"
         + bank
         + "']); wait_while{ running?('bescort') }; else; echo 'ESCORT REQUIRED"
         " DOWNLOAD IT FROM THE REPO'; start_script ('escort'); wait_while{"
@@ -253,7 +255,11 @@ MAP = MapDB(
          "title": ["[Southern Trade Route, Segoltha South Bank]"],
          "wayto": {"957": _ferry("crossing")}},
         {"id": 2039, "uid": [175001], "title": ["[Leth Deriel, Oakenheart Circle]"],
-         "wayto": {"9004": "go mean-looking shanty"}},
+         "wayto": {"9004": "go mean-looking shanty", "2249": "climb platform"}},
+        {"id": 2249, "uid": [176001], "title": ["[Obsidian Pass, Platform]"],
+         "wayto": {"2904": _ferry("south", "gondola")}},
+        {"id": 2904, "uid": [176002], "title": ["[Obsidian Pass, Platform]"],
+         "wayto": {"8191": "go frame"}},
         {"id": 9004, "uid": [175100], "title": ["[Eshar's Trading Post, Main Room]"],
          "wayto": {"2039": "out"}},
         {"id": 1900, "uid": [10200], "title": ["[Provincial Bank, Teller]"],
@@ -320,13 +326,25 @@ class World:
             self.room = self.leads.get(command.split(" to lead to ")[1], 1533)
             if self.return_after_lead:
                 self.typed.append("return")
-        elif command in ("east", "west", "go pier", "go square", "go dock"):
+        elif command in (
+            "east",
+            "west",
+            "go pier",
+            "go square",
+            "go dock",
+            "climb platform",
+            "go frame",
+            "out",
+        ):
             self.room = {
                 "east": 1533,
                 "west": 1534,
                 "go pier": 957,
                 "go square": 895,
                 "go dock": self.landing,
+                "climb platform": 2249,
+                "go frame": 8191,
+                "out": self.landing,
             }[command]
             self.heard.append("Your bullock-drawn caravan, following you, arrives.\n")
         for prefix, queue in self.answers.items():
@@ -410,7 +428,17 @@ def script(monkeypatch, tmp_path):
         s.landing = 1904 if bank == "leth" else 957
         return "landed"
 
-    module.walker = SimpleNamespace(ride_ferry=ride_ferry)
+    def ride_gondola(s, direction="", aboard=None):
+        s.sent.append(f"(the gondola {direction})")
+        # Captured in the cab, 2026-10-15.
+        s.heard.append(
+            "Your weathered caravan entered a weathered wooden gondola, following you.\n"
+        )
+        s.boarded = aboard() is not None
+        s.landing = 2904
+        return "landed"
+
+    module.walker = SimpleNamespace(ride_ferry=ride_ferry, ride_gondola=ride_gondola)
     module.money = SimpleNamespace(
         carried=lambda s, currency="Kronars", ask=None: s.purse, phrase=money.phrase
     )
@@ -737,6 +765,69 @@ def test_a_leg_from_leth_deriel_crosses_back_by_the_ferry(script):
         "tell weathered caravan to lead to arthe dale",
     ]
     assert world.room == 1073
+
+
+def test_the_gondola_is_a_step_the_walker_rides():
+    script = _script()
+    route = MAP.path(2039, [8191])
+    assert script.steps(route) == [
+        ["climb platform"],
+        (script.GONDOLA, "south"),
+        ["go frame"],
+    ]
+
+
+def test_the_caravan_boards_the_gondola_before_the_cab_moves(script):
+    # trade.lic's ride_gondola: the caravan is waited for in the cab,
+    # then OUT at the far platform is the step it follows.
+    world = World(CROSSING_ANSWERS, room=2039)
+    assert script.bring(world, MAP, "weathered caravan", 8191)
+    assert world.boarded
+    assert world.sent == [
+        "tell weathered caravan to follow",
+        "climb platform",
+        "(the gondola south)",
+        "out",
+        "go frame",
+        "tell weathered caravan to wait",
+    ]
+
+
+def test_a_broker_contract_to_shard_goes_by_leth_and_the_gondola(script):
+    # The Crossing's broker issued a contract for Shard (2026-10-15):
+    # over the ferry, led to Leth, walked over the gondola to Shard.
+    world = World(CROSSING_ANSWERS, room=895)
+    assert script.leg(world, MAP, "weathered caravan", "Crossing", "Shard")
+    assert [c for c in world.sent if c.startswith(("tell", "go ", "(the", "out"))] == [
+        "tell weathered caravan to follow",
+        "go pier",
+        "(the ferry to leth)",
+        "go dock",
+        "tell weathered caravan to wait",
+        "tell weathered caravan to lead to leth",
+        "tell weathered caravan to follow",
+        "(the gondola south)",
+        "out",
+        "go frame",
+        "tell weathered caravan to wait",
+    ]
+    assert world.room == 8191
+
+
+def test_a_contract_from_ilithi_to_zoluren_crosses_back_the_same_way(script):
+    calls = []
+    script.lead = lambda s, name, place, *a: calls.append(("lead", place)) or True
+    script.bring = lambda s, db, name, room: calls.append(("bring", room)) or True
+    assert script.leg(None, MAP, "caravan", "Fayrin's Rest", "Arthe Dale")
+    assert calls == [
+        ("lead", "Shard"),
+        ("bring", 8191),
+        ("bring", 2039),
+        ("lead", "Crossing"),
+        ("bring", 895),
+        ("lead", "Arthe Dale"),
+        ("bring", 1073),
+    ]
 
 
 FOUND_GRASS = "You manage to find some grass.\n"

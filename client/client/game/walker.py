@@ -631,12 +631,14 @@ def read_story(s, seconds, until=(), streams=("",)):
     return "".join(seen)
 
 
-def ride_gondola(s, direction=""):
+def ride_gondola(s, direction="", aboard=None):
     """Board the gondola at this platform and cross (#211): "landed"
     when it stopped at the far platform (OUT is still the caller's to
     send, with the arrival check), "no gondola" when none came within
     GONDOLA_WAIT_SECONDS, "stuck" when the ride never stopped,
-    "unknown" for an answer outside the table."""
+    "unknown" for an answer outside the table. `aboard` is called in
+    the cab before the direction goes (;trade waits there for its
+    caravan, as trade.lic does)."""
     for _ in range(GONDOLA_ATTEMPTS):
         s.waitrt()
         s.put("go gondola")
@@ -644,6 +646,8 @@ def ride_gondola(s, direction=""):
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         if outcome == "arrived":
             s.echo("aboard the gondola — crossing the pass")
+            if aboard:
+                aboard()
             if direction:
                 s.put(direction)  # bescort moves the cab's way once aboard
             ride = read_story(s, GONDOLA_WAIT_SECONDS, until=GONDOLA_STOPS)
