@@ -12,7 +12,9 @@ adds the transport fee; the delivery fills `delivered_at` and `paid`.
 `summary` reads the rows back per route for ;trade history: count,
 delivered, the pay, the cost (wholesale, dues and fee) and the minutes
 from issue to pay, the money in Kronars (the pay in the contract's own
-coin, the cost in the origin's, at money.KRONAR_RATES). A logging failure is logged and never stops a script.
+coin, the cost in the origin's, at money.KRONAR_RATES). `leg_minutes` is
+each route's shortest delivered contract, ;trade circuit's measure of a
+leg. A logging failure is logged and never stops a script.
 """
 
 import logging
@@ -143,6 +145,29 @@ def _minutes(start, end):
     except (TypeError, ValueError):
         return None
     return delta.total_seconds() / 60
+
+
+def leg_minutes(character=None, path=None):
+    """{(origin, destination): minutes}: the shortest issue-to-pay time
+    of a delivered contract per route — the direct leg's, which a crate
+    carried along a circuit (#556) can only lengthen."""
+    connection = _connect(path)
+    try:
+        rows = connection.execute(
+            "SELECT origin, destination, issued_at, delivered_at FROM contracts"
+            " WHERE delivered_at IS NOT NULL"
+            + (" AND character_name = ?" if character else ""),
+            (character,) if character else (),
+        ).fetchall()
+    finally:
+        connection.close()
+    legs = {}
+    for origin, destination, issued, delivered in rows:
+        minutes = _minutes(issued, delivered)
+        if minutes is not None:
+            key = (origin, destination)
+            legs[key] = min(minutes, legs.get(key, minutes))
+    return legs
 
 
 def summary(character=None, path=None):

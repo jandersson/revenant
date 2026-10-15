@@ -117,8 +117,8 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   skinning through ;hunt task built; ;task loop);
   `tasklog.py` (every offer and its end in history.db; ;task history);
   `trade.py` (;trade: Zoluren, Ilithi and Riverhaven caravan contracts, minister or
-  broker to clerk to LEAD TO) + `tradelog.py` (every contract and its pay in history.db;
-  ;trade history);
+  broker to clerk to LEAD TO; ;trade circuit a contract from every town at once) +
+  `tradelog.py` (every contract and its pay in history.db; ;trade history);
   `commodities.py` (;commodities: the three pits' boards, ORDER and SELL,
   the plan sized by the wiki's stock bands) + `commoditylog.py` (every
   board read and trade in history.db); `haul.py` (a caravan or pack animal

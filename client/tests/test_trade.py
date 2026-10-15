@@ -1551,3 +1551,182 @@ def test_the_profiles_lead_training_keeps_what_trade_can_run(script):
     world = World({})
     assert script.trainers(world) == ["perform", "appraise"]
     assert world.echoed == ["trade: no lead training for knit — skipped"]
+
+
+# ;trade circuit (#556)
+
+
+def _contract(origin, destination, presented=True):
+    return trade.Contract(
+        origin, destination, "goods", 1000, "Dokoras", presented, False
+    )
+
+
+class Circuit:
+    """;trade circuit's helpers replaced: each stop's held contracts come
+    from `stops` in turn, every call is recorded, and a leg ends the run
+    after `legs` of them."""
+
+    def __init__(self, script, stops, taken=(), legs=1, minutes=None, ending=False):
+        self.calls, self.stops, self.taken = [], list(stops), list(taken)
+        self.legs = legs
+        script.held_all = lambda s: self.stops.pop(0) if self.stops else []
+        script.deliver = lambda s, db, place, only=True: self.record(
+            "deliver", place, only
+        )
+        script.load = lambda s, db, place, seq: self.record("load", place)
+        script.walk = lambda s, db, room, describe: True
+        script.pay = lambda s: "dues settled"
+        script.bank_run = lambda s, db, coin="Kronars": self.record("bank", coin)
+        script.take = lambda s, db, place, broker=False: self.take(place)
+        script.feed = lambda s, name: 60
+        script.trainers = lambda s, quiet=False: []
+        script.bring = lambda s, db, name, room: self.record("bring", room)
+        script.return_caravan = lambda s, db, place, name: self.record("return", place)
+        script.paused = lambda s: False
+        script.loop = SimpleNamespace(wants_stop=lambda s: ending)
+        script.leg = lambda s, db, name, origin, destination, *rest: self.leg(
+            origin, destination
+        )
+        script.tradelog = SimpleNamespace(
+            leg_minutes=lambda character=None: dict(minutes or {}),
+            log_issue=lambda *a, **k: 1,
+        )
+
+    def record(self, *call):
+        self.calls.append(call)
+        return True
+
+    def take(self, place):
+        self.calls.append(("take", place))
+        return self.taken.pop(0) if self.taken else None
+
+    def leg(self, origin, destination):
+        self.calls.append(("leg", origin, destination))
+        self.legs -= 1
+        return self.legs > 0
+
+
+def test_a_circuit_stop_hands_in_every_crate_for_it_and_takes_the_towns_own(script):
+    world = World({})
+    fake = Circuit(
+        script,
+        stops=[
+            [
+                _contract("Fayrin's Rest", "Shard"),
+                _contract("Steelclaw Clan", "Shard"),
+                _contract("Darkling Wood", "Steelclaw Clan"),
+            ]
+        ],
+        taken=[_contract("Shard", "Fayrin's Rest")],
+        minutes={("Shard", "Fayrin's Rest"): 5.3, ("Shard", "Steelclaw Clan"): 4.1},
+    )
+    script.circuit(world, MAP, "ironclad caravan", "Shard", False, [])
+    assert fake.calls == [
+        ("deliver", "Shard", False),
+        ("deliver", "Shard", False),
+        ("bank", "Dokoras"),
+        ("take", "Shard"),
+        ("leg", "Shard", "Steelclaw Clan"),  # 4.1 minutes, nearer than 5.3
+    ]
+    assert "trade: 2 contract(s) held — next Steelclaw Clan (1 crate(s) for it)" in (
+        world.echoed
+    )
+
+
+def test_a_town_whose_contract_is_held_issues_none(script):
+    world = World({})
+    fake = Circuit(
+        script,
+        stops=[
+            [_contract("Shard", "Darkling Wood"), _contract("Darkling Wood", "Shard")]
+        ],
+        minutes={("Shard", "Darkling Wood"): 6.9},
+        legs=1,
+    )
+    script.circuit(world, MAP, "ironclad caravan", "Shard", False, [])
+    assert ("take", "Shard") not in fake.calls
+    assert fake.calls[-1] == ("leg", "Shard", "Darkling Wood")
+
+
+def test_a_return_takes_nothing_new_and_ends_once_nothing_is_held(script):
+    world = World({})
+    fake = Circuit(
+        script,
+        stops=[[_contract("Shard", "Fayrin's Rest")], []],
+        minutes={("Shard", "Fayrin's Rest"): 5.3},
+        legs=2,
+        ending=True,
+    )
+    script.circuit(world, MAP, "ironclad caravan", "Shard", False, [])
+    assert ("take", "Shard") not in fake.calls
+    assert fake.calls[0] == ("leg", "Shard", "Fayrin's Rest")
+    assert fake.calls[-1] == ("return", "Fayrin's Rest")
+    assert "trade: nothing held — done at Fayrin's Rest" in world.echoed
+
+
+def test_the_next_stop_is_measured_when_every_leg_is_known_else_walked():
+    script = _script()
+    walked = {2840: 30.0, 2702: 60.0, 2874: 10.0}  # outpost: map seconds
+    db = SimpleNamespace(
+        path=lambda start, goals: [(next(iter(goals)), "go")],
+        seconds_of=lambda start, route: walked[route[-1][0]],
+    )
+    legs = {("Shard", "Fayrin's Rest"): 5.3, ("Darkling Wood", "Shard"): 4.7}
+    # Either direction counts: Darkling Wood's 4.7 beats Fayrin's 5.3.
+    assert script.next_stop(db, "Shard", {"Fayrin's Rest", "Darkling Wood"}, legs) == (
+        "Darkling Wood"
+    )
+    # Steelclaw Clan unmeasured: all by the map, where it is nearest.
+    towns = {"Fayrin's Rest", "Darkling Wood", "Steelclaw Clan"}
+    assert script.next_stop(db, "Shard", towns, legs) == "Steelclaw Clan"
+
+
+def test_every_held_contract_is_read_by_its_ordinal(script):
+    world = World(
+        {
+            "read my first contract": [CONTRACT],
+            "read my second contract": [TO_SHARD],
+            "read my third contract": ["What were you referring to?"],
+        }
+    )
+    contracts = script.held_all(world)
+    assert [c.destination for c in contracts] == ["Wolf Clan", "Shard"]
+    assert world.sent == [
+        "read my first contract",
+        "read my second contract",
+        "read my third contract",
+    ]
+
+
+def test_a_legs_time_is_its_shortest_delivered_contract(tmp_path, monkeypatch):
+    # A crate carried along a circuit only lengthens its route's time.
+    db = tmp_path / "history.db"
+    stamps = iter(
+        [
+            "2026-10-16T00:00:00+00:00",
+            "2026-10-16T00:05:00+00:00",
+            "2026-10-16T01:00:00+00:00",
+            "2026-10-16T01:20:00+00:00",
+        ]
+    )
+    monkeypatch.setattr(tradelog, "now", lambda: next(stamps))
+    contract = trade.contract(CONTRACT)
+    for _ in range(2):
+        tradelog.log_issue("Lanival", "Crossing", contract, path=db)
+        tradelog.log_delivery("Lanival", "Wolf Clan", 11791, path=db)
+    assert tradelog.leg_minutes("Lanival", path=db) == {("Crossing", "Wolf Clan"): 5.0}
+
+
+def test_a_circuit_started_on_the_road_goes_on_without_the_clerk(script):
+    # Beside its caravan with crates for other towns (a run stopped on a
+    # lead): no clerk, no new contract, the lead from where it stands.
+    world = World({})
+    fake = Circuit(
+        script,
+        stops=[[_contract("Shard", "Darkling Wood")]],
+        minutes={("Shard", "Darkling Wood"): 6.9},
+    )
+    script.circuit(world, MAP, "ironclad caravan", "Shard", True, [])
+    assert fake.calls == [("leg", "Shard", "Darkling Wood")]
+    assert "trade: dues settled" not in world.echoed

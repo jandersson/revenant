@@ -2,6 +2,7 @@
 
     ;trade            deliver, pay the dues, take the next contract, load it, feed the caravan, lead it there; again
     ;trade interprovince  the same, each contract for another province (the broker's) where one is offered: the Crossing, Shard
+    ;trade circuit    hold a contract from every town at once, the caravan led to the nearest town with a crate for it
     ;trade return     typed while it runs: deliver what is held, take no new contract, return the caravan at the clerk
     ;trade pause      typed while it runs: deliver what is held, take no new contract, stop with the caravan kept at the outpost
     ;trade history    every contract logged: per route the count, the pay and the profit in Kronars, the minutes
@@ -39,6 +40,11 @@ What it does
     appraise: ;appraise once stay), the emptiest skill first, the next when one
     ends, the one running ended on arrival. A trainer waits hostiles out in
     place, never fleeing off the lead; ;trade itself decides when they hold you.
+  - `circuit` (within a province): at each stop every contract for the town is
+    handed in, and the town's own taken when none from it is held (the game
+    allows one per town); the next stop is the nearest town a held crate goes
+    to, by the shortest leg history.db measured, else the map. return and pause
+    take no new contract and end once every held one is delivered.
   - Every contract goes into history.db's contracts table: charge, pay, times.
 
 When it stops
@@ -171,6 +177,8 @@ TRAINERS = {
     "appraise": (("once", "stay"), "Appraisal"),
 }
 STOP_GRACE = 10  # seconds a trainer gets to end on its typed return
+# READ MY <ordinal> CONTRACT, one per town at most: Zoluren's seven.
+ORDINALS = ("first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth")
 
 
 def parse_args(args):
@@ -208,14 +216,14 @@ def walk(s, db, room, describe):
     return travel.go(s, {room}, describe, db=db)
 
 
-def held(s):
-    """The contract on the character, read (READ MY CONTRACT), or None.
-    The game pushes the contract's text to the familiar stream, which
-    ask() does not read: the first live ;trade stopped on an unread
-    contract (2026-10-15)."""
+def held(s, ordinal=""):
+    """The contract on the character, read (READ MY CONTRACT; READ MY
+    SECOND CONTRACT with `ordinal`), or None. The game pushes the
+    contract's text to the familiar stream, which ask() does not read:
+    the first live ;trade stopped on an unread contract (2026-10-15)."""
     while s.get(timeout=0, streams=READ_STREAMS) is not None:
         pass  # what came before the READ is not its answer
-    s.put("read my contract")
+    s.put(f"read my {ordinal} contract" if ordinal else "read my contract")
     text = ""
     deadline = probe.clock() + READ_SECONDS
     while probe.clock() < deadline:
@@ -228,12 +236,26 @@ def held(s):
     return trade.contract(text)
 
 
-def deliver(s, db, place):
-    """Hand this town's contract to its clerk; True once paid."""
+def held_all(s):
+    """Every contract on the character, READ MY FIRST CONTRACT, SECOND
+    and on until one is not there: a list, [] with none (#556)."""
+    contracts = []
+    for ordinal in ORDINALS:
+        contract = held(s, ordinal)
+        if contract is None:
+            break
+        contracts.append(contract)
+    return contracts
+
+
+def deliver(s, db, place, only=True):
+    """Hand this town's contract to its clerk; True once paid. GET MY
+    CONTRACT stands in for the town's noun only when the contract is
+    the `only` one held: with several, it could be another town's."""
     if not walk(s, db, trade.TOWNS[place].clerk, f"the {place} shipment clerk"):
         return False
     answer = ask(s, f"get my {trade.contract_noun(place)}")
-    if missing(answer):
+    if missing(answer) and only:
         # "Fayrin's" may not name it: the one contract held, then.
         answer = ask(s, "get my contract")
     if missing(answer):
@@ -682,6 +704,111 @@ def leg(s, db, name, origin, destination, grass=None, training=()):
     )
 
 
+def next_stop(db, place, towns, legs):
+    """The nearest of `towns` from `place` (#556): by `legs`, the shortest
+    delivered contract either way (tradelog.leg_minutes), when it knows
+    every one; else by the map's walk, outpost to outpost, for all of
+    them, since a led caravan is slower than the map's walk."""
+    towns = sorted(towns)
+
+    def measured(town):
+        return legs.get((place, town), legs.get((town, place)))
+
+    if all(measured(town) is not None for town in towns):
+        return min(towns, key=measured)
+
+    def walked(town):
+        start, goal = trade.TOWNS[place].outpost, trade.TOWNS[town].outpost
+        route = db.path(start, {goal})
+        return db.seconds_of(start, route) if route is not None else float("inf")
+
+    return min(towns, key=walked)
+
+
+def town_stop(s, db, place, contracts, due):
+    """A circuit's work in this town: every `due` contract handed in, one
+    issued here and never loaded loaded, PAY CLERK, the pay banked, and
+    the town's own contract taken when none from it is held (not after
+    a typed return or pause). The contracts still held, or None, said."""
+    for _ in due:
+        if not deliver(s, db, place, only=len(contracts) == 1):
+            return None
+    contracts = [c for c in contracts if c not in due]
+    for c in contracts:
+        if not c.presented and trade.town(c.origin) == place:
+            # Issued here and never loaded: a stop between the minister
+            # and the clerk.
+            if not load(s, db, place, tradelog.log_issue(character(s), place, c)):
+                return None
+    walk(s, db, trade.TOWNS[place].clerk, f"the {place} shipment clerk")
+    s.echo(f"{PREFIX}: {pay(s)}")
+    if due:
+        bank_run(s, db, trade.coin(place))
+    ending = paused(s) or loop.wants_stop(s)
+    if (
+        not ending
+        and place not in trade.THERENGIA
+        and not any(trade.town(c.origin) == place for c in contracts)
+    ):
+        contract = take(s, db, place)
+        if contract is None:
+            return None
+        contracts.append(contract)
+    return contracts
+
+
+def circuit(s, db, name, place, beside, training):
+    """;trade circuit (#556): every contract for this town handed in,
+    the town's own taken when none from it is held, the caravan led to
+    the nearest town a held crate goes to; again. A typed return or
+    pause takes no new contract and ends once nothing is held."""
+    while True:
+        contracts = held_all(s)
+        due = [
+            c for c in contracts if c.presented and trade.town(c.destination) == place
+        ]
+        # Started beside its caravan with crates loaded (a run stopped on
+        # the road): with none for this town it goes on from where it
+        # stands, as the one-contract run does; with some, it is brought in.
+        beside = beside and any(c.presented for c in contracts)
+        if not (beside and not due):
+            if beside and not bring(s, db, name, trade.TOWNS[place].outpost):
+                return
+            beside = False
+            contracts = town_stop(s, db, place, contracts, due)
+            if contracts is None:
+                return
+        towns = {trade.town(c.destination) for c in contracts} - {None}
+        if not towns:
+            if contracts:
+                s.echo(
+                    f"{PREFIX}: what is held is for towns ;trade does not lead to"
+                    f" ({', '.join(c.destination for c in contracts)}) — yours to deliver"
+                )
+            elif paused(s):
+                s.echo(f"{PREFIX}: paused at {place} — the caravan kept at the outpost")
+            else:
+                s.echo(f"{PREFIX}: nothing held — done at {place}")
+                return_caravan(s, db, place, name)
+            return
+        destination = next_stop(db, place, towns, tradelog.leg_minutes(character(s)))
+        s.echo(
+            f"{PREFIX}: {len(contracts)} contract(s) held — next {destination}"
+            f" ({sum(trade.town(c.destination) == destination for c in contracts)}"
+            " crate(s) for it)"
+        )
+        if not beside and not walk(
+            s, db, trade.TOWNS[place].outpost, f"the {place} outpost"
+        ):
+            return
+        beside = False
+        grass = feed(s, name)
+        training = trainers(s, quiet=True)
+        if grass is None or not leg(s, db, name, place, destination, [grass], training):
+            return
+        place = destination
+
+
 def paused(s):
     """True once "pause" was typed at ;trade, held for the run. Read here
     first: loop.wants_stop drops every typed word but "return", which
@@ -734,6 +861,9 @@ def main(s):
         s.echo(
             f"{PREFIX}: no caravan found ({said(answer)!r}) — bring it to the outpost"
         )
+        return
+    if opts["verb"] == "circuit":
+        circuit(s, db, name, place, beside, training)
         return
     while True:
         contract = held(s)
