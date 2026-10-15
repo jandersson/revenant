@@ -178,7 +178,9 @@ def test_the_feedbag_counts_its_grass():
 def test_towns_are_named_the_way_the_table_keys_them():
     assert trade.town("The Crossing") == "Crossing"
     assert trade.town("Wolf Clan") == "Wolf Clan"
-    assert trade.town("Leth Deriel") is None  # a ferry away
+    assert trade.town("Leth Deriel") == "Leth Deriel"  # by the ferry
+    assert trade.town("Riverhaven") is None  # another province
+    assert trade.lead_name("Leth Deriel") == "leth"
     assert trade.contract_noun("Wolf Clan") == "wolf contract"
 
 
@@ -227,10 +229,29 @@ def _script():
     return module
 
 
+def _ferry(bank):
+    return (
+        ";e if Script.exists?('bescort'); start_script('bescort', ['ferry', '"
+        + bank
+        + "']); wait_while{ running?('bescort') }; else; echo 'ESCORT REQUIRED"
+        " DOWNLOAD IT FROM THE REPO'; start_script ('escort'); wait_while{"
+        " running?('escort') }; end"
+    )
+
+
 MAP = MapDB(
     [
         {"id": 895, "uid": [10155], "title": ["[The Crossing, Commerce Avenue]"],
-         "wayto": {"8916": "go doors", "1900": "go bank"}},
+         "wayto": {"8916": "go doors", "1900": "go bank", "957": "go pier"}},
+        {"id": 957, "uid": [10400], "title": ["[The Crossing, Alfren's Ferry]"],
+         "wayto": {"1904": _ferry("leth"), "895": "go square"}},
+        {"id": 1904, "uid": [241003],
+         "title": ["[Southern Trade Route, Segoltha South Bank]"],
+         "wayto": {"957": _ferry("crossing")}},
+        {"id": 2039, "uid": [175001], "title": ["[Leth Deriel, Oakenheart Circle]"],
+         "wayto": {"9004": "go mean-looking shanty"}},
+        {"id": 9004, "uid": [175100], "title": ["[Eshar's Trading Post, Main Room]"],
+         "wayto": {"2039": "out"}},
         {"id": 1900, "uid": [10200], "title": ["[Provincial Bank, Teller]"],
          "wayto": {"895": "out"}, "tags": ["bank"]},
         {"id": 8916, "uid": [13047], "title": ["[Traders' Guild, Shipment Center]"],
@@ -266,6 +287,9 @@ class World:
         self.room = room
         self.purse = 0  # copper Kronars, as WEALTH reads them
         self.ran = []
+        # Where each LEAD TO lands, and where GO DOCK steps off the ferry.
+        self.leads = {"wolf clan": 1533, "crossing": 895, "leth": 2039}
+        self.landing = None
         self.state = SimpleNamespace(
             name="Lanival", right_hand=None, left_hand=None, hostiles={}
         )
@@ -283,11 +307,17 @@ class World:
             self.state.right_hand = None
         elif " to lead to " in command:
             self.heard.append(ARRIVED)
-            self.room = 1533
+            self.room = self.leads.get(command.split(" to lead to ")[1], 1533)
             if self.return_after_lead:
                 self.typed.append("return")
-        elif command in ("east", "west"):
-            self.room = {"east": 1533, "west": 1534}[command]
+        elif command in ("east", "west", "go pier", "go square", "go dock"):
+            self.room = {
+                "east": 1533,
+                "west": 1534,
+                "go pier": 957,
+                "go square": 895,
+                "go dock": self.landing,
+            }[command]
             self.heard.append("Your bullock-drawn caravan, following you, arrives.\n")
         for prefix, queue in self.answers.items():
             if command == prefix or command.startswith(prefix + " "):
@@ -350,6 +380,13 @@ def script(monkeypatch, tmp_path):
         mapdb=lambda: MAP, here=lambda s, db=None: s.room, go=go
     )
     module.shop = SimpleNamespace(afford=lambda *a, **k: True)
+
+    def ride_ferry(s, bank=""):
+        s.sent.append(f"(the ferry to {bank})")
+        s.landing = 1904 if bank == "leth" else 957
+        return "landed"
+
+    module.walker = SimpleNamespace(ride_ferry=ride_ferry)
     module.money = SimpleNamespace(
         carried=lambda s, currency="Kronars", ask=None: s.purse, phrase=money.phrase
     )
@@ -425,12 +462,12 @@ def test_return_with_nothing_held_stops_at_the_clerk(script):
 
 
 def test_a_contract_for_a_town_it_cannot_lead_to_is_left_with_you(script):
-    leth = CONTRACT.replace("Wolf Clan", "Leth Deriel")
-    answers = dict(LEG, **{"read my contract": ["What were you referring to?", leth]})
+    far = CONTRACT.replace("Wolf Clan", "Riverhaven")
+    answers = dict(LEG, **{"read my contract": ["What were you referring to?", far]})
     world = World(answers)
     script.main(world)
     assert not any(" to lead to " in c for c in world.sent)
-    assert any("Leth Deriel, which ;trade does not lead to" in e for e in world.echoed)
+    assert any("Riverhaven, which ;trade does not lead to" in e for e in world.echoed)
 
 
 NO_CARAVAN = "You don't recall having a caravan.\n"
@@ -617,3 +654,61 @@ def test_a_caravan_with_anything_in_its_box_is_kept(script):
     script.main(world)
     assert "return caravan" not in world.sent
     assert any("the caravan is kept" in e for e in world.echoed)
+
+
+FOLLOWED = (
+    "You pass on the order to follow to your driver, who makes sure your"
+    " weathered caravan does your bidding.\n"
+)
+LED = (
+    "You pass on the order to lead to your driver, who makes sure your"
+    " weathered caravan does your bidding.\n"
+)
+CROSSING_ANSWERS = {
+    "tell weathered caravan to follow": [FOLLOWED],
+    "tell weathered caravan to lead": [LED],
+}
+
+
+def test_the_ferry_is_a_step_the_walker_rides():
+    # Alfren's Ferry is a scripted edge: ridden, not refused (2026-10-15).
+    script = _script()
+    route = MAP.path(895, [1904])
+    assert script.steps(route) == [["go pier"], (script.FERRY, "leth")]
+
+
+def test_a_leg_to_leth_deriel_goes_by_the_crossing_and_the_ferry(script):
+    # Captured by hand on 2026-10-15: led to the Crossing, walked onto
+    # Alfren's Ferry with the caravan following aboard and off, then
+    # LEAD TO LETH from the south bank.
+    world = World(CROSSING_ANSWERS, room=1533)
+    assert script.leg(world, MAP, "weathered caravan", "Wolf Clan", "Leth Deriel")
+    assert [c for c in world.sent if c.startswith(("tell", "go ", "(the"))] == [
+        "tell weathered caravan to lead to crossing",
+        "tell weathered caravan to follow",
+        "go pier",
+        "(the ferry to leth)",
+        "go dock",
+        "tell weathered caravan to wait",
+        "tell weathered caravan to lead to leth",
+    ]
+    assert world.room == 2039
+
+
+def test_a_leg_from_leth_deriel_crosses_back_by_the_ferry(script):
+    # trade.lic's do_lead_from: led toward the Crossing — here to the
+    # south bank — then walked over the ferry to the Crossing's outpost.
+    world = World(CROSSING_ANSWERS, room=2039)
+    world.leads["crossing"] = 1904
+    world.leads["arthe dale"] = 1073
+    assert script.leg(world, MAP, "weathered caravan", "Leth Deriel", "Arthe Dale")
+    assert [c for c in world.sent if c.startswith(("tell", "go ", "(the"))] == [
+        "tell weathered caravan to lead to crossing",
+        "tell weathered caravan to follow",
+        "(the ferry to crossing)",
+        "go dock",
+        "go square",
+        "tell weathered caravan to wait",
+        "tell weathered caravan to lead to arthe dale",
+    ]
+    assert world.room == 1073

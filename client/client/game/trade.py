@@ -20,9 +20,8 @@ from client.game import money
 
 Town = namedtuple("Town", "outpost minister clerk")
 
-# The outposts a caravan reaches by LEAD TO with no ferry or gondola:
-# map ids of the outpost (where the caravan waits), the trade minister
-# and the shipment clerk (dr-scripts' base-town.yaml).
+# Zoluren's outposts: map ids of the outpost (where the caravan waits),
+# the trade minister and the shipment clerk (dr-scripts' base-town.yaml).
 TOWNS = {
     "Crossing": Town(895, 8915, 8916),
     "Arthe Dale": Town(1073, 8999, 8999),
@@ -30,7 +29,19 @@ TOWNS = {
     "Dirge": Town(1307, 15175, 8919),
     "Wolf Clan": Town(1533, 8997, 8997),
     "Tiger Clan": Town(1885, 1889, 1889),
+    "Leth Deriel": Town(2039, 9004, 9004),
 }
+
+# Leth Deriel is across the Segoltha: the caravan is walked from the
+# Crossing's outpost onto Alfren's Ferry and off at the south bank,
+# following the character aboard ("Your weathered caravan arrived at
+# the ferry Hodierna's Grace, following you."; the captain: "Only a
+# small transportation fee of 77 kronars for your goods today"), then
+# led on as LEAD TO LETH ("acknowledges the order to lead to Leth
+# Deriel"). Captured 2026-10-15; trade.lic's do_lead_to the way.
+ACROSS = "Leth Deriel"
+FERRY_SOUTH = 1904  # Southern Trade Route, Segoltha South Bank
+LEAD_NAMES = {"Leth Deriel": "leth"}
 
 _COIN = r"(\d+) (Kronars|Lirums|Dokoras)"
 
@@ -230,6 +241,12 @@ def town(name):
         if key.lower() == name:
             return key
     return None
+
+
+def lead_name(name):
+    """The words LEAD TO takes for a town: "leth" for Leth Deriel
+    (trade.lic's), else its name."""
+    return LEAD_NAMES.get(name, str(name).lower())
 
 
 def contract_noun(name):

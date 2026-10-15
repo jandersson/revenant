@@ -6,8 +6,9 @@
 
 What it does
   - Starts at a Zoluren outpost — the Crossing, Arthe Dale, Stone Clan, Dirge,
-    Wolf Clan or Tiger Clan — with your caravan at the outpost (RECALL CARAVAN
-    finds it); with none, rents one at the clerk (RENT CARAVAN, 400 Kronars).
+    Wolf Clan, Tiger Clan or Leth Deriel — with your caravan at the outpost
+    (RECALL CARAVAN finds it); with none, rents one at the clerk (RENT CARAVAN,
+    400 Kronars).
   - At the clerk: hands in the contract for this town and is paid; PAY CLERK.
   - After a delivery with a teller near the clerk (the Crossing, Dirge), banks
     the purse and keeps 20,000 copper Kronars for dues and fees (;bank).
@@ -15,13 +16,15 @@ What it does
     nearest teller when the purse is short, and paid first.
   - The clerk loads the crate; the caravan is fed from your feedbag and told to
     LEAD TO the contract's town; you follow it, then walk it to the outpost.
+    Leth Deriel is by the Crossing and Alfren's Ferry, the caravan following
+    you aboard (77 Kronars for the goods).
   - Every contract goes into history.db's contracts table: charge, pay, times.
 
 When it stops
   - ;trade return once nothing is held, the caravan returned (RETURN CARAVAN;
     kept, said, while its storage box holds anything); ;stop trade at once,
     the caravan kept
-  - a contract for a town it does not lead to (Leth Deriel, another province): said, kept
+  - a contract for another province's town: said, kept
   - a caravan RECALL cannot place, a rental refused, no feedbag or no grass
     in it, a lead refused or given up,
     a teller that refuses, an answer it does not know (said)
@@ -30,9 +33,9 @@ The towns, the contract and the wordings are client/game/trade.py's,
 the log client/game/tradelog.py's; docs/trade.md.
 """
 
-from client.game import hands, loop, money, probe, shop, trade, tradelog, travel
+from client.game import hands, loop, money, probe, shop, trade, tradelog, travel, walker
 from client.game.act import ask, missing, said, unknown
-from client.game.mapdb import pause_seconds, translate_embedded
+from client.game.mapdb import pause_seconds, ride_args, ride_of, translate_embedded
 
 _NOTES = """
 Built from one contract driven by hand on 2026-10-15: the Crossing's
@@ -74,6 +77,7 @@ BANK_ROOMS = 20
 KEEP = 20_000
 RECALL_TRIES = 6  # after a RENT, the assistant brings the caravan round
 RECALL_WAIT = 10
+FERRY = "ferry"  # a route step the walker rides: Alfren's Ferry
 
 
 def parse_args(args):
@@ -336,7 +340,7 @@ def lead(s, name, place):
     """TELL the caravan TO LEAD TO `place` and follow it; True on
     arrival, False, said, when the driver refuses or gives up."""
     s.clear()
-    answer = ask(s, f"tell {name} to lead to {place.lower()}")
+    answer = ask(s, f"tell {name} to lead to {trade.lead_name(place)}")
     if trade.LEADING not in answer:
         s.echo(f"{PREFIX}: the driver did not take the lead ({said(answer)!r})")
         return False
@@ -349,10 +353,14 @@ def lead(s, name, place):
 
 
 def steps(route):
-    """Each edge of a route as the game commands it sends, or None when
-    one is a scripted edge (a ferry) a caravan cannot follow."""
+    """Each edge of a route as the game commands it sends — FERRY for
+    Alfren's Ferry, which the walker rides (its bank the argument) — or
+    None when one is a scripted edge a caravan cannot follow."""
     out = []
     for _, command in route:
+        if command.startswith(";e") and ride_of(command) == "ferry":
+            out.append((FERRY, ride_args(command)))
+            continue
         sent = translate_embedded(command) if command.startswith(";e") else [command]
         if not sent:
             return None
@@ -380,6 +388,13 @@ def bring(s, db, name, room):
         return False
     for commands in edges:
         s.clear()
+        if commands[0] == FERRY:
+            # The caravan follows aboard and off again; GO DOCK is the
+            # step it is waited for on.
+            if walker.ride_ferry(s, commands[1]) != "landed":
+                s.echo(f"{PREFIX}: the ferry crossing failed — the caravan is with you")
+                return False
+            commands = ["go dock"]
         for command in commands:
             pause = pause_seconds(command)
             if pause is not None:
@@ -392,6 +407,33 @@ def bring(s, db, name, room):
             return False
     ask(s, f"tell {name} to wait")
     return travel.here(s, db) == room
+
+
+def leg(s, db, name, origin, destination):
+    """The caravan from `origin`'s outpost to `destination`'s: led, then
+    walked to the outpost when the lead stops short. Leth Deriel is
+    across the Segoltha, so a leg to or from it goes by the Crossing and
+    Alfren's Ferry (trade.lic's do_lead_from and do_lead_to): to it, led
+    to the Crossing, walked over the ferry to the south bank, led to
+    Leth; from it, led toward the Crossing and walked over the ferry to
+    the Crossing's outpost."""
+    crossing = trade.TOWNS["Crossing"].outpost
+    if origin == trade.ACROSS:
+        if not lead(s, name, "Crossing") or not bring(s, db, name, crossing):
+            return False
+        origin = "Crossing"
+    if destination == trade.ACROSS:
+        if origin != "Crossing" and not (
+            lead(s, name, "Crossing") and bring(s, db, name, crossing)
+        ):
+            return False
+        if not bring(s, db, name, trade.FERRY_SOUTH):
+            return False
+    if origin == destination:
+        return True
+    return lead(s, name, destination) and bring(
+        s, db, name, trade.TOWNS[destination].outpost
+    )
 
 
 def main(s):
@@ -453,9 +495,7 @@ def main(s):
             return
         if not walk(s, db, trade.TOWNS[place].outpost, f"the {place} outpost"):
             return
-        if not feed(s, name) or not lead(s, name, destination):
-            return
-        if not bring(s, db, name, trade.TOWNS[destination].outpost):
+        if not feed(s, name) or not leg(s, db, name, place, destination):
             return
         place = destination
         returning = returning or loop.wants_stop(s)

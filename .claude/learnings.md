@@ -227,6 +227,11 @@ lessons the code and docs cannot carry themselves.
   without their breaks, and a line-anchored regex ran one field into
   the next. Grep the raw log for the pushStream when a script misses
   text the window shows.
+- `revenant-send --wait-for TEXT` is one literal substring of a story
+  line, never a regex: "pulls into the dock|pulls up to the dock" waited
+  out its timeout while the ferry docked (2026-10-15), and script echoes
+  never match it at all. Wait on one wording, or on `--state scripts`
+  for a script's end.
 
 ## Evidence first
 
