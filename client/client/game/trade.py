@@ -61,6 +61,12 @@ _COIN = r"(\d+) (Kronars|Lirums|Dokoras)"
 # guild, for a total of 4522."" With dues owed: "The minister reminds
 # you that you still owe 2375 Kronars in dues to The Crossing and asks
 # that you pay the clerk before she issues you a new contract."
+#
+# The broker, ASK BROKER FOR CONTRACT, issues a contract for another
+# province in the same words ("The broker plucks a contract ...", "The
+# broker reminds you that you still owe 4048 Kronars in dues ...", the
+# Crossing, 2026-10-15). Shard's is the map's Provincial Broker, untried.
+BROKERS = {"Crossing": 11995, "Shard": 14305}
 ISSUED = "plucks a contract"
 HELD = "You still have another contract"  # trade.lic's wording
 _OWED = re.compile(r"still owe " + _COIN + " in dues", re.I)
@@ -196,8 +202,9 @@ def contract(text):
 
 
 def minister(answer):
-    """ASK MINISTER FOR CONTRACT's answer: ("issued", (wholesale, dues))
-    in copper, ("dues", copper owed), ("held", None), or (None, None)."""
+    """ASK MINISTER (or BROKER) FOR CONTRACT's answer: ("issued",
+    (wholesale, dues)) in copper, ("dues", copper owed), ("held", None),
+    or (None, None)."""
     text = str(answer or "")
     if ISSUED in text:
         wholesale = _WHOLESALE.search(text)

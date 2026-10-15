@@ -1,6 +1,7 @@
 """Run Trader caravan contracts in Zoluren or Ilithi:  ;trade
 
     ;trade            deliver, pay the dues, take the next contract, load it, feed the caravan, lead it there; again
+    ;trade broker     the same, each contract from the broker (another province) where one is known: the Crossing, Shard
     ;trade return     typed while it runs: deliver what is held, take no new contract, return the caravan at the clerk
     ;trade history    every contract logged: per route the count, the pay, the profit, the minutes
 
@@ -14,12 +15,15 @@ What it does
   - After a delivery with a teller near the clerk (the Crossing, Dirge, Leth,
     Shard), banks the purse and keeps 20,000 copper for dues and fees (;bank).
   - At the minister: ASK MINISTER FOR CONTRACT; dues owed are drawn at the
-    nearest teller when the purse is short, and paid first.
+    nearest teller when the purse is short, and paid first. With `broker`,
+    ASK BROKER FOR CONTRACT instead (the Crossing's Foreign Trade Office,
+    Shard's Provincial Broker, untried), its charge paid at the clerk
+    before loading; the minister elsewhere.
   - The clerk loads the crate; the caravan is fed from your feedbag and told to
     LEAD TO the contract's town; you follow it, then walk it to the outpost.
     Leth Deriel is by the Crossing and Alfren's Ferry, the caravan following
     you aboard (77 Kronars for the goods). A contract between Zoluren and
-    Ilithi (the Crossing's broker) goes by Leth Deriel and the Obsidian Pass
+    Ilithi (a broker's) goes by Leth Deriel and the Obsidian Pass
     gondola, the caravan walked after you and riding along.
   - On a lead, runs the profile's `lead_training` script (perform: ;perform once
     here), ended on arrival; with none playing and fewer than 60 bunches in the
@@ -83,6 +87,13 @@ entered a weathered wooden gondola, following you."), 70 followed rooms
 to Brickwell Tower. 27 minutes from Commerce Avenue to Shard's clerk,
 who paid 78,568 Dokoras against 43,833 Kronars charged, and took back
 the caravan the Crossing had rented out.
+
+`;trade broker` takes that contract itself in the order the hand run
+did: ASK BROKER FOR CONTRACT (the minister's wordings, "The broker"
+for "The minister"), PAY CLERK for the charge, then the clerk's
+loading. Whether the clerk loads a broker contract unpaid, as it does
+the minister's, was never tried. Shard's broker is the map's room
+14305, Brickwell Tower's Provincial Broker, never visited.
 """
 
 PREFIX = "trade"
@@ -278,35 +289,44 @@ def bank_run(s, db, coin="Kronars"):
         raise
 
 
-def issue(s, db, place):
-    """A new contract from this town's minister, dues paid first:
-    (wholesale, dues) in copper, or None, said."""
-    town = trade.TOWNS[place]
+def settle(s, db, place, copper):
+    """`copper` of the town's coin on hand (drawn at a teller when short),
+    then PAY CLERK at its clerk; True once paid, False, said, otherwise."""
+    if not shop.afford(
+        s, ask, PREFIX, copper, trade.coin(place), db=db, retry="run ;trade again"
+    ):
+        return False
+    if not walk(s, db, trade.TOWNS[place].clerk, f"the {place} shipment clerk"):
+        return False
+    s.echo(f"{PREFIX}: {pay(s)}")
+    return True
+
+
+def issue(s, db, place, broker=False):
+    """A new contract from this town's minister, or its broker for
+    another province, dues paid first: (wholesale, dues) in copper, or
+    None, said."""
+    who = "broker" if broker else "minister"
+    room = trade.BROKERS[place] if broker else trade.TOWNS[place].minister
     for _ in range(2):
-        if not walk(s, db, town.minister, f"the {place} trade minister"):
+        if not walk(s, db, room, f"the {place} trade {who}"):
             return None
-        answer = ask(s, "ask minister for contract")
+        answer = ask(s, f"ask {who} for contract")
         kind, value = trade.minister(answer)
         if kind == "issued":
             return value
         if kind == "held":
-            s.echo(
-                f"{PREFIX}: the minister says you still hold a contract from {place}"
-            )
+            s.echo(f"{PREFIX}: the {who} says you still hold a contract from {place}")
             return None
         if kind != "dues":
-            unknown(s, PREFIX, "ASK MINISTER", answer)
+            unknown(s, PREFIX, f"ASK {who.upper()}", answer)
             return None
-        coin = trade.coin(place)
-        s.echo(f"{PREFIX}: {value:,} {coin} of dues owed to {place} — paying them")
-        if not shop.afford(
-            s, ask, PREFIX, value, coin, db=db, retry="run ;trade again"
-        ):
+        s.echo(
+            f"{PREFIX}: {value:,} {trade.coin(place)} of dues owed to {place} — paying them"
+        )
+        if not settle(s, db, place, value):
             return None
-        if not walk(s, db, town.clerk, f"the {place} shipment clerk"):
-            return None
-        s.echo(f"{PREFIX}: {pay(s)}")
-    s.echo(f"{PREFIX}: the minister still asks for dues — stopping")
+    s.echo(f"{PREFIX}: the {who} still asks for dues — stopping")
     return None
 
 
@@ -332,10 +352,12 @@ def load(s, db, place, seq):
     return False
 
 
-def take(s, db, place):
-    """Issue, read, log and load this town's next contract: the
-    Contract, or None, said."""
-    charged = issue(s, db, place)
+def take(s, db, place, broker=False):
+    """Issue, read, log and load this town's next contract, the broker's
+    with `broker` where a broker is known (BROKERS): the Contract, or
+    None, said."""
+    broker = broker and place in trade.BROKERS
+    charged = issue(s, db, place, broker)
     if charged is None:
         return None
     contract = held(s)
@@ -348,6 +370,10 @@ def take(s, db, place):
         f"{PREFIX}: {contract.goods} for {contract.destination},"
         f" worth {contract.worth or '?'} on delivery"
     )
+    # The clerk loaded the first broker contract with its charge paid
+    # (2026-10-15); whether it loads one unpaid is untried.
+    if broker and not settle(s, db, place, (wholesale or 0) + (dues or 0)):
+        return None
     return contract if load(s, db, place, seq) else None
 
 
@@ -610,6 +636,7 @@ def main(s):
     if opts["verb"] == "history":
         history(s)
         return
+    broker = opts["verb"] == "broker"
     db = travel.mapdb()
     training = trainers(s)
     place = nearest_town(s, db)
@@ -649,7 +676,7 @@ def main(s):
                 s.echo(f"{PREFIX}: nothing held — done at {place}")
                 return_caravan(s, db, place, name)
                 return
-            contract = take(s, db, place)
+            contract = take(s, db, place, broker)
             if contract is None:
                 return
         destination = trade.town(contract.destination)

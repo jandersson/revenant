@@ -46,6 +46,27 @@ DUES_OWED = (
     " Crossing and asks that you pay the clerk before she issues you a new"
     " contract.\n"
 )
+# The Crossing's broker, 2026-10-15 (#554): the minister's words with
+# "The broker", the charge 32,663 wholesale and 11,170 dues.
+BROKER_ISSUED = (
+    ISSUED.replace("The minister", "The broker")
+    .replace("3537", "32663")
+    .replace("985", "11170")
+    .replace("4522", "43833")
+)
+BROKER_DUES = (
+    "The broker reminds you that you still owe 4048 Kronars in dues to The"
+    " Crossing and asks that you pay the clerk before she issues you a new"
+    " contract.\n"
+)
+TO_SHARD = (
+    CONTRACT.replace(
+        "Wolf Clan requires 13 ornate saber hilts",
+        "Shard requires 427 jars of pickled eel",
+    )
+    .replace("4 anlaen", "6 anlaen")
+    .replace("11791 Kronars", "78568 Dokoras")
+)
 SETTLED = "You count out some coins, and the clerk notes that your dues are settled.\n"
 NO_DUES = 'The clerk says, "You do not owe dues, Lanival!"\n'
 LOADED = (
@@ -149,6 +170,14 @@ def test_the_minister_issues_asks_for_dues_or_says_one_is_held():
         None,
     )
     assert trade.minister("The minister ignores you.") == (None, None)
+
+
+def test_the_broker_answers_in_the_ministers_words():
+    assert trade.minister(BROKER_ISSUED) == ("issued", (32663, 11170))
+    assert trade.minister(BROKER_DUES) == ("dues", 4048)
+    contract = trade.contract(TO_SHARD)
+    assert (contract.origin, contract.destination) == ("Crossing", "Shard")
+    assert (contract.worth, contract.currency) == (78568, "Dokoras")
 
 
 def test_the_clerk_loads_at_the_issue_and_pays_at_the_destination():
@@ -313,7 +342,10 @@ class World:
     def put(self, command):
         self.sent.append(command)
         self.pending = []
-        if command == "ask minister for contract" or command.startswith("get my wolf"):
+        if command in (
+            "ask minister for contract",
+            "ask broker for contract",
+        ) or command.startswith("get my wolf"):
             self.state.right_hand = dict(CONTRACT_HELD)
         elif command.startswith("give my contract"):
             self.state.right_hand = None
@@ -504,6 +536,69 @@ def test_dues_owed_are_paid_before_the_contract(script):
     asks = [i for i, c in enumerate(world.sent) if c == "ask minister for contract"]
     pays = [i for i, c in enumerate(world.sent) if c == "pay clerk"]
     assert len(asks) == 2 and asks[0] < pays[1] < asks[1]
+
+
+def test_broker_takes_its_contract_and_pays_the_charge_before_loading(script):
+    # By hand at the Crossing, 2026-10-15: ASK BROKER FOR CONTRACT, PAY
+    # CLERK for its 43,833 Kronars, then the clerk loaded it (#554).
+    answers = dict(
+        LEG,
+        **{
+            "ask broker": [BROKER_ISSUED],
+            "read my contract": ["What were you referring to?", TO_SHARD],
+        },
+    )
+    world = World(answers)
+    world.args = ["broker"]
+    afforded, legs = [], []
+    script.shop = SimpleNamespace(
+        afford=lambda s, ask, prefix, copper, coin, **k: (
+            afforded.append((copper, coin)) or True
+        )
+    )
+
+    def leg(s, db, name, origin, destination, *rest):
+        legs.append((origin, destination))
+        return False  # the run ends here; the leg has its own tests
+
+    script.leg = leg
+    script.main(world)
+    sent = world.sent
+    assert "ask minister for contract" not in sent
+    pays = [i for i, c in enumerate(sent) if c == "pay clerk"]
+    assert (
+        sent.index("ask broker for contract")
+        < pays[1]
+        < sent.index("give my contract to clerk")
+    )
+    assert world.walks == [11995, 8916, 895]
+    assert afforded == [(43833, "Kronars")]
+    assert legs == [("Crossing", "Shard")]
+    assert "trade: 427 jars of pickled eel for Shard, worth 78568 on delivery" in (
+        world.echoed
+    )
+
+
+def test_dues_owed_at_the_broker_are_paid_before_its_contract(script):
+    world = World(dict(LEG, **{"ask broker": [BROKER_DUES, BROKER_ISSUED]}))
+    assert script.issue(world, MAP, "Crossing", broker=True) == (32663, 11170)
+    assert "trade: 4,048 Kronars of dues owed to Crossing — paying them" in (
+        world.echoed
+    )
+    assert world.sent == [
+        "ask broker for contract",
+        "pay clerk",
+        "ask broker for contract",
+    ]
+
+
+def test_broker_where_none_is_known_takes_the_ministers_contract(script):
+    answers = dict(LEG, **{"read my contract": [CONTRACT]})
+    world = World(answers, room=8997)
+    assert script.take(world, MAP, "Wolf Clan", broker=True)
+    assert "ask minister for contract" in world.sent
+    assert "ask broker for contract" not in world.sent
+    assert "pay clerk" not in world.sent
 
 
 def test_return_typed_with_nothing_held_stops_at_the_clerk(script):
