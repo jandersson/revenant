@@ -142,7 +142,15 @@ TOO_SMALL = ("isn't worth my time", "the minimum is")
 # getting at' and the syntax (EXCHANGE (amount) (cointype) (currency)
 # TO (currency), or ALL), so a top-up goes one denomination a command.
 CHANGER_FEE = 0.05
+# A changer who takes more, by his room: Dirge's Traveller's Bank changed
+# 1 gold Kronar into 720 Lirums against the rate's 800 (2026-10-15, #563).
+CHANGER_FEES = {16655: 0.10}
 CHANGE_GRAIN = 10  # copper: a top-up rounded up to whole bronze, past the floor
+
+
+def changer_fee(room):
+    """The fee of the money-changer in map room `room`."""
+    return CHANGER_FEES.get(room, CHANGER_FEE)
 
 
 def foreign(wealth, home, kept=()):
@@ -179,9 +187,9 @@ def exchange_command(currency, home):
     return f"exchange all {currency} to {home}"
 
 
-def top_up_needed(want_copper, want_currency, carried, home):
+def top_up_needed(want_copper, want_currency, carried, home, fee=CHANGER_FEE):
     """The copper of `home` to hand the changer so the purse reaches
-    `want_copper` of `want_currency` after his fee, rounded up to whole
+    `want_copper` of `want_currency` after his `fee`, rounded up to whole
     bronze; 0 when the purse already holds enough. All of it is drawn
     at the teller first, in the coins top_up_commands names, whatever
     `home` coin the purse holds: the changer takes only a denomination
@@ -192,7 +200,7 @@ def top_up_needed(want_copper, want_currency, carried, home):
     if short <= 0:
         return 0
     rate = KRONAR_RATES[want_key] / KRONAR_RATES[home_key]
-    exact = short * rate / (1 - CHANGER_FEE)
+    exact = short * rate / (1 - fee)
     return int(math.ceil(exact / CHANGE_GRAIN)) * CHANGE_GRAIN
 
 

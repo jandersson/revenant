@@ -36,6 +36,7 @@ is not an empty purse. Stop with:  ;stop bank.
 from client.game import travel
 from client.game.act import ask
 from client.game.bank import (
+    changer_fee,
     top_up,
     top_up_needed,
     deposit,
@@ -97,13 +98,22 @@ def top_up_each(s, mapdb, walk_fn, wants, home, tellers):
     """The purse brought to each wanted coin (;bank lirums=300): WEALTH
     for what it holds now, the shortfall's home coin drawn at the
     teller (always: the coins the changer is handed, #562), changed at
-    a money-changer of this province, and WEALTH again for the verdict."""
+    a money-changer of this province, and WEALTH again for the verdict.
+    The changer is picked first, so the change is sized for his own fee
+    (Dirge's is a tenth, #563)."""
+    changers = mapdb.rooms_tagged("exchange")
+    changers = [
+        room for room in changers if room_currency(mapdb, room) == home
+    ] or changers
+    changer = nearest(mapdb, locate(mapdb, s.state), changers, character_ranks(s.state))
+    if changer is not None:
+        changers = [changer]
     carried = purse(s, ask)
     for currency, want in wants.items():
         if currency.lower() == home.lower():
             s.echo(f"bank: {currency} are this province's own coin — keep= is the word")
             continue
-        change = top_up_needed(want, currency, carried, home)
+        change = top_up_needed(want, currency, carried, home, changer_fee(changer))
         if not change:
             s.echo(
                 f"bank: {phrase(carried.get(currency, 0), currency)} on you — enough"
@@ -119,10 +129,6 @@ def top_up_each(s, mapdb, walk_fn, wants, home, tellers):
             return
         if not withdraw_here(s, ask, "bank", change, home):
             return
-        changers = mapdb.rooms_tagged("exchange")
-        changers = [
-            room for room in changers if room_currency(mapdb, room) == home
-        ] or changers
         if not travel.go(s, set(changers), "the money-changer", db=mapdb, walk=walk_fn):
             s.echo("bank: could not reach a money-changer — nothing changed")
             return

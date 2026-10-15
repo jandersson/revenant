@@ -469,6 +469,11 @@ def test_the_changers_fee_is_a_twentieth_at_the_wikis_rate():
     # Lirums already in the purse count: 72 short wants 95, so 100.
     assert top_up_needed(300, "Lirums", {"Lirums": 228}, "Kronars") == 100
     assert top_up_needed(300, "Lirums", {"Lirums": 328}, "Kronars") == 0
+    # Dirge's changer takes a tenth (#563): 1 gold Kronar bought 720 Lirums.
+    from client.game.bank import changer_fee
+
+    assert changer_fee(16655) == 0.10 and changer_fee(1902) == 0.05
+    assert top_up_needed(720, "Lirums", {}, "Kronars", changer_fee(16655)) == 1000
     # One command per denomination, with the cointype the verb wants.
     assert top_up_commands(400, "Kronars", "Lirums") == [
         "exchange 4 silver kronars to lirums"
@@ -503,6 +508,26 @@ def test_bank_lirums_keeps_the_lirums_held_and_tops_them_up_from_the_teller():
     assert "bank: the money-changer handed you 3 silver, and 4 copper Lirums" in echoes(
         fake
     )
+
+
+def test_a_top_up_is_sized_for_the_changer_it_walks_to(monkeypatch):
+    # #563: Dirge's changer takes a tenth. With this map's changer at a
+    # tenth, 300 Lirums on an empty purse want 420 Kronars, not 400.
+    from client.game import bank
+
+    monkeypatch.setitem(bank.CHANGER_FEES, 1902, 0.10)
+    empty = "Wealth:\n  No Kronars.\n  No Lirums.\n  No Dokoras.\n"
+    fake = Fake(
+        {
+            "wealth": [empty, empty, WEALTH_ENOUGH_LIRUMS],
+            "withdraw": [COUNTED_LINE, COUNTED_LINE],
+            "exchange": [HANDED_LIRUMS, HANDED_LIRUMS],
+        }
+    )
+    script.run(fake, ["lirums=300"], MAP, walk_fn=walk)
+    assert "withdraw 4 silver" in fake.sent and "withdraw 2 bronze" in fake.sent
+    assert "exchange 2 bronze kronars to lirums" in fake.sent
+    assert fake.walks[1] == {1902}
 
 
 WEALTH_KEPT = (
