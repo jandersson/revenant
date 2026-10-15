@@ -5,9 +5,9 @@ trading contracts").
 One `contracts` row per contract: when the minister issued it, the
 character, the town it came from and the one it goes to, the goods, the
 wholesale price and the dues charged at the issue, the contract's own
-estimate of its worth on delivery, the coin, and its province: Zoluren
-or Ilithi, or Interprovince when the destination is in another province
-(filled in for the rows logged before the column). The clerk's loading
+estimate of its worth on delivery, the coin, and its province: Zoluren,
+Ilithi or Therengia, or Interprovince when the destination is in another
+province (filled in for the rows logged before the column). The clerk's loading
 adds the transport fee; the delivery fills `delivered_at` and `paid`.
 `summary` reads the rows back per route for ;trade history: count,
 delivered, the pay, the cost (wholesale, dues and fee) and the minutes
@@ -44,12 +44,14 @@ CREATE TABLE IF NOT EXISTS contracts (
 def _home(town):
     if town in trade.ILITHI:
         return "Ilithi"
+    if town in trade.THERENGIA:
+        return "Therengia"
     return "Zoluren" if town in trade.TOWNS else None
 
 
 def province(origin, destination):
-    """A contract's province: its origin's, Zoluren or Ilithi, or
-    "Interprovince" when the destination is in another province; None
+    """A contract's province: its origin's, Zoluren, Ilithi or Therengia,
+    or "Interprovince" when the destination is in another province; None
     for an origin ;trade does not know."""
     home = _home(origin)
     if home is None:

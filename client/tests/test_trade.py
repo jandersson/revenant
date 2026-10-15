@@ -67,6 +67,25 @@ TO_SHARD = (
     .replace("4 anlaen", "6 anlaen")
     .replace("11791 Kronars", "78568 Dokoras")
 )
+# The Crossing's broker, 2026-10-15 (#555): Riverhaven, paid in Lirums.
+TO_RIVERHAVEN = (
+    CONTRACT.replace(
+        "Wolf Clan requires 13 ornate saber hilts",
+        "Riverhaven requires 260 jars of pickled eel",
+    )
+    .replace("about 4 anlaen", "1 andu and about 6 anlaen")
+    .replace("11791 Kronars", "47840 Lirums")
+)
+BROKER_TO_RIVERHAVEN = (
+    BROKER_ISSUED.replace("32663", "17940")
+    .replace("11170", "5836")
+    .replace("43833", "23776")
+)
+PAID_IN_LIRUMS = (
+    "The shipment clerk finds everything in order with your merchandise."
+    '  "Life is profit!  Profit is life!" he says, handing you your payment of'
+    " 47840 Lirums.\n"
+)
 SETTLED = "You count out some coins, and the clerk notes that your dues are settled.\n"
 NO_DUES = 'The clerk says, "You do not owe dues, Lanival!"\n'
 LOADED = (
@@ -203,6 +222,21 @@ def test_recall_names_the_caravan_and_whether_it_is_here():
     assert trade.caravan("You don't recall having a caravan.") == (None, False)
 
 
+def test_riverhaven_trades_in_lirums_and_is_its_own_province():
+    contract = trade.contract(TO_RIVERHAVEN)
+    assert (contract.destination, contract.goods) == (
+        "Riverhaven",
+        "260 jars of pickled eel",
+    )
+    assert (contract.worth, contract.currency) == (47840, "Lirums")
+    assert trade.minister(BROKER_TO_RIVERHAVEN) == ("issued", (17940, 5836))
+    assert trade.clerk(PAID_IN_LIRUMS) == ("paid", (47840, "Lirums"))
+    assert trade.coin("Riverhaven") == "Lirums"
+    assert trade.lead_name("Riverhaven") == "riverhaven"
+    assert tradelog.province("Crossing", "Riverhaven") == "Interprovince"
+    assert tradelog.province("Riverhaven", "Riverhaven") == "Therengia"
+
+
 def test_the_feedbag_counts_its_grass():
     assert trade.grass(FEEDBAG) == 7
     assert trade.grass("There is nothing in there.") == 0
@@ -212,7 +246,8 @@ def test_towns_are_named_the_way_the_table_keys_them():
     assert trade.town("The Crossing") == "Crossing"
     assert trade.town("Wolf Clan") == "Wolf Clan"
     assert trade.town("Leth Deriel") == "Leth Deriel"  # by the ferry
-    assert trade.town("Riverhaven") is None  # another province
+    assert trade.town("Riverhaven") == "Riverhaven"  # by Dirge and the Faldesu
+    assert trade.town("Therenborough") is None  # Therengia waits (#555)
     assert trade.lead_name("Leth Deriel") == "leth"
     assert trade.contract_noun("Wolf Clan") == "wolf contract"
 
@@ -274,6 +309,15 @@ def _ferry(bank, route="ferry"):
     )
 
 
+def _faldesu(bank):
+    # The map's plain form at North Road, Ferry; the Marsh's `if` form is the swim.
+    return (
+        ";e start_script('bescort', ['faldesu', '"
+        + bank
+        + "']);wait_while{running?('bescort')};"
+    )
+
+
 MAP = MapDB(
     [
         {"id": 895, "uid": [10155], "title": ["[The Crossing, Commerce Avenue]"],
@@ -309,6 +353,24 @@ MAP = MapDB(
          "wayto": {"8193": "west"}},
         {"id": 8997, "uid": [152101], "title": ["[Wolf Clan Trader Outpost]"],
          "wayto": {"1533": "out"}},
+        {"id": 1307, "uid": [51104], "title": ["[Dirge, Gateway Road]"],
+         "wayto": {}},
+        {"id": 1385, "uid": [1385], "title": ["[North Road, Ferry]"],
+         "wayto": {"470": _faldesu("haven"), "1384": "south"}},
+        {"id": 1384, "uid": [1384], "title": ["[North Road, Riverbank]"],
+         "wayto": {"1385": "north"}},
+        {"id": 470, "uid": [470], "title": ["[Riverhaven, Ferry Dock]"],
+         "wayto": {"463": "go ramp", "1385": _faldesu("crossing")}},
+        {"id": 463, "uid": [1010302], "title": ["[Riverhaven, Municipal Pier]"],
+         "wayto": {"444": "go arch", "470": "go ramp"}},
+        {"id": 444, "uid": [444], "title": ["[Riverhaven, Municipal Pier]"],
+         "wayto": {"386": "northwest", "463": "go arch"}},
+        {"id": 386, "uid": [1010007], "title": ["[Riverhaven, Town Hall Road]"],
+         "wayto": {"444": "go pier", "13751": "go alley", "7876": "go trader guild"}},
+        {"id": 13751, "uid": [1017007], "title": ["[Traders' Guild, Shipping Dock]"],
+         "wayto": {"386": "out"}},
+        {"id": 7876, "uid": [1017001],
+         "title": ["[Riverhaven, Traders' Guild Lobby]"], "wayto": {"386": "out"}},
     ]
 )  # fmt: skip
 
@@ -333,7 +395,13 @@ class World:
         self.purse = 0  # copper Kronars, as WEALTH reads them
         self.ran = []
         # Where each LEAD TO lands, and where GO DOCK steps off the ferry.
-        self.leads = {"wolf clan": 1533, "crossing": 895, "leth": 2039}
+        self.leads = {
+            "wolf clan": 1533,
+            "crossing": 895,
+            "leth": 2039,
+            "dirge": 1307,  # Gateway Road
+            "riverhaven": 1385,  # North Road, Ferry
+        }
         self.landing = None
         self.state = SimpleNamespace(
             name="Lanival", right_hand=None, left_hand=None, hostiles={}
@@ -358,26 +426,8 @@ class World:
             self.room = self.leads.get(command.split(" to lead to ")[1], 1533)
             if self.return_after_lead:
                 self.typed.append("return")
-        elif command in (
-            "east",
-            "west",
-            "go pier",
-            "go square",
-            "go dock",
-            "climb platform",
-            "go frame",
-            "out",
-        ):
-            self.room = {
-                "east": 1533,
-                "west": 1534,
-                "go pier": 957,
-                "go square": 895,
-                "go dock": self.landing,
-                "climb platform": 2249,
-                "go frame": 8191,
-                "out": self.landing,
-            }[command]
+        elif command in self.moves():
+            self.room = self.moves()[command]
             self.heard.append("Your bullock-drawn caravan, following you, arrives.\n")
         for prefix, queue in self.answers.items():
             if command == prefix or command.startswith(prefix + " "):
@@ -386,6 +436,22 @@ class World:
                 stream = "familiar" if trade.READ_END in text else ""
                 self.pending = [(stream, line + "\n") for line in text.splitlines()]
                 return
+
+    def moves(self):
+        """The way the map knows from this room, else the old fixed table;
+        GO DOCK and OUT step off a ride where it landed."""
+        wayto = MAP.rooms.get(self.room, {}).get("wayto", {})
+        fixed = {
+            "east": 1533,
+            "west": 1534,
+            "go pier": 957,
+            "go square": 895,
+            "go dock": self.landing,
+            "climb platform": 2249,
+            "go frame": 8191,
+            "out": self.landing,
+        }
+        return {**fixed, **{way: int(room) for room, way in wayto.items()}}
 
     def get(self, timeout=None, streams=("",)):
         while timeout != 0 and self.pending:
@@ -457,7 +523,7 @@ def script(monkeypatch, tmp_path):
 
     def ride_ferry(s, bank=""):
         s.sent.append(f"(the ferry to {bank})")
-        s.landing = 1904 if bank == "leth" else 957
+        s.landing = {957: 1904, 1904: 957, 1385: 470, 470: 1385}[s.room]
         return "landed"
 
     def ride_gondola(s, direction="", aboard=None):
@@ -580,7 +646,7 @@ def test_interprovince_takes_the_brokers_contract_paid_before_loading(script):
 
 
 def test_a_broker_contract_beyond_the_routes_is_neither_paid_nor_loaded(script):
-    far = TO_SHARD.replace("Shard requires", "Riverhaven requires")
+    far = TO_SHARD.replace("Shard requires", "Therenborough requires")
     answers = dict(
         LEG,
         **{"ask broker": [BROKER_ISSUED], "read my contract": [far]},
@@ -623,13 +689,34 @@ def test_return_typed_with_nothing_held_stops_at_the_clerk(script):
 
 
 def test_a_contract_for_a_town_it_cannot_lead_to_is_left_with_you(script):
-    far = CONTRACT.replace("Wolf Clan", "Riverhaven")
+    far = CONTRACT.replace("Wolf Clan", "Therenborough")
     answers = dict(LEG, **{"read my contract": ["What were you referring to?", far]})
     world = World(answers)
     script.main(world)
     assert not any(" to lead to " in c for c in world.sent)
     assert "give my contract to clerk" not in world.sent
-    assert any("Riverhaven is beyond ;trade's routes" in e for e in world.echoed)
+    assert any("Therenborough is beyond ;trade's routes" in e for e in world.echoed)
+
+
+def test_a_broker_contract_to_riverhaven_is_paid_loaded_and_led(script):
+    # The Crossing's broker, 2026-10-15: 260 jars of pickled eel for
+    # Riverhaven, stopped at the routes' guard then (#555).
+    answers = dict(
+        LEG,
+        **{
+            "ask broker": [BROKER_TO_RIVERHAVEN],
+            "read my contract": ["What were you referring to?", TO_RIVERHAVEN],
+        },
+    )
+    world = World(answers)
+    world.args = ["interprovince"]
+    legs = []
+    script.leg = lambda s, db, name, origin, to, *rest: legs.append((origin, to))
+    script.main(world)
+    assert world.sent.index(
+        "pay clerk", world.sent.index("ask broker for contract")
+    ) < (world.sent.index("give my contract to clerk"))
+    assert legs == [("Crossing", "Riverhaven")]
 
 
 NO_CARAVAN = "You don't recall having a caravan.\n"
@@ -963,6 +1050,96 @@ def test_a_contract_from_ilithi_to_zoluren_crosses_back_the_same_way(script):
         ("lead", "Arthe Dale"),
         ("bring", 1073),
     ]
+
+
+def test_the_faldesu_ferry_is_a_step_the_walker_rides():
+    # The map's bescort 'faldesu' edge, ridden like Alfren's Ferry.
+    script = _script()
+    assert script.steps(MAP.path(1385, [386])) == [
+        (script.FERRY, "haven"),
+        ["go ramp"],
+        ["go arch"],
+        ["northwest"],
+    ]
+
+
+def test_a_leg_to_riverhaven_goes_by_dirge_and_the_faldesu(script):
+    # Driven by hand on 2026-10-15 (#555): LEAD TO DIRGE, LEAD TO
+    # RIVERHAVEN from Gateway Road to the north-road ferry, the caravan
+    # aboard and off, up the ramp and through the arch to Town Hall Road.
+    world = World(CROSSING_ANSWERS, room=895)
+    world.run = lambda name, args=(): (
+        world.sent.append(f";{name} {' '.join(args)}") or True
+    )
+    assert script.leg(world, MAP, "weathered caravan", "Crossing", "Riverhaven")
+    assert [
+        c for c in world.sent if c.startswith(("tell", "go ", "(the", "north", ";"))
+    ] == [
+        "tell weathered caravan to lead to dirge",
+        ";bank keep=20000 lirums=500 back",  # at Dirge, two rooms from its changer
+        "tell weathered caravan to lead to riverhaven",
+        "tell weathered caravan to follow",
+        "(the ferry to haven)",
+        "go dock",
+        "go ramp",
+        "go arch",
+        "northwest",
+        "tell weathered caravan to wait",
+    ]
+    assert world.room == 386
+
+
+def test_lirums_enough_for_the_ferry_send_no_bank_run(script):
+    world = World(CROSSING_ANSWERS, room=1307)
+    world.purse = 500
+    script.ferry_lirums(world)
+    assert world.ran == []
+
+
+def test_a_contract_from_riverhaven_crosses_back_and_leads_from_the_riverbank(script):
+    # Elanthipedia (Trade Route): the lead to Dirge starts at North Road,
+    # Riverbank, one room south of the ferry dock.
+    world = World(CROSSING_ANSWERS, room=386)
+    world.leads["arthe dale"] = 1073
+    assert script.leg(world, MAP, "weathered caravan", "Riverhaven", "Arthe Dale")
+    assert [
+        c for c in world.sent if c.startswith(("tell", "go ", "(the", "south"))
+    ] == [
+        "tell weathered caravan to follow",
+        "go pier",
+        "go arch",
+        "go ramp",
+        "(the ferry to crossing)",
+        "go dock",
+        "south",
+        "tell weathered caravan to wait",
+        "tell weathered caravan to lead to dirge",
+        "tell weathered caravan to lead to arthe dale",
+    ]
+    assert world.room == 1073 and world.ran == []
+
+
+def test_a_delivery_at_riverhaven_ends_the_run_with_the_caravan_kept(script):
+    # Its minister's towns are beyond the routes: no contract is taken.
+    delivered = TO_RIVERHAVEN.replace(
+        " This contract has yet to be presented to the Crossing guild\n clerk.\n", ""
+    )
+    answers = dict(
+        LEG,
+        **{
+            "read my contract": [delivered],
+            "get my riverhaven contract": [
+                "You get a Riverhaven contract from inside your sturdy backpack.\n"
+            ],
+            "give my contract to clerk": [PAID_IN_LIRUMS],
+        },
+    )
+    world = World(answers, room=13751)
+    script.main(world)
+    assert "ask minister for contract" not in world.sent
+    assert "return caravan" not in world.sent
+    assert "trade: Riverhaven paid 47,840 Lirums" in world.echoed
+    assert world.echoed[-1].startswith("trade: done at Riverhaven")
 
 
 FOUND_GRASS = "You manage to find some grass.\n"

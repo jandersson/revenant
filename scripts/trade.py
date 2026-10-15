@@ -1,4 +1,4 @@
-"""Run Trader caravan contracts in Zoluren or Ilithi:  ;trade
+"""Run Trader caravan contracts in Zoluren, Ilithi and to Riverhaven:  ;trade
 
     ;trade            deliver, pay the dues, take the next contract, load it, feed the caravan, lead it there; again
     ;trade interprovince  the same, each contract for another province (the broker's) where one is offered: the Crossing, Shard
@@ -8,12 +8,12 @@
 What it does
   - Starts at an outpost of Zoluren — the Crossing, Arthe Dale, Stone Clan,
     Dirge, Wolf Clan, Tiger Clan, Leth Deriel — or Ilithi — Shard, Fayrin's
-    Rest, Steelclaw Clan, Darkling Wood — with your caravan at the outpost
-    (RECALL CARAVAN finds it); with none, rents one at the clerk (RENT CARAVAN,
-    400 Kronars or 288 Dokoras).
+    Rest, Steelclaw Clan, Darkling Wood — or Riverhaven, with your caravan at
+    the outpost (RECALL CARAVAN finds it); with none, rents one at the clerk
+    (RENT CARAVAN, 400 Kronars or 288 Dokoras).
   - At the clerk: hands in the contract for this town and is paid; PAY CLERK.
   - After a delivery with a teller near the clerk (the Crossing, Dirge, Leth,
-    Shard), banks the purse and keeps 20,000 copper for dues and fees (;bank).
+    Shard, Riverhaven), banks the purse and keeps 20,000 copper for dues and fees (;bank).
   - At the minister: ASK MINISTER FOR CONTRACT; dues owed are drawn at the
     nearest teller when the purse is short, and paid first. With
     `interprovince`, ASK BROKER FOR CONTRACT instead (the Crossing's Foreign Trade Office,
@@ -26,6 +26,9 @@ What it does
     them while the caravan waits at the dock). A contract between Zoluren and
     Ilithi (a broker's) goes by Leth Deriel and the Obsidian Pass
     gondola, the caravan walked after you and riding along.
+  - Riverhaven (the Crossing broker's) is led to by Dirge and walked to over
+    the Faldesu ferry; at Dirge ;bank tops the purse up to 500 Lirums for
+    the fare first. Back, the ferry and a lead to Dirge from the riverbank.
   - On a lead, runs the profile's `lead_training` script (perform: ;perform once
     here), ended on arrival; with none playing and fewer than 60 bunches in the
     feedbag, forages grass every 15 seconds (you follow through the roundtime).
@@ -35,7 +38,10 @@ When it stops
   - ;trade return once nothing is held, the caravan returned (RETURN CARAVAN;
     kept, said, while its storage box holds anything); ;stop trade at once,
     the caravan kept
-  - a contract for a town outside Zoluren and Ilithi: said, kept unpaid and unloaded
+  - at Riverhaven once delivered and paid, the caravan kept: no contract is
+    taken there (its minister's towns are beyond the routes)
+  - a contract for a town ;trade does not lead to (Therengia past Riverhaven):
+    said, kept unpaid and unloaded
   - a caravan RECALL cannot place, a rental refused, no feedbag or no grass
     in it, a lead refused or given up,
     a teller that refuses, an answer it does not know (said)
@@ -101,6 +107,18 @@ Kronars. That run stopped at the Segoltha's south bank: Alfren's Ferry
 wanted 77 Kronars and the purse held only Dokoras ("You haven't got
 enough kronars to pay for your trip."); bring() fetches a refused
 fare since.
+
+Riverhaven, driven by hand from the Crossing's broker the same day (47,840
+Lirums in 73 minutes, #555): LEAD TO DIRGE ended at Gateway Road, LEAD
+TO RIVERHAVEN from there (no walk to the caravansary the wiki names)
+at North Road, Ferry in six minutes; the Faldesu's captain wanted 152
+Lirums for character and goods and refused without them, and the caravan
+followed aboard, off at Riverhaven's dock, up the ramp and through the
+arch to Town Hall Road. The Lirums were changed at Dirge's teller, 67
+rooms from the ferry, so ;trade tops them up at Gateway Road, two rooms
+from it, before the lead on. The way back is Elanthipedia's (Trade
+Route): a lead to Dirge from North Road, Riverbank, one room south of
+the dock; not yet driven.
 """
 
 PREFIX = "trade"
@@ -122,8 +140,9 @@ BANK_ROOMS = 20
 KEEP = 20_000
 RECALL_TRIES = 6  # after a RENT, the assistant brings the caravan round
 RECALL_WAIT = 10
-FERRY = "ferry"  # a route step the walker rides: Alfren's Ferry
+FERRY = "ferry"  # a route step the walker rides: Alfren's Ferry, the Faldesu's
 GONDOLA = "gondola"  # and the Obsidian Pass gondola, Leth Deriel to Shard
+RIDDEN = {"ferry": FERRY, "faldesu": FERRY, "gondola": GONDOLA}  # the map's names
 # The scripts a lead can run (#558), with the arguments that keep them in
 # place: ;perform never walks home for a room that refuses a song, and
 # ends at mind-lock.
@@ -282,7 +301,12 @@ def bank_run(s, db, coin="Kronars"):
     if money.carried(s, coin, ask) <= KEEP:
         return
     s.echo(f"{PREFIX}: banking the pay, keeping {money.phrase(KEEP, coin)}")
-    if not s.run("bank", [f"keep={KEEP}", "back"]):
+    run_bank(s, [f"keep={KEEP}", "back"])
+
+
+def run_bank(s, args):
+    """;bank with `args`, waited for; said when it would not start."""
+    if not s.run("bank", args):
         s.echo(f"{PREFIX}: could not start ;bank — the purse stays as it is")
         return
     try:
@@ -291,6 +315,17 @@ def bank_run(s, db, coin="Kronars"):
     except BaseException:
         s.kill("bank")  # ;stop trade takes the ;bank with it
         raise
+
+
+def ferry_lirums(s):
+    """The Faldesu ferry's fare on hand before the lead to Riverhaven:
+    ;bank at Dirge's teller and changer, two rooms from Gateway Road,
+    tops the purse up to FALDESU_LIRUMS, KEEP kept. A fare still short is
+    the ferry's to refuse and bring() fetches it there."""
+    if money.carried(s, "Lirums", ask) >= trade.FALDESU_LIRUMS:
+        return
+    s.echo(f"{PREFIX}: Lirums for the Faldesu ferry first")
+    run_bank(s, [f"keep={KEEP}", f"lirums={trade.FALDESU_LIRUMS}", "back"])
 
 
 def settle(s, db, place, copper):
@@ -531,13 +566,14 @@ def lead(s, name, place, grass=None, training=()):
 
 def steps(route):
     """Each edge of a route as the game commands it sends — FERRY for
-    Alfren's Ferry and GONDOLA for the gondola, which the walker rides
-    (the bank or the cab's direction the argument) — or None when one is
-    a scripted edge a caravan cannot follow."""
+    Alfren's Ferry and the Faldesu's, GONDOLA for the gondola, which the
+    walker rides (the bank or the cab's direction the argument) — or
+    None when one is a scripted edge a caravan cannot follow."""
     out = []
     for _, command in route:
-        if command.startswith(";e") and ride_of(command) in (FERRY, GONDOLA):
-            out.append((ride_of(command), ride_args(command)))
+        ride = RIDDEN.get(ride_of(command)) if command.startswith(";e") else None
+        if ride:
+            out.append((ride, ride_args(command)))
             continue
         sent = translate_embedded(command) if command.startswith(";e") else [command]
         if not sent:
@@ -621,7 +657,10 @@ def bring(s, db, name, room):
 
 def leg(s, db, name, origin, destination, grass=None, training=()):
     """The caravan from `origin`'s outpost to `destination`'s: led, then
-    walked to the outpost when the lead stops short. Leth Deriel is
+    walked to the outpost when the lead stops short. Riverhaven is led
+    to by Dirge (LEAD TO RIVERHAVEN from Gateway Road ends at the north
+    road's ferry, the caravan walked over the Faldesu), and back led to
+    Dirge from the riverbank south of that ferry. Leth Deriel is
     across the Segoltha, so a leg to or from it goes by the Crossing and
     Alfren's Ferry (trade.lic's do_lead_from and do_lead_to): to it, led
     to the Crossing, walked over the ferry to the south bank, led to
@@ -631,6 +670,21 @@ def leg(s, db, name, origin, destination, grass=None, training=()):
     walked between them over the Obsidian Pass gondola."""
     if origin == destination:
         return True
+    if (origin in trade.THERENGIA) != (destination in trade.THERENGIA):
+        dirge = trade.VIA_DIRGE
+        if destination in trade.THERENGIA:
+            if not leg(s, db, name, origin, dirge, grass, training):
+                return False
+            ferry_lirums(s)
+            return lead(s, name, destination, grass, training) and bring(
+                s, db, name, trade.TOWNS[destination].outpost
+            )
+        return (
+            bring(s, db, name, trade.RIVERBANK)
+            and lead(s, name, dirge, grass, training)
+            and bring(s, db, name, trade.TOWNS[dirge].outpost)
+            and leg(s, db, name, dirge, destination, grass, training)
+        )
     if (origin in trade.ILITHI) != (destination in trade.ILITHI):
         out, into = ("Shard", trade.ACROSS)
         if destination in trade.ILITHI:
@@ -671,7 +725,7 @@ def main(s):
     training = trainers(s)
     place = nearest_town(s, db)
     if place is None:
-        s.echo(f"{PREFIX}: not at a Zoluren outpost ;trade knows — walk to one")
+        s.echo(f"{PREFIX}: not at an outpost ;trade knows — walk to one")
         return
     answer = ask(s, "recall caravan")
     name, _ = trade.caravan(answer)
@@ -705,6 +759,15 @@ def main(s):
             if loop.wants_stop(s):
                 s.echo(f"{PREFIX}: nothing held — done at {place}")
                 return_caravan(s, db, place, name)
+                return
+            if place in trade.THERENGIA:
+                # Its minister's towns are beyond the routes: a contract
+                # taken there would only leave its charge owed.
+                s.echo(
+                    f"{PREFIX}: done at {place} — ;trade leads no further in"
+                    " Therengia yet; the caravan waits (RETURN CARAVAN at the"
+                    " clerk hands it back)"
+                )
                 return
             contract = take(s, db, place, broker)
             if contract is None:

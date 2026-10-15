@@ -1,6 +1,6 @@
-"""Trader caravan contracts (;trade, #552): the Zoluren outposts, the
-contract's text, and the minister's, clerk's and driver's answers —
-;trade's model, Qt-free.
+"""Trader caravan contracts (;trade, #552): the outposts of Zoluren,
+Ilithi and Riverhaven, the contract's text, and the minister's, clerk's
+and driver's answers — ;trade's model, Qt-free.
 
 A leg: at the outpost's clerk the contract for this town is handed in
 and paid for, PAY CLERK settles the dues, ASK MINISTER FOR CONTRACT
@@ -38,8 +38,12 @@ TOWNS = {
     "Fayrin's Rest": Town(2840, 19278, 19278),
     "Steelclaw Clan": Town(2874, 19399, 19399),
     "Darkling Wood": Town(2702, 14636, 14636),
+    # Therengia: Riverhaven's outpost is Town Hall Road, the clerk down
+    # its alley; the rest of the province waits (#555).
+    "Riverhaven": Town(386, 7876, 13751),
 }
 ILITHI = ("Shard", "Fayrin's Rest", "Steelclaw Clan", "Darkling Wood")
+THERENGIA = ("Riverhaven",)
 
 # Leth Deriel is across the Segoltha: the caravan is walked from the
 # Crossing's outpost onto Alfren's Ferry and off at the south bank,
@@ -51,6 +55,19 @@ ILITHI = ("Shard", "Fayrin's Rest", "Steelclaw Clan", "Darkling Wood")
 ACROSS = "Leth Deriel"
 FERRY_SOUTH = 1904  # Southern Trade Route, Segoltha South Bank
 LEAD_NAMES = {"Leth Deriel": "leth", "Darkling Wood": "darkling"}  # trade.lic's
+
+# Riverhaven is across the Faldesu from Zoluren, driven by hand on
+# 2026-10-15 (#555): LEAD TO DIRGE ends at Gateway Road, LEAD TO
+# RIVERHAVEN from there at North Road, Ferry, and the caravan follows
+# aboard the ferry ("came through the ferry His Daring Exploit,
+# following you") and off at Riverhaven's dock; the captain wants
+# Lirums ("a transportation fee of 152 lirums" for the character and
+# 260 jars of eel) and refuses without them ("You haven't got enough
+# lirums to pay for your trip."). Back, a lead to Dirge starts one room
+# south of the north-road dock (Elanthipedia: Trade Route).
+VIA_DIRGE = "Dirge"
+RIVERBANK = 1384  # North Road, Riverbank
+FALDESU_LIRUMS = 500  # copper on hand for the ferry, a margin over 152
 
 _COIN = r"(\d+) (Kronars|Lirums|Dokoras)"
 
@@ -154,7 +171,8 @@ BOX_EMPTY = "there is nothing in there"
 # enough money. ... "Sorry, can't put it in your dues. Ya gotta pay up
 # front."" (Elanthipedia: Trader, 400 Kronars at any Zoluren outpost.)
 # Shard's clerk, 2026-10-15: "that's a 288 Dokoras fee for a rental".
-RENT_FEE = {"Kronars": 400, "Dokoras": 288}
+# Riverhaven's is assumed: 400 Kronars at the wiki's rate, as Shard's is.
+RENT_FEE = {"Kronars": 400, "Dokoras": 288, "Lirums": 320}
 RENTED = "get your transportation together"
 RENT_SHORT = "don't have enough money"
 RETURNED = ("free to go now", "retrieve your caravan")
@@ -274,8 +292,10 @@ def town(name):
 
 def coin(name):
     """The coin a town's minister charges and its clerk pays: Dokoras in
-    Ilithi, Kronars in Zoluren."""
-    return "Dokoras" if name in ILITHI else "Kronars"
+    Ilithi, Lirums in Therengia, Kronars in Zoluren."""
+    if name in ILITHI:
+        return "Dokoras"
+    return "Lirums" if name in THERENGIA else "Kronars"
 
 
 def lead_name(name):

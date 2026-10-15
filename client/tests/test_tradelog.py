@@ -81,7 +81,7 @@ def test_a_table_from_before_the_column_gets_it_filled_in(tmp_path):
             ("Leth Deriel", "Crossing"),
             ("Shard", "Fayrin's Rest"),
             ("Crossing", "Shard"),
-            ("Riverhaven", "Crossing"),
+            ("Therenborough", "Crossing"),
         ],
     )
     old.commit()
@@ -91,5 +91,5 @@ def test_a_table_from_before_the_column_gets_it_filled_in(tmp_path):
         ("Leth Deriel", "Zoluren"),
         ("Shard", "Ilithi"),
         ("Crossing", "Interprovince"),
-        ("Riverhaven", None),
+        ("Therenborough", None),
     ]
