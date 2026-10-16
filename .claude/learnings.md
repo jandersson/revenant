@@ -224,6 +224,12 @@ lessons the code and docs cannot carry themselves.
   it formed the plant (2026-10-04 01:5x and 23:01). Waiting too long
   loses it: "Your concentration slips for a moment, and your spell is
   lost." about 50 s after the INVOKE (2026-10-03; a phial use gone).
+- Casting by hand, send the PREPARE with `--wait-for "fully prepared
+  to cast"` and CAST after it. A loop polling `--state status` for
+  casttime 0 read the old 0 before the PREPARE's casttime arrived, the
+  CAST went out early, and "Your spell badly backfires." (2026-10-16,
+  Finesse). A backfire can leave nerve damage that makes later casts
+  harder (the operator): read HEALTH after one.
 
 - READ MY CONTRACT (a Trader's caravan contract) pushes its text to
   `<pushStream id="familiar">`, and `ask()` reads only the story and

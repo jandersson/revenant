@@ -33,18 +33,18 @@ The kiosk works in Kronars in every province.
 
 ## The money
 
-The kiosk stores value, not cost: what it pays ÷ (1 + markup). A Trader sells that value at an NPC buyer for about 1.4 to 1.6 times its worth: a bonus capped at 50%, plus a tenth of the circle while Finesse is up, give or take 10%, never more than 60% (Elanthipedia: Trader gem selling bonus). The appraiser's figure for one pouch is fixed: asking again gets the same number. The gem shop keeps the gems and hands back the empty pouch.
+The kiosk stores value, not cost: what it pays ÷ (1 + markup). TAP hands it out (RUB first for bundles); pouches sell at a gem shop, bundles at a tannery, each for the stored value times the Trader's bonus: capped at 50%, plus a tenth of the circle while Finesse is up, give or take 10%, never more than 60% (Elanthipedia: Trader gem selling bonus). Without Finesse a pouch fetched +41%; with Finesse a bundle fetched +60%, the cap. Cast Finesse before the first appraisal: the buyer's figure for an item is fixed, and asking again gets the same number. The gem shop keeps the gems and hands back the empty pouch; the tannery hands back the rope.
 
-| Markup | Seller gets | The owner, after resale |
-|---|---|---|
-| −10% | 0.9 × value | about +65% on what the kiosk paid |
-| 0% | 1.0 × value | about +50% |
-| +40% | 1.4 × value | about break-even to +10% |
-| +55% | 1.55 × value | about break-even with Finesse |
-| +80% | 1.8 × value | a loss of about 10–22% |
+| Markup | Seller gets | Owner's margin, resale at 1.5× (no Finesse) | at 1.6× (Finesse) |
+|---|---|---|---|
+| −10% | 0.9 × value | +67% | +78% |
+| 0% | 1.0 × value | +50% | +60% |
+| +40% | 1.4 × value | +7% | +14% |
+| +60% | 1.6 × value | −6% | break-even |
+| +80% | 1.8 × value | −17% | −11% |
 
 Sellers pick the highest markup in the room, so a kiosk above the others gets every sale and one below gets few.
 
 ## Training
 
-Sales to the kiosk teach the owner nothing. Selling what it bought does: one 72-platinum pouch sold at a gem shop took Trading from clear to 18/34 at rank 767. Casting the kiosk trains Utility.
+Sales to the kiosk teach the owner nothing. Selling what it bought does, and not in proportion to its worth: at rank 767 a 72-platinum pouch at the gem shop took Trading from clear to 18/34, a 25-platinum bundle at the tannery from 2 to 17/34. Casting the kiosk trains Utility, Finesse Augmentation.
