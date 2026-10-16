@@ -933,6 +933,19 @@ def test_the_ferry_is_a_step_the_walker_rides():
     assert haul.steps(route) == [["go pier"], (haul.FERRY, "leth")]
 
 
+def test_the_ain_ghazal_ferry_is_a_step_the_walker_rides():
+    # 2026-10-16 17:14 (#555): LEAD TO AIN GHAZAL ended at Hibarnhvidar's
+    # ferry dock, and bring() said "no plain walk from here".
+    ferry1 = (
+        ";e start_script('bescort', ['ferry1', 'hibarnhvidar']);"
+        "wait_while{running?('bescort')};"
+    )
+    assert haul.steps([(11027, ferry1), (11028, "north")]) == [
+        (haul.FERRY, "hibarnhvidar"),
+        ["north"],
+    ]
+
+
 def test_a_leg_to_leth_deriel_goes_by_the_crossing_and_the_ferry(script):
     # Captured by hand on 2026-10-15: led to the Crossing, walked onto
     # Alfren's Ferry with the caravan following aboard and off, then

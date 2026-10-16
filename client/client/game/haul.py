@@ -25,9 +25,14 @@ FOLLOW_SECONDS = 30  # a step's wait for the caravan to catch up
 # A regex, as waitfor matches: "...wait" unescaped took "city waits" in
 # the Road to Shard's description for it (2026-10-15).
 WAITED = r"^\.\.\.wait \d+ seconds?\."
-FERRY = "ferry"  # a route step the walker rides: Alfren's Ferry, the Faldesu's
-GONDOLA = "gondola"  # and the Obsidian Pass gondola, Leth Deriel to Shard
-RIDDEN = {"ferry": FERRY, "faldesu": FERRY, "gondola": GONDOLA}  # the map's names
+FERRY = "ferry"  # a route step the walker rides: Alfren's Ferry, the Faldesu's,
+GONDOLA = "gondola"  # the Hibarnhvidar-Ain Ghazal ferry, and the Obsidian Pass gondola
+RIDDEN = {  # the map's names
+    "ferry": FERRY,
+    "faldesu": FERRY,
+    "ferry1": FERRY,  # #555: a lead to Ain Ghazal ends at Hibarnhvidar's dock
+    "gondola": GONDOLA,
+}
 
 
 def steps(route):
