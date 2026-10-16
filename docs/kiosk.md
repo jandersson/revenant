@@ -64,4 +64,16 @@ Sellers pick the highest markup in the room, so a kiosk above the others gets ev
 
 ## Training
 
-Sales to the kiosk teach the owner nothing. Selling what it bought does, and not in proportion to its worth: at rank 767 a 72-platinum pouch at the gem shop took Trading from clear to 18/34, a 25-platinum bundle at the tannery from 2 to 17/34. Casting the kiosk trains Utility, Finesse Augmentation.
+Sales to the kiosk teach the owner nothing. Reselling what it bought does, at the buyer's quote (ASK ... TO APPRAISE) rather than the SELL, and not in proportion to its worth: at rank 767 a 72-platinum pouch at the gem shop took Trading from clear to 18/34, a 25-platinum bundle at the tannery from 2 to 17/34. Casting the kiosk trains Utility, Finesse Augmentation.
+
+## The dataset
+
+`uv run python tools/kiosk_backfill.py` reads the game logs into three history.db tables; a rerun adds only what is new.
+
+| Table | One row per |
+|---|---|
+| `kiosk_sales` | sale seen at any kiosk in the room: kiosk, owner when known, seller, pouch or bundle |
+| `kiosk_readings` | STUDY: markup, and for your own kiosk the reserve and what it stores |
+| `kiosk_resales` | TAP and its sale: stored value, quote, pay, Finesse and its mana, Trading before and after |
+
+A sale's amount is not in the log: the reserve's fall between two readings is what the sellers were paid.

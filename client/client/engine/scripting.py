@@ -541,6 +541,7 @@ RELOADABLE_MODULES = (
     "client.game.commodities",
     "client.game.commoditylog",  # history.db's boards and trades; lootlog at call time
     "client.game.kiosk",  # ;kiosk's model; binds items and money: after them
+    "client.game.kiosklog",  # history.db's kiosk dataset; binds kiosk: after it
 )
 
 # The session's manager also reloads any imported module of this package

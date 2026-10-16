@@ -34,6 +34,8 @@ uv run python tools/ground_exits.py 8308  # the bestiary's grounds with a room t
                                      # walks no way out of (--premium, --zone)
 uv run python tools/task_backfill.py  # history.db's task offers read back out of the
                                      # game logs (--dry-run); a rerun adds nothing
+uv run python tools/kiosk_backfill.py  # the kiosk dataset (sales, STUDY readings,
+                                     # resales) from the game logs (--dry-run)
 ```
 
 CI runs ruff and pytest on 3.10–3.12 on ubuntu plus 3.12 on macOS. Run
@@ -121,7 +123,8 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   broker to clerk to LEAD TO; ;trade circuit a contract from every town at once) +
   `tradelog.py` (every contract and its pay in history.db; ;trade history);
   `kiosk.py` (;kiosk: a Trader's PRIA kiosk recast, priced, funded by
-  POKE, its purchases TAPped and resold with Finesse up);
+  POKE, its purchases TAPped and resold with Finesse up) + `kiosklog.py`
+  (the kiosk dataset in history.db, read out of the game logs);
   `commodities.py` (;commodities: the three pits' boards, ORDER and SELL,
   the plan sized by the wiki's stock bands) + `commoditylog.py` (every
   board read and trade in history.db); `haul.py` (a caravan or pack animal
