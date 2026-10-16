@@ -1,6 +1,6 @@
 # The Trader's kiosk
 
-A Trader's Prosperity in Absentia spell grows a crystal kiosk that buys tied gem pouches and bundles from other players while its owner is elsewhere, as long as the owner stays logged in. It pays them the item's value plus the owner's markup; the owner takes the purchases out later and sells them to a gem shop or a tannery, where a Trader's bonus pays more than the value.
+A Trader's Prosperity in Absentia (PRIA) spell grows a crystal kiosk that buys tied gem pouches and bundles from other players while its owner is elsewhere, as long as the owner stays logged in. It pays them the item's value plus the owner's markup; the owner takes the purchases out later and sells them to a gem shop or a tannery, where a Trader's bonus pays more than the value.
 
 ## Casting
 
