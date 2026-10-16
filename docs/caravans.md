@@ -27,6 +27,6 @@ A leg's median time: Ilithi 5 minutes, Zoluren 6½, Forfedhdar 12, another provi
 
 - A circuit stays in one province: at each stop every crate for that town is handed in and the town's own contract taken, then the caravan leads to the nearest town with business. It earns more per hour than one contract at a time by delivering more often: about 13 crates an hour against 8, crates for several towns riding every leg.
 - Interprovince contracts pay the most per hour of leg, but the legs are long and the wait for the next contract is not counted above.
-- Forfedhdar's first circuit was slower: long legs, Boar Clan reached by way of Hibarnhvidar and Ain Ghazal across a ferry.
+- Forfedhdar's circuit was slower: long legs, Boar Clan reached by way of Hibarnhvidar and Ain Ghazal across a ferry.
 
 [trade.md](trade.md) is `;trade`, the script that runs all of this.
