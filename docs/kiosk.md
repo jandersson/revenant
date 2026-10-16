@@ -64,7 +64,14 @@ The kiosk stores value, not cost: what it pays ÷ (1 + markup). TAP hands it out
 | +60% | 1.6 × value | −6% | break-even |
 | +80% | 1.8 × value | −17% | −11% |
 
-Sellers pick the highest markup in the room, so a kiosk above the others gets every sale and one below gets few.
+## Which kiosk a seller picks
+
+Most sellers run dr-scripts' `sell-loot`, which STUDYs every kiosk and sells to the highest markup; on a tie, to the kiosk listed first in the room. When that one runs out of coin it moves to the next.
+
+- A newly grown kiosk is listed first; a refreshed one keeps its place.
+- So a Trader who keeps his kiosk up and funded, growing it again each time it ends, always beats the kiosks at the same markup by position alone.
+- A kiosk at the same markup but listed behind gets only what the first cannot pay for: while the first is out of coin, its owner is offline, or in the seconds before it is grown again.
+- One step above the rest takes every sale while its reserve lasts. At +60% that is break-even with Finesse (the 1.6× cap); each 5% below 60 is about 3% margin, but only on the sales it wins.
 
 ## Training
 
