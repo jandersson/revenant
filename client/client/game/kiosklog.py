@@ -10,7 +10,8 @@ each STUDY, and each ASK MY TESSERA ABOUT REPORT (from any room): the kiosk, its
 markup, and for the owner's own the reserve and the stored pouches and
 bundles in copper — the reserve's fall between readings is what the
 sellers were paid. `kiosk_resales`: each TAP and its sale: the kind, the
-stored value tapped, the buyer's quote and pay, whether Finesse was up
+stored value tapped (unknown when the kiosk bought that kind after the
+last reading), the buyer's quote and pay, whether Finesse was up
 and the mana of its last PREPARE (0 a bare one, the minimum), and
 Trading's mindstate before and after. The money is copper Kronars.
 
@@ -124,6 +125,7 @@ class _Scan:
         self.mine = {"look": None}  # the own kiosk, its look learned late
         self.doubled = set()  # looks the room lists more than once
         self.reading = None  # the last own STUDY's reading
+        self.sold_since = set()  # (look, kind) sold since that reading
         self.study = None  # [lines] of a STUDY being read
         self.resale = None
         self.out = []
@@ -204,12 +206,13 @@ class _Scan:
                 seller=sale.group(2),
                 kind=sale.group(3).lower(),
             )
+            self.sold_since.add((look, sale.group(3).lower()))
             return
         if tap := _TAP.search(text):
             look, kind, owner = _look(tap.group(1)), tap.group(2).lower(), tap.group(3)
             self.own(look, owner)
             if owner.lower() == "you":
-                self.open_resale(kind)
+                self.open_resale(kind, look)
             return
         if cast := _CAST.search(text):
             if look := kiosk.cast_name(text):
@@ -244,6 +247,7 @@ class _Scan:
             return
         if reading["owner"]:
             self.reading = reading
+            self.sold_since = set()
             look, owner = self.mine, self.me  # the look resolved at the end
         else:
             look = _look(_OTHERS.search(text).group(1))
@@ -265,9 +269,11 @@ class _Scan:
             bundle=reading.get("bundle"),
         )
 
-    def open_resale(self, kind):
+    def open_resale(self, kind, look):
         self.close_resale()
         stored = (self.reading or {}).get(kind)
+        if (look, kind) in self.sold_since:
+            stored = None  # the TAP names no amount: more was bought since
         self.resale = {
             "tapped_at": _iso(self.now),
             "character_name": self.me,

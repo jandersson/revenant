@@ -197,6 +197,16 @@ def test_a_resale_keeps_the_stored_value_the_pay_and_the_finesse_it_sold_under()
     assert (resale["trading_before"], resale["trading_after"]) == (0, 19)
 
 
+def test_a_sale_between_the_reading_and_the_tap_leaves_the_stored_value_unknown():
+    # Elow's bundle came in while Finesse was being DISCERNed (2026-10-17).
+    tap = RESALE.index(TAP)
+    bought = sale("heptagonally symmetrical crystalline kiosk", "Sable", "bundle")
+    lines = [prompt(1000), *STUDY, *RESALE[:tap], bought, *RESALE[tap:]]
+    (resale,) = rows(scan(lines, mana=72), "kiosk_resales")
+    assert resale["stored"] is None
+    assert resale["paid"] == 347570
+
+
 def test_a_resale_without_finesse_in_the_spells_window_says_so():
     lines = [line for line in RESALE if "percWindow" not in line]
     (resale,) = rows(scan([prompt(1000), *STUDY, *lines], mana=72), "kiosk_resales")
