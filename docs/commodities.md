@@ -1,6 +1,6 @@
 # Commodities
 
-`;commodities` reads a Trader's commodity pits and carries a good from the pit where it is cheap to one where it is dear. Every board it reads is logged to history.db, so prices and stock can be watched over days before money goes in.
+`;commodities` reads a Trader's commodity pits and carries a good from the pit where it is cheap to one where it is dear. Every board it reads is logged to history.db, so prices and stock can be watched over days before money goes in. What the trades earned, beside caravan contracts: [caravans.md](caravans.md#commodities-for-comparison).
 
 ```
 ;commodities          walk to each pit, the nearest first, and read its board

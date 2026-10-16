@@ -29,4 +29,11 @@ A leg's median time: Ilithi 5 minutes, Zoluren 6½, Forfedhdar 12, another provi
 - Interprovince contracts pay the most per hour of leg, but the legs are long and the wait for the next contract is not counted above.
 - Forfedhdar's circuit was slower: long legs, Boar Clan reached by way of Hibarnhvidar and Ain Ghazal across a ferry.
 
-[trade.md](trade.md) is `;trade`, the script that runs all of this.
+## Commodities, for comparison
+
+A Trader can also buy a good at one of the three commodity pits (the Crossing, Arthe Dale, Leth Deriel) and sell it at another: ORDER at the pit clerk for the board price plus a guild cut of 1.5 to 3%, carried on a lent pack animal (drafted up to a two-auroch caravan for a large load), SELL at the buyer's shipment clerk for its board price.
+
+- One evening's boards, 34 goods at each pit: a good often costs a third more at another pit (median spread 34%), but a pit reading Surplus! buys none, and the widest spreads nearly all ended in one. The trades worth carrying were the few with a buyer short of Surplus, 4,000 to 9,000 Kronars clear each.
+- The one trade made: 556 bins of charcoal, Arthe Dale to the Crossing, 20,326 paid and 27,244 back, 6,918 clear in 4 minutes. How often the boards offer one like it was not measured.
+
+[trade.md](trade.md) is `;trade`, the script that runs the contracts; [commodities.md](commodities.md) is `;commodities`.
