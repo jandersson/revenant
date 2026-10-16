@@ -292,3 +292,112 @@ def test_a_slot_naming_two_spells_casts_them_in_turn_each_on_its_ramp(monkeypatc
     assert casting.targeted_due(handle, profile, state, "targeted")
     state.slots_off.add("Partial Displacement")  # one refused: the other goes on
     assert casting.slot_spell(profile, state, "targeted") == "Dinazen Olkar"
+
+
+# Captured 2026-10-16 (;cast spell=finesse once, a circle-90 Trader, #570):
+# the PREPARE at 78, 76 and 74 warned of strain and each CAST collapsed,
+# a cast gap apiece; 72 prepared clean and took.
+FINESSE_DISCERN = (
+    "It requires the Augmentation skill to cast effectively.\n"
+    "The spell requires at minimum 5 mana streams and you think you can "
+    "reinforce it with 75 more, for a total of 80 streams.\n"
+)
+FINESSE_STRAIN = (
+    "You feel intense strain as you try to manipulate the mana streams to form "
+    "this pattern, and you are not certain that you will have enough mental "
+    "stamina to complete it.\n"
+)
+FINESSE_PROFILE = {
+    "buffs": ["finesse"],
+    "train_casting": ["Augmentation"],
+    "cast_gap": 0,
+}
+
+
+def _straining_above(top):
+    """An ask whose PREPARE warns of strain above `top` mana."""
+
+    def strained(s, command):
+        s.sent.append(command)
+        if command.startswith("prepare"):
+            word = command.split()[-1]
+            mana = int(word) if word.isdigit() else 0
+            return FINESSE_STRAIN if mana > top else "You begin chanting.\n"
+        if command == "discern finesse":
+            return FINESSE_DISCERN
+        return ANSWERS.get(command, "")
+
+    return strained
+
+
+def test_a_strained_prepare_is_released_and_prepared_lower_at_once(monkeypatch):
+    monkeypatch.setattr(casting, "PREPARE_SECONDS", 0)
+    handle = Handle()
+    state = casting.CastState()
+    strained = _straining_above(72)
+    casting.discern_slots(handle, FINESSE_PROFILE, state, strained, "cast", _report)
+    handle.sent.clear()
+    casting.cast_buffs(
+        handle, FINESSE_PROFILE, state, strained, "cast", _report, upkeep=False
+    )
+    assert handle.sent == [
+        "prepare finesse 78",
+        "release",
+        "prepare finesse 76",
+        "release",
+        "prepare finesse 74",
+        "release",
+        "prepare finesse 72",
+        "cast",
+    ]
+    assert "cast: finesse at 78 mana strains — released, preparing at 76" in (
+        handle.echoed
+    )
+    # Capped where it took: the next training cast goes at 72 straight away.
+    assert state.buff_cap["finesse"] == state.buff_mana["finesse"] == 72
+    handle.sent.clear()
+    casting.cast_buffs(
+        handle, FINESSE_PROFILE, state, strained, "cast", _report, upkeep=False
+    )
+    assert handle.sent == ["prepare finesse 72", "cast"]
+
+
+def test_a_strained_prepare_keeps_the_anklets_charge_for_the_lower_one(monkeypatch):
+    monkeypatch.setattr(casting, "PREPARE_SECONDS", 0)
+    handle = Handle()
+    state = casting.CastState()
+    profile = dict(FINESSE_PROFILE, cambrinth="anklet", cambrinth_mana=12)
+    strained = _straining_above(64)  # prepared mana: 78 streams strain, 76 not
+    casting.discern_slots(handle, profile, state, strained, "cast", _report)
+    handle.sent.clear()
+    casting.cast_buffs(handle, profile, state, strained, "cast", _report, upkeep=False)
+    # One charge: a second CHARGE of the full piece would waste its mana.
+    assert handle.sent == [
+        "get my anklet",
+        "charge my anklet 12",
+        "prepare finesse 66",
+        "release",
+        "stow my anklet",
+        "get my anklet",
+        "prepare finesse 64",
+        "invoke my anklet",
+        "cast",
+        "stow my anklet",
+    ]
+    assert state.buff_cap["finesse"] == 76
+
+
+def test_a_strained_prepare_at_the_minimum_is_still_cast(monkeypatch):
+    # Nowhere lower to go: the strained minimum is cast and judged by its
+    # CAST, as before.
+    monkeypatch.setattr(casting, "PREPARE_SECONDS", 0)
+    handle = Handle()
+    state = casting.CastState()
+    state.buff_mana["finesse"] = 0
+    strained = _straining_above(-1)
+    casting.discern_slots(handle, FINESSE_PROFILE, state, strained, "cast", _report)
+    handle.sent.clear()
+    casting.cast_buffs(
+        handle, FINESSE_PROFILE, state, strained, "cast", _report, upkeep=False
+    )
+    assert handle.sent == ["prepare finesse", "cast"]

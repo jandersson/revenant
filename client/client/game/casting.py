@@ -12,8 +12,10 @@ prepared again by the abbreviation ;sheet recorded off SPELLS, "hoj",
 2026-09-26, #320, and by the abbreviation first for the rest of the
 run) and, for the magic skills the profile names in `train_casting`,
 recasts buffs between actions while mana holds, starting one step
-under DISCERN's estimate and feeding more each time up to it until the
-game warns of strain or a cast fails, then holding one step under — at
+under DISCERN's estimate and feeding more each time up to it until a
+cast fails or a PREPARE warns of strain, then holding one step under; a
+strained PREPARE is released uncast and prepared a step lower in the
+same turn, since every strained one collapsed at its CAST (#570) — at
 most one training cast per the profile's `cast_gap`
 seconds (60 by default: at 20 the first badger fight was seven swings
 to the badger's 42 in four minutes, a cambrinth cycle being eight
@@ -1460,7 +1462,9 @@ def cast_buffs(
     targeted cast took this turn passes False), the buff training_pick
     names is cast again for training on its own ramp, which climbs a
     step per cast until the strain warning or a collapsed cast and then
-    holds one step under. `upkeep` False casts nothing but that (;cast
+    holds one step under; a strained PREPARE is released uncast and
+    prepared a step lower at once, the cambrinth's charge kept for it
+    (#570). `upkeep` False casts nothing but that (;cast
     standing still, #374). The caller's `filler` (a swing) runs while
     each pattern forms (#203). True when any cast went out."""
     if report is None:
@@ -1494,26 +1498,43 @@ def cast_buffs(
         streams = (
             state.buff_mana.get(spell, 0) if training else upkeep_mana(profile, spell)
         )
-        mana = streams
-        invoke = None
-        if (
-            training
-            and cambrinth_fits(profile, state, spell, streams)
-            and charge_cambrinth(s, profile, state, ask, prefix, report)
-        ):
-            invoke = profile["cambrinth"]
-            mana = max(streams - int(profile.get("cambrinth_mana") or 1), 0)
-        result = cast_once(
-            s,
-            spell,
-            mana,
-            state,
-            ask,
-            report,
-            invoke=invoke,
-            filler=filler,
-            put_back=put_back_command(profile) if invoke else None,
-        )
+        charged = False
+        while True:
+            mana = streams
+            invoke = None
+            if training and cambrinth_fits(profile, state, spell, streams):
+                if charged:
+                    # Still charged: the strained PREPARE's release stowed it.
+                    ask(s, fetch_command(profile))
+                    invoke = profile["cambrinth"]
+                elif charge_cambrinth(s, profile, state, ask, prefix, report):
+                    charged = True
+                    invoke = profile["cambrinth"]
+            if invoke:
+                mana = max(streams - int(profile.get("cambrinth_mana") or 1), 0)
+            result = cast_once(
+                s,
+                spell,
+                mana,
+                state,
+                ask,
+                report,
+                invoke=invoke,
+                filler=filler,
+                put_back=put_back_command(profile) if invoke else None,
+                release_strain=training and streams > 0,
+            )
+            if result != "strain":
+                break
+            # Every strained PREPARE collapsed at its CAST, a cast gap each
+            # (#570): released uncast, capped and prepared a step lower now.
+            floor = state.buff_floor.get(spell, 0)
+            lower = streams - MANA_STEP if streams - MANA_STEP > floor else 0
+            s.echo(
+                f"{prefix}: {spell} at {streams} mana strains — released, "
+                f"preparing at {lower or 'minimum'}"
+            )
+            streams = state.buff_mana[spell] = state.buff_cap[spell] = lower
         if result == "blocked":
             s.echo(
                 f"{prefix}: magic will not form here — the buffs wait until elsewhere"

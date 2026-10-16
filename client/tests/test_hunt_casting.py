@@ -206,7 +206,7 @@ def test_the_strain_warning_caps_the_mana_one_step_under(travel):
     arena = Arena(
         {
             "attack": [(KILL, lambda a: None), (KILL, lambda a: None), (KILL, kill)],
-            "prepare": [PREPARED, STRAINED, PREPARED, PREPARED],
+            "prepare": [PREPARED, STRAINED, PREPARED, PREPARED, PREPARED],
             "cast": [CAST] * 4,
             "skin": [SKINNED] * 3,
             "loot": [NOTHING] * 3,
@@ -215,13 +215,19 @@ def test_the_strain_warning_caps_the_mana_one_step_under(travel):
     )
     arena.state.vitals["mana"] = 100
     _run(arena, profile=TRAINING | {"max_kills": 3}, travel_first=False)
+    # The strained 2 is released uncast and the minimum prepared at once
+    # (#570), then held there.
     assert prepares(arena) == [
         "prepare heroic strength",
         "prepare heroic strength 2",
         "prepare heroic strength",
         "prepare heroic strength",
+        "prepare heroic strength",
     ]
-    assert any("was too much (strained)" in text for text in arena.echoed)
+    at = arena.sent.index("prepare heroic strength 2")
+    assert arena.sent[at + 1 : at + 3] == ["release", "prepare heroic strength"]
+    assert arena.sent.count("cast") == 4
+    assert any("strains — released, preparing at minimum" in t for t in arena.echoed)
 
 
 def test_a_backfire_at_minimum_mana_ends_the_training_casts(travel):
