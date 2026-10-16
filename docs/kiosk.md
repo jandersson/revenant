@@ -30,6 +30,7 @@ The kiosk works in Kronars in every province.
 
 ## Selling to a kiosk
 
+- A pouch's value is its APPRAISE total ("worth a total of about 512921 Kronars"): a kiosk at 55% quoted 795,027, that times 1.55 to the copper.
 - Hold the tied pouch or bundle and GIVE KIOSK (SECOND KIOSK, ...). The first GIVE quotes, "...will purchase the pouch for ... based on the markup of 80%."; the same GIVE within 10 seconds sells. Naming the item (GIVE POUCH TO KIOSK) is refused.
 - STUDY any kiosk to see its markup; a Trader also sees its owner. No one but the owner sees its reserve, but the first GIVE's quote is the lesser of the price and the reserve, so an item worth more reads it.
 - A kiosk short of coin buys part of the item: it pays its whole reserve and hands the item back, still tied, worth exactly the part it did not pay for. Under 1 gold left, it refuses.

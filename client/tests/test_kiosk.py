@@ -666,6 +666,21 @@ def test_a_rival_read_lately_is_not_studied_again():
     assert room.echoed == ["kiosk: Sable's kiosk at 55%"]
 
 
+def test_two_rivals_of_one_look_are_each_studied():
+    # Two euhedral kiosks at Grisgonda's, 2026-10-17: the fourth was skipped.
+    room = Room(
+        mine=ours("fibrous crystalline kiosk"),
+        after=["euhedral crystalline kiosk", "euhedral crystalline kiosk"],
+        spells={kiosk.SPELL: 30},
+    )
+    run(room)
+    assert sent(room, "study") == [
+        "study kiosk",
+        "study second kiosk",
+        "study third kiosk",
+    ]
+
+
 def test_a_markup_above_the_target_is_pushed_down():
     room = Room(mine=ours(markup=80), spells={kiosk.SPELL: 30})
     run(room, "markup=60")

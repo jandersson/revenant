@@ -169,22 +169,32 @@ def grow(s, st, standing):
 def find(s, st):
     """STUDY the room's kiosks, the one last known first, until one answers
     to its owner: that reading, or None. The target and name are kept."""
-    entries = kiosk.listing(getattr(s.state, "room_objs", ""))
+    entries = kiosks_here(s)
     entries.sort(key=lambda entry: (entry[1] != st.name, entry[0] != st.target))
-    for target, name in entries:
+    for target, name, key in entries:
         reading = kiosk.read_study(ask(s, f"study {target}"))
         if reading and reading["owner"]:
             st.target, st.name = target, name
             return reading
         if reading:
-            note(s, st, name, reading)
+            note(s, st, key, name, reading)
     return None
 
 
-def note(s, st, name, reading):
+def kiosks_here(s):
+    """[(target, name, key)] for each kiosk the room lists, the key its
+    name and its place among kiosks of that look: two euhedral are two."""
+    seen, out = {}, []
+    for target, name in kiosk.listing(getattr(s.state, "room_objs", "")):
+        seen[name] = seen.get(name, 0) + 1
+        out.append((target, name, f"{name} #{seen[name]}"))
+    return out
+
+
+def note(s, st, key, name, reading):
     """Another's kiosk read: kept, its markup said when it is new or moved."""
-    seen = st.market.get(name)
-    st.market[name] = {"markup": reading["markup"], "at": probe.clock()}
+    seen = st.market.get(key)
+    st.market[key] = {"markup": reading["markup"], "at": probe.clock()}
     if not seen or seen["markup"] != reading["markup"]:
         who = f"{reading['trader']}'s kiosk" if reading.get("trader") else f"the {name}"
         s.echo(f"kiosk: {who} at {reading['markup']}%")
@@ -194,15 +204,15 @@ def market(s, st):
     """STUDY each other kiosk here not read for MARKET_MINUTES, its markup
     said by note() when it moves. The price stays markup=: a markup says
     nothing of the coin behind it (ours sold out at 80% in 26 minutes)."""
-    for target, name in kiosk.listing(getattr(s.state, "room_objs", "")):
-        seen = st.market.get(name)
+    for target, name, key in kiosks_here(s):
+        seen = st.market.get(key)
         if target == st.target or (
             seen and probe.clock() - seen["at"] < MARKET_MINUTES * 60
         ):
             continue
         reading = kiosk.read_study(ask(s, f"study {target}"))
         if reading and not reading["owner"]:
-            note(s, st, name, reading)
+            note(s, st, key, name, reading)
 
 
 def set_markup(s, st, markup, target):
