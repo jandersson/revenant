@@ -1374,24 +1374,30 @@ def ride_segoltha(s, mode=""):
     pins a swimmer against a bank with one or two ways out, and WEST
     frees them; otherwise the stroke goes the way of travel, and north,
     after sixteen strokes, EAST onto the north bank. "landed" on a bank,
-    "stuck" when the strokes run out."""
+    however it was reached (a stroke or the current's drag), "stuck" when
+    the strokes run out."""
     heading = "north" if mode == "north" else "south"
+    landings = (
+        {SEGOLTHA_UIDS[15888], SEGOLTHA_UIDS[19457]}
+        if heading == "north"
+        else {SEGOLTHA_UIDS[19373]}
+    )
     strokes = 0
     for _ in range(SWIM_STROKES * 2):
         ways = open_ways(s)
         here = getattr(s.state, "room_uid", None)
+        if here in landings:
+            # bescort checks only after its EAST: a swimmer the current
+            # dragged onto 15888 (two ways out) was sent WEST, back in.
+            return "landed"
         if len(ways) in (1, 2):
             engaged_move(s, "west")
             strokes -= 1
         elif heading == "north" and strokes == 16:
             engaged_move(s, "east")
-            if getattr(s.state, "room_uid", None) == SEGOLTHA_UIDS[15888]:
-                return "landed"
         elif heading in ways:
             engaged_move(s, heading)
         elif not ways:
-            if here == SEGOLTHA_UIDS[19373 if heading == "south" else 19457]:
-                return "landed"
             if not engaged_move(s, heading):
                 engaged_move(s, "west")
                 strokes -= 1

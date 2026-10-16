@@ -3373,6 +3373,37 @@ def test_the_segoltha_is_swum_north_from_the_wreck_to_the_bank():
     assert db.path(19373, {922}, ranks={"Athletics": 1201}) is None
 
 
+def test_a_swimmer_the_current_drags_onto_the_north_bank_has_landed():
+    # "The current drags you east." onto 15888, two ways out: the
+    # pinned-swimmer WEST sent the character back into the river, and
+    # the drag brought them back, until ;go2 was stopped.
+    db = MapDB(
+        [
+            {
+                "id": 19373,
+                "uid": [241538],
+                "title": ["[Fisherman's Trail, Near the Wreck]"],
+                "wayto": {"15888": SEGOLTHA_NORTH},
+            },
+            {
+                "id": 15888,
+                "uid": [241522],
+                "title": ["[Segoltha River, North Bank]"],
+                "wayto": {},
+            },
+        ]
+    )
+    strokes = {
+        (241538, "north"): (8001, ["n", "e", "w"]),
+        (8001, "north"): (241522, ["e", "w"]),
+        (241522, "west"): (8001, ["n", "e", "w"]),
+        (241522, "look"): (241522, ["e", "w"]),
+    }
+    handle = RiverHandle(241538, ["n", "e", "w"], strokes, athletics=1201)
+    assert walker.walk(handle, db, [15888]) is True
+    assert puts_of(handle) == ["north", "north", "look"]
+
+
 class WaitOnceRiver(RiverHandle):
     """The river, but the first stroke north from `wait_at` lands inside
     the last one's roundtime: "...wait 1 seconds."."""
