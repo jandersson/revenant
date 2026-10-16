@@ -43,12 +43,13 @@ The kiosk works in Kronars in every province.
 - The markup PULLed or PUSHed to `markup=` (55).
 - The reserve topped up to `reserve=` (100 platinum) through `;bank keep=` and POKE once it falls under `floor=` (50).
 - Pouches and bundles TAPped once the kiosk holds `tap=` (20 platinum) of them, and sold with Finesse up; never while Trading is mind-locked.
+- Finesse at the most mana it takes: DISCERN's estimate the first time, 3% lower after each strain warning, and the level that took is kept for the next cast.
 
 `;kiosk status` STUDYs it where you stand; `;kiosk return` ends the run and leaves the kiosk up. The one caveat: POKE puts in every Kronar you carry, so the top-up only ever runs after `;bank`.
 
 ## The money
 
-The kiosk stores value, not cost: what it pays ÷ (1 + markup). TAP hands it out (RUB first for bundles); pouches sell at a gem shop, bundles at a tannery, each for the stored value times the Trader's bonus: capped at 50%, plus a tenth of the circle while Finesse is up, give or take 10%, never more than 60% (Elanthipedia: Trader gem selling bonus). Without Finesse a pouch fetched +41%; with Finesse a bundle fetched +60%, the cap. Cast Finesse before the first appraisal: the buyer's figure for an item is fixed, and asking again gets the same number. The gem shop keeps the gems and hands back the empty pouch; the tannery hands back the rope.
+The kiosk stores value, not cost: what it pays ÷ (1 + markup). TAP hands it out (RUB first for bundles); pouches sell at a gem shop, bundles at a tannery, each for the stored value times the Trader's bonus: capped at 50%, plus a tenth of the circle while Finesse is up, give or take 10%, never more than 60% (Elanthipedia: Trader gem selling bonus). Without Finesse a pouch fetched +41%; with Finesse at 72 mana a bundle fetched +60%, the cap, and at the minimum +49%: the bonus follows Finesse's mana. Cast Finesse before the first appraisal: the buyer's figure for an item is fixed, and asking again gets the same number. The gem shop keeps the gems and hands back the empty pouch; the tannery hands back the rope.
 
 | Markup | Seller gets | Owner's margin, resale at 1.5× (no Finesse) | at 1.6× (Finesse) |
 |---|---|---|---|

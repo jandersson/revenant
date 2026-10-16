@@ -38,6 +38,13 @@ until captured. Callers pass their own ask() (client/game/probe.py
 with their collection windows) and a report(what, answer) for an
 answer outside the tables.
 
+held_cast() casts a buff for its effect at the most mana it holds, a
+spell's power being its mana (#573): DISCERN's estimate the first time,
+HELD_STEP lower at once after a strain warning (released uncast) or a
+failed CAST, and the mana that took kept beside the DISCERN answer as
+the character's measure, since room mana or nerve damage can hold a
+caster under DISCERN's figure.
+
 Cambrinth rides the training cast when the profile names a piece
 (`cambrinth`, a held noun such as "flake", and `cambrinth_mana`, the
 mana per charge — the piece's capacity): GET it, CHARGE it (the charge
@@ -294,6 +301,10 @@ DISCERN_OUTCOMES = (
 # DISCERN costs 7-13 seconds of roundtime and its estimate moves only
 # with the ranks: an "ok" answer is served for a day (#569).
 DISCERN_TTL = 24 * 3600
+# A held cast (#573) steps down this share of its mana on strain or a
+# failed CAST: Finesse strained at 78, 76 and 74 and took at 72 (#570).
+HELD_STEP = 0.03
+HELD_TRIES = 8
 wall_clock = time.time  # tests replace it
 # TARGET <prey> after PREPARE for a targeted-magic spell (#203): the
 # wiki's wordings until captured; a missing target is guessed from the
@@ -821,6 +832,7 @@ def cast_once(
     targeted=False,
     put_back=None,
     aimed=False,
+    release_strain=False,
 ):
     """PREPARE (with a mana amount when given), TARGET the prey when the
     spell is targeted magic (`targeted`), run the caller's `filler` (a
@@ -836,8 +848,9 @@ def cast_once(
     another spell's and TARGET refused it — released, #252),
     "collapsed" (the cast failed), "stunned" (a CAST answered "You are
     still stunned." STUN_CASTS times, the stun waited out between them:
-    nothing went out, the pattern let go, #498), "strained" (cast, but
-    the mana asked was too much) or "ok"."""
+    nothing went out, the pattern let go, #498), "strain" (the PREPARE
+    warned of strain and `release_strain` let it go uncast, #570),
+    "strained" (cast, but the mana asked was too much) or "ok"."""
     # A spell that prepared by its abbreviation earlier in the run is
     # prepared by it at once: the name's refusal cost a command every
     # cast (the operator, 2026-09-26).
@@ -877,6 +890,12 @@ def cast_once(
         if invoke:
             ask(s, put_back or f"stow my {invoke}")
         return "refused"
+    if outcome == "strain" and release_strain:
+        # Every strained PREPARE of Finesse collapsed at its CAST (#570).
+        ask(s, "release")
+        if invoke:
+            ask(s, put_back or f"stow my {invoke}")
+        return "strain"
     started = clock()
     ready = "fully prepared"
     if targeted:
@@ -1106,11 +1125,61 @@ def _cached_discern(name, key):
 
 def _keep_discern(name, key, answer, used):
     data = _read_discern_cache()
-    data.setdefault(name, {})[key] = {
-        "at": wall_clock(),
-        "answer": answer,
-        "name": used,
-    }
+    old = data.get(name, {}).get(key)
+    entry = {"at": wall_clock(), "answer": answer, "name": used}
+    if (
+        isinstance(old, dict)
+        and "held" in old
+        and mana_limit(str(old.get("answer", ""))) == mana_limit(answer)
+    ):
+        entry["held"] = old["held"]  # the estimate unchanged, the measure stands
+    data.setdefault(name, {})[key] = entry
+    _write_discern_cache(data)
+
+
+def held_mana(name, spell):
+    """The mana the character's `spell` last took at through held_cast,
+    kept beside its DISCERN answer (#573); None before one took."""
+    entry = (_read_discern_cache().get(name) or {}).get(str(spell).lower())
+    held = entry.get("held") if isinstance(entry, dict) else None
+    return held if isinstance(held, int) else None
+
+
+def _keep_held(name, spell, mana):
+    data = _read_discern_cache()
+    entry = (data.get(name) or {}).get(str(spell).lower())
+    if isinstance(entry, dict):
+        entry["held"] = mana
+        _write_discern_cache(data)
+
+
+def held_cast(s, spell, abbrev, state, ask, report):
+    """Cast `spell` (prepared as `abbrev`) at the most mana it holds, the
+    spell's power being its mana (#573): the mana it last took at, else
+    DISCERN's estimate; on a strain warning at PREPARE (released uncast)
+    or a failed CAST, HELD_STEP lower at once, down to the spell's
+    minimum. The mana of the cast that took is kept as the character's
+    measure: room mana or nerve damage can hold a caster under DISCERN's
+    figure. (outcome, mana); no estimate casts the minimum (0)."""
+    name = str(getattr(getattr(s, "state", None), "name", "") or "")
+    limit = mana_limit(discern(s, spell, state, ask) or "")
+    if limit is None:
+        return cast_once(s, abbrev, 0, state, ask, report), 0
+    minimum, total = limit
+    mana = min(held_mana(name, spell) or total, total)
+    for _ in range(HELD_TRIES):
+        outcome = cast_once(s, abbrev, mana, state, ask, report, release_strain=True)
+        if outcome == "ok":
+            if name:
+                _keep_held(name, spell, mana)
+            return outcome, mana
+        if outcome not in ("strain", "collapsed") or mana <= minimum:
+            return outcome, mana
+        mana = max(minimum, mana - max(1, round(mana * HELD_STEP)))
+    return outcome, mana
+
+
+def _write_discern_cache(data):
     path = discern_cache_path()
     try:
         path.parent.mkdir(parents=True, exist_ok=True)

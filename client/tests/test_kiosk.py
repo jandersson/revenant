@@ -172,6 +172,19 @@ FINESSE_CAST = (
     "You gesture.\nSharpened beneath the spell pattern's lens, your proprioception and "
     "social instincts burgeon in phrenic harmony."
 )
+# DISCERN FINESSE and the strained PREPARE, a circle-90 Trader (#570).
+DISCERN_FINESSE = (
+    "It requires the Augmentation skill to cast effectively.\n"
+    "The spell requires at minimum 5 mana streams and you think you can reinforce "
+    "it with 75 more, for a total of 80 streams."
+)
+STRAINED = (
+    "You trace an angular sigil in the air, shaping the pattern of the Finesse "
+    "spell.\nYou feel intense strain as you try to manipulate the mana streams to "
+    "form this pattern, and you are not certain that you will have enough mental "
+    "stamina to complete it."
+)
+RELEASED = "You let your concentration lapse and feel the spell's energies dissipate."
 
 
 # --- the model ---
@@ -320,12 +333,16 @@ class Room:
         trading=10,
         ledger=None,
         grows="heptagonally symmetrical crystalline kiosk",
+        finesse_max=72,
     ):
         self.before, self.after = list(before), list(after)  # someone else's
         self.mine = mine
         # What the tessera keeps for a kiosk a cast grows, and its look.
         self.ledger = ledger or ours(reserve=0)
         self.grows = grows
+        self.finesse_max = (
+            finesse_max  # the most Finesse mana that forms without strain
+        )
         self.tessera = tessera
         self.sent, self.echoed, self.started, self.pending = [], [], [], []
         self.poke_asked = False
@@ -424,6 +441,15 @@ class Room:
             noun = "rope" if verb == "put" else command.split()[-1]
             self.let_go(noun)
             return "You put it in your backpack."
+        if command.lower() == "discern finesse":
+            return DISCERN_FINESSE
+        if command == "release":
+            return RELEASED
+        if (
+            command.startswith("prepare fin ")
+            and int(command.split()[-1]) > self.finesse_max
+        ):
+            return STRAINED
         if verb == "prepare":
             return (
                 "You raise your arms skyward, chanting the equation of the spell.\n"
@@ -606,6 +632,12 @@ def test_stored_pouches_are_tapped_and_sold_with_finesse_cast_first():
     room = Room(mine=ours(pouch=51 * PLAT, bundle=5 * PLAT), spells={kiosk.SPELL: 30})
     run(room)
     order = [
+        "discern Finesse",
+        "prepare fin 80",  # DISCERN's estimate, strained and let go uncast
+        "release",
+        "prepare fin 78",
+        "prepare fin 76",
+        "prepare fin 74",
         "prepare fin 72",
         "tap kiosk",
         "stow my tessera",
@@ -619,6 +651,38 @@ def test_stored_pouches_are_tapped_and_sold_with_finesse_cast_first():
     assert "kiosk: sold the pouch for 72.3 plat" in room.echoed
     assert room.mine["bundle"] == 5 * PLAT  # under the tap: left on the tessera
     assert "stored 0 copper in pouches and 5 plat in bundles" in room.echoed[-2]
+    assert sent(room, "cast") == ["cast"]  # no strained pattern was ever cast
+    assert casting.held_mana("Lanival", "Finesse") == 72
+
+
+def test_finesse_starts_at_the_mana_it_last_took():
+    first = Room(mine=ours(pouch=51 * PLAT), spells={kiosk.SPELL: 30})
+    run(first)
+    again = Room(mine=ours(pouch=51 * PLAT), spells={kiosk.SPELL: 30})
+    run(again)
+    assert sent(again, "discern") == []  # the day's answer, kept
+    assert sent(again, "prepare")[0] == "prepare fin 72"
+
+
+def test_a_lower_hold_steps_the_kept_mana_down_again():
+    # Nerve damage or a thin room holds the caster under the kept figure.
+    run(Room(mine=ours(pouch=51 * PLAT), spells={kiosk.SPELL: 30}))
+    weaker = Room(mine=ours(pouch=51 * PLAT), spells={kiosk.SPELL: 30}, finesse_max=70)
+    run(weaker)
+    assert sent(weaker, "prepare") == ["prepare fin 72", "prepare fin 70"]
+    assert casting.held_mana("Lanival", "Finesse") == 70
+
+
+def test_a_refreshed_discern_keeps_the_held_mana_while_its_estimate_stands():
+    casting._keep_discern("Lanival", "finesse", DISCERN_FINESSE, "finesse")
+    casting._keep_held("Lanival", "Finesse", 72)
+    casting._keep_discern("Lanival", "finesse", DISCERN_FINESSE, "finesse")
+    assert casting.held_mana("Lanival", "Finesse") == 72
+    grown = DISCERN_FINESSE.replace(
+        "75 more, for a total of 80", "77 more, for a total of 82"
+    )
+    casting._keep_discern("Lanival", "finesse", grown, "finesse")
+    assert casting.held_mana("Lanival", "Finesse") is None
 
 
 def test_stored_bundles_are_rubbed_to_tapped_and_sold_at_the_tannery_rope_kept():

@@ -16,9 +16,10 @@ A pass
     logout shatters it); finds its own kiosk among the room's by STUDY.
   - PULLs or PUSHes the markup to the target, read back from the answer.
   - Reserve under the floor: ;bank keep= the shortfall, then POKE, and POKE again to confirm.
-  - A kind over the tap, Trading below lock: Finesse up first (the profile's
-    `buffs` mana, "Finesse:72"), RUB to that kind, TAP, then ASK and SELL at the
-    gem shop (pouches) or the tannery (bundles); the empty pouch and the rope are kept.
+  - A kind over the tap, Trading below lock: Finesse up first, at the mana it
+    last took (DISCERN's estimate the first time, 3% lower after each strain),
+    RUB to that kind, TAP, then ASK and SELL at the gem shop (pouches) or the
+    tannery (bundles); the empty pouch and the rope are kept.
   - STOWs the tessera after every pass and at every end. Never a DROP.
 
 What stops it: no tessera on you (never a cast without it), six kiosks in the
@@ -213,21 +214,22 @@ def fund(s, st, mapdb, walk_fn, room, copper):
     return True
 
 
-def finesse(s, profile):
-    """Finesse up before a sale, FINESSE_MINUTES to spare: True when it is."""
+def finesse(s):
+    """Finesse up before a sale, FINESSE_MINUTES to spare, at the most mana
+    it holds (its power is its mana, #573): True when it is."""
     if up(s, kiosk.FINESSE, FINESSE_MINUTES):
         return True
-    outcome = casting.cast_once(
+    outcome, mana = casting.held_cast(
         s,
+        kiosk.FINESSE,
         kiosk.FINESSE_ABBREV,
-        casting.upkeep_mana(profile, kiosk.FINESSE),
         casting.CastState(),
         ask,
         lambda what, answer: unknown(s, "kiosk", f"Finesse's {what}", answer),
     )
-    if outcome in ("ok", "strained"):
+    if outcome == "ok":
         return True
-    s.echo(f"kiosk: Finesse did not cast ({outcome}) — no resale this pass")
+    s.echo(f"kiosk: Finesse did not cast ({outcome} at {mana}) — no resale this pass")
     return False
 
 
@@ -244,7 +246,7 @@ def buyer(s, kind):
 def resell(s, st, mapdb, walk_fn, room, kind, dispense, profile):
     """TAP `kind`, Finesse up first, and sell it, back at the kiosk's room
     after: True once the TAP went out, False, said, when it did not."""
-    if not finesse(s, profile) or not take_tessera(s):
+    if not finesse(s) or not take_tessera(s):
         return False
     for _ in range(2):  # RUB toggles pouches and bundles
         if dispense == kind:
