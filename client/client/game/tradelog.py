@@ -100,7 +100,12 @@ def _write(sql, values, path):
 
 def log_issue(character, origin, contract, wholesale=None, dues=None, path=None):
     """One row for a contract the minister issued (`contract` is
-    trade.contract's reading); the seq, or None when the write failed."""
+    trade.contract's reading); the seq, or None when the write failed.
+    A contract already logged and open (one READ back after a stop
+    between the minister and the clerk) keeps its row: one per town."""
+    open_row = _open_seq(character, origin, contract, path)
+    if open_row is not None:
+        return open_row
     return _write(
         "INSERT INTO contracts (issued_at, character_name, origin, destination,"
         " goods, wholesale, dues, worth, currency, province)"
@@ -119,6 +124,26 @@ def log_issue(character, origin, contract, wholesale=None, dues=None, path=None)
         ),
         path,
     )
+
+
+def _open_seq(character, origin, contract, path=None):
+    """The seq of an undelivered row for this contract, or None."""
+    try:
+        connection = _connect(path)
+    except sqlite3.Error:
+        return None
+    try:
+        row = connection.execute(
+            "SELECT seq FROM contracts WHERE character_name = ? AND origin = ?"
+            " AND destination = ? AND goods = ? AND delivered_at IS NULL"
+            " ORDER BY seq DESC LIMIT 1",
+            (character or "unknown", origin, contract.destination, contract.goods),
+        ).fetchone()
+    except sqlite3.Error:
+        return None
+    finally:
+        connection.close()
+    return row[0] if row else None
 
 
 def log_fee(seq, fee, path=None):

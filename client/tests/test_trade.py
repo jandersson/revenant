@@ -288,7 +288,8 @@ def test_a_delivery_pays_the_oldest_open_contract_for_that_town(tmp_path):
     db = tmp_path / "history.db"
     contract = trade.contract(CONTRACT)
     first = tradelog.log_issue("Lanival", "Crossing", contract, 3537, 985, path=db)
-    tradelog.log_issue("Lanival", "Crossing", contract, 3000, 900, path=db)
+    other = contract._replace(goods="14 ornate saber hilts")
+    tradelog.log_issue("Lanival", "Crossing", other, 3000, 900, path=db)
     tradelog.log_delivery("Lanival", "Wolf Clan", 11791, path=db)
     (route,) = tradelog.summary("Lanival", path=db)
     assert (route["contracts"], route["delivered"]) == (2, 1)
@@ -954,12 +955,14 @@ def test_a_leg_to_leth_deriel_goes_by_the_crossing_and_the_ferry(script):
     assert script.leg(world, MAP, "weathered caravan", "Wolf Clan", "Leth Deriel")
     assert [c for c in world.sent if c.startswith(("tell", "go ", "(the"))] == [
         "tell weathered caravan to lead to crossing",
+        "tell weathered caravan to wait",
         "tell weathered caravan to follow",
         "go pier",
         "(the ferry to leth)",
         "go dock",
         "tell weathered caravan to wait",
         "tell weathered caravan to lead to leth",
+        "tell weathered caravan to wait",
     ]
     assert world.room == 2039
 
@@ -1092,6 +1095,7 @@ def test_a_leg_from_leth_deriel_crosses_back_by_the_ferry(script):
         "go square",
         "tell weathered caravan to wait",
         "tell weathered caravan to lead to arthe dale",
+        "tell weathered caravan to wait",
     ]
     assert world.room == 1073
 
@@ -1134,6 +1138,7 @@ def test_a_broker_contract_to_shard_goes_by_leth_and_the_gondola(script):
         "go dock",
         "tell weathered caravan to wait",
         "tell weathered caravan to lead to leth",
+        "tell weathered caravan to wait",
         "tell weathered caravan to follow",
         "(the gondola south)",
         "out",
@@ -1183,6 +1188,7 @@ def test_a_leg_to_riverhaven_goes_by_dirge_and_the_faldesu(script):
         c for c in world.sent if c.startswith(("tell", "go ", "(the", "north", ";"))
     ] == [
         "tell weathered caravan to lead to dirge",
+        "tell weathered caravan to wait",
         ";bank keep=20000 lirums=500 back",  # at Dirge, two rooms from its changer
         "tell weathered caravan to lead to riverhaven",
         "tell weathered caravan to follow",
@@ -1221,7 +1227,9 @@ def test_a_contract_from_riverhaven_crosses_back_and_leads_from_the_riverbank(sc
         "south",
         "tell weathered caravan to wait",
         "tell weathered caravan to lead to dirge",
+        "tell weathered caravan to wait",
         "tell weathered caravan to lead to arthe dale",
+        "tell weathered caravan to wait",
     ]
     assert world.room == 1073 and world.ran == []
 
@@ -1895,3 +1903,35 @@ def test_a_driver_off_the_caravan_route_turns_the_lead_down(script):
     world = World({"tell elk-drawn caravan to lead": [OFF_ROUTE]})
     assert script.lead(world, "elk-drawn caravan", "Hibarnhvidar") is None
     assert any("the driver did not take the lead" in e for e in world.echoed)
+
+
+# Hibarnhvidar, 2026-10-16 17:48: the caravan followed a bank run off
+# the outpost, and the clerk would not load the next crate.
+CARAVAN_AWAY = (
+    'The shipment clerk accepts your contract and peruses it.  "Okay," the clerk'
+    " says.  \"Let's see... that's 20 crates of cobblestones, with a total weight"
+    ' of...700 pounds!"\n'
+    "The clerk says, \"We can't help you until your elk-drawn caravan is out by the"
+    ' Market Road.  Sorry!"\n'
+)
+
+
+def test_a_caravan_off_the_outpost_is_said_not_unrecognized():
+    assert trade.clerk(CARAVAN_AWAY) == ("away", None)
+
+
+def test_a_caravan_already_at_the_room_is_told_to_wait(script):
+    # Still set to follow from an earlier walk, it followed the bank run.
+    world = World({}, room=3903)
+    assert script.bring(world, MAP, "elk-drawn caravan", 3903)
+    assert world.sent == ["tell elk-drawn caravan to wait"]
+
+
+def test_a_contract_read_back_unloaded_keeps_its_row(tmp_path):
+    db = tmp_path / "history.db"
+    contract = trade.contract(CONTRACT)
+    first = tradelog.log_issue("Lanival", "Crossing", contract, 3537, 985, path=db)
+    again = tradelog.log_issue("Lanival", "Crossing", contract, path=db)
+    assert again == first
+    (route,) = tradelog.summary("Lanival", path=db)
+    assert route["contracts"] == 1

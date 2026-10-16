@@ -443,6 +443,11 @@ def load(s, db, place, seq):
         s.echo(
             f"{PREFIX}: the clerk says the load is too much — rent a caravan (RENT CARAVAN)"
         )
+    elif kind == "away":
+        s.echo(
+            f"{PREFIX}: the clerk wants the caravan at the {place} outpost and it is"
+            " not there — bring it in and ;trade again"
+        )
     else:
         unknown(s, PREFIX, "GIVE", answer)
     return False

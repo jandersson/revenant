@@ -131,6 +131,10 @@ TOO_HEAVY = "this load would kill"  # trade.lic: a pack animal needs a caravan
 DELIVERED = "finds everything in order"
 _PAID = re.compile(r"your payment of " + _COIN, re.I)
 NO_GOODS = "What have you done with the goods"  # trade.lic
+# Hibarnhvidar's clerk with the caravan a room off the outpost
+# (2026-10-16): 'The clerk says, "We can't help you until your
+# elk-drawn caravan is out by the Market Road.  Sorry!"'
+CARAVAN_AWAY = "We can't help you until your"
 
 # Feeding: "The driver takes the feedbag from you and begins feeding the
 # caravan. The driver hands back the feedbag and says, "They are well
@@ -264,7 +268,8 @@ def minister(answer):
 def clerk(answer):
     """GIVE MY CONTRACT TO CLERK's answer: ("loaded", fee in copper),
     ("paid", (copper, currency)), ("no goods", None), ("too heavy",
-    None) or (None, None)."""
+    None), ("away", None) for a caravan not at the outpost, or (None,
+    None)."""
     text = str(answer or "")
     if DELIVERED in text:
         paid = _PAID.search(text)
@@ -276,6 +281,8 @@ def clerk(answer):
         return "no goods", None
     if TOO_HEAVY in text:
         return "too heavy", None
+    if CARAVAN_AWAY in text:
+        return "away", None
     return None, None
 
 

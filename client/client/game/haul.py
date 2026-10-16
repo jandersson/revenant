@@ -74,6 +74,10 @@ def bring(s, db, name, room, prefix):
     a ride fails or it falls behind."""
     here = travel.here(s, db)
     if here == room:
+        # A caravan still set to follow from an earlier walk followed
+        # the next bank run off Hibarnhvidar's outpost, and the clerk
+        # would not load it there (2026-10-16): told to wait, here too.
+        ask(s, f"tell {name} to wait")
         return True
     route = db.path(here, [room]) if here is not None else None
     edges = steps(route) if route else None
