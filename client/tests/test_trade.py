@@ -1935,3 +1935,8 @@ def test_a_contract_read_back_unloaded_keeps_its_row(tmp_path):
     assert again == first
     (route,) = tradelog.summary("Lanival", path=db)
     assert route["contracts"] == 1
+    # A minister's new issue of the same goods, its charges known, is a
+    # contract of its own: they repeat (Darkling Wood's buckles, twice).
+    assert tradelog.log_issue("Lanival", "Crossing", contract, 3537, 985, path=db) != (
+        first
+    )

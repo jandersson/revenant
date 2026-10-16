@@ -101,11 +101,13 @@ def _write(sql, values, path):
 def log_issue(character, origin, contract, wholesale=None, dues=None, path=None):
     """One row for a contract the minister issued (`contract` is
     trade.contract's reading); the seq, or None when the write failed.
-    A contract already logged and open (one READ back after a stop
-    between the minister and the clerk) keeps its row: one per town."""
-    open_row = _open_seq(character, origin, contract, path)
-    if open_row is not None:
-        return open_row
+    A contract READ back after a stop between the minister and the
+    clerk (no charges known) keeps the open row it was logged under; a
+    new issue, with its charges, is always a row of its own."""
+    if wholesale is None and dues is None:
+        open_row = _open_seq(character, origin, contract, path)
+        if open_row is not None:
+            return open_row
     return _write(
         "INSERT INTO contracts (issued_at, character_name, origin, destination,"
         " goods, wholesale, dues, worth, currency, province)"
