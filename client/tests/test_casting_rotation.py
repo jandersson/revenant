@@ -148,6 +148,72 @@ def test_a_name_discern_does_not_parse_is_asked_by_its_abbreviation(monkeypatch)
     assert state.short_names["hands of justice"] == "hoj"
 
 
+# DISCERN on Finesse, captured 2026-10-16 (7 s of roundtime).
+FINESSE_DISCERN = (
+    "It requires the Augmentation skill to cast effectively.  Before you can"
+    " learn this spell, you must know Noumena.  It will also cost two spell slots.\n"
+    "The spell requires at minimum 5 mana streams and you think you can"
+    " reinforce it with 75 more, for a total of 80 streams.\n"
+)
+
+
+def test_a_discern_with_the_estimate_is_kept_for_a_day(monkeypatch):
+    clock = [1_000_000.0]
+    monkeypatch.setattr(casting, "wall_clock", lambda: clock[0])
+
+    def answers(s, command):
+        s.sent.append(command)
+        return FINESSE_DISCERN
+
+    first = Handle(_exp())
+    assert (
+        casting.discern(first, "Finesse", casting.CastState(), answers)
+        == FINESSE_DISCERN
+    )
+    assert first.sent == ["discern Finesse"]
+    # The next run, an hour on: served from the file, nothing sent.
+    clock[0] += 3600
+    again = Handle(_exp())
+    assert (
+        casting.discern(again, "Finesse", casting.CastState(), answers)
+        == FINESSE_DISCERN
+    )
+    assert again.sent == []
+    # A day and more: asked again.
+    clock[0] += casting.DISCERN_TTL
+    late = Handle(_exp())
+    casting.discern(late, "Finesse", casting.CastState(), answers)
+    assert late.sent == ["discern Finesse"]
+
+
+def test_a_discern_without_the_estimate_is_asked_every_run(monkeypatch):
+    def unable(s, command):
+        s.sent.append(command)
+        return "You don't think you are able to cast this spell.\n"
+
+    for _ in range(2):
+        handle = Handle(_exp())
+        casting.discern(handle, "Finesse", casting.CastState(), unable)
+        assert handle.sent == ["discern Finesse"]
+
+
+def test_a_kept_discern_keeps_the_abbreviation_that_asked_it(monkeypatch):
+    monkeypatch.setattr(casting, "abbreviation", lambda name, spell: "hoj")
+
+    def picky(s, command):
+        s.sent.append(command)
+        if command == "discern hoj":
+            return UTIL + "The spell requires at minimum 1 mana streams.\n"
+        return "You have no idea how to cast that spell.\n"
+
+    casting.discern(Handle(_exp()), "Hands of Justice", casting.CastState(), picky)
+    state = casting.CastState()
+    handle = Handle(_exp())
+    casting.discern(handle, "Hands of Justice", state, picky)
+    assert handle.sent == []
+    assert state.short_names["hands of justice"] == "hoj"
+
+
 def test_a_skills_next_buff_takes_over_when_the_first_drops_out(monkeypatch):
     monkeypatch.setattr(casting, "PREPARE_SECONDS", 0)
     handle = Handle(_exp(augmentation=0, warding=34, utility=34))

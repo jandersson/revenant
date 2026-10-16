@@ -153,7 +153,7 @@ A box is matched to its creature by its item id, which holds within one login. A
 - **`cambrinth`** charges a piece with `cambrinth_mana` before each training cast, for Arcana. Set `cambrinth_worn` for an anklet or armband; a worn piece is removed to charge. The piece must not outrank your Arcana (a 1- or 5-mana piece at 0 ranks).
 - **`debilitation`** (e.g. `Stun Foe`) and **`targeted`** (e.g. `Footman's Strike`) are cast at the prey on the same gap. Either may name several spells, comma-separated (`Dinazen Olkar, Partial Displacement`), cast in turn on that one gap. The training casts take turns, so a swing never carries two. A creature the spell kills is counted and looted like a swing's kill.
 - A caster with no weapon brawls between casts: `weapons` `fists:Brawling` and the two spell slots (a Moon Mage: `Dinazen Olkar`, `Mental Blast`).
-- Mana never ramps past what DISCERN says you can hold; a cast that strains or backfires holds a step under for the rest of the run. A spell your ranks cannot cast is turned off for the run, with the rank it needs.
+- Mana never ramps past what DISCERN says you can hold; a cast that strains or backfires holds a step under for the rest of the run. A spell your ranks cannot cast is turned off for the run, with the rank it needs. A DISCERN that gave an estimate is kept for a day per character (`~/.revenant/discern.json`), so later runs skip its roundtime.
 - Barbarians cast nothing: `analyze`, `abilities` and `roar` fill the same roles.
 
 ## Caveats

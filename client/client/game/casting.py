@@ -140,6 +140,7 @@ CAST with no argument (Elanthipedia: Target command).
 import json
 import os
 import re
+import time
 from pathlib import Path
 from time import monotonic
 
@@ -290,6 +291,10 @@ DISCERN_OUTCOMES = (
     ("unknown", ("don't know", "no such spell", "what spell")),
     ("ok", ("mana streams", "weave at most")),
 )
+# DISCERN costs 7-13 seconds of roundtime and its estimate moves only
+# with the ranks: an "ok" answer is served for a day (#569).
+DISCERN_TTL = 24 * 3600
+wall_clock = time.time  # tests replace it
 # TARGET <prey> after PREPARE for a targeted-magic spell (#203): the
 # wiki's wordings until captured; a missing target is guessed from the
 # game's usual "referring to" refusal.
@@ -1070,29 +1075,94 @@ def next_cast(s, profile, state):
     return next(turn for turn in order if turn in due)
 
 
+def discern_cache_path() -> Path:
+    """Where each character's DISCERN answers are kept for DISCERN_TTL
+    (#569). REVENANT_DISCERN_CACHE moves it (tests point it at a temp file)."""
+    return Path(
+        os.environ.get("REVENANT_DISCERN_CACHE", "~/.revenant/discern.json")
+    ).expanduser()
+
+
+def _read_discern_cache():
+    try:
+        data = json.loads(discern_cache_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _cached_discern(name, key):
+    """The kept {"at", "answer", "name"} for the character's spell while
+    younger than DISCERN_TTL, else None."""
+    entry = (_read_discern_cache().get(name) or {}).get(key)
+    if not isinstance(entry, dict) or not isinstance(entry.get("answer"), str):
+        return None
+    try:
+        age = wall_clock() - float(entry.get("at", 0))
+    except (TypeError, ValueError):
+        return None
+    return entry if 0 <= age < DISCERN_TTL else None
+
+
+def _keep_discern(name, key, answer, used):
+    data = _read_discern_cache()
+    data.setdefault(name, {})[key] = {
+        "at": wall_clock(),
+        "answer": answer,
+        "name": used,
+    }
+    path = discern_cache_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, indent=1, sort_keys=True), encoding="utf-8")
+    except OSError:
+        pass  # the answer serves this run; the next one DISCERNs again
+
+
 def discern(s, spell, state, ask):
-    """DISCERN <spell>, its roundtime waited out: the answer. A name the
-    game does not parse ("You have no idea how to cast that spell.",
-    captured 2026-09-29 on "discern hands of justice", which left
-    Utility with no training cast) is asked again by the abbreviation
-    ;sheet recorded off SPELLS, and a working abbreviation is kept for
-    the run's PREPAREs, as cast_once() does (#320)."""
+    """DISCERN <spell>, its roundtime waited out: the answer. An answer
+    with the mana estimate is kept per character for DISCERN_TTL and
+    served from there without a send (#569); "not able", "don't know" and
+    the like are asked again every run, so a spell learned or reached
+    since is DISCERNed fresh."""
+    name = str(getattr(getattr(s, "state", None), "name", "") or "")
+    key = str(spell).lower()
+    short_names = getattr(state, "short_names", None)
+    hit = _cached_discern(name, key) if name else None
+    if hit is not None:
+        used = str(hit.get("name") or key)
+        if used != key and short_names is not None:
+            short_names[key] = used
+        return hit["answer"]
+    answer, used = _ask_discern(s, spell, state, ask)
+    if name and classify(answer, DISCERN_OUTCOMES) == "ok":
+        _keep_discern(name, key, answer, used.lower())
+    return answer
+
+
+def _ask_discern(s, spell, state, ask):
+    """(answer, the name that asked it). A name the game does not parse
+    ("You have no idea how to cast that spell.", captured 2026-09-29 on
+    "discern hands of justice", which left Utility with no training
+    cast) is asked again by the abbreviation ;sheet recorded off SPELLS,
+    and a working abbreviation is kept for the run's PREPAREs, as
+    cast_once() does (#320)."""
     short_names = getattr(state, "short_names", None)
     known = (short_names or {}).get(str(spell).lower())
     answer = ask(s, f"discern {known or spell}") or ""
     s.waitrt()
     if known or "no idea how to cast" not in answer.lower():
-        return answer
+        return answer, str(known or spell)
     short = abbreviation(getattr(getattr(s, "state", None), "name", ""), spell)
     if not short or short.lower() == str(spell).lower():
-        return answer
+        return answer, str(spell)
     retry = ask(s, f"discern {short}") or ""
     s.waitrt()
     if "no idea how to cast" in retry.lower():
-        return answer
+        return answer, str(spell)
     if short_names is not None:
         short_names[str(spell).lower()] = short
-    return retry
+    return retry, short
 
 
 def discern_slots(s, profile, state, ask, prefix, report):

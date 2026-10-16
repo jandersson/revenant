@@ -48,6 +48,8 @@ def _isolated_login_defaults(tmp_path, monkeypatch):
     # The skills DISCERN named for each spell (#374): a test's fixture
     # never lands in the operator's ~/.revenant/spell_skills.json.
     monkeypatch.setenv("REVENANT_SPELL_SKILLS", str(tmp_path / "spell_skills.json"))
+    # Each character's DISCERN answers, kept for a day (#569).
+    monkeypatch.setenv("REVENANT_DISCERN_CACHE", str(tmp_path / "discern.json"))
     # settings.json: every walk reads avoid_rooms from it now (#407),
     # and a test's walk must never resolve the operator's list.
     monkeypatch.setenv("REVENANT_SETTINGS", str(tmp_path / "settings.json"))
