@@ -156,6 +156,13 @@ lessons the code and docs cannot carry themselves.
   ON the display first, and carry no more than the wanted item's price
   when the wanted one is not first: a wrong pick is then refused for
   coin, with its price named, instead of bought.
+- A display with a sales clerk (the Crossing pond's winter skate rack)
+  answers BUY with "You can't order anything here." until GET <noun>
+  FROM RACK calls the clerk and quotes ("The price on ... is 2375
+  Kronars.  You can BUY the item if you like."); BUY then pays and
+  hands it over. GET with two adjectives ("natural suede skates") was
+  "Please rephrase that command."; the bare noun took the first pair
+  (2026-10-16).
 - A wet instrument (a river crossing, rain) refuses CLEAN until WIPEd
   with the cloth ("so wet that they are still dripping"); DRY is not a
   verb. CLEAN wants the instrument in hand (REMOVE a worn one).
