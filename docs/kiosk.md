@@ -66,7 +66,7 @@ The kiosk stores value, not cost: what it pays ÷ (1 + markup). TAP hands it out
 
 ## Which kiosk a seller picks
 
-Most sellers run dr-scripts' `sell-loot`, which STUDYs every kiosk and sells to the highest markup; on a tie, to the kiosk listed first in the room. When that one runs out of coin it moves to the next.
+A seller running dr-scripts' `sell-loot` STUDYs every kiosk and sells to the highest markup; on a tie, to the kiosk listed first in the room. When that one runs out of coin it moves to the next.
 
 - A newly grown kiosk is listed first; a refreshed one keeps its place.
 - So a Trader who keeps his kiosk up and funded, growing it again each time it ends, always beats the kiosks at the same markup by position alone.
