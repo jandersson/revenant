@@ -1803,3 +1803,67 @@ def test_a_circuit_started_on_the_road_goes_on_without_the_clerk(script):
     script.circuit(world, MAP, "ironclad caravan", "Shard", True, [])
     assert fake.calls == [("leg", "Shard", "Steelclaw Clan")]
     assert "trade: dues settled" not in world.echoed
+
+
+# Forfedhdar (#555)
+
+
+def test_forfedhdar_trades_in_dokoras_and_is_its_own_province():
+    for town in trade.FORFEDHDAR:
+        assert trade.coin(town) == "Dokoras" and town in trade.TOWNS
+    assert trade.lead_name("Raven's Point") == "raven"
+    assert tradelog.province("Hibarnhvidar", "Boar Clan") == "Forfedhdar"
+    assert tradelog.province("Hibarnhvidar", "Shard") == "Interprovince"
+    # Its roads to the other provinces are not built: such a contract
+    # is left unloaded, as one beyond the routes is.
+    assert trade.routable("Hibarnhvidar", "Ain Ghazal")
+    assert not trade.routable("Shard", "Hibarnhvidar")
+    assert not trade.routable("Hibarnhvidar", None)
+
+
+def _forfedhdar(script, refused=()):
+    """lead and bring recorded; a lead to a town in `refused` is turned
+    down once."""
+    calls, turned = [], set()
+
+    def lead(s, name, place, *rest):
+        calls.append(("lead", place))
+        if place in refused and place not in turned:
+            turned.add(place)
+            return None
+        return True
+
+    script.lead = lead
+    script.bring = lambda s, db, name, room: calls.append(("bring", room)) or True
+    return calls
+
+
+def test_boar_clan_is_led_to_and_from_by_way_of_hibarnhvidar(script):
+    calls = _forfedhdar(script)
+    world = World({})
+    assert script.leg(world, MAP, "caravan", "Raven's Point", "Boar Clan")
+    assert calls == [
+        ("lead", "Hibarnhvidar"),
+        ("bring", 3903),
+        ("lead", "Boar Clan"),
+        ("bring", 4106),
+    ]
+    calls.clear()
+    assert script.leg(world, MAP, "caravan", "Hibarnhvidar", "Raven's Point")
+    assert calls == [("lead", "Raven's Point"), ("bring", 4440)]
+
+
+def test_a_lead_turned_down_is_told_again_from_trade_lics_room(script):
+    calls = _forfedhdar(script, refused={"Ain Ghazal", "Boar Clan"})
+    world = World({})
+    assert script.leg(world, MAP, "caravan", "Hibarnhvidar", "Ain Ghazal")
+    assert calls == [
+        ("lead", "Ain Ghazal"),
+        ("bring", 3943),  # Haalikshal Highway, East Park
+        ("lead", "Ain Ghazal"),
+        ("bring", 11033),
+    ]
+    calls.clear()
+    assert script.leg(world, MAP, "caravan", "Hibarnhvidar", "Boar Clan")
+    assert calls[:3] == [("lead", "Boar Clan"), ("bring", 3991), ("lead", "Boar Clan")]
+    assert "trade: walking the caravan out to lead from there" in world.echoed

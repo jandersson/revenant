@@ -1,6 +1,6 @@
 # Trading
 
-`;trade` runs a Trader's caravan contracts in Zoluren and Ilithi, and to Riverhaven: it takes a contract, has the caravan lead to its town, collects the pay, and goes again. Every contract is logged to history.db.
+`;trade` runs a Trader's caravan contracts in Zoluren, Ilithi and Forfedhdar, and to Riverhaven: it takes a contract, has the caravan lead to its town, collects the pay, and goes again. Every contract is logged to history.db.
 
 ```
 ;trade            run contracts until stopped
@@ -11,7 +11,8 @@
 ;trade history    per route: contracts, pay and profit in Kronars (Dokoras at 1.386, Lirums at 1.25), minutes
 ```
 
-- Start at an outpost with your caravan at it: in Zoluren the Crossing, Arthe Dale, Stone Clan, Dirge, Wolf Clan, Tiger Clan or Leth Deriel (Kronars); in Ilithi Shard, Fayrin's Rest, Steelclaw Clan or Darkling Wood (Dokoras); Riverhaven (Lirums).
+- Start at an outpost with your caravan at it: in Zoluren the Crossing, Arthe Dale, Stone Clan, Dirge, Wolf Clan, Tiger Clan or Leth Deriel (Kronars); in Ilithi Shard, Fayrin's Rest, Steelclaw Clan or Darkling Wood (Dokoras); in Forfedhdar Hibarnhvidar, Boar Clan, Raven's Point or Ain Ghazal (Dokoras); Riverhaven (Lirums).
+- In Forfedhdar, Boar Clan is led to and from by way of Hibarnhvidar, and Ain Ghazal is across the river by the Hibarnhvidar ferry. A contract from there to another province is left with you, unloaded.
 - Leth Deriel is across the Segoltha: the caravan is led to the Crossing and follows you onto Alfren's Ferry (77 Kronars for the goods; with none on you, `;bank` fetches them while the caravan waits at the dock), then leads on from the south bank.
 - With no caravan, `;trade` rents one at the outpost's clerk: RENT CARAVAN, 400 Kronars or 288 Dokoras paid up front, drawn at a teller when the purse is short.
 - Wear or carry a feedbag with grass in it; the caravan is fed before every lead. While the caravan leads, `;trade` first forages grass into the feedbag until it holds 60, so the caravan never runs out of feed.

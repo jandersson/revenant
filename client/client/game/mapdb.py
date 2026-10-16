@@ -144,6 +144,7 @@ DEFAULT_STEP_SECONDS = 0.2
 RIDES = {
     "faldesu": "ferry",
     "ferry": "ferry",
+    "ferry1": "ferry",  # Hibarnhvidar–Ain Ghazal, bescort's ferry1 (#555)
     "gondola": "gondola",
     "haven_throne": "barge",
     "mammoth": "mammoth",

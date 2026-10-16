@@ -48,6 +48,8 @@ def _home(town):
         return "Ilithi"
     if town in trade.THERENGIA:
         return "Therengia"
+    if town in trade.FORFEDHDAR:
+        return "Forfedhdar"
     return "Zoluren" if town in trade.TOWNS else None
 
 

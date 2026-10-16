@@ -41,9 +41,24 @@ TOWNS = {
     # Therengia: Riverhaven's outpost is Town Hall Road, the clerk down
     # its alley; the rest of the province waits (#555).
     "Riverhaven": Town(386, 7876, 13751),
+    # Forfedhdar, in Dokoras (#555): each minister beside its clerk.
+    "Hibarnhvidar": Town(3903, 7412, 7412),
+    "Boar Clan": Town(4106, 13675, 13675),
+    "Raven's Point": Town(4440, 14642, 14642),
+    "Ain Ghazal": Town(11033, 14638, 14638),
 }
 ILITHI = ("Shard", "Fayrin's Rest", "Steelclaw Clan", "Darkling Wood")
 THERENGIA = ("Riverhaven",)
+FORFEDHDAR = ("Hibarnhvidar", "Boar Clan", "Raven's Point", "Ain Ghazal")
+
+# Forfedhdar's leads (Elanthipedia: Caravan): Hibarnhvidar to and from
+# Boar Clan, Raven's Point and Ain Ghazal (across the river, the ferry
+# Damaris' Kiss or Evening Star: bescort's ferry1), Raven's Point to Ain
+# Ghazal; Boar Clan is led to and from by way of Hibarnhvidar. A driver
+# who turns a lead down in a town is walked to the room trade.lic leads
+# from instead (do_lead_from), and told again.
+VIA_HIBARNHVIDAR = "Hibarnhvidar"
+LEAD_FROM = {"Hibarnhvidar": 3943, "Raven's Point": 4452, "Ain Ghazal": 3986}
 
 # Leth Deriel is across the Segoltha: the caravan is walked from the
 # Crossing's outpost onto Alfren's Ferry and off at the south bank,
@@ -54,7 +69,11 @@ THERENGIA = ("Riverhaven",)
 # Deriel"). Captured 2026-10-15; trade.lic's do_lead_to the way.
 ACROSS = "Leth Deriel"
 FERRY_SOUTH = 1904  # Southern Trade Route, Segoltha South Bank
-LEAD_NAMES = {"Leth Deriel": "leth", "Darkling Wood": "darkling"}  # trade.lic's
+LEAD_NAMES = {  # trade.lic's
+    "Leth Deriel": "leth",
+    "Darkling Wood": "darkling",
+    "Raven's Point": "raven",
+}
 
 # Riverhaven is across the Faldesu from Zoluren, driven by hand on
 # 2026-10-15 (#555): LEAD TO DIRGE ends at Gateway Road, LEAD TO
@@ -294,10 +313,28 @@ def town(name):
 
 def coin(name):
     """The coin a town's minister charges and its clerk pays: Dokoras in
-    Ilithi, Lirums in Therengia, Kronars in Zoluren."""
-    if name in ILITHI:
+    Ilithi and Forfedhdar, Lirums in Therengia, Kronars in Zoluren."""
+    if name in ILITHI or name in FORFEDHDAR:
         return "Dokoras"
     return "Lirums" if name in THERENGIA else "Kronars"
+
+
+def lead_from(origin, destination):
+    """The room a lead from `origin` is told again from when its driver
+    turns it down there (trade.lic's do_lead_from), or None: Gate to
+    Hibarnhvidar (3991) for Boar Clan, else LEAD_FROM's."""
+    if (origin, destination) == ("Hibarnhvidar", "Boar Clan"):
+        return 3991
+    return LEAD_FROM.get(origin)
+
+
+def routable(origin, destination):
+    """True when ;trade carries a contract between these TOWNS keys: not
+    one with a single end in Forfedhdar, whose roads out of the province
+    are not built yet (#555), nor one naming a town it does not know."""
+    if origin is None or destination is None:
+        return False
+    return (origin in FORFEDHDAR) == (destination in FORFEDHDAR)
 
 
 def lead_name(name):

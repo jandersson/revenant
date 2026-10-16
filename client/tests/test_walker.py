@@ -3414,3 +3414,46 @@ def test_a_stroke_sent_inside_its_roundtime_is_sent_again():
         "northeast",
         "climb bridge",
     ]
+
+
+# The Hibarnhvidar–Ain Ghazal ferry (#555): bescort's ferry1 and its
+# wordings (take_ain_ghazal_ferry), not yet captured.
+FERRY1 = (
+    ";e start_script('bescort', ['ferry1', 'hibarnhvidar']);"
+    "wait_while{running?('bescort')};"
+)
+AIN_GHAZAL = MapDB(
+    [
+        {
+            "id": 3986,
+            "uid": [4122309],
+            "title": ["[Haalikshal Highway, Ferry Dock]"],
+            "wayto": {"11027": FERRY1},
+        },
+        {
+            "id": 11027,
+            "uid": [4122306],
+            "title": ["[Ain Ghazal, Ferry Dock]"],
+            "wayto": {},
+        },
+    ]
+)
+
+
+class AinGhazalFerry(FerryHandle):
+    AWAY = "The ferry Evening Star is steadily approaching the dock.\n"
+    ARRIVES = (
+        "The Evening Star comes to an easy landing at the dock and the crew "
+        "quickly begin to unload the supplies they brought across the river while "
+        "the passengers make their way off as best they can.\n"
+    )
+    FEE = "You hand him your dokoras and climb aboard.\n"
+    LANDS = "You come to a very soft stop.\n"
+
+
+def test_the_ain_ghazal_ferry_is_ridden_like_alfrens(quick_ferry):
+    assert ride_of(FERRY1) == "ferry1" and walkable(FERRY1)
+    handle = AinGhazalFerry(uids=[4122306], answers=["away", "aboard"])
+    handle.state.room_uid = 4122309
+    assert walker.walk(handle, AIN_GHAZAL, [11027], describe="Ain Ghazal") is True
+    assert puts_of(handle) == ["go ferry", "go ferry", "go dock"]

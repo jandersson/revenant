@@ -108,6 +108,12 @@ FERRY_AWAY = (
     # the first crossing, 2026-09-18, the second still bescort's)
     "no ferry here to go aboard",
     "just pulled away from the dock",
+    # The Ain Ghazal ferry, Damaris' Kiss or Evening Star (bescort's
+    # take_ain_ghazal_ferry, its ferry1; not yet captured): on its way,
+    # or full.
+    "is steadily approaching",
+    "You see that the",
+    "cannot take any more passengers",
 )
 FERRY_NO_FARE = ("afford the fare",)
 WEALTH_SECONDS = 2  # WEALTH's answer, read for the purse beside a refused fare
@@ -118,8 +124,12 @@ FERRY_FEE = re.compile(r"transportation fee of (\d+ \w+)")
 # Faldesu's shape, so FERRY_FEE reads it; the nod is bescort's.
 FERRY_PAID = ("you hand him", "gives you a little nod")
 FERRY_ON_DEBT = ("add it to yer debt", "debt to the province")
-FERRY_ARRIVES = ("pulls into the dock", "pulls up to the dock")
-FERRY_LANDS = ("ties the ferry off",)
+FERRY_ARRIVES = (
+    "pulls into the dock",
+    "pulls up to the dock",
+    "comes to an easy landing at the dock",  # the Ain Ghazal ferry (bescort's)
+)
+FERRY_LANDS = ("ties the ferry off", "You come to a very soft stop")
 # The Riverhaven–Throne City barges (#506): the Riverhawk and the
 # Imperial Glory, bescort's haven_throne route, captured 2026-10-09/10 on
 # both docks. A barge is boarded by its name's last word (GO RIVERHAWK,
@@ -1426,6 +1436,7 @@ RIDE_HANDLERS = {
     "hara_polo": (ride_grass, {"up": "look", "down": "climb slope"}),
     "faldesu": (ride_ferry, "go dock"),
     "ferry": (ride_ferry, "go dock"),
+    "ferry1": (ride_ferry, "go dock"),  # Hibarnhvidar–Ain Ghazal (#555)
     "gondola": (ride_gondola, "out"),
     "haven_throne": (ride_barge, "go dock"),
     "mammoth": (ride_mammoth, "look"),

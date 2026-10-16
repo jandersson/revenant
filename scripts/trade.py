@@ -1,4 +1,4 @@
-"""Run Trader caravan contracts in Zoluren, Ilithi and to Riverhaven:  ;trade
+"""Run Trader caravan contracts in Zoluren, Ilithi, Forfedhdar and to Riverhaven:  ;trade
 
     ;trade            deliver, pay the dues, take the next contract, load it, feed the caravan, lead it there; again
     ;trade interprovince  the same, each contract for another province (the broker's) where one is offered: the Crossing, Shard
@@ -10,9 +10,13 @@
 What it does
   - Starts at an outpost of Zoluren — the Crossing, Arthe Dale, Stone Clan,
     Dirge, Wolf Clan, Tiger Clan, Leth Deriel — or Ilithi — Shard, Fayrin's
-    Rest, Steelclaw Clan, Darkling Wood — or Riverhaven, with your caravan at
+    Rest, Steelclaw Clan, Darkling Wood — or Forfedhdar — Hibarnhvidar, Boar
+    Clan, Raven's Point, Ain Ghazal — or Riverhaven, with your caravan at
     the outpost (RECALL CARAVAN finds it); with none, rents one at the clerk
     (RENT CARAVAN, 400 Kronars or 288 Dokoras).
+  - Forfedhdar: Boar Clan by way of Hibarnhvidar, Ain Ghazal across the river
+    by the ferry; a lead the driver turns down is told again from the room
+    trade.lic leads from. Its contracts for other provinces are left unloaded.
   - Started beside its caravan away from an outpost (a run stopped on the road),
     goes on from there with the crate it holds; near its town, walks the
     caravan to the outpost and delivers.
@@ -462,7 +466,7 @@ def take(s, db, place, broker=False):
         f"{PREFIX}: {contract.goods} for {contract.destination},"
         f" worth {contract.worth or '?'} on delivery"
     )
-    if trade.town(contract.destination) is None:
+    if not trade.routable(place, trade.town(contract.destination)):
         # A broker's contract for a province ;trade cannot reach: kept
         # unpaid and unloaded, the operator's to take on or not.
         s.echo(
@@ -593,7 +597,8 @@ def stop_training(s, name):
 
 def lead(s, name, place, grass=None, training=()):
     """TELL the caravan TO LEAD TO `place` and follow it; True on
-    arrival, False, said, when the driver refuses or gives up. Grass
+    arrival, None, said, when the driver turns the lead down, False,
+    said, when the lead gives up. Grass
     comes first: while `grass` ([the feedbag's count]) is below GRASS_TOP
     it is foraged on the way (the operator: "grass forage should take
     prio just so he doesn't run out of feed"); then the `training`
@@ -604,7 +609,7 @@ def lead(s, name, place, grass=None, training=()):
     answer = ask(s, f"tell {name} to lead to {trade.lead_name(place)}")
     if trade.LEADING not in answer:
         s.echo(f"{PREFIX}: the driver did not take the lead ({said(answer)!r})")
-        return False
+        return None
     s.echo(f"{PREFIX}: leading to {place}")
     tried, trainer = [], None
     try:
@@ -671,6 +676,8 @@ def leg(s, db, name, origin, destination, grass=None, training=()):
     walked between them over the Obsidian Pass gondola."""
     if origin == destination:
         return True
+    if origin in trade.FORFEDHDAR and destination in trade.FORFEDHDAR:
+        return forfedhdar_leg(s, db, name, origin, destination, grass, training)
     if (origin in trade.THERENGIA) != (destination in trade.THERENGIA):
         dirge = trade.VIA_DIRGE
         if destination in trade.THERENGIA:
@@ -716,17 +723,38 @@ def leg(s, db, name, origin, destination, grass=None, training=()):
     )
 
 
+def forfedhdar_leg(s, db, name, origin, destination, grass=None, training=()):
+    """A leg within Forfedhdar (#555): Boar Clan by way of Hibarnhvidar,
+    the rest led straight there (Ain Ghazal's lead rides the ferry); a
+    lead the driver turns down is told again from the room trade.lic
+    leads from (trade.lead_from), the caravan walked there first."""
+    hub = trade.VIA_HIBARNHVIDAR
+    if "Boar Clan" in (origin, destination) and hub not in (origin, destination):
+        return forfedhdar_leg(
+            s, db, name, origin, hub, grass, training
+        ) and forfedhdar_leg(s, db, name, hub, destination, grass, training)
+    led = lead(s, name, destination, grass, training)
+    start = trade.lead_from(origin, destination)
+    if led is None and start is not None:
+        s.echo(f"{PREFIX}: walking the caravan out to lead from there")
+        if not bring(s, db, name, start):
+            return False
+        led = lead(s, name, destination, grass, training)
+    return bool(led) and bring(s, db, name, trade.TOWNS[destination].outpost)
+
+
 def province(place):
-    """The towns a circuit from `place` works: Ilithi's, else Zoluren's
-    (Leth Deriel among them); Riverhaven is its own and takes none."""
-    if place in trade.ILITHI:
-        return trade.ILITHI
+    """The towns a circuit from `place` works: Ilithi's, Forfedhdar's,
+    else Zoluren's (Leth Deriel among them); Riverhaven takes none."""
+    for towns in (trade.ILITHI, trade.FORFEDHDAR):
+        if place in towns:
+            return towns
     if place in trade.THERENGIA:
         return ()
     return tuple(
         town
         for town in trade.TOWNS
-        if town not in trade.ILITHI and town not in trade.THERENGIA
+        if town not in trade.ILITHI + trade.THERENGIA + trade.FORFEDHDAR
     )
 
 
