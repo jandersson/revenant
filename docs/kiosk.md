@@ -33,6 +33,17 @@ The kiosk works in Kronars in every province.
 - A full sale hands the pouch back empty ("Retrieving your now empty ..."), a spare for the next gems.
 - Lich's `sell-loot` sells to kiosks (`sell_loot_trader`), and the beta `kiosk.lic` keeps one cast and funded; both are dr-scripts work.
 
+## ;kiosk
+
+`;kiosk` keeps yours standing from its room (the profile's `kiosk_room`, Grisgonda's by default), a pass every five minutes:
+
+- PRIA at 30 mana with the tessera held, recast with 10 roisaen left.
+- The markup PULLed or PUSHed to `markup=` (55).
+- The reserve topped up to `reserve=` (100 platinum) through `;bank keep=` and POKE once it falls under `floor=` (50).
+- Pouches and bundles TAPped once the kiosk holds `tap=` (20 platinum) of them, and sold with Finesse up; never while Trading is mind-locked.
+
+`;kiosk status` STUDYs it where you stand; `;kiosk return` ends the run and leaves the kiosk up. The one caveat: POKE puts in every Kronar you carry, so the top-up only ever runs after `;bank`.
+
 ## The money
 
 The kiosk stores value, not cost: what it pays ÷ (1 + markup). TAP hands it out (RUB first for bundles); pouches sell at a gem shop, bundles at a tannery, each for the stored value times the Trader's bonus: capped at 50%, plus a tenth of the circle while Finesse is up, give or take 10%, never more than 60% (Elanthipedia: Trader gem selling bonus). Without Finesse a pouch fetched +41%; with Finesse a bundle fetched +60%, the cap. Cast Finesse before the first appraisal: the buyer's figure for an item is fixed, and asking again gets the same number. The gem shop keeps the gems and hands back the empty pouch; the tannery hands back the rope.

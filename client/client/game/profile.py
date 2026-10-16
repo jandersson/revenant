@@ -51,6 +51,9 @@ DEFAULTS = {
     # Where ;vault walks: the Carousel the character's vault is at (a
     # ;go2 target); "" is the nearest town's.
     "vault": "",
+    # Where ;kiosk keeps a Trader's kiosk (a ;go2 target); "" is
+    # Grisgonda's, the Crossing gem shop (4652).
+    "kiosk_room": "",
     # The weapon: GET <weapon> [FROM <container>] before the first
     # swing. "" fights barehanded (brawling).
     "weapon": "",
@@ -292,6 +295,12 @@ FIELDS = (
     ("footwear", "Footwear the skates replace", "str", "footwraps — empty: none"),
     ("compendium", "Anatomy chart book", "str", "empty: compendium — ;compendium"),
     ("vault", "Vault's Carousel (;go2 target)", "str", "8285 — empty: the nearest"),
+    (
+        "kiosk_room",
+        "Trader's kiosk room (;go2 target)",
+        "str",
+        "empty: Grisgonda's, the Crossing gem shop (4652) — ;kiosk",
+    ),
     ("weapon", "Weapon noun", "str", "empty: barehanded"),
     ("weapon_container", "Weapon is kept in", "str", "sack, sheath — empty: in hand"),
     ("stance", "STANCE SET arguments", "str", "e.g. 100 80 0 — empty: leave it"),

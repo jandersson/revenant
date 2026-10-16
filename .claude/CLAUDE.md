@@ -119,6 +119,8 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   `trade.py` (;trade: Zoluren, Ilithi, Forfedhdar and Riverhaven caravan contracts, minister or
   broker to clerk to LEAD TO; ;trade circuit a contract from every town at once) +
   `tradelog.py` (every contract and its pay in history.db; ;trade history);
+  `kiosk.py` (;kiosk: a Trader's PRIA kiosk recast, priced, funded by
+  POKE, its purchases TAPped and resold with Finesse up);
   `commodities.py` (;commodities: the three pits' boards, ORDER and SELL,
   the plan sized by the wiki's stock bands) + `commoditylog.py` (every
   board read and trade in history.db); `haul.py` (a caravan or pack animal
