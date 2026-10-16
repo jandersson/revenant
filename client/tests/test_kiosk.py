@@ -518,7 +518,8 @@ class Room:
         if not self.can_bank:
             return False
         self.started.append((name, list(args)))
-        self.carried = int(args[0].split("=")[1])  # ;bank keep=N leaves N carried
+        # ;bank keep=N leaves N carried; a plain ;bank deposits it all.
+        self.carried = int(args[0].split("=")[1]) if args else 0
         return True
 
     def is_running(self, name):
@@ -652,6 +653,7 @@ def test_stored_pouches_are_tapped_and_sold_with_finesse_cast_first():
     assert room.mine["bundle"] == 5 * PLAT  # under the tap: left on the tessera
     assert "stored 0 copper in pouches and 5 plat in bundles" in room.echoed[-2]
     assert sent(room, "cast") == ["cast"]  # no strained pattern was ever cast
+    assert room.started == [("bank", [])]  # the pay banked, not carried
     assert casting.held_mana("Lanival", "Finesse") == 72
 
 

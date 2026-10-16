@@ -19,7 +19,7 @@ A pass
   - A kind over the tap, Trading below lock: Finesse up first, at the mana it
     last took (DISCERN's estimate the first time, 3% lower after each strain),
     RUB to that kind, TAP, then ASK and SELL at the gem shop (pouches) or the
-    tannery (bundles); the empty pouch and the rope are kept.
+    tannery (bundles); the empty pouch and the rope are kept, the pay banked.
   - STOWs the tessera after every pass and at every end. Never a DROP.
 
 What stops it: no tessera on you (never a cast without it), six kiosks in the
@@ -260,7 +260,9 @@ def resell(s, st, mapdb, walk_fn, room, kind, dispense, profile):
         unknown(s, "kiosk", "TAP", answer)
         return False
     stow_tessera(s)
-    sell(s, mapdb, walk_fn, kind, profile)
+    if sell(s, mapdb, walk_fn, kind, profile) is not None:
+        # The pay banked before the wait by the kiosk: a pickpocket's mark.
+        run_bank(s, [])
     travel.go(s, room, "the kiosk's room", db=mapdb, walk=walk_fn)
     return True
 
