@@ -9,6 +9,7 @@ A Trader's Prosperity in Absentia (PRIA) spell grows a crystal kiosk that buys t
 - The kiosk limit is six per room.
 - A cast at 30 mana lasts about an hour, at 44 about 97 roisaen; POWER says how long yours has left. Casting again while it stands refreshes it ("...as the spell pattern is refreshed") rather than growing a second.
 - Its look is random per cast: "a ___ crystalline kiosk" with a crystal habit in the blank (heptagonally symmetrical, jaggedly dendritic, fibrous, euhedral, lamellar, stellate, spindly and acicular), kept through a refresh. An altered look (the Iridius plinth, a custom description) stays. Kiosks are named by their place in the room's listing (SECOND KIOSK), never by an adjective, and the order shifts as others cast: find yours by STUDY ("your kiosk").
+- RELEASE PRIA ends it at once: "You sense the Prosperity in Absentia spell dissipate." and the kiosk shatters.
 - When it ends ("...shatters into evaporating mist.") nothing is lost: the reserve and what it bought stay on the tessera and appear in your next kiosk. The markup starts at 0% again.
 - It buys while you are in another room: at +60%, beside two kiosks at 55%, it took eight sales in its first half hour with its owner away. But QUIT and it shatters at once ("...shatters and evaporates into iridescent mist."), the spell left on you ("You sense the Prosperity in Absentia spell upon you"). It does not come back at login: cast again for a new kiosk, the ledger intact.
 
@@ -20,7 +21,7 @@ STUDY your kiosk to list them, with what it has bought and holds. Hold the tesse
 |---|---|
 | PULL / PUSH | markup up / down 5%, from −10% to +80% |
 | POKE | puts every Kronar you carry into its reserve (up to 1,000 platinum); asks you to repeat it within 10 seconds |
-| TOUCH | takes the reserve back |
+| TOUCH | takes the whole reserve back into your purse; asks you to repeat it within 10 seconds |
 | RUB | switches TAP between pouches and bundles |
 | TAP | hands you what it bought as one crystalline pouch or bundle (up to 500 platinum of value) |
 
@@ -54,7 +55,7 @@ The kiosk works in Kronars in every province.
 
 ## The money
 
-The kiosk stores value, not cost: what it pays ÷ (1 + markup). TAP hands it out (RUB first for bundles); pouches sell at a gem shop, bundles at a tannery, each for the stored value times the Trader's bonus: capped at 50%, plus a tenth of the circle while Finesse is up, give or take 10%, never more than 60% (Elanthipedia: Trader gem selling bonus). Without Finesse a pouch fetched +41%; with Finesse at 72 mana a bundle fetched +60%, the cap, and at the minimum +49%: the bonus follows Finesse's mana. Cast Finesse before the first appraisal: the buyer's figure for an item is fixed, and asking again gets the same number. The gem shop keeps the gems and hands back the empty pouch; the tannery hands back the rope.
+The kiosk stores value, not cost: what it pays ÷ (1 + markup). TAP hands it out (RUB first for bundles); pouches sell at a gem shop, bundles at a tannery, each for the stored value times the Trader's bonus: capped at 50%, plus a tenth of the circle while Finesse is up, give or take 10%, never more than 60% (Elanthipedia: Trader gem selling bonus). Without Finesse a pouch fetched +41%; with Finesse at 72 mana a bundle fetched +60%, the cap, and at the minimum +49%: the bonus follows Finesse's mana. It is not always the cap: a pouch of 1.9 platinum fetched +53% with Finesse at 74. Cast Finesse before the first appraisal: the buyer's figure for an item is fixed, and asking again gets the same number. The gem shop keeps the gems and hands back the empty pouch; the tannery hands back the rope.
 
 | Markup | Seller gets | Owner's margin, resale at 1.5× (no Finesse) | at 1.6× (Finesse) |
 |---|---|---|---|
