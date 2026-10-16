@@ -16,6 +16,8 @@ A pass
     it), or when the spell is up and its kiosk gone (a logout shatters it);
     finds its own kiosk among the room's by STUDY.
   - PULLs or PUSHes the markup to the target, read back from the answer.
+  - STUDYs the other kiosks every 15 minutes and says when one's markup
+    moves; the price stays markup= (a markup says nothing of the coin behind it).
   - Reserve under the floor: ;bank keep= the shortfall, then POKE, and POKE again to confirm.
   - A kind over the tap, Trading below lock: Finesse up first, at the mana it
     last took (DISCERN's estimate the first time, 3% lower after each strain),
@@ -34,7 +36,7 @@ sell-loot.lic. The mechanics are docs/kiosk.md, the wordings client/game/kiosk.p
 import re
 from types import SimpleNamespace
 
-from client.game import casting, hands, kiosk, travel
+from client.game import casting, hands, kiosk, probe, travel
 from client.game.act import ask, missing, said, unknown
 from client.game.bank import room_currency
 from client.game.loop import mindstate
@@ -68,6 +70,7 @@ PASS_SECONDS = 300
 RECAST_MINUTES = 2
 FINESSE_MINUTES = 5  # Finesse recast before a sale with fewer left
 STEPS = 20  # PULLs or PUSHes in one setting; -10 to 80 is 18
+MARKET_MINUTES = 15  # another's kiosk STUDYed again after this long
 ROPE = "bundling rope"
 _TANNER = re.compile(r"\btanner (\w+)")  # "the tanner Falken", as ;skins reads it
 
@@ -173,7 +176,33 @@ def find(s, st):
         if reading and reading["owner"]:
             st.target, st.name = target, name
             return reading
+        if reading:
+            note(s, st, name, reading)
     return None
+
+
+def note(s, st, name, reading):
+    """Another's kiosk read: kept, its markup said when it is new or moved."""
+    seen = st.market.get(name)
+    st.market[name] = {"markup": reading["markup"], "at": probe.clock()}
+    if not seen or seen["markup"] != reading["markup"]:
+        who = f"{reading['trader']}'s kiosk" if reading.get("trader") else f"the {name}"
+        s.echo(f"kiosk: {who} at {reading['markup']}%")
+
+
+def market(s, st):
+    """STUDY each other kiosk here not read for MARKET_MINUTES, its markup
+    said by note() when it moves. The price stays markup=: a markup says
+    nothing of the coin behind it (ours sold out at 80% in 26 minutes)."""
+    for target, name in kiosk.listing(getattr(s.state, "room_objs", "")):
+        seen = st.market.get(name)
+        if target == st.target or (
+            seen and probe.clock() - seen["at"] < MARKET_MINUTES * 60
+        ):
+            continue
+        reading = kiosk.read_study(ask(s, f"study {target}"))
+        if reading and not reading["owner"]:
+            note(s, st, name, reading)
 
 
 def set_markup(s, st, markup, target):
@@ -378,6 +407,7 @@ def one_pass(s, st, options, profile, mapdb, walk_fn, room):
                 dispense = kind
                 reading[kind] = max(0, reading[kind] - kiosk.TAP_MAX)
     stow_tessera(s)
+    market(s, st)
     line = describe(s, st, reading)
     if line.rsplit(",", 1)[0] != (st.said or "").rsplit(",", 1)[0]:
         s.echo(line)  # said when something but the time left moved
@@ -403,7 +433,7 @@ def idle(s, st, seconds):
 def run(s, options, mapdb, walk_fn=walk, profile=None):
     if profile is None:
         profile = load_profile(getattr(s.state, "name", None) or "")
-    st = SimpleNamespace(target=None, name=None, said=None, unfunded=False)
+    st = SimpleNamespace(target=None, name=None, said=None, unfunded=False, market={})
     if options["status"]:
         s.echo(status(s))
         return None

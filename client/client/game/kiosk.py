@@ -59,6 +59,7 @@ _RESERVE = re.compile(rf"holds {_COINS} in reserve")
 # Room]. ... It has a total of 22 platinum, ... Kronars on hand for
 # purchases." — the STUDY's reserve and stored lines otherwise.
 REPORT = "ask my tessera about report"
+_TRADER = re.compile(r"its owner is (\w+)")  # a Trader's STUDY of another's
 _LOCATED = re.compile(r"presently located at \[([^\]]+)\]")
 _ON_HAND = re.compile(rf"total of {_COINS} on hand")
 _STORED = {
@@ -120,7 +121,8 @@ def _copper(text):
 
 def read_study(answer):
     """STUDY's reading, or None for an answer that is no STUDY: owner
-    (bool), markup (int or None), and for the owner the copper of the
+    (bool), markup (int or None), the trader who owns another's (a
+    Trader sees the name, else None), and for the owner the copper of the
     reserve, of the pouches and of the bundles it holds now (the "current
     reserves" section, not the session's purchases) and which kind TAP
     dispenses ("pouch", "bundle" or None)."""
@@ -132,6 +134,8 @@ def read_study(answer):
     markup = markup_of(text)
     reading = {"owner": owner, "markup": markup}
     if not owner:
+        trader = _TRADER.search(text)
+        reading["trader"] = trader.group(1) if trader else None
         return reading
     _, _, now = text.partition("current reserves")
     reserve = _RESERVE.search(now)

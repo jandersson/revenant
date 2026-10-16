@@ -265,7 +265,11 @@ def test_the_owners_study_reads_what_it_holds_now_not_the_sessions_purchases():
 
 
 def test_another_traders_kiosk_shows_its_markup_and_no_reserve():
-    assert kiosk.read_study(NOT_OWNER) == {"owner": False, "markup": 55}
+    assert kiosk.read_study(NOT_OWNER) == {
+        "owner": False,
+        "markup": 55,
+        "trader": "Sable",
+    }
     assert kiosk.read_study("You see nothing unusual.") is None
 
 
@@ -586,15 +590,16 @@ def test_a_first_pass_casts_with_the_tessera_held_then_prices_and_funds_the_kios
     assert room.sent.index("get my clear tessera") < prepare
     assert room.sent[prepare + 1] == "cast"
     # The new kiosk lists first and its cast named it: one STUDY finds it,
-    # and one more after the ;bank trip, since kiosks come and go meanwhile.
-    assert sent(room, "study") == ["study kiosk", "study kiosk"]
+    # one more after the ;bank trip, since kiosks come and go meanwhile,
+    # and the other's kiosk is read for its markup.
+    assert sent(room, "study") == ["study kiosk", "study kiosk", "study second kiosk"]
     assert sent(room, "pull") == ["pull kiosk"] * 11  # 0% up to 55%
     assert room.mine["markup"] == 55
     # Empty, so under the floor: ;bank leaves the shortfall, POKE asks, POKE commits.
     assert room.started == [("bank", ["keep=1000000"])]
     assert sent(room, "poke") == ["poke kiosk", "poke kiosk"]
     assert room.mine["reserve"] == 100 * PLAT
-    assert room.sent[-1] == "stow my tessera"
+    assert [c for c in room.sent if "tessera" in c][-1] == "stow my tessera"
     assert not room.holds("tessera")
 
 
@@ -639,6 +644,26 @@ def test_a_gone_kiosk_is_not_grown_again_among_six_others():
     )
     assert run(room) == "6 kiosks already stand here"
     assert sent(room, "prepare") == []
+
+
+def test_the_other_kiosks_markups_are_read_and_said_but_ours_holds():
+    rival = "iridescent crystal kiosk traced in softly lit starburst etchings"
+    room = Room(before=[rival], mine=ours(), spells={kiosk.SPELL: 30})
+    run(room)
+    assert sent(room, "study") == ["study kiosk", "study second kiosk"]  # once each
+    assert "kiosk: Sable's kiosk at 55%" in room.echoed
+    assert room.mine["markup"] == 55  # markup= decides, not the rival's
+
+
+def test_a_rival_read_lately_is_not_studied_again():
+    rival = "iridescent crystal kiosk traced in softly lit starburst etchings"
+    room = Room(after=[rival], mine=ours(), spells={kiosk.SPELL: 30})
+    st = SimpleNamespace(target="kiosk", name=None, market={})
+    room.list_room()
+    script.market(room, st)
+    script.market(room, st)
+    assert sent(room, "study") == ["study second kiosk"]
+    assert room.echoed == ["kiosk: Sable's kiosk at 55%"]
 
 
 def test_a_markup_above_the_target_is_pushed_down():

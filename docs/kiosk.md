@@ -31,7 +31,7 @@ The kiosk works in Kronars in every province.
 ## Selling to a kiosk
 
 - Hold the tied pouch or bundle and GIVE KIOSK (SECOND KIOSK, ...). The first GIVE quotes, "...will purchase the pouch for ... based on the markup of 80%."; the same GIVE within 10 seconds sells. Naming the item (GIVE POUCH TO KIOSK) is refused.
-- STUDY any kiosk to see its markup; a Trader also sees its owner. No one but the owner sees its reserve.
+- STUDY any kiosk to see its markup; a Trader also sees its owner. No one but the owner sees its reserve, but the first GIVE's quote is the lesser of the price and the reserve, so an item worth more reads it.
 - A kiosk short of coin buys part of the item: it pays its whole reserve and hands the item back, still tied, worth exactly the part it did not pay for. Under 1 gold left, it refuses.
 - The reserve can change between the quote and the sale when someone else sells first.
 - A kiosk never buys a crystalline pouch or bundle another kiosk made, nor an untied one ("isn't tied").
@@ -44,6 +44,7 @@ The kiosk works in Kronars in every province.
 
 - PRIA at 30 mana with the tessera held, refreshed with 2 roisaen left (a refresh throws away what is left). A logout shatters the kiosk but leaves the spell up, so after a login it casts again.
 - The markup PULLed or PUSHed to `markup=` (55).
+- The other kiosks' markups STUDYed every 15 minutes and said when one moves; the price stays `markup=`.
 - The reserve topped up to `reserve=` (100 platinum) through `;bank keep=` and POKE once it falls under `floor=` (50).
 - Pouches and bundles TAPped once the kiosk holds `tap=` (20 platinum) of them, and sold with Finesse up, the pay banked at once; never while Trading is mind-locked.
 - Finesse at the most mana it takes: DISCERN's estimate the first time, 3% lower after each strain warning, and the level that took is kept for the next cast.
