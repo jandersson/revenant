@@ -12,7 +12,8 @@
 A pass
   - Walks to the profile's `kiosk_room` (Grisgonda's, 4652, by default).
   - Casts Prosperity in Absentia at 30 mana with the clear tessera held, and
-    again with 10 roisaen left; finds its own kiosk among the room's by STUDY.
+    again with 10 roisaen left, or when the spell is up and its kiosk gone (a
+    logout shatters it); finds its own kiosk among the room's by STUDY.
   - PULLs or PUSHes the markup to the target, read back from the answer.
   - Reserve under the floor: ;bank keep= the shortfall, then POKE, and POKE again to confirm.
   - A kind over the tap, Trading below lock: Finesse up first (the profile's
@@ -133,6 +134,19 @@ def cast_kiosk(s):
         s, kiosk.SPELL_ABBREV, kiosk.MANA, casting.CastState(), recording, report
     )
     return outcome, next((n for n in map(kiosk.cast_name, seen) if n), None)
+
+
+def grow(s, st, standing):
+    """PRIA cast, a new kiosk (not `standing`) only under six in the room:
+    why it failed, or None. The kiosk's name is kept."""
+    objs = getattr(s.state, "room_objs", "")
+    if not standing and len(kiosk.listing(objs)) >= kiosk.MAX_KIOSKS:
+        return f"{kiosk.MAX_KIOSKS} kiosks already stand here"
+    outcome, name = cast_kiosk(s)
+    if outcome not in ("ok", "strained"):
+        return f"{kiosk.SPELL} did not cast ({outcome})"
+    st.name = name or st.name
+    return None
 
 
 def find(s, st):
@@ -295,15 +309,16 @@ def one_pass(s, st, options, profile, mapdb, walk_fn, room):
     hands.clear(s, profile, ask=ask, keep=("tessera",))
     if not take_tessera(s):
         return "no clear tessera on you — never a cast without it"
-    if not up(s, kiosk.SPELL, RECAST_MINUTES):
-        objs = getattr(s.state, "room_objs", "")
-        if not up(s, kiosk.SPELL) and len(kiosk.listing(objs)) >= kiosk.MAX_KIOSKS:
-            return f"{kiosk.MAX_KIOSKS} kiosks already stand here"
-        outcome, name = cast_kiosk(s)
-        if outcome not in ("ok", "strained"):
-            return f"{kiosk.SPELL} did not cast ({outcome})"
-        st.name = name or st.name
+    cast = not up(s, kiosk.SPELL, RECAST_MINUTES)
+    if cast and (why := grow(s, st, standing=up(s, kiosk.SPELL))):
+        return why
     reading = find(s, st)
+    if reading is None and not cast and up(s, kiosk.SPELL):
+        # A logout shatters the kiosk and leaves the spell up (2026-10-16):
+        # the cast grows another, the ledger intact, the markup at 0%.
+        if why := grow(s, st, standing=False):
+            return why
+        reading = find(s, st)
     if reading is None:
         return "found no kiosk of yours here"
     if reading["markup"] != options["markup"]:

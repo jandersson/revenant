@@ -311,10 +311,21 @@ class Room:
     the game did. The run ends at its first wait: "return" is typed."""
 
     def __init__(
-        self, before=(), mine=None, after=(), spells=None, tessera=True, trading=10
+        self,
+        before=(),
+        mine=None,
+        after=(),
+        spells=None,
+        tessera=True,
+        trading=10,
+        ledger=None,
+        grows="heptagonally symmetrical crystalline kiosk",
     ):
         self.before, self.after = list(before), list(after)  # someone else's
         self.mine = mine
+        # What the tessera keeps for a kiosk a cast grows, and its look.
+        self.ledger = ledger or ours(reserve=0)
+        self.grows = grows
         self.tessera = tessera
         self.sent, self.echoed, self.started, self.pending = [], [], [], []
         self.poke_asked = False
@@ -397,12 +408,10 @@ class Room:
                 f"You gesture at a {self.mine['name']}, which responds by briefly "
                 "undulating with green-orange hues."
             )
-        self.mine = ours(
-            "heptagonally symmetrical crystalline kiosk", markup=0, reserve=0
-        )
+        self.mine = {**self.ledger, "name": self.grows, "markup": 0}
         self.after, self.before = self.before + self.after, []  # a new one lists first
         self.list_room()
-        return GREW
+        return GREW.replace("heptagonally symmetrical crystalline kiosk", self.grows)
 
     def answer(self, command):
         verb, _, rest = command.partition(" ")
@@ -549,6 +558,34 @@ def test_its_own_kiosk_is_found_by_study_among_the_others():
     assert any(
         line.startswith("kiosk: the second kiosk — markup 55%") for line in room.echoed
     )
+
+
+def test_after_a_logout_the_spell_is_up_and_the_kiosk_gone_so_another_is_grown():
+    # 2026-10-16: a QUIT beside the kiosk, and "A jaggedly dendritic
+    # crystalline kiosk shatters and evaporates into iridescent mist."; at
+    # login the Spells window still said 61 roisaen and no kiosk was his.
+    # The cast grew "a fibrous crystalline kiosk", the ledger intact, 0%.
+    room = Room(
+        after=["euhedral crystalline kiosk"],
+        spells={kiosk.SPELL: 61},
+        ledger=ours(reserve=97 * PLAT, pouch=5 * PLAT),
+        grows="fibrous crystalline kiosk",
+    )
+    assert run(room) is None
+    assert sent(room, "prepare") == ["prepare pria 30"]
+    # The other's kiosk first, then the new one, listed first and named.
+    assert sent(room, "study") == ["study kiosk", "study kiosk"]
+    assert room.mine["markup"] == 55
+    assert room.started == []  # 97 platinum kept on the tessera: no top-up
+
+
+def test_a_gone_kiosk_is_not_grown_again_among_six_others():
+    room = Room(
+        after=[f"squat crystalline kiosk number {n}" for n in range(6)],
+        spells={kiosk.SPELL: 61},
+    )
+    assert run(room) == "6 kiosks already stand here"
+    assert sent(room, "prepare") == []
 
 
 def test_a_markup_above_the_target_is_pushed_down():
