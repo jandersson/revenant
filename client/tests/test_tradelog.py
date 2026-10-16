@@ -70,6 +70,26 @@ def test_a_contract_paid_in_lirums_counts_them_at_their_rate(tmp_path):
     assert route["paid"] == round(47840 * money.KRONAR_RATES["Lirums"])
 
 
+def test_a_circuit_payment_lands_on_the_contract_worth_it(tmp_path):
+    # #572, the Ilithi circuit 2026-10-16: two crates for Fayrin's Rest,
+    # Shard's first, and the clerk paid Steelclaw Clan's 2,024 first.
+    path = tmp_path / "history.db"
+    shard = CONTRACT._replace(origin="Shard", destination="Fayrin's Rest", worth=5610)
+    steelclaw = shard._replace(origin="Steelclaw Clan", worth=2024)
+    tradelog.log_issue("Lanival", "Shard", shard, 1683, 0, path=path)
+    tradelog.log_issue("Lanival", "Steelclaw Clan", steelclaw, 607, 0, path=path)
+    tradelog.log_delivery("Lanival", "Fayrin's Rest", 2024, path=path)
+    tradelog.log_delivery("Lanival", "Fayrin's Rest", 5610, path=path)
+    connection = sqlite3.connect(str(path))
+    try:
+        rows = connection.execute(
+            "SELECT origin, worth, paid FROM contracts ORDER BY seq"
+        ).fetchall()
+    finally:
+        connection.close()
+    assert rows == [("Shard", 5610, 5610), ("Steelclaw Clan", 2024, 2024)]
+
+
 def test_a_table_from_before_the_column_gets_it_filled_in(tmp_path):
     path = tmp_path / "history.db"
     old = sqlite3.connect(str(path))

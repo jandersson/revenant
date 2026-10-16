@@ -155,15 +155,17 @@ def log_fee(seq, fee, path=None):
 
 
 def log_delivery(character, destination, paid, path=None):
-    """The pay on the oldest undelivered row of the character's for
-    `destination`: a contract read back after a restart is found by its
+    """The pay on the character's undelivered row for `destination` whose
+    worth is the pay, else the oldest: a circuit holds several towns'
+    crates for one destination and the clerk pays them in his own order
+    (#572), and a contract read back after a restart is found by its
     town, no seq kept. Nothing when no row is open (a contract issued
     before the table)."""
     return _write(
         "UPDATE contracts SET delivered_at = ?, paid = ? WHERE seq = ("
         "SELECT seq FROM contracts WHERE character_name = ? AND destination = ?"
-        " AND delivered_at IS NULL ORDER BY seq LIMIT 1)",
-        (now(), paid, character or "unknown", destination),
+        " AND delivered_at IS NULL ORDER BY worth IS ? DESC, seq LIMIT 1)",
+        (now(), paid, character or "unknown", destination, paid),
         path,
     )
 
