@@ -6,7 +6,8 @@ A Trader's Prosperity in Absentia spell grows a crystal kiosk that buys tied gem
 
 - PRIA, 30 to 100 mana, circle 60, after Stellar Collector. Learned from the Negotiants in the Crossing Traders' Guild.
 - Hold the clear tessera when you CAST. It is the kiosk's ledger: lose it and the kiosk's money and purchases are gone.
-- Up to six kiosks stand in one room. A cast at 30 mana lasted about an hour; POWER says how long yours has left.
+- Up to six kiosks stand in one room. A cast at 30 mana lasts about an hour; POWER says how long yours has left, and each cast grows a new shape ("a heptagonally symmetrical crystalline kiosk", "a jaggedly dendritic crystalline kiosk").
+- When it ends ("...shatters into evaporating mist.") nothing is lost: the reserve and what it bought stay on the tessera and appear in your next kiosk. The markup starts at 0% again.
 
 ## The owner's verbs
 

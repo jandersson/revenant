@@ -304,6 +304,12 @@ lessons the code and docs cannot carry themselves.
   "hands never changed". That misread a climb experiment twice on
   2026-09-11 (the items had been stowed). Grep each tag on its own,
   and give the parser `left_hand`/`right_hand` state (#159).
+- Before calling a cast failed, read `revenant-send --state spells`:
+  the active spells are the outcome, not the last echo seen before a
+  `;stop`. A Finesse run was reported as never taking, with its mana
+  drop blamed on the collapses, when the cast at 72 had taken ten
+  seconds before the stop and the collapses had cost no mana at all
+  (2026-10-16, #570 rewritten after the operator's correction).
 
 ## Working with the operator
 
