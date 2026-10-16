@@ -6,7 +6,8 @@ A Trader's Prosperity in Absentia spell grows a crystal kiosk that buys tied gem
 
 - PRIA, 30 to 100 mana, circle 60, after Stellar Collector. Learned from the Negotiants in the Crossing Traders' Guild.
 - Hold the clear tessera when you CAST. It is the kiosk's ledger: lose it and the kiosk's money and purchases are gone.
-- Up to six kiosks stand in one room. A cast at 30 mana lasts about an hour, at 44 about 97 roisaen; POWER says how long yours has left. Casting again while it stands refreshes it ("...as the spell pattern is refreshed") rather than growing a second.
+- The kiosk limit is six per room.
+- A cast at 30 mana lasts about an hour, at 44 about 97 roisaen; POWER says how long yours has left. Casting again while it stands refreshes it ("...as the spell pattern is refreshed") rather than growing a second.
 - Its look is random per cast: "a ___ crystalline kiosk" with a crystal habit in the blank (heptagonally symmetrical, jaggedly dendritic, fibrous, euhedral, lamellar, stellate, spindly and acicular), kept through a refresh. An altered look (the Iridius plinth, a custom description) stays. Kiosks are named by their place in the room's listing (SECOND KIOSK), never by an adjective, and the order shifts as others cast: find yours by STUDY ("your kiosk").
 - When it ends ("...shatters into evaporating mist.") nothing is lost: the reserve and what it bought stay on the tessera and appear in your next kiosk. The markup starts at 0% again.
 - It buys while you are in another room: at +60%, beside two kiosks at 55%, it took eight sales in its first half hour with its owner away. But QUIT and it shatters at once ("...shatters and evaporates into iridescent mist."), the spell left on you ("You sense the Prosperity in Absentia spell upon you"). It does not come back at login: cast again for a new kiosk, the ledger intact.
