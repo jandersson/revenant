@@ -623,10 +623,20 @@ def test_a_markup_above_the_target_is_pushed_down():
 
 
 def test_a_kiosk_near_its_end_is_refreshed_and_keeps_its_markup():
-    room = Room(mine=ours(), spells={kiosk.SPELL: 8})
+    room = Room(mine=ours(), spells={kiosk.SPELL: 2})
     run(room)
     assert "prepare pria 30" in room.sent
     assert sent(room, "pull") == [] and sent(room, "push") == []
+
+
+def test_a_kiosk_with_time_left_is_not_refreshed_and_the_wait_ends_at_its_recast():
+    # A refresh sets the time to the new cast's: 8 left are thrown away.
+    room = Room(mine=ours(), spells={kiosk.SPELL: 8})
+    run(room)
+    assert sent(room, "prepare") == []
+    assert script.next_wait(room) == script.PASS_SECONDS  # 3 left at the next
+    room.state.active_spells[kiosk.SPELL] = 5
+    assert script.next_wait(room) == 3 * 60  # the next pass at 2 left
 
 
 def test_stored_pouches_are_tapped_and_sold_with_finesse_cast_first():

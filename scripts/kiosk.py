@@ -12,8 +12,9 @@
 A pass
   - Walks to the profile's `kiosk_room` (Grisgonda's, 4652, by default).
   - Casts Prosperity in Absentia at 30 mana with the clear tessera held, and
-    again with 10 roisaen left, or when the spell is up and its kiosk gone (a
-    logout shatters it); finds its own kiosk among the room's by STUDY.
+    again with 2 roisaen left (the wait before that pass shortened to reach
+    it), or when the spell is up and its kiosk gone (a logout shatters it);
+    finds its own kiosk among the room's by STUDY.
   - PULLs or PUSHes the markup to the target, read back from the answer.
   - Reserve under the floor: ;bank keep= the shortfall, then POKE, and POKE again to confirm.
   - A kind over the tap, Trading below lock: Finesse up first, at the mana it
@@ -62,7 +63,9 @@ a POKE after a ;bank that did not run would have committed it whole.
 
 PLATINUM = 10_000
 PASS_SECONDS = 300
-RECAST_MINUTES = 10  # PRIA refreshed with this many roisaen left
+# PRIA refreshed with this many roisaen left: a refresh sets the time to
+# the new cast's, so what is left is thrown away (8 of 61, 2026-10-17).
+RECAST_MINUTES = 2
 FINESSE_MINUTES = 5  # Finesse recast before a sale with fewer left
 STEPS = 20  # PULLs or PUSHes in one setting; -10 to 80 is 18
 ROPE = "bundling rope"
@@ -96,6 +99,16 @@ def up(s, spell, minutes=-1):
         if name.lower() == spell.lower():
             return left is None or left > minutes
     return False
+
+
+def next_wait(s):
+    """Seconds to the next pass: PASS_SECONDS, or fewer so that the pass
+    that refreshes PRIA comes with RECAST_MINUTES left, not a pass early
+    (a roisaen is a minute)."""
+    for name, left in (getattr(s.state, "active_spells", None) or {}).items():
+        if name.lower() == kiosk.SPELL.lower() and left is not None:
+            return max(60, min(PASS_SECONDS, (left - RECAST_MINUTES) * 60))
+    return PASS_SECONDS
 
 
 def time_left(s):
@@ -388,7 +401,7 @@ def run(s, options, mapdb, walk_fn=walk, profile=None):
             if why:
                 s.echo(f"kiosk: {why} — stopping")
                 return why
-            if not idle(s, st, PASS_SECONDS):
+            if not idle(s, st, next_wait(s)):
                 s.echo("kiosk: done — the kiosk stands")
                 return None
     finally:
