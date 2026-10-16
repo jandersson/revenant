@@ -13,6 +13,9 @@ What it does
     where it is and is named: a hunt bundles every skin, so a loose one is kept
     on purpose or a sign something went wrong.
   - Says what the tanner paid for the bundle.
+  - A Trader's kiosk in the room (a `kiosk` or `plinth`): the bundle is TIEd and
+    sold to the best kiosk whose quote beats the tanner's, else to the tanner;
+    says which and both prices. No rope back from a kiosk: the tanner gives one.
   - Stays at the tannery, since where it started is usually the hunting ground.
   - bank leaves the banking to ;bank (foreign coins exchanged, DEPOSIT ALL);
     a ;bank already running is the operator's and is left alone.
@@ -23,14 +26,15 @@ When it stops
   - nothing sold and no bank: it ends at the tannery, back or not
 
 Every ;hunt that fought ends with ;skins bank. The profile's `bundle` setting
-(docs/hunting.md); Elanthipedia's Bundle command and Falken's Tannery.
+(docs/hunting.md); Elanthipedia's Bundle command, Falken's Tannery and
+Prosperity in Absentia.
 """
 
 import re
 from collections import Counter
 
-from client.game import hands, items, travel
-from client.game.act import ask, missing
+from client.game import hands, items, money, travel
+from client.game.act import ask, missing, said, unknown
 from client.game.mapdb import MapDB
 from client.game.profile import load_profile
 from client.game.walker import locate, walk
@@ -78,6 +82,23 @@ the operator's and is left alone, said. Selling and banking stay
 distinct ;train tasks: the starter plan runs `{"script": "skins"}` and
 then `{"script": "bank"}`, each with no skills, once a cycle after the
 hunt. Stops on death.
+A Trader's kiosk (Elanthipedia: Prosperity in Absentia, #567) buys a
+tied bundle or gem pouch from anyone at the shop value times its
+owner's markup, -10% to +80%, in Kronars: GIVE KIOSK quotes, the same
+GIVE within 10 seconds sells. Kiosks stand in the Crossing's tannery
+most days, one wearing the Iridius crystal cube's look ("a luminescent
+Iridius crystal plinth protected by a faceted glass-like dragon", noun
+plinth). With one listed, ;skins asks the tanner's quote (ASK FALKEN
+TO APPRAISE MY BUNDLE, captured 2026-09-12: "...then whispers, "I can
+give 111 Kronars for it."", and the SELL paid 111), TIEs the bundle (a
+kiosk takes tied ones only; the tanner pays the same for a tight bundle
+and hands its rope back, other players' sales in the logs), GIVEs it to
+each kiosk once for a quote, and gives the best one that beats the
+tanner's its second GIVE. A gem pouch is never offered: the GIVE names
+the bundle. Not captured yet: TIE's answer, the kiosk's quote, sale and
+refusal lines, and a short-funded kiosk's part payment — the sale is
+read off the hand (the bundle gone), the quote as any coin amount, and
+an unread quote is echoed for capture.
 Stop with:  ;stop skins
 """
 
@@ -115,6 +136,21 @@ SKIN_NOUNS = (
     "beak",
     "shell",
 )
+# The tanner's quote, captured 2026-09-12 at Falken's: 'The tanner Falken
+# looks the lumpy bundle over carefully, then whispers, "I can give 111
+# Kronars for it."' — a bare count is copper, as the SELL's "hands you".
+_QUOTE = re.compile(r"I can give (.+?) for it")
+_TANNER = re.compile(r"\btanner (\w+)")  # "..., the tanner Falken, ..."
+# One amount, the game's shape: "1 gold, 5 silver and 1 bronze Kronars", "111 Kronars".
+_AMOUNT = r"[\d,]+ (?:platinum|gold|silver|bronze|copper)"
+_COINS = re.compile(
+    rf"((?:{_AMOUNT}(?:, and |, | and ))*{_AMOUNT}|[\d,]+) (Kronars|Lirums|Dokoras)"
+)
+# A Trader's kiosk, or one wearing the Iridius crystal cube's look (a
+# plinth); at most six to a room (Elanthipedia: Prosperity in Absentia).
+# shortcut: only the two nouns seen in the logs; add a look's noun when one shows.
+KIOSK_NOUNS = ("kiosk", "plinth")
+_ORDINALS = ("", "second ", "third ", "fourth ", "fifth ", "sixth ")
 # LOOK IN MY <container>, no roundtime (captured 2026-09-21, #269): "In
 # the canvas sack you see a round cambrinth flake, a nemoih root, ...,
 # a nuloe stem and a nuloe stem." — the skin nouns it lists are the
@@ -168,6 +204,87 @@ def hand_to_bank(s, args):
     return True
 
 
+def kiosks(room_objs):
+    """The GIVE target of each kiosk the room lists: "kiosk", "second
+    kiosk", ..., "plinth"; [] for none."""
+    text = str(room_objs or "").lower()
+    return [
+        ordinal + noun
+        for noun in KIOSK_NOUNS
+        for ordinal in _ORDINALS[: len(re.findall(rf"\b{noun}\b", text))]
+    ]
+
+
+def kronars(answer):
+    """The copper Kronars of the first amount an answer names — its
+    denominations ("2 gold and 5 silver Kronars") or a bare count ("111
+    Kronars", copper), another province's coin converted; None for none."""
+    found = _COINS.search(str(answer or ""))
+    if not found:
+        return None
+    amount = found.group(1).replace(",", "")
+    copper = int(amount) if amount.isdigit() else money.to_copper(amount)
+    return money.in_kronars(copper, found.group(2))
+
+
+def _coin(copper):
+    return f"{money.short(copper)} Kronars"
+
+
+def kiosk_sale(s, tanner):
+    """The bundle in hand sold to the room's best kiosk when its quote
+    beats `tanner`'s: True, said. False leaves the sale to the tanner,
+    said whenever a kiosk was there."""
+    targets = kiosks(getattr(s.state, "room_objs", ""))
+    if not targets:
+        return False
+    quote = (
+        _QUOTE.search(ask(s, f"ask {tanner} to appraise my bundle")) if tanner else None
+    )
+    offer = kronars(quote.group(1)) if quote else None
+    if offer is None:
+        s.echo(
+            "skins: no tanner's quote to weigh the kiosk against — selling to the tanner"
+        )
+        return False
+    ask(s, "tie my bundle")  # a kiosk buys tied bundles only; the tanner pays the same
+    best, price = None, offer
+    for target in targets:
+        answer = ask(s, f"give my bundle to {target}")
+        quoted = kronars(answer)
+        if not hands.holding(s, "bundle"):  # sold on the first GIVE after all
+            best, price = target, quoted
+            break
+        if quoted is None:
+            unknown(s, "skins", f"{target} quote", answer)
+        elif quoted > price:
+            best, price = target, quoted
+    if best is None:
+        s.echo(
+            f"skins: no kiosk beats the tanner's {_coin(offer)} — selling to the tanner"
+        )
+        return False
+    # The second GIVE sells; past the quote's 10 seconds it quotes again.
+    for _ in range(2):
+        if not hands.holding(s, "bundle"):
+            break
+        answer = ask(s, f"give my bundle to {best}")
+        quoted = kronars(answer)
+        if hands.holding(s, "bundle") and quoted is not None and quoted <= offer:
+            break  # quoted again below the tanner: its funds ran low
+    if hands.holding(s, "bundle"):
+        s.echo(
+            f"skins: the {best} did not buy — {said(answer)} — selling to the tanner"
+        )
+        return False
+    paid = kronars(answer) or price
+    amount = f" for {_coin(paid)}" if paid else ""
+    s.echo(
+        f"skins: sold the bundle to the {best}{amount} — the tanner offered {_coin(offer)}"
+    )
+    return True
+
+
 def sell_bundle(s, container):
     """The bundle sold and the rope kept; False, said, when there was
     none to sell or the tanner did not pay."""
@@ -175,13 +292,19 @@ def sell_bundle(s, container):
         where = f"in your {container}" if container else "in hand"
         s.echo(f"skins: no bundle worn or {where} — nothing to sell")
         return False
-    answer = ask(s, "sell my bundle")
-    paid = _PAID.search(answer)
-    if not paid:
-        last = answer.strip().splitlines()[-1] if answer.strip() else "no answer"
-        s.echo(f"skins: the tanner did not pay — {last}")
-        return False
-    s.echo(f"skins: sold the bundle for {paid.group(1)} {paid.group(2)}")
+    tanner = _TANNER.search(str(getattr(s.state, "room_objs", "") or ""))
+    tanner = tanner.group(1).lower() if tanner else None
+    if kiosk_sale(s, tanner):
+        if not hands.holding(s, "rope"):  # the kiosk kept it; a tanner's is free
+            ask(s, f"ask {tanner} for rope")
+    else:
+        answer = ask(s, "sell my bundle")
+        paid = _PAID.search(answer)
+        if not paid:
+            last = answer.strip().splitlines()[-1] if answer.strip() else "no answer"
+            s.echo(f"skins: the tanner did not pay — {last}")
+            return False
+        s.echo(f"skins: sold the bundle for {paid.group(1)} {paid.group(2)}")
     rope = items.ref(s, "rope") or f"my {ROPE}"  # back in hand: its id (#456)
     ask(s, f"put {rope} in my {container}" if container else f"stow {rope}")
     return True

@@ -119,7 +119,7 @@ A ground with any room the map cannot walk back from, to `home` or a task's give
 - Trading cards go into the worn case `card_case` names (a collector's case), Imperial diras into `dira_case` (a coin case, bought in Shard), at a safe point with both hands empty; duplicates too. `;break cards` / `;break dira` asks now.
 - A full loot container stops skinning or box pickups for the run, and says so. `;skins` sells only the bundle and names any loose skin it finds; `;boxes` opens boxes.
 - Each run starts by counting the boxes in the loot container (LOOK IN) and in hand, so `box_limit` holds across runs. A box still in hand means the container is full: no box is picked up until `;boxes` empties it. With no hand free, SKIN is off and a skinning task's hunt ends.
-- With `bundle`, the first skin starts a bundle from the bundling rope, wherever it is carried, and later skins go straight into it. A place already taken ("can't wear any more items like that") moves TOGGLE BUNDLE on to the next; a bundle that goes on nowhere is stowed and the skins go loose. `;skins` sells the bundle and keeps the rope.
+- With `bundle`, the first skin starts a bundle from the bundling rope, wherever it is carried, and later skins go straight into it. A place already taken ("can't wear any more items like that") moves TOGGLE BUNDLE on to the next; a bundle that goes on nowhere is stowed and the skins go loose. `;skins` sells the bundle and keeps the rope; a Trader's kiosk in the tannery that quotes more than the tanner buys it instead (tied first).
 - Nothing is ever dropped.
 
 ## ARRANGE: which piece SKIN takes
