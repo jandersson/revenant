@@ -1,6 +1,6 @@
 # Trading
 
-`;trade` runs a Trader's caravan contracts in Zoluren, Ilithi and Forfedhdar, and to Riverhaven: it takes a contract, has the caravan lead to its town, collects the pay, and goes again. Every contract is logged to history.db.
+`;trade` runs a Trader's caravan contracts in Zoluren, Ilithi and Forfedhdar, and to Riverhaven: it takes a contract, has the caravan lead to its town, collects the pay, and goes again. Every contract is logged to history.db. How contracts pay, and what each way of trading earns: [caravans.md](caravans.md).
 
 ```
 ;trade            run contracts until stopped

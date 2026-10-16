@@ -1,0 +1,32 @@
+# Caravan contracts
+
+A Trader carries goods between guild outposts in a rented caravan. The issuing town sells the goods at their wholesale price plus dues, and the destination pays ten-thirds of that wholesale price, so every contract clears about twice its wholesale after costs. Holding a crate from every town at once, a circuit, earned the most per hour of the ways measured.
+
+## A contract
+
+- ASK MINISTER FOR CONTRACT takes one within the province; ASK BROKER FOR CONTRACT, one for another province (the Crossing, Shard and Riverhaven have a broker). READ the contract to see the goods, the destination and its worth; the text goes to the familiar window.
+- The town charges the goods' wholesale price plus dues, about a quarter of the wholesale (a third for another province), paid at its shipment clerk; the clerk adds a transport fee of 36 to 50.
+- The destination's clerk pays the contract's worth: always 10/3 of the wholesale, in the destination's coin (1.386 Dokoras or 1.25 Lirums to the Kronar).
+- Profit is about 2.05 times the wholesale: a 4,500-Kronar crate costs about 5,800 with dues and clears about 9,200.
+- One contract per issuing town at a time; several crates for different towns ride together.
+
+![Pay against wholesale price on log axes: every contract held alone lies on the line pay = 10/3 × wholesale](trade-pay.png)
+
+## The caravan
+
+- RENT CARAVAN at an outpost's clerk: 400 Kronars, or 288 Dokoras. RETURN CARAVAN gives it back once its storage box is empty.
+- Feed it grass before every lead; a feedbag of grass carried along keeps it fed.
+- TELL CARAVAN TO LEAD TO <town>: you follow it through any roundtime, so a lead is time to train in place (a song, appraising, magical research).
+- It boards the ferries and the Obsidian Pass gondola with you, the fare charged for the goods.
+
+## Time and money
+
+A leg's median time: Ilithi 5 minutes, Zoluren 6½, Forfedhdar 12, another province 48. Per active hour, in Kronars:
+
+![Profit per active hour: Zoluren one contract 74k, Ilithi one contract 56k, Ilithi circuit 85k, Forfedhdar circuit 56k, interprovince 97k counting leg time only](trade-profit.png)
+
+- A circuit stays in one province: at each stop every crate for that town is handed in and the town's own contract taken, then the caravan leads to the nearest town with business. It earns more per hour than one contract at a time by delivering more often: about 13 crates an hour against 8, crates for several towns riding every leg.
+- Interprovince contracts pay the most per hour of leg, but the legs are long and the wait for the next contract is not counted above.
+- Forfedhdar's first circuit was slower: long legs, Boar Clan reached by way of Hibarnhvidar and Ain Ghazal across a ferry.
+
+[trade.md](trade.md) is `;trade`, the script that runs all of this.
