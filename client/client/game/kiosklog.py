@@ -6,7 +6,7 @@ STUDY readings, and the owner's TAPs and resales.
 crystalline kiosk..."): the time, the observer, the room, the kiosk's
 look, its owner when the lines named one, the seller, pouch or bundle.
 The same sale seen by two characters is kept once. `kiosk_readings`:
-each STUDY: the kiosk, its owner, whether it is the reader's, the
+each STUDY, and each ASK MY TESSERA ABOUT REPORT (from any room): the kiosk, its owner, whether it is the reader's, the
 markup, and for the owner's own the reserve and the stored pouches and
 bundles in copper — the reserve's fall between readings is what the
 sellers were paid. `kiosk_resales`: each TAP and its sale: the kind, the
@@ -182,7 +182,11 @@ class _Scan:
             if text.startswith("Roundtime") or len(self.study) > STUDY_LINES:
                 self.close_study()
             return
-        if "As you examine your kiosk" in text or _OTHERS.search(text):
+        if (
+            "As you examine your kiosk" in text
+            or "Audit-abstraction follows" in text  # the tessera's report
+            or _OTHERS.search(text)
+        ):
             self.study = [text]
             return
         if _FINESSE.search(text):
@@ -233,6 +237,9 @@ class _Scan:
         text = "\n".join(self.study)
         self.study = None
         reading = kiosk.read_study(text)
+        if not reading and (report := kiosk.read_report(text)):
+            # From any room: the kiosk's own room is in the report.
+            reading = {**report, "owner": True}
         if not reading:
             return
         if reading["owner"]:
@@ -248,7 +255,7 @@ class _Scan:
             "kiosk_readings",
             read_at=_iso(self.now),
             character_name=self.me,
-            room=self.room,
+            room=reading.get("room") or self.room,
             kiosk=look,
             owner=owner,
             mine=int(reading["owner"]),

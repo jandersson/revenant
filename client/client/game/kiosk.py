@@ -3,6 +3,7 @@
     kiosk.listing(room_objs)     # [(target, name)]: "kiosk", "second kiosk", "plinth" ...
     kiosk.cast_name(answer)      # the kiosk a PRIA cast grew or refreshed, else None
     kiosk.read_study(answer)     # STUDY's reading: owner, markup, reserve, pouches, bundles, dispense
+    kiosk.read_report(answer)    # the tessera's report, from any room: where, markup, reserve, stored
     kiosk.markup_of(answer)      # PULL/PUSH/STUDY's "set to N%", else None
     kiosk.markup_target(value)   # a wanted markup on the kiosk's 5% steps, -10 to 80
     kiosk.topup(reserve, floor, target)  # copper to POKE in, 0 above the floor
@@ -52,6 +53,14 @@ _TAPPED = re.compile(r"revealing a crystalline (pouch|bundle) dusted in frost")
 _AMOUNT = r"[\d,]+ (?:platinum|gold|silver|bronze|copper)"
 _COINS = rf"((?:{_AMOUNT}(?:, and |, | and ))*{_AMOUNT}|[\d,]+) Kronars"
 _RESERVE = re.compile(rf"holds {_COINS} in reserve")
+# ASK MY TESSERA ABOUT REPORT, captured 2026-10-17 at Grisgonda's and the
+# shop outside it, the same answer from both (6 s roundtime): "The
+# crystalline kiosk is presently located at [Grisgonda's, Appraisal
+# Room]. ... It has a total of 22 platinum, ... Kronars on hand for
+# purchases." — the STUDY's reserve and stored lines otherwise.
+REPORT = "ask my tessera about report"
+_LOCATED = re.compile(r"presently located at \[([^\]]+)\]")
+_ON_HAND = re.compile(rf"total of {_COINS} on hand")
 _STORED = {
     "pouch": re.compile(rf"{_COINS} in pouches"),
     "bundle": re.compile(rf"{_COINS} in bundles"),
@@ -132,6 +141,27 @@ def read_study(answer):
         reading[kind] = _copper(stored.group(1)) if stored else 0
     dispense = _DISPENSE.search(text)
     reading["dispense"] = dispense.group(1).split()[-1] if dispense else None
+    return reading
+
+
+def read_report(answer):
+    """The tessera's report, or None for an answer that is none: the
+    kiosk's room, its markup, and the copper of the reserve and of the
+    pouches and bundles it holds now (not the session's purchases)."""
+    text = " ".join(str(answer or "").split())
+    located = _LOCATED.search(text)
+    if not located:
+        return None
+    _, _, now = text.partition("current asset holdings")
+    on_hand = _ON_HAND.search(now)
+    reading = {
+        "room": located.group(1),
+        "markup": markup_of(text),
+        "reserve": _copper(on_hand.group(1)) if on_hand else 0,
+    }
+    for kind, pattern in _STORED.items():
+        stored = pattern.search(now)
+        reading[kind] = _copper(stored.group(1)) if stored else 0
     return reading
 
 

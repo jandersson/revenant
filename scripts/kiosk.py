@@ -5,7 +5,7 @@
     ;kiosk reserve=100   the reserve topped up to this many platinum Kronars ...
     ;kiosk floor=50      ... once it falls under this many
     ;kiosk tap=20        a kind TAPped and resold once the kiosk holds this many platinum of it
-    ;kiosk status        STUDY your kiosk in this room: markup, reserve, stored value, time left
+    ;kiosk status        the tessera's report, from any room: where, markup, reserve, stored value, time left
     ;kiosk return        (typed while it runs) finish the pass in hand and end; the kiosk stands
     ;stop kiosk          quit at once
 
@@ -309,6 +309,25 @@ def sell(s, mapdb, walk_fn, kind, profile):
     return copper
 
 
+def status(s):
+    """The tessera's report in a line, read from wherever the character
+    stands; the tessera put back where it was."""
+    held = hands.holding(s, "tessera")
+    if not take_tessera(s):
+        return "kiosk: no clear tessera on you"
+    answer = ask(s, kiosk.REPORT)
+    if not held:
+        stow_tessera(s)
+    reading = kiosk.read_report(answer)
+    if reading is None:
+        return f"kiosk: no report — {said(answer)}; {time_left(s)}"
+    return (
+        f"kiosk: at [{reading['room']}] — markup {reading['markup']}%, reserve "
+        f"{short(reading['reserve'])}, stored {short(reading['pouch'])} in pouches "
+        f"and {short(reading['bundle'])} in bundles, {time_left(s)}"
+    )
+
+
 def describe(s, st, reading):
     return (
         f"kiosk: the {st.target} — markup {reading['markup']}%, reserve "
@@ -386,12 +405,7 @@ def run(s, options, mapdb, walk_fn=walk, profile=None):
         profile = load_profile(getattr(s.state, "name", None) or "")
     st = SimpleNamespace(target=None, name=None, said=None, unfunded=False)
     if options["status"]:
-        reading = find(s, st)
-        s.echo(
-            describe(s, st, reading)
-            if reading
-            else f"kiosk: no kiosk of yours in this room — {time_left(s)}"
-        )
+        s.echo(status(s))
         return None
     room = profile.get("kiosk_room") or kiosk.ROOM
     s.echo(f"kiosk: a pass every {PASS_SECONDS // 60} minutes — ;kiosk return ends it")

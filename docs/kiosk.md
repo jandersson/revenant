@@ -24,6 +24,8 @@ STUDY your kiosk to list them, with what it has bought and holds. Hold the tesse
 | RUB | switches TAP between pouches and bundles |
 | TAP | hands you what it bought as one crystalline pouch or bundle (up to 500 platinum of value) |
 
+From any room, ASK MY TESSERA ABOUT REPORT (tessera held, 6 s roundtime) gives the same figures and where the kiosk stands.
+
 The kiosk works in Kronars in every province.
 
 ## Selling to a kiosk
@@ -46,7 +48,7 @@ The kiosk works in Kronars in every province.
 - Pouches and bundles TAPped once the kiosk holds `tap=` (20 platinum) of them, and sold with Finesse up, the pay banked at once; never while Trading is mind-locked.
 - Finesse at the most mana it takes: DISCERN's estimate the first time, 3% lower after each strain warning, and the level that took is kept for the next cast.
 
-`;kiosk status` STUDYs it where you stand; `;kiosk return` ends the run and leaves the kiosk up. The one caveat: POKE puts in every Kronar you carry, so the top-up only ever runs after `;bank`.
+`;kiosk status` reads the tessera's report from anywhere; `;kiosk return` ends the run and leaves the kiosk up. The one caveat: POKE puts in every Kronar you carry, so the top-up only ever runs after `;bank`.
 
 ## The money
 

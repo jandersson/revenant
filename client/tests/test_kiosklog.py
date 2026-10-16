@@ -162,6 +162,26 @@ def test_the_owners_study_and_another_traders_become_readings():
     assert theirs["reserve"] is None
 
 
+def test_the_tessera_report_from_another_room_is_a_reading_of_the_kiosk():
+    report = [
+        '"Analysis complete.  Audit-abstraction follows."',
+        "The crystalline kiosk is presently located at [Grisgonda's, Appraisal Room].",
+        "  The markup is set to 60%.",
+        "Finally, your kiosk's current asset holdings are:",
+        "  It has a total of 22 platinum, 9 gold, 8 bronze, and 6 copper Kronars on "
+        "hand for purchases.",
+        "  40 platinum, 1 gold, 5 silver, 8 bronze, and 9 copper Kronars in pouches.",
+        "  No Kronars in bundles.",
+        "The floating data fades with a friendly chime.",
+        "Roundtime: 6 sec.",
+    ]
+    shop = ROOM.replace("Grisgonda's, Appraisal Room", "Grisgonda's Gems and Jewels")
+    (reading,) = rows(scan([shop, prompt(1000), *report]), "kiosk_readings")
+    assert reading["room"] == "Grisgonda's, Appraisal Room"  # the kiosk's, not ours
+    assert (reading["mine"], reading["markup"], reading["reserve"]) == (1, 60, 229086)
+    assert (reading["pouch"], reading["bundle"]) == (401589, 0)
+
+
 def test_a_resale_keeps_the_stored_value_the_pay_and_the_finesse_it_sold_under():
     events = scan([prompt(1000), *STUDY, *RESALE], mana=72)
     (resale,) = rows(events, "kiosk_resales")

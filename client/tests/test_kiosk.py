@@ -185,6 +185,30 @@ STRAINED = (
     "stamina to complete it."
 )
 RELEASED = "You let your concentration lapse and feel the spell's energies dissipate."
+# ASK MY TESSERA ABOUT REPORT, the same in the kiosk's room and the shop
+# outside it (2026-10-17).
+REPORT = (
+    "You send your clear tessera a wordless thought of acquiescence.\n"
+    "Your head fills with the psychic backlash of the Negotiants' chatter, \"... "
+    'TRANSACTIONAL ANALYSIS ALIGNS WITH INCENTIVE-PERSUASION...", cut short when '
+    "the tessera swiftly rearranges in a series of involutions, and a silvery-voiced "
+    'message ringing of glass and order echoes in your mind, "Analysis complete.  '
+    'Audit-abstraction follows."\n'
+    "A flurry of glimmering geometries and abstract ratios flit across your field of "
+    "view, describing key sales data:\n"
+    "The crystalline kiosk is presently located at [Grisgonda's, Appraisal Room].\n"
+    "During this kiosk's trading session, it has purchased the following:\n"
+    "  32 platinum, 3 gold, 8 silver and 8 bronze Kronars in pouches.\n"
+    "  42 platinum, 7 gold, and 8 copper Kronars in bundles.\n"
+    "  The markup is set to 60%.\n"
+    "Finally, your kiosk's current asset holdings are:\n"
+    "  It has a total of 22 platinum, 9 gold, 8 bronze, and 6 copper Kronars on hand "
+    "for purchases.\n"
+    "  40 platinum, 1 gold, 5 silver, 8 bronze, and 9 copper Kronars in pouches.\n"
+    "  26 platinum, 5 gold, 8 silver, 1 bronze, and 3 copper Kronars in bundles.\n"
+    "The floating data fades with a friendly chime, leaving you blinking away a brief "
+    "visual afterglow.\nRoundtime: 6 sec."
+)
 
 
 # --- the model ---
@@ -441,6 +465,8 @@ class Room:
             noun = "rope" if verb == "put" else command.split()[-1]
             self.let_go(noun)
             return "You put it in your backpack."
+        if command == kiosk.REPORT:
+            return REPORT if self.holds("tessera") else MISSING
         if command.lower() == "discern finesse":
             return DISCERN_FINESSE
         if command == "release":
@@ -739,13 +765,26 @@ def test_no_bank_run_means_no_poke_so_the_purse_is_never_committed_whole():
     )
 
 
-def test_status_studies_its_kiosk_and_says_what_it_holds():
-    room = Room(mine=ours(reserve=20 * PLAT, pouch=43 * PLAT), spells={kiosk.SPELL: 30})
+def test_the_tessera_reports_the_kiosk_from_any_room():
+    reading = kiosk.read_report(REPORT)
+    assert reading == {
+        "room": "Grisgonda's, Appraisal Room",
+        "markup": 60,
+        "reserve": 229086,
+        "pouch": 401589,
+        "bundle": 265813,
+    }
+    assert kiosk.read_report(MISSING) is None
+
+
+def test_status_reads_the_tessera_report_wherever_the_character_stands():
+    room = Room(mine=ours(), spells={kiosk.SPELL: 30})
+    room.state.room_uid = 2  # at the tannery, not the kiosk's room
     run(room, "status")
-    assert room.sent == ["study kiosk"]
+    assert room.sent == ["get my clear tessera", kiosk.REPORT, "stow my tessera"]
     assert room.echoed == [
-        "kiosk: the kiosk — markup 55%, reserve 20 plat, stored 43 plat in pouches "
-        "and 0 copper in bundles, 30 roisaen left"
+        "kiosk: at [Grisgonda's, Appraisal Room] — markup 60%, reserve 22.9 plat, "
+        "stored 40.2 plat in pouches and 26.6 plat in bundles, 30 roisaen left"
     ]
 
 
