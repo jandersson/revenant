@@ -1880,3 +1880,18 @@ def test_a_lead_turned_down_is_told_again_from_trade_lics_room(script):
     assert script.leg(world, MAP, "caravan", "Hibarnhvidar", "Boar Clan")
     assert calls[:3] == [("lead", "Boar Clan"), ("bring", 3991), ("lead", "Boar Clan")]
     assert "trade: walking the caravan out to lead from there" in world.echoed
+
+
+# Ain Ghazal's outpost, 2026-10-16 17:27: a lead the driver turns down.
+OFF_ROUTE = (
+    "The driver of your elk-drawn caravan acknowledges the order, but turns back"
+    ' and says, "We are currently not located on or near the caravan route to'
+    "  Hibarnhvidar.  You will need to lead us there yourself before I can take"
+    ' the caravan to Hibarnhvidar."\n'
+)
+
+
+def test_a_driver_off_the_caravan_route_turns_the_lead_down(script):
+    world = World({"tell elk-drawn caravan to lead": [OFF_ROUTE]})
+    assert script.lead(world, "elk-drawn caravan", "Hibarnhvidar") is None
+    assert any("the driver did not take the lead" in e for e in world.echoed)
