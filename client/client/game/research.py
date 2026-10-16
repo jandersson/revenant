@@ -113,23 +113,31 @@ def _skill_named(word):
 
 
 def parse_args(args):
-    """{"abilities", "until", "gap", "once"} from ;research's arguments.
+    """{"abilities", "until", "gap", "once", "stay"} from ;research's
+    arguments.
 
     A skill word ("augmentation", "warding", "util") picks that skill
     with its default ability; "skill=ability" ("augmentation=buffalo")
     picks it with that ability; none of either means all three skills.
     until= the mindstate to stop at (34), gap= the seconds between
     researches (60), `once` to exit at the lock instead of holding for
-    the drain. Words it does not know are left out."""
-    options = {"abilities": {}, "until": MIND_LOCK, "gap": GAP_SECONDS, "once": False}
+    the drain, `stay` to wait hostiles out instead of fleeing (;trade's
+    leads). Words it does not know are left out."""
+    options = {
+        "abilities": {},
+        "until": MIND_LOCK,
+        "gap": GAP_SECONDS,
+        "once": False,
+        "stay": False,
+    }
     for arg in args:
         key, sep, value = str(arg).strip().lower().partition("=")
         if sep and key == "until" and value.isdigit():
             options["until"] = min(int(value), MIND_LOCK)
         elif sep and key == "gap" and value.isdigit():
             options["gap"] = int(value)
-        elif not sep and key == "once":
-            options["once"] = True
+        elif not sep and key in ("once", "stay"):
+            options[key] = True
         elif (skill := _skill_named(key)) is not None:
             ability = value.strip() if sep else ""
             options["abilities"][skill] = ability or DEFAULT_ABILITIES[skill]
@@ -273,16 +281,17 @@ def wants_caster(args):
 
 
 def parse_caster_args(args):
-    """{"projects", "until", "portion", "once"} from ;research's words
-    for a caster: project words (stream, augmentation, utility, warding,
-    fundamental, or the skills' names) in the order given, none meaning
-    CASTER_DEFAULT; until= the mindstate to stop at; portion= the
-    seconds per RESEARCH (30-300); `once`."""
+    """{"projects", "until", "portion", "once", "stay"} from ;research's
+    words for a caster: project words (stream, augmentation, utility,
+    warding, fundamental, or the skills' names) in the order given, none
+    meaning CASTER_DEFAULT; until= the mindstate to stop at; portion=
+    the seconds per RESEARCH (30-300); `once`; `stay`."""
     options = {
         "projects": [],
         "until": MIND_LOCK,
         "portion": PORTION_SECONDS,
         "once": False,
+        "stay": False,
     }
     for arg in args:
         key, sep, value = str(arg).strip().lower().partition("=")
@@ -290,8 +299,8 @@ def parse_caster_args(args):
             options["until"] = min(int(value), MIND_LOCK)
         elif sep and key == "portion" and value.isdigit():
             options["portion"] = max(30, min(int(value), PORTION_SECONDS))
-        elif not sep and key == "once":
-            options["once"] = True
+        elif not sep and key in ("once", "stay"):
+            options[key] = True
         elif not sep and (project := project_named(key)) is not None:
             if project not in options["projects"]:
                 options["projects"].append(project)

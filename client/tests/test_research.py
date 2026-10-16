@@ -68,6 +68,7 @@ def test_no_arguments_research_all_three_skills_a_minute_apart():
         "until": 34,
         "gap": 60,
         "once": False,
+        "stay": False,
     }
 
 

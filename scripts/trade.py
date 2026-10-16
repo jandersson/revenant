@@ -37,7 +37,8 @@ What it does
   - On a lead, grass first: with fewer than 60 bunches in the feedbag, forages
     grass every 15 seconds (you follow through the roundtime). Then the profile's
     `lead_training` scripts one at a time (perform: ;perform once here stay;
-    appraise: ;appraise once stay), the emptiest skill first, the next when one
+    appraise: ;appraise once stay; research: ;research once stay over its five
+    projects, Gauge Flow cast first), the emptiest skill first, the next when one
     ends, the one running ended on arrival. A trainer waits hostiles out in
     place, never fleeing off the lead; ;trade itself decides when they hold you.
   - `circuit` (within a province): at each stop every contract for the town is
@@ -172,10 +173,16 @@ RECALL_WAIT = 10
 # The scripts a lead can run (#558), with the arguments that keep them in
 # place: ;perform never walks home for a room that refuses a song, and
 # ends at mind-lock; ;appraise works the character's own items, each put
-# back, and ends at mind-lock.
+# back, and ends at mind-lock; ;research casts Gauge Flow and researches
+# a project for each of five skills (moving is no interruption). Each with
+# the skills it trains, ranked by the emptiest.
 TRAINERS = {
-    "perform": (("once", "here", "stay"), "Performance"),
-    "appraise": (("once", "stay"), "Appraisal"),
+    "perform": (("once", "here", "stay"), ("Performance",)),
+    "appraise": (("once", "stay"), ("Appraisal",)),
+    "research": (
+        ("once", "stay", "stream", "augmentation", "utility", "warding", "fundamental"),
+        ("Attunement", "Augmentation", "Utility", "Warding", "Arcana"),
+    ),
 }
 STOP_GRACE = 10  # seconds a trainer gets to end on its typed return
 # READ MY <ordinal> CONTRACT, one per town at most: Zoluren's seven.
@@ -553,12 +560,16 @@ def trainers(s, quiet=False):
 
 def start_training(s, names, tried):
     """The next of `names` started as a child script, its name, the one
-    whose skill holds the least first (the most skills moving; a skill
-    the exp window does not list is empty), ties in the profile's order;
-    each is tried once a lead (`tried` collects them). None when none is
-    left that would start (one already running is the operator's)."""
+    whose emptiest skill holds the least first (the most skills moving; a
+    skill the exp window does not list is empty), ties in the profile's
+    order; each is tried once a lead (`tried` collects them). None when
+    none is left that would start (one already running is the operator's)."""
     left = [name for name in names or () if name not in tried]
-    left.sort(key=lambda name: loop.mindstate(s, TRAINERS[name][1]) or 0)
+    left.sort(
+        key=lambda name: min(
+            loop.mindstate(s, skill) or 0 for skill in TRAINERS[name][1]
+        )
+    )
     for name in left:
         tried.append(name)
         if s.run(name, list(TRAINERS[name][0])):

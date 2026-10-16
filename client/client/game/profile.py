@@ -430,7 +430,7 @@ FIELDS = (
         "lead_training",
         "Scripts ;trade runs while the caravan leads",
         "list",
-        "perform — empty: none",
+        "perform, appraise, research — empty: none",
     ),
     (
         "library",

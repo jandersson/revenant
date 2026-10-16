@@ -1482,6 +1482,45 @@ def test_the_emptiest_skill_trains_first_on_a_lead(script):
     assert world.ran == [("appraise", ["once", "stay"])]
 
 
+def test_research_ranks_by_its_emptiest_skill(script):
+    # Five magic skills at 0/34 put ;research ahead of an Appraisal at 3:
+    # the run that moves the most skills goes first.
+    world = Slow(GRASS_ANSWERS, quiet=2, room=1533)
+    world.state.experience = _exp(
+        Performance=20,
+        Appraisal=3,
+        Attunement=30,
+        Augmentation=0,
+        Utility=34,
+        Warding=34,
+        Arcana=34,
+    )
+    world.staying = {"research"}
+    lead = script.lead(
+        world,
+        "weathered caravan",
+        "Wolf Clan",
+        [script.GRASS_TOP],
+        ["perform", "appraise", "research"],
+    )
+    assert lead
+    assert world.ran == [
+        (
+            "research",
+            [
+                "once",
+                "stay",
+                "stream",
+                "augmentation",
+                "utility",
+                "warding",
+                "fundamental",
+            ],
+        )
+    ]
+    assert world.told == [("research", "return")]
+
+
 def test_a_trainer_that_ends_hands_the_lead_to_the_next(script):
     world = Slow(GRASS_ANSWERS, quiet=2, room=1533)
     world.state.experience = _exp(Performance=20, Appraisal=3)

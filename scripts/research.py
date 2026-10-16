@@ -8,6 +8,7 @@
     ;research gap=90            a Barbarian: seconds from one research to the next (60)
     ;research until=30          stop at that mindstate instead of 34
     ;research once              exit when every skill is there instead of holding for the drain
+    ;research stay              wait hostiles out in place instead of fleeing (;trade's leads)
     ;research return            (typed while it runs) end after the portion or research in hand
 
 A caster (any guild but Barbarian, by the latest ;sheet or INFO):
@@ -26,7 +27,7 @@ about a minute apart (MONKEY Augmentation, TURTLE Warding, PREDICTION
 Utility), held at mind-lock until a pool drains (client/game/trainer.py,
 the loop every trainer runs).
 
-What stops it: death, hostiles in the room, an answer the tables do
+What stops it: death, hostiles in the room (with stay, waited out), an answer the tables do
 not know (echoed for a capture), Gauge Flow that will not cast.
 Stop with:  ;stop research, or ;research return.
 """
@@ -180,6 +181,7 @@ def run(s, options):
         once=options["once"],
         again="researching again",
         ensure=False,
+        stay=options.get("stay", False),
     )
 
 
@@ -272,10 +274,12 @@ def ensure_gauge(s, gauge):
     return False
 
 
-def await_portion(s, ends_at):
+def await_portion(s, ends_at, stay=False):
     """Wait for the portion due to end at `ends_at` (clock()): (end,
     line, returned). `end` is "breakthrough", "portion" or "lost"
-    (research.portion_end) with its line; "danger"; "returned" for a
+    (research.portion_end) with its line; "danger" (with `stay`, death
+    alone: hostiles in the room do not stop a portion, a blow does, and
+    the game says so as "lost"); "returned" for a
     return typed with more than RETURN_WAIT left, the portion running
     on in the game; None once PORTION_SLACK has passed the end with no
     end line. A return typed with less left is `returned` and the
@@ -284,7 +288,7 @@ def await_portion(s, ends_at):
     portion."""
     partial, returned = "", False
     while clock() < ends_at + PORTION_SLACK:
-        if danger(s):
+        if s.dead if stay else danger(s):
             return "danger", "", returned
         while (typed := s.command(timeout=0)) is not None:
             if "return" in typed.lower():
@@ -343,6 +347,8 @@ def run_caster(s, options):
     returned = False  # typed during a portion that was then finished
     for round_number in range(MAX_ROUNDS):
         reason = danger(s)
+        if options.get("stay") and "hostiles" in (reason or ""):
+            reason = trainer.wait_out(s, "research")  # a lead's: never flee
         if reason:
             s.echo(f"research: {reason} — stopping")
             if "hostiles" in reason:
@@ -408,7 +414,7 @@ def run_caster(s, options):
             return
         researched[skill] = round_number
         ends_at = clock() + portion
-        end, line, returned = await_portion(s, ends_at)
+        end, line, returned = await_portion(s, ends_at, options.get("stay", False))
         if end == "danger":
             continue  # the loop's top says why and gets away
         if end == "returned":

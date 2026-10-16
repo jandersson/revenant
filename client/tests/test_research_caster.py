@@ -123,6 +123,7 @@ def test_caster_words_name_projects_by_shorthand_or_skill():
         "until": 34,
         "portion": 300,
         "once": False,
+        "stay": False,
     }
     options = research.parse_caster_args(
         ["attunement", "arcana", "aug", "portion=500", "until=30", "once"]
@@ -454,3 +455,59 @@ def test_the_guild_picks_the_mode(monkeypatch):
     handle.args = []
     script.main(handle)
     assert "info" in calls and calls[-1][0] == "barbarian"
+
+
+class Passing(Fake):
+    """Hostiles in the room until `clear_after` sleeps have passed."""
+
+    def __init__(self, *args, clear_after=3, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.state.hostiles = {"1": True}
+        self.slept = 0
+        self.clear_after = clear_after
+
+    def sleep(self, seconds):
+        super().sleep(seconds)
+        self.slept += 1
+        if self.slept >= self.clear_after:
+            self.state.hostiles = {}
+
+
+def test_with_stay_hostiles_are_waited_out_in_place_and_the_research_goes_on(
+    monkeypatch,
+):
+    # ;trade's leads (#565): a flight would leave the caravan.
+    fled = []
+    monkeypatch.setattr(script.flight, "react", lambda s, prefix: fled.append(prefix))
+    fake = Passing({"Attunement": 0}, ends=["breakthrough"])
+    out = run(fake, ["stream", "once", "stay"])
+    assert fled == []
+    assert "research: hostiles here — staying put until they are gone" in out
+    assert portions(fake) == ["research stream 300"]
+    assert "breakthrough — STREAM done, Attunement 34/34" in out
+
+
+class Wandering(Fake):
+    """A hostile walks in as the portion starts and leaves with its end."""
+
+    def ask(self, s, command, *rest):
+        if command.startswith("research ") and "status" not in command:
+            self.state.hostiles = {"1": True}
+        return super().ask(s, command, *rest)
+
+    def get(self, timeout=None, streams=("",)):
+        line = super().get(timeout, streams)
+        if line is not None:
+            self.state.hostiles = {}
+        return line
+
+
+def test_with_stay_a_hostile_during_a_portion_does_not_end_it(monkeypatch):
+    fled = []
+    monkeypatch.setattr(script.flight, "react", lambda s, prefix: fled.append(prefix))
+    fake = Wandering({"Attunement": 0}, ends=["breakthrough"])
+    out = run(fake, ["stream", "once", "stay"])
+    assert fled == [] and portions(fake) == ["research stream 300"]
+    assert "breakthrough — STREAM done, Attunement 34/34" in out
+    assert research.parse_caster_args(["stay"])["stay"] is True
+    assert research.parse_args(["stay"])["stay"] is True
