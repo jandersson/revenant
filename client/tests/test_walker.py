@@ -3441,7 +3441,9 @@ AIN_GHAZAL = MapDB(
 
 
 class AinGhazalFerry(FerryHandle):
-    AWAY = "The ferry Evening Star is steadily approaching the dock.\n"
+    # No boat at Hibarnhvidar's dock, captured 2026-10-16 17:21: the
+    # walker called it unknown and stopped the caravan's crossing.
+    AWAY = "What were you referring to?\n"
     ARRIVES = (
         "The Evening Star comes to an easy landing at the dock and the crew "
         "quickly begin to unload the supplies they brought across the river while "

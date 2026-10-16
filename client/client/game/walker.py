@@ -109,8 +109,9 @@ FERRY_AWAY = (
     "no ferry here to go aboard",
     "just pulled away from the dock",
     # The Ain Ghazal ferry, Damaris' Kiss or Evening Star (bescort's
-    # take_ain_ghazal_ferry, its ferry1; not yet captured): on its way,
-    # or full.
+    # take_ain_ghazal_ferry, its ferry1): no boat at the dock (captured
+    # at Hibarnhvidar's, 2026-10-16, #555), on its way, or full.
+    "What were you referring to",
     "is steadily approaching",
     "You see that the",
     "cannot take any more passengers",
