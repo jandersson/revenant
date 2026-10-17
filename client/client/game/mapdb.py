@@ -147,6 +147,7 @@ RIDES = {
     "ferry1": "ferry",  # Hibarnhvidar–Ain Ghazal, bescort's ferry1 (#555)
     "gondola": "gondola",
     "haven_throne": "barge",
+    "lang_barge": "barge",  # Riverhaven pier 50948 <-> Langenfirth wharf 3434 (#555)
     "mammoth": "mammoth",
     "jolas": "ship",  # Wharf End 6542 <-> Sumilo Dock 15253 (#515)
     "hara_polo": "maze",  # the Glaren Kweld grass, GRASS_EDGES (#519)

@@ -1436,6 +1436,15 @@ def open_stone_wall(s, opener=""):
     return "shut"
 
 
+def lang_barge_leave(s):
+    """Off the Riverhaven–Langenfirth barge (#555): GO WHARF where the
+    room shows Langenfirth's wharf, else GO PIER, as bescort's
+    take_rh_lang_barge does; the map's edge runs both ways with no
+    argument to tell them apart."""
+    objs = str(getattr(s.state, "room_objs", "") or "").lower()
+    return "go wharf" if "langenfirth wharf" in objs else "go pier"
+
+
 RIDE_HANDLERS = {
     "stone_wall": (open_stone_wall, "look"),
     "faldesu_swim": (ride_faldesu_swim, "climb bridge"),
@@ -1446,6 +1455,7 @@ RIDE_HANDLERS = {
     "ferry1": (ride_ferry, "go dock"),  # Hibarnhvidar–Ain Ghazal (#555)
     "gondola": (ride_gondola, "out"),
     "haven_throne": (ride_barge, "go dock"),
+    "lang_barge": (ride_barge, lang_barge_leave),  # 65 lirums (bescort)
     "mammoth": (ride_mammoth, "look"),
     # the leave by the ride's argument: the dock it lands at
     "jolas": (ride_jolas, {"harajaal": "go dock", "merkresh": "go end"}),
@@ -1868,6 +1878,8 @@ def _follow(s, db, route, here, closed, fetched=True):
                 return False
             if isinstance(leave, dict):
                 leave = leave[ride_args(command)]
+            elif callable(leave):
+                leave = leave(s)
             commands = [leave]
         before, move, after = split_move(commands)
         # A step of several moves (the Marsh's `move 'south'` three times

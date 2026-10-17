@@ -2229,6 +2229,59 @@ def test_the_throne_city_barge_is_a_ride_in_its_if_form():
     assert BARGE.graph[452][3084]["seconds"] == RIDE_SECONDS
 
 
+LANG_BARGE = "\
+;e start_script('bescort', ['lang_barge']);wait_while{running?('bescort')};"
+
+LANG = MapDB(
+    [
+        {
+            "id": 50948,
+            "uid": [150948],
+            "title": ["[Riverhaven, Pier]"],
+            "wayto": {"3434": LANG_BARGE},
+        },
+        {
+            "id": 3434,
+            "uid": [13434],
+            "title": ["[Langenfirth, Wharf]"],
+            "wayto": {"50948": LANG_BARGE, "3433": "west"},
+        },
+        {"id": 3433, "uid": [13433], "title": ["[Langenfirth, Shuri Road]"]},
+    ]
+)
+
+
+def test_the_langenfirth_barge_is_a_ride_off_by_the_wharf_or_the_pier():
+    # #555: the map's only way from Riverhaven into Langenfirth, Therenborough
+    # and beyond; bescort leaves by GO WHARF at Langenfirth, GO PIER at home.
+    assert ride_of(LANG_BARGE) == "lang_barge"
+    assert walkable(LANG_BARGE)
+    assert LANG.graph[50948][3434]["seconds"] == RIDE_SECONDS
+    at = SimpleNamespace(state=SimpleNamespace(room_objs="the Langenfirth wharf"))
+    assert walker.lang_barge_leave(at) == "go wharf"
+    home = SimpleNamespace(state=SimpleNamespace(room_objs="the Riverhaven pier"))
+    assert walker.lang_barge_leave(home) == "go pier"
+
+
+def test_walk_rides_the_langenfirth_barge_and_steps_off_at_the_wharf(monkeypatch):
+    ridden = []
+
+    def ride(s, argument):
+        ridden.append(argument)
+        s.state.room_objs = "You also see the Langenfirth wharf."
+        return "landed"
+
+    monkeypatch.setitem(
+        walker.RIDE_HANDLERS, "lang_barge", (ride, walker.lang_barge_leave)
+    )
+    handle = FakeHandle(uids=[13434, 13433])
+    handle.state.room_uid = 150948
+    handle.state.room_objs = ""
+    assert walker.walk(handle, LANG, [3433]) is True
+    assert ridden == [""]
+    assert puts_of(handle) == ["go wharf", "west"]
+
+
 def test_the_barges_name_is_the_word_after_the_barge_and_nothing_past_it():
     # The dock's object line, 2026-10-10: a reader that took everything
     # after "the barge" boarded the undergrowth.
