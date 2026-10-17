@@ -37,20 +37,28 @@ powershell -ExecutionPolicy Bypass -File tools/install_shortcut.ps1
 
 One session per character, any number of windows attached to it, lich-style. The session logs in, owns the game socket, serves parsed text to every attached frontend over localhost, and hosts the script engine: `;list`, `;run <name>`, `;stop <name>`, `;help <name>`. A script is a `main(s)` in [scripts/](scripts/), reloaded from disk every time it starts; [docs/scripting.md](docs/scripting.md) is the guide.
 
-The window shows the game's own styling (amber room names, blue speech, bold alerts, clickable command links), adds the map's room id after each room name — `[The Crossing, Town Green] (1420)`, the id `;go2` takes; a setting — and keeps the rest in docks:
+The window shows the game's own styling and clickable links, puts the map's room id after each room name (`[The Crossing, Town Green] (1420)`, the id `;go2` takes), and keeps the rest in docks:
 
-- **Experience** — a live skill dashboard, rank and percent and mindstate per learning skill.
-- **Map** — the community map drawn around you as you move; click a room to walk there with `;go2`.
-- **Injuries** — the game's own injuries panel as a body of badges: each part lights amber for a wound or purple for a scar, with the level, the moment it changes, no HEALTH needed.
-- **Spells** — the spells running with their time left counting down by the second, and the one you have prepared.
-- **Compass, Clocks, Thoughts, Arrivals, Deaths, Group, Talk, Attention** — exits you can click, Elanthian date and moons beside Stockholm and Chicago, the game's side streams each in a window of their own (Talk: every say, yell and whisper, which the story shows too, each stamped with the time and the room on hover; a dock's right-click menu turns the timestamps on or off), and what `;sentinel` flags as new or addressed at you while you are away. Arrivals fills only once the character's `FLAG LOGON ON` is set in the game (off by default, per character).
-- **Around the input line** — a dark command line with an amber `>` prompt and a border that lights when it has the focus, roundtime and casttime counting down from the game's own timestamps, vitals bars, a status strip with posture, stunned, bleeding, hidden and a red DEAD, and shell-style command history.
+- **Experience** — rank, percent and mindstate of each learning skill.
+- **Map** — the community map around you; click a room to walk there.
+- **Injuries** — wounds and scars on a body diagram, live.
+- **Spells** — the active spells with their time left, and the one prepared.
+- **Compass, Clocks, Thoughts, Arrivals, Deaths, Group, Talk** — clickable exits, the Elanthian calendar, the game's side streams.
+- **Input line** — roundtime and casttime countdowns, vitals, posture and status, command history.
 
-Any dock folds to its title bar and back — the ▾ button on the title, a double-click on it, or Ctrl+Shift+D on the dock holding the focus — keeping its place in the layout; docks tabbed together fold as one, and the fold is remembered with the layout per character.
+A dock folds to its title bar with its ▾ button. File → Settings covers the font, the autostarts and the room ids. Scripts stow items, never drop them.
 
-File → Settings covers the font, the autostarts, the room ids, and whether closing the window quits the game. Highlight patterns of your own live in `~/.revenant/highlights.json`; three soft ones ship by default (the combat balance line, the roundtime line and the spell-ready lines), and an entry `{"disable": "balance"}` in that file turns one off. Scripts never drop an item; the only exceptions are foraged grass, grass rope and whatever `droppable` in `~/.revenant/settings.json` names; `;boxes` puts a profile's `loot_ignore` items in a trash bin, never on the floor.
+`;help` lists every bundled script with its manual. The main ones:
 
-Bundled scripts: `;go2` travel on the community map, `;xp` and `;sheet` history logging, `;deathwatch` for unattended deaths, `;tend` for bleeders, `;heal` (eat the herb that treats each HEALTH wound, buying what is missing), `;empath` and `;plant` (an Empath's healing and vela'tohr plant), `;clock` for the Elanthian calendar, `;circle` for what gates your next circle, `;athletics`, `;attune` (power walking), `;forage` (COLLECT rock until Outdoorsmanship locks, Perception riding along), `;research` (a caster's RESEARCH projects under Gauge Flow, a Barbarian's MEDITATE RESEARCH, until Attunement, Augmentation, Utility and Warding lock), `;tdp`, `;debt`, `;skins` (sell the worn skin bundle at the nearest tannery), `;repair` (appraise your gear and have the worn-down pieces mended at the nearest repair shop), `;enc`, `;status`, `;favors`, `;wealth`, `;survey`, `;hunt` (a hunting loop driven by a per-character profile, File → Character Profile…: weapon and stance, skins onto a worn bundle, buffs kept up and recast to train a magic skill, health and wound floors), `;train` (the orchestrator: runs the trainers a per-character plan names, File → Training Plan…, until each skill's mindstate fills, then rests in a safe room until it drains), `;trade` (a Trader's caravan contracts in Zoluren and Ilithi and to Riverhaven, each logged to history.db), `;commodities` (a Trader's commodity pits: every board logged, a good bought where it is cheap and sold where it is dear), `;kiosk` (a Trader's Prosperity in Absentia kiosk kept cast, priced and funded, what it buys resold with Finesse up), `;dropbox` (Dropbox sync, File → Settings: every machine's logs in Dropbox, filed by character), and `;lnet`. `;help` lists them with their manuals.
+| Script | What it does |
+|---|---|
+| `;go2` | walks to a room on the community map |
+| `;train` | runs the trainers a per-character plan names, then rests while the skills drain |
+| `;hunt` | hunts from a per-character profile (File → Character Profile…) |
+| `;heal`, `;tend`, `;empath` | treats wounds and bleeding; an Empath's healing |
+| `;deathwatch` | watches for a death while you are away |
+| `;trade`, `;commodities`, `;kiosk` | a Trader's caravans, commodity pits and kiosk |
+| `;xp`, `;sheet`, `;wealth` | log experience, the character sheet and money to history.db |
 
 ## Driven by an LLM
 
@@ -64,7 +72,7 @@ It is set up for [Claude Code](https://claude.com/claude-code): [.claude/CLAUDE.
 
 ## Beholder
 
-![The beholder dashboard: a character dropdown and a multi-select of skills, a mindstate-over-time plot for one day showing two training sessions filling to 34 and draining between pulses, a range slider beneath it, and a table of each skill's current rank, percent and mindstate](docs/beholder.png)
+![The beholder dashboard over a Trader's day and a half: the character dropdown; the skills-moving chart, three skills overnight, nine or ten through the morning's research and trading, then Trading alone; the skills multi-select with ten chosen; and the mindstate-over-time plot of those ten, the rested-experience windows shaded, Trading filling and draining on its own at the end](docs/beholder.png?v=2)
 
 A browser dashboard over the history every session logs to `~/.revenant/history.db`: mindstate and rank over time per character and skill, plus the sheet snapshots (stats, circle, wealth, inventory) and the circle gates. View → Experience History embeds it in the client, `;beholder` opens it in a browser, `uv run beholder` runs it by hand. See [beholder/README.md](beholder/README.md).
 

@@ -406,6 +406,7 @@ lessons the code and docs cannot carry themselves.
   by polling its state over the wire and reading each debug log from its last
   byte offset in a small Python loop.
 - Never park a character Claude is driving in a hunting ground, not even for a minute: no script fights for an idle character there. Two characters meeting for a GIVE meet in a safe room (a town square, a customs gate, a guild the visitor may enter). On 2026-09-26 a low-circle character walked to the goblin ground to take coin from the operator's other character, stood idle among three musk hogs and four goblins waiting for the GIVE, and died there in five minutes with 0 favors — the Northeast Customs one step away was the right room. Check a meeting room's `room_creatures` before sending anyone there.
+- The README has several screenshots: "the screenshot needs a refresh" named none, an agent took it for docs/screenshot.png, and a session and a handoff went to the wrong image while the operator meant the Beholder one (2026-10-17). Ask which image, or read the operator's open browser tab (its URL anchor names the section), before capturing anything.
 - A guild's ground can refuse another guild outright ("Barbarians are not allowed to go there." on the trail to the Paladins' Guild): a route to one character's guild room is no meeting point for a character of another guild.
 
 - Since #407 every script asks the game through `client/game/act.py`

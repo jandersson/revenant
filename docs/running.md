@@ -59,6 +59,8 @@ It never replies for you.
 
 File → Settings: fonts, autostarted scripts, whether closing quits, the idle-warning answer.
 
+Highlights of your own go in `~/.revenant/highlights.json`; an entry `{"disable": "balance"}` there turns off a default one (the balance, roundtime and spell-ready lines).
+
 Logs are under `~/.revenant/logs/`: `game-<Name>-*.log` has what the game sent, `revenant_client-<Name>-*.log` what the scripts did.
 
 ## Several machines: Dropbox sync
