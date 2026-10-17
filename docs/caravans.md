@@ -21,7 +21,7 @@ A Trader carries goods between guild outposts in a rented caravan. The issuing t
 
 ## Time and money
 
-A leg's median time: Ilithi 5 minutes, Zoluren 6½, Forfedhdar 12, another province 48. Per active hour, in Kronars:
+A leg's median time: Ilithi 5 minutes, Zoluren 6½, Forfedhdar 12, Therengia 13 (Riverhaven to Langenfirth goes by way of Therenborough), another province 48. Per active hour, in Kronars:
 
 ![Profit per active hour: Zoluren one contract 74k, Ilithi one contract 56k, Ilithi circuit 85k, Forfedhdar circuit 56k, interprovince 97k counting leg time only](trade-profit.png)
 

@@ -51,6 +51,7 @@ TOWNS = {
 }
 ILITHI = ("Shard", "Fayrin's Rest", "Steelclaw Clan", "Darkling Wood")
 THERENGIA = ("Riverhaven", "Therenborough", "Langenfirth")
+THERENGIA_UNBUILT = ("Fornsted", "Hvaral", "Muspar'i")  # its ministers issue them
 FORFEDHDAR = ("Hibarnhvidar", "Boar Clan", "Raven's Point", "Ain Ghazal")
 
 # Forfedhdar's leads, each one way (Elanthipedia: Caravan): Hibarnhvidar

@@ -2050,6 +2050,7 @@ def test_therengia_trades_in_lirums_between_three_of_its_towns():
     for town in trade.THERENGIA:
         assert trade.coin(town) == "Lirums" and town in trade.TOWNS
     assert tradelog.province("Therenborough", "Langenfirth") == "Therengia"
+    assert tradelog.province("Therenborough", "Muspar'i") == "Therengia"
     assert trade.routable("Riverhaven", "Langenfirth")
     assert trade.routable("Therenborough", "Crossing")  # by way of Riverhaven
     # Fornsted, Hvaral and Muspar'i are not built: left unloaded.
