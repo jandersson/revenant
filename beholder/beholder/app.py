@@ -208,18 +208,13 @@ def mindstate_figure(series, character, windows=()):
     buttons and a range slider. `windows` are (start, end) ISO pairs
     shaded gold: when rested experience was burning, ranks came three
     times as fast (#106), so a slope inside a window is not the same
-    slope outside one."""
+    slope outside one. The legend names the shading once: a label per
+    window was wider than a few minutes' shade and hung over ordinary
+    time."""
     figure = go.Figure()
     for start, end in windows:
         figure.add_vrect(
-            x0=start,
-            x1=end,
-            fillcolor=REXP_SHADE,
-            line_width=0,
-            layer="below",
-            annotation_text="rested 3x",
-            annotation_position="top left",
-            annotation_font_size=10,
+            x0=start, x1=end, fillcolor=REXP_SHADE, line_width=0, layer="below"
         )
     for skill in sorted(series):
         points = series[skill]
@@ -231,6 +226,17 @@ def mindstate_figure(series, character, windows=()):
                 mode="lines",
                 hovertemplate="%{y} mindstate, rank %{customdata}<extra>%{fullData.name}</extra>",
                 customdata=points["rank"],
+            )
+        )
+    if windows:
+        figure.add_trace(
+            go.Scatter(
+                x=[None],
+                y=[None],
+                name="Rested 3x",
+                mode="markers",
+                marker={"symbol": "square", "size": 14, "color": REXP_SHADE},
+                hoverinfo="skip",
             )
         )
     times = [moment for points in series.values() for moment in points["times"]]

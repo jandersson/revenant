@@ -68,7 +68,11 @@ def test_rested_windows_are_shaded_on_the_mindstate_plot():
     assert len(shapes) == 1
     assert shapes[0].x0 == windows[0][0] and shapes[0].x1 == windows[0][1]
     assert shapes[0].fillcolor == app.REXP_SHADE
-    assert "rested 3x" in figure.layout.annotations[0].text
+    # Named once in the legend, never per window: a label hung past a
+    # four-minute window's hairline of shade.
+    assert not figure.layout.annotations
+    assert [trace.name for trace in figure.data] == ["Rested 3x"]
+    assert figure.data[0].marker.color == app.REXP_SHADE
 
 
 def test_rexp_figure_plots_stored_and_usable_hours():
