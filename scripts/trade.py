@@ -26,6 +26,8 @@ What it does
     hours); with `interprovince`, a broker's beyond the routes stops it.
   - A lead the driver turns down is told again from the room trade.lic
     leads from (Barony Pass, Outside Langenfirth, Forfedhdar's).
+  - An expired contract is put in the waste bin by Therenborough's clerk
+    at a circuit's stop there, never dropped; elsewhere it is kept.
   - Started beside its caravan away from an outpost (a run stopped on the road),
     goes on from there with the crate it holds; near its town, walks the
     caravan to the outpost and delivers.
@@ -79,6 +81,7 @@ the log client/game/tradelog.py's; docs/trade.md.
 """
 
 from client.game import (
+    discard,
     flight,
     haul,
     hands,
@@ -819,6 +822,37 @@ def held_from(contracts):
     return {trade.town(c.origin) for c in contracts if not c.expired}
 
 
+def put_away(s, db, place, contracts):
+    """Every expired contract held put in this town's waste bin
+    (trade.TRASH), never dropped: each got by its ordinal, read again in
+    hand (READ MY CONTRACT reads the held one first) and PUT in the bin
+    only when it reads expired. The number put away; an answer it does
+    not expect keeps the contract, stowed, said."""
+    room = trade.TRASH.get(place)
+    if room is None or not any(c.expired for c in contracts):
+        return 0
+    gone = 0
+    for _ in ORDINALS:
+        index = next((i for i, c in enumerate(contracts) if c.expired), None)
+        if index is None or not walk(s, db, room, f"the {place} waste bin"):
+            break
+        ask(s, f"get my {ORDINALS[index]} contract")
+        lapsed = held(s) if hands.holding(s, "contract") else None
+        answer = (
+            discard.trash(s, "contract", ask) if lapsed and lapsed.expired else None
+        )
+        if answer is None:
+            if hands.holding(s, "contract"):
+                hands.stow(s, "contract")
+            s.echo(f"{PREFIX}: could not put an expired contract away — kept")
+            break
+        gone += 1
+        contracts = held_all(s)
+    if gone:
+        s.echo(f"{PREFIX}: {gone} expired contract(s) put in the {place} waste bin")
+    return gone
+
+
 def town_stop(s, db, place, contracts, due):
     """A circuit's work in this town: every `due` contract handed in, one
     issued here and never loaded loaded, PAY CLERK, the pay banked, and
@@ -838,6 +872,7 @@ def town_stop(s, db, place, contracts, due):
     s.echo(f"{PREFIX}: {pay(s)}")
     if due:
         bank_run(s, db, trade.coin(place))
+    put_away(s, db, place, contracts)
     ending = paused(s) or loop.wants_stop(s)
     if not ending and place not in held_from(contracts):
         contract = take(s, db, place)

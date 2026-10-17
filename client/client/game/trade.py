@@ -259,6 +259,10 @@ READ_END = "on delivery"
 # useless since it has expired." trade.lic's wording.
 EXPIRED = "now useless since it has expired"
 _LAPSED = re.compile(r"Issued by: (?:The )?(.+?) The contract is now useless")
+# Where an expired contract is put away, never dropped (the operator,
+# 2026-10-17): a waste bin a room off the outpost, on the way to the
+# clerk ("You also see a waste bin.", Dijkstra's walk that day).
+TRASH = {"Therenborough": 3228}  # Alliance of Exchange, Main Hall
 
 
 def contract(text):

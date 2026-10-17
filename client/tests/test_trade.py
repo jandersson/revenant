@@ -1694,6 +1694,7 @@ class Circuit:
         script.walk = lambda s, db, room, describe: True
         script.pay = lambda s: "dues settled"
         script.bank_run = lambda s, db, coin="Kronars": self.record("bank", coin)
+        script.put_away = lambda s, db, place, contracts: 0
         script.take = lambda s, db, place, broker=False: self.take(place)
         script.feed = lambda s, name: 60
         script.trainers = lambda s, quiet=False: []
@@ -2238,3 +2239,69 @@ def test_an_expired_contract_does_not_end_the_reading_of_the_rest(script):
         "Therenborough",
     ]
     assert script.held_from(contracts) == {"Riverhaven", "Therenborough"}
+
+
+class Bin(World):
+    """The Alliance of Exchange's Main Hall: a waste bin, and a contract
+    in hand after GET MY <ordinal> CONTRACT until it is put in."""
+
+    def put(self, command):
+        super().put(command)
+        if command.startswith("get my ") and command.endswith(" contract"):
+            self.state.right_hand = dict(CONTRACT_HELD)
+        elif command.startswith("put my contract in"):
+            self.state.right_hand = None
+
+
+NOT_FOUND = "I could not find what you were referring to."
+
+
+def test_an_expired_contract_goes_in_therenboroughs_waste_bin(script):
+    world = Bin(
+        {
+            "get my second contract": ["You get a Hvaral contract from your backpack."],
+            "read my contract": [EXPIRED_CONTRACT],
+            "put my contract in": ["You drop a Hvaral contract in a waste bin."],
+            "read my first contract": [RIVERHAVEN_TO_THEREN],
+            "read my second contract": [TO_MUSPARI],
+            "read my third contract": [NOT_FOUND],
+        },
+        room=3232,
+    )
+    world.state.room_objs = "a waste bin"
+    held = [
+        trade.contract(RIVERHAVEN_TO_THEREN),
+        trade.contract(EXPIRED_CONTRACT),
+        trade.contract(TO_MUSPARI),
+    ]
+    assert script.put_away(world, MAP, "Therenborough", held) == 1
+    assert world.walks == [3228]
+    sent = world.sent
+    assert sent.index("get my second contract") < sent.index("read my contract")
+    assert sent.index("read my contract") < sent.index("put my contract in bin")
+    assert "drop my contract" not in sent
+    assert "trade: 1 expired contract(s) put in the Therenborough waste bin" in (
+        world.echoed
+    )
+
+
+def test_a_contract_that_reads_live_in_hand_is_stowed_not_binned(script):
+    world = Bin(
+        {"get my second contract": ["You get..."], "read my contract": [TO_MUSPARI]},
+        room=3232,
+    )
+    world.state.room_objs = "a waste bin"
+    held = [trade.contract(RIVERHAVEN_TO_THEREN), trade.contract(EXPIRED_CONTRACT)]
+    assert script.put_away(world, MAP, "Therenborough", held) == 0
+    assert not any(c.startswith("put my contract") for c in world.sent)
+    assert world.sent[-1] == "stow my contract"
+    assert "trade: could not put an expired contract away — kept" in world.echoed
+
+
+def test_expired_contracts_are_kept_where_no_bin_is_known(script):
+    world = Bin({}, room=13414)
+    assert (
+        script.put_away(world, MAP, "Langenfirth", [trade.contract(EXPIRED_CONTRACT)])
+        == 0
+    )
+    assert world.sent == []
