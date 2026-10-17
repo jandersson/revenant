@@ -289,6 +289,28 @@ _LAPSED = re.compile(r"Issued by: (?:The )?(.+?) The contract is now useless")
 # clerk ("You also see a waste bin.", Dijkstra's walk that day).
 TRASH = {"Therenborough": 3228}  # Alliance of Exchange, Main Hall
 
+# LOOK <caravan> (`look bullock-drawn caravan`, the Crossing, 2026-10-15):
+# "You tell the driver to give you an inventory report for your
+# bullock-drawn caravan." / "A sturdy crate is for a contract from The
+# Crossing and destined for Wolf Clan." / "A storage box to carry your
+# items." One crate line per contract loaded.
+_CRATE = re.compile(
+    r"A sturdy crate is for a contract from (?:The )?(.+?) and destined for"
+    r" (?:The )?(.+?)\."
+)
+# A crate no clerk will pay for comes off the caravan the game's way
+# (Elanthipedia: Trader; trade.lic's dump_crate, not yet seen live): PUSH
+# <ordinal> STURDY CRATE ("You grab onto"), then PULL STURDY CRATE twice
+# ("You begin to pull", "You continue to pull").
+GRABBED = "You grab onto"
+
+
+def crates(answer):
+    """LOOK <caravan>'s crates in their order, each (origin, destination)
+    as TOWNS keys, a town it does not know kept as written."""
+    text = re.sub(r"\s+", " ", str(answer or ""))
+    return [(town(o) or o, town(d) or d) for o, d in _CRATE.findall(text)]
+
 
 def contract(text):
     """READ MY CONTRACT's answer as a Contract, or None with no contract

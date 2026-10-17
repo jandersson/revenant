@@ -2357,6 +2357,167 @@ def test_expired_contracts_are_kept_where_no_bin_is_known(script):
     assert world.sent == []
 
 
+# LOOK BULLOCK-DRAWN CARAVAN, captured at the Crossing on 2026-10-15; the
+# Fornsted crate is Dijkstra's of 2026-10-17, issued before Fornsted
+# went off the routes.
+def _report(*routes):
+    return "\n".join(
+        [
+            "You tell the driver to give you an inventory report for your"
+            " bullock-drawn caravan.",
+            *(
+                f"  A sturdy crate is for a contract from {origin} and destined"
+                f" for {destination}."
+                for origin, destination in routes
+            ),
+            "  A storage box to carry your items.",
+            'The driver calls out, "The animals might like something to eat."',
+        ]
+    )
+
+
+FORNSTED_CRATE = ("Therenborough", "Fornsted")
+LANGENFIRTH_CRATE = ("Riverhaven", "Langenfirth")
+
+
+def test_the_caravans_inventory_report_lists_each_crates_towns():
+    assert trade.crates(_report(("The Crossing", "Wolf Clan"))) == [
+        ("Crossing", "Wolf Clan")
+    ]
+    # Read whole, the lines run together.
+    glued = _report(LANGENFIRTH_CRATE, ("Aesry", "Fornsted")).replace("\n", " ")
+    assert trade.crates(glued) == [LANGENFIRTH_CRATE, ("Aesry", "Fornsted")]
+    assert (
+        trade.crates("You tell the driver ... A storage box to carry your items.") == []
+    )
+
+
+def test_a_crate_beyond_the_routes_or_its_contract_expired_is_stranded(script):
+    live = _contract(*LANGENFIRTH_CRATE)
+    forest = _contract(*FORNSTED_CRATE)
+    lapsed = trade.Contract("Therenborough", None, None, None, None, False, True)
+    crates = [LANGENFIRTH_CRATE, FORNSTED_CRATE]
+    assert script.stranded(crates, [live, forest]) == 1
+    assert script.stranded(crates, [live, lapsed]) == 1
+    # A live contract accounts for its own crate; a crate with no contract
+    # held at all (one lost) is kept.
+    assert script.stranded(crates, [live]) is None
+    assert script.stranded([LANGENFIRTH_CRATE], [lapsed]) is None
+    # Two crates of one route, one contract expired: the second is its.
+    again = [LANGENFIRTH_CRATE, LANGENFIRTH_CRATE]
+    gone = trade.Contract("Riverhaven", None, None, None, None, False, True)
+    assert script.stranded(again, [live, gone]) == 1
+
+
+# trade.lic's dump_crate wordings, not yet seen live.
+GRAB = "You grab onto a sturdy crate."
+PULL = ("You begin to pull a sturdy crate.", "You continue to pull a sturdy crate.")
+
+
+def test_a_stranded_crate_is_pushed_and_pulled_off_the_caravan(script):
+    world = World(
+        {
+            "look bullock-drawn caravan": [
+                _report(LANGENFIRTH_CRATE, FORNSTED_CRATE),
+                _report(LANGENFIRTH_CRATE),
+            ],
+            "push second sturdy crate": [GRAB],
+            "pull sturdy crate": list(PULL),
+        },
+        room=3155,
+    )
+    world.state.room_objs = "a bullock-drawn caravan with a couple of things on it"
+    held = [_contract(*LANGENFIRTH_CRATE), _contract(*FORNSTED_CRATE)]
+    assert script.unload(world, "bullock-drawn caravan", held) == 1
+    assert world.sent == [
+        "look bullock-drawn caravan",
+        "push second sturdy crate",
+        "pull sturdy crate",
+        "pull sturdy crate",
+        "look bullock-drawn caravan",
+    ]
+    assert not any(c.startswith("drop") for c in world.sent)
+    assert "trade: the Therenborough crate for Fornsted taken off the caravan" in (
+        world.echoed
+    )
+
+
+def test_a_crate_still_listed_after_the_pulls_is_kept_and_said(script):
+    world = World(
+        {
+            "look bullock-drawn caravan": [_report(FORNSTED_CRATE)],
+            "push first sturdy crate": [GRAB],
+            "pull sturdy crate": ["You begin to pull a sturdy crate."],
+        }
+    )
+    assert (
+        script.unload(world, "bullock-drawn caravan", [_contract(*FORNSTED_CRATE)]) == 0
+    )
+    assert world.sent.count("push first sturdy crate") == 1
+    assert world.echoed[-1].startswith(
+        "trade: the Therenborough crate for Fornsted is still on the caravan"
+    )
+
+
+def test_a_push_answer_it_does_not_know_pulls_nothing(script):
+    world = World(
+        {
+            "look bullock-drawn caravan": [_report(FORNSTED_CRATE)],
+            "push first sturdy crate": ["Push what?"],
+        }
+    )
+    assert (
+        script.unload(world, "bullock-drawn caravan", [_contract(*FORNSTED_CRATE)]) == 0
+    )
+    assert "pull sturdy crate" not in world.sent
+    assert "unrecognized PUSH answer" in world.echoed[-1]
+
+
+def test_no_crate_comes_off_beside_another_traders_caravan(script):
+    # The Crossing's outpost, 2026-10-15: another Trader's caravan beside ours.
+    world = World({"look bullock-drawn caravan": [_report(FORNSTED_CRATE)]})
+    world.state.room_objs = (
+        "a scorched and battered caravan pulled by shaggy yaks with several things"
+        " on it, a bullock-drawn caravan with a couple of things on it"
+    )
+    assert (
+        script.unload(world, "bullock-drawn caravan", [_contract(*FORNSTED_CRATE)]) == 0
+    )
+    assert world.sent == []
+
+
+def test_a_stop_takes_the_stranded_crate_off_before_the_bin(script):
+    world = World({})
+    lapsed = trade.Contract("Therenborough", None, None, None, None, False, True)
+    fake = Circuit(
+        script,
+        stops=[[lapsed, _contract(*FORNSTED_CRATE)._replace(origin="Langenfirth")]],
+        taken=[_contract("Therenborough", "Langenfirth")],
+        minutes=THEREN_MINUTES,
+    )
+    script.walk = lambda s, db, room, describe: fake.record("walk", room)
+    script.unload = lambda s, name, contracts: fake.record("unload", name)
+    script.put_away = lambda s, db, place, contracts: fake.record("bin", place) and 0
+    script.circuit(world, MAP, "sleek caravan", "Therenborough", False, [])
+    calls = [call[0] for call in fake.calls]
+    assert calls.index("unload") < calls.index("bin")
+    assert ("walk", 3155) in fake.calls[: calls.index("unload")]
+    assert ("unload", "sleek caravan") in fake.calls
+
+
+def test_a_stop_with_nothing_stranded_never_looks_at_the_caravan(script):
+    world = World({})
+    fake = Circuit(
+        script,
+        stops=[[_contract(*LANGENFIRTH_CRATE)]],
+        minutes={("Riverhaven", "Langenfirth"): 30.0},
+    )
+    script.province = lambda place: ("Riverhaven",)
+    script.unload = lambda s, name, contracts: fake.record("unload", name)
+    script.circuit(world, MAP, "sleek caravan", "Riverhaven", False, [])
+    assert not any(call[0] == "unload" for call in fake.calls)
+
+
 def test_a_circuit_from_therenborough_never_heads_past_the_forest(script):
     # 2026-10-18: the caravan stayed behind Ker'Leor's first fallen tree.
     world = World({})

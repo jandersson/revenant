@@ -35,6 +35,10 @@ What it does
     ends, Forfedhdar's).
   - An expired contract is put in the waste bin by Therenborough's clerk
     at a circuit's stop there, never dropped; elsewhere it is kept.
+  - A crate no clerk will pay for (its contract expired, or loaded for a
+    town beyond the routes) comes off the caravan at a circuit's stop:
+    PUSH and PULL STURDY CRATE, the game's way, not a DROP; kept while
+    another caravan is in the room.
   - Started beside its caravan away from an outpost (a run stopped on the road),
     goes on from there with the crate it holds; near its town, walks the
     caravan to the outpost and delivers.
@@ -181,6 +185,14 @@ hvaral_passport), and back from the Mountain Approach; Hvaral to
 Muspar'i is walked aboard the free sand barge (bescort's sandbarge).
 Before they were built, a contract for one of them blocked its minister
 for two to eight hours, three destinations in five.
+
+A crate loaded for Fornsted rode on undelivered once the forest was
+found impassable (2026-10-18, #586): the contract's paper went in the
+bin on expiry and nothing took the crate off. Elanthipedia's Trader
+gives two ways, the expired contract to the destination's clerk (out
+of reach here) or PUSH and PULL CRATE ON CARAVAN; unload() is
+trade.lic's dump_crate, its PUSH and PULL answers not yet seen live,
+the LOOK before and after (captured 2026-10-15) the judge.
 """
 
 PREFIX = "trade"
@@ -871,6 +883,70 @@ def business(contract):
     return trade.town(contract.destination if contract.presented else contract.origin)
 
 
+def stranded(crates, contracts):
+    """The index of the first crate in `crates` (trade.crates) no clerk
+    will pay for, or None: one a held contract beyond the routes names,
+    or one from a held expired contract's origin that no live contract
+    accounts for. A crate with neither (a contract lost) is kept."""
+
+    def key(name):
+        return trade.town(name) or name
+
+    live = [
+        (key(c.origin), key(c.destination), beyond(c))
+        for c in contracts
+        if not c.expired
+    ]
+    lapsed = {key(c.origin) for c in contracts if c.expired}
+    for index, crate in enumerate(crates):
+        match = next((m for m in live if m[:2] == crate), None)
+        if match:
+            live.remove(match)
+            if match[2]:
+                return index
+        elif crate[0] in lapsed:
+            return index
+    return None
+
+
+def unload(s, name, contracts):
+    """Every stranded crate taken off the caravan beside the character,
+    one at a time: PUSH <ordinal> STURDY CRATE, PULL STURDY CRATE twice
+    (trade.lic's dump_crate; Elanthipedia's Trader: "PULL CRATE ON
+    CARAVAN to dump it"), then LOOK again, the crate gone the judge. The
+    game's own way to take a crate off a caravan, not a DROP of an item.
+    Never with another caravan in the room, whose crates an ordinal might
+    reach. The number taken off; a crate still listed, or an answer it
+    does not expect, ends it, said."""
+    room = str(getattr(getattr(s, "state", None), "room_objs", "") or "").lower()
+    if room.count(name.split()[-1].lower()) > 1:
+        s.echo(f"{PREFIX}: another caravan here — stranded crates kept for now")
+        return 0
+    gone = 0
+    load = trade.crates(ask(s, f"look {name}"))
+    for _ in ORDINALS:
+        index = stranded(load, contracts)
+        if index is None or index >= len(ORDINALS):
+            break
+        origin, destination = load[index]
+        answer = ask(s, f"push {ORDINALS[index]} sturdy crate")
+        if trade.GRABBED not in answer:
+            unknown(s, PREFIX, "PUSH", answer)
+            break
+        for _ in range(2):
+            answer = ask(s, "pull sturdy crate")
+        after = trade.crates(ask(s, f"look {name}"))
+        if after != load[:index] + load[index + 1 :]:
+            s.echo(
+                f"{PREFIX}: the {origin} crate for {destination} is still on the"
+                f" caravan ({said(answer)!r}) — kept"
+            )
+            break
+        load, gone = after, gone + 1
+        s.echo(f"{PREFIX}: the {origin} crate for {destination} taken off the caravan")
+    return gone
+
+
 def put_away(s, db, place, contracts):
     """Every expired contract held put in this town's waste bin
     (trade.TRASH), never dropped: each got by its ordinal, read again in
@@ -902,11 +978,12 @@ def put_away(s, db, place, contracts):
     return gone
 
 
-def town_stop(s, db, place, contracts, due):
+def town_stop(s, db, name, place, contracts, due):
     """A circuit's work in this town: every `due` contract handed in, one
-    issued here and never loaded loaded, PAY CLERK, the pay banked, and
-    the town's own contract taken when none from it is held (not after
-    a typed return or pause). The contracts still held, or None, said."""
+    issued here and never loaded loaded, PAY CLERK, the pay banked, the
+    stranded crates taken off the caravan, and the town's own contract
+    taken when none from it is held (not after a typed return or pause).
+    The contracts still held, or None, said."""
     for _ in due:
         if not deliver(s, db, place, only=len(contracts) == 1):
             return None
@@ -924,6 +1001,11 @@ def town_stop(s, db, place, contracts, due):
     s.echo(f"{PREFIX}: {pay(s)}")
     if due:
         bank_run(s, db, trade.coin(place))
+    # Before the bin: an expired contract held is what marks its crate.
+    if any(c.expired or (c.presented and beyond(c)) for c in contracts) and walk(
+        s, db, trade.TOWNS[place].outpost, f"the {place} outpost"
+    ):
+        unload(s, name, contracts)
     if put_away(s, db, place, contracts):
         contracts = held_all(s)  # what is left
     ending = paused(s) or loop.wants_stop(s)
@@ -980,7 +1062,7 @@ def circuit(s, db, name, place, beside, training):
             if beside and not bring(s, db, name, trade.TOWNS[place].outpost):
                 return
             beside = False
-            contracts = town_stop(s, db, place, contracts, due)
+            contracts = town_stop(s, db, name, place, contracts, due)
             if contracts is None:
                 return
         # Business: a town a held crate goes to, or one no contract is held
