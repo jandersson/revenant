@@ -28,7 +28,8 @@ label { color: #8a8a96; }
 [class*="dash-dropdown-option"][aria-selected="true"] {
   background-color: #2a2a34 !important;
 }
-.dash-dropdown-clear, .dash-dropdown-arrow { color: #8a8a96 !important; }
+.dash-dropdown-clear, .dash-dropdown-arrow,
+.dash-dropdown-value-count { color: #8a8a96 !important; }
 .dash-dropdown-search-container { background-color: #1e1e26 !important; }
 .dash-dropdown-search {
   color: #c8c8d0 !important;
