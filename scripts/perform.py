@@ -21,7 +21,8 @@ What it does
     (client/game/trainer.py, the loop every trainer runs).
   - A room that refuses a song sends it to the profile's `home` once, to play there.
   - An instrument the game calls dirty is cleaned once a run with `instrument_cloth`
-    (removed and worn again, wiped when wet); with no cloth it plays dirty.
+    (removed and worn again, wiped when wet, a soaked cloth wrung dry first);
+    with no cloth it plays dirty.
   - Nothing is ever dropped: whatever else is in hand is stowed for the cloth.
 
 When it stops
@@ -50,9 +51,13 @@ from client.game.perform import (
     NO_CLOTH,
     NO_INSTRUMENT,
     NOT_HERE,
+    SOAKED,
     STARTED,
     STOPPED,
     WET,
+    WRING_TRIES,
+    WRUNG_DRY,
+    WRUNG_OUT,
     STYLES,
     TIERS,
     difficulty,
@@ -186,6 +191,9 @@ def clean_instrument(s, instrument, cloth):
             removed = True
         elif any(word in lowered for word in WET):
             ask(s, f"wipe my {instrument} with my {cloth}")
+        elif any(word in lowered for word in SOAKED):
+            if not wring(s, cloth):
+                break
         else:
             s.echo("perform: CLEAN answered nothing known — please report it")
             break
@@ -195,6 +203,21 @@ def clean_instrument(s, instrument, cloth):
     if cleaned:
         s.echo(f"perform: {instrument} cleaned with the {cloth} ({passes} pass(es))")
     return cleaned
+
+
+def wring(s, cloth):
+    """WRING the soaked cloth until the game calls it dry (#582): True
+    then; False, said, on an answer of another kind or after WRING_TRIES."""
+    for _ in range(WRING_TRIES):
+        answer = ask(s, f"wring my {cloth}").lower()
+        if any(word in answer for word in WRUNG_DRY):
+            return True
+        if not any(word in answer for word in WRUNG_OUT):
+            first = (answer.strip().splitlines() or ["(silence)"])[0]
+            s.echo(f"perform: WRING answered {first!r} — the {cloth} stays wet")
+            return False
+    s.echo(f"perform: the {cloth} still wet after {WRING_TRIES} WRINGs")
+    return False
 
 
 def entry(s):

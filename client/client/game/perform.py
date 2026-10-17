@@ -141,6 +141,14 @@ WET = ("still dripping",)
 WIPED = ("wipe the water",)
 CLEANED = ("moments cleaning", "dirt and grime")
 NO_CLOTH = ("what were you referring", "could not find")
+# A cloth soaked through (a Segoltha swim, 2026-10-17, #582): "Your cloth is
+# sopping wet!  How do you expect to clean anything with it?" WRING dries it,
+# as dr-scripts' coordinator.lic does: "You wring out" means water came out,
+# wring again; "You wring a dry" means it is dry. The full lines are assumed.
+SOAKED = ("sopping wet",)
+WRUNG_OUT = ("you wring out",)
+WRUNG_DRY = ("you wring a dry",)
+WRING_TRIES = 6
 
 
 def difficulty(answer):

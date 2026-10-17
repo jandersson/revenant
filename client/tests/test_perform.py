@@ -488,6 +488,53 @@ def test_a_dirty_instrument_is_cleaned_once_with_the_profiles_cloth(
     assert not any("drop" in c for c in fake.sent)
 
 
+# Dijkstra, 2026-10-17 (#582), after a swim. WRING's lines are assumed
+# from dr-scripts' coordinator.lic patterns ("You wring out", "You wring a dry").
+SOAKED = "Your rag is sopping wet!  How do you expect to clean anything with it?\n"
+WRUNG_OUT = "You wring out your rag, and water drips onto the ground.\n"
+WRUNG_DRY = "You wring a dry rag, but nothing comes out.\n"
+
+
+class SoakedRag(DirtyZills):
+    def __init__(self, *args, wrings=(WRUNG_OUT, WRUNG_DRY), **kwargs):
+        super().__init__(*args, **kwargs)
+        self.cleans = [SOAKED, CLEANED, CLEANED, CLEANED]
+        self.wrings = list(wrings)
+
+    def ask(self, s, command, *_):
+        if command == "wring my rag":
+            self.sent.append(command)
+            return self.wrings.pop(0)
+        return super().ask(s, command)
+
+
+def test_a_sopping_cloth_is_wrung_dry_before_the_clean(monkeypatch, tmp_path):
+    _with_cloth(monkeypatch, tmp_path, "rag")
+    fake = SoakedRag(mindstates=[5, 34])
+    run(fake, ["once"])
+    assert fake.sent[3:7] == [
+        "clean my zills with my rag",
+        "wring my rag",
+        "wring my rag",
+        "clean my zills with my rag",
+    ]
+    assert any("zills cleaned with the rag (3 pass(es))" in t for t in fake.echoed)
+    assert not any("nothing known" in t for t in fake.echoed)
+
+
+def test_a_wring_answered_otherwise_leaves_the_cloth_and_plays_on(
+    monkeypatch, tmp_path
+):
+    _with_cloth(monkeypatch, tmp_path, "rag")
+    fake = SoakedRag(mindstates=[5, 34], wrings=["Wring what?\n"])
+    run(fake, ["once"])
+    assert fake.sent.count("wring my rag") == 1
+    assert "stow my rag" in fake.sent
+    assert any(
+        "WRING answered 'wring what?' — the rag stays wet" in t for t in fake.echoed
+    )
+
+
 def test_a_dirty_instrument_plays_on_without_a_cloth(monkeypatch, tmp_path):
     # No cloth in the profile: said once, the song plays dirty.
     _with_cloth(monkeypatch, tmp_path, "")
