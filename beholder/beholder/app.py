@@ -13,10 +13,12 @@ beholder` and open http://127.0.0.1:8050.
 
 import argparse
 import sqlite3
+import zlib
 from datetime import datetime, timedelta
 
 import dash_ag_grid as dag
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from dash import Dash, Input, Output, dcc, html
 
 from beholder import data
@@ -91,10 +93,10 @@ def themed(figure, title):
         plot_bgcolor=PANEL,
         font={"color": INK},
         colorway=COLORWAY,
-        xaxis={"gridcolor": GRID, "linecolor": GRID, "zerolinecolor": GRID},
-        yaxis={"gridcolor": GRID, "linecolor": GRID, "zerolinecolor": GRID},
         margin={"l": 50, "r": 16, "t": 44, "b": 36},
     )
+    figure.update_xaxes(gridcolor=GRID, linecolor=GRID, zerolinecolor=GRID)
+    figure.update_yaxes(gridcolor=GRID, linecolor=GRID, zerolinecolor=GRID)
     return figure
 
 
@@ -203,20 +205,51 @@ def recent_range(times):
     return [max(start, min(times)), newest]
 
 
+STRIP_HEIGHT = 64  # px per skill in the mindstate strips
+RANGE_SELECTOR = {
+    "bgcolor": PANEL,
+    "activecolor": GRID,
+    "font": {"color": INK},
+    "x": 1.0,
+    "xanchor": "right",
+    "y": 1.02,
+    "yanchor": "bottom",
+    "buttons": [
+        {"count": 1, "label": "1d", "step": "day", "stepmode": "backward"},
+        {"count": 3, "label": "3d", "step": "day", "stepmode": "backward"},
+        {"step": "all"},
+    ],
+}
+
+
+def skill_color(skill):
+    """A skill's line colour, the same whatever else is selected: by
+    sort position, Trading changed colour with every selection. Each
+    strip is labelled, so two skills sharing a colour mislead no one."""
+    return COLORWAY[zlib.crc32(skill.encode()) % len(COLORWAY)]
+
+
 def mindstate_figure(series, character, windows=()):
-    """One line per skill, mindstate over time, with 1d/3d/all range
-    buttons and a range slider. `windows` are (start, end) ISO pairs
-    shaded gold: when rested experience was burning, ranks came three
-    times as fast (#106), so a slope inside a window is not the same
-    slope outside one. The legend names the shading once: a label per
-    window was wider than a few minutes' shade and hung over ordinary
-    time."""
-    figure = go.Figure()
-    for start, end in windows:
-        figure.add_vrect(
-            x0=start, x1=end, fillcolor=REXP_SHADE, line_width=0, layer="below"
-        )
-    for skill in sorted(series):
+    """Mindstate over time as small multiples: one strip per skill on a
+    shared time axis, named at its right end, with 1d/3d/all range
+    buttons. In one plot ten lines crossed, and a rise in one read as a
+    fall in another of nearly the same colour; no palette keeps more
+    than three crossing lines apart (the dataviz all-pairs check).
+    `windows` are (start, end) ISO pairs shaded gold in every strip:
+    when rested experience was burning, ranks came three times as fast
+    (#106), so a slope inside a window is not the same slope outside
+    one. The legend names the shading once."""
+    title = f"Mindstate over time — {character}" if character else "Mindstate over time"
+    skills = sorted(series)
+    if not skills:
+        return themed(go.Figure(), title)
+    figure = make_subplots(
+        rows=len(skills),
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=8 / (len(skills) * STRIP_HEIGHT),
+    )
+    for row, skill in enumerate(skills, start=1):
         points = series[skill]
         figure.add_trace(
             go.Scatter(
@@ -224,9 +257,36 @@ def mindstate_figure(series, character, windows=()):
                 y=points["mindstate"],
                 name=skill,
                 mode="lines",
+                line={"color": skill_color(skill), "width": 1.5},
                 hovertemplate="%{y} mindstate, rank %{customdata}<extra>%{fullData.name}</extra>",
                 customdata=points["rank"],
-            )
+                showlegend=False,
+            ),
+            row=row,
+            col=1,
+        )
+        figure.add_annotation(
+            text=skill,
+            xref="x domain",
+            yref="y domain",
+            x=1,
+            y=0.5,
+            xanchor="left",
+            xshift=8,
+            showarrow=False,
+            font={"color": INK, "size": 12},
+            row=row,
+            col=1,
+        )
+    for start, end in windows:
+        figure.add_vrect(
+            x0=start,
+            x1=end,
+            fillcolor=REXP_SHADE,
+            line_width=0,
+            layer="below",
+            row="all",
+            col=1,
         )
     if windows:
         figure.add_trace(
@@ -237,36 +297,22 @@ def mindstate_figure(series, character, windows=()):
                 mode="markers",
                 marker={"symbol": "square", "size": 14, "color": REXP_SHADE},
                 hoverinfo="skip",
-            )
+            ),
+            row=1,
+            col=1,
         )
     times = [moment for points in series.values() for moment in points["times"]]
+    figure.update_xaxes(type="date", range=recent_range(times))
+    figure.update_xaxes(title_text="Time (UTC)", row=len(skills), col=1)
+    figure.update_yaxes(range=[0, 34], tickvals=[34], fixedrange=True)
     figure.update_layout(
-        xaxis={
-            "title": "Time (UTC)",
-            "type": "date",
-            "range": recent_range(times),
-            "rangeslider": {"bgcolor": PANEL},
-            "rangeselector": {
-                "bgcolor": PANEL,
-                "activecolor": GRID,
-                "font": {"color": INK},
-                "x": 1.0,
-                "xanchor": "right",
-                "y": 1.02,
-                "yanchor": "bottom",
-                "buttons": [
-                    {"count": 1, "label": "1d", "step": "day", "stepmode": "backward"},
-                    {"count": 3, "label": "3d", "step": "day", "stepmode": "backward"},
-                    {"step": "all"},
-                ],
-            },
-        },
-        yaxis={"title": "Mindstate (0–34)", "range": [0, 34]},
+        xaxis={"rangeselector": RANGE_SELECTOR},
+        height=len(skills) * STRIP_HEIGHT + 110,
+        legend={"x": 1.0, "xanchor": "left", "y": 1.02, "yanchor": "bottom"},
     )
-    return themed(
-        figure,
-        f"Mindstate over time — {character}" if character else "Mindstate over time",
-    )
+    themed(figure, title)
+    figure.update_layout(margin={"r": 130})
+    return figure
 
 
 def moving_figure(series, character):
@@ -291,20 +337,7 @@ def moving_figure(series, character):
             "title": "Time (UTC)",
             "type": "date",
             "range": recent_range(series["times"]),
-            "rangeselector": {
-                "bgcolor": PANEL,
-                "activecolor": GRID,
-                "font": {"color": INK},
-                "x": 1.0,
-                "xanchor": "right",
-                "y": 1.02,
-                "yanchor": "bottom",
-                "buttons": [
-                    {"count": 1, "label": "1d", "step": "day", "stepmode": "backward"},
-                    {"count": 3, "label": "3d", "step": "day", "stepmode": "backward"},
-                    {"step": "all"},
-                ],
-            },
+            "rangeselector": RANGE_SELECTOR,
         },
         yaxis={"title": "Skills with a pool", "range": [0, top or None]},
         showlegend=False,

@@ -72,7 +72,7 @@ It is set up for [Claude Code](https://claude.com/claude-code): [.claude/CLAUDE.
 
 ## Beholder
 
-![The beholder dashboard over a Trader's day and a half: the character dropdown; the skills-moving chart, three skills overnight, nine or ten through the morning's research and trading, then Trading alone; the skills multi-select with ten chosen; and the mindstate-over-time plot of those ten, the rested-experience windows shaded and named once in the legend, Trading filling and draining on its own at the end](docs/beholder.png?v=3)
+![The beholder dashboard over a Trader's day and a half: the character dropdown; the skills-moving chart, three skills overnight, nine or ten through the morning's research and trading, then Trading alone; the skills multi-select with ten chosen; and the mindstate over time as ten strips, one per skill on a shared time axis, each in its own colour and named at its right end: the magic skills jumping to 34 as research projects break through and draining after, the rested-experience windows shaded in every strip and named once in the legend, Trading filling and draining on its own at the end](docs/beholder.png?v=4)
 
 A browser dashboard over the history every session logs to `~/.revenant/history.db`: mindstate and rank over time per character and skill, plus the sheet snapshots (stats, circle, wealth, inventory) and the circle gates. View → Experience History embeds it in the client, `;beholder` opens it in a browser, `uv run beholder` runs it by hand. See [beholder/README.md](beholder/README.md).
 

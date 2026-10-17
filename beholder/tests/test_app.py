@@ -3,23 +3,41 @@
 from beholder import app
 
 
-def test_mindstate_figure_has_one_sorted_trace_per_skill():
-    series = {
-        "Sorcery": {
+def _one_tick(*skills):
+    return {
+        skill: {
             "times": ["2026-08-16T10:00:00+00:00"],
-            "mindstate": [5],
+            "mindstate": [5 + index],
             "rank": [100],
-        },
-        "Evasion": {
-            "times": ["2026-08-16T10:00:00+00:00"],
-            "mindstate": [10],
-            "rank": [200],
-        },
+        }
+        for index, skill in enumerate(skills)
     }
-    figure = app.mindstate_figure(series, "Lanival")
+
+
+def test_each_skill_gets_its_own_strip_in_name_order():
+    figure = app.mindstate_figure(_one_tick("Sorcery", "Evasion"), "Lanival")
     assert [trace.name for trace in figure.data] == ["Evasion", "Sorcery"]
+    assert [trace.yaxis for trace in figure.data] == ["y", "y2"]
     assert figure.data[1].y == (5,)
     assert "Lanival" in figure.layout.title.text
+    # Each strip is named at its right end, and every strip shares one
+    # time axis, so a zoom in one moves them all.
+    assert [note.text for note in figure.layout.annotations] == ["Evasion", "Sorcery"]
+    assert figure.layout.xaxis.matches == "x2"
+
+
+def test_a_skill_keeps_its_colour_whatever_else_is_selected():
+    alone = app.mindstate_figure(_one_tick("Trading"), "Lanival")
+    among = app.mindstate_figure(_one_tick("Arcana", "Trading", "Warding"), "Lanival")
+    colour = {trace.name: trace.line.color for trace in among.data}
+    assert alone.data[0].line.color == colour["Trading"] == app.skill_color("Trading")
+    assert colour["Trading"] in app.COLORWAY
+
+
+def test_the_strips_grow_the_plot_rather_than_squeezing_it():
+    one = app.mindstate_figure(_one_tick("Trading"), "Lanival")
+    ten = app.mindstate_figure(_one_tick(*"ABCDEFGHIJ"), "Lanival")
+    assert ten.layout.height - one.layout.height == 9 * app.STRIP_HEIGHT
 
 
 def test_the_skills_moving_chart_plots_the_count_against_the_skills_tracked():
@@ -61,18 +79,20 @@ def test_a_history_shorter_than_three_days_opens_whole():
     assert empty.layout.xaxis.range is None
 
 
-def test_rested_windows_are_shaded_on_the_mindstate_plot():
+def test_rested_windows_are_shaded_in_every_strip():
     windows = [("2026-08-22T10:00:00+00:00", "2026-08-22T15:42:00+00:00")]
-    figure = app.mindstate_figure({}, "Lanival", windows)
+    figure = app.mindstate_figure(_one_tick("Arcana", "Trading"), "Lanival", windows)
     shapes = figure.layout.shapes
-    assert len(shapes) == 1
-    assert shapes[0].x0 == windows[0][0] and shapes[0].x1 == windows[0][1]
-    assert shapes[0].fillcolor == app.REXP_SHADE
+    assert [shape.yref for shape in shapes] == ["y domain", "y2 domain"]
+    assert all(
+        shape.x0 == windows[0][0] and shape.x1 == windows[0][1] for shape in shapes
+    )
+    assert all(shape.fillcolor == app.REXP_SHADE for shape in shapes)
     # Named once in the legend, never per window: a label hung past a
     # four-minute window's hairline of shade.
-    assert not figure.layout.annotations
-    assert [trace.name for trace in figure.data] == ["Rested 3x"]
-    assert figure.data[0].marker.color == app.REXP_SHADE
+    legend = [trace for trace in figure.data if trace.showlegend is not False]
+    assert [trace.name for trace in legend] == ["Rested 3x"]
+    assert legend[0].marker.color == app.REXP_SHADE
 
 
 def test_rexp_figure_plots_stored_and_usable_hours():
