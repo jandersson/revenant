@@ -18,12 +18,13 @@ What it does
   - Forfedhdar: Boar Clan, and Ain Ghazal to Raven's Point, by way of
     Hibarnhvidar; Ain Ghazal across the river by the ferry. Its contracts
     for other provinces are left unloaded.
-  - Therengia: Riverhaven to Langenfirth and back by way of Therenborough;
-    Fornsted walked to from Therenborough through the Ker'Leor forest, and
-    led to Hvaral from past Arnshal Keep's gate, which wants a passport
-    (fetched at Therenborough's Ibec Hall, the caravan waiting, when yours
-    is missing or expired); Muspar'i walked to from Hvaral over the free
-    sand barge.
+  - Therengia: Riverhaven to Langenfirth and back by way of Therenborough.
+    Fornsted, Hvaral and Muspar'i trade among themselves only (no caravan
+    way through the Ker'Leor forest): Fornsted led to Hvaral from past
+    Arnshal Keep's gate, which wants a passport (fetched at Therenborough's
+    Ibec Hall, the caravan waiting, when yours is missing or expired);
+    Muspar'i walked to from Hvaral over the free sand barge. A contract
+    between them and the other three is left unloaded.
   - A minister's contract for a town ;trade does not lead to is kept unpaid
     and unloaded, said, and the run goes on as a circuit of the province's
     other towns, held at an outpost while every town waits on one until it
@@ -169,8 +170,12 @@ the dock; not yet driven.
 
 Fornsted, Hvaral and Muspar'i (#555, 2026-10-17) are trade.lic's
 do_lead_from and do_lead_to and the wiki's Trade Route, not yet driven:
-Therenborough to Fornsted is walked through the Ker'Leor forest (44
-rooms, no lead); Fornsted to Hvaral is led from Arnshal Road, Keep
+Therenborough to Fornsted was walked through the Ker'Leor forest (44
+rooms, no lead) until the first drive, 2026-10-18: the bramble passage
+west of Barony Pass took two minutes before the caravan came through,
+morah creepers engaged at every room after it, and at the first fallen
+tree the character climbed over and the caravan stayed behind; the way
+on climbs four more times. Fornsted to Hvaral is led from Arnshal Road, Keep
 Entrance, past Arnshal Keep's west gate and its passport (bescort's
 hvaral_passport), and back from the Mountain Approach; Hvaral to
 Muspar'i is walked aboard the free sand barge (bescort's sandbarge).
@@ -984,7 +989,9 @@ def circuit(s, db, name, place, beside, training):
         towns = {business(c) for c in contracts} - {None}
         if not (paused(s) or loop.wants_stop(s)):
             towns |= {
-                town for town in province(place) if town not in held_from(contracts)
+                town
+                for town in province(place)
+                if town not in held_from(contracts) and trade.routable(place, town)
             }
         towns.discard(place)
         if not towns:

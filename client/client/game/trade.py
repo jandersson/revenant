@@ -96,12 +96,13 @@ THERENGIA_LEADS = {
     ("Hvaral", "Fornsted"),
 }
 LEADS = FORFEDHDAR_LEADS | THERENGIA_LEADS
-# No lead joins Therenborough and Fornsted, nor Hvaral and Muspar'i: the
-# caravan is walked, through the Ker'Leor forest, and aboard the free sand
-# barge (trade.lic's take_caravan_to; Muspar'i is one of its no-lead towns).
+# No lead joins Hvaral and Muspar'i: the caravan is walked aboard the free
+# sand barge (trade.lic's take_caravan_to; Muspar'i is one of its no-lead
+# towns). Nor Therenborough and Fornsted, and no walk either: the Ker'Leor
+# forest path climbs, and a caravan stayed behind its first fallen tree
+# (2026-10-18, a Fornsted crate), so the three towns past it are joined to
+# each other but not to the rest of the province.
 WALKS = {
-    ("Therenborough", "Fornsted"),
-    ("Fornsted", "Therenborough"),
     ("Hvaral", "Muspar'i"),
     ("Muspar'i", "Hvaral"),
 }
@@ -413,8 +414,8 @@ def lead_from(origin, destination):
 def via(origin, destination):
     """The next town on the fewest LEADS and WALKS from `origin` to
     `destination`: the destination itself for a pair joined directly,
-    Hibarnhvidar between two other towns of Forfedhdar, Fornsted between
-    Therenborough and Hvaral; None where no chain joins them (Zoluren and
+    Hibarnhvidar between two other towns of Forfedhdar, Hvaral between
+    Fornsted and Muspar'i; None where no chain joins them (Zoluren and
     Ilithi lead anywhere, and the provinces' roads are leg()'s)."""
     ways = sorted(LEADS | WALKS)
     first, frontier = {origin: None}, [origin]
@@ -432,10 +433,18 @@ def via(origin, destination):
 def routable(origin, destination):
     """True when ;trade carries a contract between these TOWNS keys: not
     one with a single end in Forfedhdar, whose roads out of the province
-    are not built yet (#555), nor one naming a town it does not know."""
+    are not built yet (#555), nor one naming a town it does not know, nor
+    one with an end in Therengia no chain of LEADS and WALKS joins to the
+    other (or to Riverhaven, its way out): Fornsted, Hvaral and Muspar'i
+    from the rest."""
     if origin is None or destination is None:
         return False
-    return (origin in FORFEDHDAR) == (destination in FORFEDHDAR)
+    if (origin in FORFEDHDAR) != (destination in FORFEDHDAR):
+        return False
+    ends = [town for town in (origin, destination) if town in THERENGIA]
+    if len(ends) == 1:
+        ends.append("Riverhaven")
+    return len(set(ends)) < 2 or via(ends[0], ends[1]) is not None
 
 
 def lead_name(name):

@@ -2081,16 +2081,21 @@ def test_therengia_trades_in_lirums_between_its_six_towns():
     assert tradelog.province("Therenborough", "Muspar'i") == "Therengia"
     assert trade.routable("Riverhaven", "Langenfirth")
     assert trade.routable("Therenborough", "Crossing")  # by way of Riverhaven
+    # No caravan way through the Ker'Leor forest (2026-10-18): the three
+    # towns past it trade among themselves.
     for town in ("Fornsted", "Hvaral", "Muspar'i"):
-        assert trade.routable("Therenborough", trade.town(town))
+        assert not trade.routable("Therenborough", trade.town(town))
+        assert not trade.routable(town, "Crossing")
+    assert trade.routable("Fornsted", "Hvaral")
+    assert trade.routable("Muspar'i", "Fornsted")
     assert trade.town("Muspar'i") == "Muspar'i"
 
 
 def test_a_leg_goes_town_by_town_over_the_leads_and_the_walks():
     assert trade.via("Langenfirth", "Riverhaven") == "Therenborough"
     assert trade.via("Therenborough", "Langenfirth") == "Langenfirth"
-    assert trade.via("Therenborough", "Hvaral") == "Fornsted"
-    assert trade.via("Muspar'i", "Riverhaven") == "Hvaral"
+    assert trade.via("Therenborough", "Hvaral") is None
+    assert trade.via("Muspar'i", "Riverhaven") is None
     assert trade.via("Fornsted", "Muspar'i") == "Hvaral"
     # Forfedhdar's by Hibarnhvidar, as before (#583).
     assert trade.via("Ain Ghazal", "Raven's Point") == "Hibarnhvidar"
@@ -2352,12 +2357,17 @@ def test_expired_contracts_are_kept_where_no_bin_is_known(script):
     assert world.sent == []
 
 
-def test_therenborough_to_hvaral_walks_to_fornsted_then_leads(script):
-    # No lead joins Therenborough and Fornsted (trade.lic walks it).
-    calls = _forfedhdar(script)
+def test_a_circuit_from_therenborough_never_heads_past_the_forest(script):
+    # 2026-10-18: the caravan stayed behind Ker'Leor's first fallen tree.
     world = World({})
-    assert script.leg(world, MAP, "caravan", "Therenborough", "Hvaral")
-    assert calls == [("bring", 3693), ("lead", "Hvaral"), ("bring", 3751)]
+    fake = Circuit(
+        script,
+        stops=[[_contract("Riverhaven", "Langenfirth")]],
+        taken=[_contract("Therenborough", "Riverhaven")],
+    )
+    script.circuit(world, MAP, "sleek caravan", "Therenborough", False, [])
+    legs = [call[2] for call in fake.calls if call[0] == "leg"]
+    assert legs and not set(legs) & {"Fornsted", "Hvaral", "Muspar'i"}
 
 
 def test_a_lead_on_the_arnshal_road_turned_down_starts_at_its_ends(script):
@@ -2387,14 +2397,6 @@ def test_muspari_has_no_lead_the_caravan_is_walked_over_the_sand_barge(script):
     world = World({})
     assert script.leg(world, MAP, "caravan", "Hvaral", "Muspar'i")
     assert calls == [("bring", 14282)]
-    calls.clear()
-    assert script.leg(world, MAP, "caravan", "Muspar'i", "Therenborough")
-    assert calls == [
-        ("bring", 3751),
-        ("lead", "Fornsted"),
-        ("bring", 3693),
-        ("bring", 3155),
-    ]
 
 
 def test_the_sand_barge_and_arnshals_gate_are_steps_the_walker_rides():
@@ -2523,16 +2525,16 @@ def test_a_contract_never_loaded_is_business_at_its_origin(script):
 
 def test_the_unloaded_contract_is_loaded_at_its_origins_stop(script):
     world = World({})
-    unloaded = _contract("Riverhaven", "Fornsted", presented=False)
+    unloaded = _contract("Riverhaven", "Langenfirth", presented=False)
     fake = Circuit(
         script,
         stops=[[unloaded]],
-        minutes={("Riverhaven", "Fornsted"): 30.0},
+        minutes={("Riverhaven", "Langenfirth"): 30.0},
     )
     script.province = lambda place: ("Riverhaven",)
     script.circuit(world, MAP, "sleek caravan", "Riverhaven", False, [])
     assert fake.calls[0] == ("load", "Riverhaven")
-    assert fake.calls[-1] == ("leg", "Riverhaven", "Fornsted")
+    assert fake.calls[-1] == ("leg", "Riverhaven", "Langenfirth")
     assert any("1 crate(s) for it" in e for e in world.echoed)
 
 
@@ -2540,8 +2542,8 @@ def test_a_restart_beside_an_empty_caravan_brings_it_in_first(script):
     world = World({})
     fake = Circuit(
         script,
-        stops=[[_contract("Therenborough", "Fornsted", presented=False)]],
-        minutes={("Therenborough", "Fornsted"): 30.0},
+        stops=[[_contract("Therenborough", "Langenfirth", presented=False)]],
+        minutes={("Therenborough", "Langenfirth"): 30.0},
     )
     script.province = lambda place: ("Therenborough",)
     script.circuit(world, MAP, "sleek caravan", "Therenborough", True, [])
