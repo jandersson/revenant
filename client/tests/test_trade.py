@@ -2556,3 +2556,63 @@ def test_the_one_contract_run_hands_an_unloaded_one_to_the_circuit(script):
     script.main(world)
     assert circled == ["Riverhaven"]
     assert "give my contract to clerk" not in world.sent
+
+
+class Brambles:
+    """Ker'Leor's bramble passage west of Therenborough (2026-10-17): WEST
+    walks you on for two minutes, the caravan arriving only after its end
+    line, which this releases once that line is waited for."""
+
+    END = (
+        "Just when it seems you will never reach the end of the road, you trek"
+        " through a patch of brush to your destination...\n"
+    )
+
+    def __init__(self):
+        self.sent, self.echoed, self.lines, self.room = [], [], [], 3631
+        self.state = SimpleNamespace(name="Lanival", room_objs="")
+
+    def put(self, command):
+        self.sent.append(command)
+        if command == "west":
+            self.room = 3634
+            self.lines = ["You squeeze through the brambles and trek west.\n"]
+
+    def waitfor(self, *patterns, timeout=None, streams=("",)):
+        if self.room == 3634 and any(p.startswith("Just") for p in patterns):
+            self.lines += [
+                self.END,
+                "Your sleek caravan arrives from the east, following you.\n",
+            ]
+        while self.lines:
+            line = self.lines.pop(0)
+            if any(re.search(p, line) for p in patterns):
+                return line
+        return None
+
+    def clear(self):
+        pass
+
+    def waitrt(self):
+        pass
+
+    def echo(self, text):
+        self.echoed.append(text)
+
+
+def test_a_caravan_is_waited_for_at_the_end_of_a_passage(script, monkeypatch):
+    forest = MapDB(
+        [
+            {"id": 3631, "uid": [3631], "title": ["[Therenborough Road]"],
+             "wayto": {"3634": ";e fput 'west';waitfor 'Just when it seems you will never reach'"}},
+            {"id": 3634, "uid": [3634], "title": ["[Ker'Leor, Deep Forest Path]"],
+             "wayto": {}},
+        ]
+    )  # fmt: skip
+    monkeypatch.setattr(
+        haul, "ask", lambda s, command: "You pass on the order to follow"
+    )
+    world = Brambles()
+    assert haul.bring(world, forest, "sleek caravan", 3634, "trade")
+    assert world.sent == ["west"]
+    assert world.echoed == []
