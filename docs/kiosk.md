@@ -9,7 +9,7 @@ A Trader's Prosperity in Absentia (PRIA) spell grows a crystal kiosk that buys t
 - The kiosk limit is six per room.
 - A cast at 30 mana lasts about an hour, at 44 about 97 roisaen; POWER says how long yours has left. Casting again while it stands refreshes it ("...as the spell pattern is refreshed") rather than growing a second.
 - Its look is random per cast: "a ___ crystalline kiosk" with a crystal habit in the blank (heptagonally symmetrical, jaggedly dendritic, fibrous, euhedral, lamellar, stellate, spindly and acicular), kept through a refresh. An altered look (the Iridius plinth, a custom description) stays. Kiosks are named by their place in the room's listing (SECOND KIOSK), never by an adjective, and the order shifts as others cast: find yours by STUDY ("your kiosk").
-- RELEASE PRIA ends it at once: "You sense the Prosperity in Absentia spell dissipate." and the kiosk shatters.
+- RELEASE PRIA ends it at once: "You sense the Prosperity in Absentia spell dissipate." and the kiosk shatters; the reserve and what it bought carry over, as at an expiry.
 - When it ends ("...shatters into evaporating mist.") nothing is lost: the reserve and what it bought stay on the tessera and appear in your next kiosk. The markup starts at 0% again.
 - It buys while you are in another room: at +60%, beside two kiosks at 55%, it took eight sales in its first half hour with its owner away. But QUIT and it shatters at once ("...shatters and evaporates into iridescent mist."), the spell left on you ("You sense the Prosperity in Absentia spell upon you"). It does not come back at login: cast again for a new kiosk, the ledger intact.
 
@@ -71,6 +71,8 @@ A seller running dr-scripts' `sell-loot` STUDYs every kiosk and sells to the hig
 
 - A newly grown kiosk is listed first; a refreshed one keeps its place.
 - So a Trader who keeps his kiosk up and funded, growing it again each time it ends, always beats the kiosks at the same markup by position alone.
+- Measured at 55% beside such a kiosk: listed first, ours took all 11 sales in 39 minutes; listed second after the other was grown again, 1 of the next 4.
+- To take first place, end your kiosk (RELEASE PRIA) and grow a new one; it lasts until another kiosk is grown.
 - A kiosk at the same markup but listed behind gets only what the first cannot pay for: while the first is out of coin, its owner is offline, or in the seconds before it is grown again.
 - One step above the rest takes every sale while its reserve lasts. At +60% that is break-even with Finesse (the 1.6× cap); each 5% below 60 is about 3% margin, but only on the sales it wins.
 

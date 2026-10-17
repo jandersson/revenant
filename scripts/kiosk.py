@@ -388,9 +388,11 @@ def one_pass(s, st, options, profile, mapdb, walk_fn, room):
     if cast and (why := grow(s, st, standing=up(s, kiosk.SPELL))):
         return why
     reading = find(s, st)
-    if reading is None and not cast and up(s, kiosk.SPELL):
-        # A logout shatters the kiosk and leaves the spell up (2026-10-16):
-        # the cast grows another, the ledger intact, the markup at 0%.
+    if reading is None and not cast:
+        # The kiosk gone though the spell read as up: a logout shatters it
+        # and leaves the spell (2026-10-16), and a RELEASE's end reaches the
+        # Spells window late (2026-10-17). The cast grows another, the
+        # ledger intact, the markup at 0%.
         if why := grow(s, st, standing=False):
             return why
         reading = find(s, st)

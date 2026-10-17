@@ -637,6 +637,27 @@ def test_after_a_logout_the_spell_is_up_and_the_kiosk_gone_so_another_is_grown()
     assert room.started == []  # 97 platinum kept on the tessera: no top-up
 
 
+def test_a_released_kiosk_the_spells_window_still_lists_is_grown_again():
+    # 2026-10-17: RELEASE PRIA, and the Spells window still listed it at
+    # the pass's start, then emptied while the kiosks were STUDYed.
+    room = Room(
+        after=["euhedral crystalline kiosk"],
+        spells={kiosk.SPELL: 3},
+        grows="monoclinic crystalline kiosk",
+    )
+    answer = room.answer
+
+    def late(command):
+        if command.startswith("study"):
+            room.state.active_spells.pop(kiosk.SPELL, None)
+        return answer(command)
+
+    room.answer = late
+    assert run(room) is None
+    assert sent(room, "prepare") == ["prepare pria 30"]
+    assert room.mine["name"] == "monoclinic crystalline kiosk"
+
+
 def test_a_gone_kiosk_is_not_grown_again_among_six_others():
     room = Room(
         after=[f"squat crystalline kiosk number {n}" for n in range(6)],
