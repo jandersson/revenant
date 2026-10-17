@@ -2142,3 +2142,23 @@ def test_a_circuit_never_loads_nor_leads_to_a_contract_beyond_the_routes(script)
     # Held from Therenborough, so its minister is not asked; the nearest
     # other town is next, for its own contract.
     assert fake.calls == [("leg", "Therenborough", "Langenfirth")]
+
+
+def test_an_expired_contract_frees_its_town_for_the_next(script):
+    # 6 anlaen for Therenborough's Muspar'i contract: 3 hours, after which
+    # its minister issues again.
+    world = World({})
+    expired = _contract("Therenborough", "Muspar'i", presented=False)._replace(
+        expired=True
+    )
+    fake = Circuit(
+        script,
+        stops=[[expired]],
+        taken=[_contract("Therenborough", "Langenfirth")],
+        minutes={("Therenborough", "Langenfirth"): 6.0},
+    )
+    script.circuit(world, MAP, "sleek caravan", "Therenborough", False, [])
+    assert fake.calls[:2] == [
+        ("take", "Therenborough"),
+        ("leg", "Therenborough", "Langenfirth"),
+    ]

@@ -803,6 +803,13 @@ def next_stop(db, place, towns, legs):
     return min(towns, key=walked)
 
 
+def held_from(contracts):
+    """The towns a contract is held from, an expired one aside: a minister
+    refuses another only until the last would have expired (trade.lic's
+    force_contract_from), and one beyond the routes is never delivered."""
+    return {trade.town(c.origin) for c in contracts if not c.expired}
+
+
 def town_stop(s, db, place, contracts, due):
     """A circuit's work in this town: every `due` contract handed in, one
     issued here and never loaded loaded, PAY CLERK, the pay banked, and
@@ -823,7 +830,7 @@ def town_stop(s, db, place, contracts, due):
     if due:
         bank_run(s, db, trade.coin(place))
     ending = paused(s) or loop.wants_stop(s)
-    if not ending and not any(trade.town(c.origin) == place for c in contracts):
+    if not ending and place not in held_from(contracts):
         contract = take(s, db, place)
         if contract is None:
             return None
@@ -858,8 +865,9 @@ def circuit(s, db, name, place, beside, training):
         # the second, every stop's new contract would be the only one held.
         towns = {trade.town(c.destination) for c in contracts if not beyond(c)}
         if not (paused(s) or loop.wants_stop(s)):
-            held_from = {trade.town(c.origin) for c in contracts}
-            towns |= {town for town in province(place) if town not in held_from}
+            towns |= {
+                town for town in province(place) if town not in held_from(contracts)
+            }
         towns.discard(place)
         if not towns:
             if contracts:
