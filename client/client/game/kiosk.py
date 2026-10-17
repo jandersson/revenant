@@ -27,6 +27,9 @@ SPELL, SPELL_ABBREV = "Prosperity in Absentia", "pria"
 MANA = 30  # lasts about an hour (docs/kiosk.md)
 FINESSE, FINESSE_ABBREV = "Finesse", "fin"
 TESSERA = "clear tessera"
+# RELEASE PRIA ends the kiosk at once, the ledger kept on the tessera
+# (2026-10-17): "You sense the Prosperity in Absentia spell dissipate."
+RELEASE, RELEASED = f"release {SPELL_ABBREV}", "spell dissipate"
 ROOM = "4652"  # [Grisgonda's, Appraisal Room], the Crossing gem shop
 MAX_KIOSKS = 6
 MARKUP_MIN, MARKUP_MAX, MARKUP_STEP = -10, 80, 5

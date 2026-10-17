@@ -5,6 +5,7 @@
     ;kiosk reserve=100   the reserve topped up to this many platinum Kronars ...
     ;kiosk floor=50      ... once it falls under this many
     ;kiosk tap=20        a kind TAPped and resold once the kiosk holds this many platinum of it
+    ;kiosk cutthroat     grow the kiosk again whenever one at the same markup lists ahead of it
     ;kiosk status        the tessera's report, from any room: where, markup, reserve, stored value, time left
     ;kiosk return        (typed while it runs) finish the pass in hand and end; the kiosk stands
     ;stop kiosk          quit at once
@@ -18,6 +19,9 @@ A pass
   - PULLs or PUSHes the markup to the target, read back from the answer.
   - STUDYs the other kiosks every 15 minutes and says when one's markup
     moves; the price stays markup= (a markup says nothing of the coin behind it).
+  - cutthroat: a kiosk at the same markup listed ahead of ours wins every
+    tie, so ours is RELEASEd and grown again, first in the room, the ledger
+    kept, and PULLed back up; not under half a mana bar, nor twice in 15 minutes.
   - Reserve under the floor: ;bank keep= the shortfall, then POKE, and POKE again to confirm.
   - A kind over the tap, Trading below lock: Finesse up first, at the mana it
     last took (DISCERN's estimate the first time, 3% lower after each strain),
@@ -71,6 +75,8 @@ RECAST_MINUTES = 2
 FINESSE_MINUTES = 5  # Finesse recast before a sale with fewer left
 STEPS = 20  # PULLs or PUSHes in one setting; -10 to 80 is 18
 MARKET_MINUTES = 15  # another's kiosk STUDYed again after this long
+REGROW_MINUTES = 15  # cutthroat: one regrowth at most this often
+REGROW_MANA = 50  # cutthroat: the mana bar's percent a regrowth needs (PRIA 30)
 ROPE = "bundling rope"
 _TANNER = re.compile(r"\btanner (\w+)")  # "the tanner Falken", as ;skins reads it
 
@@ -78,6 +84,7 @@ _TANNER = re.compile(r"\btanner (\w+)")  # "the tanner Falken", as ;skins reads 
 def parse_args(words):
     options = {
         "status": False,
+        "cutthroat": False,
         "markup": 55,
         "reserve": 100 * PLATINUM,
         "floor": 50 * PLATINUM,
@@ -85,8 +92,8 @@ def parse_args(words):
     }
     for word in words or []:
         key, sep, value = str(word).lower().partition("=")
-        if key == "status" and not sep:
-            options["status"] = True
+        if key in ("status", "cutthroat") and not sep:
+            options[key] = True
         elif sep and key == "markup" and re.fullmatch(r"-?\d+", value):
             options["markup"] = int(value)
         elif sep and key in ("reserve", "floor", "tap") and value.isdigit():
@@ -367,6 +374,52 @@ def status(s):
     )
 
 
+def outranked(s, st, markup):
+    """The kiosk at `markup` listed ahead of ours, as note() keeps it, or
+    None: sell-loot sells a tie to the first listed (docs/kiosk.md)."""
+    for target, name, key in kiosks_here(s):
+        if target == st.target:
+            return None
+        seen = st.market.get(key)
+        if seen and seen["markup"] == markup:
+            return name
+    return None
+
+
+def cutthroat(s, st, options, ahead):
+    """RELEASE the kiosk and grow it again ahead of `ahead`, PULLed back
+    to the markup: why the run must end, or None (a wait is said once)."""
+    mana = (getattr(s.state, "vitals", None) or {}).get("mana")
+    wait = None
+    if mana is not None and mana < REGROW_MANA:
+        wait = f"mana at {mana}%"
+    elif st.regrown is not None and probe.clock() - st.regrown < REGROW_MINUTES * 60:
+        wait = f"grown again under {REGROW_MINUTES} minutes ago"
+    if wait:
+        if st.waited != wait:
+            s.echo(f"kiosk: the {ahead} lists ahead at our markup — waiting ({wait})")
+        st.waited = wait
+        return None
+    st.waited = None
+    if not take_tessera(s):
+        return "no clear tessera on you — never a cast without it"
+    answer = ask(s, kiosk.RELEASE)
+    if kiosk.RELEASED not in answer.lower():
+        unknown(s, "kiosk", "RELEASE", answer)
+        stow_tessera(s)
+        return None
+    st.regrown = probe.clock()
+    if why := grow(s, st, standing=False):
+        return why
+    reading = find(s, st)
+    if reading is None:
+        return "found no kiosk of yours after growing it again"
+    set_markup(s, st, reading["markup"], options["markup"])
+    stow_tessera(s)
+    s.echo(f"kiosk: grown again ahead of the {ahead}, now the {st.target}")
+    return None
+
+
 def describe(s, st, reading):
     return (
         f"kiosk: the {st.target} — markup {reading['markup']}%, reserve "
@@ -420,6 +473,9 @@ def one_pass(s, st, options, profile, mapdb, walk_fn, room):
                 reading[kind] = max(0, reading[kind] - kiosk.TAP_MAX)
     stow_tessera(s)
     market(s, st)
+    ahead = options["cutthroat"] and outranked(s, st, reading["markup"])
+    if ahead and (why := cutthroat(s, st, options, ahead)):
+        return why
     line = describe(s, st, reading)
     if line.rsplit(",", 1)[0] != (st.said or "").rsplit(",", 1)[0]:
         s.echo(line)  # said when something but the time left moved
@@ -445,7 +501,15 @@ def idle(s, st, seconds):
 def run(s, options, mapdb, walk_fn=walk, profile=None):
     if profile is None:
         profile = load_profile(getattr(s.state, "name", None) or "")
-    st = SimpleNamespace(target=None, name=None, said=None, unfunded=False, market={})
+    st = SimpleNamespace(
+        target=None,
+        name=None,
+        said=None,
+        unfunded=False,
+        market={},
+        regrown=None,
+        waited=None,
+    )
     if options["status"]:
         s.echo(status(s))
         return None

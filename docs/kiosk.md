@@ -47,6 +47,7 @@ The kiosk works in Kronars in every province.
 - PRIA at 30 mana with the tessera held, refreshed with 2 roisaen left (a refresh throws away what is left). A logout shatters the kiosk but leaves the spell up, so after a login it casts again.
 - The markup PULLed or PUSHed to `markup=` (55).
 - The other kiosks' markups STUDYed every 15 minutes and said when one moves; the price stays `markup=`.
+- `;kiosk cutthroat`: when a kiosk at the same markup lists ahead of yours, yours is RELEASEd, grown again first in the room and PULLed back up; not under half a mana bar, nor twice in 15 minutes.
 - The reserve topped up to `reserve=` (100 platinum) through `;bank keep=` and POKE once it falls under `floor=` (50).
 - Pouches and bundles TAPped once the kiosk holds `tap=` (20 platinum) of them, and sold with Finesse up, the pay banked at once; never while Trading is mind-locked.
 - Finesse at the most mana it takes: DISCERN's estimate the first time, 3% lower after each strain warning, and the level that took is kept for the next cast.

@@ -265,6 +265,7 @@ def test_the_owners_study_reads_what_it_holds_now_not_the_sessions_purchases():
 
 
 def test_another_traders_kiosk_shows_its_markup_and_no_reserve():
+    assert script.parse_args(["cutthroat"])["cutthroat"] is True
     assert kiosk.read_study(NOT_OWNER) == {
         "owner": False,
         "markup": 55,
@@ -469,6 +470,13 @@ class Room:
             noun = "rope" if verb == "put" else command.split()[-1]
             self.let_go(noun)
             return "You put it in your backpack."
+        if command == kiosk.RELEASE:
+            if not self.mine:
+                return "Release what?"
+            self.ledger, self.mine = dict(self.mine), None
+            self.state.active_spells.pop(kiosk.SPELL, None)
+            self.list_room()
+            return "You sense the Prosperity in Absentia spell dissipate."
         if command == kiosk.REPORT:
             return REPORT if self.holds("tessera") else MISSING
         if command.lower() == "discern finesse":
@@ -702,6 +710,49 @@ def test_two_rivals_of_one_look_are_each_studied():
     ]
 
 
+RIVAL = "iridescent crystal kiosk traced in softly lit starburst etchings"
+
+
+def test_cutthroat_grows_the_kiosk_again_ahead_of_a_rival_at_its_markup():
+    # 2026-10-17: listed first at 55% ours took 11 of 11 sales; second, 1 of 4.
+    room = Room(
+        before=[RIVAL],
+        mine=ours(reserve=60 * PLAT, pouch=5 * PLAT),
+        spells={kiosk.SPELL: 30},
+        grows="monoclinic crystalline kiosk",
+    )
+    run(room, "cutthroat")
+    release = room.sent.index(kiosk.RELEASE)
+    assert room.sent[release + 1 : release + 3] == ["prepare pria 30", "cast"]
+    assert kiosk.listing(room.state.room_objs)[0] == (
+        "kiosk",
+        "monoclinic crystalline kiosk",
+    )
+    assert room.mine["markup"] == 55  # PULLed back up from 0%
+    assert (room.mine["reserve"], room.mine["pouch"]) == (60 * PLAT, 5 * PLAT)
+    assert "kiosk: grown again ahead of the " + RIVAL + ", now the kiosk" in room.echoed
+
+
+def test_without_cutthroat_a_rival_ahead_is_left_ahead():
+    room = Room(before=[RIVAL], mine=ours(), spells={kiosk.SPELL: 30})
+    run(room)
+    assert kiosk.RELEASE not in room.sent
+
+
+def test_cutthroat_leaves_a_rival_ahead_at_a_lower_markup():
+    room = Room(before=[RIVAL], mine=ours(markup=60), spells={kiosk.SPELL: 30})
+    run(room, "cutthroat", "markup=60")
+    assert kiosk.RELEASE not in room.sent  # 60% wins on the markup alone
+
+
+def test_cutthroat_waits_for_half_a_mana_bar():
+    room = Room(before=[RIVAL], mine=ours(), spells={kiosk.SPELL: 30})
+    room.state.vitals = {"mana": 40}
+    run(room, "cutthroat")
+    assert kiosk.RELEASE not in room.sent
+    assert any("waiting (mana at 40%)" in line for line in room.echoed)
+
+
 def test_a_markup_above_the_target_is_pushed_down():
     room = Room(mine=ours(markup=80), spells={kiosk.SPELL: 30})
     run(room, "markup=60")
@@ -853,6 +904,7 @@ def test_options_are_platinum_and_the_markup_lands_on_a_step():
     options = script.parse_args(["markup=57", "reserve=200", "floor=80", "tap=10"])
     assert options == {
         "status": False,
+        "cutthroat": False,
         "markup": 55,
         "reserve": 200 * PLAT,
         "floor": 80 * PLAT,
