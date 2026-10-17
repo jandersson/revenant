@@ -191,8 +191,14 @@ found impassable (2026-10-18, #586): the contract's paper went in the
 bin on expiry and nothing took the crate off. Elanthipedia's Trader
 gives two ways, the expired contract to the destination's clerk (out
 of reach here) or PUSH and PULL CRATE ON CARAVAN; unload() is
-trade.lic's dump_crate, its PUSH and PULL answers not yet seen live,
-the LOOK before and after (captured 2026-10-15) the judge.
+trade.lic's dump_crate, the LOOK before and after the judge. Driven by
+hand at Langenfirth's outpost the same night (the Fornsted crate, alone
+on the caravan): the PUSH put it first to be offloaded, the first PULL
+asked for a second within 20 seconds, the second pulled it off with the
+driver's help, and the crate fell to the ground in the room; the LOOK
+after listed only the storage box. The contract still reads presented
+with its crate gone, so a restart beside the caravan counts only a
+crate it can deliver as a load on the road.
 """
 
 PREFIX = "trade"
@@ -914,7 +920,9 @@ def unload(s, name, contracts):
     one at a time: PUSH <ordinal> STURDY CRATE, PULL STURDY CRATE twice
     (trade.lic's dump_crate; Elanthipedia's Trader: "PULL CRATE ON
     CARAVAN to dump it"), then LOOK again, the crate gone the judge. The
-    game's own way to take a crate off a caravan, not a DROP of an item.
+    second PULL is the game's confirmation, due within 20 seconds; the
+    crate falls to the ground in the room. The game's own way to take a
+    crate off a caravan, the game's goods, not a DROP of an item.
     Never with another caravan in the room, whose crates an ordinal might
     reach. The number taken off; a crate still listed, or an answer it
     does not expect, ends it, said."""
@@ -1053,8 +1061,10 @@ def circuit(s, db, name, place, beside, training):
         # the road): with none for this town it goes on from where it
         # stands, as the one-contract run does; with some, it is brought in.
         # With nothing loaded it is brought in for the clerk (2026-10-17: two
-        # Fornsted contracts issued before Fornsted was routed).
-        if beside and not any(c.presented for c in contracts):
+        # Fornsted contracts issued before Fornsted was routed), and with
+        # nothing it can deliver: a contract beyond the routes reads
+        # presented with its crate taken off (Langenfirth, 2026-10-18).
+        if beside and not any(c.presented and not beyond(c) for c in contracts):
             if not bring(s, db, name, trade.TOWNS[place].outpost):
                 return
             beside = False

@@ -299,9 +299,16 @@ _CRATE = re.compile(
     r" (?:The )?(.+?)\."
 )
 # A crate no clerk will pay for comes off the caravan the game's way
-# (Elanthipedia: Trader; trade.lic's dump_crate, not yet seen live): PUSH
-# <ordinal> STURDY CRATE ("You grab onto"), then PULL STURDY CRATE twice
-# ("You begin to pull", "You continue to pull").
+# (Elanthipedia: Trader; trade.lic's dump_crate), Langenfirth, 2026-10-18:
+# PUSH FIRST STURDY CRATE, "You grab onto the sturdy crate and maneuver it
+# so it is positioned to be the first crate offloaded."; PULL STURDY CRATE,
+# "You begin to pull at the sturdy crate on your sleek black caravan. ...
+# [If you are sure you want to pull the crate off your sleek black
+# caravan, repeat this command within 20 seconds.]"; PULL again, "You
+# continue to pull at the sturdy crate. Your driver rushes over to help
+# you, and together you manage to pull the crate off the sleek black
+# caravan. The crate falls to the ground with a loud **THUMP** just
+# missing your foot."
 GRABBED = "You grab onto"
 
 

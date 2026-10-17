@@ -2409,9 +2409,22 @@ def test_a_crate_beyond_the_routes_or_its_contract_expired_is_stranded(script):
     assert script.stranded(again, [live, gone]) == 1
 
 
-# trade.lic's dump_crate wordings, not yet seen live.
-GRAB = "You grab onto a sturdy crate."
-PULL = ("You begin to pull a sturdy crate.", "You continue to pull a sturdy crate.")
+# Langenfirth, 2026-10-18: the Fornsted crate pushed and pulled off.
+GRAB = (
+    "You grab onto the sturdy crate and maneuver it so it is positioned to be"
+    " the first crate offloaded."
+)
+PULL = (
+    "You begin to pull at the sturdy crate on your bullock-drawn caravan.  You"
+    " pause for a moment to reconsider if you really want to do this, since you"
+    " know you won't be able to get it back on the bullock-drawn caravan once it"
+    " is on the ground.\n[If you are sure you want to pull the crate off your"
+    " bullock-drawn caravan, repeat this command within 20 seconds.]",
+    "You continue to pull at the sturdy crate.  Your driver rushes over to help"
+    " you, and together you manage to pull the crate off the bullock-drawn"
+    " caravan.  The crate falls to the ground with a loud **THUMP** just missing"
+    " your foot.",
+)
 
 
 def test_a_stranded_crate_is_pushed_and_pulled_off_the_caravan(script):
@@ -2447,7 +2460,7 @@ def test_a_crate_still_listed_after_the_pulls_is_kept_and_said(script):
         {
             "look bullock-drawn caravan": [_report(FORNSTED_CRATE)],
             "push first sturdy crate": [GRAB],
-            "pull sturdy crate": ["You begin to pull a sturdy crate."],
+            "pull sturdy crate": [PULL[0]],
         }
     )
     assert (
@@ -2503,6 +2516,28 @@ def test_a_stop_takes_the_stranded_crate_off_before_the_bin(script):
     assert calls.index("unload") < calls.index("bin")
     assert ("walk", 3155) in fake.calls[: calls.index("unload")]
     assert ("unload", "sleek caravan") in fake.calls
+
+
+def test_a_restart_beside_a_caravan_carrying_nothing_deliverable_stops_here(script):
+    # Langenfirth, 01:13 on 2026-10-18: the Fornsted crate pulled off, its
+    # contract still read presented, and the restart held for an expiry
+    # instead of taking Langenfirth's contract.
+    world = World({})
+    fake = Circuit(
+        script,
+        stops=[
+            [
+                _contract(*FORNSTED_CRATE),
+                _contract("Riverhaven", "Fornsted", presented=False),
+            ]
+        ],
+        taken=[_contract("Langenfirth", "Therenborough")],
+        minutes={("Langenfirth", "Therenborough"): 6.0},
+    )
+    script.circuit(world, MAP, "sleek caravan", "Langenfirth", True, [])
+    assert fake.calls[0] == ("bring", 3407)
+    assert ("take", "Langenfirth") in fake.calls
+    assert not any("holding at" in e for e in world.echoed)
 
 
 def test_a_stop_with_nothing_stranded_never_looks_at_the_caravan(script):
