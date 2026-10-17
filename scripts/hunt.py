@@ -18,6 +18,8 @@ What it does
   - Fights one creature at a time: attack, skin (never a creature the wiki says has
     no skin), loot, gems and boxes stowed — a creature's boxes are left once ;boxes
     put its last three back unopened (history.db's verdict); a box farm takes them all.
+  - A Slings, Bow or Crossbow turn shoots: LOAD, AIM, FIRE at full aim; a shot at the
+    feet is stowed at once, the lodged ones off the floor after the search.
   - Moves room to room; a room another player hunts is theirs and is skipped. In the
     Glaren Kweld grass, a maze off the map, one step at a time round the compass.
   - Trains the `weapons` in turn: the emptiest pool first, each to `weapon_target`,
@@ -32,6 +34,7 @@ What it does
 When it stops — then walks home, and runs ;skins bank (skins sold, purse banked but 200 copper kept for a ferry fare; ;bank alone when no skin was cut); a ;hunt task walks straight to the task's giver instead, no bank
   - health below `health_floor`, or a wound at `wound_floor` (also checked before setting out)
   - 60 swings without a kill, or three stuns in one fight
+  - a ranged turn's LOAD finding no ammunition
   - every trained skill mind-locked, or the style's `until` (boxes, kills); a locked
     weapon fights on while `targeted` or `debilitation` still trains its skill
   - ;hunt task: the task's item dropping in a kill's death line (picked up and stowed), or the
@@ -71,6 +74,7 @@ from client.game import (
     loot,
     lootlog,
     probe,
+    ranged,
     stores,
     tasks,
     travel,
@@ -126,6 +130,7 @@ weapon_plan = hunting.weapon_plan
 has_turns = hunting.has_turns
 fists_turn = hunting.fists_turn
 plain_swing = hunting.plain_swing
+ranged_turn = hunting.ranged_turn
 turn_target = hunting.turn_target
 turn_minutes = hunting.turn_minutes
 turn_expired = hunting.turn_expired
@@ -334,9 +339,10 @@ The game's answers are classified by keyword (the tables in client/game/hunting.
 in docs/hunting.md); a skin or search answer the script cannot place is
 echoed as "hunt: unrecognized ..." — report those and they become
 fixtures. The skinning and gem-pouch commands follow Elanthipedia's
-Skinning and Gem pouch pages; the fight follows docs/combat.md. First
-cut: melee, one opponent at a time, no ranged; the only offensive
-magic is the profile's targeted spell (#149, #200).
+Skinning and Gem pouch pages; the fight follows docs/combat.md. One
+opponent at a time; a ranged turn shoots instead of swinging
+(client/game/ranged.py, #578); the only offensive magic is the
+profile's targeted spell (#149, #200).
 Three things end a fight the character is losing without the health
 bar saying so (#236: an hour of grass eels — no kill, nine stuns,
 every limb to deep cuts, the bar never below 67): 60 swings without a
@@ -1747,6 +1753,14 @@ def dispose(s, profile, corpse, tally):
                 note_box(s, profile, tally, since, item, named(answer, item))
     elif outcome is None:
         unrecognized(s, tally, "loot", answer)
+    if tally.ammo and (
+        "lodged" in answer.lower() or noun_of(tally.ammo) in listing(s).lower()
+    ):
+        # The search freed the shots lodged in the corpse onto the floor (#578).
+        picked, last = ranged.pick_up(s, tally.ammo, ask)
+        tally.picked_up += picked
+        if "stow what" not in last.lower():
+            unrecognized(s, tally, "stow", last)
     if freed:
         draw(s, profile)
 
@@ -2057,7 +2071,8 @@ def swing(s, profile, tally, prey):
     or an empty room noted, an advance waited out. True while the room
     still holds a live hostile (a cast's filler asks, #203)."""
     wait_out_stun(s)
-    verb = swing_verb(profile, tally, s.state)
+    shooting = ranged_turn(profile, tally)
+    verb = "fire" if shooting else swing_verb(profile, tally, s.state)
     if verb == "smite" and (tally.smite_off or not smite_allowed(s, tally)):
         verb = "attack"
     combo = False
@@ -2075,7 +2090,18 @@ def swing(s, profile, tally, prey):
         if attack:
             verb, combo = attack, True
     mark_room(s, tally)
-    text = ask(s, f"{verb} {prey}" if prey else verb)
+    if shooting:
+        text = ranged.shoot(s, prey, ask)
+        if ranged.out_of_ammo(text):
+            tally.no_ammo = said(text)
+            return False
+        if ammo := ranged.ammo_of(text):
+            tally.ammo = ammo
+            tally.shots += 1
+            # shoot() stowed each one at the feet; counted as picked up.
+            tally.picked_up += text.lower().count(ranged.AT_FEET)
+    else:
+        text = ask(s, f"{verb} {prey}" if prey else verb)
     if verb != "attack":
         # A maneuver's window closed on an earlier swing's line, an
         # arrival or a creature's own line (#483, #477): its answer follows.
@@ -2371,6 +2397,10 @@ def loop(s, profile, db, ground, avoid, tally):
             break  # empty rooms and waits do not count against the swings
         if s.dead:
             return "dead — deathwatch has it"
+        if tally.no_ammo:
+            # shortcut: the whole hunt ends, other weapon turns included;
+            # pass the turn on instead once a hunt mixes ranged and melee.
+            return f"no ammunition — {tally.no_ammo}"
         if (s.command(timeout=0) or "").strip().lower() == "return":
             return "returning on request"
         mark_room(s, tally)  # a body here before the fight is not ours
@@ -2528,6 +2558,11 @@ def hunt(s, profile, db, travel_first=True, avoid=(), ground=None):
         + (f", {tally.barb.combos} self-combo(s)" if tally.barb.combos else "")
         + (f", {tally.barb.roars} roar(s)" if tally.barb.roars else "")
         + (f", {tally.tracks} HUNT(s)" if tally.tracks else "")
+        + (
+            f", {tally.shots} shot(s), {tally.picked_up} {tally.ammo}(s) picked up"
+            if tally.shots
+            else ""
+        )
         + (
             f", {tally.unrecognized} unrecognized answer(s)"
             if tally.unrecognized

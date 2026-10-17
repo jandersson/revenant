@@ -29,6 +29,13 @@ Spawn areas never empty on their own: a script leaves a contested spot rather th
 - A bare `LOOT` searches the last creature fought and disposes of the corpse.
 - "What were you referring to?" means nothing by that noun is left.
 
+## Ranged
+
+- The weapon must be in the right hand. Bare `LOAD` takes the first ammunition that fits from the hands, the feet, then the containers.
+- `AIM <target>` ("You begin to target a ship's rat.") builds the shot until "You think you have your best shot possible now."; `FIRE` spends it. No range to close: a shot works from missile range.
+- A shot either lodges ("The small rock lodges itself shallowly into the ship's rat!") or lands at your feet. A search frees the lodged ones onto the floor ("Lodged into it was a small rock."); a corpse that decays drops them too.
+- `STOW <ammunition>` picks a piece up and puts it in the quiver; it needs a free hand.
+
 ## Stance and balance
 
 - `STANCE SET <evasion> <parry> <shield> [<attack>]`: 180 base points plus some from Defending ranks. `;hunt` sets the profile's `stance` before it fights.

@@ -96,11 +96,14 @@ A style named after a ground is that ground's own settings: it is laid over when
 - A weapon that goes 20 swings without a kill hands over to the next.
 - Every turn swings ATTACK, which cycles the moves of whatever is in hand; `fists:Brawling` does it with empty hands (punch, kick, elbow). Worn knuckles and a parry stick still work.
 - With `weapons` empty, the hunt uses `weapon` alone.
+- A `Slings`, `Bow` or `Crossbow` turn shoots instead of swinging (`sling:Slings`): LOAD, AIM, FIRE at full aim. A shot at your feet is stowed at once; the lodged ones come out on the search and are stowed off the floor. STOW puts ammunition in your quiver.
+- Ammunition is whatever LOAD finds in your hands, at your feet, then in your containers. A foraged rock is not sling ammunition; Milgrym's Weapons in the Crossing sells small rocks, ten for 12 Kronars.
 
 ## What ends a hunt
 
 - **Health** below `health_floor`, or a **wound** at `wound_floor`: retreat, then walk home (or to the nearest room off the ground if no `home`). A wound already at the floor keeps the hunt from setting out; `;heal` treats it.
 - **A losing fight**: 60 swings without a kill, or three stuns in one fight, break off the same way.
+- **No ammunition**: a ranged turn's LOAD finds nothing it can load.
 - **Locks**: every `train_skills` skill mind-locked, or every weapon in the rotation locked with no spell cast at the prey still learning.
 - **The style's `until`**: boxes, or `max_kills`.
 - **A task's item** (`;hunt task`): picked up off the kill that drops it. No lock ends a task hunt, and it ends at the task's giver, not home, with no bank on the way.
@@ -160,4 +163,4 @@ A box is matched to its creature by its item id, which holds within one login. A
 
 - Answers the script cannot place are echoed as `hunt: unrecognized ...`. Report them; they become test fixtures.
 - Once a hunt, it names the weapon skills the room's creatures are too weak to teach. When it does, pick a harder ground.
-- Melee only, one opponent at a time; no ranged combat. The fight itself is in [combat.md](combat.md), wounds in [wounds.md](wounds.md).
+- One opponent at a time. The fight itself is in [combat.md](combat.md), wounds in [wounds.md](wounds.md).

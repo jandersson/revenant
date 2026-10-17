@@ -101,7 +101,8 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   at the mana it last took (`held_cast`); `barbarian.py` a
   Barbarian's instead (ANALYZE combos, abilities, roars); `hunting.py`
   the bestiary (a ground is a map tag, a dr-scripts zone or a ;go2
-  target; `;hunt grounds`) and ;hunt's pure half; `creatures.py` +
+  target; `;hunt grounds`) and ;hunt's pure half; `ranged.py` a sling,
+  bow or crossbow turn's LOAD, AIM, FIRE and its ammunition stowed again; `creatures.py` +
   `creatures_data.py`; `loot.py` + `lootlog.py`; `stores.py` (the
   STORE containers ;hunt last set, which ;boxes reads too); `boxes.py` + `boxlog.py`
   (each box's contents, told to its creature by its item id);

@@ -485,6 +485,7 @@ RELOADABLE_MODULES = (
     "client.game.casting",
     "client.game.barbarian",
     "client.game.hunting_data",
+    "client.game.ranged",  # a ranged turn's shot; hunting binds it
     "client.game.hunting",  # binds hunting_data, act, casting and barbarian: after them
     "client.game.profile",
     "client.game.training",  # binds names from profile: after it

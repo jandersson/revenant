@@ -43,7 +43,7 @@ import re
 import time
 from collections import Counter
 
-from client.game import barbarian, casting, creatures, hunting_data
+from client.game import barbarian, casting, creatures, hunting_data, ranged
 from client.game.act import NOT_FOUND
 
 ZONES = hunting_data.ZONES
@@ -551,6 +551,10 @@ class Tally:
         self.turn_started = 0  # tally.swings when the turn in hand began
         self.turn_clock = 0.0  # clock() when it began (weapon_minutes)
         self.balances = {}  # balance word -> swings taken at it (#280)
+        self.ammo = ""  # what the last shot fired, as STOW names it (#578)
+        self.no_ammo = ""  # LOAD's answer when it found nothing to load
+        self.shots = 0
+        self.picked_up = 0  # ammunition STOWed off the floor after a search
         # The corpses the room's listing marked when this room's fight
         # began, by name: a kill is a corpse more than this (#315).
         self.dead_room = None
@@ -659,8 +663,16 @@ def fists_turn(profile):
 
 
 def plain_swing(verb):
-    """True for a swing that is not a tactical maneuver: ATTACK or SMITE."""
-    return verb in ("attack", "smite")
+    """True for a swing that is not a tactical maneuver: ATTACK, SMITE or a shot."""
+    return verb in ("attack", "smite", "fire")
+
+
+def ranged_turn(profile, tally):
+    """True while the turn in hand trains a ranged skill (Slings, Bow,
+    Crossbow): its swing is a shot (client/game/ranged.py, #578)."""
+    plan = weapon_plan(profile)
+    index = getattr(tally, "weapon", 0) or 0
+    return index < len(plan) and ranged.is_ranged(plan[index]["skill"])
 
 
 DEFAULT_WEAPON_TARGET = 30
