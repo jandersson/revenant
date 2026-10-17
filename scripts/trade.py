@@ -1078,6 +1078,12 @@ def main(s):
         s.echo(f"{PREFIX}: not at an outpost ;trade knows — walk to one")
         return
     answer = ask(s, "recall caravan")
+    if trade.RECALL_BUSY in answer:
+        # Engaged: out of combat first, the RECALL after the retreats
+        # through the type-ahead.
+        s.put("retreat")
+        s.put("retreat")
+        answer = ask(s, "recall caravan")
     name, beside = trade.caravan(answer)
     if not name and trade.NO_CARAVAN[0] in answer:
         name = rent(s, db, place)

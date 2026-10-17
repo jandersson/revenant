@@ -16,7 +16,7 @@ edge it cannot follow ends the walk before it starts.
 
 import re
 
-from client.game import travel, walker
+from client.game import flight, travel, walker
 from client.game.act import ask, said
 from client.game.mapdb import pause_seconds, ride_args, ride_of, translate_embedded
 from client.game.trade import FOLLOW_ORDERED, FOLLOWING
@@ -168,6 +168,13 @@ def bring(s, db, name, room, prefix):
             pause = pause_seconds(command)
             if pause is not None:
                 s.sleep(pause)
+                continue
+            if flight.hostiles_present(s.state):
+                # Engaged, a move is refused ("You are engaged to a morah
+                # creeper at melee range!", Ker'Leor, 2026-10-17), and the
+                # creepers follow: RETREAT twice through the type-ahead
+                # first, the escape's burst, the caravan following the move.
+                flight.burst(s, command)
                 continue
             s.waitrt()
             s.put(command)

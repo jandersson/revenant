@@ -2616,3 +2616,49 @@ def test_a_caravan_is_waited_for_at_the_end_of_a_passage(script, monkeypatch):
     assert haul.bring(world, forest, "sleek caravan", 3634, "trade")
     assert world.sent == ["west"]
     assert world.echoed == []
+
+
+def test_an_engaged_walk_retreats_before_each_move(script, monkeypatch):
+    # Ker'Leor, 2026-10-17: the morah creepers followed and engaged at
+    # every room, and a bare move answered "You are engaged to a morah
+    # creeper at melee range!".
+    forest = MapDB(
+        [
+            {"id": 3634, "uid": [3634], "title": ["[Ker'Leor, Deep Forest Path]"],
+             "wayto": {"3635": "north"}},
+            {"id": 3635, "uid": [3635], "title": ["[Ker'Leor, Deep Forest Path]"],
+             "wayto": {}},
+        ]
+    )  # fmt: skip
+    monkeypatch.setattr(
+        haul, "ask", lambda s, command: "You pass on the order to follow"
+    )
+    world = World({}, room=3634)
+    world.state.hostiles = {"207866039": False}
+    world.state.posture = "standing"
+
+    def put(command):
+        world.sent.append(command)
+        if command == "north":
+            world.room = 3635
+            world.heard.append(
+                "Your sleek caravan arrives from the south, following you.\n"
+            )
+
+    world.put = put
+    assert haul.bring(world, forest, "sleek caravan", 3635, "trade")
+    assert world.sent == ["retreat", "retreat", "north"]
+
+
+def test_a_recall_refused_in_combat_is_asked_again_after_retreating(script):
+    world = World(
+        {
+            "recall caravan": [
+                "You are far too occupied by present matters to search your memory.",
+                NO_CARAVAN,
+            ],
+            "rent caravan": [RENT_SHORT],
+        }
+    )
+    script.main(world)
+    assert world.sent[:4] == ["recall caravan", "retreat", "retreat", "recall caravan"]

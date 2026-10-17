@@ -238,6 +238,9 @@ WAIT_ORDERED = ("make it wait", "order to wait")
 _RECALLED = re.compile(r"recall (?:that )?your (.+?) should be\b", re.I)
 _BEHIND = re.compile(r"you left your (.+?) right behind you", re.I)
 NO_CARAVAN = ("don't recall having a caravan", "don't recall where you left")
+# Engaged (Ker'Leor's morah creepers, 2026-10-17): "You are far too
+# occupied by present matters to search your memory."
+RECALL_BUSY = "far too occupied by present matters"
 
 # The storage box (35th circle and up): OPEN STORAGE BOX ON <caravan>,
 # then RUMMAGE IN STORAGE BOX ON <caravan>: "You rummage through a
