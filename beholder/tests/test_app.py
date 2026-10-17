@@ -36,6 +36,31 @@ def test_the_skills_moving_chart_plots_the_count_against_the_skills_tracked():
     assert empty.data[0].y == ()
 
 
+def test_both_time_charts_open_on_the_last_three_days():
+    # One tick from September beside today's training (#580's follow-up).
+    times = ["2026-09-03T20:21:23+00:00", "2026-10-17T04:30:00+00:00"]
+    moving = app.moving_figure(
+        {"times": times, "moving": [1, 9], "tracked": [50, 50]}, "Lanival"
+    )
+    mindstate = app.mindstate_figure(
+        {"Trading": {"times": times, "mindstate": [0, 13], "rank": [767, 768]}},
+        "Lanival",
+    )
+    opening = ("2026-10-14T04:30:00+00:00", "2026-10-17T04:30:00+00:00")
+    assert moving.layout.xaxis.range == opening
+    assert mindstate.layout.xaxis.range == opening
+
+
+def test_a_history_shorter_than_three_days_opens_whole():
+    times = ["2026-10-16T22:00:00+00:00", "2026-10-17T04:30:00+00:00"]
+    figure = app.moving_figure(
+        {"times": times, "moving": [3, 1], "tracked": [10, 10]}, "Lanival"
+    )
+    assert figure.layout.xaxis.range == tuple(times)
+    empty = app.moving_figure({"times": [], "moving": [], "tracked": []}, None)
+    assert empty.layout.xaxis.range is None
+
+
 def test_rested_windows_are_shaded_on_the_mindstate_plot():
     windows = [("2026-08-22T10:00:00+00:00", "2026-08-22T15:42:00+00:00")]
     figure = app.mindstate_figure({}, "Lanival", windows)

@@ -13,6 +13,7 @@ beholder` and open http://127.0.0.1:8050.
 
 import argparse
 import sqlite3
+from datetime import datetime, timedelta
 
 import dash_ag_grid as dag
 import plotly.graph_objects as go
@@ -187,6 +188,21 @@ def query(fn, *args, default):
 REXP_SHADE = "rgba(216, 180, 101, 0.18)"  # the RT gold, faint
 
 
+OPEN_DAYS = 3  # the range both time charts open on; "all" is a click away
+
+
+def recent_range(times):
+    """The x range a time chart opens on: its last OPEN_DAYS, or the
+    whole history when it is shorter. None without data (autorange).
+    One stray old tick otherwise squashed a week's training against
+    the right edge. ISO UTC strings compare as time."""
+    if not times:
+        return None
+    newest = max(times)
+    start = (datetime.fromisoformat(newest) - timedelta(days=OPEN_DAYS)).isoformat()
+    return [max(start, min(times)), newest]
+
+
 def mindstate_figure(series, character, windows=()):
     """One line per skill, mindstate over time, with 1d/3d/all range
     buttons and a range slider. `windows` are (start, end) ISO pairs
@@ -217,10 +233,12 @@ def mindstate_figure(series, character, windows=()):
                 customdata=points["rank"],
             )
         )
+    times = [moment for points in series.values() for moment in points["times"]]
     figure.update_layout(
         xaxis={
             "title": "Time (UTC)",
             "type": "date",
+            "range": recent_range(times),
             "rangeslider": {"bgcolor": PANEL},
             "rangeselector": {
                 "bgcolor": PANEL,
@@ -266,6 +284,7 @@ def moving_figure(series, character):
         xaxis={
             "title": "Time (UTC)",
             "type": "date",
+            "range": recent_range(series["times"]),
             "rangeselector": {
                 "bgcolor": PANEL,
                 "activecolor": GRID,
