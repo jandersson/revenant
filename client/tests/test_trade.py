@@ -259,7 +259,8 @@ def test_towns_are_named_the_way_the_table_keys_them():
     assert trade.town("Wolf Clan") == "Wolf Clan"
     assert trade.town("Leth Deriel") == "Leth Deriel"  # by the ferry
     assert trade.town("Riverhaven") == "Riverhaven"  # by Dirge and the Faldesu
-    assert trade.town("Therenborough") is None  # Therengia waits (#555)
+    assert trade.town("Therenborough") == "Therenborough"
+    assert trade.town("Hvaral") is None  # the rest of Therengia waits (#555)
     assert trade.lead_name("Leth Deriel") == "leth"
     assert trade.contract_noun("Wolf Clan") == "wolf contract"
 
@@ -662,7 +663,7 @@ def test_interprovince_takes_the_brokers_contract_paid_before_loading(script):
 
 
 def test_a_broker_contract_beyond_the_routes_is_neither_paid_nor_loaded(script):
-    far = TO_SHARD.replace("Shard requires", "Therenborough requires")
+    far = TO_SHARD.replace("Shard requires", "Hvaral requires")
     answers = dict(
         LEG,
         **{"ask broker": [BROKER_ISSUED], "read my contract": [far]},
@@ -705,13 +706,13 @@ def test_return_typed_with_nothing_held_stops_at_the_clerk(script):
 
 
 def test_a_contract_for_a_town_it_cannot_lead_to_is_left_with_you(script):
-    far = CONTRACT.replace("Wolf Clan", "Therenborough")
+    far = CONTRACT.replace("Wolf Clan", "Fornsted")
     answers = dict(LEG, **{"read my contract": ["What were you referring to?", far]})
     world = World(answers)
     script.main(world)
     assert not any(" to lead to " in c for c in world.sent)
     assert "give my contract to clerk" not in world.sent
-    assert any("Therenborough is beyond ;trade's routes" in e for e in world.echoed)
+    assert any("Fornsted is beyond ;trade's routes" in e for e in world.echoed)
 
 
 def test_a_broker_contract_to_riverhaven_is_paid_loaded_and_led(script):
@@ -1234,27 +1235,30 @@ def test_a_contract_from_riverhaven_crosses_back_and_leads_from_the_riverbank(sc
     assert world.room == 1073 and world.ran == []
 
 
-def test_a_delivery_at_riverhaven_ends_the_run_with_the_caravan_kept(script):
-    # Its minister's towns are beyond the routes: no contract is taken.
+def test_a_delivery_at_riverhaven_takes_its_ministers_next_contract(script):
+    # Therenborough and Langenfirth are routes now (#555).
     delivered = TO_RIVERHAVEN.replace(
         " This contract has yet to be presented to the Crossing guild\n clerk.\n", ""
     )
     answers = dict(
         LEG,
         **{
-            "read my contract": [delivered],
+            "read my contract": [delivered, RIVERHAVEN_TO_THEREN],
             "get my riverhaven contract": [
                 "You get a Riverhaven contract from inside your sturdy backpack.\n"
             ],
-            "give my contract to clerk": [PAID_IN_LIRUMS],
+            "give my contract to clerk": [PAID_IN_LIRUMS, LOADED],
         },
     )
     world = World(answers, room=13751)
+    legs = []
+    script.leg = lambda s, db, name, origin, destination, *rest: (
+        legs.append((origin, destination)) and False
+    )
     script.main(world)
-    assert "ask minister for contract" not in world.sent
-    assert "return caravan" not in world.sent
     assert "trade: Riverhaven paid 47,840 Lirums" in world.echoed
-    assert world.echoed[-1].startswith("trade: done at Riverhaven")
+    assert "ask minister for contract" in world.sent
+    assert legs == [("Riverhaven", "Therenborough")]
 
 
 def test_interprovince_at_riverhaven_takes_its_brokers_contract(script):
@@ -1957,3 +1961,97 @@ def test_a_contract_read_back_unloaded_keeps_its_row(tmp_path):
     assert tradelog.log_issue("Lanival", "Crossing", contract, 3537, 985, path=db) != (
         first
     )
+
+
+# Therengia (#555)
+
+# A Riverhaven minister's contract for Therenborough, in the Crossing
+# contract's words.
+RIVERHAVEN_TO_THEREN = (
+    CONTRACT.replace("Issued by:  Crossing", "Issued by:  Riverhaven")
+    .replace("Wolf Clan requires", "Therenborough requires")
+    .replace("the Crossing guild", "the Riverhaven guild")
+    .replace("11791 Kronars", "9120 Lirums")
+)
+
+
+def test_therengia_trades_in_lirums_between_three_of_its_towns():
+    for town in trade.THERENGIA:
+        assert trade.coin(town) == "Lirums" and town in trade.TOWNS
+    assert tradelog.province("Therenborough", "Langenfirth") == "Therengia"
+    assert trade.routable("Riverhaven", "Langenfirth")
+    assert trade.routable("Therenborough", "Crossing")  # by way of Riverhaven
+    # Fornsted, Hvaral and Muspar'i are not built: left unloaded.
+    for town in ("Fornsted", "Hvaral", "Muspar'i"):
+        assert not trade.routable("Therenborough", trade.town(town))
+    assert trade.hub("Langenfirth") == "Therenborough"
+    assert trade.hub("Crossing") is None
+
+
+def test_riverhaven_to_langenfirth_goes_by_way_of_therenborough(script):
+    calls = _forfedhdar(script)
+    world = World({})
+    assert script.leg(world, MAP, "caravan", "Riverhaven", "Langenfirth")
+    assert calls == [
+        ("lead", "Therenborough"),
+        ("bring", 3155),
+        ("lead", "Langenfirth"),
+        ("bring", 3407),
+    ]
+    calls.clear()
+    assert script.leg(world, MAP, "caravan", "Langenfirth", "Riverhaven")
+    assert calls == [
+        ("lead", "Therenborough"),
+        ("bring", 3155),
+        ("lead", "Riverhaven"),
+        ("bring", 386),
+    ]
+
+
+def test_a_lead_between_therenborough_and_langenfirth_starts_outside_town(script):
+    # Elanthipedia (Trade Route): North Road, Barony Pass to Outside
+    # Langenfirth and back.
+    calls = _forfedhdar(script, refused={"Langenfirth", "Therenborough"})
+    world = World({})
+    assert script.leg(world, MAP, "caravan", "Therenborough", "Langenfirth")
+    assert calls == [
+        ("lead", "Langenfirth"),
+        ("bring", 3234),
+        ("lead", "Langenfirth"),
+        ("bring", 3407),
+    ]
+    calls.clear()
+    assert script.leg(world, MAP, "caravan", "Langenfirth", "Therenborough")
+    assert calls == [
+        ("lead", "Therenborough"),
+        ("bring", 3339),
+        ("lead", "Therenborough"),
+        ("bring", 3155),
+    ]
+
+
+def test_a_lead_to_riverhaven_turned_down_has_no_room_to_try_again(script):
+    # trade.lic's start for it is across the Langenfirth barge.
+    calls = _forfedhdar(script, refused={"Riverhaven"})
+    world = World({})
+    assert not script.leg(world, MAP, "caravan", "Therenborough", "Riverhaven")
+    assert calls == [("lead", "Riverhaven")]
+
+
+def test_a_leg_from_therenborough_out_of_the_province_goes_by_riverhaven(script):
+    calls = _forfedhdar(script)
+    world = World({})
+    assert script.leg(world, MAP, "caravan", "Therenborough", "Crossing")
+    assert calls == [
+        ("lead", "Riverhaven"),
+        ("bring", 386),
+        ("bring", trade.RIVERBANK),
+        ("lead", "Dirge"),
+        ("bring", 1307),
+        ("lead", "Crossing"),
+        ("bring", 895),
+    ]
+
+
+def test_a_therengia_circuit_works_its_three_towns(script):
+    assert script.province("Langenfirth") == trade.THERENGIA

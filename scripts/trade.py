@@ -1,4 +1,4 @@
-"""Run Trader caravan contracts in Zoluren, Ilithi, Forfedhdar and to Riverhaven:  ;trade
+"""Run Trader caravan contracts in Zoluren, Ilithi, Forfedhdar and Therengia:  ;trade
 
     ;trade            deliver, pay the dues, take the next contract, load it, feed the caravan, lead it there; again
     ;trade interprovince  the same, each contract for another province (the broker's) where one is offered: the Crossing, Shard
@@ -11,13 +11,17 @@ What it does
   - Starts at an outpost of Zoluren — the Crossing, Arthe Dale, Stone Clan,
     Dirge, Wolf Clan, Tiger Clan, Leth Deriel — or Ilithi — Shard, Fayrin's
     Rest, Steelclaw Clan, Darkling Wood — or Forfedhdar — Hibarnhvidar, Boar
-    Clan, Raven's Point, Ain Ghazal — or Riverhaven, with your caravan at
-    the outpost (RECALL CARAVAN finds it); with none, rents one at the clerk
-    (RENT CARAVAN, 400 Kronars or 288 Dokoras).
+    Clan, Raven's Point, Ain Ghazal — or Therengia — Riverhaven,
+    Therenborough, Langenfirth — with your caravan at the outpost (RECALL
+    CARAVAN finds it); with none, rents one at the clerk (RENT CARAVAN, 400
+    Kronars or 288 Dokoras).
   - Forfedhdar: Boar Clan, and Ain Ghazal to Raven's Point, by way of
-    Hibarnhvidar; Ain Ghazal across the river by the ferry; a lead the
-    driver turns down is told again from the room trade.lic leads from.
-    Its contracts for other provinces are left unloaded.
+    Hibarnhvidar; Ain Ghazal across the river by the ferry. Its contracts
+    for other provinces are left unloaded.
+  - Therengia: Riverhaven to Langenfirth and back by way of Therenborough.
+    Its contracts for Fornsted, Hvaral and Muspar'i are left unloaded.
+  - A lead the driver turns down is told again from the room trade.lic
+    leads from (Barony Pass, Outside Langenfirth, Forfedhdar's).
   - Started beside its caravan away from an outpost (a run stopped on the road),
     goes on from there with the crate it holds; near its town, walks the
     caravan to the outpost and delivers.
@@ -58,10 +62,8 @@ When it stops
   - ;trade return once nothing is held, the caravan returned (RETURN CARAVAN;
     kept, said, while its storage box holds anything); ;trade pause once nothing
     is held, the caravan kept at the outpost; ;stop trade at once, the caravan kept
-  - at Riverhaven once delivered and paid, the caravan kept: no minister's
-    contract is taken there; with `interprovince` its broker's is (its minister's towns are beyond the routes)
-  - a contract for a town ;trade does not lead to (Therengia past Riverhaven):
-    said, kept unpaid and unloaded
+  - a contract for a town ;trade does not lead to (Fornsted, Hvaral,
+    Muspar'i, or out of Forfedhdar): said, kept unpaid and unloaded
   - hostiles holding you on a lead while the caravan goes on: you get clear
     (the escape every trainer uses), said
   - a caravan RECALL cannot place, a rental refused, no feedbag or no grass
@@ -672,7 +674,8 @@ def leg(s, db, name, origin, destination, grass=None, training=()):
     walked to the outpost when the lead stops short. Riverhaven is led
     to by Dirge (LEAD TO RIVERHAVEN from Gateway Road ends at the north
     road's ferry, the caravan walked over the Faldesu), and back led to
-    Dirge from the riverbank south of that ferry. Leth Deriel is
+    Dirge from the riverbank south of that ferry; the rest of Therengia by
+    way of Riverhaven. Leth Deriel is
     across the Segoltha, so a leg to or from it goes by the Crossing and
     Alfren's Ferry (trade.lic's do_lead_from and do_lead_to): to it, led
     to the Crossing, walked over the ferry to the south bank, led to
@@ -682,9 +685,14 @@ def leg(s, db, name, origin, destination, grass=None, training=()):
     walked between them over the Obsidian Pass gondola."""
     if origin == destination:
         return True
-    if origin in trade.FORFEDHDAR and destination in trade.FORFEDHDAR:
-        return forfedhdar_leg(s, db, name, origin, destination, grass, training)
+    if trade.hub(origin) is not None and trade.hub(origin) == trade.hub(destination):
+        return province_leg(s, db, name, origin, destination, grass, training)
     if (origin in trade.THERENGIA) != (destination in trade.THERENGIA):
+        gate = "Riverhaven"  # Therengia's way to Dirge
+        if gate not in (origin, destination):
+            return leg(s, db, name, origin, gate, grass, training) and leg(
+                s, db, name, gate, destination, grass, training
+            )
         dirge = trade.VIA_DIRGE
         if destination in trade.THERENGIA:
             if not leg(s, db, name, origin, dirge, grass, training):
@@ -729,17 +737,18 @@ def leg(s, db, name, origin, destination, grass=None, training=()):
     )
 
 
-def forfedhdar_leg(s, db, name, origin, destination, grass=None, training=()):
-    """A leg within Forfedhdar (#555): a pair with a lead of its own
-    (trade.FORFEDHDAR_LEADS, one way each) led straight there, Ain
-    Ghazal's riding the ferry; any other by way of Hibarnhvidar (#583).
-    A lead the driver turns down is told again from the room trade.lic
-    leads from (trade.lead_from), the caravan walked there first."""
-    hub = trade.VIA_HIBARNHVIDAR
-    if (origin, destination) not in trade.FORFEDHDAR_LEADS:
-        return forfedhdar_leg(
-            s, db, name, origin, hub, grass, training
-        ) and forfedhdar_leg(s, db, name, hub, destination, grass, training)
+def province_leg(s, db, name, origin, destination, grass=None, training=()):
+    """A leg within Forfedhdar or Therengia (#555): a pair with a lead of
+    its own (trade.LEADS, one way each) led straight there, Ain Ghazal's
+    riding the ferry; any other by way of the province's hub (trade.hub:
+    Hibarnhvidar, #583; Therenborough). A lead the driver turns down is
+    told again from the room trade.lic leads from (trade.lead_from), the
+    caravan walked there first."""
+    hub = trade.hub(origin)
+    if (origin, destination) not in trade.LEADS:
+        return province_leg(s, db, name, origin, hub, grass, training) and (
+            province_leg(s, db, name, hub, destination, grass, training)
+        )
     led = lead(s, name, destination, grass, training)
     start = trade.lead_from(origin, destination)
     if led is None and start is not None:
@@ -752,12 +761,10 @@ def forfedhdar_leg(s, db, name, origin, destination, grass=None, training=()):
 
 def province(place):
     """The towns a circuit from `place` works: Ilithi's, Forfedhdar's,
-    else Zoluren's (Leth Deriel among them); Riverhaven takes none."""
-    for towns in (trade.ILITHI, trade.FORFEDHDAR):
+    Therengia's, else Zoluren's (Leth Deriel among them)."""
+    for towns in (trade.ILITHI, trade.FORFEDHDAR, trade.THERENGIA):
         if place in towns:
             return towns
-    if place in trade.THERENGIA:
-        return ()
     return tuple(
         town
         for town in trade.TOWNS
@@ -806,11 +813,7 @@ def town_stop(s, db, place, contracts, due):
     if due:
         bank_run(s, db, trade.coin(place))
     ending = paused(s) or loop.wants_stop(s)
-    if (
-        not ending
-        and place not in trade.THERENGIA
-        and not any(trade.town(c.origin) == place for c in contracts)
-    ):
+    if not ending and not any(trade.town(c.origin) == place for c in contracts):
         contract = take(s, db, place)
         if contract is None:
             return None
@@ -968,15 +971,6 @@ def main(s):
             if loop.wants_stop(s):
                 s.echo(f"{PREFIX}: nothing held — done at {place}")
                 return_caravan(s, db, place, name)
-                return
-            if place in trade.THERENGIA and not (broker and place in trade.BROKERS):
-                # Its minister's towns are beyond the routes: a contract
-                # taken there would only leave its charge owed.
-                s.echo(
-                    f"{PREFIX}: done at {place} — ;trade leads no further in"
-                    " Therengia yet; the caravan waits (RETURN CARAVAN at the"
-                    " clerk hands it back)"
-                )
                 return
             contract = take(s, db, place, broker)
             if contract is None:

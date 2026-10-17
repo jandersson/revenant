@@ -1,6 +1,6 @@
 """Trader caravan contracts (;trade, #552): the outposts of Zoluren,
-Ilithi and Riverhaven, the contract's text, and the minister's, clerk's
-and driver's answers — ;trade's model, Qt-free.
+Ilithi, Forfedhdar and Therengia, the contract's text, and the
+minister's, clerk's and driver's answers — ;trade's model, Qt-free.
 
 A leg: at the outpost's clerk the contract for this town is handed in
 and paid for, PAY CLERK settles the dues, ASK MINISTER FOR CONTRACT
@@ -38,9 +38,11 @@ TOWNS = {
     "Fayrin's Rest": Town(2840, 19278, 19278),
     "Steelclaw Clan": Town(2874, 19399, 19399),
     "Darkling Wood": Town(2702, 14636, 14636),
-    # Therengia: Riverhaven's outpost is Town Hall Road, the clerk down
-    # its alley; the rest of the province waits (#555).
+    # Therengia, in Lirums (#555): Riverhaven's outpost is Town Hall Road,
+    # the clerk down its alley; Fornsted, Hvaral and Muspar'i wait.
     "Riverhaven": Town(386, 7876, 13751),
+    "Therenborough": Town(3155, 3232, 3232),
+    "Langenfirth": Town(3407, 13414, 13414),
     # Forfedhdar, in Dokoras (#555): each minister beside its clerk.
     "Hibarnhvidar": Town(3903, 7412, 7412),
     "Boar Clan": Town(4106, 13675, 13675),
@@ -48,7 +50,7 @@ TOWNS = {
     "Ain Ghazal": Town(11033, 14638, 14638),
 }
 ILITHI = ("Shard", "Fayrin's Rest", "Steelclaw Clan", "Darkling Wood")
-THERENGIA = ("Riverhaven",)
+THERENGIA = ("Riverhaven", "Therenborough", "Langenfirth")
 FORFEDHDAR = ("Hibarnhvidar", "Boar Clan", "Raven's Point", "Ain Ghazal")
 
 # Forfedhdar's leads, each one way (Elanthipedia: Caravan): Hibarnhvidar
@@ -68,7 +70,33 @@ FORFEDHDAR_LEADS = {
     ("Ain Ghazal", "Hibarnhvidar"),
 }
 VIA_HIBARNHVIDAR = "Hibarnhvidar"
-LEAD_FROM = {"Hibarnhvidar": 3943, "Raven's Point": 4452, "Ain Ghazal": 3986}
+
+# Therengia's leads (Elanthipedia: Caravan, Trade Route): Therenborough
+# to and from Langenfirth, from North Road, Barony Pass to Outside
+# Langenfirth and back; Riverhaven to and from Therenborough over the
+# Gyfford Bridge (Fun-Day Fridays 53, 2025-08-15, newer than trade.lic,
+# which walks every caravan into Riverhaven). Riverhaven to Langenfirth
+# and back go by way of Therenborough.
+THERENGIA_LEADS = {
+    ("Therenborough", "Langenfirth"),
+    ("Langenfirth", "Therenborough"),
+    ("Riverhaven", "Therenborough"),
+    ("Therenborough", "Riverhaven"),
+}
+VIA_THERENBOROUGH = "Therenborough"
+LEADS = FORFEDHDAR_LEADS | THERENGIA_LEADS
+LEAD_FROM = {
+    "Hibarnhvidar": 3943,
+    "Raven's Point": 4452,
+    "Ain Ghazal": 3986,
+    "Langenfirth": 3339,  # Outside Langenfirth
+}
+# A pair's own room, before its origin's: Gate to Hibarnhvidar, and
+# North Road, Barony Pass (not on the way to Riverhaven).
+LEAD_FROM_PAIR = {
+    ("Hibarnhvidar", "Boar Clan"): 3991,
+    ("Therenborough", "Langenfirth"): 3234,
+}
 
 # Leth Deriel is across the Segoltha: the caravan is walked from the
 # Crossing's outpost onto Alfren's Ferry and off at the south bank,
@@ -338,17 +366,25 @@ def coin(name):
 
 def lead_from(origin, destination):
     """The room a lead from `origin` is told again from when its driver
-    turns it down there (trade.lic's do_lead_from), or None: Gate to
-    Hibarnhvidar (3991) for Boar Clan, else LEAD_FROM's."""
-    if (origin, destination) == ("Hibarnhvidar", "Boar Clan"):
-        return 3991
-    return LEAD_FROM.get(origin)
+    turns it down there (trade.lic's do_lead_from), or None:
+    LEAD_FROM_PAIR's for the pair, else LEAD_FROM's for the origin."""
+    return LEAD_FROM_PAIR.get((origin, destination), LEAD_FROM.get(origin))
+
+
+def hub(place):
+    """The town a leg within `place`'s province goes by when no lead joins
+    its two ends: Hibarnhvidar in Forfedhdar, Therenborough in Therengia;
+    None elsewhere."""
+    if place in FORFEDHDAR:
+        return VIA_HIBARNHVIDAR
+    return VIA_THERENBOROUGH if place in THERENGIA else None
 
 
 def routable(origin, destination):
     """True when ;trade carries a contract between these TOWNS keys: not
     one with a single end in Forfedhdar, whose roads out of the province
-    are not built yet (#555), nor one naming a town it does not know."""
+    are not built yet (#555), nor one naming a town it does not know
+    (Therengia's Fornsted, Hvaral and Muspar'i)."""
     if origin is None or destination is None:
         return False
     return (origin in FORFEDHDAR) == (destination in FORFEDHDAR)
