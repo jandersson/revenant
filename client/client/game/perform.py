@@ -117,6 +117,11 @@ NOT_HERE = ("isn't the best time to be playing",)
 # use the copper zills while in combat!" — a fight the parser had not
 # seen yet (a re-exec'd session, #244); the song ends there (#243).
 IN_COMBAT = ("while in combat",)
+# Captured 2026-10-17 15:08 on Dijkstra (#584), a research project from the
+# last lead's ;research still running: "Are you sure you want to do that?
+# You'll interrupt your research!" / "[Enter your command again if you
+# want to.]" — the PLAY sent again would cost the project its portion.
+RESEARCHING = ("interrupt your research",)
 
 # Instrument care (#233; Elanthipedia: Clean command — "CLEAN
 # (stringed/percussion instrument) WITH (cloth)"), captured 2026-09-20

@@ -377,6 +377,30 @@ def test_the_games_own_combat_refusal_ends_the_run():
     assert "stop play" not in fake.sent  # nothing was playing
 
 
+class Researching(Fake):
+    """Captured 2026-10-17 15:08 on Dijkstra (#584): a research project
+    from the last lead's ;research still running when ;trade started
+    ;perform on the next lead."""
+
+    def ask(self, s, command, *_):
+        if command.startswith("play "):
+            self.sent.append(command)
+            return (
+                "Are you sure you want to do that?  You'll interrupt your research!\n"
+                "[Enter your command again if you want to.]\n"
+            )
+        return super().ask(s, command)
+
+
+def test_a_running_research_project_ends_the_run_with_one_play():
+    fake = Researching(mindstates=[5, 5])
+    out = run(fake, ["once", "here", "stay"])
+    assert plays(fake) == ["play scales off-key on my zills"]  # never the go-ahead
+    assert "perform: a research project is running — stopping" in out
+    assert "nothing known" not in out
+    assert "stop play" not in fake.sent
+
+
 def test_no_instrument_anywhere_is_told_so(monkeypatch, tmp_path):
     monkeypatch.setenv("REVENANT_PROFILES", str(tmp_path))
     fake = Fake(mindstates=[5])

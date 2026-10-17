@@ -29,6 +29,7 @@ When it stops
   - death, or hostiles in the room (the shared escape; with stay it waits them out)
   - the instrument not on you, or EXP showing no Performance
   - a song refused at home too, or a PLAY answer it does not know
+  - a research project running (PLAY would interrupt it): ;trade's next trainer runs beside it
   - mind-lock with `once`, or ;perform return
 
 ;train runs it as a Performance task. The profile is ~/.revenant/profiles/<name>.json
@@ -51,6 +52,7 @@ from client.game.perform import (
     NO_CLOTH,
     NO_INSTRUMENT,
     NOT_HERE,
+    RESEARCHING,
     SOAKED,
     STARTED,
     STOPPED,
@@ -239,7 +241,8 @@ def start_song(s, options):
     already running) — dirty True when the game said the instrument's
     dirt weighs on it (#233), tier the start line's TIERS entry —
     ("no instrument", False, None) when the game found none, ("not
-    here", ...) for a room that refuses a song, ("unknown", ...)
+    here", ...) for a room that refuses a song, ("researching", ...)
+    when it would interrupt a research project, ("unknown", ...)
     otherwise."""
     song = options["song"] or song_for(rank(s))
     answer = ask(s, play_command(song, options["mood"], options["instrument"]))
@@ -253,6 +256,8 @@ def start_song(s, options):
         return "not here", False, None
     if any(word in lowered for word in IN_COMBAT):
         return "in combat", False, None
+    if any(word in lowered for word in RESEARCHING):
+        return "researching", False, None
     return "unknown", False, None
 
 
@@ -272,7 +277,10 @@ def pick_style(s, options):
             stop_song(s)
             answer = ask(s, play_command(song, style, options["instrument"]))
         lowered = answer.lower()
-        if any(word in lowered for word in NO_INSTRUMENT + NOT_HERE + IN_COMBAT):
+        if any(
+            word in lowered
+            for word in NO_INSTRUMENT + NOT_HERE + IN_COMBAT + RESEARCHING
+        ):
             return None, None
         tier = difficulty(answer)
         if any(word in lowered for word in STARTED):
@@ -380,6 +388,10 @@ def run(s, options, walker=walk_home):
                 # The game refused the song for a fight the parser had
                 # not shown yet (2026-09-20, right after a ;reexec, #243).
                 return "in combat"
+            if outcome == "researching":
+                # Never PLAY again: the game takes a second one as the
+                # go-ahead and the project loses its portion (#584).
+                return "a research project is running"
             if outcome == "unknown":
                 return "PLAY answered nothing known — please report it"
             if dirty and not song.cleaned:
