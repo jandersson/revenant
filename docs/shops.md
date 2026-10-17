@@ -13,3 +13,4 @@ Traders rent shops in the Crossing's Market Plaza and sell to anyone there, each
 - **Shop List:** each shop's room, portal, owner, open and close hours, and status.
 - **Item History** and **Scrolls** have tabs of their own.
 - [Export.asmx/Latest](https://drservice.info/Plaza/Export.asmx/Latest) downloads the current items as an Excel file; the page itself loads its table after the fact, so the export is the one to read.
+- `uv run python tools/plaza.py --grep WORD` reads the export, downloaded at most once a day: one line per item (shop, city, price, scan date), cheapest first; `--city NAME` and `--under N` (Kronar platinum) narrow it. The export covers Crossing, Riverhaven and Shard.

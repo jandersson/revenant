@@ -36,6 +36,8 @@ uv run python tools/task_backfill.py  # history.db's task offers read back out o
                                      # game logs (--dry-run); a rerun adds nothing
 uv run python tools/kiosk_backfill.py  # the kiosk dataset (sales, STUDY readings,
                                      # resales) from the game logs (--dry-run)
+uv run python tools/plaza.py --grep pouch  # what player shops charge (drservice.info's
+                                     # Plaza, cached a day; --city, --under N plat)
 ```
 
 CI runs ruff and pytest on 3.10–3.12 on ubuntu plus 3.12 on macOS. Run
