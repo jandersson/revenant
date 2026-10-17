@@ -2474,3 +2474,22 @@ def test_a_contract_its_town_does_not_name_is_got_by_its_ordinal(script):
     assert script.deliver(world, MAP, "Muspar'i", only=False)
     assert "get my second contract" in world.sent
     assert "trade: Muspar'i paid 47,840 Lirums" in world.echoed
+
+
+def test_contracts_put_away_are_not_counted_as_held(script):
+    # Therenborough, 23:36 on 2026-10-17: two binned, "4 contract(s) held".
+    world = World({})
+    expired = _contract("Langenfirth", "Hvaral", False)._replace(expired=True)
+    crate = _contract("Riverhaven", "Langenfirth")
+    Circuit(
+        script,
+        stops=[[expired, crate], [crate]],
+        taken=[_contract("Therenborough", "Riverhaven")],
+        minutes={
+            ("Therenborough", "Langenfirth"): 6.0,
+            ("Therenborough", "Riverhaven"): 7.5,
+        },
+    )
+    script.put_away = lambda s, db, place, contracts: 1
+    script.circuit(world, MAP, "sleek caravan", "Therenborough", False, [])
+    assert any(e.startswith("trade: 2 contract(s) held") for e in world.echoed)

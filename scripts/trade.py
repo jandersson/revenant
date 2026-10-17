@@ -901,7 +901,8 @@ def town_stop(s, db, place, contracts, due):
     s.echo(f"{PREFIX}: {pay(s)}")
     if due:
         bank_run(s, db, trade.coin(place))
-    put_away(s, db, place, contracts)
+    if put_away(s, db, place, contracts):
+        contracts = held_all(s)  # what is left
     ending = paused(s) or loop.wants_stop(s)
     if not ending and place not in held_from(contracts):
         contract = take(s, db, place)
