@@ -141,6 +141,11 @@ DEFAULT_STEP_SECONDS = 0.2
 # 8301 ↔ Ratha's Shore Walk, Rocky Path 11130 and Acenamacra Pier 2239;
 # with a Premium character's meeting portal into Fang Cove they are the
 # way from the Crossing to Ratha (walker.ride_mammoth).
+# The sand barge (#555), bescort's sandbarge: Hvaral, Dry Dock 3766 ↔
+# Outside Muspar'i, Barge Platform 6872 (walker.ride_sandbarge); its edges
+# to and from the Desert Oasis are no way for a walk. Arnshal Keep's west
+# gate (3698 → 3706), bescort's hvaral_passport, is a door a passport
+# opens (walker.show_passport).
 RIDES = {
     "faldesu": "ferry",
     "ferry": "ferry",
@@ -150,6 +155,8 @@ RIDES = {
     "lang_barge": "barge",  # Riverhaven pier 50948 <-> Langenfirth wharf 3434 (#555)
     "mammoth": "mammoth",
     "jolas": "ship",  # Wharf End 6542 <-> Sumilo Dock 15253 (#515)
+    "sandbarge": "barge",
+    "hvaral_passport": "door",
     "hara_polo": "maze",  # the Glaren Kweld grass, GRASS_EDGES (#519)
     "segoltha": "swim",  # SWIMS
     "stone_wall": "door",  # Seord Kerwaith's hidden door, STONE_WALL_EDGES
@@ -205,6 +212,7 @@ RIDE_SECONDS = 300.0  # the wait and the crossing: a land route wins where one e
 _BESCORT_CALL = (
     r"start_script\s*\(\s*'bescort'\s*,\s*\[\s*'(?P<route>[a-z0-9_]+)'"
     r"(?:\s*,\s*'(?P<arg>[a-z0-9_]+)')?"
+    r"(?:\s*,\s*'(?P<end>[a-z0-9_]+)')?"
 )
 _BESCORT = re.compile(r"^;e\s*" + _BESCORT_CALL)
 _BESCORT_IF = re.compile(
@@ -557,8 +565,9 @@ def translate_embedded(command):
 # poplar over the Northwall Trail's river leaves you lying (`fput 'go
 # poplar'; waitrt?; fput 'stand'`), the heavy barricade ends with a
 # LOOK, the iron arch closes and locks the door behind you; the ice road
-# pauses there before the next step.
-AFTER_MOVE_VERBS = frozenset({"stand", "look", "close", "lock", "pause"})
+# pauses there before the next step; Arnshal Keep's passport is stowed
+# past its gate.
+AFTER_MOVE_VERBS = frozenset({"stand", "look", "close", "lock", "pause", "stow"})
 
 
 def split_move(commands):
@@ -578,6 +587,8 @@ def _ride_match(command):
     if not isinstance(command, str) or not command.startswith(";e"):
         return None
     match = _BESCORT.search(command)
+    if match and match.group("route") == "sandbarge" and "oasis" in match.groups():
+        return None
     if match and match.group("route") in RIDES:
         return match
     match = _BESCORT_IF.search(command)

@@ -39,10 +39,13 @@ TOWNS = {
     "Steelclaw Clan": Town(2874, 19399, 19399),
     "Darkling Wood": Town(2702, 14636, 14636),
     # Therengia, in Lirums (#555): Riverhaven's outpost is Town Hall Road,
-    # the clerk down its alley; Fornsted, Hvaral and Muspar'i wait.
+    # the clerk down its alley; Muspar'i's the guild's caravan stable.
     "Riverhaven": Town(386, 7876, 13751),
     "Therenborough": Town(3155, 3232, 3232),
     "Langenfirth": Town(3407, 13414, 13414),
+    "Fornsted": Town(3693, 14435, 14435),
+    "Hvaral": Town(3751, 14651, 14651),
+    "Muspar'i": Town(14282, 14288, 14289),
     # Forfedhdar, in Dokoras (#555): each minister beside its clerk.
     "Hibarnhvidar": Town(3903, 7412, 7412),
     "Boar Clan": Town(4106, 13675, 13675),
@@ -50,8 +53,14 @@ TOWNS = {
     "Ain Ghazal": Town(11033, 14638, 14638),
 }
 ILITHI = ("Shard", "Fayrin's Rest", "Steelclaw Clan", "Darkling Wood")
-THERENGIA = ("Riverhaven", "Therenborough", "Langenfirth")
-THERENGIA_UNBUILT = ("Fornsted", "Hvaral", "Muspar'i")  # its ministers issue them
+THERENGIA = (
+    "Riverhaven",
+    "Therenborough",
+    "Langenfirth",
+    "Fornsted",
+    "Hvaral",
+    "Muspar'i",
+)
 FORFEDHDAR = ("Hibarnhvidar", "Boar Clan", "Raven's Point", "Ain Ghazal")
 
 # Forfedhdar's leads, each one way (Elanthipedia: Caravan): Hibarnhvidar
@@ -70,27 +79,39 @@ FORFEDHDAR_LEADS = {
     ("Raven's Point", "Ain Ghazal"),
     ("Ain Ghazal", "Hibarnhvidar"),
 }
-VIA_HIBARNHVIDAR = "Hibarnhvidar"
 
 # Therengia's leads (Elanthipedia: Caravan, Trade Route): Therenborough
 # to and from Langenfirth, from North Road, Barony Pass to Outside
 # Langenfirth and back; Riverhaven to and from Therenborough over the
 # Gyfford Bridge (Fun-Day Fridays 53, 2025-08-15, newer than trade.lic,
-# which walks every caravan into Riverhaven). Riverhaven to Langenfirth
-# and back go by way of Therenborough.
+# which walks every caravan into Riverhaven); Fornsted to and from
+# Hvaral on the Arnshal Road, from the Keep Entrance (past Arnshal Keep's
+# passport gate) to the Mountain Approach and back.
 THERENGIA_LEADS = {
     ("Therenborough", "Langenfirth"),
     ("Langenfirth", "Therenborough"),
     ("Riverhaven", "Therenborough"),
     ("Therenborough", "Riverhaven"),
+    ("Fornsted", "Hvaral"),
+    ("Hvaral", "Fornsted"),
 }
-VIA_THERENBOROUGH = "Therenborough"
 LEADS = FORFEDHDAR_LEADS | THERENGIA_LEADS
+# No lead joins Therenborough and Fornsted, nor Hvaral and Muspar'i: the
+# caravan is walked, through the Ker'Leor forest, and aboard the free sand
+# barge (trade.lic's take_caravan_to; Muspar'i is one of its no-lead towns).
+WALKS = {
+    ("Therenborough", "Fornsted"),
+    ("Fornsted", "Therenborough"),
+    ("Hvaral", "Muspar'i"),
+    ("Muspar'i", "Hvaral"),
+}
 LEAD_FROM = {
     "Hibarnhvidar": 3943,
     "Raven's Point": 4452,
     "Ain Ghazal": 3986,
     "Langenfirth": 3339,  # Outside Langenfirth
+    "Fornsted": 3706,  # Arnshal Road, Keep Entrance
+    "Hvaral": 3764,  # Arnshal Road, Mountain Approach
 }
 # A pair's own room, before its origin's: Gate to Hibarnhvidar, and
 # North Road, Barony Pass (not on the way to Riverhaven).
@@ -386,20 +407,29 @@ def lead_from(origin, destination):
     return LEAD_FROM_PAIR.get((origin, destination), LEAD_FROM.get(origin))
 
 
-def hub(place):
-    """The town a leg within `place`'s province goes by when no lead joins
-    its two ends: Hibarnhvidar in Forfedhdar, Therenborough in Therengia;
-    None elsewhere."""
-    if place in FORFEDHDAR:
-        return VIA_HIBARNHVIDAR
-    return VIA_THERENBOROUGH if place in THERENGIA else None
+def via(origin, destination):
+    """The next town on the fewest LEADS and WALKS from `origin` to
+    `destination`: the destination itself for a pair joined directly,
+    Hibarnhvidar between two other towns of Forfedhdar, Fornsted between
+    Therenborough and Hvaral; None where no chain joins them (Zoluren and
+    Ilithi lead anywhere, and the provinces' roads are leg()'s)."""
+    ways = sorted(LEADS | WALKS)
+    first, frontier = {origin: None}, [origin]
+    while frontier and destination not in first:
+        reached = []
+        for here in frontier:
+            for start, town in ways:
+                if start == here and town not in first:
+                    first[town] = first[here] or town
+                    reached.append(town)
+        frontier = reached
+    return first.get(destination)
 
 
 def routable(origin, destination):
     """True when ;trade carries a contract between these TOWNS keys: not
     one with a single end in Forfedhdar, whose roads out of the province
-    are not built yet (#555), nor one naming a town it does not know
-    (Therengia's Fornsted, Hvaral and Muspar'i)."""
+    are not built yet (#555), nor one naming a town it does not know."""
     if origin is None or destination is None:
         return False
     return (origin in FORFEDHDAR) == (destination in FORFEDHDAR)

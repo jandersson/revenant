@@ -12,20 +12,26 @@ What it does
     Dirge, Wolf Clan, Tiger Clan, Leth Deriel — or Ilithi — Shard, Fayrin's
     Rest, Steelclaw Clan, Darkling Wood — or Forfedhdar — Hibarnhvidar, Boar
     Clan, Raven's Point, Ain Ghazal — or Therengia — Riverhaven,
-    Therenborough, Langenfirth — with your caravan at the outpost (RECALL
-    CARAVAN finds it); with none, rents one at the clerk (RENT CARAVAN, 400
-    Kronars, 288 Dokoras or 320 Lirums).
+    Therenborough, Langenfirth, Fornsted, Hvaral, Muspar'i — with your
+    caravan at the outpost (RECALL CARAVAN finds it); with none, rents one
+    at the clerk (RENT CARAVAN, 400 Kronars, 288 Dokoras or 320 Lirums).
   - Forfedhdar: Boar Clan, and Ain Ghazal to Raven's Point, by way of
     Hibarnhvidar; Ain Ghazal across the river by the ferry. Its contracts
     for other provinces are left unloaded.
-  - Therengia: Riverhaven to Langenfirth and back by way of Therenborough.
-  - A minister's contract for a town ;trade does not lead to (Fornsted,
-    Hvaral, Muspar'i) is kept unpaid and unloaded, said, and the run goes
-    on as a circuit of the province's other towns, held at an outpost
-    while every town waits on one until it expires (6 anlaen, three
-    hours); with `interprovince`, a broker's beyond the routes stops it.
+  - Therengia: Riverhaven to Langenfirth and back by way of Therenborough;
+    Fornsted walked to from Therenborough through the Ker'Leor forest, and
+    led to Hvaral from past Arnshal Keep's gate, which wants a passport
+    (fetched at Therenborough's Ibec Hall, the caravan waiting, when yours
+    is missing or expired); Muspar'i walked to from Hvaral over the free
+    sand barge.
+  - A minister's contract for a town ;trade does not lead to is kept unpaid
+    and unloaded, said, and the run goes on as a circuit of the province's
+    other towns, held at an outpost while every town waits on one until it
+    expires (6 anlaen, three hours); with `interprovince`, a broker's
+    beyond the routes stops it.
   - A lead the driver turns down is told again from the room trade.lic
-    leads from (Barony Pass, Outside Langenfirth, Forfedhdar's).
+    leads from (Barony Pass, Outside Langenfirth, the Arnshal Road's two
+    ends, Forfedhdar's).
   - An expired contract is put in the waste bin by Therenborough's clerk
     at a circuit's stop there, never dropped; elsewhere it is kept.
   - Started beside its caravan away from an outpost (a run stopped on the road),
@@ -160,6 +166,16 @@ rooms from the ferry, so ;trade tops them up at Gateway Road, two rooms
 from it, before the lead on. The way back is Elanthipedia's (Trade
 Route): a lead to Dirge from North Road, Riverbank, one room south of
 the dock; not yet driven.
+
+Fornsted, Hvaral and Muspar'i (#555, 2026-10-17) are trade.lic's
+do_lead_from and do_lead_to and the wiki's Trade Route, not yet driven:
+Therenborough to Fornsted is walked through the Ker'Leor forest (44
+rooms, no lead); Fornsted to Hvaral is led from Arnshal Road, Keep
+Entrance, past Arnshal Keep's west gate and its passport (bescort's
+hvaral_passport), and back from the Mountain Approach; Hvaral to
+Muspar'i is walked aboard the free sand barge (bescort's sandbarge).
+Before they were built, a contract for one of them blocked its minister
+for two to eight hours, three destinations in five.
 """
 
 PREFIX = "trade"
@@ -285,6 +301,15 @@ def deliver(s, db, place, only=True):
     if missing(answer) and only:
         # "Fayrin's" may not name it: the one contract held, then.
         answer = ask(s, "get my contract")
+    elif missing(answer):
+        # Nor "Muspar'i", maybe: the one READ finds for this town, by its ordinal.
+        mine = [
+            ordinal
+            for ordinal, c in zip(ORDINALS, held_all(s))
+            if c.presented and trade.town(c.destination) == place
+        ]
+        if mine:
+            answer = ask(s, f"get my {mine[0]} contract")
     if missing(answer):
         s.echo(f"{PREFIX}: no {place} contract on you")
         return False
@@ -707,7 +732,7 @@ def leg(s, db, name, origin, destination, grass=None, training=()):
     walked between them over the Obsidian Pass gondola."""
     if origin == destination:
         return True
-    if trade.hub(origin) is not None and trade.hub(origin) == trade.hub(destination):
+    if trade.via(origin, destination) is not None:
         return province_leg(s, db, name, origin, destination, grass, training)
     if (origin in trade.THERENGIA) != (destination in trade.THERENGIA):
         gate = "Riverhaven"  # Therengia's way to Dirge
@@ -760,17 +785,21 @@ def leg(s, db, name, origin, destination, grass=None, training=()):
 
 
 def province_leg(s, db, name, origin, destination, grass=None, training=()):
-    """A leg within Forfedhdar or Therengia (#555): a pair with a lead of
-    its own (trade.LEADS, one way each) led straight there, Ain Ghazal's
-    riding the ferry; any other by way of the province's hub (trade.hub:
-    Hibarnhvidar, #583; Therenborough). A lead the driver turns down is
-    told again from the room trade.lic leads from (trade.lead_from), the
-    caravan walked there first."""
-    hub = trade.hub(origin)
-    if (origin, destination) not in trade.LEADS:
-        return province_leg(s, db, name, origin, hub, grass, training) and (
-            province_leg(s, db, name, hub, destination, grass, training)
+    """A leg within Forfedhdar or Therengia (#555), town by town
+    (trade.via: Hibarnhvidar, #583; Therenborough, Fornsted, Hvaral): a
+    pair with a lead of its own (trade.LEADS, one way each) led straight
+    there, Ain Ghazal's riding the ferry; a pair with none (trade.WALKS)
+    walked, Muspar'i's over the sand barge. A lead the driver turns down
+    is told again from the room trade.lic leads from (trade.lead_from;
+    Fornsted's past Arnshal Keep's passport gate), the caravan walked
+    there first."""
+    step = trade.via(origin, destination)
+    if step != destination:
+        return province_leg(s, db, name, origin, step, grass, training) and (
+            province_leg(s, db, name, step, destination, grass, training)
         )
+    if (origin, destination) in trade.WALKS:
+        return bring(s, db, name, trade.TOWNS[destination].outpost)
     led = lead(s, name, destination, grass, training)
     start = trade.lead_from(origin, destination)
     if led is None and start is not None:

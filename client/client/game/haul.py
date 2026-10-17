@@ -8,8 +8,10 @@ and make it follow." for an animal, the driver's order for a caravan),
 then each move waits for "Your lumbering auroch ..., following you."
 Alfren's Ferry and the Faldesu's are ridden with it aboard (a fare the
 purse lacks fetched by ;bank, the caravan told to wait at the dock), the
-Obsidian Pass gondola too; a scripted edge it cannot follow ends the
-walk before it starts.
+Obsidian Pass gondola and the Hvaral–Muspar'i sand barge too, and
+Arnshal Keep's west gate is passed with the passport shown (one fetched
+at Therenborough's Ibec Hall while the caravan waits, #555); a scripted
+edge it cannot follow ends the walk before it starts.
 """
 
 import re
@@ -27,11 +29,15 @@ FOLLOW_SECONDS = 30  # a step's wait for the caravan to catch up
 WAITED = r"^\.\.\.wait \d+ seconds?\."
 FERRY = "ferry"  # a route step the walker rides: Alfren's Ferry, the Faldesu's,
 GONDOLA = "gondola"  # the Hibarnhvidar-Ain Ghazal ferry, and the Obsidian Pass gondola
+SANDBARGE = "sandbarge"
+GATE = "gate"  # Arnshal Keep's, a passport shown
 RIDDEN = {  # the map's names
     "ferry": FERRY,
     "faldesu": FERRY,
     "ferry1": FERRY,  # #555: a lead to Ain Ghazal ends at Hibarnhvidar's dock
     "gondola": GONDOLA,
+    "sandbarge": SANDBARGE,
+    "hvaral_passport": GATE,
 }
 
 
@@ -67,6 +73,21 @@ def fare(s, db, name, coin):
     return said(ask(s, f"tell {name} to follow"), FOLLOW_ORDERED)
 
 
+def passport(s, db, name):
+    """A passport for Arnshal Keep's gate fetched at Therenborough's Ibec
+    Hall with the caravan told to wait at the gate (walker.fetch_passport):
+    True back at the gate with the caravan following."""
+    gate = travel.here(s, db)
+    ask(s, f"tell {name} to wait")
+    if not walker.fetch_passport(s, db):
+        return False
+    if travel.here(s, db) != gate and not travel.go(
+        s, {gate}, "Arnshal Keep's gate", db=db
+    ):
+        return False
+    return said(ask(s, f"tell {name} to follow"), FOLLOW_ORDERED)
+
+
 def bring(s, db, name, room, prefix):
     """Walk the caravan (or animal) `name` to `room` one room at a time,
     waiting for it to follow each; True there, told to wait. False,
@@ -89,6 +110,7 @@ def bring(s, db, name, room, prefix):
         return False
     for commands in edges:
         s.clear()
+        gate = commands[0] == GATE
         if commands[0] == FERRY:
             # The caravan follows aboard and off again; GO DOCK is the
             # step it is waited for on.
@@ -114,6 +136,27 @@ def bring(s, db, name, room, prefix):
                 )
                 return False
             commands = ["out"]
+        elif commands[0] == SANDBARGE:
+            # The caravan rides along (trade.lic's ferry_run), told to
+            # follow again before the leave, as trade.lic does on "A
+            # bargeman signals to the driver".
+            if walker.ride_sandbarge(s, commands[1]) != "landed":
+                s.echo(
+                    f"{prefix}: the sand barge ride failed — your {name} is with you"
+                )
+                return False
+            ask(s, f"tell {name} to follow")
+            commands = [walker.SANDBARGE_LEAVE[commands[1]]]
+        elif commands[0] == GATE:
+            shown = walker.show_passport(s)
+            if shown == "passport" and passport(s, db, name):
+                shown = walker.show_passport(s)
+            if shown != "landed":
+                s.echo(
+                    f"{prefix}: no passport for Arnshal Keep's gate — your {name} waits"
+                )
+                return False
+            commands = ["go gate"]
         for command in commands:
             pause = pause_seconds(command)
             if pause is not None:
@@ -129,5 +172,7 @@ def bring(s, db, name, room, prefix):
         if line is None:
             s.echo(f"{prefix}: your {name} fell behind after {commands[-1]!r}")
             return False
+        if gate:
+            ask(s, "stow passport")
     ask(s, f"tell {name} to wait")
     return travel.here(s, db) == room

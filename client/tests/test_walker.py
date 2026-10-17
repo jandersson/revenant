@@ -13,8 +13,10 @@ import pytest
 
 from client.game import walker
 from client.game.mapdb import (
+    DOOR_SECONDS,
     MapDB,
     RIDE_SECONDS,
+    ride_args,
     ride_of,
     split_move,
     translate_embedded,
@@ -2393,6 +2395,160 @@ def test_a_barge_that_never_comes_stops_the_walk(quick_barge):
     handle.state.room_uid = 10452
     assert walker.walk(handle, BARGE, [3084]) is False
     assert any("no barge came" in e for e in handle.echoes)
+
+
+# --- the sand barge and Arnshal Keep's gate (#555) ----------------------------
+
+
+def _sandbarge(start, end):
+    return (
+        f";e start_script('bescort', ['sandbarge', '{start}', '{end}']);"
+        "wait_while { running? 'bescort'}"
+    )
+
+
+PASSPORT_GATE = (
+    ";e start_script('bescort', ['hvaral_passport']); wait_while{ running?('bescort') }"
+)
+
+DESERT = MapDB(
+    [
+        {
+            "id": 3766,
+            "uid": [13766],
+            "title": ["[Hvaral, Dry Dock]"],
+            "wayto": {
+                "6872": _sandbarge("hvaral", "muspari"),
+                "7579": _sandbarge("hvaral", "oasis"),
+            },
+        },
+        {
+            "id": 6872,
+            "uid": [16872],
+            "title": ["[Outside Muspar'i, Barge Platform]"],
+            "wayto": {"247": "go ramp", "3766": _sandbarge("muspari", "hvaral")},
+        },
+        {"id": 247, "uid": [10247], "title": ["[Outside Muspar'i]"]},
+        {
+            "id": 7579,
+            "uid": [17579],
+            "title": ["[Velaka, Desert Oasis]"],
+            "wayto": {"6872": _sandbarge("oasis", "muspari")},
+        },
+        {
+            "id": 3698,
+            "uid": [13698],
+            "title": ["[Arnshal Keep, First Floor]"],
+            "wayto": {"3706": PASSPORT_GATE},
+            "timeto": {"3706": ";e if Script.exists?('bescort') then 0.2 else nil end"},
+        },
+        {
+            "id": 3706,
+            "uid": [13706],
+            "title": ["[Arnshal Road, Keep Entrance]"],
+            "wayto": {"3698": "go gate"},
+        },
+    ]
+)
+
+
+class StoryHandle(FakeHandle):
+    """A FakeHandle whose sends bring story lines: `answers` maps a command
+    to the lines each send of it brings, in turn; moves land by the
+    compass as before."""
+
+    def __init__(self, uids, answers):
+        super().__init__(uids)
+        self.answers = {command: list(lines) for command, lines in answers.items()}
+        self.story = []
+
+    def put(self, command):
+        super().put(command)
+        if self.answers.get(command):
+            self.story += self.answers[command].pop(0)
+
+    def get(self, timeout=None, streams=("",)):
+        if timeout == 0:
+            return None
+        if streams is None:
+            return super().get(timeout, streams)
+        return self.story.pop(0) if self.story else None
+
+
+# bescort's needles; the barge's and the passport's own lines are not captured
+# yet.
+SAND_ABOARD = "One of the barge's crew members watching the ramp waves you aboard.\n"
+SAND_AWAY = "What were you referring to?\n"
+SAND_ARRIVES = "A sand barge pulls into dock.\n"
+SAND_OASIS = "The sand barge pulls up to a desert oasis.\n"
+SAND_LANDS = "The sand barge pulls into dock.\n"
+
+
+@pytest.fixture
+def quick_sandbarge(monkeypatch):
+    monkeypatch.setattr(walker, "SANDBARGE_ANSWER_SECONDS", 0.05)
+    monkeypatch.setattr(walker, "SANDBARGE_WAIT_SECONDS", 0.3)
+
+
+def test_the_sand_barge_is_a_ride_and_the_oasis_no_stop_for_a_walk():
+    assert ride_of(_sandbarge("hvaral", "muspari")) == "sandbarge"
+    assert ride_args(_sandbarge("muspari", "hvaral")) == "muspari"
+    assert not walkable(_sandbarge("hvaral", "oasis"))
+    assert not walkable(_sandbarge("oasis", "muspari"))
+    assert DESERT.graph[3766][6872]["seconds"] == RIDE_SECONDS
+    assert 7579 not in DESERT.graph[3766]
+
+
+def test_walk_rides_the_sand_barge_past_the_oasis_and_off_at_the_platform(
+    quick_sandbarge,
+):
+    handle = StoryHandle(
+        uids=[16872, 10247],
+        answers={"go barge": [[SAND_ABOARD, SAND_OASIS, SAND_LANDS]]},
+    )
+    handle.state.room_uid = 13766
+    assert walker.walk(handle, DESERT, [247]) is True
+    assert puts_of(handle) == ["go barge", "go platform", "go ramp"]
+
+
+def test_with_no_sand_barge_in_go_barge_waits_for_one(quick_sandbarge):
+    handle = StoryHandle(
+        uids=[13766],
+        answers={
+            "go barge": [[SAND_AWAY, SAND_ARRIVES], [SAND_ABOARD, SAND_LANDS]],
+        },
+    )
+    handle.state.room_uid = 16872
+    assert walker.walk(handle, DESERT, [3766]) is True
+    assert puts_of(handle) == ["go barge", "go barge", "go dock"]
+    assert sum("no sand barge at the dock" in e for e in handle.echoes) == 1
+
+
+def test_arnshal_keeps_gate_is_passed_with_the_passport_out_then_stowed():
+    assert ride_of(PASSPORT_GATE) == "hvaral_passport"
+    assert DESERT.graph[3698][3706]["seconds"] == DOOR_SECONDS
+    handle = StoryHandle(
+        uids=[13706],
+        answers={"get my passport": [["You get a passport from your backpack.\n"]]},
+    )
+    handle.state.room_uid = 13698
+    assert walker.walk(handle, DESERT, [3706]) is True
+    assert puts_of(handle) == ["get my passport", "go gate", "stow passport"]
+
+
+def test_an_expired_passport_is_fetched_at_ibec_hall_before_the_gate(monkeypatch):
+    fetched = []
+    monkeypatch.setattr(
+        walker, "fetch_passport", lambda s, db: fetched.append(db) or False
+    )
+    handle = StoryHandle(
+        uids=[],
+        answers={"get my passport": [["Realizing your passport has expired, ...\n"]]},
+    )
+    handle.state.room_uid = 13698
+    assert walker.walk(handle, DESERT, [3706]) is False
+    assert fetched == [DESERT]
+    assert "go gate" not in puts_of(handle)
 
 
 # --- the sea mammoths (#515) ------------------------------------------------

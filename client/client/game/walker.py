@@ -27,6 +27,9 @@ same way (beam_route, #522: ;moonbeam teleport), and a circle-100+ Moon
 Mage crosses the Astral Plane to a learned shard (astral_route, #516:
 ;astral <shard>). With the Athletics, the Faldesu and the Segoltha are swum
 bescort's way instead of ferried (ride_faldesu_swim, ride_segoltha).
+The sand barge between Hvaral and Muspar'i is ridden (ride_sandbarge),
+and Arnshal Keep's west gate shown a passport, one fetched at
+Therenborough's Ibec Hall when there is none or it expired (#555).
 """
 
 import json
@@ -206,6 +209,34 @@ JOLAS_POLL_SECONDS = 30
 JOLAS_MOORED = "The Jolas"
 JOLAS_ARRIVES = ("The Jolas ties off",)
 JOLAS_LANDS = ("tie off the Jolas to the docks",)
+# The sand barge between Hvaral's Dry Dock (3766) and Outside Muspar'i's
+# Barge Platform (6872), bescort's sandbarge (#555): free, twenty minutes
+# with two at the Desert Oasis (Elanthipedia: Sand barge). GO BARGE
+# boards ("One of the barge's crew members watching ..."); with none in,
+# "What were you referring to?" or "You can't do that right now." until
+# "A sand barge pulls ..."; the far end's "The sand barge pulls into
+# dock" is left by GO PLATFORM at Muspar'i, GO DOCK at Hvaral; the
+# oasis's stop "pulls up to a desert oasis". Bescort's wordings, not yet
+# captured.
+SANDBARGE_ANSWER_SECONDS = 4
+SANDBARGE_WAIT_SECONDS = 1800  # two barges' round trips: the longest wait
+SANDBARGE_ABOARD = ("crew members watching",)
+SANDBARGE_AWAY = ("What were you referring to", "can't do that right now")
+SANDBARGE_ARRIVES = ("A sand barge pulls",)
+SANDBARGE_LANDS = ("The sand barge pulls into dock",)
+SANDBARGE_LEAVE = {"hvaral": "go platform", "muspari": "go dock"}  # by its start
+# Arnshal Keep's west gate (3698 → 3706), bescort's hvaral_passport
+# (#555): GO GATE with a passport in hand, else "A soldier moves a pike
+# across the way to block your passage." (Elanthipedia: Arnshal Keep).
+# GET MY PASSPORT on an old one: "Realizing your passport has expired"
+# (bescort's); a new one is ASKed of the licenser at Ibec Hall's Passport
+# Office in Therenborough, twice as bescort does ("The licenser takes",
+# "Having a passport will allow").
+PASSPORT_SECONDS = 4
+PASSPORT_HELD = ("You get", "You are already", "You pick up")
+PASSPORT_STALE = ("passport has expired", "What were you referring to")
+PASSPORT_OFFICE = 3147  # Ibec Hall, Passport Office
+PASSPORT_ASKED = ("The licenser takes", "Having a passport will allow")
 # Hara'jaal's Glaren Kweld grassland (#519): dozens of rooms under one
 # title, three on the map (the slope's top 11411, the rock 11412, the
 # trail room 11416). CLIMB SLOPE from the top lands among the slope
@@ -943,6 +974,83 @@ def ride_jolas(s, mode=""):
     return "no ship"
 
 
+def ride_sandbarge(s, start=""):
+    """Board the sand barge at this dock and ride it to the far end
+    (#555): "landed" there (SANDBARGE_LEAVE's GO is the caller's), "no
+    barge" when none came within SANDBARGE_WAIT_SECONDS, "stuck" when the
+    ride never docked, "unknown" for an answer outside the table. GO BARGE
+    goes out again only once a barge pulls in."""
+    deadline = monotonic() + SANDBARGE_WAIT_SECONDS
+    waiting = False  # said once, not every poll (the operator, 2026-10-10)
+    while monotonic() < deadline:
+        s.waitrt()
+        s.put("go barge")
+        answer = read_story(
+            s, SANDBARGE_ANSWER_SECONDS, until=SANDBARGE_ABOARD + SANDBARGE_AWAY
+        )
+        if any(needle in answer for needle in SANDBARGE_ABOARD):
+            s.echo("aboard the sand barge — riding")
+            ride = read_story(s, SANDBARGE_WAIT_SECONDS, until=SANDBARGE_LANDS)
+            if not any(needle in ride for needle in SANDBARGE_LANDS):
+                s.echo(
+                    f"the sand barge never docked in {SANDBARGE_WAIT_SECONDS // 60}"
+                    " minutes — stopping here"
+                )
+                return "stuck"
+            return "landed"
+        if any(needle in answer for needle in SANDBARGE_AWAY):
+            if not waiting:
+                s.echo(
+                    "no sand barge at the dock — waiting for one "
+                    f"(up to {SANDBARGE_WAIT_SECONDS // 60} minutes)"
+                )
+                waiting = True
+            read_story(s, deadline - monotonic(), until=SANDBARGE_ARRIVES)
+            continue
+        first = (answer.strip().splitlines() or ["(silence)"])[0]
+        s.echo(f"GO BARGE answered {first!r} — please report it — stopping here")
+        return "unknown"
+    s.echo(
+        f"no sand barge came in {SANDBARGE_WAIT_SECONDS // 60} minutes — stopping here"
+    )
+    return "no barge"
+
+
+def show_passport(s, _=""):
+    """A passport in hand for Arnshal Keep's west gate (#555): "landed"
+    with it out (GO GATE, then STOW PASSPORT, are the caller's),
+    "passport" when there is none or it has expired."""
+    s.waitrt()
+    s.put("get my passport")
+    answer = read_story(s, PASSPORT_SECONDS, until=PASSPORT_HELD + PASSPORT_STALE)
+    if any(needle in answer for needle in PASSPORT_STALE):
+        s.echo("no passport for Arnshal Keep's gate, or an expired one")
+        return "passport"
+    if any(needle in answer for needle in PASSPORT_HELD):
+        return "landed"
+    first = (answer.strip().splitlines() or ["(silence)"])[0]
+    s.echo(f"GET MY PASSPORT answered {first!r} — please report it — stopping here")
+    return "unknown"
+
+
+def fetch_passport(s, db):
+    """A passport from the licenser at Ibec Hall in Therenborough
+    (PASSPORT_OFFICE), walked to and asked twice, bescort's way: True once
+    GET MY PASSPORT holds a good one (stowed again), False, said."""
+    s.echo("fetching a passport at Therenborough's Ibec Hall, then the way again")
+    if not walk(s, db, {PASSPORT_OFFICE}, "Ibec Hall's passport office"):
+        return False
+    for _ in range(2):
+        s.waitrt()
+        s.put("ask licenser about passport")
+        read_story(s, PASSPORT_SECONDS, until=PASSPORT_ASKED)
+    if show_passport(s) != "landed":
+        s.echo("the licenser gave no passport — ASK LICENSER ABOUT PASSPORT by hand")
+        return False
+    s.put("stow passport")
+    return True
+
+
 def docked(s, kind):
     """True while the dock's listing names the `kind` ("sea": the massive
     one, "tall") of mammoth."""
@@ -1459,6 +1567,8 @@ RIDE_HANDLERS = {
     "mammoth": (ride_mammoth, "look"),
     # the leave by the ride's argument: the dock it lands at
     "jolas": (ride_jolas, {"harajaal": "go dock", "merkresh": "go end"}),
+    "sandbarge": (ride_sandbarge, SANDBARGE_LEAVE),
+    "hvaral_passport": (show_passport, ["go gate", "stow passport"]),
 }
 
 
@@ -1874,13 +1984,15 @@ def _follow(s, db, route, here, closed, fetched=True):
             fare, _, coin = ridden.partition(" ")
             if fare == "fare" and not fetched and fetch_fare(s, coin):
                 return "fetched"  # planned again from where ;bank left you
+            if ridden == "passport" and not fetched and fetch_passport(s, db):
+                return "fetched"  # planned again from Ibec Hall
             if ridden != "landed":
                 return False
             if isinstance(leave, dict):
                 leave = leave[ride_args(command)]
             elif callable(leave):
                 leave = leave(s)
-            commands = [leave]
+            commands = leave if isinstance(leave, list) else [leave]
         before, move, after = split_move(commands)
         # A step of several moves (the Marsh's `move 'south'` three times
         # over, 1376 -> 1370): each leading move waits for its own room,

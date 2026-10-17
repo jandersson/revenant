@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS contracts (
 def _home(town):
     if town in trade.ILITHI:
         return "Ilithi"
-    if town in trade.THERENGIA or town in trade.THERENGIA_UNBUILT:
+    if town in trade.THERENGIA:
         return "Therengia"
     if town in trade.FORFEDHDAR:
         return "Forfedhdar"

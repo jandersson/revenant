@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from client.game import haul, money, trade, tradelog
+from client.game import haul, money, trade, tradelog, walker
 from client.game.mapdb import MapDB
 
 REPO = pathlib.Path(__file__).parents[2]
@@ -260,7 +260,8 @@ def test_towns_are_named_the_way_the_table_keys_them():
     assert trade.town("Leth Deriel") == "Leth Deriel"  # by the ferry
     assert trade.town("Riverhaven") == "Riverhaven"  # by Dirge and the Faldesu
     assert trade.town("Therenborough") == "Therenborough"
-    assert trade.town("Hvaral") is None  # the rest of Therengia waits (#555)
+    assert trade.town("Hvaral") == "Hvaral"  # past Fornsted (#555)
+    assert trade.town("Ratha") is None  # no caravans in Qi'Reshalia
     assert trade.lead_name("Leth Deriel") == "leth"
     assert trade.contract_noun("Wolf Clan") == "wolf contract"
 
@@ -332,6 +333,16 @@ def _faldesu(bank):
     )
 
 
+# The map's Hvaral–Muspar'i sand barge and Arnshal Keep's west gate (#555).
+SANDBARGE = (
+    ";e start_script('bescort', ['sandbarge', 'hvaral', 'muspari']);"
+    "wait_while { running? 'bescort'}"
+)
+PASSPORT_GATE = (
+    ";e start_script('bescort', ['hvaral_passport']); wait_while{ running?('bescort') }"
+)
+
+
 MAP = MapDB(
     [
         {"id": 895, "uid": [10155], "title": ["[The Crossing, Commerce Avenue]"],
@@ -389,6 +400,15 @@ MAP = MapDB(
          "title": ["[Therenborough, Rutilor Boulevard]"], "wayto": {"3232": "go exch"}},
         {"id": 3232, "uid": [1029032],
          "title": ["[Alliance of Exchange, Traders' Center]"], "wayto": {"3155": "out"}},
+        {"id": 3766, "uid": [13766], "title": ["[Hvaral, Dry Dock]"],
+         "wayto": {"6872": SANDBARGE}},
+        {"id": 6872, "uid": [16872], "title": ["[Outside Muspar'i, Barge Platform]"],
+         "wayto": {}},
+        {"id": 3698, "uid": [13698], "title": ["[Arnshal Keep, First Floor]"],
+         "wayto": {"3706": PASSPORT_GATE},
+         "timeto": {"3706": ";e if Script.exists?('bescort') then 0.2 else nil end"}},
+        {"id": 3706, "uid": [13706], "title": ["[Arnshal Road, Keep Entrance]"],
+         "wayto": {}},
     ]
 )  # fmt: skip
 
@@ -468,6 +488,8 @@ class World:
             "climb platform": 2249,
             "go frame": 8191,
             "out": self.landing,
+            "go platform": self.landing,
+            "go gate": self.landing,
         }
         return {**fixed, **{way: int(room) for room, way in wayto.items()}}
 
@@ -667,14 +689,14 @@ def test_interprovince_takes_the_brokers_contract_paid_before_loading(script):
 
 
 def test_a_broker_contract_beyond_the_routes_is_neither_paid_nor_loaded(script):
-    far = TO_SHARD.replace("Shard requires", "Hvaral requires")
+    far = TO_SHARD.replace("Shard requires", "Hibarnhvidar requires")
     answers = dict(
         LEG,
         **{"ask broker": [BROKER_ISSUED], "read my contract": [far]},
     )
     world = World(answers)
     contract = script.take(world, MAP, "Crossing", broker=True)
-    assert (contract.destination, contract.presented) == ("Hvaral", False)
+    assert (contract.destination, contract.presented) == ("Hibarnhvidar", False)
     assert "give my contract to clerk" not in world.sent
     assert world.sent[-1] == "stow my contract"  # READ's ordinals skip a held one
     assert world.sent.count("pay clerk") == 0
@@ -714,11 +736,11 @@ def test_return_typed_with_nothing_held_stops_at_the_clerk(script):
 def test_a_contract_for_a_town_it_cannot_lead_to_is_kept_and_the_run_circles(
     script,
 ):
-    # Therenborough's minister, 2026-10-17: Muspar'i, not built (#555).
+    # Therenborough's minister, 2026-10-17: Muspar'i, not built then (#555).
     answers = dict(
         LEG,
         **{
-            "read my contract": ["What were you referring to?", TO_MUSPARI],
+            "read my contract": ["What were you referring to?", BEYOND],
             "ask minister": [THEREN_ISSUED],
         },
     )
@@ -728,13 +750,13 @@ def test_a_contract_for_a_town_it_cannot_lead_to_is_kept_and_the_run_circles(
     script.main(world)
     assert not any(" to lead to " in c for c in world.sent)
     assert "give my contract to clerk" not in world.sent
-    assert any("Muspar'i is beyond ;trade's routes" in e for e in world.echoed)
+    assert any("Hibarnhvidar is beyond ;trade's routes" in e for e in world.echoed)
     assert any("18,912 Lirums owed at the clerk" in e for e in world.echoed)
     assert circled == ["Therenborough"]
 
 
 def test_a_contract_held_beyond_the_routes_is_never_loaded_on_a_rerun(script):
-    answers = dict(LEG, **{"read my contract": [TO_MUSPARI]})
+    answers = dict(LEG, **{"read my contract": [BEYOND]})
     world = World(answers, room=3232)
     circled = []
     script.circuit = lambda s, db, name, place, beside, training: circled.append(place)
@@ -2037,6 +2059,9 @@ TO_MUSPARI = (
     "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"
     "You estimate these goods are currently worth 47568 Lirums on delivery.\n"
 )
+# That contract sent to Forfedhdar, whose roads out are not built: one
+# beyond the routes, now that all six of Therengia's towns are.
+BEYOND = TO_MUSPARI.replace("Muspar'i requires", "Hibarnhvidar requires")
 
 # A Riverhaven minister's contract for Therenborough, in the Crossing
 # contract's words.
@@ -2048,18 +2073,31 @@ RIVERHAVEN_TO_THEREN = (
 )
 
 
-def test_therengia_trades_in_lirums_between_three_of_its_towns():
+def test_therengia_trades_in_lirums_between_its_six_towns():
+    assert len(trade.THERENGIA) == 6
     for town in trade.THERENGIA:
         assert trade.coin(town) == "Lirums" and town in trade.TOWNS
     assert tradelog.province("Therenborough", "Langenfirth") == "Therengia"
     assert tradelog.province("Therenborough", "Muspar'i") == "Therengia"
     assert trade.routable("Riverhaven", "Langenfirth")
     assert trade.routable("Therenborough", "Crossing")  # by way of Riverhaven
-    # Fornsted, Hvaral and Muspar'i are not built: left unloaded.
     for town in ("Fornsted", "Hvaral", "Muspar'i"):
-        assert not trade.routable("Therenborough", trade.town(town))
-    assert trade.hub("Langenfirth") == "Therenborough"
-    assert trade.hub("Crossing") is None
+        assert trade.routable("Therenborough", trade.town(town))
+    assert trade.town("Muspar'i") == "Muspar'i"
+
+
+def test_a_leg_goes_town_by_town_over_the_leads_and_the_walks():
+    assert trade.via("Langenfirth", "Riverhaven") == "Therenborough"
+    assert trade.via("Therenborough", "Langenfirth") == "Langenfirth"
+    assert trade.via("Therenborough", "Hvaral") == "Fornsted"
+    assert trade.via("Muspar'i", "Riverhaven") == "Hvaral"
+    assert trade.via("Fornsted", "Muspar'i") == "Hvaral"
+    # Forfedhdar's by Hibarnhvidar, as before (#583).
+    assert trade.via("Ain Ghazal", "Raven's Point") == "Hibarnhvidar"
+    assert trade.via("Raven's Point", "Ain Ghazal") == "Ain Ghazal"
+    # Zoluren leads anywhere, and the roads between provinces are leg()'s.
+    assert trade.via("Crossing", "Wolf Clan") is None
+    assert trade.via("Riverhaven", "Crossing") is None
 
 
 def test_riverhaven_to_langenfirth_goes_by_way_of_therenborough(script):
@@ -2127,7 +2165,7 @@ def test_a_leg_from_therenborough_out_of_the_province_goes_by_riverhaven(script)
     ]
 
 
-def test_a_therengia_circuit_works_its_three_towns(script):
+def test_a_therengia_circuit_works_its_six_towns(script):
     assert script.province("Langenfirth") == trade.THERENGIA
 
 
@@ -2135,11 +2173,8 @@ def test_a_circuit_never_loads_nor_leads_to_a_contract_beyond_the_routes(script)
     world = World({})
     fake = Circuit(
         script,
-        stops=[[_contract("Therenborough", "Muspar'i", presented=False)]],
-        minutes={
-            ("Therenborough", "Langenfirth"): 6.0,
-            ("Riverhaven", "Therenborough"): 8.0,
-        },
+        stops=[[_contract("Therenborough", "Hibarnhvidar", presented=False)]],
+        minutes=THEREN_MINUTES,
     )
     script.circuit(world, MAP, "sleek caravan", "Therenborough", False, [])
     # Held from Therenborough, so its minister is not asked; the nearest
@@ -2149,16 +2184,14 @@ def test_a_circuit_never_loads_nor_leads_to_a_contract_beyond_the_routes(script)
 
 def test_an_expired_contract_frees_its_town_for_the_next(script):
     # 6 anlaen for Therenborough's Muspar'i contract: 3 hours, after which
-    # its minister issues again.
+    # its minister issues again. Expired, READ names only its origin.
     world = World({})
-    expired = _contract("Therenborough", "Muspar'i", presented=False)._replace(
-        expired=True
-    )
+    expired = trade.Contract("Therenborough", None, None, None, None, False, True)
     fake = Circuit(
         script,
         stops=[[expired]],
         taken=[_contract("Therenborough", "Langenfirth")],
-        minutes={("Therenborough", "Langenfirth"): 6.0},
+        minutes=THEREN_MINUTES,
     )
     script.circuit(world, MAP, "sleek caravan", "Therenborough", False, [])
     assert fake.calls[:2] == [
@@ -2167,13 +2200,25 @@ def test_an_expired_contract_frees_its_town_for_the_next(script):
     ]
 
 
+# The legs out of Therenborough, shortest first.
+THEREN_MINUTES = {
+    ("Therenborough", "Langenfirth"): 6.0,
+    ("Riverhaven", "Therenborough"): 8.0,
+    ("Therenborough", "Fornsted"): 12.0,
+    ("Therenborough", "Hvaral"): 20.0,
+    ("Therenborough", "Muspar'i"): 45.0,
+}
+
+
 def _waiting(expired=False):
     """A contract beyond the routes held from each of Therengia's towns
-    (2026-10-17 21:29: Riverhaven's minister gave Fornsted last)."""
+    (2026-10-17 21:29, its three western towns unbuilt; a Forfedhdar
+    destination stands in for them now)."""
     return [
-        _contract("Therenborough", "Muspar'i", False)._replace(expired=expired),
-        _contract("Langenfirth", "Hvaral", False),
-        _contract("Riverhaven", "Fornsted", False),
+        _contract(town, "Hibarnhvidar", False)._replace(
+            expired=expired and town == "Therenborough"
+        )
+        for town in trade.THERENGIA
     ]
 
 
@@ -2305,3 +2350,127 @@ def test_expired_contracts_are_kept_where_no_bin_is_known(script):
         == 0
     )
     assert world.sent == []
+
+
+def test_therenborough_to_hvaral_walks_to_fornsted_then_leads(script):
+    # No lead joins Therenborough and Fornsted (trade.lic walks it).
+    calls = _forfedhdar(script)
+    world = World({})
+    assert script.leg(world, MAP, "caravan", "Therenborough", "Hvaral")
+    assert calls == [("bring", 3693), ("lead", "Hvaral"), ("bring", 3751)]
+
+
+def test_a_lead_on_the_arnshal_road_turned_down_starts_at_its_ends(script):
+    # Elanthipedia (Trade Route): Keep Entrance to Hvaral, past the
+    # passport gate; Mountain Approach to Fornsted.
+    calls = _forfedhdar(script, refused={"Hvaral", "Fornsted"})
+    world = World({})
+    assert script.leg(world, MAP, "caravan", "Fornsted", "Hvaral")
+    assert calls == [
+        ("lead", "Hvaral"),
+        ("bring", 3706),
+        ("lead", "Hvaral"),
+        ("bring", 3751),
+    ]
+    calls.clear()
+    assert script.leg(world, MAP, "caravan", "Hvaral", "Fornsted")
+    assert calls == [
+        ("lead", "Fornsted"),
+        ("bring", 3764),
+        ("lead", "Fornsted"),
+        ("bring", 3693),
+    ]
+
+
+def test_muspari_has_no_lead_the_caravan_is_walked_over_the_sand_barge(script):
+    calls = _forfedhdar(script)
+    world = World({})
+    assert script.leg(world, MAP, "caravan", "Hvaral", "Muspar'i")
+    assert calls == [("bring", 14282)]
+    calls.clear()
+    assert script.leg(world, MAP, "caravan", "Muspar'i", "Therenborough")
+    assert calls == [
+        ("bring", 3751),
+        ("lead", "Fornsted"),
+        ("bring", 3693),
+        ("bring", 3155),
+    ]
+
+
+def test_the_sand_barge_and_arnshals_gate_are_steps_the_walker_rides():
+    assert haul.steps(MAP.path(3766, [6872])) == [(haul.SANDBARGE, "hvaral")]
+    assert haul.steps(MAP.path(3698, [3706])) == [(haul.GATE, "")]
+
+
+def test_the_caravan_rides_the_sand_barge_and_follows_off_it(script):
+    world = World(CROSSING_ANSWERS, room=3766)
+
+    def ride_sandbarge(s, start=""):
+        s.sent.append(f"(the sand barge from {start})")
+        s.landing = 6872
+        return "landed"
+
+    script.walker.ride_sandbarge = ride_sandbarge
+    script.walker.SANDBARGE_LEAVE = walker.SANDBARGE_LEAVE
+    assert script.bring(world, MAP, "weathered caravan", 6872)
+    assert [c for c in world.sent if c.startswith(("tell", "go ", "(the"))] == [
+        "tell weathered caravan to follow",
+        "(the sand barge from hvaral)",
+        "tell weathered caravan to follow",  # trade.lic's, as the bargeman signals
+        "go platform",
+        "tell weathered caravan to wait",
+    ]
+
+
+def test_an_expired_passport_is_fetched_while_the_caravan_waits_at_the_gate(
+    script,
+):
+    world = World(CROSSING_ANSWERS, room=3698)
+    world.landing = 3706
+    shown = ["passport", "landed"]
+
+    def show_passport(s, _=""):
+        s.sent.append("(the passport shown)")
+        return shown.pop(0)
+
+    def fetch_passport(s, db):
+        s.sent.append("(a passport fetched)")
+        s.room = 3147  # Ibec Hall, Passport Office
+        return True
+
+    script.walker.show_passport = show_passport
+    script.walker.fetch_passport = fetch_passport
+    assert script.bring(world, MAP, "weathered caravan", 3706)
+    assert world.walks == [3698]  # back to the gate from Ibec Hall
+    assert [c for c in world.sent if c.startswith(("tell", "go ", "(", "stow"))] == [
+        "tell weathered caravan to follow",
+        "(the passport shown)",
+        "tell weathered caravan to wait",
+        "(a passport fetched)",
+        "tell weathered caravan to follow",
+        "(the passport shown)",
+        "go gate",
+        "stow passport",
+        "tell weathered caravan to wait",
+    ]
+
+
+def test_a_contract_its_town_does_not_name_is_got_by_its_ordinal(script):
+    # GET MY MUSPAR'I CONTRACT may miss, as "Fayrin's" may: with several
+    # held, READ finds the one for this town and GET takes it by ordinal.
+    loaded = TO_MUSPARI.replace(" has yet to be presented", " was presented")
+    world = World(
+        {
+            "get my muspar'i contract": ["What were you referring to?"],
+            "read my first contract": [RIVERHAVEN_TO_THEREN],
+            "read my second contract": [loaded],
+            "read my third contract": ["I could not find what you were referring to."],
+            "get my second contract": ["You get a Muspar'i contract from your pack."],
+            "give my contract to clerk": [PAID_IN_LIRUMS],
+        },
+        room=14289,
+    )
+    script.tradelog = SimpleNamespace(log_delivery=lambda *a: None)
+    assert script.deliver(world, MAP, "Muspar'i", only=False)
+    assert "get my second contract" in world.sent
+    assert "trade: Muspar'i paid 47,840 Lirums" in world.echoed

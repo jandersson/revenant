@@ -17,7 +17,7 @@ A Trader carries goods between guild outposts in a rented caravan. The issuing t
 - RENT CARAVAN at an outpost's clerk: 400 Kronars, 288 Dokoras or 320 Lirums. RETURN CARAVAN gives it back once its storage box is empty.
 - Feed it grass before every lead; a feedbag of grass carried along keeps it fed.
 - TELL CARAVAN TO LEAD TO <town>: you follow it through any roundtime, so a lead is time to train in place (a song, appraising, magical research).
-- It boards the ferries and the Obsidian Pass gondola with you. A ferry charges a flat fare per caravan, whatever it carries: 77 Kronars on Alfren's Ferry (60 once with nothing loaded), 152 Lirums on the Faldesu ferry.
+- It boards the ferries, the Obsidian Pass gondola and the Hvaral–Muspar'i sand barge with you. A ferry charges a flat fare per caravan, whatever it carries: 77 Kronars on Alfren's Ferry (60 once with nothing loaded), 152 Lirums on the Faldesu ferry.
 
 ## Time and money
 
