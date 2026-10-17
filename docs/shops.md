@@ -1,6 +1,6 @@
 # Trader shops
 
-Traders rent shops in the Crossing's Market Plaza and sell to anyone there, each shop open on its owner's hours. DRService's [Plaza Shop Browser](https://drservice.info/Plaza/) lists what every shop holds and charges, so an item can be found and priced before walking anywhere.
+Traders rent shops in the Crossing's Market Plaza and in Riverhaven and Shard and sell to anyone there, each shop open on its owner's hours. DRService's [Plaza Shop Browser](https://drservice.info/Plaza/) lists what every shop holds and charges, so an item can be found and priced before walking anywhere.
 
 ## The Market Plaza
 
