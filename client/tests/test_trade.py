@@ -676,6 +676,7 @@ def test_a_broker_contract_beyond_the_routes_is_neither_paid_nor_loaded(script):
     contract = script.take(world, MAP, "Crossing", broker=True)
     assert (contract.destination, contract.presented) == ("Hvaral", False)
     assert "give my contract to clerk" not in world.sent
+    assert world.sent[-1] == "stow my contract"  # READ's ordinals skip a held one
     assert world.sent.count("pay clerk") == 0
     assert any("43,833 Kronars owed at the clerk" in e for e in world.echoed)
 
@@ -2163,3 +2164,38 @@ def test_an_expired_contract_frees_its_town_for_the_next(script):
         ("take", "Therenborough"),
         ("leg", "Therenborough", "Langenfirth"),
     ]
+
+
+def _waiting(expired=False):
+    """A contract beyond the routes held from each of Therengia's towns
+    (2026-10-17 21:29: Riverhaven's minister gave Fornsted last)."""
+    return [
+        _contract("Therenborough", "Muspar'i", False)._replace(expired=expired),
+        _contract("Langenfirth", "Hvaral", False),
+        _contract("Riverhaven", "Fornsted", False),
+    ]
+
+
+def test_with_every_town_waiting_the_circuit_holds_until_one_expires(script):
+    world = World({})
+    fake = Circuit(
+        script,
+        stops=[_waiting(), _waiting(), _waiting(True), _waiting(True)],
+        minutes={("Riverhaven", "Therenborough"): 7.5},
+    )
+    script.circuit(world, MAP, "sleek caravan", "Riverhaven", False, [])
+    assert fake.calls == [("leg", "Riverhaven", "Therenborough")]
+    assert sum("holding at Riverhaven" in e for e in world.echoed) == 1
+    assert not any("yours to deliver" in e for e in world.echoed)
+
+
+def test_a_return_typed_while_held_ends_the_wait(script):
+    world = World({})
+    fake = Circuit(script, stops=[_waiting()] * 3)
+    # typed once the hold began
+    script.loop = SimpleNamespace(
+        wants_stop=lambda s: any("holding at" in e for e in s.echoed)
+    )
+    script.circuit(world, MAP, "sleek caravan", "Riverhaven", False, [])
+    assert not any(call[0] == "leg" for call in fake.calls)
+    assert sum("holding at Riverhaven" in e for e in world.echoed) == 1

@@ -21,8 +21,9 @@ What it does
   - Therengia: Riverhaven to Langenfirth and back by way of Therenborough.
   - A minister's contract for a town ;trade does not lead to (Fornsted,
     Hvaral, Muspar'i) is kept unpaid and unloaded, said, and the run goes
-    on as a circuit of the province's other towns; with `interprovince`,
-    a broker's beyond the routes (Forfedhdar from outside it) stops it.
+    on as a circuit of the province's other towns, held at an outpost
+    while every town waits on one until it expires (6 anlaen, three
+    hours); with `interprovince`, a broker's beyond the routes stops it.
   - A lead the driver turns down is told again from the room trade.lic
     leads from (Barony Pass, Outside Langenfirth, Forfedhdar's).
   - Started beside its caravan away from an outpost (a run stopped on the road),
@@ -195,6 +196,11 @@ TRAINERS = {
     ),
 }
 STOP_GRACE = 10  # seconds a trainer gets to end on its typed return
+# A minister's contract runs 6 anlaen, three hours (Therenborough's, 2026-10-17):
+# with every town waiting on one beyond the routes, a circuit re-reads its
+# contracts every EXPIRY_POLL seconds, for four hours at most.
+EXPIRY_POLL = 300
+EXPIRY_POLLS = 48
 # READ MY <ordinal> CONTRACT, one per town at most: Zoluren's seven.
 ORDINALS = ("first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth")
 
@@ -486,7 +492,10 @@ def take(s, db, place, broker=False):
     )
     if beyond(contract):
         # A contract for a town ;trade cannot reach: kept unpaid and
-        # unloaded, the operator's to take on or not.
+        # unloaded, the operator's to take on or not. Stowed: with one in
+        # a hand READ MY SECOND CONTRACT read the backpack's second, and
+        # its first went unread (Hvaral's, Riverhaven, 2026-10-17).
+        hands.stow(s, "contract")
         s.echo(
             f"{PREFIX}: {contract.destination} is beyond ;trade's routes — the"
             f" contract is yours, its {(wholesale or 0) + (dues or 0):,}"
@@ -838,6 +847,26 @@ def town_stop(s, db, place, contracts, due):
     return contracts
 
 
+def expiry(s, place, contracts):
+    """Held at `place` while every town waits on a contract beyond the
+    routes (its minister issues none until it expires): True once one
+    has expired, False at a typed return or pause or after EXPIRY_POLLS
+    reads, said once with its ceiling."""
+    s.echo(
+        f"{PREFIX}: every town waits on a contract beyond the routes"
+        f" ({', '.join(c.destination for c in contracts)}) — holding at {place}"
+        f" until one expires (up to {EXPIRY_POLL * EXPIRY_POLLS // 3600} hours)"
+    )
+    for _ in range(EXPIRY_POLLS):
+        s.sleep(EXPIRY_POLL)
+        if paused(s) or loop.wants_stop(s):
+            return False
+        if any(c.expired for c in held_all(s)):
+            return True
+    s.echo(f"{PREFIX}: none expired — stopping, the caravan kept at {place}")
+    return False
+
+
 def circuit(s, db, name, place, beside, training):
     """;trade circuit (#556): every contract for this town handed in,
     the town's own taken when none from it is held, the caravan led to
@@ -870,6 +899,11 @@ def circuit(s, db, name, place, beside, training):
             }
         towns.discard(place)
         if not towns:
+            waiting = contracts and not (paused(s) or loop.wants_stop(s))
+            if waiting and all(beyond(c) for c in contracts):
+                if expiry(s, place, contracts):
+                    continue
+                return
             if contracts:
                 s.echo(
                     f"{PREFIX}: what is held is for towns ;trade does not lead to"
