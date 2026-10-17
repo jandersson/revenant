@@ -254,6 +254,11 @@ _WORTH = re.compile(r"worth " + _COIN + " on delivery", re.I)
 # READ pushes the contract to the familiar stream (<pushStream
 # id="familiar">); its last line is the estimate.
 READ_END = "on delivery"
+# Expired, READ names only who issued it (Langenfirth's, 2026-10-17):
+# " Trading Contract Issued by:  Langenfirth / The contract is now
+# useless since it has expired." trade.lic's wording.
+EXPIRED = "now useless since it has expired"
+_LAPSED = re.compile(r"Issued by: (?:The )?(.+?) The contract is now useless")
 
 
 def contract(text):
@@ -266,10 +271,15 @@ def contract(text):
      This contract has yet to be presented to the Crossing guild
      clerk.
     You estimate these goods are currently worth 11791 Kronars on delivery.
+
+    An expired one names only its origin: destination and goods None.
     """
     text = re.sub(r"\s+", " ", str(text or ""))
     destination = _DESTINATION.search(text)
     if not destination:
+        lapsed = _LAPSED.search(text)
+        if lapsed:
+            return Contract(lapsed.group(1), None, None, None, None, False, True)
         return None
     origin = _ORIGIN.search(text)
     worth = _WORTH.search(text)

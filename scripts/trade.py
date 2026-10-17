@@ -255,7 +255,7 @@ def held(s, ordinal=""):
         if piece is None:
             continue
         text += piece
-        if trade.READ_END in piece or missing(piece):
+        if trade.READ_END in piece or trade.EXPIRED in piece or missing(piece):
             break
     return trade.contract(text)
 
@@ -854,7 +854,8 @@ def expiry(s, place, contracts):
     reads, said once with its ceiling."""
     s.echo(
         f"{PREFIX}: every town waits on a contract beyond the routes"
-        f" ({', '.join(c.destination for c in contracts)}) — holding at {place}"
+        f" ({', '.join(c.destination or 'expired' for c in contracts)}) — holding"
+        f" at {place}"
         f" until one expires (up to {EXPIRY_POLL * EXPIRY_POLLS // 3600} hours)"
     )
     for _ in range(EXPIRY_POLLS):
@@ -907,7 +908,8 @@ def circuit(s, db, name, place, beside, training):
             if contracts:
                 s.echo(
                     f"{PREFIX}: what is held is for towns ;trade does not lead to"
-                    f" ({', '.join(c.destination for c in contracts)}) — yours to deliver"
+                    f" ({', '.join(c.destination or 'expired' for c in contracts)})"
+                    " — yours to deliver"
                 )
             elif paused(s):
                 s.echo(f"{PREFIX}: paused at {place} — the caravan kept at the outpost")
@@ -1035,7 +1037,7 @@ def main(s):
         if beyond(contract):
             if broker:
                 s.echo(
-                    f"{PREFIX}: the contract is for {contract.destination}, which"
+                    f"{PREFIX}: the contract is for {contract.destination or '(expired)'}, which"
                     " ;trade does not lead to — deliver it yourself"
                 )
                 return
@@ -1043,7 +1045,7 @@ def main(s):
             # Muspar'i contract, 2026-10-17): the province's other towns
             # go on, a contract held from each (#555).
             s.echo(
-                f"{PREFIX}: the {contract.destination} contract kept unloaded —"
+                f"{PREFIX}: the {contract.destination or 'expired'} contract kept unloaded —"
                 f" on as a circuit from {place}"
             )
             circuit(s, db, name, place, beside, training)

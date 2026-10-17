@@ -2199,3 +2199,42 @@ def test_a_return_typed_while_held_ends_the_wait(script):
     script.circuit(world, MAP, "sleek caravan", "Riverhaven", False, [])
     assert not any(call[0] == "leg" for call in fake.calls)
     assert sum("holding at Riverhaven" in e for e in world.echoed) == 1
+
+
+# Langenfirth's Hvaral contract at 22:35, 2026-10-17, its 2 hours up.
+EXPIRED_CONTRACT = (
+    "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"
+    " Trading Contract Issued by:  Langenfirth\n"
+    " The contract is now useless since it has expired.\n"
+    "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"
+)
+
+
+def test_an_expired_contract_reads_as_its_origin_alone():
+    c = trade.contract(EXPIRED_CONTRACT)
+    assert (c.origin, c.destination, c.expired, c.presented) == (
+        "Langenfirth",
+        None,
+        True,
+        False,
+    )
+
+
+def test_an_expired_contract_does_not_end_the_reading_of_the_rest(script):
+    # It stopped held_all at the second ordinal, and the hold never saw
+    # an expired one: Muspar'i's, the third, went unread.
+    world = World(
+        {
+            "read my first contract": [RIVERHAVEN_TO_THEREN],
+            "read my second contract": [EXPIRED_CONTRACT],
+            "read my third contract": [TO_MUSPARI],
+            "read my fourth contract": ["I could not find what you were referring to."],
+        }
+    )
+    contracts = script.held_all(world)
+    assert [c.origin for c in contracts] == [
+        "Riverhaven",
+        "Langenfirth",
+        "Therenborough",
+    ]
+    assert script.held_from(contracts) == {"Riverhaven", "Therenborough"}
