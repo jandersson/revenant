@@ -67,6 +67,8 @@ The kiosk stores value, not cost: what it pays ÷ (1 + markup). TAP hands it out
 | +60% | 1.6 × value | −6% | break-even |
 | +80% | 1.8 × value | −17% | −11% |
 
+Other Traders' shop prices are on drservice.info's [Plaza Shop Browser](https://drservice.info/Plaza/): every item in the player shops as last scanned, with its shop, city, price and value; [Export.asmx/Latest](https://drservice.info/Plaza/Export.asmx/Latest) downloads the current list.
+
 ## Which kiosk a seller picks
 
 A seller running dr-scripts' `sell-loot` STUDYs every kiosk and sells to the highest markup; on a tie, to the kiosk listed first in the room. When that one runs out of coin it moves to the next.
