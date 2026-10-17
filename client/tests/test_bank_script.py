@@ -404,6 +404,48 @@ def test_a_deposit_has_wealth_report_the_bank_now():
     assert empty.told == [] and empty.started == []  # no teller, no report
 
 
+GLARE = (
+    "The clerk glares at you.  \"I don't know what you think you're doing"
+    " Lanival, but I don't like it much.\"\n"
+)
+
+
+def test_a_glaring_teller_is_waited_out_and_asked_once_more():
+    # #581 (Hibarnhvidar, 2026-10-17): a sixth WITHDRAW inside a minute met
+    # the glare, and ;trade walked to the minister with too few coins.
+    sent, echoed, slept = [], [], []
+    answers = iter(
+        [
+            "The clerk counts out 3 gold Dokoras and hands them over.\n",
+            GLARE,
+            "The clerk counts out 6 silver Dokoras and hands them over.\n",
+        ]
+    )
+
+    def ask(s, command):
+        sent.append(command)
+        return next(answers)
+
+    handle = SimpleNamespace(echo=echoed.append, sleep=slept.append)
+    assert bank.withdraw_here(handle, ask, "trade", 3600, "Dokoras") is True
+    assert sent == ["withdraw 3 gold", "withdraw 6 silver", "withdraw 6 silver"]
+    assert slept == [bank.GLARE_WAIT]
+    assert "trade: the teller balks at the pace — again in a minute" in echoed
+
+
+def test_a_second_glare_is_a_refusal_said_at_the_teller():
+    sent, echoed = [], []
+
+    def ask(s, command):
+        sent.append(command)
+        return GLARE
+
+    handle = SimpleNamespace(echo=echoed.append, sleep=lambda seconds: None)
+    assert bank.withdraw_here(handle, ask, "trade", 73, "Dokoras") is False
+    assert sent == ["withdraw 7 bronze", "withdraw 7 bronze"]
+    assert any(line.startswith("trade: the teller refused") for line in echoed)
+
+
 def test_withdraw_here_draws_by_denomination_and_says_the_tellers_lines():
     # The loop ;bank's keep and ;enc's ballast copied (#407).
     sent, echoed = [], []

@@ -45,7 +45,16 @@ WITHDRAW_REFUSALS = (
     "insufficient",
     "cannot",
     "can't",
+    "don't like it much",
 )
+# The teller's glare (Hibarnhvidar, 2026-10-17, #581): "The clerk glares at
+# you.  "I don't know what you think you're doing Dijkstra, but I don't like
+# it much."" Five WITHDRAWs counted out in sixteen seconds and the next were
+# met with it; the same ones counted out 100 seconds later. A refusal of the
+# pace, not of the money: the first is waited out and the WITHDRAW sent once
+# more, a second is a refusal like the rest.
+GLARE = "don't like it much"
+GLARE_WAIT = 60  # seconds
 
 
 def withdraw(s, mapdb, walk_fn, ask, prefix, copper, currency, retry="try again"):
@@ -75,10 +84,16 @@ def withdraw_here(s, ask, prefix, copper, currency, retry="try again"):
     """WITHDRAW `copper` of `currency` at the teller already here, one
     denomination per command, the teller's own lines said; False, said,
     when the teller refused (#407: ;bank's keep and ;enc's ballast drew
-    their coins with copies of this loop)."""
+    their coins with copies of this loop). A teller who glares at the
+    pace is waited out a minute and asked once more (#581)."""
     s.echo(f"{prefix}: withdrawing {phrase(copper, currency)}")
     for count, denomination in split(copper):
-        answer = ask(s, f"withdraw {count} {denomination}")
+        command = f"withdraw {count} {denomination}"
+        answer = ask(s, command)
+        if GLARE in str(answer or "").lower():
+            s.echo(f"{prefix}: the teller balks at the pace — again in a minute")
+            s.sleep(GLARE_WAIT)
+            answer = ask(s, command)
         for line in act.lines(answer):
             if any(word in line.lower() for word in COUNTED + WITHDRAW_REFUSALS):
                 s.echo(f"{prefix}: {line}")
