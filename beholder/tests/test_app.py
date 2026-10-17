@@ -174,6 +174,76 @@ def test_dock_route_survives_an_empty_database(monkeypatch, tmp_path):
     assert "No recent history" in response.get_data(as_text=True)
 
 
+def _seed_mindstate(monkeypatch, tmp_path, rows):
+    import sqlite3
+
+    path = tmp_path / "xp.db"
+    writer = sqlite3.connect(path)
+    writer.execute(
+        "CREATE TABLE mindstate (seq INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " logged_at TEXT NOT NULL, character_name TEXT NOT NULL,"
+        " skill_name TEXT NOT NULL, rank INTEGER NOT NULL,"
+        " percent INTEGER NOT NULL, mindstate INTEGER NOT NULL)"
+    )
+    writer.executemany(
+        "INSERT INTO mindstate (logged_at, character_name, skill_name,"
+        " rank, percent, mindstate) VALUES (?, ?, ?, ?, ?, ?)",
+        rows,
+    )
+    writer.commit()
+    writer.close()
+    monkeypatch.setenv("REVENANT_HISTORY_DB", str(path))
+
+
+def test_the_page_opens_on_the_most_recently_logged_character(monkeypatch, tmp_path):
+    # Alvin sorts first but was last logged in August (#580).
+    _seed_mindstate(
+        monkeypatch,
+        tmp_path,
+        [
+            ("2026-08-22T19:10:00+00:00", "Alvin", "Perception", 10, 1, 1),
+            ("2026-10-17T04:30:00+00:00", "Lanival", "Trading", 768, 52, 13),
+        ],
+    )
+    pickers = [
+        component
+        for component in app.serve_layout().children
+        if getattr(component, "id", None) == "char-dropdown"
+    ]
+    assert pickers[0].options == ["Alvin", "Lanival"]
+    assert pickers[0].value == "Lanival"
+
+
+def test_the_skills_box_preselects_the_skills_that_learned(monkeypatch, tmp_path):
+    _seed_mindstate(
+        monkeypatch,
+        tmp_path,
+        [
+            ("2026-10-17T04:00:00+00:00", "Lanival", "Trading", 768, 52, 13),
+            ("2026-10-17T04:00:00+00:00", "Lanival", "Evasion", 200, 20, 0),
+            ("2026-10-17T04:01:00+00:00", "Lanival", "Trading", 768, 53, 12),
+            ("2026-10-17T04:01:00+00:00", "Lanival", "Evasion", 200, 20, 0),
+        ],
+    )
+    options, chosen = app.update_skill_choices("Lanival")
+    assert options == ["Evasion", "Trading"]
+    assert chosen == ["Trading"]
+
+
+def test_with_nothing_learning_the_skills_box_takes_the_latest_tick(
+    monkeypatch, tmp_path
+):
+    _seed_mindstate(
+        monkeypatch,
+        tmp_path,
+        [
+            ("2026-10-17T04:00:00+00:00", "Lanival", "Trading", 768, 52, 0),
+            ("2026-10-17T04:00:00+00:00", "Lanival", "Evasion", 200, 20, 0),
+        ],
+    )
+    assert app.update_skill_choices("Lanival")[1] == ["Evasion", "Trading"]
+
+
 def _seed_sheet(monkeypatch, tmp_path, guild="Thief"):
     import sqlite3
 

@@ -354,7 +354,7 @@ def stats_figure(series, character):
 def serve_layout():
     """Built per page load, so a refresh sees new characters."""
     names = query(data.characters, default=[])
-    character = names[0] if names else None
+    character = query(data.latest_character, default=None)
     hint = (
         ""
         if names
@@ -514,12 +514,17 @@ def dock():
     Input("char-dropdown", "value"),
 )
 def update_skill_choices(character):
-    """Offer every skill with history; preselect the current queue."""
+    """Offer every skill with history; preselect the ones that learned
+    in the character's last day, else the latest tick's: every skill
+    ;xp logged, since it writes them all each minute."""
     if not character:
         return [], []
     options = query(data.skills, character, default=[])
-    latest = query(data.latest_snapshot, character, default=[])
-    return options, [row["skill_name"] for row in latest]
+    chosen = query(data.skills_learning, character, default=[])
+    if not chosen:
+        latest = query(data.latest_snapshot, character, default=[])
+        chosen = [row["skill_name"] for row in latest]
+    return options, chosen
 
 
 @app.callback(

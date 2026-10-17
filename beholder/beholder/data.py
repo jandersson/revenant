@@ -217,6 +217,26 @@ def skills_moving(connection, character, since_iso=""):
     return series
 
 
+def skills_learning(connection, character, hours=24):
+    """The skills with something in their pool (mindstate above 0) in
+    the character's last `hours` of history, sorted: the page's first
+    selection. The window ends at the newest tick, not now, so a
+    character last played weeks ago still opens on what it learned."""
+    (newest,) = connection.execute(
+        "SELECT max(logged_at) FROM mindstate WHERE character_name = ?",
+        (character,),
+    ).fetchone()
+    if newest is None:
+        return []
+    rows = connection.execute(
+        "SELECT DISTINCT skill_name FROM mindstate"
+        " WHERE character_name = ? AND logged_at >= ? AND mindstate > 0"
+        " ORDER BY skill_name",
+        (character, _plus_hours(newest, -hours)),
+    )
+    return [row["skill_name"] for row in rows]
+
+
 def history_since(connection, character, since_iso):
     """Time series per skill from a cutoff onward — the dock's recent
     window. Same shape as history(); ISO-8601 UTC strings compare as

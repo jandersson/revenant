@@ -164,6 +164,44 @@ def test_latest_character_is_the_most_recently_logged(connection):
     assert data.latest_character(connection) == "Lanival"
 
 
+def _mindstate_db(tmp_path, rows):
+    import sqlite3
+
+    path = tmp_path / "xp.db"
+    writer = sqlite3.connect(path)
+    writer.execute(SCHEMA)
+    writer.executemany(
+        "INSERT INTO mindstate "
+        "(logged_at, character_name, skill_name, rank, percent, mindstate) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        rows,
+    )
+    writer.commit()
+    writer.close()
+    return data.connect(path)
+
+
+def test_skills_learning_are_the_pools_in_the_last_day_of_history(tmp_path):
+    connection = _mindstate_db(
+        tmp_path,
+        [
+            # Two days before the newest tick: outside the window.
+            ("2026-08-14T09:00:00+00:00", "Lanival", "Athletics", 50, 5, 12),
+            ("2026-08-16T08:00:00+00:00", "Lanival", "Sorcery", 100, 10, 5),
+            ("2026-08-16T08:00:00+00:00", "Lanival", "Evasion", 200, 20, 0),
+            ("2026-08-16T10:00:00+00:00", "Lanival", "Trading", 300, 30, 9),
+            ("2026-08-16T10:00:00+00:00", "Lanival", "Evasion", 200, 20, 0),
+            ("2026-08-16T10:00:00+00:00", "Sable", "Perception", 40, 4, 8),
+        ],
+    )
+    assert data.skills_learning(connection, "Lanival") == ["Sorcery", "Trading"]
+    connection.close()
+
+
+def test_skills_learning_of_an_unknown_character_is_empty(connection):
+    assert data.skills_learning(connection, "Nobody") == []
+
+
 def test_history_since_windows_by_cutoff(connection):
     series = data.history_since(connection, "Lanival", "2026-08-16T10:00:30+00:00")
     assert series == {
