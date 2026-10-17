@@ -385,6 +385,10 @@ MAP = MapDB(
          "wayto": {"386": "out"}},
         {"id": 7876, "uid": [1017001],
          "title": ["[Riverhaven, Traders' Guild Lobby]"], "wayto": {"386": "out"}},
+        {"id": 3155, "uid": [1029029],
+         "title": ["[Therenborough, Rutilor Boulevard]"], "wayto": {"3232": "go exch"}},
+        {"id": 3232, "uid": [1029032],
+         "title": ["[Alliance of Exchange, Traders' Center]"], "wayto": {"3155": "out"}},
     ]
 )  # fmt: skip
 
@@ -669,7 +673,8 @@ def test_a_broker_contract_beyond_the_routes_is_neither_paid_nor_loaded(script):
         **{"ask broker": [BROKER_ISSUED], "read my contract": [far]},
     )
     world = World(answers)
-    assert script.take(world, MAP, "Crossing", broker=True) is None
+    contract = script.take(world, MAP, "Crossing", broker=True)
+    assert (contract.destination, contract.presented) == ("Hvaral", False)
     assert "give my contract to clerk" not in world.sent
     assert world.sent.count("pay clerk") == 0
     assert any("43,833 Kronars owed at the clerk" in e for e in world.echoed)
@@ -705,14 +710,37 @@ def test_return_typed_with_nothing_held_stops_at_the_clerk(script):
     assert "trade: nothing held — done at Crossing" in world.echoed
 
 
-def test_a_contract_for_a_town_it_cannot_lead_to_is_left_with_you(script):
-    far = CONTRACT.replace("Wolf Clan", "Fornsted")
-    answers = dict(LEG, **{"read my contract": ["What were you referring to?", far]})
-    world = World(answers)
+def test_a_contract_for_a_town_it_cannot_lead_to_is_kept_and_the_run_circles(
+    script,
+):
+    # Therenborough's minister, 2026-10-17: Muspar'i, not built (#555).
+    answers = dict(
+        LEG,
+        **{
+            "read my contract": ["What were you referring to?", TO_MUSPARI],
+            "ask minister": [THEREN_ISSUED],
+        },
+    )
+    world = World(answers, room=3232)
+    circled = []
+    script.circuit = lambda s, db, name, place, beside, training: circled.append(place)
     script.main(world)
     assert not any(" to lead to " in c for c in world.sent)
     assert "give my contract to clerk" not in world.sent
-    assert any("Fornsted is beyond ;trade's routes" in e for e in world.echoed)
+    assert any("Muspar'i is beyond ;trade's routes" in e for e in world.echoed)
+    assert any("18,912 Lirums owed at the clerk" in e for e in world.echoed)
+    assert circled == ["Therenborough"]
+
+
+def test_a_contract_held_beyond_the_routes_is_never_loaded_on_a_rerun(script):
+    answers = dict(LEG, **{"read my contract": [TO_MUSPARI]})
+    world = World(answers, room=3232)
+    circled = []
+    script.circuit = lambda s, db, name, place, beside, training: circled.append(place)
+    script.main(world)
+    assert "give my contract to clerk" not in world.sent
+    assert "ask minister for contract" not in world.sent
+    assert circled == ["Therenborough"]
 
 
 def test_a_broker_contract_to_riverhaven_is_paid_loaded_and_led(script):
@@ -1440,6 +1468,29 @@ def test_a_caravan_rented_in_shard_is_paid_in_dokoras(script):
     assert "trade: not enough coin for the caravan's 288 Dokoras" in world.echoed
 
 
+# Therenborough's clerk, 2026-10-17, with 135 Lirums on hand.
+THEREN_RENT_SHORT = (
+    "The clerk nods and says, \"All right, that's a 320 Lirums fee for a"
+    ' rental...."\n'
+    "You attempt to pay the clerk, but you don't have enough money.  After"
+    " haggling with the clerk for several moments, he finally shrugs at you and"
+    ' says, "Sorry, can\'t put it in your dues.  Ya gotta pay up front."\n'
+)
+
+
+def test_a_caravan_rented_in_therengia_is_320_lirums(script):
+    afforded = []
+    script.shop = SimpleNamespace(
+        afford=lambda s, ask, prefix, copper, currency="Kronars", **k: (
+            afforded.append((copper, currency)) or True
+        )
+    )
+    world = World({"rent caravan": [THEREN_RENT_SHORT]}, room=3232)
+    assert script.rent(world, MAP, "Therenborough") is None
+    assert afforded == [(320, "Lirums")]
+    assert "trade: not enough coin for the caravan's 320 Lirums" in world.echoed
+
+
 def test_a_contract_its_town_word_does_not_name_is_got_plainly(script):
     # "Fayrin's Rest contract": GET MY FAYRIN'S CONTRACT may not parse.
     world = World(
@@ -1965,6 +2016,26 @@ def test_a_contract_read_back_unloaded_keeps_its_row(tmp_path):
 
 # Therengia (#555)
 
+# Therenborough's minister, 2026-10-17.
+THEREN_ISSUED = (
+    ISSUED.replace("3537 Kronars", "14270 Lirums")
+    .replace("985", "4642")
+    .replace("4522", "18912")
+)
+TO_MUSPARI = (
+    "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"
+    " Trading Contract Issued by:  Therenborough\n"
+    " The guild office at Muspar'i requires 1982 pots of flax seed oil,\n"
+    " to be delivered within 6 anlaen.\n"
+    " The bearer of the goods and this contract will receive,\n"
+    " upon safe and timely delivery of the merchandise, a payment\n"
+    " in the form of the local currency.\n"
+    " This contract has yet to be presented to the Therenborough guild\n"
+    " clerk.\n"
+    "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"
+    "You estimate these goods are currently worth 47568 Lirums on delivery.\n"
+)
+
 # A Riverhaven minister's contract for Therenborough, in the Crossing
 # contract's words.
 RIVERHAVEN_TO_THEREN = (
@@ -2055,3 +2126,19 @@ def test_a_leg_from_therenborough_out_of_the_province_goes_by_riverhaven(script)
 
 def test_a_therengia_circuit_works_its_three_towns(script):
     assert script.province("Langenfirth") == trade.THERENGIA
+
+
+def test_a_circuit_never_loads_nor_leads_to_a_contract_beyond_the_routes(script):
+    world = World({})
+    fake = Circuit(
+        script,
+        stops=[[_contract("Therenborough", "Muspar'i", presented=False)]],
+        minutes={
+            ("Therenborough", "Langenfirth"): 6.0,
+            ("Riverhaven", "Therenborough"): 8.0,
+        },
+    )
+    script.circuit(world, MAP, "sleek caravan", "Therenborough", False, [])
+    # Held from Therenborough, so its minister is not asked; the nearest
+    # other town is next, for its own contract.
+    assert fake.calls == [("leg", "Therenborough", "Langenfirth")]

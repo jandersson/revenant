@@ -234,7 +234,7 @@ BOX_EMPTY = "there is nothing in there"
 # enough money. ... "Sorry, can't put it in your dues. Ya gotta pay up
 # front."" (Elanthipedia: Trader, 400 Kronars at any Zoluren outpost.)
 # Shard's clerk, 2026-10-15: "that's a 288 Dokoras fee for a rental".
-# Riverhaven's is assumed: 400 Kronars at the wiki's rate, as Shard's is.
+# Therenborough's, 2026-10-17: "that's a 320 Lirums fee for a rental".
 RENT_FEE = {"Kronars": 400, "Dokoras": 288, "Lirums": 320}
 RENTED = "get your transportation together"
 RENT_SHORT = "don't have enough money"

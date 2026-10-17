@@ -14,12 +14,15 @@ What it does
     Clan, Raven's Point, Ain Ghazal — or Therengia — Riverhaven,
     Therenborough, Langenfirth — with your caravan at the outpost (RECALL
     CARAVAN finds it); with none, rents one at the clerk (RENT CARAVAN, 400
-    Kronars or 288 Dokoras).
+    Kronars, 288 Dokoras or 320 Lirums).
   - Forfedhdar: Boar Clan, and Ain Ghazal to Raven's Point, by way of
     Hibarnhvidar; Ain Ghazal across the river by the ferry. Its contracts
     for other provinces are left unloaded.
   - Therengia: Riverhaven to Langenfirth and back by way of Therenborough.
-    Its contracts for Fornsted, Hvaral and Muspar'i are left unloaded.
+  - A minister's contract for a town ;trade does not lead to (Fornsted,
+    Hvaral, Muspar'i) is kept unpaid and unloaded, said, and the run goes
+    on as a circuit of the province's other towns; with `interprovince`,
+    a broker's beyond the routes (Forfedhdar from outside it) stops it.
   - A lead the driver turns down is told again from the room trade.lic
     leads from (Barony Pass, Outside Langenfirth, Forfedhdar's).
   - Started beside its caravan away from an outpost (a run stopped on the road),
@@ -62,8 +65,8 @@ When it stops
   - ;trade return once nothing is held, the caravan returned (RETURN CARAVAN;
     kept, said, while its storage box holds anything); ;trade pause once nothing
     is held, the caravan kept at the outpost; ;stop trade at once, the caravan kept
-  - a contract for a town ;trade does not lead to (Fornsted, Hvaral,
-    Muspar'i, or out of Forfedhdar): said, kept unpaid and unloaded
+  - with `interprovince`, a broker's contract beyond the routes: said,
+    kept unpaid and unloaded
   - hostiles holding you on a lead while the caravan goes on: you get clear
     (the escape every trainer uses), said
   - a caravan RECALL cannot place, a rental refused, no feedbag or no grass
@@ -298,8 +301,8 @@ def pay(s):
 
 
 def rent(s, db, place):
-    """A caravan rented at this town's clerk (RENT CARAVAN, 400 Kronars or
-    288 Dokoras, drawn at a teller when the purse is short): its name
+    """A caravan rented at this town's clerk (RENT CARAVAN, 400 Kronars,
+    288 Dokoras or 320 Lirums, drawn at a teller when the purse is short): its name
     once RECALL finds it, or None, said."""
     coin = trade.coin(place)
     fee = trade.RENT_FEE[coin]
@@ -456,10 +459,17 @@ def load(s, db, place, seq):
     return False
 
 
+def beyond(contract):
+    """True for a contract ;trade does not carry (trade.routable)."""
+    return not trade.routable(
+        trade.town(contract.origin), trade.town(contract.destination)
+    )
+
+
 def take(s, db, place, broker=False):
     """Issue, read, log and load this town's next contract, the broker's
-    with `broker` where a broker is known (BROKERS): the Contract, or
-    None, said."""
+    with `broker` where a broker is known (BROKERS): the Contract (unpaid
+    and unloaded, said, when beyond the routes), or None, said."""
     broker = broker and place in trade.BROKERS
     charged = issue(s, db, place, broker)
     if charged is None:
@@ -474,15 +484,15 @@ def take(s, db, place, broker=False):
         f"{PREFIX}: {contract.goods} for {contract.destination},"
         f" worth {contract.worth or '?'} on delivery"
     )
-    if not trade.routable(place, trade.town(contract.destination)):
-        # A broker's contract for a province ;trade cannot reach: kept
-        # unpaid and unloaded, the operator's to take on or not.
+    if beyond(contract):
+        # A contract for a town ;trade cannot reach: kept unpaid and
+        # unloaded, the operator's to take on or not.
         s.echo(
             f"{PREFIX}: {contract.destination} is beyond ;trade's routes — the"
             f" contract is yours, its {(wholesale or 0) + (dues or 0):,}"
             f" {trade.coin(place)} owed at the clerk, nothing loaded"
         )
-        return None
+        return contract
     # The clerk loaded the first broker contract with its charge paid
     # (2026-10-15); whether it loads one unpaid is untried.
     if broker and not settle(s, db, place, (wholesale or 0) + (dues or 0)):
@@ -803,7 +813,7 @@ def town_stop(s, db, place, contracts, due):
             return None
     contracts = [c for c in contracts if c not in due]
     for c in contracts:
-        if not c.presented and trade.town(c.origin) == place:
+        if not c.presented and trade.town(c.origin) == place and not beyond(c):
             # Issued here and never loaded: a stop between the minister
             # and the clerk.
             if not load(s, db, place, tradelog.log_issue(character(s), place, c)):
@@ -846,7 +856,7 @@ def circuit(s, db, name, place, beside, training):
         # Business: a town a held crate goes to, or one no contract is held
         # from yet, to take its own (trade.lic's set_next_outpost): without
         # the second, every stop's new contract would be the only one held.
-        towns = {trade.town(c.destination) for c in contracts} - {None}
+        towns = {trade.town(c.destination) for c in contracts if not beyond(c)}
         if not (paused(s) or loop.wants_stop(s)):
             held_from = {trade.town(c.origin) for c in contracts}
             towns |= {town for town in province(place) if town not in held_from}
@@ -951,7 +961,12 @@ def main(s):
             if not deliver(s, db, place):
                 return
             contract, delivered, beside = None, True, False
-        if contract and not contract.presented and trade.town(contract.origin) == place:
+        if (
+            contract
+            and not contract.presented
+            and trade.town(contract.origin) == place
+            and not beyond(contract)
+        ):
             # Issued here and never loaded: a stop between the minister and
             # the clerk. Logged now, the minister's charges unknown.
             seq = tradelog.log_issue(character(s), place, contract)
@@ -975,13 +990,23 @@ def main(s):
             contract = take(s, db, place, broker)
             if contract is None:
                 return
-        destination = trade.town(contract.destination)
-        if destination is None:
+        if beyond(contract):
+            if broker:
+                s.echo(
+                    f"{PREFIX}: the contract is for {contract.destination}, which"
+                    " ;trade does not lead to — deliver it yourself"
+                )
+                return
+            # The minister issues no other while it is held (Therenborough's
+            # Muspar'i contract, 2026-10-17): the province's other towns
+            # go on, a contract held from each (#555).
             s.echo(
-                f"{PREFIX}: the contract is for {contract.destination}, which ;trade"
-                " does not lead to — deliver it yourself"
+                f"{PREFIX}: the {contract.destination} contract kept unloaded —"
+                f" on as a circuit from {place}"
             )
+            circuit(s, db, name, place, beside, training)
             return
+        destination = trade.town(contract.destination)
         if not beside and not walk(
             s, db, trade.TOWNS[place].outpost, f"the {place} outpost"
         ):
