@@ -266,6 +266,8 @@ def test_the_owners_study_reads_what_it_holds_now_not_the_sessions_purchases():
 
 def test_another_traders_kiosk_shows_its_markup_and_no_reserve():
     assert script.parse_args(["cutthroat"])["cutthroat"] is True
+    assert script.parse_args(["room=8266"])["room"] == "8266"
+    assert script.parse_args(["ramp=47"])["ramp"] == 45
     assert kiosk.read_study(NOT_OWNER) == {
         "owner": False,
         "markup": 55,
@@ -751,6 +753,70 @@ def test_cutthroat_waits_for_half_a_mana_bar():
     run(room, "cutthroat")
     assert kiosk.RELEASE not in room.sent
     assert any("waiting (mana at 40%)" in line for line in room.echoed)
+
+
+def _ramp_state(passed=0):
+    return SimpleNamespace(
+        target="kiosk", ramp_reserve=None, ramp_passed=passed, ramp_held=False
+    )
+
+
+def test_a_seller_at_the_tanner_is_one_the_kiosk_missed():
+    assert kiosk.passed_by(
+        "Thornwood asks the tanner Falken to buy a tight bundle."
+    ) == ("Thornwood")
+    # Another Trader's TAP, and our own resale, are no missed customers.
+    crystal = "Kohako asks the tanner Falken to buy a crystalline tight bundle."
+    assert kiosk.passed_by(crystal) is None
+    assert kiosk.passed_by("You ask the tanner Falken to buy a tight bundle.") is None
+
+
+def test_the_wait_counts_the_sellers_who_went_to_the_tanner():
+    lines = [
+        "Thornwood asks the tanner Falken to buy a tight bundle.",
+        "Kohako asks the tanner Falken to buy a crystalline tight bundle.",
+        "Imroth asks the tanner Falken to buy a lumpy bundle.",
+    ]
+    typed = [None, "return"]
+    s = SimpleNamespace(
+        get=lambda timeout=None: lines.pop(0) if lines else None,
+        command=lambda timeout=None: typed.pop(0) if typed else None,
+        dead=False,
+        sleep=lambda seconds: None,
+        echo=lambda text: None,
+    )
+    st = _ramp_state()
+    st.said = None
+    assert script.idle(s, st, 5) is False
+    assert st.ramp_passed == 2
+
+
+def test_ramp_steps_up_once_three_sellers_passed_the_kiosk_by():
+    room = Room(mine=ours(markup=5), spells={kiosk.SPELL: 30})
+    room.list_room()
+    st, options = _ramp_state(passed=2), {"markup": 5, "ramp": 45}
+    script.ramp(room, st, options, {"markup": 5, "reserve": 100 * PLAT})
+    assert (
+        sent(room, "pull") == []
+    )  # two is not yet a pattern; quiet time moves nothing
+    st.ramp_passed = 3
+    script.ramp(room, st, options, {"markup": 5, "reserve": 100 * PLAT})
+    assert (options["markup"], room.mine["markup"], st.ramp_passed) == (10, 10, 0)
+    assert room.echoed == [
+        "kiosk: 3 sellers went to the tanner instead — the markup up to 10%"
+    ]
+
+
+def test_ramp_holds_at_the_first_sale_and_never_passes_its_ceiling():
+    room = Room(mine=ours(markup=45), spells={kiosk.SPELL: 30})
+    room.list_room()
+    st, options = _ramp_state(passed=5), {"markup": 45, "ramp": 45}
+    script.ramp(room, st, options, {"markup": 45, "reserve": 100 * PLAT})
+    assert options["markup"] == 45 and sent(room, "pull") == []  # the ceiling
+    script.ramp(room, st, options, {"markup": 45, "reserve": 90 * PLAT})
+    assert st.ramp_held and room.echoed == [
+        "kiosk: a sale at 45% — the markup holds there"
+    ]
 
 
 def test_a_markup_above_the_target_is_pushed_down():

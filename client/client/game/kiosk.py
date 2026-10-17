@@ -11,6 +11,7 @@
     kiosk.tapped(answer)         # "pouch" or "bundle" the TAP handed over, else None
     kiosk.rub_mode(answer)       # "pouch" or "bundle" RUB set it to, else None
     kiosk.offered(answer) / kiosk.paid(answer)  # an appraiser's or tanner's figure, copper
+    kiosk.passed_by(line)        # who sold a bundle to the tanner, not to a kiosk, else None
 
 The measured mechanics are docs/kiosk.md; the wordings were captured at
 Grisgonda's on 2026-10-16 (#567) unless a line says otherwise.
@@ -76,6 +77,10 @@ _OFFER = re.compile(
     rf"(?:I'll pay|I can give) {_COINS}|\"{_COINS}, take it|\"{_COINS} is what"
 )
 _PAID = re.compile(rf"hands you {_COINS}")
+# A bundle sold to the tanner by someone in the room ("Thornwood asks the
+# tanner Falken to buy a tight bundle."): a seller the kiosk did not get.
+# A crystalline bundle is another Trader's TAP, never a kiosk's customer.
+_PASSED = re.compile(r"^(\w+) asks the tanner \w+ to buy (?!a crystalline)")
 
 
 def _subject(name):
@@ -218,6 +223,12 @@ def _figure(pattern, answer):
 def offered(answer):
     """The copper an appraiser's or a tanner's quote names, else None."""
     return _figure(_OFFER, answer)
+
+
+def passed_by(line):
+    """The seller of a bundle to the tanner in this line, else None."""
+    found = _PASSED.search(str(line or "").strip())
+    return found.group(1) if found else None
 
 
 def paid(answer):

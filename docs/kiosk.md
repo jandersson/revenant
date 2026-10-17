@@ -47,6 +47,7 @@ The kiosk works in Kronars in every province.
 - PRIA at 30 mana with the tessera held, refreshed with 2 roisaen left (a refresh throws away what is left). A logout shatters the kiosk but leaves the spell up, so after a login it casts again.
 - The markup PULLed or PUSHed to `markup=` (55).
 - The other kiosks' markups STUDYed every 15 minutes and said when one moves; the price stays `markup=`.
+- `;kiosk room=8266` runs it in another room for one run; `ramp=45` starts at `markup=` and goes 5% up each time three sellers sell a bundle to the tanner instead, holding at the first sale to the kiosk.
 - `;kiosk cutthroat`: when a kiosk at the same markup lists ahead of yours, yours is RELEASEd, grown again first in the room and PULLed back up; not under half a mana bar, nor twice in 15 minutes.
 - The reserve topped up to `reserve=` (100 platinum) through `;bank keep=` and POKE once it falls under `floor=` (50).
 - Pouches and bundles TAPped once the kiosk holds `tap=` (20 platinum) of them, and sold with Finesse up, the pay banked at once; never while Trading is mind-locked.
@@ -74,6 +75,7 @@ A seller running dr-scripts' `sell-loot` STUDYs every kiosk and sells to the hig
 - So a Trader who keeps his kiosk up and funded, growing it again each time it ends, always beats the kiosks at the same markup by position alone.
 - Measured at 55% beside such a kiosk: listed first, ours took all 11 sales in 39 minutes; listed second after the other was grown again, 1 of the next 4.
 - To take first place, end your kiosk (RELEASE PRIA) and grow a new one; it lasts until another kiosk is grown.
+- Sellers go only to the trader rooms their own `sell-loot` lists; there is no default. A tannery with no kiosk still sees bundles sold to the tanner by the dozen (68 by 46 sellers in 93 minutes watched), the sellers a kiosk there could take.
 - A kiosk at the same markup but listed behind gets only what the first cannot pay for: while the first is out of coin, its owner is offline, or in the seconds before it is grown again.
 - One step above the rest takes every sale while its reserve lasts. At +60% that is break-even with Finesse (the 1.6× cap); each 5% below 60 is about 3% margin, but only on the sales it wins.
 

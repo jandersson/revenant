@@ -2,6 +2,8 @@
 
     ;kiosk               at the kiosk's room, a pass now and every 5 minutes
     ;kiosk markup=55     the markup it holds, -10 to 80 in steps of 5
+    ;kiosk room=8266     the kiosk's room for this run (the profile's kiosk_room, else Grisgonda's)
+    ;kiosk ramp=45       from markup=, 5% up each time 3 sellers sell to the tanner instead, to this ceiling; held at the first sale
     ;kiosk reserve=100   the reserve topped up to this many platinum Kronars ...
     ;kiosk floor=50      ... once it falls under this many
     ;kiosk tap=20        a kind TAPped and resold once the kiosk holds this many platinum of it
@@ -11,7 +13,7 @@
     ;stop kiosk          quit at once
 
 A pass
-  - Walks to the profile's `kiosk_room` (Grisgonda's, 4652, by default).
+  - Walks to room= or the profile's `kiosk_room` (Grisgonda's, 4652, by default).
   - Casts Prosperity in Absentia at 30 mana with the clear tessera held, and
     again with 2 roisaen left (the wait before that pass shortened to reach
     it), or when the spell is up and its kiosk gone (a logout shatters it);
@@ -77,6 +79,7 @@ STEPS = 20  # PULLs or PUSHes in one setting; -10 to 80 is 18
 MARKET_MINUTES = 15  # another's kiosk STUDYed again after this long
 REGROW_MINUTES = 15  # cutthroat: one regrowth at most this often
 REGROW_MANA = 50  # cutthroat: the mana bar's percent a regrowth needs (PRIA 30)
+RAMP_PASSED = 3  # ramp: a step up once this many sellers went to the tanner instead
 ROPE = "bundling rope"
 _TANNER = re.compile(r"\btanner (\w+)")  # "the tanner Falken", as ;skins reads it
 
@@ -98,6 +101,10 @@ def parse_args(words):
             options["markup"] = int(value)
         elif sep and key in ("reserve", "floor", "tap") and value.isdigit():
             options[key] = int(value) * PLATINUM
+        elif sep and key == "room" and value.isdigit():
+            options["room"] = value
+        elif sep and key == "ramp" and value.isdigit():
+            options["ramp"] = kiosk.markup_target(int(value))
     options["markup"] = kiosk.markup_target(options["markup"])
     return options
 
@@ -420,6 +427,31 @@ def cutthroat(s, st, options, ahead):
     return None
 
 
+def ramp(s, st, options, reading):
+    """ramp=: the markup 5% up once RAMP_PASSED sellers sold to the tanner
+    instead (counted by idle()), up to the ceiling, held from the first
+    sale (the reserve fell since the last pass): where sellers start to
+    come. Quiet time alone moves nothing. The tessera is held."""
+    ceiling = options.get("ramp")
+    if ceiling is None or st.ramp_held:
+        return
+    if st.ramp_reserve is not None and reading["reserve"] < st.ramp_reserve:
+        st.ramp_held = True
+        s.echo(f"kiosk: a sale at {reading['markup']}% — the markup holds there")
+        return
+    st.ramp_reserve = reading["reserve"]
+    if st.ramp_passed < RAMP_PASSED or options["markup"] >= ceiling:
+        return
+    passed, st.ramp_passed = st.ramp_passed, 0
+    options["markup"] = min(ceiling, options["markup"] + kiosk.MARKUP_STEP)
+    if set_markup(s, st, reading["markup"], options["markup"]):
+        reading["markup"] = options["markup"]
+        s.echo(
+            f"kiosk: {passed} sellers went to the tanner instead — "
+            f"the markup up to {options['markup']}%"
+        )
+
+
 def describe(s, st, reading):
     return (
         f"kiosk: the {st.target} — markup {reading['markup']}%, reserve "
@@ -464,6 +496,7 @@ def one_pass(s, st, options, profile, mapdb, walk_fn, room):
         else:
             st.unfunded = True
             s.echo("kiosk: the reserve was not topped up — no more top-ups this run")
+    ramp(s, st, options, reading)
     locked = (mindstate(s, "Trading") or 0) >= casting.MIND_LOCK
     dispense = reading["dispense"]
     for kind in ("pouch", "bundle"):
@@ -487,6 +520,9 @@ def idle(s, st, seconds):
     """The wait for the next pass, in one-second slices: False once
     return is typed or the character died; a typed status is answered."""
     for _ in range(int(seconds)):
+        while (text := s.get(timeout=0)) is not None:
+            if kiosk.passed_by(text):
+                st.ramp_passed += 1  # ramp='s measure of a missed seller
         while (line := s.command(timeout=0)) is not None:
             if "return" in line.lower():
                 return False
@@ -509,11 +545,14 @@ def run(s, options, mapdb, walk_fn=walk, profile=None):
         market={},
         regrown=None,
         waited=None,
+        ramp_reserve=None,
+        ramp_passed=0,
+        ramp_held=False,
     )
     if options["status"]:
         s.echo(status(s))
         return None
-    room = profile.get("kiosk_room") or kiosk.ROOM
+    room = options.get("room") or profile.get("kiosk_room") or kiosk.ROOM
     s.echo(f"kiosk: a pass every {PASS_SECONDS // 60} minutes — ;kiosk return ends it")
     try:
         while True:
