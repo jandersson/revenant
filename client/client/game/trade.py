@@ -51,12 +51,22 @@ ILITHI = ("Shard", "Fayrin's Rest", "Steelclaw Clan", "Darkling Wood")
 THERENGIA = ("Riverhaven",)
 FORFEDHDAR = ("Hibarnhvidar", "Boar Clan", "Raven's Point", "Ain Ghazal")
 
-# Forfedhdar's leads (Elanthipedia: Caravan): Hibarnhvidar to and from
-# Boar Clan, Raven's Point and Ain Ghazal (across the river, the ferry
-# Damaris' Kiss or Evening Star: bescort's ferry1), Raven's Point to Ain
-# Ghazal; Boar Clan is led to and from by way of Hibarnhvidar. A driver
-# who turns a lead down in a town is walked to the room trade.lic leads
-# from instead (do_lead_from), and told again.
+# Forfedhdar's leads, each one way (Elanthipedia: Caravan): Hibarnhvidar
+# to and from Boar Clan, Raven's Point and Ain Ghazal (across the river,
+# the ferry Damaris' Kiss or Evening Star: bescort's ferry1), and Raven's
+# Point to Ain Ghazal. Any other pair is led by way of Hibarnhvidar: Boar
+# Clan's, and Ain Ghazal to Raven's Point, whose driver says it is not on
+# the route (#583). A driver who turns a lead down in a town is walked to
+# the room trade.lic leads from instead (do_lead_from), and told again.
+FORFEDHDAR_LEADS = {
+    ("Hibarnhvidar", "Boar Clan"),
+    ("Hibarnhvidar", "Ain Ghazal"),
+    ("Hibarnhvidar", "Raven's Point"),
+    ("Boar Clan", "Hibarnhvidar"),
+    ("Raven's Point", "Hibarnhvidar"),
+    ("Raven's Point", "Ain Ghazal"),
+    ("Ain Ghazal", "Hibarnhvidar"),
+}
 VIA_HIBARNHVIDAR = "Hibarnhvidar"
 LEAD_FROM = {"Hibarnhvidar": 3943, "Raven's Point": 4452, "Ain Ghazal": 3986}
 

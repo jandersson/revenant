@@ -1874,6 +1874,23 @@ def test_boar_clan_is_led_to_and_from_by_way_of_hibarnhvidar(script):
     assert calls == [("lead", "Raven's Point"), ("bring", 4440)]
 
 
+def test_ain_ghazal_to_ravens_point_goes_by_hibarnhvidar(script):
+    # The wiki lists Raven's Point to Ain Ghazal only, and the driver
+    # turned the other way down twice on 2026-10-17 (#583).
+    calls = _forfedhdar(script)
+    world = World({})
+    assert script.leg(world, MAP, "caravan", "Ain Ghazal", "Raven's Point")
+    assert calls == [
+        ("lead", "Hibarnhvidar"),
+        ("bring", 3903),
+        ("lead", "Raven's Point"),
+        ("bring", 4440),
+    ]
+    calls.clear()
+    assert script.leg(world, MAP, "caravan", "Raven's Point", "Ain Ghazal")
+    assert calls == [("lead", "Ain Ghazal"), ("bring", 11033)]
+
+
 def test_a_lead_turned_down_is_told_again_from_trade_lics_room(script):
     calls = _forfedhdar(script, refused={"Ain Ghazal", "Boar Clan"})
     world = World({})

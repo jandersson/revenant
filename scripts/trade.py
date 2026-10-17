@@ -14,9 +14,10 @@ What it does
     Clan, Raven's Point, Ain Ghazal — or Riverhaven, with your caravan at
     the outpost (RECALL CARAVAN finds it); with none, rents one at the clerk
     (RENT CARAVAN, 400 Kronars or 288 Dokoras).
-  - Forfedhdar: Boar Clan by way of Hibarnhvidar, Ain Ghazal across the river
-    by the ferry; a lead the driver turns down is told again from the room
-    trade.lic leads from. Its contracts for other provinces are left unloaded.
+  - Forfedhdar: Boar Clan, and Ain Ghazal to Raven's Point, by way of
+    Hibarnhvidar; Ain Ghazal across the river by the ferry; a lead the
+    driver turns down is told again from the room trade.lic leads from.
+    Its contracts for other provinces are left unloaded.
   - Started beside its caravan away from an outpost (a run stopped on the road),
     goes on from there with the crate it holds; near its town, walks the
     caravan to the outpost and delivers.
@@ -729,12 +730,13 @@ def leg(s, db, name, origin, destination, grass=None, training=()):
 
 
 def forfedhdar_leg(s, db, name, origin, destination, grass=None, training=()):
-    """A leg within Forfedhdar (#555): Boar Clan by way of Hibarnhvidar,
-    the rest led straight there (Ain Ghazal's lead rides the ferry); a
-    lead the driver turns down is told again from the room trade.lic
+    """A leg within Forfedhdar (#555): a pair with a lead of its own
+    (trade.FORFEDHDAR_LEADS, one way each) led straight there, Ain
+    Ghazal's riding the ferry; any other by way of Hibarnhvidar (#583).
+    A lead the driver turns down is told again from the room trade.lic
     leads from (trade.lead_from), the caravan walked there first."""
     hub = trade.VIA_HIBARNHVIDAR
-    if "Boar Clan" in (origin, destination) and hub not in (origin, destination):
+    if (origin, destination) not in trade.FORFEDHDAR_LEADS:
         return forfedhdar_leg(
             s, db, name, origin, hub, grass, training
         ) and forfedhdar_leg(s, db, name, hub, destination, grass, training)
