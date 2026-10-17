@@ -2493,3 +2493,66 @@ def test_contracts_put_away_are_not_counted_as_held(script):
     script.put_away = lambda s, db, place, contracts: 1
     script.circuit(world, MAP, "sleek caravan", "Therenborough", False, [])
     assert any(e.startswith("trade: 2 contract(s) held") for e in world.echoed)
+
+
+# 23:42 on 2026-10-17: two Fornsted contracts issued, unloaded, before
+# Fornsted was routed; the restart led an empty caravan toward Fornsted.
+
+
+def test_a_contract_never_loaded_is_business_at_its_origin(script):
+    world = World({})
+    unloaded = _contract("Riverhaven", "Fornsted", presented=False)
+    fake = Circuit(
+        script,
+        stops=[[unloaded]],
+        taken=[_contract("Langenfirth", "Therenborough")],
+        minutes={
+            ("Langenfirth", "Riverhaven"): 13.0,
+            ("Langenfirth", "Therenborough"): 6.0,
+        },
+    )
+    script.province = lambda place: ("Riverhaven", "Therenborough", "Langenfirth")
+    script.circuit(world, MAP, "sleek caravan", "Langenfirth", False, [])
+    # Therenborough has a crate due; Riverhaven, the unloaded contract's
+    # origin, is business too, and Fornsted is not.
+    assert fake.calls[-1] == ("leg", "Langenfirth", "Therenborough")
+    assert not any(
+        call[:1] == ("leg",) and call[2] == "Fornsted" for call in fake.calls
+    )
+
+
+def test_the_unloaded_contract_is_loaded_at_its_origins_stop(script):
+    world = World({})
+    unloaded = _contract("Riverhaven", "Fornsted", presented=False)
+    fake = Circuit(
+        script,
+        stops=[[unloaded]],
+        minutes={("Riverhaven", "Fornsted"): 30.0},
+    )
+    script.province = lambda place: ("Riverhaven",)
+    script.circuit(world, MAP, "sleek caravan", "Riverhaven", False, [])
+    assert fake.calls[0] == ("load", "Riverhaven")
+    assert fake.calls[-1] == ("leg", "Riverhaven", "Fornsted")
+    assert any("1 crate(s) for it" in e for e in world.echoed)
+
+
+def test_a_restart_beside_an_empty_caravan_brings_it_in_first(script):
+    world = World({})
+    fake = Circuit(
+        script,
+        stops=[[_contract("Therenborough", "Fornsted", presented=False)]],
+        minutes={("Therenborough", "Fornsted"): 30.0},
+    )
+    script.province = lambda place: ("Therenborough",)
+    script.circuit(world, MAP, "sleek caravan", "Therenborough", True, [])
+    assert fake.calls[:2] == [("bring", 3155), ("load", "Therenborough")]
+
+
+def test_the_one_contract_run_hands_an_unloaded_one_to_the_circuit(script):
+    elsewhere = TO_MUSPARI.replace("Muspar'i requires", "Fornsted requires")
+    world = World(dict(LEG, **{"read my contract": [elsewhere]}), room=13751)
+    circled = []
+    script.circuit = lambda s, db, name, place, beside, training: circled.append(place)
+    script.main(world)
+    assert circled == ["Riverhaven"]
+    assert "give my contract to clerk" not in world.sent

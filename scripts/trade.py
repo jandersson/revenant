@@ -534,7 +534,7 @@ def take(s, db, place, broker=False):
     # (2026-10-15); whether it loads one unpaid is untried.
     if broker and not settle(s, db, place, (wholesale or 0) + (dues or 0)):
         return None
-    return contract if load(s, db, place, seq) else None
+    return contract._replace(presented=True) if load(s, db, place, seq) else None
 
 
 def feed(s, name):
@@ -851,6 +851,21 @@ def held_from(contracts):
     return {trade.town(c.origin) for c in contracts if not c.expired}
 
 
+def unloaded(contract):
+    """True for a contract ;trade carries whose crate was never loaded:
+    its business is at the town that issued it, where the clerk loads it."""
+    return not (contract.presented or contract.expired or beyond(contract))
+
+
+def business(contract):
+    """The town a held contract calls at next: its destination once
+    loaded, its origin while unloaded; None for one beyond the routes or
+    expired."""
+    if contract.expired or beyond(contract):
+        return None
+    return trade.town(contract.destination if contract.presented else contract.origin)
+
+
 def put_away(s, db, place, contracts):
     """Every expired contract held put in this town's waste bin
     (trade.TRASH), never dropped: each got by its ordinal, read again in
@@ -890,13 +905,16 @@ def town_stop(s, db, place, contracts, due):
     for _ in due:
         if not deliver(s, db, place, only=len(contracts) == 1):
             return None
-    contracts = [c for c in contracts if c not in due]
-    for c in contracts:
-        if not c.presented and trade.town(c.origin) == place and not beyond(c):
+    loaded = []
+    for c in (c for c in contracts if c not in due):
+        if unloaded(c) and trade.town(c.origin) == place:
             # Issued here and never loaded: a stop between the minister
-            # and the clerk.
+            # and the clerk, or a town routed since it was issued.
             if not load(s, db, place, tradelog.log_issue(character(s), place, c)):
                 return None
+            c = c._replace(presented=True)
+        loaded.append(c)
+    contracts = loaded
     walk(s, db, trade.TOWNS[place].clerk, f"the {place} shipment clerk")
     s.echo(f"{PREFIX}: {pay(s)}")
     if due:
@@ -947,7 +965,12 @@ def circuit(s, db, name, place, beside, training):
         # Started beside its caravan with crates loaded (a run stopped on
         # the road): with none for this town it goes on from where it
         # stands, as the one-contract run does; with some, it is brought in.
-        beside = beside and any(c.presented for c in contracts)
+        # With nothing loaded it is brought in for the clerk (2026-10-17: two
+        # Fornsted contracts issued before Fornsted was routed).
+        if beside and not any(c.presented for c in contracts):
+            if not bring(s, db, name, trade.TOWNS[place].outpost):
+                return
+            beside = False
         if not (beside and not due):
             if beside and not bring(s, db, name, trade.TOWNS[place].outpost):
                 return
@@ -958,7 +981,7 @@ def circuit(s, db, name, place, beside, training):
         # Business: a town a held crate goes to, or one no contract is held
         # from yet, to take its own (trade.lic's set_next_outpost): without
         # the second, every stop's new contract would be the only one held.
-        towns = {trade.town(c.destination) for c in contracts if not beyond(c)}
+        towns = {business(c) for c in contracts} - {None}
         if not (paused(s) or loop.wants_stop(s)):
             towns |= {
                 town for town in province(place) if town not in held_from(contracts)
@@ -983,10 +1006,21 @@ def circuit(s, db, name, place, beside, training):
                 return_caravan(s, db, place, name)
             return
         destination = next_stop(db, place, towns, tradelog.leg_minutes(character(s)))
-        crates = sum(trade.town(c.destination) == destination for c in contracts)
+        crates = sum(
+            c.presented and trade.town(c.destination) == destination for c in contracts
+        )
+        loads = sum(
+            unloaded(c) and trade.town(c.origin) == destination for c in contracts
+        )
         s.echo(
             f"{PREFIX}: {len(contracts)} contract(s) held — next {destination} ("
-            + (f"{crates} crate(s) for it" if crates else "its contract to take")
+            + (
+                f"{crates} crate(s) for it"
+                if crates
+                else f"{loads} contract(s) to load"
+                if loads
+                else "its contract to take"
+            )
             + ")"
         )
         if not beside and not walk(
@@ -1060,6 +1094,18 @@ def main(s):
     while True:
         contract = held(s)
         delivered = False
+        if contract and unloaded(contract) and trade.town(contract.origin) != place:
+            # Issued elsewhere and never loaded: the circuit takes it back
+            # to its clerk, the other contracts along.
+            s.echo(
+                f"{PREFIX}: the {contract.destination} contract is not loaded — on as a circuit"
+            )
+            circuit(s, db, name, place, beside, training)
+            return
+        if beside and contract is not None and not contract.presented:
+            # Nothing loaded: the caravan is brought in for the clerk.
+            if not bring(s, db, name, trade.TOWNS[place].outpost):
+                return
         # Started beside the caravan with its crate loaded (a run stopped
         # mid-walk): it goes on from where it stands, brought to the
         # outpost first when this is its town.
