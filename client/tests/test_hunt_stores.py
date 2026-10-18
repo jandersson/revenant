@@ -362,6 +362,18 @@ def test_a_box_farm_takes_the_boxes_whatever_the_data_says(monkeypatch, tmp_path
     assert len(rows) == 4  # the three seeded, and the farm's pickup
 
 
+def test_the_verdict_lapses_ten_ranks_past_the_boxes_it_rests_on(tmp_path):
+    # #495's to-do: a left box makes no new attempt, so a verdict from
+    # Locksmithing 53 would outlive the climb.
+    from client.game import boxlog
+
+    db = tmp_path / "history.db"
+    _beaten(db, "young ogre", 3)  # too hard at 53
+    assert boxlog.past("Lanival", "young ogre", path=db, rank=62)
+    assert not boxlog.past("Lanival", "young ogre", path=db, rank=63)
+    assert boxlog.past("Lanival", "young ogre", path=db)  # no rank known: kept
+
+
 def test_one_opened_among_the_last_three_is_no_verdict(tmp_path):
     import sqlite3
 

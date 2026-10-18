@@ -338,36 +338,49 @@ def log_opened(s, path=None, **fields):
 
 
 BEYOND_BOXES = 3  # the creature's last boxes that must all have beaten the character
+RECHECK_RANKS = 10  # Locksmithing ranks past the beaten attempts' that end a verdict
 
 
 def verdicts(connection, character, creature, boxes=BEYOND_BOXES):
     """The last `boxes` boxes of `creature` that ;boxes worked — its
     `box_attempts` joined to the `box_drops` rows of the same character
-    and id — as [(box_id, opened, too_hard)], newest first (#495)."""
+    and id — as [(box_id, opened, too_hard, rank)], newest first (#495);
+    rank is the highest Locksmithing its attempts were made at."""
     rows = connection.execute(
         "SELECT d.box_id,"
         " SUM(CASE WHEN a.verb = 'open' AND a.outcome = 'open' THEN 1 ELSE 0 END),"
         " SUM(CASE WHEN a.outcome = 'too hard' THEN 1 ELSE 0 END),"
-        " MAX(a.seq) AS last"
+        " MAX(a.seq) AS last, MAX(a.rank)"
         " FROM box_attempts a JOIN box_drops d"
         " ON d.box_id = a.box_id AND d.character_name = a.character_name"
         " WHERE a.character_name = ? AND lower(d.creature) = lower(?)"
         " GROUP BY d.box_id ORDER BY last DESC LIMIT ?",
         (character, str(creature or ""), boxes),
     ).fetchall()
-    return [(box_id, bool(opened), bool(hard)) for box_id, opened, hard, _ in rows]
+    return [
+        (box_id, bool(opened), bool(hard), rank)
+        for box_id, opened, hard, _, rank in rows
+    ]
 
 
-def beyond(connection, character, creature, boxes=BEYOND_BOXES):
+def beyond(connection, character, creature, boxes=BEYOND_BOXES, rank=None):
     """True when the creature's last `boxes` boxes all went back too hard
     and none opened (#495): the measured answer to whether this
     character can pick this creature's boxes. Fewer boxes on record, or
-    one opened among them, is no verdict."""
+    one opened among them, is no verdict; nor, at Locksmithing `rank`,
+    RECHECK_RANKS past the rank they beat: a box left makes no new
+    attempt, so the verdict would otherwise outlive the character's
+    climb (the issue's own to-do)."""
     found = verdicts(connection, character, creature, boxes)
-    return len(found) >= boxes and all(hard and not opened for _, opened, hard in found)
+    if len(found) < boxes or not all(
+        hard and not opened for _, opened, hard, _ in found
+    ):
+        return False
+    tried = [at for *_, at in found if at is not None]
+    return rank is None or not tried or rank < max(tried) + RECHECK_RANKS
 
 
-def past(character, creature, path=None, boxes=BEYOND_BOXES):
+def past(character, creature, path=None, boxes=BEYOND_BOXES, rank=None):
     """beyond() off history.db; False when there is none or it cannot be
     read (logged, never raised)."""
     if not creature:
@@ -379,7 +392,7 @@ def past(character, creature, path=None, boxes=BEYOND_BOXES):
         connection = sqlite3.connect(str(path))
         try:
             ensure_schema(connection)
-            return beyond(connection, character, creature, boxes)
+            return beyond(connection, character, creature, boxes, rank)
         finally:
             connection.close()
     except Exception:

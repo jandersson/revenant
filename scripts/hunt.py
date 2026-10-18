@@ -17,7 +17,8 @@ What it does
   - Walks to the ground (a map tag, a bestiary zone or a ;go2 target) with the buffs up.
   - Fights one creature at a time: attack, skin (never a creature the wiki says has
     no skin), loot, gems and boxes stowed — a creature's boxes are left once ;boxes
-    put its last three back unopened (history.db's verdict); a box farm takes them all.
+    put its last three back unopened (history.db's verdict, until Locksmithing is 10 ranks
+    past theirs); a box farm takes them all.
   - A Slings, Bow or Crossbow turn shoots: LOAD, AIM, FIRE at full aim; a shot at the
     feet is stowed at once, the lodged ones off the floor after the search.
   - Moves room to room; a room another player hunts is theirs and is skipped. In the
@@ -1640,12 +1641,12 @@ def box_beyond(s, tally, noun):
     leaves one: the farm is what measures them."""
     creature = (tally.search or {}).get("creature") or ""
     name = getattr(s.state, "name", None) or ""
-    if not creature or not boxlog.past(name, creature):
+    skill = (getattr(s.state, "experience", None) or {}).get("Locksmithing") or {}
+    rank = skill.get("rank") if isinstance(skill, dict) else None
+    if not creature or not boxlog.past(name, creature, rank=rank):
         return False
     if creature not in tally.boxes_left:
         tally.boxes_left.add(creature)
-        skill = (getattr(s.state, "experience", None) or {}).get("Locksmithing") or {}
-        rank = skill.get("rank") if isinstance(skill, dict) else None
         at = f" at Locksmithing {rank}" if rank is not None else ""
         s.echo(
             f"hunt: the {creature}'s boxes are past you{at} — the {noun} stays "
