@@ -6,6 +6,7 @@
     ;trade return     typed while it runs: deliver what is held, take no new contract, return the caravan at the clerk
     ;trade pause      typed while it runs: deliver what is held, take no new contract, stop with the caravan kept at the outpost
     ;trade history    every contract logged: per route the count, the pay and the profit in Kronars, the minutes
+    ;trade go <town>  the caravan, loaded or empty, fed and taken to the town's outpost by the usual leads and rides; then stop
 
 What it does
   - Starts at an outpost of Zoluren — the Crossing, Arthe Dale, Stone Clan,
@@ -249,7 +250,30 @@ ORDINALS = ("first", "second", "third", "fourth", "fifth", "sixth", "seventh", "
 
 def parse_args(args):
     words = [str(arg).lower() for arg in args or []]
-    return {"verb": words[0] if words else ""}
+    return {"verb": words[0] if words else "", "town": " ".join(words[1:])}
+
+
+def go(s, db, name, place, town, beside, training):
+    """;trade go <town>: the caravan fed and taken from `place` to the
+    town's outpost by leg() (leads, the ferries, the gondola), loaded or
+    empty, nothing delivered or taken; said either way. For a caravan to
+    start somewhere else (Riverhaven's broker blocked by a held contract,
+    2026-10-18)."""
+    destination = trade.town(town)
+    if destination is None or not trade.routable(place, destination):
+        s.echo(f"{PREFIX}: no caravan way from {place} to {town or 'nowhere'}")
+        return
+    if destination == place:
+        s.echo(f"{PREFIX}: the caravan is already at {place}")
+        return
+    if not beside and not walk(
+        s, db, trade.TOWNS[place].outpost, f"the {place} outpost"
+    ):
+        return
+    grass = feed(s, name)
+    if grass is None or not leg(s, db, name, place, destination, [grass], training):
+        return
+    s.echo(f"{PREFIX}: the caravan waits at the {destination} outpost")
 
 
 def character(s):
@@ -1196,13 +1220,18 @@ def main(s):
     if opts["verb"] == "circuit":
         circuit(s, db, name, place, beside, training)
         return
+    if opts["verb"] == "go":
+        go(s, db, name, place, opts["town"], beside, training)
+        return
     while True:
         contract = held(s)
         delivered = False
         if broker and contract and (contract.expired or beyond(contract)):
-            # Dead weight to a broker's run: a minister's contract for a
-            # town it cannot reach blocks no broker (Dijkstra's three for
-            # Fornsted, 2026-10-18), so the first live one is read past it.
+            # Dead weight to a broker's run: a contract for a town it cannot
+            # reach is read past for the first live one. It still blocks
+            # its own town's broker until it expires (Riverhaven's, for
+            # Fornsted, 2026-10-18: "you still hold a contract from
+            # Riverhaven"), but no other town's.
             contract = next(
                 (c for c in held_all(s) if not (c.expired or beyond(c))), None
             )

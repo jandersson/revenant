@@ -9,6 +9,7 @@
 ;trade return     typed while it runs: deliver what is held, take no new contract, return the caravan
 ;trade pause      typed while it runs: the same, but the caravan is kept at the outpost for the next ;trade
 ;trade history    per route: contracts, pay and profit in Kronars (Dokoras at 1.386, Lirums at 1.25), minutes
+;trade go <town>  take the caravan, loaded or empty, to a town's outpost by the usual leads and rides, then stop
 ```
 
 - Start at an outpost with your caravan at it: in Zoluren the Crossing, Arthe Dale, Stone Clan, Dirge, Wolf Clan, Tiger Clan or Leth Deriel (Kronars); in Ilithi Shard, Fayrin's Rest, Steelclaw Clan or Darkling Wood (Dokoras); in Forfedhdar Hibarnhvidar, Boar Clan, Raven's Point or Ain Ghazal (Dokoras); in Therengia Riverhaven, Therenborough, Langenfirth, Fornsted, Hvaral or Muspar'i (Lirums).

@@ -2888,3 +2888,29 @@ def test_interprovince_reads_past_contracts_it_cannot_carry(script):
     assert "ask broker for contract" in world.sent
     assert legs == [("Riverhaven", "Shard")]
     assert not any("deliver it yourself" in e for e in world.echoed)
+
+
+def test_go_takes_the_caravan_to_a_town_and_stops(script):
+    # 2026-10-18: Riverhaven's broker blocked, the caravan taken empty to
+    # Shard's broker.
+    world = World(LEG)
+    world.args = ["go", "wolf", "clan"]
+    legs = []
+    script.leg = lambda s, db, name, origin, destination, *rest: (
+        legs.append((origin, destination)) or True
+    )
+    script.main(world)
+    assert legs == [("Crossing", "Wolf Clan")]
+    assert "give bullock-drawn caravan" in world.sent  # fed first
+    assert "ask minister for contract" not in world.sent
+    assert world.echoed[-1] == "trade: the caravan waits at the Wolf Clan outpost"
+
+
+def test_go_to_a_town_with_no_caravan_way_leads_nowhere(script):
+    world = World(LEG)
+    world.args = ["go", "fornsted"]
+    legs = []
+    script.leg = lambda s, db, name, origin, destination, *rest: legs.append(origin)
+    script.main(world)
+    assert legs == []
+    assert world.echoed[-1] == "trade: no caravan way from Crossing to fornsted"
