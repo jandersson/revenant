@@ -2608,6 +2608,11 @@ class MammothHandle(FakeHandle):
     }
 
     AWAY = "What were you referring to?\n"
+    CARAVAN = (
+        "You start towards a tall sea mammoth, but realize it isn't properly"
+        " equipped for transporting a two auroch caravan.  The guild wouldn't be"
+        " happy should it be harmed.\n"
+    )
     JOINED = 'You join the Merelew driver.  "Right this way, sir."\n'
     # The arrival and the driver's call, captured at Fang Cove 2026-10-11.
     ARRIVES = (
@@ -2637,8 +2642,11 @@ class MammothHandle(FakeHandle):
     def put(self, command):
         super().put(command)
         if command.startswith("join "):
-            if self.answers.pop(0) == "away":
+            answer = self.answers.pop(0)
+            if answer == "away":
                 self.answer = [("", self.AWAY)]
+            elif answer == "caravan":
+                self.answer = [("", self.CARAVAN)]
             else:
                 self.answer = [("", self.JOINED), ("compass", "down")]
                 self.story = [self.LANDS]
@@ -2772,6 +2780,20 @@ def test_the_other_mammoths_call_is_not_answered(quick_mammoth):
     )
     assert walker.walk(handle, to_acenamacra, [2239]) is True
     assert puts_of(handle) == ["join tall mammoth", "look"]  # only at its own call
+
+
+def test_a_trader_with_a_caravan_out_is_refused_and_the_ride_closed(quick_mammoth):
+    # Fang Cove, 2026-10-18: the caravan waited at Wolf Clan, and the walk
+    # stopped on an answer it did not know.
+    handle = MammothHandle(uids=[], answers=["caravan"], docked=True)
+    handle.state.room_uid = 9798001
+    assert walker.walk(handle, MAMMOTHS, [11130]) is False
+    assert puts_of(handle) == ["join sea mammoth"]
+    assert "the mammoth takes no Trader with a caravan out — going round" in (
+        handle.echoes
+    )
+    assert not any("please report it" in e for e in handle.echoes)
+    assert (8301, 11130) in walker.gated(handle)
 
 
 def test_a_mammoth_that_never_comes_stops_the_walk(quick_mammoth):

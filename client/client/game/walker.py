@@ -190,6 +190,11 @@ _DOCKED = {
 }
 MAMMOTH_STREAMS = ("", "atmospherics")
 MAMMOTH_AWAY = ("What were you referring to",)
+# A Trader with a caravan out, wherever it waits (Fang Cove, 2026-10-18,
+# the caravan at Wolf Clan): "You start towards a tall sea mammoth, but
+# realize it isn't properly equipped for transporting a two auroch
+# caravan.  The guild wouldn't be happy should it be harmed."
+MAMMOTH_CARAVAN = ("isn't properly equipped for transporting",)
 MAMMOTH_LANDS = (
     "trumpets a series of watery blasts",
     "Here we are, ladies and gentlemen",
@@ -1066,7 +1071,8 @@ def ride_mammoth(s, mode=""):
     came within MAMMOTH_WAIT_SECONDS, "stuck" when the crossing never
     landed, "unknown" for an answer outside the table. The tall one
     serves Acenamacra (bescort's 'acen', and 'fang' from its pier), the
-    massive one Ratha."""
+    massive one Ratha. "caravan" when it takes no Trader with a caravan
+    out."""
     title = str(getattr(s.state, "room_title", "") or "")
     kind = "tall" if mode == "acen" or "Acenamacra" in title else "sea"
     call = f"[JOIN {kind.upper()} MAMMOTH"  # this mammoth's driver, not the other
@@ -1112,6 +1118,9 @@ def ride_mammoth(s, mode=""):
             # next one is boarded at its driver's call alone.
             listing = False
             continue
+        if any(needle in answer for needle in MAMMOTH_CARAVAN):
+            s.echo("the mammoth takes no Trader with a caravan out — going round")
+            return "caravan"
         first = (answer.strip().splitlines() or ["(silence)"])[0]
         s.echo(
             f"JOIN {kind.upper()} MAMMOTH answered {first!r} — please report it "
@@ -1988,6 +1997,12 @@ def _follow(s, db, route, here, closed, fetched=True):
                 return "fetched"  # planned again from where ;bank left you
             if ridden == "passport" and not fetched and fetch_passport(s, db):
                 return "fetched"  # planned again from Ibec Hall
+            if ridden == "caravan":
+                # Refused while the caravan is out: for every walk this
+                # session, the way a gate's refusal is (#394).
+                closed.add((here, dest))
+                gated(s).add((here, dest))
+                return "closed"
             if ridden != "landed":
                 return False
             if isinstance(leave, dict):
