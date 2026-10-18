@@ -177,22 +177,25 @@ def test_the_starter_plan_takes_home_and_skills_from_the_profile(monkeypatch):
     assert starter["safe_rooms"] == ["town green"]
     assert [task["script"] for task in starter["tasks"]] == [
         "athletics",
+        "favors",
         "hunt",
         "repair",
         "bank",
         "tdp",
         "forage",
     ]
+    # #345: favors before the hunt, while under the operator's cap of 10.
+    assert starter["tasks"][1]["when"] == "favors<10"
     # The hunt sells its skins and banks as it ends (the operator,
     # 2026-09-28), so no skins task, and its return has minutes for it.
-    assert starter["tasks"][1]["return_grace"] == 600
+    assert starter["tasks"][2]["return_grace"] == 600
     # The gear the hunt wore down, mended once a cycle (2026-09-26).
-    assert starter["tasks"][2]["skills"] == []
     assert starter["tasks"][3]["skills"] == []
-    assert starter["tasks"][4]["args"] == ["plan"]  # the TDPs, a task in the order
-    assert starter["tasks"][5]["skills"] == ["Outdoorsmanship"]
-    assert starter["tasks"][1]["skills"] == ["Small Edged"]
-    assert starter["tasks"][1]["return_word"] == "return"
+    assert starter["tasks"][4]["skills"] == []
+    assert starter["tasks"][5]["args"] == ["plan"]  # the TDPs, a task in the order
+    assert starter["tasks"][6]["skills"] == ["Outdoorsmanship"]
+    assert starter["tasks"][2]["skills"] == ["Small Edged"]
+    assert starter["tasks"][2]["return_word"] == "return"
     assert validate(starter) == []
 
 
@@ -202,6 +205,7 @@ def test_an_empaths_starter_plan_has_no_hunt():
     starter = starter_plan("Lanival", "Empath")
     assert [task["script"] for task in starter["tasks"]] == [
         "athletics",
+        "favors",
         "repair",
         "bank",
         "tdp",

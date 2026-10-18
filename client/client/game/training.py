@@ -448,7 +448,10 @@ def save_plan(character, plan: dict) -> Path:
 
 
 def starter_plan(character, guild=None) -> dict:
-    """The plan ;train init writes: the bundled trainers — climbs, the
+    """The plan ;train init writes: the bundled trainers — climbs,
+    ;favors while the favors are under 10 (after the climbs, whose pool
+    the orb feeds on, and before the hunt: a new character earns favors
+    before anything risky, #345), the
     hunt (its skills from the character's profile; it sells its skins
     and banks as it ends, so its return has ten minutes), the gear it
     wore down repaired after it (;repair: the pieces at or
@@ -478,6 +481,11 @@ def starter_plan(character, guild=None) -> dict:
     plan["tasks"] = [
         normalize_task(
             {"name": "climbs", "script": "athletics", "skills": ["Athletics"]}
+        ),
+        # A circle-1 Barbarian died with 0 favors and could only DEPART
+        # bare (2026-09-26); the cap is the operator's (2026-09-28).
+        normalize_task(
+            {"name": "favors", "script": "favors", "when": "favors<10", "minutes": 60}
         ),
         *hunt,
         # The gear mended after the hunt that wore it down, before the

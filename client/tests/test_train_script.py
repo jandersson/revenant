@@ -549,6 +549,7 @@ def test_train_init_writes_the_starter_and_refuses_to_overwrite(clock, tmp_path)
     written = yaml.safe_load(path.read_text(encoding="utf-8"))
     assert [task["script"] for task in written["tasks"]] == [
         "athletics",
+        "favors",  # under 10, before the hunt (#345)
         "hunt",  # it sells its skins and banks as it ends
         "repair",
         "bank",
