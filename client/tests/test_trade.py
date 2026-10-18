@@ -2860,3 +2860,31 @@ def test_a_recall_refused_in_combat_is_asked_again_after_retreating(script):
     )
     script.main(world)
     assert world.sent[:4] == ["recall caravan", "retreat", "retreat", "recall caravan"]
+
+
+def test_interprovince_reads_past_contracts_it_cannot_carry(script):
+    # 2026-10-18: Dijkstra held three ministers' contracts for Fornsted,
+    # and ;trade interprovince stopped on the first one READ found.
+    fornsted = TO_MUSPARI.replace("Muspar'i requires", "Fornsted requires")
+    answers = dict(
+        LEG,
+        **{
+            "read my contract": [fornsted, FROM_RIVERHAVEN],
+            "read my first contract": [fornsted],
+            "read my second contract": [fornsted],
+            "read my third contract": ["I could not find what you were referring to."],
+            "give my contract to clerk": [LOADED],
+            "ask broker": [RIVERHAVEN_BROKER],
+        },
+    )
+    world = World(answers, room=13751)
+    world.args = ["interprovince"]
+    legs = []
+    script.shop = SimpleNamespace(afford=lambda *a, **k: True)
+    script.leg = lambda s, db, name, origin, destination, *rest: (
+        legs.append((origin, destination)) and False
+    )
+    script.main(world)
+    assert "ask broker for contract" in world.sent
+    assert legs == [("Riverhaven", "Shard")]
+    assert not any("deliver it yourself" in e for e in world.echoed)

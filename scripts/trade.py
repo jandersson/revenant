@@ -29,7 +29,7 @@ What it does
     and unloaded, said, and the run goes on as a circuit of the province's
     other towns, held at an outpost while every town waits on one until it
     expires (6 anlaen, three hours); with `interprovince`, a broker's
-    beyond the routes stops it.
+    beyond the routes stops it, and a minister's held is read past.
   - A lead the driver turns down is told again from the room trade.lic
     leads from (Barony Pass, Outside Langenfirth, the Arnshal Road's two
     ends, Forfedhdar's).
@@ -1199,6 +1199,13 @@ def main(s):
     while True:
         contract = held(s)
         delivered = False
+        if broker and contract and (contract.expired or beyond(contract)):
+            # Dead weight to a broker's run: a minister's contract for a
+            # town it cannot reach blocks no broker (Dijkstra's three for
+            # Fornsted, 2026-10-18), so the first live one is read past it.
+            contract = next(
+                (c for c in held_all(s) if not (c.expired or beyond(c))), None
+            )
         if contract and unloaded(contract) and trade.town(contract.origin) != place:
             # Issued elsewhere and never loaded: the circuit takes it back
             # to its clerk, the other contracts along.
