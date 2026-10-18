@@ -9,9 +9,13 @@ estimate of its worth on delivery, the coin, and its province: Zoluren,
 Ilithi or Therengia, or Interprovince when the destination is in another
 province (filled in for the rows logged before the column). The clerk's loading
 adds the transport fee; the delivery fills `delivered_at` and `paid`.
+A contract that dies is closed instead, `ended` and `ended_at`:
+"expired" (an expired READ, its paper kept or binned) or "dumped" (its
+crate taken off the caravan, or found gone) — #587, after a night of
+Therengia contracts for towns no caravan reaches.
 `summary` reads the rows back per route for ;trade history: count,
-delivered, the pay, the cost (wholesale, dues and fee) and the minutes
-from issue to pay, the money in Kronars (the pay in the contract's own
+delivered, dead, the pay, the cost (wholesale, dues and fee), the cost
+lost on dead contracts that were loaded, and the minutes from issue to pay, the money in Kronars (the pay in the contract's own
 coin, the cost in the origin's, at money.KRONAR_RATES). `leg_minutes` is
 each route's shortest delivered contract, ;trade circuit's measure of a
 leg. A logging failure is logged and never stops a script.
@@ -38,7 +42,9 @@ CREATE TABLE IF NOT EXISTS contracts (
     fee INTEGER,
     delivered_at TEXT,
     paid INTEGER,
-    province TEXT
+    province TEXT,
+    ended TEXT,
+    ended_at TEXT
 )
 """
 
@@ -77,6 +83,10 @@ def _connect(path):
             [(province(origin, to), seq) for seq, origin, to in rows.fetchall()],
         )
         connection.commit()
+    for column in ("ended", "ended_at"):
+        if column not in present:
+            connection.execute(f"ALTER TABLE contracts ADD COLUMN {column} TEXT")
+            connection.commit()
     return connection
 
 
@@ -138,7 +148,7 @@ def _open_seq(character, origin, contract, path=None):
         row = connection.execute(
             "SELECT seq FROM contracts WHERE character_name = ? AND origin = ?"
             " AND destination = ? AND goods = ? AND delivered_at IS NULL"
-            " ORDER BY seq DESC LIMIT 1",
+            " AND ended IS NULL ORDER BY seq DESC LIMIT 1",
             (character or "unknown", origin, contract.destination, contract.goods),
         ).fetchone()
     except sqlite3.Error:
@@ -164,8 +174,66 @@ def log_delivery(character, destination, paid, path=None):
     return _write(
         "UPDATE contracts SET delivered_at = ?, paid = ? WHERE seq = ("
         "SELECT seq FROM contracts WHERE character_name = ? AND destination = ?"
-        " AND delivered_at IS NULL ORDER BY worth IS ? DESC, seq LIMIT 1)",
+        " AND delivered_at IS NULL AND ended IS NULL"
+        " ORDER BY worth IS ? DESC, seq LIMIT 1)",
         (now(), paid, character or "unknown", destination, paid),
+        path,
+    )
+
+
+def _key(name):
+    return trade.town(name) or name
+
+
+def _open_rows(character, origin, path):
+    """The seqs of the character's open rows from `origin`, oldest first."""
+    connection = _connect(path)
+    try:
+        return [
+            row[0]
+            for row in connection.execute(
+                "SELECT seq FROM contracts WHERE character_name = ? AND origin = ?"
+                " AND delivered_at IS NULL AND ended IS NULL ORDER BY seq",
+                (character or "unknown", origin),
+            )
+        ]
+    finally:
+        connection.close()
+
+
+def log_expired(character, held, path=None):
+    """Rows closed "expired" for each town an expired contract is held
+    from (`held`, trade.contract readings). An expired READ names only its
+    origin, and a minister issues a new contract once the last would have
+    expired, so a town's oldest open rows are closed while it has more
+    open than live contracts held: a read repeated closes nothing more.
+    The number closed."""
+    closed = 0
+    try:
+        for origin in {_key(c.origin) for c in held if c.expired}:
+            live = sum(1 for c in held if not c.expired and _key(c.origin) == origin)
+            rows = _open_rows(character, origin, path)
+            for seq in rows[: max(0, len(rows) - live)]:
+                _write(
+                    "UPDATE contracts SET ended = 'expired', ended_at = ? WHERE seq = ?",
+                    (now(), seq),
+                    path,
+                )
+                closed += 1
+    except Exception:
+        logging.getLogger(__name__).exception("contract log failed")
+    return closed
+
+
+def log_dumped(character, origin, destination, goods=None, path=None):
+    """The character's newest open row for this route (and these goods)
+    closed "dumped": its crate taken off the caravan, or found gone."""
+    return _write(
+        "UPDATE contracts SET ended = 'dumped', ended_at = ? WHERE seq = ("
+        "SELECT seq FROM contracts WHERE character_name = ? AND origin = ?"
+        " AND destination = ? AND (? IS NULL OR goods = ?)"
+        " AND delivered_at IS NULL AND ended IS NULL ORDER BY seq DESC LIMIT 1)",
+        (now(), character or "unknown", _key(origin), _key(destination), goods, goods),
         path,
     )
 
@@ -203,14 +271,16 @@ def leg_minutes(character=None, path=None):
 
 def summary(character=None, path=None):
     """Per route, the most run first: {"origin", "destination",
-    "contracts", "delivered", "paid", "cost" (wholesale, dues and fee of
-    the delivered ones), "profit", "minutes" (issue to pay, the
-    delivered ones' mean, None with none)}; the money in copper Kronars."""
+    "contracts", "delivered", "dead" (ended undelivered), "paid", "cost"
+    (wholesale, dues and fee of the delivered ones), "lost" (those of the
+    dead ones that were loaded), "profit" (paid less both), "minutes"
+    (issue to pay, the delivered ones' mean, None with none)}; the money
+    in copper Kronars."""
     connection = _connect(path)
     try:
         rows = connection.execute(
             "SELECT origin, destination, wholesale, dues, fee, paid, currency,"
-            " issued_at, delivered_at FROM contracts"
+            " issued_at, delivered_at, ended FROM contracts"
             + (" WHERE character_name = ?" if character else ""),
             (character,) if character else (),
         ).fetchall()
@@ -227,6 +297,7 @@ def summary(character=None, path=None):
         coin,
         issued,
         delivered,
+        ended,
     ) in rows:
         route = routes.setdefault(
             (origin, destination),
@@ -235,13 +306,21 @@ def summary(character=None, path=None):
                 "destination": destination,
                 "contracts": 0,
                 "delivered": 0,
+                "dead": 0,
                 "paid": 0,
                 "cost": 0,
+                "lost": 0,
                 "minutes": [],
             },
         )
         route["contracts"] += 1
         if delivered is None:
+            if ended:
+                route["dead"] += 1
+                if fee is not None:  # loaded: the wholesale and dues were paid
+                    route["lost"] += money.in_kronars(
+                        (wholesale or 0) + (dues or 0) + fee, trade.coin(origin)
+                    )
             continue
         route["delivered"] += 1
         # The contract's own coin: a broker's for Riverhaven pays Lirums.
@@ -255,7 +334,7 @@ def summary(character=None, path=None):
     out = []
     for route in routes.values():
         times = route.pop("minutes")
-        route["profit"] = route["paid"] - route["cost"]
+        route["profit"] = route["paid"] - route["cost"] - route["lost"]
         route["minutes"] = sum(times) / len(times) if times else None
         out.append(route)
     return sorted(out, key=lambda route: (-route["contracts"], route["origin"]))
@@ -269,8 +348,12 @@ def describe(route):
         f" contract{'s' if route['contracts'] != 1 else ''},"
         f" {route['delivered']} delivered"
     )
-    if route["delivered"]:
+    if route["dead"]:
+        line += f", {route['dead']} dead"
+    if route["delivered"] or route["lost"]:
         line += f", paid {route['paid']:,}, profit {route['profit']:,} Kronars"
+    if route["lost"]:
+        line += f" ({route['lost']:,} lost)"
     if route["minutes"] is not None:
         line += f", {route['minutes']:.0f} min each"
     return line

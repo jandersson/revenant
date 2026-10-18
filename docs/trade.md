@@ -8,7 +8,7 @@
 ;trade circuit    hold a contract from every town at once, the caravan led to the nearest town with business
 ;trade return     typed while it runs: deliver what is held, take no new contract, return the caravan
 ;trade pause      typed while it runs: the same, but the caravan is kept at the outpost for the next ;trade
-;trade history    per route: contracts, pay and profit in Kronars (Dokoras at 1.386, Lirums at 1.25), minutes
+;trade history    per route: contracts, dead ones (expired, or the crate dumped), pay and profit in Kronars (Dokoras at 1.386, Lirums at 1.25), minutes
 ;trade go <town>  take the caravan, loaded or empty, to a town's outpost by the usual leads and rides, then stop
 ```
 

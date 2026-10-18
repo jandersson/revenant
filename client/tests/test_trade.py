@@ -9,6 +9,7 @@ The answers are a Crossing → Wolf Clan run's, captured 2026-10-15
 import importlib.util
 import pathlib
 import re
+import sqlite3
 from types import SimpleNamespace
 
 import pytest
@@ -1731,6 +1732,8 @@ class Circuit:
         script.tradelog = SimpleNamespace(
             leg_minutes=lambda character=None: dict(minutes or {}),
             log_issue=lambda *a, **k: 1,
+            log_expired=lambda *a, **k: 0,
+            log_dumped=lambda *a, **k: self.calls.append(("dumped",) + a[1:3]),
         )
 
     def record(self, *call):
@@ -2561,6 +2564,7 @@ def test_a_contract_read_loaded_with_no_crate_aboard_is_never_delivered(script):
     script.province = lambda place: ("Fornsted",)
     script.circuit(world, MAP, "sleek caravan", "Fornsted", True, [])
     assert not any(call[0] == "deliver" for call in fake.calls)
+    assert ("dumped", "Therenborough", "Fornsted") in fake.calls
     assert ("take", "Fornsted") in fake.calls
     assert fake.calls[-1] == ("leg", "Fornsted", "Hvaral")
     assert (
@@ -2808,6 +2812,37 @@ def test_a_teller_trip_draws_the_reserve_with_the_charge(script):
     world.purse = 30_000
     assert script.fund(world, MAP, 2_376, "Kronars")
     assert afforded == [2_376 + script.KEEP, 2_376]
+
+
+def test_an_expired_contract_closes_its_towns_oldest_open_row_once(tmp_path):
+    # #587: Langenfirth's expired paper held beside the new contract its
+    # minister issued after it; the read comes round every stop.
+    db = tmp_path / "history.db"
+    live = trade.contract(TO_MUSPARI)._replace(origin="Langenfirth")
+    old = tradelog.log_issue("Lanival", "Langenfirth", live, 1, 1, path=db)
+    new = tradelog.log_issue("Lanival", "Langenfirth", live, 2, 2, path=db)
+    held = [trade.contract(EXPIRED_CONTRACT), live]
+    assert tradelog.log_expired("Lanival", held, path=db) == 1
+    assert tradelog.log_expired("Lanival", held, path=db) == 0
+    connection = sqlite3.connect(db)
+    ended = dict(connection.execute("SELECT seq, ended FROM contracts").fetchall())
+    connection.close()
+    assert ended == {old: "expired", new: None}
+
+
+def test_a_dumped_crates_cost_is_lost_from_the_routes_profit(tmp_path):
+    db = tmp_path / "history.db"
+    contract = trade.contract(TO_MUSPARI)._replace(destination="Fornsted")
+    seq = tradelog.log_issue("Lanival", "Therenborough", contract, 5037, 1462, path=db)
+    tradelog.log_fee(seq, 40, path=db)
+    tradelog.log_dumped("Lanival", "Therenborough", "Fornsted", path=db)
+    tradelog.log_delivery("Lanival", "Fornsted", 9999, path=db)  # no open row left
+    (route,) = tradelog.summary("Lanival", path=db)
+    lost = money.in_kronars(5037 + 1462 + 40, "Lirums")
+    assert (route["dead"], route["delivered"], route["lost"]) == (1, 0, lost)
+    assert route["profit"] == -lost
+    assert "1 dead" in tradelog.describe(route)
+    assert f"({lost:,} lost)" in tradelog.describe(route)
 
 
 def test_contracts_put_away_are_not_counted_as_held(script):

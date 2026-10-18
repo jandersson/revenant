@@ -124,7 +124,7 @@ are `client/<pkg>/x.py` for `client/client/<pkg>/x.py`.
   `tasklog.py` (every offer and its end in history.db; ;task history);
   `trade.py` (;trade: Zoluren, Ilithi, Forfedhdar and Therengia caravan contracts, minister or
   broker to clerk to LEAD TO; ;trade circuit a contract from every town at once) +
-  `tradelog.py` (every contract and its pay in history.db; ;trade history);
+  `tradelog.py` (every contract and its pay or its end in history.db; ;trade history);
   `kiosk.py` (;kiosk: a Trader's PRIA kiosk recast, priced, funded by
   POKE, its purchases TAPped and resold with Finesse up) + `kiosklog.py`
   (the kiosk dataset in history.db, read out of the game logs);

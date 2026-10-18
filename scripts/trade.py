@@ -5,7 +5,7 @@
     ;trade circuit    hold a contract from every town at once, the caravan led to the nearest town with business
     ;trade return     typed while it runs: deliver what is held, take no new contract, return the caravan at the clerk
     ;trade pause      typed while it runs: deliver what is held, take no new contract, stop with the caravan kept at the outpost
-    ;trade history    every contract logged: per route the count, the pay and the profit in Kronars, the minutes
+    ;trade history    every contract logged: per route the count, the dead ones, the pay and the profit in Kronars (a lost crate's cost taken off), the minutes
     ;trade go <town>  the caravan, loaded or empty, fed and taken to the town's outpost by the usual leads and rides; then stop
 
 What it does
@@ -1037,6 +1037,7 @@ def unload(s, name, contracts):
             )
             break
         load, gone = after, gone + 1
+        tradelog.log_dumped(character(s), origin, destination)
         s.echo(f"{PREFIX}: the {origin} crate for {destination} taken off the caravan")
     return gone
 
@@ -1141,6 +1142,7 @@ def circuit(s, db, name, place, beside, training):
     lost = None
     while True:
         contracts = held_all(s)
+        tradelog.log_expired(character(s), contracts)
         if lost is None:
             # Once, at the caravan: a contract read loaded, its crate gone.
             loaded = any(c.presented for c in contracts)
@@ -1149,6 +1151,7 @@ def circuit(s, db, name, place, beside, training):
             lost = crateless(s, name, contracts) if loaded else set()
             for c in contracts:
                 if paper(c) in lost:
+                    tradelog.log_dumped(character(s), c.origin, c.destination, c.goods)
                     s.echo(
                         f"{PREFIX}: the {c.origin} contract for {c.destination} has no"
                         " crate on the caravan — kept, never delivered"
