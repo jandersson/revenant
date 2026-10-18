@@ -1220,6 +1220,17 @@ def test_a_contract_from_ilithi_to_zoluren_crosses_back_the_same_way(script):
     ]
 
 
+def test_a_leg_to_shard_changes_the_ferrys_kronars_before_the_south_bank(script):
+    # From Riverhaven the purse held Lirums and the Crossing's ferry refused
+    # the fare (2026-10-18).
+    calls = []
+    script.lead = lambda s, name, place, *a: calls.append(("lead", place)) or True
+    script.bring = lambda s, db, name, room: calls.append(("bring", room)) or True
+    script.ferry_fare = lambda s, coin, *a: calls.append(("fare", coin))
+    assert script.leg(None, MAP, "caravan", "Dirge", "Shard")
+    assert calls.index(("fare", "Kronars")) == calls.index(("bring", 1904)) - 1
+
+
 def test_the_faldesu_ferry_is_a_step_the_walker_rides():
     # The map's bescort 'faldesu' edge, ridden like Alfren's Ferry.
     _script()

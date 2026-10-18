@@ -891,6 +891,9 @@ def leg(s, db, name, origin, destination, grass=None, training=()):
             lead(s, name, "Crossing", grass, training) and bring(s, db, name, crossing)
         ):
             return False
+        # From Riverhaven the purse holds Lirums (refused at the dock,
+        # 2026-10-18), from Shard Dokoras: the Kronars first.
+        ferry_fare(s, "Kronars", trade.ALFREN_KRONARS, "Alfren's Ferry")
         if not bring(s, db, name, trade.FERRY_SOUTH):
             return False
     if origin == destination:
