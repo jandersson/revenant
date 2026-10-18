@@ -59,7 +59,8 @@ What it does
     you aboard (77 Kronars for the goods; with none on you ;bank fetches
     them while the caravan waits at the dock). A contract between Zoluren and
     Ilithi (a broker's) goes by Leth Deriel and the Obsidian Pass
-    gondola, the caravan walked after you and riding along.
+    gondola, the caravan walked after you and riding along; out of Shard,
+    the ferry's Kronars are changed at Shard's bank first.
   - Riverhaven (the Crossing broker's) is led to by Dirge and walked to over
     the Faldesu ferry; at Dirge ;bank tops the purse up to 500 Lirums for
     the fare first. Back, the ferry and a lead to Dirge from the riverbank.
@@ -508,15 +509,16 @@ def run_bank(s, args):
         raise
 
 
-def ferry_lirums(s):
-    """The Faldesu ferry's fare on hand before the lead to Riverhaven:
-    ;bank at Dirge's teller and changer, two rooms from Gateway Road,
-    tops the purse up to FALDESU_LIRUMS, KEEP kept. A fare still short is
-    the ferry's to refuse and bring() fetches it there."""
-    if money.carried(s, "Lirums", ask) >= trade.FALDESU_LIRUMS:
+def ferry_fare(s, coin, fare, ferry):
+    """A ferry's fare on hand before the leg that rides it: ;bank at the
+    teller and changer near (Dirge's for the Faldesu, two rooms from
+    Gateway Road; Shard's for Alfren's past Leth) tops the purse up to
+    `fare` copper of `coin`, KEEP kept. A fare still short is the
+    ferry's to refuse and bring() fetches it there."""
+    if money.carried(s, coin, ask) >= fare:
         return
-    s.echo(f"{PREFIX}: Lirums for the Faldesu ferry first")
-    run_bank(s, [f"keep={KEEP}", f"lirums={trade.FALDESU_LIRUMS}", "back"])
+    s.echo(f"{PREFIX}: {coin} for {ferry} first")
+    run_bank(s, [f"keep={KEEP}", f"{coin.lower()}={fare}", "back"])
 
 
 def fund(s, db, copper, coin):
@@ -853,7 +855,7 @@ def leg(s, db, name, origin, destination, grass=None, training=()):
         if destination in trade.THERENGIA:
             if not leg(s, db, name, origin, dirge, grass, training):
                 return False
-            ferry_lirums(s)
+            ferry_fare(s, "Lirums", trade.FALDESU_LIRUMS, "the Faldesu ferry")
             return lead(s, name, destination, grass, training) and bring(
                 s, db, name, trade.TOWNS[destination].outpost
             )
@@ -867,10 +869,15 @@ def leg(s, db, name, origin, destination, grass=None, training=()):
         out, into = ("Shard", trade.ACROSS)
         if destination in trade.ILITHI:
             out, into = into, out
-        return (
-            leg(s, db, name, origin, out, grass, training)
-            and bring(s, db, name, trade.TOWNS[into].outpost)
-            and leg(s, db, name, into, destination, grass, training)
+        if not leg(s, db, name, origin, out, grass, training):
+            return False
+        if destination not in trade.ILITHI and destination != trade.ACROSS:
+            # Alfren's Ferry wants Kronars and the purse leaves Shard with
+            # Dokoras: refused at Leth's dock, twice on 2026-10-18, the
+            # fetch there banked the reserve too.
+            ferry_fare(s, "Kronars", trade.ALFREN_KRONARS, "Alfren's Ferry")
+        return bring(s, db, name, trade.TOWNS[into].outpost) and leg(
+            s, db, name, into, destination, grass, training
         )
     crossing = trade.TOWNS["Crossing"].outpost
     if origin == trade.ACROSS:

@@ -130,6 +130,7 @@ LEAD_FROM_PAIR = {
 # Deriel"). Captured 2026-10-15; trade.lic's do_lead_to the way.
 ACROSS = "Leth Deriel"
 FERRY_SOUTH = 1904  # Southern Trade Route, Segoltha South Bank
+ALFREN_KRONARS = 200  # copper on hand for the ferry, a margin over 77
 LEAD_NAMES = {  # trade.lic's
     "Leth Deriel": "leth",
     "Darkling Wood": "darkling",

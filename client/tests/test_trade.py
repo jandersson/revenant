@@ -1206,10 +1206,12 @@ def test_a_contract_from_ilithi_to_zoluren_crosses_back_the_same_way(script):
     calls = []
     script.lead = lambda s, name, place, *a: calls.append(("lead", place)) or True
     script.bring = lambda s, db, name, room: calls.append(("bring", room)) or True
+    script.ferry_fare = lambda s, coin, *a: calls.append(("fare", coin))
     assert script.leg(None, MAP, "caravan", "Fayrin's Rest", "Arthe Dale")
     assert calls == [
         ("lead", "Shard"),
         ("bring", 8191),
+        ("fare", "Kronars"),  # at Shard, before the gondola and Leth's ferry
         ("bring", 2039),
         ("lead", "Crossing"),
         ("bring", 895),
@@ -1259,8 +1261,15 @@ def test_a_leg_to_riverhaven_goes_by_dirge_and_the_faldesu(script):
 def test_lirums_enough_for_the_ferry_send_no_bank_run(script):
     world = World(CROSSING_ANSWERS, room=1307)
     world.purse = 500
-    script.ferry_lirums(world)
+    script.ferry_fare(world, "Lirums", trade.FALDESU_LIRUMS, "the Faldesu ferry")
     assert world.ran == []
+
+
+def test_kronars_short_for_alfrens_ferry_are_banked_for_first(script):
+    world = World(CROSSING_ANSWERS, room=8191)
+    script.ferry_fare(world, "Kronars", trade.ALFREN_KRONARS, "Alfren's Ferry")
+    assert world.ran == [("bank", [f"keep={script.KEEP}", "kronars=200", "back"])]
+    assert "trade: Kronars for Alfren's Ferry first" in world.echoed
 
 
 def test_a_contract_from_riverhaven_crosses_back_and_leads_from_the_riverbank(script):
