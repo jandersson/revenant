@@ -2135,8 +2135,10 @@ def _follow(s, db, route, here, closed, fetched=True):
         if end := passage_end(command):
             # The first room is the passage's, not the edge's end (Dusty
             # Road in Ker'Leor's brambles, "off course at step 77",
-            # 2026-10-18): the arrival is read when the passage ends.
+            # 2026-10-18): the arrival is read when the passage ends, and
+            # the edge's room comes just after the end line (the walk east).
             read_story(s, PASSAGE_SECONDS, until=(end,))
+            await_arrival(s)
         for follow_up in after:
             s.waitrt()
             if (wait := pause_seconds(follow_up)) is not None:

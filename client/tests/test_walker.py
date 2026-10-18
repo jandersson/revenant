@@ -3714,26 +3714,30 @@ BRAMBLES = MapDB(
 class PassageHandle(FakeHandle):
     """Ker'Leor's bramble passage (2026-10-18): WEST lands first in Dusty
     Road (a room the map does not know), and the passage ends two minutes
-    on with its own line, in the edge's room."""
+    on with its own line, the edge's room arriving just after it (the
+    walk east, 05:21 that day, checked on the line and read Dusty Road)."""
 
     END = (
         "Just when it seems you will never reach the end of the road, you trek"
         " through a patch of brush to your destination...\n"
     )
+    TITLES = {
+        1230061: "[Therenborough, Dusty Road]",
+        1230002: "[Ker'Leor, Deep Forest Path]",
+    }
 
     def __init__(self):
-        super().__init__(uids=[1230061])
+        super().__init__(uids=[1230061, 1230002])
         self.state.room_uid = 1230001
         self.ended = False
 
     def get(self, timeout=None, streams=("",)):
-        if streams == ("",) and timeout != 0 and self.state.room_uid == 1230061:
-            self.state.room_uid = 1230002
-            self.state.room_title = "[Ker'Leor, Deep Forest Path]"
-            return self.END
+        if streams == ("",) and timeout != 0 and not self.ended:
+            if self.state.room_uid == 1230061:
+                self.ended = True
+                return self.END
         item = super().get(timeout, streams)
-        if self.state.room_uid == 1230061:
-            self.state.room_title = "[Therenborough, Dusty Road]"
+        self.state.room_title = self.TITLES.get(self.state.room_uid)
         return item
 
 
