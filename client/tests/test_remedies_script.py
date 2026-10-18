@@ -757,7 +757,7 @@ def test_the_herbs_water_and_coal_are_bought_as_they_run_out():
     # buy, two stacks of flowers, the nemoih and the water (998) and a
     # nugget (212), less the 100 in the purse; the water and the nugget
     # are paid from it.
-    assert fake.withdrawn == [1110]
+    assert fake.withdrawn == [1200]  # the 1110 short, in whole silver (#588)
     assert fake.sent.count("order 13") == 4
     assert fake.sent.count("order 1") == 2
     assert fake.sent.count("order 2") == 2 * CATALYST_STOCK

@@ -122,7 +122,25 @@ def test_afford_reads_wealth_and_withdraws_the_shortfall(monkeypatch):
     assert shop.afford(
         s, s.ask, "boxes", 350, db=SimpleNamespace(), walk=lambda *a, **k: True
     )
-    assert drawn == [("boxes", 250, "Kronars")]
+    assert drawn == [("boxes", 300, "Kronars")]  # in whole silver
+
+
+def test_a_shortfall_is_drawn_in_whole_silver_three_withdrawals_at_most(monkeypatch):
+    # #588: 37,923 Lirums went as five WITHDRAWs and the fifth balked the teller.
+    s = Fake({"wealth": "Wealth:\n  No Lirums.\n"})
+    drawn = []
+    monkeypatch.setattr(
+        bank,
+        "withdraw",
+        lambda s, db, walk, ask, prefix, copper, currency, retry="": (
+            drawn.append(copper) or True
+        ),
+    )
+    assert shop.afford(
+        s, s.ask, "trade", 37_923, "Lirums", db=SimpleNamespace(), walk=lambda *a: True
+    )
+    assert drawn == [38_000]
+    assert len(bank.split(38_000)) <= 3
 
 
 def test_money_purse_and_carried_read_wealth():

@@ -130,13 +130,19 @@ def buy(s, ask, prefix, order, *, expect=None, purse=None, max_price=None, noun=
     return price
 
 
+SILVER = 100  # copper
+
+
 def afford(
     s, ask, prefix, copper, currency="Kronars", *, db=None, walk=None, retry="try again"
 ):
     """True when the purse holds `copper` of `currency` (WEALTH read),
     or once the shortfall is WITHDRAWn at the nearest teller
     (bank.withdraw, which walks there and says what the teller said);
-    False, said, when the teller refused or could not be reached."""
+    False, said, when the teller refused or could not be reached. The
+    shortfall is drawn in whole silver: one WITHDRAW per denomination,
+    and the fifth of a run balked the teller every time, a minute lost
+    (#588, four of four ;trade charges on 2026-10-18)."""
     have = money.carried(s, currency, ask)
     if have >= copper:
         return True
@@ -146,7 +152,7 @@ def afford(
         walk or walker.walk,
         ask,
         prefix,
-        copper - have,
+        -(-(copper - have) // SILVER) * SILVER,
         currency,
         retry=retry,
     )

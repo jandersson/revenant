@@ -768,7 +768,7 @@ def test_a_short_purse_fetches_the_picks_price_from_the_teller(monkeypatch):
     fake = Fake(_ragge(wealth))
     run = _refill_run(fake, {"lockpick_ring": "ring", "lockpick_refill": 2})
     assert script.refill_ring(run)
-    assert withdrawn == [150]  # 250 for two, 100 carried
+    assert withdrawn == [200]  # 250 for two, 100 carried: 150 in whole silver
 
 
 def test_a_refill_of_zero_never_buys(monkeypatch):
