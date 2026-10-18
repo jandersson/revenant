@@ -40,7 +40,9 @@ from client.client_logger import ClientLogger
 from client.game import astral, money, moonbeam
 from client.game.mapdb import (
     ICE_ROAD,
+    PASSAGE_SECONDS,
     normalize_title,
+    passage_end,
     pause_seconds,
     portal_town_of,
     ride_args,
@@ -2130,6 +2132,11 @@ def _follow(s, db, route, here, closed, fetched=True):
         if outcome != "arrived":
             s.echo(f"stalled at step {number} ({move!r}) — stopping here")
             return False
+        if end := passage_end(command):
+            # The first room is the passage's, not the edge's end (Dusty
+            # Road in Ker'Leor's brambles, "off course at step 77",
+            # 2026-10-18): the arrival is read when the passage ends.
+            read_story(s, PASSAGE_SECONDS, until=(end,))
         for follow_up in after:
             s.waitrt()
             if (wait := pause_seconds(follow_up)) is not None:

@@ -3699,3 +3699,46 @@ def test_the_ain_ghazal_ferry_is_ridden_like_alfrens(quick_ferry):
     handle.state.room_uid = 4122309
     assert walker.walk(handle, AIN_GHAZAL, [11027], describe="Ain Ghazal") is True
     assert puts_of(handle) == ["go ferry", "go ferry", "go dock"]
+
+
+BRAMBLES = MapDB(
+    [
+        {"id": 3631, "uid": [1230001], "title": ["[Therenborough Road]"],
+         "wayto": {"3632": ";e fput 'west';waitfor 'Just when it seems you will never reach'"}},
+        {"id": 3632, "uid": [1230002], "title": ["[Ker'Leor, Deep Forest Path]"],
+         "wayto": {}},
+    ]
+)  # fmt: skip
+
+
+class PassageHandle(FakeHandle):
+    """Ker'Leor's bramble passage (2026-10-18): WEST lands first in Dusty
+    Road (a room the map does not know), and the passage ends two minutes
+    on with its own line, in the edge's room."""
+
+    END = (
+        "Just when it seems you will never reach the end of the road, you trek"
+        " through a patch of brush to your destination...\n"
+    )
+
+    def __init__(self):
+        super().__init__(uids=[1230061])
+        self.state.room_uid = 1230001
+        self.ended = False
+
+    def get(self, timeout=None, streams=("",)):
+        if streams == ("",) and timeout != 0 and self.state.room_uid == 1230061:
+            self.state.room_uid = 1230002
+            self.state.room_title = "[Ker'Leor, Deep Forest Path]"
+            return self.END
+        item = super().get(timeout, streams)
+        if self.state.room_uid == 1230061:
+            self.state.room_title = "[Therenborough, Dusty Road]"
+        return item
+
+
+def test_a_passage_is_walked_to_its_end_before_the_arrival_check():
+    handle = PassageHandle()
+    assert walker.walk(handle, BRAMBLES, [3632]) is True
+    assert puts_of(handle) == ["west"]
+    assert not any("off course" in echo for echo in handle.echoes)

@@ -509,6 +509,24 @@ def portal_town_of(command):
     return match.group("town") if match else None
 
 
+# A passage the game walks you through, its end the edge's trailing
+# waitfor: Ker'Leor's brambles west of Therenborough ("Just when it seems
+# you will never reach the end of the road", two minutes after the WEST,
+# 2026-10-18). translate_embedded drops that wait; the walker and haul
+# read up to it, or a room the passage carries you through reads as the
+# arrival and the walk goes off course.
+PASSAGE = re.compile(r"waitfor\s+'([^']+)'\s*;?\s*$")
+PASSAGE_SECONDS = 300
+
+
+def passage_end(command):
+    """The line a scripted passage edge ends on, or None."""
+    if not isinstance(command, str) or not command.startswith(";e"):
+        return None
+    match = PASSAGE.search(command)
+    return match.group(1) if match else None
+
+
 @lru_cache(maxsize=4096)
 def translate_embedded(command):
     """Game commands for a simple embedded-Ruby edge, or None.

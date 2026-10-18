@@ -18,7 +18,14 @@ import re
 
 from client.game import flight, travel, walker
 from client.game.act import ask, said
-from client.game.mapdb import pause_seconds, ride_args, ride_of, translate_embedded
+from client.game.mapdb import (
+    PASSAGE_SECONDS,
+    passage_end,
+    pause_seconds,
+    ride_args,
+    ride_of,
+    translate_embedded,
+)
 from client.game.trade import FOLLOW_ORDERED, FOLLOWING
 
 FOLLOW_SECONDS = 30  # a step's wait for the caravan to catch up
@@ -27,12 +34,8 @@ FOLLOW_SECONDS = 30  # a step's wait for the caravan to catch up
 # A regex, as waitfor matches: "...wait" unescaped took "city waits" in
 # the Road to Shard's description for it (2026-10-15).
 WAITED = r"^\.\.\.wait \d+ seconds?\."
-# A passage the game walks you through, its end the edge's trailing
-# waitfor: Ker'Leor's brambles west of Therenborough ("Just when it seems
-# you will never reach the end of the road", two minutes after the WEST;
-# the caravan arrives after it, 2026-10-17). 30 seconds gave up on it.
-PASSAGE = re.compile(r"waitfor\s+'([^']+)'\s*;?\s*$")
-PASSAGE_SECONDS = 300
+# A passage (mapdb.passage_end): the caravan arrives after its end line,
+# so 30 seconds gave up on Ker'Leor's brambles (2026-10-17).
 FERRY = "ferry"  # a route step the walker rides: Alfren's Ferry, the Faldesu's,
 GONDOLA = "gondola"  # the Hibarnhvidar-Ain Ghazal ferry, and the Obsidian Pass gondola
 SANDBARGE = "sandbarge"
@@ -117,7 +120,7 @@ def bring(s, db, name, room, prefix):
     for (_, raw), commands in zip(route, edges):
         s.clear()
         gate = commands[0] == GATE
-        passage = PASSAGE.search(raw) if isinstance(commands, list) else None
+        passage = passage_end(raw) if isinstance(commands, list) else None
         if commands[0] == FERRY:
             # The caravan follows aboard and off again; GO DOCK is the
             # step it is waited for on.
@@ -179,7 +182,7 @@ def bring(s, db, name, room, prefix):
             s.waitrt()
             s.put(command)
         if passage:
-            s.waitfor(re.escape(passage.group(1)), timeout=PASSAGE_SECONDS)
+            s.waitfor(re.escape(passage), timeout=PASSAGE_SECONDS)
         line = s.waitfor(FOLLOWING, WAITED, timeout=FOLLOW_SECONDS)
         if line is not None and re.search(WAITED, line):
             s.waitrt()
