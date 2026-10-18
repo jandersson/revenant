@@ -39,7 +39,8 @@ What it does
   - A crate no clerk will pay for (its contract expired, or loaded for a
     town beyond the routes) comes off the caravan at a circuit's stop:
     PUSH and PULL STURDY CRATE, the game's way, not a DROP; kept while
-    another caravan is in the room.
+    another caravan is in the room. A contract whose crate is gone is
+    kept, never handed in (LOOK at the caravan when a circuit starts).
   - Started beside its caravan away from an outpost (a run stopped on the road),
     goes on from there with the crate it holds; near its town, walks the
     caravan to the outpost and delivers.
@@ -200,6 +201,17 @@ driver's help, and the crate fell to the ground in the room; the LOOK
 after listed only the storage box. The contract still reads presented
 with its crate gone, so a restart beside the caravan counts only a
 crate it can deliver as a load on the road.
+
+The first circuit in Fornsted (2026-10-18) held three Fornsted
+contracts: an expired one, the Therenborough one whose crate came off at
+Langenfirth, and an unloaded one from Riverhaven. GET MY FORNSTED
+CONTRACT took the first, the expired one, and the clerk handed it back
+("Nope, not for us."); the restart, by its ordinal, handed in the
+crateless one ("What have you done with the goods?  Is this a trick?").
+Since then a circuit LOOKs at its caravan once as it starts, from the
+outpost when started away from it, and reads a contract with no crate
+aboard as beyond the routes; a delivery among several contracts fetches
+the one READ found by its ordinal.
 """
 
 PREFIX = "trade"
@@ -326,6 +338,33 @@ def held(s, ordinal=""):
     return trade.contract(text)
 
 
+def paper(contract):
+    """What tells two held contracts apart from one READ to the next."""
+    return (contract.origin, contract.destination, contract.goods)
+
+
+def crateless(s, name, contracts):
+    """The paper() of each contract held that reads loaded with no crate
+    of it on the caravan beside the character (LOOK <caravan>): its crate
+    taken off, the contract still presented (the Fornsted crate pulled at
+    Langenfirth, 2026-10-18). Empty when the caravan is not here."""
+    answer = ask(s, f"look {name}")
+    if trade.INVENTORY not in answer:
+        return set()
+    load = trade.crates(answer)
+    lost = set()
+    for c in contracts:
+        crate = (
+            trade.town(c.origin) or c.origin,
+            trade.town(c.destination) or c.destination,
+        )
+        if c.presented and crate in load:
+            load.remove(crate)
+        elif c.presented:
+            lost.add(paper(c))
+    return lost
+
+
 def held_all(s):
     """Every contract on the character, READ MY FIRST CONTRACT, SECOND
     and on until one is not there: a list, [] with none (#556)."""
@@ -338,26 +377,31 @@ def held_all(s):
     return contracts
 
 
-def deliver(s, db, place, only=True):
-    """Hand this town's contract to its clerk; True once paid. GET MY
-    CONTRACT stands in for the town's noun only when the contract is
-    the `only` one held: with several, it could be another town's."""
+def deliver(s, db, place, only=True, contract=None):
+    """Hand this town's contract to its clerk; True once paid. The
+    `only` one held is fetched by the town's noun, else GET MY CONTRACT.
+    With several, the one READ finds by its ordinal: `contract`, else the
+    first loaded for this town. The noun takes the first contract of that
+    name, which can be an expired one (Fornsted, 2026-10-18: "Nope, not
+    for us.") or another town's ("Fayrin's", "Muspar'i")."""
     if not walk(s, db, trade.TOWNS[place].clerk, f"the {place} shipment clerk"):
         return False
-    answer = ask(s, f"get my {trade.contract_noun(place)}")
-    if missing(answer) and only:
-        # "Fayrin's" may not name it: the one contract held, then.
-        answer = ask(s, "get my contract")
-    elif missing(answer):
-        # Nor "Muspar'i", maybe: the one READ finds for this town, by its ordinal.
+    if only:
+        answer = ask(s, f"get my {trade.contract_noun(place)}")
+        if missing(answer):
+            answer = ask(s, "get my contract")
+    else:
         mine = [
             ordinal
             for ordinal, c in zip(ORDINALS, held_all(s))
-            if c.presented and trade.town(c.destination) == place
+            if (
+                paper(c) == paper(contract)
+                if contract
+                else c.presented and trade.town(c.destination) == place
+            )
         ]
-        if mine:
-            answer = ask(s, f"get my {mine[0]} contract")
-    if missing(answer):
+        answer = ask(s, f"get my {mine[0]} contract") if mine else None
+    if answer is None or missing(answer):
         s.echo(f"{PREFIX}: no {place} contract on you")
         return False
     answer = ask(s, "give my contract to clerk")
@@ -370,6 +414,8 @@ def deliver(s, db, place, only=True):
     hands.stow(s, "contract")
     if kind == "no goods":
         s.echo(f"{PREFIX}: the clerk found no goods — is the caravan at the outpost?")
+    elif kind == "not ours":
+        s.echo(f"{PREFIX}: the {place} clerk hands the contract back — kept")
     else:
         unknown(s, PREFIX, "GIVE", answer)
     return False
@@ -1016,8 +1062,8 @@ def town_stop(s, db, name, place, contracts, due):
     stranded crates taken off the caravan, and the town's own contract
     taken when none from it is held (not after a typed return or pause).
     The contracts still held, or None, said."""
-    for _ in due:
-        if not deliver(s, db, place, only=len(contracts) == 1):
+    for c in due:
+        if not deliver(s, db, place, only=len(contracts) == 1, contract=c):
             return None
     loaded = []
     for c in (c for c in contracts if c not in due):
@@ -1076,8 +1122,28 @@ def circuit(s, db, name, place, beside, training):
     the nearest town with business (a held crate goes to it, or no
     contract from it is held); again. A typed return or pause takes no
     new contract and ends once nothing is held."""
+    lost = None
     while True:
         contracts = held_all(s)
+        if lost is None:
+            # Once, at the caravan: a contract read loaded, its crate gone.
+            loaded = any(c.presented for c in contracts)
+            if loaded and not beside:
+                walk(s, db, trade.TOWNS[place].outpost, f"the {place} outpost")
+            lost = crateless(s, name, contracts) if loaded else set()
+            for c in contracts:
+                if paper(c) in lost:
+                    s.echo(
+                        f"{PREFIX}: the {c.origin} contract for {c.destination} has no"
+                        " crate on the caravan — kept, never delivered"
+                    )
+        # Its town marked so trade.town() knows none: beyond the routes.
+        contracts = [
+            c._replace(destination=f"{c.destination} (no crate)")
+            if paper(c) in lost
+            else c
+            for c in contracts
+        ]
         due = [
             c for c in contracts if c.presented and trade.town(c.destination) == place
         ]
@@ -1218,6 +1284,12 @@ def main(s):
         )
         return
     if opts["verb"] == "circuit":
+        circuit(s, db, name, place, beside, training)
+        return
+    if opts["verb"] != "go" and not broker and held(s, "second") is not None:
+        # One contract at a time can hand in a crateless one (Fornsted,
+        # 2026-10-18): the circuit reads them all and LOOKs at the caravan.
+        s.echo(f"{PREFIX}: several contracts held — on as a circuit from {place}")
         circuit(s, db, name, place, beside, training)
         return
     if opts["verb"] == "go":

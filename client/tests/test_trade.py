@@ -597,6 +597,7 @@ def _in(path, connect):
 LEG = {
     "recall caravan": [RECALLED],
     "read my contract": ["What were you referring to?", CONTRACT, LOADED_CONTRACT],
+    "read my second contract": ["I could not find what you were referring to."],
     "pay clerk": [SETTLED, NO_DUES],
     "ask minister": [ISSUED],
     "give my contract to clerk": [LOADED, DELIVERED],
@@ -618,7 +619,7 @@ def test_a_leg_takes_a_contract_leads_the_caravan_and_is_paid(script):
     script.main(world)
     out = "\n".join(world.echoed)
     sent = world.sent
-    assert sent[:2] == ["recall caravan", "read my contract"]
+    assert sent[:3] == ["recall caravan", "read my second contract", "read my contract"]
     assert sent.index("pay clerk") < sent.index("ask minister for contract")
     assert sent.index("ask minister for contract") < sent.index(
         "give my contract to clerk"
@@ -1709,7 +1710,7 @@ class Circuit:
         self.calls, self.stops, self.taken = [], list(stops), list(taken)
         self.legs = legs
         script.held_all = lambda s: self.stops.pop(0) if self.stops else []
-        script.deliver = lambda s, db, place, only=True: self.record(
+        script.deliver = lambda s, db, place, only=True, contract=None: self.record(
             "deliver", place, only
         )
         script.load = lambda s, db, place, seq: self.record("load", place)
@@ -2540,6 +2541,89 @@ def test_a_restart_beside_a_caravan_carrying_nothing_deliverable_stops_here(scri
     assert not any("holding at" in e for e in world.echoed)
 
 
+def test_a_contract_read_loaded_with_no_crate_aboard_is_never_delivered(script):
+    # Fornsted, 2026-10-18: the Therenborough crate pulled off at
+    # Langenfirth, its contract still presented, the caravan carrying
+    # only its storage box; the circuit went to the clerk for it.
+    world = World({"look sleek caravan": [_report()]})
+    fake = Circuit(
+        script,
+        stops=[
+            [
+                trade.contract(EXPIRED_CONTRACT),
+                _contract(*FORNSTED_CRATE),
+                _contract("Riverhaven", "Fornsted", presented=False),
+            ]
+        ],
+        taken=[_contract("Fornsted", "Hvaral")],
+        minutes={("Fornsted", "Hvaral"): 10.0},
+    )
+    script.province = lambda place: ("Fornsted",)
+    script.circuit(world, MAP, "sleek caravan", "Fornsted", True, [])
+    assert not any(call[0] == "deliver" for call in fake.calls)
+    assert ("take", "Fornsted") in fake.calls
+    assert fake.calls[-1] == ("leg", "Fornsted", "Hvaral")
+    assert (
+        "trade: the Therenborough contract for Fornsted has no crate on the caravan"
+        " — kept, never delivered"
+    ) in world.echoed
+
+
+def test_a_circuit_started_away_from_its_caravan_looks_from_the_outpost(script):
+    # The restart from Fornsted's clerk: the caravan a room off, the
+    # crateless contract handed in ("What have you done with the goods?").
+    world = World({"look sleek caravan": [_report()]})
+    fake = Circuit(
+        script,
+        stops=[[_contract(*FORNSTED_CRATE)]],
+        taken=[_contract("Fornsted", "Hvaral")],
+        minutes={("Fornsted", "Hvaral"): 10.0},
+    )
+    walked = []
+    script.walk = lambda s, db, room, describe: walked.append(room) or True
+    script.province = lambda place: ("Fornsted",)
+    script.circuit(world, MAP, "sleek caravan", "Fornsted", False, [])
+    assert walked[0] == 3693
+    assert not any(call[0] == "deliver" for call in fake.calls)
+
+
+def test_the_plain_run_holding_several_contracts_goes_on_as_a_circuit(script):
+    # Fornsted, 2026-10-18: READ MY CONTRACT read the crateless one first
+    # and the one-contract run handed it to the clerk.
+    loaded = TO_MUSPARI.replace(" has yet to be presented", " was presented")
+    world = World(
+        dict(
+            LEG,
+            **{
+                "read my contract": [loaded],
+                "read my second contract": [EXPIRED_CONTRACT],
+            },
+        ),
+        room=13751,
+    )
+    circled = []
+    script.circuit = lambda s, db, name, place, beside, training: circled.append(place)
+    script.main(world)
+    assert circled == ["Riverhaven"]
+    assert "give my contract to clerk" not in world.sent
+    assert "trade: several contracts held — on as a circuit from Riverhaven" in (
+        world.echoed
+    )
+
+
+def test_a_contract_whose_crate_is_aboard_is_delivered(script):
+    world = World({"look sleek caravan": [_report(FORNSTED_CRATE)]})
+    fake = Circuit(
+        script,
+        stops=[[_contract(*FORNSTED_CRATE)]],
+        taken=[_contract("Fornsted", "Hvaral")],
+        minutes={("Fornsted", "Hvaral"): 10.0},
+    )
+    script.province = lambda place: ("Fornsted",)
+    script.circuit(world, MAP, "sleek caravan", "Fornsted", True, [])
+    assert ("deliver", "Fornsted", True) in fake.calls
+
+
 def test_a_stop_with_nothing_stranded_never_looks_at_the_caravan(script):
     world = World({})
     fake = Circuit(
@@ -2672,6 +2756,43 @@ def test_a_contract_its_town_does_not_name_is_got_by_its_ordinal(script):
     assert script.deliver(world, MAP, "Muspar'i", only=False)
     assert "get my second contract" in world.sent
     assert "trade: Muspar'i paid 47,840 Lirums" in world.echoed
+
+
+# Fornsted's clerk, 2026-10-18, handed the expired one of three.
+HANDED_BACK = (
+    'The shipment clerk accepts your contract and peruses it.  "Nope, not for'
+    ' us."  He smiles up at you and hands the contract back.\n'
+)
+
+
+def test_with_several_held_the_loaded_one_is_handed_in_by_its_ordinal(script):
+    # GET MY FORNSTED CONTRACT took the first of three, the expired one.
+    loaded = TO_MUSPARI.replace(" has yet to be presented", " was presented")
+    world = World(
+        {
+            "read my first contract": [EXPIRED_CONTRACT],
+            "read my second contract": [loaded.replace("Muspar'i req", "Fornsted req")],
+            "read my third contract": [NOT_FOUND],
+            "get my second contract": ["You get a Fornsted contract from your pack."],
+            "give my contract to clerk": [PAID_IN_LIRUMS],
+        },
+        room=14435,
+    )
+    script.tradelog = SimpleNamespace(log_delivery=lambda *a: None)
+    assert script.deliver(world, MAP, "Fornsted", only=False)
+    assert "get my fornsted contract" not in world.sent
+    assert "get my second contract" in world.sent
+
+
+def test_a_contract_the_clerk_hands_back_is_kept_and_said(script):
+    world = World(
+        {"get my fornsted contract": ["You get..."], "give my contract": [HANDED_BACK]},
+        room=14435,
+    )
+    assert trade.clerk(HANDED_BACK) == ("not ours", None)
+    assert not script.deliver(world, MAP, "Fornsted")
+    assert world.sent[-1] == "stow my contract"
+    assert "trade: the Fornsted clerk hands the contract back — kept" in world.echoed
 
 
 def test_contracts_put_away_are_not_counted_as_held(script):

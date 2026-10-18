@@ -196,6 +196,11 @@ NO_GOODS = "What have you done with the goods"  # trade.lic
 # (2026-10-16): 'The clerk says, "We can't help you until your
 # elk-drawn caravan is out by the Market Road.  Sorry!"'
 CARAVAN_AWAY = "We can't help you until your"
+# An expired contract handed in at its destination's clerk, no crate of
+# it on the caravan (Fornsted, 2026-10-18): 'The shipment clerk accepts
+# your contract and peruses it.  "Nope, not for us."  He smiles up at you
+# and hands the contract back.'
+NOT_OURS = "Nope, not for us."
 
 # Feeding: "The driver takes the feedbag from you and begins feeding the
 # caravan. The driver hands back the feedbag and says, "They are well
@@ -294,6 +299,7 @@ TRASH = {"Therenborough": 3228}  # Alliance of Exchange, Main Hall
 # bullock-drawn caravan." / "A sturdy crate is for a contract from The
 # Crossing and destined for Wolf Clan." / "A storage box to carry your
 # items." One crate line per contract loaded.
+INVENTORY = "an inventory report for your"
 _CRATE = re.compile(
     r"A sturdy crate is for a contract from (?:The )?(.+?) and destined for"
     r" (?:The )?(.+?)\."
@@ -375,8 +381,8 @@ def minister(answer):
 def clerk(answer):
     """GIVE MY CONTRACT TO CLERK's answer: ("loaded", fee in copper),
     ("paid", (copper, currency)), ("no goods", None), ("too heavy",
-    None), ("away", None) for a caravan not at the outpost, or (None,
-    None)."""
+    None), ("away", None) for a caravan not at the outpost, ("not
+    ours", None) for a contract handed back, or (None, None)."""
     text = str(answer or "")
     if DELIVERED in text:
         paid = _PAID.search(text)
@@ -390,6 +396,8 @@ def clerk(answer):
         return "too heavy", None
     if CARAVAN_AWAY in text:
         return "away", None
+    if NOT_OURS in text:
+        return "not ours", None
     return None, None
 
 
