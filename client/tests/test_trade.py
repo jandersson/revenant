@@ -682,7 +682,7 @@ def test_interprovince_takes_the_brokers_contract_paid_before_loading(script):
         < sent.index("give my contract to clerk")
     )
     assert world.walks == [11995, 8916, 895]
-    assert afforded == [(43833, "Kronars")]
+    assert afforded == [(43833 + script.KEEP, "Kronars")]
     assert legs == [("Crossing", "Shard")]
     assert "trade: 427 jars of pickled eel for Shard, worth 78568 on delivery" in (
         world.echoed
@@ -1342,7 +1342,7 @@ def test_interprovince_at_riverhaven_takes_its_brokers_contract(script):
     script.main(world)
     assert "ask broker for contract" in world.sent
     assert 7877 in world.walks
-    assert afforded == [(69193, "Lirums")]
+    assert afforded == [(69193 + script.KEEP, "Lirums")]
     assert legs == [("Riverhaven", "Shard")]
 
 
@@ -1488,7 +1488,7 @@ def test_a_caravan_rented_in_shard_is_paid_in_dokoras(script):
         {"recall caravan": [NO_CARAVAN], "rent caravan": [RENT_SHORT]}, room=8193
     )
     script.main(world)
-    assert afforded == [(288, "Dokoras")]
+    assert afforded == [(288 + script.KEEP, "Dokoras")]
     assert "trade: not enough coin for the caravan's 288 Dokoras" in world.echoed
 
 
@@ -1511,7 +1511,7 @@ def test_a_caravan_rented_in_therengia_is_320_lirums(script):
     )
     world = World({"rent caravan": [THEREN_RENT_SHORT]}, room=3232)
     assert script.rent(world, MAP, "Therenborough") is None
-    assert afforded == [(320, "Lirums")]
+    assert afforded == [(320 + script.KEEP, "Lirums")]
     assert "trade: not enough coin for the caravan's 320 Lirums" in world.echoed
 
 
@@ -2793,6 +2793,21 @@ def test_a_contract_the_clerk_hands_back_is_kept_and_said(script):
     assert not script.deliver(world, MAP, "Fornsted")
     assert world.sent[-1] == "stow my contract"
     assert "trade: the Fornsted clerk hands the contract back — kept" in world.echoed
+
+
+def test_a_teller_trip_draws_the_reserve_with_the_charge(script):
+    # Tiger Clan, Wolf Clan, 2026-10-18: each stop's dues drawn alone, and
+    # Wolf Clan's teller was a ring and a sea mammoth away.
+    afforded = []
+    script.shop = SimpleNamespace(
+        afford=lambda s, ask, prefix, copper, coin, **k: afforded.append(copper) or True
+    )
+    world = World({})
+    world.purse = 1_000
+    assert script.fund(world, MAP, 2_376, "Kronars")
+    world.purse = 30_000
+    assert script.fund(world, MAP, 2_376, "Kronars")
+    assert afforded == [2_376 + script.KEEP, 2_376]
 
 
 def test_contracts_put_away_are_not_counted_as_held(script):

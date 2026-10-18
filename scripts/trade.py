@@ -48,7 +48,8 @@ What it does
   - After a delivery with a teller near the clerk (the Crossing, Dirge, Leth,
     Shard, Riverhaven), banks the purse and keeps 20,000 copper for dues and fees (;bank).
   - At the minister: ASK MINISTER FOR CONTRACT; dues owed are drawn at the
-    nearest teller when the purse is short, and paid first. With
+    nearest teller when the purse is short, 20,000 copper more with them
+    (the rent too), and paid first. With
     `interprovince`, ASK BROKER FOR CONTRACT instead (the Crossing's and
     Riverhaven's Foreign Trade Offices, Shard's Provincial Broker), its charge paid at the clerk
     before loading; the minister elsewhere.
@@ -433,7 +434,7 @@ def rent(s, db, place):
     once RECALL finds it, or None, said."""
     coin = trade.coin(place)
     fee = trade.RENT_FEE[coin]
-    if not shop.afford(s, ask, PREFIX, fee, coin, db=db, retry="run ;trade again"):
+    if not fund(s, db, fee, coin):
         return None
     if not walk(s, db, trade.TOWNS[place].clerk, f"the {place} shipment clerk"):
         return None
@@ -518,12 +519,27 @@ def ferry_lirums(s):
     run_bank(s, [f"keep={KEEP}", f"lirums={trade.FALDESU_LIRUMS}", "back"])
 
 
+def fund(s, db, copper, coin):
+    """`copper` of `coin` on hand: True, or once drawn at a teller, KEEP
+    more with it, so the stops after it pay from the purse. A circuit
+    started with an empty purse walked to a teller for every town's dues,
+    Wolf Clan's by the Estate Holder ring and a sea mammoth (2026-10-18)."""
+    short = money.carried(s, coin, ask) < copper
+    return shop.afford(
+        s,
+        ask,
+        PREFIX,
+        copper + KEEP if short else copper,
+        coin,
+        db=db,
+        retry="run ;trade again",
+    )
+
+
 def settle(s, db, place, copper):
     """`copper` of the town's coin on hand (drawn at a teller when short),
     then PAY CLERK at its clerk; True once paid, False, said, otherwise."""
-    if not shop.afford(
-        s, ask, PREFIX, copper, trade.coin(place), db=db, retry="run ;trade again"
-    ):
+    if not fund(s, db, copper, trade.coin(place)):
         return False
     if not walk(s, db, trade.TOWNS[place].clerk, f"the {place} shipment clerk"):
         return False
