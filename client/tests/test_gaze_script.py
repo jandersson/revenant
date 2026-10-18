@@ -25,14 +25,16 @@ def _script():
 script = _script()
 
 GOT = "You get a frost-red sanowret crystal from inside your backpack.\n"
+# Captured: Riphik's ;train gaze task, 2026-10-12 (the GAZE and its end).
 GAZED = (
-    "You gaze intently into your frost-red sanowret crystal, seeking the promise of "
-    "hidden knowledge as light dances across its surface.\n"
-    "Knowledge from your sanowret crystal about Attunement rings clear in your mind:\n"
+    "You gaze intently into your sanowret crystal, seeking the promise of hidden "
+    "knowledge as light dances across its surface.\n"
+    "A soft light blossoms in the very center of the crystal, and begins to fill your "
+    "mind with the knowledge of Holy Magic.\n"
 )
 LECTURE_END = (
     "The light and crystal sound of your sanowret crystal fades slightly as you come "
-    "to the end of the knowledge about Attunement.  You feel quite enlightened, if a "
+    "to the end of the knowledge about Holy Magic.  You feel quite enlightened, if a "
     "bit mentally tired.\n"
 )
 EXHALED = (

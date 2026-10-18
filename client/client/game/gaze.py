@@ -14,12 +14,17 @@ CRYSTAL = "sanowret crystal"
 SKILL = "Arcana"
 FULL = 100  # % concentration a gaze waits for: each one takes about half
 LECTURE_SECONDS = 45  # the half-minute lecture, with room
-# The verb template's wordings, until captured.
+# GAZE and its end captured on Riphik, 2026-10-12: "You gaze intently into
+# your sanowret crystal, seeking the promise of hidden knowledge as light
+# dances across its surface." and "...You feel quite enlightened, if a bit
+# mentally tired." EXHALE is the verb template's (others' "Arimeo exhales
+# softly on his sanowret crystal" seen, never our own).
 GAZED = ("you gaze intently",)
 EXHALED = ("you exhale softly",)
 LECTURE_END = ("quite enlightened",)
-# The refusal for too little concentration is uncaptured: the first one
-# the run meets is reported, and after three such the run ends.
+# The refusal for too little concentration is uncaptured, and the run,
+# waiting for full concentration, has not met it: the first one is
+# reported, and after three such the run ends.
 
 
 def ready(vitals, full=FULL):
